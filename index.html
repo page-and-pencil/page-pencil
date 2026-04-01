@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Page & Pencil — 학습 리포트</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Noto+Serif+KR:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
+:root{
+  --navy:#1B3A5C;--navy-mid:#2A4F78;--cream:#FAF8F3;--cream-dark:#EDE9DE;
+  --teal:#2D9E75;--teal-light:#E1F5EE;--coral:#E8593C;--coral-light:#FAECE7;
+  --amber:#BA7517;--amber-light:#FEF3DC;--purple:#534AB7;--purple-light:#EEEDFE;
+  --text:#2C2C2A;--text-muted:#7A7870;--border:rgba(44,44,42,0.1);
+  --border-mid:rgba(44,44,42,0.18);--shadow-sm:0 2px 12px rgba(27,58,92,0.06);
+  --shadow:0 6px 32px rgba(27,58,92,0.1);--shadow-lg:0 16px 64px rgba(27,58,92,0.14);
+  --r:14px;--r-sm:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Serif KR',serif;background:var(--cream);color:var(--text);min-height:100vh;}
+.screen{display:none;min-height:100vh;}
+.screen.active{display:flex;flex-direction:column;}
+
+/* LANDING */
+#sl{background:var(--navy);align-items:center;justify-content:center;position:relative;overflow:hidden;}
+#sl::before{content:'';position:absolute;width:600px;height:600px;border-radius:50%;background:rgba(45,158,117,0.08);top:-200px;right:-150px;}
+#sl::after{content:'';position:absolute;width:400px;height:400px;border-radius:50%;background:rgba(232,89,60,0.06);bottom:-100px;left:-100px;}
+.li{text-align:center;position:relative;z-index:1;padding:2rem;}
+.ll{font-family:'Playfair Display',serif;font-size:52px;color:var(--cream);letter-spacing:-0.02em;margin-bottom:8px;}
+.ll span{color:#9FE1CB;font-style:italic;}
+.ls{color:rgba(255,255,255,0.4);font-size:13px;letter-spacing:0.14em;text-transform:uppercase;margin-bottom:3rem;font-family:'DM Mono',monospace;}
+.lbs{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;}
+.lb{padding:14px 36px;border-radius:50px;font-size:15px;font-family:'Noto Serif KR',serif;font-weight:500;cursor:pointer;border:none;transition:all 0.25s;}
+.lbp{background:#9FE1CB;color:var(--navy);}
+.lbp:hover{background:#5DCAA5;transform:translateY(-2px);box-shadow:0 8px 24px rgba(45,158,117,0.3);}
+.lbg{background:transparent;color:rgba(255,255,255,0.7);border:1.5px solid rgba(255,255,255,0.2);}
+.lbg:hover{border-color:rgba(255,255,255,0.5);color:white;}
+
+/* SHARED SCREENS BASE */
+.s-header{padding:0 2rem;height:58px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.h-logo{font-family:'Playfair Display',serif;font-size:18px;}
+.h-logo span{font-style:italic;}
+.btn-back{background:transparent;border:1px solid var(--border-mid);font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;transition:all 0.2s;font-family:'Noto Serif KR',serif;}
+
+/* TEACHER */
+#st .s-header{background:var(--navy);}
+#st .h-logo{color:var(--cream);}
+#st .h-logo span{color:#9FE1CB;}
+#st .btn-back{color:rgba(255,255,255,0.7);border-color:rgba(255,255,255,0.2);}
+#st .btn-back:hover{color:white;border-color:rgba(255,255,255,0.5);}
+.t-body{flex:1;overflow-y:auto;padding:2rem;max-width:960px;margin:0 auto;width:100%;}
+
+/* PARENT */
+#sp .s-header{background:white;border-bottom:1px solid var(--border);}
+#sp .h-logo{color:var(--navy);}
+#sp .h-logo span{color:var(--teal);}
+.p-body{flex:1;overflow-y:auto;padding:2rem;max-width:780px;margin:0 auto;width:100%;}
+
+/* TABS */
+.tabs{display:flex;gap:6px;margin-bottom:1.5rem;border-bottom:1px solid var(--border);padding-bottom:1rem;flex-wrap:wrap;}
+.tab{padding:7px 18px;border-radius:50px;font-size:13px;font-family:'Noto Serif KR',serif;cursor:pointer;border:1.5px solid var(--border-mid);color:var(--text-muted);background:white;transition:all 0.2s;}
+.tab.on{background:var(--navy);color:white;border-color:var(--navy);}
+
+/* UPLOAD */
+.upzone{border:2px dashed var(--border-mid);border-radius:var(--r);padding:2.5rem;text-align:center;background:white;cursor:pointer;transition:all 0.2s;margin-bottom:1.5rem;}
+.upzone:hover,.upzone.done{border-color:var(--teal);background:var(--teal-light);}
+.up-icon{font-size:32px;margin-bottom:0.8rem;}
+.up-title{font-size:15px;color:var(--navy);font-weight:600;margin-bottom:4px;}
+.up-sub{font-size:13px;color:var(--text-muted);}
+.up-done{font-size:13px;color:var(--teal);font-weight:600;margin-top:6px;}
+
+/* CARD */
+.card{background:white;border-radius:var(--r);padding:1.5rem;box-shadow:var(--shadow-sm);border:1px solid var(--border);margin-bottom:1.5rem;}
+.sec-title{font-family:'Playfair Display',serif;font-size:17px;color:var(--navy);margin-bottom:1rem;}
+
+/* PILLS */
+.pills{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:1.5rem;}
+.pill{display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:50px;border:1.5px solid var(--border-mid);background:white;cursor:pointer;transition:all 0.2s;font-size:14px;}
+.pill:hover{border-color:var(--teal);}
+.pill.on{background:var(--navy);color:white;border-color:var(--navy);}
+.av{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;}
+
+/* FORM */
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+.fg{display:flex;flex-direction:column;gap:6px;}
+label{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;font-family:'DM Mono',monospace;}
+input,select,textarea{border:1.5px solid var(--border-mid);border-radius:var(--r-sm);padding:10px 14px;font-size:14px;font-family:'Noto Serif KR',serif;color:var(--text);background:white;outline:none;transition:border-color 0.2s;}
+input:focus,select:focus,textarea:focus{border-color:var(--navy);}
+textarea{resize:vertical;min-height:100px;}
+
+/* BTNS */
+.btn{padding:11px 24px;border:none;border-radius:var(--r-sm);font-size:14px;font-family:'Noto Serif KR',serif;cursor:pointer;transition:all 0.2s;}
+.btn-n{background:var(--navy);color:white;}
+.btn-n:hover{background:var(--navy-mid);}
+.btn-t{background:var(--teal);color:white;}
+.btn-t:hover{background:#1D9E75;}
+.btn-g{background:transparent;border:1.5px solid var(--border-mid);color:var(--text);}
+.btn-g:hover{border-color:var(--navy);color:var(--navy);}
+.btn-full{width:100%;}
+
+/* REPORT PREVIEW */
+.rprev{background:var(--cream);border:1px solid var(--border);border-radius:var(--r-sm);padding:1.5rem;font-size:14px;line-height:1.9;white-space:pre-wrap;min-height:140px;}
+.spinner{width:18px;height:18px;border:2px solid var(--border-mid);border-top-color:var(--navy);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* SHARE CODE BOX */
+.code-box{background:#1e1e2e;border-radius:var(--r-sm);padding:1.2rem 1.5rem;font-family:'DM Mono',monospace;font-size:12px;color:#cdd6f4;word-break:break-all;line-height:1.7;position:relative;margin:1rem 0;max-height:140px;overflow:hidden;}
+.code-fade{position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent, #1e1e2e);}
+
+/* SAVED LIST */
+.rep-item{display:flex;align-items:flex-start;gap:1rem;padding:1rem 1.2rem;border-radius:var(--r-sm);border:1px solid var(--border);margin-bottom:8px;background:white;transition:all 0.2s;}
+.rep-item:hover{border-color:var(--navy);box-shadow:var(--shadow-sm);}
+.rep-date{font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted);min-width:76px;padding-top:2px;}
+.rep-info{flex:1;}
+.rep-title{font-size:14px;font-weight:600;color:var(--navy);margin-bottom:3px;}
+.rep-excerpt{font-size:12px;color:var(--text-muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.5;}
+.btn-icon{padding:5px 10px;border-radius:var(--r-sm);font-size:11px;cursor:pointer;border:1px solid var(--border-mid);background:white;color:var(--text-muted);transition:all 0.15s;}
+.btn-icon:hover{border-color:var(--coral);color:var(--coral);}
+
+/* PARENT VIEW */
+.welcome{background:var(--navy);border-radius:var(--r);padding:2rem 2.5rem;margin-bottom:2rem;position:relative;overflow:hidden;}
+.welcome::after{content:'📚';position:absolute;right:2rem;top:50%;transform:translateY(-50%);font-size:48px;opacity:0.12;}
+.w-name{font-family:'Playfair Display',serif;font-size:24px;color:white;margin-bottom:4px;}
+.w-sub{font-size:13px;color:rgba(255,255,255,0.5);}
+
+.mtabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.5rem;}
+.mt{padding:7px 18px;border-radius:50px;font-size:13px;font-family:'DM Mono',monospace;cursor:pointer;border:1.5px solid var(--border-mid);color:var(--text-muted);background:white;transition:all 0.2s;}
+.mt:hover{border-color:var(--teal);color:var(--teal);}
+.mt.on{background:var(--navy);color:white;border-color:var(--navy);}
+
+.srow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:1.5rem;}
+.sbox{background:white;border-radius:var(--r-sm);padding:1.2rem;border:1px solid var(--border);text-align:center;}
+.sl2{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;font-family:'DM Mono',monospace;}
+.sv{font-family:'Playfair Display',serif;font-size:26px;color:var(--navy);}
+.sv small{font-size:14px;color:var(--text-muted);font-family:'Noto Serif KR',serif;}
+
+.rdtl{background:white;border-radius:var(--r);box-shadow:var(--shadow);border:1px solid var(--border);overflow:hidden;margin-bottom:1.5rem;}
+.rdh{background:var(--navy);padding:1.5rem 2rem;}
+.rdh-title{font-family:'Playfair Display',serif;font-size:20px;color:white;margin-bottom:4px;}
+.rdh-meta{font-size:12px;color:rgba(255,255,255,0.5);font-family:'DM Mono',monospace;}
+.rdb{padding:2rem;}
+.rtext{font-size:15px;line-height:2;color:var(--text);white-space:pre-wrap;}
+
+.chart-wrap{height:200px;position:relative;}
+.btag{display:inline-block;background:var(--teal-light);color:#085041;border-radius:6px;padding:4px 12px;font-size:12px;margin:3px;font-family:'DM Mono',monospace;}
+.wbadge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-family:'DM Mono',monospace;margin:3px;}
+.wf{background:var(--coral-light);color:#993C1D;}
+.wr{background:var(--amber-light);color:#633806;}
+.wn{background:var(--purple-light);color:#3C3489;}
+.wd{background:var(--teal-light);color:#085041;}
+
+.info-box{border-radius:var(--r-sm);padding:12px 16px;font-size:13px;line-height:1.7;margin-bottom:1rem;}
+.info-teal{background:var(--teal-light);color:#085041;}
+.info-amber{background:var(--amber-light);color:#633806;}
+.info-navy{background:#E6F1FB;color:#0C447C;}
+
+.empty{text-align:center;padding:4rem 2rem;color:var(--text-muted);}
+.empty-icon{font-size:40px;margin-bottom:1rem;}
+.empty-text{font-size:14px;line-height:1.8;}
+
+/* PIN SCREEN */
+#spin{background:var(--cream);align-items:center;justify-content:center;}
+.pcard{background:white;border-radius:var(--r);padding:2.5rem 2rem;width:420px;box-shadow:var(--shadow-lg);border:1px solid var(--border);text-align:center;}
+.p-logo{font-family:'Playfair Display',serif;font-size:22px;color:var(--navy);margin-bottom:1.5rem;}
+.p-logo span{color:var(--teal);font-style:italic;}
+.pin-err{color:var(--coral);font-size:13px;margin-bottom:1rem;min-height:18px;}
+
+@media(max-width:600px){
+  .srow{grid-template-columns:1fr 1fr;}
+  .frow{grid-template-columns:1fr;}
+  .ll{font-size:36px;}
+  .pcard{width:calc(100vw - 2rem);padding:2rem 1.5rem;}
+}
+</style>
+</head>
+<body>
+
+<!-- LANDING -->
+<div id="sl" class="screen active">
+  <div class="li">
+    <div class="ll">Page <span>&</span> Pencil</div>
+    <div class="ls">영어 읽기·쓰기 전문 공부방</div>
+    <div class="lbs">
+      <button class="lb lbp" onclick="show('st')">원장 로그인</button>
+      <button class="lb lbg" onclick="goParentPin()">학부모 조회</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN -->
+<div id="spin" class="screen">
+  <div class="pcard">
+    <div class="p-logo">Page <span>&</span> Pencil</div>
+
+    <!-- MODE A: 공유 코드 -->
+    <div id="pinModeCode">
+      <div style="font-size:18px;font-weight:600;color:var(--navy);margin-bottom:6px;">학부모 리포트 조회</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:1.5rem;line-height:1.7;">원장 선생님께 받은 공유 코드를 붙여넣어 주세요</div>
+      <div class="fg" style="margin-bottom:1rem;text-align:left;">
+        <label>공유 코드</label>
+        <textarea id="shareCodeInput" placeholder="P&P:eyJ..." style="min-height:80px;font-family:'DM Mono',monospace;font-size:12px;"></textarea>
+      </div>
+      <div class="pin-err" id="codeErr"></div>
+      <button class="btn btn-n btn-full" onclick="loadShareCode()">리포트 보기</button>
+      <div style="margin-top:1.2rem;font-size:12px;color:var(--text-muted);cursor:pointer;" onclick="togglePinMode()">또는 PIN으로 조회 →</div>
+    </div>
+
+    <!-- MODE B: PIN -->
+    <div id="pinModePin" style="display:none;">
+      <div style="font-size:18px;font-weight:600;color:var(--navy);margin-bottom:6px;">학부모 PIN 조회</div>
+      <div class="info-box info-teal" style="text-align:left;margin-bottom:1rem;">
+        🔑 PIN = 아이 생년월일 앞 4자리 (MMDD)<br>
+        예) 3월 12일생 → <strong>0312</strong>
+      </div>
+      <div class="fg" style="margin-bottom:1rem;text-align:left;">
+        <label>아이 이름</label>
+        <select id="pinSel" style="font-size:14px;"></select>
+      </div>
+      <div class="fg" style="margin-bottom:1rem;text-align:left;">
+        <label>PIN (MMDD)</label>
+        <input type="password" id="pinVal" maxlength="4" placeholder="••••" style="text-align:center;letter-spacing:0.4em;font-family:'DM Mono',monospace;font-size:20px;" onkeydown="if(event.key==='Enter')checkPin()">
+      </div>
+      <div class="pin-err" id="pinErr"></div>
+      <button class="btn btn-n btn-full" onclick="checkPin()">확인</button>
+      <div style="margin-top:1.2rem;font-size:12px;color:var(--text-muted);cursor:pointer;" onclick="togglePinMode()">← 공유 코드로 조회</div>
+    </div>
+
+    <div style="margin-top:1.5rem;font-size:13px;color:var(--text-muted);cursor:pointer;" onclick="show('sl')">← 홈으로</div>
+  </div>
+</div>
+
+<!-- TEACHER -->
+<div id="st" class="screen">
+  <header class="s-header">
+    <div class="h-logo">Page <span>&</span> Pencil <span style="font-size:12px;color:rgba(255,255,255,0.4);font-style:normal;font-family:'DM Mono',monospace;margin-left:8px;">원장</span></div>
+    <button class="btn-back" onclick="show('sl')">← 홈</button>
+  </header>
+  <div class="t-body">
+    <div class="tabs">
+      <button class="tab on" id="tb1" onclick="tTab(1)">📊 평가서 생성</button>
+      <button class="tab" id="tb2" onclick="tTab(2)">📂 저장된 평가서</button>
+      <button class="tab" id="tb3" onclick="tTab(3)">🔑 PIN 목록</button>
+      <button class="tab" id="tb4" onclick="tTab(4)">⚙️ API 설정</button>
+    </div>
+
+    <!-- TAB 1 -->
+    <div id="tb1b">
+      <div class="sec-title">📂 엑셀 파일 업로드</div>
+      <div class="upzone" id="uz" onclick="document.getElementById('fi').click()">
+        <div class="up-icon">📊</div>
+        <div class="up-title">page_pencil_management.xlsx</div>
+        <div class="up-sub">클릭하거나 드래그하세요</div>
+        <div class="up-done" id="udone"></div>
+      </div>
+      <input type="file" id="fi" accept=".xlsx,.xls" style="display:none" onchange="handleFile(event)">
+
+      <div id="gensec" style="display:none;">
+        <div class="sec-title">👧 학생 선택</div>
+        <div class="pills" id="spills"></div>
+        <div class="card" id="gcard" style="display:none;">
+          <div class="sec-title" style="margin-bottom:1.2rem;">⚙️ 평가서 설정</div>
+          <div class="frow">
+            <div class="fg"><label>대상 월</label><input type="month" id="gmon"></div>
+            <div class="fg"><label>어조</label>
+              <select id="gtone">
+                <option value="warm">따뜻하고 격려하는</option>
+                <option value="professional">전문적이고 객관적인</option>
+                <option value="detailed">상세하고 분석적인</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-bottom:1.2rem;">
+            <button class="btn btn-t" onclick="genAI()" style="flex:1;">✨ AI 평가서 생성</button>
+            <button class="btn btn-g" onclick="genSample()" style="flex:1;">📝 샘플로 생성</button>
+          </div>
+          <div id="gstat" style="min-height:22px;font-size:13px;color:var(--text-muted);margin-bottom:1rem;display:flex;align-items:center;gap:8px;"></div>
+          <div class="rprev" id="rprev" style="display:none;"></div>
+          <div id="sacts" style="display:none;margin-top:1rem;">
+            <div style="display:flex;gap:10px;margin-bottom:1rem;">
+              <button class="btn btn-n" onclick="saveReport()" style="flex:1;">💾 저장하기</button>
+              <button class="btn btn-g" onclick="clearRep()">다시 생성</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-g btn-full" onclick="loadDemo()" style="margin-top:0.5rem;">📊 샘플 데이터로 시작하기</button>
+    </div>
+
+    <!-- TAB 2 -->
+    <div id="tb2b" style="display:none;">
+      <div class="sec-title">📂 저장된 평가서</div>
+      <div id="allreps"></div>
+    </div>
+
+    <!-- TAB 3 -->
+    <div id="tb3b" style="display:none;">
+      <div class="card">
+        <div class="sec-title">🔑 학부모 PIN 목록</div>
+        <div class="info-box info-teal" style="margin-bottom:1.2rem;">
+          PIN은 <strong>생년월일 월일(MMDD) 4자리</strong>를 자동 사용합니다.<br>
+          학부모에게: <em>"생년월일 월일 4자리를 입력해주세요"</em>
+        </div>
+        <div id="pintbl"></div>
+      </div>
+    </div>
+
+    <!-- TAB 4 -->
+    <div id="tb4b" style="display:none;">
+      <div class="card">
+        <div class="sec-title">⚙️ Claude API 설정</div>
+        <div class="info-box info-navy" style="margin-bottom:1.2rem;">
+          <strong>발급 방법:</strong><br>
+          1. console.anthropic.com 접속 → 로그인<br>
+          2. 좌측 메뉴 → API Keys → Create Key<br>
+          3. 키 복사 (sk-ant-... 로 시작)<br>
+          4. Billing → $5 충전 (평가서 수천 건 분량)
+        </div>
+        <div class="fg" style="margin-bottom:1rem;">
+          <label>API Key</label>
+          <input type="password" id="apiki" placeholder="sk-ant-...">
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:1rem;line-height:1.7;">키 없이도 "샘플로 생성"으로 기본 평가서를 만들 수 있습니다.</p>
+        <button class="btn btn-n" onclick="saveKey()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PARENT -->
+<div id="sp" class="screen">
+  <header class="s-header" style="background:white;border-bottom:1px solid var(--border);">
+    <div class="h-logo">Page <span>&</span> Pencil</div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span id="pname" style="font-size:14px;color:var(--text-muted);"></span>
+      <button class="btn-back" onclick="show('sl')">로그아웃</button>
+    </div>
+  </header>
+  <div class="p-body">
+    <div class="welcome">
+      <div class="w-name" id="wname"></div>
+      <div class="w-sub" id="wsub"></div>
+    </div>
+    <div class="sec-title">📄 월별 리포트</div>
+    <div class="mtabs" id="mtabs"></div>
+    <div id="rdisplay"></div>
+  </div>
+</div>
+
+<script>
+// ── STORAGE: localStorage ──
+const S = {
+  get: k => { try { const v=localStorage.getItem(k); return v?JSON.parse(v):null; } catch { return null; } },
+  set: (k,v) => { try { localStorage.setItem(k,JSON.stringify(v)); return true; } catch { return false; } },
+  list: p => { try { return Object.keys(localStorage).filter(k=>k.startsWith(p)); } catch { return []; } },
+  del: k => { try { localStorage.removeItem(k); return true; } catch { return false; } }
+};
+
+let D={students:[],records:[],words:[]};
+let selId=null, curRep='', chartInst=null;
+let pinMode=false;
+const AC=['#E1F5EE','#E6F1FB','#EEEDFE','#FAECE7','#FAEEDA','#F1EFE8'];
+const ATC=['#085041','#0C447C','#3C3489','#993C1D','#633806','#444441'];
+
+// ── NAV ──
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goParentPin(){
+  if(!D.students.length) loadDemoSilent();
+  const sel=document.getElementById('pinSel');
+  sel.innerHTML=D.students.map(s=>`<option value="${s['학생ID']}">${s['이름']}</option>`).join('');
+  document.getElementById('pinVal').value='';
+  document.getElementById('pinErr').textContent='';
+  document.getElementById('shareCodeInput').value='';
+  document.getElementById('codeErr').textContent='';
+  show('spin');
+}
+
+function togglePinMode(){
+  pinMode=!pinMode;
+  document.getElementById('pinModeCode').style.display=pinMode?'none':'block';
+  document.getElementById('pinModePin').style.display=pinMode?'block':'none';
+}
+
+// ── PIN ──
+function getBirthPin(s){
+  const d=String(s['생년월일']||'').replace(/-/g,'');
+  if(d.length>=8) return d.slice(4,8);
+  return null;
+}
+
+function checkPin(){
+  const sid=document.getElementById('pinSel').value;
+  const pin=document.getElementById('pinVal').value.trim();
+  if(!pin){document.getElementById('pinErr').textContent='PIN을 입력해주세요.';return;}
+  const s=D.students.find(x=>x['학생ID']===sid);
+  const exp=s?getBirthPin(s):null;
+  if(exp&&pin===exp){
+    showParent(sid, loadedFromStorage(sid));
+  } else {
+    document.getElementById('pinErr').textContent='PIN 번호가 맞지 않습니다.';
+    document.getElementById('pinVal').value='';
+  }
+}
+
+function loadedFromStorage(sid){
+  const keys=S.list(`report:${sid}:`);
+  return keys.map(k=>S.get(k)).filter(Boolean).sort((a,b)=>b.month.localeCompare(a.month));
+}
+
+// ── SHARE CODE ──
+function encodeShareCode(data){
+  try{ return 'P&P:'+btoa(unescape(encodeURIComponent(JSON.stringify(data)))); }
+  catch{ return null; }
+}
+function decodeShareCode(code){
+  try{
+    if(!code.startsWith('P&P:')) throw new Error();
+    return JSON.parse(decodeURIComponent(escape(atob(code.slice(4)))));
+  }catch{ return null; }
+}
+
+function loadShareCode(){
+  const raw=document.getElementById('shareCodeInput').value.trim();
+  const data=decodeShareCode(raw);
+  if(!data||!data.studentName){
+    document.getElementById('codeErr').textContent='유효하지 않은 공유 코드입니다.';
+    return;
+  }
+  showParent(null, Array.isArray(data)?data:[data], data.studentName);
+}
+
+// ── FILE ──
+function handleFile(e){
+  const f=e.target.files[0];if(!f)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const wb=XLSX.read(ev.target.result,{type:'array'});
+    const toArr=s=>s?XLSX.utils.sheet_to_json(s,{defval:''}):[]; 
+    D.students=toArr(wb.Sheets['학생마스터']);
+    D.records=toArr(wb.Sheets['수업일지']);
+    D.words=toArr(wb.Sheets['단어누적']);
+    document.getElementById('udone').textContent=`✓ ${f.name} · 학생 ${D.students.length}명`;
+    document.getElementById('uz').classList.add('done');
+    initGen();
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+function loadDemoSilent(){
+  D.students=demoS(); D.records=demoR(); D.words=demoW();
+}
+function loadDemo(){
+  loadDemoSilent();
+  document.getElementById('udone').textContent='✓ 샘플 데이터 · 학생 6명';
+  document.getElementById('uz').classList.add('done');
+  initGen();
+  const sel=document.getElementById('pinSel');
+  if(sel) sel.innerHTML=D.students.map(s=>`<option value="${s['학생ID']}">${s['이름']}</option>`).join('');
+}
+
+// ── TEACHER TABS ──
+function tTab(n){
+  [1,2,3,4].forEach(i=>{
+    document.getElementById(`tb${i}b`).style.display=i===n?'block':'none';
+    document.getElementById(`tb${i}`).className=i===n?'tab on':'tab';
+  });
+  if(n===2) loadSavedReps();
+  if(n===3) renderPinTbl();
+}
+
+// ── GEN ──
+function initGen(){
+  document.getElementById('gensec').style.display='block';
+  document.getElementById('spills').innerHTML=D.students.map((s,i)=>`
+    <div class="pill" id="sp_${s['학생ID']}" onclick="selS('${s['학생ID']}')">
+      <div class="av" style="background:${AC[i%6]};color:${ATC[i%6]}">${s['이름'].charAt(0)}</div>
+      ${s['이름']}
+    </div>`).join('');
+  const n=new Date();
+  document.getElementById('gmon').value=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
+}
+
+function selS(id){
+  selId=id;
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));
+  document.getElementById(`sp_${id}`)?.classList.add('on');
+  document.getElementById('gcard').style.display='block';
+  document.getElementById('rprev').style.display='none';
+  document.getElementById('sacts').style.display='none';
+  document.getElementById('gstat').textContent='';
+  curRep='';
+}
+
+function getD(sid,month){
+  const s=D.students.find(x=>x['학생ID']===sid);
+  const recs=D.records.filter(r=>r['학생ID']===sid&&(r['날짜']||'').startsWith(month));
+  const words=D.words.filter(w=>w['학생ID']===sid);
+  const sc=recs.map(r=>parseFloat(r['단어테스트\n점수(%)']||0)).filter(v=>v>0);
+  const avg=sc.length?(sc.reduce((a,b)=>a+b,0)/sc.length).toFixed(1):'-';
+  const hwD=recs.filter(r=>(r['과제수행\n(O/X)']||r['과제수행'])==='O').length;
+  const hwR=recs.length?Math.round(hwD/recs.length*100):0;
+  const books=[...new Set(recs.map(r=>r['읽은책']).filter(Boolean))];
+  const memos=recs.map(r=>r['원장 메모']).filter(Boolean);
+  return{s,recs,words,avg,hwD,hwR,books,memos,sc};
+}
+
+async function genAI(){
+  if(!selId)return;
+  const month=document.getElementById('gmon').value;
+  const tone=document.getElementById('gtone').value;
+  const{s,recs,words,avg,hwD,hwR,books,memos}=getD(selId,month);
+  if(!recs.length){document.getElementById('gstat').textContent='⚠️ 해당 월 수업 기록 없음';return;}
+  const apiKey=document.getElementById('apiki').value.trim()||S.get('apiKey');
+  if(!apiKey){genSample();return;}
+  const td={warm:'따뜻하고 격려하는 어조로',professional:'전문적이고 객관적인 어조로',detailed:'상세하고 분석적인 어조로'}[tone];
+  const prompt=`Page & Pencil 영어 공부방 원장입니다.\n아래 데이터로 학부모에게 보내는 월말 평가서를 ${td} 200-300자로 작성하세요.\n학생: ${s?.['이름']} (${s?.['학년']}학년) 레벨: ${s?.['현재 읽기 레벨']}\n수업: ${recs.length}회 단어테스트: ${avg}% 과제: ${hwD}/${recs.length}회(${hwR}%)\n읽은책: ${books.join(', ')||'없음'} 오답단어: ${words.map(w=>w['단어']).join(', ')||'없음'}\n메모: ${memos.slice(-3).join(' / ')||'없음'}\n형식: 인사→이번달성과→성장포인트→다음달방향→Page&Pencil 원장 드림`;
+  const st=document.getElementById('gstat');
+  st.innerHTML='<span class="spinner"></span><span style="margin-left:8px;">AI가 작성 중...</span>';
+  document.getElementById('rprev').style.display='none';
+  document.getElementById('sacts').style.display='none';
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const data=await res.json();
+    if(data.error)throw new Error(data.error.message);
+    curRep=data.content.map(c=>c.text||'').join('');
+    showPrev(st);
+  }catch(err){st.textContent='오류: '+err.message+' · 샘플로 생성합니다.';genSample();}
+}
+
+function genSample(){
+  const month=document.getElementById('gmon').value;
+  const{s,recs,avg,hwR,books,memos}=getD(selId,month);
+  if(!recs.length){document.getElementById('gstat').textContent='⚠️ 해당 월 수업 기록 없음';return;}
+  const name=s?.['이름']||'학생';
+  const ms=month.replace('-','년 ')+'월';
+  curRep=`안녕하세요, ${name} 어머님·아버님! Page & Pencil 원장입니다. 😊\n\n${ms}에도 ${name} 학생과 함께 즐겁게 수업했습니다.\n\n이번 달 총 ${recs.length}회 수업에 참여하며 ${books.join(', ')||'원서'}를 읽었습니다. 단어 테스트 평균은 ${avg}%이며, 과제 수행률은 ${hwR}%를 기록했습니다.\n\n${memos[0]||'이번 달 읽기 유창성이 눈에 띄게 성장했습니다.'}\n\n다음 달에도 꾸준히 함께 읽어나가면 좋겠습니다!\n\nPage & Pencil 원장 드림`;
+  showPrev(document.getElementById('gstat'));
+}
+
+function showPrev(st){
+  st.textContent='✓ 평가서 생성 완료';
+  const p=document.getElementById('rprev');
+  p.textContent=curRep; p.style.display='block';
+  document.getElementById('sacts').style.display='block';
+}
+
+function saveReport(){
+  if(!curRep||!selId)return;
+  const month=document.getElementById('gmon').value;
+  const{s,recs,avg,hwR,books,words,sc}=getD(selId,month);
+  const repData={studentId:selId,studentName:s?.['이름'],month,report:curRep,savedAt:new Date().toISOString(),stats:{sessions:recs.length,avgScore:avg,hwRate:hwR,books,scores:sc},words:words.map(w=>({word:w['단어'],status:w['상태']}))};
+  const key=`report:${selId}:${month}`;
+  const ok=S.set(key,repData);
+
+  // 공유 코드 생성
+  const allReps=S.list(`report:${selId}:`).map(k=>S.get(k)).filter(Boolean).sort((a,b)=>b.month.localeCompare(a.month));
+  const shareCode=encodeShareCode(allReps);
+
+  if(ok){
+    // 공유 코드 모달
+    showShareModal(s?.['이름'], shareCode, month);
+    clearRep();
+  } else {
+    alert('저장 중 오류가 발생했습니다.');
+  }
+}
+
+function showShareModal(name, code, month){
+  const el=document.getElementById('sacts');
+  el.innerHTML=`
+    <div class="card" style="background:var(--cream-dark);margin-top:0;">
+      <div class="sec-title" style="color:var(--teal);">✅ ${name} · ${month} 평가서 저장 완료</div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;line-height:1.7;">
+        아래 공유 코드를 카카오톡으로 전송하세요.<br>
+        학부모가 앱에서 이 코드를 붙여넣으면 리포트를 볼 수 있습니다.
+      </p>
+      <div class="code-box" id="scbox">${code}<div class="code-fade"></div></div>
+      <div style="display:flex;gap:8px;margin-top:0.5rem;">
+        <button class="btn btn-t" onclick="copyCode()" style="flex:1;">📋 공유 코드 복사</button>
+        <button class="btn btn-g" onclick="location.reload()">새 평가서 생성</button>
+      </div>
+      <div class="info-box info-amber" style="margin-top:1rem;font-size:12px;">
+        💡 또는 학부모가 PIN(생년월일 MMDD)으로도 조회할 수 있습니다.<br>
+        PIN 조회는 같은 기기에서만 가능, 공유 코드는 모든 기기에서 가능합니다.
+      </div>
+    </div>`;
+}
+
+function copyCode(){
+  const code=document.getElementById('scbox')?.textContent?.replace(/\n/g,'').trim();
+  if(!code)return;
+  navigator.clipboard.writeText(code).then(()=>alert('📋 공유 코드가 복사됐습니다!\n카카오톡으로 학부모에게 전송하세요.'));
+}
+
+function clearRep(){curRep='';document.getElementById('rprev').style.display='none';document.getElementById('sacts').style.display='none';document.getElementById('gstat').textContent='';}
+
+// ── SAVED ──
+function loadSavedReps(){
+  const keys=S.list('report:');
+  const el=document.getElementById('allreps');
+  if(!keys.length){el.innerHTML='<div class="empty"><div class="empty-icon">📄</div><div class="empty-text">저장된 평가서가 없습니다.</div></div>';return;}
+  const reps=keys.map(k=>S.get(k)).filter(Boolean).sort((a,b)=>b.month.localeCompare(a.month));
+
+  // 공유 코드 버튼 포함
+  el.innerHTML=reps.map(r=>{
+    const allRepsForStudent=keys.filter(k=>k.startsWith(`report:${r.studentId}:`)).map(k=>S.get(k)).filter(Boolean).sort((a,b)=>b.month.localeCompare(a.month));
+    const code=encodeShareCode(allRepsForStudent);
+    return `<div class="rep-item">
+      <div class="rep-date">${r.month}</div>
+      <div class="rep-info">
+        <div class="rep-title">${r.studentName} · ${r.stats?.sessions||0}회 · 단어테스트 ${r.stats?.avgScore||'-'}%</div>
+        <div class="rep-excerpt">${r.report}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="btn-icon" onclick="copyCodeDirect('${code.replace(/'/g,"\\'")}')">🔗</button>
+        <button class="btn-icon" onclick="delRep('report:${r.studentId}:${r.month}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function copyCodeDirect(code){
+  navigator.clipboard.writeText(code).then(()=>alert('📋 공유 코드 복사 완료!\n학부모에게 카카오톡으로 전송하세요.'));
+}
+
+function delRep(key){if(!confirm('삭제할까요?'))return;S.del(key);loadSavedReps();}
+
+// ── PIN TABLE ──
+function renderPinTbl(){
+  const st=D.students.length?D.students:demoS();
+  document.getElementById('pintbl').innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead><tr style="background:var(--navy);color:white;"><th style="padding:10px 14px;text-align:left;">이름</th><th style="padding:10px 14px;text-align:left;">학년</th><th style="padding:10px 14px;text-align:left;">생년월일</th><th style="padding:10px 14px;text-align:left;">PIN</th></tr></thead>
+    <tbody>${st.map((s,i)=>{const pin=getBirthPin(s);return`<tr style="background:${i%2?'var(--cream)':'white'};border-bottom:1px solid var(--border);">
+      <td style="padding:10px 14px;">${s['이름']}</td>
+      <td style="padding:10px 14px;">${s['학년']}학년</td>
+      <td style="padding:10px 14px;font-family:'DM Mono',monospace;">${s['생년월일']||'-'}</td>
+      <td style="padding:10px 14px;"><span style="background:var(--teal-light);color:#085041;padding:3px 10px;border-radius:4px;font-family:'DM Mono',monospace;">${pin||'생년월일 필요'}</span></td>
+    </tr>`;}).join('')}</tbody></table>`;
+}
+
+function saveKey(){const k=document.getElementById('apiki').value.trim();if(k)S.set('apiKey',k);alert('✅ API 키 저장 완료');}
+
+// ── PARENT ──
+function showParent(sid, reps, nameOverride){
+  let name=nameOverride||'';
+  if(sid){
+    const s=D.students.find(x=>x['학생ID']===sid);
+    name=s?s['이름']:'학생';
+    const level=s?(s['현재 읽기 레벨']||''):'';
+    document.getElementById('wsub').textContent=`Page & Pencil${level?' · '+level:''} · 읽기·쓰기 전문 공부방`;
+  } else {
+    document.getElementById('wsub').textContent='Page & Pencil · 읽기·쓰기 전문 공부방';
+  }
+  document.getElementById('pname').textContent=name+' 학생';
+  document.getElementById('wname').textContent=`${name} 학생의 학습 리포트`;
+
+  if(!reps||!reps.length){
+    document.getElementById('mtabs').innerHTML='';
+    document.getElementById('rdisplay').innerHTML='<div class="empty"><div class="empty-icon">📄</div><div class="empty-text">아직 저장된 리포트가 없습니다.<br>원장 선생님이 리포트를 작성하면 여기서 확인할 수 있어요.</div></div>';
+    show('sp'); return;
+  }
+
+  window._pReps=reps;
+  document.getElementById('mtabs').innerHTML=reps.map((r,i)=>
+    `<div class="mt ${i===0?'on':''}" onclick="showMonth(${i},this)">${r.month.replace('-','년 ')}월</div>`).join('');
+  showMonth(0, document.querySelector('.mt'));
+  show('sp');
+}
+
+function showMonth(idx,el){
+  document.querySelectorAll('.mt').forEach(t=>t.classList.remove('on'));
+  el?.classList.add('on');
+  const r=window._pReps[idx];if(!r)return;
+  const wc={'집중관리':'wf','복습중':'wr','신규':'wn','졸업예정':'wd'};
+  const wH=r.words?.length?r.words.map(w=>`<span class="wbadge ${wc[w.status]||'wn'}">${w.word}</span>`).join(''):'<span style="color:var(--text-muted);font-size:13px;">오답 단어 없음 🎉</span>';
+  const bH=r.stats?.books?.length?r.stats.books.map(b=>`<span class="btag">${b}</span>`).join(''):'<span style="color:var(--text-muted);font-size:13px;">기록 없음</span>';
+  document.getElementById('rdisplay').innerHTML=`
+    <div class="srow">
+      <div class="sbox"><div class="sl2">수업 참여</div><div class="sv">${r.stats?.sessions||0}<small>회</small></div></div>
+      <div class="sbox"><div class="sl2">단어테스트</div><div class="sv">${r.stats?.avgScore||'-'}<small>%</small></div></div>
+      <div class="sbox"><div class="sl2">과제 수행</div><div class="sv">${r.stats?.hwRate||0}<small>%</small></div></div>
+    </div>
+    <div class="rdtl">
+      <div class="rdh">
+        <div class="rdh-title">${r.month.replace('-','년 ')}월 학습 리포트</div>
+        <div class="rdh-meta">Page & Pencil · ${new Date(r.savedAt).toLocaleDateString('ko-KR')} 작성</div>
+      </div>
+      <div class="rdb"><div class="rtext">${r.report}</div></div>
+    </div>
+    <div class="card">
+      <div class="sec-title" style="font-size:15px;margin-bottom:0.8rem;">📚 이번 달 읽은 책</div>
+      <div>${bH}</div>
+    </div>
+    ${r.stats?.scores?.length>1?`<div class="card" style="margin-top:1rem;"><div class="sec-title" style="font-size:15px;margin-bottom:0.8rem;">📊 단어 테스트 점수 추이</div><div class="chart-wrap"><canvas id="sc"></canvas></div></div>`:''}
+    <div class="card" style="margin-top:1rem;">
+      <div class="sec-title" style="font-size:15px;margin-bottom:0.8rem;">📝 단어 학습 현황</div>
+      <div>${wH}</div>
+    </div>`;
+  if(r.stats?.scores?.length>1){
+    setTimeout(()=>{
+      if(chartInst)chartInst.destroy();
+      chartInst=new Chart(document.getElementById('sc'),{type:'line',data:{labels:r.stats.scores.map((_,i)=>`${i+1}회차`),datasets:[{label:'단어테스트',data:r.stats.scores,borderColor:'#2D9E75',backgroundColor:'rgba(45,158,117,0.08)',borderWidth:2.5,pointBackgroundColor:'#2D9E75',pointRadius:5,tension:0.4,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,grid:{color:'rgba(0,0,0,0.05)'}}}}});
+    },50);
+  }
+}
+
+// ── DEMO ──
+function demoS(){return[
+  {학생ID:'S001',이름:'김지아',학년:'3',학교:'원주초',생년월일:'2016-03-12','현재 읽기 레벨':'Level 1'},
+  {학생ID:'S002',이름:'이민준',학년:'4',학교:'개운초',생년월일:'2015-07-24','현재 읽기 레벨':'Level 2'},
+  {학생ID:'S003',이름:'박서연',학년:'5',학교:'원주초',생년월일:'2014-11-05','현재 읽기 레벨':'Level 2'},
+  {학생ID:'S004',이름:'최하은',학년:'5',학교:'개운초',생년월일:'2014-05-18','현재 읽기 레벨':'Level 2'},
+  {학생ID:'S005',이름:'정준서',학년:'중1',학교:'원주중',생년월일:'2013-09-30','현재 읽기 레벨':'Level 3'},
+  {학생ID:'S006',이름:'한유나',학년:'중1',학교:'원주중',생년월일:'2013-02-14','현재 읽기 레벨':'Level 3'},
+];}
+function demoR(){return[
+  {날짜:'2025-03-03',학생ID:'S001',이름:'김지아',읽은책:'Fly Guy #3',챕터:'Ch.1-2','단어테스트\n점수(%)':80,틀린단어:'beautiful','과제수행\n(O/X)':'O','원장 메모':'집중도 좋음'},
+  {날짜:'2025-03-05',학생ID:'S001',이름:'김지아',읽은책:'Fly Guy #3',챕터:'Ch.3-4','단어테스트\n점수(%)':75,틀린단어:'every','과제수행\n(O/X)':'O','원장 메모':''},
+  {날짜:'2025-03-07',학생ID:'S001',이름:'김지아',읽은책:'Fly Guy #4',챕터:'Ch.1','단어테스트\n점수(%)':85,틀린단어:'','과제수행\n(O/X)':'O','원장 메모':'속도 향상'},
+  {날짜:'2025-03-03',학생ID:'S002',이름:'이민준',읽은책:'Magic Tree House #1',챕터:'Ch.1-3','단어테스트\n점수(%)':70,틀린단어:'because','과제수행\n(O/X)':'X','원장 메모':'과제 미제출'},
+  {날짜:'2025-03-05',학생ID:'S002',이름:'이민준',읽은책:'Magic Tree House #1',챕터:'Ch.4-6','단어테스트\n점수(%)':80,틀린단어:'because','과제수행\n(O/X)':'O','원장 메모':'because 반복'},
+  {날짜:'2025-03-03',학생ID:'S003',이름:'박서연',읽은책:"Charlotte's Web",챕터:'Ch.1-2','단어테스트\n점수(%)':90,틀린단어:'','과제수행\n(O/X)':'O','원장 메모':'쓰기 향상'},
+  {날짜:'2025-03-05',학생ID:'S004',이름:'최하은',읽은책:"Charlotte's Web",챕터:'Ch.3-4','단어테스트\n점수(%)':88,틀린단어:'necessary','과제수행\n(O/X)':'O','원장 메모':'단어 50개'},
+  {날짜:'2025-03-03',학생ID:'S005',이름:'정준서',읽은책:'Wonder',챕터:'Ch.1-5','단어테스트\n점수(%)':95,틀린단어:'','과제수행\n(O/X)':'O','원장 메모':'품사 분석 시작'},
+  {날짜:'2025-03-03',학생ID:'S006',이름:'한유나',읽은책:'The Giver',챕터:'Ch.1-3','단어테스트\n점수(%)':88,틀린단어:'ominous','과제수행\n(O/X)':'O','원장 메모':'에세이 발전'},
+];}
+function demoW(){return[
+  {학생ID:'S001',이름:'김지아',단어:'beautiful',상태:'복습중'},
+  {학생ID:'S001',이름:'김지아',단어:'every',상태:'신규'},
+  {학생ID:'S002',이름:'이민준',단어:'because',상태:'집중관리'},
+  {학생ID:'S004',이름:'최하은',단어:'necessary',상태:'복습중'},
+  {학생ID:'S006',이름:'한유나',단어:'ominous',상태:'신규'},
+];}
+</script>
+</body>
+</html>
