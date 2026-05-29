@@ -604,11 +604,18 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .att-alert-text{font-size:13px;color:var(--navy);flex:1;}
 
 /* MESSAGES */
-.msg-bubble{padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.6;max-width:85%;margin-bottom:8px;}
-.msg-bubble.parent{background:var(--cream2);color:var(--navy);align-self:flex-start;}
-.msg-bubble.teacher{background:var(--navy);color:#fff;align-self:flex-end;margin-left:auto;}
-.msg-time{font-size:10px;color:var(--slate);margin-top:2px;}
+.chat-wrap{display:flex;flex-direction:column;gap:4px;padding:6px 0;}
+.chat-row{display:flex;align-items:flex-end;gap:6px;}
+.chat-row.mine{flex-direction:row-reverse;}
+.chat-bubble{padding:9px 13px;font-size:13px;line-height:1.55;max-width:72%;word-break:break-word;white-space:pre-wrap;}
+.chat-bubble.mine{background:#2563EB;color:#fff;border-radius:18px 4px 18px 18px;}
+.chat-bubble.other{background:#E9E9EB;color:#1a1a2e;border-radius:4px 18px 18px 18px;}
+.chat-time{font-size:10px;color:var(--slate);padding-bottom:2px;flex-shrink:0;}
+.chat-input-row{display:flex;gap:6px;padding:10px 0 0;border-top:1px solid var(--border);margin-top:4px;}
 .msg-unread-dot{width:8px;height:8px;border-radius:50%;background:#E05C3A;display:inline-block;flex-shrink:0;}
+.t-msg-item{padding:10px 12px;border-radius:var(--rs);cursor:pointer;border:1.5px solid var(--border);margin-bottom:6px;background:#fff;display:flex;align-items:center;gap:8px;transition:border-color .15s;}
+.t-msg-item:hover{border-color:var(--teal);}
+.t-msg-unread{min-width:18px;height:18px;border-radius:9px;background:#E05C3A;color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 4px;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -767,6 +774,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
     <button class="ntab" onclick="swTab('t-log')">리딩로그</button>
     <button class="ntab" onclick="swTab('t-lib')">원서 DB</button>
     <button class="ntab" onclick="swTab('t-assign')">📋 과제</button>
+    <button class="ntab" id="t-msg-tab" onclick="swTab('t-msg')">💬 메시지</button>
     <button class="ntab" onclick="swTab('t-cfg')">설정</button>
   </div>
   <div class="ab">
@@ -1084,6 +1092,12 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
       <div id="assign-list"></div>
     </div>
 
+    <!-- 메시지 -->
+    <div id="t-msg" class="panel">
+      <div class="sh"><div><div class="st">💬 메시지</div></div></div>
+      <div id="t-msg-list"></div>
+    </div>
+
     <!-- 설정 -->
     <div id="t-cfg" class="panel">
       <div class="st" style="margin-bottom:1rem">설정</div>
@@ -1208,6 +1222,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
     <button class="ptab" onclick="swPTab('pp-log')">리딩로그</button>
     <button class="ptab" onclick="swPTab('pp-cal')">달력</button>
     <button class="ptab" onclick="swPTab('pp-pay')">결제 안내</button>
+    <button class="ptab" onclick="swPTab('pp-msg')">💬 메시지</button>
   </div>
   <div style="padding:1.25rem">
     <div id="pp-sum" class="pp"></div>
@@ -1233,22 +1248,11 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 </div>
 <div id="pp-log" class="pp" style="display:none"></div>
     <div id="pp-pay" class="pp" style="display:none"></div>
+    <div id="pp-msg" class="pp" style="display:none"></div>
   </div>
   <!-- 메시지 버튼 (고정) -->
   <div style="position:sticky;bottom:0;background:linear-gradient(transparent,rgba(245,241,234,.95) 40%);padding:12px 1.25rem;pointer-events:none">
-    <button onclick="openParentMsgModal()" style="pointer-events:auto;width:100%;padding:14px;background:var(--navy);color:#fff;border:none;border-radius:50px;font-family:var(--fb);font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(13,37,66,.25)">💬 선생님께 메시지 보내기</button>
-  </div>
-</div>
-
-<!-- 학부모 메시지 모달 -->
-<div id="m-parent-msg" class="mo">
-  <div class="mdl">
-    <div class="mh"><div class="mt">💬 선생님께 메시지</div><button class="bx" onclick="closeM('m-parent-msg')">×</button></div>
-    <div class="f"><label>메시지 내용</label><textarea id="parent-msg-text" placeholder="궁금한 점이나 전달사항을 입력해 주세요..." style="min-height:100px;resize:vertical;width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:14px;color:var(--navy);background:var(--cream);outline:none"></textarea></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn bo bsm" onclick="closeM('m-parent-msg')">취소</button>
-      <button class="btn bt" onclick="sendParentMessage()">전송</button>
-    </div>
+    <button onclick="swPTab('pp-msg')" style="pointer-events:auto;width:100%;padding:14px;background:var(--navy);color:#fff;border:none;border-radius:50px;font-family:var(--fb);font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(13,37,66,.25)">💬 메시지</button>
   </div>
 </div>
 
@@ -1968,7 +1972,7 @@ async function testCld(){
 }
 
 // ── TABS ──
-const T_IDS=['t-dash','t-stu','t-les','t-tst','t-bks','t-log','t-lib','t-assign','t-cfg'];
+const T_IDS=['t-dash','t-stu','t-les','t-tst','t-bks','t-log','t-lib','t-assign','t-msg','t-cfg'];
 function swTab(id){
   document.querySelectorAll('.ntab').forEach((t,i)=>t.classList.toggle('active',T_IDS[i]===id));
   document.querySelectorAll('#s-teacher .panel').forEach(p=>p.classList.toggle('active',p.id===id));
@@ -1979,6 +1983,7 @@ function swTab(id){
   if(id==='t-log'){populateFilterSels();renderLog();checkCldWarn();}
   if(id==='t-assign'){populateFilterSels();renderAssignTab();const el=document.getElementById('assign-filter-date');if(el&&!el.value)el.value=new Date().toISOString().split('T')[0];}
   if(id==='t-lib'){renderLibTable();populateLibSeriesFilter();}
+  if(id==='t-msg')renderMsgTab();
   if(id==='t-cfg'){
     const c=DB.cld();document.getElementById('cfg-cld-name').value=c.name||'';document.getElementById('cfg-cld-preset').value=c.preset||'';
     document.getElementById('cfg-apikey').value=DB.api()?'••••••':'';
@@ -1997,7 +2002,7 @@ async function initApp(){
   subscribeRealtime();
   renderStus();populateSels();populateFilterSels();
   setToday();renderLes();renderTst();renderRd();renderLog();
-  populateLibSel();checkCldWarn();renderDash();
+  populateLibSel();checkCldWarn();renderDash();updateMsgTabBadge();
 }
 function setToday(){const t=new Date().toISOString().split('T')[0];['ls-date','ts-date','rd-date','lg-date','qp-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=t;});}
 function populateSels(){
@@ -3907,10 +3912,11 @@ function printReport(){window.print();}
 // ── swPTab 확장 (달력 포함) ──
 const _origSwPTab=swPTab;
 function swPTab(id){
-  const IDS=['pp-sum','pp-les','pp-tst','pp-bks','pp-log','pp-cal','pp-pay'];
+  const IDS=['pp-sum','pp-les','pp-tst','pp-bks','pp-log','pp-cal','pp-pay','pp-msg'];
   document.querySelectorAll('.ptab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
   document.querySelectorAll('.pp').forEach(p=>p.style.display=p.id===id?'block':'none');
   if(id==='pp-cal')renderCalendar(currentParentSid);
+  if(id==='pp-msg')renderParentMsgs();
 }
 
 // ── GROWTH TIMELINE ──
@@ -5506,52 +5512,107 @@ function renderNoticeBoard(){
 }
 
 // ── MESSAGES ──
-function openParentMsgModal(){openM('m-parent-msg');}
+function renderChatHtml(msgs, myRole){
+  if(!msgs.length)return '<div class="empty"><div class="empty-i">💬</div><div class="empty-t">아직 메시지 없음</div></div>';
+  return '<div class="chat-wrap">'+msgs.map(m=>{
+    const mine=m.fromRole===myRole;
+    const ts=m.createdAt?m.createdAt.slice(5,16).replace('T',' '):'';
+    return `<div class="chat-row${mine?' mine':''}">
+      <div class="chat-bubble${mine?' mine':' other'}">${m.text||''}</div>
+      <div class="chat-time">${ts}</div>
+    </div>`;
+  }).join('')+'</div>';
+}
+function openParentMsgModal(){swPTab('pp-msg');}
 async function sendParentMessage(){
-  const text=document.getElementById('parent-msg-text').value.trim();
-  if(!text){toast('메시지를 입력해 주세요');return;}
+  const inp=document.getElementById('pp-msg-input');if(!inp)return;
+  const text=inp.value.trim();if(!text){toast('메시지를 입력해 주세요');return;}
   const msg={id:uid(),sid:currentParentSid,fromRole:'parent',text,createdAt:new Date().toISOString(),read:false};
-  await supaUpsert('messages',msg.id,msg,currentParentSid);
+  const ok=await supaUpsert('messages',msg.id,msg,currentParentSid);
+  if(!ok)return;
   if(!_cache.messages)_cache.messages=[];
   _cache.messages.unshift(msg);
-  document.getElementById('parent-msg-text').value='';
-  closeM('m-parent-msg');
-  toast('메시지가 전송되었습니다');
+  inp.value='';
+  renderParentMsgs();
+  toast('전송되었습니다');
+}
+function renderParentMsgs(){
+  const el=document.getElementById('pp-msg');if(!el)return;
+  const msgs=(_cache.messages||[]).filter(m=>m.sid===currentParentSid).sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
+  el.innerHTML=`
+    <div id="pp-msg-scroll" style="min-height:260px;max-height:58vh;overflow-y:auto;padding-right:4px">
+      ${renderChatHtml(msgs,'parent')}
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="pp-msg-input" placeholder="메시지를 입력하세요..." style="flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:50px;font-family:var(--fb);font-size:14px;color:var(--navy);background:var(--cream);outline:none" onkeydown="if(event.key==='Enter')sendParentMessage()">
+      <button class="btn bt" style="border-radius:50px;padding:10px 18px" onclick="sendParentMessage()">전송</button>
+    </div>`;
+  const sc=document.getElementById('pp-msg-scroll');if(sc)setTimeout(()=>sc.scrollTop=sc.scrollHeight,0);
 }
 function renderSpMessages(sid){
   const el=document.getElementById('sp-msg');if(!el)return;
   const msgs=(_cache.messages||[]).filter(m=>m.sid===sid).sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
-  el.innerHTML=`<div style="display:flex;flex-direction:column;min-height:200px;padding:4px 0">
-    ${msgs.length?msgs.map(m=>{
-      const ts=m.createdAt?m.createdAt.slice(5,16).replace('T',' '):'';
-      return `<div style="margin-bottom:10px;display:flex;flex-direction:column;align-items:${m.fromRole==='teacher'?'flex-end':'flex-start'}">
-        <div class="msg-bubble ${m.fromRole==='teacher'?'teacher':'parent'}">${m.text}</div>
-        <div class="msg-time">${m.fromRole==='parent'?'학부모':'선생님'} · ${ts}${!m.read&&m.fromRole==='parent'?' · 미읽음':''}</div>
-      </div>`;
-    }).join(''):'<div class="empty"><div class="empty-i">💬</div><div class="empty-t">아직 메시지 없음</div></div>'}
-  </div>
-  <div style="margin-top:8px;display:flex;gap:6px">
-    <input type="text" id="sp-msg-input" placeholder="답장 입력..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none" onkeydown="if(event.key==='Enter')sendTeacherMessage('${sid}')">
-    <button class="btn bt bsm" onclick="sendTeacherMessage('${sid}')">전송</button>
-  </div>`;
+  el.innerHTML=`
+    <div id="sp-msg-scroll" style="min-height:180px;max-height:50vh;overflow-y:auto;padding-right:4px">
+      ${renderChatHtml(msgs,'teacher')}
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="sp-msg-input" placeholder="답장 입력..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:50px;font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none" onkeydown="if(event.key==='Enter')sendTeacherMessage('${sid}')">
+      <button class="btn bt bsm" style="border-radius:50px" onclick="sendTeacherMessage('${sid}')">전송</button>
+    </div>`;
+  const sc=document.getElementById('sp-msg-scroll');if(sc)setTimeout(()=>sc.scrollTop=sc.scrollHeight,0);
   // 미읽음 메시지 읽음 처리
   const unread=msgs.filter(m=>m.fromRole==='parent'&&!m.read);
   unread.forEach(async m=>{m.read=true;await supaUpsert('messages',m.id,m,sid);});
-  if(unread.length)renderStus();
+  if(unread.length){renderStus();updateMsgTabBadge();}
 }
 async function sendTeacherMessage(sid){
   const inp=document.getElementById('sp-msg-input');if(!inp)return;
   const text=inp.value.trim();if(!text)return;
   const msg={id:uid(),sid,fromRole:'teacher',text,createdAt:new Date().toISOString(),read:false};
-  await supaUpsert('messages',msg.id,msg,sid);
+  const ok=await supaUpsert('messages',msg.id,msg,sid);
+  if(!ok)return;
   if(!_cache.messages)_cache.messages=[];
   _cache.messages.unshift(msg);
   inp.value='';
   renderSpMessages(sid);
+  if(document.getElementById('t-msg')?.classList.contains('active'))renderMsgTab();
 }
-// renderStus에서 미읽음 메시지 점 표시용 helper
 function hasUnreadMsg(sid){
   return (_cache.messages||[]).some(m=>m.sid===sid&&m.fromRole==='parent'&&!m.read);
+}
+function updateMsgTabBadge(){
+  const tab=document.getElementById('t-msg-tab');if(!tab)return;
+  const count=(_cache.messages||[]).filter(m=>m.fromRole==='parent'&&!m.read).length;
+  const existing=tab.querySelector('.t-msg-unread');
+  if(existing)existing.remove();
+  if(count){const b=document.createElement('span');b.className='t-msg-unread';b.style.marginLeft='4px';b.textContent=count;tab.appendChild(b);}
+}
+function renderMsgTab(){
+  const el=document.getElementById('t-msg-list');if(!el)return;
+  const stus=DB.stus().filter(s=>!s.inactive);
+  const items=stus.map(s=>{
+    const msgs=(_cache.messages||[]).filter(m=>m.sid===s.id);
+    const unread=msgs.filter(m=>m.fromRole==='parent'&&!m.read).length;
+    const last=[...msgs].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''))[0];
+    return {s,msgs,unread,last};
+  }).filter(x=>x.msgs.length).sort((a,b)=>b.unread-a.unread||(b.last?.createdAt||'').localeCompare(a.last?.createdAt||''));
+  if(!items.length){
+    el.innerHTML='<div class="empty"><div class="empty-i">💬</div><div class="empty-t">아직 메시지 없음</div></div>';
+    updateMsgTabBadge();return;
+  }
+  el.innerHTML=items.map(({s,unread,last})=>`
+    <div class="t-msg-item" onclick="openStuPanel('${s.id}');setTimeout(()=>swSpTab('sp-msg'),80)">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+          <span style="font-size:13px;font-weight:700;color:var(--navy)">${s.name}</span>
+          ${unread?`<span class="t-msg-unread">${unread}</span>`:''}
+        </div>
+        <div style="font-size:12px;color:var(--slate);overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${last?.fromRole==='teacher'?'나: ':''}${last?.text||''}</div>
+      </div>
+      <div style="font-size:10px;color:var(--slate);flex-shrink:0">${last?.createdAt?last.createdAt.slice(5,10).replace('-','/'):''}</div>
+    </div>`).join('');
+  updateMsgTabBadge();
 }
 
 // ── QR CODE ──
