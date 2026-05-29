@@ -583,6 +583,19 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .week-bar-fill{height:100%;background:var(--teal);border-radius:3px;transition:width .5s ease;}
 @keyframes confetti-fall{0%{transform:translateY(-20px) rotate(0deg);opacity:1;}100%{transform:translateY(100vh) rotate(720deg);opacity:0;}}
 .confetti-piece{position:fixed;width:9px;height:9px;top:0;pointer-events:none;z-index:9999;animation:confetti-fall 2s ease-in forwards;}
+
+/* KEYPAD */
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--navy);transition:background .1s;display:inline-block;}
+.pin-dot.filled{background:var(--navy);}
+.keypad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;margin:0 auto;}
+.keypad-btn{min-height:62px;border-radius:50%;font-size:22px;font-weight:700;font-family:var(--fm);cursor:pointer;border:2px solid var(--border);background:#fff;color:var(--navy);transition:all .15s;display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:1;}
+.keypad-btn:hover{background:var(--tl);border-color:var(--teal);}
+.keypad-btn:active{transform:scale(.9);background:var(--tl);}
+.keypad-btn.del{font-size:18px;background:var(--cream2);}
+
+/* FOLLOW-UP */
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.followup-card{animation:slideDown .3s ease;background:linear-gradient(135deg,#f0fdf8,#e8f5ff);border:1px solid rgba(0,196,204,.2);border-radius:var(--r);padding:16px;margin-top:12px;}
 </style>
 </head>
 <body>
@@ -638,15 +651,34 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 
 <!-- STUDENT PIN -->
 <div id="s-stupin" class="screen cs">
-  <div class="ac">
+  <div class="ac" style="max-width:320px;text-align:center">
     <div class="ac-logo">Page <span>&</span> Pencil</div>
     <div class="ac-title">학생 로그인</div>
-    <div class="ac-sub">이름과 PIN(생년월일 4자리)을 입력하세요<br>예) 3월 12일 → 0312</div>
-    <div class="f"><label>이름</label><input type="text" id="stupin-name" placeholder="이름 입력" autocomplete="off"></div>
-    <div class="f"><label>PIN</label><input type="password" id="stupin-code" maxlength="4" placeholder="0000" inputmode="numeric" onkeydown="if(event.key==='Enter')checkStudentPin()"></div>
+    <div style="font-size:13px;color:var(--slate);margin-bottom:1.5rem">생년월일 4자리를 입력하세요<br><span style="font-size:11px;opacity:.7">예) 3월 12일 → 0312</span></div>
+    <div style="display:flex;gap:14px;justify-content:center;margin-bottom:1.5rem" id="pin-dots">
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div id="stupin-name-sel" style="display:none;margin-bottom:1rem">
+      <div style="font-size:12px;color:var(--slate);margin-bottom:6px">같은 PIN을 사용하는 학생이 있어요. 이름을 선택해 주세요.</div>
+      <select id="stupin-name-sel-val" class="filter-sel" style="width:100%;margin-bottom:8px"><option value="">이름 선택...</option></select>
+      <button class="btn-full teal" onclick="confirmStudentByName()">입장하기</button>
+    </div>
     <div class="err" id="stupin-err"></div>
-    <button class="btn-full teal" onclick="checkStudentPin()">입장하기</button>
-    <span class="back-lnk" onclick="show('s-land')">← 돌아가기</span>
+    <div class="keypad-grid" id="stu-keypad">
+      <button class="keypad-btn" onclick="stuPinPress('1')">1</button>
+      <button class="keypad-btn" onclick="stuPinPress('2')">2</button>
+      <button class="keypad-btn" onclick="stuPinPress('3')">3</button>
+      <button class="keypad-btn" onclick="stuPinPress('4')">4</button>
+      <button class="keypad-btn" onclick="stuPinPress('5')">5</button>
+      <button class="keypad-btn" onclick="stuPinPress('6')">6</button>
+      <button class="keypad-btn" onclick="stuPinPress('7')">7</button>
+      <button class="keypad-btn" onclick="stuPinPress('8')">8</button>
+      <button class="keypad-btn" onclick="stuPinPress('9')">9</button>
+      <button class="keypad-btn del" onclick="stuPinPress('del')">⌫</button>
+      <button class="keypad-btn" onclick="stuPinPress('0')">0</button>
+      <button class="keypad-btn" style="background:var(--teal);color:#fff;border-color:var(--teal)" onclick="stuPinPress('ok')">✓</button>
+    </div>
+    <span class="back-lnk" onclick="show('s-land');_stuPin='';updatePinDots()">← 돌아가기</span>
   </div>
 </div>
 
@@ -837,6 +869,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
           <button class="btn bt" onclick="saveLes()">저장</button>
         </div>
       </div>
+      <div id="les-followup" style="display:none"></div>
       <div class="filter-bar">
         <select class="filter-sel" id="les-filter-stu" onchange="renderLes()">
           <option value="">전체 학생</option>
@@ -1124,8 +1157,13 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
     <span style="float:right;opacity:.5;font-size:11px">닫기 ✕</span>
   </div>
   <div class="ph">
-    <div class="psn" id="p-name">—</div>
-    <div class="pmeta" id="p-meta">—</div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+      <div>
+        <div class="psn" id="p-name">—</div>
+        <div class="pmeta" id="p-meta">—</div>
+      </div>
+      <button onclick="shareParentUpdate()" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;font-family:var(--fb)">📤 공유</button>
+    </div>
   </div>
   <div class="ptabs">
     <button class="ptab active" onclick="swPTab('pp-sum')">요약</button>
@@ -2400,7 +2438,183 @@ async function saveLes(){
   document.getElementById('ls-cmt').value='';clearSRows();
   document.getElementById('ls-last-hint').style.display='none';
   renderLes();toast('수업 기록이 저장되었습니다');
+  showLesFollowup(sid,newLes.date,_sStu?.name||'');
 }
+// ── LES FOLLOWUP (원스톱 입력) ──
+function showLesFollowup(sid,date,stuName){
+  const el=document.getElementById('les-followup');if(!el)return;
+  el.style.display='block';
+  el.innerHTML=`<div class="followup-card">
+    <div style="font-size:13px;font-weight:700;color:#005f6b;margin-bottom:12px">✅ ${stuName} 수업 기록 저장됨 — 이어서 입력하시겠어요?</div>
+    <div id="les-fu-tst">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,196,204,.15)">
+        <span style="font-size:13px;font-weight:600">📝 테스트도 있었나요?</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn bt bsm" onclick="showInlineTst('${sid}','${date}')">있음</button>
+          <button class="btn bo bsm" onclick="hideLesFollowup()">건너뛰기</button>
+        </div>
+      </div>
+    </div>
+    <div id="les-fu-assign">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0">
+        <span style="font-size:13px;font-weight:600">📋 과제 할당할까요?</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn bt bsm" onclick="showInlineAssign('${sid}','${date}')">할당</button>
+          <button class="btn bo bsm" onclick="hideLesFollowup()">닫기</button>
+        </div>
+      </div>
+    </div>
+    <div id="les-fu-share" style="padding-top:8px;border-top:1px solid rgba(0,196,204,.15)">
+      <button class="btn ba bsm" style="width:100%" onclick="shareParentUpdateByStu('${sid}')">📤 학부모에게 수업 알림 보내기</button>
+    </div>
+  </div>`;
+}
+function hideLesFollowup(){const el=document.getElementById('les-followup');if(el){el.style.display='none';el.innerHTML='';}}
+function showInlineTst(sid,date){
+  const el=document.getElementById('les-fu-tst');if(!el)return;
+  el.innerHTML=`<div style="padding:10px 0;border-bottom:1px solid rgba(0,196,204,.15)">
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px">📝 테스트 간편 입력</div>
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px">
+      <div class="f" style="margin:0;flex:1;min-width:80px"><label>단어 맞힌 수</label><input type="number" id="fu-vc" min="0" placeholder="8" style="font-family:var(--fm);font-size:16px;text-align:center"></div>
+      <div style="font-size:18px;color:var(--slate)">/</div>
+      <div class="f" style="margin:0;flex:1;min-width:80px"><label>전체</label><input type="number" id="fu-vt" min="0" placeholder="10" style="font-family:var(--fm);font-size:16px;text-align:center"></div>
+    </div>
+    <div class="f" style="margin-bottom:8px"><label>틀린 단어 (쉼표 구분)</label><input type="text" id="fu-wr" placeholder="quickly, enormous"></div>
+    <div style="display:flex;gap:6px">
+      <button class="btn bt bsm" onclick="saveFuTst('${sid}','${date}')">저장</button>
+      <button class="btn bo bsm" onclick="document.getElementById('les-fu-tst').innerHTML=''">취소</button>
+    </div>
+  </div>`;
+}
+async function saveFuTst(sid,date){
+  const vc=document.getElementById('fu-vc')?.value;
+  const vt=document.getElementById('fu-vt')?.value;
+  const wr=document.getElementById('fu-wr')?.value||'';
+  const wrongWords=wr?wr.split(',').map(w=>w.trim()).filter(Boolean):[];
+  const tst={id:uid(),sid,date,vocabCorrect:parseInt(vc)||0,vocabTotal:parseInt(vt)||0,grammarCorrect:0,grammarTotal:0,wrongWords};
+  await supaUpsert('tests',tst.id,tst,sid);
+  _cache.tests.unshift(tst);
+  if(wrongWords.length)await syncVocabCards(sid,wrongWords,wrongWords,date);
+  document.getElementById('les-fu-tst').innerHTML=`<div style="font-size:12px;color:#005f6b;padding:6px 0">✅ 테스트 저장됨 (${vc}/${vt})</div>`;
+  toast('테스트 저장됨');
+}
+function showInlineAssign(sid,date){
+  const el=document.getElementById('les-fu-assign');if(!el)return;
+  const libOpts=(_cache.library||[]).map(b=>`<option value="${b.id}">${b.title}</option>`).join('');
+  const due=new Date(date);due.setDate(due.getDate()+1);
+  const dueStr=due.toISOString().split('T')[0];
+  el.innerHTML=`<div style="padding:10px 0">
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px">📋 과제 간편 할당</div>
+    <div class="fg" style="margin-bottom:6px">
+      <div class="f" style="margin:0"><label>종류</label>
+        <select id="fu-atype" onchange="renderFuAssignFields()">
+          <option value="reading">📖 원서</option>
+          <option value="vocab">📝 단어</option>
+          <option value="other">💬 기타</option>
+        </select>
+      </div>
+      <div class="f" style="margin:0"><label>마감</label><input type="date" id="fu-adue" value="${dueStr}"></div>
+    </div>
+    <div id="fu-afields">
+      <div class="f" style="margin-bottom:6px"><label>원서 검색</label>
+        <input type="text" id="fu-book-search" placeholder="제목 검색..." oninput="filterFuBooks()" autocomplete="off">
+        <div id="fu-book-dd" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);display:none;background:#fff;margin-top:2px;font-size:13px"></div>
+        <input type="hidden" id="fu-book-id"><input type="hidden" id="fu-book-title">
+      </div>
+      <div class="f" style="margin-bottom:6px"><label>챕터/페이지 범위</label><input type="text" id="fu-arange" placeholder="Ch.1-2"></div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="btn bt bsm" onclick="saveFuAssign('${sid}','${date}')">저장</button>
+      <button class="btn bo bsm" onclick="document.getElementById('les-fu-assign').innerHTML=''">취소</button>
+    </div>
+  </div>`;
+}
+function renderFuAssignFields(){
+  const type=document.getElementById('fu-atype')?.value||'reading';
+  const el=document.getElementById('fu-afields');if(!el)return;
+  if(type==='reading'){
+    el.innerHTML=`<div class="f" style="margin-bottom:6px"><label>원서 검색</label>
+      <input type="text" id="fu-book-search" placeholder="제목 검색..." oninput="filterFuBooks()" autocomplete="off">
+      <div id="fu-book-dd" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);display:none;background:#fff;margin-top:2px;font-size:13px"></div>
+      <input type="hidden" id="fu-book-id"><input type="hidden" id="fu-book-title">
+    </div>
+    <div class="f" style="margin-bottom:6px"><label>범위</label><input type="text" id="fu-arange" placeholder="Ch.1-2"></div>`;
+  } else if(type==='vocab'){
+    el.innerHTML=`<div class="f" style="margin-bottom:6px"><label>단어 (쉼표 구분)</label><input type="text" id="fu-awords" placeholder="apple, enormous..."></div>`;
+  } else {
+    el.innerHTML=`<div class="f" style="margin-bottom:6px"><label>내용</label><input type="text" id="fu-atext" placeholder="숙제 내용 입력"></div>`;
+  }
+}
+function filterFuBooks(){
+  const q=(document.getElementById('fu-book-search')?.value||'').toLowerCase().trim();
+  const dd=document.getElementById('fu-book-dd');if(!dd)return;
+  if(!q){dd.style.display='none';return;}
+  const hits=[...BOOK_DB,...DB.libs()].filter(b=>b.title.toLowerCase().includes(q)).slice(0,8);
+  dd.innerHTML=hits.map(b=>`<div style="padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--border)" onclick="selectFuBook('${b.id}','${escAttr(b.title)}')">${b.title}</div>`).join('');
+  dd.style.display=hits.length?'block':'none';
+}
+function selectFuBook(id,title){
+  const si=document.getElementById('fu-book-search');
+  const hi=document.getElementById('fu-book-id');
+  const ht=document.getElementById('fu-book-title');
+  const dd=document.getElementById('fu-book-dd');
+  if(si)si.value=title;if(hi)hi.value=id;if(ht)ht.value=title;if(dd)dd.style.display='none';
+}
+async function saveFuAssign(sid,date){
+  const type=document.getElementById('fu-atype')?.value||'reading';
+  const due=document.getElementById('fu-adue')?.value||date;
+  const a={id:uid(),sid,type,date,due};
+  if(type==='reading'){
+    a.bookId=document.getElementById('fu-book-id')?.value||'';
+    a.bookTitle=document.getElementById('fu-book-search')?.value||document.getElementById('fu-book-title')?.value||'';
+    a.range=document.getElementById('fu-arange')?.value.trim()||'';
+  } else if(type==='vocab'){
+    a.words=(document.getElementById('fu-awords')?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
+    if(a.words.length)await syncVocabCards(sid,a.words,[],date);
+  } else {
+    a.text=document.getElementById('fu-atext')?.value.trim()||'';
+  }
+  await supaUpsert('assignments',a.id,a,sid);
+  if(!_cache.assignments)_cache.assignments=[];
+  _cache.assignments.unshift(a);
+  document.getElementById('les-fu-assign').innerHTML=`<div style="font-size:12px;color:#005f6b;padding:6px 0">✅ 과제 할당됨</div>`;
+  toast('과제 할당됨');
+}
+
+// ── 학부모 알림 공유 ──
+async function shareParentUpdate(){
+  const stu=DB.stus().find(s=>s.id===currentParentSid);
+  shareUpdate(stu?.name||'');
+}
+async function shareParentUpdateByStu(sid){
+  const stu=DB.stus().find(s=>s.id===sid);
+  shareUpdate(stu?.name||'');
+}
+async function shareUpdate(name){
+  const url='https://page-and-pencil.github.io/page-pencil/';
+  const text=`[Page & Pencil] ${name} 수업 기록이 업데이트됐습니다. 확인하기: ${url}`;
+  const kakaoUrl=`kakaotalk://send?text=${encodeURIComponent(text)}`;
+  window.open(kakaoUrl);
+  setTimeout(async()=>{
+    try{await navigator.clipboard.writeText(text);toast('링크가 복사됐습니다. 카카오톡에 붙여넣기 해주세요');}
+    catch{toast('공유 링크: '+url);}
+  },600);
+}
+
+// ── VOCAB MEANING FILL (학생 앱에서 빈 뜻 채우기) ──
+async function fillMissingMeanings(cards){
+  for(const c of cards){
+    if(c.meaning)continue;
+    const m=await fetchWordMeaning(c.word);
+    if(m&&m.meaning){
+      c.meaning=m.meaning;c.pos=m.pos;
+      await supaUpsert('vocab_cards',c.id,c,c.sid);
+      const ci=_cache.vocab_cards.findIndex(x=>x.id===c.id);
+      if(ci>=0)_cache.vocab_cards[ci]={...c};
+    }
+  }
+}
+
 let lesPage=0;
 function renderLes(){
   const stus=DB.stus();
@@ -3858,30 +4072,44 @@ async function uploadBookAudio(e, bookId, uploadType='full'){
   toast(uploadType==='full'?'전권 오디오 저장됨':'챕터 '+((getAudioObj(bookData)?.chapters?.length)||1)+' 저장됨');
 }
 // ── VOCAB CARDS (Supabase) ──
+async function fetchWordMeaning(word){
+  try{
+    const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+    if(!r.ok)return null;
+    const d=await r.json();
+    if(!d||!d[0])return null;
+    const m=d[0].meanings?.[0];
+    return{meaning:m?.definitions?.[0]?.definition||'',pos:m?.partOfSpeech||''};
+  }catch{return null;}
+}
 async function syncVocabCards(sid,allWords,wrongWords,date){
-  // 기존 카드 로드 (sid 기준)
   const existing=await supaFetchBySid('vocab_cards',sid);
   for(const word of allWords){
     const w=word.toLowerCase().trim();if(!w)continue;
     const found=existing.find(c=>(c.word||'').toLowerCase()===w);
     const isWrong=wrongWords.map(x=>x.toLowerCase().trim()).includes(w);
     if(found){
-      // 기존 카드: 틀렸으면 miss++, 맞았으면 hit++
       const updated={...found,
         hits:(found.hits||0)+(isWrong?0:1),
         misses:(found.misses||0)+(isWrong?1:0),
-        lastSeen:date,
-        due:isWrong?date:found.due
+        lastSeen:date,due:isWrong?date:found.due
       };
       await supaUpsert('vocab_cards',found.id,updated,sid);
       const ci=_cache.vocab_cards.findIndex(c=>c.id===found.id);
       if(ci>=0)_cache.vocab_cards[ci]=updated;
     }else{
-      // 새 카드 생성
       const newCard={id:uid(),sid,word:w,meaning:'',pos:'',example:'',hits:isWrong?0:1,misses:isWrong?1:0,phase:0,lastSeen:date,due:date,addedDate:date};
       await supaUpsert('vocab_cards',newCard.id,newCard,sid);
       if(!_cache.vocab_cards)_cache.vocab_cards=[];
       _cache.vocab_cards.push(newCard);
+      // 뜻 비동기 조회
+      fetchWordMeaning(w).then(async m=>{
+        if(!m||!m.meaning)return;
+        newCard.meaning=m.meaning;newCard.pos=m.pos;
+        await supaUpsert('vocab_cards',newCard.id,newCard,sid);
+        const ci=_cache.vocab_cards.findIndex(c=>c.id===newCard.id);
+        if(ci>=0)_cache.vocab_cards[ci]={...newCard};
+      });
     }
   }
 }
@@ -3900,19 +4128,42 @@ async function loadVocabCards(sid){
 }
 
 // ── STUDENT AUTH ──
-function goStudentPin(){show('s-stupin');setTimeout(()=>document.getElementById('stupin-name').focus(),100);}
+function goStudentPin(){show('s-stupin');_stuPin='';updatePinDots();}
 let currentStudentSid=null;
-async function checkStudentPin(){
-  const name=document.getElementById('stupin-name').value.trim();
-  const pin=document.getElementById('stupin-code').value;
+let _stuPin='';
+function updatePinDots(){
+  document.querySelectorAll('#pin-dots .pin-dot').forEach((d,i)=>d.classList.toggle('filled',i<_stuPin.length));
+}
+async function stuPinPress(v){
   const err=document.getElementById('stupin-err');
-  if(!name){err.textContent='이름을 입력해 주세요';return;}
-  // students 데이터가 없으면 로드
+  if(v==='del'){_stuPin=_stuPin.slice(0,-1);err.textContent='';updatePinDots();return;}
+  if(v==='ok'){await doCheckStudentPin();return;}
+  if(_stuPin.length<4){_stuPin+=v;updatePinDots();}
+  if(_stuPin.length===4)await doCheckStudentPin();
+}
+async function doCheckStudentPin(){
+  const err=document.getElementById('stupin-err');
+  if(_stuPin.length<4){err.textContent='PIN 4자리를 입력해 주세요';return;}
   if(!_cache.students.length)await loadAllData();
-  const s=_cache.students.find(x=>x.name===name&&!x.inactive);
-  if(!s){err.textContent='등록된 학생을 찾을 수 없습니다';return;}
-  if(s.pin!==pin){err.textContent='PIN이 맞지 않습니다';return;}
-  document.getElementById('stupin-code').value='';err.textContent='';
+  const matches=_cache.students.filter(s=>s.pin===_stuPin&&!s.inactive);
+  if(!matches.length){err.textContent='PIN이 맞지 않습니다';_stuPin='';updatePinDots();return;}
+  if(matches.length===1){await loginStudent(matches[0]);return;}
+  const sel=document.getElementById('stupin-name-sel-val');
+  sel.innerHTML='<option value="">이름 선택...</option>'+matches.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  document.getElementById('stupin-name-sel').style.display='block';
+  document.getElementById('stu-keypad').style.display='none';
+}
+async function confirmStudentByName(){
+  const sid=document.getElementById('stupin-name-sel-val').value;
+  const s=DB.stus().find(x=>x.id===sid);
+  if(!s){document.getElementById('stupin-err').textContent='학생을 선택해 주세요';return;}
+  await loginStudent(s);
+}
+async function loginStudent(s){
+  _stuPin='';updatePinDots();
+  document.getElementById('stupin-err').textContent='';
+  document.getElementById('stupin-name-sel').style.display='none';
+  document.getElementById('stu-keypad').style.display='grid';
   currentStudentSid=s.id;
   document.getElementById('stu-name-badge').textContent=s.name;
   show('s-student');
@@ -3925,6 +4176,8 @@ async function checkStudentPin(){
   _cache.assignments=_cache.assignments.filter(a=>a.sid!==s.id).concat(asgnRows);
   swStuTab('st-home');
 }
+// legacy alias
+async function checkStudentPin(){await doCheckStudentPin();}
 
 async function markHwChecked(hwId,sid){
   const hw=(_cache.homeworks||[]).find(h=>h.id===hwId);
@@ -4389,7 +4642,7 @@ function renderMemCard(el){
           <div class="vc-hint">탭하면 뜻이 보여요</div>
         </div>
         <div class="vc-face vc-back">
-          <div class="vc-meaning">${card.meaning||'(뜻 미입력)'}</div>
+          <div class="vc-meaning" id="vc-meaning-${card.id}">${card.meaning?card.meaning:'<span style="font-size:13px;color:var(--slate)">뜻 불러오는 중...</span>'}</div>
           ${card.example?`<div class="vc-ex">${card.example}</div>`:''}
         </div>
       </div>
@@ -4403,6 +4656,21 @@ function renderMemCard(el){
     </div>
   </div>`;
 }
+// 뜻이 없으면 조회 후 DOM 업데이트
+(function(){
+  const card=deckState.cards[deckState.idx];
+  if(card&&!card.meaning){
+    fetchWordMeaning(card.word).then(async m=>{
+      if(!m||!m.meaning)return;
+      card.meaning=m.meaning;card.pos=m.pos;
+      const el=document.getElementById('vc-meaning-'+card.id);
+      if(el)el.textContent=m.meaning;
+      await supaUpsert('vocab_cards',card.id,card,card.sid);
+      const ci=_cache.vocab_cards.findIndex(c=>c.id===card.id);
+      if(ci>=0)_cache.vocab_cards[ci]={...card};
+    });
+  }
+})();
 function flipMemCard(deckEl){
   const card=deckEl.querySelector('.vc-card');
   if(!card)return;
