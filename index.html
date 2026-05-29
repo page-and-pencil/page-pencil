@@ -651,6 +651,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
   <div class="stu-tabs">
     <button class="stutab active" onclick="swStuTab('st-vocab')">📚 단어장</button>
     <button class="stutab" onclick="swStuTab('st-library')">🎧 원서 듣기</button>
+    <button class="stutab" onclick="swStuTab('st-homework')">📋 숙제</button>
     <button class="stutab" onclick="swStuTab('st-hw')">📤 과제 제출</button>
     <button class="stutab" onclick="swStuTab('st-myinfo')">📊 내 기록</button>
     <button class="stutab" onclick="swStuTab('st-links')">🔗 학습 링크</button>
@@ -658,6 +659,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
   <div class="ab">
     <div id="st-vocab" class="panel active" style="max-width:480px;margin:0 auto"></div>
     <div id="st-library" class="panel" style="max-width:480px;margin:0 auto"></div>
+    <div id="st-homework" class="panel" style="max-width:480px;margin:0 auto"></div>
     <div id="st-hw" class="panel" style="max-width:480px;margin:0 auto"></div>
     <div id="st-myinfo" class="panel" style="max-width:480px;margin:0 auto"></div>
     <div id="st-links" class="panel" style="max-width:480px;margin:0 auto">
@@ -1523,7 +1525,7 @@ const supa={
 // ── 인메모리 캐시 (Supabase → 로컬 캐시 → UI) ──
 const _cache={
   students:[],lessons:[],tests:[],readings:[],logs:[],
-  library:[],notices:[],settings:{},vocab_cards:[],homeworks:[]
+  library:[],notices:[],settings:{},vocab_cards:[],homeworks:[],assignments:[]
 };
 
 // ── DATA ──
@@ -1547,7 +1549,8 @@ const DB={
 
   // 설정 (Supabase settings 테이블)
   acct(){return _cache.settings.acct||{bank:'',number:'',name:'',msg:''};},
-  notices_list(){return _cache.notices||[];}
+  notices_list(){return _cache.notices||[];},
+  assigns(){return _cache.assignments||[];}
 };
 
 // ── Supabase CRUD 헬퍼 ──
@@ -1603,10 +1606,10 @@ async function supaSetSetting(key,value){
 async function loadAllData(){
   showLoading(true);
   try{
-    const [stus,les,tsts,rds,logs,libs,notices,hws,acct,pw]=await Promise.all([
+    const [stus,les,tsts,rds,logs,libs,notices,hws,assigns,acct,pw]=await Promise.all([
       supaFetch('students'),supaFetch('lessons'),supaFetch('tests'),
       supaFetch('readings'),supaFetch('logs'),supaFetch('library'),
-      supaFetch('notices'),supaFetch('homeworks'),
+      supaFetch('notices'),supaFetch('homeworks'),supaFetch('assignments'),
       supaGetSetting('acct'),supaGetSetting('pw'),
     ]);
     _cache.students=(stus||[]).map(r=>(r.data||r));
@@ -1617,6 +1620,7 @@ async function loadAllData(){
     _cache.library=(libs||[]).map(r=>(r.data||r));
     _cache.notices=(notices||[]).map(r=>(r.data||r));
     _cache.homeworks=(hws||[]).map(r=>(r.data||r));
+    _cache.assignments=(assigns||[]).map(r=>(r.data||r));
     if(acct)_cache.settings.acct=acct;
     if(pw)_cache.settings.pw=pw;
     const [apikey,cloud]=await Promise.all([supaGetSetting('apikey'),supaGetSetting('cloud')]);
@@ -1991,24 +1995,74 @@ function loadStuPanel(sid){
         }).join('')}</tbody>
       </table>`}`;
 
-  // ── 과제 탭 (선생님: 제출 확인 + 듣기) ──
+  // ── 과제 탭 (선생님: 숙제 할당 + 제출 확인) ──
   const sHws=(_cache.homeworks||[]).filter(h=>h.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const sAssigns=(_cache.assignments||[]).filter(a=>a.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const unread=sHws.filter(h=>!h.checked).length;
-  document.getElementById('sp-hw').innerHTML=!sHws.length
-    ?`<div class="empty"><div class="empty-i">📤</div><div class="empty-t">제출된 과제 없음</div></div>`
-    :`<div style="margin-bottom:10px;font-size:12px;color:var(--slate)">총 ${sHws.length}건${unread>0?` · <span style="color:var(--coral);font-weight:700">미확인 ${unread}건</span>`:''}</div>
-     ${sHws.map(h=>`
-      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <span style="font-size:12px;font-family:var(--fm);color:var(--slate)">${h.date||''}</span>
-          <div style="display:flex;gap:6px;align-items:center">
-            <span class="hw-status-badge ${h.checked?'checked':'pending'}">${h.checked?'✓ 확인됨':'미확인'}</span>
-            ${!h.checked?`<button class="btn ba bsm" style="font-size:10px;padding:2px 8px" onclick="markHwChecked('${h.id}','${sid}')">확인</button>`:''}
+  const libOpts=(_cache.library||[]).map(b=>`<option value="${b.id}">${b.title}</option>`).join('');
+  document.getElementById('sp-hw').innerHTML=`
+  <div style="margin-bottom:12px">
+    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📋 오늘 숙제 할당</div>
+    <div class="fg" style="margin-bottom:8px">
+      <div class="f" style="margin-bottom:0"><label>날짜</label><input type="date" id="asgn-date-${sid}" value="${new Date().toISOString().split('T')[0]}"></div>
+      <div class="f" style="margin-bottom:0"><label>종류</label>
+        <select id="asgn-type-${sid}" onchange="renderAsgnForm('${sid}')">
+          <option value="reading">원서 읽기</option>
+          <option value="vocab">단어 암기</option>
+          <option value="other">기타</option>
+        </select>
+      </div>
+    </div>
+    <div id="asgn-form-${sid}">
+      <div class="f"><label>원서 선택</label>
+        <select id="asgn-book-${sid}"><option value="">-- 선택 --</option>${libOpts}</select>
+      </div>
+      <div class="fg">
+        <div class="f"><label>챕터/페이지 범위</label><input type="text" id="asgn-range-${sid}" placeholder="Ch.1-2 또는 p.1-20"></div>
+      </div>
+      <div class="f"><label>평가용 원문 텍스트 (선택, AI 평가에 사용)</label>
+        <textarea id="asgn-ref-${sid}" placeholder="해당 구간 영어 원문 붙여넣기..." style="min-height:60px;resize:vertical;width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none"></textarea>
+      </div>
+    </div>
+    <button class="btn bt bsm" style="width:100%" onclick="saveAssignment('${sid}')">숙제 할당</button>
+  </div>
+  <div class="div-line"></div>
+  ${sAssigns.length?`<div style="margin-bottom:8px">
+    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">할당된 숙제 (${sAssigns.length}건)</div>
+    ${sAssigns.map(a=>{
+      const hw=sHws.find(h=>h.assignmentId===a.id);
+      const submitted=!!hw;
+      return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="flex:1">
+            <div style="font-size:11px;color:var(--slate);font-family:var(--fm)">${a.date||''}</div>
+            <div style="font-size:12px;font-weight:700;margin-top:2px">${a.type==='reading'?'📖 '+a.bookTitle+(a.range?' ('+a.range+')':''):a.type==='vocab'?'📝 단어: '+(a.words||[]).join(', '):'💬 '+a.text}</div>
           </div>
+          <span class="hw-status-badge ${submitted?'checked':'pending'}">${submitted?'제출완료':'미제출'}</span>
         </div>
-        ${h.audioUrl?`<audio controls src="${h.audioUrl}" style="width:100%;height:30px"></audio>`:''}
-        ${h.memo?`<div style="font-size:11px;color:var(--slate);margin-top:4px">💬 ${h.memo}</div>`:''}
-      </div>`).join('')}`;
+        ${submitted&&hw.audioUrl?`<audio controls src="${hw.audioUrl}" style="width:100%;height:26px;margin-top:6px"></audio>`:''}
+        ${submitted&&hw.aiScore?`<div style="font-size:11px;color:#005f6b;background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:4px">🤖 AI 평가: ${hw.aiScore}</div>`:''}
+        ${submitted&&!hw.checked?`<button class="btn ba bsm" style="font-size:10px;margin-top:4px" onclick="markHwChecked('${hw.id}','${sid}')">확인 완료</button>`:''}
+      </div>`;
+    }).join('')}
+  </div>`:''}
+  ${sHws.filter(h=>!h.assignmentId).length?`<div>
+    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">기타 제출 (${sHws.filter(h=>!h.assignmentId).length}건)</div>
+    ${sHws.filter(h=>!h.assignmentId).map(h=>`
+    <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:11px;font-family:var(--fm);color:var(--slate)">${h.date||''}</span>
+        <div style="display:flex;gap:4px;align-items:center">
+          <span class="hw-status-badge ${h.checked?'checked':'pending'}">${h.checked?'✓ 확인됨':'미확인'}</span>
+          ${!h.checked?`<button class="btn ba bsm" style="font-size:10px;padding:2px 6px" onclick="markHwChecked('${h.id}','${sid}')">확인</button>`:''}
+        </div>
+      </div>
+      ${h.audioUrl?`<audio controls src="${h.audioUrl}" style="width:100%;height:26px"></audio>`:''}
+      ${h.memo?`<div style="font-size:11px;color:var(--slate);margin-top:3px">💬 ${h.memo}</div>`:''}
+    </div>`).join('')}
+  </div>`:''}
+  ${!sAssigns.length&&!sHws.length?`<div class="empty"><div class="empty-i">📤</div><div class="empty-t">제출된 과제 없음</div></div>`:''}
+  `;
 
   document.getElementById('stu-panel').classList.add('open');
   document.getElementById('stu-panel-overlay').classList.add('open');
@@ -2900,9 +2954,7 @@ async function polishCmt(raw){
         max_tokens:300,
         messages:[{
           role:'user',
-          content:`당신은 영어 교육 전문 선생님입니다. 아래 수업 메모를 학부모에게 보내는 전문적이면서도 따뜻한 톤의 알림으로 200자 내외 한국어로 작성해주세요. 마크다운, 이모지, 따옴표 사용 금지. 변환된 문장만 출력하세요.
-
-원문: ${r}`
+          content:`당신은 영어 교육 전문 선생님입니다. 아래 수업 메모의 내용을 절대 바꾸거나 생략하지 말고, 동일한 내용을 학부모에게 전달하는 따뜻하고 전문적인 톤의 한국어로 200자 내외로 바꿔주세요. 메모에 없는 내용을 추가하거나 일반적인 조언을 넣지 마세요. 마크다운, 이모지, 따옴표 사용 금지. 변환된 문장만 출력하세요. 원문: ${r}`
         }]
       })
     });
@@ -3906,6 +3958,149 @@ function renderStudentLibrary(sid){
   </div>`;
 }
 
+// ── ASSIGNMENT (숙제 할당) ──
+function renderAsgnForm(sid){
+  const type=document.getElementById(`asgn-type-${sid}`)?.value||'reading';
+  const el=document.getElementById(`asgn-form-${sid}`);if(!el)return;
+  const libOpts=(_cache.library||[]).map(b=>`<option value="${b.id}">${b.title}</option>`).join('');
+  if(type==='reading'){
+    el.innerHTML=`
+      <div class="f"><label>원서 선택</label><select id="asgn-book-${sid}"><option value="">-- 선택 --</option>${libOpts}</select></div>
+      <div class="f"><label>챕터/페이지 범위</label><input type="text" id="asgn-range-${sid}" placeholder="Ch.1-2 또는 p.1-20"></div>
+      <div class="f"><label>평가용 원문 텍스트 (선택)</label><textarea id="asgn-ref-${sid}" placeholder="해당 구간 영어 원문 붙여넣기..." style="min-height:60px;resize:vertical;width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none"></textarea></div>`;
+  } else if(type==='vocab'){
+    el.innerHTML=`<div class="f"><label>단어 목록 (쉼표 구분)</label><input type="text" id="asgn-words-${sid}" placeholder="apple, enormous, quickly..."></div>`;
+  } else {
+    el.innerHTML=`<div class="f"><label>숙제 내용</label><input type="text" id="asgn-text-${sid}" placeholder="예) 교과서 p.23 문제 풀기"></div>`;
+  }
+}
+async function saveAssignment(sid){
+  const type=document.getElementById(`asgn-type-${sid}`)?.value||'reading';
+  const date=document.getElementById(`asgn-date-${sid}`)?.value||new Date().toISOString().split('T')[0];
+  const a={id:uid(),sid,date,type};
+  if(type==='reading'){
+    const bookId=document.getElementById(`asgn-book-${sid}`)?.value||'';
+    const bookEl=document.getElementById(`asgn-book-${sid}`);
+    a.bookId=bookId;
+    a.bookTitle=bookEl?.options[bookEl.selectedIndex]?.text||'';
+    a.range=document.getElementById(`asgn-range-${sid}`)?.value.trim()||'';
+    a.referenceText=document.getElementById(`asgn-ref-${sid}`)?.value.trim()||'';
+  } else if(type==='vocab'){
+    a.words=(document.getElementById(`asgn-words-${sid}`)?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
+  } else {
+    a.text=document.getElementById(`asgn-text-${sid}`)?.value.trim()||'';
+  }
+  await supaUpsert('assignments',a.id,a,sid);
+  if(!_cache.assignments)_cache.assignments=[];
+  _cache.assignments.unshift(a);
+  toast('숙제가 할당되었습니다');
+  loadStuPanel(sid);
+}
+
+// ── ASSIGNMENT TAB (학생 앱) ──
+let asgnHwBlob=null,asgnHwUrl='',asgnCurrentId='';
+function renderAssignmentTab(sid){
+  const el=document.getElementById('st-homework');if(!el)return;
+  const assigns=(_cache.assignments||[]).filter(a=>a.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const hws=(_cache.homeworks||[]).filter(h=>h.sid===sid);
+  const isSubmitted=a=>hws.some(h=>h.assignmentId===a.id);
+  const getHw=a=>hws.find(h=>h.assignmentId===a.id);
+  const allBooks=[...BOOK_DB,...DB.libs()];
+
+  const pending=assigns.filter(a=>!isSubmitted(a));
+  const done=assigns.filter(a=>isSubmitted(a));
+
+  if(!assigns.length){
+    el.innerHTML=`<div style="padding:2rem;text-align:center"><div style="font-size:36px;margin-bottom:10px">📋</div><div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">아직 숙제가 없어요</div><div style="font-size:12px;color:var(--slate)">선생님이 숙제를 할당하면 여기에 표시됩니다</div></div>`;
+    return;
+  }
+
+  function asgnCard(a, submitted){
+    const hw=getHw(a);
+    const book=a.bookId?allBooks.find(b=>b.id===a.bookId):null;
+    const ao=book?getAudioObj(book):null;
+    let content='';
+    if(a.type==='reading'){
+      content=`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">📖 ${a.bookTitle||'원서 읽기'}${a.range?' — '+a.range:''}</div>`;
+      if(ao&&!submitted){
+        if(ao.type==='chapters'&&ao.chapters?.length){
+          content+=`<div style="font-size:11px;color:var(--slate);margin-bottom:6px">오디오:</div>
+            ${ao.chapters.map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:11px;min-width:44px">챕터 ${c.num}</span><audio controls src="${c.url}" style="flex:1;height:26px"></audio></div>`).join('')}`;
+        } else if(ao.url||typeof ao==='string'){
+          content+=`<audio controls src="${ao.url||ao}" style="width:100%;height:28px;margin-bottom:6px"></audio>`;
+        }
+      }
+    } else if(a.type==='vocab'){
+      content=`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">📝 단어 암기</div><div class="wl">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
+    } else {
+      content=`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">💬 ${a.text||''}</div>`;
+    }
+
+    if(submitted){
+      return `<div class="stu-book-card" style="border-color:rgba(0,196,204,.3)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+          <span style="font-size:10px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
+          <span style="font-size:11px;font-weight:700;color:#005f6b;background:var(--tl);padding:2px 8px;border-radius:10px">제출완료 ✓</span>
+        </div>
+        ${content}
+        ${hw?.audioUrl?`<audio controls src="${hw.audioUrl}" style="width:100%;height:26px;margin-top:4px"></audio>`:''}
+        ${hw?.aiScore?`<div style="font-size:11px;color:#005f6b;background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:6px">🤖 AI 피드백: ${hw.aiScore}</div>`:''}
+      </div>`;
+    }
+
+    const isRecording=asgnCurrentId===a.id;
+    return `<div class="stu-book-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <span style="font-size:10px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
+        <span style="font-size:11px;font-weight:700;color:var(--coral);background:var(--cl);padding:2px 8px;border-radius:10px">미제출</span>
+      </div>
+      ${content}
+      ${a.type==='reading'?`
+      <div style="margin-top:8px">
+        <div class="hw-upload-zone" style="padding:12px" onclick="document.getElementById('asgn-audio-${a.id}').click()">
+          <div style="font-size:13px;font-weight:700;color:var(--navy)">🎤 녹음 제출</div>
+          <div style="font-size:11px;color:var(--slate)">MP3, M4A, WAV</div>
+        </div>
+        <input type="file" id="asgn-audio-${a.id}" accept="audio/*" style="display:none" onchange="handleAsgnAudio(event,'${a.id}','${sid}')">
+        <div id="asgn-preview-${a.id}" style="display:none;margin-top:8px">
+          <div style="display:flex;align-items:center;gap:8px;background:var(--cream);border-radius:8px;padding:8px 12px">
+            <audio id="asgn-player-${a.id}" controls style="flex:1;height:28px"></audio>
+            <button class="btn bd bsm" onclick="clearAsgnAudio('${a.id}')">✕</button>
+          </div>
+          <button class="btn bt" style="width:100%;margin-top:8px" onclick="submitAsgnHomework('${sid}','${a.id}')">제출하기</button>
+        </div>
+      </div>`:''}
+    </div>`;
+  }
+
+  el.innerHTML=`<div style="padding:1.25rem">
+    ${pending.length?`<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📌 미제출 (${pending.length}건)</div>${pending.map(a=>asgnCard(a,false)).join('')}`:''}
+    ${done.length?`<div style="font-size:12px;font-weight:700;color:var(--slate);margin:12px 0 8px">✅ 완료된 숙제 (${done.length}건)</div>${done.map(a=>asgnCard(a,true)).join('')}`:''}
+  </div>`;
+}
+function handleAsgnAudio(e,asgnId,sid){
+  const f=e.target.files[0];if(!f)return;
+  asgnHwBlob=f;asgnCurrentId=asgnId;
+  const url=URL.createObjectURL(f);
+  const player=document.getElementById(`asgn-player-${asgnId}`);
+  const preview=document.getElementById(`asgn-preview-${asgnId}`);
+  if(player)player.src=url;
+  if(preview)preview.style.display='block';
+}
+function clearAsgnAudio(asgnId){
+  asgnHwBlob=null;asgnCurrentId='';asgnHwUrl='';
+  const preview=document.getElementById(`asgn-preview-${asgnId}`);
+  const input=document.getElementById(`asgn-audio-${asgnId}`);
+  if(preview)preview.style.display='none';
+  if(input)input.value='';
+}
+async function submitAsgnHomework(sid,asgnId){
+  if(!asgnHwBlob||asgnCurrentId!==asgnId){toast('녹음 파일을 선택해 주세요');return;}
+  hwAudioBlob=asgnHwBlob;hwAudioUrl='';
+  await submitHomework(sid,asgnId);
+  asgnHwBlob=null;asgnCurrentId='';asgnHwUrl='';
+}
+
 // ── HOMEWORK SUBMIT TAB ──
 let hwAudioBlob=null,hwAudioUrl='';
 function renderHomeworkTab(sid){
@@ -3972,7 +4167,7 @@ function clearHwAudio(){
   document.getElementById('hw-audio-preview').style.display='none';
   document.getElementById('hw-audio-input').value='';
 }
-async function submitHomework(sid){
+async function submitHomework(sid, assignmentId=''){
   if(!hwAudioBlob){toast('녹음 파일을 먼저 업로드해 주세요');return;}
   toast('제출 중...');
   const {name,preset}=DB.cld();
@@ -3983,7 +4178,6 @@ async function submitHomework(sid){
       if(res.ok)hwAudioUrl=(await res.json()).secure_url;
     }catch(e){console.error(e);}
   }
-  // Supabase Storage fallback (소파일)
   if(!hwAudioUrl){
     try{
       const fname=`hw_${sid}_${Date.now()}.${hwAudioBlob.name.split('.').pop()}`;
@@ -3991,13 +4185,35 @@ async function submitHomework(sid){
       if(r.ok)hwAudioUrl=`${SUPA_URL}/storage/v1/object/public/homeworks/${fname}`;
     }catch(e){console.error(e);}
   }
-  const memo=document.getElementById('hw-memo').value.trim();
-  const hw={id:uid(),sid,date:new Date().toISOString().split('T')[0],audioUrl:hwAudioUrl,memo,checked:false};
+  const memoEl=document.getElementById('hw-memo');
+  const memo=memoEl?memoEl.value.trim():'';
+  const hw={id:uid(),sid,date:new Date().toISOString().split('T')[0],audioUrl:hwAudioUrl,memo,checked:false,assignmentId};
   await supaUpsert('homeworks',hw.id,hw,sid);
   if(!_cache.homeworks)_cache.homeworks=[];
   _cache.homeworks.unshift(hw);
-  clearHwAudio();document.getElementById('hw-memo').value='';
-  renderHomeworkTab(sid);
+  clearHwAudio();if(memoEl)memoEl.value='';
+  // AI 평가 (원서 읽기 과제 + API 키 있을 때)
+  if(assignmentId){
+    const asgn=(_cache.assignments||[]).find(a=>a.id===assignmentId);
+    const apiKey=DB.api();
+    if(asgn&&asgn.referenceText&&apiKey&&hwAudioUrl){
+      toast('AI 평가 중...');
+      try{
+        const res=await fetch('https://api.anthropic.com/v1/messages',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
+          body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`학생이 아래 영어 원문 구간을 낭독 제출했습니다. 녹음을 텍스트로 변환한 결과와 원문을 비교하여 발음/유창성/정확도를 평가해주세요. 간결하게 한국어로 피드백 작성 (100자 내외). 원문: ${asgn.referenceText}`}]})
+        });
+        if(res.ok){
+          const aiScore=(await res.json()).content?.[0]?.text?.trim()||'';
+          if(aiScore){hw.aiScore=aiScore;await supaUpsert('homeworks',hw.id,hw,sid);}
+        }
+      }catch(e){console.warn('AI 평가 실패',e);}
+    }
+    renderAssignmentTab(sid);
+  } else {
+    renderHomeworkTab(sid);
+  }
   toast('과제가 제출되었습니다 ✓');
 }
 
@@ -4026,11 +4242,12 @@ function showVocabCardStatus(sid,allWords){
 
 // ── STUDENT TABS (updated) ──
 function swStuTab(id){
-  const IDS=['st-vocab','st-library','st-hw','st-myinfo','st-links'];
+  const IDS=['st-vocab','st-library','st-homework','st-hw','st-myinfo','st-links'];
   document.querySelectorAll('.stutab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
   document.querySelectorAll('#s-student .panel').forEach(p=>p.classList.toggle('active',p.id===id));
   if(id==='st-vocab')renderVocabDeck(currentStudentSid);
   if(id==='st-library')renderStudentLibrary(currentStudentSid);
+  if(id==='st-homework')renderAssignmentTab(currentStudentSid);
   if(id==='st-hw')renderHomeworkTab(currentStudentSid);
   if(id==='st-myinfo')renderStudentMyInfo(currentStudentSid);
 }
