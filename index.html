@@ -31,14 +31,87 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 #s-land{background:var(--navy);align-items:center;justify-content:center;position:relative;overflow:hidden;}
 #s-land::before{content:'';position:absolute;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(0,196,204,.08),transparent 70%);top:-120px;right:-120px;pointer-events:none;}
 #s-land::after{content:'';position:absolute;width:350px;height:350px;border-radius:50%;background:radial-gradient(circle,rgba(196,97,74,.10),transparent 70%);bottom:-60px;left:-60px;pointer-events:none;}
-.land-inner{text-align:center;z-index:1;padding:2rem;}
-.land-logo{font-family:var(--fd);font-size:clamp(32px,7vw,54px);color:#fff;margin-bottom:6px;font-weight:800;letter-spacing:-0.02em;}
+.land-inner{text-align:center;z-index:1;padding:2rem;width:100%;max-width:360px;}
+.land-logo{font-family:var(--fd);font-size:clamp(28px,6vw,42px);color:#fff;margin-bottom:6px;font-weight:400;letter-spacing:0.01em;}
 .land-logo span{color:#00c4cc;font-style:italic;}
-.land-tag{font-size:11px;color:rgba(255,255,255,.35);letter-spacing:.18em;text-transform:uppercase;margin-bottom:3rem;font-weight:500;}
-.btn-land{width:240px;padding:14px 24px;border-radius:6px;font-family:var(--fb);font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .2s;background:#fff;color:var(--navy);letter-spacing:0.01em;}
-.btn-land:hover{background:var(--cream);transform:translateY(-1px);}
-.teacher-link{display:block;font-size:11px;color:rgba(255,255,255,.18);cursor:pointer;margin-top:2rem;background:none;border:none;font-family:var(--fb);}
-.teacher-link:hover{color:rgba(255,255,255,.4);}
+.land-tag{font-size:11px;color:rgba(255,255,255,.35);letter-spacing:.18em;text-transform:uppercase;margin-bottom:2.5rem;font-weight:500;}
+.land-btns{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem;}
+.btn-land{width:100%;padding:18px 16px;border-radius:10px;font-family:var(--fb);font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .2s;letter-spacing:0.01em;display:flex;flex-direction:column;align-items:center;gap:7px;}
+.btn-land-icon{font-size:26px;line-height:1;}
+.btn-land-label{font-size:13px;font-weight:700;}
+.btn-land-sub{font-size:10px;font-weight:400;opacity:.65;letter-spacing:.02em;}
+.btn-land.student{background:#00c4cc;color:#fff;}
+.btn-land.student:hover{background:#00b0b6;transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,196,204,.35);}
+.btn-land.parent{background:#fff;color:var(--navy);}
+.btn-land.parent:hover{background:var(--cream);transform:translateY(-2px);box-shadow:0 8px 24px rgba(13,37,66,.18);}
+.teacher-link{display:block;font-size:11px;color:rgba(255,255,255,.2);cursor:pointer;background:none;border:none;font-family:var(--fb);padding:4px;letter-spacing:.04em;}
+.teacher-link:hover{color:rgba(255,255,255,.45);}
+
+/* STUDENT APP */
+#s-student{background:var(--cream);}
+.stu-app-header{background:var(--navy);padding:0 1.25rem;height:50px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.stu-app-logo{font-family:var(--fd);font-size:16px;color:#fff;font-weight:700;}
+.stu-app-logo span{color:#00c4cc;font-style:italic;}
+.stu-name-badge{font-size:12px;color:rgba(255,255,255,.6);background:rgba(255,255,255,.1);padding:3px 10px;border-radius:20px;}
+.stu-tabs{background:#fff;border-bottom:1px solid var(--border);display:flex;padding:0 1rem;overflow-x:auto;scrollbar-width:none;flex-shrink:0;}
+.stu-tabs::-webkit-scrollbar{display:none;}
+.stutab{padding:12px 14px;font-size:12px;font-weight:500;color:var(--slate);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--fb);transition:all .2s;}
+.stutab.active{color:var(--navy);border-bottom-color:var(--teal);font-weight:700;}
+
+/* VOCAB CARD */
+.vc-deck{perspective:1200px;width:100%;max-width:340px;margin:0 auto;}
+.vc-card{position:relative;width:100%;aspect-ratio:16/10;cursor:pointer;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.4,0,.2,1);}
+.vc-card.flipped{transform:rotateY(180deg);}
+.vc-face{position:absolute;inset:0;backface-visibility:hidden;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;}
+.vc-front{background:var(--navy);color:#fff;}
+.vc-back{background:#fff;border:2px solid var(--teal);transform:rotateY(180deg);}
+.vc-word{font-family:var(--fd);font-size:clamp(22px,6vw,36px);font-weight:700;letter-spacing:-.01em;text-align:center;}
+.vc-pos{font-size:11px;opacity:.5;margin-top:4px;font-family:var(--fm);letter-spacing:.08em;text-transform:uppercase;}
+.vc-meaning{font-size:clamp(16px,4vw,22px);font-weight:600;color:var(--navy);text-align:center;}
+.vc-ex{font-size:12px;color:var(--slate);margin-top:8px;line-height:1.7;text-align:center;font-style:italic;}
+.vc-hint{font-size:11px;color:rgba(255,255,255,.35);margin-top:10px;}
+.vc-prog{display:flex;gap:4px;justify-content:center;margin:14px 0 10px;}
+.vc-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.2);transition:background .2s;}
+.vc-dot.done{background:var(--teal);}
+.vc-dot.cur{background:#fff;}
+.vc-actions{display:flex;gap:10px;justify-content:center;margin-top:10px;}
+.btn-vc{padding:10px 24px;border-radius:50px;font-family:var(--fb);font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .2s;}
+.btn-vc.know{background:var(--teal);color:#fff;}
+.btn-vc.know:hover{background:#009aa0;}
+.btn-vc.unsure{background:var(--cl);color:var(--coral);}
+.btn-vc.unsure:hover{background:#f0d5ce;}
+.vc-phase{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;font-family:var(--fm);letter-spacing:.04em;}
+.phase-mem{background:rgba(0,196,204,.12);color:#005f6b;}
+.phase-rec{background:rgba(244,120,74,.12);color:#b84010;}
+.phase-spl{background:rgba(91,79,187,.12);color:#3b2e8e;}
+
+/* RECALL INPUT */
+.recall-wrap{width:100%;max-width:340px;margin:0 auto;}
+.recall-word{font-family:var(--fd);font-size:28px;font-weight:700;color:var(--navy);text-align:center;margin-bottom:6px;}
+.recall-pos{font-size:11px;color:var(--slate);text-align:center;margin-bottom:20px;font-family:var(--fm);}
+.recall-input{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:10px;font-family:var(--fb);font-size:18px;font-weight:600;color:var(--navy);text-align:center;outline:none;transition:border-color .2s;background:#fff;}
+.recall-input:focus{border-color:var(--teal);}
+.recall-input.correct{border-color:#00c4cc;background:rgba(0,196,204,.07);}
+.recall-input.wrong{border-color:var(--coral);background:rgba(196,97,74,.07);}
+.recall-feedback{text-align:center;font-size:14px;font-weight:600;margin-top:10px;min-height:22px;}
+
+/* SPELL INPUT */
+.spell-blanks{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:16px 0;}
+.spell-blank{width:34px;height:40px;border-bottom:2px solid var(--navy);display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:20px;font-weight:700;color:var(--navy);transition:border-color .2s;}
+.spell-blank.filled{border-bottom-color:var(--teal);}
+.spell-blank.hint-shown{color:rgba(13,37,66,.3);}
+.spell-keys{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px;}
+.spell-key{width:34px;height:38px;border-radius:7px;border:1.5px solid var(--border);background:#fff;font-family:var(--fd);font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;color:var(--navy);}
+.spell-key:hover{border-color:var(--teal);background:var(--tl);}
+.spell-key:disabled{opacity:.3;cursor:default;}
+
+/* RESULT SCREEN */
+.result-ring{width:90px;height:90px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 12px;font-family:var(--fm);font-weight:700;}
+.result-ring.hi{background:rgba(0,196,204,.1);color:#005f6b;border:3px solid var(--teal);}
+.result-ring.md{background:rgba(244,120,74,.1);color:#b84010;border:3px solid #F4784A;}
+.result-ring.lo{background:rgba(196,97,74,.1);color:#a03020;border:3px solid var(--coral);}
+.missed-list{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px;}
+.missed-chip{padding:4px 12px;border-radius:20px;background:var(--cl);color:#a03020;font-size:13px;font-weight:600;font-family:var(--fm);}
 
 /* AUTH */
 .cs{background:var(--cream);align-items:center;justify-content:center;padding:2rem;}
@@ -174,7 +247,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .ut{font-size:12px;color:var(--slate);}
 
 /* STATS */
-.strow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1rem;}
+.strow{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:10px;margin-bottom:1rem;}
 .stc{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center;}
 .stnum{font-size:22px;font-weight:700;font-family:var(--fm);color:var(--navy);}
 .stlbl{font-size:11px;color:var(--slate);margin-top:2px;}
@@ -460,6 +533,45 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .notice-active{background:rgba(0,196,204,.15);border:1px solid rgba(0,196,204,.3);border-radius:var(--rs);padding:10px 12px;}
 .notice-date{font-size:11px;color:var(--slate);font-family:var(--fm);}
 .notice-text{font-size:13px;color:var(--navy);line-height:1.6;margin-top:3px;}
+
+/* 오디오 플레이어 */
+.audio-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
+.audio-row:last-child{border-bottom:none;}
+.audio-title{flex:1;font-size:13px;font-weight:500;color:var(--navy);}
+.audio-player{width:100%;margin-top:4px;accent-color:var(--teal);}
+.audio-upload-btn{padding:4px 10px;border-radius:var(--rs);font-size:11px;font-weight:600;cursor:pointer;border:1.5px dashed rgba(0,196,204,.4);background:var(--tl);color:var(--navy);font-family:var(--fb);}
+.audio-upload-btn:hover{border-color:var(--teal);}
+
+/* STUDENT LIBRARY */
+.stu-book-card{background:#fff;border-radius:12px;border:1px solid var(--border);padding:14px;margin-bottom:10px;}
+.stu-book-top{display:flex;gap:12px;align-items:flex-start;}
+.stu-book-cover{width:44px;height:58px;border-radius:6px;background:var(--navy2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.stu-book-title{font-weight:700;font-size:14px;color:var(--navy);line-height:1.4;margin-bottom:2px;}
+.stu-book-series{font-size:11px;color:var(--slate);}
+.stu-audio-wrap{background:var(--cream);border-radius:8px;padding:8px 12px;margin-top:8px;}
+.stu-audio-wrap audio{width:100%;height:32px;}
+.stu-no-audio{font-size:12px;color:var(--slate);text-align:center;padding:8px 0;opacity:.55;}
+
+/* HOMEWORK SUBMIT */
+.hw-upload-zone{border:2px dashed rgba(0,196,204,.4);border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:var(--tl);transition:all .2s;}
+.hw-upload-zone:hover{border-color:var(--teal);}
+.hw-status-badge{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
+.hw-status-badge.pending{background:#FFF8E1;color:#b06000;}
+.hw-status-badge.checked{background:var(--tl);color:var(--purple);}
+
+/* LESSON COPY BTN */
+.les-copy-btn{padding:4px 10px;border-radius:var(--rs);font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--slate);font-family:var(--fb);transition:all .15s;}
+.les-copy-btn:hover{border-color:var(--teal);color:var(--teal);}
+
+/* PARENT MONTH SUMMARY */
+.p-month-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem;}
+.p-month-card{background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center;}
+.p-month-num{font-size:20px;font-weight:700;color:var(--navy);font-family:var(--fm);}
+.p-month-lbl{font-size:10px;color:var(--slate);margin-top:2px;}
+.p-score-mini{background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px 14px;margin-bottom:10px;}
+
+/* MISC */
+.vocab-card-status{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;background:var(--tl);color:var(--purple);}
 </style>
 </head>
 <body>
@@ -469,8 +581,20 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
   <div class="land-inner">
     <div class="land-logo">Page <span>&</span> Pencil</div>
     <div class="land-tag">기준이 다른 전문가의 밀착 영어</div>
-    <button class="btn-land" onclick="goPinScreen()">우리 아이 학습 기록 조회</button>
-    <button class="teacher-link" onclick="goTeacherLogin()">선생님 로그인</button>
+    <div class="land-btns">
+      <button class="btn-land student" onclick="goStudentPin()">
+        <span class="btn-land-icon">✏️</span>
+        <span class="btn-land-label">학생</span>
+        <span class="btn-land-sub">단어장 · 학습</span>
+      </button>
+      <button class="btn-land parent" onclick="goPinScreen()">
+        <span class="btn-land-icon">👨‍👩‍👧</span>
+        <span class="btn-land-label">학부모</span>
+        <span class="btn-land-sub">수업 기록 조회</span>
+      </button>
+    </div>
+    <button class="teacher-link" onclick="goTeacherLogin()">선생님</button>
+    <div style="position:absolute;bottom:16px;right:16px;font-size:10px;color:rgba(255,255,255,.15);font-family:var(--fm)">v14</div>
   </div>
 </div>
 
@@ -498,6 +622,43 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
     <button class="btn-full teal" onclick="checkPin()">조회하기</button>
     <div class="pin-help">PIN을 모르시면 선생님께 문의해 주세요<br>PIN은 아이의 생년월일 4자리입니다</div>
     <span class="back-lnk" onclick="show('s-land')">← 돌아가기</span>
+  </div>
+</div>
+
+<!-- STUDENT PIN -->
+<div id="s-stupin" class="screen cs">
+  <div class="ac">
+    <div class="ac-logo">Page <span>&</span> Pencil</div>
+    <div class="ac-title">학생 로그인</div>
+    <div class="ac-sub">이름과 PIN(생년월일 4자리)을 입력하세요<br>예) 3월 12일 → 0312</div>
+    <div class="f"><label>이름</label><input type="text" id="stupin-name" placeholder="이름 입력" autocomplete="off"></div>
+    <div class="f"><label>PIN</label><input type="password" id="stupin-code" maxlength="4" placeholder="0000" inputmode="numeric" onkeydown="if(event.key==='Enter')checkStudentPin()"></div>
+    <div class="err" id="stupin-err"></div>
+    <button class="btn-full teal" onclick="checkStudentPin()">입장하기</button>
+    <span class="back-lnk" onclick="show('s-land')">← 돌아가기</span>
+  </div>
+</div>
+
+<!-- STUDENT APP -->
+<div id="s-student" class="screen">
+  <div class="stu-app-header">
+    <div class="stu-app-logo">Page <span>&</span> Pencil</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="stu-name-badge" id="stu-name-badge">—</span>
+      <button class="btn-lo" onclick="show('s-land')">나가기</button>
+    </div>
+  </div>
+  <div class="stu-tabs">
+    <button class="stutab active" onclick="swStuTab('st-vocab')">📚 단어장</button>
+    <button class="stutab" onclick="swStuTab('st-library')">🎧 원서 듣기</button>
+    <button class="stutab" onclick="swStuTab('st-hw')">📤 과제 제출</button>
+    <button class="stutab" onclick="swStuTab('st-myinfo')">📊 내 기록</button>
+  </div>
+  <div class="ab">
+    <div id="st-vocab" class="panel active" style="max-width:480px;margin:0 auto"></div>
+    <div id="st-library" class="panel" style="max-width:480px;margin:0 auto"></div>
+    <div id="st-hw" class="panel" style="max-width:480px;margin:0 auto"></div>
+    <div id="st-myinfo" class="panel" style="max-width:480px;margin:0 auto"></div>
   </div>
 </div>
 
@@ -604,8 +765,19 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
             <div class="f"><label>출결</label>
               <select id="ls-att"><option value="normal">정상</option><option value="absent">결석</option><option value="late">지각</option><option value="makeup">보강</option></select>
             </div>
+            <div class="f"><label>학년</label>
+              <select id="ls-grade">
+                <option value="초1">초등 1학년</option><option value="초2">초등 2학년</option>
+                <option value="초3">초등 3학년</option><option value="초4">초등 4학년</option>
+                <option value="초5">초등 5학년</option><option value="초6">초등 6학년</option>
+                <option value="중1">중학교 1학년</option><option value="중2">중학교 2학년</option><option value="중3">중학교 3학년</option>
+              </select>
+            </div>
           </div>
-          <div id="ls-last-hint" style="display:none;margin-bottom:10px;padding:8px 12px;background:var(--cream2);border-radius:var(--rs);font-size:12px;color:var(--slate)"></div>
+          <div id="ls-last-hint" style="display:none;margin-bottom:10px;padding:8px 12px;background:var(--cream2);border-radius:var(--rs);font-size:12px;color:var(--slate);display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+            <span id="ls-last-hint-text"></span>
+            <button class="les-copy-btn" onclick="copyLastLesson()" title="이전 수업 교재 그대로 복사">↩ 복사</button>
+          </div>
           <div class="f">
             <label>교재 진도 영역</label>
             <div class="chips" id="subj-chips">
@@ -659,8 +831,9 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
               <div class="f"><label>맞힌 수</label><input type="number" id="ts-vc" min="0" placeholder="8" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
               <div style="padding-bottom:10px;font-size:22px;color:var(--slate);font-family:var(--fm)">/</div>
               <div class="f"><label>전체 문제</label><input type="number" id="ts-vt" min="0" placeholder="10" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
-              <div class="f" style="flex:2"><label>틀린 단어 (쉼표 구분)</label><input type="text" id="ts-wr" placeholder="quickly, enormous"></div>
             </div>
+            <div class="f"><label>전체 단어 (쉼표 구분) <span style="color:var(--slate);font-weight:400">— 단어장 저장용</span></label><input type="text" id="ts-allwords" placeholder="quickly, enormous, vast, ..."></div>
+            <div class="f"><label>틀린 단어 (쉼표 구분)</label><input type="text" id="ts-wr" placeholder="quickly, enormous"></div>
           </div>
           <div class="score-block">
             <div class="score-block-title">어법 테스트</div>
@@ -783,7 +956,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
       <div class="lib-table-container">
         <table class="lib-tbl">
           <thead><tr>
-            <th>제목</th><th>시리즈</th><th>AR</th><th>렉사일</th><th>레벨</th><th>구분</th><th></th>
+            <th>제목</th><th>시리즈</th><th>AR</th><th>렉사일</th><th>레벨</th><th>구분</th><th>오디오</th><th></th>
           </tr></thead>
           <tbody id="lib-tbody"></tbody>
         </table>
@@ -843,6 +1016,17 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
         </div>
       </div>
 
+      <div class="card" style="margin-top:1rem">
+        <div class="ch"><span class="ct">데이터 관리</span></div>
+        <div class="cb">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn bo bsm" onclick="testSupaConn()">🔗 Supabase 연결 확인</button>
+            <button class="btn bo bsm" onclick="forceReload()">🔄 데이터 새로고침</button>
+          </div>
+          <div id="supa-conn-result" style="margin-top:8px"></div>
+        </div>
+      </div>
+
 
     </div>
 
@@ -854,6 +1038,11 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
   <div class="ah">
     <div class="ah-logo">Page <span>&</span> Pencil</div>
     <button class="btn-lo" onclick="show('s-land')">← 나가기</button>
+  </div>
+  <!-- 공지 배너 (활성 공지 있을 때만 표시) -->
+  <div id="parent-notice-banner" style="display:none;background:#FFF8E1;border-bottom:2px solid #F9A825;padding:10px 1.25rem;font-size:13px;color:#5D4037;line-height:1.6;cursor:pointer" onclick="document.getElementById('parent-notice-banner').style.display='none'">
+    <span style="font-weight:700;margin-right:6px">📢 공지</span><span id="parent-notice-text"></span>
+    <span style="float:right;opacity:.5;font-size:11px">닫기 ✕</span>
   </div>
   <div class="ph">
     <div class="psn" id="p-name">—</div>
@@ -1133,12 +1322,14 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
     <button class="sptab active" onclick="swSpTab('sp-summary')">요약</button>
     <button class="sptab" onclick="swSpTab('sp-lessons')">수업</button>
     <button class="sptab" onclick="swSpTab('sp-tests')">테스트</button>
+    <button class="sptab" onclick="swSpTab('sp-hw')">📤 과제</button>
     <button class="sptab" onclick="swSpTab('sp-payment')">결제</button>
   </div>
   <div class="stu-panel-body">
     <div id="sp-summary" class="sp-pane"></div>
     <div id="sp-lessons" class="sp-pane" style="display:none"></div>
     <div id="sp-tests" class="sp-pane" style="display:none"></div>
+    <div id="sp-hw" class="sp-pane" style="display:none"></div>
     <div id="sp-payment" class="sp-pane" style="display:none"></div>
   </div>
 </div>
@@ -1251,7 +1442,7 @@ const supa={
 // ── 인메모리 캐시 (Supabase → 로컬 캐시 → UI) ──
 const _cache={
   students:[],lessons:[],tests:[],readings:[],logs:[],
-  library:[],notices:[],settings:{}
+  library:[],notices:[],settings:{},vocab_cards:[],homeworks:[]
 };
 
 // ── DATA ──
@@ -1331,10 +1522,11 @@ async function supaSetSetting(key,value){
 async function loadAllData(){
   showLoading(true);
   try{
-    const [stus,les,tsts,rds,logs,libs,notices,acct,pw]=await Promise.all([
+    const [stus,les,tsts,rds,logs,libs,notices,hws,acct,pw]=await Promise.all([
       supaFetch('students'),supaFetch('lessons'),supaFetch('tests'),
       supaFetch('readings'),supaFetch('logs'),supaFetch('library'),
-      supaFetch('notices'),supaGetSetting('acct'),supaGetSetting('pw'),
+      supaFetch('notices'),supaFetch('homeworks'),
+      supaGetSetting('acct'),supaGetSetting('pw'),
     ]);
     _cache.students=(stus||[]).map(r=>(r.data||r));
     _cache.lessons=(les||[]).map(r=>(r.data||r));
@@ -1343,6 +1535,7 @@ async function loadAllData(){
     _cache.logs=(logs||[]).map(r=>(r.data||r));
     _cache.library=(libs||[]).map(r=>(r.data||r));
     _cache.notices=(notices||[]).map(r=>(r.data||r));
+    _cache.homeworks=(hws||[]).map(r=>(r.data||r));
     if(acct)_cache.settings.acct=acct;
     if(pw)_cache.settings.pw=pw;
     const apikey=await supaGetSetting('apikey');
@@ -1516,6 +1709,9 @@ function populateSels(){
   const stus=DB.stus();
   const opts=stus.filter(s=>!s.inactive).map(s=>`<option value="${s.id}">${s.name}</option>`).join('')||'<option value="">학생 없음</option>';
   ['ls-stu','ts-stu','rd-stu','lg-stu','el-stu','qp-stu'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+  // 첫번째 학생의 학년으로 ls-grade 초기화
+  const firstActive=stus.find(s=>!s.inactive);
+  if(firstActive){const grEl=document.getElementById('ls-grade');if(grEl&&(firstActive.grade||firstActive.lv))grEl.value=firstActive.grade||firstActive.lv;}
 }
 function populateFilterSels(){
   const stus=DB.stus().filter(s=>!s.inactive);
@@ -1572,7 +1768,7 @@ function closeStuPanel(){
 }
 function openEditStuFromPanel(){closeStuPanel();openEditStu(currentSpStuId);}
 function swSpTab(id){
-  document.querySelectorAll('.sptab').forEach((t,i)=>{const IDS=['sp-summary','sp-lessons','sp-tests','sp-payment'];t.classList.toggle('active',IDS[i]===id);});
+  document.querySelectorAll('.sptab').forEach((t,i)=>{const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-payment'];t.classList.toggle('active',IDS[i]===id);});
   document.querySelectorAll('.sp-pane').forEach(p=>p.style.display=p.id===id?'block':'none');
 }
 function loadStuPanel(sid){
@@ -1591,13 +1787,21 @@ function loadStuPanel(sid){
   document.getElementById('sp-name').textContent=s.name+(s.inactive?' (퇴원)':'');
   document.getElementById('sp-meta').textContent=(s.grade||s.lv||'')+(s.school?' · '+s.school:'')+(s.enrollDate?' · 입회 '+s.enrollDate:'');
 
+  // 이번 달 수업 수
+  const today2=new Date();
+  const thisMonth=today2.getFullYear()+'-'+String(today2.getMonth()+1).padStart(2,'0');
+  const thisMonthLesCount=les.filter(l=>l.date&&l.date.startsWith(thisMonth)&&l.att!=='absent').length;
+  const lastLesDate=les.length?les[0].date:'';
+
   // ── 요약 ──
   document.getElementById('sp-summary').innerHTML=`
     <div class="strow" style="margin-bottom:1rem">
-      <div class="stc"><div class="stnum">${les.filter(l=>l.att!=='absent').length}</div><div class="stlbl">출석</div></div>
+      <div class="stc"><div class="stnum">${les.filter(l=>l.att!=='absent').length}</div><div class="stlbl">전체 출석</div></div>
+      <div class="stc"><div class="stnum">${thisMonthLesCount}</div><div class="stlbl">이번 달</div></div>
       <div class="stc"><div class="stnum">${bks}</div><div class="stlbl">원서</div></div>
       <div class="stc"><div class="stnum">${avg!==null?avg+'%':'—'}</div><div class="stlbl">단어 평균</div></div>
     </div>
+    ${lastLesDate?`<div style="font-size:11px;color:var(--slate);margin-bottom:8px">마지막 수업: <strong>${lastLesDate}</strong></div>`:''}
     ${(absCount||lateCount||makeupCount)?`<div class="att-row">
       ${absCount?`<span class="att-chip att-abs">결석 ${absCount}회</span>`:''}
       ${lateCount?`<span class="att-chip att-late">지각 ${lateCount}회</span>`:''}
@@ -1610,10 +1814,11 @@ function loadStuPanel(sid){
       ${s.memo?`<div>메모: ${s.memo}</div>`:''}
     </div>`;
 
-  // ── 수업 (최근 5개, 선생님 패널 → 원문) ──
+  // ── 수업 (최근 10개, 더보기 가능) ──
+  const lesSlice=les.slice(0,10);
   document.getElementById('sp-lessons').innerHTML=!les.length
     ?'<div class="empty"><div class="empty-i">📚</div><div class="empty-t">수업 기록 없음</div></div>'
-    :les.slice(0,5).map(l=>{
+    :`${lesSlice.map(l=>{
       const mats=matsToHtml(l.materials);const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px">
@@ -1623,7 +1828,9 @@ function loadStuPanel(sid){
         ${mats?`<div style="font-size:12px;margin-bottom:3px;line-height:1.8">${mats}</div>`:''}
         ${l.cmt?`<div style="font-size:12px;color:var(--slate)">${l.cmt}</div>`:''}
       </div>`;
-    }).join('');
+    }).join('')}
+    ${les.length>10?`<div style="text-align:center;padding:10px 0;font-size:12px;color:var(--teal);cursor:pointer" onclick="swTab('t-les');document.getElementById('les-filter-stu').value='${sid}';lesPage=0;renderLes()">전체 ${les.length}건 수업 기록 보기 →</div>`:''}
+    `;
 
   // ── 테스트 (최근 5개) ──
   document.getElementById('sp-tests').innerHTML=!tsts.length
@@ -1667,6 +1874,25 @@ function loadStuPanel(sid){
         }).join('')}</tbody>
       </table>`}`;
 
+  // ── 과제 탭 (선생님: 제출 확인 + 듣기) ──
+  const sHws=(_cache.homeworks||[]).filter(h=>h.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const unread=sHws.filter(h=>!h.checked).length;
+  document.getElementById('sp-hw').innerHTML=!sHws.length
+    ?`<div class="empty"><div class="empty-i">📤</div><div class="empty-t">제출된 과제 없음</div></div>`
+    :`<div style="margin-bottom:10px;font-size:12px;color:var(--slate)">총 ${sHws.length}건${unread>0?` · <span style="color:var(--coral);font-weight:700">미확인 ${unread}건</span>`:''}</div>
+     ${sHws.map(h=>`
+      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:12px;font-family:var(--fm);color:var(--slate)">${h.date||''}</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="hw-status-badge ${h.checked?'checked':'pending'}">${h.checked?'✓ 확인됨':'미확인'}</span>
+            ${!h.checked?`<button class="btn ba bsm" style="font-size:10px;padding:2px 8px" onclick="markHwChecked('${h.id}','${sid}')">확인</button>`:''}
+          </div>
+        </div>
+        ${h.audioUrl?`<audio controls src="${h.audioUrl}" style="width:100%;height:30px"></audio>`:''}
+        ${h.memo?`<div style="font-size:11px;color:var(--slate);margin-top:4px">💬 ${h.memo}</div>`:''}
+      </div>`).join('')}`;
+
   document.getElementById('stu-panel').classList.add('open');
   document.getElementById('stu-panel-overlay').classList.add('open');
   swSpTab('sp-summary');
@@ -1694,15 +1920,24 @@ async function saveQuickPay(){
 }
 
 // ── LAST LESSON HINT ──
+let _lastLessonRef=null;
 function fillLastLesson(sid){
   const hint=document.getElementById('ls-last-hint');if(!hint)return;
-  if(!sid){hint.style.display='none';return;}
+  if(!sid){hint.style.display='none';_lastLessonRef=null;return;}
+  // 학생 학년 자동 설정
+  const stu=DB.stus().find(s=>s.id===sid);
+  if(stu){
+    const gradeEl=document.getElementById('ls-grade');
+    if(gradeEl&&(stu.grade||stu.lv))gradeEl.value=stu.grade||stu.lv;
+  }
   const les=DB.less().filter(l=>l.sid===sid);
-  if(!les.length){hint.style.display='none';return;}
+  if(!les.length){hint.style.display='none';_lastLessonRef=null;return;}
   const last=les[0];
+  _lastLessonRef=last;
   const mats=matsToHtml(last.materials);
-  hint.style.display='block';
-  hint.innerHTML=`📖 직전 수업 (${last.date||''}): ${mats||'진도 없음'}${last.cmt?` · ${last.cmt}`:''}`;
+  hint.style.display='flex';
+  const txtEl=document.getElementById('ls-last-hint-text');
+  if(txtEl)txtEl.innerHTML=`📖 직전 수업 (${last.date||''}): ${mats||'진도 없음'}${last.cmt?` · ${last.cmt}`:''}`;
 }
 
 // ── STUDENTS ──
@@ -1924,7 +2159,8 @@ async function saveLes(){
   toast('저장 중...');
   // 저장 시점에 코멘트 변환 (학부모용)
   const polishedCmt=rawCmt?await polishCmt(rawCmt):'';
-  const newLes={id:uid(),sid,date:document.getElementById('ls-date').value,grade:(_sStu&&(_sStu.grade||_sStu.lv))||'',att:document.getElementById('ls-att').value,materials:getSMats(),cmt:rawCmt,polishedCmt};
+  const _sStuGrade=document.getElementById('ls-grade')?.value||(_sStu&&(_sStu.grade||_sStu.lv))||'';
+  const newLes={id:uid(),sid,date:document.getElementById('ls-date').value,grade:_sStuGrade,att:document.getElementById('ls-att').value,materials:getSMats(),cmt:rawCmt,polishedCmt};
   await supaUpsert('lessons',newLes.id,newLes,sid);
   _cache.lessons.unshift(newLes);
   document.getElementById('ls-cmt').value='';clearSRows();
@@ -2022,10 +2258,18 @@ async function saveTst(){
   const vc=parseInt(document.getElementById('ts-vc').value)||0,vt=parseInt(document.getElementById('ts-vt').value)||10;
   const gc=parseInt(document.getElementById('ts-gc').value)||0,gt=parseInt(document.getElementById('ts-gt').value)||10;
   const wr=document.getElementById('ts-wr').value;
-  const newTst={id:uid(),sid,date:document.getElementById('ts-date').value,vocabCorrect:vc,vocabTotal:vt,grammarCorrect:gc,grammarTotal:gt,wrongWords:wr?wr.split(',').map(w=>w.trim()).filter(Boolean):[],grammarWeak:document.getElementById('ts-gweak').value.trim(),cmt:document.getElementById('ts-cmt').value.trim(),photoUrl:tstPhotoUrl};
+  const allWordsRaw=document.getElementById('ts-allwords').value;
+  const allWords=allWordsRaw?allWordsRaw.split(',').map(w=>w.trim()).filter(Boolean):[];
+  const wrongWords=wr?wr.split(',').map(w=>w.trim()).filter(Boolean):[];
+  const newTst={id:uid(),sid,date:document.getElementById('ts-date').value,vocabCorrect:vc,vocabTotal:vt,grammarCorrect:gc,grammarTotal:gt,allWords,wrongWords,grammarWeak:document.getElementById('ts-gweak').value.trim(),cmt:document.getElementById('ts-cmt').value.trim(),photoUrl:tstPhotoUrl};
   await supaUpsert('tests',newTst.id,newTst,sid);
   _cache.tests.unshift(newTst);
-  ['ts-vc','ts-vt','ts-gc','ts-gt','ts-wr','ts-gweak','ts-cmt'].forEach(i=>document.getElementById(i).value='');
+  // vocab_cards 자동 저장
+  if(allWords.length){
+    await syncVocabCards(sid,allWords,wrongWords,document.getElementById('ts-date').value);
+    showVocabCardStatus(sid,allWords);
+  }
+  ['ts-vc','ts-vt','ts-gc','ts-gt','ts-wr','ts-allwords','ts-gweak','ts-cmt'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   tstPhotoUrl='';document.getElementById('tst-preview').style.display='none';
   renderTst();toast('테스트 결과가 저장되었습니다');
 }
@@ -2285,6 +2529,14 @@ function renderLibTable(){
       <td style="font-size:12px;color:var(--slate)">${b.lexile||'—'}</td>
       <td style="font-size:12px;color:var(--slate)">${b.level||'—'}</td>
       <td><span class="badge ${isCustom?'bteal':'bslate'}" style="font-size:10px">${isCustom?'추가':'기본'}</span></td>
+      <td style="text-align:center">
+        ${b.audioUrl
+          ?`<div style="display:flex;align-items:center;gap:4px"><audio controls style="width:120px;height:24px" src="${b.audioUrl}"></audio><button class="btn bd" style="padding:2px 6px;font-size:10px" onclick="reqDelAudio('${b.id}',event)">✕</button></div>`
+          :`<label class="audio-upload-btn" style="cursor:pointer">
+              🎵 업로드
+              <input type="file" accept="audio/*" style="display:none" onchange="uploadBookAudio(event,'${b.id}')">
+            </label>`}
+      </td>
       <td>${isCustom?`<button class="btn bd" style="padding:2px 8px;font-size:11px" onclick="reqDelLibItem('${b.id}')">삭제</button>`:''}</td>
     </tr>`;
   }).join('');
@@ -2373,7 +2625,7 @@ async function handleLogPhoto(e){
   const f=e.target.files[0];if(!f)return;
   pendingLogFile=f;pendingLogMime=f.type;
   document.getElementById('log-ut').textContent='선택됨: '+f.name;
-  pendingLogB64=await fileToB64(f);runLogAI();
+  pendingLogB64=await fileToB64(f);await runLogAI();
 }
 async function runLogAI(){
   const apiKey=DB.api();const status=document.getElementById('log-ai');
@@ -2411,6 +2663,13 @@ async function saveLog(){
   document.getElementById('log-ai').innerHTML='';
   renderLog();toast('리딩로그가 저장되었습니다');
 }
+function reqDelLog(id){
+  askConfirm('리딩로그 삭제','이 리딩로그를 삭제할까요?','삭제','bd',async()=>{
+    await supaDelete('logs',id);
+    _cache.logs=_cache.logs.filter(x=>x.id!==id);
+    renderLog();toast('삭제되었습니다');
+  });
+}
 function renderLog(){
   const stus=DB.stus(),logs=DB.logs();
   const el=document.getElementById('log-grid');
@@ -2439,12 +2698,13 @@ async function handleTstPhoto(e){
   if(!apiKey){status.innerHTML='<div class="ais warn">⚠️ API Key 미설정 — 직접 입력해 주세요</div>';return;}
   status.innerHTML='<div class="ais loading"><div class="spin"></div>테스트지 분석 중...</div>';
   try{
-    const r=await callVision(apiKey,b64,f.type,'이 테스트지를 분석해서 JSON만 반환하세요:\n{"vocabCorrect":숫자,"vocabTotal":숫자,"grammarCorrect":숫자,"grammarTotal":숫자,"wrongWords":["단어1"]}\n확인 불가는 null.');
+    const r=await callVision(apiKey,b64,f.type,'이 테스트지를 분석해서 JSON만 반환하세요:\n{"vocabCorrect":숫자,"vocabTotal":숫자,"grammarCorrect":숫자,"grammarTotal":숫자,"allWords":["단어1","단어2"],"wrongWords":["틀린단어1"]}\n확인 불가는 null. allWords에는 테스트지에 있는 모든 영단어, wrongWords에는 그 중 틀린 것만.');
     const d=JSON.parse(r.replace(/```json|```/g,'').trim());
     if(d.vocabCorrect!=null)document.getElementById('ts-vc').value=d.vocabCorrect;
     if(d.vocabTotal)document.getElementById('ts-vt').value=d.vocabTotal;
     if(d.grammarCorrect!=null)document.getElementById('ts-gc').value=d.grammarCorrect;
     if(d.grammarTotal)document.getElementById('ts-gt').value=d.grammarTotal;
+    if(d.allWords&&d.allWords.length)document.getElementById('ts-allwords').value=d.allWords.join(', ');
     if(d.wrongWords&&d.wrongWords.length)document.getElementById('ts-wr').value=d.wrongWords.join(', ');
     status.innerHTML='<div class="ais ok">✅ AI 인식 완료 — 확인 후 저장</div>';
   }catch(e){status.innerHTML='<div class="ais err">⚠️ AI 인식 실패: '+e.message+'</div>';}
@@ -2452,8 +2712,27 @@ async function handleTstPhoto(e){
 
 // ── AI VISION ──
 async function callVision(apiKey,b64,mime,prompt){
-  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mime,data:b64}},{type:'text',text:prompt}]}]})});
-  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||'API 오류 ('+res.status+')');}
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':apiKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-allow-browser':'true'
+    },
+    body:JSON.stringify({
+      model:'claude-haiku-4-5-20251001',
+      max_tokens:1000,
+      messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:mime,data:b64}},
+        {type:'text',text:prompt}
+      ]}]
+    })
+  });
+  if(!res.ok){
+    const e=await res.json().catch(()=>({}));
+    throw new Error(e.error?.message||'API 오류 ('+res.status+')');
+  }
   return (await res.json()).content[0].text;
 }
 function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=()=>rej(new Error('파일 읽기 실패'));r.readAsDataURL(file);});}
@@ -2473,7 +2752,8 @@ async function polishCmt(raw){
       headers:{
         'Content-Type':'application/json',
         'x-api-key':apiKey,
-        'anthropic-version':'2023-06-01'
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-allow-browser':'true'
       },
       body:JSON.stringify({
         model:'claude-haiku-4-5-20251001',
@@ -2546,11 +2826,49 @@ async function loadParent(sid){
   const avgV=tsts.length?Math.round(tsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/tsts.length):null;
   const latLes=les[0],latTst=tsts[0],latRd=rds[0];
 
-  // ── 요약 탭 ──
-  let sumHtml=`<div class="strow">
-    <div class="stc"><div class="stnum">${les.filter(l=>l.att!=='absent').length}</div><div class="stlbl">출석 수업</div></div>
+  // ── 이번 달 요약 카드 ──
+  const todayD=new Date();
+  const thisMonthStr=todayD.getFullYear()+'-'+String(todayD.getMonth()+1).padStart(2,'0');
+  const thisMonthLes=les.filter(l=>l.date&&l.date.startsWith(thisMonthStr)&&l.att!=='absent');
+  const lastMonthD=new Date(todayD.getFullYear(),todayD.getMonth()-1,1);
+  const lastMonthStr=lastMonthD.getFullYear()+'-'+String(lastMonthD.getMonth()+1).padStart(2,'0');
+  const lastMonthLes=les.filter(l=>l.date&&l.date.startsWith(lastMonthStr)&&l.att!=='absent');
+  const lesChange=thisMonthLes.length-lastMonthLes.length;
+  const latTstScore=latTst?pct(latTst.vocabCorrect,latTst.vocabTotal):null;
+  const prevTst=tsts[1]?pct(tsts[1].vocabCorrect,tsts[1].vocabTotal):null;
+  const scoreChange=latTstScore!==null&&prevTst!==null?latTstScore-prevTst:null;
+
+  let sumHtml=`<div class="p-month-summary">
+    <div class="p-month-card">
+      <div class="p-month-num">${thisMonthLes.length}</div>
+      <div class="p-month-lbl">이번 달 수업</div>
+      ${lesChange!==0?`<div style="font-size:10px;color:${lesChange>0?'#00c4cc':'var(--coral)'};margin-top:2px">${lesChange>0?'▲':'▼'}${Math.abs(lesChange)} 지난달 대비</div>`:''}
+    </div>
+    <div class="p-month-card">
+      <div class="p-month-num">${latTstScore!==null?latTstScore+'%':'—'}</div>
+      <div class="p-month-lbl">최근 단어 점수</div>
+      ${scoreChange!==null?`<div style="font-size:10px;color:${scoreChange>=0?'#00c4cc':'var(--coral)'};margin-top:2px">${scoreChange>=0?'▲':'▼'}${Math.abs(scoreChange)}%p 전회 대비</div>`:''}
+    </div>
+    <div class="p-month-card">
+      <div class="p-month-num">${avgV!==null?avgV+'%':'—'}</div>
+      <div class="p-month-lbl">전체 단어 평균</div>
+      <div style="font-size:10px;color:var(--slate);margin-top:2px">${tsts.length}회 기준</div>
+    </div>
+  </div>`;
+
+  // 테스트 점수 미니 차트 (최근 5회, 2회 이상일 때)
+  if(tsts.length>=2){
+    sumHtml+=`<div class="p-score-mini" style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:8px">📈 최근 테스트 추이</div>
+      <div style="height:60px"><canvas id="p-mini-trend"></canvas></div>
+    </div>`;
+  }
+
+  // 누적 통계 (기존)
+  sumHtml+=`<div class="strow" style="margin-bottom:10px">
+    <div class="stc"><div class="stnum">${les.filter(l=>l.att!=='absent').length}</div><div class="stlbl">누적 출석</div></div>
     <div class="stc"><div class="stnum">${rds.length}</div><div class="stlbl">읽은 원서</div></div>
-    <div class="stc"><div class="stnum">${avgV!==null?avgV+'%':'—'}</div><div class="stlbl">단어 평균</div></div>
+    <div class="stc"><div class="stnum">${les.filter(l=>l.att==='absent').length}</div><div class="stlbl">결석</div></div>
   </div>`;
 
   if(latLes){
@@ -2646,18 +2964,32 @@ async function loadParent(sid){
       });
     }
     if(tsts.length>=2){
-      const cv=document.getElementById('p-trend');if(!cv)return;
-      if(pC.trend)pC.trend.destroy();
-      const ct=[...tsts].reverse().slice(-10);
-      pC.trend=new Chart(cv.getContext('2d'),{type:'line',data:{labels:ct.map(t=>t.date?t.date.slice(5):''),datasets:[{label:'단어',data:ct.map(t=>pct(t.vocabCorrect,t.vocabTotal)),borderColor:'#00c4cc',backgroundColor:'rgba(0,196,204,.1)',tension:.3,fill:true,pointBackgroundColor:'#00c4cc',pointRadius:4},{label:'어법',data:ct.map(t=>pct(t.grammarCorrect,t.grammarTotal)),borderColor:'#005f6b',backgroundColor:'rgba(0,95,107,.07)',tension:.3,fill:true,pointBackgroundColor:'#005f6b',pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
+      // 미니 추이 (최근 5회, 요약 상단)
+      const cvMini=document.getElementById('p-mini-trend');
+      if(cvMini){
+        if(pC.miniTrend)pC.miniTrend.destroy();
+        const ct5=[...tsts].reverse().slice(-5);
+        pC.miniTrend=new Chart(cvMini.getContext('2d'),{type:'line',data:{labels:ct5.map(t=>t.date?t.date.slice(5):''),datasets:[{data:ct5.map(t=>pct(t.vocabCorrect,t.vocabTotal)),borderColor:'#00c4cc',backgroundColor:'rgba(0,196,204,.12)',tension:.3,fill:true,pointBackgroundColor:'#00c4cc',pointRadius:3,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y+'%'}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:9},maxTicksLimit:3},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:9}},grid:{display:false}}}}});
+      }
+      const cv=document.getElementById('p-trend');if(cv){
+        if(pC.trend)pC.trend.destroy();
+        const ct=[...tsts].reverse().slice(-10);
+        pC.trend=new Chart(cv.getContext('2d'),{type:'line',data:{labels:ct.map(t=>t.date?t.date.slice(5):''),datasets:[{label:'단어',data:ct.map(t=>pct(t.vocabCorrect,t.vocabTotal)),borderColor:'#00c4cc',backgroundColor:'rgba(0,196,204,.1)',tension:.3,fill:true,pointBackgroundColor:'#00c4cc',pointRadius:4},{label:'어법',data:ct.map(t=>pct(t.grammarCorrect,t.grammarTotal)),borderColor:'#005f6b',backgroundColor:'rgba(0,95,107,.07)',tension:.3,fill:true,pointBackgroundColor:'#005f6b',pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
+      }
     }
   },150);
 
-  // 수업 기록 탭
-  if(!les.length){
-    document.getElementById('pp-les').innerHTML='<div class="empty"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div></div>';
-  } else {
-    const lesRows=les.map(l=>{
+  // 수업 기록 탭 (페이지네이션 - 15개씩)
+  const LES_PER_PAGE=15;
+  function renderParentLes(page=0){
+    const total=les.length;
+    const totalPages=Math.ceil(total/LES_PER_PAGE);
+    const paged=les.slice(page*LES_PER_PAGE,(page+1)*LES_PER_PAGE);
+    if(!total){
+      document.getElementById('pp-les').innerHTML='<div class="empty"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div></div>';
+      return;
+    }
+    const lesRows=paged.map(l=>{
       const mats=matsToHtml(l.materials);
       const polished=l.polishedCmt||l.cmt||'';
       const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
@@ -2669,8 +3001,14 @@ async function loadParent(sid){
         </div>
       </div></div>`;
     });
-    document.getElementById('pp-les').innerHTML=`<div class="tl">${lesRows.join('')}</div>`;
+    const pagerHtml=totalPages>1?`<div class="pager" style="margin-top:8px">
+      <button class="pager-btn" onclick="renderParentLes(${page-1})" ${page===0?'disabled':''}>← 이전</button>
+      <span>${page+1} / ${totalPages} (총 ${total}회)</span>
+      <button class="pager-btn" onclick="renderParentLes(${page+1})" ${page>=totalPages-1?'disabled':''}>다음 →</button>
+    </div>`:'';
+    document.getElementById('pp-les').innerHTML=`<div class="tl">${lesRows.join('')}</div>${pagerHtml}`;
   }
+  renderParentLes(0);
 
   // 테스트 탭 — 추이 고정 상단, 개별 회차는 텍스트
   let tstHtml='';
@@ -2767,6 +3105,8 @@ async function loadParent(sid){
       </tbody></table></div>`:''}`;
 
   show('s-parent');swPTab('pp-sum');
+  // 공지 배너
+  showParentNoticeBanner();
 }
 
 
@@ -2796,14 +3136,19 @@ function renderDash(){
   const thisMonthLes=les.filter(l=>l.date&&l.date.startsWith(thisMonth));
   const avgScore=tsts.length?Math.round(tsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/tsts.length):null;
   const totalRds=rds.length;
+  // 이번 달 미수업 학생 수
+  const stuWithLesson=new Set(thisMonthLes.map(l=>l.sid));
+  const noLessonThisMonth=stus.filter(s=>!stuWithLesson.has(s.id)).length;
+  // 미확인 과제 수
+  const unreadHw=(_cache.homeworks||[]).filter(h=>!h.checked).length;
   const cards=document.getElementById('dash-cards');
   if(cards)cards.innerHTML=[
     {n:stus.length,l:'재원생',s:''},
     {n:thisMonthLes.length,l:'이번 달 수업',s:thisMonth.slice(5)+'월'},
+    {n:noLessonThisMonth>0?`<span style="color:var(--coral)">${noLessonThisMonth}</span>`:'0',l:'이번 달 미수업',s:'재원생 기준'},
+    {n:unreadHw>0?`<span style="color:var(--coral)">${unreadHw}</span>`:'0',l:'미확인 과제',s:'전체 학생'},
     {n:avgScore!==null?avgScore+'%':'—',l:'단어 평균',s:'전체 학생'},
     {n:totalRds,l:'누적 원서',s:'전 학생'},
-    {n:les.filter(l=>l.att==='absent').length,l:'누적 결석',s:'전체'},
-    {n:tsts.length,l:'누적 테스트',s:''},
   ].map(c=>`<div class="dash-card"><div class="dash-num">${c.n}</div><div class="dash-lbl">${c.l}</div>${c.s?`<div class="dash-sub">${c.s}</div>`:''}</div>`).join('');
 
   // 오답 TOP 단어
@@ -2863,12 +3208,14 @@ function renderReviewSchedule(){
 }
 
 // ── NOTICE BOARD ──
-function postNotice(){
+async function postNotice(){
   const v=document.getElementById('dash-notice-input')?.value.trim();
   if(!v){toast('내용을 입력해 주세요');return;}
   const notices=_cache.notices||[];
   const id='n'+Date.now();
-  notices.unshift({id,text:v,date:new Date().toISOString().split('T')[0],active:true});
+  const notice={id,text:v,date:new Date().toISOString().split('T')[0],active:true};
+  await supaUpsert('notices',id,notice,null);
+  notices.unshift(notice);
   document.getElementById('dash-notice-input').value='';
   renderNoticeBoard();
   toast('공지가 등록되었습니다');
@@ -3065,6 +3412,725 @@ function hasUnpaid(s){
   return !(s.payments||[]).some(p=>p.date&&p.date.startsWith(thisMonth));
 }
 
+
+
+async function testSupaConn(){
+  const el=document.getElementById('supa-conn-result');
+  if(!el)return;
+  el.innerHTML='<div class="ais loading"><div class="spin"></div>연결 확인 중...</div>';
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/settings?limit=1',{headers:SUPA_HEADERS});
+    if(r.ok){
+      const counts=`학생 ${_cache.students.length}명 · 수업 ${_cache.lessons.length}건 · 테스트 ${_cache.tests.length}건`;
+      el.innerHTML=`<div class="ais ok">✅ Supabase 연결 정상 · ${counts}</div>`;
+    }else{el.innerHTML=`<div class="ais err">❌ 연결 오류 (${r.status})</div>`;}
+  }catch(e){el.innerHTML=`<div class="ais err">❌ 오류: ${e.message}</div>`;}
+}
+async function forceReload(){
+  toast('데이터를 다시 불러오는 중...');
+  await loadAllData();
+  renderStus();populateSels();populateFilterSels();
+  renderLes();renderTst();renderRd();renderLog();renderDash();
+  populateLibSel();checkCldWarn();renderLibTable();populateLibSeriesFilter();
+  toast('데이터 새로고침 완료');
+}
+
+// ── AUDIO DELETE ──
+function reqDelAudio(bookId,e){
+  if(e)e.stopPropagation();
+  askConfirm('오디오 삭제','이 책의 오디오를 삭제할까요?','삭제','bd',async()=>{
+    const existing=_cache.library.find(x=>x.id===bookId);
+    if(existing){
+      delete existing.audioUrl;
+      await supaUpsert('library',bookId,existing,null);
+    }
+    renderLibTable();
+    toast('오디오가 삭제되었습니다');
+  });
+}
+
+// ── BOOK AUDIO ──
+async function uploadBookAudio(e, bookId){
+  const f=e.target.files[0];if(!f)return;
+  toast('오디오 업로드 중...');
+  const {name,preset}=DB.cld();
+  let audioUrl='';
+  if(name&&preset){
+    try{
+      const fd=new FormData();
+      fd.append('file',f);
+      fd.append('upload_preset',preset);
+      fd.append('resource_type','video'); // Cloudinary에서 오디오는 video 타입
+      const res=await fetch(`https://api.cloudinary.com/v1_1/${name}/video/upload`,{method:'POST',body:fd});
+      if(res.ok)audioUrl=(await res.json()).secure_url;
+    }catch(e){console.error('audio upload',e);}
+  }
+  if(!audioUrl){toast('Cloudinary 설정 후 오디오 업로드가 가능합니다');return;}
+
+  // BOOK_DB 항목이면 customLibs에 추가, 이미 있으면 업데이트
+  const existing=_cache.library.find(x=>x.id===bookId);
+  if(existing){
+    existing.audioUrl=audioUrl;
+    await supaUpsert('library',bookId,existing,null);
+  } else {
+    // BOOK_DB 항목 — custom으로 복사 후 audioUrl 추가
+    const orig=BOOK_DB.find(x=>x.id===bookId);
+    if(orig){
+      const newItem={...orig,audioUrl};
+      _cache.library.push(newItem);
+      await supaUpsert('library',bookId,newItem,null);
+    }
+  }
+  renderLibTable();
+  toast('오디오가 저장되었습니다');
+}
+// ── VOCAB CARDS (Supabase) ──
+async function syncVocabCards(sid,allWords,wrongWords,date){
+  // 기존 카드 로드 (sid 기준)
+  const existing=await supaFetchBySid('vocab_cards',sid);
+  for(const word of allWords){
+    const w=word.toLowerCase().trim();if(!w)continue;
+    const found=existing.find(c=>(c.word||'').toLowerCase()===w);
+    const isWrong=wrongWords.map(x=>x.toLowerCase().trim()).includes(w);
+    if(found){
+      // 기존 카드: 틀렸으면 miss++, 맞았으면 hit++
+      const updated={...found,
+        hits:(found.hits||0)+(isWrong?0:1),
+        misses:(found.misses||0)+(isWrong?1:0),
+        lastSeen:date,
+        due:isWrong?date:found.due
+      };
+      await supaUpsert('vocab_cards',found.id,updated,sid);
+      const ci=_cache.vocab_cards.findIndex(c=>c.id===found.id);
+      if(ci>=0)_cache.vocab_cards[ci]=updated;
+    }else{
+      // 새 카드 생성
+      const newCard={id:uid(),sid,word:w,meaning:'',pos:'',example:'',hits:isWrong?0:1,misses:isWrong?1:0,phase:0,lastSeen:date,due:date,addedDate:date};
+      await supaUpsert('vocab_cards',newCard.id,newCard,sid);
+      if(!_cache.vocab_cards)_cache.vocab_cards=[];
+      _cache.vocab_cards.push(newCard);
+    }
+  }
+}
+async function supaFetchBySid(table,sid){
+  const r=await fetch(SUPA_URL+'/rest/v1/'+table+'?sid=eq.'+encodeURIComponent(sid)+'&order=updated_at.desc',{headers:SUPA_HEADERS});
+  if(!r.ok)return[];
+  const rows=await r.json();
+  return (rows||[]).map(r=>r.data||r);
+}
+async function loadVocabCards(sid){
+  const rows=await supaFetchBySid('vocab_cards',sid);
+  if(!_cache.vocab_cards)_cache.vocab_cards=[];
+  // sid 기준으로 교체
+  _cache.vocab_cards=_cache.vocab_cards.filter(c=>c.sid!==sid).concat(rows);
+  return rows;
+}
+
+// ── STUDENT AUTH ──
+function goStudentPin(){show('s-stupin');setTimeout(()=>document.getElementById('stupin-name').focus(),100);}
+let currentStudentSid=null;
+async function checkStudentPin(){
+  const name=document.getElementById('stupin-name').value.trim();
+  const pin=document.getElementById('stupin-code').value;
+  const err=document.getElementById('stupin-err');
+  if(!name){err.textContent='이름을 입력해 주세요';return;}
+  // students 데이터가 없으면 로드
+  if(!_cache.students.length)await loadAllData();
+  const s=_cache.students.find(x=>x.name===name&&!x.inactive);
+  if(!s){err.textContent='등록된 학생을 찾을 수 없습니다';return;}
+  if(s.pin!==pin){err.textContent='PIN이 맞지 않습니다';return;}
+  document.getElementById('stupin-code').value='';err.textContent='';
+  currentStudentSid=s.id;
+  document.getElementById('stu-name-badge').textContent=s.name;
+  show('s-student');
+  await loadVocabCards(s.id);
+  // 과제 기록 로드
+  const hwRows=await supaFetchBySid('homeworks',s.id);
+  if(!_cache.homeworks)_cache.homeworks=[];
+  _cache.homeworks=_cache.homeworks.filter(h=>h.sid!==s.id).concat(hwRows);
+  swStuTab('st-vocab');
+}
+
+async function markHwChecked(hwId,sid){
+  const hw=(_cache.homeworks||[]).find(h=>h.id===hwId);
+  if(!hw)return;
+  hw.checked=true;
+  await supaUpsert('homeworks',hwId,hw,sid);
+  loadStuPanel(sid);
+  toast('과제 확인 완료');
+}
+
+// ── COPY LAST LESSON ──
+function copyLastLesson(){
+  if(!_lastLessonRef){toast('이전 수업 기록이 없습니다');return;}
+  const last=_lastLessonRef;
+  // 교재 rows 복원
+  if(last.materials&&last.materials.length){
+    // subj-chips 활성화
+    document.querySelectorAll('#subj-chips .chip').forEach(c=>c.classList.remove('active'));
+    const rows=document.getElementById('subj-rows');if(rows)rows.innerHTML='';
+    last.materials.forEach(m=>{
+      const chip=document.querySelector(`#subj-chips .chip[data-s="${m.subj}"]`);
+      if(chip){chip.classList.add('active');togSubj(chip);}
+      // 값 채우기
+      setTimeout(()=>{
+        const r=rows.querySelector(`[data-subj="${m.subj}"]`);
+        if(r){
+          const bk=r.querySelector('[data-f="book"]');if(bk)bk.value=m.book||'';
+          const pg=r.querySelector('[data-f="pages"]');if(pg)pg.value=m.pages||'';
+          const nt=r.querySelector('[data-f="note"]');if(nt)nt.value=m.note||'';
+        }
+      },50);
+    });
+  }
+  toast('이전 수업 교재가 복사되었습니다');
+}
+
+// ── STUDENT LIBRARY TAB ──
+function renderStudentLibrary(sid){
+  const el=document.getElementById('st-library');if(!el)return;
+  // 해당 학생이 읽은 책 목록 (readings 기준)
+  const myRds=DB.rds().filter(r=>r.sid===sid);
+  const myBookIds=new Set(myRds.map(r=>r.bookId));
+  // 전체 library에서 오디오 있는 책 + 내가 읽은 책
+  const allBooks=_cache.library;
+  const withAudio=allBooks.filter(b=>b.audioUrl);
+  const myBooks=allBooks.filter(b=>myBookIds.has(b.id));
+  // 합치되 중복 제거
+  const shown=new Map();
+  [...myBooks,...withAudio].forEach(b=>shown.set(b.id,b));
+  const list=[...shown.values()];
+  if(!list.length){
+    el.innerHTML=`<div style="padding:2rem;text-align:center">
+      <div style="font-size:36px;margin-bottom:10px">📖</div>
+      <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">원서 목록이 없습니다</div>
+      <div style="font-size:12px;color:var(--slate)">선생님이 원서 기록을 추가하면 여기에 보입니다</div>
+    </div>`;
+    return;
+  }
+  // 오디오 있는 것 먼저, 내가 읽은 것 표시
+  const sorted=[...list].sort((a,b)=>(b.audioUrl?1:0)-(a.audioUrl?1:0));
+  el.innerHTML=`<div style="padding:1.25rem">
+    <div style="font-size:12px;color:var(--slate);margin-bottom:12px">내가 읽은 책과 오디오가 있는 책을 모아뒀어요</div>
+    ${sorted.map(b=>{
+      const isMine=myBookIds.has(b.id);
+      return `<div class="stu-book-card">
+        <div class="stu-book-top">
+          <div class="stu-book-cover">${b.emoji||'📚'}</div>
+          <div style="flex:1;min-width:0">
+            <div class="stu-book-title">${b.title||'—'}</div>
+            <div class="stu-book-series">${b.series||''}${b.level?' · Lv.'+b.level:''}</div>
+            <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">
+              ${isMine?`<span style="font-size:10px;padding:2px 7px;background:var(--tl);color:var(--purple);border-radius:10px;font-weight:700">✓ 읽음</span>`:''}
+              ${b.audioUrl?`<span style="font-size:10px;padding:2px 7px;background:rgba(0,196,204,.1);color:#005f6b;border-radius:10px;font-weight:700">🎧 오디오</span>`:
+                `<span style="font-size:10px;padding:2px 7px;background:var(--cream2);color:var(--slate);border-radius:10px">오디오 준비중</span>`}
+            </div>
+          </div>
+        </div>
+        ${b.audioUrl?`<div class="stu-audio-wrap"><audio controls src="${b.audioUrl}" style="width:100%;height:36px"></audio></div>`
+          :`<div class="stu-no-audio">🎵 오디오가 아직 준비되지 않았어요</div>`}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ── HOMEWORK SUBMIT TAB ──
+let hwAudioBlob=null,hwAudioUrl='';
+function renderHomeworkTab(sid){
+  const el=document.getElementById('st-hw');if(!el)return;
+  const stu=DB.stus().find(s=>s.id===sid);
+  // 최근 수업에서 범위 추출
+  const les=DB.less().filter(l=>l.sid===sid);
+  const lastLes=les[0];
+  const rangeText=lastLes?`${lastLes.date||''} 수업 진도`:'범위를 선생님께 확인해 주세요';
+  // 기존 제출 기록
+  const homeworks=(_cache.homeworks||[]).filter(h=>h.sid===sid);
+  el.innerHTML=`<div style="padding:1.25rem">
+    <div class="card" style="margin-bottom:12px">
+      <div class="ch"><span class="ct">📤 낭독 과제 제출</span></div>
+      <div class="cb">
+        <div style="font-size:12px;color:var(--slate);margin-bottom:12px;line-height:1.8">
+          <span style="font-weight:700;color:var(--navy)">범위:</span> ${rangeText}<br>
+          해당 구간을 소리 내어 읽고 녹음해서 제출하세요
+        </div>
+        <div class="hw-upload-zone" onclick="document.getElementById('hw-audio-input').click()">
+          <div style="font-size:28px;margin-bottom:6px">🎤</div>
+          <div style="font-size:13px;font-weight:700;color:var(--navy)">녹음 파일 업로드</div>
+          <div style="font-size:11px;color:var(--slate);margin-top:3px">MP3, M4A, WAV 지원</div>
+        </div>
+        <input type="file" id="hw-audio-input" accept="audio/*" style="display:none" onchange="handleHwAudio(event)">
+        <div id="hw-audio-preview" style="display:none;margin-top:10px">
+          <div style="display:flex;align-items:center;gap:8px;background:var(--cream);border-radius:8px;padding:8px 12px">
+            <audio id="hw-audio-player" controls style="flex:1;height:32px"></audio>
+            <button class="btn bd bsm" onclick="clearHwAudio()">✕</button>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <div class="f"><label>메모 (선택)</label><input type="text" id="hw-memo" placeholder="예) 조금 헷갈렸어요, 다시 연습할게요"></div>
+        </div>
+        <button class="btn bt" style="width:100%;margin-top:4px" onclick="submitHomework('${sid}')">제출하기</button>
+      </div>
+    </div>
+    ${homeworks.length?`<div class="card">
+      <div class="ch"><span class="ct">제출 기록</span></div>
+      <div class="cb" style="padding:0">
+        ${homeworks.map(h=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-size:12px;font-weight:700">${h.date||''}</div>
+            ${h.memo?`<div style="font-size:11px;color:var(--slate)">${h.memo}</div>`:''}
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            ${h.audioUrl?`<audio controls src="${h.audioUrl}" style="height:24px;width:120px"></audio>`:''}
+            <span class="hw-status-badge ${h.checked?'checked':'pending'}">${h.checked?'확인됨':'제출완료'}</span>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`:''}
+  </div>`;
+}
+function handleHwAudio(e){
+  const f=e.target.files[0];if(!f)return;
+  hwAudioBlob=f;
+  const url=URL.createObjectURL(f);
+  document.getElementById('hw-audio-player').src=url;
+  document.getElementById('hw-audio-preview').style.display='block';
+}
+function clearHwAudio(){
+  hwAudioBlob=null;hwAudioUrl='';
+  document.getElementById('hw-audio-preview').style.display='none';
+  document.getElementById('hw-audio-input').value='';
+}
+async function submitHomework(sid){
+  if(!hwAudioBlob){toast('녹음 파일을 먼저 업로드해 주세요');return;}
+  toast('제출 중...');
+  const {name,preset}=DB.cld();
+  if(name&&preset){
+    try{
+      const fd=new FormData();fd.append('file',hwAudioBlob);fd.append('upload_preset',preset);fd.append('resource_type','video');
+      const res=await fetch(`https://api.cloudinary.com/v1_1/${name}/video/upload`,{method:'POST',body:fd});
+      if(res.ok)hwAudioUrl=(await res.json()).secure_url;
+    }catch(e){console.error(e);}
+  }
+  // Supabase Storage fallback (소파일)
+  if(!hwAudioUrl){
+    try{
+      const fname=`hw_${sid}_${Date.now()}.${hwAudioBlob.name.split('.').pop()}`;
+      const r=await fetch(`${SUPA_URL}/storage/v1/object/homeworks/${fname}`,{method:'POST',headers:{...SUPA_HEADERS,'Content-Type':hwAudioBlob.type},body:hwAudioBlob});
+      if(r.ok)hwAudioUrl=`${SUPA_URL}/storage/v1/object/public/homeworks/${fname}`;
+    }catch(e){console.error(e);}
+  }
+  const memo=document.getElementById('hw-memo').value.trim();
+  const hw={id:uid(),sid,date:new Date().toISOString().split('T')[0],audioUrl:hwAudioUrl,memo,checked:false};
+  await supaUpsert('homeworks',hw.id,hw,sid);
+  if(!_cache.homeworks)_cache.homeworks=[];
+  _cache.homeworks.unshift(hw);
+  clearHwAudio();document.getElementById('hw-memo').value='';
+  renderHomeworkTab(sid);
+  toast('과제가 제출되었습니다 ✓');
+}
+
+// ── PARENT NOTICE BANNER ──
+function showParentNoticeBanner(){
+  const active=(_cache.notices||[]).find(n=>n.active);
+  const banner=document.getElementById('parent-notice-banner');
+  const txt=document.getElementById('parent-notice-text');
+  if(!banner||!txt)return;
+  if(active){banner.style.display='block';txt.textContent=active.text;}
+  else{banner.style.display='none';}
+}
+
+// ── TEACHER: vocab card status toast after saving test ──
+function showVocabCardStatus(sid,allWords){
+  if(!allWords||!allWords.length)return;
+  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const newCount=allWords.filter(w=>!cards.find(c=>c.word===w.toLowerCase())).length;
+  const updateCount=allWords.length-newCount;
+  let msg=`단어카드: `;
+  if(newCount>0)msg+=`${newCount}개 신규 생성`;
+  if(newCount>0&&updateCount>0)msg+=` · `;
+  if(updateCount>0)msg+=`${updateCount}개 업데이트`;
+  toast(msg);
+}
+
+// ── STUDENT TABS (updated) ──
+function swStuTab(id){
+  const IDS=['st-vocab','st-library','st-hw','st-myinfo'];
+  document.querySelectorAll('.stutab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
+  document.querySelectorAll('#s-student .panel').forEach(p=>p.classList.toggle('active',p.id===id));
+  if(id==='st-vocab')renderVocabDeck(currentStudentSid);
+  if(id==='st-library')renderStudentLibrary(currentStudentSid);
+  if(id==='st-hw')renderHomeworkTab(currentStudentSid);
+  if(id==='st-myinfo')renderStudentMyInfo(currentStudentSid);
+}
+
+// ── VOCAB DECK (3단계: 암기→리콜→스펠) ──
+// phase: 0=암기(플립카드), 1=리콜(뜻보고 영어입력), 2=스펠(스크램블)
+let deckState={cards:[],idx:0,phase:0,phaseResults:[],sessionResults:[]};
+
+function renderVocabDeck(sid){
+  const el=document.getElementById('st-vocab');if(!el)return;
+  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  if(!cards.length){
+    el.innerHTML=`<div style="text-align:center;padding:3rem 1rem">
+      <div style="font-size:40px;margin-bottom:12px">📭</div>
+      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">아직 단어 카드가 없어요</div>
+      <div style="font-size:13px;color:var(--slate);line-height:1.8">선생님이 테스트 결과를 입력하면<br>단어 카드가 자동으로 만들어집니다</div>
+    </div>`;
+    return;
+  }
+  // 복습 우선 정렬: misses 많은 것, due 지난 것
+  const today=new Date().toISOString().split('T')[0];
+  const sorted=[...cards].sort((a,b)=>{
+    const aDue=(a.due||'')<=today?1:0;
+    const bDue=(b.due||'')<=today?1:0;
+    if(aDue!==bDue)return bDue-aDue;
+    return (b.misses||0)-(a.misses||0);
+  });
+  const session=sorted.slice(0,10); // 한 세션 10장
+  deckState={cards:session,idx:0,phase:0,phaseResults:[],sessionResults:[]};
+  renderVocabPhaseIntro(el);
+}
+
+function renderVocabPhaseIntro(el){
+  const phaseInfo=[
+    {id:0,name:'암기',sub:'카드를 보고 뜻을 떠올리세요',icon:'👀',cls:'phase-mem'},
+    {id:1,name:'리콜',sub:'뜻을 보고 영어 단어를 입력하세요',icon:'🧠',cls:'phase-rec'},
+    {id:2,name:'스펠',sub:'글자를 조합해 단어를 완성하세요',icon:'✍️',cls:'phase-spl'},
+  ];
+  const p=phaseInfo[deckState.phase];
+  const total=deckState.cards.length;
+  el.innerHTML=`<div style="padding:1.5rem;text-align:center">
+    <div style="margin-bottom:1.5rem">
+      <span class="vc-phase ${p.cls}" style="font-size:13px;padding:6px 16px">${p.icon} 단계 ${p.id+1}: ${p.name}</span>
+    </div>
+    <div style="font-size:22px;font-weight:700;color:var(--navy);margin-bottom:6px">${total}개 단어</div>
+    <div style="font-size:13px;color:var(--slate);margin-bottom:2rem;line-height:1.8">${p.sub}</div>
+    <button class="btn bt" style="padding:14px 40px;font-size:15px;border-radius:50px" onclick="startVocabPhase()">시작 →</button>
+    ${deckState.phase>0?`<div style="margin-top:1rem"><button class="btn bo bsm" onclick="renderVocabDeck(currentStudentSid)">처음부터</button></div>`:''}
+  </div>`;
+}
+
+function startVocabPhase(){
+  deckState.idx=0;deckState.phaseResults=[];
+  const el=document.getElementById('st-vocab');
+  if(deckState.phase===0)renderMemCard(el);
+  else if(deckState.phase===1)renderRecallCard(el);
+  else renderSpellCard(el);
+}
+
+// ── 단계 0: 암기 (플립 카드) ──
+function renderMemCard(el){
+  const card=deckState.cards[deckState.idx];
+  const total=deckState.cards.length;
+  const prog=deckState.cards.map((_,i)=>
+    `<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`
+  ).join('');
+  el.innerHTML=`<div style="padding:1.25rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="vc-phase phase-mem">👀 암기</span>
+      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+    </div>
+    <div class="vc-prog">${prog}</div>
+    <div class="vc-deck" onclick="flipMemCard(this)">
+      <div class="vc-card" id="mem-card">
+        <div class="vc-face vc-front">
+          <div class="vc-word">${card.word}</div>
+          <div class="vc-pos">${card.pos||''}</div>
+          <div class="vc-hint">탭하면 뜻이 보여요</div>
+        </div>
+        <div class="vc-face vc-back">
+          <div class="vc-meaning">${card.meaning||'(뜻 미입력)'}</div>
+          ${card.example?`<div class="vc-ex">${card.example}</div>`:''}
+        </div>
+      </div>
+    </div>
+    <div class="vc-actions" id="mem-actions" style="display:none">
+      <button class="btn-vc unsure" onclick="memResult(false)">다시 볼게요 😅</button>
+      <button class="btn-vc know" onclick="memResult(true)">알겠어요 ✓</button>
+    </div>
+    <div style="text-align:center;margin-top:14px">
+      <button class="btn bo bsm" onclick="flipMemCard(document.querySelector('.vc-deck'))">뒤집기</button>
+    </div>
+  </div>`;
+}
+function flipMemCard(deckEl){
+  const card=deckEl.querySelector('.vc-card');
+  if(!card)return;
+  card.classList.toggle('flipped');
+  document.getElementById('mem-actions').style.display=card.classList.contains('flipped')?'flex':'none';
+}
+function memResult(knew){
+  deckState.phaseResults.push({word:deckState.cards[deckState.idx].word,knew});
+  deckState.idx++;
+  const el=document.getElementById('st-vocab');
+  if(deckState.idx>=deckState.cards.length){
+    // 암기 단계 완료 → 리콜 단계로
+    deckState.phase=1;
+    // 모르는 카드만 리콜 대상으로
+    const unsure=deckState.phaseResults.filter(r=>!r.knew).map(r=>r.word);
+    if(unsure.length===0){
+      // 다 알면 바로 스펠로
+      deckState.phase=2;
+    }
+    deckState.phaseResults=[];
+    renderVocabPhaseIntro(el);
+  }else{
+    renderMemCard(el);
+  }
+}
+
+// ── 단계 1: 리콜 (뜻 보고 단어 입력) ──
+function renderRecallCard(el){
+  const card=deckState.cards[deckState.idx];
+  const total=deckState.cards.length;
+  const prog=deckState.cards.map((_,i)=>
+    `<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`
+  ).join('');
+  el.innerHTML=`<div style="padding:1.25rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="vc-phase phase-rec">🧠 리콜</span>
+      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+    </div>
+    <div class="vc-prog">${prog}</div>
+    <div class="recall-wrap">
+      <div style="font-size:12px;color:var(--slate);text-align:center;margin-bottom:8px">뜻을 보고 영어 단어를 입력하세요</div>
+      <div style="background:var(--tl);border-radius:10px;padding:16px;text-align:center;margin-bottom:16px">
+        <div style="font-size:20px;font-weight:700;color:var(--navy)">${card.meaning||'(뜻 미입력)'}</div>
+        ${card.pos?`<div style="font-size:11px;color:var(--slate);margin-top:4px;font-family:var(--fm)">${card.pos}</div>`:''}
+      </div>
+      <input class="recall-input" id="recall-in" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+        placeholder="영어로 입력..." onkeydown="if(event.key==='Enter')checkRecall()">
+      <div class="recall-feedback" id="recall-fb"></div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+        <button class="btn-vc unsure" id="recall-skip-btn" onclick="recallSkip()">모르겠어요</button>
+        <button class="btn-vc know" id="recall-next-btn" style="display:none" onclick="recallNext()">다음 →</button>
+      </div>
+    </div>
+  </div>`;
+  setTimeout(()=>document.getElementById('recall-in')?.focus(),100);
+}
+function checkRecall(){
+  const card=deckState.cards[deckState.idx];
+  const inp=document.getElementById('recall-in');
+  const fb=document.getElementById('recall-fb');
+  const val=(inp.value||'').trim().toLowerCase();
+  const ans=(card.word||'').toLowerCase();
+  if(!val)return;
+  const correct=val===ans;
+  inp.classList.toggle('correct',correct);
+  inp.classList.toggle('wrong',!correct);
+  inp.readOnly=true;
+  document.getElementById('recall-skip-btn').style.display='none';
+  document.getElementById('recall-next-btn').style.display='';
+  if(correct){
+    fb.style.color='#00c4cc';
+    fb.textContent='✓ 정답!';
+  }else{
+    fb.style.color='var(--coral)';
+    fb.innerHTML=`✗ 정답: <strong>${card.word}</strong>`;
+  }
+  deckState.phaseResults.push({word:card.word,correct});
+}
+function recallSkip(){
+  const card=deckState.cards[deckState.idx];
+  const inp=document.getElementById('recall-in');
+  const fb=document.getElementById('recall-fb');
+  inp.readOnly=true;
+  fb.style.color='var(--coral)';
+  fb.innerHTML=`정답: <strong>${card.word}</strong>`;
+  document.getElementById('recall-skip-btn').style.display='none';
+  document.getElementById('recall-next-btn').style.display='';
+  deckState.phaseResults.push({word:card.word,correct:false});
+}
+function recallNext(){
+  deckState.idx++;
+  const el=document.getElementById('st-vocab');
+  if(deckState.idx>=deckState.cards.length){
+    deckState.phase=2;
+    deckState.phaseResults=[];
+    renderVocabPhaseIntro(el);
+  }else{
+    renderRecallCard(el);
+  }
+}
+
+// ── 단계 2: 스펠 (글자 조합) ──
+let spellState={answer:'',chosen:[],letters:[]};
+function renderSpellCard(el){
+  const card=deckState.cards[deckState.idx];
+  const total=deckState.cards.length;
+  const prog=deckState.cards.map((_,i)=>
+    `<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`
+  ).join('');
+  // 글자 섞기 (정답 + 2개 더미 추가해서 최소 5개)
+  const word=(card.word||'').toLowerCase();
+  const letters=word.split('');
+  const extras='abcdefghijklmnoprstuvwy'.split('').filter(c=>!letters.includes(c));
+  while(letters.length<5&&extras.length)letters.push(extras.splice(Math.floor(Math.random()*extras.length),1)[0]);
+  // 섞기
+  for(let i=letters.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[letters[i],letters[j]]=[letters[j],letters[i]];}
+  spellState={answer:word,chosen:[],letters:[...letters]};
+  const blanks=word.split('').map((_,i)=>`<div class="spell-blank" id="spb-${i}"></div>`).join('');
+  const keys=letters.map((l,i)=>`<button class="spell-key" id="spk-${i}" onclick="spellPick(${i},'${l}')">${l}</button>`).join('');
+  el.innerHTML=`<div style="padding:1.25rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="vc-phase phase-spl">✍️ 스펠</span>
+      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+    </div>
+    <div class="vc-prog">${prog}</div>
+    <div style="text-align:center;margin-bottom:8px">
+      <div style="font-size:13px;color:var(--slate);margin-bottom:6px">글자를 눌러 단어를 완성하세요</div>
+      <div style="font-size:18px;font-weight:700;color:var(--navy)">${card.meaning||'(뜻 미입력)'}</div>
+    </div>
+    <div class="spell-blanks" id="spell-blanks">${blanks}</div>
+    <div id="spell-feedback" style="text-align:center;font-size:14px;font-weight:600;min-height:22px;margin-bottom:8px"></div>
+    <div class="spell-keys" id="spell-keys">${keys}</div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
+      <button class="btn bo bsm" onclick="spellClear()">지우기</button>
+      <button class="btn-vc unsure" id="spell-skip-btn" onclick="spellSkip()">건너뛰기</button>
+      <button class="btn-vc know" id="spell-next-btn" style="display:none" onclick="spellNext()">다음 →</button>
+    </div>
+  </div>`;
+}
+function spellPick(keyIdx,letter){
+  const btn=document.getElementById(`spk-${keyIdx}`);
+  if(btn&&btn.disabled)return;
+  if(btn)btn.disabled=true;
+  spellState.chosen.push({keyIdx,letter});
+  const blanks=document.getElementById('spell-blanks');
+  const blankEls=blanks.querySelectorAll('.spell-blank');
+  const pos=spellState.chosen.length-1;
+  if(blankEls[pos]){blankEls[pos].textContent=letter;blankEls[pos].classList.add('filled');}
+  if(spellState.chosen.length===spellState.answer.length){
+    const formed=spellState.chosen.map(c=>c.letter).join('');
+    const correct=formed===spellState.answer;
+    const fb=document.getElementById('spell-feedback');
+    document.getElementById('spell-skip-btn').style.display='none';
+    document.getElementById('spell-next-btn').style.display='';
+    if(correct){
+      fb.style.color='#00c4cc';fb.textContent='✓ 정답!';
+      blankEls.forEach(b=>b.style.borderBottomColor='var(--teal)');
+    }else{
+      fb.style.color='var(--coral)';fb.innerHTML=`✗ 정답: <strong>${spellState.answer}</strong>`;
+      blankEls.forEach(b=>b.style.borderBottomColor='var(--coral)');
+    }
+    deckState.phaseResults.push({word:spellState.answer,correct});
+  }
+}
+function spellClear(){
+  spellState.chosen=[];
+  const blanks=document.querySelectorAll('.spell-blank');
+  blanks.forEach(b=>{b.textContent='';b.classList.remove('filled');b.style.borderBottomColor='';});
+  document.getElementById('spell-feedback').textContent='';
+  spellState.letters.forEach((_,i)=>{const k=document.getElementById(`spk-${i}`);if(k)k.disabled=false;});
+  document.getElementById('spell-skip-btn').style.display='';
+  document.getElementById('spell-next-btn').style.display='none';
+}
+function spellSkip(){
+  const fb=document.getElementById('spell-feedback');
+  fb.style.color='var(--coral)';fb.innerHTML=`정답: <strong>${spellState.answer}</strong>`;
+  document.getElementById('spell-skip-btn').style.display='none';
+  document.getElementById('spell-next-btn').style.display='';
+  deckState.phaseResults.push({word:spellState.answer,correct:false});
+}
+function spellNext(){
+  deckState.idx++;
+  const el=document.getElementById('st-vocab');
+  if(deckState.idx>=deckState.cards.length){
+    // 모든 단계 완료 → 결과 화면
+    renderVocabResult(el);
+  }else{
+    renderSpellCard(el);
+  }
+}
+
+// ── 결과 화면 ──
+async function renderVocabResult(el){
+  const results=deckState.phaseResults;
+  const total=deckState.cards.length;
+  const correct=results.filter(r=>r.correct).length;
+  const pctScore=total?Math.round(correct/total*100):0;
+  const cls=pctScore>=80?'hi':pctScore>=50?'md':'lo';
+  const missed=results.filter(r=>!r.correct).map(r=>r.word);
+  // Supabase 업데이트
+  const today=new Date().toISOString().split('T')[0];
+  for(const card of deckState.cards){
+    const res=results.find(r=>r.word===card.word);
+    const correct=res?res.correct:false;
+    const ci=(_cache.vocab_cards||[]).findIndex(c=>c.id===card.id);
+    if(ci>=0){
+      const updated={..._cache.vocab_cards[ci],
+        hits:(_cache.vocab_cards[ci].hits||0)+(correct?1:0),
+        misses:(_cache.vocab_cards[ci].misses||0)+(correct?0:1),
+        lastSeen:today
+      };
+      _cache.vocab_cards[ci]=updated;
+      await supaUpsert('vocab_cards',card.id,updated,card.sid);
+    }
+  }
+  el.innerHTML=`<div style="padding:2rem;text-align:center">
+    <div class="result-ring ${cls}">${pctScore}%</div>
+    <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:4px">
+      ${pctScore>=80?'훌륭해요! 🎉':pctScore>=50?'잘하고 있어요 👍':'조금 더 연습해요 💪'}
+    </div>
+    <div style="font-size:13px;color:var(--slate);margin-bottom:1.5rem">${total}개 중 ${correct}개 정답</div>
+    ${missed.length?`<div style="margin-bottom:1.5rem">
+      <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:8px">다시 연습할 단어</div>
+      <div class="missed-list">${missed.map(w=>`<span class="missed-chip">${w}</span>`).join('')}</div>
+    </div>`:''}
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="btn bt" style="padding:12px 28px;border-radius:50px" onclick="renderVocabDeck(currentStudentSid)">다시 하기</button>
+    </div>
+  </div>`;
+}
+
+// ── 학생 내 기록 ──
+function renderStudentMyInfo(sid){
+  const el=document.getElementById('st-myinfo');if(!el)return;
+  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const tsts=DB.tsts().filter(t=>t.sid===sid);
+  const les=DB.less().filter(l=>l.sid===sid);
+  const totalCards=cards.length;
+  const masteredCards=cards.filter(c=>(c.hits||0)>=3&&(c.misses||0)===0).length;
+  const needsPractice=cards.filter(c=>(c.misses||0)>=(c.hits||0)).length;
+  const stu=DB.stus().find(x=>x.id===sid);
+  el.innerHTML=`<div style="padding:1.25rem">
+    <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:1rem">${stu?stu.name+'의 ':''} 학습 현황</div>
+    <div class="strow" style="margin-bottom:1.5rem">
+      <div class="stc"><div class="stnum">${totalCards}</div><div class="stlbl">단어 카드</div></div>
+      <div class="stc"><div class="stnum" style="color:#00c4cc">${masteredCards}</div><div class="stlbl">완전 암기</div></div>
+      <div class="stc"><div class="stnum" style="color:var(--coral)">${needsPractice}</div><div class="stlbl">더 연습 필요</div></div>
+      <div class="stc"><div class="stnum">${les.filter(l=>l.att!=='absent').length}</div><div class="stlbl">출석 수업</div></div>
+    </div>
+    ${cards.length?`<div class="card" style="margin-bottom:1rem">
+      <div class="ch"><span class="ct">내 단어 카드</span><span style="font-size:11px;color:var(--slate)">${totalCards}개</span></div>
+      <div class="cb" style="padding:0;max-height:300px;overflow-y:auto">
+        ${[...cards].sort((a,b)=>(b.misses||0)-(a.misses||0)).map(c=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-family:var(--fd);font-weight:700;font-size:14px">${c.word}</div>
+              <div style="font-size:11px;color:var(--slate)">${c.meaning||'—'}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:11px"><span style="color:#00c4cc">✓${c.hits||0}</span> <span style="color:var(--coral)">✗${c.misses||0}</span></div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`:''}
+    ${tsts.length?`<div class="card">
+      <div class="ch"><span class="ct">최근 테스트</span></div>
+      <div class="cb" style="padding:0">
+        ${tsts.slice(0,5).map(t=>{
+          const vp=pct(t.vocabCorrect,t.vocabTotal);
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
+            <span style="font-size:12px;font-family:var(--fm);color:var(--slate)">${t.date||''}</span>
+            <span style="font-size:14px;font-weight:700;color:${vp>=80?'#00c4cc':vp>=60?'#F4784A':'var(--coral)'}">${t.vocabCorrect}/${t.vocabTotal} (${vp}%)</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`:''}
+  </div>`;
+}
 
 // ── UTILS ──
 function escU(u){return(u||'').replace(/'/g,"\\'");}
