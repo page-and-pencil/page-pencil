@@ -1540,6 +1540,8 @@ async function loadAllData(){
     if(pw)_cache.settings.pw=pw;
     const apikey=await supaGetSetting('apikey');
     if(apikey)_cache.settings.apikey=apikey;
+    const cloud=await supaGetSetting('cloud');
+    if(cloud){_cache.settings.cloud=cloud;DB.s('cloud',cloud);}
   }catch(e){
     console.error('loadAllData',e);
     toast('데이터 로드 중 오류가 발생했습니다');
@@ -1656,10 +1658,12 @@ async function saveApiKey(){
   document.getElementById('cfg-apikey-err').textContent='';
   toast('API Key가 저장되었습니다');
 }
-function saveCld(){
+async function saveCld(){
   const n=document.getElementById('cfg-cld-name').value.trim(),p=document.getElementById('cfg-cld-preset').value.trim();
   if(!n||!p){document.getElementById('cfg-cld-err').textContent='모두 입력해 주세요';return;}
-  DB.s('cloud',{name:n,preset:p});document.getElementById('cfg-cld-err').textContent='';toast('저장되었습니다');
+  DB.s('cloud',{name:n,preset:p});
+  await supaSetSetting('cloud',{name:n,preset:p});
+  document.getElementById('cfg-cld-err').textContent='';toast('저장되었습니다');
 }
 async function testCld(){
   const {name,preset}=DB.cld();
