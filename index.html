@@ -596,6 +596,19 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 /* FOLLOW-UP */
 @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 .followup-card{animation:slideDown .3s ease;background:linear-gradient(135deg,#f0fdf8,#e8f5ff);border:1px solid rgba(0,196,204,.2);border-radius:var(--r);padding:16px;margin-top:12px;}
+
+/* ATTENTION */
+.att-alert{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:6px;cursor:pointer;transition:background .15s;}
+.att-alert:hover{background:var(--cream);}
+.att-alert-icon{font-size:18px;flex-shrink:0;}
+.att-alert-text{font-size:13px;color:var(--navy);flex:1;}
+
+/* MESSAGES */
+.msg-bubble{padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.6;max-width:85%;margin-bottom:8px;}
+.msg-bubble.parent{background:var(--cream2);color:var(--navy);align-self:flex-start;}
+.msg-bubble.teacher{background:var(--navy);color:#fff;align-self:flex-end;margin-left:auto;}
+.msg-time{font-size:10px;color:var(--slate);margin-top:2px;}
+.msg-unread-dot{width:8px;height:8px;border-radius:50%;background:#E05C3A;display:inline-block;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -769,6 +782,8 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
       <div id="dash-payment-bar" class="payment-summary"></div>
       <!-- 통계 카드 -->
       <div class="dash-grid" id="dash-cards"></div>
+      <!-- 주의 필요 알림 -->
+      <div id="dash-attention" style="margin-bottom:1rem"></div>
       <!-- 오답 누적 + 복습 스케줄 -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
         <div class="card">
@@ -1139,6 +1154,26 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
         </div>
       </div>
 
+      <!-- QR 코드 생성 -->
+      <div class="card" style="margin-top:1rem">
+        <div class="ch"><span class="ct">📱 QR 코드 생성</span></div>
+        <div class="cb">
+          <div class="ib ibt" style="margin-bottom:12px">학생/학부모가 QR을 스캔하면 PIN 없이 자동 로그인됩니다</div>
+          <div class="f"><label>학생/학부모 선택</label>
+            <select id="qr-stu-sel" onchange="renderQRCode()">
+              <option value="">-- 선택 --</option>
+            </select>
+          </div>
+          <div class="f"><label>역할</label>
+            <div style="display:flex;gap:8px">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="qr-role" value="student" checked onchange="renderQRCode()"> 학생</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="qr-role" value="parent" onchange="renderQRCode()"> 학부모</label>
+            </div>
+          </div>
+          <div id="qr-result" style="text-align:center;padding:8px 0"></div>
+        </div>
+      </div>
+
 
     </div>
 
@@ -1152,7 +1187,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
     <button class="btn-lo" onclick="show('s-land')">← 나가기</button>
   </div>
   <!-- 공지 배너 (활성 공지 있을 때만 표시) -->
-  <div id="parent-notice-banner" style="display:none;background:#FFF8E1;border-bottom:2px solid #F9A825;padding:10px 1.25rem;font-size:13px;color:#5D4037;line-height:1.6;cursor:pointer" onclick="document.getElementById('parent-notice-banner').style.display='none'">
+  <div id="parent-notice-banner" style="display:none;background:#FFF8E1;border-bottom:2px solid #F9A825;padding:10px 1.25rem;font-size:13px;color:#5D4037;line-height:1.6;cursor:pointer" onclick="closeParentNotice()">
     <span style="font-weight:700;margin-right:6px">📢 공지</span><span id="parent-notice-text"></span>
     <span style="float:right;opacity:.5;font-size:11px">닫기 ✕</span>
   </div>
@@ -1198,6 +1233,22 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 </div>
 <div id="pp-log" class="pp" style="display:none"></div>
     <div id="pp-pay" class="pp" style="display:none"></div>
+  </div>
+  <!-- 메시지 버튼 (고정) -->
+  <div style="position:sticky;bottom:0;background:linear-gradient(transparent,rgba(245,241,234,.95) 40%);padding:12px 1.25rem;pointer-events:none">
+    <button onclick="openParentMsgModal()" style="pointer-events:auto;width:100%;padding:14px;background:var(--navy);color:#fff;border:none;border-radius:50px;font-family:var(--fb);font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(13,37,66,.25)">💬 선생님께 메시지 보내기</button>
+  </div>
+</div>
+
+<!-- 학부모 메시지 모달 -->
+<div id="m-parent-msg" class="mo">
+  <div class="mdl">
+    <div class="mh"><div class="mt">💬 선생님께 메시지</div><button class="bx" onclick="closeM('m-parent-msg')">×</button></div>
+    <div class="f"><label>메시지 내용</label><textarea id="parent-msg-text" placeholder="궁금한 점이나 전달사항을 입력해 주세요..." style="min-height:100px;resize:vertical;width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:14px;color:var(--navy);background:var(--cream);outline:none"></textarea></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn bo bsm" onclick="closeM('m-parent-msg')">취소</button>
+      <button class="btn bt" onclick="sendParentMessage()">전송</button>
+    </div>
   </div>
 </div>
 
@@ -1496,6 +1547,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
     <button class="sptab" onclick="swSpTab('sp-tests')">테스트</button>
     <button class="sptab" onclick="swSpTab('sp-hw')">📋 과제</button>
     <button class="sptab" onclick="swSpTab('sp-books')">📗 교재</button>
+    <button class="sptab" id="sp-msg-tab" onclick="swSpTab('sp-msg')">💬 메시지</button>
     <button class="sptab" onclick="swSpTab('sp-payment')">결제</button>
   </div>
   <div class="stu-panel-body">
@@ -1504,6 +1556,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
     <div id="sp-tests" class="sp-pane" style="display:none"></div>
     <div id="sp-hw" class="sp-pane" style="display:none"></div>
     <div id="sp-books" class="sp-pane" style="display:none"></div>
+    <div id="sp-msg" class="sp-pane" style="display:none"></div>
     <div id="sp-payment" class="sp-pane" style="display:none"></div>
   </div>
 </div>
@@ -1616,7 +1669,7 @@ const supa={
 // ── 인메모리 캐시 (Supabase → 로컬 캐시 → UI) ──
 const _cache={
   students:[],lessons:[],tests:[],readings:[],logs:[],
-  library:[],notices:[],settings:{},vocab_cards:[],homeworks:[],assignments:[],textbooks:[]
+  library:[],notices:[],settings:{},vocab_cards:[],homeworks:[],assignments:[],textbooks:[],messages:[]
 };
 
 // ── DATA ──
@@ -1642,7 +1695,8 @@ const DB={
   acct(){return _cache.settings.acct||{bank:'',number:'',name:'',msg:''};},
   notices_list(){return _cache.notices||[];},
   assigns(){return _cache.assignments||[];},
-  tbooks(){return _cache.textbooks||[];}
+  tbooks(){return _cache.textbooks||[];},
+  msgs(){return _cache.messages||[];}
 };
 
 // ── Supabase CRUD 헬퍼 ──
@@ -1698,11 +1752,11 @@ async function supaSetSetting(key,value){
 async function loadAllData(){
   showLoading(true);
   try{
-    const [stus,les,tsts,rds,logs,libs,notices,hws,assigns,tbs,acct,pw]=await Promise.all([
+    const [stus,les,tsts,rds,logs,libs,notices,hws,assigns,tbs,msgs,acct,pw]=await Promise.all([
       supaFetch('students'),supaFetch('lessons'),supaFetch('tests'),
       supaFetch('readings'),supaFetch('logs'),supaFetch('library'),
       supaFetch('notices'),supaFetch('homeworks'),supaFetch('assignments'),
-      supaFetch('textbooks'),
+      supaFetch('textbooks'),supaFetch('messages'),
       supaGetSetting('acct'),supaGetSetting('pw'),
     ]);
     _cache.students=(stus||[]).map(r=>(r.data||r));
@@ -1715,6 +1769,7 @@ async function loadAllData(){
     _cache.homeworks=(hws||[]).map(r=>(r.data||r));
     _cache.assignments=(assigns||[]).map(r=>(r.data||r));
     _cache.textbooks=(tbs||[]).map(r=>(r.data||r));
+    _cache.messages=(msgs||[]).map(r=>(r.data||r));
     if(acct)_cache.settings.acct=acct;
     if(pw)_cache.settings.pw=pw;
     const [apikey,cloud]=await Promise.all([supaGetSetting('apikey'),supaGetSetting('cloud')]);
@@ -1912,6 +1967,8 @@ function swTab(id){
     const a=DB.acct();document.getElementById('cfg-bank').value=a.bank||'';document.getElementById('cfg-acct').value=a.number||'';document.getElementById('cfg-acct-name').value=a.name||'';document.getElementById('cfg-pay-msg').value=a.msg||'';
     updateApiKeyStatusDot();
     renderLibTable();populateLibSeriesFilter();
+    const qrSel=document.getElementById('qr-stu-sel');
+    if(qrSel){const opts='<option value="">-- 선택 --</option>'+DB.stus().filter(s=>!s.inactive).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');qrSel.innerHTML=opts;}
   }
 }
 
@@ -1988,10 +2045,11 @@ function closeStuPanel(){
 }
 function openEditStuFromPanel(){closeStuPanel();openEditStu(currentSpStuId);}
 function swSpTab(id){
-  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-books','sp-payment'];
+  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-books','sp-msg','sp-payment'];
   document.querySelectorAll('.sptab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
   document.querySelectorAll('.sp-pane').forEach(p=>p.style.display=p.id===id?'block':'none');
   if(id==='sp-books')renderSpBooks(currentSpStuId);
+  if(id==='sp-msg')renderSpMessages(currentSpStuId);
 }
 function loadStuPanel(sid){
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
@@ -2251,6 +2309,7 @@ function renderStus(){
     <div style="display:flex;align-items:center;gap:4px">
       <div class="sn">${s.name}</div>
       ${hasUnpaid(s)?'<span class="unpaid-dot" title="이번 달 미납"></span>':''}
+      ${hasUnreadMsg(s.id)?'<span class="msg-unread-dot" title="새 메시지"></span>':''}
     </div>
     <span class="slv lv1">${s.grade||s.lv||''}</span>
     ${s.school?`<div style="font-size:10px;color:var(--slate);margin-top:2px">${s.school}</div>`:''}
@@ -3611,6 +3670,8 @@ function renderDash(){
     {n:totalRds,l:'누적 원서',s:'전 학생'},
   ].map(c=>`<div class="dash-card"><div class="dash-num">${c.n}</div><div class="dash-lbl">${c.l}</div>${c.s?`<div class="dash-sub">${c.s}</div>`:''}</div>`).join('');
 
+  // 주의 필요 알림
+  renderAttentionAlerts();
   // 오답 TOP 단어
   renderWrongWords();
   // 복습 스케줄
@@ -5331,7 +5392,198 @@ function openLb(url){if(!url||url==='undefined'||url===''){toast('사진이 없�
 function closeLb(){document.getElementById('lightbox').classList.remove('open');}
 let toastT;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2500);}
-document.addEventListener('DOMContentLoaded',()=>setToday());
+// ── ATTENTION ALERTS ──
+function renderAttentionAlerts(){
+  const el=document.getElementById('dash-attention');if(!el)return;
+  const stus=DB.stus().filter(s=>!s.inactive);
+  const les=DB.less();
+  const tsts=DB.tsts();
+  const today=new Date();
+  const thisMonth=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
+  const alerts=[];
+
+  stus.forEach(s=>{
+    const sLes=les.filter(l=>l.sid===s.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const thisMonthLes=sLes.filter(l=>l.date&&l.date.startsWith(thisMonth)&&l.att!=='absent');
+    if(!thisMonthLes.length)alerts.push({sid:s.id,icon:'⚠️',text:`${s.name} — 이번 달 수업 없음`});
+
+    const recent2=sLes.slice(0,2);
+    if(recent2.length===2&&recent2.every(l=>l.att==='absent'))
+      alerts.push({sid:s.id,icon:'⚠️',text:`${s.name} — 최근 2회 연속 결석`});
+
+    const sTsts=tsts.filter(t=>t.sid===s.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    if(sTsts.length>=2){
+      const cur=pct(sTsts[0].vocabCorrect,sTsts[0].vocabTotal);
+      const prev=pct(sTsts[1].vocabCorrect,sTsts[1].vocabTotal);
+      if(prev-cur>=20)alerts.push({sid:s.id,icon:'📉',text:`${s.name} — 점수 하락 (${prev}% → ${cur}%)`});
+    }
+
+    if(s.fee&&s.payday){
+      if(today.getDate()>=s.payday&&!(s.payments||[]).some(p=>p.date&&p.date.startsWith(thisMonth)))
+        alerts.push({sid:s.id,icon:'💰',text:`${s.name} — 이번 달 미납`});
+    }
+  });
+
+  if(!alerts.length){el.innerHTML='';return;}
+  el.innerHTML=`<div class="card" style="border-left:4px solid var(--coral)">
+    <div class="ch"><span class="ct" style="color:var(--coral)">🚨 주의 필요 (${alerts.length})</span></div>
+    <div class="cb" style="padding:8px 16px">
+      ${alerts.map(a=>`<div class="att-alert" onclick="loadStuPanel('${a.sid}')">
+        <span class="att-alert-icon">${a.icon}</span>
+        <span class="att-alert-text">${a.text}</span>
+        <span style="font-size:11px;color:var(--slate)">→</span>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ── NOTICE READ TRACKING ──
+let _activeNoticeId=null;
+function closeParentNotice(){
+  document.getElementById('parent-notice-banner').style.display='none';
+  if(_activeNoticeId&&currentParentSid)markNoticeRead(_activeNoticeId,currentParentSid);
+}
+async function markNoticeRead(noticeId,sid){
+  const n=(_cache.notices||[]).find(x=>x.id===noticeId);if(!n)return;
+  if(!n.readBy)n.readBy=[];
+  if(n.readBy.some(r=>r.sid===sid))return;
+  n.readBy.push({sid,readAt:new Date().toISOString()});
+  await supaUpsert('notices',noticeId,n,null);
+}
+// override showParentNoticeBanner to store active notice id
+const _origShowBanner=showParentNoticeBanner;
+function showParentNoticeBanner(){
+  const active=(_cache.notices||[]).find(n=>n.active);
+  _activeNoticeId=active?active.id:null;
+  _origShowBanner();
+}
+// renderNoticeBoard 확장: readBy 표시
+const _origRenderNoticeBoard=renderNoticeBoard;
+function renderNoticeBoard(){
+  const notices=_cache.notices||[];
+  const el=document.getElementById('notice-board');if(!el)return;
+  const totalStus=DB.stus().filter(s=>!s.inactive).length;
+  const lbl=document.getElementById('notice-count-lbl');
+  if(lbl)lbl.textContent=`총 ${notices.length}건 · 활성 ${notices.filter(n=>n.active).length}건`;
+  if(!notices.length){el.innerHTML='<div style="color:var(--slate);font-size:12px;padding:8px 0">등록된 공지가 없습니다</div>';return;}
+  el.innerHTML=notices.map(n=>{
+    const readBy=n.readBy||[];
+    const readCount=readBy.length;
+    const unreadStus=DB.stus().filter(s=>!s.inactive&&!readBy.some(r=>r.sid===s.id));
+    return `<div class="notice-item ${n.active?'notice-active':''}">
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          ${n.active?'<span class="notice-pin">📌 게시 중</span>':''}
+          <span class="notice-date">${n.date}</span>
+          <span style="font-size:10px;color:var(--slate)">읽음 ${readCount}/${totalStus}명</span>
+        </div>
+        <div class="notice-text">${n.text.replace(/\n/g,'<br>')}</div>
+        ${unreadStus.length?`<details style="margin-top:6px"><summary style="font-size:11px;color:var(--slate);cursor:pointer">미읽음 ${unreadStus.length}명 ▼</summary>
+          <div style="font-size:11px;color:var(--slate);padding:4px 0">${unreadStus.map(s=>s.name).join(', ')}</div>
+        </details>`:'<div style="font-size:11px;color:#005f6b;margin-top:4px">✓ 전원 읽음</div>'}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+        <button class="btn ${n.active?'ba':'bo'} bsm" style="font-size:11px" onclick="toggleNoticeActive('${n.id}')">${n.active?'게시 중지':'게시'}</button>
+        <button class="btn bd bsm" style="font-size:11px" onclick="deleteNotice('${n.id}')">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── MESSAGES ──
+function openParentMsgModal(){openM('m-parent-msg');}
+async function sendParentMessage(){
+  const text=document.getElementById('parent-msg-text').value.trim();
+  if(!text){toast('메시지를 입력해 주세요');return;}
+  const msg={id:uid(),sid:currentParentSid,fromRole:'parent',text,createdAt:new Date().toISOString(),read:false};
+  await supaUpsert('messages',msg.id,msg,currentParentSid);
+  if(!_cache.messages)_cache.messages=[];
+  _cache.messages.unshift(msg);
+  document.getElementById('parent-msg-text').value='';
+  closeM('m-parent-msg');
+  toast('메시지가 전송되었습니다');
+}
+function renderSpMessages(sid){
+  const el=document.getElementById('sp-msg');if(!el)return;
+  const msgs=(_cache.messages||[]).filter(m=>m.sid===sid).sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
+  el.innerHTML=`<div style="display:flex;flex-direction:column;min-height:200px;padding:4px 0">
+    ${msgs.length?msgs.map(m=>{
+      const ts=m.createdAt?m.createdAt.slice(5,16).replace('T',' '):'';
+      return `<div style="margin-bottom:10px;display:flex;flex-direction:column;align-items:${m.fromRole==='teacher'?'flex-end':'flex-start'}">
+        <div class="msg-bubble ${m.fromRole==='teacher'?'teacher':'parent'}">${m.text}</div>
+        <div class="msg-time">${m.fromRole==='parent'?'학부모':'선생님'} · ${ts}${!m.read&&m.fromRole==='parent'?' · 미읽음':''}</div>
+      </div>`;
+    }).join(''):'<div class="empty"><div class="empty-i">💬</div><div class="empty-t">아직 메시지 없음</div></div>'}
+  </div>
+  <div style="margin-top:8px;display:flex;gap:6px">
+    <input type="text" id="sp-msg-input" placeholder="답장 입력..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none" onkeydown="if(event.key==='Enter')sendTeacherMessage('${sid}')">
+    <button class="btn bt bsm" onclick="sendTeacherMessage('${sid}')">전송</button>
+  </div>`;
+  // 미읽음 메시지 읽음 처리
+  const unread=msgs.filter(m=>m.fromRole==='parent'&&!m.read);
+  unread.forEach(async m=>{m.read=true;await supaUpsert('messages',m.id,m,sid);});
+  if(unread.length)renderStus();
+}
+async function sendTeacherMessage(sid){
+  const inp=document.getElementById('sp-msg-input');if(!inp)return;
+  const text=inp.value.trim();if(!text)return;
+  const msg={id:uid(),sid,fromRole:'teacher',text,createdAt:new Date().toISOString(),read:false};
+  await supaUpsert('messages',msg.id,msg,sid);
+  if(!_cache.messages)_cache.messages=[];
+  _cache.messages.unshift(msg);
+  inp.value='';
+  renderSpMessages(sid);
+}
+// renderStus에서 미읽음 메시지 점 표시용 helper
+function hasUnreadMsg(sid){
+  return (_cache.messages||[]).some(m=>m.sid===sid&&m.fromRole==='parent'&&!m.read);
+}
+
+// ── QR CODE ──
+function renderQRCode(){
+  const el=document.getElementById('qr-result');if(!el)return;
+  const sid=document.getElementById('qr-stu-sel')?.value;
+  if(!sid){el.innerHTML='';return;}
+  const s=DB.stus().find(x=>x.id===sid);if(!s){el.innerHTML='';return;}
+  const role=document.querySelector('input[name="qr-role"]:checked')?.value||'student';
+  const pin=s.pin||'';
+  if(!pin){el.innerHTML='<div style="color:var(--slate);font-size:12px">PIN이 설정되지 않은 학생입니다</div>';return;}
+  const baseUrl='https://page-and-pencil.github.io/page-pencil/';
+  const target=`${baseUrl}?pin=${encodeURIComponent(pin)}&role=${role}`;
+  const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(target)}`;
+  el.innerHTML=`<div>
+    <div style="font-size:12px;color:var(--slate);margin-bottom:8px">${s.name} (${role==='student'?'학생':'학부모'})</div>
+    <img src="${qrUrl}" alt="QR" style="width:200px;height:200px;border:1px solid var(--border);border-radius:var(--rs)">
+    <div style="margin-top:8px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+      <a href="${qrUrl}" download="${s.name}_QR.png" class="btn bo bsm">⬇ 이미지 저장</a>
+      <button class="btn ba bsm" onclick="window.print()">🖨 인쇄</button>
+      <button class="btn bo bsm" onclick="navigator.clipboard.writeText('${target}').then(()=>toast('링크 복사됨'))">🔗 링크 복사</button>
+    </div>
+    <div style="font-size:10px;color:var(--slate);margin-top:6px;word-break:break-all">${target}</div>
+  </div>`;
+}
+
+// ── URL PARAM AUTO LOGIN ──
+document.addEventListener('DOMContentLoaded',async()=>{
+  setToday();
+  const params=new URLSearchParams(location.search);
+  const pin=params.get('pin');
+  const role=params.get('role');
+  if(pin&&role){
+    if(!_cache.students.length)await loadAllData();
+    const matches=_cache.students.filter(s=>s.pin===pin&&!s.inactive);
+    if(matches.length===1){
+      if(role==='student'){
+        await loginStudent(matches[0]);
+      } else if(role==='parent'){
+        document.getElementById('pin-code').value=pin;
+        document.getElementById('pin-name').value=matches[0].name;
+        await checkPin();
+      }
+    }
+  }
+});
+
 
 </script>
 </body>
