@@ -1538,9 +1538,8 @@ async function loadAllData(){
     _cache.homeworks=(hws||[]).map(r=>(r.data||r));
     if(acct)_cache.settings.acct=acct;
     if(pw)_cache.settings.pw=pw;
-    const apikey=await supaGetSetting('apikey');
+    const [apikey,cloud]=await Promise.all([supaGetSetting('apikey'),supaGetSetting('cloud')]);
     if(apikey)_cache.settings.apikey=apikey;
-    const cloud=await supaGetSetting('cloud');
     if(cloud){_cache.settings.cloud=cloud;DB.s('cloud',cloud);}
   }catch(e){
     console.error('loadAllData',e);
