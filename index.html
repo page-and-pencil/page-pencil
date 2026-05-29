@@ -653,19 +653,49 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
     <button class="stutab" onclick="swStuTab('st-library')">🎧 원서 듣기</button>
     <button class="stutab" onclick="swStuTab('st-hw')">📤 과제 제출</button>
     <button class="stutab" onclick="swStuTab('st-myinfo')">📊 내 기록</button>
+    <button class="stutab" onclick="swStuTab('st-links')">🔗 학습 링크</button>
   </div>
   <div class="ab">
     <div id="st-vocab" class="panel active" style="max-width:480px;margin:0 auto"></div>
     <div id="st-library" class="panel" style="max-width:480px;margin:0 auto"></div>
     <div id="st-hw" class="panel" style="max-width:480px;margin:0 auto"></div>
     <div id="st-myinfo" class="panel" style="max-width:480px;margin:0 auto"></div>
+    <div id="st-links" class="panel" style="max-width:480px;margin:0 auto">
+      <div style="padding:1.25rem">
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:1rem">학습 링크</div>
+        <div class="stu-book-card" style="margin-bottom:10px">
+          <div class="stu-book-top">
+            <div class="stu-book-cover" style="background:linear-gradient(135deg,#0d2542,#163358);font-size:22px">🎮</div>
+            <div style="flex:1;min-width:0">
+              <div class="stu-book-title">클래스5</div>
+              <div class="stu-book-series">단어 게임, 퀴즈</div>
+            </div>
+          </div>
+          <div style="margin-top:10px">
+            <a href="https://play.class5.co.kr/" target="_blank" rel="noopener" class="btn bt" style="text-decoration:none;display:inline-flex">바로가기 →</a>
+          </div>
+        </div>
+        <div class="stu-book-card">
+          <div class="stu-book-top">
+            <div class="stu-book-cover" style="background:linear-gradient(135deg,#00796b,#004d40);font-size:22px">📖</div>
+            <div style="flex:1;min-width:0">
+              <div class="stu-book-title">오토보카</div>
+              <div class="stu-book-series">영어 단어 자동 암기</div>
+            </div>
+          </div>
+          <div style="margin-top:10px">
+            <a href="https://www.autovoca.co.kr/login" target="_blank" rel="noopener" class="btn bt" style="text-decoration:none;display:inline-flex">바로가기 →</a>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- TEACHER APP -->
 <div id="s-teacher" class="screen">
   <div class="ah">
-    <div class="ah-logo">Page <span>&</span> Pencil</div>
+    <div class="ah-logo" style="cursor:pointer" onclick="show('s-land')">Page <span>&</span> Pencil</div>
     <div style="display:flex;align-items:center;gap:10px">
       <span class="hbadge">선생님</span>
       <button class="btn-lo" onclick="logout()">로그아웃</button>
@@ -923,7 +953,12 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
           <button class="btn bt" onclick="saveLog()">저장</button>
         </div>
       </div>
-      <div class="st" style="margin-bottom:10px">업로드된 리딩로그</div>
+      <div class="filter-bar">
+        <select class="filter-sel" id="log-filter-stu" onchange="renderLog()">
+          <option value="">전체 학생</option>
+        </select>
+        <span style="font-size:12px;color:var(--slate)" id="log-count"></span>
+      </div>
       <div id="log-grid" class="pg"></div>
     </div>
 
@@ -934,7 +969,9 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
     <div id="t-lib" class="panel">
       <div class="sh">
         <div><div class="st">원서 DB</div><div class="ssub" id="lib-total-count"></div></div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ba bsm" onclick="openBulkAudio()">🎵 일괄 오디오</button>
+          <input type="file" id="bulk-audio-files" accept="audio/*" multiple style="display:none" onchange="previewBulkAudio(event)">
           <button class="btn ba bsm" onclick="exportLibCSV()">⬇ CSV</button>
           <button class="btn ba bsm" onclick="document.getElementById('lib-csv-file2').click()">📊 CSV 가져오기</button>
           <input type="file" id="lib-csv-file2" accept=".csv" style="display:none" onchange="importLibCSV(event)">
@@ -951,6 +988,13 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
           <option value="all">전체</option>
           <option value="db">기본 DB</option>
           <option value="custom">추가 항목</option>
+        </select>
+        <select class="filter-sel" id="lib-per-page" onchange="libPage=0;renderLibTable()" title="페이지당 표시 권수">
+          <option value="10">10권</option>
+          <option value="50" selected>50권</option>
+          <option value="100">100권</option>
+          <option value="500">500권</option>
+          <option value="1000">1000권</option>
         </select>
       </div>
       <div class="lib-table-container">
@@ -998,12 +1042,19 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
         </div>
       </div>
       <div class="card" style="margin-bottom:1rem">
-        <div class="ch"><span class="ct">Claude API Key (AI 자동 인식)</span></div>
+        <div class="ch">
+          <span class="ct">Claude API Key (AI 자동 인식)</span>
+          <span id="apikey-status-dot" title="연결 상태" style="font-size:13px;color:var(--slate)">● 미설정</span>
+        </div>
         <div class="cb">
           <div class="ib iba">console.anthropic.com에서 발급. 테스트지·리딩로그 사진 AI 분석에 사용됩니다</div>
           <div class="f"><label>API Key</label><input type="password" id="cfg-apikey" placeholder="sk-ant-..."></div>
           <div class="err" id="cfg-apikey-err"></div>
-          <button class="btn bp bsm" onclick="saveApiKey()">저장</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn bp bsm" onclick="saveApiKey()">저장</button>
+            <button class="btn ba bsm" onclick="testApiKey()">연결 테스트</button>
+          </div>
+          <div id="apikey-test-result" style="margin-top:8px"></div>
         </div>
       </div>
       <div class="card">
@@ -1305,6 +1356,36 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
   </div>
 </div>
 
+<!-- 일괄 오디오 업로드 미리보기 모달 -->
+<div id="m-bulk-audio" class="mo">
+  <div class="mdl" style="max-width:560px">
+    <div class="mh"><div class="mt">🎵 일괄 오디오 업로드</div><button class="bx" onclick="closeM('m-bulk-audio')">×</button></div>
+    <div class="ib iba" style="margin-bottom:10px">파일명 규칙: <strong>전권</strong>은 "책제목.mp3", <strong>챕터별</strong>은 "책제목 - Ch01.mp3" 형식</div>
+    <div id="bulk-audio-preview" style="max-height:360px;overflow-y:auto"></div>
+    <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
+      <button class="btn bo bsm" onclick="closeM('m-bulk-audio')">취소</button>
+      <button class="btn bt" onclick="confirmBulkAudio()" id="bulk-audio-confirm-btn">업로드 시작</button>
+    </div>
+  </div>
+</div>
+
+<!-- 리딩로그 수정 모달 -->
+<div id="m-edit-log" class="mo">
+  <div class="mdl">
+    <div class="mh"><div class="mt">리딩로그 수정</div><button class="bx" onclick="closeM('m-edit-log')">×</button></div>
+    <input type="hidden" id="elog-id">
+    <div class="fg">
+      <div class="f"><label>날짜</label><input type="date" id="elog-date"></div>
+      <div class="f"><label>학생</label><select id="elog-stu"></select></div>
+      <div class="f s2"><label>단어 목록 (쉼표 구분)</label><input type="text" id="elog-words" placeholder="gloomy, enormous, quietly"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+      <button class="btn bo bsm" onclick="closeM('m-edit-log')">취소</button>
+      <button class="btn bt bsm" onclick="saveEditLog()">저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- 학생 슬라이드 패널 -->
 <div id="stu-panel-overlay" class="stu-panel-overlay" onclick="closeStuPanel()"></div>
 <div id="stu-panel" class="stu-panel">
@@ -1539,7 +1620,7 @@ async function loadAllData(){
     if(acct)_cache.settings.acct=acct;
     if(pw)_cache.settings.pw=pw;
     const [apikey,cloud]=await Promise.all([supaGetSetting('apikey'),supaGetSetting('cloud')]);
-    if(apikey)_cache.settings.apikey=apikey;
+    if(apikey){_cache.settings.apikey=apikey;DB.s('apikey',apikey);}
     if(cloud){_cache.settings.cloud=cloud;DB.s('cloud',cloud);}
   }catch(e){
     console.error('loadAllData',e);
@@ -1648,6 +1729,12 @@ async function changePw(){
   ['pw-cur','pw-nw','pw-cf'].forEach(i=>document.getElementById(i).value='');
   toast('비밀번호가 변경되었습니다');
 }
+function updateApiKeyStatusDot(){
+  const dot=document.getElementById('apikey-status-dot');if(!dot)return;
+  const k=DB.api();
+  if(!k){dot.style.color='var(--slate)';dot.textContent='● 미설정';}
+  else{dot.style.color='#b8860b';dot.textContent='● 저장됨';}
+}
 async function saveApiKey(){
   const k=document.getElementById('cfg-apikey').value.trim();
   if(!k){document.getElementById('cfg-apikey-err').textContent='API Key를 입력해 주세요';return;}
@@ -1655,7 +1742,33 @@ async function saveApiKey(){
   _cache.settings.apikey=k;
   await supaSetSetting('apikey',k);
   document.getElementById('cfg-apikey-err').textContent='';
+  updateApiKeyStatusDot();
   toast('API Key가 저장되었습니다');
+}
+async function testApiKey(){
+  const k=DB.api();
+  const el=document.getElementById('apikey-test-result');
+  const dot=document.getElementById('apikey-status-dot');
+  if(!k){el.innerHTML='<div class="ais warn">⚠️ 먼저 API Key를 저장해 주세요</div>';return;}
+  el.innerHTML='<div class="ais loading"><div class="spin"></div>연결 확인 중...</div>';
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:5,messages:[{role:'user',content:'ping'}]})
+    });
+    if(res.ok){
+      el.innerHTML='<div class="ais ok">✅ 연결됨 — API Key 정상 작동</div>';
+      if(dot){dot.style.color='#0a5940';dot.textContent='● 연결됨';}
+    } else {
+      const d=await res.json().catch(()=>({}));
+      el.innerHTML=`<div class="ais err">❌ 오류: ${d.error?.message||res.status}</div>`;
+      if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}
+    }
+  }catch(e){
+    el.innerHTML=`<div class="ais err">❌ 연결 실패: ${e.message}</div>`;
+    if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}
+  }
 }
 async function saveCld(){
   const n=document.getElementById('cfg-cld-name').value.trim(),p=document.getElementById('cfg-cld-preset').value.trim();
@@ -1688,12 +1801,13 @@ function swTab(id){
   if(id==='t-les'){populateFilterSels();renderLes();}
   if(id==='t-tst'){populateFilterSels();renderTst();}
   if(id==='t-bks'){populateLibSel();populateFilterSels();renderRd();}
-  if(id==='t-log'){renderLog();checkCldWarn();}
+  if(id==='t-log'){populateFilterSels();renderLog();checkCldWarn();}
   if(id==='t-lib'){renderLibTable();populateLibSeriesFilter();}
   if(id==='t-cfg'){
     const c=DB.cld();document.getElementById('cfg-cld-name').value=c.name||'';document.getElementById('cfg-cld-preset').value=c.preset||'';
     document.getElementById('cfg-apikey').value=DB.api()?'••••••':'';
     const a=DB.acct();document.getElementById('cfg-bank').value=a.bank||'';document.getElementById('cfg-acct').value=a.number||'';document.getElementById('cfg-acct-name').value=a.name||'';document.getElementById('cfg-pay-msg').value=a.msg||'';
+    updateApiKeyStatusDot();
     renderLibTable();populateLibSeriesFilter();
   }
 }
@@ -1719,7 +1833,7 @@ function populateSels(){
 function populateFilterSels(){
   const stus=DB.stus().filter(s=>!s.inactive);
   const opts='<option value="">전체 학생</option>'+stus.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
-  ['les-filter-stu','tst-filter-stu','rd-filter-stu'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+  ['les-filter-stu','tst-filter-stu','rd-filter-stu','log-filter-stu','elog-stu'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
 }
 function populateLibSel(){
   const sel=document.getElementById('rd-lib-sel');if(!sel)return;
@@ -2490,7 +2604,7 @@ function renderLib(){
 
 // ── LIBRARY TABLE (원서 DB 탭) ──
 let libPage=0;
-const LIB_PAGE_SIZE=50;
+function getLibPageSize(){return parseInt(document.getElementById('lib-per-page')?.value||'50');}
 
 function populateLibSeriesFilter(){
   const sel=document.getElementById('lib-filter-series');if(!sel)return;
@@ -2517,6 +2631,7 @@ function renderLibTable(){
   const totalEl=document.getElementById('lib-total-count');
   if(totalEl)totalEl.textContent=`총 ${total.toLocaleString()}권`;
 
+  const LIB_PAGE_SIZE=getLibPageSize();
   const maxPage=Math.ceil(total/LIB_PAGE_SIZE)-1;
   if(libPage>maxPage)libPage=Math.max(0,maxPage);
   const paged=filtered.slice(libPage*LIB_PAGE_SIZE,(libPage+1)*LIB_PAGE_SIZE);
@@ -2532,13 +2647,8 @@ function renderLibTable(){
       <td style="font-size:12px;color:var(--slate)">${b.lexile||'—'}</td>
       <td style="font-size:12px;color:var(--slate)">${b.level||'—'}</td>
       <td><span class="badge ${isCustom?'bteal':'bslate'}" style="font-size:10px">${isCustom?'추가':'기본'}</span></td>
-      <td style="text-align:center">
-        ${b.audioUrl
-          ?`<div style="display:flex;align-items:center;gap:4px"><audio controls style="width:120px;height:24px" src="${b.audioUrl}"></audio><button class="btn bd" style="padding:2px 6px;font-size:10px" onclick="reqDelAudio('${b.id}',event)">✕</button></div>`
-          :`<label class="audio-upload-btn" style="cursor:pointer">
-              🎵 업로드
-              <input type="file" accept="audio/*" style="display:none" onchange="uploadBookAudio(event,'${b.id}')">
-            </label>`}
+      <td style="text-align:center;min-width:160px">
+        ${renderAudioCell(b)}
       </td>
       <td>${isCustom?`<button class="btn bd" style="padding:2px 8px;font-size:11px" onclick="reqDelLibItem('${b.id}')">삭제</button>`:''}</td>
     </tr>`;
@@ -2674,17 +2784,44 @@ function reqDelLog(id){
   });
 }
 function renderLog(){
-  const stus=DB.stus(),logs=DB.logs();
+  const stus=DB.stus();
+  const filterSid=document.getElementById('log-filter-stu')?.value||'';
+  let logs=DB.logs();
+  if(filterSid)logs=logs.filter(l=>l.sid===filterSid);
   const el=document.getElementById('log-grid');
+  const cnt=document.getElementById('log-count');if(cnt)cnt.textContent=logs.length?`총 ${logs.length}건`:'';
   if(!logs.length){el.innerHTML='<div class="empty" style="grid-column:1/-1"><div class="empty-i">📸</div><div class="empty-t">아직 업로드된 리딩로그가 없습니다</div></div>';return;}
   el.innerHTML=logs.map(l=>{
     const s=stus.find(x=>x.id===l.sid);
-    return `<div class="pi" onclick="openLb('${escU(l.photoUrl||'')}')">
-      ${l.photoUrl?`<img src="${l.photoUrl}" alt="리딩로그" loading="lazy" onerror="this.style.display='none'">`:''}
-      ${!l.photoUrl?`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;background:var(--cream2)">📝</div>`:''}
+    return `<div class="pi">
+      <div onclick="openLb('${escU(l.photoUrl||'')}')" style="position:absolute;inset:0;z-index:1">
+        ${l.photoUrl?`<img src="${l.photoUrl}" alt="리딩로그" loading="lazy" onerror="this.style.display='none'">`:''}
+        ${!l.photoUrl?`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;background:var(--cream2)">📝</div>`:''}
+      </div>
+      <div style="position:absolute;top:4px;right:4px;display:flex;gap:3px;z-index:2">
+        <button onclick="openEditLog('${l.id}')" style="background:rgba(255,255,255,.85);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;font-size:12px">✏️</button>
+        <button onclick="reqDelLog('${l.id}')" style="background:rgba(255,255,255,.85);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;font-size:12px">🗑️</button>
+      </div>
       <div class="pim"><div style="font-weight:700">${s?s.name:'—'}</div><div>${l.date||''}</div>${l.words&&l.words.length?`<div style="opacity:.8">${l.words.slice(0,3).join(', ')}${l.words.length>3?'…':''}</div>`:''}</div>
     </div>`;
   }).join('');
+}
+function openEditLog(id){
+  const l=DB.logs().find(x=>x.id===id);if(!l)return;
+  document.getElementById('elog-id').value=l.id;
+  document.getElementById('elog-date').value=l.date||'';
+  document.getElementById('elog-stu').value=l.sid||'';
+  document.getElementById('elog-words').value=(l.words||[]).join(', ');
+  openM('m-edit-log');
+}
+async function saveEditLog(){
+  const id=document.getElementById('elog-id').value;
+  const l=_cache.logs.find(x=>x.id===id);if(!l)return;
+  l.date=document.getElementById('elog-date').value;
+  l.sid=document.getElementById('elog-stu').value;
+  l.words=document.getElementById('elog-words').value.split(',').map(w=>w.trim()).filter(Boolean);
+  await supaUpsert('logs',id,l,l.sid);
+  closeM('m-edit-log');renderLog();toast('수정되었습니다');
 }
 
 // ── TEST PHOTO ──
@@ -2760,21 +2897,12 @@ async function polishCmt(raw){
       },
       body:JSON.stringify({
         model:'claude-haiku-4-5-20251001',
-        max_tokens:200,
+        max_tokens:300,
         messages:[{
           role:'user',
-          content:`당신은 영어 공부방 선생님의 수업 메모를 학부모에게 전달할 전문적이고 따뜻한 문장으로 변환하는 역할입니다.
+          content:`당신은 영어 교육 전문 선생님입니다. 아래 수업 메모를 학부모에게 보내는 전문적이면서도 따뜻한 톤의 알림으로 200자 내외 한국어로 작성해주세요. 마크다운, 이모지, 따옴표 사용 금지. 변환된 문장만 출력하세요.
 
-규칙:
-- 80~120자 사이의 완성된 문장 1~2개로만 작성
-- 전문적이되 딱딱하지 않게, 따뜻하고 격려하는 톤
-- 아이를 주어로, 학부모에게 말하는 형식
-- 선생님 메모의 구체적 내용은 살리되 단어 나열은 자연스럽게 풀어쓰기
-- 마침표로 끝맺기
-- 마크다운, 이모지, 따옴표 사용 금지
-- 변환된 문장만 출력, 다른 말 일절 없이
-
-선생님 메모: ${r}`
+원문: ${r}`
         }]
       })
     });
@@ -3438,6 +3566,132 @@ async function forceReload(){
   toast('데이터 새로고침 완료');
 }
 
+// ── AUDIO HELPERS ──
+function getAudioUrl(b){
+  if(!b.audioUrl) return null;
+  if(typeof b.audioUrl==='string') return b.audioUrl;
+  if(b.audioUrl.type==='full') return b.audioUrl.url;
+  return null;
+}
+function getAudioObj(b){
+  if(!b.audioUrl) return null;
+  if(typeof b.audioUrl==='string') return {type:'full',url:b.audioUrl};
+  return b.audioUrl;
+}
+function renderAudioCell(b){
+  const ao=getAudioObj(b);
+  if(!ao){
+    return `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">
+      <label class="audio-upload-btn" style="cursor:pointer">🎵 전권 업로드<input type="file" accept="audio/*" style="display:none" onchange="uploadBookAudio(event,'${b.id}','full')"></label>
+      <label class="audio-upload-btn" style="cursor:pointer;background:var(--pl);border-color:rgba(91,79,187,.3);color:var(--purple)">📑 챕터 추가<input type="file" accept="audio/*" style="display:none" onchange="uploadBookAudio(event,'${b.id}','chapter')"></label>
+    </div>`;
+  }
+  if(ao.type==='chapters'){
+    const cnt=ao.chapters?ao.chapters.length:0;
+    return `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+      <span class="badge bpurple">챕터 ${cnt}개</span>
+      <button class="btn bo bsm" onclick="manageChapters('${b.id}',event)">관리</button>
+      <button class="btn bd" style="padding:2px 6px;font-size:10px" onclick="reqDelAudio('${b.id}',event)">✕</button>
+    </div>`;
+  }
+  const url=ao.url||ao;
+  return `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+    <audio controls style="width:110px;height:24px" src="${url}"></audio>
+    <label class="audio-upload-btn" style="cursor:pointer;padding:2px 6px;font-size:10px">+챕터<input type="file" accept="audio/*" style="display:none" onchange="uploadBookAudio(event,'${b.id}','chapter')"></label>
+    <button class="btn bd" style="padding:2px 6px;font-size:10px" onclick="reqDelAudio('${b.id}',event)">✕</button>
+  </div>`;
+}
+function manageChapters(bookId,e){
+  if(e)e.stopPropagation();
+  const b=(_cache.library||[]).find(x=>x.id===bookId);if(!b)return;
+  const ao=getAudioObj(b);const chapters=ao?.chapters||[];
+  const html=chapters.map((c,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+    <span style="font-size:12px;min-width:60px">챕터 ${c.num}</span>
+    <audio controls style="flex:1;height:24px" src="${c.url}"></audio>
+    <button class="btn bd" style="padding:2px 6px;font-size:10px" onclick="delChapter('${bookId}',${i})">✕</button>
+  </div>`).join('');
+  askConfirm('챕터 관리',`<div>${html}</div><div style="margin-top:10px"><label class="audio-upload-btn" style="cursor:pointer;display:inline-block">+ 챕터 추가 <input type="file" accept="audio/*" style="display:none" onchange="uploadBookAudio(event,'${bookId}','chapter')"></label></div>`,'닫기','bo',()=>{});
+}
+async function delChapter(bookId,idx){
+  const b=(_cache.library||[]).find(x=>x.id===bookId);if(!b)return;
+  const ao=getAudioObj(b);if(!ao||!ao.chapters)return;
+  ao.chapters.splice(idx,1);
+  if(!ao.chapters.length){delete b.audioUrl;}else{b.audioUrl=ao;}
+  await supaUpsert('library',bookId,b,null);
+  renderLibTable();toast('챕터가 삭제되었습니다');
+}
+
+// ── BULK AUDIO UPLOAD ──
+let _bulkAudioFiles=[];
+function openBulkAudio(){document.getElementById('bulk-audio-files').click();}
+function previewBulkAudio(e){
+  _bulkAudioFiles=[...e.target.files];if(!_bulkAudioFiles.length)return;
+  e.target.value='';
+  const allSrc=[...BOOK_DB,...DB.libs()];
+  const matches=_bulkAudioFiles.map(f=>{
+    const name=f.name.replace(/\.[^.]+$/,'');
+    const chMatch=name.match(/^(.+?)\s*[-—]\s*[Cc]h(\d+)$/);
+    if(chMatch){
+      const title=chMatch[1].trim(),ch=parseInt(chMatch[2]);
+      const book=allSrc.find(b=>b.title.toLowerCase()===title.toLowerCase()||b.title.toLowerCase().includes(title.toLowerCase()));
+      return {file:f,type:'chapter',title,ch,book:book||null};
+    }
+    const book=allSrc.find(b=>b.title.toLowerCase()===name.toLowerCase()||b.title.toLowerCase().includes(name.toLowerCase()));
+    return {file:f,type:'full',title:name,book:book||null};
+  });
+  const preview=document.getElementById('bulk-audio-preview');
+  preview.innerHTML=matches.map((m,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+    <span style="font-size:18px">${m.book?'✅':'❌'}</span>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600;${!m.book?'color:var(--coral)':''}">${m.file.name}</div>
+      <div style="font-size:11px;color:var(--slate)">${m.book?'→ '+m.book.title+(m.type==='chapter'?' · 챕터'+m.ch:''):'매칭된 책 없음'}</div>
+    </div>
+  </div>`).join('');
+  document.getElementById('bulk-audio-confirm-btn').disabled=!matches.some(m=>m.book);
+  openM('m-bulk-audio');
+  window._bulkAudioMatches=matches;
+}
+async function confirmBulkAudio(){
+  const matches=window._bulkAudioMatches||[];
+  const valid=matches.filter(m=>m.book);
+  if(!valid.length){closeM('m-bulk-audio');return;}
+  const {name:cldName,preset}=DB.cld();
+  if(!cldName||!preset){toast('Cloudinary 설정이 필요합니다');return;}
+  document.getElementById('bulk-audio-confirm-btn').disabled=true;
+  document.getElementById('bulk-audio-confirm-btn').textContent='업로드 중...';
+  let done=0;
+  for(const m of valid){
+    try{
+      const fd=new FormData();fd.append('file',m.file);fd.append('upload_preset',preset);fd.append('resource_type','video');
+      const res=await fetch(`https://api.cloudinary.com/v1_1/${cldName}/video/upload`,{method:'POST',body:fd});
+      if(!res.ok)continue;
+      const url=(await res.json()).secure_url;
+      const existing=_cache.library.find(x=>x.id===m.book.id);
+      const bookData=existing||{...m.book};
+      if(m.type==='full'){
+        bookData.audioUrl={type:'full',url};
+      } else {
+        const ao=getAudioObj(bookData)||{type:'chapters',chapters:[]};
+        if(ao.type!=='chapters'){ao.chapters=[];ao.type='chapters';delete ao.url;}
+        ao.chapters=ao.chapters||[];
+        const existing_ch=ao.chapters.findIndex(c=>c.num===m.ch);
+        if(existing_ch>=0)ao.chapters[existing_ch].url=url;
+        else ao.chapters.push({num:m.ch,url});
+        ao.chapters.sort((a,b)=>a.num-b.num);
+        bookData.audioUrl=ao;
+      }
+      if(!existing)_cache.library.push(bookData);
+      await supaUpsert('library',m.book.id,bookData,null);
+      done++;
+    }catch(err){console.error('bulk audio',err);}
+  }
+  closeM('m-bulk-audio');
+  renderLibTable();
+  toast(`${done}개 오디오 업로드 완료`);
+  document.getElementById('bulk-audio-confirm-btn').disabled=false;
+  document.getElementById('bulk-audio-confirm-btn').textContent='업로드 시작';
+}
+
 // ── AUDIO DELETE ──
 function reqDelAudio(bookId,e){
   if(e)e.stopPropagation();
@@ -3453,7 +3707,7 @@ function reqDelAudio(bookId,e){
 }
 
 // ── BOOK AUDIO ──
-async function uploadBookAudio(e, bookId){
+async function uploadBookAudio(e, bookId, uploadType='full'){
   const f=e.target.files[0];if(!f)return;
   toast('오디오 업로드 중...');
   const {name,preset}=DB.cld();
@@ -3463,29 +3717,30 @@ async function uploadBookAudio(e, bookId){
       const fd=new FormData();
       fd.append('file',f);
       fd.append('upload_preset',preset);
-      fd.append('resource_type','video'); // Cloudinary에서 오디오는 video 타입
+      fd.append('resource_type','video');
       const res=await fetch(`https://api.cloudinary.com/v1_1/${name}/video/upload`,{method:'POST',body:fd});
       if(res.ok)audioUrl=(await res.json()).secure_url;
-    }catch(e){console.error('audio upload',e);}
+    }catch(err){console.error('audio upload',err);}
   }
   if(!audioUrl){toast('Cloudinary 설정 후 오디오 업로드가 가능합니다');return;}
 
-  // BOOK_DB 항목이면 customLibs에 추가, 이미 있으면 업데이트
   const existing=_cache.library.find(x=>x.id===bookId);
-  if(existing){
-    existing.audioUrl=audioUrl;
-    await supaUpsert('library',bookId,existing,null);
+  const bookData=existing||(() => {const orig=BOOK_DB.find(x=>x.id===bookId);if(orig){const n={...orig};_cache.library.push(n);return n;}return null;})();
+  if(!bookData){toast('책 정보를 찾을 수 없습니다');return;}
+
+  if(uploadType==='full'){
+    bookData.audioUrl={type:'full',url:audioUrl};
   } else {
-    // BOOK_DB 항목 — custom으로 복사 후 audioUrl 추가
-    const orig=BOOK_DB.find(x=>x.id===bookId);
-    if(orig){
-      const newItem={...orig,audioUrl};
-      _cache.library.push(newItem);
-      await supaUpsert('library',bookId,newItem,null);
-    }
+    const ao=getAudioObj(bookData)||{type:'chapters',chapters:[]};
+    if(ao.type!=='chapters'){ao.type='chapters';ao.chapters=[];delete ao.url;}
+    ao.chapters=ao.chapters||[];
+    const nextNum=(ao.chapters.length?Math.max(...ao.chapters.map(c=>c.num)):0)+1;
+    ao.chapters.push({num:nextNum,url:audioUrl});
+    bookData.audioUrl=ao;
   }
+  await supaUpsert('library',bookId,bookData,null);
   renderLibTable();
-  toast('오디오가 저장되었습니다');
+  toast(uploadType==='full'?'전권 오디오 저장됨':'챕터 '+((getAudioObj(bookData)?.chapters?.length)||1)+' 저장됨');
 }
 // ── VOCAB CARDS (Supabase) ──
 async function syncVocabCards(sid,allWords,wrongWords,date){
@@ -3590,6 +3845,21 @@ function copyLastLesson(){
 }
 
 // ── STUDENT LIBRARY TAB ──
+function renderStuAudio(b){
+  const ao=getAudioObj(b);
+  if(!ao) return `<div class="stu-no-audio">🎵 오디오가 아직 준비되지 않았어요</div>`;
+  if(ao.type==='chapters'&&ao.chapters&&ao.chapters.length){
+    return `<div class="stu-audio-wrap">
+      <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:6px">챕터별 오디오</div>
+      ${ao.chapters.map(c=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:11px;color:var(--navy);min-width:44px;font-weight:600">챕터 ${c.num}</span>
+        <audio controls src="${c.url}" style="flex:1;height:28px"></audio>
+      </div>`).join('')}
+    </div>`;
+  }
+  const url=ao.url||ao;
+  return `<div class="stu-audio-wrap"><audio controls src="${url}" style="width:100%;height:36px"></audio></div>`;
+}
 function renderStudentLibrary(sid){
   const el=document.getElementById('st-library');if(!el)return;
   // 해당 학생이 읽은 책 목록 (readings 기준)
@@ -3630,8 +3900,7 @@ function renderStudentLibrary(sid){
             </div>
           </div>
         </div>
-        ${b.audioUrl?`<div class="stu-audio-wrap"><audio controls src="${b.audioUrl}" style="width:100%;height:36px"></audio></div>`
-          :`<div class="stu-no-audio">🎵 오디오가 아직 준비되지 않았어요</div>`}
+        ${renderStuAudio(b)}
       </div>`;
     }).join('')}
   </div>`;
@@ -3757,7 +4026,7 @@ function showVocabCardStatus(sid,allWords){
 
 // ── STUDENT TABS (updated) ──
 function swStuTab(id){
-  const IDS=['st-vocab','st-library','st-hw','st-myinfo'];
+  const IDS=['st-vocab','st-library','st-hw','st-myinfo','st-links'];
   document.querySelectorAll('.stutab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
   document.querySelectorAll('#s-student .panel').forEach(p=>p.classList.toggle('active',p.id===id));
   if(id==='st-vocab')renderVocabDeck(currentStudentSid);
