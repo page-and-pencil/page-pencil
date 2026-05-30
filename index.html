@@ -4261,6 +4261,46 @@ function copyLastLesson(){
 }
 
 // ── STUDENT LIBRARY TAB ──
+function makeAudioPlayer(url,bookTitle){
+  const pid='ap_'+Math.random().toString(36).slice(2);
+  setTimeout(()=>{
+    const audio=document.getElementById('audio_'+pid);
+    const playBtn=document.getElementById('play_'+pid);
+    const bar=document.getElementById('bar_'+pid);
+    const timeEl=document.getElementById('time_'+pid);
+    if(!audio)return;
+    audio.addEventListener('timeupdate',()=>{
+      if(audio.duration){
+        bar.style.width=(audio.currentTime/audio.duration*100)+'%';
+        const m=Math.floor(audio.currentTime/60);
+        const s=Math.floor(audio.currentTime%60);
+        timeEl.textContent=m+':'+String(s).padStart(2,'0');
+      }
+    });
+    audio.addEventListener('ended',()=>{playBtn.textContent='▶';});
+    playBtn.onclick=()=>{
+      if(audio.paused){audio.play();playBtn.textContent='⏸';}
+      else{audio.pause();playBtn.textContent='▶';}
+    };
+    document.getElementById('prog_'+pid).onclick=(e)=>{
+      const rect=e.currentTarget.getBoundingClientRect();
+      audio.currentTime=((e.clientX-rect.left)/rect.width)*audio.duration;
+    };
+  },100);
+  return `<div class="stu-audio-player">
+    <audio id="audio_${pid}" src="${url}" style="display:none" preload="metadata"></audio>
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="stu-play-btn" id="play_${pid}">▶</button>
+      <div style="flex:1">
+        <div style="font-size:12px;opacity:.7;margin-bottom:6px">${bookTitle||''}</div>
+        <div id="prog_${pid}" style="height:4px;background:rgba(255,255,255,.2);border-radius:2px;cursor:pointer;position:relative">
+          <div id="bar_${pid}" style="height:100%;width:0%;background:#00c4cc;border-radius:2px;transition:width .1s"></div>
+        </div>
+        <div id="time_${pid}" style="font-size:11px;opacity:.5;margin-top:4px">0:00</div>
+      </div>
+    </div>
+  </div>`;
+}
 function renderStuAudio(b){
   const ao=getAudioObj(b);
   if(!ao) return `<div class="stu-no-audio">🎵 오디오가 아직 준비되지 않았어요</div>`;
@@ -4274,18 +4314,16 @@ function renderStuAudio(b){
     </div>`;
   }
   const url=ao.url||ao;
-  return `<div class="stu-audio-wrap"><audio controls src="${url}" style="width:100%;height:36px"></audio></div>`;
+  return makeAudioPlayer(url,b.title||'');
 }
 function renderStudentLibrary(sid){
   const el=document.getElementById('st-library');if(!el)return;
-  // 해당 학생이 읽은 책 목록 (readings 기준)
-  const myRds=DB.rds().filter(r=>r.sid===sid);
+  const myRds=DB.rds().filter(r=>r.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const myBookIds=new Set(myRds.map(r=>r.bookId));
-  // 전체 library에서 오디오 있는 책 + 내가 읽은 책
+  const lastReadBookId=myRds[0]?.bookId||'';
   const allBooks=_cache.library;
   const withAudio=allBooks.filter(b=>b.audioUrl);
   const myBooks=allBooks.filter(b=>myBookIds.has(b.id));
-  // 합치되 중복 제거
   const shown=new Map();
   [...myBooks,...withAudio].forEach(b=>shown.set(b.id,b));
   const list=[...shown.values()];
@@ -4297,22 +4335,31 @@ function renderStudentLibrary(sid){
     </div>`;
     return;
   }
-  // 오디오 있는 것 먼저, 내가 읽은 것 표시
-  const sorted=[...list].sort((a,b)=>(b.audioUrl?1:0)-(a.audioUrl?1:0));
+  // 마지막 읽은 책 → 최상단, 그 외 오디오 있는 것 우선
+  const sorted=[...list].sort((a,b)=>{
+    if(a.id===lastReadBookId)return -1;
+    if(b.id===lastReadBookId)return 1;
+    return (b.audioUrl?1:0)-(a.audioUrl?1:0);
+  });
   el.innerHTML=`<div style="padding:1.25rem">
     <div style="font-size:12px;color:var(--slate);margin-bottom:12px">내가 읽은 책과 오디오가 있는 책을 모아뒀어요</div>
     ${sorted.map(b=>{
       const isMine=myBookIds.has(b.id);
-      return `<div class="stu-book-card">
+      const isCurrent=b.id===lastReadBookId;
+      const hasAudio=!!b.audioUrl;
+      const rdDate=myRds.find(r=>r.bookId===b.id)?.date||'';
+      return `<div class="stu-book-card" style="${hasAudio?'':'opacity:.5'}">
         <div class="stu-book-top">
           <div class="stu-book-cover">${b.emoji||'📚'}</div>
           <div style="flex:1;min-width:0">
             <div class="stu-book-title">${b.title||'—'}</div>
             <div class="stu-book-series">${b.series||''}${b.level?' · Lv.'+b.level:''}</div>
-            <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">
-              ${isMine?`<span style="font-size:10px;padding:2px 7px;background:var(--tl);color:var(--purple);border-radius:10px;font-weight:700">✓ 읽음</span>`:''}
-              ${b.audioUrl?`<span style="font-size:10px;padding:2px 7px;background:rgba(0,196,204,.1);color:#005f6b;border-radius:10px;font-weight:700">🎧 오디오</span>`:
-                `<span style="font-size:10px;padding:2px 7px;background:var(--cream2);color:var(--slate);border-radius:10px">오디오 준비중</span>`}
+            <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+              ${isCurrent?`<span style="font-size:10px;padding:2px 8px;background:#FFF3CD;color:#856404;border-radius:10px;font-weight:700">현재 읽는 중 📖</span>`:''}
+              ${isMine&&!isCurrent?`<span style="font-size:10px;padding:2px 7px;background:var(--tl);color:var(--purple);border-radius:10px;font-weight:700">✓ 읽음</span>`:''}
+              ${rdDate?`<span style="font-size:10px;color:var(--slate)">${rdDate}</span>`:''}
+              ${hasAudio?`<span style="font-size:10px;padding:2px 7px;background:rgba(0,196,204,.1);color:#005f6b;border-radius:10px;font-weight:700">🎧 오디오</span>`:
+                `<span style="font-size:10px;padding:2px 7px;background:var(--cream2);color:var(--slate);border-radius:10px">오디오 없음</span>`}
             </div>
           </div>
         </div>
@@ -4620,6 +4667,18 @@ function swStuTab(id){
 // ── VOCAB DECK (3단계: 암기→리콜→스펠) ──
 // phase: 0=암기(플립카드), 1=리콜(뜻보고 영어입력), 2=스펠(스크램블)
 let deckState={cards:[],idx:0,phase:0,phaseResults:[],sessionResults:[]};
+function saveDeckState(){
+  try{sessionStorage.setItem('deckState_'+currentStudentSid,JSON.stringify(deckState));}catch(e){}
+}
+function resumeVocabDeck(){
+  const raw=sessionStorage.getItem('deckState_'+currentStudentSid);
+  if(!raw)return renderVocabDeck(currentStudentSid);
+  try{deckState=JSON.parse(raw);}catch(e){return renderVocabDeck(currentStudentSid);}
+  const el=document.getElementById('st-vocab');
+  if(deckState.phase===0)renderMemCard(el);
+  else if(deckState.phase===1)renderRecallCard(el);
+  else renderSpellCard(el);
+}
 
 function renderVocabDeck(sid){
   const el=document.getElementById('st-vocab');if(!el)return;
@@ -4633,6 +4692,27 @@ function renderVocabDeck(sid){
       <div style="font-size:13px;color:var(--slate);line-height:1.8">${vocabDeckFilter?'<button class="btn bo bsm" onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)">전체 단어장 보기</button>':'선생님이 테스트 결과를 입력하면<br>단어 카드가 자동으로 만들어집니다'}</div>
     </div>`;
     return;
+  }
+  // 저장된 진행 상태 확인 (필터 없을 때만)
+  if(!vocabDeckFilter){
+    const raw=sessionStorage.getItem('deckState_'+sid);
+    if(raw){
+      try{
+        const saved=JSON.parse(raw);
+        if(saved.cards&&saved.cards.length&&saved.idx<saved.cards.length){
+          el.innerHTML=filterLabel+`<div style="padding:1.25rem">
+            <div style="background:var(--tl);border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:13px;font-weight:600">이어서 하기 (${saved.idx}/${saved.cards.length})</span>
+              <div style="display:flex;gap:6px">
+                <button class="btn bt bsm" onclick="resumeVocabDeck()">이어하기</button>
+                <button class="btn bo bsm" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
+              </div>
+            </div>
+          </div>`;
+          return;
+        }
+      }catch(e){}
+    }
   }
   // 복습 우선 정렬: misses 많은 것, due 지난 것
   const today=new Date().toISOString().split('T')[0];
@@ -4736,17 +4816,14 @@ function memResult(knew){
   deckState.idx++;
   const el=document.getElementById('st-vocab');
   if(deckState.idx>=deckState.cards.length){
-    // 암기 단계 완료 → 리콜 단계로
     deckState.phase=1;
-    // 모르는 카드만 리콜 대상으로
     const unsure=deckState.phaseResults.filter(r=>!r.knew).map(r=>r.word);
-    if(unsure.length===0){
-      // 다 알면 바로 스펠로
-      deckState.phase=2;
-    }
+    if(unsure.length===0)deckState.phase=2;
     deckState.phaseResults=[];
+    saveDeckState();
     renderVocabPhaseIntro(el);
   }else{
+    saveDeckState();
     renderMemCard(el);
   }
 }
@@ -4820,8 +4897,10 @@ function recallNext(){
   if(deckState.idx>=deckState.cards.length){
     deckState.phase=2;
     deckState.phaseResults=[];
+    saveDeckState();
     renderVocabPhaseIntro(el);
   }else{
+    saveDeckState();
     renderRecallCard(el);
   }
 }
@@ -4909,15 +4988,16 @@ function spellNext(){
   deckState.idx++;
   const el=document.getElementById('st-vocab');
   if(deckState.idx>=deckState.cards.length){
-    // 모든 단계 완료 → 결과 화면
     renderVocabResult(el);
   }else{
+    saveDeckState();
     renderSpellCard(el);
   }
 }
 
 // ── 결과 화면 ──
 async function renderVocabResult(el){
+  try{sessionStorage.removeItem('deckState_'+currentStudentSid);}catch(e){}
   const results=deckState.phaseResults;
   const total=deckState.cards.length;
   const correct=results.filter(r=>r.correct).length;
