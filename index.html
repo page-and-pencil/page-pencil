@@ -147,6 +147,9 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .nt::-webkit-scrollbar{display:none;}
 .ntab{padding:12px 12px;font-size:12px;font-weight:500;color:var(--slate);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--fb);letter-spacing:0.01em;}
 .ntab.active{color:var(--navy);border-bottom-color:var(--teal);font-weight:700;}
+.nt-more-wrap{position:relative;}
+.more-menu-item{display:block;width:100%;padding:10px 16px;text-align:left;background:none;border:none;font-family:var(--fb);font-size:13px;cursor:pointer;color:var(--navy);}
+.more-menu-item:hover{background:var(--cream);}
 
 /* PANELS */
 .ab{flex:1;overflow-y:auto;}
@@ -791,16 +794,22 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
     </div>
   </div>
   <div class="nt">
-    <button class="ntab" onclick="swTab('t-dash')">대시보드</button>
-    <button class="ntab active" onclick="swTab('t-stu')">학생</button>
-    <button class="ntab" onclick="swTab('t-les')">수업</button>
-    <button class="ntab" onclick="swTab('t-tst')">테스트</button>
-    <button class="ntab" onclick="swTab('t-bks')">원서</button>
-    <button class="ntab" onclick="swTab('t-log')">리딩로그</button>
-    <button class="ntab" onclick="swTab('t-lib')">원서 DB</button>
-    <button class="ntab" onclick="swTab('t-assign')">📋 과제</button>
-    <button class="ntab" id="t-msg-tab" onclick="swTab('t-msg')">💬 메시지</button>
-    <button class="ntab" onclick="swTab('t-cfg')">설정</button>
+    <button class="ntab" data-tab="t-dash" onclick="swTab('t-dash')">대시보드</button>
+    <button class="ntab active" data-tab="t-stu" onclick="swTab('t-stu')">학생</button>
+    <button class="ntab" data-tab="t-les" onclick="swTab('t-les')">수업</button>
+    <button class="ntab" data-tab="t-assign" onclick="swTab('t-assign')">📋 과제</button>
+    <button class="ntab" data-tab="t-msg" id="t-msg-tab" onclick="swTab('t-msg')">💬 메시지</button>
+    <div class="nt-more-wrap">
+      <button class="ntab" onclick="toggleMoreMenu()">⚙️ 더보기</button>
+      <div id="nt-more-menu" style="display:none;position:absolute;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:1000;min-width:120px;padding:4px 0">
+        <button class="more-menu-item" onclick="swTab('t-tst');closeMoreMenu()">테스트</button>
+        <button class="more-menu-item" onclick="swTab('t-bks');closeMoreMenu()">원서</button>
+        <button class="more-menu-item" onclick="swTab('t-log');closeMoreMenu()">리딩로그</button>
+        <button class="more-menu-item" onclick="swTab('t-lib');closeMoreMenu()">원서DB</button>
+        <button class="more-menu-item" onclick="swTab('t-cfg');closeMoreMenu()">설정</button>
+      </div>
+    </div>
+    <button class="ntab" onclick="openQuickNotice()" title="공지 빠른 등록" style="padding:8px 10px">🔔</button>
   </div>
   <div class="ab">
 
@@ -1991,9 +2000,35 @@ async function testCld(){
 }
 
 // ── TABS ──
-const T_IDS=['t-dash','t-stu','t-les','t-tst','t-bks','t-log','t-lib','t-assign','t-msg','t-cfg'];
+function toggleMoreMenu(){
+  const m=document.getElementById('nt-more-menu');
+  if(m)m.style.display=m.style.display==='none'?'block':'none';
+}
+function closeMoreMenu(){
+  const m=document.getElementById('nt-more-menu');
+  if(m)m.style.display='none';
+}
+document.addEventListener('click',function(e){
+  const wrap=document.querySelector('.nt-more-wrap');
+  if(wrap&&!wrap.contains(e.target))closeMoreMenu();
+});
+function openQuickNotice(){
+  const text=prompt('공지 내용을 입력하세요:');
+  if(!text||!text.trim())return;
+  postNoticeText(text.trim());
+}
+async function postNoticeText(v){
+  const notices=_cache.notices||[];
+  const id='n'+Date.now();
+  const notice={id,text:v,date:new Date().toISOString().split('T')[0],active:true};
+  await supaUpsert('notices',id,notice,null);
+  notices.unshift(notice);
+  _cache.notices=notices;
+  renderNoticeBoard();
+  toast('공지가 등록되었습니다');
+}
 function swTab(id){
-  document.querySelectorAll('.ntab').forEach((t,i)=>t.classList.toggle('active',T_IDS[i]===id));
+  document.querySelectorAll('.ntab[data-tab]').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
   document.querySelectorAll('#s-teacher .panel').forEach(p=>p.classList.toggle('active',p.id===id));
   if(id==='t-dash')renderDash();
   if(id==='t-les'){populateFilterSels();renderLes();}
