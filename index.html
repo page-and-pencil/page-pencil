@@ -1999,6 +1999,8 @@ async function testCld(){
   }catch(e){el.innerHTML='<div class="ais err">❌ 오류: '+e.message+'</div>';}
 }
 
+const _saving={};
+
 // ── TABS ──
 function toggleMoreMenu(){
   const m=document.getElementById('nt-more-menu');
@@ -2100,10 +2102,17 @@ function checkCldWarn(){
 
 // ── ACCOUNT SETTINGS ──
 async function saveAcct(){
+  try{
   const acct={bank:document.getElementById('cfg-bank').value.trim(),number:document.getElementById('cfg-acct').value.trim(),name:document.getElementById('cfg-acct-name').value.trim(),msg:document.getElementById('cfg-pay-msg').value.trim()};
   _cache.settings.acct=acct;
   await supaSetSetting('acct',acct);
   toast('계좌 정보가 저장되었습니다');
+  }catch(e){
+    console.error('saveAcct:',e);
+    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+  }finally{
+    showLoading(false);
+  }
 }
 
 // ── STUDENT SLIDE PANEL ──
@@ -2313,6 +2322,8 @@ function openQuickPayFor(sid){
   openM('m-quick-pay');
 }
 async function saveQuickPay(){
+  if(_saving['saveQuickPay'])return; _saving['saveQuickPay']=true;
+  try{
   const sid=document.getElementById('qp-stu').value;
   const date=document.getElementById('qp-date').value;
   const amt=document.getElementById('qp-amt').value;
@@ -2326,6 +2337,13 @@ async function saveQuickPay(){
   document.getElementById('qp-amt').value='';document.getElementById('qp-memo').value='';
   toast('결제 기록이 추가되었습니다');
   if(currentSpStuId===sid)loadStuPanel(sid);
+  }catch(e){
+    console.error('saveQuickPay:',e);
+    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+  }finally{
+    showLoading(false);
+    _saving['saveQuickPay']=false;
+  }
 }
 
 // ── LAST LESSON HINT ──
@@ -2563,6 +2581,8 @@ function matsToHtml(materials){
 
 // ── LESSONS ──
 async function saveLes(){
+  if(_saving['saveLes'])return; _saving['saveLes']=true;
+  try{
   const sid=document.getElementById('ls-stu').value;if(!sid){toast('학생을 선택해 주세요');return;}
   const _sStu=DB.stus().find(x=>x.id===sid);
   const rawCmt=document.getElementById('ls-cmt').value.trim();
@@ -2577,6 +2597,13 @@ async function saveLes(){
   document.getElementById('ls-last-hint').style.display='none';
   renderLes();toast('수업 기록이 저장되었습니다');
   showLesFollowup(sid,newLes.date,_sStu?.name||'');
+  }catch(e){
+    console.error('saveLes:',e);
+    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+  }finally{
+    showLoading(false);
+    _saving['saveLes']=false;
+  }
 }
 // ── LES FOLLOWUP (원스톱 입력) ──
 function showLesFollowup(sid,date,stuName){
@@ -2625,6 +2652,7 @@ function showInlineTst(sid,date){
   </div>`;
 }
 async function saveFuTst(sid,date){
+  try{
   const vc=document.getElementById('fu-vc')?.value;
   const vt=document.getElementById('fu-vt')?.value;
   const wr=document.getElementById('fu-wr')?.value||'';
@@ -2635,6 +2663,12 @@ async function saveFuTst(sid,date){
   if(wrongWords.length)await syncVocabCards(sid,wrongWords,wrongWords,date);
   document.getElementById('les-fu-tst').innerHTML=`<div style="font-size:12px;color:#005f6b;padding:6px 0">✅ 테스트 저장됨 (${vc}/${vt})</div>`;
   toast('테스트 저장됨');
+  }catch(e){
+    console.error('saveFuTst:',e);
+    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+  }finally{
+    showLoading(false);
+  }
 }
 function showInlineAssign(sid,date){
   const el=document.getElementById('les-fu-assign');if(!el)return;
@@ -2699,6 +2733,7 @@ function selectFuBook(id,title){
   if(si)si.value=title;if(hi)hi.value=id;if(ht)ht.value=title;if(dd)dd.style.display='none';
 }
 async function saveFuAssign(sid,date){
+  try{
   const type=document.getElementById('fu-atype')?.value||'reading';
   const due=document.getElementById('fu-adue')?.value||date;
   const a={id:uid(),sid,type,date,due};
@@ -2717,6 +2752,12 @@ async function saveFuAssign(sid,date){
   _cache.assignments.unshift(a);
   document.getElementById('les-fu-assign').innerHTML=`<div style="font-size:12px;color:#005f6b;padding:6px 0">✅ 과제 할당됨</div>`;
   toast('과제 할당됨');
+  }catch(e){
+    console.error('saveFuAssign:',e);
+    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+  }finally{
+    showLoading(false);
+  }
 }
 
 // ── 학부모 알림 공유 ──
@@ -2840,6 +2881,8 @@ function reqDelLes(){
 function pct(c,t){return(t>0)?Math.round((c/t)*100):0;}
 function rcls(n){return n>=80?'rhi':n>=60?'rmd':'rlo';}
 async function saveTst(){
+  if(_saving['saveTst'])return; _saving['saveTst']=true;
+  try{
   const sid=document.getElementById('ts-stu').value;if(!sid){toast('학생을 선택해 주세요');return;}
   const vc=parseInt(document.getElementById('ts-vc').value)||0,vt=parseInt(document.getElementById('ts-vt').value)||10;
   const gc=parseInt(document.getElementById('ts-gc').value)||0,gt=parseInt(document.getElementById('ts-gt').value)||10;
@@ -2858,6 +2901,13 @@ async function saveTst(){
   ['ts-vc','ts-vt','ts-gc','ts-gt','ts-wr','ts-allwords','ts-gweak','ts-cmt'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   tstPhotoUrl='';document.getElementById('tst-preview').style.display='none';
   renderTst();toast('테스트 결과가 저장되었습니다');
+  }catch(e){
+    console.error('saveTst:',e);
+    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+  }finally{
+    showLoading(false);
+    _saving['saveTst']=false;
+  }
 }
 let tstPage=0;
 function renderTst(){
@@ -2956,12 +3006,21 @@ function fillFromLib(libId){
   document.getElementById('rd-genre').value=b.genre||b.level||'';
 }
 async function saveRd(){
+  if(_saving['saveRd'])return; _saving['saveRd']=true;
+  try{
   const sid=document.getElementById('rd-stu').value;if(!sid){toast('학생을 선택해 주세요');return;}
   const newRd={id:uid(),sid,date:document.getElementById('rd-date').value,title:document.getElementById('rd-title').value.trim(),series:document.getElementById('rd-series').value.trim(),arLevel:document.getElementById('rd-ar').value.trim(),genre:document.getElementById('rd-genre').value.trim(),progress:document.getElementById('rd-prog').value.trim()};
   await supaUpsert('readings',newRd.id,newRd,sid);
   _cache.readings.unshift(newRd);
   ['rd-title','rd-series','rd-ar','rd-genre','rd-prog'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('rd-lib-sel').value='';renderRd();toast('원서 기록이 저장되었습니다');
+  }catch(e){
+    console.error('saveRd:',e);
+    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+  }finally{
+    showLoading(false);
+    _saving['saveRd']=false;
+  }
 }
 function renderRd(){
   const stus=DB.stus();
@@ -3790,27 +3849,6 @@ function deleteNotice(id){
     toast('삭제되었습니다');
   });
 }
-function renderNoticeBoard(){
-  const notices=_cache.notices||[];
-  const el=document.getElementById('notice-board');if(!el)return;
-  const lbl=document.getElementById('notice-count-lbl');
-  if(lbl)lbl.textContent=`총 ${notices.length}건 · 활성 ${notices.filter(n=>n.active).length}건`;
-  if(!notices.length){el.innerHTML='<div style="color:var(--slate);font-size:12px;padding:8px 0">등록된 공지가 없습니다</div>';return;}
-  el.innerHTML=notices.map(n=>`
-    <div class="notice-item ${n.active?'notice-active':''}">
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-          ${n.active?'<span class="notice-pin">📌 게시 중</span>':''}
-          <span class="notice-date">${n.date}</span>
-        </div>
-        <div class="notice-text">${n.text.replace(/\n/g,'<br>')}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
-        <button class="btn ${n.active?'ba':'bo'} bsm" style="font-size:11px;justify-content:center" onclick="toggleNoticeActive('${n.id}')">${n.active?'게시 중지':'게시'}</button>
-        <button class="btn bd bsm" style="font-size:11px;justify-content:center" onclick="deleteNotice('${n.id}')">삭제</button>
-      </div>
-    </div>`).join('');
-}
 function checkNotice(){
   const active=(_cache.notices||[]).find(n=>n.active);
   const v=active?active.text:'';
@@ -4455,6 +4493,8 @@ function renderAsgnForm(sid){
   }
 }
 async function saveAssignment(sid){
+  if(_saving['saveAssignment'])return; _saving['saveAssignment']=true;
+  try{
   const type=document.getElementById(`asgn-type-${sid}`)?.value||'reading';
   const date=document.getElementById(`asgn-date-${sid}`)?.value||new Date().toISOString().split('T')[0];
   const a={id:uid(),sid,date,type};
@@ -4476,6 +4516,13 @@ async function saveAssignment(sid){
   _cache.assignments.unshift(a);
   toast('숙제가 할당되었습니다');
   loadStuPanel(sid);
+  }catch(e){
+    console.error('saveAssignment:',e);
+    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+  }finally{
+    showLoading(false);
+    _saving['saveAssignment']=false;
+  }
 }
 
 // ── ASSIGNMENT TAB (학생 앱) ──
@@ -4701,6 +4748,7 @@ async function submitHomework(sid, assignmentId=''){
 // ── PARENT NOTICE BANNER ──
 function showParentNoticeBanner(){
   const active=(_cache.notices||[]).find(n=>n.active);
+  _activeNoticeId=active?active.id:null;
   const banner=document.getElementById('parent-notice-banner');
   const txt=document.getElementById('parent-notice-text');
   if(!banner||!txt)return;
@@ -5443,6 +5491,7 @@ function selectModalBook(id,title){
   document.getElementById('modal-book-dropdown').style.display='none';
 }
 async function saveModalAssignment(){
+  try{
   const sid=document.getElementById('modal-assign-stu').value;
   if(!sid){toast('학생을 선택해 주세요');return;}
   const type=document.getElementById('modal-assign-type').value;
@@ -5477,6 +5526,12 @@ async function saveModalAssignment(){
   closeM('m-add-assign');
   renderAssignTab();
   toast('과제가 할당되었습니다');
+  }catch(e){
+    console.error('saveModalAssignment:',e);
+    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+  }finally{
+    showLoading(false);
+  }
 }
 
 // ── SP-BOOKS (교재 탭) ──
@@ -5521,6 +5576,7 @@ function renderSpBooks(sid){
 }
 function openAddTextbook(sid){document.getElementById('sp-books-add').style.display='block';}
 async function saveTextbook(sid){
+  try{
   const title=document.getElementById('tb-title-input').value.trim();
   if(!title){toast('교재명을 입력해 주세요');return;}
   const libSel=document.getElementById('tb-lib-sel');
@@ -5530,6 +5586,12 @@ async function saveTextbook(sid){
   _cache.textbooks.push(tb);
   document.getElementById('sp-books-add').style.display='none';
   renderSpBooks(sid);toast('교재가 추가되었습니다');
+  }catch(e){
+    console.error('saveTextbook:',e);
+    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+  }finally{
+    showLoading(false);
+  }
 }
 async function updateTextbookUnit(id,sid,val){
   const tb=(_cache.textbooks||[]).find(t=>t.id===id);if(!tb)return;
@@ -5662,15 +5724,7 @@ async function markNoticeRead(noticeId,sid){
   n.readBy.push({sid,readAt:new Date().toISOString()});
   await supaUpsert('notices',noticeId,n,null);
 }
-// override showParentNoticeBanner to store active notice id
-const _origShowBanner=showParentNoticeBanner;
-function showParentNoticeBanner(){
-  const active=(_cache.notices||[]).find(n=>n.active);
-  _activeNoticeId=active?active.id:null;
-  _origShowBanner();
-}
-// renderNoticeBoard 확장: readBy 표시
-const _origRenderNoticeBoard=renderNoticeBoard;
+
 function renderNoticeBoard(){
   const notices=_cache.notices||[];
   const el=document.getElementById('notice-board');if(!el)return;
