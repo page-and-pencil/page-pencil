@@ -105,7 +105,7 @@ async function sbSetSettings(key,value){
 // ── REST API 직접 호출 헬퍼 ──
 function handleSupaError(status){
   if(status===401||status===403){
-    toast('인증 오류입니다. 페이지를 새로고침해 주세요.');
+    toast('인증 오류입니다. Supabase RLS 정책을 확인해 주세요.');
     return true;
   }
   if(status===429){
@@ -113,9 +113,10 @@ function handleSupaError(status){
     return true;
   }
   if(status>=500){
-    toast('서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    toast('서버 오류입니다. 잠시 후 다시 시도해 주세요.');
     return true;
   }
+  toast('데이터를 불러오지 못했습니다 (HTTP '+status+')');
   return false;
 }
 async function supaFetch(table,params=''){
