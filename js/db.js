@@ -225,6 +225,8 @@ async function loadAllData(){
     else{_cache.settings.cloud=DEFAULT_CLD;DB.s('cloud',DEFAULT_CLD);await supaSetSetting('cloud',DEFAULT_CLD);}
   }catch(e){
     console.error('loadAllData:',e);
+    const currentScreen=document.querySelector('.screen.active')?.id;
+    if(['s-land','s-stupin','s-pin'].includes(currentScreen))return;
     const retryDiv=document.createElement('div');
     retryDiv.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:9999;background:#fff;padding:2rem;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.15);min-width:260px';
     retryDiv.innerHTML=`<div style="font-size:36px;margin-bottom:12px">📡</div>
