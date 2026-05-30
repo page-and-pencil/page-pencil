@@ -4967,6 +4967,22 @@ function launchConfetti(){
     setTimeout(()=>el.remove(),3000);
   }
 }
+function showMiniConfetti(){
+  const colors=['#00c4cc','#F4784A','#5B4FBB','#FFD700','#ff6b6b'];
+  const container=document.createElement('div');
+  container.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden';
+  for(let i=0;i<30;i++){
+    const c=document.createElement('div');
+    const color=colors[Math.floor(Math.random()*colors.length)];
+    const x=Math.random()*100;
+    const delay=Math.random()*0.5;
+    const size=Math.random()*8+6;
+    c.style.cssText=`position:absolute;left:${x}%;top:-20px;width:${size}px;height:${size}px;background:${color};border-radius:${Math.random()>0.5?'50%':'2px'};animation:confettiFall ${1+Math.random()}s ${delay}s ease-in forwards`;
+    container.appendChild(c);
+  }
+  document.body.appendChild(container);
+  setTimeout(()=>container.remove(),2000);
+}
 function getStreak(sid){
   const today=new Date().toISOString().split('T')[0];
   const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
@@ -5004,16 +5020,49 @@ function getWeeklyStats(sid){
 async function completeAssignment(sid,asgnId){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
   a.completedAt=new Date().toISOString();
+  // 카드 즉시 .done 추가
+  const card=document.getElementById('hw-card-'+asgnId);
+  if(card){
+    card.classList.add('done');
+    const cb=card.querySelector('.hw-checkbox');
+    if(cb){cb.classList.add('checked');cb.textContent='✓';}
+  }
   await supaUpsert('assignments',asgnId,a,sid);
   updateStreak(sid);
-  const today=new Date().toISOString().split('T')[0];
-  const todayA=(_cache.assignments||[]).filter(x=>x.sid===sid&&x.date===today);
-  if(todayA.length&&todayA.every(x=>x.completedAt))launchConfetti();
-  renderStudentHome(sid);
+  const allPending=(_cache.assignments||[]).filter(x=>x.sid===sid&&!x.completedAt);
+  if(allPending.length){
+    setTimeout(()=>showMiniConfetti(),300);
+    renderStudentHome(sid);
+  } else {
+    setTimeout(()=>{showMiniConfetti();renderStudentHome(sid);},300);
+  }
 }
 
 // ── STUDENT HOME TAB ──
 let homeAsgnAudioBlob=null,homeAsgnCurrentId='';
+function renderHomeStats(sid){
+  const completedCount=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).length;
+  const vocabHits=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).reduce((s,c)=>s+(c.hits||0),0);
+  const rdsCount=DB.rds().filter(r=>r.sid===sid).length;
+  if(!completedCount&&!vocabHits&&!rdsCount)return '';
+  return `<details style="margin-top:16px">
+    <summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;padding:4px 0">📊 내 기록</summary>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px">
+      <div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center">
+        <div style="font-size:24px;font-weight:700;color:var(--navy);font-family:var(--fm)">${completedCount}</div>
+        <div style="font-size:10px;color:var(--slate);margin-top:2px">완료 숙제</div>
+      </div>
+      <div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center">
+        <div style="font-size:24px;font-weight:700;color:var(--teal);font-family:var(--fm)">${vocabHits}</div>
+        <div style="font-size:10px;color:var(--slate);margin-top:2px">외운 단어</div>
+      </div>
+      <div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center">
+        <div style="font-size:24px;font-weight:700;color:var(--navy);font-family:var(--fm)">${rdsCount}</div>
+        <div style="font-size:10px;color:var(--slate);margin-top:2px">읽은 책</div>
+      </div>
+    </div>
+  </details>`;
+}
 function renderStudentHome(sid){
   const el=document.getElementById('st-home');if(!el)return;
   const stu=DB.stus().find(s=>s.id===sid);
@@ -5025,6 +5074,34 @@ function renderStudentHome(sid){
   const lv=getStuLevel(sid);
   const week=getWeeklyStats(sid);
   const allBooks=[...BOOK_DB,...DB.libs()];
+
+  const headerHtml=`<div style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:12px">안녕, ${stu?stu.name:''}아! 👋</div>
+    <div class="streak-bar" style="margin-bottom:12px">
+      <span style="font-size:18px">${lv.icon}</span>
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-size:12px;font-weight:700;color:var(--navy)">${lv.name} Lv.</span>
+          <span style="font-size:11px;color:var(--slate)">🔥 ${streak}일 연속</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="week-bar"><div class="week-bar-fill" style="width:${week.pct}%"></div></div>
+          <span style="font-size:10px;color:var(--slate);white-space:nowrap">이번주 ${week.done}/${week.total}</span>
+        </div>
+      </div>
+    </div>`;
+
+  // 전체 완료 화면
+  if(allAssigns.length&&!pending.length){
+    el.innerHTML=`<div style="padding:1.25rem">${headerHtml}
+      <div style="text-align:center;padding:2rem">
+        <div style="font-size:56px;margin-bottom:8px">🏆</div>
+        <div style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px">모두 완료!</div>
+        <div style="font-size:13px;color:var(--slate)">오늘 숙제 다 했어요 👏</div>
+      </div>
+      ${renderHomeStats(sid)}
+    </div>`;
+    return;
+  }
 
   function asgnCard(a){
     const isDone=!!a.completedAt;
@@ -5043,16 +5120,15 @@ function renderStudentHome(sid){
         }
       }
       if(!isDone&&!hw){
-        const isRec=homeAsgnCurrentId===a.id;
-        body+=`<div style="margin-top:8px">
-          <div class="hw-upload-zone" style="padding:10px" onclick="document.getElementById('home-asgn-audio-${a.id}').click()">
-            <span style="font-size:12px;font-weight:700;color:var(--navy)">🎤 녹음 제출</span>
-          </div>
-          <input type="file" id="home-asgn-audio-${a.id}" accept="audio/*" style="display:none" onchange="handleHomeAsgnAudio(event,'${a.id}','${sid}')">
-          <div id="home-asgn-preview-${a.id}" style="display:none;margin-top:8px">
-            <audio id="home-asgn-player-${a.id}" controls style="width:100%;height:28px"></audio>
-            <button class="btn bt" style="width:100%;margin-top:6px" onclick="submitHomeAsgnHw('${sid}','${a.id}')">제출하기</button>
-          </div>
+        body+=`<div style="margin-top:10px;border:2px solid var(--teal);border-radius:12px;padding:20px;background:linear-gradient(135deg,var(--tl),rgba(0,196,204,.2));text-align:center;cursor:pointer" onclick="document.getElementById('home-asgn-audio-${a.id}').click()">
+          <div style="font-size:32px;margin-bottom:4px">🎤</div>
+          <div style="font-size:13px;font-weight:700;color:var(--navy)">녹음 제출하기</div>
+          <div style="font-size:11px;color:var(--slate);margin-top:2px">탭해서 파일 선택</div>
+        </div>
+        <input type="file" id="home-asgn-audio-${a.id}" accept="audio/*" style="display:none" onchange="handleHomeAsgnAudio(event,'${a.id}','${sid}')">
+        <div id="home-asgn-preview-${a.id}" style="display:none;margin-top:8px">
+          <audio id="home-asgn-player-${a.id}" controls style="width:100%;height:28px"></audio>
+          <button class="btn bt" style="width:100%;margin-top:6px;border-radius:50px" onclick="submitHomeAsgnHw('${sid}','${a.id}')">제출하기</button>
         </div>`;
       } else if(hw){
         body+=`<div style="font-size:11px;color:#005f6b;margin-top:4px">✅ 제출 완료 ${hw.date||''}</div>`;
@@ -5060,13 +5136,13 @@ function renderStudentHome(sid){
       }
     } else if(a.type==='vocab'){
       body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">단어 암기</div><div class="wl" style="margin-top:4px">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
-      if(!isDone)body+=`<button class="btn bt bsm" style="margin-top:8px" onclick="openVocabForAssignment('${sid}','${a.id}')">📚 단어장 열기 →</button>`;
+      if(!isDone)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:12px" onclick="openVocabForAssignment('${sid}','${a.id}')">📚 단어장 열기 →</button>`;
     } else {
       body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">${a.text||''}</div>`;
     }
     const canCheck=(a.type!=='reading'||!!hw);
-    return `<div class="hw-check-card${isDone?' done':''}">
-      <div style="display:flex;gap:10px;align-items:flex-start">
+    return `<div class="hw-check-card${isDone?' done':''}" id="hw-card-${a.id}">
+      <div style="display:flex;gap:12px;align-items:flex-start">
         <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone||!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')'}" title="${!canCheck?'녹음 제출 후 완료 가능':'완료 처리'}">${isDone?'✓':''}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -5079,27 +5155,19 @@ function renderStudentHome(sid){
     </div>`;
   }
 
-  el.innerHTML=`<div style="padding:1.25rem">
-    <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:4px">안녕하세요, ${stu?stu.name:''}님! 👋</div>
-    ${pending.length?`<div style="font-size:12px;color:var(--coral);font-weight:600;margin-bottom:12px">미완료 숙제 ${pending.length}건</div>`:'<div style="font-size:12px;color:#005f6b;font-weight:600;margin-bottom:12px">모든 숙제 완료! 🎉</div>'}
+  // 숙제 없음 화면
+  const noHwHtml=!allAssigns.length?`<div style="text-align:center;padding:3rem 1rem">
+    <div style="font-size:64px;margin-bottom:12px">🎉</div>
+    <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:6px">숙제 없음!</div>
+    <div style="font-size:13px;color:var(--slate)">오늘은 자유시간이에요<br>단어 복습은 어때요?</div>
+    <button class="btn bt" style="margin-top:16px;padding:12px 28px;border-radius:50px" onclick="swStuTab('st-vocab')">단어 복습 하기 →</button>
+  </div>`:'';
 
-    <div class="streak-bar" style="margin-bottom:10px">
-      <span style="font-size:18px">${lv.icon}</span>
-      <div style="flex:1">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-          <span style="font-size:12px;font-weight:700;color:var(--navy)">${lv.name} Lv.</span>
-          <span style="font-size:11px;color:var(--slate)">🔥 ${streak}일 연속</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <div class="week-bar"><div class="week-bar-fill" style="width:${week.pct}%"></div></div>
-          <span style="font-size:10px;color:var(--slate);white-space:nowrap">이번주 ${week.done}/${week.total}</span>
-        </div>
-      </div>
-    </div>
-
+  el.innerHTML=`<div style="padding:1.25rem">${headerHtml}
+    ${noHwHtml}
     ${pending.length?`<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📌 미완료 숙제</div>${pending.map(asgnCard).join('')}`:''}
     ${done.length?`<details style="margin-top:8px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none">✅ 완료된 숙제 (${done.length}건)</summary><div style="margin-top:8px">${done.map(asgnCard).join('')}</div></details>`:''}
-    ${!allAssigns.length?`<div style="text-align:center;padding:2rem 0"><div style="font-size:36px">📋</div><div style="font-size:13px;color:var(--slate);margin-top:8px">아직 할당된 숙제가 없어요</div></div>`:''}
+    ${renderHomeStats(sid)}
   </div>`;
 }
 function handleHomeAsgnAudio(e,asgnId,sid){
