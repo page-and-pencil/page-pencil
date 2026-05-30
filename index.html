@@ -933,6 +933,14 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
               <button type="button" class="cmt-chip" onclick="addCmtChip('자신감 향상 중')">자신감 향상 중</button>
             </div>
             <textarea id="ls-cmt" placeholder="예) 집중도 좋음. 리딩 속도 향상 중. 어휘 복습 필요"></textarea></div>
+          <div style="display:flex;gap:6px;margin-top:4px;margin-bottom:8px">
+            <button type="button" class="btn bo bsm" onclick="previewPolishedCmt()" id="cmt-preview-btn">👁 학부모용 미리보기</button>
+            <span id="cmt-preview-status" style="font-size:11px;color:var(--slate);align-self:center"></span>
+          </div>
+          <div id="cmt-preview-box" style="display:none;margin-bottom:8px;padding:12px;background:var(--tl);border-radius:8px;border-left:3px solid var(--teal)">
+            <div style="font-size:10px;font-weight:700;color:var(--slate);margin-bottom:4px">학부모에게 보여질 내용</div>
+            <div id="cmt-preview-text" style="font-size:13px;color:var(--navy);line-height:1.7"></div>
+          </div>
           <button class="btn bt" onclick="saveLes()">저장</button>
         </div>
       </div>
@@ -2845,9 +2853,9 @@ async function shareUpdate(name){
 async function fillMissingMeanings(cards){
   for(const c of cards){
     if(c.meaning)continue;
-    const m=await fetchWordMeaning(c.word);
-    if(m&&m.meaning){
-      c.meaning=m.meaning;c.pos=m.pos;
+    const ko=await getMeaningKo(c.word);
+    if(ko){
+      c.meaning=ko;
       await supaUpsert('vocab_cards',c.id,c,c.sid);
       const ci=_cache.vocab_cards.findIndex(x=>x.id===c.id);
       if(ci>=0)_cache.vocab_cards[ci]={...c};
@@ -4300,6 +4308,35 @@ async function fetchWordMeaning(word){
     return{meaning:m?.definitions?.[0]?.definition||'',pos:m?.partOfSpeech||''};
   }catch{return null;}
 }
+async function getMeaningKo(word){
+  const apiKey=DB.api();
+  let engDef='';
+  try{
+    const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+    if(r.ok){
+      const d=await r.json();
+      engDef=d[0]?.meanings[0]?.definitions[0]?.definition||'';
+    }
+  }catch(e){}
+  if(!apiKey)return engDef;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:30,
+        messages:[{role:'user',content:`영어 단어 "${word}"의 뜻을 초등학생이 이해할 수 있는 한국어 3단어 이내로만 답해. 예: quickly→빠르게, enormous→매우 큰. 한국어만:`}]
+      })
+    });
+    if(res.ok){
+      const d=await res.json();
+      const ko=d.content?.[0]?.text?.trim()||'';
+      if(ko)return ko;
+    }
+  }catch(e){}
+  return engDef;
+}
 async function syncVocabCards(sid,allWords,wrongWords,date){
   const existing=await supaFetchBySid('vocab_cards',sid);
   for(const word of allWords){
@@ -4320,10 +4357,10 @@ async function syncVocabCards(sid,allWords,wrongWords,date){
       await supaUpsert('vocab_cards',newCard.id,newCard,sid);
       if(!_cache.vocab_cards)_cache.vocab_cards=[];
       _cache.vocab_cards.push(newCard);
-      // 뜻 비동기 조회
-      fetchWordMeaning(w).then(async m=>{
-        if(!m||!m.meaning)return;
-        newCard.meaning=m.meaning;newCard.pos=m.pos;
+      // 뜻 비동기 조회 (한국어)
+      getMeaningKo(w).then(async ko=>{
+        if(!ko)return;
+        newCard.meaning=ko;
         await supaUpsert('vocab_cards',newCard.id,newCard,sid);
         const ci=_cache.vocab_cards.findIndex(c=>c.id===newCard.id);
         if(ci>=0)_cache.vocab_cards[ci]={...newCard};
@@ -4457,6 +4494,18 @@ function addCmtChip(text){
   if(!ta)return;
   ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;
   ta.focus();
+}
+async function previewPolishedCmt(){
+  const raw=document.getElementById('ls-cmt').value.trim();
+  if(!raw){toast('코멘트를 먼저 입력해 주세요');return;}
+  const status=document.getElementById('cmt-preview-status');
+  const box=document.getElementById('cmt-preview-box');
+  const txt=document.getElementById('cmt-preview-text');
+  if(status)status.textContent='변환 중...';
+  const polished=await polishCmt(raw);
+  if(status)status.textContent='';
+  box.style.display='block';
+  txt.textContent=polished||raw;
 }
 
 // ── STUDENT LIBRARY TAB ──
