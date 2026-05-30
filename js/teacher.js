@@ -2564,6 +2564,8 @@ document.addEventListener('DOMContentLoaded',async()=>{
     } else {
       setToday();
     }
+    const verEl=document.getElementById('app-version');
+    if(verEl)verEl.textContent=APP_VERSION;
     if(!document.querySelector('.screen.active')){
       show('s-land');
     }

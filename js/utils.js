@@ -1,3 +1,5 @@
+const APP_VERSION='v44';
+
 // ── 로딩 표시 ──
 function showLoading(show){
   let el=document.getElementById('pp-loading');
