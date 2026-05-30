@@ -2169,6 +2169,9 @@ function loadStuPanel(sid){
       ${s.payday?`<div>결제일: <strong>매월 ${s.payday}일</strong></div>`:''}
       ${lastPay?`<div>최근 결제: <strong>${lastPay.date} · ${Number(lastPay.amt).toLocaleString()}원</strong></div>`:''}
       ${s.memo?`<div>메모: ${s.memo}</div>`:''}
+    </div>
+    <div style="margin-top:12px">
+      <button class="btn bo bsm" onclick="printReport('${sid}')" style="width:100%">🖨️ 학습 리포트 인쇄</button>
     </div>`;
 
   // ── 수업 (최근 10개, 더보기 가능) ──
@@ -3916,7 +3919,7 @@ function loadParentWithNotice(sid){
 }
 
 // ── PRINT ──
-function printReport(){window.print();}
+function printReport(sid){if(sid)currentParentSid=sid;window.print();}
 
 // ── swPTab (하위호환 유지, 탭 UI 제거) ──
 function swPTab(id){}
@@ -5633,14 +5636,17 @@ function renderAttentionAlerts(){
   if(!alerts.length){el.innerHTML='';return;}
   el.innerHTML=`<div class="card" style="border-left:4px solid var(--coral)">
     <div class="ch"><span class="ct" style="color:var(--coral)">🚨 주의 필요 (${alerts.length})</span></div>
-    <div class="cb" style="padding:8px 16px">
-      ${alerts.map(a=>`<div class="att-alert" onclick="loadStuPanel('${a.sid}')">
-        <span class="att-alert-icon">${a.icon}</span>
-        <span class="att-alert-text">${a.text}</span>
-        <span style="font-size:11px;color:var(--slate)">→</span>
-      </div>`).join('')}
-    </div>
+    <div class="cb" style="padding:0" id="dash-alert-list"></div>
   </div>`;
+  const list=document.getElementById('dash-alert-list');
+  alerts.forEach(a=>{
+    const div=document.createElement('div');
+    div.className='att-alert';
+    div.style.cursor='pointer';
+    div.innerHTML=`<span class="att-alert-icon">${a.icon}</span><span class="att-alert-text">${a.text}</span><span style="font-size:11px;color:var(--slate)">→</span>`;
+    div.onclick=()=>{ if(a.sid) loadStuPanel(a.sid); };
+    list.appendChild(div);
+  });
 }
 
 // ── NOTICE READ TRACKING ──
