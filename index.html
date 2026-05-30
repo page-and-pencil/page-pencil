@@ -562,6 +562,8 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 /* LESSON COPY BTN */
 .les-copy-btn{padding:4px 10px;border-radius:var(--rs);font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--slate);font-family:var(--fb);transition:all .15s;}
 .les-copy-btn:hover{border-color:var(--teal);color:var(--teal);}
+.cmt-chip{padding:4px 10px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--fb);color:var(--slate);transition:all .15s;}
+.cmt-chip:hover{border-color:var(--teal);color:var(--teal);background:var(--tl);}
 
 /* PARENT MONTH SUMMARY */
 .p-month-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem;}
@@ -911,7 +913,17 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
             </div>
             <div id="subj-rows" class="sr-wrap"></div>
           </div>
-          <div class="f"><label>선생님 코멘트</label><textarea id="ls-cmt" placeholder="예) 집중도 좋음. 리딩 속도 향상 중. 어휘 복습 필요"></textarea></div>
+          <div class="f"><label>선생님 코멘트</label>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+              <button type="button" class="cmt-chip" onclick="addCmtChip('집중도 좋음')">집중도 좋음</button>
+              <button type="button" class="cmt-chip" onclick="addCmtChip('복습 필요')">복습 필요</button>
+              <button type="button" class="cmt-chip" onclick="addCmtChip('속도 향상 중')">속도 향상 중</button>
+              <button type="button" class="cmt-chip" onclick="addCmtChip('이해도 높음')">이해도 높음</button>
+              <button type="button" class="cmt-chip" onclick="addCmtChip('어휘 보완 필요')">어휘 보완 필요</button>
+              <button type="button" class="cmt-chip" onclick="addCmtChip('발음 교정 중')">발음 교정 중</button>
+              <button type="button" class="cmt-chip" onclick="addCmtChip('자신감 향상 중')">자신감 향상 중</button>
+            </div>
+            <textarea id="ls-cmt" placeholder="예) 집중도 좋음. 리딩 속도 향상 중. 어휘 복습 필요"></textarea></div>
           <button class="btn bt" onclick="saveLes()">저장</button>
         </div>
       </div>
@@ -4243,21 +4255,41 @@ async function markHwChecked(hwId,sid){
 }
 
 // ── COPY LAST LESSON ──
-function copyLastLesson(){
+async function copyLastLesson(){
   if(!_lastLessonRef){toast('이전 수업 기록이 없습니다');return;}
   const last=_lastLessonRef;
-  if(last.materials&&Object.keys(last.materials).length){
-    clearSRows();
-    Object.entries(last.materials).forEach(([subj,mat])=>{
-      const chip=document.querySelector(`#subj-chips .chip[data-s="${subj}"]`);
-      if(chip){
-        chip.classList.add('active');
-        aSubjs.add(subj);
-        addSRowTo('subj-rows',subj,mat.book||'',mat.unit||'');
-      }
-    });
+  if(!last.materials||!last.materials.length){toast('이전 수업 교재 없음');return;}
+  const rows=document.getElementById('subj-rows');
+  const chips=document.querySelectorAll('#subj-chips .chip');
+  chips.forEach(c=>c.classList.remove('active'));
+  if(rows)rows.innerHTML='';
+  for(const m of last.materials){
+    const chip=document.querySelector(`#subj-chips .chip[data-s="${m.subj}"]`);
+    if(chip&&!chip.classList.contains('active')){
+      chip.classList.add('active');
+      togSubj(chip);
+    }
+    await new Promise(r=>requestAnimationFrame(r));
+    await new Promise(r=>requestAnimationFrame(r));
+    await new Promise(r=>setTimeout(r,30));
+    const row=rows?.querySelector(`[data-subj="${m.subj}"]`);
+    if(row){
+      const bk=row.querySelector('[data-f="book"]');
+      const pg=row.querySelector('[data-f="pages"]');
+      const nt=row.querySelector('[data-f="note"]');
+      if(bk&&m.book)bk.value=m.book;
+      if(pg&&m.pages)pg.value=m.pages;
+      if(nt&&m.note)nt.value=m.note;
+    }
   }
-  toast('이전 수업 교재가 복사되었습니다');
+  toast('✓ 이전 수업 교재가 복사됐습니다');
+}
+
+function addCmtChip(text){
+  const ta=document.getElementById('ls-cmt');
+  if(!ta)return;
+  ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;
+  ta.focus();
 }
 
 // ── STUDENT LIBRARY TAB ──
