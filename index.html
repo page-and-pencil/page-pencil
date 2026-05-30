@@ -5943,10 +5943,10 @@ function renderStudentMyInfo(sid){
 
 // ── UTILS ──
 function escU(u){return(u||'').replace(/'/g,"\\'");}
-function openM(id){document.getElementById(id).classList.add('open');}
+function openM(id){const m=document.getElementById(id);if(m){m.style.removeProperty('display');m.classList.add('open');}}
 function closeM(id){
   const m=document.getElementById(id);
-  if(m)m.classList.remove('open');
+  if(m)m.style.display='none';
   document.getElementById('modal-overlay')?.classList.remove('open');
 }
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
