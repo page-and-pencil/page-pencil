@@ -2206,8 +2206,11 @@ function swSpTab(id){
   if(id==='sp-books')renderSpBooks(currentSpStuId);
   if(id==='sp-msg')renderSpMessages(currentSpStuId);
 }
-function loadStuPanel(sid){
+async function loadStuPanel(sid){
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+  if(!(_cache.vocab_cards||[]).some(c=>c.sid===sid)){
+    await loadVocabCards(sid);
+  }
   const les=DB.less().filter(l=>l.sid===sid);
   const tsts=DB.tsts().filter(t=>t.sid===sid);
   const rds=DB.rds().filter(r=>r.sid===sid);
@@ -2668,11 +2671,12 @@ async function saveLes(){
   checkNewBadges(sid);
   showLesFollowup(sid,newLes.date,_sStu?.name||'');
   }catch(e){
-    console.error('saveLes:',e);
-    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    console.error('save error:',e);
+    toast('저장 중 오류가 발생했습니다. 입력 내용은 유지됩니다.');
+    document.querySelectorAll('button[disabled]').forEach(b=>b.disabled=false);
   }finally{
     showLoading(false);
-    _saving['saveLes']=false;
+    Object.keys(_saving).forEach(k=>_saving[k]=false);
   }
 }
 // ── LES FOLLOWUP (원스톱 입력) ──
@@ -2973,11 +2977,12 @@ async function saveTst(){
   renderTst();toast('테스트 결과가 저장되었습니다');
   checkNewBadges(sid);
   }catch(e){
-    console.error('saveTst:',e);
-    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    console.error('save error:',e);
+    toast('저장 중 오류가 발생했습니다. 입력 내용은 유지됩니다.');
+    document.querySelectorAll('button[disabled]').forEach(b=>b.disabled=false);
   }finally{
     showLoading(false);
-    _saving['saveTst']=false;
+    Object.keys(_saving).forEach(k=>_saving[k]=false);
   }
 }
 let tstPage=0;
@@ -3087,11 +3092,12 @@ async function saveRd(){
   document.getElementById('rd-lib-sel').value='';renderRd();toast('원서 기록이 저장되었습니다');
   checkNewBadges(sid);
   }catch(e){
-    console.error('saveRd:',e);
-    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    console.error('save error:',e);
+    toast('저장 중 오류가 발생했습니다. 입력 내용은 유지됩니다.');
+    document.querySelectorAll('button[disabled]').forEach(b=>b.disabled=false);
   }finally{
     showLoading(false);
-    _saving['saveRd']=false;
+    Object.keys(_saving).forEach(k=>_saving[k]=false);
   }
 }
 function renderRd(){
@@ -4727,11 +4733,12 @@ async function saveAssignment(sid){
   toast('숙제가 할당되었습니다');
   loadStuPanel(sid);
   }catch(e){
-    console.error('saveAssignment:',e);
-    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    console.error('save error:',e);
+    toast('저장 중 오류가 발생했습니다. 입력 내용은 유지됩니다.');
+    document.querySelectorAll('button[disabled]').forEach(b=>b.disabled=false);
   }finally{
     showLoading(false);
-    _saving['saveAssignment']=false;
+    Object.keys(_saving).forEach(k=>_saving[k]=false);
   }
 }
 
@@ -5873,13 +5880,7 @@ function escU(u){return(u||'').replace(/'/g,"\\'");}
 function openM(id){document.getElementById(id).classList.add('open');}
 function closeM(id){
   const m=document.getElementById(id);
-  if(m){
-    m.querySelectorAll('input,textarea,select').forEach(el=>{
-      const clone=el.cloneNode(true);
-      el.parentNode.replaceChild(clone,el);
-    });
-    m.classList.remove('open');
-  }
+  if(m)m.classList.remove('open');
   document.getElementById('modal-overlay')?.classList.remove('open');
 }
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
