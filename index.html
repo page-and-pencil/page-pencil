@@ -1745,13 +1745,28 @@ async function sbSetSettings(key,value){
 }
 
 // ── REST API 직접 호출 헬퍼 ──
+function handleSupaError(status){
+  if(status===401||status===403){
+    toast('인증 오류입니다. 페이지를 새로고침해 주세요.');
+    return true;
+  }
+  if(status===429){
+    toast('요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.');
+    return true;
+  }
+  if(status>=500){
+    toast('서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    return true;
+  }
+  return false;
+}
 async function supaFetch(table,params=''){
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),15000);
   try{
     const r=await fetch(SUPA_URL+'/rest/v1/'+table+'?'+params+'&order=updated_at.desc',{headers:SUPA_HEADERS,signal:ctrl.signal});
     clearTimeout(tid);
-    if(!r.ok){console.error(table,r.status,await r.text());return [];}
+    if(!r.ok){handleSupaError(r.status);throw new Error('HTTP '+r.status);}
     return r.json();
   }catch(e){
     clearTimeout(tid);
@@ -1768,13 +1783,7 @@ async function supaUpsert(table,id,dataObj,sid=null){
     const h={...SUPA_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'};
     const r=await fetch(SUPA_URL+'/rest/v1/'+table,{method:'POST',headers:h,body:JSON.stringify(row),signal:ctrl.signal});
     clearTimeout(tid);
-    if(!r.ok){
-      const t=await r.text();
-      const msg=JSON.parse(t).message||t;
-      console.error('upsert error ['+table+']:', msg);
-      toast('저장 오류 ('+table+'): '+msg);
-      return false;
-    }
+    if(!r.ok){handleSupaError(r.status);throw new Error('HTTP '+r.status);}
     return true;
   }catch(e){
     clearTimeout(tid);
@@ -1856,8 +1865,14 @@ async function loadAllData(){
     if(cloud){_cache.settings.cloud=cloud;DB.s('cloud',cloud);}
     else{_cache.settings.cloud=DEFAULT_CLD;DB.s('cloud',DEFAULT_CLD);await supaSetSetting('cloud',DEFAULT_CLD);}
   }catch(e){
-    console.error('loadAllData',e);
-    toast('데이터 로드 중 오류가 발생했습니다');
+    console.error('loadAllData:',e);
+    const retryDiv=document.createElement('div');
+    retryDiv.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:9999;background:#fff;padding:2rem;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.15);min-width:260px';
+    retryDiv.innerHTML=`<div style="font-size:36px;margin-bottom:12px">📡</div>
+      <div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px">데이터를 불러오지 못했습니다</div>
+      <div style="font-size:13px;color:var(--slate);margin-bottom:16px">인터넷 연결을 확인해 주세요</div>
+      <button class="btn bt" onclick="location.reload()" style="padding:12px 28px;border-radius:50px;width:100%">다시 시도</button>`;
+    document.body.appendChild(retryDiv);
   }finally{
     showLoading(false);
   }
@@ -4548,6 +4563,11 @@ function renderAsgnForm(sid){
   }
 }
 async function saveAssignment(sid){
+  if(!sid){toast('학생을 선택해 주세요');return;}
+  const type=document.getElementById('assign-type')?.value;
+  if(!type){toast('과제 종류를 선택해 주세요');return;}
+  const due=document.getElementById('assign-due')?.value;
+  if(!due){toast('마감일을 입력해 주세요');return;}
   if(_saving['saveAssignment'])return; _saving['saveAssignment']=true;
   try{
   const type=document.getElementById(`asgn-type-${sid}`)?.value||'reading';
@@ -5713,7 +5733,17 @@ function renderStudentMyInfo(sid){
 // ── UTILS ──
 function escU(u){return(u||'').replace(/'/g,"\\'");}
 function openM(id){document.getElementById(id).classList.add('open');}
-function closeM(id){document.getElementById(id).classList.remove('open');}
+function closeM(id){
+  const m=document.getElementById(id);
+  if(m){
+    m.querySelectorAll('input,textarea,select').forEach(el=>{
+      const clone=el.cloneNode(true);
+      el.parentNode.replaceChild(clone,el);
+    });
+    m.classList.remove('open');
+  }
+  document.getElementById('modal-overlay')?.classList.remove('open');
+}
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 function openLb(url){if(!url||url==='undefined'||url===''){toast('사진이 없습니다');return;}document.getElementById('lb-img').src=url;document.getElementById('lightbox').classList.add('open');}
 function closeLb(){document.getElementById('lightbox').classList.remove('open');}
