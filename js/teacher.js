@@ -2544,22 +2544,32 @@ function renderQRCode(){
 
 // ── URL PARAM AUTO LOGIN ──
 document.addEventListener('DOMContentLoaded',async()=>{
-  setToday();
-  const params=new URLSearchParams(location.search);
-  const pin=params.get('pin');
-  const role=params.get('role');
-  if(pin&&role){
-    if(!_cache.students.length)await loadAllData();
-    const matches=_cache.students.filter(s=>s.pin===pin&&!s.inactive);
-    if(matches.length===1){
-      if(role==='student'){
-        await loginStudent(matches[0]);
-      } else if(role==='parent'){
-        document.getElementById('pin-code').value=pin;
-        document.getElementById('pin-name').value=matches[0].name;
-        await checkPin();
+  try{
+    const params=new URLSearchParams(location.search);
+    const pin=params.get('pin');
+    const role=params.get('role');
+    if(pin&&role){
+      setToday();
+      if(!_cache.students.length)await loadAllData();
+      const matches=_cache.students.filter(s=>s.pin===pin&&!s.inactive);
+      if(matches.length===1){
+        if(role==='student'){
+          await loginStudent(matches[0]);
+        } else if(role==='parent'){
+          document.getElementById('pin-code').value=pin;
+          document.getElementById('pin-name').value=matches[0].name;
+          await checkPin();
+        }
       }
+    } else {
+      setToday();
     }
+    if(!document.querySelector('.screen.active')){
+      show('s-land');
+    }
+  }catch(e){
+    console.error('init error:',e);
+    show('s-land');
   }
   function showOfflineBanner(show){
     let b=document.getElementById('offline-banner');
