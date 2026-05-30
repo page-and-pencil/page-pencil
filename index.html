@@ -3592,6 +3592,9 @@ async function loadParent(sid){
     </div>
   </div>`;
 
+  const timeline=renderGrowthTimeline(sid);
+  if(timeline) blocks+=timeline;
+
   // 블록 C — 최근 테스트
   if(tsts.length){
     const latTst=tsts[0];const prevTst=tsts[1]||null;
@@ -3752,7 +3755,7 @@ async function loadParent(sid){
       if(cv){
         if(pC.trend)pC.trend.destroy();
         const ct=[...tsts].reverse().slice(-10);
-        pC.trend=new Chart(cv.getContext('2d'),{type:'line',data:{labels:ct.map(t=>t.date?t.date.slice(5):''),datasets:[{label:'단어',data:ct.map(t=>pct(t.vocabCorrect,t.vocabTotal)),borderColor:'#00c4cc',backgroundColor:'rgba(0,196,204,.1)',tension:.3,fill:true,pointBackgroundColor:'#00c4cc',pointRadius:4},{label:'어법',data:ct.map(t=>pct(t.grammarCorrect,t.grammarTotal)),borderColor:'#005f6b',backgroundColor:'rgba(0,95,107,.07)',tension:.3,fill:true,pointBackgroundColor:'#005f6b',pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
+        pC.trend=new Chart(cv.getContext('2d'),{type:'line',data:{labels:ct.map(t=>t.date?t.date.slice(5):''),datasets:[{label:'단어',data:ct.map(t=>pct(t.vocabCorrect,t.vocabTotal)),borderColor:'#00c4cc',backgroundColor:'rgba(0,196,204,.1)',tension:.3,fill:true,pointBackgroundColor:'#00c4cc',pointRadius:4},{label:'어법',data:ct.map(t=>pct(t.grammarCorrect,t.grammarTotal)),borderColor:'#005f6b',backgroundColor:'rgba(0,95,107,.07)',tension:.3,fill:true,pointBackgroundColor:'#005f6b',pointRadius:4},{label:'평균',data:ct.map(()=>Math.round(ct.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/ct.length)),borderColor:'rgba(0,0,0,.2)',borderDash:[5,5],borderWidth:1.5,pointRadius:0,fill:false,tension:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
       }
     }
   },150);
@@ -4010,12 +4013,30 @@ function getArTrend(sid){
 function renderArBadge(arData){
   if(arData.length<2)return '';
   const first=arData[0].ar,last=arData[arData.length-1].ar;
-  const diff=(last-first).toFixed(1);
+  const diff=parseFloat((last-first).toFixed(1));
+  const months=Math.max(1,Math.round((new Date(arData[arData.length-1].date)-new Date(arData[0].date))/(1000*60*60*24*30)));
   const cls=diff>0?'ar-up':diff<0?'ar-down':'ar-same';
   const arrow=diff>0?'↑':diff<0?'↓':'→';
-  return `<div class="ar-trend"><span style="font-size:12px;color:var(--slate)">AR 추이</span>
-    <span class="ar-badge ${cls}" style="margin-left:8px">${arrow} ${Math.abs(diff)} (${first}→${last})</span>
-    <div style="font-size:11px;color:var(--slate);margin-top:4px">총 ${arData.length}권 · 최초 AR ${first} → 현재 AR ${last}</div>
+  let context='';
+  const speed=Math.abs(diff)/months;
+  if(diff>0){
+    if(speed>=0.3)context='🚀 매우 빠른 성장 속도';
+    else if(speed>=0.15)context='📈 꾸준한 성장 중';
+    else context='📖 안정적으로 수준 향상 중';
+  }else if(diff<0){context='💪 난이도 조정 필요할 수 있음';}
+  else{context='✅ 현재 수준 유지 중';}
+  let peer='';
+  if(last>=5.0)peer=' · 초등 상위권';
+  else if(last>=3.5)peer=' · 초등 중상';
+  else if(last>=2.0)peer=' · 초등 중급';
+  else peer=' · 초등 기초';
+  return `<div class="ar-trend">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <span style="font-size:12px;color:var(--slate)">AR 추이</span>
+      <span class="ar-badge ${cls}">${arrow} ${Math.abs(diff)} (${first}→${last})</span>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:var(--navy)">${context}${peer}</div>
+    <div style="font-size:11px;color:var(--slate);margin-top:2px">총 ${arData.length}권 · ${months}개월간</div>
   </div>`;
 }
 
@@ -4876,6 +4897,8 @@ function resumeVocabDeck(){
 
 function renderVocabDeck(sid){
   const el=document.getElementById('st-vocab');if(!el)return;
+  const missingCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&!c.meaning);
+  if(missingCards.length) fillMissingMeanings(missingCards);
   let cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
   const filterLabel=vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 1.25rem;background:var(--tl);font-size:12px;color:#005f6b"><span>📌 숙제 단어 ${vocabDeckFilter.words.length}개</span><button onclick="vocabDeckFilter=null;renderVocabDeck('${sid}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate)">전체 보기</button></div>`:'';
   if(vocabDeckFilter)cards=cards.filter(c=>vocabDeckFilter.words.map(w=>w.toLowerCase()).includes((c.word||'').toLowerCase()));
