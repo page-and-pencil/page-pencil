@@ -1746,37 +1746,82 @@ async function sbSetSettings(key,value){
 
 // ── REST API 직접 호출 헬퍼 ──
 async function supaFetch(table,params=''){
-  const r=await fetch(SUPA_URL+'/rest/v1/'+table+'?'+params+'&order=updated_at.desc',{headers:SUPA_HEADERS});
-  if(!r.ok){console.error(table,r.status,await r.text());return [];}
-  return r.json();
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),15000);
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/'+table+'?'+params+'&order=updated_at.desc',{headers:SUPA_HEADERS,signal:ctrl.signal});
+    clearTimeout(tid);
+    if(!r.ok){console.error(table,r.status,await r.text());return [];}
+    return r.json();
+  }catch(e){
+    clearTimeout(tid);
+    if(e.name==='AbortError')toast('서버 응답이 느립니다. 잠시 후 다시 시도해 주세요.');
+    throw e;
+  }
 }
 async function supaUpsert(table,id,dataObj,sid=null){
-  const row={id,data:dataObj,updated_at:new Date().toISOString()};
-  if(sid)row.sid=sid;
-  const h={...SUPA_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'};
-  const r=await fetch(SUPA_URL+'/rest/v1/'+table,{method:'POST',headers:h,body:JSON.stringify(row)});
-  if(!r.ok){
-    const t=await r.text();
-    const msg=JSON.parse(t).message||t;
-    console.error('upsert error ['+table+']:', msg);
-    toast('저장 오류 ('+table+'): '+msg);
-    return false;
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),15000);
+  try{
+    const row={id,data:dataObj,updated_at:new Date().toISOString()};
+    if(sid)row.sid=sid;
+    const h={...SUPA_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'};
+    const r=await fetch(SUPA_URL+'/rest/v1/'+table,{method:'POST',headers:h,body:JSON.stringify(row),signal:ctrl.signal});
+    clearTimeout(tid);
+    if(!r.ok){
+      const t=await r.text();
+      const msg=JSON.parse(t).message||t;
+      console.error('upsert error ['+table+']:', msg);
+      toast('저장 오류 ('+table+'): '+msg);
+      return false;
+    }
+    return true;
+  }catch(e){
+    clearTimeout(tid);
+    if(e.name==='AbortError')toast('서버 응답이 느립니다. 잠시 후 다시 시도해 주세요.');
+    throw e;
   }
-  return true;
 }
 async function supaDelete(table,id){
-  const r=await fetch(SUPA_URL+'/rest/v1/'+table+'?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:SUPA_HEADERS});
-  if(!r.ok){const t=await r.text();console.error('delete',table,t);toast('삭제 오류: '+t);return false;}
-  return true;
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),15000);
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/'+table+'?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:SUPA_HEADERS,signal:ctrl.signal});
+    clearTimeout(tid);
+    if(!r.ok){const t=await r.text();console.error('delete',table,t);toast('삭제 오류: '+t);return false;}
+    return true;
+  }catch(e){
+    clearTimeout(tid);
+    if(e.name==='AbortError')toast('서버 응답이 느립니다. 잠시 후 다시 시도해 주세요.');
+    throw e;
+  }
 }
 async function supaGetSetting(key){
-  const r=await fetch(SUPA_URL+'/rest/v1/settings?key=eq.'+encodeURIComponent(key)+'&limit=1',{headers:{...SUPA_HEADERS,'Accept':'application/vnd.pgrst.object+json'}});
-  if(r.status===406||r.status===404||!r.ok)return null;
-  const d=await r.json();return d?d.value:null;
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),15000);
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/settings?key=eq.'+encodeURIComponent(key)+'&limit=1',{headers:{...SUPA_HEADERS,'Accept':'application/vnd.pgrst.object+json'},signal:ctrl.signal});
+    clearTimeout(tid);
+    if(r.status===406||r.status===404||!r.ok)return null;
+    const d=await r.json();return d?d.value:null;
+  }catch(e){
+    clearTimeout(tid);
+    if(e.name==='AbortError')toast('서버 응답이 느립니다. 잠시 후 다시 시도해 주세요.');
+    throw e;
+  }
 }
 async function supaSetSetting(key,value){
-  const h={...SUPA_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'};
-  await fetch(SUPA_URL+'/rest/v1/settings',{method:'POST',headers:h,body:JSON.stringify({key,value,updated_at:new Date().toISOString()})});
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),15000);
+  try{
+    const h={...SUPA_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'};
+    await fetch(SUPA_URL+'/rest/v1/settings',{method:'POST',headers:h,body:JSON.stringify({key,value,updated_at:new Date().toISOString()}),signal:ctrl.signal});
+    clearTimeout(tid);
+  }catch(e){
+    clearTimeout(tid);
+    if(e.name==='AbortError')toast('서버 응답이 느립니다. 잠시 후 다시 시도해 주세요.');
+    throw e;
+  }
 }
 
 // ── 전체 데이터 로드 (앱 시작 시) ──
@@ -1813,8 +1858,9 @@ async function loadAllData(){
   }catch(e){
     console.error('loadAllData',e);
     toast('데이터 로드 중 오류가 발생했습니다');
+  }finally{
+    showLoading(false);
   }
-  showLoading(false);
   populateDataLists();
 }
 function populateDataLists(){
@@ -3354,8 +3400,16 @@ async function saveEditLog(){
 
 // ── TEST PHOTO ──
 let tstPhotoUrl='';
+function checkFileSize(file,maxMB){
+  if(file.size>maxMB*1024*1024){
+    toast(`파일이 너무 큽니다. ${maxMB}MB 이하만 가능합니다.`);
+    return false;
+  }
+  return true;
+}
 async function handleTstPhoto(e){
   const f=e.target.files[0];if(!f)return;
+  if(!checkFileSize(f,10))return;
   document.getElementById('tst-ut').textContent='선택됨: '+f.name;
   const b64=await fileToB64(f);
   document.getElementById('tst-preview-img').src='data:'+f.type+';base64,'+b64;
@@ -4165,6 +4219,7 @@ function reqDelAudio(bookId,e){
 // ── BOOK AUDIO ──
 async function uploadBookAudio(e, bookId, uploadType='full'){
   const f=e.target.files[0];if(!f)return;
+  if(!checkFileSize(f,50))return;
   toast('오디오 업로드 중...');
   const {name,preset}=DB.cld();
   let audioUrl='';
@@ -4685,6 +4740,7 @@ function renderHomeworkTab(sid){
 }
 function handleHwAudio(e){
   const f=e.target.files[0];if(!f)return;
+  if(!checkFileSize(f,50))return;
   hwAudioBlob=f;
   const url=URL.createObjectURL(f);
   document.getElementById('hw-audio-player').src=url;
@@ -5899,6 +5955,20 @@ document.addEventListener('DOMContentLoaded',async()=>{
       }
     }
   }
+  function showOfflineBanner(show){
+    let b=document.getElementById('offline-banner');
+    if(!b){
+      b=document.createElement('div');
+      b.id='offline-banner';
+      b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#333;color:#fff;text-align:center;padding:10px;font-size:13px;font-weight:600;transform:translateY(-100%);transition:transform .3s';
+      b.textContent='📡 인터넷 연결이 끊겼습니다. 저장이 되지 않을 수 있습니다.';
+      document.body.appendChild(b);
+    }
+    b.style.transform=show?'translateY(0)':'translateY(-100%)';
+  }
+  window.addEventListener('offline',()=>showOfflineBanner(true));
+  window.addEventListener('online',()=>{showOfflineBanner(false);toast('인터넷 연결이 복구됐습니다 ✓');});
+  if(!navigator.onLine)showOfflineBanner(true);
 });
 
 
