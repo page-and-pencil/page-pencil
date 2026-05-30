@@ -801,7 +801,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
     <button class="ntab" data-tab="t-msg" id="t-msg-tab" onclick="swTab('t-msg')">💬 메시지</button>
     <div class="nt-more-wrap">
       <button class="ntab" onclick="toggleMoreMenu()">⚙️ 더보기</button>
-      <div id="nt-more-menu" style="display:none;position:absolute;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:1000;min-width:120px;padding:4px 0">
+      <div id="nt-more-menu" style="display:none;position:absolute;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:9999;min-width:120px;padding:4px 0">
         <button class="more-menu-item" onclick="swTab('t-tst');closeMoreMenu()">테스트</button>
         <button class="more-menu-item" onclick="swTab('t-bks');closeMoreMenu()">원서</button>
         <button class="more-menu-item" onclick="swTab('t-log');closeMoreMenu()">리딩로그</button>
@@ -2262,9 +2262,13 @@ async function loadStuPanel(sid){
     :`${lesSlice.map(l=>{
       const mats=matsToHtml(l.materials);const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <div style="display:flex;gap:4px;margin-bottom:4px;justify-content:space-between;align-items:center">
           <span style="font-size:12px;font-family:var(--fm);color:var(--slate)">${l.date||''}</span>
-          ${attLabel?`<span class="att-chip ${ATTCLS[l.att]}" style="font-size:10px">${attLabel}</span>`:''}
+          <div style="display:flex;gap:4px">
+            ${attLabel?`<span class="att-chip ${ATTCLS[l.att]}" style="font-size:10px">${attLabel}</span>`:''}
+            <button class="btn bo" style="padding:2px 8px;font-size:10px" onclick="openEditLes('${l.id}')">✏️</button>
+            <button class="btn bd" style="padding:2px 8px;font-size:10px" onclick="reqDelLesFromPanel('${l.id}','${sid}')">🗑️</button>
+          </div>
         </div>
         ${mats?`<div style="font-size:12px;margin-bottom:3px;line-height:1.8">${mats}</div>`:''}
         ${l.cmt?`<div style="font-size:12px;color:var(--slate)">${l.cmt}</div>`:''}
@@ -2948,6 +2952,15 @@ function reqDelLes(){
     await supaDelete('lessons',id);
     _cache.lessons=_cache.lessons.filter(x=>x.id!==id);
     closeM('m-edit-les');clearEditSRows();renderLes();toast('삭제되었습니다');
+  });
+}
+function reqDelLesFromPanel(lesId,sid){
+  askConfirm('수업 삭제','이 수업 기록을 삭제할까요?','삭제','bd',async()=>{
+    await supaDelete('lessons',lesId);
+    _cache.lessons=_cache.lessons.filter(l=>l.id!==lesId);
+    loadStuPanel(sid);
+    renderLes();
+    toast('삭제되었습니다');
   });
 }
 
@@ -6067,8 +6080,8 @@ async function sendParentMessage(){
   const inp=document.getElementById('pp-msg-input');if(!inp)return;
   const text=inp.value.trim();if(!text){toast('메시지를 입력해 주세요');return;}
   const msg={id:uid(),sid:currentParentSid,fromRole:'parent',text,createdAt:new Date().toISOString(),read:false};
-  const ok=await supaUpsert('messages',msg.id,msg,currentParentSid);
-  if(!ok)return;
+  const ok=await supaUpsert('messages',msg.id,msg,null);
+  if(!ok){toast('전송에 실패했습니다. 다시 시도해 주세요.');return;}
   if(!_cache.messages)_cache.messages=[];
   _cache.messages.unshift(msg);
   inp.value='';
@@ -6102,8 +6115,8 @@ async function sendTeacherMessage(sid){
   const inp=document.getElementById('sp-msg-input');if(!inp)return;
   const text=inp.value.trim();if(!text)return;
   const msg={id:uid(),sid,fromRole:'teacher',text,createdAt:new Date().toISOString(),read:false};
-  const ok=await supaUpsert('messages',msg.id,msg,sid);
-  if(!ok)return;
+  const ok=await supaUpsert('messages',msg.id,msg,null);
+  if(!ok){toast('전송에 실패했습니다. 다시 시도해 주세요.');return;}
   if(!_cache.messages)_cache.messages=[];
   _cache.messages.unshift(msg);
   inp.value='';
