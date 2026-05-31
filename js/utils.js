@@ -39,7 +39,10 @@ function confirmCancel(){closeM('m-confirm');_confirmCb=null;}
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
 function goTeacherLogin(){show('s-login');setTimeout(()=>document.getElementById('pw-in').focus(),100);}
 function goPinScreen(){show('s-pin');setTimeout(()=>document.getElementById('pin-name').focus(),100);}
-function logout(){show('s-land');}
+function saveSession(data){try{localStorage.setItem('pp_session',JSON.stringify(data));}catch(e){}}
+function loadSession(){try{const s=localStorage.getItem('pp_session');return s?JSON.parse(s):null;}catch(e){return null;}}
+function clearSession(){try{localStorage.removeItem('pp_session');}catch(e){}}
+function logout(){clearSession();show('s-land');}
 
 // ── UTILS ──
 function escU(u){return(u||'').replace(/'/g,"\\'");}

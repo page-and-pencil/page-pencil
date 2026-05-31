@@ -1,7 +1,7 @@
 // ── AUTH ──
 async function checkPw(){
   const v=document.getElementById('pw-in').value;
-  if(v===DB.pw()){document.getElementById('pw-in').value='';document.getElementById('pw-err').textContent='';show('s-teacher');await initApp();}
+  if(v===DB.pw()){document.getElementById('pw-in').value='';document.getElementById('pw-err').textContent='';saveSession({role:'teacher'});show('s-teacher');await initApp();}
   else document.getElementById('pw-err').textContent='비밀번호가 맞지 않습니다';
 }
 async function checkPin(){
@@ -2743,6 +2743,20 @@ document.addEventListener('DOMContentLoaded',async()=>{
       }
     } else {
       setToday();
+      const session=loadSession();
+      if(session){
+        if(session.role==='teacher'){
+          show('s-teacher');await initApp();
+        } else if(session.role==='student'){
+          if(!_cache.students.length)await loadAllData();
+          const s=_cache.students.find(x=>x.id===session.sid&&!x.inactive);
+          if(s){await loginStudent(s);}else clearSession();
+        } else if(session.role==='parent'){
+          if(!_cache.students.length)await loadAllData();
+          const s=_cache.students.find(x=>x.id===session.sid&&!x.inactive);
+          if(s){loadParentWithNotice(s.id);}else clearSession();
+        }
+      }
     }
     const verEl=document.getElementById('app-version');
     if(verEl)verEl.textContent=APP_VERSION;

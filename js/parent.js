@@ -458,6 +458,7 @@ function renderArBadge(arData){
 
 // ── NOTICE CHECK (학부모 로그인 시) ──
 function loadParentWithNotice(sid){
+  saveSession({role:'parent',sid});
   loadParent(sid);
   setTimeout(checkNotice,500);
 }

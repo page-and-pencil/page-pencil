@@ -101,7 +101,7 @@
     <div class="stu-app-logo">Page <span>&</span> Pencil</div>
     <div style="display:flex;align-items:center;gap:10px">
       <span class="stu-name-badge" id="stu-name-badge">—</span>
-      <button class="btn-lo" onclick="show('s-land')">나가기</button>
+      <button class="btn-lo" onclick="clearSession();show('s-land')">나가기</button>
     </div>
   </div>
   <div class="stu-tabs">
@@ -622,7 +622,7 @@
 <!-- PARENT VIEW -->
 <div id="s-parent" class="screen">
   <div class="ah">
-    <button class="btn-lo" onclick="show('s-land')">← 나가기</button>
+    <button class="btn-lo" onclick="clearSession();show('s-land')">← 나가기</button>
     <div class="ah-logo">Page <span>&</span> Pencil</div>
     <button onclick="shareParentUpdate()" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;padding:4px 8px;font-size:16px;font-family:var(--fb)">📤</button>
   </div>

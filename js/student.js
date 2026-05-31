@@ -53,6 +53,7 @@ async function loginStudent(s){
   document.getElementById('stupin-name-sel').style.display='none';
   document.getElementById('stu-keypad').style.display='grid';
   currentStudentSid=s.id;
+  saveSession({role:'student',sid:s.id});
   document.getElementById('stu-name-badge').textContent=s.name;
   show('s-student');
   await loadVocabCards(s.id);
