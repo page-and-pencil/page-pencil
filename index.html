@@ -162,6 +162,7 @@
     <button class="ntab" data-tab="t-dash" onclick="swTab('t-dash')">대시보드</button>
     <button class="ntab active" data-tab="t-stu" onclick="swTab('t-stu')">학생</button>
     <button class="ntab" data-tab="t-les" onclick="swTab('t-les')">수업</button>
+    <button class="ntab" data-tab="t-class" onclick="swTab('t-class')">클래스</button>
     <button class="ntab" data-tab="t-assign" onclick="swTab('t-assign')">📋 과제</button>
     <button class="ntab" data-tab="t-msg" id="t-msg-tab" onclick="swTab('t-msg')">💬 메시지</button>
     <button class="ntab" data-tab="t-tst" onclick="swTab('t-tst')">테스트</button>
@@ -483,6 +484,15 @@
           <tbody id="tbook-tbody"></tbody>
         </table>
       </div>
+    </div>
+
+    <!-- 클래스 관리 -->
+    <div id="t-class" class="panel">
+      <div class="sh">
+        <div><div class="st">클래스 관리</div></div>
+        <button class="btn bt bsm" onclick="openEditClass()">+ 클래스 만들기</button>
+      </div>
+      <div id="class-list"></div>
     </div>
 
     <!-- 과제 관리 -->
@@ -826,6 +836,89 @@
       <button class="btn bt" style="flex:1" onclick="updRd()">저장</button>
       <button class="btn bd bsm" onclick="reqDelRd()">삭제</button>
     </div>
+  </div>
+</div>
+
+<!-- 클래스 추가/수정 -->
+<div id="m-edit-class" class="mo">
+  <div class="mdl">
+    <div class="mh"><div class="mt" id="edit-class-title">클래스 만들기</div><button class="bx" onclick="closeM('m-edit-class')">×</button></div>
+    <input type="hidden" id="ec-id">
+    <div class="fg">
+      <div class="f s2"><label>클래스명</label><input type="text" id="ec-name" placeholder="예: 화목 4시반"></div>
+      <div class="f s2"><label>요일</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;padding:4px 0">
+          <label class="day-check"><input type="checkbox" value="월"> 월</label>
+          <label class="day-check"><input type="checkbox" value="화"> 화</label>
+          <label class="day-check"><input type="checkbox" value="수"> 수</label>
+          <label class="day-check"><input type="checkbox" value="목"> 목</label>
+          <label class="day-check"><input type="checkbox" value="금"> 금</label>
+          <label class="day-check"><input type="checkbox" value="토"> 토</label>
+          <label class="day-check"><input type="checkbox" value="일"> 일</label>
+        </div>
+      </div>
+      <div class="f"><label>수업 시간</label><input type="time" id="ec-time"></div>
+      <div class="f s2"><label>소속 학생</label><div id="ec-students" style="display:flex;flex-direction:column;gap:8px;padding:4px 0"></div></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn bt" style="flex:1" onclick="saveClass()">저장</button>
+      <button class="btn bd bsm" id="ec-del-btn" style="display:none" onclick="deleteClass()">삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 클래스 수업 기록 -->
+<div id="m-class-lesson" class="mo">
+  <div class="mdl" style="max-width:640px">
+    <div class="mh">
+      <div>
+        <div class="mt" id="cl-modal-title">클래스 수업 기록</div>
+        <div style="font-size:12px;color:var(--slate)" id="cl-modal-sub"></div>
+      </div>
+      <button class="bx" onclick="closeM('m-class-lesson')">×</button>
+    </div>
+    <input type="hidden" id="cl-class-id">
+    <div style="margin:12px 0 16px">
+      <label style="font-size:12px;color:var(--slate);display:block;margin-bottom:4px">날짜</label>
+      <input type="date" id="cl-date" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none">
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="ch"><span class="ct">📚 공통 교재 진도</span></div>
+      <div class="cb">
+        <div class="chips" id="cl-subj-chips">
+          <button class="chip" data-s="phonics" onclick="clTogSubj(this)">파닉스</button>
+          <button class="chip" data-s="vocab" onclick="clTogSubj(this)">어휘</button>
+          <button class="chip" data-s="grammar" onclick="clTogSubj(this)">어법</button>
+          <button class="chip" data-s="reading" onclick="clTogSubj(this)">리딩</button>
+          <button class="chip" data-s="listening" onclick="clTogSubj(this)">리스닝</button>
+          <button class="chip" data-s="writing" onclick="clTogSubj(this)">라이팅</button>
+        </div>
+        <div id="cl-subj-rows" class="sr-wrap"></div>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">👤 학생별 기록</div>
+      <div id="cl-students"></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--slate);display:block;margin-bottom:4px">공통 코멘트 (선택)</label>
+      <textarea id="cl-common-cmt" placeholder="수업 내용, 특이사항 등..." style="width:100%;min-height:52px;resize:vertical;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none;box-sizing:border-box"></textarea>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="ch"><span class="ct">📋 공통 과제 (선택)</span></div>
+      <div class="cb">
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+          <select id="cl-hw-type" class="filter-sel" onchange="renderClHwFields()">
+            <option value="">과제 없음</option>
+            <option value="textbook">교재 과제</option>
+            <option value="other">기타 과제</option>
+          </select>
+          <input type="date" id="cl-hw-due" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none" title="마감일">
+        </div>
+        <div id="cl-hw-fields"></div>
+      </div>
+    </div>
+    <button class="btn bt" style="width:100%" id="cl-save-btn" onclick="saveClassLesson()">저장하기</button>
   </div>
 </div>
 

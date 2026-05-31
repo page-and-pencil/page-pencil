@@ -122,6 +122,7 @@ function swTab(id){
   if(id==='t-bks'){populateLibSel();populateFilterSels();renderRd();}
   if(id==='t-log'){populateFilterSels();renderLog();checkCldWarn();}
   if(id==='t-assign'){populateFilterSels();renderAssignTab();renderAssignCal();const el=document.getElementById('assign-filter-date');if(el&&!el.value)el.value=new Date().toISOString().split('T')[0];}
+  if(id==='t-class')renderClassTab();
   if(id==='t-lib'){renderLibTable();populateLibSeriesFilter();}
   if(id==='t-tbooks')renderTbookTable();
   if(id==='t-msg')renderMsgTab();
@@ -1649,10 +1650,9 @@ function renderDash(){
   const todayDay=DAYS[today.getDay()];
   const dateLabel=`${today.getMonth()+1}월 ${today.getDate()}일 ${todayDay}요일`;
 
-  // Section 1: 오늘 수업
-  const todayStus=stus.filter(s=>s.memo&&s.memo.includes(todayDay));
-  const todayRecorded=new Set(les.filter(l=>l.date===todayStr).map(l=>l.sid));
-  renderDashToday(dateLabel,todayStus,todayRecorded);
+  // Section 1: 오늘 클래스
+  const todayClasses=DB.classes().filter(c=>c.active!==false&&(c.days||[]).includes(todayDay));
+  renderDashToday(dateLabel,todayClasses,todayStr,stus);
 
   // Section 2: 처리할 것
   const unreadMsgByStu={};
@@ -1686,17 +1686,29 @@ function renderDash(){
   renderDashNotice();
 }
 
-function renderDashToday(dateLabel,todayStus,todayRecorded){
+function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
   const el=document.getElementById('dash-today');if(!el)return;
-  const chipsHtml=todayStus.length
-    ?`<div style="display:flex;flex-wrap:wrap;gap:8px">${todayStus.map(s=>{
-        const done=todayRecorded.has(s.id);
-        return `<div class="dash-stu-chip${done?' done':''}" onclick="loadStuPanel('${s.id}')" style="cursor:pointer">${done?'✓ ':''}${s.name}</div>`;
-      }).join('')}</div>`
-    :`<div style="color:var(--slate);font-size:13px">오늘 수업 예정 없음</div>`;
+  let body;
+  if(!todayClasses.length){
+    body=`<div style="color:var(--slate);font-size:13px">오늘 수업 없음 — <span style="color:var(--teal);cursor:pointer;text-decoration:underline" onclick="swTab('t-class')">클래스 만들기</span></div>`;
+  } else {
+    body=todayClasses.map(c=>{
+      const done=DB.less().some(l=>l.date===todayStr&&l.classId===c.id);
+      const students=(allStus||[]).filter(s=>(c.studentIds||[]).includes(s.id));
+      return `<div class="dash-class-row${done?' done':''}">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px">${c.name}${c.time?`<span style="font-size:12px;color:var(--slate);font-weight:400;margin-left:6px">${c.time}</span>`:''}</div>
+          <div style="font-size:12px;color:var(--slate);margin-top:2px">${students.map(s=>`<span onclick="loadStuPanel('${s.id}')" style="cursor:pointer;text-decoration:underline">${s.name}</span>`).join(' · ')||'학생 없음'}</div>
+        </div>
+        <div style="flex-shrink:0">
+          ${done?`<span style="font-size:12px;color:#0A5940;font-weight:600">✓ 완료</span>`:`<button class="btn bt bsm" onclick="openClassLesson('${c.id}','${todayStr}')">수업 기록</button>`}
+        </div>
+      </div>`;
+    }).join('');
+  }
   el.innerHTML=`<div class="card">
-    <div class="ch"><span class="ct">📅 오늘 · ${dateLabel}</span><button class="btn bt bsm" onclick="swTab('t-les')">+ 수업 기록</button></div>
-    <div class="cb" style="padding-top:8px">${chipsHtml}</div>
+    <div class="ch"><span class="ct">📅 오늘 · ${dateLabel}</span></div>
+    <div class="cb" style="padding-top:4px;display:flex;flex-direction:column;gap:10px">${body}</div>
   </div>`;
 }
 
@@ -2521,6 +2533,193 @@ function renderQRCode(){
     </div>
     <div style="font-size:10px;color:var(--slate);margin-top:6px;word-break:break-all">${target}</div>
   </div>`;
+}
+
+// ── CLASSES ──
+const clSubjs=new Set();
+
+function renderClassTab(){
+  const el=document.getElementById('class-list');if(!el)return;
+  const classes=DB.classes().filter(c=>c.active!==false);
+  const allStus=DB.stus().filter(s=>!s.inactive);
+  if(!classes.length){
+    el.innerHTML='<div class="empty"><div class="empty-i">👥</div><div class="empty-t">클래스가 없습니다</div><div class="empty-s">+ 클래스 만들기로 수업 그룹을 만들어보세요</div></div>';
+    return;
+  }
+  const DAYS=['일','월','화','수','목','금','토'];
+  const todayDay=DAYS[new Date().getDay()];
+  const todayStr=new Date().toISOString().split('T')[0];
+  el.innerHTML=classes.map(c=>{
+    const students=allStus.filter(s=>(c.studentIds||[]).includes(s.id));
+    const isToday=(c.days||[]).includes(todayDay);
+    const done=isToday&&DB.less().some(l=>l.date===todayStr&&l.classId===c.id);
+    return `<div class="class-card${isToday?' class-today':''}">
+      <div class="class-card-head">
+        <div style="flex:1;min-width:0">
+          <div class="class-card-name">${c.name}${isToday?'<span class="class-today-badge">오늘</span>':''}</div>
+          <div class="class-card-meta">${(c.days||[]).map(d=>d+'요일').join(' · ')}${c.time?' · '+c.time:''} · 학생 ${students.length}명</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+          ${isToday&&!done?`<button class="btn bt bsm" onclick="openClassLesson('${c.id}','${todayStr}')">수업 기록</button>`:''}
+          ${done?`<span style="font-size:12px;color:#0A5940;font-weight:600">✓ 오늘 완료</span>`:''}
+          ${!isToday?`<button class="btn ba bsm" onclick="openClassLesson('${c.id}')">수업 기록</button>`:''}
+          <button class="btn bo bsm" onclick="openEditClass('${c.id}')">수정</button>
+        </div>
+      </div>
+      <div class="class-card-stus">${students.map(s=>`<span class="class-stu-chip" onclick="loadStuPanel('${s.id}')">${s.name}</span>`).join('')||'<span style="color:var(--slate);font-size:12px">학생 없음</span>'}</div>
+    </div>`;
+  }).join('');
+}
+
+function openEditClass(id=null){
+  const c=id?DB.classes().find(x=>x.id===id):null;
+  document.getElementById('ec-id').value=c?c.id:'';
+  document.getElementById('edit-class-title').textContent=c?'클래스 수정':'클래스 만들기';
+  document.getElementById('ec-name').value=c?c.name:'';
+  document.getElementById('ec-time').value=c?c.time||'':'';
+  document.getElementById('ec-del-btn').style.display=c?'block':'none';
+  document.querySelectorAll('#m-edit-class .day-check input').forEach(cb=>{cb.checked=c?(c.days||[]).includes(cb.value):false;});
+  const allStus=DB.stus().filter(s=>!s.inactive);
+  document.getElementById('ec-students').innerHTML=allStus.map(s=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+    <input type="checkbox" value="${s.id}" ${c&&(c.studentIds||[]).includes(s.id)?'checked':''}> ${s.name}<span style="font-size:11px;color:var(--slate)">${s.grade||s.lv||''}</span>
+  </label>`).join('');
+  openM('m-edit-class');
+}
+
+async function saveClass(){
+  const name=document.getElementById('ec-name').value.trim();
+  if(!name){toast('클래스명을 입력하세요');return;}
+  const days=[...document.querySelectorAll('#m-edit-class .day-check input:checked')].map(cb=>cb.value);
+  const time=document.getElementById('ec-time').value;
+  const studentIds=[...document.querySelectorAll('#ec-students input:checked')].map(cb=>cb.value);
+  const existingId=document.getElementById('ec-id').value;
+  const id=existingId||uid();
+  const existing=DB.classes().find(x=>x.id===id);
+  const c={...(existing||{}),id,name,days,time,studentIds,active:true};
+  await supaUpsert('classes',id,c,null);
+  if(!_cache.globalClasses)_cache.globalClasses=[];
+  const idx=_cache.globalClasses.findIndex(x=>x.id===id);
+  if(idx>=0)_cache.globalClasses[idx]=c;else _cache.globalClasses.unshift(c);
+  closeM('m-edit-class');
+  renderClassTab();renderDash();
+  toast('저장되었습니다');
+}
+
+function deleteClass(){
+  const id=document.getElementById('ec-id').value;if(!id)return;
+  const c=DB.classes().find(x=>x.id===id);
+  askConfirm(`'${c?.name}' 삭제`,'클래스를 삭제할까요? 기존 수업 기록은 유지됩니다.','삭제','bd',async()=>{
+    await supaDelete('classes',id);
+    _cache.globalClasses=(_cache.globalClasses||[]).filter(x=>x.id!==id);
+    closeM('m-edit-class');renderClassTab();renderDash();
+    toast('삭제되었습니다');
+  });
+}
+
+function openClassLesson(classId,dateStr){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  document.getElementById('cl-class-id').value=classId;
+  document.getElementById('cl-modal-title').textContent=c.name+' 수업 기록';
+  document.getElementById('cl-modal-sub').textContent=(c.days||[]).join('·')+'요일'+(c.time?' '+c.time:'');
+  document.getElementById('cl-date').value=dateStr||new Date().toISOString().split('T')[0];
+  // 공통 교재 초기화
+  clSubjs.clear();
+  document.querySelectorAll('#cl-subj-chips .chip').forEach(ch=>ch.classList.remove('active'));
+  document.getElementById('cl-subj-rows').innerHTML='';
+  document.getElementById('cl-common-cmt').value='';
+  document.getElementById('cl-hw-type').value='';
+  document.getElementById('cl-hw-due').value='';
+  document.getElementById('cl-hw-fields').innerHTML='';
+  // 학생 rows
+  const allStus=DB.stus().filter(s=>!s.inactive);
+  const students=allStus.filter(s=>(c.studentIds||[]).includes(s.id));
+  document.getElementById('cl-students').innerHTML=students.length
+    ?students.map(s=>`<div class="cl-stu-row" data-sid="${s.id}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:14px;font-weight:700;min-width:56px">${s.name}</span>
+        <select class="cl-att filter-sel" style="flex:0 0 auto">
+          <option value="normal">정상</option><option value="absent">결석</option>
+          <option value="late">지각</option><option value="makeup">보강</option>
+        </select>
+        <span style="font-size:11px;color:var(--slate)">${s.grade||s.lv||''}</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <input type="text" class="cl-book" placeholder="원서 (개인별)" list="dl-lib" autocomplete="off" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none">
+        <input type="text" class="cl-ind-cmt" placeholder="개인 코멘트" style="flex:2;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none">
+      </div>
+    </div>`).join('')
+    :'<div style="color:var(--slate);font-size:13px">소속 학생이 없습니다</div>';
+  openM('m-class-lesson');
+}
+
+function clTogSubj(el){
+  const s=el.dataset.s;
+  if(clSubjs.has(s)){clSubjs.delete(s);el.classList.remove('active');document.querySelector(`#cl-subj-rows .sr[data-s="${s}"]`)?.remove();}
+  else{clSubjs.add(s);el.classList.add('active');addSRowTo('cl-subj-rows',s);}
+}
+
+function renderClHwFields(){
+  const type=document.getElementById('cl-hw-type').value;
+  const el=document.getElementById('cl-hw-fields');if(!el)return;
+  if(!type){el.innerHTML='';return;}
+  if(type==='textbook'){
+    el.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap">
+      <input type="text" id="cl-hw-tb" placeholder="교재명" list="dl-textbooks" style="flex:1;min-width:120px;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none">
+      <input type="text" id="cl-hw-range" placeholder="범위 (예: Unit 3 p.42)" style="flex:2;min-width:150px;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none">
+    </div>`;
+  } else {
+    el.innerHTML=`<input type="text" id="cl-hw-text" placeholder="과제 내용" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none">`;
+  }
+}
+
+async function saveClassLesson(){
+  const classId=document.getElementById('cl-class-id').value;
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const date=document.getElementById('cl-date').value;
+  if(!date){toast('날짜를 선택하세요');return;}
+  const commonMats=getSMatsFrom('cl-subj-rows');
+  const commonCmt=document.getElementById('cl-common-cmt').value.trim();
+  const rows=document.querySelectorAll('.cl-stu-row');
+  if(!rows.length){toast('학생이 없습니다');return;}
+  const stuData=[];
+  rows.forEach(row=>{
+    const sid=row.dataset.sid;
+    const s=DB.stus().find(x=>x.id===sid);
+    stuData.push({sid,grade:s?.grade||s?.lv||'',att:row.querySelector('.cl-att').value,book:row.querySelector('.cl-book').value.trim(),indCmt:row.querySelector('.cl-ind-cmt').value.trim()});
+  });
+  const btn=document.getElementById('cl-save-btn');btn.disabled=true;
+  toast('저장 중...');
+  try{
+    for(const d of stuData){
+      const mats={...commonMats};
+      if(d.book)mats._book={book:d.book,unit:''};
+      const cmt=[commonCmt,d.indCmt].filter(Boolean).join(' / ');
+      const polishedCmt=cmt?await polishCmt(cmt):'';
+      const les={id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:mats,cmt,polishedCmt,classId};
+      await supaUpsert('lessons',les.id,les,d.sid);
+      _cache.lessons.unshift(les);
+    }
+    // 공통 과제
+    const hwType=document.getElementById('cl-hw-type').value;
+    if(hwType){
+      const due=document.getElementById('cl-hw-due').value||date;
+      for(const d of stuData){
+        if(d.att==='absent')continue;
+        const a={id:uid(),sid:d.sid,type:hwType,date,due,classId};
+        if(hwType==='textbook'){a.bookTitle=document.getElementById('cl-hw-tb')?.value.trim()||'';a.range=document.getElementById('cl-hw-range')?.value.trim()||'';}
+        else{a.text=document.getElementById('cl-hw-text')?.value.trim()||'';}
+        await supaUpsert('assignments',a.id,a,d.sid);
+        _cache.assignments.unshift(a);
+      }
+    }
+    closeM('m-class-lesson');
+    renderLes();renderDash();renderClassTab();
+    toast(stuData.length+'명 수업 기록 완료');
+  }catch(e){
+    console.error('saveClassLesson:',e);toast('저장 중 오류가 발생했습니다');
+  }finally{
+    btn.disabled=false;showLoading(false);
+  }
 }
 
 // ── URL PARAM AUTO LOGIN ──

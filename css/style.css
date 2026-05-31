@@ -444,6 +444,23 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .dash-lbl{font-size:11px;color:var(--slate);margin-top:4px;letter-spacing:.04em;}
 .dash-sub{font-size:10px;color:var(--teal);margin-top:2px;font-weight:600;}
 
+/* 클래스 */
+.class-card{background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:var(--sh);}
+.class-card.class-today{border-color:var(--teal);background:linear-gradient(135deg,#f0fafb,#fff);}
+.class-card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;}
+.class-card-name{font-size:16px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:6px;}
+.class-card-meta{font-size:12px;color:var(--slate);margin-top:2px;}
+.class-today-badge{font-size:10px;font-weight:600;background:var(--teal);color:#fff;padding:2px 7px;border-radius:10px;}
+.class-card-stus{display:flex;flex-wrap:wrap;gap:6px;}
+.class-stu-chip{font-size:12px;padding:3px 10px;border-radius:14px;background:var(--cream);border:1px solid var(--border);color:var(--navy);cursor:pointer;}
+.class-stu-chip:hover{border-color:var(--teal);}
+.cl-stu-row{background:var(--cream);border-radius:var(--rs);padding:10px 12px;margin-bottom:8px;border:1px solid var(--border);}
+.day-check{display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;padding:4px 8px;border-radius:var(--rs);border:1.5px solid var(--border);}
+.day-check:has(input:checked){border-color:var(--teal);background:#e8fafb;color:var(--navy);font-weight:700;}
+.dash-class-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);}
+.dash-class-row:last-child{border-bottom:none;}
+.dash-class-row.done{opacity:.65;}
+
 /* 대시보드 재설계 */
 .dash-stu-chip{padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;background:var(--cream);border:1.5px solid var(--border);color:var(--navy);transition:all .15s;}
 .dash-stu-chip:hover{border-color:var(--teal);background:#e8fafb;}
