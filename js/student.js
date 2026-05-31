@@ -2,7 +2,16 @@
 let pinInput=[];
 let _stuPin=''; // legacy
 let currentStudentSid=null;
-function goStudentPin(){show('s-stupin');pinInput=[];_stuPin='';updatePinDots();}
+async function goStudentPin(){
+  const sess=loadSession();
+  if(sess?.role==='student'){
+    if(!_cache.students.length)await loadAllData();
+    const s=_cache.students.find(x=>x.id===sess.sid&&!x.inactive);
+    if(s){await loginStudent(s);return;}
+    clearSession();
+  }
+  show('s-stupin');pinInput=[];_stuPin='';updatePinDots();
+}
 function updatePinDots(){
   const dots=document.querySelectorAll('#pin-dots .pin-dot');
   dots.forEach((d,i)=>{d.classList.toggle('filled',i<pinInput.length);d.classList.remove('error');});

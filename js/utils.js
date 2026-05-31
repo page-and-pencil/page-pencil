@@ -37,8 +37,21 @@ function confirmCancel(){closeM('m-confirm');_confirmCb=null;}
 
 // ── SCREENS ──
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
-function goTeacherLogin(){show('s-login');setTimeout(()=>document.getElementById('pw-in').focus(),100);}
-function goPinScreen(){show('s-pin');setTimeout(()=>document.getElementById('pin-name').focus(),100);}
+async function goTeacherLogin(){
+  const sess=loadSession();
+  if(sess?.role==='teacher'){show('s-teacher');await initApp();return;}
+  show('s-login');setTimeout(()=>document.getElementById('pw-in').focus(),100);
+}
+async function goPinScreen(){
+  const sess=loadSession();
+  if(sess?.role==='parent'){
+    if(!_cache.students.length)await loadAllData();
+    const s=_cache.students.find(x=>x.id===sess.sid&&!x.inactive);
+    if(s){loadParentWithNotice(s.id);return;}
+    clearSession();
+  }
+  show('s-pin');setTimeout(()=>document.getElementById('pin-name').focus(),100);
+}
 function saveSession(data){try{localStorage.setItem('pp_session',JSON.stringify(data));}catch(e){}}
 function loadSession(){try{const s=localStorage.getItem('pp_session');return s?JSON.parse(s):null;}catch(e){return null;}}
 function clearSession(){try{localStorage.removeItem('pp_session');}catch(e){}}
