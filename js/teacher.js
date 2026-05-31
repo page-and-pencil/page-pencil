@@ -1292,15 +1292,20 @@ async function addTbook(){
   const level=document.getElementById('tbook-level')?.value.trim()||'';
   const category=document.getElementById('tbook-category')?.value||'';
   const tb={id:uid(),title,publisher,level,category};
-  await supaUpsert('global_textbooks',tb.id,tb,null);
-  if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
-  _cache.globalTextbooks.push(tb);
-  renderTbookTable();
-  updateTbookDatalist();
-  closeM('m-add-tbook');
-  ['tbook-title','tbook-publisher','tbook-level'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  const catEl=document.getElementById('tbook-category');if(catEl)catEl.value='';
-  toast('교재가 추가되었습니다');
+  try{
+    await supaUpsert('global_textbooks',tb.id,tb,null);
+    if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
+    _cache.globalTextbooks.push(tb);
+    renderTbookTable();
+    updateTbookDatalist();
+    closeM('m-add-tbook');
+    ['tbook-title','tbook-publisher','tbook-level'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    const catEl=document.getElementById('tbook-category');if(catEl)catEl.value='';
+    toast('교재가 추가되었습니다');
+  }catch(e){
+    if(e.message?.includes('404'))toast('global_textbooks 테이블이 없습니다. Supabase SQL Editor에서 supabase_missing_tables.sql을 실행해 주세요.');
+    else toast('저장 실패: '+e.message);
+  }
 }
 async function delGlobalTbook(id){
   await supaDelete('global_textbooks',id);

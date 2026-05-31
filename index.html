@@ -605,9 +605,9 @@
             </select>
           </div>
           <div class="f"><label>역할</label>
-            <div style="display:flex;gap:8px">
-              <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="qr-role" value="student" checked onchange="renderQRCode()"> 학생</label>
-              <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="qr-role" value="parent" onchange="renderQRCode()"> 학부모</label>
+            <div style="display:flex;gap:16px;flex-wrap:nowrap">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap"><input type="radio" name="qr-role" value="student" checked onchange="renderQRCode()"> 학생</label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap"><input type="radio" name="qr-role" value="parent" onchange="renderQRCode()"> 학부모</label>
             </div>
           </div>
           <div id="qr-result" style="text-align:center;padding:8px 0"></div>
