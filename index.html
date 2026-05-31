@@ -249,6 +249,7 @@
               <button class="chip" data-s="reading" onclick="togSubj(this)">리딩</button>
               <button class="chip" data-s="listening" onclick="togSubj(this)">리스닝</button>
               <button class="chip" data-s="writing" onclick="togSubj(this)">라이팅</button>
+              <button class="chip" data-s="naesin" onclick="togSubj(this)">내신</button>
             </div>
             <div id="subj-rows" class="sr-wrap"></div>
           </div>
@@ -469,13 +470,13 @@
         <input type="text" class="lib-search-input" id="tbook-q" placeholder="교재명 검색..." oninput="renderTbookTable()">
         <select class="filter-sel" id="tbook-filter-cat" onchange="renderTbookTable()">
           <option value="">전체 분류</option>
-          <option value="읽기">읽기</option>
-          <option value="듣기">듣기</option>
-          <option value="쓰기">쓰기</option>
-          <option value="말하기">말하기</option>
+          <option value="파닉스">파닉스</option>
           <option value="어휘">어휘</option>
           <option value="어법">어법</option>
-          <option value="교과">교과</option>
+          <option value="리딩">리딩</option>
+          <option value="리스닝">리스닝</option>
+          <option value="라이팅">라이팅</option>
+          <option value="내신">내신</option>
         </select>
       </div>
       <div class="lib-table-container">
@@ -781,6 +782,7 @@
         <button class="chip" data-s="reading" onclick="togEditSubj(this)">리딩</button>
         <button class="chip" data-s="listening" onclick="togEditSubj(this)">리스닝</button>
         <button class="chip" data-s="writing" onclick="togEditSubj(this)">라이팅</button>
+        <button class="chip" data-s="naesin" onclick="togEditSubj(this)">내신</button>
       </div>
       <div id="el-subj-rows" class="sr-wrap"></div>
     </div>
@@ -868,6 +870,7 @@
           <button class="chip" data-s="reading" onclick="ecTogSubj(this)">리딩</button>
           <button class="chip" data-s="listening" onclick="ecTogSubj(this)">리스닝</button>
           <button class="chip" data-s="writing" onclick="ecTogSubj(this)">라이팅</button>
+          <button class="chip" data-s="naesin" onclick="ecTogSubj(this)">내신</button>
         </div>
         <div id="ec-subj-rows" class="sr-wrap"></div>
       </div>
@@ -914,6 +917,7 @@
           <button class="chip" data-s="reading" onclick="clTogSubj(this)">리딩</button>
           <button class="chip" data-s="listening" onclick="clTogSubj(this)">리스닝</button>
           <button class="chip" data-s="writing" onclick="clTogSubj(this)">라이팅</button>
+          <button class="chip" data-s="naesin" onclick="clTogSubj(this)">내신</button>
         </div>
         <div id="cl-subj-rows" class="sr-wrap"></div>
       </div>
@@ -927,17 +931,14 @@
       <textarea id="cl-common-cmt" placeholder="수업 내용, 특이사항 등..." style="width:100%;min-height:52px;resize:vertical;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none;box-sizing:border-box"></textarea>
     </div>
     <div class="card" style="margin-bottom:12px">
-      <div class="ch"><span class="ct">📋 공통 과제 (선택)</span></div>
-      <div class="cb">
-        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-          <select id="cl-hw-type" class="filter-sel" onchange="renderClHwFields()">
-            <option value="">과제 없음</option>
-            <option value="textbook">교재 과제</option>
-            <option value="other">기타 과제</option>
-          </select>
-          <input type="date" id="cl-hw-due" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none" title="마감일">
-        </div>
-        <div id="cl-hw-fields"></div>
+      <div class="ch"><span class="ct">📋 과제 설정 (선택)</span></div>
+      <div class="cb" style="padding-bottom:4px">
+        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">공통 과제 (전체 학생)</div>
+        <div id="cl-hw-common-rows"></div>
+        <button class="btn ba bsm" style="width:100%;margin-bottom:16px" onclick="addClHwRow(null,true)">+ 공통 과제 추가</button>
+        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;padding-top:10px;border-top:1px solid var(--border)">개별 과제 (학생 지정)</div>
+        <div id="cl-hw-ind-rows"></div>
+        <button class="btn bo bsm" style="width:100%" onclick="addClHwRow(null,false)">+ 개별 과제 추가</button>
       </div>
     </div>
     <button class="btn bt" style="width:100%" id="cl-save-btn" onclick="saveClassLesson()">저장하기</button>
@@ -955,13 +956,13 @@
       <div class="f s2"><label>분류</label>
         <select id="tbook-category" class="filter-sel" style="width:100%">
           <option value="">선택하세요</option>
-          <option value="읽기">읽기</option>
-          <option value="듣기">듣기</option>
-          <option value="쓰기">쓰기</option>
-          <option value="말하기">말하기</option>
+          <option value="파닉스">파닉스</option>
           <option value="어휘">어휘</option>
           <option value="어법">어법</option>
-          <option value="교과">교과</option>
+          <option value="리딩">리딩</option>
+          <option value="리스닝">리스닝</option>
+          <option value="라이팅">라이팅</option>
+          <option value="내신">내신</option>
         </select>
       </div>
     </div>
@@ -1151,6 +1152,7 @@
 <datalist id="dl-library"></datalist>
 <datalist id="dl-tbooks-les"></datalist>
 <datalist id="dl-tbooks-assign"></datalist>
+<datalist id="dl-hw-books"></datalist>
 
 <script src="js/utils.js"></script>
 <script src="js/db.js"></script>

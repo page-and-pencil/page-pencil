@@ -15,8 +15,8 @@ function showLoading(show){
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 const LVL={L1:'초3~4',L2:'초4~5',L3:'초5~6',L4:'중1'};
 const LVC={L1:'lv1',L2:'lv2',L3:'lv3',L4:'lv4'};
-const SLBL={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅'};
-const SCLS={phonics:'sph',vocab:'sv',grammar:'sg2',reading:'srd',listening:'sls',writing:'swt'};
+const SLBL={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신'};
+const SCLS={phonics:'sph',vocab:'sv',grammar:'sg2',reading:'srd',listening:'sls',writing:'swt',naesin:'sns'};
 const ATTLBL={normal:'',absent:'결석',late:'지각',makeup:'보강'};
 const ATTCLS={absent:'att-abs',late:'att-late',makeup:'att-make'};
 

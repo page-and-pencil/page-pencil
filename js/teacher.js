@@ -1288,6 +1288,14 @@ function updateTbookDatalist(){
     const dl=document.getElementById(id);
     if(dl)dl.innerHTML=books.map(b=>`<option value="${escAttr(b.title)}">`).join('');
   });
+  // 과제용 통합 datalist: 교재DB + 원서DB
+  const hwDl=document.getElementById('dl-hw-books');
+  if(hwDl){
+    const tbOpts=books.map(b=>`<option value="${escAttr(b.title)}" data-type="tbook">`);
+    const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+    const libOpts=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}" data-type="reading">`);
+    hwDl.innerHTML=[...tbOpts,...libOpts].join('');
+  }
 }
 
 function renderLib(){
@@ -2707,9 +2715,11 @@ function openClassLesson(classId,dateStr){
     });
   }
   document.getElementById('cl-common-cmt').value='';
-  document.getElementById('cl-hw-type').value='';
-  document.getElementById('cl-hw-due').value='';
-  document.getElementById('cl-hw-fields').innerHTML='';
+  // 과제 초기화 후 날짜별 공통 과제 행 자동 생성
+  document.getElementById('cl-hw-common-rows').innerHTML='';
+  document.getElementById('cl-hw-ind-rows').innerHTML='';
+  const lessonDate=dateStr||new Date().toISOString().split('T')[0];
+  getClassLessonDates(c,lessonDate).forEach(d=>addClHwRow(d,true));
   // 학생 rows (원서 상세 입력)
   const iStyle='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
   const allStus=DB.stus().filter(s=>!s.inactive);
@@ -2742,18 +2752,56 @@ function clTogSubj(el){
   else{clSubjs.add(s);el.classList.add('active');addSRowTo('cl-subj-rows',s);}
 }
 
-function renderClHwFields(){
-  const type=document.getElementById('cl-hw-type').value;
-  const el=document.getElementById('cl-hw-fields');if(!el)return;
-  if(!type){el.innerHTML='';return;}
-  if(type==='textbook'){
-    el.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap">
-      <input type="text" id="cl-hw-tb" placeholder="교재명" list="dl-textbooks" style="flex:1;min-width:120px;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none">
-      <input type="text" id="cl-hw-range" placeholder="범위 (예: Unit 3 p.42)" style="flex:2;min-width:150px;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none">
-    </div>`;
-  } else {
-    el.innerHTML=`<input type="text" id="cl-hw-text" placeholder="과제 내용" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none">`;
+function getClassLessonDates(classObj,fromDateStr){
+  const DAYS=['일','월','화','수','목','금','토'];
+  const classDays=classObj.days||[];
+  const from=new Date(fromDateStr);
+  const dates=[fromDateStr];
+  for(let i=1;i<=7;i++){
+    const d=new Date(from);d.setDate(d.getDate()+i);
+    const dateStr=d.toISOString().split('T')[0];
+    dates.push(dateStr);
+    if(classDays.includes(DAYS[d.getDay()]))break;
   }
+  return dates;
+}
+
+const HW_CATS=[
+  {v:'',l:'구분 선택'},
+  {v:'phonics',l:'파닉스'},{v:'vocab',l:'어휘'},{v:'grammar',l:'어법'},
+  {v:'reading',l:'리딩'},{v:'listening',l:'리스닝'},{v:'writing',l:'라이팅'},{v:'naesin',l:'내신'}
+];
+const HW_CAT_SEL=HW_CATS.map(c=>`<option value="${c.v}">${c.l}</option>`).join('');
+const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
+
+function addClHwRow(dateStr,isCommon){
+  const DAYS=['일','월','화','수','목','금','토'];
+  const d=dateStr?new Date(dateStr):new Date();
+  const dayLabel=DAYS[d.getDay()];
+  const stuOpts=isCommon?'':('<option value="">학생 선택</option>'+
+    DB.stus().filter(s=>!s.inactive&&(()=>{const c=DB.classes().find(x=>x.id===document.getElementById('cl-class-id').value);return c?(c.studentIds||[]).includes(s.id):true;})())
+    .map(s=>`<option value="${s.id}">${s.name}</option>`).join(''));
+  const row=document.createElement('div');
+  row.className='cl-hw-row';
+  row.style.cssText='background:var(--cream);border-radius:var(--rs);padding:8px 10px;margin-bottom:6px;border:1px solid var(--border)';
+  row.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+    ${!isCommon?`<select class="cl-hw-ind-stu filter-sel" style="flex:0 0 auto">${stuOpts}</select>`:''}
+    <input type="date" class="cl-hw-date" value="${dateStr||''}" style="${IS};flex:0 0 auto">
+    <span class="cl-hw-day-label" style="font-size:11px;color:var(--slate)">${dateStr?dayLabel+'요일':''}</span>
+    <select class="cl-hw-cat filter-sel" style="flex:0 0 auto">${HW_CAT_SEL}</select>
+    <button onclick="this.closest('.cl-hw-row').remove()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--slate);padding:0;margin-left:auto">×</button>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <input type="text" class="cl-hw-book" placeholder="교재/원서 (교재DB·원서DB 자동완성)" list="dl-hw-books" autocomplete="off" style="${IS};flex:2;min-width:130px">
+    <input type="text" class="cl-hw-range" placeholder="범위/내용" style="${IS};flex:3;min-width:150px">
+  </div>`;
+  // 날짜 변경 시 요일 레이블 업데이트
+  row.querySelector('.cl-hw-date').addEventListener('change',function(){
+    const nd=new Date(this.value);
+    row.querySelector('.cl-hw-day-label').textContent=this.value?DAYS[nd.getDay()]+'요일':'';
+  });
+  const target=isCommon?document.getElementById('cl-hw-common-rows'):document.getElementById('cl-hw-ind-rows');
+  if(target)target.appendChild(row);
 }
 
 async function saveClassLesson(){
@@ -2763,22 +2811,28 @@ async function saveClassLesson(){
   if(!date){toast('날짜를 선택하세요');return;}
   const commonMats=getSMatsFrom('cl-subj-rows');
   const commonCmt=document.getElementById('cl-common-cmt').value.trim();
-  const rows=document.querySelectorAll('.cl-stu-row');
-  if(!rows.length){toast('학생이 없습니다');return;}
+  const stuRows=document.querySelectorAll('.cl-stu-row');
+  if(!stuRows.length){toast('학생이 없습니다');return;}
   const stuData=[];
-  rows.forEach(row=>{
-    const sid=row.dataset.sid;
-    const s=DB.stus().find(x=>x.id===sid);
-    stuData.push({
-      sid,grade:s?.grade||s?.lv||'',
-      att:row.querySelector('.cl-att').value,
+  stuRows.forEach(row=>{
+    const sid=row.dataset.sid;const s=DB.stus().find(x=>x.id===sid);
+    stuData.push({sid,grade:s?.grade||s?.lv||'',att:row.querySelector('.cl-att').value,
       rdTitle:row.querySelector('.cl-rd-title')?.value.trim()||'',
       rdSeries:row.querySelector('.cl-rd-series')?.value.trim()||'',
       rdAr:row.querySelector('.cl-rd-ar')?.value.trim()||'',
       rdProg:row.querySelector('.cl-rd-prog')?.value.trim()||'',
-      indCmt:row.querySelector('.cl-ind-cmt')?.value.trim()||''
-    });
+      indCmt:row.querySelector('.cl-ind-cmt')?.value.trim()||''});
   });
+  // 과제 rows 수집
+  const collectHwRows=sel=>[...document.querySelectorAll(sel)].map(row=>({
+    sid:row.querySelector('.cl-hw-ind-stu')?.value||null,
+    due:row.querySelector('.cl-hw-date')?.value||date,
+    cat:row.querySelector('.cl-hw-cat')?.value||'',
+    book:row.querySelector('.cl-hw-book')?.value.trim()||'',
+    range:row.querySelector('.cl-hw-range')?.value.trim()||''
+  })).filter(r=>r.book||r.range);
+  const commonHws=collectHwRows('#cl-hw-common-rows .cl-hw-row');
+  const indHws=collectHwRows('#cl-hw-ind-rows .cl-hw-row').filter(r=>r.sid);
   const btn=document.getElementById('cl-save-btn');btn.disabled=true;
   toast('저장 중...');
   try{
@@ -2788,27 +2842,29 @@ async function saveClassLesson(){
       const cmt=[commonCmt,d.indCmt].filter(Boolean).join(' / ');
       const polishedCmt=cmt?await polishCmt(cmt):'';
       const les={id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:mats,cmt,polishedCmt,classId};
-      await supaUpsert('lessons',les.id,les,d.sid);
-      _cache.lessons.unshift(les);
-      // 원서 기록 저장 (읽기 기록 탭과 동일)
+      await supaUpsert('lessons',les.id,les,d.sid);_cache.lessons.unshift(les);
       if(d.rdTitle){
         const rd={id:uid(),sid:d.sid,date,title:d.rdTitle,series:d.rdSeries,arLevel:d.rdAr,genre:'',progress:d.rdProg,classId};
-        await supaUpsert('readings',rd.id,rd,d.sid);
-        _cache.readings.unshift(rd);
+        await supaUpsert('readings',rd.id,rd,d.sid);_cache.readings.unshift(rd);
+      }
+      // 공통 과제 → 결석 제외
+      if(d.att!=='absent'){
+        for(const hw of commonHws){
+          const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+          const isReading=allLib.some(b=>b.title===hw.book);
+          const a={id:uid(),sid:d.sid,date,due:hw.due,classId,category:hw.cat,
+            type:isReading?'reading':'textbook',bookTitle:hw.book,range:hw.range};
+          await supaUpsert('assignments',a.id,a,d.sid);_cache.assignments.unshift(a);
+        }
       }
     }
-    // 공통 과제
-    const hwType=document.getElementById('cl-hw-type').value;
-    if(hwType){
-      const due=document.getElementById('cl-hw-due').value||date;
-      for(const d of stuData){
-        if(d.att==='absent')continue;
-        const a={id:uid(),sid:d.sid,type:hwType,date,due,classId};
-        if(hwType==='textbook'){a.bookTitle=document.getElementById('cl-hw-tb')?.value.trim()||'';a.range=document.getElementById('cl-hw-range')?.value.trim()||'';}
-        else{a.text=document.getElementById('cl-hw-text')?.value.trim()||'';}
-        await supaUpsert('assignments',a.id,a,d.sid);
-        _cache.assignments.unshift(a);
-      }
+    // 개별 과제
+    for(const hw of indHws){
+      const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+      const isReading=allLib.some(b=>b.title===hw.book);
+      const a={id:uid(),sid:hw.sid,date,due:hw.due,classId,category:hw.cat,
+        type:isReading?'reading':'textbook',bookTitle:hw.book,range:hw.range};
+      await supaUpsert('assignments',a.id,a,hw.sid);_cache.assignments.unshift(a);
     }
     closeM('m-class-lesson');
     renderLes();renderRd();renderDash();renderClassTab();
