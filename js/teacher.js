@@ -684,9 +684,12 @@ function togEditSubj(el){
 function addSRowTo(wrapperId,s,bookVal,unitVal){
   const wrap=document.getElementById(wrapperId);if(!wrap)return;
   const d=document.createElement('div');d.className='sr';d.dataset.s=s;
-  const baseKey=s.replace(/_\d+$/,'');
+  const isBook=s==='_book'||s.startsWith('_book_');
+  const baseKey=isBook?'_book':s.replace(/_\d+$/,'');
+  const label=isBook?'원서':(SLBL[baseKey]||'');
+  const cls=isBook?'srd':(SCLS[baseKey]||'');
   const addBtn=baseKey==='naesin'?`<button class="btn-xadd" title="내신 교재 추가" onclick="addSRowTo('${wrapperId}','naesin')">+</button>`:'';
-  d.innerHTML=`<span class="sl ${SCLS[baseKey]||SCLS[s]||''}">${SLBL[baseKey]||SLBL[s]||s}</span><input type="text" placeholder="교재명" data-f="book" list="dl-tbooks-les" autocomplete="off" value="${escAttr(bookVal||'')}"><input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}"> ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
+  d.innerHTML=`<span class="sl ${cls}">${label}</span><input type="text" placeholder="교재명" data-f="book" list="dl-tbooks-les" autocomplete="off" value="${escAttr(bookVal||'')}"><input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}"> ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
   wrap.appendChild(d);
 }
 function rmSRowFrom(wrapperId,s,btn){
@@ -1004,8 +1007,11 @@ function openEditLes(id){
   clearEditSRows();
   if(l.materials){
     Object.entries(l.materials).forEach(([s,v])=>{
-      aEditSubjs.add(s);
-      document.querySelectorAll('#el-subj-chips .chip').forEach(c=>{if(c.dataset.s===s)c.classList.add('active');});
+      const isBook=s==='_book'||s.startsWith('_book_');
+      if(!isBook){
+        aEditSubjs.add(s);
+        document.querySelectorAll('#el-subj-chips .chip').forEach(c=>{if(c.dataset.s===s)c.classList.add('active');});
+      }
       addSRowTo('el-subj-rows',s,v.book,v.unit);
     });
   }
@@ -2218,42 +2224,46 @@ function renderAssignTab(){
   const filterStu=document.getElementById('assign-filter-stu')?.value||'';
   const stus=DB.stus().filter(s=>!s.inactive);
   const showStus=filterStu?stus.filter(s=>s.id===filterStu):stus;
-  const assigns=DB.assigns().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const assigns=DB.assigns().sort((a,b)=>(b.due||b.date||'').localeCompare(a.due||a.date||''));
   if(!showStus.length){el.innerHTML='<div class="empty"><div class="empty-i">📋</div><div class="empty-t">학생 없음</div></div>';return;}
   const hws=_cache.homeworks||[];
-  el.innerHTML=showStus.map(s=>{
+  const CAT_LABELS={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','other':'기타'};
+  const cards=showStus.map(s=>{
     const sa=assigns.filter(a=>a.sid===s.id);
     if(!sa.length&&filterStu)return'';
     const pending=sa.filter(a=>!a.completedAt).length;
-    const submitted=sa.filter(a=>hws.some(h=>h.assignmentId===a.id)).length;
-    return `<div class="card" style="margin-bottom:10px">
-      <div class="ch">
-        <span class="ct">${s.name}</span>
-        <div style="display:flex;gap:6px;align-items:center">
-          ${pending?`<span class="badge bcoral">미완료 ${pending}</span>`:''}
-          ${submitted?`<span class="badge bteal">제출 ${submitted}</span>`:''}
+    const recent=sa.slice(0,4);
+    return `<div class="assign-card">
+      <div class="assign-card-head">
+        <div>
+          <div style="font-weight:700;font-size:14px">${s.name}</div>
+          <div style="font-size:11px;color:var(--slate)">${s.grade||''}</div>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          ${pending?`<span class="badge bcoral">${pending}</span>`:''}
           <button class="btn bt bsm" style="font-size:10px" onclick="openAssignModal('${s.id}')">+ 과제</button>
         </div>
       </div>
-      ${sa.length?`<div class="cb" style="padding:8px 16px">
-        ${sa.slice(0,5).map(a=>{
+      <div class="assign-card-body">
+        ${recent.length?recent.map(a=>{
           const hw=hws.find(h=>h.assignmentId===a.id);
-          const label=a.type==='reading'?'📖 '+(a.bookTitle||'원서'):a.type==='vocab'?'📝 단어':'💬 '+a.text;
-          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">
-            <div>
-              <div style="font-size:12px">${label}${a.range?' ('+a.range+')':''}</div>
-              <div style="font-size:10px;color:var(--slate)">${a.date||''}${a.due?' ~ '+a.due:''}</div>
+          const catLabel=CAT_LABELS[a.category||'']||'';
+          const bookLabel=a.bookTitle?a.bookTitle:(a.text?a.text:'');
+          const statusCls=a.completedAt?'bteal':hw?'bamber':'bslate';
+          const statusTxt=a.completedAt?'완료':hw?'제출':'미제출';
+          return `<div class="assign-item">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.range?' '+a.range:''}</div>
+              <div style="font-size:10px;color:var(--slate)">${a.due?'~'+a.due:a.date||''}</div>
             </div>
-            <div style="display:flex;gap:4px;align-items:center">
-              ${a.completedAt?`<span class="badge bteal">완료</span>`:hw?`<span class="badge bamber">제출됨</span>`:`<span class="badge bslate">미제출</span>`}
-              ${hw?.audioUrl?`<audio controls src="${hw.audioUrl}" style="height:22px;width:80px"></audio>`:''}
-            </div>
+            <span class="badge ${statusCls}" style="font-size:9px;flex-shrink:0">${statusTxt}</span>
           </div>`;
-        }).join('')}
-        ${sa.length>5?`<div style="font-size:11px;color:var(--slate);text-align:center;padding:4px">총 ${sa.length}건</div>`:''}
-      </div>`:!filterStu?`<div style="padding:8px 16px;font-size:12px;color:var(--slate)">할당된 과제 없음</div>`:''}
+        }).join(''):`<div style="font-size:12px;color:var(--slate);padding:8px 0">할당된 과제 없음</div>`}
+        ${sa.length>4?`<div style="font-size:10px;color:var(--slate);text-align:center;padding-top:4px">+${sa.length-4}건 더보기</div>`:''}
+      </div>
     </div>`;
-  }).join('');
+  }).filter(Boolean).join('');
+  el.innerHTML=`<div class="assign-grid">${cards||'<div style="color:var(--slate);font-size:13px">과제 없음</div>'}</div>`;
 }
 function openAssignModal(sid){
   document.getElementById('modal-assign-stu').value=sid||'';
@@ -2261,40 +2271,34 @@ function openAssignModal(sid){
   document.getElementById('modal-assign-date').value=today;
   const due=new Date();due.setDate(due.getDate()+1);
   document.getElementById('modal-assign-due').value=due.toISOString().split('T')[0];
-  renderModalAssignForm();
+  document.getElementById('modal-assign-cat').value='';
+  document.getElementById('modal-assign-book').value='';
+  document.getElementById('modal-assign-range').value='';
+  document.getElementById('modal-assign-extra').innerHTML='';
   openM('m-add-assign');
 }
-function renderModalAssignForm(){
-  const type=document.getElementById('modal-assign-type')?.value||'reading';
-  const sid=document.getElementById('modal-assign-stu')?.value||'';
-  const el=document.getElementById('modal-assign-form');if(!el)return;
-  if(type==='reading'){
-    el.innerHTML=`
-      <div class="f"><label>원서 검색</label>
-        <input type="text" id="modal-book-search" placeholder="제목으로 검색..." list="dl-library" autocomplete="off">
-      </div>
-      <div class="f"><label>챕터/페이지 범위</label><input type="text" id="modal-book-range" placeholder="Ch.1-2"></div>
-      <div class="f"><label>AI 평가용 원문 (선택)</label><textarea id="modal-book-ref" placeholder="해당 구간 영어 원문..." style="min-height:50px;resize:vertical;width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none"></textarea></div>`;
-  } else if(type==='vocab'){
-    const les=DB.less().filter(l=>l.sid===sid);
-    const lastLes=les[0];
-    const recentCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).slice(0,20);
-    el.innerHTML=`
-      <div class="f"><label>단어 선택 (최근 카드)</label>
-        <div style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);padding:8px">
-          ${recentCards.length?recentCards.map(c=>`<label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer"><input type="checkbox" class="modal-vocab-check" value="${c.word}"> <span style="font-family:var(--fd);font-weight:700">${c.word}</span><span style="font-size:11px;color:var(--slate)">${c.meaning||''}</span></label>`).join(''):'<span style="font-size:12px;color:var(--slate)">단어 카드 없음</span>'}
-        </div>
-      </div>
-      <div class="f"><label>추가 단어 직접 입력 (쉼표 구분)</label><input type="text" id="modal-vocab-extra" placeholder="apple, enormous, quickly..."></div>`;
-  } else if(type==='textbook'){
-    el.innerHTML=`
-      <div class="f"><label>교재 선택</label>
-        <input type="text" id="modal-tb-sel" placeholder="교재명 선택 또는 입력" list="dl-textbooks" autocomplete="off">
-      </div>
-      <div class="f"><label>범위</label><input type="text" id="modal-tb-range" placeholder="Unit 3, p.24-28"></div>`;
-  } else {
-    el.innerHTML=`<div class="f"><label>숙제 내용</label><input type="text" id="modal-other-text" placeholder="예) 교과서 p.23 문제 풀기"></div>`;
+function modalAssignCatChange(){
+  const cat=document.getElementById('modal-assign-cat').value;
+  const sid=document.getElementById('modal-assign-stu').value;
+  const bookEl=document.getElementById('modal-assign-book');
+  // 교재 자동완성 — 학생 소속 클래스의 공통 교재 참조
+  if(cat&&cat!=='other'&&sid&&bookEl&&!bookEl.value){
+    const stClasses=DB.classes().filter(c=>(c.studentIds||[]).includes(sid));
+    for(const c of stClasses){
+      const matched=Object.entries(c.commonMaterials||{}).find(([k])=>k===cat||k.startsWith(cat+'_'));
+      if(matched){bookEl.value=matched[1].book||'';break;}
+    }
   }
+  // 어휘 구분이면 단어 선택 UI 추가
+  const extra=document.getElementById('modal-assign-extra');
+  if(cat==='vocab'&&sid){
+    const recentCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).slice(0,20);
+    extra.innerHTML=`<div class="f" style="margin-top:8px"><label>단어 선택 (최근 카드)</label>
+      <div style="max-height:130px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);padding:8px">
+        ${recentCards.length?recentCards.map(c=>`<label style="display:flex;align-items:center;gap:8px;padding:2px 0;cursor:pointer"><input type="checkbox" class="modal-vocab-check" value="${c.word}"> <span style="font-family:var(--fd);font-weight:700">${c.word}</span><span style="font-size:11px;color:var(--slate)">${c.meaning||''}</span></label>`).join(''):'<span style="font-size:12px;color:var(--slate)">단어 카드 없음</span>'}
+      </div></div>
+      <div class="f"><label>단어 직접 입력 (쉼표 구분)</label><input type="text" id="modal-vocab-extra" placeholder="apple, enormous..."></div>`;
+  } else {extra.innerHTML='';}
 }
 function filterModalBooks(){
   const q=(document.getElementById('modal-book-search')?.value||'').toLowerCase().trim();
@@ -2315,44 +2319,31 @@ async function saveModalAssignment(){
   try{
   const sid=document.getElementById('modal-assign-stu').value;
   if(!sid){toast('학생을 선택해 주세요');return;}
-  const type=document.getElementById('modal-assign-type').value;
+  const cat=document.getElementById('modal-assign-cat').value;
+  const book=document.getElementById('modal-assign-book').value.trim();
+  const range=document.getElementById('modal-assign-range').value.trim();
   const date=document.getElementById('modal-assign-date').value;
   const due=document.getElementById('modal-assign-due').value;
-  const a={id:uid(),sid,type,date,due};
-  if(type==='reading'){
-    const bookTitle=document.getElementById('modal-book-search')?.value.trim()||'';
-    const allBooks=[...BOOK_DB,...DB.libs()];
-    const book=allBooks.find(b=>b.title===bookTitle);
-    a.bookId=book?.id||'';
-    a.bookTitle=bookTitle;
-    a.range=document.getElementById('modal-book-range').value.trim();
-    a.referenceText=document.getElementById('modal-book-ref').value.trim();
-  } else if(type==='vocab'){
+  if(!cat){toast('구분을 선택해 주세요');return;}
+  const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+  const isReading=cat==='book'||allLib.some(b=>b.title===book);
+  const type=isReading?'reading':cat==='vocab'?'vocab':cat==='other'?'other':'textbook';
+  const a={id:uid(),sid,type,category:cat,date,due,bookTitle:book,range};
+  if(type==='vocab'){
     const checked=[...document.querySelectorAll('.modal-vocab-check:checked')].map(c=>c.value);
     const extra=(document.getElementById('modal-vocab-extra')?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
     a.words=[...new Set([...checked,...extra])];
     if(a.words.length)await syncVocabCards(sid,a.words,[],date);
-  } else if(type==='textbook'){
-    const tbTitle=document.getElementById('modal-tb-sel')?.value.trim()||'';
-    const tb=(_cache.textbooks||[]).find(t=>t.title===tbTitle);
-    a.textbookId=tb?.id||'';
-    a.range=document.getElementById('modal-tb-range')?.value.trim()||'';
-    a.bookTitle=tbTitle||'교재 진도';
-  } else {
-    a.text=document.getElementById('modal-other-text')?.value.trim()||'';
   }
+  if(!book&&!range&&type!=='vocab'){toast('교재/원서 또는 범위를 입력해 주세요');return;}
   await supaUpsert('assignments',a.id,a,sid);
   if(!_cache.assignments)_cache.assignments=[];
   _cache.assignments.unshift(a);
   closeM('m-add-assign');
   renderAssignTab();
   toast('과제가 할당되었습니다');
-  }catch(e){
-    console.error('saveModalAssignment:',e);
-    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
-  }finally{
-    showLoading(false);
-  }
+  }catch(e){console.error('saveModalAssignment:',e);toast('저장 중 오류가 발생했습니다');}
+  finally{showLoading(false);}
 }
 
 // ── SP-BOOKS (교재 탭) ──

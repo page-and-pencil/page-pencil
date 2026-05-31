@@ -466,6 +466,16 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .dash-class-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);}
 .dash-class-row:last-child{border-bottom:none;}
 .dash-class-row.done{opacity:.65;}
+/* 과제 그리드 */
+.assign-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+@media(max-width:1100px){.assign-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:760px){.assign-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:480px){.assign-grid{grid-template-columns:1fr;}}
+.assign-card{background:#fff;border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);}
+.assign-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--cream);}
+.assign-card-body{padding:8px 12px;}
+.assign-item{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border);}
+.assign-item:last-child{border-bottom:none;}
 
 /* 대시보드 재설계 */
 .dash-stu-chip{padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;background:var(--cream);border:1.5px solid var(--border);color:var(--navy);transition:all .15s;}
