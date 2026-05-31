@@ -100,7 +100,17 @@ const _saving={};
 // ── TABS ──
 function toggleMoreMenu(){
   const m=document.getElementById('nt-more-menu');
-  if(m)m.style.display=m.style.display==='none'?'block':'none';
+  if(!m)return;
+  if(m.style.display==='block'){m.style.display='none';return;}
+  const btn=document.querySelector('.nt-more-wrap .ntab');
+  if(btn){
+    const r=btn.getBoundingClientRect();
+    m.style.position='fixed';
+    m.style.top=r.bottom+'px';
+    m.style.right=(window.innerWidth-r.right)+'px';
+    m.style.left='auto';
+  }
+  m.style.display='block';
 }
 function closeMoreMenu(){
   const m=document.getElementById('nt-more-menu');
