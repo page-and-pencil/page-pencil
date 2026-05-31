@@ -310,11 +310,23 @@ async function loadStuPanel(sid){
     }).join('');
 
   // ── 결제 ──
+  const payToday=new Date();
+  const thisMonth2=payToday.getFullYear()+'-'+String(payToday.getMonth()+1).padStart(2,'0');
+  const thisMonthPay=payments.filter(p=>p.date&&p.date.startsWith(thisMonth2));
+  const paidAmt=thisMonthPay.reduce((a,p)=>a+Number(p.amt||0),0);
+  const feeAmt=Number(s.fee||0);
+  let payChip='';
+  if(feeAmt){
+    if(paidAmt>=feeAmt) payChip=`<span class="pay-status-chip paid">✓ ${thisMonth2.slice(5)}월 완납 ${paidAmt.toLocaleString()}원</span>`;
+    else if(paidAmt>0) payChip=`<span class="pay-status-chip partial">△ 부분납 ${paidAmt.toLocaleString()}/${feeAmt.toLocaleString()}원</span>`;
+    else payChip=`<span class="pay-status-chip unpaid">✕ ${thisMonth2.slice(5)}월 미납</span>`;
+  }
   document.getElementById('sp-payment').innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${payChip?'8px':'12px'}">
       <span style="font-size:13px;font-weight:700">결제 기록</span>
       <button class="btn ba bsm" onclick="openQuickPayFor('${sid}')">+ 추가</button>
     </div>
+    ${payChip?`<div style="margin-bottom:12px">${payChip}</div>`:''}
     ${!payments.length?'<div style="color:var(--slate);font-size:12px">결제 기록 없음</div>'
     :`<table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="border-bottom:1px solid var(--border)">

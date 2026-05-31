@@ -39,7 +39,13 @@ function confirmCancel(){closeM('m-confirm');_confirmCb=null;}
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
 async function goTeacherLogin(){
   const sess=loadSession();
-  if(sess?.role==='teacher'){show('s-teacher');await initApp();return;}
+  if(sess?.role==='teacher'){
+    show('s-teacher');
+    // 캐시가 비어 있을 때만 initApp() 재실행 (로고 클릭 후 재진입 시 이중 로드 방지)
+    if(typeof _cache!=='undefined'&&_cache.students.length)renderDash();
+    else await initApp();
+    return;
+  }
   show('s-login');setTimeout(()=>document.getElementById('pw-in').focus(),100);
 }
 async function goPinScreen(){

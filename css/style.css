@@ -257,7 +257,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .tlb{font-size:12px;color:var(--slate);line-height:1.6;}
 
 /* MODAL */
-.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;padding:1rem;}
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;align-items:center;justify-content:center;padding:1rem;}
 .mo.open{display:flex;}
 .mdl{background:#fff;border-radius:var(--r);padding:1.5rem;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:var(--shlg);}
 .mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;}
@@ -512,6 +512,10 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .unpaid-dot{width:8px;height:8px;border-radius:50%;background:#E05C3A;display:inline-block;margin-left:4px;flex-shrink:0;}
 
 /* 수납 현황 바 */
+.pay-status-chip{display:inline-flex;align-items:center;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;}
+.pay-status-chip.paid{background:#e6f9f0;color:#0A5940;border:1.5px solid #0A5940;}
+.pay-status-chip.unpaid{background:#fef0ee;color:#c0392b;border:1.5px solid #c0392b;}
+.pay-status-chip.partial{background:#fff8e1;color:#856404;border:1.5px solid #ffc107;}
 .payment-summary{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--cream);border-radius:var(--rs);margin-bottom:12px;font-size:12px;}
 .payment-summary .ok{color:#0A5940;font-weight:700;}
 .payment-summary .due{color:#A03020;font-weight:700;}
