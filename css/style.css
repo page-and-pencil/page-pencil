@@ -135,9 +135,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .nt::-webkit-scrollbar{display:none;}
 .ntab{padding:12px 12px;font-size:12px;font-weight:500;color:var(--slate);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--fb);letter-spacing:0.01em;}
 .ntab.active{color:var(--navy);border-bottom-color:var(--teal);font-weight:700;}
-.nt-more-wrap{position:relative;}
-.more-menu-item{display:block;width:100%;padding:10px 16px;text-align:left;background:none;border:none;font-family:var(--fb);font-size:13px;cursor:pointer;color:var(--navy);}
-.more-menu-item:hover{background:var(--cream);}
+
 
 /* PANELS */
 .ab{flex:1;overflow-y:auto;}
