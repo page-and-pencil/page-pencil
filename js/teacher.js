@@ -2572,6 +2572,20 @@ function renderClassTab(){
 }
 
 let _ecStuIds=[];
+const ecSubjs=new Set();
+function ecTogSubj(el){
+  const s=el.dataset.s;
+  if(ecSubjs.has(s)){ecSubjs.delete(s);el.classList.remove('active');document.querySelector(`#ec-subj-rows .sr[data-s="${s}"]`)?.remove();}
+  else{ecSubjs.add(s);el.classList.add('active');addSRowTo('ec-subj-rows',s);}
+}
+function clFillFromLib(input){
+  const title=input.value.trim();if(!title)return;
+  const b=[...BOOK_DB,...DB.libs()].find(x=>x.title===title);if(!b)return;
+  const row=input.closest('.cl-stu-row');if(!row)return;
+  const ar=row.querySelector('.cl-rd-ar');const ser=row.querySelector('.cl-rd-series');
+  if(ar&&!ar.value&&(b.ar||b.arLevel))ar.value=b.ar||b.arLevel||'';
+  if(ser)(ser.value=b.series||'');
+}
 function ecRenderTags(){
   const allStus=DB.stus();
   document.getElementById('ec-stu-tags').innerHTML=_ecStuIds.map(sid=>{
@@ -2609,6 +2623,18 @@ function openEditClass(id=null){
   document.getElementById('ec-time-end').value=c?c.timeEnd||'':'';
   document.getElementById('ec-del-btn').style.display=c?'block':'none';
   document.querySelectorAll('#m-edit-class .day-check input').forEach(cb=>{cb.checked=c?(c.days||[]).includes(cb.value):false;});
+  // 공통 교재 초기화 후 불러오기
+  ecSubjs.clear();
+  document.querySelectorAll('#ec-subj-chips .chip').forEach(ch=>ch.classList.remove('active'));
+  document.getElementById('ec-subj-rows').innerHTML='';
+  if(c?.commonMaterials){
+    Object.entries(c.commonMaterials).forEach(([s,v])=>{
+      ecSubjs.add(s);
+      const ch=document.querySelector(`#ec-subj-chips .chip[data-s="${s}"]`);
+      if(ch)ch.classList.add('active');
+      addSRowTo('ec-subj-rows',s,v.book,v.unit);
+    });
+  }
   _ecStuIds=c?[...(c.studentIds||[])]:[];
   ecRenderTags();
   document.getElementById('ec-stu-search').value='';
@@ -2627,7 +2653,8 @@ async function saveClass(){
   const existingId=document.getElementById('ec-id').value;
   const id=existingId||uid();
   const existing=DB.classes().find(x=>x.id===id);
-  const c={...(existing||{}),id,name,days,time,timeStart,timeEnd,studentIds,active:true};
+  const commonMaterials=getSMatsFrom('ec-subj-rows');
+  const c={...(existing||{}),id,name,days,time,timeStart,timeEnd,studentIds,commonMaterials,active:true};
   await supaUpsert('classes',id,c,null);
   if(!_cache.globalClasses)_cache.globalClasses=[];
   const idx=_cache.globalClasses.findIndex(x=>x.id===id);
@@ -2655,20 +2682,29 @@ function openClassLesson(classId,dateStr){
   const timeStr=c.timeStart?(c.timeStart+(c.timeEnd?'~'+c.timeEnd:'')):c.time||'';
   document.getElementById('cl-modal-sub').textContent=(c.days||[]).join('·')+'요일'+(timeStr?' '+timeStr:'');
   document.getElementById('cl-date').value=dateStr||new Date().toISOString().split('T')[0];
-  // 공통 교재 초기화
+  // 공통 교재: 클래스에 저장된 기본값으로 초기화
   clSubjs.clear();
   document.querySelectorAll('#cl-subj-chips .chip').forEach(ch=>ch.classList.remove('active'));
   document.getElementById('cl-subj-rows').innerHTML='';
+  if(c.commonMaterials){
+    Object.entries(c.commonMaterials).forEach(([s,v])=>{
+      clSubjs.add(s);
+      const ch=document.querySelector(`#cl-subj-chips .chip[data-s="${s}"]`);
+      if(ch)ch.classList.add('active');
+      addSRowTo('cl-subj-rows',s,v.book,v.unit);
+    });
+  }
   document.getElementById('cl-common-cmt').value='';
   document.getElementById('cl-hw-type').value='';
   document.getElementById('cl-hw-due').value='';
   document.getElementById('cl-hw-fields').innerHTML='';
-  // 학생 rows
+  // 학생 rows (원서 상세 입력)
+  const iStyle='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
   const allStus=DB.stus().filter(s=>!s.inactive);
   const students=allStus.filter(s=>(c.studentIds||[]).includes(s.id));
   document.getElementById('cl-students').innerHTML=students.length
     ?students.map(s=>`<div class="cl-stu-row" data-sid="${s.id}">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-size:14px;font-weight:700;min-width:56px">${s.name}</span>
         <select class="cl-att filter-sel" style="flex:0 0 auto">
           <option value="normal">정상</option><option value="absent">결석</option>
@@ -2676,10 +2712,13 @@ function openClassLesson(classId,dateStr){
         </select>
         <span style="font-size:11px;color:var(--slate)">${s.grade||s.lv||''}</span>
       </div>
-      <div style="display:flex;gap:6px">
-        <input type="text" class="cl-book" placeholder="원서 (개인별)" list="dl-lib" autocomplete="off" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none">
-        <input type="text" class="cl-ind-cmt" placeholder="개인 코멘트" style="flex:2;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none">
+      <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+        <input type="text" class="cl-rd-title" placeholder="원서 제목" list="dl-library" autocomplete="off" onchange="clFillFromLib(this)" style="${iStyle};flex:2;min-width:120px">
+        <input type="hidden" class="cl-rd-series">
+        <input type="text" class="cl-rd-ar" placeholder="AR" style="${iStyle};width:52px">
+        <input type="text" class="cl-rd-prog" placeholder="진도 (예: Ch.1~3)" style="${iStyle};flex:1;min-width:100px">
       </div>
+      <input type="text" class="cl-ind-cmt" placeholder="개인 코멘트 (선택)" style="${iStyle};width:100%;box-sizing:border-box">
     </div>`).join('')
     :'<div style="color:var(--slate);font-size:13px">소속 학생이 없습니다</div>';
   openM('m-class-lesson');
@@ -2718,19 +2757,33 @@ async function saveClassLesson(){
   rows.forEach(row=>{
     const sid=row.dataset.sid;
     const s=DB.stus().find(x=>x.id===sid);
-    stuData.push({sid,grade:s?.grade||s?.lv||'',att:row.querySelector('.cl-att').value,book:row.querySelector('.cl-book').value.trim(),indCmt:row.querySelector('.cl-ind-cmt').value.trim()});
+    stuData.push({
+      sid,grade:s?.grade||s?.lv||'',
+      att:row.querySelector('.cl-att').value,
+      rdTitle:row.querySelector('.cl-rd-title')?.value.trim()||'',
+      rdSeries:row.querySelector('.cl-rd-series')?.value.trim()||'',
+      rdAr:row.querySelector('.cl-rd-ar')?.value.trim()||'',
+      rdProg:row.querySelector('.cl-rd-prog')?.value.trim()||'',
+      indCmt:row.querySelector('.cl-ind-cmt')?.value.trim()||''
+    });
   });
   const btn=document.getElementById('cl-save-btn');btn.disabled=true;
   toast('저장 중...');
   try{
     for(const d of stuData){
       const mats={...commonMats};
-      if(d.book)mats._book={book:d.book,unit:''};
+      if(d.rdTitle)mats._book={book:d.rdTitle,unit:d.rdProg||''};
       const cmt=[commonCmt,d.indCmt].filter(Boolean).join(' / ');
       const polishedCmt=cmt?await polishCmt(cmt):'';
       const les={id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:mats,cmt,polishedCmt,classId};
       await supaUpsert('lessons',les.id,les,d.sid);
       _cache.lessons.unshift(les);
+      // 원서 기록 저장 (읽기 기록 탭과 동일)
+      if(d.rdTitle){
+        const rd={id:uid(),sid:d.sid,date,title:d.rdTitle,series:d.rdSeries,arLevel:d.rdAr,genre:'',progress:d.rdProg,classId};
+        await supaUpsert('readings',rd.id,rd,d.sid);
+        _cache.readings.unshift(rd);
+      }
     }
     // 공통 과제
     const hwType=document.getElementById('cl-hw-type').value;
@@ -2746,7 +2799,7 @@ async function saveClassLesson(){
       }
     }
     closeM('m-class-lesson');
-    renderLes();renderDash();renderClassTab();
+    renderLes();renderRd();renderDash();renderClassTab();
     toast(stuData.length+'명 수업 기록 완료');
   }catch(e){
     console.error('saveClassLesson:',e);toast('저장 중 오류가 발생했습니다');

@@ -860,6 +860,18 @@
       <div class="f"><label>시작 시간</label><input type="time" id="ec-time-start"></div>
       <div class="f"><label>종료 시간</label><input type="time" id="ec-time-end"></div>
       <div class="f s2">
+        <label>공통 교재 진도 <span style="font-size:11px;color:var(--slate);font-weight:400">(수업 기록 시 자동 입력됨)</span></label>
+        <div class="chips" id="ec-subj-chips">
+          <button class="chip" data-s="phonics" onclick="ecTogSubj(this)">파닉스</button>
+          <button class="chip" data-s="vocab" onclick="ecTogSubj(this)">어휘</button>
+          <button class="chip" data-s="grammar" onclick="ecTogSubj(this)">어법</button>
+          <button class="chip" data-s="reading" onclick="ecTogSubj(this)">리딩</button>
+          <button class="chip" data-s="listening" onclick="ecTogSubj(this)">리스닝</button>
+          <button class="chip" data-s="writing" onclick="ecTogSubj(this)">라이팅</button>
+        </div>
+        <div id="ec-subj-rows" class="sr-wrap"></div>
+      </div>
+      <div class="f s2">
         <label>소속 학생</label>
         <div id="ec-stu-tags" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;margin-bottom:6px"></div>
         <div style="position:relative">
