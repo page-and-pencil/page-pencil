@@ -71,7 +71,7 @@ function closeM(id){
   if(m)m.style.display='none';
   document.getElementById('modal-overlay')?.classList.remove('open');
 }
-document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m&&!m.dataset.protect)m.classList.remove('open');}));
 function openLb(url){if(!url||url==='undefined'||url===''){toast('사진이 없습니다');return;}document.getElementById('lb-img').src=url;document.getElementById('lightbox').classList.add('open');}
 function closeLb(){document.getElementById('lightbox').classList.remove('open');}
 let toastT;

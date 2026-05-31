@@ -645,7 +645,7 @@
 </div>
 
 <!-- 학부모 채팅 모달 -->
-<div id="m-parent-chat" class="mo">
+<div id="m-parent-chat" class="mo" data-protect>
   <div class="mdl" style="max-height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden;max-width:520px">
     <div class="mh" style="padding:14px 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0">
       <div class="mt">💬 선생님과의 대화</div>
@@ -664,7 +664,7 @@
 <!-- ── MODALS ── -->
 
 <!-- 학생 추가 -->
-<div id="m-add-stu" class="mo">
+<div id="m-add-stu" class="mo" data-protect>
   <div class="mdl">
     <div class="mh"><div class="mt">학생 추가</div><button class="bx" onclick="closeM('m-add-stu')">×</button></div>
     <div class="section-label">기본 정보</div>
@@ -692,7 +692,7 @@
 </div>
 
 <!-- 학생 수정 -->
-<div id="m-edit-stu" class="mo">
+<div id="m-edit-stu" class="mo" data-protect>
   <div class="mdl">
     <div class="mh"><div class="mt">학생 수정</div><button class="bx" onclick="closeM('m-edit-stu')">×</button></div>
     <input type="hidden" id="es-id">
@@ -749,7 +749,7 @@
 </div>
 
 <!-- 수업 수정 -->
-<div id="m-edit-les" class="mo">
+<div id="m-edit-les" class="mo" data-protect>
   <div class="mdl" style="max-width:520px">
     <div class="mh"><div class="mt">수업 기록 수정</div><button class="bx" onclick="closeM('m-edit-les')">×</button></div>
     <input type="hidden" id="el-id">
@@ -799,7 +799,7 @@
 </div>
 
 <!-- 테스트 수정 -->
-<div id="m-edit-tst" class="mo">
+<div id="m-edit-tst" class="mo" data-protect>
   <div class="mdl">
     <div class="mh"><div class="mt">테스트 수정</div><button class="bx" onclick="closeM('m-edit-tst')">×</button></div>
     <input type="hidden" id="et-id">
@@ -825,7 +825,7 @@
 </div>
 
 <!-- 원서 수정 -->
-<div id="m-edit-rd" class="mo">
+<div id="m-edit-rd" class="mo" data-protect>
   <div class="mdl">
     <div class="mh"><div class="mt">원서 기록 수정</div><button class="bx" onclick="closeM('m-edit-rd')">×</button></div>
     <input type="hidden" id="er-id">
@@ -843,7 +843,7 @@
 </div>
 
 <!-- 클래스 추가/수정 -->
-<div id="m-edit-class" class="mo">
+<div id="m-edit-class" class="mo" data-protect>
   <div class="mdl">
     <div class="mh"><div class="mt" id="edit-class-title">클래스 만들기</div><button class="bx" onclick="closeM('m-edit-class')">×</button></div>
     <input type="hidden" id="ec-id">
@@ -894,7 +894,7 @@
 </div>
 
 <!-- 클래스 수업 기록 -->
-<div id="m-class-lesson" class="mo">
+<div id="m-class-lesson" class="mo" data-protect>
   <div class="mdl mdl-xl">
     <div class="mh">
       <div>
@@ -947,7 +947,7 @@
 </div>
 
 <!-- 교재 추가 -->
-<div id="m-add-tbook" class="mo">
+<div id="m-add-tbook" class="mo" data-protect>
   <div class="mdl">
     <div class="mh"><div class="mt">교재 추가</div><button class="bx" onclick="closeM('m-add-tbook')">×</button></div>
     <div class="fg">
@@ -972,7 +972,7 @@
 </div>
 
 <!-- 원서 추가 -->
-<div id="m-add-lib" class="mo">
+<div id="m-add-lib" class="mo" data-protect>
   <div class="mdl">
     <div class="mh"><div class="mt">원서 추가</div><button class="bx" onclick="closeM('m-add-lib')">×</button></div>
     <div class="fg">
@@ -996,7 +996,7 @@
 </div>
 
 <!-- 원서 수정 -->
-<div id="m-edit-lib" class="mo">
+<div id="m-edit-lib" class="mo" data-protect>
   <div class="mdl">
     <div class="mh"><div class="mt">원서 수정</div><button class="bx" onclick="closeM('m-edit-lib')">×</button></div>
     <input type="hidden" id="elib-id">
@@ -1016,7 +1016,7 @@
 </div>
 
 <!-- 일괄 오디오 업로드 미리보기 모달 -->
-<div id="m-bulk-audio" class="mo">
+<div id="m-bulk-audio" class="mo" data-protect>
   <div class="mdl" style="max-width:560px">
     <div class="mh"><div class="mt">🎵 일괄 오디오 업로드</div><button class="bx" onclick="closeM('m-bulk-audio')">×</button></div>
     <div class="ib iba" style="margin-bottom:10px">파일명 규칙: <strong>전권</strong>은 "책제목.mp3", <strong>챕터별</strong>은 "책제목 - Ch01.mp3" 형식</div>
@@ -1029,7 +1029,7 @@
 </div>
 
 <!-- 리딩로그 수정 모달 -->
-<div id="m-edit-log" class="mo">
+<div id="m-edit-log" class="mo" data-protect>
   <div class="mdl">
     <div class="mh"><div class="mt">리딩로그 수정</div><button class="bx" onclick="closeM('m-edit-log')">×</button></div>
     <input type="hidden" id="elog-id">
@@ -1046,7 +1046,7 @@
 </div>
 
 <!-- 과제 할당 모달 -->
-<div id="m-add-assign" class="mo">
+<div id="m-add-assign" class="mo" data-protect>
   <div class="mdl" style="max-width:560px">
     <div class="mh"><div class="mt">📋 과제 할당</div><button class="bx" onclick="closeM('m-add-assign')">×</button></div>
     <div class="fg">
@@ -1112,7 +1112,7 @@
 </div>
 
 <!-- 빠른 결제 기록 모달 -->
-<div id="m-quick-pay" class="mo">
+<div id="m-quick-pay" class="mo" data-protect>
   <div class="mdl">
     <div class="mh"><div class="mt">💳 결제 기록 추가</div><button class="bx" onclick="closeM('m-quick-pay')">×</button></div>
     <div class="fg">
@@ -1162,6 +1162,7 @@
 <datalist id="dl-tbooks-les"></datalist>
 <datalist id="dl-tbooks-assign"></datalist>
 <datalist id="dl-hw-books"></datalist>
+<datalist id="dl-phonics-books"></datalist>
 
 <script src="js/utils.js"></script>
 <script src="js/db.js"></script>

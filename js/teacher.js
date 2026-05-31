@@ -663,7 +663,10 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   const label=isBook?'원서':(SLBL[baseKey]||'');
   const cls=isBook?'srd':(SCLS[baseKey]||'');
   const addBtn=baseKey==='naesin'?`<button class="btn-xadd" title="내신 교재 추가" onclick="addSRowTo('${wrapperId}','naesin')">+</button>`:'';
-  d.innerHTML=`<span class="sl ${cls}">${label}</span><input type="text" placeholder="교재명" data-f="book" list="dl-tbooks-les" autocomplete="off" value="${escAttr(bookVal||'')}"><input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}"> ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
+  const noUnit=wrapperId==='ec-subj-rows';
+  const bookList=baseKey==='phonics'?'dl-phonics-books':'dl-tbooks-les';
+  const unitInput=noUnit?'':` <input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}">`;
+  d.innerHTML=`<span class="sl ${cls}">${label}</span><input type="text" placeholder="교재명" data-f="book" list="${bookList}" autocomplete="off" value="${escAttr(bookVal||'')}">${unitInput} ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
   wrap.appendChild(d);
 }
 function rmSRowFrom(wrapperId,s,btn){
@@ -687,7 +690,7 @@ function getSMatsFrom(wrapperId){
   const r={};const counts={};
   document.querySelectorAll('#'+wrapperId+' .sr').forEach(row=>{
     const baseS=row.dataset.s.replace(/_\d+$/,'');
-    const b=row.querySelector('[data-f="book"]').value.trim(),u=row.querySelector('[data-f="unit"]').value.trim();
+    const b=row.querySelector('[data-f="book"]').value.trim(),u=row.querySelector('[data-f="unit"]')?.value.trim()||'';
     if(b||u){counts[baseS]=(counts[baseS]||0)+1;const key=counts[baseS]===1?baseS:`${baseS}_${counts[baseS]}`;r[key]={book:b,unit:u};};
   });
   return r;
@@ -1320,6 +1323,8 @@ function updateTbookDatalist(){
     const dl=document.getElementById(id);
     if(dl)dl.innerHTML=books.map(b=>`<option value="${escAttr(b.title)}">`).join('');
   });
+  const phonicsDl=document.getElementById('dl-phonics-books');
+  if(phonicsDl)phonicsDl.innerHTML=books.filter(b=>b.category==='phonics').map(b=>`<option value="${escAttr(b.title)}">`).join('');
   // 과제용 통합 datalist: 교재DB + 원서DB
   const hwDl=document.getElementById('dl-hw-books');
   if(hwDl){
