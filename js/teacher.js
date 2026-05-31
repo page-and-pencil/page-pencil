@@ -669,8 +669,10 @@ function reqDelStu(){
 const aSubjs=new Set();
 function togSubj(el){
   const s=el.dataset.s;
-  if(aSubjs.has(s)){aSubjs.delete(s);el.classList.remove('active');document.querySelector(`#subj-rows .sr[data-s="${s}"]`)?.remove();}
-  else{aSubjs.add(s);el.classList.add('active');addSRowTo('subj-rows',s);}
+  if(aSubjs.has(s)){
+    if(s==='naesin'){addSRowTo('subj-rows',s);return;}
+    aSubjs.delete(s);el.classList.remove('active');document.querySelectorAll(`#subj-rows .sr[data-s="${s}"]`).forEach(r=>r.remove());
+  }else{aSubjs.add(s);el.classList.add('active');addSRowTo('subj-rows',s);}
 }
 // 수업 수정용 별도 Set
 const aEditSubjs=new Set();
@@ -682,23 +684,34 @@ function togEditSubj(el){
 function addSRowTo(wrapperId,s,bookVal,unitVal){
   const wrap=document.getElementById(wrapperId);if(!wrap)return;
   const d=document.createElement('div');d.className='sr';d.dataset.s=s;
-  d.innerHTML=`<span class="sl ${SCLS[s]}">${SLBL[s]}</span><input type="text" placeholder="교재명" data-f="book" list="dl-tbooks-les" autocomplete="off" value="${escAttr(bookVal||'')}"><input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}"><button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
+  const baseKey=s.replace(/_\d+$/,'');
+  const addBtn=baseKey==='naesin'?`<button class="btn-xadd" title="내신 교재 추가" onclick="addSRowTo('${wrapperId}','naesin')">+</button>`:'';
+  d.innerHTML=`<span class="sl ${SCLS[baseKey]||SCLS[s]||''}">${SLBL[baseKey]||SLBL[s]||s}</span><input type="text" placeholder="교재명" data-f="book" list="dl-tbooks-les" autocomplete="off" value="${escAttr(bookVal||'')}"><input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}"> ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
   wrap.appendChild(d);
 }
 function rmSRowFrom(wrapperId,s,btn){
-  if(wrapperId==='subj-rows')aSubjs.delete(s);
-  else aEditSubjs.delete(s);
-  const chips=wrapperId==='subj-rows'?document.querySelectorAll('#subj-chips .chip'):document.querySelectorAll('#el-subj-chips .chip');
-  chips.forEach(c=>{if(c.dataset.s===s)c.classList.remove('active');});
   btn.closest('.sr').remove();
+  // 같은 wrapperId에 해당 subject 행이 남아있는지 확인 후 chip 비활성화
+  const remaining=document.querySelectorAll(`#${wrapperId} .sr[data-s="${s}"]`).length;
+  if(remaining>0)return;
+  const baseKey=s.replace(/_\d+$/,'');
+  const isSubjRows=wrapperId==='subj-rows';
+  const isEditRows=wrapperId==='el-subj-rows';
+  const isEcRows=wrapperId==='ec-subj-rows';
+  const isClRows=wrapperId==='cl-subj-rows';
+  if(isSubjRows){aSubjs.delete(baseKey);document.querySelectorAll('#subj-chips .chip').forEach(c=>{if(c.dataset.s===baseKey)c.classList.remove('active');});}
+  else if(isEditRows){aEditSubjs.delete(baseKey);document.querySelectorAll('#el-subj-chips .chip').forEach(c=>{if(c.dataset.s===baseKey)c.classList.remove('active');});}
+  else if(isEcRows){ecSubjs.delete(baseKey);document.querySelectorAll('#ec-subj-chips .chip').forEach(c=>{if(c.dataset.s===baseKey)c.classList.remove('active');});}
+  else if(isClRows){clSubjs.delete(baseKey);document.querySelectorAll('#cl-subj-chips .chip').forEach(c=>{if(c.dataset.s===baseKey)c.classList.remove('active');});}
 }
 function addSRow(s){addSRowTo('subj-rows',s);}
 function rmSRow(s,btn){rmSRowFrom('subj-rows',s,btn);}
 function getSMatsFrom(wrapperId){
-  const r={};
+  const r={};const counts={};
   document.querySelectorAll('#'+wrapperId+' .sr').forEach(row=>{
-    const s=row.dataset.s,b=row.querySelector('[data-f="book"]').value.trim(),u=row.querySelector('[data-f="unit"]').value.trim();
-    if(b||u)r[s]={book:b,unit:u};
+    const baseS=row.dataset.s.replace(/_\d+$/,'');
+    const b=row.querySelector('[data-f="book"]').value.trim(),u=row.querySelector('[data-f="unit"]').value.trim();
+    if(b||u){counts[baseS]=(counts[baseS]||0)+1;const key=counts[baseS]===1?baseS:`${baseS}_${counts[baseS]}`;r[key]={book:b,unit:u};};
   });
   return r;
 }
@@ -710,8 +723,9 @@ function matsToHtml(materials){
   if(!materials)return '';
   return Object.entries(materials).map(([k,v])=>{
     const isBook=k==='_book'||k.startsWith('_book_');
-    const label=isBook?'원서':(SLBL[k]||'');
-    const cls=isBook?'srd':(SCLS[k]||'');
+    const baseKey=k.replace(/_\d+$/,'');
+    const label=isBook?'원서':(SLBL[baseKey]||'');
+    const cls=isBook?'srd':(SCLS[baseKey]||'');
     if(!label&&!v.book)return '';
     return `<span class="spill ${cls}">${label}</span> ${v.book||''}${v.unit?' '+v.unit:''}`;
   }).filter(Boolean).join(' &nbsp;');
@@ -1797,7 +1811,7 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
           <div style="font-size:12px;color:var(--slate);margin-top:2px">${students.map(s=>`<span onclick="loadStuPanel('${s.id}')" style="cursor:pointer;text-decoration:underline">${s.name}</span>`).join(' · ')||'학생 없음'}</div>
         </div>
         <div style="flex-shrink:0">
-          ${done?`<span style="font-size:12px;color:#0A5940;font-weight:600">✓ 완료</span>`:`<button class="btn bt bsm" onclick="openClassLesson('${c.id}','${todayStr}')">수업 기록</button>`}
+          ${done?`<span style="font-size:12px;color:#0A5940;font-weight:600">✓ 완료</span> <button class="btn bo bsm" onclick="openClassLessonEdit('${c.id}','${todayStr}')">수정</button>`:`<button class="btn bt bsm" onclick="openClassLesson('${c.id}','${todayStr}')">수업 기록</button>`}
         </div>
       </div>`;
     }).join('');
@@ -2657,7 +2671,7 @@ function renderClassTab(){
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
           ${isToday&&!done?`<button class="btn bt bsm" onclick="openClassLesson('${c.id}','${todayStr}')">수업 기록</button>`:''}
-          ${done?`<span style="font-size:12px;color:#0A5940;font-weight:600">✓ 오늘 완료</span>`:''}
+          ${done?`<span style="font-size:12px;color:#0A5940;font-weight:600">✓ 오늘 완료</span><button class="btn bo bsm" onclick="openClassLessonEdit('${c.id}','${todayStr}')">수업 수정</button>`:''}
           ${!isToday?`<button class="btn ba bsm" onclick="openClassLesson('${c.id}')">수업 기록</button>`:''}
           <button class="btn bo bsm" onclick="openEditClass('${c.id}')">수정</button>
         </div>
@@ -2671,8 +2685,10 @@ let _ecStuIds=[];
 const ecSubjs=new Set();
 function ecTogSubj(el){
   const s=el.dataset.s;
-  if(ecSubjs.has(s)){ecSubjs.delete(s);el.classList.remove('active');document.querySelector(`#ec-subj-rows .sr[data-s="${s}"]`)?.remove();}
-  else{ecSubjs.add(s);el.classList.add('active');addSRowTo('ec-subj-rows',s);}
+  if(ecSubjs.has(s)){
+    if(s==='naesin'){addSRowTo('ec-subj-rows',s);return;}
+    ecSubjs.delete(s);el.classList.remove('active');document.querySelectorAll(`#ec-subj-rows .sr[data-s="${s}"]`).forEach(r=>r.remove());
+  }else{ecSubjs.add(s);el.classList.add('active');addSRowTo('ec-subj-rows',s);}
 }
 function clFillFromLib(input){
   const title=input.value.trim();if(!title)return;
@@ -2771,8 +2787,46 @@ function deleteClass(){
   });
 }
 
+function openClassLessonEdit(classId,dateStr){
+  // 기존 수업 기록 로드 후 수정 모드로 열기
+  openClassLesson(classId,dateStr);
+  // 기존 레코드 로드
+  const existingLes=DB.less().filter(l=>l.classId===classId&&l.date===dateStr);
+  if(!existingLes.length)return;
+  // 수정 모드 플래그 저장 (저장 시 upsert)
+  document.getElementById('cl-class-id').dataset.editMode='true';
+  document.getElementById('cl-modal-title').textContent+=' (수정)';
+  // 기존 데이터로 학생 행 채우기
+  setTimeout(()=>{
+    const allStus=DB.stus();
+    existingLes.forEach(les=>{
+      const row=document.querySelector(`.cl-stu-row[data-sid="${les.sid}"]`);if(!row)return;
+      const attSel=row.querySelector('.cl-att');if(attSel)attSel.value=les.att||'normal';
+      // 원서 복원
+      const booksWrap=row.querySelector('.cl-books-wrap');
+      const bookEntries=Object.entries(les.materials||{}).filter(([k])=>k==='_book'||k.startsWith('_book_'));
+      if(booksWrap&&bookEntries.length){
+        booksWrap.innerHTML='';// 기존 빈 행 제거
+        const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
+        bookEntries.forEach(([,v])=>{
+          const br=document.createElement('div');
+          br.className='cl-book-row';br.style.cssText='display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:center';
+          br.innerHTML=`<input type="text" class="cl-rd-title" list="dl-library" autocomplete="off" value="${escAttr(v.book||'')}" style="${IS};flex:2;min-width:120px"><input type="hidden" class="cl-rd-series"><input type="text" class="cl-rd-ar" style="${IS};width:52px"><input type="text" class="cl-rd-prog" value="${escAttr(v.unit||'')}" style="${IS};flex:1;min-width:100px">`;
+          booksWrap.appendChild(br);
+        });
+      }
+      // 코멘트 복원 (공통 코멘트 제거 후 개인 코멘트만)
+      const cmtEl=row.querySelector('.cl-ind-cmt');
+      if(cmtEl&&les.cmt)cmtEl.value=les.cmt;
+    });
+    // 공통 코멘트
+    const firstLes=existingLes[0];
+    if(firstLes){const cmtEl=document.getElementById('cl-common-cmt');if(cmtEl)cmtEl.value='';}
+  },100);
+}
 function openClassLesson(classId,dateStr){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  document.getElementById('cl-class-id').dataset.editMode='';
   document.getElementById('cl-class-id').value=classId;
   document.getElementById('cl-modal-title').textContent=c.name+' 수업 기록';
   const timeStr=c.timeStart?(c.timeStart+(c.timeEnd?'~'+c.timeEnd:'')):c.time||'';
@@ -2868,8 +2922,10 @@ function addClBookRow(btn){
 }
 function clTogSubj(el){
   const s=el.dataset.s;
-  if(clSubjs.has(s)){clSubjs.delete(s);el.classList.remove('active');document.querySelector(`#cl-subj-rows .sr[data-s="${s}"]`)?.remove();}
-  else{clSubjs.add(s);el.classList.add('active');addSRowTo('cl-subj-rows',s);}
+  if(clSubjs.has(s)){
+    if(s==='naesin'){addSRowTo('cl-subj-rows',s);return;}
+    clSubjs.delete(s);el.classList.remove('active');document.querySelectorAll(`#cl-subj-rows .sr[data-s="${s}"]`).forEach(r=>r.remove());
+  }else{clSubjs.add(s);el.classList.add('active');addSRowTo('cl-subj-rows',s);}
 }
 
 function getClassLessonDates(classObj,fromDateStr){
@@ -2889,9 +2945,20 @@ function getClassLessonDates(classObj,fromDateStr){
 const HW_CATS=[
   {v:'',l:'구분 선택'},
   {v:'phonics',l:'파닉스'},{v:'vocab',l:'어휘'},{v:'grammar',l:'어법'},
-  {v:'reading',l:'리딩'},{v:'listening',l:'리스닝'},{v:'writing',l:'라이팅'},{v:'naesin',l:'내신'}
+  {v:'reading',l:'리딩'},{v:'listening',l:'리스닝'},{v:'writing',l:'라이팅'},{v:'naesin',l:'내신'},
+  {v:'book',l:'원서'}
 ];
 const HW_CAT_SEL=HW_CATS.map(c=>`<option value="${c.v}">${c.l}</option>`).join('');
+function clHwCatAutoFill(sel){
+  const cat=sel.value;if(!cat)return;
+  const classId=document.getElementById('cl-class-id').value;
+  const c=DB.classes().find(x=>x.id===classId);if(!c?.commonMaterials)return;
+  const row=sel.closest('.cl-hw-row');if(!row)return;
+  const bookInput=row.querySelector('.cl-hw-book');if(!bookInput||bookInput.value)return;
+  // 매칭되는 교재 찾기 (cat, cat_2, cat_3 ...)
+  const matched=Object.entries(c.commonMaterials).find(([k])=>k===cat||k.startsWith(cat+'_'));
+  if(matched)bookInput.value=matched[1].book||'';
+}
 const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
 
 function addClHwRow(dateStr,isCommon){
@@ -2908,7 +2975,7 @@ function addClHwRow(dateStr,isCommon){
     ${!isCommon?`<select class="cl-hw-ind-stu filter-sel" style="flex:0 0 auto">${stuOpts}</select>`:''}
     <input type="date" class="cl-hw-date" value="${dateStr||''}" style="${IS};flex:0 0 auto">
     <span class="cl-hw-day-label" style="font-size:11px;color:var(--slate)">${dateStr?dayLabel+'요일':''}</span>
-    <select class="cl-hw-cat filter-sel" style="flex:0 0 auto">${HW_CAT_SEL}</select>
+    <select class="cl-hw-cat filter-sel" style="flex:0 0 auto" onchange="clHwCatAutoFill(this)">${HW_CAT_SEL}</select>
     <button onclick="this.closest('.cl-hw-row').remove()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--slate);padding:0;margin-left:auto">×</button>
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap">

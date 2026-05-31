@@ -260,6 +260,8 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;align-items:center;justify-content:center;padding:1rem;}
 .mo.open{display:flex;}
 .mdl{background:#fff;border-radius:var(--r);padding:1.5rem;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:var(--shlg);}
+.mdl-xl{max-width:min(96vw,920px);max-height:96vh;padding:1.25rem 1.5rem;}
+.btn-xadd{background:none;border:1px solid var(--teal);color:var(--teal);border-radius:50%;width:20px;height:20px;font-size:14px;line-height:1;cursor:pointer;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;}
 .mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;}
 .mt{font-size:15px;font-weight:700;}
 .bx{background:none;border:none;font-size:20px;cursor:pointer;color:var(--slate);padding:2px 6px;border-radius:4px;}
