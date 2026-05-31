@@ -597,8 +597,12 @@ function openAddStu(){
   if(nsClasses){
     const classes=DB.classes().filter(c=>c.active!==false);
     nsClasses.innerHTML=classes.length
-      ?classes.map(c=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-        <input type="checkbox" value="${c.id}"> ${c.name}<span style="font-size:11px;color:var(--slate)">${(c.days||[]).join('·')}요일${c.timeStart?' '+c.timeStart:''}</span>
+      ?classes.map(c=>`<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;background:var(--cream)">
+        <input type="checkbox" value="${c.id}" style="flex-shrink:0;width:16px;height:16px;cursor:pointer">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--navy)">${c.name}</div>
+          <div style="font-size:11px;color:var(--slate);margin-top:2px">${(c.days||[]).join('·')}요일${c.timeStart?' · '+c.timeStart+(c.timeEnd?'~'+c.timeEnd:''):''}</div>
+        </div>
       </label>`).join('')
       :'<span style="font-size:12px;color:var(--slate)">클래스 없음 — 클래스 탭에서 먼저 만들어 주세요</span>';
   }
@@ -1622,6 +1626,26 @@ async function callVision(apiKey,b64,mime,prompt){
 function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=()=>rej(new Error('파일 읽기 실패'));r.readAsDataURL(file);});}
 
 // ── COMMENT POLISH ──
+async function polishIndCmt(raw,stuName){
+  if(!raw||!raw.trim())return '';
+  const r=raw.trim();
+  const apiKey=DB.api();
+  if(!apiKey)return polishCmtLocal(r);
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:200,
+        messages:[{role:'user',content:`당신은 학부모에게 자녀 수업 피드백을 전달하는 영어 선생님입니다.\n톤 지침: 담담하고 따뜻한 격식체(합쇼체+요체 혼용). 절제된 표현, 감탄사/이모지/과장 없음. 마크다운 없음.\n학생 이름: ${stuName||'학생'}\n아래 메모를 학부모용 문장으로 100자 내외로 바꿔주세요. 메모에 없는 내용 추가 금지. 변환된 문장만 출력하세요.\n원문: ${r}`}]
+      })
+    });
+    if(!res.ok)return polishCmtLocal(r);
+    const d=await res.json();
+    return d.content?.[0]?.text?.trim()||polishCmtLocal(r);
+  }catch(e){return polishCmtLocal(r);}
+}
 async function polishCmt(raw){
   if(!raw||!raw.trim()) return '';
   const r=raw.trim();
@@ -2795,12 +2819,40 @@ function openClassLesson(classId,dateStr){
         </div>
       </div>
       <button class="btn ba" style="font-size:11px;padding:3px 10px;margin-bottom:6px" onclick="addClBookRow(this)">+ 원서 추가</button>
-      <input type="text" class="cl-ind-cmt" placeholder="개인 코멘트 (선택)" style="${iStyle};width:100%;box-sizing:border-box;display:block">
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px">
+        ${['집중도 좋음','복습 필요','속도 향상 중','이해도 높음','어휘 보완 필요','발음 교정 중','자신감 향상 중'].map(c=>`<button type="button" class="cmt-chip" onclick="clAddIndCmt(this,'${c}')">${c}</button>`).join('')}
+      </div>
+      <textarea class="cl-ind-cmt" placeholder="개인 코멘트 (선택)" rows="2" style="${iStyle};width:100%;box-sizing:border-box;resize:none"></textarea>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:5px">
+        <button type="button" class="btn bo" style="font-size:11px;padding:3px 10px" onclick="clPreviewIndCmt(this,'${s.name}')">👁 학부모용 미리보기</button>
+        <span class="cl-preview-status" style="font-size:11px;color:var(--slate)"></span>
+      </div>
+      <div class="cl-preview-cmt" style="display:none;margin-top:6px;padding:8px 10px;background:#f0fafb;border-radius:var(--rs);font-size:12px;color:var(--navy);line-height:1.6;border:1px solid var(--teal)"></div>
     </div>`).join('')
     :'<div style="color:var(--slate);font-size:13px">소속 학생이 없습니다</div>';
   openM('m-class-lesson');
 }
 
+function clAddIndCmt(btn,chip){
+  const row=btn.closest('.cl-stu-row');if(!row)return;
+  const ta=row.querySelector('.cl-ind-cmt');if(!ta)return;
+  ta.value=(ta.value?ta.value+' ':'')+chip;
+}
+async function clPreviewIndCmt(btn,stuName){
+  const row=btn.closest('.cl-stu-row');if(!row)return;
+  const ta=row.querySelector('.cl-ind-cmt');
+  const preview=row.querySelector('.cl-preview-cmt');
+  const status=row.querySelector('.cl-preview-status');
+  const raw=ta?.value.trim();
+  if(!raw){toast('코멘트를 먼저 입력하세요');return;}
+  btn.disabled=true;if(status)status.textContent='변환 중...';
+  try{
+    const result=await polishIndCmt(raw,stuName);
+    if(preview){preview.textContent=result;preview.style.display='block';}
+    if(status)status.textContent=`${result.length}자`;
+  }catch(e){if(status)status.textContent='변환 실패';}
+  finally{btn.disabled=false;}
+}
 function addClBookRow(btn){
   const wrap=btn.previousElementSibling;if(!wrap||!wrap.classList.contains('cl-books-wrap'))return;
   const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
