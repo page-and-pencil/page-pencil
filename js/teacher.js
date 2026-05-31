@@ -592,6 +592,18 @@ function reqRemovePay(stuId, idx, fromPanel=false){
     toast('삭제되었습니다');
   });
 }
+function openAddStu(){
+  const nsClasses=document.getElementById('ns-classes');
+  if(nsClasses){
+    const classes=DB.classes().filter(c=>c.active!==false);
+    nsClasses.innerHTML=classes.length
+      ?classes.map(c=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+        <input type="checkbox" value="${c.id}"> ${c.name}<span style="font-size:11px;color:var(--slate)">${(c.days||[]).join('·')}요일${c.timeStart?' '+c.timeStart:''}</span>
+      </label>`).join('')
+      :'<span style="font-size:12px;color:var(--slate)">클래스 없음 — 클래스 탭에서 먼저 만들어 주세요</span>';
+  }
+  openM('m-add-stu');
+}
 async function addStu(){
   const name=document.getElementById('ns-name').value.trim();
   const pin=document.getElementById('ns-pin').value.trim();
@@ -600,9 +612,20 @@ async function addStu(){
   const newStu={id:uid(),name,grade:document.getElementById('ns-grade').value,school:document.getElementById('ns-school')?.value.trim()||'',pin,enrollDate:document.getElementById('ns-enroll').value,fee:parseInt(document.getElementById('ns-fee').value)||0,payday:parseInt(document.getElementById('ns-payday').value)||0,memo:document.getElementById('ns-memo').value.trim(),payments:[],inactive:false};
   await supaUpsert('students',newStu.id,newStu,null);
   _cache.students.unshift(newStu);
+  // 선택된 클래스에 학생 추가
+  const checkedClasses=[...document.querySelectorAll('#ns-classes input:checked')].map(cb=>cb.value);
+  for(const cid of checkedClasses){
+    const c=DB.classes().find(x=>x.id===cid);if(!c)continue;
+    if(!(c.studentIds||[]).includes(newStu.id)){
+      c.studentIds=[...(c.studentIds||[]),newStu.id];
+      await supaUpsert('classes',cid,c,null);
+      const idx=(_cache.globalClasses||[]).findIndex(x=>x.id===cid);
+      if(idx>=0)_cache.globalClasses[idx]=c;
+    }
+  }
   closeM('m-add-stu');
   ['ns-name','ns-pin','ns-enroll','ns-fee','ns-payday','ns-memo','ns-school'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
-  renderStus();populateSels();populateFilterSels();toast(name+' 학생이 추가되었습니다');
+  renderStus();populateSels();populateFilterSels();renderClassTab();toast(name+' 학생이 추가되었습니다');
 }
 async function updStu(){
   const id=document.getElementById('es-id').value;
@@ -681,7 +704,13 @@ function clearEditSRows(){aEditSubjs.clear();document.querySelectorAll('#el-subj
 function escAttr(s){return(s||'').replace(/"/g,'&quot;');}
 function matsToHtml(materials){
   if(!materials)return '';
-  return Object.entries(materials).map(([k,v])=>`<span class="spill ${SCLS[k]}">${SLBL[k]}</span> ${v.book||''}${v.unit?' '+v.unit:''}`).join(' &nbsp;');
+  return Object.entries(materials).map(([k,v])=>{
+    const isBook=k==='_book'||k.startsWith('_book_');
+    const label=isBook?'원서':(SLBL[k]||'');
+    const cls=isBook?'srd':(SCLS[k]||'');
+    if(!label&&!v.book)return '';
+    return `<span class="spill ${cls}">${label}</span> ${v.book||''}${v.unit?' '+v.unit:''}`;
+  }).filter(Boolean).join(' &nbsp;');
 }
 
 // ── LESSONS ──
@@ -2757,18 +2786,34 @@ function openClassLesson(classId,dateStr){
         </select>
         <span style="font-size:11px;color:var(--slate)">${s.grade||s.lv||''}</span>
       </div>
-      <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">
-        <input type="text" class="cl-rd-title" placeholder="원서 제목" list="dl-library" autocomplete="off" onchange="clFillFromLib(this)" style="${iStyle};flex:2;min-width:120px">
-        <input type="hidden" class="cl-rd-series">
-        <input type="text" class="cl-rd-ar" placeholder="AR" style="${iStyle};width:52px">
-        <input type="text" class="cl-rd-prog" placeholder="진도 (예: Ch.1~3)" style="${iStyle};flex:1;min-width:100px">
+      <div class="cl-books-wrap" style="margin-bottom:6px">
+        <div class="cl-book-row" style="display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:center">
+          <input type="text" class="cl-rd-title" placeholder="원서 제목" list="dl-library" autocomplete="off" onchange="clFillFromLib(this)" style="${iStyle};flex:2;min-width:120px">
+          <input type="hidden" class="cl-rd-series">
+          <input type="text" class="cl-rd-ar" placeholder="AR" style="${iStyle};width:52px">
+          <input type="text" class="cl-rd-prog" placeholder="진도 (예: Ch.1~3)" style="${iStyle};flex:1;min-width:100px">
+        </div>
       </div>
-      <input type="text" class="cl-ind-cmt" placeholder="개인 코멘트 (선택)" style="${iStyle};width:100%;box-sizing:border-box">
+      <button class="btn ba" style="font-size:11px;padding:3px 10px;margin-bottom:6px" onclick="addClBookRow(this)">+ 원서 추가</button>
+      <input type="text" class="cl-ind-cmt" placeholder="개인 코멘트 (선택)" style="${iStyle};width:100%;box-sizing:border-box;display:block">
     </div>`).join('')
     :'<div style="color:var(--slate);font-size:13px">소속 학생이 없습니다</div>';
   openM('m-class-lesson');
 }
 
+function addClBookRow(btn){
+  const wrap=btn.previousElementSibling;if(!wrap||!wrap.classList.contains('cl-books-wrap'))return;
+  const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
+  const row=document.createElement('div');
+  row.className='cl-book-row';
+  row.style.cssText='display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:center';
+  row.innerHTML=`<input type="text" class="cl-rd-title" placeholder="원서 제목" list="dl-library" autocomplete="off" onchange="clFillFromLib(this)" style="${IS};flex:2;min-width:120px">
+    <input type="hidden" class="cl-rd-series">
+    <input type="text" class="cl-rd-ar" placeholder="AR" style="${IS};width:52px">
+    <input type="text" class="cl-rd-prog" placeholder="진도 (예: Ch.1~3)" style="${IS};flex:1;min-width:100px">
+    <button onclick="this.closest('.cl-book-row').remove()" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--slate);padding:0;flex-shrink:0">×</button>`;
+  wrap.appendChild(row);
+}
 function clTogSubj(el){
   const s=el.dataset.s;
   if(clSubjs.has(s)){clSubjs.delete(s);el.classList.remove('active');document.querySelector(`#cl-subj-rows .sr[data-s="${s}"]`)?.remove();}
@@ -2839,11 +2884,13 @@ async function saveClassLesson(){
   const stuData=[];
   stuRows.forEach(row=>{
     const sid=row.dataset.sid;const s=DB.stus().find(x=>x.id===sid);
-    stuData.push({sid,grade:s?.grade||s?.lv||'',att:row.querySelector('.cl-att').value,
-      rdTitle:row.querySelector('.cl-rd-title')?.value.trim()||'',
-      rdSeries:row.querySelector('.cl-rd-series')?.value.trim()||'',
-      rdAr:row.querySelector('.cl-rd-ar')?.value.trim()||'',
-      rdProg:row.querySelector('.cl-rd-prog')?.value.trim()||'',
+    const books=[...row.querySelectorAll('.cl-book-row')].map(br=>({
+      title:br.querySelector('.cl-rd-title')?.value.trim()||'',
+      series:br.querySelector('.cl-rd-series')?.value.trim()||'',
+      ar:br.querySelector('.cl-rd-ar')?.value.trim()||'',
+      prog:br.querySelector('.cl-rd-prog')?.value.trim()||''
+    })).filter(b=>b.title);
+    stuData.push({sid,grade:s?.grade||s?.lv||'',att:row.querySelector('.cl-att').value,books,
       indCmt:row.querySelector('.cl-ind-cmt')?.value.trim()||''});
   });
   // 과제 rows 수집
@@ -2861,13 +2908,13 @@ async function saveClassLesson(){
   try{
     for(const d of stuData){
       const mats={...commonMats};
-      if(d.rdTitle)mats._book={book:d.rdTitle,unit:d.rdProg||''};
+      (d.books||[]).forEach((b,i)=>{mats[`_book_${i}`]={book:b.title,unit:b.prog||''};});
       const cmt=[commonCmt,d.indCmt].filter(Boolean).join(' / ');
       const polishedCmt=cmt?await polishCmt(cmt):'';
       const les={id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:mats,cmt,polishedCmt,classId};
       await supaUpsert('lessons',les.id,les,d.sid);_cache.lessons.unshift(les);
-      if(d.rdTitle){
-        const rd={id:uid(),sid:d.sid,date,title:d.rdTitle,series:d.rdSeries,arLevel:d.rdAr,genre:'',progress:d.rdProg,classId};
+      for(const b of (d.books||[])){
+        const rd={id:uid(),sid:d.sid,date,title:b.title,series:b.series,arLevel:b.ar,genre:'',progress:b.prog,classId};
         await supaUpsert('readings',rd.id,rd,d.sid);_cache.readings.unshift(rd);
       }
       // 공통 과제 → 결석 제외
