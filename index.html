@@ -176,42 +176,10 @@
 
     <!-- 대시보드 -->
     <div id="t-dash" class="panel">
-      <div class="sh"><div><div class="st">대시보드</div></div>
-        <div style="display:flex;gap:8px">
-          <div id="unpaid-summary" class="payment-summary" style="display:none"></div>
-        </div>
-      </div>
-      <!-- 수납 현황 -->
-      <div id="dash-payment-bar" class="payment-summary"></div>
-      <!-- 통계 카드 -->
-      <div class="dash-grid" id="dash-cards"></div>
-      <!-- 주의 필요 알림 -->
-      <div id="dash-attention" style="margin-bottom:1rem"></div>
-      <!-- 오답 누적 + 복습 스케줄 -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
-        <div class="card">
-          <div class="ch"><span class="ct">📌 전체 오답 TOP 단어</span></div>
-          <div class="cb" id="dash-wrong-words"></div>
-        </div>
-        <div class="card">
-          <div class="ch"><span class="ct">🔔 복습 스케줄</span></div>
-          <div class="cb" id="dash-review-schedule"></div>
-        </div>
-      </div>
-      <!-- 공지 게시판 -->
-      <div class="card">
-        <div class="ch">
-          <span class="ct">📢 공지 게시판</span>
-          <span style="font-size:11px;color:var(--slate)" id="notice-count-lbl"></span>
-        </div>
-        <div class="cb">
-          <div style="display:flex;gap:8px;margin-bottom:10px">
-            <textarea id="dash-notice-input" placeholder="예) 6월 6일 현충일 휴강합니다.&#10;학부모 PIN 로그인 시 최신 공지가 팝업으로 표시됩니다." style="flex:1;min-height:64px;resize:vertical;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none"></textarea>
-            <button class="btn bt bsm" style="align-self:flex-end;white-space:nowrap;justify-content:center" onclick="postNotice()">등록</button>
-          </div>
-          <div id="notice-board"></div>
-        </div>
-      </div>
+      <div id="dash-today" style="margin-bottom:12px"></div>
+      <div id="dash-actions" style="margin-bottom:12px"></div>
+      <div id="dash-monthly" style="margin-bottom:12px"></div>
+      <div id="dash-notice-section"></div>
     </div>
 
     <!-- 학생 관리 -->

@@ -1638,98 +1638,132 @@ function renderDash(){
   const stus=DB.stus().filter(s=>!s.inactive);
   const les=DB.less();
   const tsts=DB.tsts();
-  const rds=DB.rds();
+  const msgs=_cache.messages||[];
+  const hws=_cache.homeworks||[];
   const today=new Date();
-  const thisMonth=today.getFullYear()+'-'+(String(today.getMonth()+1).padStart(2,'0'));
+  const todayStr=today.toISOString().split('T')[0];
+  const thisMonth=todayStr.slice(0,7);
+  const lmDate=new Date(today.getFullYear(),today.getMonth()-1,1);
+  const lastMonth=lmDate.getFullYear()+'-'+String(lmDate.getMonth()+1).padStart(2,'0');
+  const DAYS=['일','월','화','수','목','금','토'];
+  const todayDay=DAYS[today.getDay()];
+  const dateLabel=`${today.getMonth()+1}월 ${today.getDate()}일 ${todayDay}요일`;
 
-  // 수납 현황
-  const bar=document.getElementById('dash-payment-bar');
-  if(bar){
-    let paid=0,unpaid=0;
-    stus.forEach(s=>{
-      if(!s.fee)return;
-      const hasPaid=(s.payments||[]).some(p=>p.date&&p.date.startsWith(thisMonth));
-      if(hasPaid)paid++;else unpaid++;
-    });
-    const total=paid+unpaid;
-    bar.innerHTML=total?`<span>이번 달 수납</span><span class="ok">${paid}명 완료</span><span style="color:var(--slate)">·</span><span class="due">${unpaid}명 미납</span><span style="color:var(--slate);margin-left:auto">${total?Math.round(paid/total*100):0}%</span>`:'<span style="color:var(--slate)">수납 정보 없음</span>';
-  }
+  // Section 1: 오늘 수업
+  const todayStus=stus.filter(s=>s.memo&&s.memo.includes(todayDay));
+  const todayRecorded=new Set(les.filter(l=>l.date===todayStr).map(l=>l.sid));
+  renderDashToday(dateLabel,todayStus,todayRecorded);
 
-  // 통계 카드
-  const thisMonthLes=les.filter(l=>l.date&&l.date.startsWith(thisMonth));
-  const avgScore=tsts.length?Math.round(tsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/tsts.length):null;
-  const totalRds=rds.length;
-  // 이번 달 미수업 학생 수
-  const stuWithLesson=new Set(thisMonthLes.map(l=>l.sid));
-  const noLessonThisMonth=stus.filter(s=>!stuWithLesson.has(s.id)).length;
-  // 미확인 과제 수
-  const unreadHw=(_cache.homeworks||[]).filter(h=>!h.checked).length;
-  const cards=document.getElementById('dash-cards');
-  if(cards)cards.innerHTML=[
-    {n:stus.length,l:'재원생',s:''},
-    {n:thisMonthLes.length,l:'이번 달 수업',s:thisMonth.slice(5)+'월'},
-    {n:noLessonThisMonth>0?`<span style="color:var(--coral)">${noLessonThisMonth}</span>`:'0',l:'이번 달 미수업',s:'재원생 기준'},
-    {n:unreadHw>0?`<span style="color:var(--coral)">${unreadHw}</span>`:'0',l:'미확인 과제',s:'전체 학생'},
-    {n:avgScore!==null?avgScore+'%':'—',l:'단어 평균',s:'전체 학생'},
-    {n:totalRds,l:'누적 원서',s:'전 학생'},
-  ].map(c=>`<div class="dash-card"><div class="dash-num">${c.n}</div><div class="dash-lbl">${c.l}</div>${c.s?`<div class="dash-sub">${c.s}</div>`:''}</div>`).join('');
-
-  // 주의 필요 알림
-  renderAttentionAlerts();
-  // 오답 TOP 단어
-  renderWrongWords();
-  // 복습 스케줄
-  renderReviewSchedule();
-  // 공지 게시판
-  renderNoticeBoard();
-}
-
-function renderWrongWords(){
-  const tsts=DB.tsts();
-  const freq={};
-  tsts.forEach(t=>(t.wrongWords||[]).forEach(w=>{
-    const k=w.toLowerCase().trim();if(k)freq[k]=(freq[k]||0)+1;
-  }));
-  const sorted=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,20);
-  const el=document.getElementById('dash-wrong-words');if(!el)return;
-  if(!sorted.length){el.innerHTML='<div style="color:var(--slate);font-size:12px">오답 데이터 없음</div>';return;}
-  el.innerHTML=`<div class="wrong-heat">${sorted.map(([w,n])=>{
-    const lv=n>=4?'lv1':n>=2?'lv2':'lv3';
-    return `<span class="wrong-chip ${lv}" title="${n}회 오답">${w}<span style="font-size:9px;opacity:.7;margin-left:3px">${n}</span></span>`;
-  }).join('')}</div>`;
-}
-
-function renderReviewSchedule(){
-  // 에빙하우스 간격: 1, 3, 7, 14, 30일
-  const INTERVALS=[1,3,7,14,30];
-  const tsts=DB.tsts();
-  const stus=DB.stus();
-  const today=new Date();today.setHours(0,0,0,0);
-  const items=[];
-  tsts.forEach(t=>{
-    if(!(t.wrongWords&&t.wrongWords.length))return;
-    const d=new Date(t.date);
-    INTERVALS.forEach(iv=>{
-      const due=new Date(d);due.setDate(due.getDate()+iv);
-      const diff=Math.round((due-today)/(1000*60*60*24));
-      if(diff>=0&&diff<=7){
-        const s=stus.find(x=>x.id===t.sid);
-        items.push({name:s?s.name:'',words:t.wrongWords.slice(0,3),diff,iv});
-      }
-    });
+  // Section 2: 처리할 것
+  const unreadMsgByStu={};
+  msgs.filter(m=>m.fromRole==='parent'&&!m.read).forEach(m=>{unreadMsgByStu[m.sid]=(unreadMsgByStu[m.sid]||0)+1;});
+  const uncheckedHwByStu={};
+  hws.filter(h=>h.submitted&&!h.checked).forEach(h=>{uncheckedHwByStu[h.sid]=(uncheckedHwByStu[h.sid]||0)+1;});
+  const unpaidStus=stus.filter(s=>hasUnpaid(s));
+  const scoreDrops=[];
+  stus.forEach(s=>{
+    const sTsts=tsts.filter(t=>t.sid===s.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    if(sTsts.length>=2){
+      const cur=pct(sTsts[0].vocabCorrect,sTsts[0].vocabTotal);
+      const prev=pct(sTsts[1].vocabCorrect,sTsts[1].vocabTotal);
+      if(prev-cur>=20)scoreDrops.push({s,cur,prev});
+    }
   });
-  const el=document.getElementById('dash-review-schedule');if(!el)return;
-  if(!items.length){el.innerHTML='<div style="color:var(--slate);font-size:12px">7일 내 복습 예정 없음</div>';return;}
-  const sorted=items.sort((a,b)=>a.diff-b.diff).slice(0,6);
-  el.innerHTML=sorted.map(it=>{
-    const isToday=it.diff===0;
-    return `<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
-      <span class="review-chip ${isToday?'review-today':''}" style="white-space:nowrap;flex-shrink:0">${isToday?'오늘':it.diff+'일 후'}</span>
-      <div><div style="font-size:12px;font-weight:600">${it.name}</div>
-        <div style="font-size:11px;color:var(--slate)">${it.words.join(', ')}${it.words.length<(it.words.length)?'…':''}</div>
+  const stuWithLesson=new Set(les.filter(l=>l.date&&l.date.startsWith(thisMonth)&&l.att!=='absent').map(l=>l.sid));
+  const noLessonStus=stus.filter(s=>!stuWithLesson.has(s.id));
+  renderDashActions(stus,unreadMsgByStu,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus);
+
+  // Section 3: 이번 달 현황
+  const thisLes=les.filter(l=>l.date&&l.date.startsWith(thisMonth)&&l.att!=='absent').length;
+  const lastLes=les.filter(l=>l.date&&l.date.startsWith(lastMonth)&&l.att!=='absent').length;
+  const thisMonthTsts=tsts.filter(t=>t.date&&t.date.startsWith(thisMonth));
+  const lastMonthTsts=tsts.filter(t=>t.date&&t.date.startsWith(lastMonth));
+  const thisAvg=thisMonthTsts.length?Math.round(thisMonthTsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/thisMonthTsts.length):null;
+  const lastAvg=lastMonthTsts.length?Math.round(lastMonthTsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/lastMonthTsts.length):null;
+  renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,DB.rds().length);
+
+  // Section 4: 공지
+  renderDashNotice();
+}
+
+function renderDashToday(dateLabel,todayStus,todayRecorded){
+  const el=document.getElementById('dash-today');if(!el)return;
+  const chipsHtml=todayStus.length
+    ?`<div style="display:flex;flex-wrap:wrap;gap:8px">${todayStus.map(s=>{
+        const done=todayRecorded.has(s.id);
+        return `<div class="dash-stu-chip${done?' done':''}" onclick="loadStuPanel('${s.id}')" style="cursor:pointer">${done?'✓ ':''}${s.name}</div>`;
+      }).join('')}</div>`
+    :`<div style="color:var(--slate);font-size:13px">오늘 수업 예정 없음</div>`;
+  el.innerHTML=`<div class="card">
+    <div class="ch"><span class="ct">📅 오늘 · ${dateLabel}</span><button class="btn bt bsm" onclick="swTab('t-les')">+ 수업 기록</button></div>
+    <div class="cb" style="padding-top:8px">${chipsHtml}</div>
+  </div>`;
+}
+
+function renderDashActions(stus,unreadMsgByStu,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus){
+  const el=document.getElementById('dash-actions');if(!el)return;
+  const items=[];
+  Object.entries(unreadMsgByStu).forEach(([sid,cnt])=>{
+    const s=stus.find(x=>x.id===sid);if(!s)return;
+    items.push({icon:'💬',text:`${s.name} — 학부모 메시지 ${cnt}건 미확인`,sid,action:`swTab('t-msg')`});
+  });
+  Object.entries(uncheckedHwByStu).forEach(([sid,cnt])=>{
+    const s=stus.find(x=>x.id===sid);if(!s)return;
+    items.push({icon:'📤',text:`${s.name} — 과제 제출 ${cnt}건 미확인`,sid});
+  });
+  unpaidStus.forEach(s=>{items.push({icon:'💰',text:`${s.name} — 이번 달 미납`,sid:s.id});});
+  scoreDrops.forEach(({s,cur,prev})=>{items.push({icon:'📉',text:`${s.name} — 점수 하락 (${prev}% → ${cur}%)`,sid:s.id});});
+  noLessonStus.forEach(s=>{items.push({icon:'⚠️',text:`${s.name} — 이번 달 수업 없음`,sid:s.id});});
+  if(!items.length){el.innerHTML='';return;}
+  el.innerHTML=`<div class="card" style="border-left:4px solid var(--coral)">
+    <div class="ch"><span class="ct" style="color:var(--coral)">🚨 지금 처리할 것</span><span style="font-size:12px;color:var(--slate)">${items.length}건</span></div>
+    <div class="cb" style="padding:0">${items.map(it=>`<div class="dash-action-item" onclick="${it.action?it.action:`loadStuPanel('${it.sid}')`}">
+      <span class="dash-action-icon">${it.icon}</span>
+      <span class="dash-action-text">${it.text}</span>
+      <span style="font-size:11px;color:var(--slate)">→</span>
+    </div>`).join('')}</div>
+  </div>`;
+}
+
+function renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,totalRds){
+  const el=document.getElementById('dash-monthly');if(!el)return;
+  const lesBar=lastLes?Math.min(100,Math.round(thisLes/lastLes*100)):0;
+  const avgDiff=(thisAvg!==null&&lastAvg!==null)?thisAvg-lastAvg:null;
+  const avgDiffHtml=avgDiff!==null
+    ?`<span style="font-size:11px;margin-left:4px;color:${avgDiff>=0?'#0A5940':'var(--coral)'}">${avgDiff>=0?'+':''}${avgDiff}%p</span>`:'';
+  el.innerHTML=`<div class="card">
+    <div class="ch"><span class="ct">📊 이번 달 현황</span></div>
+    <div class="cb" style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
+          <span>출석</span>
+          <span style="font-weight:700">${thisLes}건 <span style="color:var(--slate);font-weight:400">${lastLes?'(지난달 '+lastLes+'건)':''}</span></span>
+        </div>
+        <div class="dash-bar-bg"><div class="dash-bar-fill" style="width:${lesBar}%"></div></div>
       </div>
-    </div>`;
-  }).join('');
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
+        <span>테스트 평균</span><span style="font-weight:700">${thisAvg!==null?thisAvg+'%':'—'}${avgDiffHtml}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
+        <span>누적 원서</span><span style="font-weight:700">${totalRds}권</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderDashNotice(){
+  const el=document.getElementById('dash-notice-section');if(!el)return;
+  el.innerHTML=`<div class="card">
+    <div class="ch"><span class="ct">📢 공지 빠른 등록</span><span style="font-size:11px;color:var(--slate)" id="notice-count-lbl"></span></div>
+    <div class="cb">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <textarea id="dash-notice-input" placeholder="예) 6월 6일 현충일 휴강합니다." style="flex:1;min-height:56px;resize:vertical;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none"></textarea>
+        <button class="btn bt bsm" style="align-self:flex-end" onclick="postNotice()">등록</button>
+      </div>
+      <div id="notice-board"></div>
+    </div>
+  </div>`;
+  renderNoticeBoard();
 }
 
 // ── NOTICE BOARD ──
@@ -2319,53 +2353,6 @@ function renderStudentMyInfo(sid){
   </div>`;
 }
 
-// ── ATTENTION ALERTS ──
-function renderAttentionAlerts(){
-  const el=document.getElementById('dash-attention');if(!el)return;
-  const stus=DB.stus().filter(s=>!s.inactive);
-  const les=DB.less();
-  const tsts=DB.tsts();
-  const today=new Date();
-  const thisMonth=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
-  const alerts=[];
-
-  stus.forEach(s=>{
-    const sLes=les.filter(l=>l.sid===s.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-    const thisMonthLes=sLes.filter(l=>l.date&&l.date.startsWith(thisMonth)&&l.att!=='absent');
-    if(!thisMonthLes.length)alerts.push({sid:s.id,icon:'⚠️',text:`${s.name} — 이번 달 수업 없음`});
-
-    const recent2=sLes.slice(0,2);
-    if(recent2.length===2&&recent2.every(l=>l.att==='absent'))
-      alerts.push({sid:s.id,icon:'⚠️',text:`${s.name} — 최근 2회 연속 결석`});
-
-    const sTsts=tsts.filter(t=>t.sid===s.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-    if(sTsts.length>=2){
-      const cur=pct(sTsts[0].vocabCorrect,sTsts[0].vocabTotal);
-      const prev=pct(sTsts[1].vocabCorrect,sTsts[1].vocabTotal);
-      if(prev-cur>=20)alerts.push({sid:s.id,icon:'📉',text:`${s.name} — 점수 하락 (${prev}% → ${cur}%)`});
-    }
-
-    if(s.fee&&s.payday){
-      if(today.getDate()>=s.payday&&!(s.payments||[]).some(p=>p.date&&p.date.startsWith(thisMonth)))
-        alerts.push({sid:s.id,icon:'💰',text:`${s.name} — 이번 달 미납`});
-    }
-  });
-
-  if(!alerts.length){el.innerHTML='';return;}
-  el.innerHTML=`<div class="card" style="border-left:4px solid var(--coral)">
-    <div class="ch"><span class="ct" style="color:var(--coral)">🚨 주의 필요 (${alerts.length})</span></div>
-    <div class="cb" style="padding:0" id="dash-alert-list"></div>
-  </div>`;
-  const list=document.getElementById('dash-alert-list');
-  alerts.forEach(a=>{
-    const div=document.createElement('div');
-    div.className='att-alert';
-    div.style.cursor='pointer';
-    div.innerHTML=`<span class="att-alert-icon">${a.icon}</span><span class="att-alert-text">${a.text}</span><span style="font-size:11px;color:var(--slate)">→</span>`;
-    div.onclick=()=>{ if(a.sid) loadStuPanel(a.sid); };
-    list.appendChild(div);
-  });
-}
 
 // ── NOTICE READ TRACKING ──
 let _activeNoticeId=null;

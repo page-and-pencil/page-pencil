@@ -444,6 +444,18 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .dash-lbl{font-size:11px;color:var(--slate);margin-top:4px;letter-spacing:.04em;}
 .dash-sub{font-size:10px;color:var(--teal);margin-top:2px;font-weight:600;}
 
+/* 대시보드 재설계 */
+.dash-stu-chip{padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;background:var(--cream);border:1.5px solid var(--border);color:var(--navy);transition:all .15s;}
+.dash-stu-chip:hover{border-color:var(--teal);background:#e8fafb;}
+.dash-stu-chip.done{background:#e6f9f0;border-color:#0A5940;color:#0A5940;}
+.dash-action-item{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;}
+.dash-action-item:last-child{border-bottom:none;}
+.dash-action-item:hover{background:var(--cream);}
+.dash-action-icon{font-size:16px;flex-shrink:0;}
+.dash-action-text{flex:1;font-size:13px;color:var(--navy);}
+.dash-bar-bg{height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
+.dash-bar-fill{height:100%;background:var(--teal);border-radius:4px;transition:width .4s;}
+
 /* 알림 메모 */
 .memo-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;background:#FFF3CD;color:#856404;border:1px solid #FFD700;}
 
