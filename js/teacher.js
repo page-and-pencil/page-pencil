@@ -1706,6 +1706,29 @@ function renderDash(){
   renderDashNotice();
 }
 
+function goAddLesson(sid){
+  swTab('t-les');
+  setTimeout(()=>{const el=document.getElementById('ls-stu');if(el){el.value=sid;fillLastLesson(sid);}},150);
+}
+function openStuPanelTab(sid,tabId){
+  loadStuPanel(sid);
+  setTimeout(()=>swSpTab(tabId),300);
+}
+function openPayMsg(sid){
+  const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+  const acct=DB.acct();
+  const today=new Date();
+  const mo=today.getMonth()+1;
+  const defaultMsg=`안녕하세요, ${s.name} 학생 학부모님.\n${mo}월 수업료 납부 안내 드립니다.${s.fee?'\n수업료: '+Number(s.fee).toLocaleString()+'원':''}${acct.bank&&acct.number?'\n계좌: '+acct.bank+' '+acct.number+(acct.name?' ('+acct.name+')':''):''}`;
+  loadStuPanel(sid);
+  setTimeout(()=>{
+    swSpTab('sp-msg');
+    setTimeout(()=>{
+      const ta=document.getElementById('sp-msg-input');
+      if(ta){ta.value=defaultMsg;ta.focus();}
+    },200);
+  },300);
+}
 function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
   const el=document.getElementById('dash-today');if(!el)return;
   let body;
@@ -1741,18 +1764,18 @@ function renderDashActions(stus,unreadMsgByStu,uncheckedHwByStu,unpaidStus,score
   });
   Object.entries(uncheckedHwByStu).forEach(([sid,cnt])=>{
     const s=stus.find(x=>x.id===sid);if(!s)return;
-    items.push({icon:'📤',text:`${s.name} — 과제 제출 ${cnt}건 미확인`,sid});
+    items.push({icon:'📤',text:`${s.name} — 과제 제출 ${cnt}건 미확인`,action:`openStuPanelTab('${sid}','sp-hw')`});
   });
-  unpaidStus.forEach(s=>{items.push({icon:'💰',text:`${s.name} — 이번 달 미납`,sid:s.id});});
-  scoreDrops.forEach(({s,cur,prev})=>{items.push({icon:'📉',text:`${s.name} — 점수 하락 (${prev}% → ${cur}%)`,sid:s.id});});
-  noLessonStus.forEach(s=>{items.push({icon:'⚠️',text:`${s.name} — 이번 달 수업 없음`,sid:s.id});});
+  unpaidStus.forEach(s=>{items.push({icon:'💰',text:`${s.name} — 이번 달 미납`,label:'납입 안내',action:`openPayMsg('${s.id}')`});});
+  scoreDrops.forEach(({s,cur,prev})=>{items.push({icon:'📉',text:`${s.name} — 점수 하락 (${prev}% → ${cur}%)`,action:`loadStuPanel('${s.id}')`});});
+  noLessonStus.forEach(s=>{items.push({icon:'⚠️',text:`${s.name} — 이번 달 수업 없음`,label:'수업 추가',action:`goAddLesson('${s.id}')`});});
   if(!items.length){el.innerHTML='';return;}
   el.innerHTML=`<div class="card" style="border-left:4px solid var(--coral)">
     <div class="ch"><span class="ct" style="color:var(--coral)">🚨 지금 처리할 것</span><span style="font-size:12px;color:var(--slate)">${items.length}건</span></div>
-    <div class="cb" style="padding:0">${items.map(it=>`<div class="dash-action-item" onclick="${it.action?it.action:`loadStuPanel('${it.sid}')`}">
+    <div class="cb" style="padding:0">${items.map(it=>`<div class="dash-action-item" onclick="${it.action||`loadStuPanel('${it.sid}')`}">
       <span class="dash-action-icon">${it.icon}</span>
       <span class="dash-action-text">${it.text}</span>
-      <span style="font-size:11px;color:var(--slate)">→</span>
+      ${it.label?`<span class="dash-action-label">${it.label} →</span>`:`<span style="font-size:11px;color:var(--slate)">→</span>`}
     </div>`).join('')}</div>
   </div>`;
 }

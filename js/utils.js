@@ -65,7 +65,7 @@ function logout(){clearSession();show('s-land');}
 
 // ── UTILS ──
 function escU(u){return(u||'').replace(/'/g,"\\'");}
-function openM(id){const m=document.getElementById(id);if(m){m.style.removeProperty('display');m.classList.add('open');}}
+function openM(id){const m=document.getElementById(id);if(m){m.style.removeProperty('display');m.classList.add('open');m.style.zIndex='9999';}}
 function closeM(id){
   const m=document.getElementById(id);
   if(m)m.style.display='none';
