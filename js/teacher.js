@@ -1228,32 +1228,38 @@ function delLib(){
 }
 // ── 교재 DB ──
 function renderTbookTable(){
-  const q=(document.getElementById('tbook-search')?.value||'').toLowerCase();
-  const books=(_cache.globalTextbooks||[]).filter(b=>!q||b.title.toLowerCase().includes(q));
-  const el=document.getElementById('tbook-table');if(!el)return;
-  if(!books.length){el.innerHTML='<div class="empty"><div class="empty-i">📗</div><div class="empty-t">교재 없음</div></div>';return;}
-  el.innerHTML=`<table class="tbl">
-    <thead><tr><th>교재명</th><th>출판사</th><th>레벨</th><th>과목</th><th></th></tr></thead>
-    <tbody>${books.map(b=>`<tr>
-      <td style="font-weight:600">${b.title}</td>
-      <td>${b.publisher||'—'}</td>
-      <td>${b.level||'—'}</td>
-      <td>${b.subject||'—'}</td>
-      <td><button class="btn bd bsm" onclick="delGlobalTbook('${b.id}')">삭제</button></td>
-    </tr>`).join('')}</tbody>
-  </table>`;
+  const q=(document.getElementById('tbook-q')?.value||'').toLowerCase();
+  const cat=document.getElementById('tbook-filter-cat')?.value||'';
+  const books=(_cache.globalTextbooks||[]).filter(b=>{
+    if(q&&!b.title.toLowerCase().includes(q))return false;
+    if(cat&&b.category!==cat)return false;
+    return true;
+  });
+  const tbody=document.getElementById('tbook-tbody');if(!tbody)return;
+  if(!books.length){tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--slate);padding:24px">교재 없음</td></tr>`;return;}
+  tbody.innerHTML=books.map(b=>`<tr>
+    <td style="font-weight:600">${b.title}</td>
+    <td>${b.publisher||'—'}</td>
+    <td>${b.level||'—'}</td>
+    <td>${b.category||'—'}</td>
+    <td><button class="btn bd bsm" onclick="delGlobalTbook('${b.id}')">삭제</button></td>
+  </tr>`).join('');
 }
-async function openAddTbook(){
-  const title=prompt('교재명:');if(!title?.trim())return;
-  const publisher=prompt('출판사 (없으면 엔터):');
-  const level=prompt('레벨 (없으면 엔터):');
-  const subject=prompt('과목 (영어/수학/기타):');
-  const tb={id:uid(),title:title.trim(),publisher:publisher||'',level:level||'',subject:subject||''};
+async function addTbook(){
+  const title=document.getElementById('tbook-title')?.value.trim();
+  if(!title)return toast('교재명을 입력하세요');
+  const publisher=document.getElementById('tbook-publisher')?.value.trim()||'';
+  const level=document.getElementById('tbook-level')?.value.trim()||'';
+  const category=document.getElementById('tbook-category')?.value||'';
+  const tb={id:uid(),title,publisher,level,category};
   await supaUpsert('global_textbooks',tb.id,tb,null);
   if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
   _cache.globalTextbooks.push(tb);
   renderTbookTable();
   updateTbookDatalist();
+  closeM('m-add-tbook');
+  ['tbook-title','tbook-publisher','tbook-level'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const catEl=document.getElementById('tbook-category');if(catEl)catEl.value='';
   toast('교재가 추가되었습니다');
 }
 async function delGlobalTbook(id){

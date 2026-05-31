@@ -494,11 +494,26 @@
     <div id="t-tbooks" class="panel">
       <div class="sh">
         <div><div class="st">교재 데이터베이스</div></div>
-        <button class="btn ba bsm" onclick="openAddTbook()">+ 교재 추가</button>
+        <button class="btn bt bsm" onclick="openM('m-add-tbook')">+ 추가</button>
       </div>
-      <div>
-        <input type="text" id="tbook-search" placeholder="교재명 검색..." class="lib-search-input" style="width:100%;margin-bottom:12px" oninput="renderTbookTable()">
-        <div id="tbook-table"></div>
+      <div class="lib-search-bar">
+        <input type="text" class="lib-search-input" id="tbook-q" placeholder="교재명 검색..." oninput="renderTbookTable()">
+        <select class="filter-sel" id="tbook-filter-cat" onchange="renderTbookTable()">
+          <option value="">전체 분류</option>
+          <option value="읽기">읽기</option>
+          <option value="듣기">듣기</option>
+          <option value="쓰기">쓰기</option>
+          <option value="말하기">말하기</option>
+          <option value="어휘">어휘</option>
+          <option value="어법">어법</option>
+          <option value="교과">교과</option>
+        </select>
+      </div>
+      <div class="lib-table-container">
+        <table class="lib-tbl">
+          <thead><tr><th>교재명</th><th>출판사</th><th>레벨</th><th>분류</th><th></th></tr></thead>
+          <tbody id="tbook-tbody"></tbody>
+        </table>
       </div>
     </div>
 
@@ -843,6 +858,31 @@
       <button class="btn bt" style="flex:1" onclick="updRd()">저장</button>
       <button class="btn bd bsm" onclick="reqDelRd()">삭제</button>
     </div>
+  </div>
+</div>
+
+<!-- 교재 추가 -->
+<div id="m-add-tbook" class="mo">
+  <div class="mdl">
+    <div class="mh"><div class="mt">교재 추가</div><button class="bx" onclick="closeM('m-add-tbook')">×</button></div>
+    <div class="fg">
+      <div class="f s2"><label>교재명</label><input type="text" id="tbook-title" placeholder="교재명을 입력하세요"></div>
+      <div class="f"><label>출판사</label><input type="text" id="tbook-publisher" placeholder="출판사"></div>
+      <div class="f"><label>레벨</label><input type="text" id="tbook-level" placeholder="예: 초3, 중1, Level 2"></div>
+      <div class="f s2"><label>분류</label>
+        <select id="tbook-category" class="filter-sel" style="width:100%">
+          <option value="">선택하세요</option>
+          <option value="읽기">읽기</option>
+          <option value="듣기">듣기</option>
+          <option value="쓰기">쓰기</option>
+          <option value="말하기">말하기</option>
+          <option value="어휘">어휘</option>
+          <option value="어법">어법</option>
+          <option value="교과">교과</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn bt" style="width:100%;margin-top:8px" onclick="addTbook()">추가</button>
   </div>
 </div>
 
