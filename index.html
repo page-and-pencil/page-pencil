@@ -857,8 +857,18 @@
           <label class="day-check"><input type="checkbox" value="일"> 일</label>
         </div>
       </div>
-      <div class="f"><label>수업 시간</label><input type="time" id="ec-time"></div>
-      <div class="f s2"><label>소속 학생</label><div id="ec-students" style="display:flex;flex-direction:column;gap:8px;padding:4px 0"></div></div>
+      <div class="f"><label>시작 시간</label><input type="time" id="ec-time-start"></div>
+      <div class="f"><label>종료 시간</label><input type="time" id="ec-time-end"></div>
+      <div class="f s2">
+        <label>소속 학생</label>
+        <div id="ec-stu-tags" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;margin-bottom:6px"></div>
+        <div style="position:relative">
+          <input type="text" id="ec-stu-search" placeholder="이름으로 학생 검색..." autocomplete="off"
+            style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none"
+            oninput="ecStuSearch(this.value)">
+          <div id="ec-stu-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--teal);border-radius:var(--rs);box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:100;max-height:180px;overflow-y:auto"></div>
+        </div>
+      </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn bt" style="flex:1" onclick="saveClass()">저장</button>

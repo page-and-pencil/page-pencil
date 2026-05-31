@@ -1697,7 +1697,7 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
       const students=(allStus||[]).filter(s=>(c.studentIds||[]).includes(s.id));
       return `<div class="dash-class-row${done?' done':''}">
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px">${c.name}${c.time?`<span style="font-size:12px;color:var(--slate);font-weight:400;margin-left:6px">${c.time}</span>`:''}</div>
+          <div style="font-weight:700;font-size:14px">${c.name}${(c.timeStart||c.time)?`<span style="font-size:12px;color:var(--slate);font-weight:400;margin-left:6px">${c.timeStart?(c.timeStart+(c.timeEnd?'~'+c.timeEnd:'')):c.time}</span>`:''}</div>
           <div style="font-size:12px;color:var(--slate);margin-top:2px">${students.map(s=>`<span onclick="loadStuPanel('${s.id}')" style="cursor:pointer;text-decoration:underline">${s.name}</span>`).join(' · ')||'학생 없음'}</div>
         </div>
         <div style="flex-shrink:0">
@@ -2557,7 +2557,7 @@ function renderClassTab(){
       <div class="class-card-head">
         <div style="flex:1;min-width:0">
           <div class="class-card-name">${c.name}${isToday?'<span class="class-today-badge">오늘</span>':''}</div>
-          <div class="class-card-meta">${(c.days||[]).map(d=>d+'요일').join(' · ')}${c.time?' · '+c.time:''} · 학생 ${students.length}명</div>
+          <div class="class-card-meta">${(c.days||[]).map(d=>d+'요일').join(' · ')}${c.timeStart?' · '+c.timeStart+(c.timeEnd?'~'+c.timeEnd:''):c.time?' · '+c.time:''} · 학생 ${students.length}명</div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
           ${isToday&&!done?`<button class="btn bt bsm" onclick="openClassLesson('${c.id}','${todayStr}')">수업 기록</button>`:''}
@@ -2571,18 +2571,48 @@ function renderClassTab(){
   }).join('');
 }
 
+let _ecStuIds=[];
+function ecRenderTags(){
+  const allStus=DB.stus();
+  document.getElementById('ec-stu-tags').innerHTML=_ecStuIds.map(sid=>{
+    const s=allStus.find(x=>x.id===sid);if(!s)return'';
+    return`<span class="ec-stu-tag">${s.name}<span style="font-size:11px;opacity:.7;margin-left:3px">${s.grade||s.lv||''}</span><button onclick="ecRemoveStu('${sid}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--slate);padding:0 0 0 4px;line-height:1">×</button></span>`;
+  }).join('');
+}
+function ecRemoveStu(sid){_ecStuIds=_ecStuIds.filter(x=>x!==sid);ecRenderTags();}
+function ecStuSearch(q){
+  const dd=document.getElementById('ec-stu-dropdown');
+  if(!q.trim()){dd.style.display='none';return;}
+  const allStus=DB.stus().filter(s=>!s.inactive&&!_ecStuIds.includes(s.id));
+  const hits=allStus.filter(s=>s.name.includes(q)||(s.grade||'').includes(q)||(s.school||'').includes(q));
+  if(!hits.length){dd.style.display='none';return;}
+  dd.style.display='block';
+  dd.innerHTML=hits.map(s=>`<div class="ec-stu-opt" onclick="ecAddStu('${s.id}')">${s.name} <span style="font-size:11px;color:var(--slate)">${s.grade||s.lv||''} ${s.school?'· '+s.school:''}</span></div>`).join('');
+}
+function ecAddStu(sid){
+  if(!_ecStuIds.includes(sid))_ecStuIds.push(sid);
+  ecRenderTags();
+  document.getElementById('ec-stu-search').value='';
+  document.getElementById('ec-stu-dropdown').style.display='none';
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#ec-stu-search')&&!e.target.closest('#ec-stu-dropdown'))
+    document.getElementById('ec-stu-dropdown').style.display='none';
+});
+
 function openEditClass(id=null){
   const c=id?DB.classes().find(x=>x.id===id):null;
   document.getElementById('ec-id').value=c?c.id:'';
   document.getElementById('edit-class-title').textContent=c?'클래스 수정':'클래스 만들기';
   document.getElementById('ec-name').value=c?c.name:'';
-  document.getElementById('ec-time').value=c?c.time||'':'';
+  document.getElementById('ec-time-start').value=c?c.timeStart||c.time||'':'';
+  document.getElementById('ec-time-end').value=c?c.timeEnd||'':'';
   document.getElementById('ec-del-btn').style.display=c?'block':'none';
   document.querySelectorAll('#m-edit-class .day-check input').forEach(cb=>{cb.checked=c?(c.days||[]).includes(cb.value):false;});
-  const allStus=DB.stus().filter(s=>!s.inactive);
-  document.getElementById('ec-students').innerHTML=allStus.map(s=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-    <input type="checkbox" value="${s.id}" ${c&&(c.studentIds||[]).includes(s.id)?'checked':''}> ${s.name}<span style="font-size:11px;color:var(--slate)">${s.grade||s.lv||''}</span>
-  </label>`).join('');
+  _ecStuIds=c?[...(c.studentIds||[])]:[];
+  ecRenderTags();
+  document.getElementById('ec-stu-search').value='';
+  document.getElementById('ec-stu-dropdown').style.display='none';
   openM('m-edit-class');
 }
 
@@ -2590,12 +2620,14 @@ async function saveClass(){
   const name=document.getElementById('ec-name').value.trim();
   if(!name){toast('클래스명을 입력하세요');return;}
   const days=[...document.querySelectorAll('#m-edit-class .day-check input:checked')].map(cb=>cb.value);
-  const time=document.getElementById('ec-time').value;
-  const studentIds=[...document.querySelectorAll('#ec-students input:checked')].map(cb=>cb.value);
+  const timeStart=document.getElementById('ec-time-start').value;
+  const timeEnd=document.getElementById('ec-time-end').value;
+  const time=timeStart; // 기존 호환성 유지
+  const studentIds=[..._ecStuIds];
   const existingId=document.getElementById('ec-id').value;
   const id=existingId||uid();
   const existing=DB.classes().find(x=>x.id===id);
-  const c={...(existing||{}),id,name,days,time,studentIds,active:true};
+  const c={...(existing||{}),id,name,days,time,timeStart,timeEnd,studentIds,active:true};
   await supaUpsert('classes',id,c,null);
   if(!_cache.globalClasses)_cache.globalClasses=[];
   const idx=_cache.globalClasses.findIndex(x=>x.id===id);
@@ -2620,7 +2652,8 @@ function openClassLesson(classId,dateStr){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   document.getElementById('cl-class-id').value=classId;
   document.getElementById('cl-modal-title').textContent=c.name+' 수업 기록';
-  document.getElementById('cl-modal-sub').textContent=(c.days||[]).join('·')+'요일'+(c.time?' '+c.time:'');
+  const timeStr=c.timeStart?(c.timeStart+(c.timeEnd?'~'+c.timeEnd:'')):c.time||'';
+  document.getElementById('cl-modal-sub').textContent=(c.days||[]).join('·')+'요일'+(timeStr?' '+timeStr:'');
   document.getElementById('cl-date').value=dateStr||new Date().toISOString().split('T')[0];
   // 공통 교재 초기화
   clSubjs.clear();
