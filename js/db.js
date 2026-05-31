@@ -119,13 +119,13 @@ function handleSupaError(status){
   toast('데이터를 불러오지 못했습니다 (HTTP '+status+')');
   return false;
 }
-async function supaFetch(table,params=''){
+async function supaFetch(table,params='',silent=false){
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),15000);
   try{
     const r=await fetch(SUPA_URL+'/rest/v1/'+table+'?'+params+'&order=updated_at.desc',{headers:SUPA_HEADERS,signal:ctrl.signal});
     clearTimeout(tid);
-    if(!r.ok){handleSupaError(r.status);throw new Error('HTTP '+r.status);}
+    if(!r.ok){if(!silent)handleSupaError(r.status);throw new Error('HTTP '+r.status);}
     return r.json();
   }catch(e){
     clearTimeout(tid);
@@ -196,13 +196,19 @@ async function supaSetSetting(key,value){
 async function loadAllData(){
   showLoading(true);
   try{
-    const [stus,les,tsts,rds,logs,libs,notices,hws,assigns,tbs,msgs,gtbs,acct,pw]=await Promise.all([
-      supaFetch('students'),supaFetch('lessons'),supaFetch('tests'),
-      supaFetch('readings'),supaFetch('logs'),supaFetch('library'),
-      supaFetch('notices'),supaFetch('homeworks'),supaFetch('assignments'),
-      supaFetch('textbooks'),supaFetch('messages'),supaFetch('global_textbooks'),
+    // 테이블별 독립 로드: 한 테이블이 404(미생성)여도 나머지는 정상 로드
+    const tables=['students','lessons','tests','readings','logs','library','notices','homeworks','assignments','textbooks','messages','global_textbooks'];
+    const res=await Promise.allSettled([
+      ...tables.map(t=>supaFetch(t,'',true)),
       supaGetSetting('acct'),supaGetSetting('pw'),
     ]);
+    const missing=tables.filter((t,i)=>res[i].status==='rejected');
+    if(missing.length)console.warn('Supabase 테이블 누락(404 등):',missing.join(', '));
+    // 모든 테이블 fetch가 실패하면(네트워크 단절/프로젝트 중단) 재시도 UI 노출
+    if(tables.every((t,i)=>res[i].status==='rejected'))throw new Error('all table fetches failed');
+    const val=i=>res[i].status==='fulfilled'?res[i].value:null;
+    const [stus,les,tsts,rds,logs,libs,notices,hws,assigns,tbs,msgs,gtbs]=tables.map((t,i)=>val(i));
+    const acct=val(12),pw=val(13);
     _cache.students=(stus||[]).map(r=>(r.data||r));
     _cache.lessons=(les||[]).map(r=>(r.data||r));
     _cache.tests=(tsts||[]).map(r=>(r.data||r));
