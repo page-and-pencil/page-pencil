@@ -248,29 +248,8 @@ async function loadStuPanel(sid){
   const thisMonthLesCount=les.filter(l=>l.date&&l.date.startsWith(thisMonth)&&l.att!=='absent').length;
   const lastLesDate=les.length?les[0].date:'';
 
-  // ── 요약 ──
-  document.getElementById('sp-summary').innerHTML=`
-    <div class="strow" style="margin-bottom:1rem">
-      <div class="stc"><div class="stnum">${les.filter(l=>l.att!=='absent').length}</div><div class="stlbl">전체 출석</div></div>
-      <div class="stc"><div class="stnum">${thisMonthLesCount}</div><div class="stlbl">이번 달</div></div>
-      <div class="stc"><div class="stnum">${bks}</div><div class="stlbl">원서</div></div>
-      <div class="stc"><div class="stnum">${avg!==null?avg+'%':'—'}</div><div class="stlbl">단어 평균</div></div>
-    </div>
-    ${lastLesDate?`<div style="font-size:11px;color:var(--slate);margin-bottom:8px">마지막 수업: <strong>${lastLesDate}</strong></div>`:''}
-    ${(absCount||lateCount||makeupCount)?`<div class="att-row">
-      ${absCount?`<span class="att-chip att-abs">결석 ${absCount}회</span>`:''}
-      ${lateCount?`<span class="att-chip att-late">지각 ${lateCount}회</span>`:''}
-      ${makeupCount?`<span class="att-chip att-make">보강 ${makeupCount}회</span>`:''}
-    </div>`:''}
-    <div style="font-size:12px;color:var(--slate);line-height:2;margin-top:8px">
-      ${s.fee?`<div>월 수업료: <strong>${Number(s.fee).toLocaleString()}원</strong></div>`:''}
-      ${s.payday?`<div>결제일: <strong>매월 ${s.payday}일</strong></div>`:''}
-      ${lastPay?`<div>최근 결제: <strong>${lastPay.date} · ${Number(lastPay.amt).toLocaleString()}원</strong></div>`:''}
-      ${s.memo?`<div>메모: ${s.memo}</div>`:''}
-    </div>
-    <div style="margin-top:12px">
-      <button class="btn bo bsm" onclick="printReport('${sid}')" style="width:100%">🖨️ 학습 리포트 인쇄</button>
-    </div>`;
+  // ── 요약 (기간별) ──
+  renderSpSummary(sid,'month');
 
   // ── 수업 (최근 10개, 더보기 가능) ──
   const lesSlice=les.slice(0,10);
@@ -352,31 +331,26 @@ async function loadStuPanel(sid){
   const sHws=(_cache.homeworks||[]).filter(h=>h.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const sAssigns=(_cache.assignments||[]).filter(a=>a.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const unread=sHws.filter(h=>!h.checked).length;
+  const tomorrowStr=(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().split('T')[0];})();
   document.getElementById('sp-hw').innerHTML=`
   <div style="margin-bottom:12px">
-    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📋 오늘 숙제 할당</div>
+    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📋 숙제 할당</div>
     <div class="fg" style="margin-bottom:8px">
       <div class="f" style="margin-bottom:0"><label>날짜</label><input type="date" id="asgn-date-${sid}" value="${new Date().toISOString().split('T')[0]}"></div>
-      <div class="f" style="margin-bottom:0"><label>종류</label>
-        <select id="asgn-type-${sid}" onchange="renderAsgnForm('${sid}')">
-          <option value="reading">원서 읽기</option>
-          <option value="vocab">단어 암기</option>
-          <option value="other">기타</option>
+      <div class="f" style="margin-bottom:0"><label>마감일</label><input type="date" id="asgn-due-${sid}" value="${tomorrowStr}"></div>
+      <div class="f s2" style="margin-bottom:0"><label>구분</label>
+        <select id="asgn-cat-${sid}" onchange="spHwCatChange('${sid}')">
+          <option value="">선택하세요</option>
+          <option value="phonics">파닉스</option><option value="vocab">어휘</option><option value="grammar">어법</option>
+          <option value="reading">리딩</option><option value="listening">리스닝</option><option value="writing">라이팅</option>
+          <option value="naesin">내신</option><option value="book">원서</option><option value="other">기타</option>
         </select>
       </div>
+      <div class="f s2" style="margin-bottom:0"><label>교재/원서</label><input type="text" id="asgn-book-${sid}" list="dl-hw-books" placeholder="교재 또는 원서 (자동완성)" autocomplete="off"></div>
+      <div class="f s2" style="margin-bottom:0"><label>범위/내용</label><input type="text" id="asgn-range-${sid}" placeholder="예: Unit 3 p.24-28 / Ch.1~3"></div>
     </div>
-    <div id="asgn-form-${sid}">
-      <div class="f"><label>원서 선택</label>
-        <input type="text" id="asgn-book-${sid}" placeholder="제목으로 검색..." list="dl-library" autocomplete="off">
-      </div>
-      <div class="fg">
-        <div class="f"><label>챕터/페이지 범위</label><input type="text" id="asgn-range-${sid}" placeholder="Ch.1-2 또는 p.1-20"></div>
-      </div>
-      <div class="f"><label>평가용 원문 텍스트 (선택, AI 평가에 사용)</label>
-        <textarea id="asgn-ref-${sid}" placeholder="해당 구간 영어 원문 붙여넣기..." style="min-height:60px;resize:vertical;width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none"></textarea>
-      </div>
-    </div>
-    <button class="btn bt bsm" style="width:100%" onclick="saveAssignment('${sid}')">숙제 할당</button>
+    <div id="asgn-extra-${sid}"></div>
+    <button class="btn bt bsm" style="width:100%" onclick="saveStudentAssign('${sid}')">할당</button>
   </div>
   <div class="div-line"></div>
   ${sAssigns.length?`<div style="margin-bottom:8px">
@@ -1779,6 +1753,76 @@ function renderDash(){
   renderDashNotice();
 }
 
+function renderSpSummary(sid,period,from,to){
+  const el=document.getElementById('sp-summary');if(!el)return;
+  const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+  const today=new Date();
+  const todayStr=today.toISOString().split('T')[0];
+  let startDate,endDate=todayStr;
+  if(period==='week'){const d=new Date(today);d.setDate(d.getDate()-7);startDate=d.toISOString().split('T')[0];}
+  else if(period==='month'){startDate=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-01';}
+  else if(period==='semester'){const d=new Date(today);d.setDate(d.getDate()-90);startDate=d.toISOString().split('T')[0];}
+  else if(period==='year'){const d=new Date(today);d.setFullYear(d.getFullYear()-1);startDate=d.toISOString().split('T')[0];}
+  else if(period==='custom'){startDate=from||todayStr;endDate=to||todayStr;}
+  else{startDate=null;}// all
+
+  const allLes=DB.less().filter(l=>l.sid===sid);
+  const les=startDate?allLes.filter(l=>l.date>=startDate&&l.date<=endDate):allLes;
+  const tsts=DB.tsts().filter(t=>t.sid===sid&&(!startDate||t.date>=startDate&&t.date<=endDate));
+  const rds=DB.rds().filter(r=>r.sid===sid&&(!startDate||r.date>=startDate&&r.date<=endDate));
+  const payments=s.payments||[];
+  const lastPay=payments.length?payments[payments.length-1]:null;
+
+  const attended=les.filter(l=>l.att!=='absent').length;
+  const total=les.length;
+  const att=total?Math.round(attended/total*100):0;
+  const avgV=tsts.length?Math.round(tsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/tsts.length):null;
+
+  // 교재 진도 집계
+  const matMap={};
+  les.forEach(l=>{Object.entries(l.materials||{}).forEach(([k,v])=>{
+    const isBook=k==='_book'||k.startsWith('_book_');
+    const baseK=isBook?'_book':k.replace(/_\d+$/,'');
+    const label=isBook?'원서':(SLBL[baseK]||'');
+    if(!label||!v.book)return;
+    if(!matMap[v.book])matMap[v.book]={label,book:v.book,units:[]};
+    if(v.unit&&!matMap[v.book].units.includes(v.unit))matMap[v.book].units.push(v.unit);
+  });});
+
+  const PERIODS=[{v:'week',l:'주간'},{v:'month',l:'월별'},{v:'semester',l:'학기별'},{v:'year',l:'연별'},{v:'all',l:'전체'},{v:'custom',l:'직접 설정'}];
+  el.innerHTML=`
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+      ${PERIODS.map(p=>`<button class="btn ${period===p.v?'bt':'bo'} bsm" style="font-size:11px;padding:4px 10px" onclick="renderSpSummary('${sid}','${p.v}')">${p.l}</button>`).join('')}
+    </div>
+    ${period==='custom'?`<div style="display:flex;gap:8px;margin-bottom:10px">
+      <input type="date" id="sp-sum-from" value="${from||''}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;background:var(--cream);outline:none">
+      <input type="date" id="sp-sum-to" value="${to||''}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;background:var(--cream);outline:none">
+      <button class="btn bt bsm" onclick="renderSpSummary('${sid}','custom',document.getElementById('sp-sum-from').value,document.getElementById('sp-sum-to').value)">적용</button>
+    </div>`:''}
+    <div class="strow" style="margin-bottom:12px">
+      <div class="stc"><div class="stnum">${attended}</div><div class="stlbl">출석</div></div>
+      <div class="stc"><div class="stnum">${total?att+'%':'—'}</div><div class="stlbl">출석률</div></div>
+      <div class="stc"><div class="stnum">${rds.length}</div><div class="stlbl">원서</div></div>
+      <div class="stc"><div class="stnum">${avgV!==null?avgV+'%':'—'}</div><div class="stlbl">단어 평균</div></div>
+    </div>
+    ${Object.keys(matMap).length?`<div style="margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">📚 교재 진도</div>
+      ${Object.values(matMap).map(m=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <span class="spill ${SCLS[m.label]==='sns'?'sns':(Object.entries(SCLS).find(([k])=>SLBL[k]===m.label)?.[1]||'srd')}">${m.label}</span>
+        <span style="font-weight:600">${m.book}</span>
+        ${m.units.length?`<span style="color:var(--slate)">${m.units.slice(-3).join(', ')}</span>`:''}
+      </div>`).join('')}
+    </div>`:''}
+    <div style="font-size:12px;color:var(--slate);line-height:2;margin-top:8px">
+      ${s.fee?`<div>월 수업료: <strong>${Number(s.fee).toLocaleString()}원</strong></div>`:''}
+      ${s.payday?`<div>결제일: <strong>매월 ${s.payday}일</strong></div>`:''}
+      ${lastPay?`<div>최근 결제: <strong>${lastPay.date} · ${Number(lastPay.amt).toLocaleString()}원</strong></div>`:''}
+      ${s.memo?`<div>메모: ${s.memo}</div>`:''}
+    </div>
+    <div style="margin-top:12px">
+      <button class="btn bo bsm" onclick="printReport('${sid}')" style="width:100%">🖨️ 학습 리포트 인쇄</button>
+    </div>`;
+}
 function goAddLesson(sid){
   swTab('t-les');
   setTimeout(()=>{const el=document.getElementById('ls-stu');if(el){el.value=sid;fillLastLesson(sid);}},150);
@@ -2567,13 +2611,20 @@ async function sendTeacherMessage(sid){
   const inp=document.getElementById('sp-msg-input');if(!inp)return;
   const text=inp.value.trim();if(!text)return;
   const msg={id:uid(),sid,fromRole:'teacher',text,createdAt:new Date().toISOString(),read:false};
-  const ok=await supaUpsert('messages',msg.id,msg,null);
-  if(!ok){toast('전송에 실패했습니다. 다시 시도해 주세요.');return;}
-  if(!_cache.messages)_cache.messages=[];
-  _cache.messages.unshift(msg);
-  inp.value='';
-  renderSpMessages(sid);
-  if(document.getElementById('t-msg')?.classList.contains('active'))renderMsgTab();
+  try{
+    await supaUpsert('messages',msg.id,msg,sid);
+    if(!_cache.messages)_cache.messages=[];
+    _cache.messages.unshift(msg);
+    inp.value='';
+    renderSpMessages(sid);
+    if(document.getElementById('t-msg')?.classList.contains('active'))renderMsgTab();
+    updateMsgTabBadge();
+    toast('전송되었습니다');
+  }catch(e){
+    console.error('sendTeacherMessage:',e);
+    if(e.message?.includes('404'))toast('messages 테이블이 없습니다. Supabase SQL Editor에서 supabase_missing_tables.sql을 실행해 주세요.');
+    else toast('전송에 실패했습니다: '+e.message);
+  }
 }
 function hasUnreadMsg(sid){
   return (_cache.messages||[]).some(m=>m.sid===sid&&m.fromRole==='parent'&&!m.read);
@@ -2878,6 +2929,52 @@ function openClassLesson(classId,dateStr){
   openM('m-class-lesson');
 }
 
+function spHwCatChange(sid){
+  const cat=document.getElementById(`asgn-cat-${sid}`)?.value;
+  const bookEl=document.getElementById(`asgn-book-${sid}`);
+  if(cat&&cat!=='other'&&cat!=='book'&&bookEl&&!bookEl.value){
+    const stClasses=DB.classes().filter(c=>(c.studentIds||[]).includes(sid));
+    for(const c of stClasses){
+      const matched=Object.entries(c.commonMaterials||{}).find(([k])=>k===cat||k.startsWith(cat+'_'));
+      if(matched){bookEl.value=matched[1].book||'';break;}
+    }
+  }
+  const extra=document.getElementById(`asgn-extra-${sid}`);
+  if(cat==='vocab'&&extra){
+    const recentCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).slice(0,20);
+    extra.innerHTML=`<div class="f" style="margin-top:6px"><label>단어 선택</label>
+      <div style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);padding:6px">
+        ${recentCards.length?recentCards.map(c=>`<label style="display:flex;align-items:center;gap:6px;padding:2px 0;cursor:pointer;font-size:12px"><input type="checkbox" class="asgn-vocab-chk" value="${c.word}"> ${c.word}<span style="font-size:10px;color:var(--slate)">${c.meaning||''}</span></label>`).join(''):'<span style="font-size:12px;color:var(--slate)">단어 카드 없음</span>'}
+      </div></div>`;
+  } else if(extra) extra.innerHTML='';
+}
+async function saveStudentAssign(sid){
+  const cat=document.getElementById(`asgn-cat-${sid}`)?.value;
+  const book=document.getElementById(`asgn-book-${sid}`)?.value.trim()||'';
+  const range=document.getElementById(`asgn-range-${sid}`)?.value.trim()||'';
+  const date=document.getElementById(`asgn-date-${sid}`)?.value||new Date().toISOString().split('T')[0];
+  const due=document.getElementById(`asgn-due-${sid}`)?.value||date;
+  if(!cat){toast('구분을 선택해 주세요');return;}
+  const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+  const isReading=cat==='book'||allLib.some(b=>b.title===book);
+  const type=isReading?'reading':cat==='vocab'?'vocab':cat==='other'?'other':'textbook';
+  const a={id:uid(),sid,type,category:cat,date,due,bookTitle:book,range};
+  if(type==='vocab'){
+    const checked=[...document.querySelectorAll('.asgn-vocab-chk:checked')].map(c=>c.value);
+    const extra=(document.getElementById(`asgn-book-${sid}`)?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
+    a.words=[...new Set([...checked,...extra])];
+    if(a.words.length)await syncVocabCards(sid,a.words,[],date);
+  }
+  if(!book&&!range&&type!=='vocab'){toast('교재/원서 또는 범위를 입력해 주세요');return;}
+  try{
+    await supaUpsert('assignments',a.id,a,sid);
+    if(!_cache.assignments)_cache.assignments=[];
+    _cache.assignments.unshift(a);
+    await loadStuPanel(sid);
+    swSpTab('sp-hw');
+    toast('과제가 할당되었습니다');
+  }catch(e){toast('저장 실패: '+e.message);}
+}
 function clAddIndCmt(btn,chip){
   const row=btn.closest('.cl-stu-row');if(!row)return;
   const ta=row.querySelector('.cl-ind-cmt');if(!ta)return;
