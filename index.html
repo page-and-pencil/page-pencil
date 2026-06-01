@@ -987,6 +987,27 @@
   </div>
 </div>
 
+<!-- 교재 단원 단어 관리 -->
+<div id="m-tbook-units" class="mo" data-protect>
+  <div class="mdl">
+    <div class="mh">
+      <div>
+        <div class="mt" id="tu-title">단원별 단어 관리</div>
+        <div style="font-size:12px;color:var(--slate)" id="tu-sub"></div>
+      </div>
+      <button class="bx" onclick="closeM('m-tbook-units')">×</button>
+    </div>
+    <input type="hidden" id="tu-tb-id">
+    <div id="tu-units-list" style="margin-bottom:12px;max-height:280px;overflow-y:auto"></div>
+    <div class="div-line"></div>
+    <div class="fg" style="margin-top:12px">
+      <div class="f s2"><label>단원명</label><input type="text" id="tu-unit-name" placeholder="예: Unit 1 / Ch.3 / Lesson 4"></div>
+      <div class="f s2"><label>단어 목록 (쉼표 구분)</label><input type="text" id="tu-words" placeholder="apple, ant, arm, ask"></div>
+    </div>
+    <button class="btn bt" style="width:100%" onclick="addTbookUnit()">+ 단원 추가</button>
+  </div>
+</div>
+
 <!-- 원서 추가 -->
 <div id="m-add-lib" class="mo" data-protect>
   <div class="mdl">
