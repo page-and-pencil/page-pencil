@@ -1691,12 +1691,28 @@ function parseLineByLine(text){
   }
   return words;
 }
+// 잘린 JSON 자동 복구 (max_tokens 도달 시)
+function tryRepairJSON(txt){
+  const lastEntry=txt.lastIndexOf('"}');
+  if(lastEntry<0)return txt;
+  let partial=txt.substring(0,lastEntry+2);
+  const opens=[];let inStr=false,esc=false;
+  for(const c of partial){
+    if(esc){esc=false;continue;}
+    if(c==='\\'){esc=true;continue;}
+    if(c==='"'){inStr=!inStr;continue;}
+    if(inStr)continue;
+    if(c==='{'||c==='[')opens.push(c==='{'?'}':']');
+    else if(c==='}'||c===']')opens.pop();
+  }
+  return partial+opens.reverse().join('');
+}
 // AI 범용 파서 — 어떤 포맷이든 Claude가 영단어/뜻/품사/예문 추출
 async function parseWordListWithAI(rawText){
   if(!DB.api())return null;
-  const truncated=rawText.trim().split(/\s+/).slice(0,3000).join(' ');
+  const truncated=rawText.trim().split(/\s+/).slice(0,2000).join(' ');
   try{
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:4000,messages:[{role:'user',content:`다음 텍스트에서 영어 단어 학습 데이터를 모두 추출하세요.
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:8192,messages:[{role:'user',content:`다음 텍스트에서 영어 단어 학습 데이터를 모두 추출하세요.
 
 규칙:
 - word: 영어 단어 또는 구동사 소문자 (look at, run away 등 포함)
@@ -1704,15 +1720,17 @@ async function parseWordListWithAI(rawText){
 - pos: noun/verb/adj/adv/prep/phrase/conj 중 하나 (없으면 "")
 - example: 텍스트에 예문이 있으면 그대로 발췌, 없으면 ""
 - 제외: 고유명사(인명·지명), the/a/an/is/it 등 단순 기능어
-- 최대 300개
+- 최대 150개
 
 JSON만 반환:
 {"words":[{"word":"hello","ko":"안녕","pos":"verb","example":""}]}
 
 텍스트:
 ${truncated}`}]});
-    const txt=d.content?.[0]?.text?.trim()||'';
-    const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    let txt=d.content?.[0]?.text?.trim()||'';
+    txt=txt.replace(/```json|```/g,'').trim();
+    try{JSON.parse(txt);}catch{txt=tryRepairJSON(txt);}
+    const json=JSON.parse(txt);
     return(json.words||[]).map(w=>({word:(w.word||'').toLowerCase().trim(),ko:(w.ko||'').trim(),pos:(w.pos||'').trim(),example:(w.example||'').trim()})).filter(w=>w.word&&/^[a-zA-Z]/.test(w.word));
   }catch{return null;}
 }
@@ -1951,8 +1969,8 @@ function getGradeFromLevel(level){
 async function aiImportWords(rawText,tbId){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
   const grade=getGradeFromLevel(tb?.level||'');
-  const truncated=rawText.trim().split(/\s+/).slice(0,3000).join(' ');
-  const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:4000,messages:[{role:'user',content:`다음 영어 교재 단어 파일을 파싱하세요.
+  const truncated=rawText.trim().split(/\s+/).slice(0,2000).join(' ');
+  const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:8192,messages:[{role:'user',content:`다음 영어 교재 단어 파일을 파싱하세요.
 
 규칙:
 1. 단원 구분(Lesson/Unit/Day/Chapter+번호)이 있으면 각 단원으로 분류, 없으면 "전체"로 통합
@@ -1962,15 +1980,17 @@ async function aiImportWords(rawText,tbId){
    - pos: noun/verb/adj/adv/prep/phrase/conj (파일에 없으면 추론)
    - example: 파일에 있으면 그대로 발췌, 없으면 ${grade} 학생 수준의 자연스러운 예문 1문장
 3. 제외: 고유명사(인명·지명), the/a/an/is/it 등 기능어
-4. 최대 300개
+4. 단원당 최대 30개, 전체 최대 200개
 
 JSON만 반환:
 {"units":{"Lesson 1. My Room":[{"word":"room","ko":"방","pos":"noun","example":"My room has a big window."}]}}
 
 텍스트:
 ${truncated}`}]});
-  const txt=d.content?.[0]?.text?.trim()||'';
-  const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
+  let txt=d.content?.[0]?.text?.trim()||'';
+  txt=txt.replace(/```json|```/g,'').trim();
+  try{JSON.parse(txt);}catch{txt=tryRepairJSON(txt);}
+  const json=JSON.parse(txt);
   const units=json.units||{};
   // 원서 DB에서 더 좋은 예문으로 교체
   for(const words of Object.values(units)){
