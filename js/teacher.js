@@ -1252,16 +1252,15 @@ function fillFromLib(libId){
   document.getElementById('rd-title').value=b.title||'';
   document.getElementById('rd-series').value=b.series||'';
   document.getElementById('rd-ar').value=b.ar||b.arLevel||'';
-  document.getElementById('rd-genre').value=b.genre||b.level||'';
 }
 async function saveRd(){
   if(_saving['saveRd'])return; _saving['saveRd']=true;
   try{
   const sid=document.getElementById('rd-stu').value;if(!sid){toast('학생을 선택해 주세요');return;}
-  const newRd={id:uid(),sid,date:document.getElementById('rd-date').value,title:document.getElementById('rd-title').value.trim(),series:document.getElementById('rd-series').value.trim(),arLevel:document.getElementById('rd-ar').value.trim(),genre:document.getElementById('rd-genre').value.trim(),progress:document.getElementById('rd-prog').value.trim()};
+  const newRd={id:uid(),sid,date:document.getElementById('rd-date').value,title:document.getElementById('rd-title').value.trim(),series:document.getElementById('rd-series').value.trim(),arLevel:document.getElementById('rd-ar').value.trim(),progress:document.getElementById('rd-prog').value.trim()};
   await supaUpsert('readings',newRd.id,newRd,sid);
   _cache.readings.unshift(newRd);
-  ['rd-title','rd-series','rd-ar','rd-genre','rd-prog'].forEach(i=>document.getElementById(i).value='');
+  ['rd-title','rd-series','rd-ar','rd-prog'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('rd-lib-sel').value='';renderRd();toast('원서 기록이 저장되었습니다');
   checkNewBadges(sid);
   }catch(e){
