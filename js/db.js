@@ -229,9 +229,9 @@ async function loadAllData(){
     const _dk=String.fromCharCode(115,107,45,97,110,116,45,97,112,105,48,51,45,108,69,72,49,104,87,56,57,78,106,68,45,72,104,120,51,97,101,55,82,113,69,70,99,122,53,105,118,110,86,111,67,67,80,67,51,77,114,52,69,99,54,107,75,88,70,74,111,54,111,115,67,88,101,87,78,83,97,122,120,97,86,51,114,102,106,78,89,81,104,83,84,107,115,116,99,110,56,72,74,54,122,75,114,85,81,45,103,106,103,89,122,103,65,65);
     const DEFAULT_CLD={name:'drwys3bkz',preset:'pp_unsigned'};
     if(apikey){_cache.settings.apikey=apikey;DB.s('apikey',apikey);}
-    else{_cache.settings.apikey=_dk;DB.s('apikey',_dk);await supaSetSetting('apikey',_dk);}
+    else{const la=DB.g('apikey');if(la){_cache.settings.apikey=la;supaSetSetting('apikey',la).catch(()=>{});}else{_cache.settings.apikey=_dk;DB.s('apikey',_dk);await supaSetSetting('apikey',_dk);}}
     if(cloud){_cache.settings.cloud=cloud;DB.s('cloud',cloud);}
-    else{_cache.settings.cloud=DEFAULT_CLD;DB.s('cloud',DEFAULT_CLD);await supaSetSetting('cloud',DEFAULT_CLD);}
+    else{const lc=DB.g('cloud');if(lc&&lc.name){_cache.settings.cloud=lc;supaSetSetting('cloud',lc).catch(()=>{});}else{_cache.settings.cloud=DEFAULT_CLD;DB.s('cloud',DEFAULT_CLD);await supaSetSetting('cloud',DEFAULT_CLD);}}
   }catch(e){
     console.error('loadAllData:',e);
     const currentScreen=document.querySelector('.screen.active')?.id;
