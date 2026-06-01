@@ -1326,12 +1326,26 @@ async function addLib(){
   libCoverB64='';libCoverMime='';document.getElementById('lib-cover-fname').textContent='클릭하여 표지 사진 선택';
   renderLib();populateLibSel();toast('원서목록에 추가되었습니다');
 }
+function elibTab(tab){
+  document.getElementById('elib-pane-info').style.display=tab==='info'?'block':'none';
+  document.getElementById('elib-pane-vocab').style.display=tab==='vocab'?'block':'none';
+  const infoBtn=document.getElementById('elib-tab-info'),vocabBtn=document.getElementById('elib-tab-vocab');
+  if(infoBtn){infoBtn.style.color=tab==='info'?'var(--teal)':'var(--slate)';infoBtn.style.borderBottomColor=tab==='info'?'var(--teal)':'transparent';infoBtn.style.fontWeight=tab==='info'?'700':'600';}
+  if(vocabBtn){vocabBtn.style.color=tab==='vocab'?'var(--teal)':'var(--slate)';vocabBtn.style.borderBottomColor=tab==='vocab'?'var(--teal)':'transparent';vocabBtn.style.fontWeight=tab==='vocab'?'700':'600';}
+}
 function openEditLib(id){
   const b=DB.libs().find(x=>x.id===id);if(!b)return;
-  document.getElementById('elib-id').value=b.id;document.getElementById('elib-title').value=b.title||'';
-  document.getElementById('elib-series').value=b.series||'';document.getElementById('elib-ar').value=b.arLevel||'';
-  document.getElementById('elib-genre').value=b.genre||'';document.getElementById('elib-pages').value=b.pages||'';
-  document.getElementById('elib-pub').value=b.publisher||'';openM('m-edit-lib');
+  document.getElementById('elib-id').value=b.id;
+  document.getElementById('elib-title').value=b.title||'';
+  document.getElementById('elib-series').value=b.series||'';
+  document.getElementById('elib-ar').value=b.arLevel||'';
+  document.getElementById('elib-genre').value=b.genre||'';
+  document.getElementById('elib-pages').value=b.pages||'';
+  document.getElementById('elib-pub').value=b.publisher||'';
+  document.getElementById('elib-booktext').value=b.bookText||'';
+  elibTab('info');
+  renderLibVocabTable(id);
+  openM('m-edit-lib');
 }
 async function updLib(){
   const id=document.getElementById('elib-id').value;
@@ -1339,6 +1353,139 @@ async function updLib(){
   _cache.library[idx]={..._cache.library[idx],title:document.getElementById('elib-title').value.trim(),series:document.getElementById('elib-series').value.trim(),arLevel:document.getElementById('elib-ar').value.trim(),genre:document.getElementById('elib-genre').value.trim(),pages:document.getElementById('elib-pages').value.trim(),publisher:document.getElementById('elib-pub').value.trim()};
   await supaUpsert('library',id,_cache.library[idx],null);
   closeM('m-edit-lib');renderLib();populateLibSel();toast('수정되었습니다');
+}
+async function saveLibText(){
+  const id=document.getElementById('elib-id').value;
+  const idx=_cache.library.findIndex(x=>x.id===id);if(idx<0)return;
+  _cache.library[idx]={..._cache.library[idx],bookText:document.getElementById('elib-booktext').value.trim()};
+  await supaUpsert('library',id,_cache.library[idx],null);
+  toast('본문이 저장되었습니다');
+}
+function renderLibVocabTable(id){
+  const b=(_cache.library||[]).find(x=>x.id===id);
+  const vocab=(b?.vocab||[]);
+  const cnt=document.getElementById('elib-vocab-cnt');if(cnt)cnt.textContent=vocab.length?`(${vocab.length}개)`:'';
+  const tbody=document.getElementById('elib-vocab-tbody');if(!tbody)return;
+  if(!vocab.length){tbody.innerHTML='<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단어가 없습니다. AI 추출 또는 직접 추가하세요.</td></tr>';return;}
+  tbody.innerHTML=vocab.map((w,i)=>`<tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}</td>
+    <td style="padding:6px 8px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
+    <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px">${w.pos||'—'}</span></td>
+    <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic">${w.example||'—'}</td>
+    <td style="padding:4px"><button onclick="delLibVocabWord('${id}',${i})" style="background:none;border:none;cursor:pointer;color:var(--coral);font-size:15px;padding:0 4px;line-height:1">×</button></td>
+  </tr>`).join('');
+}
+async function extractLibVocab(){
+  const id=document.getElementById('elib-id').value;
+  const text=document.getElementById('elib-booktext').value.trim();
+  if(!text)return toast('본문을 먼저 입력하고 저장해 주세요');
+  const status=document.getElementById('elib-extract-status');if(status)status.textContent='AI가 단어 추출 중...';
+  const truncated=text.split(/\s+/).slice(0,2500).join(' ');
+  try{
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:2500,
+      messages:[{role:'user',content:`다음 영어 원서 본문에서 학습 가치 있는 단어를 추출하세요.\n규칙:\n1. 사람이름·지명·고유명사 완전 제외\n2. the·a·is·have 등 기초 단어 제외\n3. 각 단어: 한국어뜻(2-3단어)·품사(noun/verb/adj/adv/prep)·본문 예문(없으면 생성)\n4. 중복 없이 최대 40개\nJSON만 반환: {"words":[{"word":"terrific","ko":"훌륭한","pos":"adj","example":"Some pig! Terrific!"}]}\n\n본문:\n${truncated}`}]});
+    const txt=d.content?.[0]?.text?.trim()||'';
+    const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    if(!json.words?.length){if(status)status.textContent='';return toast('추출된 단어가 없습니다');}
+    const b=_cache.library.find(x=>x.id===id);
+    const existing=(b?.vocab||[]);
+    const existSet=new Set(existing.map(w=>w.word.toLowerCase()));
+    const newWords=json.words.filter(w=>w.word&&!existSet.has(w.word.toLowerCase()));
+    const updatedVocab=[...existing,...newWords];
+    const updated={...b,vocab:updatedVocab,bookText:document.getElementById('elib-booktext').value.trim()};
+    await supaUpsert('library',id,updated,null);
+    const idx=_cache.library.findIndex(x=>x.id===id);if(idx>=0)_cache.library[idx]=updated;
+    renderLibVocabTable(id);renderLibTable();
+    if(status)status.textContent='';
+    toast(`${newWords.length}개 단어 추출 완료 (총 ${updatedVocab.length}개)`);
+  }catch(e){if(status)status.textContent='';toast('추출 실패: '+e.message);}
+}
+async function elibAddWord(){
+  const id=document.getElementById('elib-id').value;
+  const word=document.getElementById('elib-wrd-en').value.trim().toLowerCase();if(!word)return toast('영어 단어를 입력하세요');
+  const b=_cache.library.find(x=>x.id===id);if(!b)return;
+  const existing=(b.vocab||[]);
+  if(existing.some(w=>w.word.toLowerCase()===word))return toast('이미 있는 단어입니다');
+  const newEntry={word,ko:document.getElementById('elib-wrd-ko').value.trim(),pos:document.getElementById('elib-wrd-pos').value,example:document.getElementById('elib-wrd-ex').value.trim()};
+  const updated={...b,vocab:[...existing,newEntry]};
+  await supaUpsert('library',id,updated,null);
+  const idx=_cache.library.findIndex(x=>x.id===id);if(idx>=0)_cache.library[idx]=updated;
+  ['elib-wrd-en','elib-wrd-ko','elib-wrd-ex'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+  document.getElementById('elib-wrd-pos').value='';
+  renderLibVocabTable(id);renderLibTable();toast('추가되었습니다');
+}
+async function delLibVocabWord(id,idx){
+  const b=_cache.library.find(x=>x.id===id);if(!b)return;
+  const vocab=[...(b.vocab||[])];vocab.splice(idx,1);
+  const updated={...b,vocab};
+  await supaUpsert('library',id,updated,null);
+  const ci=_cache.library.findIndex(x=>x.id===id);if(ci>=0)_cache.library[ci]=updated;
+  renderLibVocabTable(id);renderLibTable();
+}
+async function elibAutoFill(){
+  const word=document.getElementById('elib-wrd-en').value.trim();
+  if(!word)return toast('영어 단어를 먼저 입력하세요');
+  toast('AI 자동 생성 중...');
+  try{
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:120,
+      messages:[{role:'user',content:`영어 단어 "${word}"에 대해 JSON만 출력:\n{"ko":"한국어 뜻 2-3단어","pos":"noun/verb/adj/adv/prep 중 하나","example":"영어 예문 8단어 이내"}`}]});
+    const txt=d.content?.[0]?.text?.trim()||'';
+    const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    const koEl=document.getElementById('elib-wrd-ko'),posEl=document.getElementById('elib-wrd-pos'),exEl=document.getElementById('elib-wrd-ex');
+    if(!koEl.value&&json.ko)koEl.value=json.ko;
+    if(!posEl.value&&json.pos)posEl.value=json.pos;
+    if(!exEl.value&&json.example)exEl.value=json.example;
+    toast('AI 생성 완료');
+  }catch(e){toast('AI 생성 실패');}
+}
+function elibImportFile(e){
+  const file=e.target.files[0];if(!file)return;
+  const id=document.getElementById('elib-id').value;
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(ext==='xlsx'||ext==='xls'){
+    if(typeof XLSX==='undefined'){toast('Excel 라이브러리 로딩 중, 잠시 후 다시 시도하세요');return;}
+    const reader=new FileReader();
+    reader.onload=ev=>{const wb=XLSX.read(ev.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];elibProcessImport(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}),id);};
+    reader.readAsBinaryString(file);
+  }else{
+    const reader=new FileReader();
+    reader.onload=ev=>elibProcessImport(ev.target.result.split('\n').filter(l=>l.trim()).map(l=>parseCSVLine(l)),id);
+    reader.readAsText(file,'UTF-8');
+  }
+  e.target.value='';
+}
+async function elibProcessImport(rows,id){
+  if(!rows?.length)return toast('파일이 비어있습니다');
+  const firstRow=rows[0].map(c=>String(c).toLowerCase().trim());
+  const isHeader=['영어','word','english','단어'].some(h=>firstRow.includes(h));
+  const wI=isHeader?firstRow.findIndex(h=>['영어','word','english','단어'].includes(h)):0;
+  const kI=isHeader?firstRow.findIndex(h=>['한국어','korean','뜻','meaning','ko'].includes(h)):1;
+  const pI=isHeader?firstRow.findIndex(h=>['품사','pos','part'].includes(h)):2;
+  const eI=isHeader?firstRow.findIndex(h=>['예문','example','sentence','ex'].includes(h)):3;
+  const b=_cache.library.find(x=>x.id===id);if(!b)return;
+  const existing=(b.vocab||[]);const existSet=new Set(existing.map(w=>w.word.toLowerCase()));
+  const newWords=[];
+  for(let i=isHeader?1:0;i<rows.length;i++){
+    const r=rows[i];const word=String(r[wI>=0?wI:0]||'').trim().toLowerCase();
+    if(!word||existSet.has(word))continue;
+    newWords.push({word,ko:kI>=0?String(r[kI]||'').trim():'',pos:pI>=0?String(r[pI]||'').trim():'',example:eI>=0?String(r[eI]||'').trim():''});
+    existSet.add(word);
+  }
+  if(!newWords.length)return toast('새로 추가할 단어가 없습니다');
+  const updated={...b,vocab:[...existing,...newWords]};
+  await supaUpsert('library',id,updated,null);
+  const idx=_cache.library.findIndex(x=>x.id===id);if(idx>=0)_cache.library[idx]=updated;
+  renderLibVocabTable(id);renderLibTable();toast(`${newWords.length}단어 추가 완료`);
+}
+function elibExportVocab(){
+  const id=document.getElementById('elib-id').value;
+  const b=_cache.library.find(x=>x.id===id);if(!b)return;
+  const vocab=b.vocab||[];if(!vocab.length)return toast('단어가 없습니다');
+  const header='영어,한국어,품사,예문';
+  const rows=vocab.map(w=>[`"${(w.word||'').replace(/"/g,'""')}"`,`"${(w.ko||'').replace(/"/g,'""')}"`,`"${(w.pos||'').replace(/"/g,'""')}"`,`"${(w.example||'').replace(/"/g,'""')}"`].join(','));
+  const csv='﻿'+[header,...rows].join('\r\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`${b.title||'원서'}_단어장.csv`;a.click();
 }
 function delLib(){
   const id=document.getElementById('elib-id').value;
@@ -1638,6 +1785,7 @@ function renderLibTable(){
       <td style="font-size:12px;color:var(--slate)">${b.lexile||'—'}</td>
       <td style="font-size:12px;color:var(--slate)">${b.level||'—'}</td>
       <td><span class="badge ${isCustom?'bteal':'bslate'}" style="font-size:10px">${isCustom?'추가':'기본'}</span></td>
+      <td style="text-align:center">${isCustom&&b.vocab?.length?`<button class="btn ba" style="padding:2px 8px;font-size:10px" onclick="openEditLib('${b.id}');setTimeout(()=>elibTab('vocab'),200)">${b.vocab.length}단어</button>`:'<span style="color:var(--slate);font-size:11px">—</span>'}</td>
       <td style="text-align:center;min-width:160px">
         ${renderAudioCell(b)}
       </td>

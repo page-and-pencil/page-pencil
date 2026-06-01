@@ -464,7 +464,7 @@
       <div class="lib-table-container">
         <table class="lib-tbl">
           <thead><tr>
-            <th>제목</th><th>시리즈</th><th>AR</th><th>렉사일</th><th>레벨</th><th>구분</th><th>오디오</th><th></th>
+            <th>제목</th><th>시리즈</th><th>AR</th><th>렉사일</th><th>레벨</th><th>구분</th><th>단어</th><th>오디오</th><th></th>
           </tr></thead>
           <tbody id="lib-tbody"></tbody>
         </table>
@@ -1070,20 +1070,73 @@
 
 <!-- 원서 수정 -->
 <div id="m-edit-lib" class="mo" data-protect>
-  <div class="mdl">
+  <div class="mdl mdl-xl">
     <div class="mh"><div class="mt">원서 수정</div><button class="bx" onclick="closeM('m-edit-lib')">×</button></div>
     <input type="hidden" id="elib-id">
-    <div class="fg">
-      <div class="f s2"><label>책 제목</label><input type="text" id="elib-title"></div>
-      <div class="f"><label>시리즈</label><input type="text" id="elib-series"></div>
-      <div class="f"><label>AR 레벨</label><input type="text" id="elib-ar"></div>
-      <div class="f"><label>장르</label><input type="text" id="elib-genre"></div>
-      <div class="f"><label>총 페이지</label><input type="text" id="elib-pages"></div>
-      <div class="f"><label>출판사</label><input type="text" id="elib-pub"></div>
+    <!-- 탭 -->
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px">
+      <button id="elib-tab-info" onclick="elibTab('info')" style="padding:8px 16px;font-size:12px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb)">기본 정보</button>
+      <button id="elib-tab-vocab" onclick="elibTab('vocab')" style="padding:8px 16px;font-size:12px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb)">📚 본문 & 단어장 <span id="elib-vocab-cnt" style="font-size:10px"></span></button>
     </div>
-    <div style="display:flex;gap:8px;margin-top:4px">
-      <button class="btn bt" style="flex:1" onclick="updLib()">저장</button>
-      <button class="btn bd bsm" onclick="delLib()">삭제</button>
+    <!-- 기본 정보 탭 -->
+    <div id="elib-pane-info">
+      <div class="fg">
+        <div class="f s2"><label>책 제목</label><input type="text" id="elib-title"></div>
+        <div class="f"><label>시리즈</label><input type="text" id="elib-series"></div>
+        <div class="f"><label>AR 레벨</label><input type="text" id="elib-ar"></div>
+        <div class="f"><label>장르</label><input type="text" id="elib-genre"></div>
+        <div class="f"><label>총 페이지</label><input type="text" id="elib-pages"></div>
+        <div class="f"><label>출판사</label><input type="text" id="elib-pub"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn bt" style="flex:1" onclick="updLib()">저장</button>
+        <button class="btn bd bsm" onclick="delLib()">삭제</button>
+      </div>
+    </div>
+    <!-- 본문 & 단어장 탭 -->
+    <div id="elib-pane-vocab" style="display:none">
+      <!-- 본문 입력 -->
+      <div class="f" style="margin-bottom:8px">
+        <label>원서 본문 (붙여넣기 또는 직접 입력)</label>
+        <textarea id="elib-booktext" placeholder="원서 본문을 붙여넣으세요. AI가 학습 단어를 자동 추출합니다." style="width:100%;height:110px;padding:10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn bt bsm" onclick="extractLibVocab()" style="white-space:nowrap">✨ AI 단어 추출</button>
+        <button class="btn ba bsm" onclick="saveLibText()" style="white-space:nowrap">본문 저장</button>
+        <span style="font-size:11px;color:var(--slate)" id="elib-extract-status"></span>
+      </div>
+      <!-- 단어 테이블 -->
+      <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:10px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:var(--cream2);position:sticky;top:0">
+            <th style="padding:6px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate)">영어</th>
+            <th style="padding:6px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate)">한국어</th>
+            <th style="padding:6px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate)">품사</th>
+            <th style="padding:6px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate)">예문</th>
+            <th style="width:24px"></th>
+          </tr></thead>
+          <tbody id="elib-vocab-tbody"></tbody>
+        </table>
+      </div>
+      <!-- 단어 추가 폼 -->
+      <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:8px;flex-wrap:wrap">
+        <div style="flex:1.2;min-width:70px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">영어</label><input type="text" id="elib-wrd-en" placeholder="terrific" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fd);color:var(--navy);background:var(--cream);box-sizing:border-box"></div>
+        <div style="flex:1;min-width:60px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">한국어</label><input type="text" id="elib-wrd-ko" placeholder="훌륭한" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream);box-sizing:border-box"></div>
+        <div style="flex:0.7;min-width:60px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">품사</label>
+          <select id="elib-wrd-pos" style="width:100%;padding:6px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
+            <option value="">—</option><option value="noun">명사</option><option value="verb">동사</option>
+            <option value="adj">형용사</option><option value="adv">부사</option><option value="prep">전치사</option>
+          </select>
+        </div>
+        <div style="flex:2;min-width:100px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">예문</label><input type="text" id="elib-wrd-ex" placeholder="Some pig! Terrific!" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream);box-sizing:border-box"></div>
+        <button class="btn ba bsm" onclick="elibAutoFill()" style="white-space:nowrap">✨ AI</button>
+        <button class="btn bt bsm" onclick="elibAddWord()" style="white-space:nowrap">+ 추가</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn ba bsm" onclick="document.getElementById('elib-wrd-file').click()">📁 Excel/CSV</button>
+        <input type="file" id="elib-wrd-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="elibImportFile(event)">
+        <button class="btn ba bsm" onclick="elibExportVocab()">⬇ CSV 내보내기</button>
+      </div>
     </div>
   </div>
 </div>
