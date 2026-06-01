@@ -1519,13 +1519,69 @@ function renderLibVocabTable(id){
   const cnt=document.getElementById('elib-vocab-cnt');if(cnt)cnt.textContent=vocab.length?`(${vocab.length}개)`:'';
   const tbody=document.getElementById('elib-vocab-tbody');if(!tbody)return;
   if(!vocab.length){tbody.innerHTML='<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단어가 없습니다. AI 추출 또는 직접 추가하세요.</td></tr>';return;}
-  tbody.innerHTML=vocab.map((w,i)=>`<tr style="border-bottom:1px solid var(--border)">
+  tbody.innerHTML=vocab.map((w,i)=>`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)">
     <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}</td>
     <td style="padding:6px 8px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
     <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px">${w.pos||'—'}</span></td>
     <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic">${w.example||'—'}</td>
-    <td style="padding:4px"><button onclick="delLibVocabWord('${id}',${i})" style="background:none;border:none;cursor:pointer;color:var(--coral);font-size:15px;padding:0 4px;line-height:1">×</button></td>
+    <td style="padding:4px;white-space:nowrap">
+      <button onclick="elibEditInline('${id}',${i})" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 5px;cursor:pointer;font-size:13px" title="수정">✏️</button>
+      <button onclick="delLibVocabWord('${id}',${i})" style="background:none;border:none;cursor:pointer;color:var(--coral);font-size:15px;padding:0 4px;line-height:1">×</button>
+    </td>
   </tr>`).join('');
+}
+function elibEditInline(id,idx){
+  const b=(_cache.library||[]).find(x=>x.id===id);if(!b)return;
+  const w=(b.vocab||[])[idx];if(!w)return;
+  const tr=document.querySelector(`#elib-vocab-tbody tr[data-rowidx="${idx}"]`);if(!tr)return;
+  const iStyle='width:100%;box-sizing:border-box;padding:4px 6px;border:1.5px solid var(--teal);border-radius:4px;font-size:12px;font-family:var(--fb);outline:none';
+  tr.innerHTML=`
+    <td style="padding:4px"><input id="elib-ie-word" value="${escAttr(w.word)}" style="${iStyle};font-weight:600;font-family:var(--fd)"></td>
+    <td style="padding:4px"><input id="elib-ie-ko" value="${escAttr(w.ko||'')}" placeholder="한국어" style="${iStyle}"></td>
+    <td style="padding:4px"><select id="elib-ie-pos" style="padding:4px 2px;border:1.5px solid var(--teal);border-radius:4px;font-size:11px;font-family:var(--fb);outline:none">${posOptionsHtml(w.pos||'')}</select></td>
+    <td style="padding:4px"><input id="elib-ie-ex" value="${escAttr(w.example||'')}" placeholder="예문" style="${iStyle};font-style:italic"></td>
+    <td style="padding:4px;white-space:nowrap">
+      <button onclick="elibAIFillInline('${id}',${idx})" style="background:none;border:1px solid #f59e0b;border-radius:4px;padding:2px 5px;cursor:pointer;font-size:12px" title="AI 자동완성">✨</button>
+      <button onclick="elibSaveInline('${id}',${idx})" style="background:var(--teal);color:#fff;border:none;border-radius:4px;padding:3px 7px;cursor:pointer;font-size:11px;margin-left:2px">저장</button>
+      <button onclick="renderLibVocabTable('${id}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 5px;cursor:pointer;font-size:11px;color:var(--slate);margin-left:2px">✕</button>
+    </td>`;
+  tr.querySelectorAll('input').forEach(inp=>inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();elibSaveInline(id,idx);}
+    if(e.key==='Escape'){renderLibVocabTable(id);}
+  }));
+  tr.querySelector('#elib-ie-word')?.focus();
+}
+async function elibSaveInline(id,idx){
+  const word=(document.getElementById('elib-ie-word')?.value||'').trim().toLowerCase();
+  if(!word)return toast('영어 단어를 입력하세요');
+  const ko=document.getElementById('elib-ie-ko')?.value.trim()||'';
+  const pos=document.getElementById('elib-ie-pos')?.value||'';
+  const example=document.getElementById('elib-ie-ex')?.value.trim()||'';
+  const b=_cache.library.find(x=>x.id===id);if(!b)return;
+  const vocab=[...(b.vocab||[])];
+  vocab[idx]={...vocab[idx],word,ko,pos,example};
+  const updated={...b,vocab};
+  try{
+    await supaUpsert('library',id,updated,null);
+    const i=_cache.library.findIndex(x=>x.id===id);if(i>=0)_cache.library[i]=updated;
+    renderLibVocabTable(id);toast('저장되었습니다');
+  }catch(err){toast('저장 실패: '+err.message);}
+}
+async function elibAIFillInline(id,idx){
+  const word=document.getElementById('elib-ie-word')?.value.trim();
+  if(!word||!DB.api())return toast('API 키가 필요합니다');
+  const btn=document.querySelector(`#elib-vocab-tbody tr[data-rowidx="${idx}"] button[onclick^="elibAIFillInline"]`);
+  if(btn){btn.textContent='...';btn.disabled=true;}
+  try{
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:100,messages:[{role:'user',content:`영어 단어/표현 "${word}"의 한국어 뜻·품사·예문 JSON:\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장"}`}]});
+    const json=JSON.parse((d.content?.[0]?.text?.trim()||'').replace(/```json|```/g,'').trim());
+    const koEl=document.getElementById('elib-ie-ko');const posEl=document.getElementById('elib-ie-pos');const exEl=document.getElementById('elib-ie-ex');
+    if(koEl&&!koEl.value&&json.ko)koEl.value=json.ko;
+    if(posEl&&!posEl.value&&json.pos)posEl.value=json.pos;
+    if(exEl&&!exEl.value&&json.example)exEl.value=json.example;
+    toast('AI 완료');
+  }catch(e){toast('AI 실패');}
+  if(btn){btn.textContent='✨';btn.disabled=false;}
 }
 async function extractLibVocab(){
   const id=document.getElementById('elib-id').value;
@@ -1932,13 +1988,70 @@ function tuRenderWords(tbId,unitKey){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
   const words=tuNormWords(tb?.units?.[unitKey]||[]);
   if(!words.length){tbody.innerHTML='<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단어가 없습니다. 아래에서 추가하거나 Excel/CSV 파일을 가져오세요.</td></tr>';return;}
-  tbody.innerHTML=words.map((w,i)=>`<tr style="border-bottom:1px solid var(--border)">
+  tbody.innerHTML=words.map((w,i)=>`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)">
     <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}</td>
     <td style="padding:6px 8px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
     <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px;white-space:nowrap">${w.pos||'—'}</span></td>
     <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic">${w.example||'—'}</td>
-    <td style="padding:4px"><button onclick="tuDelWord('${tbId}','${escAttr(unitKey)}',${i})" style="background:none;border:none;cursor:pointer;color:var(--coral);font-size:15px;padding:0 4px;line-height:1">×</button></td>
+    <td style="padding:4px;white-space:nowrap">
+      <button onclick="tuEditInline('${tbId}','${escAttr(unitKey)}',${i})" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 5px;cursor:pointer;font-size:13px" title="수정">✏️</button>
+      <button onclick="tuDelWord('${tbId}','${escAttr(unitKey)}',${i})" style="background:none;border:none;cursor:pointer;color:var(--coral);font-size:15px;padding:0 4px;line-height:1">×</button>
+    </td>
   </tr>`).join('');
+}
+function tuEditInline(tbId,unitKey,idx){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const words=tuNormWords(tb.units?.[unitKey]||[]);
+  const w=words[idx];if(!w)return;
+  const tr=document.querySelector(`#tu-word-tbody tr[data-rowidx="${idx}"]`);if(!tr)return;
+  const iStyle='width:100%;box-sizing:border-box;padding:4px 6px;border:1.5px solid var(--teal);border-radius:4px;font-size:12px;font-family:var(--fb);outline:none';
+  tr.innerHTML=`
+    <td style="padding:4px"><input id="tu-ie-word" value="${escAttr(w.word)}" style="${iStyle};font-weight:600;font-family:var(--fd)"></td>
+    <td style="padding:4px"><input id="tu-ie-ko" value="${escAttr(w.ko||'')}" placeholder="한국어" style="${iStyle}"></td>
+    <td style="padding:4px"><select id="tu-ie-pos" style="padding:4px 2px;border:1.5px solid var(--teal);border-radius:4px;font-size:11px;font-family:var(--fb);outline:none">${posOptionsHtml(w.pos||'')}</select></td>
+    <td style="padding:4px"><input id="tu-ie-ex" value="${escAttr(w.example||'')}" placeholder="예문" style="${iStyle};font-style:italic"></td>
+    <td style="padding:4px;white-space:nowrap">
+      <button onclick="tuAIFillInline('${tbId}','${escAttr(unitKey)}',${idx})" style="background:none;border:1px solid #f59e0b;border-radius:4px;padding:2px 5px;cursor:pointer;font-size:12px" title="AI 자동완성">✨</button>
+      <button onclick="tuSaveInline('${tbId}','${escAttr(unitKey)}',${idx})" style="background:var(--teal);color:#fff;border:none;border-radius:4px;padding:3px 7px;cursor:pointer;font-size:11px;margin-left:2px">저장</button>
+      <button onclick="tuRenderWords('${tbId}','${escAttr(unitKey)}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 5px;cursor:pointer;font-size:11px;color:var(--slate);margin-left:2px">✕</button>
+    </td>`;
+  tr.querySelectorAll('input').forEach(inp=>inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();tuSaveInline(tbId,unitKey,idx);}
+    if(e.key==='Escape'){tuRenderWords(tbId,unitKey);}
+  }));
+  tr.querySelector('#tu-ie-word')?.focus();
+}
+async function tuSaveInline(tbId,unitKey,idx){
+  const word=(document.getElementById('tu-ie-word')?.value||'').trim().toLowerCase();
+  if(!word)return toast('영어 단어를 입력하세요');
+  const ko=document.getElementById('tu-ie-ko')?.value.trim()||'';
+  const pos=document.getElementById('tu-ie-pos')?.value||'';
+  const example=document.getElementById('tu-ie-ex')?.value.trim()||'';
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const words=tuNormWords(tb.units?.[unitKey]||[]);
+  words[idx]={...words[idx],word,ko,pos,example};
+  const updated={...tb,units:{...(tb.units||{}),[unitKey]:words}};
+  try{
+    await supaUpsert('global_textbooks',tbId,updated,null);
+    const i=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(i>=0)_cache.globalTextbooks[i]=updated;
+    tuRenderWords(tbId,unitKey);toast('저장되었습니다');
+  }catch(err){toast('저장 실패: '+err.message);}
+}
+async function tuAIFillInline(tbId,unitKey,idx){
+  const word=document.getElementById('tu-ie-word')?.value.trim();
+  if(!word||!DB.api())return toast('API 키가 필요합니다');
+  const btn=document.querySelector(`#tu-word-tbody tr[data-rowidx="${idx}"] button[onclick^="tuAIFillInline"]`);
+  if(btn){btn.textContent='...';btn.disabled=true;}
+  try{
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:100,messages:[{role:'user',content:`영어 단어/표현 "${word}"의 한국어 뜻·품사·예문 JSON:\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장"}`}]});
+    const json=JSON.parse((d.content?.[0]?.text?.trim()||'').replace(/```json|```/g,'').trim());
+    const koEl=document.getElementById('tu-ie-ko');const posEl=document.getElementById('tu-ie-pos');const exEl=document.getElementById('tu-ie-ex');
+    if(koEl&&!koEl.value&&json.ko)koEl.value=json.ko;
+    if(posEl&&!posEl.value&&json.pos)posEl.value=json.pos;
+    if(exEl&&!exEl.value&&json.example)exEl.value=json.example;
+    toast('AI 완료');
+  }catch(e){toast('AI 실패');}
+  if(btn){btn.textContent='✨';btn.disabled=false;}
 }
 function tuCreateUnit(){
   const tbId=document.getElementById('tu-tb-id').value;
@@ -2417,9 +2530,13 @@ function switchDataTab(tab){
 }
 
 // ── 단어 DB (교재+원서 통합) ──
-let _wdbEditEntry=null,_wdbPagedEntries=[],wdbPage=0,wdbSortDir='asc';
+let _wdbPagedEntries=[],wdbPage=0,wdbSortDir='asc';
 const WDB_PAGE_SIZE=50;
 const POS_KO={noun:'명사',verb:'동사',adj:'형용사',adv:'부사',prep:'전치사',phrase:'구/숙어',conj:'접속사'};
+function posOptionsHtml(sel){
+  return [['','—'],['noun','명사'],['verb','동사'],['adj','형용사'],['adv','부사'],['prep','전치사'],['phrase','구동사/숙어'],['conj','접속사'],['pron','대명사']]
+    .map(([v,l])=>`<option value="${v}"${sel===v?' selected':''}>${l}</option>`).join('');
+}
 
 function buildWordDB(){
   const words=[];
@@ -2476,13 +2593,13 @@ function renderWordDB(){
     const srcText=w.srcType==='textbook'
       ?`${w.srcTitle}${w.srcUnit?' · '+w.srcUnit:''}${w.srcLevel?' ('+w.srcLevel+')':''}`
       :`${w.srcTitle}${w.srcLevel?' · AR '+w.srcLevel:''}`;
-    return`<tr style="border-bottom:1px solid var(--border)${isFirst&&i>0?';border-top:1.5px solid var(--cream2)':''}">
+    return`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)${isFirst&&i>0?';border-top:1.5px solid var(--cream2)':''}">
       ${wordCell}
       <td style="padding:6px 8px;font-size:13px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
       <td style="padding:6px 8px;white-space:nowrap">${w.pos?`<span style="font-size:10px;background:var(--cream2);padding:2px 6px;border-radius:3px">${POS_KO[w.pos]||w.pos}</span>`:'<span style="color:var(--slate)">—</span>'}</td>
       <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.example)}">${w.example||'—'}</td>
       <td style="padding:6px 8px;font-size:11px;color:${srcColor};max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(srcText)}">${srcText}</td>
-      <td style="padding:4px"><button onclick="openWdbEdit(${i})" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;color:var(--slate)">수정</button></td>
+      <td style="padding:4px"><button onclick="wdbEditInline(${i})" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:13px" title="수정">✏️</button></td>
     </tr>`;
   }).join('');
   // 페이지네이션
@@ -2496,32 +2613,44 @@ function renderWordDB(){
   </div>`;
 }
 
-function openWdbEdit(idx){
-  const entry=_wdbPagedEntries[idx];if(!entry)return;
-  _wdbEditEntry=entry;
-  document.getElementById('wdb-edit-word').value=entry.word;
-  document.getElementById('wdb-edit-ko').value=entry.ko||'';
-  document.getElementById('wdb-edit-pos').value=entry.pos||'';
-  document.getElementById('wdb-edit-example').value=entry.example||'';
-  const srcLabel=entry.srcType==='textbook'
-    ?`📚 ${entry.srcTitle}${entry.srcUnit?' · '+entry.srcUnit:''}${entry.srcLevel?' ('+entry.srcLevel+')':''}`
-    :`📖 ${entry.srcTitle}${entry.srcLevel?' · AR '+entry.srcLevel:''}`;
-  document.getElementById('wdb-edit-src-label').textContent=srcLabel;
-  openM('m-wdb-edit');
+function wdbEditInline(idx){
+  const w=_wdbPagedEntries[idx];if(!w)return;
+  const tr=document.querySelector(`#wdb-tbody tr[data-rowidx="${idx}"]`);if(!tr)return;
+  const srcColor=w.srcType==='textbook'?'var(--teal)':'#b45309';
+  const srcText=w.srcType==='textbook'
+    ?`${w.srcTitle}${w.srcUnit?' · '+w.srcUnit:''}${w.srcLevel?' ('+w.srcLevel+')':''}`
+    :`${w.srcTitle}${w.srcLevel?' · AR '+w.srcLevel:''}`;
+  const iStyle='width:100%;box-sizing:border-box;padding:4px 6px;border:1.5px solid var(--teal);border-radius:4px;font-size:12px;font-family:var(--fb);outline:none';
+  tr.innerHTML=`
+    <td style="padding:6px 8px;font-weight:700;font-family:var(--fd);color:var(--navy);white-space:nowrap">${escAttr(w.word)}</td>
+    <td style="padding:4px"><input id="wdb-ie-ko" value="${escAttr(w.ko||'')}" placeholder="한국어" style="${iStyle}"></td>
+    <td style="padding:4px"><select id="wdb-ie-pos" style="padding:4px 2px;border:1.5px solid var(--teal);border-radius:4px;font-size:11px;font-family:var(--fb);outline:none">${posOptionsHtml(w.pos||'')}</select></td>
+    <td style="padding:4px"><input id="wdb-ie-ex" value="${escAttr(w.example||'')}" placeholder="예문" style="${iStyle};font-style:italic"></td>
+    <td style="padding:4px;font-size:11px;color:${srcColor};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px">${escAttr(srcText)}</td>
+    <td style="padding:4px;white-space:nowrap">
+      <button onclick="wdbAIFillInline(${idx})" style="background:none;border:1px solid #f59e0b;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:12px" title="AI 자동완성">✨</button>
+      <button onclick="wdbSaveInline(${idx})" style="background:var(--teal);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;margin-left:2px">저장</button>
+      <button onclick="renderWordDB()" style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 6px;cursor:pointer;font-size:11px;color:var(--slate);margin-left:2px">✕</button>
+    </td>`;
+  tr.querySelectorAll('input').forEach(inp=>inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();wdbSaveInline(idx);}
+    if(e.key==='Escape'){renderWordDB();}
+  }));
+  tr.querySelector('#wdb-ie-ko')?.focus();
 }
 
-async function saveWdbEdit(){
-  const e=_wdbEditEntry;if(!e)return;
-  const ko=document.getElementById('wdb-edit-ko').value.trim();
-  const pos=document.getElementById('wdb-edit-pos').value;
-  const ex=document.getElementById('wdb-edit-example').value.trim();
+async function wdbSaveInline(idx){
+  const e=_wdbPagedEntries[idx];if(!e)return;
+  const ko=document.getElementById('wdb-ie-ko')?.value.trim()||'';
+  const pos=document.getElementById('wdb-ie-pos')?.value||'';
+  const ex=document.getElementById('wdb-ie-ex')?.value.trim()||'';
   try{
     if(e.srcType==='textbook'){
       const tb=(_cache.globalTextbooks||[]).find(b=>b.id===e.srcId);
       if(tb&&tb.units?.[e.srcUnit]){
         const ws=tuNormWords(tb.units[e.srcUnit]);
         const wi=ws.findIndex(w=>w.word.toLowerCase()===e.word&&(w.pos||'')===(e.pos||''));
-        if(wi>=0){ws[wi]={...ws[wi],ko,pos,example:ex};tb.units[e.srcUnit]=ws;await supaUpsert('global_textbooks',tb.id,tb,null);const idx=_cache.globalTextbooks.findIndex(b=>b.id===tb.id);if(idx>=0)_cache.globalTextbooks[idx]=tb;}
+        if(wi>=0){ws[wi]={...ws[wi],ko,pos,example:ex};tb.units[e.srcUnit]=ws;await supaUpsert('global_textbooks',tb.id,tb,null);const idx2=_cache.globalTextbooks.findIndex(b=>b.id===tb.id);if(idx2>=0)_cache.globalTextbooks[idx2]=tb;}
       }
     }else{
       let book=_cache.library.find(b=>b.id===e.srcId);
@@ -2529,27 +2658,27 @@ async function saveWdbEdit(){
       if(book){
         const vocab=[...(book.vocab||[])];
         const wi=vocab.findIndex(w=>(w.word||'').toLowerCase()===e.word&&(w.pos||'')===(e.pos||''));
-        if(wi>=0){vocab[wi]={...vocab[wi],ko,pos,example:ex};book.vocab=vocab;await supaUpsert('library',book.id,book,null);const idx=_cache.library.findIndex(b=>b.id===book.id);if(idx>=0)_cache.library[idx]=book;}
+        if(wi>=0){vocab[wi]={...vocab[wi],ko,pos,example:ex};book.vocab=vocab;await supaUpsert('library',book.id,book,null);const idx3=_cache.library.findIndex(b=>b.id===book.id);if(idx3>=0)_cache.library[idx3]=book;}
       }
     }
-    closeM('m-wdb-edit');renderWordDB();toast('저장되었습니다');
+    renderWordDB();toast('저장되었습니다');
   }catch(err){toast('저장 실패: '+err.message);}
 }
 
-async function wdbAIFillEntry(){
-  const word=document.getElementById('wdb-edit-word').value;
-  if(!word||!DB.api())return toast('API 키가 필요합니다');
-  toast('AI 자동완성 중...');
+async function wdbAIFillInline(idx){
+  const w=_wdbPagedEntries[idx];if(!w||!DB.api())return toast('API 키가 필요합니다');
+  const btn=document.querySelector(`#wdb-tbody tr[data-rowidx="${idx}"] button[onclick^="wdbAIFillInline"]`);
+  if(btn){btn.textContent='...';btn.disabled=true;}
   try{
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:100,messages:[{role:'user',content:`영어 단어/표현 "${word}"의 한국어 뜻·품사·예문 JSON:\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장"}`}]});
-    const txt=d.content?.[0]?.text?.trim()||'';
-    const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
-    const koEl=document.getElementById('wdb-edit-ko');const posEl=document.getElementById('wdb-edit-pos');const exEl=document.getElementById('wdb-edit-example');
-    if(!koEl.value&&json.ko)koEl.value=json.ko;
-    if(!posEl.value&&json.pos)posEl.value=json.pos;
-    if(!exEl.value&&json.example)exEl.value=json.example;
-    toast('AI 자동완성 완료');
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:100,messages:[{role:'user',content:`영어 단어/표현 "${w.word}"의 한국어 뜻·품사·예문 JSON:\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장"}`}]});
+    const json=JSON.parse((d.content?.[0]?.text?.trim()||'').replace(/```json|```/g,'').trim());
+    const koEl=document.getElementById('wdb-ie-ko');const posEl=document.getElementById('wdb-ie-pos');const exEl=document.getElementById('wdb-ie-ex');
+    if(koEl&&!koEl.value&&json.ko)koEl.value=json.ko;
+    if(posEl&&!posEl.value&&json.pos)posEl.value=json.pos;
+    if(exEl&&!exEl.value&&json.example)exEl.value=json.example;
+    toast('AI 완료');
   }catch(e){toast('AI 실패');}
+  if(btn){btn.textContent='✨';btn.disabled=false;}
 }
 
 // 품사 표기 정규화: 한국어 표기 → 시스템 영문 코드
