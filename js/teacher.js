@@ -51,37 +51,33 @@ async function saveApiKey(){
 async function testApiKey(){
   const el=document.getElementById('apikey-test-result');
   const dot=document.getElementById('apikey-status-dot');
-  // 입력 필드에 실제 키가 있으면 먼저 저장 후 테스트
   const inputVal=document.getElementById('cfg-apikey').value.trim();
   if(inputVal&&inputVal!=='••••••'){await saveApiKey();}
   const k=DB.api();
   if(!k){el.innerHTML='<div class="ais warn">⚠️ API Key를 입력하고 저장해 주세요</div>';return;}
+  if(!k.startsWith('sk-ant-')){el.innerHTML='<div class="ais err">❌ Key 형식이 올바르지 않습니다 (sk-ant-로 시작해야 합니다)</div>';if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}return;}
   el.innerHTML='<div class="ais loading"><div class="spin"></div>연결 확인 중...</div>';
+  const BODY=JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:5,messages:[{role:'user',content:'ping'}]});
+  const isFetchErr=e=>e.message==='Failed to fetch'||e.message.includes('NetworkError')||e.message.includes('fetch');
+  const parseErr=async res=>{const d=await res.json().catch(()=>({}));const c=res.status;return c===401?'API Key가 잘못되었거나 만료되었습니다':c===403?'이 Key는 해당 모델에 접근 권한이 없습니다':c===429?'사용량 한도에 도달했습니다. 잠시 후 다시 시도하세요':c===500?'Anthropic 서버 오류입니다. 잠시 후 다시 시도하세요':d.error?.message||'HTTP '+c;};
+  // 1차: 브라우저 헤더 포함 (정상 경로)
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:5,messages:[{role:'user',content:'ping'}]})
-    });
-    if(res.ok){
-      el.innerHTML='<div class="ais ok">✅ 연결됨 — API Key 정상 작동</div>';
-      if(dot){dot.style.color='#0a5940';dot.textContent='● 연결됨';}
-    }else{
-      const d=await res.json().catch(()=>({}));
-      const code=res.status;
-      const msg=code===401?'API Key가 잘못되었거나 만료되었습니다':
-                code===403?'이 Key는 해당 모델에 접근 권한이 없습니다':
-                code===429?'사용량 한도에 도달했습니다. 잠시 후 다시 시도하세요':
-                code===500?'Anthropic 서버 오류입니다. 잠시 후 다시 시도하세요':
-                d.error?.message||'HTTP '+code;
-      el.innerHTML=`<div class="ais err">❌ ${msg}</div>`;
-      if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}
-    }
-  }catch(e){
-    const isCors=e.message==='Failed to fetch'||e.message.includes('NetworkError');
-    el.innerHTML=isCors
-      ?'<div class="ais err">❌ 브라우저 보안 정책으로 연결이 차단되었습니다. console.anthropic.com에서 Key가 유효한지 확인해 주세요</div>'
-      :`<div class="ais err">❌ 연결 실패: ${e.message}</div>`;
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},body:BODY});
+    if(res.ok){el.innerHTML='<div class="ais ok">✅ 연결됨 — API Key 정상 작동</div>';if(dot){dot.style.color='#0a5940';dot.textContent='● 연결됨';}return;}
+    const msg=await parseErr(res);
+    el.innerHTML=`<div class="ais err">❌ ${msg}</div>`;if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}return;
+  }catch(e){if(!isFetchErr(e)){el.innerHTML=`<div class="ais err">❌ ${e.message}</div>`;if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}return;}}
+  // 2차: 브라우저 헤더 제외 (CORS 원인 진단)
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01'},body:BODY});
+    const d=await res.json().catch(()=>({}));
+    if(res.status===401){el.innerHTML='<div class="ais err">❌ API Key가 잘못되었거나 만료되었습니다</div>';if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}return;}
+    // 서버 응답 받음 = 네트워크는 OK, 브라우저 헤더 허용 여부 문제
+    el.innerHTML='<div class="ais warn">⚠️ API 서버에 도달했습니다. Key 저장 완료. AI 코멘트·단어뜻 기능을 사용해 실제 작동을 확인하세요</div>';
+    if(dot){dot.style.color='#b8860b';dot.textContent='● 저장됨';}
+  }catch(e2){
+    // 둘 다 실패 = 네트워크·방화벽 차단
+    el.innerHTML='<div class="ais err">❌ api.anthropic.com에 연결할 수 없습니다. 광고 차단 브라우저 확장 프로그램이나 네트워크 방화벽을 확인해 주세요</div>';
     if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}
   }
 }
