@@ -85,27 +85,8 @@ async function markHwChecked(hwId,sid){
   if(refText&&hw.audioUrl&&apiKey&&!hw.aiScore){
     toast('AI 평가 중...');
     try{
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'x-api-key':apiKey,
-          'anthropic-version':'2023-06-01',
-          'anthropic-dangerous-allow-browser':'true'
-        },
-        body:JSON.stringify({
-          model:'claude-haiku-4-5-20251001',
-          max_tokens:150,
-          messages:[{
-            role:'user',
-            content:`영어 낭독 과제 평가. 원문과 제출 상황을 보고 한국어로 100자 이내 피드백 작성. 칭찬과 개선점 균형있게. 원문: "${refText}". 피드백만 출력:`
-          }]
-        })
-      });
-      if(res.ok){
-        const d=await res.json();
-        hw.aiScore=d.content?.[0]?.text?.trim()||'';
-      }
+      const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content:`영어 낭독 과제 평가. 원문과 제출 상황을 보고 한국어로 100자 이내 피드백 작성. 칭찬과 개선점 균형있게. 원문: "${refText}". 피드백만 출력:`}]});
+      hw.aiScore=d.content?.[0]?.text?.trim()||'';
     }catch(e){console.error('AI eval:',e);}
   }
   await supaUpsert('homeworks',hwId,hw,sid);
@@ -531,15 +512,9 @@ async function submitHomework(sid, assignmentId=''){
     if(asgn&&asgn.referenceText&&apiKey&&hwAudioUrl){
       toast('AI 평가 중...');
       try{
-        const res=await fetch('https://api.anthropic.com/v1/messages',{
-          method:'POST',
-          headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
-          body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`학생이 아래 영어 원문 구간을 낭독 제출했습니다. 녹음을 텍스트로 변환한 결과와 원문을 비교하여 발음/유창성/정확도를 평가해주세요. 간결하게 한국어로 피드백 작성 (100자 내외). 원문: ${asgn.referenceText}`}]})
-        });
-        if(res.ok){
-          const aiScore=(await res.json()).content?.[0]?.text?.trim()||'';
-          if(aiScore){hw.aiScore=aiScore;await supaUpsert('homeworks',hw.id,hw,sid);}
-        }
+        const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`학생이 아래 영어 원문 구간을 낭독 제출했습니다. 녹음을 텍스트로 변환한 결과와 원문을 비교하여 발음/유창성/정확도를 평가해주세요. 간결하게 한국어로 피드백 작성 (100자 내외). 원문: ${asgn.referenceText}`}]});
+        const aiScore=d.content?.[0]?.text?.trim()||'';
+        if(aiScore){hw.aiScore=aiScore;await supaUpsert('homeworks',hw.id,hw,sid);}
       }catch(e){console.warn('AI 평가 실패',e);}
     }
     renderAssignmentTab(sid);

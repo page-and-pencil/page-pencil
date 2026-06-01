@@ -57,27 +57,17 @@ async function testApiKey(){
   if(!k){el.innerHTML='<div class="ais warn">⚠️ API Key를 입력하고 저장해 주세요</div>';return;}
   if(!k.startsWith('sk-ant-')){el.innerHTML='<div class="ais err">❌ Key 형식이 올바르지 않습니다 (sk-ant-로 시작해야 합니다)</div>';if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}return;}
   el.innerHTML='<div class="ais loading"><div class="spin"></div>연결 확인 중...</div>';
-  const BODY=JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:5,messages:[{role:'user',content:'ping'}]});
-  const isFetchErr=e=>e.message==='Failed to fetch'||e.message.includes('NetworkError')||e.message.includes('fetch');
-  const parseErr=async res=>{const d=await res.json().catch(()=>({}));const c=res.status;return c===401?'API Key가 잘못되었거나 만료되었습니다':c===403?'이 Key는 해당 모델에 접근 권한이 없습니다':c===429?'사용량 한도에 도달했습니다. 잠시 후 다시 시도하세요':c===500?'Anthropic 서버 오류입니다. 잠시 후 다시 시도하세요':d.error?.message||'HTTP '+c;};
-  // 1차: 브라우저 헤더 포함 (정상 경로)
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},body:BODY});
-    if(res.ok){el.innerHTML='<div class="ais ok">✅ 연결됨 — API Key 정상 작동</div>';if(dot){dot.style.color='#0a5940';dot.textContent='● 연결됨';}return;}
-    const msg=await parseErr(res);
-    el.innerHTML=`<div class="ais err">❌ ${msg}</div>`;if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}return;
-  }catch(e){if(!isFetchErr(e)){el.innerHTML=`<div class="ais err">❌ ${e.message}</div>`;if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}return;}}
-  // 2차: 브라우저 헤더 제외 (CORS 원인 진단)
-  try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01'},body:BODY});
-    const d=await res.json().catch(()=>({}));
-    if(res.status===401){el.innerHTML='<div class="ais err">❌ API Key가 잘못되었거나 만료되었습니다</div>';if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}return;}
-    // 서버 응답 받음 = 네트워크는 OK, 브라우저 헤더 허용 여부 문제
-    el.innerHTML='<div class="ais warn">⚠️ API 서버에 도달했습니다. Key 저장 완료. AI 코멘트·단어뜻 기능을 사용해 실제 작동을 확인하세요</div>';
-    if(dot){dot.style.color='#b8860b';dot.textContent='● 저장됨';}
-  }catch(e2){
-    // 둘 다 실패 = 네트워크·방화벽 차단
-    el.innerHTML='<div class="ais err">❌ api.anthropic.com에 연결할 수 없습니다. 광고 차단 브라우저 확장 프로그램이나 네트워크 방화벽을 확인해 주세요</div>';
+    await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:5,messages:[{role:'user',content:'ping'}]});
+    el.innerHTML='<div class="ais ok">✅ 연결됨 — API Key 정상 작동</div>';
+    if(dot){dot.style.color='#0a5940';dot.textContent='● 연결됨';}
+  }catch(e){
+    const m=e.message||'';
+    const msg=m.includes('401')||m.includes('invalid_api_key')?'API Key가 잘못되었거나 만료되었습니다':
+              m.includes('429')?'사용량 한도에 도달했습니다. 잠시 후 다시 시도하세요':
+              m.includes('403')?'이 Key는 해당 모델에 접근 권한이 없습니다':
+              m.includes('Edge Function')||m.includes('404')?'Edge Function이 아직 배포되지 않았습니다. 아래 안내를 따라 배포해 주세요':m;
+    el.innerHTML=`<div class="ais err">❌ ${msg}</div>`;
     if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}
   }
 }
@@ -1612,28 +1602,9 @@ async function handleTstPhoto(e){
 
 // ── AI VISION ──
 async function callVision(apiKey,b64,mime,prompt){
-  const res=await fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'x-api-key':apiKey,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-allow-browser':'true'
-    },
-    body:JSON.stringify({
-      model:'claude-haiku-4-5-20251001',
-      max_tokens:1000,
-      messages:[{role:'user',content:[
-        {type:'image',source:{type:'base64',media_type:mime,data:b64}},
-        {type:'text',text:prompt}
-      ]}]
-    })
-  });
-  if(!res.ok){
-    const e=await res.json().catch(()=>({}));
-    throw new Error(e.error?.message||'API 오류 ('+res.status+')');
-  }
-  return (await res.json()).content[0].text;
+  const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mime,data:b64}},{type:'text',text:prompt}]}]});
+  if(!d.content?.[0]?.text)throw new Error('AI 응답 없음');
+  return d.content[0].text;
 }
 function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=()=>rej(new Error('파일 읽기 실패'));r.readAsDataURL(file);});}
 
@@ -1644,17 +1615,7 @@ async function polishIndCmt(raw,stuName){
   const apiKey=DB.api();
   if(!apiKey)return polishCmtLocal(r);
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
-      body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
-        max_tokens:200,
-        messages:[{role:'user',content:`당신은 학부모에게 자녀 수업 피드백을 전달하는 영어 선생님입니다.\n톤 지침: 담담하고 따뜻한 격식체(합쇼체+요체 혼용). 절제된 표현, 감탄사/이모지/과장 없음. 마크다운 없음.\n학생 이름: ${stuName||'학생'}\n아래 메모를 학부모용 문장으로 100자 내외로 바꿔주세요. 메모에 없는 내용 추가 금지. 변환된 문장만 출력하세요.\n원문: ${r}`}]
-      })
-    });
-    if(!res.ok)return polishCmtLocal(r);
-    const d=await res.json();
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`당신은 학부모에게 자녀 수업 피드백을 전달하는 영어 선생님입니다.\n톤 지침: 담담하고 따뜻한 격식체(합쇼체+요체 혼용). 절제된 표현, 감탄사/이모지/과장 없음. 마크다운 없음.\n학생 이름: ${stuName||'학생'}\n아래 메모를 학부모용 문장으로 100자 내외로 바꿔주세요. 메모에 없는 내용 추가 금지. 변환된 문장만 출력하세요.\n원문: ${r}`}]});
     return d.content?.[0]?.text?.trim()||polishCmtLocal(r);
   }catch(e){return polishCmtLocal(r);}
 }
@@ -1667,27 +1628,8 @@ async function polishCmt(raw){
   if(!apiKey) return polishCmtLocal(r);
 
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':apiKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-allow-browser':'true'
-      },
-      body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
-        max_tokens:300,
-        messages:[{
-          role:'user',
-          content:`당신은 영어 교육 전문 선생님입니다. 아래 수업 메모의 내용을 절대 바꾸거나 생략하지 말고, 동일한 내용을 학부모에게 전달하는 따뜻하고 전문적인 톤의 한국어로 200자 내외로 바꿔주세요. 메모에 없는 내용을 추가하거나 일반적인 조언을 넣지 마세요. 마크다운, 이모지, 따옴표 사용 금지. 변환된 문장만 출력하세요. 원문: ${r}`
-        }]
-      })
-    });
-    if(!res.ok) return polishCmtLocal(r);
-    const d=await res.json();
-    const text=d.content?.[0]?.text?.trim();
-    return text||polishCmtLocal(r);
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:300,messages:[{role:'user',content:`당신은 영어 교육 전문 선생님입니다. 아래 수업 메모의 내용을 절대 바꾸거나 생략하지 말고, 동일한 내용을 학부모에게 전달하는 따뜻하고 전문적인 톤의 한국어로 200자 내외로 바꿔주세요. 메모에 없는 내용을 추가하거나 일반적인 조언을 넣지 마세요. 마크다운, 이모지, 따옴표 사용 금지. 변환된 문장만 출력하세요. 원문: ${r}`}]});
+    return d.content?.[0]?.text?.trim()||polishCmtLocal(r);
   }catch(e){
     console.warn('polishCmt API 실패, 로컬 폴백:', e.message);
     return polishCmtLocal(r);

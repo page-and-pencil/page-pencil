@@ -304,32 +304,25 @@ async function fetchWordMeaning(word){
     return{meaning:m?.definitions?.[0]?.definition||'',pos:m?.partOfSpeech||''};
   }catch{return null;}
 }
+async function callClaudeProxy(body){
+  const apiKey=DB.api();if(!apiKey)throw new Error('API Key 없음');
+  const res=await fetch(SUPA_URL+'/functions/v1/claude-proxy',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify({apiKey,...body})});
+  const d=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(d.error?.message||'HTTP '+res.status);
+  return d;
+}
 async function getMeaningKo(word){
   const apiKey=DB.api();
   let engDef='';
   try{
     const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-    if(r.ok){
-      const d=await r.json();
-      engDef=d[0]?.meanings[0]?.definitions[0]?.definition||'';
-    }
+    if(r.ok){const d=await r.json();engDef=d[0]?.meanings[0]?.definitions[0]?.definition||'';}
   }catch(e){}
   if(!apiKey)return engDef;
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
-      body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
-        max_tokens:30,
-        messages:[{role:'user',content:`영어 단어 "${word}"의 뜻을 초등학생이 이해할 수 있는 한국어 3단어 이내로만 답해. 예: quickly→빠르게, enormous→매우 큰. 한국어만:`}]
-      })
-    });
-    if(res.ok){
-      const d=await res.json();
-      const ko=d.content?.[0]?.text?.trim()||'';
-      if(ko)return ko;
-    }
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:30,messages:[{role:'user',content:`영어 단어 "${word}"의 뜻을 초등학생이 이해할 수 있는 한국어 3단어 이내로만 답해. 예: quickly→빠르게, enormous→매우 큰. 한국어만:`}]});
+    const ko=d.content?.[0]?.text?.trim()||'';
+    if(ko)return ko;
   }catch(e){}
   return engDef;
 }
