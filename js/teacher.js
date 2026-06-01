@@ -766,8 +766,8 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   if(wrapperId==='cl-subj-rows'&&!isBook){
     const catFilter=_CAT_KO[baseKey];
     const books=(_cache.globalTextbooks||[]).filter(b=>catFilter?b.category===catFilter:true);
-    const opts=`<option value="">-- 교재 선택 --</option>`+books.map(b=>`<option value="${escAttr(b.title)}"${bookVal===b.title?' selected':''}>${b.title}</option>`).join('');
-    bookInput=`<select data-f="book" style="flex:1;min-width:0;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">${opts}</select>`;
+    const opts=`<option value="">-- 교재 선택 --</option>`+books.map(b=>`<option value="${escAttr(b.title)}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
+    bookInput=`<select data-f="book" onchange="clUpdateUnitHint(this)" style="flex:1;min-width:0;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">${opts}</select>`;
   }else{
     const bookList=baseKey==='phonics'?'dl-phonics-books':'dl-tbooks-les';
     bookInput=`<input type="text" placeholder="교재명" data-f="book" list="${bookList}" autocomplete="off" value="${escAttr(bookVal||'')}">`;
@@ -3882,10 +3882,27 @@ function ecTogSubj(el){
 function clFillFromLib(input){
   const title=input.value.trim();if(!title)return;
   const b=[...BOOK_DB,...DB.libs()].find(x=>x.title===title);if(!b)return;
-  const row=input.closest('.cl-stu-row');if(!row)return;
+  const row=input.closest('.cl-book-row');if(!row)return;  // fix: was .cl-stu-row
   const ar=row.querySelector('.cl-rd-ar');const ser=row.querySelector('.cl-rd-series');
   if(ar&&!ar.value&&(b.ar||b.arLevel))ar.value=b.ar||b.arLevel||'';
-  if(ser)(ser.value=b.series||'');
+  if(ser)ser.value=b.series||'';
+}
+// 교재 선택 시 유닛 입력란에 직전 진도 힌트 표시
+function clUpdateUnitHint(sel){
+  const sr=sel.closest('.sr');if(!sr)return;
+  const unitInput=sr.querySelector('[data-f="unit"]');if(!unitInput)return;
+  const bookTitle=sel.value;
+  if(!bookTitle){unitInput.placeholder='유닛/진도';return;}
+  const classId=document.getElementById('cl-class-id')?.value;
+  if(!classId){unitInput.placeholder='유닛/진도';return;}
+  const lessons=(_cache.lessons||[]).filter(l=>l.classId===classId&&l.materials).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  let lastUnit='';
+  outer:for(const les of lessons){
+    for(const m of Object.values(les.materials||{})){
+      if(m.book===bookTitle&&m.unit){lastUnit=m.unit;break outer;}
+    }
+  }
+  unitInput.placeholder=lastUnit?`직전: ${lastUnit}`:'유닛/진도';
 }
 function ecRenderTags(){
   const allStus=DB.stus();
@@ -4032,6 +4049,8 @@ function openClassLesson(classId,dateStr){
       if(ch)ch.classList.add('active');
       addSRowTo('cl-subj-rows',s,v.book,v.unit);
     });
+    // 기존 선택된 교재에 직전 진도 힌트 설정
+    document.querySelectorAll('#cl-subj-rows select[data-f="book"]').forEach(clUpdateUnitHint);
   }
   document.getElementById('cl-common-cmt').value='';
   // 과제 초기화 후 날짜별 공통 과제 행 자동 생성
