@@ -431,10 +431,11 @@ async function loadStuPanel(sid){
           <option value="">선택하세요</option>
           <option value="phonics">파닉스</option><option value="vocab">어휘</option><option value="grammar">어법</option>
           <option value="reading">리딩</option><option value="listening">리스닝</option><option value="writing">라이팅</option>
-          <option value="naesin">내신</option><option value="book">원서</option><option value="other">기타</option>
+          <option value="naesin">내신</option><option value="book">원서</option>
+          <option value="class5">클래스5</option><option value="other">기타</option>
         </select>
       </div>
-      <div class="f s2" style="margin-bottom:0"><label>교재/원서</label><input type="text" id="asgn-book-${sid}" list="dl-hw-books" placeholder="교재 또는 원서 (자동완성)" autocomplete="off"></div>
+      <div class="f s2" style="margin-bottom:0"><label>교재/원서</label><input type="text" id="asgn-book-${sid}" list="dl-asgn-${sid}" placeholder="교재 또는 원서 (자동완성)" autocomplete="off"><datalist id="dl-asgn-${sid}"></datalist></div>
       <div class="f s2" style="margin-bottom:0"><label>범위/내용</label><input type="text" id="asgn-range-${sid}" placeholder="예: Unit 3 p.24-28 / Ch.1~3"></div>
     </div>
     <div id="asgn-extra-${sid}"></div>
@@ -2903,7 +2904,7 @@ function modalAssignCatChange(){
   const cat=document.getElementById('modal-assign-cat').value;
   const sid=document.getElementById('modal-assign-stu').value;
   const bookEl=document.getElementById('modal-assign-book');
-  // 교재 자동완성 — 학생 소속 클래스의 공통 교재 참조
+  fillAsgnBookDatalist('dl-modal-assign-books',cat);
   if(cat&&cat!=='other'&&sid&&bookEl&&!bookEl.value){
     const stClasses=DB.classes().filter(c=>(c.studentIds||[]).includes(sid));
     for(const c of stClasses){
@@ -3507,9 +3508,27 @@ function openClassLesson(classId,dateStr){
   openM('m-class-lesson');
 }
 
+const _CAT_KO={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신'};
+function fillAsgnBookDatalist(dlId,cat){
+  const dl=document.getElementById(dlId);if(!dl)return;
+  const tbooks=_cache.globalTextbooks||[];
+  const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+  let opts='';
+  if(cat==='book'){
+    opts=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
+  }else if(_CAT_KO[cat]){
+    const filtered=tbooks.filter(b=>b.category===_CAT_KO[cat]);
+    opts=filtered.map(b=>`<option value="${escAttr(b.title)}">`).join('');
+  }else{
+    opts=tbooks.map(b=>`<option value="${escAttr(b.title)}">`).join('')+
+      [...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
+  }
+  dl.innerHTML=opts;
+}
 function spHwCatChange(sid){
   const cat=document.getElementById(`asgn-cat-${sid}`)?.value;
   const bookEl=document.getElementById(`asgn-book-${sid}`);
+  fillAsgnBookDatalist(`dl-asgn-${sid}`,cat);
   if(cat&&cat!=='other'&&cat!=='book'&&bookEl&&!bookEl.value){
     const stClasses=DB.classes().filter(c=>(c.studentIds||[]).includes(sid));
     for(const c of stClasses){
