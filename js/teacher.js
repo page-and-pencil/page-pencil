@@ -123,6 +123,7 @@ function swTab(id){
   if(id==='t-class')renderClassTab();
   if(id==='t-lib'){renderLibTable();populateLibSeriesFilter();}
   if(id==='t-tbooks')renderTbookTable();
+  if(id==='t-data')switchDataTab(_dataTab||'tbook');
   if(id==='t-msg')renderMsgTab();
   if(id==='t-cfg'){
     const c=DB.cld();document.getElementById('cfg-cld-name').value=c.name||'';document.getElementById('cfg-cld-preset').value=c.preset||'';
@@ -2400,6 +2401,162 @@ function renderLib(){
 }
 
 
+
+// ── 자료 DB 통합 탭 ──
+let _dataTab='tbook';
+function switchDataTab(tab){
+  _dataTab=tab;
+  ['tbook','lib','word'].forEach(t=>{
+    const p=document.getElementById('dp-'+t);const b=document.getElementById('dtab-'+t);
+    if(p)p.style.display=t===tab?'':'none';
+    if(b){b.style.color=t===tab?'var(--teal)':'var(--slate)';b.style.borderBottomColor=t===tab?'var(--teal)':'transparent';b.style.fontWeight=t===tab?'700':'600';}
+  });
+  if(tab==='tbook')renderTbookTable();
+  if(tab==='lib'){renderLibTable();populateLibSeriesFilter();}
+  if(tab==='word'){wdbPage=0;renderWordDB();}
+}
+
+// ── 단어 DB (교재+원서 통합) ──
+let _wdbEditEntry=null,_wdbPagedEntries=[],wdbPage=0,wdbSortDir='asc';
+const WDB_PAGE_SIZE=50;
+const POS_KO={noun:'명사',verb:'동사',adj:'형용사',adv:'부사',prep:'전치사',phrase:'구/숙어',conj:'접속사'};
+
+function buildWordDB(){
+  const words=[];
+  // 교재 DB에서
+  for(const tb of _cache.globalTextbooks||[]){
+    for(const[unit,unitWords]of Object.entries(tb.units||{})){
+      for(const w of tuNormWords(unitWords)){
+        if(!w.word)continue;
+        words.push({word:w.word.toLowerCase().trim(),ko:w.ko||'',pos:w.pos||'',example:w.example||'',srcType:'textbook',srcTitle:tb.title,srcId:tb.id,srcUnit:unit,srcLevel:tb.level||''});
+      }
+    }
+  }
+  // 원서 DB에서 (BOOK_DB + library, 중복 id 제거)
+  const seenLib=new Set();
+  for(const book of[...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]),...(_cache.library||[])]){
+    if(!book.vocab?.length)continue;
+    if(seenLib.has(book.id))continue;seenLib.add(book.id);
+    for(const w of book.vocab){
+      if(!w.word)continue;
+      words.push({word:(w.word||'').toLowerCase().trim(),ko:w.ko||'',pos:w.pos||'',example:w.example||'',srcType:'library',srcTitle:book.title||'',srcId:book.id,srcUnit:null,srcLevel:book.arLevel||book.ar||''});
+    }
+  }
+  return words;
+}
+
+function renderWordDB(){
+  const q=(document.getElementById('wdb-q')?.value||'').toLowerCase().trim();
+  const posF=document.getElementById('wdb-pos')?.value||'';
+  const srcF=document.getElementById('wdb-src')?.value||'';
+  let words=buildWordDB();
+  if(q)words=words.filter(w=>w.word.includes(q)||w.ko.includes(q)||w.srcTitle.toLowerCase().includes(q));
+  if(posF)words=words.filter(w=>w.pos===posF);
+  if(srcF)words=words.filter(w=>w.srcType===srcF);
+  words.sort((a,b)=>{const c=wdbSortDir==='asc'?a.word.localeCompare(b.word):b.word.localeCompare(a.word);return c||a.srcType.localeCompare(b.srcType);});
+  const total=words.length;
+  const totalEl=document.getElementById('wdb-total');if(totalEl)totalEl.textContent=`총 ${total.toLocaleString()}개`;
+  const si=document.getElementById('wdb-sort-icon');if(si)si.textContent=wdbSortDir==='asc'?'↑':'↓';
+  const maxPage=Math.max(0,Math.ceil(total/WDB_PAGE_SIZE)-1);
+  if(wdbPage>maxPage)wdbPage=maxPage;
+  const paged=words.slice(wdbPage*WDB_PAGE_SIZE,(wdbPage+1)*WDB_PAGE_SIZE);
+  _wdbPagedEntries=paged;
+  const tbody=document.getElementById('wdb-tbody');if(!tbody)return;
+  let prev='';
+  tbody.innerHTML=paged.map((w,i)=>{
+    const isFirst=w.word!==prev;prev=w.word;
+    const wordCell=isFirst
+      ?`<td style="padding:6px 8px;font-weight:700;font-family:var(--fd);color:var(--navy);white-space:nowrap">${w.word}</td>`
+      :`<td style="padding:6px 8px;color:var(--slate);font-size:11px;padding-left:18px">↳</td>`;
+    const srcColor=w.srcType==='textbook'?'var(--teal)':'#b45309';
+    const srcText=w.srcType==='textbook'
+      ?`${w.srcTitle}${w.srcUnit?' · '+w.srcUnit:''}${w.srcLevel?' ('+w.srcLevel+')':''}`
+      :`${w.srcTitle}${w.srcLevel?' · AR '+w.srcLevel:''}`;
+    return`<tr style="border-bottom:1px solid var(--border)${isFirst&&i>0?';border-top:1.5px solid var(--cream2)':''}">
+      ${wordCell}
+      <td style="padding:6px 8px;font-size:13px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
+      <td style="padding:6px 8px;white-space:nowrap">${w.pos?`<span style="font-size:10px;background:var(--cream2);padding:2px 6px;border-radius:3px">${POS_KO[w.pos]||w.pos}</span>`:'<span style="color:var(--slate)">—</span>'}</td>
+      <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.example)}">${w.example||'—'}</td>
+      <td style="padding:6px 8px;font-size:11px;color:${srcColor};max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(srcText)}">${srcText}</td>
+      <td style="padding:4px"><button onclick="openWdbEdit(${i})" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;color:var(--slate)">수정</button></td>
+    </tr>`;
+  }).join('');
+  // 페이지네이션
+  const pg=document.getElementById('wdb-pager');if(!pg)return;
+  const totalPages=Math.ceil(total/WDB_PAGE_SIZE);
+  if(totalPages<=1){pg.innerHTML=`<div class="pager"><span style="font-size:12px;color:var(--slate)">${total}개</span></div>`;return;}
+  pg.innerHTML=`<div class="pager">
+    <button class="pager-btn" onclick="wdbPage--;renderWordDB()" ${wdbPage===0?'disabled':''}>← 이전</button>
+    <span style="font-size:13px;color:var(--slate)">${wdbPage+1} / ${totalPages} (${total.toLocaleString()}개)</span>
+    <button class="pager-btn" onclick="wdbPage++;renderWordDB()" ${wdbPage>=totalPages-1?'disabled':''}>다음 →</button>
+  </div>`;
+}
+
+function openWdbEdit(idx){
+  const entry=_wdbPagedEntries[idx];if(!entry)return;
+  _wdbEditEntry=entry;
+  document.getElementById('wdb-edit-word').value=entry.word;
+  document.getElementById('wdb-edit-ko').value=entry.ko||'';
+  document.getElementById('wdb-edit-pos').value=entry.pos||'';
+  document.getElementById('wdb-edit-example').value=entry.example||'';
+  const srcLabel=entry.srcType==='textbook'
+    ?`📚 ${entry.srcTitle}${entry.srcUnit?' · '+entry.srcUnit:''}${entry.srcLevel?' ('+entry.srcLevel+')':''}`
+    :`📖 ${entry.srcTitle}${entry.srcLevel?' · AR '+entry.srcLevel:''}`;
+  document.getElementById('wdb-edit-src-label').textContent=srcLabel;
+  openM('m-wdb-edit');
+}
+
+async function saveWdbEdit(){
+  const e=_wdbEditEntry;if(!e)return;
+  const ko=document.getElementById('wdb-edit-ko').value.trim();
+  const pos=document.getElementById('wdb-edit-pos').value;
+  const ex=document.getElementById('wdb-edit-example').value.trim();
+  try{
+    if(e.srcType==='textbook'){
+      const tb=(_cache.globalTextbooks||[]).find(b=>b.id===e.srcId);
+      if(tb&&tb.units?.[e.srcUnit]){
+        const ws=tuNormWords(tb.units[e.srcUnit]);
+        const wi=ws.findIndex(w=>w.word.toLowerCase()===e.word&&(w.pos||'')===(e.pos||''));
+        if(wi>=0){ws[wi]={...ws[wi],ko,pos,example:ex};tb.units[e.srcUnit]=ws;await supaUpsert('global_textbooks',tb.id,tb,null);const idx=_cache.globalTextbooks.findIndex(b=>b.id===tb.id);if(idx>=0)_cache.globalTextbooks[idx]=tb;}
+      }
+    }else{
+      let book=_cache.library.find(b=>b.id===e.srcId);
+      if(!book){const base=(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).find(b=>b.id===e.srcId);if(base){book={...base};_cache.library.push(book);}}
+      if(book){
+        const vocab=[...(book.vocab||[])];
+        const wi=vocab.findIndex(w=>(w.word||'').toLowerCase()===e.word&&(w.pos||'')===(e.pos||''));
+        if(wi>=0){vocab[wi]={...vocab[wi],ko,pos,example:ex};book.vocab=vocab;await supaUpsert('library',book.id,book,null);const idx=_cache.library.findIndex(b=>b.id===book.id);if(idx>=0)_cache.library[idx]=book;}
+      }
+    }
+    closeM('m-wdb-edit');renderWordDB();toast('저장되었습니다');
+  }catch(err){toast('저장 실패: '+err.message);}
+}
+
+async function wdbAIFillEntry(){
+  const word=document.getElementById('wdb-edit-word').value;
+  if(!word||!DB.api())return toast('API 키가 필요합니다');
+  toast('AI 자동완성 중...');
+  try{
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:100,messages:[{role:'user',content:`영어 단어/표현 "${word}"의 한국어 뜻·품사·예문 JSON:\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장"}`}]});
+    const txt=d.content?.[0]?.text?.trim()||'';
+    const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    const koEl=document.getElementById('wdb-edit-ko');const posEl=document.getElementById('wdb-edit-pos');const exEl=document.getElementById('wdb-edit-example');
+    if(!koEl.value&&json.ko)koEl.value=json.ko;
+    if(!posEl.value&&json.pos)posEl.value=json.pos;
+    if(!exEl.value&&json.example)exEl.value=json.example;
+    toast('AI 자동완성 완료');
+  }catch(e){toast('AI 실패');}
+}
+
+function wdbExportCSV(){
+  const words=buildWordDB();
+  if(!words.length)return toast('단어가 없습니다');
+  const header='영어,한국어,품사,예문,출처명,출처단원,출처타입';
+  const rows=words.map(w=>[`"${(w.word||'').replace(/"/g,'""')}"`,`"${(w.ko||'').replace(/"/g,'""')}"`,`"${(POS_KO[w.pos]||w.pos||'').replace(/"/g,'""')}"`,`"${(w.example||'').replace(/"/g,'""')}"`,`"${(w.srcTitle||'').replace(/"/g,'""')}"`,`"${(w.srcUnit||'').replace(/"/g,'""')}"`,w.srcType==='textbook'?'교재':'원서'].join(','));
+  const csv='﻿'+[header,...rows].join('\r\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='PagePencil_단어DB_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  toast(`${words.length}개 단어 CSV 다운로드 완료`);
+}
 
 // ── LIBRARY TABLE (원서 DB 탭) ──
 let libPage=0,libSortDir='asc';

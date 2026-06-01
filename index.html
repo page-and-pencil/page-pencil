@@ -169,8 +169,7 @@
     <button class="ntab" data-tab="t-tst" onclick="swTab('t-tst')">테스트</button>
     <button class="ntab" data-tab="t-bks" onclick="swTab('t-bks')">원서</button>
     <button class="ntab" data-tab="t-log" onclick="swTab('t-log')">리딩로그</button>
-    <button class="ntab" data-tab="t-lib" onclick="swTab('t-lib')">원서DB</button>
-    <button class="ntab" data-tab="t-tbooks" onclick="swTab('t-tbooks')">교재DB</button>
+    <button class="ntab" data-tab="t-data" onclick="swTab('t-data')">자료 DB</button>
     <button class="ntab" data-tab="t-cfg" onclick="swTab('t-cfg')">설정</button>
     <button class="ntab" onclick="openQuickNotice()" title="공지 빠른 등록" style="padding:8px 10px">🔔</button>
   </div>
@@ -428,75 +427,106 @@
     <!-- 원서목록은 설정 탭으로 이동 -->
 
 
-    <!-- 원서 DB -->
-    <div id="t-lib" class="panel">
-      <div class="sh">
-        <div><div class="st">원서 DB</div><div class="ssub" id="lib-total-count"></div></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn ba bsm" onclick="openBulkAudio()">🎵 일괄 오디오</button>
-          <input type="file" id="bulk-audio-files" accept="audio/*" multiple style="display:none" onchange="previewBulkAudio(event)">
-          <button class="btn ba bsm" onclick="openBulkText()">📄 일괄 본문</button>
-          <input type="file" id="bulk-text-files" accept=".txt" multiple style="display:none" onchange="previewBulkText(event)">
-          <button class="btn ba bsm" onclick="exportLibCSV()">⬇ CSV</button>
-          <button class="btn ba bsm" onclick="document.getElementById('lib-csv-file2').click()">📊 CSV 가져오기</button>
-          <input type="file" id="lib-csv-file2" accept=".csv" style="display:none" onchange="importLibCSV(event)">
-          <button class="btn bt bsm" onclick="openM('m-add-lib')">+ 추가</button>
-        </div>
+    <!-- 자료 DB (교재 + 원서 + 단어 통합) -->
+    <div id="t-data" class="panel">
+      <!-- Sub-tab 네비게이션 -->
+      <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:14px;overflow-x:auto;flex-shrink:0">
+        <button id="dtab-tbook" data-dtab="tbook" onclick="switchDataTab('tbook')" style="padding:8px 16px;font-size:13px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📚 교재</button>
+        <button id="dtab-lib" data-dtab="lib" onclick="switchDataTab('lib')" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📖 원서</button>
+        <button id="dtab-word" data-dtab="word" onclick="switchDataTab('word')" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">🔤 단어 DB</button>
       </div>
-      <!-- 검색 바 -->
-      <div class="lib-search-bar">
-        <input type="text" class="lib-search-input" id="lib-q" placeholder="제목 또는 시리즈 검색..." oninput="renderLibTable()">
-        <select class="filter-sel" id="lib-filter-series" onchange="renderLibTable()">
-          <option value="">전체 시리즈</option>
-        </select>
-        <select class="filter-sel" id="lib-per-page" onchange="libPage=0;renderLibTable()" title="페이지당 표시 권수">
-          <option value="10">10권</option>
-          <option value="50" selected>50권</option>
-          <option value="100">100권</option>
-          <option value="500">500권</option>
-          <option value="1000">1000권</option>
-        </select>
-      </div>
-      <div class="lib-table-container">
-        <table class="lib-tbl">
-          <thead><tr>
-            <th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="libSortDir=libSortDir==='asc'?'desc':'asc';libPage=0;renderLibTable()">제목 <span id="lib-sort-icon">↑</span></th><th>시리즈</th><th>AR</th><th>렉사일</th><th>레벨</th><th>단어</th><th>오디오</th><th></th>
-          </tr></thead>
-          <tbody id="lib-tbody"></tbody>
-        </table>
-      </div>
-      <div id="lib-pager" style="margin-top:10px"></div>
-    </div>
 
-    <!-- 교재 DB -->
-    <div id="t-tbooks" class="panel">
-      <div class="sh">
-        <div><div class="st">교재 데이터베이스</div></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn ba bsm" onclick="exportTbookCSV()">⬇ CSV</button>
-          <button class="btn ba bsm" onclick="document.getElementById('tbook-csv-file').click()">📊 CSV 가져오기</button>
-          <input type="file" id="tbook-csv-file" accept=".csv" style="display:none" onchange="importTbookCSV(event)">
-          <button class="btn bt bsm" onclick="openM('m-add-tbook')">+ 추가</button>
+      <!-- 교재 sub-panel -->
+      <div id="dp-tbook">
+        <div class="sh">
+          <div><div class="st">교재 데이터베이스</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn ba bsm" onclick="exportTbookCSV()">⬇ CSV</button>
+            <button class="btn ba bsm" onclick="document.getElementById('tbook-csv-file').click()">📊 CSV 가져오기</button>
+            <input type="file" id="tbook-csv-file" accept=".csv" style="display:none" onchange="importTbookCSV(event)">
+            <button class="btn bt bsm" onclick="openM('m-add-tbook')">+ 추가</button>
+          </div>
+        </div>
+        <div class="lib-search-bar">
+          <input type="text" class="lib-search-input" id="tbook-q" placeholder="교재명 검색..." oninput="renderTbookTable()">
+          <select class="filter-sel" id="tbook-filter-cat" onchange="renderTbookTable()">
+            <option value="">전체 분류</option>
+            <option value="파닉스">파닉스</option><option value="어휘">어휘</option><option value="어법">어법</option>
+            <option value="리딩">리딩</option><option value="리스닝">리스닝</option><option value="라이팅">라이팅</option><option value="내신">내신</option>
+          </select>
+        </div>
+        <div class="lib-table-container">
+          <table class="lib-tbl">
+            <thead><tr><th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="tbookSortDir=tbookSortDir==='asc'?'desc':'asc';renderTbookTable()">교재명 <span id="tbook-sort-icon">↑</span></th><th>출판사</th><th>레벨</th><th>분류</th><th></th></tr></thead>
+            <tbody id="tbook-tbody"></tbody>
+          </table>
         </div>
       </div>
-      <div class="lib-search-bar">
-        <input type="text" class="lib-search-input" id="tbook-q" placeholder="교재명 검색..." oninput="renderTbookTable()">
-        <select class="filter-sel" id="tbook-filter-cat" onchange="renderTbookTable()">
-          <option value="">전체 분류</option>
-          <option value="파닉스">파닉스</option>
-          <option value="어휘">어휘</option>
-          <option value="어법">어법</option>
-          <option value="리딩">리딩</option>
-          <option value="리스닝">리스닝</option>
-          <option value="라이팅">라이팅</option>
-          <option value="내신">내신</option>
-        </select>
+
+      <!-- 원서 sub-panel -->
+      <div id="dp-lib" style="display:none">
+        <div class="sh">
+          <div><div class="st">원서 DB</div><div class="ssub" id="lib-total-count"></div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn ba bsm" onclick="openBulkAudio()">🎵 일괄 오디오</button>
+            <input type="file" id="bulk-audio-files" accept="audio/*" multiple style="display:none" onchange="previewBulkAudio(event)">
+            <button class="btn ba bsm" onclick="openBulkText()">📄 일괄 본문</button>
+            <input type="file" id="bulk-text-files" accept=".txt" multiple style="display:none" onchange="previewBulkText(event)">
+            <button class="btn ba bsm" onclick="exportLibCSV()">⬇ CSV</button>
+            <button class="btn ba bsm" onclick="document.getElementById('lib-csv-file2').click()">📊 CSV 가져오기</button>
+            <input type="file" id="lib-csv-file2" accept=".csv" style="display:none" onchange="importLibCSV(event)">
+            <button class="btn bt bsm" onclick="openM('m-add-lib')">+ 추가</button>
+          </div>
+        </div>
+        <div class="lib-search-bar">
+          <input type="text" class="lib-search-input" id="lib-q" placeholder="제목 또는 시리즈 검색..." oninput="renderLibTable()">
+          <select class="filter-sel" id="lib-filter-series" onchange="renderLibTable()"><option value="">전체 시리즈</option></select>
+          <select class="filter-sel" id="lib-per-page" onchange="libPage=0;renderLibTable()" title="페이지당 표시 권수">
+            <option value="10">10권</option><option value="50" selected>50권</option><option value="100">100권</option><option value="500">500권</option><option value="1000">1000권</option>
+          </select>
+        </div>
+        <div class="lib-table-container">
+          <table class="lib-tbl">
+            <thead><tr>
+              <th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="libSortDir=libSortDir==='asc'?'desc':'asc';libPage=0;renderLibTable()">제목 <span id="lib-sort-icon">↑</span></th><th>시리즈</th><th>AR</th><th>렉사일</th><th>레벨</th><th>단어</th><th>오디오</th><th></th>
+            </tr></thead>
+            <tbody id="lib-tbody"></tbody>
+          </table>
+        </div>
+        <div id="lib-pager" style="margin-top:10px"></div>
       </div>
-      <div class="lib-table-container">
-        <table class="lib-tbl">
-          <thead><tr><th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="tbookSortDir=tbookSortDir==='asc'?'desc':'asc';renderTbookTable()">교재명 <span id="tbook-sort-icon">↑</span></th><th>출판사</th><th>레벨</th><th>분류</th><th></th></tr></thead>
-          <tbody id="tbook-tbody"></tbody>
-        </table>
+
+      <!-- 단어 DB sub-panel -->
+      <div id="dp-word" style="display:none">
+        <div class="sh">
+          <div><div class="st">단어 DB</div><div class="ssub" id="wdb-total"></div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn ba bsm" onclick="wdbExportCSV()">⬇ CSV</button>
+          </div>
+        </div>
+        <div class="lib-search-bar">
+          <input type="text" class="lib-search-input" id="wdb-q" placeholder="영어·한국어·출처 검색..." oninput="renderWordDB()">
+          <select class="filter-sel" id="wdb-pos" onchange="renderWordDB()">
+            <option value="">전체 품사</option>
+            <option value="noun">명사</option><option value="verb">동사</option><option value="adj">형용사</option>
+            <option value="adv">부사</option><option value="prep">전치사</option><option value="phrase">구/숙어</option><option value="conj">접속사</option>
+          </select>
+          <select class="filter-sel" id="wdb-src" onchange="renderWordDB()">
+            <option value="">전체 출처</option>
+            <option value="textbook">📚 교재</option>
+            <option value="library">📖 원서</option>
+          </select>
+        </div>
+        <div class="lib-table-container">
+          <table class="lib-tbl">
+            <thead><tr>
+              <th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="wdbSortDir=wdbSortDir==='asc'?'desc':'asc';wdbPage=0;renderWordDB()">영어 <span id="wdb-sort-icon">↑</span></th>
+              <th>한국어</th><th>품사</th><th>예문</th><th>출처</th><th></th>
+            </tr></thead>
+            <tbody id="wdb-tbody"></tbody>
+          </table>
+        </div>
+        <div id="wdb-pager" style="margin-top:10px"></div>
       </div>
     </div>
 
@@ -1179,6 +1209,38 @@
     <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
       <button class="btn bo bsm" onclick="closeM('m-bulk-text')">취소</button>
       <button class="btn bt" onclick="confirmBulkText()" id="bulk-text-confirm-btn">저장 시작</button>
+    </div>
+  </div>
+</div>
+
+<!-- 단어 DB 수정 모달 -->
+<div id="m-wdb-edit" class="mo" data-protect>
+  <div class="mdl" style="max-width:520px">
+    <div class="mh">
+      <div>
+        <div class="mt">단어 수정</div>
+        <div style="font-size:11px;color:var(--slate)" id="wdb-edit-src-label"></div>
+      </div>
+      <button class="bx" onclick="closeM('m-wdb-edit')">×</button>
+    </div>
+    <div class="f"><label>영어 단어 / 구동사</label><input type="text" id="wdb-edit-word" readonly style="font-family:var(--fd);font-weight:700;background:var(--cream2)"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+      <div class="f" style="margin-bottom:0;grid-column:1/3"><label>한국어 뜻</label><input type="text" id="wdb-edit-ko" placeholder="2-4단어"></div>
+      <div class="f" style="margin-bottom:0"><label>품사</label>
+        <select id="wdb-edit-pos">
+          <option value="">—</option><option value="noun">명사</option><option value="verb">동사</option>
+          <option value="adj">형용사</option><option value="adv">부사</option><option value="prep">전치사</option>
+          <option value="phrase">구/숙어</option><option value="conj">접속사</option>
+        </select>
+      </div>
+    </div>
+    <div class="f"><label>예문</label><input type="text" id="wdb-edit-example" placeholder="예문 입력"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem">
+      <button class="btn ba bsm" onclick="wdbAIFillEntry()">✨ AI 자동완성</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn bo bsm" onclick="closeM('m-wdb-edit')">취소</button>
+        <button class="btn bt" onclick="saveWdbEdit()">저장</button>
+      </div>
     </div>
   </div>
 </div>
