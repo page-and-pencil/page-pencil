@@ -29,7 +29,7 @@ async function changePw(){
   _cache.settings.pw=nw;
   await supaSetSetting('pw',nw);
   e.textContent='';
-  ['pw-cur','pw-nw','pw-cf'].forEach(i=>document.getElementById(i).value='');
+  ['pw-cur','pw-nw','pw-cf'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   toast('비밀번호가 변경되었습니다');
 }
 function updateApiKeyStatusDot(){
