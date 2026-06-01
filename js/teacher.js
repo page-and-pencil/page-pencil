@@ -753,9 +753,19 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   const cls=isBook?'srd':(SCLS[baseKey]||'');
   const addBtn=baseKey==='naesin'?`<button class="btn-xadd" title="내신 교재 추가" onclick="addSRowTo('${wrapperId}','naesin')">+</button>`:'';
   const noUnit=wrapperId==='ec-subj-rows';
-  const bookList=baseKey==='phonics'?'dl-phonics-books':'dl-tbooks-les';
   const unitInput=noUnit?'':` <input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}">`;
-  d.innerHTML=`<span class="sl ${cls}">${label}</span><input type="text" placeholder="교재명" data-f="book" list="${bookList}" autocomplete="off" value="${escAttr(bookVal||'')}">${unitInput} ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
+  // cl-subj-rows: 교재 DB select 드롭다운, 나머지: text input with datalist
+  let bookInput;
+  if(wrapperId==='cl-subj-rows'&&!isBook){
+    const catFilter=_CAT_KO[baseKey];
+    const books=(_cache.globalTextbooks||[]).filter(b=>catFilter?b.category===catFilter:true);
+    const opts=`<option value="">-- 교재 선택 --</option>`+books.map(b=>`<option value="${escAttr(b.title)}"${bookVal===b.title?' selected':''}>${b.title}</option>`).join('');
+    bookInput=`<select data-f="book" style="flex:1;min-width:0;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">${opts}</select>`;
+  }else{
+    const bookList=baseKey==='phonics'?'dl-phonics-books':'dl-tbooks-les';
+    bookInput=`<input type="text" placeholder="교재명" data-f="book" list="${bookList}" autocomplete="off" value="${escAttr(bookVal||'')}">`;
+  }
+  d.innerHTML=`<span class="sl ${cls}">${label}</span>${bookInput}${unitInput} ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
   wrap.appendChild(d);
 }
 function rmSRowFrom(wrapperId,s,btn){
