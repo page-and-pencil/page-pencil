@@ -1023,6 +1023,18 @@ function reqDelLesFromPanel(lesId,sid){
 
 // ── TESTS ──
 function pct(c,t){return(t>0)?Math.round((c/t)*100):0;}
+function preloadTestWords(sid){
+  if(!sid)return;
+  const el=document.getElementById('ts-allwords');
+  if(!el||el.value.trim())return;
+  const logWords=[...new Set(DB.logs().filter(l=>l.sid===sid).flatMap(l=>l.words||[]).map(w=>w.toLowerCase().trim()).filter(Boolean))];
+  if(!logWords.length)return;
+  const testedWords=new Set(DB.tsts().filter(t=>t.sid===sid).flatMap(t=>t.allWords||[]).map(w=>w.toLowerCase().trim()));
+  const pending=logWords.filter(w=>!testedWords.has(w));
+  if(!pending.length)return;
+  el.value=pending.join(', ');
+  toast('리딩로그에서 미시험 단어 '+pending.length+'개를 불러왔습니다');
+}
 function rcls(n){return n>=80?'rhi':n>=60?'rmd':'rlo';}
 async function saveTst(){
   if(_saving['saveTst'])return; _saving['saveTst']=true;
@@ -1512,15 +1524,36 @@ function ddr(e,zid,type){
   e.preventDefault();document.getElementById(zid).classList.remove('dv');
   const f=e.dataTransfer.files[0];
   if(f&&f.type.startsWith('image/')){
-    if(type==='log'){pendingLogFile=f;document.getElementById('log-ut').textContent='선택됨: '+f.name;fileToB64(f).then(b=>{pendingLogB64=b;pendingLogMime=f.type;runLogAI();});}
+    if(type==='log'){handleLogPhoto({target:{files:[f]}});}
     else if(type==='tst'){const dt=new DataTransfer();dt.items.add(f);document.getElementById('tst-file').files=dt.files;handleTstPhoto({target:{files:dt.files}});}
   }
 }
 async function handleLogPhoto(e){
   const f=e.target.files[0];if(!f)return;
   pendingLogFile=f;pendingLogMime=f.type;
-  document.getElementById('log-ut').textContent='선택됨: '+f.name;
-  pendingLogB64=await fileToB64(f);await runLogAI();
+  pendingLogB64=await fileToB64(f);
+  // 이미지 미리보기 표시 + 분할 레이아웃 전환
+  const previewImg=document.getElementById('log-preview-img');
+  if(previewImg)previewImg.src='data:'+f.type+';base64,'+pendingLogB64;
+  document.getElementById('log-upload-zone').style.display='none';
+  document.getElementById('log-preview-wrap').style.display='block';
+  const area=document.getElementById('log-content-area');
+  area.style.display='flex';area.style.gap='12px';area.style.alignItems='flex-start';
+  document.getElementById('log-preview-wrap').style.flex='1';
+  document.getElementById('log-word-area').style.flex='1';
+  await runLogAI();
+}
+function clearLogPhoto(){
+  pendingLogFile=null;pendingLogB64='';pendingLogMime='';
+  document.getElementById('lg-file').value='';
+  document.getElementById('lg-words').value='';
+  document.getElementById('log-ai').innerHTML='';
+  document.getElementById('log-upload-zone').style.display='block';
+  document.getElementById('log-preview-wrap').style.display='none';
+  const area=document.getElementById('log-content-area');
+  area.style.display='block';area.style.gap='';area.style.alignItems='';
+  document.getElementById('log-preview-wrap').style.flex='';
+  document.getElementById('log-word-area').style.flex='';
 }
 async function runLogAI(){
   const apiKey=DB.api();const status=document.getElementById('log-ai');
@@ -1549,14 +1582,16 @@ async function saveLog(){
     try{const url=await uploadCld(pendingLogFile);if(url)photoUrl=url;else if(pendingLogB64)photoUrl='data:'+pendingLogMime+';base64,'+pendingLogB64;}
     catch(e){if(pendingLogB64)photoUrl='data:'+pendingLogMime+';base64,'+pendingLogB64;else{toast('사진 저장 실패: '+e.message);return;}}
   }
-  const newLog={id:uid(),sid,date:document.getElementById('lg-date').value||new Date().toISOString().split('T')[0],words,photoUrl};
+  const date=document.getElementById('lg-date').value||new Date().toISOString().split('T')[0];
+  const newLog={id:uid(),sid,date,words,photoUrl};
   await supaUpsert('logs',newLog.id,newLog,sid);
   _cache.logs.unshift(newLog);
-  pendingLogFile=null;pendingLogB64='';pendingLogMime='';
+  // 단어장에 자동 추가
+  if(words.length)await syncVocabCards(sid,words,[],date);
+  // 초기화
+  clearLogPhoto();
   document.getElementById('log-ut').textContent='클릭하거나 사진을 드래그';
-  document.getElementById('lg-words').value='';document.getElementById('lg-file').value='';
-  document.getElementById('log-ai').innerHTML='';
-  renderLog();toast('리딩로그가 저장되었습니다');
+  renderLog();toast('리딩로그가 저장되었습니다. 단어 '+words.length+'개가 단어장에 추가되었습니다');
 }
 function reqDelLog(id){
   askConfirm('리딩로그 삭제','이 리딩로그를 삭제할까요?','삭제','bd',async()=>{

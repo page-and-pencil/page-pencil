@@ -305,7 +305,7 @@
           <hr class="div-line">
           <div class="fg">
             <div class="f"><label>날짜</label><input type="date" id="ts-date"></div>
-            <div class="f"><label>학생</label><select id="ts-stu"></select></div>
+            <div class="f"><label>학생</label><select id="ts-stu" onchange="preloadTestWords(this.value)"></select></div>
           </div>
           <div class="score-block">
             <div class="score-block-title">단어 테스트</div>
@@ -394,14 +394,25 @@
             <div class="f"><label>학생</label><select id="lg-stu"></select></div>
           </div>
           <div class="f">
-            <label>리딩로그 사진</label>
-            <div class="uz" id="log-uz" onclick="document.getElementById('lg-file').click()" ondragover="dov(event,'log-uz')" ondrop="ddr(event,'log-uz','log')">
-              <div class="ui">📸</div><div class="ut" id="log-ut">클릭하거나 사진을 드래그</div>
+            <label>리딩로그 사진 & 단어</label>
+            <div id="log-content-area" style="display:block">
+              <div id="log-upload-zone">
+                <div class="uz" id="log-uz" onclick="document.getElementById('lg-file').click()" ondragover="dov(event,'log-uz')" ondrop="ddr(event,'log-uz','log')">
+                  <div class="ui">📸</div><div class="ut" id="log-ut">클릭하거나 사진을 드래그</div>
+                </div>
+                <input type="file" id="lg-file" accept="image/*" style="display:none" onchange="handleLogPhoto(event)">
+              </div>
+              <div id="log-preview-wrap" style="display:none;min-width:0">
+                <img id="log-preview-img" style="width:100%;border-radius:8px;max-height:280px;object-fit:contain;border:1px solid var(--border);background:var(--cream2)">
+                <button onclick="clearLogPhoto()" style="display:block;width:100%;margin-top:6px;padding:4px 0;font-size:11px;color:var(--slate);background:none;border:1px solid var(--border);border-radius:var(--rs);cursor:pointer;font-family:var(--fb)">× 다시 선택</button>
+              </div>
+              <div id="log-word-area" style="min-width:0">
+                <div id="log-ai" style="margin-bottom:6px"></div>
+                <label style="font-size:12px;color:var(--slate);font-weight:600;display:block;margin-bottom:4px">단어 목록 (AI 자동 입력 또는 직접 입력)</label>
+                <input type="text" id="lg-words" placeholder="gloomy, enormous, quietly">
+              </div>
             </div>
-            <input type="file" id="lg-file" accept="image/*" style="display:none" onchange="handleLogPhoto(event)">
-            <div id="log-ai"></div>
           </div>
-          <div class="f"><label>단어 목록 (AI 자동 입력 또는 직접 입력)</label><input type="text" id="lg-words" placeholder="gloomy, enormous, quietly"></div>
           <button class="btn bt" onclick="saveLog()">저장</button>
         </div>
       </div>
