@@ -1612,23 +1612,61 @@ function elibImportFile(e){
   }
   e.target.value='';
 }
+// 어떤 형식의 단어 리스트도 파싱 (DAY 헤더, 번호 목록, 반복 컬럼 헤더 등)
+function parseWordListRows(rows){
+  if(rows.length&&rows[0].length&&typeof rows[0][0]==='string')
+    rows[0][0]=rows[0][0].replace(/^﻿/,'');
+  const wordKws=['영어','word','words','english','단어','어휘'];
+  const koKws=['한국어','korean','뜻','meaning','ko'];
+  const posKws=['품사','pos','part'];
+  const exKws=['예문','example','sentence','ex'];
+  let wI=-1,kI=-1,pI=-1,eI=-1;
+  const result=[];const seen=new Set();
+  for(const r of rows){
+    const cells=r.map(c=>String(c??'').trim());
+    const norm=cells.map(c=>c.toLowerCase());
+    // 컬럼 헤더 행 감지 (영어/word/한국어/meaning 등)
+    if(wordKws.some(h=>norm.includes(h))){
+      wI=norm.findIndex(h=>wordKws.includes(h));
+      kI=norm.findIndex(h=>koKws.includes(h));
+      pI=norm.findIndex(h=>posKws.includes(h));
+      eI=norm.findIndex(h=>exKws.includes(h));
+      continue;
+    }
+    // 빈 행 스킵
+    if(!cells.some(c=>c))continue;
+    // 섹션 헤더 스킵 (DAY 01, Lesson 3, Unit 2 등)
+    const nonempty=cells.filter(c=>c);
+    if(nonempty.length<=2){
+      if(/^(day|lesson|unit|chapter)\s*\d/i.test(nonempty[0]||''))continue;
+      if(!/[a-zA-Z]/.test(nonempty[0]||'')&&(nonempty[0]||'').length>3)continue;
+    }
+    // 단어 컬럼 결정
+    let startCol=wI>=0?wI:0;
+    let word=cells[startCol]||'';
+    let numShift=0;
+    // 번호 목록: 첫 셀이 숫자면 → 다음 셀이 단어
+    if(/^\d+$/.test(word)&&cells[startCol+1]){word=cells[startCol+1];numShift=1;}
+    // "1. hello" "1) hello" 형태 정리
+    word=word.replace(/^\d+[\s.）)、\-]+/,'').toLowerCase().trim();
+    // 영어로 시작해야 함
+    if(!word||!/^[a-zA-Z]/.test(word))continue;
+    if(/^(day|lesson|unit|chapter|words?|meaning)\s*$/i.test(word))continue;
+    if(seen.has(word))continue;
+    seen.add(word);
+    const actualKI=kI>=0?kI+numShift:(startCol+numShift+1);
+    const actualPI=pI>=0?pI+numShift:(startCol+numShift+2);
+    const actualEI=eI>=0?eI+numShift:(startCol+numShift+3);
+    result.push({word,ko:(cells[actualKI]||'').trim(),pos:(cells[actualPI]||'').trim(),example:(cells[actualEI]||'').trim()});
+  }
+  return result;
+}
 async function elibProcessImport(rows,id){
   if(!rows?.length)return toast('파일이 비어있습니다');
-  const firstRow=rows[0].map(c=>String(c).toLowerCase().trim());
-  const isHeader=['영어','word','english','단어'].some(h=>firstRow.includes(h));
-  const wI=isHeader?firstRow.findIndex(h=>['영어','word','english','단어'].includes(h)):0;
-  const kI=isHeader?firstRow.findIndex(h=>['한국어','korean','뜻','meaning','ko'].includes(h)):1;
-  const pI=isHeader?firstRow.findIndex(h=>['품사','pos','part'].includes(h)):2;
-  const eI=isHeader?firstRow.findIndex(h=>['예문','example','sentence','ex'].includes(h)):3;
   const b=_cache.library.find(x=>x.id===id);if(!b)return;
   const existing=(b.vocab||[]);const existSet=new Set(existing.map(w=>w.word.toLowerCase()));
-  const newWords=[];
-  for(let i=isHeader?1:0;i<rows.length;i++){
-    const r=rows[i];const word=String(r[wI>=0?wI:0]||'').trim().toLowerCase();
-    if(!word||existSet.has(word))continue;
-    newWords.push({word,ko:kI>=0?String(r[kI]||'').trim():'',pos:pI>=0?String(r[pI]||'').trim():'',example:eI>=0?String(r[eI]||'').trim():''});
-    existSet.add(word);
-  }
+  const parsed=parseWordListRows(rows);
+  const newWords=parsed.filter(w=>w.word&&!existSet.has(w.word));
   if(!newWords.length)return toast('새로 추가할 단어가 없습니다');
   const updated={...b,vocab:[...existing,...newWords]};
   await supaUpsert('library',id,updated,null);
@@ -1662,6 +1700,8 @@ function renderTbookTable(){
     if(cat&&b.category!==cat)return false;
     return true;
   });
+  books.sort((a,b)=>tbookSortDir==='asc'?a.title.localeCompare(b.title):b.title.localeCompare(a.title));
+  const tbSortIcon=document.getElementById('tbook-sort-icon');if(tbSortIcon)tbSortIcon.textContent=tbookSortDir==='asc'?'↑':'↓';
   const tbody=document.getElementById('tbook-tbody');if(!tbody)return;
   if(!books.length){tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--slate);padding:24px">교재 없음</td></tr>`;return;}
   tbody.innerHTML=books.map(b=>{const uCnt=Object.keys(b.units||{}).length;return`<tr>
@@ -1847,22 +1887,11 @@ function tuImportFile(e){
 }
 async function tuProcessImportRows(rows,tbId){
   if(!rows?.length)return toast('파일이 비어있습니다');
-  const firstRow=rows[0].map(c=>String(c).toLowerCase().trim());
-  const isHeader=['영어','word','english','단어'].some(h=>firstRow.includes(h));
-  const wI=isHeader?firstRow.findIndex(h=>['영어','word','english','단어'].includes(h)):0;
-  const kI=isHeader?firstRow.findIndex(h=>['한국어','korean','뜻','meaning','ko'].includes(h)):1;
-  const pI=isHeader?firstRow.findIndex(h=>['품사','pos','part'].includes(h)):2;
-  const eI=isHeader?firstRow.findIndex(h=>['예문','example','sentence','ex'].includes(h)):3;
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const existing=tuNormWords(tb.units?.[_tuCurUnit]||[]);
   const existSet=new Set(existing.map(w=>w.word.toLowerCase()));
-  const newWords=[];
-  for(let i=isHeader?1:0;i<rows.length;i++){
-    const r=rows[i];const word=String(r[wI>=0?wI:0]||'').trim().toLowerCase();
-    if(!word||existSet.has(word))continue;
-    newWords.push({word,ko:kI>=0?String(r[kI]||'').trim():'',pos:pI>=0?String(r[pI]||'').trim():'',example:eI>=0?String(r[eI]||'').trim():''});
-    existSet.add(word);
-  }
+  const parsed=parseWordListRows(rows);
+  const newWords=parsed.filter(w=>w.word&&!existSet.has(w.word));
   if(!newWords.length)return toast('새로 추가할 단어가 없습니다');
   const updated={...tb,units:{...(tb.units||{}),[_tuCurUnit]:[...existing,...newWords]}};
   await supaUpsert('global_textbooks',tbId,updated,null);
@@ -1898,12 +1927,23 @@ function tuImportTxt(e){
       const lines=block.split('\n').map(l=>l.trim()).filter(Boolean);
       if(!lines.length)continue;
       const unitName=lines[0];
-      const wordLines=lines.slice(1).join(',');
-      const words=wordLines.split(',').map(w=>w.trim().toLowerCase()).filter(Boolean);
-      if(!unitName||!words.length)continue;
+      const wordLines=lines.slice(1);
+      if(!unitName||!wordLines.length)continue;
+      // 각 줄을 row 배열로 변환 → parseWordListRows로 파싱
+      const rowArrays=wordLines.flatMap(l=>{
+        // 탭/쉼표 구분이면 분리, 아니면 공백으로
+        if(l.includes('\t'))return[l.split('\t').map(p=>p.trim())];
+        if(l.includes(','))return l.split(',').map(p=>p.trim()).filter(Boolean).map(w=>[w]);
+        // "1 room 방" 또는 "room 방" 형태: 첫 번째 영어 단어 + 한국어 뒤
+        const m=l.match(/^(\d+[\s.）)]+)?([a-zA-Z][a-zA-Z\s''-]*?)\s+([가-힣].+)$/);
+        if(m)return[[m[2].trim(),m[3].trim()]];
+        // 영어만 있는 줄: 쉼표 구분 단어 목록
+        return l.split(',').map(p=>p.replace(/^\d+[\s.）)]+/,'').trim()).filter(p=>/^[a-zA-Z]/.test(p)).map(w=>[w]);
+      });
+      const parsed=parseWordListRows(rowArrays);
       const existing=tuNormWords(tb.units[unitName]||[]);
       const existSet=new Set(existing.map(w=>w.word));
-      const newWords=words.filter(w=>!existSet.has(w)).map(w=>({word:w,ko:'',pos:'',example:''}));
+      const newWords=parsed.filter(w=>w.word&&!existSet.has(w.word));
       tb.units[unitName]=[...existing,...newWords];
       if(!existing.length)addedUnits++;
       addedWords+=newWords.length;
@@ -1957,8 +1997,9 @@ function renderLib(){
 
 
 // ── LIBRARY TABLE (원서 DB 탭) ──
-let libPage=0;
+let libPage=0,libSortDir='asc';
 function getLibPageSize(){return parseInt(document.getElementById('lib-per-page')?.value||'50');}
+let tbookSortDir='asc';
 
 function populateLibSeriesFilter(){
   const sel=document.getElementById('lib-filter-series');if(!sel)return;
@@ -1978,6 +2019,8 @@ function renderLibTable(){
   let filtered=allSrc;
   if(q)filtered=filtered.filter(b=>b.title.toLowerCase().includes(q)||(b.series||'').toLowerCase().includes(q));
   if(serF)filtered=filtered.filter(b=>b.series===serF);
+  filtered.sort((a,b)=>libSortDir==='asc'?a.title.localeCompare(b.title):b.title.localeCompare(a.title));
+  const sortIcon=document.getElementById('lib-sort-icon');if(sortIcon)sortIcon.textContent=libSortDir==='asc'?'↑':'↓';
 
   const total=filtered.length;
   const totalEl=document.getElementById('lib-total-count');

@@ -458,7 +458,7 @@
       <div class="lib-table-container">
         <table class="lib-tbl">
           <thead><tr>
-            <th>제목</th><th>시리즈</th><th>AR</th><th>렉사일</th><th>레벨</th><th>단어</th><th>오디오</th><th></th>
+            <th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="libSortDir=libSortDir==='asc'?'desc':'asc';libPage=0;renderLibTable()">제목 <span id="lib-sort-icon">↑</span></th><th>시리즈</th><th>AR</th><th>렉사일</th><th>레벨</th><th>단어</th><th>오디오</th><th></th>
           </tr></thead>
           <tbody id="lib-tbody"></tbody>
         </table>
@@ -492,7 +492,7 @@
       </div>
       <div class="lib-table-container">
         <table class="lib-tbl">
-          <thead><tr><th>교재명</th><th>출판사</th><th>레벨</th><th>분류</th><th></th></tr></thead>
+          <thead><tr><th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="tbookSortDir=tbookSortDir==='asc'?'desc':'asc';renderTbookTable()">교재명 <span id="tbook-sort-icon">↑</span></th><th>출판사</th><th>레벨</th><th>분류</th><th></th></tr></thead>
           <tbody id="tbook-tbody"></tbody>
         </table>
       </div>
@@ -1036,6 +1036,8 @@
       <input type="file" id="tu-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="tuImportFile(event)">
       <button class="btn ba bsm" onclick="document.getElementById('tu-txt-file').click()" style="white-space:nowrap">📄 텍스트 파일 (.txt)</button>
       <input type="file" id="tu-txt-file" accept=".txt" style="display:none" onchange="tuImportTxt(event)">
+      <button class="btn bt bsm" onclick="tuAutoFillAll()" style="white-space:nowrap">✨ AI 전체 채우기</button>
+      <button class="btn ba bsm" onclick="tuRefreshFromLib()" style="white-space:nowrap" title="원서 DB 텍스트에서 예문 갱신">📚 원서 예문 갱신</button>
       <button class="btn ba bsm" onclick="tuExportWords()" style="white-space:nowrap">⬇ CSV 내보내기</button>
       <span style="font-size:11px;color:var(--teal)" id="tu-import-status"></span>
     </div>
