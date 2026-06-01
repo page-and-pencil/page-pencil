@@ -1414,6 +1414,46 @@ function reqDelLibItem(id){
   });
 }
 
+function exportTbookCSV(){
+  const books=_cache.globalTextbooks||[];
+  if(!books.length){toast('교재가 없습니다');return;}
+  const header='교재명,출판사,레벨,분류';
+  const rows=books.map(b=>[
+    `"${(b.title||'').replace(/"/g,'""')}"`,
+    `"${(b.publisher||'').replace(/"/g,'""')}"`,
+    `"${(b.level||'').replace(/"/g,'""')}"`,
+    `"${(b.category||'').replace(/"/g,'""')}"`
+  ].join(','));
+  const csv='﻿'+[header,...rows].join('\r\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='PagePencil_교재DB_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  toast(`${books.length}권 CSV 다운로드 완료`);
+}
+function importTbookCSV(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const lines=ev.target.result.split('\n').filter(Boolean);
+    if(lines.length<2){toast('CSV 파일이 비어있습니다');return;}
+    const headers=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
+    let added=0;
+    for(let i=1;i<lines.length;i++){
+      const cols=parseCSVLine(lines[i]);if(!cols.length)continue;
+      const row={};headers.forEach((h,j)=>row[h]=cols[j]||'');
+      const title=row['교재명']||row.title||'';if(!title)continue;
+      const tb={id:uid(),title,publisher:row['출판사']||row.publisher||'',level:row['레벨']||row.level||'',category:row['분류']||row.category||''};
+      await supaUpsert('global_textbooks',tb.id,tb,null);
+      if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
+      _cache.globalTextbooks.push(tb);
+      added++;
+    }
+    renderTbookTable();updateTbookDatalist();
+    toast(added+'권이 추가되었습니다');e.target.value='';
+  };
+  reader.readAsText(file,'UTF-8');
+}
 function exportLibCSV(){
   const allSrc=[...BOOK_DB,...DB.libs()];
   const customIds=new Set(DB.libs().map(b=>b.id));

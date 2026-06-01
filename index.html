@@ -464,7 +464,12 @@
     <div id="t-tbooks" class="panel">
       <div class="sh">
         <div><div class="st">교재 데이터베이스</div></div>
-        <button class="btn bt bsm" onclick="openM('m-add-tbook')">+ 추가</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ba bsm" onclick="exportTbookCSV()">⬇ CSV</button>
+          <button class="btn ba bsm" onclick="document.getElementById('tbook-csv-file').click()">📊 CSV 가져오기</button>
+          <input type="file" id="tbook-csv-file" accept=".csv" style="display:none" onchange="importTbookCSV(event)">
+          <button class="btn bt bsm" onclick="openM('m-add-tbook')">+ 추가</button>
+        </div>
       </div>
       <div class="lib-search-bar">
         <input type="text" class="lib-search-input" id="tbook-q" placeholder="교재명 검색..." oninput="renderTbookTable()">
