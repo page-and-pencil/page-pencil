@@ -1340,7 +1340,7 @@ async function addLib(){
   if(!title){toast('제목을 입력해 주세요');return;}
   toast('저장 중...');
   const coverUrl=await saveLibCover();
-  const newLib={id:uid(),title,series:document.getElementById('lib-series').value.trim(),arLevel:document.getElementById('lib-ar').value.trim(),genre:document.getElementById('lib-genre').value.trim(),pages:document.getElementById('lib-pages').value.trim(),publisher:document.getElementById('lib-pub').value.trim(),description:document.getElementById('lib-desc').value.trim(),coverUrl};
+  const newLib={id:uid(),title,series:document.getElementById('lib-series').value.trim(),arLevel:document.getElementById('lib-ar').value.trim(),pages:document.getElementById('lib-pages').value.trim(),publisher:document.getElementById('lib-pub').value.trim(),description:document.getElementById('lib-desc').value.trim(),coverUrl};
   await supaUpsert('library',newLib.id,newLib,null);
   _cache.library.push(newLib);
   closeM('m-add-lib');
@@ -1356,12 +1356,12 @@ function elibTab(tab){
   if(vocabBtn){vocabBtn.style.color=tab==='vocab'?'var(--teal)':'var(--slate)';vocabBtn.style.borderBottomColor=tab==='vocab'?'var(--teal)':'transparent';vocabBtn.style.fontWeight=tab==='vocab'?'700':'600';}
 }
 function openEditLib(id){
-  const b=DB.libs().find(x=>x.id===id);if(!b)return;
+  // BOOK_DB 항목도 지원: library에 없으면 BOOK_DB에서 조회
+  const b=DB.libs().find(x=>x.id===id)||BOOK_DB.find(x=>x.id===id);if(!b)return;
   document.getElementById('elib-id').value=b.id;
   document.getElementById('elib-title').value=b.title||'';
   document.getElementById('elib-series').value=b.series||'';
-  document.getElementById('elib-ar').value=b.arLevel||'';
-  document.getElementById('elib-genre').value=b.genre||'';
+  document.getElementById('elib-ar').value=b.arLevel||b.ar||'';
   document.getElementById('elib-pages').value=b.pages||'';
   document.getElementById('elib-pub').value=b.publisher||'';
   document.getElementById('elib-booktext').value=b.bookText||'';
@@ -1371,10 +1371,20 @@ function openEditLib(id){
 }
 async function updLib(){
   const id=document.getElementById('elib-id').value;
-  const idx=_cache.library.findIndex(x=>x.id===id);if(idx<0)return;
-  _cache.library[idx]={..._cache.library[idx],title:document.getElementById('elib-title').value.trim(),series:document.getElementById('elib-series').value.trim(),arLevel:document.getElementById('elib-ar').value.trim(),genre:document.getElementById('elib-genre').value.trim(),pages:document.getElementById('elib-pages').value.trim(),publisher:document.getElementById('elib-pub').value.trim()};
-  await supaUpsert('library',id,_cache.library[idx],null);
-  closeM('m-edit-lib');renderLib();populateLibSel();toast('수정되었습니다');
+  const fields={title:document.getElementById('elib-title').value.trim(),series:document.getElementById('elib-series').value.trim(),arLevel:document.getElementById('elib-ar').value.trim(),pages:document.getElementById('elib-pages').value.trim(),publisher:document.getElementById('elib-pub').value.trim()};
+  const idx=_cache.library.findIndex(x=>x.id===id);
+  if(idx>=0){
+    _cache.library[idx]={..._cache.library[idx],...fields};
+    await supaUpsert('library',id,_cache.library[idx],null);
+  }else{
+    // BOOK_DB 항목을 library에 복사하여 수정
+    const base=BOOK_DB.find(x=>x.id===id)||{};
+    const newEntry={...base,...fields,id,coverUrl:base.coverUrl||''};
+    await supaUpsert('library',id,newEntry,null);
+    if(!_cache.library)_cache.library=[];
+    _cache.library.push(newEntry);
+  }
+  closeM('m-edit-lib');renderLib();populateLibSel();renderLibTable();toast('수정되었습니다');
 }
 async function saveLibText(){
   const id=document.getElementById('elib-id').value;
@@ -1400,23 +1410,25 @@ function renderLibVocabTable(id){
 async function extractLibVocab(){
   const id=document.getElementById('elib-id').value;
   const text=document.getElementById('elib-booktext').value.trim();
-  if(!text)return toast('본문을 먼저 입력하고 저장해 주세요');
+  if(!text)return toast('본문을 입력하세요');
   const status=document.getElementById('elib-extract-status');if(status)status.textContent='AI가 단어 추출 중...';
   const truncated=text.split(/\s+/).slice(0,2500).join(' ');
   try{
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:2500,
-      messages:[{role:'user',content:`다음 영어 원서 본문에서 학습 가치 있는 단어를 추출하세요.\n규칙:\n1. 사람이름·지명·고유명사 완전 제외\n2. the·a·is·have 등 기초 단어 제외\n3. 각 단어: 한국어뜻(2-3단어)·품사(noun/verb/adj/adv/prep)·본문 예문(없으면 생성)\n4. 중복 없이 최대 40개\nJSON만 반환: {"words":[{"word":"terrific","ko":"훌륭한","pos":"adj","example":"Some pig! Terrific!"}]}\n\n본문:\n${truncated}`}]});
+    const prompt=`다음 영어 원서 본문에서 학습 가치 있는 단어를 추출하세요.\n\n규칙:\n1. 고유명사(인명·지명) 완전 제외\n2. 기초 단어(the/a/is/go/have/say/come/make/get/see/look/know/want/think 등) 제외\n3. 한국어 뜻: 한국어만 2-4단어, 영어·화살표·인용부호 없이\n4. 예문: 본문에서 해당 단어가 쓰인 실제 문장 그대로 발췌 우선, 없으면 학습자 수준에 맞게 생성\n5. 품사가 여러 개인 단어: 본문 사용 빈도 높은 품사부터 각각 별도 항목으로\n6. 품사: noun/verb/adj/adv/prep 중 하나\n7. 최대 50개 항목\n\nJSON만 반환:\n{"words":[{"word":"terrific","ko":"훌륭한","pos":"adj","example":"Some pig! Terrific!"}]}\n\n본문:\n${truncated}`;
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:3000,messages:[{role:'user',content:prompt}]});
     const txt=d.content?.[0]?.text?.trim()||'';
     const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
     if(!json.words?.length){if(status)status.textContent='';return toast('추출된 단어가 없습니다');}
-    const b=_cache.library.find(x=>x.id===id);
-    const existing=(b?.vocab||[]);
-    const existSet=new Set(existing.map(w=>w.word.toLowerCase()));
-    const newWords=json.words.filter(w=>w.word&&!existSet.has(w.word.toLowerCase()));
+    // 기존 항목 조회: 같은 word+pos 조합 중복 방지
+    let b=_cache.library.find(x=>x.id===id);
+    if(!b){const base=BOOK_DB.find(x=>x.id===id)||{};b={...base,id,vocab:[],bookText:text};_cache.library.push(b);}
+    const existing=(b.vocab||[]);
+    const existSet=new Set(existing.map(w=>`${w.word.toLowerCase()}|${w.pos||''}`));
+    const newWords=json.words.filter(w=>w.word&&!existSet.has(`${w.word.toLowerCase()}|${w.pos||''}`));
     const updatedVocab=[...existing,...newWords];
-    const updated={...b,vocab:updatedVocab,bookText:document.getElementById('elib-booktext').value.trim()};
+    const updated={...b,vocab:updatedVocab,bookText:text};
     await supaUpsert('library',id,updated,null);
-    const idx=_cache.library.findIndex(x=>x.id===id);if(idx>=0)_cache.library[idx]=updated;
+    const idx=_cache.library.findIndex(x=>x.id===id);if(idx>=0)_cache.library[idx]=updated;else _cache.library.push(updated);
     renderLibVocabTable(id);renderLibTable();
     if(status)status.textContent='';
     toast(`${newWords.length}개 단어 추출 완료 (총 ${updatedVocab.length}개)`);
@@ -1775,17 +1787,15 @@ function populateLibSeriesFilter(){
 }
 
 function renderLibTable(){
-  const allSrc=[...BOOK_DB,...DB.libs()];
-  const customIds=new Set(DB.libs().map(b=>b.id));
+  const libIds=new Set(DB.libs().map(b=>b.id));
+  // library 항목이 BOOK_DB와 같은 id면 library 버전만 표시 (중복 제거)
+  const allSrc=[...BOOK_DB.filter(b=>!libIds.has(b.id)),...DB.libs()];
   const q=(document.getElementById('lib-q')?.value||'').toLowerCase().trim();
   const serF=document.getElementById('lib-filter-series')?.value||'';
-  const typeF=document.getElementById('lib-filter-type')?.value||'all';
 
   let filtered=allSrc;
   if(q)filtered=filtered.filter(b=>b.title.toLowerCase().includes(q)||(b.series||'').toLowerCase().includes(q));
   if(serF)filtered=filtered.filter(b=>b.series===serF);
-  if(typeF==='db')filtered=filtered.filter(b=>!customIds.has(b.id));
-  if(typeF==='custom')filtered=filtered.filter(b=>customIds.has(b.id));
 
   const total=filtered.length;
   const totalEl=document.getElementById('lib-total-count');
@@ -1798,7 +1808,6 @@ function renderLibTable(){
 
   const tbody=document.getElementById('lib-tbody');if(!tbody)return;
   tbody.innerHTML=paged.map(b=>{
-    const isCustom=customIds.has(b.id);
     const arDisplay=b.ar||b.arLevel||'—';
     return `<tr>
       <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">${b.title}</td>
@@ -1806,12 +1815,14 @@ function renderLibTable(){
       <td><span class="badge bnavy" style="white-space:nowrap">${arDisplay!=='—'?'AR '+arDisplay:'—'}</span></td>
       <td style="font-size:12px;color:var(--slate)">${b.lexile||'—'}</td>
       <td style="font-size:12px;color:var(--slate)">${b.level||'—'}</td>
-      <td><span class="badge ${isCustom?'bteal':'bslate'}" style="font-size:10px">${isCustom?'추가':'기본'}</span></td>
-      <td style="text-align:center">${isCustom&&b.vocab?.length?`<button class="btn ba" style="padding:2px 8px;font-size:10px" onclick="openEditLib('${b.id}');setTimeout(()=>elibTab('vocab'),200)">${b.vocab.length}단어</button>`:'<span style="color:var(--slate);font-size:11px">—</span>'}</td>
+      <td style="text-align:center">${b.vocab?.length?`<button class="btn ba" style="padding:2px 8px;font-size:10px" onclick="openEditLib('${b.id}');setTimeout(()=>elibTab('vocab'),200)">${b.vocab.length}단어</button>`:'<span style="color:var(--slate);font-size:11px">—</span>'}</td>
       <td style="text-align:center;min-width:160px">
         ${renderAudioCell(b)}
       </td>
-      <td>${isCustom?`<button class="btn bd" style="padding:2px 8px;font-size:11px" onclick="reqDelLibItem('${b.id}')">삭제</button>`:''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn ba" style="padding:2px 8px;font-size:11px;margin-right:3px" onclick="openEditLib('${b.id}')">수정</button>
+        ${libIds.has(b.id)?`<button class="btn bd" style="padding:2px 8px;font-size:11px" onclick="reqDelLibItem('${b.id}')">삭제</button>`:''}
+      </td>
     </tr>`;
   }).join('');
 
@@ -2070,14 +2081,16 @@ async function handleTstPhoto(e){
   if(!apiKey){status.innerHTML='<div class="ais warn">⚠️ API Key 미설정 — 직접 입력해 주세요</div>';return;}
   status.innerHTML='<div class="ais loading"><div class="spin"></div>테스트지 분석 중...</div>';
   try{
-    const r=await callVision(apiKey,b64,f.type,'이 테스트지를 분석해서 JSON만 반환하세요:\n{"vocabCorrect":숫자,"vocabTotal":숫자,"grammarCorrect":숫자,"grammarTotal":숫자,"allWords":["단어1","단어2"],"wrongWords":["틀린단어1"]}\n확인 불가는 null. allWords에는 테스트지에 있는 모든 영단어, wrongWords에는 그 중 틀린 것만.');
+    const prompt=`이 테스트지를 분석하세요.\n1. 단어(vocab) 시험 섹션 유무 확인 — 없으면 vocabTotal:0\n2. 어법(grammar) 시험 섹션 유무 확인 — 없으면 grammarTotal:0\n3. 각 섹션별 맞은 개수/전체 개수 파악\n4. 테스트지에 있는 모든 영단어 목록(allWords), 그 중 틀린 단어(wrongWords)\n5. 학부모 전달용 코멘트: 전문적이고 따뜻한 어조, 잘한 점·개선 방향 균형, 100자 내외\n\nJSON만 반환:\n{"vocabCorrect":숫자,"vocabTotal":숫자,"grammarCorrect":숫자,"grammarTotal":숫자,"allWords":["단어1"],"wrongWords":["단어1"],"parentComment":"코멘트"}`;
+    const r=await callVision(apiKey,b64,f.type,prompt);
     const d=JSON.parse(r.replace(/```json|```/g,'').trim());
     if(d.vocabCorrect!=null)document.getElementById('ts-vc').value=d.vocabCorrect;
-    if(d.vocabTotal)document.getElementById('ts-vt').value=d.vocabTotal;
+    document.getElementById('ts-vt').value=d.vocabTotal??0;
     if(d.grammarCorrect!=null)document.getElementById('ts-gc').value=d.grammarCorrect;
-    if(d.grammarTotal)document.getElementById('ts-gt').value=d.grammarTotal;
-    if(d.allWords&&d.allWords.length)document.getElementById('ts-allwords').value=d.allWords.join(', ');
-    if(d.wrongWords&&d.wrongWords.length)document.getElementById('ts-wr').value=d.wrongWords.join(', ');
+    document.getElementById('ts-gt').value=d.grammarTotal??0;
+    if(d.allWords?.length)document.getElementById('ts-allwords').value=d.allWords.join(', ');
+    if(d.wrongWords?.length)document.getElementById('ts-wr').value=d.wrongWords.join(', ');
+    if(d.parentComment){const cmtEl=document.getElementById('ts-cmt');if(cmtEl&&!cmtEl.value)cmtEl.value=d.parentComment;}
     status.innerHTML='<div class="ais ok">✅ AI 인식 완료 — 확인 후 저장</div>';
   }catch(e){status.innerHTML='<div class="ais err">⚠️ AI 인식 실패: '+e.message+'</div>';}
 }
