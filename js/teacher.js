@@ -1546,33 +1546,59 @@ function renderTbookTable(){
     <td>${b.level||'—'}</td>
     <td>${b.category||'—'}</td>
     <td><div style="display:flex;gap:4px">
+      <button class="btn ba bsm" onclick="openEditTbook('${b.id}')">수정</button>
       <button class="btn ba bsm" onclick="openTbookUnits('${b.id}')" title="단원별 단어 관리">📝 단어${uCnt?` (${uCnt})`:''}</button>
       <button class="btn bd bsm" onclick="delGlobalTbook('${b.id}')">삭제</button>
     </div></td>
   </tr>`;}).join('');
 }
-async function addTbook(){
+function openEditTbook(id){
+  const b=(_cache.globalTextbooks||[]).find(x=>x.id===id);if(!b)return;
+  document.getElementById('tbook-edit-id').value=id;
+  document.getElementById('tbook-title').value=b.title||'';
+  document.getElementById('tbook-publisher').value=b.publisher||'';
+  document.getElementById('tbook-level').value=b.level||'';
+  document.getElementById('tbook-category').value=b.category||'';
+  document.getElementById('tbook-modal-title').textContent='교재 수정';
+  document.getElementById('tbook-submit-btn').textContent='저장';
+  openM('m-add-tbook');
+}
+async function saveTbook(){
   const title=document.getElementById('tbook-title')?.value.trim();
   if(!title)return toast('교재명을 입력하세요');
   const publisher=document.getElementById('tbook-publisher')?.value.trim()||'';
   const level=document.getElementById('tbook-level')?.value.trim()||'';
   const category=document.getElementById('tbook-category')?.value||'';
-  const tb={id:uid(),title,publisher,level,category};
+  const editId=document.getElementById('tbook-edit-id')?.value||'';
   try{
-    await supaUpsert('global_textbooks',tb.id,tb,null);
-    if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
-    _cache.globalTextbooks.push(tb);
-    renderTbookTable();
-    updateTbookDatalist();
+    if(editId){
+      // 수정 모드: 기존 units 유지
+      const existing=(_cache.globalTextbooks||[]).find(b=>b.id===editId)||{};
+      const tb={...existing,title,publisher,level,category};
+      await supaUpsert('global_textbooks',editId,tb,null);
+      const idx=_cache.globalTextbooks.findIndex(b=>b.id===editId);
+      if(idx>=0)_cache.globalTextbooks[idx]=tb;
+      toast('수정되었습니다');
+    }else{
+      // 추가 모드
+      const tb={id:uid(),title,publisher,level,category};
+      await supaUpsert('global_textbooks',tb.id,tb,null);
+      if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
+      _cache.globalTextbooks.push(tb);
+      toast('교재가 추가되었습니다');
+    }
+    renderTbookTable();updateTbookDatalist();
     closeM('m-add-tbook');
-    ['tbook-title','tbook-publisher','tbook-level'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    ['tbook-title','tbook-publisher','tbook-level','tbook-edit-id'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     const catEl=document.getElementById('tbook-category');if(catEl)catEl.value='';
-    toast('교재가 추가되었습니다');
+    document.getElementById('tbook-modal-title').textContent='교재 추가';
+    document.getElementById('tbook-submit-btn').textContent='추가';
   }catch(e){
-    if(e.message?.includes('404'))toast('global_textbooks 테이블이 없습니다. Supabase SQL Editor에서 supabase_missing_tables.sql을 실행해 주세요.');
+    if(e.message?.includes('404'))toast('global_textbooks 테이블이 없습니다. supabase_missing_tables.sql을 실행해 주세요.');
     else toast('저장 실패: '+e.message);
   }
 }
+function addTbook(){saveTbook();}
 async function delGlobalTbook(id){
   await supaDelete('global_textbooks',id);
   _cache.globalTextbooks=(_cache.globalTextbooks||[]).filter(b=>b.id!==id);
