@@ -254,32 +254,54 @@ function renderSpVocab(sid){
   const el=document.getElementById('sp-vocab');if(!el)return;
   const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).sort((a,b)=>a.word.localeCompare(b.word));
   if(!cards.length){el.innerHTML='<div class="empty"><div class="empty-i">📚</div><div class="empty-t">단어장이 비어있습니다</div></div>';return;}
-  const DAYS=['월','화','수','목','금'];
-  const groups=[[],[],[],[],[]];cards.forEach((c,i)=>groups[i%5].push(c));
-  const schedHtml=`<div style="margin-bottom:16px">
-    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📅 요일별 학습 배분</div>
-    <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px">
-      ${groups.map((g,i)=>`<div style="flex:0 0 auto;min-width:90px;max-width:130px;padding:8px;border:1.5px solid var(--border);border-radius:var(--rs);background:var(--cream2)">
-        <div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:3px">${DAYS[i]}요일 <span style="color:var(--slate);font-weight:400">${g.length}개</span></div>
-        <div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:4px">${g.map(c=>`<span style="font-size:10px;background:#fff;border:1px solid var(--border);border-radius:3px;padding:1px 4px;white-space:nowrap">${c.word}</span>`).join('')}</div>
+  // 다음 수업까지 외울 단어: 미숙달(phase<2) 단어, 오답 많은 순
+  const studyCards=cards.filter(c=>(c.phase||0)<2).sort((a,b)=>(b.misses||0)-(a.misses||0)||a.word.localeCompare(b.word));
+  const studyHtml=`<div style="margin-bottom:16px;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border)">
+    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📝 다음 수업까지 외울 단어 <span style="color:var(--teal);font-weight:400">${studyCards.length}개</span></div>
+    ${studyCards.length?`<div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${studyCards.map(c=>`<div style="background:${(c.misses||0)>0?'rgba(239,83,80,.08)':'#fff'};border:1.5px solid ${(c.misses||0)>0?'rgba(239,83,80,.35)':'var(--border)'};border-radius:10px;padding:4px 10px;display:flex;align-items:center;gap:4px">
+        <span style="font-size:12px;font-weight:600;font-family:var(--fd)">${c.word}</span>
+        ${c.meaning?`<span style="font-size:10px;color:var(--slate)">· ${c.meaning}</span>`:''}
+        ${(c.misses||0)>0?`<span style="font-size:10px;color:var(--coral);font-weight:700">×${c.misses}</span>`:''}
       </div>`).join('')}
-    </div>
+    </div>`:'<div style="font-size:12px;color:var(--slate)">외울 단어가 없습니다 — 모두 숙달됨 🎉</div>'}
   </div>`;
-  const PHASE_LBL=['신규','학습중','숙달'];
-  const PHASE_CLS=['bslate','bamber','bteal'];
+  const PHASE_LBL=['신규','학습중','숙달'];const PHASE_CLS=['bslate','bamber','bteal'];
   const listHtml=cards.map(c=>`<div style="display:flex;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);align-items:flex-start">
+    <input type="checkbox" class="vocab-chk" data-id="${c.id}" style="margin-top:4px;flex-shrink:0;cursor:pointer">
     <div style="flex:1;min-width:0">
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:2px">
         <span style="font-weight:700;font-size:13px;font-family:var(--fd)">${c.word}</span>
         ${c.pos?`<span style="font-size:10px;color:var(--slate)">${c.pos}</span>`:''}
         <span class="badge ${PHASE_CLS[c.phase||0]}" style="font-size:10px">${PHASE_LBL[c.phase||0]}</span>
       </div>
-      ${c.meaning?`<div style="font-size:12px;color:var(--navy);margin-bottom:1px">${c.meaning}</div>`:''}
+      ${c.meaning?`<div style="font-size:12px;color:var(--navy);margin-bottom:1px">${c.meaning}</div>`:'<div style="font-size:11px;color:var(--slate)">뜻 없음</div>'}
       ${c.example?`<div style="font-size:11px;color:var(--slate);font-style:italic">${c.example}</div>`:''}
     </div>
     <button onclick="delVocabCard('${c.id}','${sid}','${escAttr(c.word)}')" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;color:var(--slate)">삭제</button>
   </div>`).join('');
-  el.innerHTML=`${schedHtml}<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📚 전체 단어 목록 (${cards.length}개)</div>${listHtml}`;
+  el.innerHTML=`${studyHtml}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:700;color:var(--navy)">📚 전체 단어 목록 (${cards.length}개)</span>
+      <div style="display:flex;gap:6px;align-items:center">
+        <label style="font-size:11px;color:var(--slate);cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="vocab-sel-all" onchange="vocabToggleAll(this)"> 전체 선택</label>
+        <button class="btn bd bsm" onclick="vocabDeleteSelected('${sid}')">선택 삭제</button>
+      </div>
+    </div>
+    ${listHtml}`;
+}
+function vocabToggleAll(cb){
+  document.querySelectorAll('#sp-vocab .vocab-chk').forEach(el=>el.checked=cb.checked);
+}
+async function vocabDeleteSelected(sid){
+  const checked=[...document.querySelectorAll('#sp-vocab .vocab-chk:checked')];
+  if(!checked.length)return toast('삭제할 단어를 선택하세요');
+  const ids=checked.map(el=>el.dataset.id);
+  askConfirm('선택 삭제',`${ids.length}개 단어를 단어장에서 삭제할까요?`,'삭제','bd',async()=>{
+    for(const id of ids){await supaDelete('vocab_cards',id);}
+    _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>!ids.includes(c.id));
+    renderSpVocab(sid);renderSpRdlog(sid);toast(`${ids.length}개 삭제되었습니다`);
+  });
 }
 async function delVocabCard(cardId,sid,word){
   if(!cardId){toast('단어장에 없는 단어입니다');return;}
