@@ -1034,6 +1034,8 @@
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button class="btn ba bsm" onclick="document.getElementById('tu-import-file').click()" style="white-space:nowrap">📁 Excel/CSV 가져오기</button>
       <input type="file" id="tu-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="tuImportFile(event)">
+      <button class="btn ba bsm" onclick="document.getElementById('tu-txt-file').click()" style="white-space:nowrap">📄 텍스트 파일 (.txt)</button>
+      <input type="file" id="tu-txt-file" accept=".txt" style="display:none" onchange="tuImportTxt(event)">
       <button class="btn ba bsm" onclick="tuExportWords()" style="white-space:nowrap">⬇ CSV 내보내기</button>
       <span style="font-size:11px;color:var(--teal)" id="tu-import-status"></span>
     </div>

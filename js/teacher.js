@@ -1867,6 +1867,38 @@ function tuExportWords(){
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
   a.download=`${tb.title}_${_tuCurUnit}_단어.csv`;a.click();
 }
+function tuImportTxt(e){
+  const file=e.target.files[0];if(!file)return;
+  const tbId=document.getElementById('tu-tb-id').value;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const text=ev.target.result.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+    if(!tb.units)tb.units={};
+    // 파싱: 빈 줄로 블록 분리 → 첫 줄=단원명, 나머지=단어
+    const blocks=text.split(/\n\s*\n/).map(b=>b.trim()).filter(Boolean);
+    let addedUnits=0,addedWords=0;
+    for(const block of blocks){
+      const lines=block.split('\n').map(l=>l.trim()).filter(Boolean);
+      if(!lines.length)continue;
+      const unitName=lines[0];
+      const wordLines=lines.slice(1).join(',');
+      const words=wordLines.split(',').map(w=>w.trim().toLowerCase()).filter(Boolean);
+      if(!unitName||!words.length)continue;
+      const existing=tuNormWords(tb.units[unitName]||[]);
+      const existSet=new Set(existing.map(w=>w.word));
+      const newWords=words.filter(w=>!existSet.has(w)).map(w=>({word:w,ko:'',pos:'',example:''}));
+      tb.units[unitName]=[...existing,...newWords];
+      if(!existing.length)addedUnits++;
+      addedWords+=newWords.length;
+    }
+    await supaUpsert('global_textbooks',tbId,tb,null);
+    const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=tb;
+    _tuCurUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,null);renderTbookTable();
+    toast(`${addedUnits}개 단원, ${addedWords}개 단어 추가 완료`);
+  };
+  reader.readAsText(file,'UTF-8');e.target.value='';
+}
 async function addUnitWordsToVocab(sid,materials,date){
   if(!materials||!sid)return;
   for(const mat of Object.values(materials)){
