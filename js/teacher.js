@@ -1512,7 +1512,7 @@ async function extractLibVocab(){
   const status=document.getElementById('elib-extract-status');if(status)status.textContent='AI가 단어 추출 중...';
   const truncated=text.split(/\s+/).filter(Boolean).slice(0,2500).join(' ');
   try{
-    const prompt=`다음 영어 원서 본문에서 학습 가치 있는 단어를 추출하세요.\n\n규칙:\n1. 고유명사(인명·지명) 완전 제외\n2. 기초 단어(the/a/is/go/have/say/come/make/get/see/look/know/want/think 등) 제외\n3. 한국어 뜻: 한국어만 2-4단어, 영어·화살표·인용부호 없이\n4. 예문: 본문에서 해당 단어가 쓰인 실제 문장 그대로 발췌 우선, 없으면 학습자 수준에 맞게 생성\n5. 품사가 여러 개인 단어: 본문 사용 빈도 높은 품사부터 각각 별도 항목으로\n6. 품사: noun/verb/adj/adv/prep 중 하나\n7. 최대 50개 항목\n\nJSON만 반환:\n{"words":[{"word":"terrific","ko":"훌륭한","pos":"adj","example":"Some pig! Terrific!"}]}\n\n본문:\n${truncated}`;
+    const prompt=`다음 영어 원서 본문에서 학습 가치 있는 단어와 표현을 추출하세요.\n\n규칙:\n1. 고유명사(인명·지명) 완전 제외\n2. 단순 기초 단어(the/a/is/it/this/that 등)는 제외하되, 의미 있는 단어는 포함\n3. 구동사·숙어 포함: look at / look out / give up / run away 등 2-3단어 표현도 단어처럼 항목으로 추가\n4. 한국어 뜻: 한국어만 2-4단어, 영어·화살표·인용부호 없이\n5. 예문: 본문에서 해당 단어/표현이 쓰인 실제 문장 발췌 우선, 없으면 학습자 수준에 맞게 생성\n6. 품사가 여러 개인 단어: 본문 사용 빈도 높은 품사부터 각각 별도 항목\n7. 품사 값: noun/verb/adj/adv/prep/phrase (구동사·숙어는 phrase)\n8. 최대 50개 항목\n\nJSON만 반환:\n{"words":[{"word":"look out","ko":"조심하다, 주의하다","pos":"phrase","example":"Look out! A car is coming."},{"word":"terrific","ko":"훌륭한","pos":"adj","example":"Some pig! Terrific!"}]}\n\n본문:\n${truncated}`;
     const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:3000,messages:[{role:'user',content:prompt}]});
     const txt=d.content?.[0]?.text?.trim()||'';
     const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
