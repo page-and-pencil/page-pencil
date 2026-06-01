@@ -1089,14 +1089,23 @@
     </div>
     <!-- 본문 & 단어장 탭 -->
     <div id="elib-pane-vocab" style="display:none">
-      <!-- 본문 입력 -->
-      <div class="f" style="margin-bottom:8px">
-        <label>원서 본문 (붙여넣기 또는 직접 입력)</label>
-        <textarea id="elib-booktext" placeholder="원서 본문을 붙여넣으세요 (챕터·페이지 단위도 가능). 입력 후 'AI 단어 추출'을 클릭하면 자동으로 단어장을 생성합니다." style="width:100%;height:110px;padding:10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
-        <button class="btn bt bsm" onclick="extractLibVocab()" style="white-space:nowrap">✨ AI 단어 추출 & 저장</button>
-        <span style="font-size:11px;color:var(--slate)" id="elib-extract-status"></span>
+      <!-- 챕터 관리 -->
+      <div style="background:var(--cream2);border:1px solid var(--border);border-radius:var(--rs);padding:10px;margin-bottom:10px">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+          <select id="elib-ch-sel" onchange="elibSelectChapter(this.value)" style="flex:1;min-width:110px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream)"><option value="">챕터 없음</option></select>
+          <input type="text" id="elib-ch-name" placeholder="새 챕터명 (예: Ch.1)" style="flex:1;min-width:100px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
+          <button class="btn bt bsm" onclick="elibAddChapter()" style="white-space:nowrap">+ 챕터</button>
+          <button class="btn bd bsm" onclick="elibDelChapter()" style="white-space:nowrap">챕터 삭제</button>
+        </div>
+        <textarea id="elib-booktext" placeholder="챕터를 선택하거나 생성한 뒤 본문을 붙여넣으세요." style="width:100%;height:100px;padding:10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">
+          <button class="btn bt bsm" onclick="extractLibVocab()" style="white-space:nowrap">✨ AI 단어 추출 & 저장</button>
+          <button class="btn ba bsm" onclick="document.getElementById('elib-txt-file').click()" style="white-space:nowrap">📄 .txt 파일 불러오기</button>
+          <input type="file" id="elib-txt-file" accept=".txt" style="display:none" onchange="elibLoadTxtFile(event)">
+          <button class="btn ba bsm" onclick="document.getElementById('elib-ch-csv-input').click()" style="white-space:nowrap">📊 챕터 CSV 일괄 입력</button>
+          <input type="file" id="elib-ch-csv-input" accept=".csv" style="display:none" onchange="elibImportChapterCSV(event)">
+          <span style="font-size:11px;color:var(--teal)" id="elib-extract-status"></span>
+        </div>
       </div>
       <!-- 단어 테이블 -->
       <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:10px">

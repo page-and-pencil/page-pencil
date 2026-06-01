@@ -1316,7 +1316,7 @@ function reqDelRd(){
 }
 
 // ── LIBRARY ──
-let libCoverB64='',libCoverMime='';
+let libCoverB64='',libCoverMime='',_elibCurChapter=null;
 async function handleLibCover(e){
   const f=e.target.files[0];if(!f)return;
   document.getElementById('lib-cover-fname').textContent='선택됨: '+f.name;
@@ -1351,12 +1351,12 @@ async function addLib(){
 function elibTab(tab){
   document.getElementById('elib-pane-info').style.display=tab==='info'?'block':'none';
   document.getElementById('elib-pane-vocab').style.display=tab==='vocab'?'block':'none';
+  if(tab==='vocab'){const id=document.getElementById('elib-id').value;if(id)elibPopulateChapSel(id);}
   const infoBtn=document.getElementById('elib-tab-info'),vocabBtn=document.getElementById('elib-tab-vocab');
   if(infoBtn){infoBtn.style.color=tab==='info'?'var(--teal)':'var(--slate)';infoBtn.style.borderBottomColor=tab==='info'?'var(--teal)':'transparent';infoBtn.style.fontWeight=tab==='info'?'700':'600';}
   if(vocabBtn){vocabBtn.style.color=tab==='vocab'?'var(--teal)':'var(--slate)';vocabBtn.style.borderBottomColor=tab==='vocab'?'var(--teal)':'transparent';vocabBtn.style.fontWeight=tab==='vocab'?'700':'600';}
 }
 function openEditLib(id){
-  // BOOK_DB 항목도 지원: library에 없으면 BOOK_DB에서 조회
   const b=DB.libs().find(x=>x.id===id)||BOOK_DB.find(x=>x.id===id);if(!b)return;
   document.getElementById('elib-id').value=b.id;
   document.getElementById('elib-title').value=b.title||'';
@@ -1364,10 +1364,105 @@ function openEditLib(id){
   document.getElementById('elib-ar').value=b.arLevel||b.ar||'';
   document.getElementById('elib-pages').value=b.pages||'';
   document.getElementById('elib-pub').value=b.publisher||'';
-  document.getElementById('elib-booktext').value=b.bookText||'';
+  _elibCurChapter=null;
   elibTab('info');
   renderLibVocabTable(id);
   openM('m-edit-lib');
+}
+function elibGetChapters(id){
+  const b=_cache.library.find(x=>x.id===id)||BOOK_DB.find(x=>x.id===id)||{};
+  if(b.chapters?.length)return b.chapters;
+  if(b.bookText)return [{name:'전체',text:b.bookText}];
+  return [];
+}
+function elibPopulateChapSel(id){
+  const chapters=elibGetChapters(id);
+  const sel=document.getElementById('elib-ch-sel');if(!sel)return;
+  if(!chapters.length){sel.innerHTML='<option value="">챕터 없음 — 오른쪽에서 추가</option>';document.getElementById('elib-booktext').value='';return;}
+  sel.innerHTML=chapters.map(c=>`<option value="${escAttr(c.name)}">${c.name} (${c.text?.split(/\s+/).filter(Boolean).length||0}단어)</option>`).join('');
+  if(!_elibCurChapter||!chapters.some(c=>c.name===_elibCurChapter)){
+    _elibCurChapter=chapters[0].name;
+  }
+  sel.value=_elibCurChapter;
+  const ch=chapters.find(c=>c.name===_elibCurChapter);
+  document.getElementById('elib-booktext').value=ch?.text||'';
+}
+function elibSaveCurText(){
+  if(!_elibCurChapter)return;
+  const id=document.getElementById('elib-id').value;
+  const b=_cache.library.find(x=>x.id===id);if(!b)return;
+  if(!b.chapters)b.chapters=[];
+  const idx=b.chapters.findIndex(c=>c.name===_elibCurChapter);
+  if(idx>=0)b.chapters[idx].text=document.getElementById('elib-booktext').value;
+}
+function elibSelectChapter(name){
+  elibSaveCurText();
+  _elibCurChapter=name||null;
+  const id=document.getElementById('elib-id').value;
+  const chapters=elibGetChapters(id);
+  const ch=chapters.find(c=>c.name===name);
+  document.getElementById('elib-booktext').value=ch?.text||'';
+}
+function elibAddChapter(){
+  const name=document.getElementById('elib-ch-name').value.trim();
+  if(!name)return toast('챕터명을 입력하세요');
+  const id=document.getElementById('elib-id').value;
+  let b=_cache.library.find(x=>x.id===id);
+  if(!b){const base=BOOK_DB.find(x=>x.id===id)||{};b={...base,id,chapters:[]};_cache.library.push(b);}
+  if(!b.chapters)b.chapters=elibGetChapters(id).length?[...elibGetChapters(id)]:[];
+  if(b.chapters.some(c=>c.name===name))return toast('이미 있는 챕터명입니다');
+  elibSaveCurText();
+  b.chapters.push({name,text:''});
+  supaUpsert('library',id,b,null).then(()=>{
+    document.getElementById('elib-ch-name').value='';
+    _elibCurChapter=name;elibPopulateChapSel(id);
+    document.getElementById('elib-booktext').value='';
+    toast(`'${name}' 챕터 추가됨`);
+  });
+}
+function elibDelChapter(){
+  if(!_elibCurChapter)return toast('삭제할 챕터를 선택하세요');
+  const id=document.getElementById('elib-id').value;
+  askConfirm(`'${_elibCurChapter}' 삭제`,'이 챕터와 본문을 삭제할까요?','삭제','bd',async()=>{
+    const b=_cache.library.find(x=>x.id===id);if(!b)return;
+    b.chapters=(b.chapters||[]).filter(c=>c.name!==_elibCurChapter);
+    await supaUpsert('library',id,b,null);
+    _elibCurChapter=null;elibPopulateChapSel(id);toast('삭제되었습니다');
+  });
+}
+function elibLoadTxtFile(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{document.getElementById('elib-booktext').value=ev.target.result;toast('파일 내용이 로드되었습니다');};
+  reader.readAsText(file,'UTF-8');e.target.value='';
+}
+async function elibImportChapterCSV(e){
+  const file=e.target.files[0];if(!file)return;
+  const id=document.getElementById('elib-id').value;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const lines=ev.target.result.split('\n').filter(l=>l.trim());
+    if(!lines.length)return toast('파일이 비어있습니다');
+    const headers=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
+    const isHeader=['챕터','chapter','제목','name'].some(h=>headers.includes(h));
+    const cI=isHeader?headers.findIndex(h=>['챕터','chapter','제목','name'].includes(h)):0;
+    const tI=isHeader?headers.findIndex(h=>['본문','text','내용','content'].includes(h)):1;
+    let b=_cache.library.find(x=>x.id===id);
+    if(!b){const base=BOOK_DB.find(x=>x.id===id)||{};b={...base,id,chapters:[]};_cache.library.push(b);}
+    if(!b.chapters)b.chapters=[];
+    let added=0;
+    for(let i=isHeader?1:0;i<lines.length;i++){
+      const cols=parseCSVLine(lines[i]);
+      const name=String(cols[cI>=0?cI:0]||'').trim();const text=String(cols[tI>=0?tI:1]||'').trim();
+      if(!name)continue;
+      const idx=b.chapters.findIndex(c=>c.name===name);
+      if(idx>=0)b.chapters[idx].text=text;else{b.chapters.push({name,text});added++;}
+    }
+    await supaUpsert('library',id,b,null);
+    _elibCurChapter=null;elibPopulateChapSel(id);
+    toast(`${added}개 챕터 추가 완료`);
+  };
+  reader.readAsText(file,'UTF-8');e.target.value='';
 }
 async function updLib(){
   const id=document.getElementById('elib-id').value;
@@ -1409,10 +1504,13 @@ function renderLibVocabTable(id){
 }
 async function extractLibVocab(){
   const id=document.getElementById('elib-id').value;
-  const text=document.getElementById('elib-booktext').value.trim();
-  if(!text)return toast('본문을 입력하세요');
+  elibSaveCurText(); // 현재 챕터 텍스트 먼저 저장
+  const rawText=document.getElementById('elib-booktext').value.trim();
+  if(!rawText)return toast('챕터 본문을 입력하세요');
+  // 줄바꿈 정규화: \r\n → space, 연속 공백 정리
+  const text=rawText.replace(/\r\n|\r/g,'\n').replace(/\n+/g,' ').replace(/[ \t]+/g,' ').trim();
   const status=document.getElementById('elib-extract-status');if(status)status.textContent='AI가 단어 추출 중...';
-  const truncated=text.split(/\s+/).slice(0,2500).join(' ');
+  const truncated=text.split(/\s+/).filter(Boolean).slice(0,2500).join(' ');
   try{
     const prompt=`다음 영어 원서 본문에서 학습 가치 있는 단어를 추출하세요.\n\n규칙:\n1. 고유명사(인명·지명) 완전 제외\n2. 기초 단어(the/a/is/go/have/say/come/make/get/see/look/know/want/think 등) 제외\n3. 한국어 뜻: 한국어만 2-4단어, 영어·화살표·인용부호 없이\n4. 예문: 본문에서 해당 단어가 쓰인 실제 문장 그대로 발췌 우선, 없으면 학습자 수준에 맞게 생성\n5. 품사가 여러 개인 단어: 본문 사용 빈도 높은 품사부터 각각 별도 항목으로\n6. 품사: noun/verb/adj/adv/prep 중 하나\n7. 최대 50개 항목\n\nJSON만 반환:\n{"words":[{"word":"terrific","ko":"훌륭한","pos":"adj","example":"Some pig! Terrific!"}]}\n\n본문:\n${truncated}`;
     const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:3000,messages:[{role:'user',content:prompt}]});
@@ -1429,7 +1527,7 @@ async function extractLibVocab(){
     const updated={...b,vocab:updatedVocab,bookText:text};
     await supaUpsert('library',id,updated,null);
     const idx=_cache.library.findIndex(x=>x.id===id);if(idx>=0)_cache.library[idx]=updated;else _cache.library.push(updated);
-    renderLibVocabTable(id);renderLibTable();
+    renderLibVocabTable(id);renderLibTable();elibPopulateChapSel(id);
     if(status)status.textContent='';
     toast(`${newWords.length}개 단어 추출 완료 (총 ${updatedVocab.length}개)`);
   }catch(e){if(status)status.textContent='';toast('추출 실패: '+e.message);}
