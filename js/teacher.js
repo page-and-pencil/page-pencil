@@ -284,6 +284,7 @@ function renderSpVocab(sid){
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <span style="font-size:12px;font-weight:700;color:var(--navy)">📚 전체 단어 목록 (${cards.length}개)</span>
       <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn bo bsm" onclick="reqRefreshVocabExamples('${sid}')">원서 예문 갱신</button>
         <label style="font-size:11px;color:var(--slate);cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="vocab-sel-all" onchange="vocabToggleAll(this)"> 전체 선택</label>
         <button class="btn bd bsm" onclick="vocabDeleteSelected('${sid}')">선택 삭제</button>
       </div>
@@ -302,6 +303,12 @@ async function vocabDeleteSelected(sid){
     _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>!ids.includes(c.id));
     renderSpVocab(sid);renderSpRdlog(sid);toast(`${ids.length}개 삭제되었습니다`);
   });
+}
+async function reqRefreshVocabExamples(sid){
+  toast('원서에서 예문 검색 중...');
+  const n=await refreshVocabExamples(sid).catch(e=>{toast('오류: '+e.message);return 0;});
+  toast(n?`${n}개 예문이 원서에서 갱신되었습니다`:'갱신할 예문이 없습니다 (원서 DB에 해당 단어 없음)');
+  if(n>0)renderSpVocab(sid);
 }
 async function delVocabCard(cardId,sid,word){
   if(!cardId){toast('단어장에 없는 단어입니다');return;}
@@ -1017,10 +1024,15 @@ async function shareUpdate(name){
 // ── VOCAB MEANING FILL (학생 앱에서 빈 뜻 채우기) ──
 async function fillMissingMeanings(cards){
   for(const c of cards){
-    if(c.meaning)continue;
-    const ko=await getMeaningKo(c.word);
-    if(ko){
-      c.meaning=ko;
+    if(c.meaning&&c.example)continue;
+    const stu=(_cache.students||[]).find(s=>s.id===c.sid);
+    const grade=stu?.grade||stu?.lv||'';
+    const m=await getWordMetaFull(c.word,grade);
+    let changed=false;
+    if(m.ko&&!c.meaning){c.meaning=m.ko;changed=true;}
+    if(m.pos&&!c.pos){c.pos=m.pos;changed=true;}
+    if(m.example&&!c.example){c.example=m.example;c.exampleSrc=m.exampleSrc;changed=true;}
+    if(changed){
       await supaUpsert('vocab_cards',c.id,c,c.sid);
       const ci=_cache.vocab_cards.findIndex(x=>x.id===c.id);
       if(ci>=0)_cache.vocab_cards[ci]={...c};
@@ -1497,6 +1509,8 @@ async function saveLibText(){
   _cache.library[idx]={..._cache.library[idx],bookText:document.getElementById('elib-booktext').value.trim()};
   await supaUpsert('library',id,_cache.library[idx],null);
   toast('본문이 저장되었습니다');
+  const sids=[...new Set((_cache.vocab_cards||[]).map(c=>c.sid))];
+  sids.forEach(sid=>refreshVocabExamples(sid).catch(()=>{}));
 }
 function renderLibVocabTable(id){
   const b=(_cache.library||[]).find(x=>x.id===id);
@@ -1540,6 +1554,8 @@ async function extractLibVocab(){
     renderLibVocabTable(id);renderLibTable();elibPopulateChapSel(id);
     if(status)status.textContent='';
     toast(`${newWords.length}개 단어 추출 완료 (총 ${updatedVocab.length}개)`);
+    const sids=[...new Set((_cache.vocab_cards||[]).map(c=>c.sid))];
+    sids.forEach(sid=>refreshVocabExamples(sid).catch(()=>{}));
   }catch(e){if(status)status.textContent='';toast('추출 실패: '+e.message);}
 }
 async function elibAddWord(){

@@ -327,7 +327,84 @@ async function getMeaningKo(word){
   }catch(e){}
   return engDef;
 }
+function gradeToArRange(grade){
+  const m={'초1':[0.5,1.8],'초2':[1.3,2.8],'초3':[2.2,3.8],'초4':[3.0,4.8],'초5':[3.8,5.8],'초6':[4.5,6.8],'중1':[5.5,7.8],'중2':[6.5,9.0],'중3':[7.5,10.0],'고1':[8.5,11.0],'고2':[9.5,12.0],'고3':[10.5,13.0]};
+  return m[grade]||[0,13];
+}
+function findExampleFromBooks(word,grade){
+  const allBooks=[...(BOOK_DB||[]),...(_cache.library||[])];
+  const[arMin,arMax]=gradeToArRange(grade);
+  const target=(arMin+arMax)/2;
+  const safe=word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const candidates=[];
+  for(const book of allBooks){
+    if(candidates.length>300)break;
+    const ar=parseFloat(book.arLevel||book.ar||'0');
+    const dist=ar?Math.abs(ar-target)*2+(ar<arMin||ar>arMax?5:0):6;
+    const texts=[];
+    if(book.chapters?.length)book.chapters.forEach(c=>{if(c.text)texts.push(c.text);});
+    if(book.bookText)texts.push(book.bookText);
+    for(const text of texts){
+      const wRe=new RegExp('(?<![a-z])'+safe+'(?![a-z])','gi');
+      const sents=text.match(/[A-Z][^.!?]{10,190}[.!?]+/g)||[];
+      for(const s of sents){
+        if(!wRe.test(s))continue;
+        const clean=s.trim().replace(/\s+/g,' ');
+        if(clean.length<15||clean.length>220)continue;
+        candidates.push({sentence:clean,dist});
+        if(candidates.length>300)break;
+      }
+      if(candidates.length>300)break;
+    }
+  }
+  if(!candidates.length)return null;
+  candidates.sort((a,b)=>a.dist-b.dist);
+  return candidates[0].sentence;
+}
+async function getWordMetaFull(word,grade){
+  const bookEx=findExampleFromBooks(word,grade);
+  const apiKey=DB.api();
+  let ko='',pos='',example=bookEx||'',exampleSrc=bookEx?'book':'';
+  try{
+    const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+    if(r.ok){const d=await r.json();const m=d[0]?.meanings[0];if(m){if(!pos)pos=m.partOfSpeech||'';if(!ko)ko=m.definitions[0]?.definition||'';}}
+  }catch(e){}
+  if(apiKey){
+    try{
+      const lvHint=grade?`학생 학년: ${grade}.`:'';
+      const prompt=!bookEx
+        ?`영어 단어/표현 "${word}"의 정보. ${lvHint} 한국어 뜻 2-4단어, 예문은 ${grade||'초등'}생 수준의 자연스러운 문장.\nJSON만: {"ko":"뜻","pos":"noun|verb|adj|adv|phrase","example":"문장"}`
+        :`영어 단어/표현 "${word}"의 한국어 뜻·품사. 한국어 뜻 2-4단어.\nJSON만: {"ko":"뜻","pos":"noun|verb|adj|adv|phrase"}`;
+      const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:80,messages:[{role:'user',content:prompt}]});
+      const txt=d.content?.[0]?.text?.trim()||'';
+      const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
+      if(json.ko&&!/^[A-Za-z]/.test(json.ko))ko=json.ko;
+      if(json.pos)pos=json.pos;
+      if(json.example&&!bookEx){example=json.example;exampleSrc='ai';}
+    }catch(e){}
+  }
+  return{ko,pos,example,exampleSrc};
+}
+async function refreshVocabExamples(sid){
+  const stu=(_cache.students||[]).find(s=>s.id===sid);
+  const grade=stu?.grade||stu?.lv||'';
+  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  let updated=0;
+  for(const card of cards){
+    if(card.exampleSrc==='manual')continue;
+    const bookEx=findExampleFromBooks(card.word,grade);
+    if(!bookEx||bookEx===card.example)continue;
+    const updCard={...card,example:bookEx,exampleSrc:'book'};
+    await supaUpsert('vocab_cards',card.id,updCard,sid);
+    const ci=_cache.vocab_cards.findIndex(c=>c.id===card.id);
+    if(ci>=0)_cache.vocab_cards[ci]=updCard;
+    updated++;
+  }
+  return updated;
+}
 async function syncVocabCards(sid,allWords,wrongWords,date){
+  const stu=(_cache.students||[]).find(s=>s.id===sid);
+  const grade=stu?.grade||stu?.lv||'';
   const existing=await supaFetchBySid('vocab_cards',sid);
   const wrongSet=new Set(wrongWords.map(x=>(typeof x==='string'?x:x.word).toLowerCase().trim()));
   for(const entry of allWords){
@@ -342,11 +419,32 @@ async function syncVocabCards(sid,allWords,wrongWords,date){
       if(meta.example&&!found.example)updated.example=meta.example;
       await supaUpsert('vocab_cards',found.id,updated,sid);
       const ci=_cache.vocab_cards.findIndex(c=>c.id===found.id);if(ci>=0)_cache.vocab_cards[ci]=updated;
+      if(!updated.meaning||!updated.example){
+        getWordMetaFull(wordText,grade).then(async m=>{
+          let changed=false;
+          if(m.ko&&!updated.meaning){updated.meaning=m.ko;changed=true;}
+          if(m.pos&&!updated.pos){updated.pos=m.pos;changed=true;}
+          if(m.example&&!updated.example){updated.example=m.example;updated.exampleSrc=m.exampleSrc;changed=true;}
+          if(!changed)return;
+          await supaUpsert('vocab_cards',updated.id,updated,sid);
+          const ci=_cache.vocab_cards.findIndex(c=>c.id===found.id);if(ci>=0)_cache.vocab_cards[ci]={...updated};
+        }).catch(()=>{});
+      }
     }else{
-      const newCard={id:uid(),sid,word:wordText,meaning:meta.ko||'',pos:meta.pos||'',example:meta.example||'',hits:isWrong?0:1,misses:isWrong?1:0,phase:0,lastSeen:date,due:date,addedDate:date};
+      const newCard={id:uid(),sid,word:wordText,meaning:meta.ko||'',pos:meta.pos||'',example:meta.example||'',exampleSrc:meta.example?'':'',hits:isWrong?0:1,misses:isWrong?1:0,phase:0,lastSeen:date,due:date,addedDate:date};
       await supaUpsert('vocab_cards',newCard.id,newCard,sid);
       if(!_cache.vocab_cards)_cache.vocab_cards=[];_cache.vocab_cards.push(newCard);
-      if(!meta.ko){getMeaningKo(wordText).then(async ko=>{if(!ko)return;newCard.meaning=ko;await supaUpsert('vocab_cards',newCard.id,newCard,sid);const ci=_cache.vocab_cards.findIndex(c=>c.id===newCard.id);if(ci>=0)_cache.vocab_cards[ci]={...newCard};});}
+      if(!meta.ko||!newCard.example){
+        getWordMetaFull(wordText,grade).then(async m=>{
+          let changed=false;
+          if(m.ko&&!newCard.meaning){newCard.meaning=m.ko;changed=true;}
+          if(m.pos&&!newCard.pos){newCard.pos=m.pos;changed=true;}
+          if(m.example&&!newCard.example){newCard.example=m.example;newCard.exampleSrc=m.exampleSrc;changed=true;}
+          if(!changed)return;
+          await supaUpsert('vocab_cards',newCard.id,newCard,sid);
+          const ci=_cache.vocab_cards.findIndex(c=>c.id===newCard.id);if(ci>=0)_cache.vocab_cards[ci]={...newCard};
+        }).catch(()=>{});
+      }
     }
   }
 }

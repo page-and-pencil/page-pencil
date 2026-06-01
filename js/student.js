@@ -566,7 +566,7 @@ function resumeVocabDeck(){
 
 function renderVocabDeck(sid){
   const el=document.getElementById('st-vocab');if(!el)return;
-  const missingCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&!c.meaning);
+  const missingCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&(!c.meaning||!c.example));
   if(missingCards.length) fillMissingMeanings(missingCards);
   let cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
   const filterLabel=vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 1.25rem;background:var(--tl);font-size:12px;color:#005f6b"><span>📌 숙제 단어 ${vocabDeckFilter.words.length}개</span><button onclick="vocabDeckFilter=null;renderVocabDeck('${sid}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate)">전체 보기</button></div>`:'';
