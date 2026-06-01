@@ -1934,6 +1934,185 @@ async function tuDelWord(tbId,unitKey,idx){
   const ci=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(ci>=0)_cache.globalTextbooks[ci]=updated;
   tuRenderWords(tbId,unitKey);tuPopulateUnitSel(tbId);
 }
+// 교재 레벨 → 학년 변환 (findExampleFromBooks용)
+function getGradeFromLevel(level){
+  if(!level)return'초4';
+  const l=level.toLowerCase().replace(/\s+/g,'');
+  const m=l.match(/초[1-6]|중[1-3]|고[1-3]/);if(m)return m[0];
+  if(/starter|^1$|lv\.?1|level\.?1/.test(l))return'초2';
+  if(/^2$|lv\.?2|level\.?2/.test(l))return'초3';
+  if(/^3$|lv\.?3|level\.?3/.test(l))return'초4';
+  if(/^4$|lv\.?4|level\.?4/.test(l))return'초5';
+  if(/^5$|lv\.?5|level\.?5/.test(l))return'초6';
+  if(/^6$|lv\.?6|level\.?6/.test(l))return'중1';
+  return'초4';
+}
+// AI 통합 파싱: 단원 구분 + 단어/뜻/품사/예문 자동 추출 + 원서 예문 우선 교체
+async function aiImportWords(rawText,tbId){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  const grade=getGradeFromLevel(tb?.level||'');
+  const truncated=rawText.trim().split(/\s+/).slice(0,3000).join(' ');
+  const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:4000,messages:[{role:'user',content:`다음 영어 교재 단어 파일을 파싱하세요.
+
+규칙:
+1. 단원 구분(Lesson/Unit/Day/Chapter+번호)이 있으면 각 단원으로 분류, 없으면 "전체"로 통합
+2. 각 단어:
+   - word: 영어 단어/구동사 소문자 (look at, run away 등 포함)
+   - ko: 한국어 뜻 2-4단어 (파일에 없으면 직접 작성)
+   - pos: noun/verb/adj/adv/prep/phrase/conj (파일에 없으면 추론)
+   - example: 파일에 있으면 그대로 발췌, 없으면 ${grade} 학생 수준의 자연스러운 예문 1문장
+3. 제외: 고유명사(인명·지명), the/a/an/is/it 등 기능어
+4. 최대 300개
+
+JSON만 반환:
+{"units":{"Lesson 1. My Room":[{"word":"room","ko":"방","pos":"noun","example":"My room has a big window."}]}}
+
+텍스트:
+${truncated}`}]});
+  const txt=d.content?.[0]?.text?.trim()||'';
+  const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
+  const units=json.units||{};
+  // 원서 DB에서 더 좋은 예문으로 교체
+  for(const words of Object.values(units)){
+    if(!Array.isArray(words))continue;
+    for(const w of words){
+      const bookEx=findExampleFromBooks(w.word||'',grade);
+      if(bookEx)w.example=bookEx;
+    }
+  }
+  return units;
+}
+// 어떤 파일이든 AI가 단원 구분 + 단어 추출 (로컬 폴백 포함)
+async function tuImportAny(e){
+  const file=e.target.files[0];if(!file)return;
+  e.target.value='';
+  const tbId=document.getElementById('tu-tb-id').value;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  if(!tb.units)tb.units={};
+  const status=document.getElementById('tu-import-status');
+  if(status)status.textContent='파일 읽는 중...';
+  try{
+    let rawText='';
+    const ext=file.name.split('.').pop().toLowerCase();
+    if(ext==='xlsx'||ext==='xls'){
+      if(typeof XLSX==='undefined'){toast('Excel 라이브러리 로딩 중...');if(status)status.textContent='';return;}
+      rawText=await new Promise(res=>{
+        const r=new FileReader();
+        r.onload=ev=>{const wb=XLSX.read(ev.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];res(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}).map(r=>r.join('\t')).join('\n'));};
+        r.readAsBinaryString(file);
+      });
+    }else{
+      rawText=await file.text();
+    }
+    rawText=tryFixEncoding(rawText.replace(/\r\n/g,'\n').replace(/\r/g,'\n'));
+    let addedUnits=0,addedWords=0;
+    if(DB.api()){
+      if(status)status.textContent='AI 분석 중...';
+      const parsedUnits=await aiImportWords(rawText,tbId);
+      for(const[unitName,words]of Object.entries(parsedUnits)){
+        if(!Array.isArray(words)||!words.length)continue;
+        const existing=tuNormWords(tb.units[unitName]||[]);
+        const existSet=new Set(existing.map(w=>w.word));
+        const newWords=words.map(w=>({word:(w.word||'').toLowerCase().trim(),ko:w.ko||'',pos:w.pos||'',example:w.example||''})).filter(w=>w.word&&/^[a-zA-Z]/.test(w.word)&&!existSet.has(w.word));
+        if(!newWords.length)continue;
+        tb.units[unitName]=[...existing,...newWords];
+        if(!existing.length)addedUnits++;
+        addedWords+=newWords.length;
+      }
+    }else{
+      // API 없으면 로컬 파서 폴백
+      if(/^(Lesson|Unit|Chapter|DAY)\s*[\d.]+/im.test(rawText)){
+        const parsed=parseBookWordFormat(rawText);
+        for(const{unit,words}of parsed){
+          const existing=tuNormWords(tb.units[unit]||[]);
+          const existSet=new Set(existing.map(w=>w.word));
+          const newWords=words.filter(w=>w.word&&!existSet.has(w.word));
+          tb.units[unit]=[...existing,...newWords];
+          if(!existing.length)addedUnits++;
+          addedWords+=newWords.length;
+        }
+      }else{
+        const rows=rawText.split('\n').filter(l=>l.trim()).map(l=>parseCSVLine(l));
+        const words=await universalParseWords(rows,rawText);
+        if(words.length){
+          const unitName=_tuCurUnit||'전체';
+          const existing=tuNormWords(tb.units[unitName]||[]);
+          const existSet=new Set(existing.map(w=>w.word));
+          const newWords=words.filter(w=>w.word&&!existSet.has(w.word));
+          tb.units[unitName]=[...existing,...newWords];
+          if(!existing.length)addedUnits++;
+          addedWords+=newWords.length;
+        }
+      }
+    }
+    if(addedWords>0){
+      await supaUpsert('global_textbooks',tbId,tb,null);
+      const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=tb;
+      _tuCurUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,null);renderTbookTable();
+      toast(`${addedUnits}개 단원, ${addedWords}개 단어 추가 완료`);
+    }else{
+      toast('추가된 단어가 없습니다');
+    }
+  }catch(err){toast('가져오기 실패: '+err.message);console.error('tuImportAny',err);}
+  finally{if(status)status.textContent='';}
+}
+// 현재 단원 전체 AI 채우기: 빈 뜻·품사·예문 채우기 + 원서 예문 우선
+async function tuAutoFillAll(){
+  if(!_tuCurUnit)return toast('단원을 선택하세요');
+  if(!DB.api())return toast('API 키가 필요합니다');
+  const tbId=document.getElementById('tu-tb-id').value;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const grade=getGradeFromLevel(tb.level||'');
+  const words=tuNormWords(tb.units[_tuCurUnit]||[]);
+  if(!words.length)return toast('단어가 없습니다');
+  const status=document.getElementById('tu-import-status');
+  if(status)status.textContent='AI 채우는 중...';
+  // 원서 DB 예문 먼저
+  for(const w of words){const ex=findExampleFromBooks(w.word,grade);if(ex&&!w.example)w.example=ex;}
+  // 아직 비어있는 항목 AI로 채우기
+  const missing=words.filter(w=>!w.ko||!w.pos||!w.example);
+  if(missing.length){
+    try{
+      const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:3000,messages:[{role:'user',content:`다음 영어 단어들의 정보를 JSON으로 반환하세요.\n학습자 수준: ${grade}\n규칙: ko 2-4단어, pos는 noun/verb/adj/adv/prep/phrase/conj, example은 ${grade} 수준 자연스러운 1문장\nJSON만: {"words":[{"word":"...","ko":"...","pos":"...","example":"..."}]}\n\n단어: ${missing.map(w=>w.word).join(',')}`}]});
+      const txt=d.content?.[0]?.text?.trim()||'';
+      const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
+      const aiMap={};(json.words||[]).forEach(w=>aiMap[(w.word||'').toLowerCase()]=w);
+      for(const w of words){
+        const ai=aiMap[w.word?.toLowerCase()];if(!ai)continue;
+        if(!w.ko&&ai.ko)w.ko=ai.ko;
+        if(!w.pos&&ai.pos)w.pos=ai.pos;
+        if(!w.example&&ai.example)w.example=ai.example;
+        // 원서 예문으로 최종 교체
+        const bookEx=findExampleFromBooks(w.word,grade);if(bookEx)w.example=bookEx;
+      }
+    }catch(e){}
+  }
+  const updTb={...tb,units:{...(tb.units||{}),[_tuCurUnit]:words}};
+  await supaUpsert('global_textbooks',tbId,updTb,null);
+  const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updTb;
+  tuRenderWords(tbId,_tuCurUnit);
+  if(status)status.textContent='';
+  toast('AI 채우기 완료');
+}
+// 현재 단원 원서 DB 예문 갱신
+async function tuRefreshFromLib(){
+  if(!_tuCurUnit)return toast('단원을 선택하세요');
+  const tbId=document.getElementById('tu-tb-id').value;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const grade=getGradeFromLevel(tb.level||'');
+  const words=tuNormWords(tb.units[_tuCurUnit]||[]);
+  let updated=0;
+  for(const w of words){
+    const bookEx=findExampleFromBooks(w.word,grade);
+    if(bookEx&&bookEx!==w.example){w.example=bookEx;updated++;}
+  }
+  if(!updated)return toast('원서 DB에서 새 예문을 찾지 못했습니다');
+  const updTb={...tb,units:{...(tb.units||{}),[_tuCurUnit]:words}};
+  await supaUpsert('global_textbooks',tbId,updTb,null);
+  const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updTb;
+  tuRenderWords(tbId,_tuCurUnit);
+  toast(`${updated}개 예문을 원서에서 갱신했습니다`);
+}
 async function tuAutoFill(){
   const word=document.getElementById('tu-en').value.trim();
   if(!word)return toast('영어 단어를 먼저 입력하세요');

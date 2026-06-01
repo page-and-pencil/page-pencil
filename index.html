@@ -1034,10 +1034,8 @@
     </div>
     <!-- 파일 가져오기/내보내기 -->
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="btn ba bsm" onclick="document.getElementById('tu-import-file').click()" style="white-space:nowrap">📁 Excel/CSV 가져오기</button>
-      <input type="file" id="tu-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="tuImportFile(event)">
-      <button class="btn ba bsm" onclick="document.getElementById('tu-txt-file').click()" style="white-space:nowrap">📄 텍스트 파일 (.txt)</button>
-      <input type="file" id="tu-txt-file" accept=".txt" style="display:none" onchange="tuImportTxt(event)">
+      <button class="btn bt bsm" onclick="document.getElementById('tu-any-file').click()" style="white-space:nowrap">🤖 AI 파일 가져오기</button>
+      <input type="file" id="tu-any-file" accept=".txt,.csv,.xlsx,.xls" style="display:none" onchange="tuImportAny(event)">
       <button class="btn bt bsm" onclick="tuAutoFillAll()" style="white-space:nowrap">✨ AI 전체 채우기</button>
       <button class="btn ba bsm" onclick="tuRefreshFromLib()" style="white-space:nowrap" title="원서 DB 텍스트에서 예문 갱신">📚 원서 예문 갱신</button>
       <button class="btn ba bsm" onclick="tuExportWords()" style="white-space:nowrap">⬇ CSV 내보내기</button>
