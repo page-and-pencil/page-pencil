@@ -320,7 +320,7 @@ async function getMeaningKo(word){
   }catch(e){}
   if(!apiKey)return engDef;
   try{
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:30,messages:[{role:'user',content:`영어 단어 "${word}"의 뜻을 초등학생이 이해할 수 있는 한국어 3단어 이내로만 답해. 예: quickly→빠르게, enormous→매우 큰. 한국어만:`}]});
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:20,messages:[{role:'user',content:`"${word}"의 한국어 뜻을 2-3단어로만 출력. 한국어만, 영어 금지. 예: quickly→빠르게 / enormous→매우 큰 / curious→호기심 많은`}]});
     const ko=d.content?.[0]?.text?.trim()||'';
     if(ko)return ko;
   }catch(e){}

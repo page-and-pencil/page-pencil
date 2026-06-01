@@ -215,11 +215,79 @@ function closeStuPanel(){
 }
 function openEditStuFromPanel(){closeStuPanel();openEditStu(currentSpStuId);}
 function swSpTab(id){
-  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-books','sp-msg','sp-payment'];
+  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-books','sp-rdlog','sp-vocab','sp-msg','sp-payment'];
   document.querySelectorAll('.sptab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
   document.querySelectorAll('.sp-pane').forEach(p=>p.style.display=p.id===id?'block':'none');
   if(id==='sp-books')renderSpBooks(currentSpStuId);
+  if(id==='sp-rdlog')renderSpRdlog(currentSpStuId);
+  if(id==='sp-vocab')renderSpVocab(currentSpStuId);
   if(id==='sp-msg')renderSpMessages(currentSpStuId);
+}
+function renderSpRdlog(sid){
+  if(!sid)return;
+  const el=document.getElementById('sp-rdlog');if(!el)return;
+  const logs=DB.logs().filter(l=>l.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const cardMap={};(_cache.vocab_cards||[]).filter(c=>c.sid===sid).forEach(c=>cardMap[c.word.toLowerCase()]=c);
+  const logsHtml=!logs.length?'<div class="empty"><div class="empty-i">📖</div><div class="empty-t">리딩로그 없음</div></div>':
+    logs.map(l=>`<div style="padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        ${l.photoUrl?`<img src="${l.photoUrl}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer" onclick="openLb('${escU(l.photoUrl||'')}')">`:
+        `<div style="width:72px;height:72px;border-radius:8px;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📝</div>`}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;color:var(--slate);margin-bottom:6px;font-family:var(--fm)">${l.date||''}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            ${(l.words||[]).length?(l.words||[]).map(w=>{const c=cardMap[w.toLowerCase()];return`<span style="display:inline-flex;align-items:center;gap:3px;background:var(--cream2);border:1px solid var(--border);border-radius:12px;padding:2px 8px;font-size:11px">
+              <span style="font-weight:600">${w}</span>${c?.meaning?`<span style="color:var(--slate);font-size:10px">· ${c.meaning}</span>`:''}
+              <button onclick="delVocabCard('${c?.id||''}','${sid}','${escAttr(w)}')" style="background:none;border:none;cursor:pointer;color:var(--coral);font-size:13px;padding:0;line-height:1;margin-left:2px">×</button>
+            </span>`}).join(''):'<span style="color:var(--slate);font-size:11px">추출된 단어 없음</span>'}
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <span style="font-size:13px;font-weight:700">📖 리딩로그 & 단어 목록</span>
+    <span style="font-size:11px;color:var(--slate)">${logs.length}건</span>
+  </div>${logsHtml}`;
+}
+function renderSpVocab(sid){
+  if(!sid)return;
+  const el=document.getElementById('sp-vocab');if(!el)return;
+  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).sort((a,b)=>a.word.localeCompare(b.word));
+  if(!cards.length){el.innerHTML='<div class="empty"><div class="empty-i">📚</div><div class="empty-t">단어장이 비어있습니다</div></div>';return;}
+  const DAYS=['월','화','수','목','금'];
+  const groups=[[],[],[],[],[]];cards.forEach((c,i)=>groups[i%5].push(c));
+  const schedHtml=`<div style="margin-bottom:16px">
+    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📅 요일별 학습 배분</div>
+    <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px">
+      ${groups.map((g,i)=>`<div style="flex:0 0 auto;min-width:90px;max-width:130px;padding:8px;border:1.5px solid var(--border);border-radius:var(--rs);background:var(--cream2)">
+        <div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:3px">${DAYS[i]}요일 <span style="color:var(--slate);font-weight:400">${g.length}개</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:4px">${g.map(c=>`<span style="font-size:10px;background:#fff;border:1px solid var(--border);border-radius:3px;padding:1px 4px;white-space:nowrap">${c.word}</span>`).join('')}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+  const PHASE_LBL=['신규','학습중','숙달'];
+  const PHASE_CLS=['bslate','bamber','bteal'];
+  const listHtml=cards.map(c=>`<div style="display:flex;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);align-items:flex-start">
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:2px">
+        <span style="font-weight:700;font-size:13px;font-family:var(--fd)">${c.word}</span>
+        ${c.pos?`<span style="font-size:10px;color:var(--slate)">${c.pos}</span>`:''}
+        <span class="badge ${PHASE_CLS[c.phase||0]}" style="font-size:10px">${PHASE_LBL[c.phase||0]}</span>
+      </div>
+      ${c.meaning?`<div style="font-size:12px;color:var(--navy);margin-bottom:1px">${c.meaning}</div>`:''}
+      ${c.example?`<div style="font-size:11px;color:var(--slate);font-style:italic">${c.example}</div>`:''}
+    </div>
+    <button onclick="delVocabCard('${c.id}','${sid}','${escAttr(c.word)}')" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;color:var(--slate)">삭제</button>
+  </div>`).join('');
+  el.innerHTML=`${schedHtml}<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📚 전체 단어 목록 (${cards.length}개)</div>${listHtml}`;
+}
+async function delVocabCard(cardId,sid,word){
+  if(!cardId){toast('단어장에 없는 단어입니다');return;}
+  askConfirm('단어 삭제',word?`'${word}'를 단어장에서 삭제할까요?`:'단어를 삭제할까요?','삭제','bd',async()=>{
+    await supaDelete('vocab_cards',cardId);
+    _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>c.id!==cardId);
+    renderSpRdlog(sid);renderSpVocab(sid);toast('삭제되었습니다');
+  });
 }
 async function loadStuPanel(sid){
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
@@ -1560,7 +1628,7 @@ async function runLogAI(){
   if(!apiKey){status.innerHTML='<div class="ais warn">⚠️ API Key 미설정 — 단어를 직접 입력해 주세요</div>';return;}
   status.innerHTML='<div class="ais loading"><div class="spin"></div>AI가 단어를 읽고 있습니다...</div>';
   try{
-    const r=await callVision(apiKey,pendingLogB64,pendingLogMime,'이 리딩로그(아이가 손으로 쓴 영단어 노트) 이미지에서 영어 단어를 추출하세요.\nJSON만 반환하세요: {"words":["단어1","단어2"]}\n영어 단어만, 한국어 뜻이나 문장은 제외하세요.');
+    const r=await callVision(apiKey,pendingLogB64,pendingLogMime,'이 리딩로그(손으로 쓴 영단어 노트) 이미지에서 영어 단어를 추출하세요.\n규칙:\n1. 사람 이름·지명·고유명사 제외\n2. 단수/복수 둘 다 있으면 단수 원형만\n3. 동사 -ing/-ed/-s 형태는 원형 동사로 통일\n4. 일반 영단어만, 한국어·문장·구문 제외\nJSON만 반환: {"words":["word1","word2"]}');
     const d=JSON.parse(r.replace(/```json|```/g,'').trim());
     if(d.words&&d.words.length){document.getElementById('lg-words').value=d.words.join(', ');status.innerHTML='<div class="ais ok">✅ '+d.words.length+'개 단어 추출 완료</div>';}
   }catch(e){status.innerHTML='<div class="ais err">⚠️ AI 인식 실패: '+e.message+'</div>';}
