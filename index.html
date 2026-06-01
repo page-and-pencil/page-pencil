@@ -501,7 +501,9 @@
         <div class="sh">
           <div><div class="st">단어 DB</div><div class="ssub" id="wdb-total"></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn ba bsm" onclick="wdbExportCSV()">⬇ CSV</button>
+            <button class="btn ba bsm" onclick="wdbExportCSV()">⬇ CSV 내보내기</button>
+            <button class="btn bt bsm" onclick="document.getElementById('wdb-csv-file').click()">📥 CSV 가져오기 (교재·원서 자동 연동)</button>
+            <input type="file" id="wdb-csv-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="wdbImportCSV(event)">
           </div>
         </div>
         <div class="lib-search-bar">

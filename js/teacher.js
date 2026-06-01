@@ -2548,6 +2548,134 @@ async function wdbAIFillEntry(){
   }catch(e){toast('AI 실패');}
 }
 
+// 품사 표기 정규화: 한국어 표기 → 시스템 영문 코드
+function normPos(raw){
+  const m={'명사':'noun','동사':'verb','형용사':'adj','형용':'adj','부사':'adv','전치사':'prep',
+    '전치사구':'phrase','동사구':'phrase','구/숙어':'phrase','구동사':'phrase','숙어':'phrase','구':'phrase',
+    '접속사':'conj','대명사':'noun','조동사':'verb','감탄사':'verb',
+    'noun':'noun','verb':'verb','adj':'adj','adv':'adv','prep':'prep','phrase':'phrase','conj':'conj'};
+  return m[(raw||'').trim().toLowerCase()]||raw||'';
+}
+
+// 단어 DB CSV 가져오기 → 교재/원서 자동 연동
+async function wdbImportCSV(e){
+  const file=e.target.files[0];if(!file)return;
+  e.target.value='';
+  const status=id=>document.getElementById(id);
+  let rows=[];
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(ext==='xlsx'||ext==='xls'){
+    if(typeof XLSX==='undefined')return toast('Excel 라이브러리 로딩 중...');
+    rows=await new Promise(res=>{const r=new FileReader();r.onload=ev=>{const wb=XLSX.read(ev.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];res(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}));};r.readAsBinaryString(file);});
+  }else{
+    const text=tryFixEncoding(await file.text());
+    rows=text.split('\n').filter(l=>l.trim()).map(l=>parseCSVLine(l));
+  }
+  if(!rows?.length)return toast('파일이 비어있습니다');
+
+  // 헤더 컬럼 인덱스 탐색
+  const hdr=rows[0].map(c=>String(c).replace(/^﻿/,'').toLowerCase().trim());
+  const ci={
+    word: hdr.findIndex(h=>['영어','word','english','단어'].includes(h)),
+    ko:   hdr.findIndex(h=>['한국어','뜻','ko','korean','meaning'].includes(h)),
+    pos:  hdr.findIndex(h=>['품사','pos','part'].includes(h)),
+    ex:   hdr.findIndex(h=>['예문','example','sentence','ex'].includes(h)),
+    src:  hdr.findIndex(h=>['출처명','출처','source','book','교재명','원서명'].includes(h)),
+    unit: hdr.findIndex(h=>['출처단원','단원','unit','chapter','lesson'].includes(h)),
+    type: hdr.findIndex(h=>['출처타입','타입','type','구분'].includes(h)),
+  };
+  if(ci.word<0)return toast('헤더에 "영어" 컬럼이 없습니다');
+
+  // 데이터 파싱
+  const data=[];
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];
+    const word=String(r[ci.word]||'').trim().toLowerCase();if(!word)continue;
+    data.push({
+      word,
+      ko:   ci.ko>=0?String(r[ci.ko]||'').trim():'',
+      pos:  ci.pos>=0?normPos(String(r[ci.pos]||'').trim()):'',
+      example: ci.ex>=0?String(r[ci.ex]||'').trim():'',
+      srcTitle: ci.src>=0?String(r[ci.src]||'').trim():'',
+      srcUnit:  ci.unit>=0?String(r[ci.unit]||'').trim():'',
+      srcType:  ci.type>=0?String(r[ci.type]||'').trim():'',
+    });
+  }
+  if(!data.length)return toast('인식된 단어가 없습니다');
+
+  // 출처별로 그룹화
+  const groups={};
+  for(const w of data){
+    const key=`${w.srcType}|${w.srcTitle}|${w.srcUnit}`;
+    if(!groups[key])groups[key]={srcType:w.srcType,srcTitle:w.srcTitle,srcUnit:w.srcUnit,words:[]};
+    groups[key].words.push({word:w.word,ko:w.ko,pos:w.pos,example:w.example});
+  }
+
+  let addedTotal=0,srcCount=0;
+
+  for(const grp of Object.values(groups)){
+    const isLib=grp.srcType==='원서'||grp.srcType==='library';
+    const isTbook=grp.srcType==='교재'||grp.srcType==='textbook';
+
+    if(isTbook&&grp.srcTitle){
+      // 교재 단원에 연동
+      let tb=(_cache.globalTextbooks||[]).find(b=>b.title.trim()===grp.srcTitle.trim());
+      if(!tb){toast(`교재 "${grp.srcTitle}" 없음 — 건너뜀`);continue;}
+      if(!tb.units)tb.units={};
+      const unitName=grp.srcUnit||'전체';
+      const existing=tuNormWords(tb.units[unitName]||[]);
+      const existSet=new Set(existing.map(w=>w.word.toLowerCase()+'|'+(w.pos||'')));
+      const newWords=grp.words.filter(w=>!existSet.has(w.word+'|'+(w.pos||'')));
+      if(!newWords.length)continue;
+      tb.units[unitName]=[...existing,...newWords];
+      await supaUpsert('global_textbooks',tb.id,tb,null);
+      const idx=_cache.globalTextbooks.findIndex(b=>b.id===tb.id);if(idx>=0)_cache.globalTextbooks[idx]=tb;
+      addedTotal+=newWords.length;srcCount++;
+    }else if(isLib&&grp.srcTitle){
+      // 원서 vocab에 연동
+      let book=_cache.library.find(b=>b.title?.trim()===grp.srcTitle.trim())
+        ||(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).find(b=>b.title?.trim()===grp.srcTitle.trim());
+      if(!book){toast(`원서 "${grp.srcTitle}" 없음 — 건너뜀`);continue;}
+      // BOOK_DB 항목이면 library로 복사
+      if(!_cache.library.find(b=>b.id===book.id)){const copy={...book};_cache.library.push(copy);book=copy;}
+      const existing=book.vocab||[];
+      const existSet=new Set(existing.map(w=>(w.word||'').toLowerCase()+'|'+(w.pos||'')));
+      const newWords=grp.words.filter(w=>!existSet.has(w.word+'|'+(w.pos||'')));
+      if(!newWords.length)continue;
+      book.vocab=[...existing,...newWords];
+      await supaUpsert('library',book.id,book,null);
+      const idx=_cache.library.findIndex(b=>b.id===book.id);if(idx>=0)_cache.library[idx]=book;
+      addedTotal+=newWords.length;srcCount++;
+    }else if(grp.srcTitle){
+      // 출처타입 미지정 → 교재 먼저, 없으면 원서에서 찾기
+      let handled=false;
+      const tb=(_cache.globalTextbooks||[]).find(b=>b.title.trim()===grp.srcTitle.trim());
+      if(tb){
+        if(!tb.units)tb.units={};
+        const unitName=grp.srcUnit||'전체';
+        const existing=tuNormWords(tb.units[unitName]||[]);
+        const existSet=new Set(existing.map(w=>w.word.toLowerCase()+'|'+(w.pos||'')));
+        const newWords=grp.words.filter(w=>!existSet.has(w.word+'|'+(w.pos||'')));
+        if(newWords.length){tb.units[unitName]=[...existing,...newWords];await supaUpsert('global_textbooks',tb.id,tb,null);const idx=_cache.globalTextbooks.findIndex(b=>b.id===tb.id);if(idx>=0)_cache.globalTextbooks[idx]=tb;addedTotal+=newWords.length;srcCount++;handled=true;}
+      }
+      if(!handled){
+        let book=_cache.library.find(b=>b.title?.trim()===grp.srcTitle.trim())||(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).find(b=>b.title?.trim()===grp.srcTitle.trim());
+        if(book){
+          if(!_cache.library.find(b=>b.id===book.id)){const copy={...book};_cache.library.push(copy);book=copy;}
+          const existing=book.vocab||[];const existSet=new Set(existing.map(w=>(w.word||'').toLowerCase()+'|'+(w.pos||'')));
+          const newWords=grp.words.filter(w=>!existSet.has(w.word+'|'+(w.pos||'')));
+          if(newWords.length){book.vocab=[...existing,...newWords];await supaUpsert('library',book.id,book,null);const idx=_cache.library.findIndex(b=>b.id===book.id);if(idx>=0)_cache.library[idx]=book;addedTotal+=newWords.length;srcCount++;}
+        }else{
+          // 출처 불명: 단어만 기록 (연동 없음) - 사용자에게 알림
+          toast(`출처 "${grp.srcTitle}" 를 찾을 수 없습니다 — 교재 또는 원서 DB에 먼저 추가하세요`);
+        }
+      }
+    }
+  }
+
+  renderWordDB();renderTbookTable();renderLibTable();
+  toast(addedTotal?`${addedTotal}개 단어가 ${srcCount}개 출처에 연동되었습니다`:'연동된 단어가 없습니다 (출처명 확인 필요)');
+}
 function wdbExportCSV(){
   const words=buildWordDB();
   if(!words.length)return toast('단어가 없습니다');
