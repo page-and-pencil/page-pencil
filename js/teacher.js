@@ -1882,11 +1882,49 @@ function openTbookUnits(tbId){
 function tuPopulateUnitSel(tbId){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
   const units=tb?.units||{};const keys=Object.keys(units);
-  const sel=document.getElementById('tu-unit-sel');if(!sel)return;
-  sel.innerHTML=`<option value="">-- 단원 선택 --</option>`+keys.map(k=>`<option value="${escAttr(k)}"${_tuCurUnit===k?' selected':''}>${k} (${tuNormWords(units[k]).length}단어)</option>`).join('');
-  const sub=document.getElementById('tu-sub');if(sub)sub.textContent=keys.length+'개 단원';
+  const sub=document.getElementById('tu-sub');if(sub)sub.textContent=`(${keys.length}개)`;
+  // 숨김 select 유지 (하위 호환)
+  const sel=document.getElementById('tu-unit-sel');
+  if(sel)sel.innerHTML='<option value="">-- 단원 선택 --</option>'+keys.map(k=>`<option value="${escAttr(k)}"${_tuCurUnit===k?' selected':''}>${k}</option>`).join('');
+  // 체크박스 단원 목록
+  const list=document.getElementById('tu-unit-list');if(!list)return;
+  if(!keys.length){
+    list.innerHTML='<div style="padding:16px;text-align:center;font-size:12px;color:var(--slate)">단원이 없습니다. 아래에서 생성하거나 파일을 가져오세요.</div>';
+    return;
+  }
+  list.innerHTML=keys.map(k=>`<div onclick="tuSelectUnitRow('${escAttr(k)}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;background:${_tuCurUnit===k?'var(--tl)':'transparent'}">
+    <input type="checkbox" class="tu-unit-chk" data-key="${escAttr(k)}" onclick="event.stopPropagation()" style="flex-shrink:0;cursor:pointer">
+    <span style="flex:1;font-size:13px;font-weight:${_tuCurUnit===k?'700':'400'};color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k}</span>
+    <span style="font-size:11px;color:var(--slate);flex-shrink:0;white-space:nowrap">${tuNormWords(units[k]).length}단어</span>
+  </div>`).join('');
 }
 function tuSelectUnit(unitKey){_tuCurUnit=unitKey||null;tuRenderWords(document.getElementById('tu-tb-id').value,_tuCurUnit);}
+function tuSelectUnitRow(key){
+  _tuCurUnit=key||null;
+  const tbId=document.getElementById('tu-tb-id').value;
+  tuPopulateUnitSel(tbId);tuRenderWords(tbId,_tuCurUnit);
+}
+function tuToggleAllUnits(cb){
+  document.querySelectorAll('#tu-unit-list .tu-unit-chk').forEach(el=>el.checked=cb.checked);
+}
+async function tuDeleteSelected(){
+  const checked=[...document.querySelectorAll('#tu-unit-list .tu-unit-chk:checked')];
+  if(!checked.length)return toast('삭제할 단원을 선택하세요');
+  const keys=checked.map(el=>el.dataset.key);
+  const label=keys.length===1?`'${keys[0]}'`:`${keys.length}개 단원`;
+  askConfirm('단원 삭제',`${label}과 모든 단어를 삭제할까요?`,'삭제','bd',async()=>{
+    const tbId=document.getElementById('tu-tb-id').value;
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+    const units={...(tb.units||{})};keys.forEach(k=>delete units[k]);
+    const updated={...tb,units};
+    await supaUpsert('global_textbooks',tbId,updated,null);
+    const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
+    if(keys.includes(_tuCurUnit))_tuCurUnit=null;
+    const selAll=document.getElementById('tu-sel-all');if(selAll)selAll.checked=false;
+    tuPopulateUnitSel(tbId);tuRenderWords(tbId,_tuCurUnit);renderTbookTable();
+    toast(`${keys.length}개 단원 삭제됨`);
+  });
+}
 function tuRenderWords(tbId,unitKey){
   const tbody=document.getElementById('tu-word-tbody');if(!tbody)return;
   if(!unitKey){tbody.innerHTML='<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단원을 선택하거나 새 단원을 생성하세요</td></tr>';return;}

@@ -996,12 +996,20 @@
       <button class="bx" onclick="closeM('m-tbook-units')">×</button>
     </div>
     <input type="hidden" id="tu-tb-id">
-    <!-- 단원 선택/생성 -->
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-      <select id="tu-unit-sel" onchange="tuSelectUnit(this.value)" style="flex:1;min-width:120px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream)"></select>
+    <select id="tu-unit-sel" style="display:none"></select>
+    <!-- 단원 목록 -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy)">단원 목록 <span id="tu-sub" style="font-weight:400;color:var(--slate)"></span></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--slate);cursor:pointer;user-select:none"><input type="checkbox" id="tu-sel-all" onchange="tuToggleAllUnits(this)"> 전체 선택</label>
+        <button class="btn bd bsm" onclick="tuDeleteSelected()">선택 삭제</button>
+      </div>
+    </div>
+    <div id="tu-unit-list" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:8px;background:#fff"></div>
+    <!-- 단원 생성 -->
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
       <input type="text" id="tu-new-unit-name" placeholder="새 단원명 (예: Unit 1)" style="flex:1;min-width:120px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
       <button class="btn bt bsm" onclick="tuCreateUnit()">+ 단원 생성</button>
-      <button class="btn bd bsm" onclick="tuDeleteUnit()">단원 삭제</button>
     </div>
     <!-- 단어 테이블 -->
     <div style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:10px">
