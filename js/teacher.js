@@ -49,10 +49,13 @@ async function saveApiKey(){
   toast('API Key가 저장되었습니다');
 }
 async function testApiKey(){
-  const k=DB.api();
   const el=document.getElementById('apikey-test-result');
   const dot=document.getElementById('apikey-status-dot');
-  if(!k){el.innerHTML='<div class="ais warn">⚠️ 먼저 API Key를 저장해 주세요</div>';return;}
+  // 입력 필드에 실제 키가 있으면 먼저 저장 후 테스트
+  const inputVal=document.getElementById('cfg-apikey').value.trim();
+  if(inputVal&&inputVal!=='••••••'){await saveApiKey();}
+  const k=DB.api();
+  if(!k){el.innerHTML='<div class="ais warn">⚠️ API Key를 입력하고 저장해 주세요</div>';return;}
   el.innerHTML='<div class="ais loading"><div class="spin"></div>연결 확인 중...</div>';
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{
@@ -63,13 +66,22 @@ async function testApiKey(){
     if(res.ok){
       el.innerHTML='<div class="ais ok">✅ 연결됨 — API Key 정상 작동</div>';
       if(dot){dot.style.color='#0a5940';dot.textContent='● 연결됨';}
-    } else {
+    }else{
       const d=await res.json().catch(()=>({}));
-      el.innerHTML=`<div class="ais err">❌ 오류: ${d.error?.message||res.status}</div>`;
+      const code=res.status;
+      const msg=code===401?'API Key가 잘못되었거나 만료되었습니다':
+                code===403?'이 Key는 해당 모델에 접근 권한이 없습니다':
+                code===429?'사용량 한도에 도달했습니다. 잠시 후 다시 시도하세요':
+                code===500?'Anthropic 서버 오류입니다. 잠시 후 다시 시도하세요':
+                d.error?.message||'HTTP '+code;
+      el.innerHTML=`<div class="ais err">❌ ${msg}</div>`;
       if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}
     }
   }catch(e){
-    el.innerHTML=`<div class="ais err">❌ 연결 실패: ${e.message}</div>`;
+    const isCors=e.message==='Failed to fetch'||e.message.includes('NetworkError');
+    el.innerHTML=isCors
+      ?'<div class="ais err">❌ 브라우저 보안 정책으로 연결이 차단되었습니다. console.anthropic.com에서 Key가 유효한지 확인해 주세요</div>'
+      :`<div class="ais err">❌ 연결 실패: ${e.message}</div>`;
     if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}
   }
 }
