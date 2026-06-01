@@ -1398,59 +1398,169 @@ async function delGlobalTbook(id){
   renderTbookTable();updateTbookDatalist();toast('삭제되었습니다');
 }
 // ── TBOOK UNITS ──
+let _tuCurUnit=null;
+function tuNormWords(arr){return(arr||[]).map(w=>typeof w==='string'?{word:w,ko:'',pos:'',example:''}:w);}
 function openTbookUnits(tbId){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   document.getElementById('tu-tb-id').value=tbId;
   document.getElementById('tu-title').textContent=tb.title;
-  document.getElementById('tu-unit-name').value='';document.getElementById('tu-words').value='';
-  renderTbookUnitsList(tbId);openM('m-tbook-units');
+  document.getElementById('tu-new-unit-name').value='';
+  _tuCurUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,null);openM('m-tbook-units');
 }
-function renderTbookUnitsList(tbId){
-  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
-  const units=tb.units||{};const keys=Object.keys(units);
+function tuPopulateUnitSel(tbId){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  const units=tb?.units||{};const keys=Object.keys(units);
+  const sel=document.getElementById('tu-unit-sel');if(!sel)return;
+  sel.innerHTML=`<option value="">-- 단원 선택 --</option>`+keys.map(k=>`<option value="${escAttr(k)}"${_tuCurUnit===k?' selected':''}>${k} (${tuNormWords(units[k]).length}단어)</option>`).join('');
   const sub=document.getElementById('tu-sub');if(sub)sub.textContent=keys.length+'개 단원';
-  const el=document.getElementById('tu-units-list');if(!el)return;
-  if(!keys.length){el.innerHTML='<div style="color:var(--slate);font-size:12px;text-align:center;padding:16px 0">등록된 단원이 없습니다. 아래에서 추가하세요.</div>';return;}
-  el.innerHTML=keys.map(k=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">
-    <div style="flex:1;min-width:0">
-      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:3px">${k} <span style="font-size:10px;color:var(--slate);font-weight:400">${units[k].length}단어</span></div>
-      <div style="font-size:11px;color:var(--slate);line-height:1.6">${units[k].join(', ')}</div>
-    </div>
-    <button onclick="delTbookUnit('${tbId}','${escAttr(k)}')" class="btn bd bsm" style="flex-shrink:0">삭제</button>
-  </div>`).join('');
 }
-async function addTbookUnit(){
+function tuSelectUnit(unitKey){_tuCurUnit=unitKey||null;tuRenderWords(document.getElementById('tu-tb-id').value,_tuCurUnit);}
+function tuRenderWords(tbId,unitKey){
+  const tbody=document.getElementById('tu-word-tbody');if(!tbody)return;
+  if(!unitKey){tbody.innerHTML='<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단원을 선택하거나 새 단원을 생성하세요</td></tr>';return;}
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  const words=tuNormWords(tb?.units?.[unitKey]||[]);
+  if(!words.length){tbody.innerHTML='<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단어가 없습니다. 아래에서 추가하거나 Excel/CSV 파일을 가져오세요.</td></tr>';return;}
+  tbody.innerHTML=words.map((w,i)=>`<tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}</td>
+    <td style="padding:6px 8px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
+    <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px;white-space:nowrap">${w.pos||'—'}</span></td>
+    <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic">${w.example||'—'}</td>
+    <td style="padding:4px"><button onclick="tuDelWord('${tbId}','${escAttr(unitKey)}',${i})" style="background:none;border:none;cursor:pointer;color:var(--coral);font-size:15px;padding:0 4px;line-height:1">×</button></td>
+  </tr>`).join('');
+}
+function tuCreateUnit(){
   const tbId=document.getElementById('tu-tb-id').value;
-  const unitName=document.getElementById('tu-unit-name').value.trim();
-  const wordsRaw=document.getElementById('tu-words').value.trim();
-  if(!unitName)return toast('단원명을 입력하세요');
-  if(!wordsRaw)return toast('단어를 입력하세요');
-  const words=wordsRaw.split(',').map(w=>w.trim().toLowerCase()).filter(Boolean);
+  const name=document.getElementById('tu-new-unit-name').value.trim();
+  if(!name)return toast('단원명을 입력하세요');
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
-  const updated={...tb,units:{...(tb.units||{}),[unitName]:words}};
-  await supaUpsert('global_textbooks',tbId,updated,null);
-  const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
-  document.getElementById('tu-unit-name').value='';document.getElementById('tu-words').value='';
-  renderTbookUnitsList(tbId);renderTbookTable();toast(`${unitName} 추가 완료 (${words.length}단어)`);
+  if(tb.units?.[name])return toast('이미 있는 단원명입니다');
+  const updated={...tb,units:{...(tb.units||{}),[name]:[]}};
+  supaUpsert('global_textbooks',tbId,updated,null).then(()=>{
+    const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
+    document.getElementById('tu-new-unit-name').value='';_tuCurUnit=name;
+    tuPopulateUnitSel(tbId);tuRenderWords(tbId,name);renderTbookTable();toast(`'${name}' 단원 생성됨`);
+  });
 }
-async function delTbookUnit(tbId,unitKey){
+function tuDeleteUnit(){
+  const tbId=document.getElementById('tu-tb-id').value;
+  if(!_tuCurUnit)return toast('삭제할 단원을 선택하세요');
+  askConfirm(`'${_tuCurUnit}' 삭제`,'이 단원과 모든 단어를 삭제할까요?','삭제','bd',async()=>{
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+    const units={...(tb.units||{})};delete units[_tuCurUnit];
+    const updated={...tb,units};
+    await supaUpsert('global_textbooks',tbId,updated,null);
+    const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
+    _tuCurUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,null);renderTbookTable();toast('삭제되었습니다');
+  });
+}
+async function tuAddWord(){
+  const tbId=document.getElementById('tu-tb-id').value;
+  if(!_tuCurUnit)return toast('단원을 먼저 선택하거나 생성하세요');
+  const word=document.getElementById('tu-en').value.trim().toLowerCase();
+  if(!word)return toast('영어 단어를 입력하세요');
+  const ko=document.getElementById('tu-ko').value.trim();
+  const pos=document.getElementById('tu-pos').value;
+  const example=document.getElementById('tu-ex').value.trim();
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
-  const units={...(tb.units||{})};delete units[unitKey];
-  const updated={...tb,units};
+  const existing=tuNormWords(tb.units?.[_tuCurUnit]||[]);
+  if(existing.some(w=>w.word===word))return toast('이미 있는 단어입니다');
+  const updated={...tb,units:{...(tb.units||{}),[_tuCurUnit]:[...existing,{word,ko,pos,example}]}};
   await supaUpsert('global_textbooks',tbId,updated,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
-  renderTbookUnitsList(tbId);renderTbookTable();toast('삭제되었습니다');
+  ['tu-en','tu-ko','tu-ex'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('tu-pos').value='';
+  tuRenderWords(tbId,_tuCurUnit);tuPopulateUnitSel(tbId);toast('추가되었습니다');
+}
+async function tuDelWord(tbId,unitKey,idx){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const words=tuNormWords(tb.units?.[unitKey]||[]);words.splice(idx,1);
+  const updated={...tb,units:{...(tb.units||{}),[unitKey]:words}};
+  await supaUpsert('global_textbooks',tbId,updated,null);
+  const ci=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(ci>=0)_cache.globalTextbooks[ci]=updated;
+  tuRenderWords(tbId,unitKey);tuPopulateUnitSel(tbId);
+}
+async function tuAutoFill(){
+  const word=document.getElementById('tu-en').value.trim();
+  if(!word)return toast('영어 단어를 먼저 입력하세요');
+  toast('AI가 뜻·품사·예문 생성 중...');
+  try{
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:120,
+      messages:[{role:'user',content:`영어 단어 "${word}"에 대해 JSON만 출력:\n{"ko":"한국어 뜻 2-3단어","pos":"noun/verb/adj/adv/prep 중 하나","example":"영어 예문 8단어 이내"}`}]});
+    const text=d.content?.[0]?.text?.trim()||'';
+    const json=JSON.parse(text.replace(/```json|```/g,'').trim());
+    const koEl=document.getElementById('tu-ko'),posEl=document.getElementById('tu-pos'),exEl=document.getElementById('tu-ex');
+    if(!koEl.value&&json.ko)koEl.value=json.ko;
+    if(!posEl.value&&json.pos)posEl.value=json.pos;
+    if(!exEl.value&&json.example)exEl.value=json.example;
+    toast('AI 자동 생성 완료');
+  }catch(e){toast('AI 생성 실패');}
+}
+function tuImportFile(e){
+  const file=e.target.files[0];if(!file)return;
+  const tbId=document.getElementById('tu-tb-id').value;
+  if(!_tuCurUnit)return toast('단원을 먼저 선택하거나 생성하세요');
+  const ext=file.name.split('.').pop().toLowerCase();
+  const status=document.getElementById('tu-import-status');if(status)status.textContent='읽는 중...';
+  if(ext==='xlsx'||ext==='xls'){
+    if(typeof XLSX==='undefined'){toast('Excel 라이브러리 로딩 중, 잠시 후 다시 시도하세요');return;}
+    const reader=new FileReader();
+    reader.onload=ev=>{const wb=XLSX.read(ev.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];tuProcessImportRows(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}),tbId);};
+    reader.readAsBinaryString(file);
+  }else{
+    const reader=new FileReader();
+    reader.onload=ev=>tuProcessImportRows(ev.target.result.split('\n').filter(l=>l.trim()).map(l=>parseCSVLine(l)),tbId);
+    reader.readAsText(file,'UTF-8');
+  }
+  e.target.value='';
+}
+async function tuProcessImportRows(rows,tbId){
+  if(!rows?.length)return toast('파일이 비어있습니다');
+  const firstRow=rows[0].map(c=>String(c).toLowerCase().trim());
+  const isHeader=['영어','word','english','단어'].some(h=>firstRow.includes(h));
+  const wI=isHeader?firstRow.findIndex(h=>['영어','word','english','단어'].includes(h)):0;
+  const kI=isHeader?firstRow.findIndex(h=>['한국어','korean','뜻','meaning','ko'].includes(h)):1;
+  const pI=isHeader?firstRow.findIndex(h=>['품사','pos','part'].includes(h)):2;
+  const eI=isHeader?firstRow.findIndex(h=>['예문','example','sentence','ex'].includes(h)):3;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const existing=tuNormWords(tb.units?.[_tuCurUnit]||[]);
+  const existSet=new Set(existing.map(w=>w.word.toLowerCase()));
+  const newWords=[];
+  for(let i=isHeader?1:0;i<rows.length;i++){
+    const r=rows[i];const word=String(r[wI>=0?wI:0]||'').trim().toLowerCase();
+    if(!word||existSet.has(word))continue;
+    newWords.push({word,ko:kI>=0?String(r[kI]||'').trim():'',pos:pI>=0?String(r[pI]||'').trim():'',example:eI>=0?String(r[eI]||'').trim():''});
+    existSet.add(word);
+  }
+  if(!newWords.length)return toast('새로 추가할 단어가 없습니다');
+  const updated={...tb,units:{...(tb.units||{}),[_tuCurUnit]:[...existing,...newWords]}};
+  await supaUpsert('global_textbooks',tbId,updated,null);
+  const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
+  tuRenderWords(tbId,_tuCurUnit);tuPopulateUnitSel(tbId);renderTbookTable();
+  const status=document.getElementById('tu-import-status');if(status)status.textContent='';
+  toast(`${newWords.length}단어가 추가되었습니다`);
+}
+function tuExportWords(){
+  const tbId=document.getElementById('tu-tb-id').value;
+  if(!_tuCurUnit)return toast('단원을 선택하세요');
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const words=tuNormWords(tb.units?.[_tuCurUnit]||[]);
+  if(!words.length)return toast('단어가 없습니다');
+  const header='영어,한국어,품사,예문';
+  const rows=words.map(w=>[`"${(w.word||'').replace(/"/g,'""')}"`,`"${(w.ko||'').replace(/"/g,'""')}"`,`"${(w.pos||'').replace(/"/g,'""')}"`,`"${(w.example||'').replace(/"/g,'""')}"`].join(','));
+  const csv='﻿'+[header,...rows].join('\r\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`${tb.title}_${_tuCurUnit}_단어.csv`;a.click();
 }
 async function addUnitWordsToVocab(sid,materials,date){
   if(!materials||!sid)return;
-  const tbooks=_cache.globalTextbooks||[];
   for(const mat of Object.values(materials)){
     if(!mat.book||!mat.unit)continue;
-    const tb=tbooks.find(b=>b.title.trim().toLowerCase()===mat.book.trim().toLowerCase());
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.title.trim().toLowerCase()===mat.book.trim().toLowerCase());
     if(!tb?.units)continue;
     const matchKey=Object.keys(tb.units).find(k=>k.trim().toLowerCase()===mat.unit.trim().toLowerCase());
     if(!matchKey)continue;
-    const words=tb.units[matchKey];
+    const words=tuNormWords(tb.units[matchKey]);
     if(words?.length)await syncVocabCards(sid,words,[],date);
   }
 }

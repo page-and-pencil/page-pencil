@@ -328,32 +328,24 @@ async function getMeaningKo(word){
 }
 async function syncVocabCards(sid,allWords,wrongWords,date){
   const existing=await supaFetchBySid('vocab_cards',sid);
-  for(const word of allWords){
-    const w=word.toLowerCase().trim();if(!w)continue;
-    const found=existing.find(c=>(c.word||'').toLowerCase()===w);
-    const isWrong=wrongWords.map(x=>x.toLowerCase().trim()).includes(w);
+  const wrongSet=new Set(wrongWords.map(x=>(typeof x==='string'?x:x.word).toLowerCase().trim()));
+  for(const entry of allWords){
+    const wordText=(typeof entry==='string'?entry:entry.word||'').toLowerCase().trim();if(!wordText)continue;
+    const meta=typeof entry==='string'?{}:entry;
+    const found=existing.find(c=>(c.word||'').toLowerCase()===wordText);
+    const isWrong=wrongSet.has(wordText);
     if(found){
-      const updated={...found,
-        hits:(found.hits||0)+(isWrong?0:1),
-        misses:(found.misses||0)+(isWrong?1:0),
-        lastSeen:date,due:isWrong?date:found.due
-      };
+      const updated={...found,hits:(found.hits||0)+(isWrong?0:1),misses:(found.misses||0)+(isWrong?1:0),lastSeen:date,due:isWrong?date:found.due};
+      if(meta.ko&&!found.meaning)updated.meaning=meta.ko;
+      if(meta.pos&&!found.pos)updated.pos=meta.pos;
+      if(meta.example&&!found.example)updated.example=meta.example;
       await supaUpsert('vocab_cards',found.id,updated,sid);
-      const ci=_cache.vocab_cards.findIndex(c=>c.id===found.id);
-      if(ci>=0)_cache.vocab_cards[ci]=updated;
+      const ci=_cache.vocab_cards.findIndex(c=>c.id===found.id);if(ci>=0)_cache.vocab_cards[ci]=updated;
     }else{
-      const newCard={id:uid(),sid,word:w,meaning:'',pos:'',example:'',hits:isWrong?0:1,misses:isWrong?1:0,phase:0,lastSeen:date,due:date,addedDate:date};
+      const newCard={id:uid(),sid,word:wordText,meaning:meta.ko||'',pos:meta.pos||'',example:meta.example||'',hits:isWrong?0:1,misses:isWrong?1:0,phase:0,lastSeen:date,due:date,addedDate:date};
       await supaUpsert('vocab_cards',newCard.id,newCard,sid);
-      if(!_cache.vocab_cards)_cache.vocab_cards=[];
-      _cache.vocab_cards.push(newCard);
-      // 뜻 비동기 조회 (한국어)
-      getMeaningKo(w).then(async ko=>{
-        if(!ko)return;
-        newCard.meaning=ko;
-        await supaUpsert('vocab_cards',newCard.id,newCard,sid);
-        const ci=_cache.vocab_cards.findIndex(c=>c.id===newCard.id);
-        if(ci>=0)_cache.vocab_cards[ci]={...newCard};
-      });
+      if(!_cache.vocab_cards)_cache.vocab_cards=[];_cache.vocab_cards.push(newCard);
+      if(!meta.ko){getMeaningKo(wordText).then(async ko=>{if(!ko)return;newCard.meaning=ko;await supaUpsert('vocab_cards',newCard.id,newCard,sid);const ci=_cache.vocab_cards.findIndex(c=>c.id===newCard.id);if(ci>=0)_cache.vocab_cards[ci]={...newCard};});}
     }
   }
 }
