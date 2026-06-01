@@ -1607,7 +1607,7 @@ function elibImportFile(e){
     reader.readAsBinaryString(file);
   }else{
     const reader=new FileReader();
-    reader.onload=ev=>elibProcessImport(ev.target.result.split('\n').filter(l=>l.trim()).map(l=>parseCSVLine(l)),id);
+    reader.onload=ev=>elibProcessImport(tryFixEncoding(ev.target.result).split('\n').filter(l=>l.trim()).map(l=>parseCSVLine(l)),id);
     reader.readAsText(file,'UTF-8');
   }
   e.target.value='';
@@ -1892,7 +1892,7 @@ function tuImportFile(e){
     reader.readAsBinaryString(file);
   }else{
     const reader=new FileReader();
-    reader.onload=ev=>tuProcessImportRows(ev.target.result.split('\n').filter(l=>l.trim()).map(l=>parseCSVLine(l)),tbId);
+    reader.onload=ev=>tuProcessImportRows(tryFixEncoding(ev.target.result).split('\n').filter(l=>l.trim()).map(l=>parseCSVLine(l)),tbId);
     reader.readAsText(file,'UTF-8');
   }
   e.target.value='';
@@ -1924,41 +1924,110 @@ function tuExportWords(){
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
   a.download=`${tb.title}_${_tuCurUnit}_단어.csv`;a.click();
 }
+// 모지바케(UTF-8→Latin-1 잘못 저장) 자동 복구
+function tryFixEncoding(text){
+  if(/[가-힣]/.test(text))return text; // 한국어 정상
+  if(!/[-ÿ]/.test(text))return text; // ASCII만이면 그대로
+  try{
+    const bytes=new Uint8Array(text.length);
+    for(let i=0;i<text.length;i++)bytes[i]=text.charCodeAt(i)&0xFF;
+    const fixed=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
+    if(/[가-힣]/.test(fixed))return fixed;
+  }catch{}
+  return text;
+}
+// Lesson/Unit 헤더 + 영어|한국어뜻|품사 연결 포맷 파서
+function parseBookWordFormat(text){
+  const posMap=[
+    {ko:'조동사',pos:'verb'},{ko:'감탄사',pos:'verb'},
+    {ko:'전치사구',pos:'phrase'},{ko:'동사구',pos:'phrase'},{ko:'명사구',pos:'phrase'},{ko:'형용사구',pos:'phrase'},
+    {ko:'대명사',pos:'noun'},{ko:'형용사',pos:'adj'},{ko:'명사',pos:'noun'},
+    {ko:'동사',pos:'verb'},{ko:'부사',pos:'adv'},{ko:'전치사',pos:'prep'},
+    {ko:'수사',pos:'noun'},{ko:'접속사',pos:'conj'},{ko:'구',pos:'phrase'},
+  ];
+  function extractKoPOS(kor){
+    kor=kor.trim();
+    for(const{ko,pos}of posMap){if(kor.endsWith(ko))return{ko:kor.slice(0,-ko.length).trim(),pos};}
+    return{ko:kor,pos:''};
+  }
+  // 단원 헤더로 블록 분리
+  const lines=text.split(/\n/).map(l=>l.trim()).filter(Boolean);
+  const units=[];let curName=null,curContent='';
+  for(const line of lines){
+    if(/^(Lesson|Unit|Chapter|DAY)\s*[\d.]+/i.test(line)){
+      if(curName)units.push({name:curName,content:curContent.trim()});
+      curName=line;curContent='';
+    }else{curContent+=' '+line;}
+  }
+  if(curName)units.push({name:curName,content:curContent.trim()});
+  // 각 단원 콘텐츠에서 단어 추출
+  const result=[];
+  for(const{name,content}of units){
+    const words=[];const seen=new Set();
+    // 영어 시퀀스로 분할 (구동사·숙어 포함: space/apostrophe/dot 허용)
+    const parts=content.split(/([a-zA-Z][a-zA-Z0-9 '.-]*)/);
+    for(let i=1;i<parts.length;i+=2){
+      const eng=parts[i].trim().replace(/\s+/g,' ');
+      const kor=(parts[i+1]||'').trim();
+      if(!eng||!/^[a-zA-Z]/.test(eng))continue;
+      if(/^(lesson|unit|chapter|day)\s*\d/i.test(eng))continue;
+      const word=eng.toLowerCase();
+      if(seen.has(word))continue;
+      seen.add(word);
+      const{ko,pos}=extractKoPOS(kor);
+      // 뜻과 품사 모두 없으면 헤더 잔재 → 스킵
+      if(!ko&&!pos)continue;
+      words.push({word,ko,pos,example:''});
+    }
+    if(words.length)result.push({unit:name,words});
+  }
+  return result;
+}
 function tuImportTxt(e){
   const file=e.target.files[0];if(!file)return;
   const tbId=document.getElementById('tu-tb-id').value;
   const reader=new FileReader();
   reader.onload=async ev=>{
-    const text=ev.target.result.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    const text=tryFixEncoding(ev.target.result.replace(/\r\n/g,'\n').replace(/\r/g,'\n'));
     const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
     if(!tb.units)tb.units={};
-    // 파싱: 빈 줄로 블록 분리 → 첫 줄=단원명, 나머지=단어
-    const blocks=text.split(/\n\s*\n/).map(b=>b.trim()).filter(Boolean);
     let addedUnits=0,addedWords=0;
-    for(const block of blocks){
-      const lines=block.split('\n').map(l=>l.trim()).filter(Boolean);
-      if(!lines.length)continue;
-      const unitName=lines[0];
-      const wordLines=lines.slice(1);
-      if(!unitName||!wordLines.length)continue;
-      // 각 줄을 row 배열로 변환 → parseWordListRows로 파싱
-      const rowArrays=wordLines.flatMap(l=>{
-        // 탭/쉼표 구분이면 분리, 아니면 공백으로
-        if(l.includes('\t'))return[l.split('\t').map(p=>p.trim())];
-        if(l.includes(','))return l.split(',').map(p=>p.trim()).filter(Boolean).map(w=>[w]);
-        // "1 room 방" 또는 "room 방" 형태: 첫 번째 영어 단어 + 한국어 뒤
-        const m=l.match(/^(\d+[\s.）)]+)?([a-zA-Z][a-zA-Z\s''-]*?)\s+([가-힣].+)$/);
-        if(m)return[[m[2].trim(),m[3].trim()]];
-        // 영어만 있는 줄: 쉼표 구분 단어 목록
-        return l.split(',').map(p=>p.replace(/^\d+[\s.）)]+/,'').trim()).filter(p=>/^[a-zA-Z]/.test(p)).map(w=>[w]);
-      });
-      const parsed=parseWordListRows(rowArrays);
-      const existing=tuNormWords(tb.units[unitName]||[]);
-      const existSet=new Set(existing.map(w=>w.word));
-      const newWords=parsed.filter(w=>w.word&&!existSet.has(w.word));
-      tb.units[unitName]=[...existing,...newWords];
-      if(!existing.length)addedUnits++;
-      addedWords+=newWords.length;
+    // Lesson/Unit 헤더 포맷 감지
+    const isLessonFmt=/^(Lesson|Unit|Chapter|DAY)\s*[\d.]+/im.test(text);
+    if(isLessonFmt){
+      const parsed=parseBookWordFormat(text);
+      for(const{unit,words}of parsed){
+        const existing=tuNormWords(tb.units[unit]||[]);
+        const existSet=new Set(existing.map(w=>w.word));
+        const newWords=words.filter(w=>w.word&&!existSet.has(w.word));
+        tb.units[unit]=[...existing,...newWords];
+        if(!existing.length)addedUnits++;
+        addedWords+=newWords.length;
+      }
+    }else{
+      // 기존 블록 포맷: 빈 줄로 분리, 첫 줄=단원명
+      const blocks=text.split(/\n\s*\n/).map(b=>b.trim()).filter(Boolean);
+      for(const block of blocks){
+        const lines=block.split('\n').map(l=>l.trim()).filter(Boolean);
+        if(!lines.length)continue;
+        const unitName=lines[0];
+        const wordLines=lines.slice(1);
+        if(!unitName||!wordLines.length)continue;
+        const rowArrays=wordLines.flatMap(l=>{
+          if(l.includes('\t'))return[l.split('\t').map(p=>p.trim())];
+          if(l.includes(','))return l.split(',').map(p=>p.trim()).filter(Boolean).map(w=>[w]);
+          const m=l.match(/^(\d+[\s.）)]+)?([a-zA-Z][a-zA-Z\s''-]*?)\s+([가-힣].+)$/);
+          if(m)return[[m[2].trim(),m[3].trim()]];
+          return l.split(',').map(p=>p.replace(/^\d+[\s.）)]+/,'').trim()).filter(p=>/^[a-zA-Z]/.test(p)).map(w=>[w]);
+        });
+        const parsed=parseWordListRows(rowArrays);
+        const existing=tuNormWords(tb.units[unitName]||[]);
+        const existSet=new Set(existing.map(w=>w.word));
+        const newWords=parsed.filter(w=>w.word&&!existSet.has(w.word));
+        tb.units[unitName]=[...existing,...newWords];
+        if(!existing.length)addedUnits++;
+        addedWords+=newWords.length;
+      }
     }
     await supaUpsert('global_textbooks',tbId,tb,null);
     const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=tb;
