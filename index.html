@@ -435,6 +435,8 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn ba bsm" onclick="openBulkAudio()">🎵 일괄 오디오</button>
           <input type="file" id="bulk-audio-files" accept="audio/*" multiple style="display:none" onchange="previewBulkAudio(event)">
+          <button class="btn ba bsm" onclick="openBulkText()">📄 일괄 본문</button>
+          <input type="file" id="bulk-text-files" accept=".txt" multiple style="display:none" onchange="previewBulkText(event)">
           <button class="btn ba bsm" onclick="exportLibCSV()">⬇ CSV</button>
           <button class="btn ba bsm" onclick="document.getElementById('lib-csv-file2').click()">📊 CSV 가져오기</button>
           <input type="file" id="lib-csv-file2" accept=".csv" style="display:none" onchange="importLibCSV(event)">
@@ -1140,7 +1142,8 @@
         <button class="btn bt bsm" onclick="elibAddWord()" style="white-space:nowrap">+ 추가</button>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn ba bsm" onclick="document.getElementById('elib-wrd-file').click()">📁 Excel/CSV</button>
+        <button class="btn ba bsm" onclick="elibSetImportMode('append');document.getElementById('elib-wrd-file').click()">📥 CSV 추가</button>
+        <button class="btn ba bsm" onclick="elibSetImportMode('overwrite');document.getElementById('elib-wrd-file').click()">🔄 CSV 덮어쓰기</button>
         <input type="file" id="elib-wrd-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="elibImportFile(event)">
         <button class="btn ba bsm" onclick="elibExportVocab()">⬇ CSV 내보내기</button>
       </div>
@@ -1157,6 +1160,19 @@
     <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
       <button class="btn bo bsm" onclick="closeM('m-bulk-audio')">취소</button>
       <button class="btn bt" onclick="confirmBulkAudio()" id="bulk-audio-confirm-btn">업로드 시작</button>
+    </div>
+  </div>
+</div>
+
+<!-- 일괄 본문 업로드 미리보기 모달 -->
+<div id="m-bulk-text" class="mo" data-protect>
+  <div class="mdl" style="max-width:560px">
+    <div class="mh"><div class="mt">📄 일괄 본문 업로드</div><button class="bx" onclick="closeM('m-bulk-text')">×</button></div>
+    <div class="ib iba" style="margin-bottom:10px">파일명 규칙: <strong>전체 본문</strong>은 "책제목.txt", <strong>챕터별</strong>은 "책제목 - Ch01.txt" 형식</div>
+    <div id="bulk-text-preview" style="max-height:360px;overflow-y:auto"></div>
+    <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
+      <button class="btn bo bsm" onclick="closeM('m-bulk-text')">취소</button>
+      <button class="btn bt" onclick="confirmBulkText()" id="bulk-text-confirm-btn">저장 시작</button>
     </div>
   </div>
 </div>

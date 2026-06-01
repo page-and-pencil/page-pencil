@@ -1661,17 +1661,29 @@ function parseWordListRows(rows){
   }
   return result;
 }
-async function elibProcessImport(rows,id){
+let _elibImportMode='append';
+function elibSetImportMode(mode){_elibImportMode=mode;}
+async function elibProcessImport(rows,id,mode){
   if(!rows?.length)return toast('파일이 비어있습니다');
+  mode=mode||_elibImportMode||'append';
   const b=_cache.library.find(x=>x.id===id);if(!b)return;
-  const existing=(b.vocab||[]);const existSet=new Set(existing.map(w=>w.word.toLowerCase()));
   const parsed=parseWordListRows(rows);
-  const newWords=parsed.filter(w=>w.word&&!existSet.has(w.word));
-  if(!newWords.length)return toast('새로 추가할 단어가 없습니다');
-  const updated={...b,vocab:[...existing,...newWords]};
+  if(!parsed.length)return toast('인식된 단어가 없습니다');
+  let finalVocab;
+  if(mode==='overwrite'){
+    finalVocab=parsed;
+  }else{
+    const existing=b.vocab||[];
+    const existSet=new Set(existing.map(w=>w.word.toLowerCase()));
+    const newWords=parsed.filter(w=>w.word&&!existSet.has(w.word));
+    if(!newWords.length)return toast('새로 추가할 단어가 없습니다 (이미 모두 존재)');
+    finalVocab=[...existing,...newWords];
+  }
+  const updated={...b,vocab:finalVocab};
   await supaUpsert('library',id,updated,null);
   const idx=_cache.library.findIndex(x=>x.id===id);if(idx>=0)_cache.library[idx]=updated;
-  renderLibVocabTable(id);renderLibTable();toast(`${newWords.length}단어 추가 완료`);
+  renderLibVocabTable(id);renderLibTable();
+  toast(mode==='overwrite'?`${finalVocab.length}개 단어로 교체되었습니다`:`${finalVocab.length-(b.vocab||[]).length}단어 추가 완료 (총 ${finalVocab.length}개)`);
 }
 function elibExportVocab(){
   const id=document.getElementById('elib-id').value;
@@ -2747,6 +2759,68 @@ async function delChapter(bookId,idx){
   if(!ao.chapters.length){delete b.audioUrl;}else{b.audioUrl=ao;}
   await supaUpsert('library',bookId,b,null);
   renderLibTable();toast('챕터가 삭제되었습니다');
+}
+
+// ── BULK TEXT UPLOAD ──
+let _bulkTextData=[];
+function openBulkText(){document.getElementById('bulk-text-files').click();}
+async function previewBulkText(e){
+  const files=[...e.target.files];if(!files.length)return;
+  e.target.value='';
+  const allSrc=[...BOOK_DB,...DB.libs()];
+  _bulkTextData=await Promise.all(files.map(async f=>{
+    const text=await f.text();
+    const name=f.name.replace(/\.[^.]+$/,'');
+    const chMatch=name.match(/^(.+?)\s*[-—]\s*(?:Ch(?:apter)?\s*(\d+))$/i);
+    if(chMatch){
+      const title=chMatch[1].trim(),ch=parseInt(chMatch[2]);
+      const book=allSrc.find(b=>b.title.toLowerCase()===title.toLowerCase())||allSrc.find(b=>b.title.toLowerCase().includes(title.toLowerCase()))||null;
+      return{file:f,text,type:'chapter',ch,title,book};
+    }
+    const book=allSrc.find(b=>b.title.toLowerCase()===name.toLowerCase())||allSrc.find(b=>b.title.toLowerCase().includes(name.toLowerCase()))||null;
+    return{file:f,text,type:'full',title:name,book};
+  }));
+  const wc=t=>t.split(/\s+/).filter(Boolean).length;
+  document.getElementById('bulk-text-preview').innerHTML=_bulkTextData.map(m=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+    <span style="font-size:18px">${m.book?'✅':'❌'}</span>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600;${!m.book?'color:var(--coral)':''}">${m.file.name}</div>
+      <div style="font-size:11px;color:var(--slate)">${m.book?'→ '+m.book.title+(m.type==='chapter'?' · Ch'+String(m.ch).padStart(2,'0'):'  · 전체 본문'):'매칭된 책 없음'}</div>
+      <div style="font-size:11px;color:var(--slate)">${wc(m.text).toLocaleString()}단어</div>
+    </div>
+  </div>`).join('');
+  document.getElementById('bulk-text-confirm-btn').disabled=!_bulkTextData.some(m=>m.book);
+  openM('m-bulk-text');
+}
+async function confirmBulkText(){
+  const valid=_bulkTextData.filter(m=>m.book);
+  if(!valid.length){closeM('m-bulk-text');return;}
+  const btn=document.getElementById('bulk-text-confirm-btn');
+  btn.disabled=true;btn.textContent='저장 중...';
+  let done=0;
+  for(const m of valid){
+    try{
+      let bookData=_cache.library.find(x=>x.id===m.book.id);
+      if(!bookData){const base=BOOK_DB.find(x=>x.id===m.book.id)||{};bookData={...base,id:m.book.id};_cache.library.push(bookData);}
+      const text=m.text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
+      if(m.type==='chapter'){
+        if(!bookData.chapters)bookData.chapters=[];
+        const chName='Ch'+String(m.ch).padStart(2,'0');
+        const ci=bookData.chapters.findIndex(c=>c.name===chName);
+        if(ci>=0)bookData.chapters[ci].text=text;else bookData.chapters.push({name:chName,text});
+      }else{
+        bookData.bookText=text;
+      }
+      await supaUpsert('library',m.book.id,bookData,null);
+      const idx=_cache.library.findIndex(x=>x.id===m.book.id);if(idx>=0)_cache.library[idx]=bookData;
+      done++;
+    }catch(err){console.error('bulk text',err);}
+  }
+  closeM('m-bulk-text');renderLibTable();
+  toast(`${done}개 본문 저장 완료`);
+  const sids=[...new Set((_cache.vocab_cards||[]).map(c=>c.sid))];
+  sids.forEach(sid=>refreshVocabExamples(sid).catch(()=>{}));
+  btn.disabled=false;btn.textContent='저장 시작';
 }
 
 // ── BULK AUDIO UPLOAD ──
