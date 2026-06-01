@@ -1797,7 +1797,7 @@ async function runLogAI(){
   if(!apiKey){status.innerHTML='<div class="ais warn">⚠️ API Key 미설정 — 단어를 직접 입력해 주세요</div>';return;}
   status.innerHTML='<div class="ais loading"><div class="spin"></div>AI가 단어를 읽고 있습니다...</div>';
   try{
-    const r=await callVision(apiKey,pendingLogB64,pendingLogMime,'이 리딩로그(손으로 쓴 영단어 노트) 이미지에서 영어 단어를 추출하세요.\n규칙:\n1. 사람 이름·지명·고유명사 제외\n2. 단수/복수 둘 다 있으면 단수 원형만\n3. 동사 -ing/-ed/-s 형태는 원형 동사로 통일\n4. 일반 영단어만, 한국어·문장·구문 제외\nJSON만 반환: {"words":["word1","word2"]}');
+    const r=await callVision(apiKey,pendingLogB64,pendingLogMime,'이 리딩로그 이미지에서 "New words" 섹션(하단 표)에 기록된 영어 단어만 추출하세요.\n규칙:\n1. "New words" 표 안의 단어만, 본문·제목·기타 영역 제외\n2. 사람 이름·지명·고유명사 제외\n3. 단수/복수 둘 다 있으면 단수 원형만\n4. 동사 -ing/-ed/-s 형태는 원형 동사로 통일\nJSON만 반환: {"words":["word1","word2"]}');
     const d=JSON.parse(r.replace(/```json|```/g,'').trim());
     if(d.words&&d.words.length){document.getElementById('lg-words').value=d.words.join(', ');status.innerHTML='<div class="ais ok">✅ '+d.words.length+'개 단어 추출 완료</div>';}
   }catch(e){status.innerHTML='<div class="ais err">⚠️ AI 인식 실패: '+e.message+'</div>';}
