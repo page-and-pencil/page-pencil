@@ -1661,13 +1661,84 @@ function parseWordListRows(rows){
   }
   return result;
 }
+// 줄별 패턴 파서: word-한국어, word(한국어), word=한국어, word: 한국어 등
+function parseLineByLine(text){
+  const lines=text.split('\n').map(l=>l.trim()).filter(l=>l&&/[a-zA-Z]/.test(l));
+  const words=[];const seen=new Set();
+  for(let line of lines){
+    if(/^(day|lesson|unit|chapter|section)\s*\d/i.test(line))continue;
+    if(/^[가-힣\s]+$/.test(line))continue;
+    line=line.replace(/^[•\-*▪▶·◆]\s*/,'').replace(/^\d+[\s.）)、\-]+/,'').trim();
+    if(!line)continue;
+    let word='',ko='',pos='',example='';
+    if(line.includes('\t')){
+      const p=line.split('\t').map(s=>s.trim());
+      [word,ko,pos,example]=[p[0]||'',p[1]||'',p[2]||'',p[3]||''];
+    }else{
+      const m=line.match(/^([a-zA-Z][a-zA-Z0-9 '.-]*?)\s*[-–—]+\s*([가-힣].*?)$/)||
+               line.match(/^([a-zA-Z][a-zA-Z0-9 '.-]*?)\s*[:=]\s*([가-힣].*?)$/)||
+               line.match(/^([a-zA-Z][a-zA-Z0-9 '.-]*?)\s*[（(]\s*([가-힣].*?)[)）]?\s*$/)||
+               line.match(/^([a-zA-Z][a-zA-Z0-9 '.-]*?)\s+([가-힣].+)$/);
+      if(m){word=m[1];ko=m[2];}
+      else if(/^[a-zA-Z][a-zA-Z0-9 '.-]*$/.test(line)){word=line;}
+      else continue;
+    }
+    word=word.toLowerCase().trim();
+    if(!word||word.length<2||seen.has(word))continue;
+    if(/^(the|a|an|is|it|in|on|at|to|of|and|or|but|for|with|this|that|are|was|be|do|i|you|he|she|we|they)$/i.test(word))continue;
+    seen.add(word);
+    words.push({word,ko:ko.trim(),pos:pos.trim(),example:example.trim()});
+  }
+  return words;
+}
+// AI 범용 파서 — 어떤 포맷이든 Claude가 영단어/뜻/품사/예문 추출
+async function parseWordListWithAI(rawText){
+  if(!DB.api())return null;
+  const truncated=rawText.trim().split(/\s+/).slice(0,3000).join(' ');
+  try{
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:4000,messages:[{role:'user',content:`다음 텍스트에서 영어 단어 학습 데이터를 모두 추출하세요.
+
+규칙:
+- word: 영어 단어 또는 구동사 소문자 (look at, run away 등 포함)
+- ko: 한국어 뜻 (없으면 "")
+- pos: noun/verb/adj/adv/prep/phrase/conj 중 하나 (없으면 "")
+- example: 텍스트에 예문이 있으면 그대로 발췌, 없으면 ""
+- 제외: 고유명사(인명·지명), the/a/an/is/it 등 단순 기능어
+- 최대 300개
+
+JSON만 반환:
+{"words":[{"word":"hello","ko":"안녕","pos":"verb","example":""}]}
+
+텍스트:
+${truncated}`}]});
+    const txt=d.content?.[0]?.text?.trim()||'';
+    const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    return(json.words||[]).map(w=>({word:(w.word||'').toLowerCase().trim(),ko:(w.ko||'').trim(),pos:(w.pos||'').trim(),example:(w.example||'').trim()})).filter(w=>w.word&&/^[a-zA-Z]/.test(w.word));
+  }catch{return null;}
+}
+// 파서 체인: 구조화 CSV → 줄별 패턴 → AI 자동 폴백
+async function universalParseWords(rows,rawText){
+  let result=parseWordListRows(rows);
+  if(result.length>=3)return result;
+  const txt=rawText||rows.map(r=>r.join('\t')).join('\n');
+  const lineResult=parseLineByLine(txt);
+  if(lineResult.length>result.length)result=lineResult;
+  if(result.length>=3)return result;
+  if(DB.api()){
+    toast('AI로 단어 형식 분석 중...');
+    const ai=await parseWordListWithAI(txt);
+    if(ai&&ai.length>0)return ai;
+  }
+  return result;
+}
 let _elibImportMode='append';
 function elibSetImportMode(mode){_elibImportMode=mode;}
 async function elibProcessImport(rows,id,mode){
   if(!rows?.length)return toast('파일이 비어있습니다');
   mode=mode||_elibImportMode||'append';
   const b=_cache.library.find(x=>x.id===id);if(!b)return;
-  const parsed=parseWordListRows(rows);
+  const rawText=rows.map(r=>r.join('\t')).join('\n');
+  const parsed=await universalParseWords(rows,rawText);
   if(!parsed.length)return toast('인식된 단어가 없습니다');
   let finalVocab;
   if(mode==='overwrite'){
@@ -1902,7 +1973,8 @@ async function tuProcessImportRows(rows,tbId){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const existing=tuNormWords(tb.units?.[_tuCurUnit]||[]);
   const existSet=new Set(existing.map(w=>w.word.toLowerCase()));
-  const parsed=parseWordListRows(rows);
+  const rawText=rows.map(r=>r.join('\t')).join('\n');
+  const parsed=await universalParseWords(rows,rawText);
   const newWords=parsed.filter(w=>w.word&&!existSet.has(w.word));
   if(!newWords.length)return toast('새로 추가할 단어가 없습니다');
   const updated={...tb,units:{...(tb.units||{}),[_tuCurUnit]:[...existing,...newWords]}};
@@ -2029,10 +2101,25 @@ function tuImportTxt(e){
         addedWords+=newWords.length;
       }
     }
+    // 로컬 파싱 결과 없으면 AI 폴백
+    if(addedWords===0&&DB.api()){
+      toast('AI로 단어 형식 분석 중...');
+      const aiWords=await parseWordListWithAI(text);
+      if(aiWords&&aiWords.length>0){
+        const unitName=_tuCurUnit||'AI 추출 단어';
+        if(!tb.units[unitName])tb.units[unitName]=[];
+        const existing=tuNormWords(tb.units[unitName]);
+        const existSet=new Set(existing.map(w=>w.word));
+        const newWords=aiWords.filter(w=>w.word&&!existSet.has(w.word));
+        tb.units[unitName]=[...existing,...newWords];
+        if(!existing.length)addedUnits++;
+        addedWords+=newWords.length;
+      }
+    }
     await supaUpsert('global_textbooks',tbId,tb,null);
     const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=tb;
     _tuCurUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,null);renderTbookTable();
-    toast(`${addedUnits}개 단원, ${addedWords}개 단어 추가 완료`);
+    toast(addedWords?`${addedUnits}개 단원, ${addedWords}개 단어 추가 완료`:'추가된 단어가 없습니다');
   };
   reader.readAsText(file,'UTF-8');e.target.value='';
 }
