@@ -1857,27 +1857,64 @@ function delLib(){
 function renderTbookTable(){
   const q=(document.getElementById('tbook-q')?.value||'').toLowerCase();
   const cat=document.getElementById('tbook-filter-cat')?.value||'';
-  const books=(_cache.globalTextbooks||[]).filter(b=>{
+  let books=(_cache.globalTextbooks||[]).filter(b=>{
     if(q&&!b.title.toLowerCase().includes(q))return false;
     if(cat&&b.category!==cat)return false;
     return true;
   });
   books.sort((a,b)=>tbookSortDir==='asc'?a.title.localeCompare(b.title):b.title.localeCompare(a.title));
+  const total=books.length;
+  const totalEl=document.getElementById('tbook-total');if(totalEl)totalEl.textContent=`총 ${total}개`;
   const tbSortIcon=document.getElementById('tbook-sort-icon');if(tbSortIcon)tbSortIcon.textContent=tbookSortDir==='asc'?'↑':'↓';
+  const maxPage=Math.max(0,Math.ceil(total/TBOOK_PAGE_SIZE)-1);
+  if(tbookPage>maxPage)tbookPage=maxPage;
+  const paged=books.slice(tbookPage*TBOOK_PAGE_SIZE,(tbookPage+1)*TBOOK_PAGE_SIZE);
+  _tbookPagedEntries=paged;
   const tbody=document.getElementById('tbook-tbody');if(!tbody)return;
-  if(!books.length){tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--slate);padding:24px">교재 없음</td></tr>`;return;}
-  tbody.innerHTML=books.map(b=>{const uCnt=Object.keys(b.units||{}).length;return`<tr>
+  if(!paged.length){tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--slate);padding:24px">교재 없음</td></tr>`;}
+  else tbody.innerHTML=paged.map((b,i)=>{const uCnt=Object.keys(b.units||{}).length;return`<tr>
+    <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="tbook-chk" data-idx="${i}" onchange="tbookUpdateBulkBar()" style="cursor:pointer"></td>
     <td style="font-weight:600">${b.title}</td>
     <td>${b.publisher||'—'}</td>
     <td>${b.level||'—'}</td>
     <td>${b.category||'—'}</td>
     <td><div style="display:flex;gap:4px">
-      <button class="btn ba bsm" onclick="openEditTbook('${b.id}')">수정</button>
+      <button class="btn bo bsm" onclick="openEditTbook('${b.id}')">수정</button>
       <button class="btn ba bsm" onclick="openTbookUnits('${b.id}')" title="단원별 단어 관리">📝 단어${uCnt?` (${uCnt})`:''}</button>
-      <button class="btn bd bsm" onclick="delGlobalTbook('${b.id}')">삭제</button>
     </div></td>
   </tr>`;}).join('');
+  const pg=document.getElementById('tbook-pager');if(!pg)return;
+  const totalPages=Math.ceil(total/TBOOK_PAGE_SIZE)||1;
+  if(totalPages<=1){pg.innerHTML=`<div class="pager"><span style="font-size:12px;color:var(--slate)">${total}개</span></div>`;return;}
+  pg.innerHTML=`<div class="pager">
+    <button class="pager-btn" onclick="tbookPage=0;renderTbookTable()" ${tbookPage===0?'disabled':''}>◀◀</button>
+    <button class="pager-btn" onclick="tbookPage--;renderTbookTable()" ${tbookPage===0?'disabled':''}>← 이전</button>
+    <span style="display:flex;align-items:center;gap:4px">
+      <input type="number" min="1" max="${totalPages}" value="${tbookPage+1}" onchange="tbookGoPage(this.value,${totalPages})" style="width:44px;padding:3px 6px;border:1.5px solid var(--border);border-radius:4px;font-size:13px;font-family:var(--fb);text-align:center;outline:none">
+      <span style="font-size:13px;color:var(--slate)">/ ${totalPages}페이지 (${total}개)</span>
+    </span>
+    <button class="pager-btn" onclick="tbookPage++;renderTbookTable()" ${tbookPage>=totalPages-1?'disabled':''}>다음 →</button>
+    <button class="pager-btn" onclick="tbookPage=${totalPages-1};renderTbookTable()" ${tbookPage>=totalPages-1?'disabled':''}>▶▶</button>
+  </div>`;
 }
+function tbookToggleAll(cb){document.querySelectorAll('#tbook-tbody .tbook-chk').forEach(el=>el.checked=cb.checked);tbookUpdateBulkBar();}
+function tbookClearSelection(){document.querySelectorAll('#tbook-tbody .tbook-chk').forEach(el=>el.checked=false);const h=document.getElementById('tbook-chk-all');if(h){h.checked=false;h.indeterminate=false;}tbookUpdateBulkBar();}
+function tbookUpdateBulkBar(){
+  const all=[...document.querySelectorAll('#tbook-tbody .tbook-chk')];const checked=all.filter(el=>el.checked);
+  const bar=document.getElementById('tbook-bulk-bar');if(bar){bar.style.display=checked.length?'flex':'none';const lbl=document.getElementById('tbook-sel-count');if(lbl)lbl.textContent=`${checked.length}개 선택됨`;}
+  const h=document.getElementById('tbook-chk-all');if(h){h.checked=all.length>0&&checked.length===all.length;h.indeterminate=checked.length>0&&checked.length<all.length;}
+}
+async function tbookDeleteSelected(){
+  const checked=[...document.querySelectorAll('#tbook-tbody .tbook-chk:checked')];if(!checked.length)return;
+  const entries=checked.map(el=>_tbookPagedEntries[parseInt(el.dataset.idx)]).filter(Boolean);
+  askConfirm('교재 삭제',`${entries.length}개 교재를 삭제할까요?`,'삭제','bd',async()=>{
+    try{for(const b of entries){await supaDelete('global_textbooks',b.id);_cache.globalTextbooks=(_cache.globalTextbooks||[]).filter(x=>x.id!==b.id);}
+    renderTbookTable();updateTbookDatalist();toast(`${entries.length}개 삭제되었습니다`);
+    }catch(e){toast('삭제 실패: '+e.message);}
+  });
+}
+function tbookResetFilters(){const q=document.getElementById('tbook-q');if(q)q.value='';const c=document.getElementById('tbook-filter-cat');if(c)c.value='';tbookPage=0;renderTbookTable();}
+function tbookGoPage(val,total){tbookPage=Math.max(0,Math.min(total-1,(parseInt(val)||1)-1));renderTbookTable();}
 function openEditTbook(id){
   const b=(_cache.globalTextbooks||[]).find(x=>x.id===id);if(!b)return;
   document.getElementById('tbook-edit-id').value=id;
@@ -2966,8 +3003,11 @@ function wdbExportCSV(){
 
 // ── LIBRARY TABLE (원서 DB 탭) ──
 let libPage=0,libSortDir='asc';
+let _libPagedEntries=[];
 function getLibPageSize(){return parseInt(document.getElementById('lib-per-page')?.value||'50');}
-let tbookSortDir='asc';
+let tbookSortDir='asc',tbookPage=0;
+const TBOOK_PAGE_SIZE=50;
+let _tbookPagedEntries=[];
 
 function populateLibSeriesFilter(){
   const sel=document.getElementById('lib-filter-series');if(!sel)return;
@@ -2999,34 +3039,39 @@ function renderLibTable(){
   if(libPage>maxPage)libPage=Math.max(0,maxPage);
   const paged=filtered.slice(libPage*LIB_PAGE_SIZE,(libPage+1)*LIB_PAGE_SIZE);
 
+  _libPagedEntries=paged;
   const tbody=document.getElementById('lib-tbody');if(!tbody)return;
   tbody.innerHTML=paged.map(b=>{
     const arDisplay=b.ar||b.arLevel||'—';
+    const isDeletable=libIds.has(b.id);
     return `<tr>
+      <td style="padding:4px 8px;text-align:center">${isDeletable?`<input type="checkbox" class="lib-chk" data-id="${b.id}" onchange="libUpdateBulkBar()" style="cursor:pointer">`:'<span style="color:var(--border);font-size:10px">—</span>'}</td>
       <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">${b.title}</td>
       <td style="font-size:12px;color:var(--slate);white-space:nowrap">${b.series||'—'}</td>
       <td><span class="badge bnavy" style="white-space:nowrap">${arDisplay!=='—'?'AR '+arDisplay:'—'}</span></td>
       <td style="font-size:12px;color:var(--slate)">${b.lexile||'—'}</td>
       <td style="font-size:12px;color:var(--slate)">${b.level||'—'}</td>
       <td style="text-align:center">${b.vocab?.length?`<button class="btn ba" style="padding:2px 8px;font-size:10px" onclick="openEditLib('${b.id}');setTimeout(()=>elibTab('vocab'),200)">${b.vocab.length}단어</button>`:'<span style="color:var(--slate);font-size:11px">—</span>'}</td>
-      <td style="text-align:center;min-width:160px">
-        ${renderAudioCell(b)}
-      </td>
+      <td style="text-align:center;min-width:160px">${renderAudioCell(b)}</td>
       <td style="white-space:nowrap">
-        <button class="btn ba" style="padding:2px 8px;font-size:11px;margin-right:3px" onclick="openEditLib('${b.id}')">수정</button>
-        ${libIds.has(b.id)?`<button class="btn bd" style="padding:2px 8px;font-size:11px" onclick="reqDelLibItem('${b.id}')">삭제</button>`:''}
+        <button class="btn bo" style="padding:2px 8px;font-size:11px" onclick="openEditLib('${b.id}')">수정</button>
       </td>
     </tr>`;
   }).join('');
 
   // 페이지네이션
   const pg=document.getElementById('lib-pager');if(!pg)return;
-  const totalPages=Math.ceil(total/LIB_PAGE_SIZE);
+  const totalPages=Math.ceil(total/LIB_PAGE_SIZE)||1;
   if(totalPages<=1){pg.innerHTML=`<div class="pager"><span style="font-size:12px;color:var(--slate)">${total}권</span></div>`;return;}
   pg.innerHTML=`<div class="pager">
+    <button class="pager-btn" onclick="libPage=0;renderLibTable()" ${libPage===0?'disabled':''}>◀◀</button>
     <button class="pager-btn" onclick="libPage--;renderLibTable()" ${libPage===0?'disabled':''}>← 이전</button>
-    <span style="font-size:13px;color:var(--slate)">${libPage+1} / ${totalPages} (${total.toLocaleString()}권)</span>
+    <span style="display:flex;align-items:center;gap:4px">
+      <input type="number" min="1" max="${totalPages}" value="${libPage+1}" onchange="libGoPage(this.value,${totalPages})" style="width:44px;padding:3px 6px;border:1.5px solid var(--border);border-radius:4px;font-size:13px;font-family:var(--fb);text-align:center;outline:none">
+      <span style="font-size:13px;color:var(--slate)">/ ${totalPages}페이지 (${total.toLocaleString()}권)</span>
+    </span>
     <button class="pager-btn" onclick="libPage++;renderLibTable()" ${libPage>=totalPages-1?'disabled':''}>다음 →</button>
+    <button class="pager-btn" onclick="libPage=${totalPages-1};renderLibTable()" ${libPage>=totalPages-1?'disabled':''}>▶▶</button>
   </div>`;
 }
 
@@ -3036,6 +3081,23 @@ function reqDelLibItem(id){
     renderLibTable();populateLibSel();toast('삭제되었습니다');
   });
 }
+function libToggleAll(cb){document.querySelectorAll('#lib-tbody .lib-chk').forEach(el=>el.checked=cb.checked);libUpdateBulkBar();}
+function libClearSelection(){document.querySelectorAll('#lib-tbody .lib-chk').forEach(el=>el.checked=false);const h=document.getElementById('lib-chk-all');if(h){h.checked=false;h.indeterminate=false;}libUpdateBulkBar();}
+function libUpdateBulkBar(){
+  const all=[...document.querySelectorAll('#lib-tbody .lib-chk')];const checked=all.filter(el=>el.checked);
+  const bar=document.getElementById('lib-bulk-bar');if(bar){bar.style.display=checked.length?'flex':'none';const lbl=document.getElementById('lib-sel-count');if(lbl)lbl.textContent=`${checked.length}개 선택됨`;}
+  const h=document.getElementById('lib-chk-all');if(h){h.checked=all.length>0&&checked.length===all.length;h.indeterminate=checked.length>0&&checked.length<all.length;}
+}
+function libDeleteSelected(){
+  const checked=[...document.querySelectorAll('#lib-tbody .lib-chk:checked')];if(!checked.length)return;
+  const ids=checked.map(el=>el.dataset.id).filter(Boolean);
+  askConfirm('원서 삭제',`${ids.length}개 원서를 삭제할까요? 기본 DB 항목은 삭제되지 않습니다.`,'삭제','bd',()=>{
+    _cache.library=(_cache.library||[]).filter(b=>!ids.includes(b.id));
+    renderLibTable();populateLibSel();toast(`${ids.length}개 삭제되었습니다`);
+  });
+}
+function libResetFilters(){const q=document.getElementById('lib-q');if(q)q.value='';const s=document.getElementById('lib-filter-series');if(s)s.value='';libPage=0;renderLibTable();}
+function libGoPage(val,total){libPage=Math.max(0,Math.min(total-1,(parseInt(val)||1)-1));renderLibTable();}
 
 function exportTbookCSV(){
   const books=_cache.globalTextbooks||[];
