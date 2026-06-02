@@ -2902,6 +2902,22 @@ async function wdbDeleteSelected(){
     }catch(err){toast('삭제 실패: '+err.message);}
   });
 }
+function _wdbProgressBar(total){
+  const prev=document.getElementById('_wdb-dp');if(prev)prev.remove();
+  const el=document.createElement('div');
+  el.id='_wdb-dp';
+  el.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);min-width:300px;background:var(--navy);color:#fff;border-radius:10px;padding:14px 20px;z-index:9999;font-family:var(--fb);font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.3)';
+  el.innerHTML=`<div style="font-weight:600;margin-bottom:8px">🗑️ 일괄 삭제 중...</div>
+    <div style="background:rgba(255,255,255,.2);border-radius:4px;height:7px;overflow:hidden">
+      <div id="_wdb-dp-bar" style="background:#00c4cc;height:100%;width:0%;transition:width .25s ease"></div>
+    </div>
+    <div id="_wdb-dp-txt" style="margin-top:6px;font-size:11px;opacity:.75">0 / ${total} (0%)</div>`;
+  document.body.appendChild(el);
+  return{
+    update(done){const p=total?Math.round(done/total*100):100;const b=document.getElementById('_wdb-dp-bar');const t=document.getElementById('_wdb-dp-txt');if(b)b.style.width=p+'%';if(t)t.textContent=`${done} / ${total} (${p}%)`;},
+    remove(){const e=document.getElementById('_wdb-dp');if(e)e.remove();}
+  };
+}
 async function wdbDeleteAll(){
   const q=(document.getElementById('wdb-q')?.value||'').toLowerCase().trim();
   const posF=document.getElementById('wdb-pos')?.value||'';
@@ -2915,22 +2931,27 @@ async function wdbDeleteAll(){
   if(!words.length)return toast('삭제할 단어가 없습니다');
   const filterDesc=q||posF||srcF||noKoF?`현재 필터 조건의 ${words.length}개`:`전체 ${words.length}개`;
   askConfirm('일괄 삭제',`${filterDesc} 단어를 모두 삭제할까요?`,'삭제','bd',async()=>{
+    const tbMap={},libMap={};
+    for(const e of words){
+      if(e.srcType==='textbook'){const k=e.srcId+'__'+e.srcUnit;if(!tbMap[k])tbMap[k]={srcId:e.srcId,srcUnit:e.srcUnit,remove:new Set()};tbMap[k].remove.add(e.word+'|'+(e.pos||'')+'|'+(e.ko||''));}
+      else{if(!libMap[e.srcId])libMap[e.srcId]={srcId:e.srcId,remove:new Set()};libMap[e.srcId].remove.add((e.word||'')+'|'+(e.pos||'')+'|'+(e.ko||''));}
+    }
+    const tbEntries=Object.values(tbMap),libEntries=Object.values(libMap);
+    const total=tbEntries.length+libEntries.length;
+    const prog=_wdbProgressBar(total);let done=0;
     try{
-      const tbMap={},libMap={};
-      for(const e of words){
-        if(e.srcType==='textbook'){const k=e.srcId+'__'+e.srcUnit;if(!tbMap[k])tbMap[k]={srcId:e.srcId,srcUnit:e.srcUnit,remove:new Set()};tbMap[k].remove.add(e.word+'|'+(e.pos||'')+'|'+(e.ko||''));}
-        else{if(!libMap[e.srcId])libMap[e.srcId]={srcId:e.srcId,remove:new Set()};libMap[e.srcId].remove.add((e.word||'')+'|'+(e.pos||'')+'|'+(e.ko||''));}
-      }
-      for(const{srcId,srcUnit,remove}of Object.values(tbMap)){
+      for(const{srcId,srcUnit,remove}of tbEntries){
         const tb=(_cache.globalTextbooks||[]).find(b=>b.id===srcId);
         if(tb&&tb.units?.[srcUnit]){tb.units[srcUnit]=tuNormWords(tb.units[srcUnit]).filter(w=>!remove.has(w.word.toLowerCase().trim()+'|'+(w.pos||'')+'|'+(w.ko||'')));await supaUpsert('global_textbooks',tb.id,tb,null,90000);}
+        prog.update(++done);
       }
-      for(const{srcId,remove}of Object.values(libMap)){
+      for(const{srcId,remove}of libEntries){
         const book=_cache.library.find(b=>b.id===srcId);
         if(book){book.vocab=(book.vocab||[]).filter(w=>!remove.has((w.word||'').toLowerCase().trim()+'|'+(w.pos||'')+'|'+(w.ko||'')));await supaUpsert('library',book.id,book,null,90000);}
+        prog.update(++done);
       }
-      renderWordDB();toast(`${words.length}개 삭제되었습니다`);
-    }catch(err){toast('삭제 실패: '+err.message);}
+      prog.remove();renderWordDB();toast(`${words.length}개 삭제되었습니다`);
+    }catch(err){prog.remove();toast('삭제 실패: '+err.message);}
   });
 }
 async function wdbDeleteEntry(idx){
@@ -3026,17 +3047,27 @@ async function wdbImportCSV(e){
   }
   if(!Object.keys(groups).length)return toast('인식된 단어가 없습니다');
 
-  // 출처 없는 그룹 → 파일명을 기본 교재명으로
+  // 출처 없는 그룹 처리
+  // ci.src < 0 (출처명 컬럼 없음) → 파일명 기본값 사용 (단순 2컬럼 CSV 등)
+  // ci.src >= 0 (출처명 컬럼 있지만 값이 비어있음) → 건너뜀 (PagePencil 내보내기 재임포트 시 파일명이 교재명으로 추가되는 현상 방지)
   const defaultSrcTitle=file.name.replace(/\.[^.]+$/,'').trim()||'어휘 가져오기';
   for(const grp of Object.values(groups)){
-    if(!grp.srcTitle){grp.srcTitle=defaultSrcTitle;if(!grp.srcType)grp.srcType='textbook';}
+    if(!grp.srcTitle){
+      if(ci.src<0){grp.srcTitle=defaultSrcTitle;if(!grp.srcType)grp.srcType='textbook';}
+      else{for(const w of grp.words)skipLog.push({row:'?',reason:'출처명이 비어있어 건너뜀 (CSV 출처명 컬럼 값 입력 필요)',word:w.word,ko:w.ko,src:'',unit:grp.srcUnit||''});}
+    }
   }
 
   let addedTotal=0,createdSrc=0,updatedMeta=0,srcCount=0;
 
   // 교재/원서 찾기/생성/업데이트 헬퍼
   async function findOrCreateTbook(grp){
-    let tb=(_cache.globalTextbooks||[]).find(b=>b.title.trim()===grp.srcTitle.trim());
+    // 교재명 + 레벨 조합으로 매칭: 레벨이 둘 다 있고 다르면 별도 교재로 처리
+    let tb=(_cache.globalTextbooks||[]).find(b=>{
+      if(b.title.trim()!==grp.srcTitle.trim())return false;
+      if(grp.level&&b.level&&grp.level.trim()!==b.level.trim())return false;
+      return true;
+    });
     if(!tb){
       // 자동 생성
       const newTb={id:uid(),title:grp.srcTitle,publisher:grp.publisher||'',level:grp.level||'',category:grp.category||'',units:{}};
