@@ -3019,8 +3019,9 @@ function populateLibSeriesFilter(){
 
 function renderLibTable(){
   const libIds=new Set(DB.libs().map(b=>b.id));
-  // library 항목이 BOOK_DB와 같은 id면 library 버전만 표시 (중복 제거)
-  const allSrc=[...BOOK_DB.filter(b=>!libIds.has(b.id)),...DB.libs()];
+  const deletedIds=new Set(DB.libs().filter(b=>b._deleted).map(b=>b.id));
+  // library 항목이 BOOK_DB와 같은 id면 library 버전만 표시 (중복 제거), _deleted 제외
+  const allSrc=[...BOOK_DB.filter(b=>!libIds.has(b.id)&&!deletedIds.has(b.id)),...DB.libs().filter(b=>!b._deleted)];
   const q=(document.getElementById('lib-q')?.value||'').toLowerCase().trim();
   const serF=document.getElementById('lib-filter-series')?.value||'';
 
@@ -3045,7 +3046,7 @@ function renderLibTable(){
     const arDisplay=b.ar||b.arLevel||'—';
     const isDeletable=libIds.has(b.id);
     return `<tr>
-      <td style="padding:4px 8px;text-align:center">${isDeletable?`<input type="checkbox" class="lib-chk" data-id="${b.id}" onchange="libUpdateBulkBar()" style="cursor:pointer">`:'<span style="color:var(--border);font-size:10px">—</span>'}</td>
+      <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="lib-chk" data-id="${b.id}" onchange="libUpdateBulkBar()" style="cursor:pointer"></td>
       <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">${b.title}</td>
       <td style="font-size:12px;color:var(--slate);white-space:nowrap">${b.series||'—'}</td>
       <td><span class="badge bnavy" style="white-space:nowrap">${arDisplay!=='—'?'AR '+arDisplay:'—'}</span></td>
@@ -3088,12 +3089,27 @@ function libUpdateBulkBar(){
   const bar=document.getElementById('lib-bulk-bar');if(bar){bar.style.display=checked.length?'flex':'none';const lbl=document.getElementById('lib-sel-count');if(lbl)lbl.textContent=`${checked.length}개 선택됨`;}
   const h=document.getElementById('lib-chk-all');if(h){h.checked=all.length>0&&checked.length===all.length;h.indeterminate=checked.length>0&&checked.length<all.length;}
 }
-function libDeleteSelected(){
+async function libDeleteSelected(){
   const checked=[...document.querySelectorAll('#lib-tbody .lib-chk:checked')];if(!checked.length)return;
   const ids=checked.map(el=>el.dataset.id).filter(Boolean);
-  askConfirm('원서 삭제',`${ids.length}개 원서를 삭제할까요? 기본 DB 항목은 삭제되지 않습니다.`,'삭제','bd',()=>{
-    _cache.library=(_cache.library||[]).filter(b=>!ids.includes(b.id));
-    renderLibTable();populateLibSel();toast(`${ids.length}개 삭제되었습니다`);
+  const libIds=new Set(DB.libs().map(b=>b.id));
+  const bookDbIds=ids.filter(id=>!libIds.has(id));
+  const libraryIds=ids.filter(id=>libIds.has(id));
+  const msg=bookDbIds.length?`${ids.length}개 원서를 삭제할까요? 기본 DB 항목은 숨김 처리됩니다.`:`${ids.length}개 원서를 삭제할까요?`;
+  askConfirm('원서 삭제',msg,'삭제','bd',async()=>{
+    try{
+      // library 항목 제거
+      _cache.library=(_cache.library||[]).filter(b=>!libraryIds.includes(b.id));
+      // BOOK_DB 기본 항목 → _deleted 플래그로 library에 저장해 영구 숨김
+      for(const id of bookDbIds){
+        const base=BOOK_DB.find(b=>b.id===id)||{};
+        const entry={...base,id,_deleted:true};
+        await supaUpsert('library',id,entry,null);
+        const idx=(_cache.library||[]).findIndex(b=>b.id===id);
+        if(idx>=0)_cache.library[idx]=entry;else{if(!_cache.library)_cache.library=[];_cache.library.push(entry);}
+      }
+      renderLibTable();populateLibSel();toast(`${ids.length}개 삭제되었습니다`);
+    }catch(e){toast('삭제 실패: '+e.message);}
   });
 }
 function libResetFilters(){const q=document.getElementById('lib-q');if(q)q.value='';const s=document.getElementById('lib-filter-series');if(s)s.value='';libPage=0;renderLibTable();}
