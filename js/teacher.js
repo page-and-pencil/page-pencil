@@ -3217,7 +3217,7 @@ function renderLibTable(){
   const theadTr=document.querySelector('#lib-tbody')?.closest('table')?.querySelector('thead tr');
   if(theadTr){
     const lth=(field,label)=>{const act=libSortField===field;const ic=act?(libSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="libSetSort('${field}')">${label} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};
-    theadTr.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="lib-chk-all" onchange="libToggleAll(this)" style="cursor:pointer"></th>${lth('title','제목')}${lth('series','시리즈')}${lth('ar','AR')}${lth('lexile','렉사일')}${lth('level','레벨')}${lth('vocab','단어')}<th>오디오</th><th>원문</th><th></th>`;
+    theadTr.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="lib-chk-all" onchange="libToggleAll(this)" style="cursor:pointer"></th>${lth('title','제목')}${lth('series','시리즈')}${lth('ar','AR')}${lth('lexile','렉사일')}${lth('level','레벨')}<th>오디오</th><th>원문</th><th></th>`;
   }
 
   const total=filtered.length;
@@ -3243,7 +3243,6 @@ function renderLibTable(){
       <td><span class="badge bnavy" style="white-space:nowrap">${arDisplay!=='—'?'AR '+arDisplay:'—'}</span></td>
       <td style="font-size:12px;color:var(--slate)">${b.lexile||'—'}</td>
       <td style="font-size:12px;color:var(--slate)">${b.level||'—'}</td>
-      <td style="text-align:center">${b.vocab?.length?`<button class="btn ba" style="padding:2px 8px;font-size:10px" onclick="openEditLib('${b.id}');setTimeout(()=>elibTab('vocab'),200)">${b.vocab.length}단어</button>`:'<span style="color:var(--slate);font-size:11px">—</span>'}</td>
       <td style="text-align:center;min-width:160px">${renderAudioCell(b)}</td>
       <td style="text-align:center">${hasText?`<button class="btn bt" style="padding:2px 8px;font-size:10px" onclick="openLibTextViewer('${b.id}')">📄 원문</button>`:'<span style="color:var(--slate);font-size:11px">—</span>'}</td>
       <td style="white-space:nowrap">
