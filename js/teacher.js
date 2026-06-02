@@ -766,8 +766,11 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   let bookInput;
   if(wrapperId==='cl-subj-rows'&&!isBook){
     const catFilter=_CAT_KO[baseKey];
-    const books=(_cache.globalTextbooks||[]).filter(b=>catFilter?b.category===catFilter:true);
-    const opts=`<option value="">-- 교재 선택 --</option>`+books.map(b=>`<option value="${escAttr(b.title)}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
+    let books=(_cache.globalTextbooks||[]).filter(b=>catFilter?b.category===catFilter:true);
+    const noMatch=catFilter&&!books.length;
+    if(noMatch)books=_cache.globalTextbooks||[];
+    const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
+    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
     bookInput=`<select data-f="book" onchange="clUpdateUnitHint(this)" style="flex:1;min-width:0;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">${opts}</select>`;
   }else{
     const bookList=baseKey==='phonics'?'dl-phonics-books':'dl-tbooks-les';
@@ -1887,7 +1890,7 @@ function renderTbookTable(){
     <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="tbook-chk" data-idx="${i}" onchange="tbookUpdateBulkBar()" style="cursor:pointer"></td>
     <td style="font-weight:600">${b.title}</td>
     <td>${b.level||'—'}</td>
-    <td>${b.category||'—'}</td>
+    <td>${['파닉스','어휘','어법','리딩','리스닝','라이팅','내신'].includes(b.category)?b.category:'—'}</td>
     <td>${b.publisher||'—'}</td>
     <td><div style="display:flex;gap:4px">
       <button class="btn bo bsm" onclick="openEditTbook('${b.id}')">수정</button>
@@ -3032,9 +3035,13 @@ async function wdbImportCSV(e){
     if(/[가-힣]/.test(word)){skipLog.push({row:i+1,reason:'영어 컬럼에 한국어 감지',word:cell(r,ci.word),ko:cell(r,ci.ko),src:cell(r,ci.src),unit:cell(r,ci.unit)});continue;}
     const srcTitle=cell(r,ci.src);const srcUnit=cell(r,ci.unit);const srcType=cell(r,ci.type);
     const key=`${srcType}|||${srcTitle}|||${srcUnit}`;
+    // 분류 컬럼 값이 "교재"/"원서"처럼 타입 식별자이면 출처타입(리딩/어휘/파닉스 등)을 실제 분류로 사용
+    const MEANINGFUL_CATS=new Set(['파닉스','어휘','어법','리딩','리스닝','라이팅','내신']);
+    const rawCat=cell(r,ci.cat);const rawType=cell(r,ci.type);
+    const category=MEANINGFUL_CATS.has(rawCat)?rawCat:MEANINGFUL_CATS.has(rawType)?rawType:rawCat;
     if(!groups[key])groups[key]={
       srcType,srcTitle,srcUnit,
-      level:cell(r,ci.level),series:cell(r,ci.series),publisher:cell(r,ci.pub),category:cell(r,ci.cat),
+      level:cell(r,ci.level),series:cell(r,ci.series),publisher:cell(r,ci.pub),category,
       words:[]
     };
     groups[key].words.push({word,ko:cell(r,ci.ko),pos:normPos(cell(r,ci.pos)),example:cell(r,ci.ex),en_def:cell(r,ci.en_def)});
