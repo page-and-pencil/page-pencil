@@ -2608,7 +2608,10 @@ function renderWordDB(){
       <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.example)}">${w.example||'—'}</td>
       <td style="padding:6px 8px;font-size:11px;color:#6b7280;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.en_def)}">${w.en_def||'<span style="color:var(--slate)">—</span>'}</td>
       <td style="padding:6px 8px;font-size:11px;color:${srcColor};max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(srcText)}">${srcText}</td>
-      <td style="padding:4px"><button onclick="wdbEditInline(${i})" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:13px" title="수정">✏️</button></td>
+      <td style="padding:4px;white-space:nowrap">
+        <button onclick="wdbEditInline(${i})" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:13px" title="수정">✏️</button>
+        <button onclick="wdbDeleteEntry(${i})" style="background:none;border:1px solid #fca5a5;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:13px;margin-left:2px" title="삭제">🗑️</button>
+      </td>
     </tr>`;
   }).join('');
   // 페이지네이션
@@ -2691,6 +2694,30 @@ async function wdbAIFillInline(idx){
     toast('AI 완료');
   }catch(e){toast('AI 실패');}
   if(btn){btn.textContent='✨';btn.disabled=false;}
+}
+
+async function wdbDeleteEntry(idx){
+  const e=_wdbPagedEntries[idx];if(!e)return;
+  askConfirm('단어 삭제',`'${e.word}'를 [${e.srcTitle||e.srcId}]에서 삭제할까요?`,'삭제','bd',async()=>{
+    try{
+      if(e.srcType==='textbook'){
+        const tb=(_cache.globalTextbooks||[]).find(b=>b.id===e.srcId);
+        if(tb&&tb.units?.[e.srcUnit]){
+          const ws=tuNormWords(tb.units[e.srcUnit]).filter(w=>!(w.word.toLowerCase()===e.word&&(w.pos||'')===(e.pos||'')));
+          tb.units[e.srcUnit]=ws;await supaUpsert('global_textbooks',tb.id,tb,null);
+          const idx2=_cache.globalTextbooks.findIndex(b=>b.id===tb.id);if(idx2>=0)_cache.globalTextbooks[idx2]=tb;
+        }
+      }else{
+        const book=_cache.library.find(b=>b.id===e.srcId);
+        if(book){
+          book.vocab=(book.vocab||[]).filter(w=>!((w.word||'').toLowerCase()===e.word&&(w.pos||'')===(e.pos||'')));
+          await supaUpsert('library',book.id,book,null);
+          const idx3=_cache.library.findIndex(b=>b.id===book.id);if(idx3>=0)_cache.library[idx3]=book;
+        }
+      }
+      renderWordDB();toast('삭제되었습니다');
+    }catch(err){toast('삭제 실패: '+err.message);}
+  });
 }
 
 // 품사 표기 정규화: 한국어 표기 → 시스템 영문 코드
