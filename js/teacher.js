@@ -1307,13 +1307,14 @@ function renderRd(){
   rds=rds.slice(0,50);
   const el=document.getElementById('rd-list');
   if(!rds.length){el.innerHTML='<div class="empty"><div class="empty-i">📗</div><div class="empty-t">원서 기록이 없습니다</div></div>';return;}
-  el.innerHTML=`<div class="card"><table class="tbl"><thead><tr><th>날짜</th><th>학생</th><th>제목</th><th>AR</th><th>장르</th><th>진도</th><th></th></tr></thead><tbody>
-    ${rds.map(r=>{const s=stus.find(x=>x.id===r.sid);return `<tr>
+  const allLibSrc=[...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]),...(_cache.library||[])];
+  el.innerHTML=`<div class="card"><table class="tbl"><thead><tr><th>날짜</th><th>학생</th><th>제목</th><th>AR</th><th>레벨</th><th>진도</th><th></th></tr></thead><tbody>
+    ${rds.map(r=>{const s=stus.find(x=>x.id===r.sid);const bk=allLibSrc.find(b=>b.title===r.title);const lvl=bk?.level||'';return `<tr>
       <td style="font-family:var(--fm);font-size:11px">${r.date||''}</td>
       <td style="font-weight:700">${s?s.name:'—'}</td>
       <td>${r.title||'—'}${r.series?`<br><span style="font-size:11px;color:var(--slate)">${r.series}</span>`:''}</td>
       <td><span class="badge bnavy">${r.arLevel||'—'}</span></td>
-      <td style="font-size:11px;color:var(--slate)">${r.genre||'—'}</td>
+      <td style="font-size:11px;color:var(--slate)">${lvl||'—'}</td>
       <td style="font-size:11px;color:var(--slate)">${r.progress||'—'}</td>
       <td><button class="btn bo bsm" onclick="openEditRd('${r.id}')">수정</button></td>
     </tr>`;}).join('')}</tbody></table></div>`;
