@@ -2874,6 +2874,7 @@ async function wdbImportCSV(e){
     word:  hdr.findIndex(h=>['영어','word','english','단어'].includes(h)),
     ko:    hdr.findIndex(h=>['한국어','뜻','ko','korean','meaning'].includes(h)),
     pos:   hdr.findIndex(h=>['품사','pos','part'].includes(h)),
+    en_def:hdr.findIndex(h=>['영영의미','en_def','english definition','영어뜻','영어의미','definition'].includes(h)),
     ex:    hdr.findIndex(h=>['예문','example','sentence','ex'].includes(h)),
     src:   hdr.findIndex(h=>['출처명','출처','source','book','교재명','원서명'].includes(h)),
     unit:  hdr.findIndex(h=>['출처단원','단원','unit','chapter','lesson'].includes(h)),
@@ -2900,7 +2901,7 @@ async function wdbImportCSV(e){
       level:cell(r,ci.level),series:cell(r,ci.series),publisher:cell(r,ci.pub),category:cell(r,ci.cat),
       words:[]
     };
-    groups[key].words.push({word,ko:cell(r,ci.ko),pos:normPos(cell(r,ci.pos)),example:cell(r,ci.ex)});
+    groups[key].words.push({word,ko:cell(r,ci.ko),pos:normPos(cell(r,ci.pos)),example:cell(r,ci.ex),en_def:cell(r,ci.en_def)});
     // 첫 행에서만 메타 쓰고 이후 행에서 비어있지 않으면 업데이트
     const grp=groups[key];
     if(!grp.level&&cell(r,ci.level))grp.level=cell(r,ci.level);
@@ -2954,12 +2955,27 @@ async function wdbImportCSV(e){
     return book;
   }
 
-  // 단어 추가 헬퍼 (word+pos 중복 방지)
+  // 단어 추가/업데이트 헬퍼
+  // toAdd: 신규 단어, updateCnt: 기존 단어 중 ko/en_def/example 변경된 수 (existing 배열 직접 수정)
   function mergeWords(existing,newWords){
-    const existSet=new Set(existing.map(w=>(w.word||'').toLowerCase()+'|'+(w.pos||'')));
-    return newWords.filter(w=>w.word&&!existSet.has(w.word+'|'+(w.pos||'')));
+    const existMap=new Map(existing.map((w,i)=>[(w.word||'').toLowerCase()+'|'+(w.pos||''),i]));
+    const toAdd=[];let updateCnt=0;
+    for(const nw of newWords){
+      if(!nw.word)continue;
+      const key=nw.word+'|'+(nw.pos||'');
+      const ei=existMap.get(key);
+      if(ei!==undefined){
+        let changed=false;
+        if(nw.ko&&nw.ko!==existing[ei].ko){existing[ei].ko=nw.ko;changed=true;}
+        if(nw.en_def&&nw.en_def!==existing[ei].en_def){existing[ei].en_def=nw.en_def;changed=true;}
+        if(nw.example&&nw.example!==existing[ei].example){existing[ei].example=nw.example;changed=true;}
+        if(changed)updateCnt++;
+      }else{toAdd.push(nw);}
+    }
+    return{toAdd,updateCnt};
   }
 
+  let updatedTotal=0;
   for(const grp of Object.values(groups)){
     if(!grp.srcTitle)continue;
     const isLib=grp.srcType==='원서'||grp.srcType==='library';
@@ -2970,36 +2986,21 @@ async function wdbImportCSV(e){
       if(!tb.units)tb.units={};
       const unitName=grp.srcUnit||'전체';
       const existing=tuNormWords(tb.units[unitName]||[]);
-      const newWords=mergeWords(existing,grp.words);
-      if(!newWords.length){srcCount++;continue;}
-      tb.units[unitName]=[...existing,...newWords];
+      const{toAdd,updateCnt}=mergeWords(existing,grp.words);
+      if(!toAdd.length&&!updateCnt){srcCount++;continue;}
+      tb.units[unitName]=[...existing,...toAdd];
       await supaUpsert('global_textbooks',tb.id,tb,null);
       const idx=_cache.globalTextbooks.findIndex(b=>b.id===tb.id);if(idx>=0)_cache.globalTextbooks[idx]=tb;
-      addedTotal+=newWords.length;srcCount++;
+      addedTotal+=toAdd.length;updatedTotal+=updateCnt;srcCount++;
     }else if(isLib||((!isTbook)&&((_cache.library.some(b=>b.title?.trim()===grp.srcTitle.trim()))||((typeof BOOK_DB!=='undefined'?BOOK_DB:[]).some(b=>b.title?.trim()===grp.srcTitle.trim()))))){
       const book=await findOrCreateLib(grp);
       const existing=book.vocab||[];
-      const newWords=mergeWords(existing,grp.words);
-      if(!newWords.length){srcCount++;continue;}
-      book.vocab=[...existing,...newWords];
+      const{toAdd,updateCnt}=mergeWords(existing,grp.words);
+      if(!toAdd.length&&!updateCnt){srcCount++;continue;}
+      book.vocab=[...existing,...toAdd];
       await supaUpsert('library',book.id,book,null);
       const idx=_cache.library.findIndex(b=>b.id===book.id);if(idx>=0)_cache.library[idx]=book;
-      addedTotal+=newWords.length;srcCount++;
-    }else if(isTbook){
-      // 출처타입=교재 이지만 아직 없음 → 자동 생성
-      const tb=await findOrCreateTbook(grp);
-      const unitName=grp.srcUnit||'전체';
-      if(!tb.units)tb.units={};
-      tb.units[unitName]=[...mergeWords([],grp.words)];
-      await supaUpsert('global_textbooks',tb.id,tb,null);
-      const idx=_cache.globalTextbooks.findIndex(b=>b.id===tb.id);if(idx>=0)_cache.globalTextbooks[idx]=tb;
-      addedTotal+=grp.words.length;srcCount++;
-    }else if(isLib){
-      const book=await findOrCreateLib(grp);
-      book.vocab=[...mergeWords([],grp.words)];
-      await supaUpsert('library',book.id,book,null);
-      const idx=_cache.library.findIndex(b=>b.id===book.id);if(idx>=0)_cache.library[idx]=book;
-      addedTotal+=grp.words.length;srcCount++;
+      addedTotal+=toAdd.length;updatedTotal+=updateCnt;srcCount++;
     }else{
       toast(`"${grp.srcTitle}" 출처 미확인 — 출처타입(교재/원서)을 지정하면 자동 생성됩니다`);
     }
@@ -3007,17 +3008,18 @@ async function wdbImportCSV(e){
 
   renderWordDB();renderTbookTable();renderLibTable();populateLibSel();
   const msgs=[];
-  if(addedTotal)msgs.push(`단어 ${addedTotal}개 연동`);
+  if(addedTotal)msgs.push(`단어 ${addedTotal}개 추가`);
+  if(updatedTotal)msgs.push(`${updatedTotal}개 업데이트`);
   if(createdSrc)msgs.push(`교재/원서 ${createdSrc}개 자동 생성`);
   if(updatedMeta)msgs.push(`메타정보 ${updatedMeta}건 업데이트`);
-  toast(msgs.length?msgs.join(' · '):'변경사항 없음');
+  toast(msgs.length?msgs.join(' · '):'변경사항 없음 (모든 단어가 이미 최신 상태입니다)');
 }
 function wdbExportCSV(){
   const words=buildWordDB();
   if(!words.length)return toast('단어가 없습니다');
   const q=v=>`"${(v||'').replace(/"/g,'""')}"`;
-  const header='영어,한국어,품사,예문,출처명,출처단원,출처타입,레벨,시리즈,출판사,분류';
-  const rows=words.map(w=>[q(w.word),q(w.ko),q(POS_KO[w.pos]||w.pos),q(w.example),q(w.srcTitle),q(w.srcUnit),w.srcType==='textbook'?'교재':'원서',q(w.srcLevel),q(w.srcSeries||''),q(w.srcPublisher||''),q(w.srcCategory||'')].join(','));
+  const header='영어,한국어,영영의미,품사,예문,출처명,출처단원,출처타입,레벨,시리즈,출판사,분류';
+  const rows=words.map(w=>[q(w.word),q(w.ko),q(w.en_def||''),q(POS_KO[w.pos]||w.pos),q(w.example),q(w.srcTitle),q(w.srcUnit),w.srcType==='textbook'?'교재':'원서',q(w.srcLevel),q(w.srcSeries||''),q(w.srcPublisher||''),q(w.srcCategory||'')].join(','));
   const csv='﻿'+[header,...rows].join('\r\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='PagePencil_단어DB_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
   toast(`${words.length}개 단어 CSV 다운로드 완료`);
