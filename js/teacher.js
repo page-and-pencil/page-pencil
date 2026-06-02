@@ -2777,23 +2777,26 @@ function openWdbAddWord(){
 }
 function wdbNewSrcTypeChange(){
   const type=document.getElementById('wdb-new-srctype')?.value||'textbook';
-  const srcSel=document.getElementById('wdb-new-src');
+  const txt=document.getElementById('wdb-new-src-txt');
+  const sel=document.getElementById('wdb-new-src-sel');
+  const dl=document.getElementById('dl-wdb-tbooks');
+  const lbl=document.getElementById('wdb-new-src-label');
   const unitRow=document.getElementById('wdb-new-unit-row');
-  if(!srcSel)return;
   if(type==='textbook'){
-    const books=(_cache.globalTextbooks||[]).slice().sort((a,b)=>a.title.localeCompare(b.title));
-    srcSel.innerHTML='<option value="">-- 교재 선택 --</option>'+books.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title)}</option>`).join('');
-    if(unitRow)unitRow.style.display='';
+    if(txt)txt.style.display='';if(sel)sel.style.display='none';
+    if(lbl)lbl.textContent='교재';if(unitRow)unitRow.style.display='';
+    if(txt)txt.value='';
+    if(dl){const books=(_cache.globalTextbooks||[]).slice().sort((a,b)=>a.title.localeCompare(b.title));dl.innerHTML=books.map(b=>`<option value="${escAttr(b.title)}">`).join('');}
   }else{
+    if(txt)txt.style.display='none';if(sel)sel.style.display='';
+    if(lbl)lbl.textContent='원서';if(unitRow)unitRow.style.display='none';
     const deletedIds=new Set((_cache.library||[]).filter(b=>b._deleted).map(b=>b.id));
     const libIds=new Set((_cache.library||[]).map(b=>b.id));
     const allLib=[...(typeof BOOK_DB!=='undefined'?BOOK_DB.filter(b=>!libIds.has(b.id)&&!deletedIds.has(b.id)):[]),...(_cache.library||[]).filter(b=>!b._deleted)];
     allLib.sort((a,b)=>a.title.localeCompare(b.title));
-    srcSel.innerHTML='<option value="">-- 원서 선택 --</option>'+allLib.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title)}</option>`).join('');
-    if(unitRow)unitRow.style.display='none';
+    if(sel)sel.innerHTML='<option value="">-- 원서 선택 --</option>'+allLib.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title)}</option>`).join('');
   }
 }
-function wdbNewSrcChange(){}
 async function wdbNewWordSave(){
   const word=(document.getElementById('wdb-new-word')?.value||'').trim().toLowerCase();
   if(!word)return toast('영어 단어를 입력하세요');
@@ -2802,29 +2805,42 @@ async function wdbNewWordSave(){
   const pos=document.getElementById('wdb-new-pos')?.value||'';
   const example=(document.getElementById('wdb-new-ex')?.value||'').trim();
   const srctype=document.getElementById('wdb-new-srctype')?.value||'textbook';
-  const srcId=document.getElementById('wdb-new-src')?.value||'';
-  if(!srcId)return toast('출처를 선택하세요');
   const newWord={word,ko,pos,example,en_def};
   try{
     if(srctype==='textbook'){
-      const tb=(_cache.globalTextbooks||[]).find(b=>b.id===srcId);if(!tb)return toast('교재를 찾을 수 없습니다');
-      if(!tb.units)tb.units={};
+      const title=(document.getElementById('wdb-new-src-txt')?.value||'').trim();
+      if(!title)return toast('교재명을 입력하거나 선택하세요');
       const unit=(document.getElementById('wdb-new-unit')?.value||'').trim()||'전체';
+      let tb=(_cache.globalTextbooks||[]).find(b=>b.title.trim()===title);
+      let isNew=false;
+      if(!tb){
+        // 교재 DB에 자동 생성
+        tb={id:uid(),title,publisher:'',level:'',category:'',units:{}};
+        await supaUpsert('global_textbooks',tb.id,tb,null);
+        if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
+        _cache.globalTextbooks.push(tb);
+        updateTbookDatalist();isNew=true;
+      }
+      if(!tb.units)tb.units={};
       const existing=tuNormWords(tb.units[unit]||[]);
       if(existing.some(w=>w.word.toLowerCase()===word&&(w.pos||'')===(pos||'')))return toast('이미 존재하는 단어입니다');
       tb.units[unit]=[...existing,newWord];
       await supaUpsert('global_textbooks',tb.id,tb,null);
-      const idx=_cache.globalTextbooks.findIndex(b=>b.id===tb.id);if(idx>=0)_cache.globalTextbooks[idx]=tb;
+      const idx=(_cache.globalTextbooks||[]).findIndex(b=>b.id===tb.id);if(idx>=0)_cache.globalTextbooks[idx]=tb;
+      closeM('m-add-word');renderWordDB();renderTbookTable();
+      toast(isNew?`'${title}' 교재 자동 생성 후 단어 추가되었습니다`:'단어가 추가되었습니다');
     }else{
+      const srcId=document.getElementById('wdb-new-src-sel')?.value||'';
+      if(!srcId)return toast('원서를 선택하세요');
       let book=(_cache.library||[]).find(b=>b.id===srcId);
-      if(!book){const base=(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).find(b=>b.id===srcId)||{};book={...base,id:srcId,vocab:[]};_cache.library.push(book);}
+      if(!book){const base=(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).find(b=>b.id===srcId)||{};book={...base,id:srcId,vocab:[]};(_cache.library||(_cache.library=[])).push(book);}
       const existing=book.vocab||[];
       if(existing.some(w=>(w.word||'').toLowerCase()===word&&(w.pos||'')===(pos||'')))return toast('이미 존재하는 단어입니다');
       book.vocab=[...existing,newWord];
       await supaUpsert('library',srcId,book,null);
       const idx=(_cache.library||[]).findIndex(b=>b.id===srcId);if(idx>=0)_cache.library[idx]=book;
+      closeM('m-add-word');renderWordDB();toast('단어가 추가되었습니다');
     }
-    closeM('m-add-word');renderWordDB();toast('단어가 추가되었습니다');
   }catch(e){toast('추가 실패: '+e.message);}
 }
 

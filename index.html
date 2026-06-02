@@ -1045,7 +1045,12 @@
           <option value="library">📖 원서</option>
         </select>
       </div>
-      <div class="f s2"><label>교재 / 원서</label><select id="wdb-new-src" onchange="wdbNewSrcChange()"></select></div>
+      <div class="f s2">
+        <label id="wdb-new-src-label">교재</label>
+        <datalist id="dl-wdb-tbooks"></datalist>
+        <input type="text" id="wdb-new-src-txt" list="dl-wdb-tbooks" placeholder="교재명 입력 또는 선택 (새 이름이면 자동 생성)" autocomplete="off">
+        <select id="wdb-new-src-sel" style="display:none"></select>
+      </div>
       <div class="f s2" id="wdb-new-unit-row"><label>단원</label><input type="text" id="wdb-new-unit" placeholder="단원명 (예: Unit 1, 전체)"></div>
     </div>
     <button class="btn bt" style="width:100%;margin-top:8px" onclick="wdbNewWordSave()">추가하기</button>
