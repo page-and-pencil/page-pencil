@@ -4524,11 +4524,23 @@ function openClassLesson(classId,dateStr){
     document.querySelectorAll('#cl-subj-rows select[data-f="book"]').forEach(clUpdateUnitHint);
   }
   document.getElementById('cl-common-cmt').value='';
-  // 과제 초기화 후 날짜별 공통 과제 행 자동 생성
+  // 과제 초기화 후 날짜별 공통 과제 행 자동 생성 (교재별 1행씩)
   document.getElementById('cl-hw-common-rows').innerHTML='';
   document.getElementById('cl-hw-ind-rows').innerHTML='';
   const lessonDate=dateStr||new Date().toISOString().split('T')[0];
-  getClassLessonDates(c,lessonDate).forEach(d=>addClHwRow(d,true));
+  const hwDates=getClassLessonDates(c,lessonDate);
+  const mats=c.commonMaterials?Object.entries(c.commonMaterials):[];
+  if(mats.length){
+    hwDates.forEach(d=>{
+      mats.forEach(([key,val])=>{
+        const base=key.replace(/_\d+$/,'');
+        const cat=base==='_book'?'book':base;
+        addClHwRow(d,true,cat,val.book||'');
+      });
+    });
+  }else{
+    hwDates.forEach(d=>addClHwRow(d,true));
+  }
   // 학생 rows (원서 상세 입력)
   const iStyle='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
   const allStus=DB.stus().filter(s=>!s.inactive);
@@ -4704,7 +4716,7 @@ function clHwCatAutoFill(sel){
 }
 const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
 
-function addClHwRow(dateStr,isCommon){
+function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook=''){
   const DAYS=['일','월','화','수','목','금','토'];
   const d=dateStr?new Date(dateStr):new Date();
   const dayLabel=DAYS[d.getDay()];
@@ -4725,6 +4737,8 @@ function addClHwRow(dateStr,isCommon){
     <input type="text" class="cl-hw-book" placeholder="교재/원서 (교재DB·원서DB 자동완성)" list="dl-hw-books" autocomplete="off" style="${IS};flex:2;min-width:130px">
     <input type="text" class="cl-hw-range" placeholder="범위/내용" style="${IS};flex:3;min-width:150px">
   </div>`;
+  if(prefillCat){const catEl=row.querySelector('.cl-hw-cat');if(catEl)catEl.value=prefillCat;}
+  if(prefillBook){const bookEl=row.querySelector('.cl-hw-book');if(bookEl)bookEl.value=prefillBook;}
   // 날짜 변경 시 요일 레이블 업데이트
   row.querySelector('.cl-hw-date').addEventListener('change',function(){
     const nd=new Date(this.value);
