@@ -3077,7 +3077,8 @@ function renderLibTable(){
 }
 
 function reqDelLibItem(id){
-  askConfirm('원서 삭제','추가한 원서를 삭제할까요? 기본 DB 항목은 삭제되지 않습니다.','삭제','bd',()=>{
+  askConfirm('원서 삭제','추가한 원서를 삭제할까요? 기본 DB 항목은 삭제되지 않습니다.','삭제','bd',async()=>{
+    await supaDelete('library',id);
     _cache.library=_cache.library.filter(x=>x.id!==id);
     renderLibTable();populateLibSel();toast('삭제되었습니다');
   });
@@ -3098,7 +3099,8 @@ async function libDeleteSelected(){
   const msg=bookDbIds.length?`${ids.length}개 원서를 삭제할까요? 기본 DB 항목은 숨김 처리됩니다.`:`${ids.length}개 원서를 삭제할까요?`;
   askConfirm('원서 삭제',msg,'삭제','bd',async()=>{
     try{
-      // library 항목 제거
+      // library 항목 제거 (Supabase + 캐시)
+      for(const id of libraryIds)await supaDelete('library',id);
       _cache.library=(_cache.library||[]).filter(b=>!libraryIds.includes(b.id));
       // BOOK_DB 기본 항목 → _deleted 플래그로 library에 저장해 영구 숨김
       for(const id of bookDbIds){
