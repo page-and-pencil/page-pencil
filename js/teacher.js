@@ -2977,7 +2977,7 @@ async function wdbImportCSV(e){
     rows=await new Promise(res=>{const r=new FileReader();r.onload=ev=>{const wb=XLSX.read(ev.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];res(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}));};r.readAsBinaryString(file);});
   }else{
     const text=tryFixEncoding(await file.text());
-    rows=text.split('\n').filter(l=>l.trim()).map(l=>parseCSVLine(l));
+    rows=parseCSVText(text); // 따옴표 안 줄바꿈 포함 멀티라인 CSV 지원
   }
   if(!rows?.length)return toast('파일이 비어있습니다');
 
@@ -3166,15 +3166,21 @@ async function wdbImportCSV(e){
     toast(resultMsg);
   }
 }
+let _importLogCsv='';let _importLogName='';
+function downloadImportLog(){
+  if(!_importLogCsv)return;
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(_importLogCsv);
+  a.download=_importLogName;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
 function wdbShowImportLog(summary,skipLog,srcFileName){
   const q=v=>`"${String(v||'').replace(/"/g,'""')}"`;
   const csvLines=['행번호,건너뜀 사유,영어(원본),한국어,출처명,단원',...skipLog.map(l=>[q(l.row),q(l.reason),q(l.word),q(l.ko),q(l.src),q(l.unit)].join(','))];
-  const csvContent='﻿'+csvLines.join('\r\n');
-  const logName=srcFileName.replace(/\.[^.]+$/,'')+`_오류로그_${new Date().toISOString().slice(0,10)}.csv`;
+  _importLogCsv='﻿'+csvLines.join('\r\n');
+  _importLogName=srcFileName.replace(/\.[^.]+$/,'')+`_오류로그_${new Date().toISOString().slice(0,10)}.csv`;
 
-  // 기존 모달이 있으면 제거
   const prev=document.getElementById('m-import-log');if(prev)prev.remove();
-
   const mo=document.createElement('div');
   mo.id='m-import-log';
   mo.className='mo open';
@@ -3185,11 +3191,11 @@ function wdbShowImportLog(summary,skipLog,srcFileName){
       <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:8px;letter-spacing:.05em">건너뛴 행 목록 (${skipLog.length}개)</div>
       ${skipLog.map(l=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
         <span style="color:var(--slate);min-width:40px;display:inline-block">행 ${l.row}</span>
-        <span style="color:#dc2626;font-size:11px">${l.reason}</span>
-        ${l.word?`<div style="font-size:11px;color:var(--navy);margin-top:2px;padding-left:40px">영어: <b>${l.word}</b>${l.ko?' / 한국어: '+l.ko:''}</div>`:''}
+        <span style="color:#dc2626;font-size:11px">${(l.reason||'').replace(/</g,'&lt;')}</span>
+        ${l.word?`<div style="font-size:11px;color:var(--navy);margin-top:2px;padding-left:40px">영어: <b>${(l.word||'').replace(/</g,'&lt;')}</b>${l.ko?' / 한국어: '+(l.ko||'').replace(/</g,'&lt;'):''}</div>`:''}
       </div>`).join('')}
     </div>
-    <button class="btn bt" style="width:100%" onclick="(function(){const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(${JSON.stringify(csvContent)});a.download=${JSON.stringify(logName)};a.click();})()">⬇ 오류 로그 CSV 다운로드</button>
+    <button class="btn bt" style="width:100%" onclick="downloadImportLog()">⬇ 오류 로그 CSV 다운로드</button>
   </div>`;
   document.body.appendChild(mo);
   mo.addEventListener('click',e=>{if(e.target===mo)mo.remove();});
@@ -3460,6 +3466,21 @@ function parseCSVLine(line){
     else cur+=line[i];
   }
   result.push(cur.trim());return result;
+}
+// 따옴표 안에 줄바꿈이 있는 멀티라인 CSV를 올바르게 파싱 (행별 split 대신 전체 파싱)
+function parseCSVText(text){
+  const rows=[];let cur='',inQ=false,fields=[];
+  const src=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  for(let i=0;i<src.length;i++){
+    const c=src[i];
+    if(c==='"'){inQ=!inQ;}
+    else if(c===','&&!inQ){fields.push(cur.trim());cur='';}
+    else if(c==='\n'&&!inQ){fields.push(cur.trim());if(fields.some(f=>f))rows.push(fields);fields=[];cur='';}
+    else cur+=c;
+  }
+  fields.push(cur.trim());
+  if(fields.some(f=>f))rows.push(fields);
+  return rows;
 }
 
 // ── READING LOGS ──
