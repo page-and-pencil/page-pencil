@@ -3026,6 +3026,12 @@ async function wdbImportCSV(e){
   const g=i=>i>=0?String(rows[0]||''):'';//unused helper
   const cell=(r,i)=>i>=0?String(r[i]||'').trim():'';
 
+  // 컬럼 용도 정의:
+  //   분류(ci.cat)   = "교재"/"원서" → 교재DB/원서DB 라우팅에 사용
+  //   출처타입(ci.type) = "리딩"/"어휘"/"파닉스" 등 → 교재의 실제 subject 분류로 저장
+  const SUBJECT_CATS=new Set(['파닉스','어휘','어법','리딩','리스닝','라이팅','내신']);
+  const ROUTING_VALS=new Set(['교재','원서','textbook','library']);
+
   // 데이터 파싱 + 출처별 그룹화 (책 메타도 첫 행 기준)
   const groups={};const skipLog=[];
   for(let i=1;i<rows.length;i++){
@@ -3033,24 +3039,26 @@ async function wdbImportCSV(e){
     const word=cell(r,ci.word).toLowerCase();if(!word)continue;
     // 영어 컬럼에 한국어가 있으면 해당 행만 건너뜀 (전체 중단 아님)
     if(/[가-힣]/.test(word)){skipLog.push({row:i+1,reason:'영어 컬럼에 한국어 감지',word:cell(r,ci.word),ko:cell(r,ci.ko),src:cell(r,ci.src),unit:cell(r,ci.unit)});continue;}
-    const srcTitle=cell(r,ci.src);const srcUnit=cell(r,ci.unit);const srcType=cell(r,ci.type);
-    const key=`${srcType}|||${srcTitle}|||${srcUnit}`;
-    // 분류 컬럼 값이 "교재"/"원서"처럼 타입 식별자이면 출처타입(리딩/어휘/파닉스 등)을 실제 분류로 사용
-    const MEANINGFUL_CATS=new Set(['파닉스','어휘','어법','리딩','리스닝','라이팅','내신']);
-    const rawCat=cell(r,ci.cat);const rawType=cell(r,ci.type);
-    const category=MEANINGFUL_CATS.has(rawCat)?rawCat:MEANINGFUL_CATS.has(rawType)?rawType:rawCat;
+    const srcTitle=cell(r,ci.src);const srcUnit=cell(r,ci.unit);
+    const typeVal=cell(r,ci.type); // 출처타입: 리딩/어휘/파닉스 → subject category
+    const catVal=cell(r,ci.cat);   // 분류: 교재/원서 → 라우팅 결정
+    // 라우팅 타입: 분류="교재"/"원서"가 있으면 그것 사용, 없으면 출처타입 사용
+    const routingType=ROUTING_VALS.has(catVal)?catVal:typeVal;
+    // 교재 subject 분류: 출처타입에서 우선 가져옴, 없으면 분류(SUBJECT_CATS에 속하는 경우만)
+    const category=SUBJECT_CATS.has(typeVal)?typeVal:SUBJECT_CATS.has(catVal)?catVal:'';
+    const key=`${routingType}|||${srcTitle}|||${srcUnit}`;
     if(!groups[key])groups[key]={
-      srcType,srcTitle,srcUnit,
+      srcType:routingType,srcTitle,srcUnit,
       level:cell(r,ci.level),series:cell(r,ci.series),publisher:cell(r,ci.pub),category,
       words:[]
     };
     groups[key].words.push({word,ko:cell(r,ci.ko),pos:normPos(cell(r,ci.pos)),example:cell(r,ci.ex),en_def:cell(r,ci.en_def)});
-    // 첫 행에서만 메타 쓰고 이후 행에서 비어있지 않으면 업데이트
+    // 이후 행에서 비어있는 메타만 업데이트 (category는 출처타입 기준으로만 갱신)
     const grp=groups[key];
     if(!grp.level&&cell(r,ci.level))grp.level=cell(r,ci.level);
     if(!grp.series&&cell(r,ci.series))grp.series=cell(r,ci.series);
     if(!grp.publisher&&cell(r,ci.pub))grp.publisher=cell(r,ci.pub);
-    if(!grp.category&&cell(r,ci.cat))grp.category=cell(r,ci.cat);
+    if(!grp.category&&SUBJECT_CATS.has(typeVal))grp.category=typeVal;
   }
   if(!Object.keys(groups).length)return toast('인식된 단어가 없습니다');
 
