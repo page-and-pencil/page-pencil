@@ -3172,7 +3172,7 @@ function renderLibTable(){
   const theadTr=document.querySelector('#lib-tbody')?.closest('table')?.querySelector('thead tr');
   if(theadTr){
     const lth=(field,label)=>{const act=libSortField===field;const ic=act?(libSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="libSetSort('${field}')">${label} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};
-    theadTr.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="lib-chk-all" onchange="libToggleAll(this)" style="cursor:pointer"></th>${lth('title','제목')}${lth('series','시리즈')}${lth('ar','AR')}${lth('lexile','렉사일')}${lth('level','레벨')}${lth('vocab','단어')}<th>오디오</th><th></th>`;
+    theadTr.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="lib-chk-all" onchange="libToggleAll(this)" style="cursor:pointer"></th>${lth('title','제목')}${lth('series','시리즈')}${lth('ar','AR')}${lth('lexile','렉사일')}${lth('level','레벨')}${lth('vocab','단어')}<th>오디오</th><th>원문</th><th></th>`;
   }
 
   const total=filtered.length;
@@ -3189,6 +3189,8 @@ function renderLibTable(){
   tbody.innerHTML=paged.map(b=>{
     const arDisplay=b.ar||b.arLevel||'—';
     const isDeletable=libIds.has(b.id);
+    const textChaps=elibGetChapters(b.id);
+    const hasText=textChaps.some(c=>c.text);
     return `<tr>
       <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="lib-chk" data-id="${b.id}" onchange="libUpdateBulkBar()" style="cursor:pointer"></td>
       <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">${b.title}</td>
@@ -3198,6 +3200,7 @@ function renderLibTable(){
       <td style="font-size:12px;color:var(--slate)">${b.level||'—'}</td>
       <td style="text-align:center">${b.vocab?.length?`<button class="btn ba" style="padding:2px 8px;font-size:10px" onclick="openEditLib('${b.id}');setTimeout(()=>elibTab('vocab'),200)">${b.vocab.length}단어</button>`:'<span style="color:var(--slate);font-size:11px">—</span>'}</td>
       <td style="text-align:center;min-width:160px">${renderAudioCell(b)}</td>
+      <td style="text-align:center">${hasText?`<button class="btn bt" style="padding:2px 8px;font-size:10px" onclick="openLibTextViewer('${b.id}')">📄 원문</button>`:'<span style="color:var(--slate);font-size:11px">—</span>'}</td>
       <td style="white-space:nowrap">
         <button class="btn bo" style="padding:2px 8px;font-size:11px" onclick="openEditLib('${b.id}')">수정</button>
       </td>
@@ -3220,6 +3223,28 @@ function renderLibTable(){
   </div>`;
 }
 
+let _libTextChapters=[];
+function openLibTextViewer(id){
+  const b=(_cache.library||[]).find(x=>x.id===id)||BOOK_DB.find(x=>x.id===id);
+  if(!b)return;
+  const chapters=elibGetChapters(id).filter(c=>c.text);
+  if(!chapters.length)return toast('원문이 없습니다');
+  document.getElementById('lib-text-title').textContent=b.title||'';
+  document.getElementById('lib-text-sub').textContent=`${chapters.length}개 챕터`;
+  _libTextChapters=chapters;
+  const chapsEl=document.getElementById('lib-text-chaps');
+  chapsEl.innerHTML=chapters.map((c,i)=>`<button id="lib-text-ch-${i}" onclick="switchLibTextChap(${i})" style="padding:4px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:1.5px solid var(--border);background:${i===0?'var(--navy)':'#fff'};color:${i===0?'#fff':'var(--slate)'};font-family:var(--fb);white-space:nowrap">${c.name}</button>`).join('');
+  switchLibTextChap(0);
+  openM('m-lib-text');
+}
+function switchLibTextChap(idx){
+  const c=_libTextChapters[idx];if(!c)return;
+  document.getElementById('lib-text-body').textContent=c.text||'';
+  _libTextChapters.forEach((_,i)=>{
+    const btn=document.getElementById(`lib-text-ch-${i}`);
+    if(btn){btn.style.background=i===idx?'var(--navy)':'#fff';btn.style.color=i===idx?'#fff':'var(--slate)';}
+  });
+}
 function reqDelLibItem(id){
   askConfirm('원서 삭제','추가한 원서를 삭제할까요? 기본 DB 항목은 삭제되지 않습니다.','삭제','bd',async()=>{
     const ok=await supaDelete('library',id);

@@ -433,6 +433,14 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .lib-search-input{flex:1;min-width:160px;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none;transition:border-color .2s;}
 .lib-search-input:focus{border-color:var(--teal);}
 .lib-table-container{height:calc(100vh - 280px);min-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);}
+/* 자료 DB 탭 외부 스크롤 제거 — 내부 테이블이 남은 높이를 채움 */
+#t-data.panel.active{display:flex;flex-direction:column;height:100%;overflow:hidden;box-sizing:border-box;}
+#dp-tbook,#dp-lib,#dp-word{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+#dp-tbook .sh,#dp-lib .sh,#dp-word .sh,
+#dp-tbook .lib-search-bar,#dp-lib .lib-search-bar,#dp-word .lib-search-bar,
+#tbook-bulk-bar,#lib-bulk-bar,#wdb-bulk-bar,
+#tbook-pager,#lib-pager,#wdb-pager{flex-shrink:0;}
+#dp-tbook .lib-table-container,#dp-lib .lib-table-container,#dp-word .lib-table-container{flex:1;height:auto;min-height:0;}
 
 /* pcmt (학부모 코멘트) */
 .pcmt{background:linear-gradient(135deg,#f0f8f9,#e8f4f8);border-left:3px solid var(--teal);border-radius:0 var(--rs) var(--rs) 0;padding:10px 14px;margin-top:8px;}

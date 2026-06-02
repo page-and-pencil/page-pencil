@@ -505,7 +505,7 @@
           <table class="lib-tbl">
             <thead><tr>
               <th style="width:32px;text-align:center"><input type="checkbox" id="lib-chk-all" onchange="libToggleAll(this)" style="cursor:pointer"></th>
-              <th>제목</th><th>시리즈</th><th>AR</th><th>렉사일</th><th>레벨</th><th>단어</th><th>오디오</th><th></th>
+              <th>제목</th><th>시리즈</th><th>AR</th><th>렉사일</th><th>레벨</th><th>단어</th><th>오디오</th><th>원문</th><th></th>
             </tr></thead>
             <tbody id="lib-tbody"></tbody>
           </table>
@@ -1148,6 +1148,18 @@
       <button class="btn ba bsm" onclick="tuExportWords()" style="white-space:nowrap">⬇ CSV 내보내기</button>
       <span style="font-size:11px;color:var(--teal)" id="tu-import-status"></span>
     </div>
+  </div>
+</div>
+
+<!-- 원서 원문 뷰어 -->
+<div id="m-lib-text" class="mo">
+  <div class="mdl mdl-xl" style="display:flex;flex-direction:column;max-height:90vh">
+    <div class="mh" style="flex-shrink:0">
+      <div><div class="mt" id="lib-text-title"></div><div style="font-size:11px;color:var(--slate);margin-top:2px" id="lib-text-sub"></div></div>
+      <button class="bx" onclick="closeM('m-lib-text')">×</button>
+    </div>
+    <div id="lib-text-chaps" style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 0 10px;border-bottom:1px solid var(--border);flex-shrink:0"></div>
+    <div id="lib-text-body" style="flex:1;overflow-y:auto;padding:18px 22px;font-size:14px;line-height:2;white-space:pre-wrap;font-family:var(--fd);color:var(--navy);min-height:0"></div>
   </div>
 </div>
 
