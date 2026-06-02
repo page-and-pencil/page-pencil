@@ -4617,22 +4617,8 @@ function openClassLesson(classId,dateStr){
   }
   document.getElementById('cl-common-cmt').value='';
   // 과제 초기화 후 날짜별 공통 과제 행 자동 생성 (교재별 1행씩)
-  document.getElementById('cl-hw-common-rows').innerHTML='';
   document.getElementById('cl-hw-ind-rows').innerHTML='';
-  const lessonDate=dateStr||new Date().toISOString().split('T')[0];
-  const hwDates=getClassLessonDates(c,lessonDate);
-  const mats=c.commonMaterials?Object.entries(c.commonMaterials):[];
-  if(mats.length){
-    hwDates.forEach(d=>{
-      mats.forEach(([key,val])=>{
-        const base=key.replace(/_\d+$/,'');
-        const cat=base==='_book'?'book':base;
-        addClHwRow(d,true,cat,val.book||'');
-      });
-    });
-  }else{
-    hwDates.forEach(d=>addClHwRow(d,true));
-  }
+  clHwSyncFromSubj();
   // 학생 rows (원서 상세 입력)
   const iStyle='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
   const allStus=DB.stus().filter(s=>!s.inactive);
@@ -4796,15 +4782,50 @@ const HW_CATS=[
   {v:'book',l:'원서'}
 ];
 const HW_CAT_SEL=HW_CATS.map(c=>`<option value="${c.v}">${c.l}</option>`).join('');
-function clHwCatAutoFill(sel){
-  const cat=sel.value;if(!cat)return;
-  const classId=document.getElementById('cl-class-id').value;
-  const c=DB.classes().find(x=>x.id===classId);if(!c?.commonMaterials)return;
+function fillClHwRowDl(rowEl){
+  const cat=rowEl.querySelector('.cl-hw-cat')?.value||'';
+  const dl=rowEl.querySelector('datalist');if(!dl)return;
+  const tbooks=_cache.globalTextbooks||[];
+  const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+  let opts='';
+  if(cat==='book'){
+    opts=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
+  }else if(_CAT_KO[cat]){
+    opts=tbooks.filter(b=>b.category===_CAT_KO[cat]).map(b=>`<option value="${escAttr(b.title)}">`).join('');
+  }else{
+    opts=tbooks.map(b=>`<option value="${escAttr(b.title)}">`).join('')+
+      [...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
+  }
+  dl.innerHTML=opts;
+}
+function clHwCatChange(sel){
   const row=sel.closest('.cl-hw-row');if(!row)return;
+  fillClHwRowDl(row);
+  const cat=sel.value;if(!cat)return;
   const bookInput=row.querySelector('.cl-hw-book');if(!bookInput||bookInput.value)return;
-  // 매칭되는 교재 찾기 (cat, cat_2, cat_3 ...)
+  // cl-subj-rows에서 당일 수업 내용 먼저 참조
+  const subjRow=document.querySelector(`#cl-subj-rows .sr[data-s="${cat}"]`)||document.querySelector(`#cl-subj-rows .sr[data-s^="${cat}_"]`);
+  if(subjRow){const bookEl=subjRow.querySelector('[data-f="book"]');if(bookEl&&bookEl.value){bookInput.value=bookEl.value;return;}}
+  // fallback: 클래스 기본 교재
+  const c=DB.classes().find(x=>x.id===document.getElementById('cl-class-id').value);if(!c?.commonMaterials)return;
   const matched=Object.entries(c.commonMaterials).find(([k])=>k===cat||k.startsWith(cat+'_'));
   if(matched)bookInput.value=matched[1].book||'';
+}
+function clHwSyncFromSubj(){
+  const classId=document.getElementById('cl-class-id').value;
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const lessonDate=document.getElementById('cl-date')?.value||new Date().toISOString().split('T')[0];
+  const hwDates=getClassLessonDates(c,lessonDate);
+  const mats=[];
+  document.querySelectorAll('#cl-subj-rows .sr').forEach(row=>{
+    const s=row.dataset.s;const baseKey=s.replace(/_\d+$/,'');
+    const cat=baseKey==='_book'||baseKey.startsWith('_book')?'book':baseKey;
+    const bookEl=row.querySelector('[data-f="book"]');
+    mats.push({cat,book:(bookEl?.value||'').trim()});
+  });
+  document.getElementById('cl-hw-common-rows').innerHTML='';
+  if(mats.length){hwDates.forEach(d=>mats.forEach(m=>addClHwRow(d,true,m.cat,m.book)));}
+  else{hwDates.forEach(d=>addClHwRow(d,true));}
 }
 const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
 
@@ -4818,18 +4839,20 @@ function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook=''){
   const row=document.createElement('div');
   row.className='cl-hw-row';
   row.style.cssText='background:var(--cream);border-radius:var(--rs);padding:8px 10px;margin-bottom:6px;border:1px solid var(--border)';
+  const rowDlId='dl-hwr-'+Math.random().toString(36).slice(2,8);
   row.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
     ${!isCommon?`<select class="cl-hw-ind-stu filter-sel" style="flex:0 0 auto">${stuOpts}</select>`:''}
     <input type="date" class="cl-hw-date" value="${dateStr||''}" style="${IS};flex:0 0 auto">
     <span class="cl-hw-day-label" style="font-size:11px;color:var(--slate)">${dateStr?dayLabel+'요일':''}</span>
-    <select class="cl-hw-cat filter-sel" style="flex:0 0 auto" onchange="clHwCatAutoFill(this)">${HW_CAT_SEL}</select>
+    <select class="cl-hw-cat filter-sel" style="flex:0 0 auto" onchange="clHwCatChange(this)">${HW_CAT_SEL}</select>
     <button onclick="this.closest('.cl-hw-row').remove()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--slate);padding:0;margin-left:auto">×</button>
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap">
-    <input type="text" class="cl-hw-book" placeholder="교재/원서 (교재DB·원서DB 자동완성)" list="dl-hw-books" autocomplete="off" style="${IS};flex:2;min-width:130px">
+    <datalist id="${rowDlId}"></datalist>
+    <input type="text" class="cl-hw-book" placeholder="교재 선택 또는 직접 입력" list="${rowDlId}" autocomplete="off" style="${IS};flex:2;min-width:130px">
     <input type="text" class="cl-hw-range" placeholder="범위/내용" style="${IS};flex:3;min-width:150px">
   </div>`;
-  if(prefillCat){const catEl=row.querySelector('.cl-hw-cat');if(catEl)catEl.value=prefillCat;}
+  if(prefillCat){const catEl=row.querySelector('.cl-hw-cat');if(catEl){catEl.value=prefillCat;fillClHwRowDl(row);}}
   if(prefillBook){const bookEl=row.querySelector('.cl-hw-book');if(bookEl)bookEl.value=prefillBook;}
   // 날짜 변경 시 요일 레이블 업데이트
   row.querySelector('.cl-hw-date').addEventListener('change',function(){

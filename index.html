@@ -987,7 +987,10 @@
     <div class="card" style="margin-bottom:12px">
       <div class="ch"><span class="ct">📋 과제 설정 (선택)</span></div>
       <div class="cb" style="padding-bottom:4px">
-        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">공통 과제 (전체 학생)</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:700;color:var(--navy)">공통 과제 (전체 학생)</div>
+          <button class="btn bo bsm" onclick="clHwSyncFromSubj()" title="위 수업 내용 기준으로 과제 행 재생성">↺ 수업 내용으로 채우기</button>
+        </div>
         <div id="cl-hw-common-rows"></div>
         <button class="btn ba bsm" style="width:100%;margin-bottom:16px" onclick="addClHwRow(null,true)">+ 공통 과제 추가</button>
         <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;padding-top:10px;border-top:1px solid var(--border)">개별 과제 (학생 지정)</div>
