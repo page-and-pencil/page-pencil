@@ -1862,10 +1862,19 @@ function renderTbookTable(){
     if(cat&&b.category!==cat)return false;
     return true;
   });
-  books.sort((a,b)=>tbookSortDir==='asc'?a.title.localeCompare(b.title):b.title.localeCompare(a.title));
+  const _td=tbookSortDir==='asc'?1:-1;
+  books.sort((a,b)=>{
+    switch(tbookSortField){
+      case 'level':{return _td*(a.level||'').localeCompare(b.level||'');}
+      case 'category':{return _td*(a.category||'').localeCompare(b.category||'');}
+      case 'publisher':{return _td*(a.publisher||'').localeCompare(b.publisher||'');}
+      default:{return _td*(a.title||'').localeCompare(b.title||'');}
+    }
+  });
   const total=books.length;
   const totalEl=document.getElementById('tbook-total');if(totalEl)totalEl.textContent=`총 ${total}개`;
-  const tbSortIcon=document.getElementById('tbook-sort-icon');if(tbSortIcon)tbSortIcon.textContent=tbookSortDir==='asc'?'↑':'↓';
+  const theadTrT=document.querySelector('#tbook-tbody')?.closest('table')?.querySelector('thead tr');
+  if(theadTrT){const tth=(f,l)=>{const act=tbookSortField===f;const ic=act?(tbookSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="tbookSetSort('${f}')">${l} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};theadTrT.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="tbook-chk-all" onchange="tbookToggleAll(this)" style="cursor:pointer"></th>${tth('title','교재명')}${tth('level','레벨')}${tth('category','분류')}${tth('publisher','출판사')}<th></th>`;}
   const maxPage=Math.max(0,Math.ceil(total/TBOOK_PAGE_SIZE)-1);
   if(tbookPage>maxPage)tbookPage=maxPage;
   const paged=books.slice(tbookPage*TBOOK_PAGE_SIZE,(tbookPage+1)*TBOOK_PAGE_SIZE);
@@ -1875,9 +1884,9 @@ function renderTbookTable(){
   else tbody.innerHTML=paged.map((b,i)=>{const uCnt=Object.keys(b.units||{}).length;return`<tr>
     <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="tbook-chk" data-idx="${i}" onchange="tbookUpdateBulkBar()" style="cursor:pointer"></td>
     <td style="font-weight:600">${b.title}</td>
-    <td>${b.publisher||'—'}</td>
     <td>${b.level||'—'}</td>
     <td>${b.category||'—'}</td>
+    <td>${b.publisher||'—'}</td>
     <td><div style="display:flex;gap:4px">
       <button class="btn bo bsm" onclick="openEditTbook('${b.id}')">수정</button>
       <button class="btn ba bsm" onclick="openTbookUnits('${b.id}')" title="단원별 단어 관리">📝 단어${uCnt?` (${uCnt})`:''}</button>
@@ -1913,6 +1922,7 @@ async function tbookDeleteSelected(){
     }catch(e){toast('삭제 실패: '+e.message);}
   });
 }
+function tbookSetSort(field){if(tbookSortField===field)tbookSortDir=tbookSortDir==='asc'?'desc':'asc';else{tbookSortField=field;tbookSortDir='asc';}tbookPage=0;renderTbookTable();}
 function tbookResetFilters(){const q=document.getElementById('tbook-q');if(q)q.value='';const c=document.getElementById('tbook-filter-cat');if(c)c.value='';tbookPage=0;renderTbookTable();}
 function tbookGoPage(val,total){tbookPage=Math.max(0,Math.min(total-1,(parseInt(val)||1)-1));renderTbookTable();}
 function openEditTbook(id){
@@ -2575,7 +2585,7 @@ function switchDataTab(tab){
 }
 
 // ── 단어 DB (교재+원서 통합) ──
-let _wdbPagedEntries=[],wdbPage=0,wdbSortDir='asc';
+let _wdbPagedEntries=[],wdbPage=0,wdbSortDir='asc',wdbSortField='word';
 const WDB_PAGE_SIZE=50;
 const POS_KO={noun:'명사',verb:'동사',adj:'형용사',adv:'부사',prep:'전치사',phrase:'구/숙어',conj:'접속사'};
 function posOptionsHtml(sel){
@@ -2621,10 +2631,20 @@ function renderWordDB(){
   if(posF)words=words.filter(w=>w.pos===posF);
   if(srcF)words=words.filter(w=>w.srcType===srcF);
   if(noKoF)words=words.filter(w=>!w.ko);
-  words.sort((a,b)=>{const c=wdbSortDir==='asc'?a.word.localeCompare(b.word):b.word.localeCompare(a.word);return c||a.srcType.localeCompare(b.srcType);});
+  const _wd=wdbSortDir==='asc'?1:-1;
+  words.sort((a,b)=>{
+    switch(wdbSortField){
+      case 'ko':{return _wd*(a.ko||'').localeCompare(b.ko||'');}
+      case 'en_def':{return _wd*(a.en_def||'').localeCompare(b.en_def||'');}
+      case 'pos':{return _wd*(a.pos||'').localeCompare(b.pos||'');}
+      case 'src':{return _wd*(a.srcTitle||'').localeCompare(b.srcTitle||'');}
+      default:{const c=_wd*a.word.localeCompare(b.word);return c||a.srcType.localeCompare(b.srcType);}
+    }
+  });
   const total=words.length;
   const totalEl=document.getElementById('wdb-total');if(totalEl)totalEl.textContent=`총 ${total.toLocaleString()}개`;
-  const si=document.getElementById('wdb-sort-icon');if(si)si.textContent=wdbSortDir==='asc'?'↑':'↓';
+  const theadTrW=document.querySelector('#wdb-tbody')?.closest('table')?.querySelector('thead tr');
+  if(theadTrW){const wth=(f,l)=>{const act=wdbSortField===f;const ic=act?(wdbSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="wdbSetSort('${f}')">${l} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};theadTrW.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="wdb-chk-all" onchange="wdbToggleAll(this)" style="cursor:pointer"></th>${wth('word','영어')}${wth('ko','한국어')}${wth('en_def','영영의미')}${wth('pos','품사')}<th>예문</th>${wth('src','출처')}<th></th>`;}
   const maxPage=Math.max(0,Math.ceil(total/WDB_PAGE_SIZE)-1);
   if(wdbPage>maxPage)wdbPage=maxPage;
   const paged=words.slice(wdbPage*WDB_PAGE_SIZE,(wdbPage+1)*WDB_PAGE_SIZE);
@@ -2632,7 +2652,8 @@ function renderWordDB(){
   const tbody=document.getElementById('wdb-tbody');if(!tbody)return;
   let prev='';
   tbody.innerHTML=paged.map((w,i)=>{
-    const isFirst=w.word!==prev;prev=w.word;
+    const groupByWord=wdbSortField==='word';
+    const isFirst=groupByWord?w.word!==prev:true;prev=w.word;
     const wordCell=isFirst
       ?`<td style="padding:6px 8px;font-weight:700;font-family:var(--fd);color:var(--navy);white-space:nowrap">${w.word}</td>`
       :`<td style="padding:6px 8px;color:var(--slate);font-size:11px;padding-left:18px">↳</td>`;
@@ -2641,13 +2662,13 @@ function renderWordDB(){
     const srcText=w.srcType==='textbook'
       ?`${w.srcTitle}${w.srcUnit?' · '+w.srcUnit:''}${w.srcLevel?' ('+w.srcLevel+')':''}`
       :`${w.srcTitle}${w.srcLevel?' · AR '+w.srcLevel:''}`;
-    return`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)${isFirst&&i>0?';border-top:1.5px solid var(--cream2)':''}">
+    return`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)${isFirst&&i>0&&groupByWord?';border-top:1.5px solid var(--cream2)':''}">
       <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="wdb-chk" data-idx="${i}" onchange="wdbUpdateBulkBar()" style="cursor:pointer"></td>
       ${wordCell}
       <td style="padding:6px 8px;font-size:13px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
+      <td style="padding:6px 8px;font-size:11px;color:#6b7280;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.en_def)}">${w.en_def||'<span style="color:var(--slate)">—</span>'}</td>
       <td style="padding:6px 8px;white-space:nowrap">${w.pos?`<span style="font-size:10px;background:var(--cream2);padding:2px 6px;border-radius:3px">${POS_KO[w.pos]||w.pos}</span>`:'<span style="color:var(--slate)">—</span>'}</td>
       <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.example)}">${w.example||'—'}</td>
-      <td style="padding:6px 8px;font-size:11px;color:#6b7280;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.en_def)}">${w.en_def||'<span style="color:var(--slate)">—</span>'}</td>
       <td style="padding:6px 8px;font-size:11px;color:${srcColor};max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(srcText)}">${srcIcon} ${srcText}</td>
       <td style="padding:4px">
         <button onclick="wdbEditInline(${i})" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:13px" title="수정">✏️</button>
@@ -2686,9 +2707,9 @@ function wdbEditInline(idx){
     <td></td>
     <td style="padding:6px 8px;font-weight:700;font-family:var(--fd);color:var(--navy);white-space:nowrap">${escAttr(w.word)}</td>
     <td style="padding:4px"><input id="wdb-ie-ko" value="${escAttr(w.ko||'')}" placeholder="한국어" style="${iStyle}"></td>
+    <td style="padding:4px"><input id="wdb-ie-endef" value="${escAttr(w.en_def||'')}" placeholder="영영 의미 (선택)" style="${iStyle};color:#6b7280"></td>
     <td style="padding:4px"><select id="wdb-ie-pos" style="padding:4px 2px;border:1.5px solid var(--teal);border-radius:4px;font-size:11px;font-family:var(--fb);outline:none">${posOptionsHtml(w.pos||'')}</select></td>
     <td style="padding:4px"><input id="wdb-ie-ex" value="${escAttr(w.example||'')}" placeholder="예문" style="${iStyle};font-style:italic"></td>
-    <td style="padding:4px"><input id="wdb-ie-endef" value="${escAttr(w.en_def||'')}" placeholder="영영 의미 (선택)" style="${iStyle};color:#6b7280"></td>
     <td style="padding:4px;font-size:11px;color:${srcColor};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px">${escAttr(srcText)}</td>
     <td style="padding:4px;white-space:nowrap">
       <button onclick="wdbAIFillInline(${idx})" style="background:none;border:1px solid #f59e0b;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:12px" title="AI 자동완성">✨</button>
@@ -2746,6 +2767,7 @@ async function wdbAIFillInline(idx){
   if(btn){btn.textContent='✨';btn.disabled=false;}
 }
 
+function wdbSetSort(field){if(wdbSortField===field)wdbSortDir=wdbSortDir==='asc'?'desc':'asc';else{wdbSortField=field;wdbSortDir='asc';}wdbPage=0;renderWordDB();}
 function wdbResetFilters(){
   const q=document.getElementById('wdb-q');if(q)q.value='';
   const pos=document.getElementById('wdb-pos');if(pos)pos.value='';
@@ -3005,7 +3027,7 @@ function wdbExportCSV(){
 let libPage=0,libSortDir='asc',libSortField='title';
 let _libPagedEntries=[];
 function getLibPageSize(){return parseInt(document.getElementById('lib-per-page')?.value||'50');}
-let tbookSortDir='asc',tbookPage=0;
+let tbookSortDir='asc',tbookPage=0,tbookSortField='title';
 const TBOOK_PAGE_SIZE=50;
 let _tbookPagedEntries=[];
 
