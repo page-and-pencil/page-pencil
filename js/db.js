@@ -134,9 +134,9 @@ async function supaFetch(table,params='',silent=false){
     throw e;
   }
 }
-async function supaUpsert(table,id,dataObj,sid=null){
+async function supaUpsert(table,id,dataObj,sid=null,timeoutMs=15000){
   const ctrl=new AbortController();
-  const tid=setTimeout(()=>ctrl.abort(),15000);
+  const tid=setTimeout(()=>ctrl.abort(),timeoutMs);
   try{
     const row={id,data:dataObj,updated_at:new Date().toISOString()};
     if(sid)row.sid=sid;

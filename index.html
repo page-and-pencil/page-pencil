@@ -538,6 +538,7 @@
           </select>
           <label style="font-size:12px;color:var(--slate);cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" id="wdb-no-ko" onchange="wdbPage=0;renderWordDB()"> 뜻 없음만</label>
           <button class="btn bo bsm" onclick="wdbResetFilters()">초기화</button>
+          <button class="btn bd bsm" onclick="wdbDeleteAll()" title="현재 필터 조건의 단어 전체 삭제">🗑️ 일괄 삭제</button>
         </div>
         <div id="wdb-bulk-bar" style="display:none;align-items:center;gap:10px;padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin-bottom:8px">
           <span id="wdb-sel-count" style="font-size:13px;color:#dc2626;font-weight:600"></span>

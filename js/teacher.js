@@ -2662,7 +2662,7 @@ function renderWordDB(){
     const srcColor=w.srcType==='textbook'?'var(--teal)':'#b45309';
     const srcIcon=w.srcType==='textbook'?'📚':'📖';
     const srcText=w.srcType==='textbook'
-      ?`${w.srcTitle}${w.srcUnit?' · '+w.srcUnit:''}${w.srcLevel?' ('+w.srcLevel+')':''}`
+      ?`${w.srcTitle}${w.srcLevel?' ('+w.srcLevel+')':''}${w.srcUnit?' · '+w.srcUnit:''}`
       :`${w.srcTitle}${w.srcLevel?' · AR '+w.srcLevel:''}`;
     return`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)${isFirst&&i>0&&groupByWord?';border-top:1.5px solid var(--cream2)':''}">
       <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="wdb-chk" data-idx="${i}" onchange="wdbUpdateBulkBar()" style="cursor:pointer"></td>
@@ -2887,18 +2887,49 @@ async function wdbDeleteSelected(){
     try{
       const tbMap={},libMap={};
       for(const e of entries){
-        if(e.srcType==='textbook'){const k=e.srcId+'__'+e.srcUnit;if(!tbMap[k])tbMap[k]={srcId:e.srcId,srcUnit:e.srcUnit,remove:[]};tbMap[k].remove.push({word:e.word,pos:e.pos||''});}
-        else{if(!libMap[e.srcId])libMap[e.srcId]={srcId:e.srcId,remove:[]};libMap[e.srcId].remove.push({word:e.word,pos:e.pos||''});}
+        if(e.srcType==='textbook'){const k=e.srcId+'__'+e.srcUnit;if(!tbMap[k])tbMap[k]={srcId:e.srcId,srcUnit:e.srcUnit,remove:[]};tbMap[k].remove.push({word:e.word,pos:e.pos||'',ko:e.ko||''});}
+        else{if(!libMap[e.srcId])libMap[e.srcId]={srcId:e.srcId,remove:[]};libMap[e.srcId].remove.push({word:e.word,pos:e.pos||'',ko:e.ko||''});}
       }
       for(const{srcId,srcUnit,remove}of Object.values(tbMap)){
         const tb=(_cache.globalTextbooks||[]).find(b=>b.id===srcId);
-        if(tb&&tb.units?.[srcUnit]){const ws=tuNormWords(tb.units[srcUnit]).filter(w=>!remove.some(r=>r.word===w.word.toLowerCase().trim()&&r.pos===(w.pos||'')));tb.units[srcUnit]=ws;await supaUpsert('global_textbooks',tb.id,tb,null);const i=_cache.globalTextbooks.findIndex(b=>b.id===srcId);if(i>=0)_cache.globalTextbooks[i]=tb;}
+        if(tb&&tb.units?.[srcUnit]){const ws=tuNormWords(tb.units[srcUnit]).filter(w=>!remove.some(r=>r.word===w.word.toLowerCase().trim()&&r.pos===(w.pos||'')&&r.ko===(w.ko||'')));tb.units[srcUnit]=ws;await supaUpsert('global_textbooks',tb.id,tb,null,60000);const i=_cache.globalTextbooks.findIndex(b=>b.id===srcId);if(i>=0)_cache.globalTextbooks[i]=tb;}
       }
       for(const{srcId,remove}of Object.values(libMap)){
         const book=_cache.library.find(b=>b.id===srcId);
-        if(book){book.vocab=(book.vocab||[]).filter(w=>!remove.some(r=>r.word===(w.word||'').toLowerCase().trim()&&r.pos===(w.pos||'')));await supaUpsert('library',book.id,book,null);const i=_cache.library.findIndex(b=>b.id===srcId);if(i>=0)_cache.library[i]=book;}
+        if(book){book.vocab=(book.vocab||[]).filter(w=>!remove.some(r=>r.word===(w.word||'').toLowerCase().trim()&&r.pos===(w.pos||'')&&r.ko===(w.ko||'')));await supaUpsert('library',book.id,book,null,60000);const i=_cache.library.findIndex(b=>b.id===srcId);if(i>=0)_cache.library[i]=book;}
       }
       renderWordDB();toast(`${entries.length}개 삭제되었습니다`);
+    }catch(err){toast('삭제 실패: '+err.message);}
+  });
+}
+async function wdbDeleteAll(){
+  const q=(document.getElementById('wdb-q')?.value||'').toLowerCase().trim();
+  const posF=document.getElementById('wdb-pos')?.value||'';
+  const srcF=document.getElementById('wdb-src')?.value||'';
+  const noKoF=document.getElementById('wdb-no-ko')?.checked||false;
+  let words=buildWordDB();
+  if(q)words=words.filter(w=>w.word.includes(q)||w.ko.includes(q)||w.srcTitle.toLowerCase().includes(q));
+  if(posF)words=words.filter(w=>w.pos===posF);
+  if(srcF)words=words.filter(w=>w.srcType===srcF);
+  if(noKoF)words=words.filter(w=>!w.ko);
+  if(!words.length)return toast('삭제할 단어가 없습니다');
+  const filterDesc=q||posF||srcF||noKoF?`현재 필터 조건의 ${words.length}개`:`전체 ${words.length}개`;
+  askConfirm('일괄 삭제',`${filterDesc} 단어를 모두 삭제할까요?`,'삭제','bd',async()=>{
+    try{
+      const tbMap={},libMap={};
+      for(const e of words){
+        if(e.srcType==='textbook'){const k=e.srcId+'__'+e.srcUnit;if(!tbMap[k])tbMap[k]={srcId:e.srcId,srcUnit:e.srcUnit,remove:new Set()};tbMap[k].remove.add(e.word+'|'+(e.pos||'')+'|'+(e.ko||''));}
+        else{if(!libMap[e.srcId])libMap[e.srcId]={srcId:e.srcId,remove:new Set()};libMap[e.srcId].remove.add((e.word||'')+'|'+(e.pos||'')+'|'+(e.ko||''));}
+      }
+      for(const{srcId,srcUnit,remove}of Object.values(tbMap)){
+        const tb=(_cache.globalTextbooks||[]).find(b=>b.id===srcId);
+        if(tb&&tb.units?.[srcUnit]){tb.units[srcUnit]=tuNormWords(tb.units[srcUnit]).filter(w=>!remove.has(w.word.toLowerCase().trim()+'|'+(w.pos||'')+'|'+(w.ko||'')));await supaUpsert('global_textbooks',tb.id,tb,null,90000);}
+      }
+      for(const{srcId,remove}of Object.values(libMap)){
+        const book=_cache.library.find(b=>b.id===srcId);
+        if(book){book.vocab=(book.vocab||[]).filter(w=>!remove.has((w.word||'').toLowerCase().trim()+'|'+(w.pos||'')+'|'+(w.ko||'')));await supaUpsert('library',book.id,book,null,90000);}
+      }
+      renderWordDB();toast(`${words.length}개 삭제되었습니다`);
     }catch(err){toast('삭제 실패: '+err.message);}
   });
 }
@@ -3052,15 +3083,15 @@ async function wdbImportCSV(e){
   // 단어 추가/업데이트 헬퍼
   // toAdd: 신규 단어, updateCnt: 기존 단어 중 ko/en_def/example 변경된 수 (existing 배열 직접 수정)
   function mergeWords(existing,newWords){
-    const existMap=new Map(existing.map((w,i)=>[(w.word||'').toLowerCase()+'|'+(w.pos||''),i]));
+    // 같은 단어라도 뜻(ko)이 다르면 별개 엔트리로 보관 — word|pos|ko 조합으로 구분
+    const existMap=new Map(existing.map((w,i)=>[(w.word||'').toLowerCase()+'|'+(w.pos||'')+'|'+(w.ko||''),i]));
     const toAdd=[];let updateCnt=0;
     for(const nw of newWords){
       if(!nw.word)continue;
-      const key=nw.word+'|'+(nw.pos||'');
+      const key=nw.word+'|'+(nw.pos||'')+'|'+(nw.ko||'');
       const ei=existMap.get(key);
       if(ei!==undefined){
         let changed=false;
-        if(nw.ko&&nw.ko!==existing[ei].ko){existing[ei].ko=nw.ko;changed=true;}
         if(nw.en_def&&nw.en_def!==existing[ei].en_def){existing[ei].en_def=nw.en_def;changed=true;}
         if(nw.example&&nw.example!==existing[ei].example){existing[ei].example=nw.example;changed=true;}
         if(changed)updateCnt++;
@@ -3070,6 +3101,8 @@ async function wdbImportCSV(e){
   }
 
   let updatedTotal=0;
+  const modifiedTbooks=new Set();const modifiedLibs=new Set();
+
   for(const grp of Object.values(groups)){
     if(!grp.srcTitle)continue;
     const isLib=grp.srcType==='원서'||grp.srcType==='library';
@@ -3083,8 +3116,7 @@ async function wdbImportCSV(e){
       const{toAdd,updateCnt}=mergeWords(existing,grp.words);
       if(!toAdd.length&&!updateCnt){srcCount++;continue;}
       tb.units[unitName]=[...existing,...toAdd];
-      await supaUpsert('global_textbooks',tb.id,tb,null);
-      const idx=_cache.globalTextbooks.findIndex(b=>b.id===tb.id);if(idx>=0)_cache.globalTextbooks[idx]=tb;
+      modifiedTbooks.add(tb.id);
       addedTotal+=toAdd.length;updatedTotal+=updateCnt;srcCount++;
     }else if(isLib||((!isTbook)&&((_cache.library.some(b=>b.title?.trim()===grp.srcTitle.trim()))||((typeof BOOK_DB!=='undefined'?BOOK_DB:[]).some(b=>b.title?.trim()===grp.srcTitle.trim()))))){
       const book=await findOrCreateLib(grp);
@@ -3092,11 +3124,9 @@ async function wdbImportCSV(e){
       const{toAdd,updateCnt}=mergeWords(existing,grp.words);
       if(!toAdd.length&&!updateCnt){srcCount++;continue;}
       book.vocab=[...existing,...toAdd];
-      await supaUpsert('library',book.id,book,null);
-      const idx=_cache.library.findIndex(b=>b.id===book.id);if(idx>=0)_cache.library[idx]=book;
+      modifiedLibs.add(book.id);
       addedTotal+=toAdd.length;updatedTotal+=updateCnt;srcCount++;
     }else{
-      // 타입 불명·신규 출처 → 기본 교재 DB에 자동 생성
       grp.srcType='textbook';
       const tb=await findOrCreateTbook(grp);
       if(!tb.units)tb.units={};
@@ -3105,9 +3135,24 @@ async function wdbImportCSV(e){
       const{toAdd,updateCnt}=mergeWords(existing,grp.words);
       if(!toAdd.length&&!updateCnt){srcCount++;continue;}
       tb.units[unitName]=[...existing,...toAdd];
-      await supaUpsert('global_textbooks',tb.id,tb,null);
-      const idx2=(_cache.globalTextbooks||[]).findIndex(b=>b.id===tb.id);if(idx2>=0)_cache.globalTextbooks[idx2]=tb;
+      modifiedTbooks.add(tb.id);
       addedTotal+=toAdd.length;updatedTotal+=updateCnt;srcCount++;
+    }
+  }
+
+  // 교재/원서별 일괄 저장 — 유닛마다 저장하던 방식 대신 교재당 1회 저장으로 최적화
+  for(const tbId of modifiedTbooks){
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+    if(tb){
+      try{await supaUpsert('global_textbooks',tb.id,tb,null,90000);}
+      catch(e){console.error('교재 저장 실패',tb.title,e);toast('저장 오류: '+tb.title+' — '+e.message);}
+    }
+  }
+  for(const libId of modifiedLibs){
+    const book=(_cache.library||[]).find(b=>b.id===libId);
+    if(book){
+      try{await supaUpsert('library',book.id,book,null,90000);}
+      catch(e){console.error('원서 저장 실패',book.title,e);toast('저장 오류: '+book.title+' — '+e.message);}
     }
   }
 
