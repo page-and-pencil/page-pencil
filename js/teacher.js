@@ -2769,11 +2769,14 @@ async function wdbAIFillInline(idx){
 
 // ── 어휘 DB 직접 단어 추가 ──
 function openWdbAddWord(){
-  ['wdb-new-word','wdb-new-ko','wdb-new-endef','wdb-new-ex','wdb-new-unit'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  const posEl=document.getElementById('wdb-new-pos');if(posEl)posEl.value='';
-  wdbNewSrcTypeChange();
   openM('m-add-word');
-  setTimeout(()=>document.getElementById('wdb-new-word')?.focus(),100);
+  try{
+    ['wdb-new-word','wdb-new-ko','wdb-new-endef','wdb-new-ex','wdb-new-unit'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    const posEl=document.getElementById('wdb-new-pos');if(posEl)posEl.value='';
+    const srctype=document.getElementById('wdb-new-srctype');if(srctype)srctype.value='textbook';
+    wdbNewSrcTypeChange();
+    setTimeout(()=>document.getElementById('wdb-new-word')?.focus(),150);
+  }catch(e){console.error('openWdbAddWord init error:',e);}
 }
 function wdbNewSrcTypeChange(){
   const type=document.getElementById('wdb-new-srctype')?.value||'textbook';
