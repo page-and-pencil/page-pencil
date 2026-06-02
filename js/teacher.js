@@ -2767,6 +2767,67 @@ async function wdbAIFillInline(idx){
   if(btn){btn.textContent='✨';btn.disabled=false;}
 }
 
+// ── 어휘 DB 직접 단어 추가 ──
+function openWdbAddWord(){
+  ['wdb-new-word','wdb-new-ko','wdb-new-endef','wdb-new-ex','wdb-new-unit'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const posEl=document.getElementById('wdb-new-pos');if(posEl)posEl.value='';
+  wdbNewSrcTypeChange();
+  openM('m-add-word');
+  setTimeout(()=>document.getElementById('wdb-new-word')?.focus(),100);
+}
+function wdbNewSrcTypeChange(){
+  const type=document.getElementById('wdb-new-srctype')?.value||'textbook';
+  const srcSel=document.getElementById('wdb-new-src');
+  const unitRow=document.getElementById('wdb-new-unit-row');
+  if(!srcSel)return;
+  if(type==='textbook'){
+    const books=(_cache.globalTextbooks||[]).slice().sort((a,b)=>a.title.localeCompare(b.title));
+    srcSel.innerHTML='<option value="">-- 교재 선택 --</option>'+books.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title)}</option>`).join('');
+    if(unitRow)unitRow.style.display='';
+  }else{
+    const deletedIds=new Set((_cache.library||[]).filter(b=>b._deleted).map(b=>b.id));
+    const libIds=new Set((_cache.library||[]).map(b=>b.id));
+    const allLib=[...(typeof BOOK_DB!=='undefined'?BOOK_DB.filter(b=>!libIds.has(b.id)&&!deletedIds.has(b.id)):[]),...(_cache.library||[]).filter(b=>!b._deleted)];
+    allLib.sort((a,b)=>a.title.localeCompare(b.title));
+    srcSel.innerHTML='<option value="">-- 원서 선택 --</option>'+allLib.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title)}</option>`).join('');
+    if(unitRow)unitRow.style.display='none';
+  }
+}
+function wdbNewSrcChange(){}
+async function wdbNewWordSave(){
+  const word=(document.getElementById('wdb-new-word')?.value||'').trim().toLowerCase();
+  if(!word)return toast('영어 단어를 입력하세요');
+  const ko=(document.getElementById('wdb-new-ko')?.value||'').trim();
+  const en_def=(document.getElementById('wdb-new-endef')?.value||'').trim();
+  const pos=document.getElementById('wdb-new-pos')?.value||'';
+  const example=(document.getElementById('wdb-new-ex')?.value||'').trim();
+  const srctype=document.getElementById('wdb-new-srctype')?.value||'textbook';
+  const srcId=document.getElementById('wdb-new-src')?.value||'';
+  if(!srcId)return toast('출처를 선택하세요');
+  const newWord={word,ko,pos,example,en_def};
+  try{
+    if(srctype==='textbook'){
+      const tb=(_cache.globalTextbooks||[]).find(b=>b.id===srcId);if(!tb)return toast('교재를 찾을 수 없습니다');
+      if(!tb.units)tb.units={};
+      const unit=(document.getElementById('wdb-new-unit')?.value||'').trim()||'전체';
+      const existing=tuNormWords(tb.units[unit]||[]);
+      if(existing.some(w=>w.word.toLowerCase()===word&&(w.pos||'')===(pos||'')))return toast('이미 존재하는 단어입니다');
+      tb.units[unit]=[...existing,newWord];
+      await supaUpsert('global_textbooks',tb.id,tb,null);
+      const idx=_cache.globalTextbooks.findIndex(b=>b.id===tb.id);if(idx>=0)_cache.globalTextbooks[idx]=tb;
+    }else{
+      let book=(_cache.library||[]).find(b=>b.id===srcId);
+      if(!book){const base=(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).find(b=>b.id===srcId)||{};book={...base,id:srcId,vocab:[]};_cache.library.push(book);}
+      const existing=book.vocab||[];
+      if(existing.some(w=>(w.word||'').toLowerCase()===word&&(w.pos||'')===(pos||'')))return toast('이미 존재하는 단어입니다');
+      book.vocab=[...existing,newWord];
+      await supaUpsert('library',srcId,book,null);
+      const idx=(_cache.library||[]).findIndex(b=>b.id===srcId);if(idx>=0)_cache.library[idx]=book;
+    }
+    closeM('m-add-word');renderWordDB();toast('단어가 추가되었습니다');
+  }catch(e){toast('추가 실패: '+e.message);}
+}
+
 function wdbSetSort(field){if(wdbSortField===field)wdbSortDir=wdbSortDir==='asc'?'desc':'asc';else{wdbSortField=field;wdbSortDir='asc';}wdbPage=0;renderWordDB();}
 function wdbResetFilters(){
   const q=document.getElementById('wdb-q');if(q)q.value='';
@@ -2911,6 +2972,12 @@ async function wdbImportCSV(e){
   }
   if(!Object.keys(groups).length)return toast('인식된 단어가 없습니다');
 
+  // 출처 없는 그룹 → 파일명을 기본 교재명으로
+  const defaultSrcTitle=file.name.replace(/\.[^.]+$/,'').trim()||'어휘 가져오기';
+  for(const grp of Object.values(groups)){
+    if(!grp.srcTitle){grp.srcTitle=defaultSrcTitle;if(!grp.srcType)grp.srcType='textbook';}
+  }
+
   let addedTotal=0,createdSrc=0,updatedMeta=0,srcCount=0;
 
   // 교재/원서 찾기/생성/업데이트 헬퍼
@@ -3012,7 +3079,7 @@ async function wdbImportCSV(e){
   if(updatedTotal)msgs.push(`${updatedTotal}개 업데이트`);
   if(createdSrc)msgs.push(`교재/원서 ${createdSrc}개 자동 생성`);
   if(updatedMeta)msgs.push(`메타정보 ${updatedMeta}건 업데이트`);
-  toast(msgs.length?msgs.join(' · '):'변경사항 없음 (모든 단어가 이미 최신 상태입니다)');
+  toast(msgs.length?msgs.join(' · '):'변경사항 없음 — 모든 단어가 이미 최신 상태이거나 중복입니다');
 }
 function wdbExportCSV(){
   const words=buildWordDB();

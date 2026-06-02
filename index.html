@@ -518,6 +518,7 @@
         <div class="sh">
           <div><div class="st">어휘 DB</div><div class="ssub" id="wdb-total"></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn bt bsm" onclick="openWdbAddWord()">+ 단어 추가</button>
             <button class="btn bt bsm" onclick="document.getElementById('wdb-csv-file').click()">📥 CSV 가져오기</button>
             <button class="btn bo bsm" onclick="wdbExportCSV()">⬇ CSV 내보내기</button>
             <input type="file" id="wdb-csv-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="wdbImportCSV(event)">
@@ -1015,6 +1016,39 @@
       </div>
     </div>
     <button class="btn bt" style="width:100%" id="cl-save-btn" onclick="saveClassLesson()">저장하기</button>
+  </div>
+</div>
+
+<!-- 어휘 DB 단어 추가 -->
+<div id="m-add-word" class="mo" data-protect>
+  <div class="mdl" style="max-width:480px">
+    <div class="mh"><div class="mt">단어 추가</div><button class="bx" onclick="closeM('m-add-word')">×</button></div>
+    <div class="section-label">단어 정보</div>
+    <div class="fg">
+      <div class="f s2"><label>영어 단어 *</label><input type="text" id="wdb-new-word" placeholder="apple" autocomplete="off"></div>
+      <div class="f s2"><label>한국어 뜻</label><input type="text" id="wdb-new-ko" placeholder="사과"></div>
+      <div class="f s2"><label>영영 의미</label><input type="text" id="wdb-new-endef" placeholder="a round fruit with red or green skin (선택)"></div>
+      <div class="f"><label>품사</label>
+        <select id="wdb-new-pos">
+          <option value="">—</option><option value="noun">명사</option><option value="verb">동사</option>
+          <option value="adj">형용사</option><option value="adv">부사</option><option value="prep">전치사</option>
+          <option value="phrase">구/숙어</option><option value="conj">접속사</option>
+        </select>
+      </div>
+      <div class="f s2"><label>예문</label><input type="text" id="wdb-new-ex" placeholder="예문 (선택)"></div>
+    </div>
+    <div class="section-label" style="margin-top:4px">출처</div>
+    <div class="fg">
+      <div class="f"><label>유형</label>
+        <select id="wdb-new-srctype" onchange="wdbNewSrcTypeChange()">
+          <option value="textbook">📚 교재</option>
+          <option value="library">📖 원서</option>
+        </select>
+      </div>
+      <div class="f s2"><label>교재 / 원서</label><select id="wdb-new-src" onchange="wdbNewSrcChange()"></select></div>
+      <div class="f s2" id="wdb-new-unit-row"><label>단원</label><input type="text" id="wdb-new-unit" placeholder="단원명 (예: Unit 1, 전체)"></div>
+    </div>
+    <button class="btn bt" style="width:100%;margin-top:8px" onclick="wdbNewWordSave()">추가하기</button>
   </div>
 </div>
 
