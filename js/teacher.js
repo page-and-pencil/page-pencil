@@ -3003,12 +3003,12 @@ async function wdbImportCSV(e){
   const cell=(r,i)=>i>=0?String(r[i]||'').trim():'';
 
   // 데이터 파싱 + 출처별 그룹화 (책 메타도 첫 행 기준)
-  const groups={};let skippedKorean=0;
+  const groups={};const skipLog=[];
   for(let i=1;i<rows.length;i++){
     const r=rows[i];
     const word=cell(r,ci.word).toLowerCase();if(!word)continue;
     // 영어 컬럼에 한국어가 있으면 해당 행만 건너뜀 (전체 중단 아님)
-    if(/[가-힣]/.test(word)){skippedKorean++;continue;}
+    if(/[가-힣]/.test(word)){skipLog.push({row:i+1,reason:'영어 컬럼에 한국어 감지',word:cell(r,ci.word),ko:cell(r,ci.ko),src:cell(r,ci.src),unit:cell(r,ci.unit)});continue;}
     const srcTitle=cell(r,ci.src);const srcUnit=cell(r,ci.unit);const srcType=cell(r,ci.type);
     const key=`${srcType}|||${srcTitle}|||${srcUnit}`;
     if(!groups[key])groups[key]={
@@ -3141,14 +3141,14 @@ async function wdbImportCSV(e){
     const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
     if(tb){
       try{await supaUpsert('global_textbooks',tb.id,tb,null,90000);}
-      catch(e){console.error('교재 저장 실패',tb.title,e);toast('저장 오류: '+tb.title+' — '+e.message);}
+      catch(e){console.error('교재 저장 실패',tb.title,e);skipLog.push({row:'-',reason:'저장 실패: '+tb.title,word:'',ko:'',src:tb.title,unit:''});}
     }
   }
   for(const libId of modifiedLibs){
     const book=(_cache.library||[]).find(b=>b.id===libId);
     if(book){
       try{await supaUpsert('library',book.id,book,null,90000);}
-      catch(e){console.error('원서 저장 실패',book.title,e);toast('저장 오류: '+book.title+' — '+e.message);}
+      catch(e){console.error('원서 저장 실패',book.title,e);skipLog.push({row:'-',reason:'저장 실패: '+book.title,word:'',ko:'',src:book.title,unit:''});}
     }
   }
 
@@ -3158,8 +3158,41 @@ async function wdbImportCSV(e){
   if(updatedTotal)msgs.push(`${updatedTotal}개 업데이트`);
   if(createdSrc)msgs.push(`교재/원서 ${createdSrc}개 자동 생성`);
   if(updatedMeta)msgs.push(`메타정보 ${updatedMeta}건 업데이트`);
-  if(skippedKorean)msgs.push(`영어 컬럼 한국어 감지 ${skippedKorean}행 건너뜀`);
-  toast(msgs.length?msgs.join(' · '):'변경사항 없음 — 모든 단어가 이미 최신 상태이거나 중복입니다');
+  if(skipLog.length)msgs.push(`${skipLog.length}행 건너뜀`);
+  const resultMsg=msgs.length?msgs.join(' · '):'변경사항 없음 — 모든 단어가 이미 최신 상태이거나 중복입니다';
+  if(skipLog.length){
+    wdbShowImportLog(resultMsg,skipLog,file.name);
+  }else{
+    toast(resultMsg);
+  }
+}
+function wdbShowImportLog(summary,skipLog,srcFileName){
+  const q=v=>`"${String(v||'').replace(/"/g,'""')}"`;
+  const csvLines=['행번호,건너뜀 사유,영어(원본),한국어,출처명,단원',...skipLog.map(l=>[q(l.row),q(l.reason),q(l.word),q(l.ko),q(l.src),q(l.unit)].join(','))];
+  const csvContent='﻿'+csvLines.join('\r\n');
+  const logName=srcFileName.replace(/\.[^.]+$/,'')+`_오류로그_${new Date().toISOString().slice(0,10)}.csv`;
+
+  // 기존 모달이 있으면 제거
+  const prev=document.getElementById('m-import-log');if(prev)prev.remove();
+
+  const mo=document.createElement('div');
+  mo.id='m-import-log';
+  mo.className='mo open';
+  mo.innerHTML=`<div class="mdl" style="max-width:520px">
+    <div class="mh"><div class="mt">📋 임포트 결과</div><button class="bx" onclick="document.getElementById('m-import-log').remove()">×</button></div>
+    <div style="font-size:13px;color:var(--navy);margin-bottom:14px">${summary}</div>
+    <div style="background:var(--cream2);border-radius:var(--rs);padding:10px 14px;margin-bottom:14px;max-height:260px;overflow-y:auto">
+      <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:8px;letter-spacing:.05em">건너뛴 행 목록 (${skipLog.length}개)</div>
+      ${skipLog.map(l=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <span style="color:var(--slate);min-width:40px;display:inline-block">행 ${l.row}</span>
+        <span style="color:#dc2626;font-size:11px">${l.reason}</span>
+        ${l.word?`<div style="font-size:11px;color:var(--navy);margin-top:2px;padding-left:40px">영어: <b>${l.word}</b>${l.ko?' / 한국어: '+l.ko:''}</div>`:''}
+      </div>`).join('')}
+    </div>
+    <button class="btn bt" style="width:100%" onclick="(function(){const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(${JSON.stringify(csvContent)});a.download=${JSON.stringify(logName)};a.click();})()">⬇ 오류 로그 CSV 다운로드</button>
+  </div>`;
+  document.body.appendChild(mo);
+  mo.addEventListener('click',e=>{if(e.target===mo)mo.remove();});
 }
 function wdbExportCSV(){
   const words=buildWordDB();
