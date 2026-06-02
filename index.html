@@ -519,9 +519,15 @@
             <option value="library">📖 원서</option>
           </select>
         </div>
+        <div id="wdb-bulk-bar" style="display:none;align-items:center;gap:10px;padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin-bottom:8px">
+          <span id="wdb-sel-count" style="font-size:13px;color:#dc2626;font-weight:600"></span>
+          <button class="btn bd bsm" onclick="wdbDeleteSelected()">선택 삭제</button>
+          <button onclick="wdbClearSelection()" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate);margin-left:auto">✕ 선택 해제</button>
+        </div>
         <div class="lib-table-container">
           <table class="lib-tbl">
             <thead><tr>
+              <th style="width:32px;text-align:center"><input type="checkbox" id="wdb-chk-all" onchange="wdbToggleAll(this)" style="cursor:pointer"></th>
               <th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="wdbSortDir=wdbSortDir==='asc'?'desc':'asc';wdbPage=0;renderWordDB()">영어 <span id="wdb-sort-icon">↑</span></th>
               <th>한국어</th><th>품사</th><th>예문</th><th>영영의미</th><th>출처</th><th></th>
             </tr></thead>

@@ -2602,6 +2602,7 @@ function renderWordDB(){
       ?`${w.srcTitle}${w.srcUnit?' · '+w.srcUnit:''}${w.srcLevel?' ('+w.srcLevel+')':''}`
       :`${w.srcTitle}${w.srcLevel?' · AR '+w.srcLevel:''}`;
     return`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)${isFirst&&i>0?';border-top:1.5px solid var(--cream2)':''}">
+      <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="wdb-chk" data-idx="${i}" onchange="wdbUpdateBulkBar()" style="cursor:pointer"></td>
       ${wordCell}
       <td style="padding:6px 8px;font-size:13px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
       <td style="padding:6px 8px;white-space:nowrap">${w.pos?`<span style="font-size:10px;background:var(--cream2);padding:2px 6px;border-radius:3px">${POS_KO[w.pos]||w.pos}</span>`:'<span style="color:var(--slate)">—</span>'}</td>
@@ -2696,6 +2697,46 @@ async function wdbAIFillInline(idx){
   if(btn){btn.textContent='✨';btn.disabled=false;}
 }
 
+function wdbToggleAll(cb){
+  document.querySelectorAll('#wdb-tbody .wdb-chk').forEach(el=>el.checked=cb.checked);
+  wdbUpdateBulkBar();
+}
+function wdbClearSelection(){
+  document.querySelectorAll('#wdb-tbody .wdb-chk').forEach(el=>el.checked=false);
+  const hdr=document.getElementById('wdb-chk-all');if(hdr){hdr.checked=false;hdr.indeterminate=false;}
+  wdbUpdateBulkBar();
+}
+function wdbUpdateBulkBar(){
+  const all=[...document.querySelectorAll('#wdb-tbody .wdb-chk')];
+  const checked=all.filter(el=>el.checked);
+  const bar=document.getElementById('wdb-bulk-bar');
+  if(bar){bar.style.display=checked.length?'flex':'none';const lbl=document.getElementById('wdb-sel-count');if(lbl)lbl.textContent=`${checked.length}개 선택됨`;}
+  const hdr=document.getElementById('wdb-chk-all');
+  if(hdr){hdr.checked=all.length>0&&checked.length===all.length;hdr.indeterminate=checked.length>0&&checked.length<all.length;}
+}
+async function wdbDeleteSelected(){
+  const checked=[...document.querySelectorAll('#wdb-tbody .wdb-chk:checked')];
+  if(!checked.length)return;
+  const entries=checked.map(el=>_wdbPagedEntries[parseInt(el.dataset.idx)]).filter(Boolean);
+  askConfirm('선택 삭제',`${entries.length}개 단어를 삭제할까요?`,'삭제','bd',async()=>{
+    try{
+      const tbMap={},libMap={};
+      for(const e of entries){
+        if(e.srcType==='textbook'){const k=e.srcId+'__'+e.srcUnit;if(!tbMap[k])tbMap[k]={srcId:e.srcId,srcUnit:e.srcUnit,remove:[]};tbMap[k].remove.push({word:e.word,pos:e.pos||''});}
+        else{if(!libMap[e.srcId])libMap[e.srcId]={srcId:e.srcId,remove:[]};libMap[e.srcId].remove.push({word:e.word,pos:e.pos||''});}
+      }
+      for(const{srcId,srcUnit,remove}of Object.values(tbMap)){
+        const tb=(_cache.globalTextbooks||[]).find(b=>b.id===srcId);
+        if(tb&&tb.units?.[srcUnit]){const ws=tuNormWords(tb.units[srcUnit]).filter(w=>!remove.some(r=>r.word===w.word.toLowerCase().trim()&&r.pos===(w.pos||'')));tb.units[srcUnit]=ws;await supaUpsert('global_textbooks',tb.id,tb,null);const i=_cache.globalTextbooks.findIndex(b=>b.id===srcId);if(i>=0)_cache.globalTextbooks[i]=tb;}
+      }
+      for(const{srcId,remove}of Object.values(libMap)){
+        const book=_cache.library.find(b=>b.id===srcId);
+        if(book){book.vocab=(book.vocab||[]).filter(w=>!remove.some(r=>r.word===(w.word||'').toLowerCase().trim()&&r.pos===(w.pos||'')));await supaUpsert('library',book.id,book,null);const i=_cache.library.findIndex(b=>b.id===srcId);if(i>=0)_cache.library[i]=book;}
+      }
+      renderWordDB();toast(`${entries.length}개 삭제되었습니다`);
+    }catch(err){toast('삭제 실패: '+err.message);}
+  });
+}
 async function wdbDeleteEntry(idx){
   const e=_wdbPagedEntries[idx];if(!e)return;
   askConfirm('단어 삭제',`'${e.word}'를 [${e.srcTitle||e.srcId}]에서 삭제할까요?`,'삭제','bd',async()=>{
