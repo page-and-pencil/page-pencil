@@ -3002,7 +3002,7 @@ function wdbExportCSV(){
 }
 
 // ── LIBRARY TABLE (원서 DB 탭) ──
-let libPage=0,libSortDir='asc';
+let libPage=0,libSortDir='asc',libSortField='title';
 let _libPagedEntries=[];
 function getLibPageSize(){return parseInt(document.getElementById('lib-per-page')?.value||'50');}
 let tbookSortDir='asc',tbookPage=0;
@@ -3028,8 +3028,23 @@ function renderLibTable(){
   let filtered=allSrc;
   if(q)filtered=filtered.filter(b=>b.title.toLowerCase().includes(q)||(b.series||'').toLowerCase().includes(q));
   if(serF)filtered=filtered.filter(b=>b.series===serF);
-  filtered.sort((a,b)=>libSortDir==='asc'?a.title.localeCompare(b.title):b.title.localeCompare(a.title));
-  const sortIcon=document.getElementById('lib-sort-icon');if(sortIcon)sortIcon.textContent=libSortDir==='asc'?'↑':'↓';
+  const d=libSortDir==='asc'?1:-1;
+  filtered.sort((a,b)=>{
+    switch(libSortField){
+      case 'series':{const va=a.series||'',vb=b.series||'';return d*va.localeCompare(vb);}
+      case 'ar':{const va=parseFloat(a.ar||a.arLevel||0)||0,vb=parseFloat(b.ar||b.arLevel||0)||0;return d*(va-vb);}
+      case 'lexile':{const va=parseFloat((a.lexile||'').replace(/[^0-9.]/g,''))||0,vb=parseFloat((b.lexile||'').replace(/[^0-9.]/g,''))||0;return d*(va-vb);}
+      case 'level':{const va=a.level||'',vb=b.level||'';return d*va.localeCompare(vb);}
+      case 'vocab':{const va=(a.vocab||[]).length,vb=(b.vocab||[]).length;return d*(va-vb);}
+      default:{const va=a.title||'',vb=b.title||'';return d*va.localeCompare(vb);}
+    }
+  });
+  // thead 동적 렌더링 (활성 정렬 열 표시)
+  const theadTr=document.querySelector('#lib-tbody')?.closest('table')?.querySelector('thead tr');
+  if(theadTr){
+    const lth=(field,label)=>{const act=libSortField===field;const ic=act?(libSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="libSetSort('${field}')">${label} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};
+    theadTr.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="lib-chk-all" onchange="libToggleAll(this)" style="cursor:pointer"></th>${lth('title','제목')}${lth('series','시리즈')}${lth('ar','AR')}${lth('lexile','렉사일')}${lth('level','레벨')}${lth('vocab','단어')}<th>오디오</th><th></th>`;
+  }
 
   const total=filtered.length;
   const totalEl=document.getElementById('lib-total-count');
@@ -3114,6 +3129,7 @@ async function libDeleteSelected(){
     }catch(e){toast('삭제 실패: '+e.message);}
   });
 }
+function libSetSort(field){if(libSortField===field)libSortDir=libSortDir==='asc'?'desc':'asc';else{libSortField=field;libSortDir='asc';}libPage=0;renderLibTable();}
 function libResetFilters(){const q=document.getElementById('lib-q');if(q)q.value='';const s=document.getElementById('lib-filter-series');if(s)s.value='';libPage=0;renderLibTable();}
 function libGoPage(val,total){libPage=Math.max(0,Math.min(total-1,(parseInt(val)||1)-1));renderLibTable();}
 
