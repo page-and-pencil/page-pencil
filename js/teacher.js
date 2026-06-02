@@ -1387,6 +1387,7 @@ function openEditLib(id){
   document.getElementById('elib-ar').value=b.arLevel||b.ar||'';
   document.getElementById('elib-pages').value=b.pages||'';
   document.getElementById('elib-pub').value=b.publisher||'';
+  const ytEl=document.getElementById('elib-youtube');if(ytEl)ytEl.value=b.youtubeUrl||'';
   _elibCurChapter=null;
   elibTab('info');
   renderLibVocabTable(id);
@@ -1489,7 +1490,8 @@ async function elibImportChapterCSV(e){
 }
 async function updLib(){
   const id=document.getElementById('elib-id').value;
-  const fields={title:document.getElementById('elib-title').value.trim(),series:document.getElementById('elib-series').value.trim(),arLevel:document.getElementById('elib-ar').value.trim(),pages:document.getElementById('elib-pages').value.trim(),publisher:document.getElementById('elib-pub').value.trim()};
+  const ytVal=(document.getElementById('elib-youtube')?.value||'').trim();
+  const fields={title:document.getElementById('elib-title').value.trim(),series:document.getElementById('elib-series').value.trim(),arLevel:document.getElementById('elib-ar').value.trim(),pages:document.getElementById('elib-pages').value.trim(),publisher:document.getElementById('elib-pub').value.trim(),youtubeUrl:ytVal||undefined};
   const idx=_cache.library.findIndex(x=>x.id===id);
   if(idx>=0){
     _cache.library[idx]={..._cache.library[idx],...fields};
@@ -3088,7 +3090,18 @@ async function wdbImportCSV(e){
       const idx=_cache.library.findIndex(b=>b.id===book.id);if(idx>=0)_cache.library[idx]=book;
       addedTotal+=toAdd.length;updatedTotal+=updateCnt;srcCount++;
     }else{
-      toast(`"${grp.srcTitle}" 출처 미확인 — 출처타입(교재/원서)을 지정하면 자동 생성됩니다`);
+      // 타입 불명·신규 출처 → 기본 교재 DB에 자동 생성
+      grp.srcType='textbook';
+      const tb=await findOrCreateTbook(grp);
+      if(!tb.units)tb.units={};
+      const unitName=grp.srcUnit||'전체';
+      const existing=tuNormWords(tb.units[unitName]||[]);
+      const{toAdd,updateCnt}=mergeWords(existing,grp.words);
+      if(!toAdd.length&&!updateCnt){srcCount++;continue;}
+      tb.units[unitName]=[...existing,...toAdd];
+      await supaUpsert('global_textbooks',tb.id,tb,null);
+      const idx2=(_cache.globalTextbooks||[]).findIndex(b=>b.id===tb.id);if(idx2>=0)_cache.globalTextbooks[idx2]=tb;
+      addedTotal+=toAdd.length;updatedTotal+=updateCnt;srcCount++;
     }
   }
 
@@ -3892,8 +3905,11 @@ function getAudioObj(b){
 }
 function renderAudioCell(b){
   const ao=getAudioObj(b);
+  const ytUrl=b.youtubeUrl||'';
+  const ytBtn=ytUrl?`<a href="${escAttr(ytUrl)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;font-size:10px;background:#ff0000;color:#fff;border-radius:3px;text-decoration:none;font-family:var(--fb);font-weight:600">▶ YouTube</a>`:'';
   if(!ao){
     return `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">
+      ${ytBtn}
       <label class="audio-upload-btn" style="cursor:pointer">🎵 전권 업로드<input type="file" accept="audio/*" style="display:none" onchange="uploadBookAudio(event,'${b.id}','full')"></label>
       <label class="audio-upload-btn" style="cursor:pointer;background:var(--pl);border-color:rgba(91,79,187,.3);color:var(--purple)">📑 챕터 추가<input type="file" accept="audio/*" style="display:none" onchange="uploadBookAudio(event,'${b.id}','chapter')"></label>
     </div>`;
@@ -3903,12 +3919,14 @@ function renderAudioCell(b){
     return `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
       <span class="badge bpurple">챕터 ${cnt}개</span>
       <button class="btn bo bsm" onclick="manageChapters('${b.id}',event)">관리</button>
+      ${ytBtn}
       <button class="btn bd" style="padding:2px 6px;font-size:10px" onclick="reqDelAudio('${b.id}',event)">✕</button>
     </div>`;
   }
   const url=ao.url||ao;
   return `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
     <audio controls style="width:110px;height:24px" src="${url}"></audio>
+    ${ytBtn}
     <label class="audio-upload-btn" style="cursor:pointer;padding:2px 6px;font-size:10px">+챕터<input type="file" accept="audio/*" style="display:none" onchange="uploadBookAudio(event,'${b.id}','chapter')"></label>
     <button class="btn bd" style="padding:2px 6px;font-size:10px" onclick="reqDelAudio('${b.id}',event)">✕</button>
   </div>`;

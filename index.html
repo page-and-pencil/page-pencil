@@ -430,7 +430,7 @@
     <!-- 자료 DB (교재 + 원서 + 단어 통합) -->
     <div id="t-data" class="panel">
       <!-- Sub-tab 네비게이션 -->
-      <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:14px;overflow-x:auto;flex-shrink:0">
+      <div class="dtabs">
         <button id="dtab-tbook" data-dtab="tbook" onclick="switchDataTab('tbook')" style="padding:8px 16px;font-size:13px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📚 교재 DB</button>
         <button id="dtab-lib" data-dtab="lib" onclick="switchDataTab('lib')" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📖 원서 DB</button>
         <button id="dtab-word" data-dtab="word" onclick="switchDataTab('word')" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📝 어휘 DB</button>
@@ -1192,6 +1192,7 @@
         <div class="f"><label>AR 레벨</label><input type="text" id="elib-ar"></div>
         <div class="f"><label>총 페이지</label><input type="text" id="elib-pages"></div>
         <div class="f"><label>출판사</label><input type="text" id="elib-pub"></div>
+        <div class="f s2"><label>YouTube 링크 (음원 없을 때 표시)</label><input type="text" id="elib-youtube" placeholder="https://youtube.com/watch?v=..."></div>
       </div>
       <div style="display:flex;gap:8px;margin-top:4px">
         <button class="btn bt" style="flex:1" onclick="updLib()">저장</button>

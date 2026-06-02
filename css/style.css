@@ -133,6 +133,8 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 /* NAV */
 .nt{background:#fff;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 1rem;flex-shrink:0;}
 .nt::-webkit-scrollbar{display:none;}
+.dtabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:14px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;flex-shrink:0;}
+.dtabs::-webkit-scrollbar{display:none;}
 .ntab{padding:12px 12px;font-size:12px;font-weight:500;color:var(--slate);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--fb);letter-spacing:0.01em;}
 .ntab.active{color:var(--navy);border-bottom-color:var(--teal);font-weight:700;}
 
