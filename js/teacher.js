@@ -1920,7 +1920,7 @@ async function tbookDeleteSelected(){
   const entries=checked.map(el=>_tbookPagedEntries[parseInt(el.dataset.idx)]).filter(Boolean);
   askConfirm('교재 삭제',`${entries.length}개 교재를 삭제할까요?`,'삭제','bd',async()=>{
     try{for(const b of entries){await supaDelete('global_textbooks',b.id);_cache.globalTextbooks=(_cache.globalTextbooks||[]).filter(x=>x.id!==b.id);}
-    renderTbookTable();updateTbookDatalist();toast(`${entries.length}개 삭제되었습니다`);
+    renderTbookTable();updateTbookDatalist();renderWordDB();toast(`${entries.length}개 삭제되었습니다`);
     }catch(e){toast('삭제 실패: '+e.message);}
   });
 }
@@ -2992,6 +2992,12 @@ async function wdbImportCSV(e){
     if(!grp.category&&cell(r,ci.cat))grp.category=cell(r,ci.cat);
   }
   if(!Object.keys(groups).length)return toast('인식된 단어가 없습니다');
+
+  // 영어 컬럼에 한국어(CJK) 단어가 들어있으면 컬럼 매핑 오류로 판단 → 중단
+  const koreanWordCount=Object.values(groups).flatMap(g=>g.words).filter(w=>/[가-힣]/.test(w.word)).length;
+  if(koreanWordCount>0){
+    return toast(`가져오기 실패: "영어" 컬럼에 한국어 텍스트 ${koreanWordCount}개가 감지되었습니다. CSV의 열 순서와 헤더(영어, 한국어, 영영의미, 품사, 예문, 출처명, 출처단원, 출처타입, 레벨, 시리즈, 출판사, 분류)를 확인하세요.`);
+  }
 
   // 출처 없는 그룹 → 파일명을 기본 교재명으로
   const defaultSrcTitle=file.name.replace(/\.[^.]+$/,'').trim()||'어휘 가져오기';
