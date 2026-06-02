@@ -3003,10 +3003,12 @@ async function wdbImportCSV(e){
   const cell=(r,i)=>i>=0?String(r[i]||'').trim():'';
 
   // 데이터 파싱 + 출처별 그룹화 (책 메타도 첫 행 기준)
-  const groups={};
+  const groups={};let skippedKorean=0;
   for(let i=1;i<rows.length;i++){
     const r=rows[i];
     const word=cell(r,ci.word).toLowerCase();if(!word)continue;
+    // 영어 컬럼에 한국어가 있으면 해당 행만 건너뜀 (전체 중단 아님)
+    if(/[가-힣]/.test(word)){skippedKorean++;continue;}
     const srcTitle=cell(r,ci.src);const srcUnit=cell(r,ci.unit);const srcType=cell(r,ci.type);
     const key=`${srcType}|||${srcTitle}|||${srcUnit}`;
     if(!groups[key])groups[key]={
@@ -3023,12 +3025,6 @@ async function wdbImportCSV(e){
     if(!grp.category&&cell(r,ci.cat))grp.category=cell(r,ci.cat);
   }
   if(!Object.keys(groups).length)return toast('인식된 단어가 없습니다');
-
-  // 영어 컬럼에 한국어(CJK) 단어가 들어있으면 컬럼 매핑 오류로 판단 → 중단
-  const koreanWordCount=Object.values(groups).flatMap(g=>g.words).filter(w=>/[가-힣]/.test(w.word)).length;
-  if(koreanWordCount>0){
-    return toast(`가져오기 실패: "영어" 컬럼에 한국어 텍스트 ${koreanWordCount}개가 감지되었습니다. CSV의 열 순서와 헤더(영어, 한국어, 영영의미, 품사, 예문, 출처명, 출처단원, 출처타입, 레벨, 시리즈, 출판사, 분류)를 확인하세요.`);
-  }
 
   // 출처 없는 그룹 → 파일명을 기본 교재명으로
   const defaultSrcTitle=file.name.replace(/\.[^.]+$/,'').trim()||'어휘 가져오기';
@@ -3162,6 +3158,7 @@ async function wdbImportCSV(e){
   if(updatedTotal)msgs.push(`${updatedTotal}개 업데이트`);
   if(createdSrc)msgs.push(`교재/원서 ${createdSrc}개 자동 생성`);
   if(updatedMeta)msgs.push(`메타정보 ${updatedMeta}건 업데이트`);
+  if(skippedKorean)msgs.push(`영어 컬럼 한국어 감지 ${skippedKorean}행 건너뜀`);
   toast(msgs.length?msgs.join(' · '):'변경사항 없음 — 모든 단어가 이미 최신 상태이거나 중복입니다');
 }
 function wdbExportCSV(){
