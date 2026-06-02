@@ -501,23 +501,25 @@
         <div class="sh">
           <div><div class="st">단어 DB</div><div class="ssub" id="wdb-total"></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn ba bsm" onclick="wdbExportCSV()">⬇ CSV 내보내기</button>
-            <button class="btn bt bsm" onclick="document.getElementById('wdb-csv-file').click()">📥 CSV 가져오기 (교재·원서 자동 연동)</button>
+            <button class="btn bt bsm" onclick="document.getElementById('wdb-csv-file').click()">📥 CSV 가져오기</button>
+            <button class="btn bo bsm" onclick="wdbExportCSV()">⬇ CSV 내보내기</button>
             <input type="file" id="wdb-csv-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="wdbImportCSV(event)">
           </div>
         </div>
         <div class="lib-search-bar">
-          <input type="text" class="lib-search-input" id="wdb-q" placeholder="영어·한국어·출처 검색..." oninput="renderWordDB()">
-          <select class="filter-sel" id="wdb-pos" onchange="renderWordDB()">
+          <input type="text" class="lib-search-input" id="wdb-q" placeholder="영어·한국어·출처 검색..." oninput="wdbPage=0;renderWordDB()">
+          <select class="filter-sel" id="wdb-pos" onchange="wdbPage=0;renderWordDB()">
             <option value="">전체 품사</option>
             <option value="noun">명사</option><option value="verb">동사</option><option value="adj">형용사</option>
             <option value="adv">부사</option><option value="prep">전치사</option><option value="phrase">구/숙어</option><option value="conj">접속사</option>
           </select>
-          <select class="filter-sel" id="wdb-src" onchange="renderWordDB()">
+          <select class="filter-sel" id="wdb-src" onchange="wdbPage=0;renderWordDB()">
             <option value="">전체 출처</option>
             <option value="textbook">📚 교재</option>
             <option value="library">📖 원서</option>
           </select>
+          <label style="font-size:12px;color:var(--slate);cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" id="wdb-no-ko" onchange="wdbPage=0;renderWordDB()"> 뜻 없음만</label>
+          <button class="btn bo bsm" onclick="wdbResetFilters()">초기화</button>
         </div>
         <div id="wdb-bulk-bar" style="display:none;align-items:center;gap:10px;padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin-bottom:8px">
           <span id="wdb-sel-count" style="font-size:13px;color:#dc2626;font-weight:600"></span>

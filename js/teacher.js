@@ -2578,10 +2578,12 @@ function renderWordDB(){
   const q=(document.getElementById('wdb-q')?.value||'').toLowerCase().trim();
   const posF=document.getElementById('wdb-pos')?.value||'';
   const srcF=document.getElementById('wdb-src')?.value||'';
+  const noKoF=document.getElementById('wdb-no-ko')?.checked||false;
   let words=buildWordDB();
   if(q)words=words.filter(w=>w.word.includes(q)||w.ko.includes(q)||w.srcTitle.toLowerCase().includes(q));
   if(posF)words=words.filter(w=>w.pos===posF);
   if(srcF)words=words.filter(w=>w.srcType===srcF);
+  if(noKoF)words=words.filter(w=>!w.ko);
   words.sort((a,b)=>{const c=wdbSortDir==='asc'?a.word.localeCompare(b.word):b.word.localeCompare(a.word);return c||a.srcType.localeCompare(b.srcType);});
   const total=words.length;
   const totalEl=document.getElementById('wdb-total');if(totalEl)totalEl.textContent=`총 ${total.toLocaleString()}개`;
@@ -2598,6 +2600,7 @@ function renderWordDB(){
       ?`<td style="padding:6px 8px;font-weight:700;font-family:var(--fd);color:var(--navy);white-space:nowrap">${w.word}</td>`
       :`<td style="padding:6px 8px;color:var(--slate);font-size:11px;padding-left:18px">↳</td>`;
     const srcColor=w.srcType==='textbook'?'var(--teal)':'#b45309';
+    const srcIcon=w.srcType==='textbook'?'📚':'📖';
     const srcText=w.srcType==='textbook'
       ?`${w.srcTitle}${w.srcUnit?' · '+w.srcUnit:''}${w.srcLevel?' ('+w.srcLevel+')':''}`
       :`${w.srcTitle}${w.srcLevel?' · AR '+w.srcLevel:''}`;
@@ -2608,26 +2611,34 @@ function renderWordDB(){
       <td style="padding:6px 8px;white-space:nowrap">${w.pos?`<span style="font-size:10px;background:var(--cream2);padding:2px 6px;border-radius:3px">${POS_KO[w.pos]||w.pos}</span>`:'<span style="color:var(--slate)">—</span>'}</td>
       <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.example)}">${w.example||'—'}</td>
       <td style="padding:6px 8px;font-size:11px;color:#6b7280;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.en_def)}">${w.en_def||'<span style="color:var(--slate)">—</span>'}</td>
-      <td style="padding:6px 8px;font-size:11px;color:${srcColor};max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(srcText)}">${srcText}</td>
-      <td style="padding:4px;white-space:nowrap">
+      <td style="padding:6px 8px;font-size:11px;color:${srcColor};max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(srcText)}">${srcIcon} ${srcText}</td>
+      <td style="padding:4px">
         <button onclick="wdbEditInline(${i})" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:13px" title="수정">✏️</button>
-        <button onclick="wdbDeleteEntry(${i})" style="background:none;border:1px solid #fca5a5;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:13px;margin-left:2px" title="삭제">🗑️</button>
       </td>
     </tr>`;
   }).join('');
   // 페이지네이션
   const pg=document.getElementById('wdb-pager');if(!pg)return;
-  const totalPages=Math.ceil(total/WDB_PAGE_SIZE);
+  const totalPages=Math.ceil(total/WDB_PAGE_SIZE)||1;
   if(totalPages<=1){pg.innerHTML=`<div class="pager"><span style="font-size:12px;color:var(--slate)">${total}개</span></div>`;return;}
   pg.innerHTML=`<div class="pager">
+    <button class="pager-btn" onclick="wdbPage=0;renderWordDB()" ${wdbPage===0?'disabled':''}>◀◀</button>
     <button class="pager-btn" onclick="wdbPage--;renderWordDB()" ${wdbPage===0?'disabled':''}>← 이전</button>
-    <span style="font-size:13px;color:var(--slate)">${wdbPage+1} / ${totalPages} (${total.toLocaleString()}개)</span>
+    <span style="display:flex;align-items:center;gap:4px">
+      <input type="number" min="1" max="${totalPages}" value="${wdbPage+1}" onchange="wdbGoPage(this.value,${totalPages})" style="width:44px;padding:3px 6px;border:1.5px solid var(--border);border-radius:4px;font-size:13px;font-family:var(--fb);text-align:center;outline:none">
+      <span style="font-size:13px;color:var(--slate)">/ ${totalPages}페이지 (${total.toLocaleString()}개)</span>
+    </span>
     <button class="pager-btn" onclick="wdbPage++;renderWordDB()" ${wdbPage>=totalPages-1?'disabled':''}>다음 →</button>
+    <button class="pager-btn" onclick="wdbPage=${totalPages-1};renderWordDB()" ${wdbPage>=totalPages-1?'disabled':''}>▶▶</button>
   </div>`;
 }
 
 function wdbEditInline(idx){
   const w=_wdbPagedEntries[idx];if(!w)return;
+  if(document.getElementById('wdb-ie-ko')){
+    askConfirm('편집 취소','저장하지 않은 변경사항이 있습니다. 취소하고 계속할까요?','취소하고 편집','bd',()=>{renderWordDB();wdbEditInline(idx);});
+    return;
+  }
   const tr=document.querySelector(`#wdb-tbody tr[data-rowidx="${idx}"]`);if(!tr)return;
   const srcColor=w.srcType==='textbook'?'var(--teal)':'#b45309';
   const srcText=w.srcType==='textbook'
@@ -2635,6 +2646,7 @@ function wdbEditInline(idx){
     :`${w.srcTitle}${w.srcLevel?' · AR '+w.srcLevel:''}`;
   const iStyle='width:100%;box-sizing:border-box;padding:4px 6px;border:1.5px solid var(--teal);border-radius:4px;font-size:12px;font-family:var(--fb);outline:none';
   tr.innerHTML=`
+    <td></td>
     <td style="padding:6px 8px;font-weight:700;font-family:var(--fd);color:var(--navy);white-space:nowrap">${escAttr(w.word)}</td>
     <td style="padding:4px"><input id="wdb-ie-ko" value="${escAttr(w.ko||'')}" placeholder="한국어" style="${iStyle}"></td>
     <td style="padding:4px"><select id="wdb-ie-pos" style="padding:4px 2px;border:1.5px solid var(--teal);border-radius:4px;font-size:11px;font-family:var(--fb);outline:none">${posOptionsHtml(w.pos||'')}</select></td>
@@ -2697,6 +2709,17 @@ async function wdbAIFillInline(idx){
   if(btn){btn.textContent='✨';btn.disabled=false;}
 }
 
+function wdbResetFilters(){
+  const q=document.getElementById('wdb-q');if(q)q.value='';
+  const pos=document.getElementById('wdb-pos');if(pos)pos.value='';
+  const src=document.getElementById('wdb-src');if(src)src.value='';
+  const noKo=document.getElementById('wdb-no-ko');if(noKo)noKo.checked=false;
+  wdbPage=0;renderWordDB();
+}
+function wdbGoPage(val,total){
+  wdbPage=Math.max(0,Math.min(total-1,(parseInt(val)||1)-1));
+  renderWordDB();
+}
 function wdbToggleAll(cb){
   document.querySelectorAll('#wdb-tbody .wdb-chk').forEach(el=>el.checked=cb.checked);
   wdbUpdateBulkBar();
@@ -2715,6 +2738,7 @@ function wdbUpdateBulkBar(){
   if(hdr){hdr.checked=all.length>0&&checked.length===all.length;hdr.indeterminate=checked.length>0&&checked.length<all.length;}
 }
 async function wdbDeleteSelected(){
+  if(document.getElementById('wdb-ie-ko'))return toast('편집 중에는 삭제할 수 없습니다');
   const checked=[...document.querySelectorAll('#wdb-tbody .wdb-chk:checked')];
   if(!checked.length)return;
   const entries=checked.map(el=>_wdbPagedEntries[parseInt(el.dataset.idx)]).filter(Boolean);
