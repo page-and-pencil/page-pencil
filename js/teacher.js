@@ -1316,10 +1316,10 @@ function renderRd(){
       <td><span class="badge bnavy">${r.arLevel||'—'}</span></td>
       <td style="font-size:11px;color:var(--slate)">${lvl||'—'}</td>
       <td style="font-size:11px;color:var(--slate)">${r.progress||'—'}</td>
-      <td style="white-space:nowrap;display:flex;gap:4px">
+      <td><div style="display:flex;gap:4px;justify-content:flex-end">
         <button class="btn bo bsm" onclick="openEditRd('${r.id}')">수정</button>
         <button class="btn bd bsm" onclick="reqDelRdInline('${r.id}')">삭제</button>
-      </td>
+      </div></td>
     </tr>`;}).join('')}</tbody></table></div>`;
 }
 function openEditRd(id){
