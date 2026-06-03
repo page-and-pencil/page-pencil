@@ -124,7 +124,6 @@ function swTab(id){
   if(id==='t-lib'){renderLibTable();populateLibSeriesFilter();}
   if(id==='t-tbooks')renderTbookTable();
   if(id==='t-data')switchDataTab(_dataTab||'tbook');
-  if(id==='t-msg')renderMsgTab();
   if(id==='t-cfg'){
     const c=DB.cld();document.getElementById('cfg-cld-name').value=c.name||'';document.getElementById('cfg-cld-preset').value=c.preset||'';
     document.getElementById('cfg-apikey').value=DB.api()?'••••••':'';
@@ -143,7 +142,7 @@ async function initApp(){
   subscribeRealtime();
   renderStus();populateSels();populateFilterSels();
   setToday();renderLes();renderTst();renderRd();renderLog();
-  populateLibSel();checkCldWarn();renderDash();updateMsgTabBadge();
+  populateLibSel();checkCldWarn();renderDash();
 }
 function setToday(){const t=new Date().toISOString().split('T')[0];['ls-date','ts-date','rd-date','lg-date','qp-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=t;});}
 function populateSels(){
@@ -216,12 +215,11 @@ function closeStuPanel(){
 }
 function openEditStuFromPanel(){closeStuPanel();openEditStu(currentSpStuId);}
 function swSpTab(id){
-  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-reading','sp-vocab','sp-msg','sp-payment'];
+  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-reading','sp-vocab','sp-payment'];
   document.querySelectorAll('.sptab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
   document.querySelectorAll('.sp-pane').forEach(p=>p.style.display=p.id===id?'block':'none');
   if(id==='sp-reading'){renderSpBooks(currentSpStuId);renderSpRdlog(currentSpStuId);}
   if(id==='sp-vocab')renderSpVocab(currentSpStuId);
-  if(id==='sp-msg')renderSpMessages(currentSpStuId);
 }
 function renderSpRdlog(sid){
   if(!sid)return;
@@ -594,7 +592,6 @@ function renderStus(){
     <div style="display:flex;align-items:center;gap:4px">
       <div class="sn">${s.name}</div>
       ${hasUnpaid(s)?'<span class="unpaid-dot" title="이번 달 미납"></span>':''}
-      ${hasUnreadMsg(s.id)?'<span class="msg-unread-dot" title="새 메시지"></span>':''}
     </div>
     <span class="slv lv1">${s.grade||s.lv||''}</span>
     ${s.school?`<div style="font-size:10px;color:var(--slate);margin-top:2px">${s.school}</div>`:''}
@@ -3781,7 +3778,6 @@ function renderDash(){
   const stus=DB.stus().filter(s=>!s.inactive);
   const les=DB.less();
   const tsts=DB.tsts();
-  const msgs=_cache.messages||[];
   const hws=_cache.homeworks||[];
   const today=new Date();
   const todayStr=today.toISOString().split('T')[0];
@@ -3797,8 +3793,6 @@ function renderDash(){
   renderDashToday(dateLabel,todayClasses,todayStr,stus);
 
   // Section 2: 처리할 것
-  const unreadMsgByStu={};
-  msgs.filter(m=>m.fromRole==='parent'&&!m.read).forEach(m=>{unreadMsgByStu[m.sid]=(unreadMsgByStu[m.sid]||0)+1;});
   const uncheckedHwByStu={};
   hws.filter(h=>h.submitted&&!h.checked).forEach(h=>{uncheckedHwByStu[h.sid]=(uncheckedHwByStu[h.sid]||0)+1;});
   const unpaidStus=stus.filter(s=>hasUnpaid(s));
@@ -3813,7 +3807,7 @@ function renderDash(){
   });
   const stuWithLesson=new Set(les.filter(l=>l.date&&l.date.startsWith(thisMonth)&&l.att!=='absent').map(l=>l.sid));
   const noLessonStus=today.getDate()>=8?stus.filter(s=>!stuWithLesson.has(s.id)):[];
-  renderDashActions(stus,unreadMsgByStu,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus);
+  renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus);
 
   // Section 3: 이번 달 현황
   const thisLes=les.filter(l=>l.date&&l.date.startsWith(thisMonth)&&l.att!=='absent').length;
@@ -3914,21 +3908,7 @@ function openStuPanelTab(sid,tabId){
   loadStuPanel(sid);
   setTimeout(()=>swSpTab(tabId),300);
 }
-function openPayMsg(sid){
-  const s=DB.stus().find(x=>x.id===sid);if(!s)return;
-  const acct=DB.acct();
-  const today=new Date();
-  const mo=today.getMonth()+1;
-  const defaultMsg=`안녕하세요, ${s.name} 학생 학부모님.\n${mo}월 수업료 납부 안내 드립니다.${s.fee?'\n수업료: '+Number(s.fee).toLocaleString()+'원':''}${acct.bank&&acct.number?'\n계좌: '+acct.bank+' '+acct.number+(acct.name?' ('+acct.name+')':''):''}`;
-  loadStuPanel(sid);
-  setTimeout(()=>{
-    swSpTab('sp-msg');
-    setTimeout(()=>{
-      const ta=document.getElementById('sp-msg-input');
-      if(ta){ta.value=defaultMsg;ta.focus();}
-    },200);
-  },300);
-}
+function openPayMsg(sid){loadStuPanel(sid);}
 function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
   const el=document.getElementById('dash-today');if(!el)return;
   let body;
@@ -3955,13 +3935,9 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
   </div>`;
 }
 
-function renderDashActions(stus,unreadMsgByStu,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus){
+function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus){
   const el=document.getElementById('dash-actions');if(!el)return;
   const items=[];
-  Object.entries(unreadMsgByStu).forEach(([sid,cnt])=>{
-    const s=stus.find(x=>x.id===sid);if(!s)return;
-    items.push({icon:'💬',text:`${s.name} — 학부모 메시지 ${cnt}건 미확인`,sid,action:`swTab('t-msg')`});
-  });
   Object.entries(uncheckedHwByStu).forEach(([sid,cnt])=>{
     const s=stus.find(x=>x.id===sid);if(!s)return;
     items.push({icon:'📤',text:`${s.name} — 과제 제출 ${cnt}건 미확인`,action:`openStuPanelTab('${sid}','sp-hw')`});
@@ -4715,111 +4691,8 @@ function renderNoticeBoard(){
 }
 
 // ── MESSAGES ──
-function renderChatHtml(msgs, myRole){
-  if(!msgs.length)return '<div class="empty"><div class="empty-i">💬</div><div class="empty-t">아직 메시지 없음</div></div>';
-  return '<div class="chat-wrap">'+msgs.map(m=>{
-    const mine=m.fromRole===myRole;
-    const ts=m.createdAt?m.createdAt.slice(5,16).replace('T',' '):'';
-    return `<div class="chat-row${mine?' mine':''}">
-      <div class="chat-bubble${mine?' mine':' other'}">${m.text||''}</div>
-      <div class="chat-time">${ts}</div>
-    </div>`;
-  }).join('')+'</div>';
-}
-function openParentMsgModal(){
-  openM('m-parent-chat');
-  renderParentMsgs();
-}
-async function sendParentMessage(){
-  const inp=document.getElementById('pp-msg-input');if(!inp)return;
-  const text=inp.value.trim();if(!text){toast('메시지를 입력해 주세요');return;}
-  const msg={id:uid(),sid:currentParentSid,fromRole:'parent',text,createdAt:new Date().toISOString(),read:false};
-  const ok=await supaUpsert('messages',msg.id,msg,null);
-  if(!ok){toast('전송에 실패했습니다. 다시 시도해 주세요.');return;}
-  if(!_cache.messages)_cache.messages=[];
-  _cache.messages.unshift(msg);
-  inp.value='';
-  renderParentMsgs();
-  toast('전송되었습니다');
-}
-function renderParentMsgs(){
-  const el=document.getElementById('parent-chat-scroll');if(!el)return;
-  const msgs=(_cache.messages||[]).filter(m=>m.sid===currentParentSid).sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
-  el.innerHTML=renderChatHtml(msgs,'parent');
-  setTimeout(()=>el.scrollTop=el.scrollHeight,0);
-}
-function renderSpMessages(sid){
-  const el=document.getElementById('sp-msg');if(!el)return;
-  const msgs=(_cache.messages||[]).filter(m=>m.sid===sid).sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
-  el.innerHTML=`
-    <div id="sp-msg-scroll" style="min-height:180px;max-height:50vh;overflow-y:auto;padding-right:4px">
-      ${renderChatHtml(msgs,'teacher')}
-    </div>
-    <div class="chat-input-row">
-      <input type="text" id="sp-msg-input" placeholder="답장 입력..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:50px;font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none" onkeydown="if(event.key==='Enter')sendTeacherMessage('${sid}')">
-      <button class="btn bt bsm" style="border-radius:50px" onclick="sendTeacherMessage('${sid}')">전송</button>
-    </div>`;
-  const sc=document.getElementById('sp-msg-scroll');if(sc)setTimeout(()=>sc.scrollTop=sc.scrollHeight,0);
-  // 미읽음 메시지 읽음 처리
-  const unread=msgs.filter(m=>m.fromRole==='parent'&&!m.read);
-  unread.forEach(async m=>{m.read=true;await supaUpsert('messages',m.id,m,sid);});
-  if(unread.length){renderStus();updateMsgTabBadge();}
-}
-async function sendTeacherMessage(sid){
-  const inp=document.getElementById('sp-msg-input');if(!inp)return;
-  const text=inp.value.trim();if(!text)return;
-  const msg={id:uid(),sid,fromRole:'teacher',text,createdAt:new Date().toISOString(),read:false};
-  try{
-    await supaUpsert('messages',msg.id,msg,sid);
-    if(!_cache.messages)_cache.messages=[];
-    _cache.messages.unshift(msg);
-    inp.value='';
-    renderSpMessages(sid);
-    if(document.getElementById('t-msg')?.classList.contains('active'))renderMsgTab();
-    updateMsgTabBadge();
-    toast('전송되었습니다');
-  }catch(e){
-    console.error('sendTeacherMessage:',e);
-    if(e.message?.includes('404'))toast('messages 테이블이 없습니다. Supabase SQL Editor에서 supabase_missing_tables.sql을 실행해 주세요.');
-    else toast('전송에 실패했습니다: '+e.message);
-  }
-}
-function hasUnreadMsg(sid){
-  return (_cache.messages||[]).some(m=>m.sid===sid&&m.fromRole==='parent'&&!m.read);
-}
-function updateMsgTabBadge(){
-  const tab=document.getElementById('t-msg-tab');if(!tab)return;
-  const count=(_cache.messages||[]).filter(m=>m.fromRole==='parent'&&!m.read).length;
-  const existing=tab.querySelector('.t-msg-unread');
-  if(existing)existing.remove();
-  if(count){const b=document.createElement('span');b.className='t-msg-unread';b.style.marginLeft='4px';b.textContent=count;tab.appendChild(b);}
-}
-function renderMsgTab(){
-  const el=document.getElementById('t-msg-list');if(!el)return;
-  const stus=DB.stus().filter(s=>!s.inactive);
-  const items=stus.map(s=>{
-    const msgs=(_cache.messages||[]).filter(m=>m.sid===s.id);
-    const unread=msgs.filter(m=>m.fromRole==='parent'&&!m.read).length;
-    const last=[...msgs].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''))[0];
-    return {s,msgs,unread,last};
-  }).filter(x=>x.msgs.length).sort((a,b)=>b.unread-a.unread||(b.last?.createdAt||'').localeCompare(a.last?.createdAt||''));
-  if(!items.length){
-    el.innerHTML='<div class="empty"><div class="empty-i">💬</div><div class="empty-t">아직 메시지 없음</div></div>';
-    updateMsgTabBadge();return;
-  }
-  el.innerHTML=items.map(({s,unread,last})=>`
-    <div class="t-msg-item" onclick="openStuPanelTab('${s.id}','sp-msg')">
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
-          <span style="font-size:13px;font-weight:700;color:var(--navy)">${s.name}</span>
-          ${unread?`<span class="t-msg-unread">${unread}</span>`:''}
-        </div>
-        <div style="font-size:12px;color:var(--slate);overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${last?.fromRole==='teacher'?'나: ':''}${last?.text||''}</div>
-      </div>
-      <div style="font-size:10px;color:var(--slate);flex-shrink:0">${last?.createdAt?last.createdAt.slice(5,10).replace('-','/'):''}</div>
-    </div>`).join('');
-  updateMsgTabBadge();
-}
+function hasUnreadMsg(){return false;}
+function updateMsgTabBadge(){}
 
 // ── QR CODE ──
 function renderQRCode(){
