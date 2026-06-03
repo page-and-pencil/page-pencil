@@ -778,7 +778,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   let bookInput;
   if(wrapperId==='cl-subj-rows'&&!isBook){
     const catFilter=_CAT_KO[baseKey];
-    let books=(_cache.globalTextbooks||[]).filter(b=>catFilter?b.category===catFilter:true);
+    let books=(_cache.globalTextbooks||[]).filter(b=>catFilter?(b.category===catFilter||!b.category):true);
     const noMatch=catFilter&&!books.length;
     if(noMatch)books=_cache.globalTextbooks||[];
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
@@ -5113,7 +5113,7 @@ function fillAsgnBookDatalist(dlId,cat){
   if(cat==='book'){
     opts=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
   }else if(_CAT_KO[cat]){
-    const filtered=tbooks.filter(b=>b.category===_CAT_KO[cat]);
+    const filtered=tbooks.filter(b=>b.category===_CAT_KO[cat]||!b.category);
     opts=filtered.map(b=>`<option value="${escAttr(b.title)}">`).join('');
   }else{
     opts=tbooks.map(b=>`<option value="${escAttr(b.title)}">`).join('')+
