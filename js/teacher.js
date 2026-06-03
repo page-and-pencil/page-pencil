@@ -469,9 +469,13 @@ async function loadStuPanel(sid){
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1">
             <div style="font-size:11px;color:var(--slate);font-family:var(--fm)">${a.date||''}</div>
-            <div style="font-size:12px;font-weight:700;margin-top:2px">${a.type==='reading'?'📖 '+a.bookTitle+(a.range?' ('+a.range+')':''):a.type==='vocab'?'📝 단어: '+(a.words||[]).join(', '):'💬 '+a.text}</div>
+            <div style="font-size:12px;font-weight:700;margin-top:2px">${
+              a.type==='reading'?`📖 ${a.bookTitle||''}${a.range?' ('+a.range+')':''}`:
+              a.type==='vocab'?`📝 단어: ${(a.words||[]).join(', ')}`:
+              `${a.category==='class5'?'🎮 Class5':a.bookTitle||a.text||''}${a.range?' · '+a.range:''}`
+            }</div>
           </div>
-          <span class="hw-status-badge ${submitted?'checked':'pending'}">${submitted?'제출완료':'미제출'}</span>
+          ${a.type==='reading'?`<span class="hw-status-badge ${submitted?'checked':'pending'}">${submitted?'제출완료':'미제출'}</span>`:''}
         </div>
         ${submitted&&hw.audioUrl?`<audio controls src="${hw.audioUrl}" style="width:100%;height:26px;margin-top:6px"></audio>`:''}
         ${submitted&&hw.aiScore?`<div style="font-size:11px;color:#005f6b;background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:4px">🤖 AI 평가: ${hw.aiScore}</div>`:''}
@@ -2560,9 +2564,16 @@ async function addUnitWordsToVocab(sid,materials,date){
   if(!materials||!sid)return;
   for(const mat of Object.values(materials)){
     if(!mat.book||!mat.unit)continue;
-    const tb=(_cache.globalTextbooks||[]).find(b=>b.title.trim().toLowerCase()===mat.book.trim().toLowerCase());
+    // 교재명: 괄호 레벨 제거 후 매칭 (e.g. "EFL Phonics (Level 1)" → "EFL Phonics")
+    const bookBase=mat.book.replace(/\s*\(.*\)\s*$|^\s*\(.*\)\s*/,'').trim().toLowerCase();
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.title.trim().toLowerCase()===bookBase||b.title.trim().toLowerCase()===mat.book.trim().toLowerCase());
     if(!tb?.units)continue;
-    const matchKey=Object.keys(tb.units).find(k=>k.trim().toLowerCase()===mat.unit.trim().toLowerCase());
+    // 유닛명: 정확 → 포함 → 숫자 추출 순으로 매칭
+    const ul=mat.unit.trim().toLowerCase();
+    const matchKey=Object.keys(tb.units).find(k=>{
+      const kl=k.trim().toLowerCase();
+      return kl===ul||ul.includes(kl)||kl.includes(ul);
+    });
     if(!matchKey)continue;
     const words=tuNormWords(tb.units[matchKey]);
     if(words?.length)await syncVocabCards(sid,words,[],date,'수업');
@@ -4576,21 +4587,46 @@ async function saveModalAssignment(){
 function renderSpBooks(sid){
   const el=document.getElementById('sp-books');if(!el)return;
   const tbs=(_cache.textbooks||[]).filter(t=>t.sid===sid&&t.active!==false);
+  // 레슨 materials에서 교재 자동 도출 (최근 6개월)
+  const sixAgo=new Date();sixAgo.setMonth(sixAgo.getMonth()-6);
+  const sixAgoStr=sixAgo.toISOString().split('T')[0];
+  const lessonBookMap=new Map();
+  DB.less().filter(l=>l.sid===sid&&(l.date||'')>=sixAgoStr).forEach(l=>{
+    Object.entries(l.materials||{}).forEach(([k,v])=>{
+      if(!v.book)return;
+      const isBook=k==='_book'||k.startsWith('_book_');
+      const baseKey=k.replace(/_\d+$/,'');
+      const label=isBook?'원서':(SLBL[baseKey]||'교재');
+      if(!lessonBookMap.has(v.book)||(v.unit&&!lessonBookMap.get(v.book).unit)){
+        lessonBookMap.set(v.book,{title:v.book,type:label,unit:v.unit||'',date:l.date||''});
+      }
+    });
+  });
+  const tbTitles=new Set(tbs.map(t=>t.title));
+  const derivedBooks=[...lessonBookMap.values()].filter(b=>!tbTitles.has(b.title))
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const allBooks=[...tbs.map(t=>({id:t.id,title:t.title,type:t.type||'교재',unit:t.currentUnit||'',manual:true,completed:t.completed,completedDate:t.completedDate})),...derivedBooks.map(b=>({id:null,title:b.title,type:b.type,unit:b.unit,manual:false}))];
   const libOpts=[...BOOK_DB,...DB.libs()].map(b=>`<option value="${b.id}">${b.title}</option>`).join('');
   el.innerHTML=`
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <span style="font-size:12px;font-weight:700;color:var(--navy)">📗 현재 교재 · 원서 목록 (${tbs.length}권)</span>
+    <span style="font-size:12px;font-weight:700;color:var(--navy)">📗 현재 교재 · 원서 목록 (${allBooks.length}권)</span>
     <button class="btn bt bsm" onclick="openAddTextbook('${sid}')">+ 추가</button>
   </div>
   <div id="sp-books-list">
-    ${tbs.length?tbs.map(t=>`<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+    ${allBooks.length?allBooks.map(t=>`<div style="padding:10px 0;border-bottom:1px solid var(--border);${t.completed?'opacity:.6':''}">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
         <div style="flex:1">
-          <div style="font-size:13px;font-weight:700">${t.title}</div>
-          <div style="font-size:11px;color:var(--slate)">${t.type||'교재'}${t.currentUnit?' · '+t.currentUnit:''}</div>
-          <input type="text" value="${t.currentUnit||''}" placeholder="현재 진도 (예: Unit 3)" style="margin-top:4px;width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none" onchange="updateTextbookUnit('${t.id}','${sid}',this.value)">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:13px;font-weight:700;${t.completed?'text-decoration:line-through':''}">${t.title}</span>
+            ${t.completed?`<span class="badge bteal" style="font-size:10px">✓ 완료 ${t.completedDate||''}</span>`:''}
+          </div>
+          <div style="font-size:11px;color:var(--slate)">${t.type}${t.unit?' · '+t.unit:''}${!t.manual?` <span style="color:var(--teal)">(수업 기록)</span>`:''}</div>
+          ${t.manual?`<input type="text" value="${t.unit||''}" placeholder="현재 진도 (예: Unit 3)" style="margin-top:4px;width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none" onchange="updateTextbookUnit('${t.id}','${sid}',this.value)">`:''}
         </div>
-        <button class="btn bd" style="padding:2px 8px;font-size:11px" onclick="removeTextbook('${t.id}','${sid}')">삭제</button>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          ${t.manual&&!t.completed?`<button class="btn ba" style="padding:2px 8px;font-size:11px" onclick="markTextbookDone('${t.id}','${sid}')">✓ 완료</button>`:''}
+          ${t.manual?`<button class="btn bd" style="padding:2px 8px;font-size:11px" onclick="removeTextbook('${t.id}','${sid}')">삭제</button>`:''}
+        </div>
       </div>
     </div>`).join(''):'<div style="font-size:12px;color:var(--slate);text-align:center;padding:1.5rem 0">등록된 교재 없음</div>'}
   </div>
@@ -4613,6 +4649,13 @@ function renderSpBooks(sid){
   </div>`;
 }
 function openAddTextbook(sid){document.getElementById('sp-books-add').style.display='block';}
+async function markTextbookDone(id,sid){
+  const tb=(_cache.textbooks||[]).find(t=>t.id===id);if(!tb)return;
+  tb.completed=true;tb.completedDate=new Date().toISOString().split('T')[0];
+  await supaUpsert('textbooks',id,tb,sid);
+  const idx=_cache.textbooks.findIndex(t=>t.id===id);if(idx>=0)_cache.textbooks[idx]=tb;
+  renderSpBooks(sid);toast('완료 처리되었습니다');
+}
 async function saveTextbook(sid){
   try{
   const title=document.getElementById('tb-title-input').value.trim();
