@@ -4914,8 +4914,12 @@ function openClassLessonEdit(classId,dateStr){
     if(firstLes){const cmtEl=document.getElementById('cl-common-cmt');if(cmtEl)cmtEl.value='';}
   },100);
 }
-function setClProgChip(btn,val){const inp=btn.closest('.cl-book-row').querySelector('.cl-rd-prog');if(inp){inp.value=val;inp.focus();}}
-const _CL_PROG_CHIPS_HTML='완독/진행 중/Ch.1~3/Ch.1~5/Ch.1~10/pp.1~20'.split('/').map(v=>`<button type="button" class="cmt-chip" style="font-size:10px;padding:1px 6px" onclick="setClProgChip(this,'${v}')">${v}</button>`).join('');
+function setClProgChip(btn,val){
+  const inp=btn.closest('.cl-book-row').querySelector('.cl-rd-prog');if(!inp)return;
+  inp.value=val==='진행 중'?'진행 중 ':val;
+  inp.focus();const len=inp.value.length;inp.setSelectionRange(len,len);
+}
+const _CL_PROG_CHIPS_HTML=['완독','진행 중'].map(v=>`<button type="button" class="cmt-chip" style="font-size:10px;padding:1px 6px" onclick="setClProgChip(this,'${v}')">${v}</button>`).join('');
 function openClassLesson(classId,dateStr){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   document.getElementById('cl-class-id').dataset.editMode='';
@@ -5108,7 +5112,7 @@ const HW_CATS=[
   {v:'',l:'구분 선택'},
   {v:'phonics',l:'파닉스'},{v:'vocab',l:'어휘'},{v:'grammar',l:'어법'},
   {v:'reading',l:'리딩'},{v:'listening',l:'리스닝'},{v:'writing',l:'라이팅'},{v:'naesin',l:'내신'},
-  {v:'book',l:'원서'}
+  {v:'book',l:'원서'},{v:'class5',l:'클래스5'}
 ];
 const HW_CAT_SEL=HW_CATS.map(c=>`<option value="${c.v}">${c.l}</option>`).join('');
 function fillClHwRowDl(rowEl){
@@ -5116,14 +5120,16 @@ function fillClHwRowDl(rowEl){
   const dl=rowEl.querySelector('datalist');if(!dl)return;
   const tbooks=_cache.globalTextbooks||[];
   const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+  const tbOpt=b=>`<option value="${escAttr(b.title)}">${b.title}${b.level?' ('+b.level+')':''}</option>`;
   let opts='';
-  if(cat==='book'){
+  if(cat==='class5'){
+    opts='<option value="Class5">Class5</option>';
+  }else if(cat==='book'){
     opts=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
   }else if(_CAT_KO[cat]){
-    opts=tbooks.filter(b=>b.category===_CAT_KO[cat]).map(b=>`<option value="${escAttr(b.title)}">`).join('');
+    opts=tbooks.filter(b=>b.category===_CAT_KO[cat]||!b.category).map(tbOpt).join('');
   }else{
-    opts=tbooks.map(b=>`<option value="${escAttr(b.title)}">`).join('')+
-      [...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
+    opts=tbooks.map(tbOpt).join('')+[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
   }
   dl.innerHTML=opts;
 }
@@ -5132,6 +5138,7 @@ function clHwCatChange(sel){
   fillClHwRowDl(row);
   const cat=sel.value;if(!cat)return;
   const bookInput=row.querySelector('.cl-hw-book');if(!bookInput||bookInput.value)return;
+  if(cat==='class5'){bookInput.value='Class5';return;}
   // cl-subj-rows에서 당일 수업 내용 먼저 참조
   const subjRow=document.querySelector(`#cl-subj-rows .sr[data-s="${cat}"]`)||document.querySelector(`#cl-subj-rows .sr[data-s^="${cat}_"]`);
   if(subjRow){const bookEl=subjRow.querySelector('[data-f="book"]');if(bookEl&&bookEl.value){bookInput.value=bookEl.value;return;}}
@@ -5153,13 +5160,14 @@ function clHwSyncFromSubj(){
     const unit=(row.querySelector('[data-f="unit"]')?.value||'').trim();
     const book=(bookEl?.value||'').trim();
     const range=cat==='book'?''
-      :cat==='vocab'?(unit?unit+' 단어 암기':'단어 암기')
-      :(unit?unit+' 복습':'복습');
+      :cat==='vocab'?(unit?unit+' 단어 암기, 워크북 풀기':'다음 단원 단어 암기, 워크북 풀기')
+      :(unit?unit+' 복습, 워크북 풀기':'복습, 워크북 풀기');
     mats.push({cat,book,range});
   });
   document.getElementById('cl-hw-common-rows').innerHTML='';
   if(mats.length){hwDates.forEach(d=>mats.forEach(m=>addClHwRow(d,true,m.cat,m.book,m.range)));}
   else{hwDates.forEach(d=>addClHwRow(d,true));}
+  hwDates.forEach(d=>addClHwRow(d,true,'class5','Class5',''));
 }
 const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
 
