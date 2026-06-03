@@ -920,8 +920,10 @@ async function renderVocabResult(el){
       <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:8px">다시 연습할 단어</div>
       <div class="missed-list">${missed.map(w=>`<span class="missed-chip">${w}</span>`).join('')}</div>
     </div>`:''}
-    <div style="display:flex;gap:10px;justify-content:center">
-      <button class="btn bt" style="padding:12px 28px;border-radius:50px" onclick="renderVocabDeck(currentStudentSid)">다시 하기</button>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="btn bo" style="padding:10px 22px;border-radius:50px" onclick="renderVocabDeck(currentStudentSid)">다시 하기</button>
+      ${vocabDeckFilter?.asgnId?`<button class="btn bt" style="padding:10px 22px;border-radius:50px" onclick="const aid=vocabDeckFilter.asgnId;vocabDeckFilter=null;completeAssignment(currentStudentSid,aid)">✅ 과제 완료</button>`:''}
+      <button class="btn bt" style="padding:10px 22px;border-radius:50px" onclick="vocabDeckFilter=null;swStuTab('st-home')">홈으로 →</button>
     </div>
   </div>`;
 }
@@ -1034,6 +1036,31 @@ function renderHomeStats(sid){
     </div>
   </details>`;
 }
+function dueLabelHtml(dueStr,today){
+  if(!dueStr)return '';
+  const diff=Math.round((new Date(dueStr)-new Date(today))/(86400000));
+  if(diff<0)return `<span style="color:var(--coral);font-weight:700;font-size:10px">늦었어요</span>`;
+  if(diff===0)return `<span style="color:var(--coral);font-weight:700;font-size:10px">오늘 마감</span>`;
+  if(diff===1)return `<span style="color:#e07b00;font-weight:700;font-size:10px">내일 마감</span>`;
+  if(diff<=2)return `<span style="color:#e07b00;font-weight:700;font-size:10px">D-${diff}</span>`;
+  return `<span style="color:var(--slate);font-size:10px">D-${diff}</span>`;
+}
+function renderLastLesson(sid){
+  const les=DB.less().filter(l=>l.sid===sid);
+  if(!les.length)return '';
+  const last=les[0];
+  const mats=matsToHtml(last.materials);
+  const cmt=(last.cmt||'').slice(0,80)+(last.cmt&&last.cmt.length>80?'…':'');
+  return `<div style="background:var(--cream2);border-radius:var(--rs);border:1px solid var(--border);padding:12px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:12px;font-weight:700;color:var(--navy)">📝 지난 수업</span>
+      <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${last.date||''}</span>
+    </div>
+    ${mats?`<div style="font-size:12px;color:var(--navy);margin-bottom:4px;line-height:1.8">${mats}</div>`:''}
+    ${cmt?`<div style="font-size:12px;color:var(--slate);line-height:1.6">${cmt}</div>`:''}
+    <button class="btn bt bsm" style="margin-top:8px;border-radius:50px" onclick="swStuTab('st-vocab')">📚 단어 복습 →</button>
+  </div>`;
+}
 function renderStudentHome(sid){
   const el=document.getElementById('st-home');if(!el)return;
   const stu=DB.stus().find(s=>s.id===sid);
@@ -1046,30 +1073,32 @@ function renderStudentHome(sid){
   const week=getWeeklyStats(sid);
   const allBooks=[...BOOK_DB,...DB.libs()];
 
-  const headerHtml=`<div style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:12px">안녕, ${stu?stu.name:''}아! 👋</div>
-    <div class="streak-bar" style="margin-bottom:12px">
-      <span style="font-size:18px">${lv.icon}</span>
-      <div style="flex:1">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-          <span style="font-size:12px;font-weight:700;color:var(--navy)">${lv.name} Lv.</span>
-          <span style="font-size:11px;color:var(--slate)">🔥 ${streak}일 연속</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <div class="week-bar"><div class="week-bar-fill" style="width:${week.pct}%"></div></div>
-          <span style="font-size:10px;color:var(--slate);white-space:nowrap">이번주 ${week.done}/${week.total}</span>
-        </div>
+  const greetHtml=`<div style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:12px">안녕, ${stu?stu.name:''}아! 👋</div>`;
+  const streakHtml=`<div class="streak-bar" style="margin-top:12px;margin-bottom:4px">
+    <span style="font-size:18px">${lv.icon}</span>
+    <div style="flex:1">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+        <span style="font-size:12px;font-weight:700;color:var(--navy)">${lv.name} Lv.</span>
+        <span style="font-size:11px;color:var(--slate)">🔥 ${streak}일 연속</span>
       </div>
-    </div>`;
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="week-bar"><div class="week-bar-fill" style="width:${week.pct}%"></div></div>
+        <span style="font-size:10px;color:var(--slate);white-space:nowrap">이번주 ${week.done}/${week.total}</span>
+      </div>
+    </div>
+  </div>`;
+  const lastLessonHtml=renderLastLesson(sid);
 
   // 전체 완료 화면
   if(allAssigns.length&&!pending.length){
-    el.innerHTML=`<div style="padding:1.25rem">${headerHtml}
+    el.innerHTML=`<div style="padding:1.25rem">${greetHtml}${lastLessonHtml}
       <div style="text-align:center;padding:2rem">
         <div style="font-size:56px;margin-bottom:8px">🏆</div>
         <div style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px">모두 완료!</div>
         <div style="font-size:13px;color:var(--slate)">오늘 숙제 다 했어요 👏</div>
+        <button class="btn bt" style="margin-top:16px;padding:12px 28px;border-radius:50px" onclick="swStuTab('st-vocab')">📚 단어 복습 하기 →</button>
       </div>
-      ${renderHomeStats(sid)}
+      ${streakHtml}${renderHomeStats(sid)}
     </div>`;
     return;
   }
@@ -1079,7 +1108,7 @@ function renderStudentHome(sid){
     const hw=(_cache.homeworks||[]).find(h=>h.assignmentId===a.id);
     const book=a.bookId?allBooks.find(b=>b.id===a.bookId):null;
     const ao=book?getAudioObj(book):null;
-    const isToday=a.date===today;
+    const isToday=a.due===today||(!a.due&&a.date===today);
     let body='';
     if(a.type==='reading'){
       body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">${a.bookTitle||'원서 읽기'}${a.range?' <span style="font-size:11px;color:var(--slate)">'+a.range+'</span>':''}</div>`;
@@ -1117,8 +1146,8 @@ function renderStudentHome(sid){
         <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone||!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')'}" title="${!canCheck?'녹음 제출 후 완료 가능':'완료 처리'}">${isDone?'✓':''}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span style="font-size:10px;color:var(--slate);font-family:var(--fm)">${a.date||''}${a.due&&a.due!==a.date?' · 마감 '+a.due:''}</span>
-            ${isToday?'<span style="font-size:10px;font-weight:700;color:var(--coral)">오늘</span>':''}
+            <span style="font-size:10px;color:var(--slate);font-family:var(--fm)">${a.date||''}</span>
+            ${a.due?dueLabelHtml(a.due,today):''}
           </div>
           ${body}
         </div>
@@ -1134,11 +1163,12 @@ function renderStudentHome(sid){
     <button class="btn bt" style="margin-top:16px;padding:12px 28px;border-radius:50px" onclick="swStuTab('st-vocab')">단어 복습 하기 →</button>
   </div>`:'';
 
-  el.innerHTML=`<div style="padding:1.25rem">${headerHtml}
+  el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
+    ${lastLessonHtml}
     ${noHwHtml}
     ${pending.length?`<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📌 미완료 숙제</div>${pending.map(asgnCard).join('')}`:''}
     ${done.length?`<details style="margin-top:8px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none">✅ 완료된 숙제 (${done.length}건)</summary><div style="margin-top:8px">${done.map(asgnCard).join('')}</div></details>`:''}
-    ${renderHomeStats(sid)}
+    ${streakHtml}${renderHomeStats(sid)}
   </div>`;
 }
 function handleHomeAsgnAudio(e,asgnId,sid){
