@@ -160,17 +160,17 @@
     </div>
   </div>
   <div class="nt">
-    <button class="ntab" data-tab="t-dash" onclick="swTab('t-dash')">대시보드</button>
-    <button class="ntab active" data-tab="t-stu" onclick="swTab('t-stu')">학생</button>
-    <button class="ntab" data-tab="t-les" onclick="swTab('t-les')">수업</button>
-    <button class="ntab" data-tab="t-class" onclick="swTab('t-class')">클래스</button>
+    <button class="ntab" data-tab="t-dash" onclick="swTab('t-dash')">📊 대시보드</button>
+    <button class="ntab active" data-tab="t-stu" onclick="swTab('t-stu')">👩‍🎓 학생</button>
+    <button class="ntab" data-tab="t-les" onclick="swTab('t-les')">📝 수업</button>
+    <button class="ntab" data-tab="t-class" onclick="swTab('t-class')">🏫 클래스</button>
     <button class="ntab" data-tab="t-assign" onclick="swTab('t-assign')">📋 과제</button>
     <button class="ntab" data-tab="t-msg" id="t-msg-tab" onclick="swTab('t-msg')">💬 메시지</button>
-    <button class="ntab" data-tab="t-tst" onclick="swTab('t-tst')">테스트</button>
-    <button class="ntab" data-tab="t-bks" onclick="swTab('t-bks')">원서</button>
-    <button class="ntab" data-tab="t-log" onclick="swTab('t-log')">리딩로그</button>
-    <button class="ntab" data-tab="t-data" onclick="swTab('t-data')">자료 DB</button>
-    <button class="ntab" data-tab="t-cfg" onclick="swTab('t-cfg')">설정</button>
+    <button class="ntab" data-tab="t-tst" onclick="swTab('t-tst')">✏️ 테스트</button>
+    <button class="ntab" data-tab="t-bks" onclick="swTab('t-bks')">📗 원서</button>
+    <button class="ntab" data-tab="t-log" onclick="swTab('t-log')">📸 리딩로그</button>
+    <button class="ntab" data-tab="t-data" onclick="swTab('t-data')">🗂️ 자료 DB</button>
+    <button class="ntab" data-tab="t-cfg" onclick="swTab('t-cfg')">⚙️ 설정</button>
   </div>
   <div class="ab">
 
@@ -186,7 +186,7 @@
     <div id="t-stu" class="panel active">
       <div class="sh"><div><div class="st">학생 관리</div></div>
         <div style="display:flex;gap:8px">
-          <button class="quick-pay-btn" onclick="openM('m-quick-pay')">💳 결제 기록</button>
+          <button class="quick-pay-btn" onclick="openM('m-quick-pay')">💳 결제 추가</button>
           <button class="btn bt bsm" onclick="openAddStu()">+ 추가</button>
         </div>
       </div>
@@ -287,9 +287,9 @@
 
     <!-- 테스트 -->
     <div id="t-tst" class="panel">
-      <div class="sh"><div><div class="st">복습 테스트</div></div></div>
+      <div class="sh"><div><div class="st">테스트</div></div></div>
       <div class="card">
-        <div class="ch"><span class="ct">결과 입력</span></div>
+        <div class="ch"><span class="ct">테스트 결과 입력</span></div>
         <div class="cb">
           <div class="ib iba">📸 테스트지 사진 업로드 시 AI가 점수·틀린 단어를 자동 인식합니다 (설정에서 API Key 입력 시 활성화)</div>
           <div class="f">
@@ -311,7 +311,7 @@
             <div class="score-row">
               <div class="f"><label>맞힌 수</label><input type="number" id="ts-vc" min="0" placeholder="8" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
               <div style="padding-bottom:10px;font-size:22px;color:var(--slate);font-family:var(--fm)">/</div>
-              <div class="f"><label>전체 문제</label><input type="number" id="ts-vt" min="0" placeholder="10" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
+              <div class="f"><label>전체 문제 수</label><input type="number" id="ts-vt" min="0" placeholder="10" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
             </div>
             <div class="f"><label>전체 단어 (쉼표 구분) <span style="color:var(--slate);font-weight:400">— 단어장 저장용</span></label><input type="text" id="ts-allwords" placeholder="quickly, enormous, vast, ..."></div>
             <div class="f"><label>틀린 단어 (쉼표 구분)</label><input type="text" id="ts-wr" placeholder="quickly, enormous"></div>
@@ -321,7 +321,7 @@
             <div class="score-row">
               <div class="f"><label>맞힌 수</label><input type="number" id="ts-gc" min="0" placeholder="7" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
               <div style="padding-bottom:10px;font-size:22px;color:var(--slate);font-family:var(--fm)">/</div>
-              <div class="f"><label>전체 문제</label><input type="number" id="ts-gt" min="0" placeholder="10" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
+              <div class="f"><label>전체 문제 수</label><input type="number" id="ts-gt" min="0" placeholder="10" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
               <div class="f" style="flex:2"><label>어법 약점/헷갈린 내용</label><input type="text" id="ts-gweak" placeholder="현재진행형, 불규칙동사"></div>
             </div>
           </div>
@@ -345,7 +345,7 @@
       <div class="card">
         <div class="ch"><span class="ct">원서 추가</span></div>
         <div class="cb">
-          <div class="ib ibt">원서목록 탭에 등록된 책을 선택하면 자동 입력됩니다</div>
+          <div class="ib ibt">자료 DB → 원서 DB에 등록된 책을 선택하면 자동 입력됩니다</div>
           <div class="fg">
             <div class="f"><label>날짜</label><input type="date" id="rd-date"></div>
             <div class="f"><label>학생</label><select id="rd-stu"></select></div>
@@ -396,7 +396,7 @@
       <div class="ib iba">📸 AI 자동 추출을 사용하려면 설정에서 API Key를 입력해 주세요.</div>
       <div id="cld-log-warn" class="cld-warn" style="display:none">⚠️ Cloudinary 미설정 상태입니다. 사진이 기기에 임시 저장되며 용량 초과(5MB) 시 유실될 수 있습니다. 설정 탭에서 Cloudinary를 연결하면 안전하게 저장됩니다.</div>
       <div class="card">
-        <div class="ch"><span class="ct">업로드</span></div>
+        <div class="ch"><span class="ct">새 리딩로그 등록</span></div>
         <div class="cb">
           <div class="fg">
             <div class="f"><label>날짜</label><input type="date" id="lg-date"></div>
@@ -571,7 +571,7 @@
     <!-- 클래스 관리 -->
     <div id="t-class" class="panel">
       <div class="sh">
-        <div><div class="st">클래스 관리</div></div>
+        <div><div class="st">클래스</div></div>
         <button class="btn bt bsm" onclick="openEditClass()">+ 클래스 만들기</button>
       </div>
       <div id="class-list"></div>
@@ -580,7 +580,7 @@
     <!-- 과제 관리 -->
     <div id="t-assign" class="panel">
       <div class="sh">
-        <div><div class="st">📋 과제 관리</div></div>
+        <div><div class="st">📋 과제</div></div>
         <button class="btn bt bsm" onclick="openM('m-add-assign')">+ 과제 할당</button>
       </div>
       <div class="card" style="margin-bottom:1rem">
@@ -607,7 +607,7 @@
 
     <!-- 설정 -->
     <div id="t-cfg" class="panel">
-      <div class="st" style="margin-bottom:1rem">설정</div>
+      <div class="sh"><div><div class="st">⚙️ 설정</div></div></div>
 
       <!-- 계좌 정보 -->
       <div class="card" style="margin-bottom:1rem">
@@ -786,10 +786,10 @@
           <option value="중1">중학교 1학년</option><option value="중2">중학교 2학년</option>
           <option value="중3">중학교 3학년</option></select></div>
       <div class="f"><label>학교</label><input type="text" id="es-school"></div>
-      <div class="f"><label>PIN</label><input type="text" id="es-pin" maxlength="4" inputmode="numeric"></div>
+      <div class="f"><label>PIN (생년월일 4자리)</label><input type="text" id="es-pin" maxlength="4" inputmode="numeric"></div>
       <div class="f"><label>입회일</label><input type="date" id="es-enroll"></div>
       <div class="f"><label>수업료 (월)</label><input type="number" id="es-fee"></div>
-      <div class="f"><label>결제일</label><input type="number" id="es-payday" min="1" max="31"></div>
+      <div class="f"><label>결제일 (매월 며칠)</label><input type="number" id="es-payday" min="1" max="31"></div>
       <div class="f s2"><label>메모</label><input type="text" id="es-memo"></div>
     </div>
     <div class="section-label" style="margin-top:4px">결제 기록 추가</div>

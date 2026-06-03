@@ -4555,7 +4555,7 @@ function renderSpBooks(sid){
   const libOpts=[...BOOK_DB,...DB.libs()].map(b=>`<option value="${b.id}">${b.title}</option>`).join('');
   el.innerHTML=`
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <span style="font-size:12px;font-weight:700;color:var(--navy)">현재 교재 (${tbs.length}권)</span>
+    <span style="font-size:12px;font-weight:700;color:var(--navy)">📗 현재 교재 · 원서 목록 (${tbs.length}권)</span>
     <button class="btn bt bsm" onclick="openAddTextbook('${sid}')">+ 추가</button>
   </div>
   <div id="sp-books-list">
