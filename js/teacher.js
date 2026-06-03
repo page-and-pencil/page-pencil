@@ -3726,7 +3726,7 @@ async function polishIndCmt(raw,stuName){
   const apiKey=DB.api();
   if(!apiKey)return polishCmtLocal(r);
   try{
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`당신은 학부모에게 자녀 수업 피드백을 전달하는 영어 선생님입니다.\n톤 지침: 담담하고 따뜻한 격식체(합쇼체+요체 혼용). 절제된 표현, 감탄사/이모지/과장 없음. 마크다운 없음.\n학생 이름: ${stuName||'학생'}\n아래 메모를 학부모용 문장으로 100자 내외로 바꿔주세요. 메모에 없는 내용 추가 금지. 변환된 문장만 출력하세요.\n원문: ${r}`}]});
+    const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:300,messages:[{role:'user',content:`당신은 학부모에게 자녀 수업 피드백을 전달하는 영어 선생님입니다.\n톤 지침: 담담하고 따뜻한 격식체(합쇼체+요체 혼용). 절제된 표현, 감탄사/이모지/과장 없음. 마크다운 없음.\n[절대 금지] 이름·"학생"·"아이"로 문장을 시작하지 마세요. "○○은/는", "학생이" 등 주어로 시작 금지. 반드시 서술어 또는 부사로 시작하세요.\n아래 메모를 학부모용 문장으로 100자 내외로 바꿔주세요. 메모에 없는 내용 추가 금지. 변환된 문장만 출력하세요.\n원문: ${r}`}]});
     return d.content?.[0]?.text?.trim()||polishCmtLocal(r);
   }catch(e){return polishCmtLocal(r);}
 }
@@ -3740,7 +3740,7 @@ async function polishCmt(raw){
 
   try{
     const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다.\n\n작성 규칙:\n분량: 100~200자 (한국어 기준)\n어조: 전문적이면서도 따뜻하고 친근한 존댓말\n구조: 수업 태도 → 학습 내용 → 격려 또는 다음 수업 방향 순으로 자연스럽게 이어지는 한 단락\n\n[절대 금지 — 반드시 지켜야 할 규칙]\n첫 단어로 주어(이름, "학생", "아이")를 쓰지 마세요.\n"○○ 학생은", "○○은/는", "학생이" 등 주어로 시작하는 문장은 절대 금지입니다.\n반드시 서술어 또는 부사로 시작하세요. 올바른 예: "오늘 수업에서 ~", "집중력이 ~", "새로운 어휘를 ~", "꾸준한 ~"\n\n과장된 칭찬이나 부정적 표현은 피하고, 구체적이고 사실에 기반한 내용으로 작성\n마침표로 문장을 마무리\n마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.\n\n키워드: ${r}`;
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:350,messages:[{role:'user',content:prompt}]});
+    const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:400,messages:[{role:'user',content:prompt}]});
     return d.content?.[0]?.text?.trim()||polishCmtLocal(r);
   }catch(e){
     console.warn('polishCmt API 실패, 로컬 폴백:', e.message);
