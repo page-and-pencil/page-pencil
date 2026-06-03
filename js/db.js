@@ -402,7 +402,7 @@ async function refreshVocabExamples(sid){
   }
   return updated;
 }
-async function syncVocabCards(sid,allWords,wrongWords,date){
+async function syncVocabCards(sid,allWords,wrongWords,date,source=''){
   const stu=(_cache.students||[]).find(s=>s.id===sid);
   const grade=stu?.grade||stu?.lv||'';
   const existing=await supaFetchBySid('vocab_cards',sid);
@@ -431,7 +431,7 @@ async function syncVocabCards(sid,allWords,wrongWords,date){
         }).catch(()=>{});
       }
     }else{
-      const newCard={id:uid(),sid,word:wordText,meaning:meta.ko||'',pos:meta.pos||'',example:meta.example||'',exampleSrc:meta.example?'':'',hits:isWrong?0:1,misses:isWrong?1:0,phase:0,lastSeen:date,due:date,addedDate:date};
+      const newCard={id:uid(),sid,word:wordText,meaning:meta.ko||'',pos:meta.pos||'',example:meta.example||'',exampleSrc:meta.example?'':'',hits:isWrong?0:1,misses:isWrong?1:0,phase:0,lastSeen:date,due:date,addedDate:date,source};
       await supaUpsert('vocab_cards',newCard.id,newCard,sid);
       if(!_cache.vocab_cards)_cache.vocab_cards=[];_cache.vocab_cards.push(newCard);
       if(!meta.ko||!newCard.example){

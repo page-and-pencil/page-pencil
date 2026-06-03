@@ -216,11 +216,10 @@ function closeStuPanel(){
 }
 function openEditStuFromPanel(){closeStuPanel();openEditStu(currentSpStuId);}
 function swSpTab(id){
-  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-books','sp-rdlog','sp-vocab','sp-msg','sp-payment'];
+  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-reading','sp-vocab','sp-msg','sp-payment'];
   document.querySelectorAll('.sptab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
   document.querySelectorAll('.sp-pane').forEach(p=>p.style.display=p.id===id?'block':'none');
-  if(id==='sp-books')renderSpBooks(currentSpStuId);
-  if(id==='sp-rdlog')renderSpRdlog(currentSpStuId);
+  if(id==='sp-reading'){renderSpBooks(currentSpStuId);renderSpRdlog(currentSpStuId);}
   if(id==='sp-vocab')renderSpVocab(currentSpStuId);
   if(id==='sp-msg')renderSpMessages(currentSpStuId);
 }
@@ -268,16 +267,23 @@ function renderSpVocab(sid){
     </div>`:'<div style="font-size:12px;color:var(--slate)">외울 단어가 없습니다 — 모두 숙달됨 🎉</div>'}
   </div>`;
   const PHASE_LBL=['신규','학습중','숙달'];const PHASE_CLS=['bslate','bamber','bteal'];
+  const SRC_CLS={수업:'bteal',리딩로그:'bamber',테스트:'bcoral',과제:'bnavy'};
+  const inpStyle='width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-family:var(--fb);background:var(--cream);outline:none;box-sizing:border-box';
   const listHtml=cards.map(c=>`<div style="display:flex;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);align-items:flex-start">
     <input type="checkbox" class="vocab-chk" data-id="${c.id}" style="margin-top:4px;flex-shrink:0;cursor:pointer">
     <div style="flex:1;min-width:0">
-      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:2px">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:5px">
         <span style="font-weight:700;font-size:13px;font-family:var(--fd)">${c.word}</span>
         ${c.pos?`<span style="font-size:10px;color:var(--slate)">${c.pos}</span>`:''}
         <span class="badge ${PHASE_CLS[c.phase||0]}" style="font-size:10px">${PHASE_LBL[c.phase||0]}</span>
+        ${c.source&&SRC_CLS[c.source]?`<span class="badge ${SRC_CLS[c.source]}" style="font-size:9px">${c.source}</span>`:''}
       </div>
-      ${c.meaning?`<div style="font-size:12px;color:var(--navy);margin-bottom:1px">${c.meaning}</div>`:'<div style="font-size:11px;color:var(--slate)">뜻 없음</div>'}
-      ${c.example?`<div style="font-size:11px;color:var(--slate);font-style:italic">${c.example}</div>`:''}
+      <input type="text" value="${escAttr(c.meaning||'')}" placeholder="뜻 입력..."
+        onblur="saveVocabField('${c.id}','${sid}','meaning',this.value)"
+        style="${inpStyle};font-size:12px;color:var(--navy);margin-bottom:3px">
+      <input type="text" value="${escAttr(c.example||'')}" placeholder="예문 입력..."
+        onblur="saveVocabField('${c.id}','${sid}','example',this.value)"
+        style="${inpStyle};font-size:11px;color:var(--slate);font-style:italic">
     </div>
     <button onclick="delVocabCard('${c.id}','${sid}','${escAttr(c.word)}')" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;color:var(--slate)">삭제</button>
   </div>`).join('');
@@ -304,6 +310,12 @@ async function vocabDeleteSelected(sid){
     _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>!ids.includes(c.id));
     renderSpVocab(sid);renderSpRdlog(sid);toast(`${ids.length}개 삭제되었습니다`);
   });
+}
+async function saveVocabField(cardId,sid,field,value){
+  const card=(_cache.vocab_cards||[]).find(c=>c.id===cardId);
+  if(!card||card[field]===value)return;
+  card[field]=value;
+  await supaUpsert('vocab_cards',cardId,card,sid);
 }
 async function reqRefreshVocabExamples(sid){
   toast('원서에서 예문 검색 중...');
@@ -905,7 +917,7 @@ async function saveFuTst(sid,date){
   const tst={id:uid(),sid,date,vocabCorrect:parseInt(vc)||0,vocabTotal:parseInt(vt)||0,grammarCorrect:0,grammarTotal:0,wrongWords};
   await supaUpsert('tests',tst.id,tst,sid);
   _cache.tests.unshift(tst);
-  if(wrongWords.length)await syncVocabCards(sid,wrongWords,wrongWords,date);
+  if(wrongWords.length)await syncVocabCards(sid,wrongWords,wrongWords,date,'테스트');
   document.getElementById('les-fu-tst').innerHTML=`<div style="font-size:12px;color:#005f6b;padding:6px 0">✅ 테스트 저장됨 (${vc}/${vt})</div>`;
   toast('테스트 저장됨');
   }catch(e){
@@ -988,7 +1000,7 @@ async function saveFuAssign(sid,date){
     a.range=document.getElementById('fu-arange')?.value.trim()||'';
   } else if(type==='vocab'){
     a.words=(document.getElementById('fu-awords')?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
-    if(a.words.length)await syncVocabCards(sid,a.words,[],date);
+    if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제');
   } else {
     a.text=document.getElementById('fu-atext')?.value.trim()||'';
   }
@@ -1169,7 +1181,7 @@ async function saveTst(){
   _cache.tests.unshift(newTst);
   // vocab_cards 자동 저장
   if(allWords.length){
-    await syncVocabCards(sid,allWords,wrongWords,document.getElementById('ts-date').value);
+    await syncVocabCards(sid,allWords,wrongWords,document.getElementById('ts-date').value,'테스트');
     showVocabCardStatus(sid,allWords);
   }
   ['ts-vc','ts-vt','ts-gc','ts-gt','ts-wr','ts-allwords','ts-gweak','ts-cmt'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
@@ -2554,7 +2566,7 @@ async function addUnitWordsToVocab(sid,materials,date){
     const matchKey=Object.keys(tb.units).find(k=>k.trim().toLowerCase()===mat.unit.trim().toLowerCase());
     if(!matchKey)continue;
     const words=tuNormWords(tb.units[matchKey]);
-    if(words?.length)await syncVocabCards(sid,words,[],date);
+    if(words?.length)await syncVocabCards(sid,words,[],date,'수업');
   }
 }
 function updateTbookDatalist(){
@@ -3610,7 +3622,7 @@ async function saveLog(){
   await supaUpsert('logs',newLog.id,newLog,sid);
   _cache.logs.unshift(newLog);
   // 단어장에 자동 추가
-  if(words.length)await syncVocabCards(sid,words,[],date);
+  if(words.length)await syncVocabCards(sid,words,[],date,'리딩로그');
   // 초기화
   clearLogPhoto();
   document.getElementById('log-ut').textContent='클릭하거나 사진을 드래그';
@@ -4505,7 +4517,7 @@ async function saveModalAssignment(){
     const checked=[...document.querySelectorAll('.modal-vocab-check:checked')].map(c=>c.value);
     const extra=(document.getElementById('modal-vocab-extra')?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
     a.words=[...new Set([...checked,...extra])];
-    if(a.words.length)await syncVocabCards(sid,a.words,[],date);
+    if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제');
   }
   if(!book&&!range&&type!=='vocab'){toast('교재/원서 또는 범위를 입력해 주세요');return;}
   await supaUpsert('assignments',a.id,a,sid);
@@ -5126,7 +5138,7 @@ async function saveStudentAssign(sid){
     const checked=[...document.querySelectorAll('.asgn-vocab-chk:checked')].map(c=>c.value);
     const extra=(document.getElementById(`asgn-book-${sid}`)?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
     a.words=[...new Set([...checked,...extra])];
-    if(a.words.length)await syncVocabCards(sid,a.words,[],date);
+    if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제');
   }
   if(!book&&!range&&type!=='vocab'){toast('교재/원서 또는 범위를 입력해 주세요');return;}
   try{
