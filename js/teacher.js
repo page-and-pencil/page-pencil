@@ -3850,7 +3850,16 @@ function renderSpSummary(sid,period,from,to){
   const payments=s.payments||[];
   const lastPay=payments.length?payments[payments.length-1]:null;
 
-  const attended=les.filter(l=>l.att!=='absent').length;
+  // 회차 소진 여부: absent + sick 월 2회 초과분만 소진
+  const sickByMonthPeriod={};
+  les.filter(l=>l.att==='sick').forEach(l=>{const m=l.date?.slice(0,7)||'';sickByMonthPeriod[m]=(sickByMonthPeriod[m]||0)+1;});
+  const sickConsumedPeriod=Object.values(sickByMonthPeriod).reduce((a,c)=>a+Math.max(0,c-1),0);
+  const PRESERVED_ATTS=['teacher_cancel','holiday'];
+  const attended=les.filter(l=>!['absent','sick'].includes(l.att||'normal')&&!PRESERVED_ATTS.includes(l.att||'normal')).length
+    +les.filter(l=>l.att==='sick').length; // 출석수: normal+late+makeup+sick(출석으로 인정)
+  const consumed=les.filter(l=>l.att==='absent').length+sickConsumedPeriod; // 소진: absent+병결초과
+  const preserved=les.filter(l=>PRESERVED_ATTS.includes(l.att||'')).length
+    +Object.keys(sickByMonthPeriod).length; // 보존: 선생님취소+휴강+병결월1회
   const total=les.length;
   const att=total?Math.round(attended/total*100):0;
   const avgV=tsts.length?Math.round(tsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/tsts.length):null;
@@ -3890,6 +3899,45 @@ function renderSpSummary(sid,period,from,to){
         ${m.units.length?`<span style="color:var(--slate)">${m.units.slice(-3).join(', ')}</span>`:''}
       </div>`).join('')}
     </div>`:''}
+    ${(()=>{
+      // ── 원내 규칙 현황 ──
+      const todayY=new Date().getFullYear();
+      const allLesAll=DB.less().filter(l=>l.sid===sid);
+      // 연간 시수
+      const yearStr=String(todayY);
+      const annualLes=allLesAll.filter(l=>l.date&&l.date.startsWith(yearStr));
+      const annualAttended=annualLes.filter(l=>!PRESERVED_ATTS.includes(l.att||'')&&l.att!=='absent').length;
+      // 병결 현황 (이번 달)
+      const thisMonthStr=new Date().toISOString().slice(0,7);
+      const thisMonthSick=allLesAll.filter(l=>l.att==='sick'&&l.date?.startsWith(thisMonthStr)).length;
+      const sickOk=thisMonthSick<=1;
+      // 선생님 취소·휴강 보존 합계
+      const tcTotal=allLesAll.filter(l=>l.att==='teacher_cancel').length;
+      const holTotal=allLesAll.filter(l=>l.att==='holiday').length;
+      // 월별 시수 (올해)
+      const months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
+      const monthlyRow=months.map(m=>{
+        const key=`${yearStr}-${m}`;
+        const cnt=allLesAll.filter(l=>l.date?.startsWith(key)&&!PRESERVED_ATTS.includes(l.att||'')&&l.att!=='absent').length;
+        return `<td style="text-align:center;padding:3px 4px;font-family:var(--fm);font-size:11px;color:${cnt?'var(--navy)':'var(--slate)'}">${cnt||'—'}</td>`;
+      }).join('');
+      return `<div style="background:var(--cream2);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px;font-size:12px">
+        <div style="font-weight:700;color:var(--navy);margin-bottom:8px">📋 원내 규칙 현황</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+          <div>연간 출석 수업<br><strong style="font-size:16px;font-family:var(--fm)">${annualAttended}회</strong></div>
+          <div>이번 달 병결<br><strong style="font-size:16px;font-family:var(--fm);color:${sickOk?'var(--teal)':'var(--coral)'}">${thisMonthSick}회</strong> <span style="font-size:10px;color:${sickOk?'var(--teal)':'var(--coral)'}">${sickOk?'(월 1회 이내)':'⚠️ 한도 초과'}</span></div>
+          ${tcTotal?`<div>선생님 취소 보존<br><strong style="font-size:16px;font-family:var(--fm);color:#7B1FA2">${tcTotal}회</strong></div>`:''}
+          ${holTotal?`<div>휴강 보존<br><strong style="font-size:16px;font-family:var(--fm);color:#3949AB">${holTotal}회</strong></div>`:''}
+        </div>
+        <div style="font-weight:700;color:var(--navy);margin-bottom:4px">${todayY}년 월별 수업 시수</div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <tr>${months.map(m=>`<th style="text-align:center;padding:3px 4px;color:var(--slate);font-weight:600;font-size:10px">${parseInt(m)}월</th>`).join('')}</tr>
+            <tr>${monthlyRow}</tr>
+          </table>
+        </div>
+      </div>`;
+    })()}
     <div style="font-size:12px;color:var(--slate);line-height:2;margin-top:8px">
       ${s.fee?`<div>월 수업료: <strong>${Number(s.fee).toLocaleString()}원</strong></div>`:''}
       ${s.payday?`<div>결제일: <strong>매월 ${s.payday}일</strong></div>`:''}
@@ -4956,7 +5004,9 @@ function openClassLesson(classId,dateStr){
         <span style="font-size:14px;font-weight:700;min-width:56px">${s.name}</span>
         <select class="cl-att filter-sel" style="flex:0 0 auto">
           <option value="normal">정상</option><option value="absent">결석</option>
-          <option value="late">지각</option><option value="makeup">보강</option>
+          <option value="late">지각</option><option value="sick">병결</option>
+          <option value="teacher_cancel">선생님 취소</option><option value="holiday">휴강</option>
+          <option value="makeup">보강</option>
         </select>
         <span style="font-size:11px;color:var(--slate)">${s.grade||s.lv||''}</span>
       </div>

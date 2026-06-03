@@ -223,7 +223,7 @@
             <div class="f"><label>학생</label><select id="ls-stu" onchange="fillLastLesson(this.value)"></select></div>
 
             <div class="f"><label>출결</label>
-              <select id="ls-att"><option value="normal">정상</option><option value="absent">결석</option><option value="late">지각</option><option value="makeup">보강</option></select>
+              <select id="ls-att"><option value="normal">정상</option><option value="absent">결석</option><option value="late">지각</option><option value="sick">병결</option><option value="teacher_cancel">선생님 취소</option><option value="holiday">휴강</option><option value="makeup">보강</option></select>
             </div>
             <div class="f"><label>학년</label>
               <select id="ls-grade">
@@ -827,7 +827,9 @@
       <div class="f"><label>출결</label>
         <select id="el-att">
           <option value="normal">정상</option><option value="absent">결석</option>
-          <option value="late">지각</option><option value="makeup">보강</option>
+          <option value="late">지각</option><option value="sick">병결</option>
+          <option value="teacher_cancel">선생님 취소</option><option value="holiday">휴강</option>
+          <option value="makeup">보강</option>
         </select>
       </div>
     </div>

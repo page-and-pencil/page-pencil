@@ -318,6 +318,9 @@ body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:
 .att-abs{background:var(--cl);color:#A03020;}
 .att-late{background:var(--al);color:#7A4A0A;}
 .att-make{background:var(--tl);color:#005f6b;}
+.att-sick{background:#FFF8E1;color:#7A4A0A;}
+.att-tc{background:#F3E5F5;color:#7B1FA2;}
+.att-hol{background:#E8EAF6;color:#3949AB;}
 
 /* BOOK GRID */
 .book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px;}
