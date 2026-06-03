@@ -366,7 +366,18 @@
             <div class="f s2"><label>책 제목</label><input type="text" id="rd-title" placeholder="Magic Tree House #3"></div>
             <input type="hidden" id="rd-series">
             <div class="f"><label>AR 레벨</label><input type="text" id="rd-ar" placeholder="3.3"></div>
-            <div class="f"><label>진도</label><input type="text" id="rd-prog" placeholder="Ch.1~3 완독"></div>
+            <div class="f">
+              <label>진도</label>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px">
+                <button type="button" class="cmt-chip" onclick="setRdProg('완독')">완독</button>
+                <button type="button" class="cmt-chip" onclick="setRdProg('진행 중')">진행 중</button>
+                <button type="button" class="cmt-chip" onclick="setRdProg('Ch.1~3')">Ch.1~3</button>
+                <button type="button" class="cmt-chip" onclick="setRdProg('Ch.1~5')">Ch.1~5</button>
+                <button type="button" class="cmt-chip" onclick="setRdProg('Ch.1~10')">Ch.1~10</button>
+                <button type="button" class="cmt-chip" onclick="setRdProg('pp.1~20')">pp.1~20</button>
+              </div>
+              <input type="text" id="rd-prog" placeholder="Ch.1~3 완독">
+            </div>
           </div>
           <button class="btn bt" onclick="saveRd()">저장</button>
         </div>

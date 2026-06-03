@@ -1293,6 +1293,7 @@ function fillFromLib(libId){
   document.getElementById('rd-series').value=b.series||'';
   document.getElementById('rd-ar').value=b.ar||b.arLevel||'';
 }
+function setRdProg(v){const el=document.getElementById('rd-prog');if(!el)return;el.value=v;el.focus();}
 async function saveRd(){
   if(_saving['saveRd'])return; _saving['saveRd']=true;
   try{
@@ -3822,7 +3823,14 @@ function renderDash(){
   const thisAvg=thisMonthTsts.length?Math.round(thisMonthTsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/thisMonthTsts.length):null;
   const lastAvg=lastMonthTsts.length?Math.round(lastMonthTsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/lastMonthTsts.length):null;
   const thisRds=DB.rds().filter(r=>r.date&&r.date.startsWith(thisMonth)).length;
-  renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,thisRds,DB.rds().length);
+  const feeStus=stus.filter(s=>s.fee>0);
+  const paidCount=feeStus.filter(s=>{
+    const paid=(s.payments||[]).filter(p=>p.date&&p.date.startsWith(thisMonth)).reduce((a,p)=>a+Number(p.amt||0),0);
+    return paid>=Number(s.fee);
+  }).length;
+  const unpaidCount=feeStus.length-paidCount;
+  const totalIncome=stus.reduce((a,s)=>a+(s.payments||[]).filter(p=>p.date&&p.date.startsWith(thisMonth)).reduce((b,p)=>b+Number(p.amt||0),0),0);
+  renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,thisRds,DB.rds().length,feeStus.length,paidCount,unpaidCount,totalIncome);
 
   // Section 4: 공지
   renderDashNotice();
@@ -3972,12 +3980,19 @@ function renderDashActions(stus,unreadMsgByStu,uncheckedHwByStu,unpaidStus,score
   </div>`;
 }
 
-function renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,thisRds,totalRds){
+function renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,thisRds,totalRds,feeTotal,paidCount,unpaidCount,totalIncome){
   const el=document.getElementById('dash-monthly');if(!el)return;
   const lesBar=lastLes?Math.min(100,Math.round(thisLes/lastLes*100)):0;
   const avgDiff=(thisAvg!==null&&lastAvg!==null)?thisAvg-lastAvg:null;
   const avgDiffHtml=avgDiff!==null
     ?`<span style="font-size:11px;margin-left:4px;color:${avgDiff>=0?'#0A5940':'var(--coral)'}">${avgDiff>=0?'+':''}${avgDiff}%p</span>`:'';
+  const payRow=feeTotal>0?`
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
+        <span>결제</span>
+        <span style="font-weight:700">
+          <span style="color:#0A5940">완납 ${paidCount}명</span><span style="color:var(--slate);font-weight:400"> / </span><span style="color:var(--coral)">미납 ${unpaidCount}명</span><span style="color:var(--slate);font-weight:400;margin-left:6px">· ${totalIncome.toLocaleString()}원</span>
+        </span>
+      </div>`:'';
   el.innerHTML=`<div class="card">
     <div class="ch"><span class="ct">📊 이번 달 현황</span></div>
     <div class="cb" style="display:flex;flex-direction:column;gap:14px">
@@ -3994,6 +4009,7 @@ function renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,thisRds,totalRds){
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
         <span>원서</span><span style="font-weight:700">${thisRds}권 <span style="color:var(--slate);font-weight:400">(누적 ${totalRds}권)</span></span>
       </div>
+      ${payRow}
     </div>
   </div>`;
 }
