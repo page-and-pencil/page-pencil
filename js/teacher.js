@@ -3797,7 +3797,7 @@ function renderDash(){
     }
   });
   const stuWithLesson=new Set(les.filter(l=>l.date&&l.date.startsWith(thisMonth)&&l.att!=='absent').map(l=>l.sid));
-  const noLessonStus=stus.filter(s=>!stuWithLesson.has(s.id));
+  const noLessonStus=today.getDate()>=8?stus.filter(s=>!stuWithLesson.has(s.id)):[];
   renderDashActions(stus,unreadMsgByStu,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus);
 
   // Section 3: 이번 달 현황
@@ -3807,7 +3807,8 @@ function renderDash(){
   const lastMonthTsts=tsts.filter(t=>t.date&&t.date.startsWith(lastMonth));
   const thisAvg=thisMonthTsts.length?Math.round(thisMonthTsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/thisMonthTsts.length):null;
   const lastAvg=lastMonthTsts.length?Math.round(lastMonthTsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/lastMonthTsts.length):null;
-  renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,DB.rds().length);
+  const thisRds=DB.rds().filter(r=>r.date&&r.date.startsWith(thisMonth)).length;
+  renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,thisRds,DB.rds().length);
 
   // Section 4: 공지
   renderDashNotice();
@@ -3957,7 +3958,7 @@ function renderDashActions(stus,unreadMsgByStu,uncheckedHwByStu,unpaidStus,score
   </div>`;
 }
 
-function renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,totalRds){
+function renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,thisRds,totalRds){
   const el=document.getElementById('dash-monthly');if(!el)return;
   const lesBar=lastLes?Math.min(100,Math.round(thisLes/lastLes*100)):0;
   const avgDiff=(thisAvg!==null&&lastAvg!==null)?thisAvg-lastAvg:null;
@@ -3977,7 +3978,7 @@ function renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,totalRds){
         <span>테스트 평균</span><span style="font-weight:700">${thisAvg!==null?thisAvg+'%':'—'}${avgDiffHtml}</span>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
-        <span>누적 원서</span><span style="font-weight:700">${totalRds}권</span>
+        <span>원서</span><span style="font-weight:700">${thisRds}권 <span style="color:var(--slate);font-weight:400">(누적 ${totalRds}권)</span></span>
       </div>
     </div>
   </div>`;
