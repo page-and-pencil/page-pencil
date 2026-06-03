@@ -5147,6 +5147,14 @@ function clHwCatChange(sel){
   const matched=Object.entries(c.commonMaterials).find(([k])=>k===cat||k.startsWith(cat+'_'));
   if(matched)bookInput.value=matched[1].book||'';
 }
+function nextUnitName(unit){
+  if(!unit)return '';
+  const nums=unit.match(/\d+/g);
+  if(!nums)return unit;
+  const lastNum=parseInt(nums[nums.length-1])+1;
+  const prefix=(unit.match(/^([^\d]+)/)||['',''])[1];
+  return prefix.trimEnd()+' '+lastNum;
+}
 function clHwSyncFromSubj(){
   const classId=document.getElementById('cl-class-id').value;
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
@@ -5157,12 +5165,21 @@ function clHwSyncFromSubj(){
     const s=row.dataset.s;const baseKey=s.replace(/_\d+$/,'');
     const cat=baseKey==='_book'||baseKey.startsWith('_book')?'book':baseKey;
     const bookEl=row.querySelector('[data-f="book"]');
-    const unit=(row.querySelector('[data-f="unit"]')?.value||'').trim();
+    const unitEl=row.querySelector('[data-f="unit"]');
+    // 직접 입력값 우선, 없으면 placeholder의 "직전: ..." 값 참조
+    const unitTyped=(unitEl?.value||'').trim();
+    const unitHint=(unitEl?.placeholder||'').replace('직전: ','').replace('유닛/진도','').trim();
+    const unit=unitTyped||unitHint;
     const book=(bookEl?.value||'').trim();
+    // 교재 레벨 조회
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.title===book);
+    const bookDisplay=tb?.level?`${book} (${tb.level})`:book;
+    // 범위 계산
+    const next=nextUnitName(unit);
     const range=cat==='book'?''
-      :cat==='vocab'?(unit?unit+' 단어 암기, 워크북 풀기':'다음 단원 단어 암기, 워크북 풀기')
+      :cat==='vocab'?(next?next+' 단어 암기, 워크북 풀기':unit?unit+' 단어 암기, 워크북 풀기':'다음 단원 단어 암기, 워크북 풀기')
       :(unit?unit+' 복습, 워크북 풀기':'복습, 워크북 풀기');
-    mats.push({cat,book,range});
+    mats.push({cat,book:bookDisplay,range});
   });
   document.getElementById('cl-hw-common-rows').innerHTML='';
   if(mats.length){hwDates.forEach(d=>mats.forEach(m=>addClHwRow(d,true,m.cat,m.book,m.range)));}
