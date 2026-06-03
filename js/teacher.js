@@ -5082,11 +5082,14 @@ function openClassLesson(classId,dateStr){
         <span style="font-size:11px;color:var(--slate)">${s.grade||s.lv||''}</span>
       </div>
       <div class="cl-books-wrap" style="margin-bottom:6px">
-        <div class="cl-book-row" style="display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:center">
+        <div class="cl-book-row" style="display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:flex-start">
           <input type="text" class="cl-rd-title" placeholder="원서 제목" list="dl-library" autocomplete="off" onchange="clFillFromLib(this)" style="${iStyle};flex:2;min-width:120px">
           <input type="hidden" class="cl-rd-series">
           <input type="text" class="cl-rd-ar" placeholder="AR" style="${iStyle};width:52px">
-          <input type="text" class="cl-rd-prog" placeholder="진도 (예: Ch.1~3)" style="${iStyle};flex:1;min-width:100px">
+          <div style="flex:1;min-width:100px;display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;gap:3px;flex-wrap:wrap">${_CL_PROG_CHIPS}</div>
+            <input type="text" class="cl-rd-prog" placeholder="진도 (예: Ch.1~3)" style="${iStyle};width:100%;box-sizing:border-box">
+          </div>
         </div>
       </div>
       <button class="btn ba" style="font-size:11px;padding:3px 10px;margin-bottom:6px" onclick="addClBookRow(this)">+ 원서 추가</button>
@@ -5188,17 +5191,22 @@ async function clPreviewIndCmt(btn,stuName){
   }catch(e){if(status)status.textContent='변환 실패';}
   finally{btn.disabled=false;}
 }
+function setClProgChip(btn,val){const inp=btn.closest('.cl-book-row').querySelector('.cl-rd-prog');if(inp){inp.value=val;inp.focus();}}
+const _CL_PROG_CHIPS='완독/진행 중/Ch.1~3/Ch.1~5/Ch.1~10/pp.1~20'.split('/').map(v=>`<button type="button" class="cmt-chip" style="font-size:10px;padding:1px 6px" onclick="setClProgChip(this,'${v}')">${v}</button>`).join('');
 function addClBookRow(btn){
   const wrap=btn.previousElementSibling;if(!wrap||!wrap.classList.contains('cl-books-wrap'))return;
   const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
   const row=document.createElement('div');
   row.className='cl-book-row';
-  row.style.cssText='display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:center';
+  row.style.cssText='display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:flex-start';
   row.innerHTML=`<input type="text" class="cl-rd-title" placeholder="원서 제목" list="dl-library" autocomplete="off" onchange="clFillFromLib(this)" style="${IS};flex:2;min-width:120px">
     <input type="hidden" class="cl-rd-series">
     <input type="text" class="cl-rd-ar" placeholder="AR" style="${IS};width:52px">
-    <input type="text" class="cl-rd-prog" placeholder="진도 (예: Ch.1~3)" style="${IS};flex:1;min-width:100px">
-    <button onclick="this.closest('.cl-book-row').remove()" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--slate);padding:0;flex-shrink:0">×</button>`;
+    <div style="flex:1;min-width:100px;display:flex;flex-direction:column;gap:3px">
+      <div style="display:flex;gap:3px;flex-wrap:wrap">${_CL_PROG_CHIPS}</div>
+      <input type="text" class="cl-rd-prog" placeholder="진도 (예: Ch.1~3)" style="${IS};width:100%;box-sizing:border-box">
+    </div>
+    <button onclick="this.closest('.cl-book-row').remove()" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--slate);padding:0;flex-shrink:0;margin-top:2px">×</button>`;
   wrap.appendChild(row);
 }
 function clTogSubj(el){
@@ -5269,15 +5277,20 @@ function clHwSyncFromSubj(){
     const s=row.dataset.s;const baseKey=s.replace(/_\d+$/,'');
     const cat=baseKey==='_book'||baseKey.startsWith('_book')?'book':baseKey;
     const bookEl=row.querySelector('[data-f="book"]');
-    mats.push({cat,book:(bookEl?.value||'').trim()});
+    const unit=(row.querySelector('[data-f="unit"]')?.value||'').trim();
+    const book=(bookEl?.value||'').trim();
+    const range=cat==='vocab'
+      ?(unit?unit+' 단어 암기':'단어 암기')
+      :(unit?unit+' 복습':'복습');
+    mats.push({cat,book,range});
   });
   document.getElementById('cl-hw-common-rows').innerHTML='';
-  if(mats.length){hwDates.forEach(d=>mats.forEach(m=>addClHwRow(d,true,m.cat,m.book)));}
+  if(mats.length){hwDates.forEach(d=>mats.forEach(m=>addClHwRow(d,true,m.cat,m.book,m.range)));}
   else{hwDates.forEach(d=>addClHwRow(d,true));}
 }
 const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
 
-function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook=''){
+function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook='',prefillRange=''){
   const DAYS=['일','월','화','수','목','금','토'];
   const d=dateStr?new Date(dateStr):new Date();
   const dayLabel=DAYS[d.getDay()];
@@ -5302,6 +5315,7 @@ function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook=''){
   </div>`;
   if(prefillCat){const catEl=row.querySelector('.cl-hw-cat');if(catEl){catEl.value=prefillCat;fillClHwRowDl(row);}}
   if(prefillBook){const bookEl=row.querySelector('.cl-hw-book');if(bookEl)bookEl.value=prefillBook;}
+  if(prefillRange){const rangeEl=row.querySelector('.cl-hw-range');if(rangeEl)rangeEl.value=prefillRange;}
   // 날짜 변경 시 요일 레이블 업데이트
   row.querySelector('.cl-hw-date').addEventListener('change',function(){
     const nd=new Date(this.value);
