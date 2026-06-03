@@ -1049,14 +1049,24 @@ function renderLastLesson(sid){
   const les=DB.less().filter(l=>l.sid===sid);
   if(!les.length)return '';
   const last=les[0];
-  const mats=matsToHtml(last.materials);
+  const matLines=Object.entries(last.materials||{}).map(([k,v])=>{
+    const isBook=k==='_book'||k.startsWith('_book_');
+    const baseKey=k.replace(/_\d+$/,'');
+    const label=isBook?'원서':(SLBL[baseKey]||'');
+    const cls=isBook?'srd':(SCLS[baseKey]||'');
+    if(!label&&!v.book)return '';
+    return `<div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px">
+      <span class="spill ${cls}" style="flex-shrink:0;font-size:10px">${label}</span>
+      <span style="font-size:12px;color:var(--navy)">${v.book||''}${v.unit?' '+v.unit:''}</span>
+    </div>`;
+  }).filter(Boolean).join('');
   const cmt=(last.cmt||'').slice(0,80)+(last.cmt&&last.cmt.length>80?'…':'');
   return `<div style="background:var(--cream2);border-radius:var(--rs);border:1px solid var(--border);padding:12px;margin-bottom:12px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <span style="font-size:12px;font-weight:700;color:var(--navy)">📝 지난 수업</span>
       <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${last.date||''}</span>
     </div>
-    ${mats?`<div style="font-size:12px;color:var(--navy);margin-bottom:4px;line-height:1.8">${mats}</div>`:''}
+    ${matLines?`<div style="margin-bottom:6px">${matLines}</div>`:''}
     ${cmt?`<div style="font-size:12px;color:var(--slate);line-height:1.6">${cmt}</div>`:''}
     <button class="btn bt bsm" style="margin-top:8px;border-radius:50px" onclick="swStuTab('st-vocab')">📚 단어 복습 →</button>
   </div>`;
@@ -1073,7 +1083,8 @@ function renderStudentHome(sid){
   const week=getWeeklyStats(sid);
   const allBooks=[...BOOK_DB,...DB.libs()];
 
-  const greetHtml=`<div style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:12px">안녕, ${stu?stu.name:''}아! 👋</div>`;
+  const givenName=stu&&stu.name&&stu.name.length>1?stu.name.slice(1):stu?.name||'';
+  const greetHtml=`<div style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:12px">안녕, ${givenName}아! 👋</div>`;
   const streakHtml=`<div class="streak-bar" style="margin-top:12px;margin-bottom:4px">
     <span style="font-size:18px">${lv.icon}</span>
     <div style="flex:1">

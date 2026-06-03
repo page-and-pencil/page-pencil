@@ -4808,7 +4808,7 @@ function renderMsgTab(){
     updateMsgTabBadge();return;
   }
   el.innerHTML=items.map(({s,unread,last})=>`
-    <div class="t-msg-item" onclick="openStuPanel('${s.id}');setTimeout(()=>swSpTab('sp-msg'),80)">
+    <div class="t-msg-item" onclick="openStuPanelTab('${s.id}','sp-msg')">
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
           <span style="font-size:13px;font-weight:700;color:var(--navy)">${s.name}</span>
