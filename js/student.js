@@ -636,6 +636,13 @@ function startVocabPhase(){
   else renderSpellCard(el);
 }
 
+function vocabHwBanner(){
+  if(!vocabDeckFilter)return '';
+  return `<div style="background:var(--tl);border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:11px;color:#005f6b;font-weight:600">📌 숙제 단어 ${vocabDeckFilter.words.length}개 · 완료 후 과제 자동 처리</span>
+    <button onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--slate)">전체 보기</button>
+  </div>`;
+}
 // ── 단계 0: 암기 (플립 카드) ──
 function renderMemCard(el){
   const card=deckState.cards[deckState.idx];
@@ -643,7 +650,7 @@ function renderMemCard(el){
   const prog=deckState.cards.map((_,i)=>
     `<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`
   ).join('');
-  el.innerHTML=`<div style="padding:1.25rem">
+  el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span class="vc-phase phase-mem">👀 암기</span>
       <div style="display:flex;align-items:center;gap:8px">
@@ -720,7 +727,7 @@ function renderRecallCard(el){
   const prog=deckState.cards.map((_,i)=>
     `<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`
   ).join('');
-  el.innerHTML=`<div style="padding:1.25rem">
+  el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span class="vc-phase phase-rec">🧠 리콜</span>
       <div style="display:flex;align-items:center;gap:8px">
@@ -810,7 +817,7 @@ function renderSpellCard(el){
   spellState={answer:word,chosen:[],letters:[...letters]};
   const blanks=word.split('').map((_,i)=>`<div class="spell-blank" id="spb-${i}"></div>`).join('');
   const keys=letters.map((l,i)=>`<button class="spell-key" id="spk-${i}" onclick="spellPick(${i},'${l}')">${l}</button>`).join('');
-  el.innerHTML=`<div style="padding:1.25rem">
+  el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span class="vc-phase phase-spl">✍️ 스펠</span>
       <div style="display:flex;align-items:center;gap:8px">
@@ -910,6 +917,7 @@ async function renderVocabResult(el){
       await supaUpsert('vocab_cards',card.id,updated,card.sid);
     }
   }
+  if(pctScore>=80){updateStreak(currentStudentSid);setTimeout(()=>showMiniConfetti(),200);}
   el.innerHTML=`<div style="padding:2rem;text-align:center">
     <div class="result-ring ${cls}">${pctScore}%</div>
     <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:4px">
