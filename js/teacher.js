@@ -779,7 +779,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   let bookInput;
   if(wrapperId==='cl-subj-rows'&&!isBook){
     const catFilter=_CAT_KO[baseKey];
-    let books=(_cache.globalTextbooks||[]).filter(b=>catFilter?(b.category===catFilter||!b.category):true);
+    let books=(_cache.globalTextbooks||[]).filter(b=>catFilter?b.category===catFilter:true);
     const noMatch=catFilter&&!books.length;
     if(noMatch)books=_cache.globalTextbooks||[];
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
@@ -4433,10 +4433,10 @@ function renderAssignCal(){
     const isToday=dateStr===todayStr;
     const items=byDate[dateStr]||[];
     const bg=isToday?'rgba(0,196,204,.08)':'#fff';
-    html+=`<div onclick="openAssignForDate('${dateStr}')" style="min-height:52px;border:1px solid var(--border);border-radius:6px;padding:4px;cursor:pointer;background:${bg}" onmouseover="this.style.background='var(--tl)'" onmouseout="this.style.background='${bg}'">
+    const first=items[0];
+    html+=`<div style="min-height:52px;border:1px solid ${isToday?'var(--teal)':'var(--border)'};border-radius:6px;padding:4px;background:${bg}">
       <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--teal)':'var(--navy)'};margin-bottom:2px">${d}</div>
-      ${items.slice(0,2).map(({stu})=>`<div style="font-size:9px;background:var(--teal);color:#fff;border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${stu.name}</div>`).join('')}
-      ${items.length>2?`<div style="font-size:9px;color:var(--slate)">+${items.length-2}</div>`:''}
+      ${first?`<div style="font-size:9px;background:var(--teal);color:#fff;border-radius:3px;padding:1px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="showAssignDateDetail('${dateStr}')">${first.stu.name}${items.length>1?' 외 '+(items.length-1)+'명':''}</div>`:''}
     </div>`;
   }
   html+=`</div>`;
@@ -4445,6 +4445,31 @@ function renderAssignCal(){
 function assignCalMonth(dir){
   _assignCalOffset+=dir;
   renderAssignCal();
+}
+function showAssignDateDetail(dateStr){
+  const assigns=(_cache.assignments||[]).filter(a=>a.due===dateStr||(!a.due&&a.date===dateStr));
+  const stus=DB.stus();
+  const CAT_LABELS={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','other':'기타'};
+  if(!assigns.length){toast(`${dateStr} — 할당된 과제 없음`);return;}
+  const rows=assigns.map(a=>{
+    const s=stus.find(x=>x.id===a.sid);
+    const cat=CAT_LABELS[a.category||'']||'';
+    const book=a.bookTitle||a.text||'';
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <span style="font-weight:700;font-size:13px;min-width:48px">${s?.name||'—'}</span>
+        <div style="flex:1;font-size:12px">${cat?`<span style="color:var(--teal)">[${cat}]</span> `:''}${book}${a.range?' · '+a.range:''}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const el=document.createElement('div');
+  el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:var(--rs);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:2000;padding:20px;min-width:280px;max-width:480px;width:90vw;max-height:70vh;overflow-y:auto';
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-size:14px;font-weight:700">${dateStr} 과제 (${assigns.length}건)</span><button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--slate)" onclick="this.closest('div').remove();document.getElementById('assign-detail-overlay').remove()">×</button></div>${rows}`;
+  const overlay=document.createElement('div');
+  overlay.id='assign-detail-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1999';
+  overlay.onclick=()=>{el.remove();overlay.remove();};
+  document.body.appendChild(overlay);document.body.appendChild(el);
 }
 function openAssignForDate(dateStr){
   openM('m-add-assign');
@@ -4469,7 +4494,7 @@ function renderAssignTab(){
     const sa=assigns.filter(a=>a.sid===s.id);
     if(!sa.length&&filterStu)return'';
     const pending=sa.filter(a=>!a.completedAt).length;
-    const recent=sa.slice(0,4);
+    const recent=sa.slice(0,4);const extra=sa.slice(4);
     return `<div class="assign-card">
       <div class="assign-card-head">
         <div>
@@ -4486,17 +4511,19 @@ function renderAssignTab(){
           const hw=hws.find(h=>h.assignmentId===a.id);
           const catLabel=CAT_LABELS[a.category||'']||'';
           const bookLabel=a.bookTitle?a.bookTitle:(a.text?a.text:'');
-          const statusCls=a.completedAt?'bteal':hw?'bamber':'bslate';
-          const statusTxt=a.completedAt?'완료':hw?'제출':'미제출';
+          const needSub=a.type==='reading';
+          const statusCls=a.completedAt?'bteal':hw?'bamber':(needSub?'bslate':'');
+          const statusTxt=a.completedAt?'완료':hw?'제출':(needSub?'미제출':'');
           return `<div class="assign-item">
             <div style="flex:1;min-width:0">
               <div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.range?' '+a.range:''}</div>
               <div style="font-size:10px;color:var(--slate)">${a.due?'~'+a.due:a.date||''}</div>
             </div>
-            <span class="badge ${statusCls}" style="font-size:9px;flex-shrink:0">${statusTxt}</span>
+            ${statusTxt?`<span class="badge ${statusCls}" style="font-size:9px;flex-shrink:0">${statusTxt}</span>`:''}
           </div>`;
         }).join(''):`<div style="font-size:12px;color:var(--slate);padding:8px 0">할당된 과제 없음</div>`}
-        ${sa.length>4?`<div style="font-size:10px;color:var(--slate);text-align:center;padding-top:4px">+${sa.length-4}건 더보기</div>`:''}
+        ${extra.length?`<div id="assign-extra-${s.id}" style="display:none">${extra.map(a=>{const hw=hws.find(h=>h.assignmentId===a.id);const catLabel=CAT_LABELS[a.category||'']||'';const bookLabel=a.bookTitle?a.bookTitle:(a.text?a.text:'');const needSub=a.type==='reading';const statusCls=a.completedAt?'bteal':hw?'bamber':(needSub?'bslate':'');const statusTxt=a.completedAt?'완료':hw?'제출':(needSub?'미제출':'');return `<div class="assign-item"><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.range?' '+a.range:''}</div><div style="font-size:10px;color:var(--slate)">${a.due?'~'+a.due:a.date||''}</div></div>${statusTxt?`<span class="badge ${statusCls}" style="font-size:9px;flex-shrink:0">${statusTxt}</span>`:''}</div>`;}).join('')}</div>
+        <div style="font-size:10px;color:var(--teal);text-align:center;padding-top:4px;cursor:pointer;font-weight:600" onclick="const el=document.getElementById('assign-extra-${s.id}');el.style.display=el.style.display==='none'?'block':'none';this.textContent=el.style.display==='none'?'+${extra.length}건 더보기':'접기'">+${extra.length}건 더보기</div>`:''}
       </div>
     </div>`;
   }).filter(Boolean).join('');
@@ -5088,7 +5115,7 @@ function fillAsgnBookDatalist(dlId,cat){
   if(cat==='book'){
     opts=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
   }else if(_CAT_KO[cat]){
-    const filtered=tbooks.filter(b=>b.category===_CAT_KO[cat]||!b.category);
+    const filtered=tbooks.filter(b=>b.category===_CAT_KO[cat]);
     opts=filtered.map(b=>`<option value="${escAttr(b.title)}">`).join('');
   }else{
     opts=tbooks.map(b=>`<option value="${escAttr(b.title)}">`).join('')+
@@ -5220,7 +5247,7 @@ function fillClHwRowDl(rowEl){
   }else if(cat==='book'){
     opts=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
   }else if(_CAT_KO[cat]){
-    opts=tbooks.filter(b=>b.category===_CAT_KO[cat]||!b.category).map(tbOpt).join('');
+    opts=tbooks.filter(b=>b.category===_CAT_KO[cat]).map(tbOpt).join('');
   }else{
     opts=tbooks.map(tbOpt).join('')+[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
   }
