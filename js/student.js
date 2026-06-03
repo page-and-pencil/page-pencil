@@ -579,22 +579,17 @@ function renderVocabDeck(sid){
     </div>`;
     return;
   }
-  // 저장된 진행 상태 확인 (필터 없을 때만)
+  // 저장된 진행 상태 → 즉시 이어서 카드 표시
   if(!vocabDeckFilter){
     const raw=sessionStorage.getItem('deckState_'+sid);
     if(raw){
       try{
         const saved=JSON.parse(raw);
         if(saved.cards&&saved.cards.length&&saved.idx<saved.cards.length){
-          el.innerHTML=filterLabel+`<div style="padding:1.25rem">
-            <div style="background:var(--tl);border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-              <span style="font-size:13px;font-weight:600">이어서 하기 (${saved.idx}/${saved.cards.length})</span>
-              <div style="display:flex;gap:6px">
-                <button class="btn bt bsm" onclick="resumeVocabDeck()">이어하기</button>
-                <button class="btn bo bsm" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
-              </div>
-            </div>
-          </div>`;
+          deckState=saved;
+          if(deckState.phase===0)renderMemCard(el);
+          else if(deckState.phase===1)renderRecallCard(el);
+          else renderSpellCard(el);
           return;
         }
       }catch(e){}
@@ -608,9 +603,9 @@ function renderVocabDeck(sid){
     if(aDue!==bDue)return bDue-aDue;
     return (b.misses||0)-(a.misses||0);
   });
-  const session=sorted.slice(0,10); // 한 세션 10장
+  const session=sorted.slice(0,10);
   deckState={cards:session,idx:0,phase:0,phaseResults:[],sessionResults:[]};
-  renderVocabPhaseIntro(el);
+  renderMemCard(el);
 }
 
 function renderVocabPhaseIntro(el){
@@ -651,7 +646,10 @@ function renderMemCard(el){
   el.innerHTML=`<div style="padding:1.25rem">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span class="vc-phase phase-mem">👀 암기</span>
-      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+        <button class="btn bo" style="font-size:10px;padding:2px 8px;line-height:1.6" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
+      </div>
     </div>
     <div class="vc-prog">${prog}</div>
     <div class="vc-deck" onclick="flipMemCard(this)">
@@ -705,9 +703,10 @@ function memResult(knew){
     deckState.phase=1;
     const unsure=deckState.phaseResults.filter(r=>!r.knew).map(r=>r.word);
     if(unsure.length===0)deckState.phase=2;
-    deckState.phaseResults=[];
+    deckState.idx=0;deckState.phaseResults=[];
     saveDeckState();
-    renderVocabPhaseIntro(el);
+    if(deckState.phase===1){toast('🧠 리콜 단계 시작!');renderRecallCard(el);}
+    else{toast('✍️ 스펠 단계 시작!');renderSpellCard(el);}
   }else{
     saveDeckState();
     renderMemCard(el);
@@ -724,7 +723,10 @@ function renderRecallCard(el){
   el.innerHTML=`<div style="padding:1.25rem">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span class="vc-phase phase-rec">🧠 리콜</span>
-      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+        <button class="btn bo" style="font-size:10px;padding:2px 8px;line-height:1.6" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
+      </div>
     </div>
     <div class="vc-prog">${prog}</div>
     <div class="recall-wrap">
@@ -781,10 +783,9 @@ function recallNext(){
   deckState.idx++;
   const el=document.getElementById('st-vocab');
   if(deckState.idx>=deckState.cards.length){
-    deckState.phase=2;
-    deckState.phaseResults=[];
+    deckState.phase=2;deckState.idx=0;deckState.phaseResults=[];
     saveDeckState();
-    renderVocabPhaseIntro(el);
+    toast('✍️ 스펠 단계 시작!');renderSpellCard(el);
   }else{
     saveDeckState();
     renderRecallCard(el);
@@ -812,7 +813,10 @@ function renderSpellCard(el){
   el.innerHTML=`<div style="padding:1.25rem">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span class="vc-phase phase-spl">✍️ 스펠</span>
-      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+        <button class="btn bo" style="font-size:10px;padding:2px 8px;line-height:1.6" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
+      </div>
     </div>
     <div class="vc-prog">${prog}</div>
     <div style="text-align:center;margin-bottom:8px">
