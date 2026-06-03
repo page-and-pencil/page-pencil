@@ -1082,6 +1082,7 @@ function renderLes(){
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${l.date||''}</span>
           <button class="btn bo bsm" onclick="openEditLes('${l.id}')">수정</button>
+          <button class="btn bd bsm" onclick="reqDelLesFromPanel('${l.id}','${l.sid}')">삭제</button>
         </div>
       </div>
       ${mats?`<div style="font-size:12px;margin-bottom:4px;line-height:1.8">${mats}</div>`:''}
@@ -3740,7 +3741,8 @@ async function polishCmt(raw){
   if(!apiKey) return polishCmtLocal(r);
 
   try{
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:300,messages:[{role:'user',content:`당신은 영어 교육 전문 선생님입니다. 아래 수업 메모의 내용을 절대 바꾸거나 생략하지 말고, 동일한 내용을 학부모에게 전달하는 따뜻하고 전문적인 톤의 한국어로 200자 내외로 바꿔주세요. 메모에 없는 내용을 추가하거나 일반적인 조언을 넣지 마세요. 마크다운, 이모지, 따옴표 사용 금지. 변환된 문장만 출력하세요. 원문: ${r}`}]});
+    const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다.\n\n작성 규칙:\n분량: 100~200자 (한국어 기준)\n어조: 전문적이면서도 따뜻하고 친근한 존댓말\n구조: 수업 태도 → 학습 내용 → 격려 또는 다음 수업 방향 순으로 자연스럽게 이어지는 한 단락\n주어 없이 시작하되 문장이 어색하지 않게 작성 (예: "오늘 수업에서 ~", "집중력이 ~", "새로운 어휘를 ~")\n과장된 칭찬이나 부정적 표현은 피하고, 구체적이고 사실에 기반한 내용으로 작성\n마침표로 문장을 마무리\n마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.\n\n키워드: ${r}`;
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:350,messages:[{role:'user',content:prompt}]});
     return d.content?.[0]?.text?.trim()||polishCmtLocal(r);
   }catch(e){
     console.warn('polishCmt API 실패, 로컬 폴백:', e.message);
