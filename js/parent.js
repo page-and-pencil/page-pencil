@@ -26,10 +26,26 @@ async function loadParent(sid){
 
   let blocks='';
 
+  // 미확인 항목 알림 배너
+  const lastVisitKey='parentLastVisit_'+sid;
+  const lastVisit=localStorage.getItem(lastVisitKey)||'';
+  const todayIso=new Date().toISOString().split('T')[0];
+  const newLesCount=les.filter(l=>l.date&&l.date>lastVisit).length;
+  const newTstCount=tsts.filter(t=>t.date&&t.date>lastVisit).length;
+  const pendingCount=DB.assigns().filter(a=>a.sid===sid&&!a.completedAt).length;
+  const notifItems=[];
+  if(newLesCount)notifItems.push(`수업 기록 ${newLesCount}건`);
+  if(newTstCount)notifItems.push(`테스트 ${newTstCount}건`);
+  if(pendingCount)notifItems.push(`미완료 숙제 ${pendingCount}개`);
+  if(notifItems.length)blocks+=`<div style="background:linear-gradient(135deg,var(--tl),rgba(0,196,204,.15));border:1px solid rgba(0,196,204,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#005f6b">✨ 새 업데이트: ${notifItems.join(' · ')}</div>`;
+  localStorage.setItem(lastVisitKey,todayIso);
+
   // 블록 A — 최근 수업
   if(latLes){
     const mats=matsToHtml(latLes.materials);
     const polished=latLes.polishedCmt||latLes.cmt||'';
+    const ackKey='parentAck_'+sid+'_'+latLes.id;
+    const isAcked=!!localStorage.getItem(ackKey);
     blocks+=`<div class="card">
       <div class="ch"><span class="ct">📌 최근 수업</span><span style="font-size:11px;color:var(--slate)">${latLes.date||''}</span></div>
       <div class="cb" style="padding:12px 16px">
@@ -37,6 +53,12 @@ async function loadParent(sid){
         ${polished
           ?`<div class="pcmt"><div class="pcmt-lbl">선생님 코멘트</div><div class="pcmt-txt">${polished}</div></div>`
           :`<div style="font-size:12px;color:var(--slate);font-style:italic">수업 코멘트가 곧 업데이트됩니다 😊</div>`}
+        <div style="margin-top:10px;display:flex;justify-content:flex-end">
+          <button id="p-ack-btn" onclick="parentAckLesson('${sid}','${latLes.id}')"
+            style="background:none;border:1.5px solid ${isAcked?'#0A5940':'var(--border)'};border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;color:${isAcked?'#0A5940':'var(--slate)'};font-family:var(--fb);display:flex;align-items:center;gap:4px">
+            ${isAcked?'✓ 확인했습니다':'👍 확인했습니다'}
+          </button>
+        </div>
       </div>
     </div>`;
   }
@@ -135,12 +157,29 @@ async function loadParent(sid){
   }
 
   // 블록 F — 성장 기록
-  if(tsts.length>=2){
+  const vocabCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const masteredVocab=vocabCards.filter(c=>(c.hits||0)>=3).length;
+  const totalVocab=vocabCards.length;
+  const booksThisMonth=rds.filter(r=>r.date&&r.date.startsWith(thisMonthStr)).length;
+  const bkChg=booksThisMonth-rds.filter(r=>r.date&&r.date.startsWith(lastMonthStr)).length;
+  const showChart=tsts.length>=2;
+  if(showChart||totalVocab>0||rds.length>0){
     const arData=getArTrend(sid);
+    const showStats=totalVocab>0||rds.length>0;
+    let statsRow='';
+    if(showStats){
+      const statItem=(val,lbl,sub)=>`<div style="flex:1;text-align:center;padding:8px 6px;background:rgba(0,196,204,.06);border-radius:8px"><div style="font-size:20px;font-weight:700;color:var(--teal)">${val}</div><div style="font-size:10px;color:var(--slate);margin-top:2px">${lbl}</div>${sub?`<div style="font-size:9px;color:rgba(0,0,0,.3)">${sub}</div>`:''}</div>`;
+      const items=[];
+      if(totalVocab>0)items.push(statItem(masteredVocab,'단어 마스터',totalVocab+'개 중'));
+      if(rds.length>0)items.push(statItem(booksThisMonth,'이번 달 독서'+(bkChg>0?' ▲'+bkChg:bkChg<0?' ▼'+Math.abs(bkChg):''),''));
+      if(rds.length>0)items.push(statItem(rds.length,'누적 독서',''));
+      statsRow=`<div style="display:flex;gap:10px;${showChart?'margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)':''}">${items.join('')}</div>`;
+    }
     blocks+=`<div class="card">
       <div class="ch"><span class="ct">📈 성장 기록</span></div>
       <div class="cb" style="padding:12px 16px">
-        <div style="height:140px"><canvas id="p-trend"></canvas></div>
+        ${statsRow}
+        ${showChart?`<div style="height:140px"><canvas id="p-trend"></canvas></div>`:''}
         ${arData.length>=2?renderArBadge(arData):''}
       </div>
     </div>`;
@@ -186,8 +225,8 @@ async function loadParent(sid){
   const acct=DB.acct();
   if(fee||acct.bank||acct.number||payments.length){
     blocks+=`<div class="card">
-      <div class="ch"><span class="ct">💳 결제 안내</span></div>
-      <div class="cb" style="padding:12px 16px">
+      <div class="ch" onclick="togglePaySection()" style="cursor:pointer"><span class="ct">💳 결제 안내</span>${isOverdue?'<span style="font-size:11px;color:var(--coral);font-weight:700;margin-left:auto">⚠️ 미납</span>':''}<span id="pay-toggle-icon" style="font-size:11px;color:var(--slate);margin-left:auto">▼</span></div>
+      <div id="pay-section-body" style="display:none"><div class="cb" style="padding:12px 16px">
         <div>
           <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span class="pay-label">월 수업료</span><span class="pay-value">${fee?fee.toLocaleString()+'원':'미설정'}</span></div>
           <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span class="pay-label">정기 결제일</span><span class="pay-value${isOverdue?' pay-due':''}">${nextPayDate}${isOverdue?' ⚠️':''}</span></div>
@@ -209,11 +248,11 @@ async function loadParent(sid){
           </div>`).join('')}
         </div>`:''}
       </div>
-    </div>`;
+    </div></div>`;
   }
 
-  // 인쇄 버튼 (최하단)
-  blocks+=`<div style="text-align:center;padding:4px 0 16px"><button class="print-btn" onclick="printReport()">🖨️ 리포트 인쇄</button></div>`;
+  // 액션 버튼 (최하단)
+  blocks+=`<div style="display:flex;gap:8px;padding:4px 0 16px"><button onclick="openParentMsgModal('${sid}')" style="flex:1;padding:11px;background:none;border:1.5px solid var(--border);border-radius:10px;font-family:var(--fb);font-size:13px;font-weight:600;cursor:pointer;color:var(--navy)">💬 선생님께 질문하기</button><button class="print-btn" onclick="printReport()" style="flex:1">🖨️ 리포트 인쇄</button></div>`;
 
   document.getElementById('pp-body').innerHTML=blocks;
 
@@ -563,6 +602,66 @@ async function printReport(sidArg){
 
 // ── swPTab (하위호환 유지, 탭 UI 제거) ──
 function swPTab(id){}
+
+// ── PARENT ACK (수업 확인) ──
+async function parentAckLesson(sid,lesId){
+  const ackKey='parentAck_'+sid+'_'+lesId;
+  if(localStorage.getItem(ackKey))return;
+  localStorage.setItem(ackKey,new Date().toISOString());
+  const btn=document.getElementById('p-ack-btn');
+  if(btn){btn.style.borderColor='#0A5940';btn.style.color='#0A5940';btn.innerHTML='✓ 확인했습니다';}
+  try{
+    const msg={id:uid(),sid,from:'parent',text:'수업 내용을 확인했습니다 👍',lesId,date:new Date().toISOString().split('T')[0],type:'ack'};
+    await supaUpsert('messages',msg.id,msg,sid);
+    if(!_cache.messages)_cache.messages=[];
+    _cache.messages.push(msg);
+    toast('확인 완료! 선생님께 전달됩니다 ✓');
+  }catch(e){console.warn('ack 저장 실패',e);}
+}
+
+// ── 결제 섹션 토글 ──
+function togglePaySection(){
+  const body=document.getElementById('pay-section-body');
+  const icon=document.getElementById('pay-toggle-icon');
+  if(!body)return;
+  const isHidden=body.style.display==='none';
+  body.style.display=isHidden?'':'none';
+  if(icon)icon.textContent=isHidden?'▲':'▼';
+}
+
+// ── 학부모 질문 메시지 ──
+function openParentMsgModal(sid){
+  const existing=document.getElementById('parent-msg-modal');
+  if(existing)existing.remove();
+  const modal=document.createElement('div');
+  modal.id='parent-msg-modal';
+  modal.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center';
+  modal.innerHTML=`<div style="background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:500px;box-sizing:border-box">
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px">선생님께 질문하기</div>
+    <textarea id="parent-msg-input" placeholder="궁금한 점을 입력해 주세요" style="width:100%;height:100px;border:1.5px solid var(--border);border-radius:10px;padding:10px;font-family:var(--fb);font-size:13px;resize:none;outline:none;box-sizing:border-box"></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="document.getElementById('parent-msg-modal').remove()" style="flex:1;padding:11px;border:1.5px solid var(--border);border-radius:10px;background:none;font-family:var(--fb);cursor:pointer;font-size:13px">취소</button>
+      <button onclick="sendParentMsg('${sid}')" style="flex:2;padding:11px;background:var(--teal);color:#fff;border:none;border-radius:10px;font-family:var(--fb);font-weight:700;cursor:pointer;font-size:13px">보내기</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+  setTimeout(()=>document.getElementById('parent-msg-input')?.focus(),100);
+}
+async function sendParentMsg(sid){
+  const input=document.getElementById('parent-msg-input');
+  if(!input)return;
+  const text=input.value.trim();
+  if(!text){toast('내용을 입력해 주세요');return;}
+  try{
+    const msg={id:uid(),sid,from:'parent',text,date:new Date().toISOString().split('T')[0],type:'question'};
+    await supaUpsert('messages',msg.id,msg,sid);
+    if(!_cache.messages)_cache.messages=[];
+    _cache.messages.push(msg);
+    document.getElementById('parent-msg-modal')?.remove();
+    toast('선생님께 전달됐습니다 ✓');
+  }catch(e){toast('전송 실패: '+e.message);}
+}
 
 // ── GROWTH TIMELINE ──
 function renderGrowthTimeline(sid){
