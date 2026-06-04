@@ -4663,14 +4663,19 @@ function assignCalMonth(dir){
   renderAssignCal();
 }
 function showAssignDateDetail(dateStr){
-  const assigns=(_cache.assignments||[]).filter(a=>a.due===dateStr||(!a.due&&a.date===dateStr));
+  const assigns=(_cache.assignments||[]).filter(a=>{
+    if(a.category==='class5') return (a.schedule||[]).some(sc=>sc.date===dateStr);
+    return a.due===dateStr||(!a.due&&a.date===dateStr);
+  });
   const stus=DB.stus();
   const CAT_LABELS={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','other':'기타'};
   if(!assigns.length){toast(`${dateStr} — 할당된 과제 없음`);return;}
   const rows=assigns.map(a=>{
     const s=stus.find(x=>x.id===a.sid);
     const cat=CAT_LABELS[a.category||'']||'';
-    const book=a.category==='class5'?c5BookLbl(a):a.bookTitle||a.text||'';
+    // 클래스5: 해당 날짜의 스케줄 항목 표시
+    const sc5=a.category==='class5'?(a.schedule||[]).find(sc=>sc.date===dateStr):null;
+    const book=sc5?[sc5.book,sc5.unit].filter(Boolean).join(', '):(a.category==='class5'?c5BookLbl(a):a.bookTitle||a.text||'');
     return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;gap:8px;align-items:flex-start">
         <span style="font-weight:700;font-size:13px;min-width:48px">${s?.name||'—'}</span>
