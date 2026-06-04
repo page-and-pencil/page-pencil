@@ -826,9 +826,14 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   const unitInput=noUnit?'':` <input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}">`;
   if(baseKey==='pencil_down'){
     const bookVal2=(bookVal==='Pencil Down Day'||!bookVal)?'':bookVal;
-    const dlId='dl-pd-'+Math.random().toString(36).slice(2,7);
-    const pdSugg=['리딩 완주','Sing Together','파닉스 완주','어법 완주','자유 활동'];
-    d.innerHTML=`<span class="sl spd" style="font-size:11px;padding:4px 8px;white-space:nowrap">✏️ Pencil Down</span><datalist id="${dlId}">${pdSugg.map(v=>`<option value="${escAttr(v)}">`).join('')}</datalist><input type="text" placeholder="활동명" data-f="book" list="${dlId}" autocomplete="off" value="${escAttr(bookVal2)}">${noUnit?'':`<input type="text" placeholder="세부 내용" data-f="unit" value="${escAttr(unitVal||'')}">` }<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
+    const iS='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;box-sizing:border-box';
+    d.innerHTML=`<span class="sl spd" style="font-size:11px;padding:4px 8px;white-space:nowrap">✏️ Pencil Down</span>
+      <div style="min-width:0;display:flex;flex-direction:column;gap:3px">
+        <input type="text" placeholder="활동명" data-f="book" value="${escAttr(bookVal2)}" style="${iS}">
+        <button type="button" onclick="const i=this.previousElementSibling;i.value=i.value==='Sing Together'?'':'Sing Together';" style="padding:1px 8px;background:var(--cream2);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:10px;color:var(--slate);font-family:var(--fb);align-self:flex-start;white-space:nowrap">🎵 Sing Together</button>
+      </div>
+      ${noUnit?'':`<input type="text" placeholder="세부 내용" data-f="unit" value="${escAttr(unitVal||'')}" style="${iS}">` }
+      <button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
     wrap.appendChild(d);return;
   }
   if(baseKey==='sing_together'){
@@ -4609,11 +4614,21 @@ function renderAssignCal(){
   const stus=DB.stus().filter(s=>!s.inactive);
   const byDate={};
   assigns.forEach(a=>{
-    if(!a.due)return;
-    const d=a.due.slice(0,10);
-    if(!byDate[d])byDate[d]=[];
-    const stu=stus.find(s=>s.id===a.sid);
-    if(stu)byDate[d].push({stu,a});
+    const stu=stus.find(s=>s.id===a.sid);if(!stu)return;
+    if(a.category==='class5'&&(a.schedule||[]).length){
+      // 클래스5: 스케줄 날짜별로 표시
+      a.schedule.forEach(sc=>{
+        if(!sc.date)return;
+        const d=sc.date.slice(0,10);
+        if(!byDate[d])byDate[d]=[];
+        byDate[d].push({stu,a});
+      });
+    }else{
+      if(!a.due)return;
+      const d=a.due.slice(0,10);
+      if(!byDate[d])byDate[d]=[];
+      byDate[d].push({stu,a});
+    }
   });
   const todayStr=new Date().toISOString().slice(0,10);
   const monthStr=`${year}년 ${month+1}월`;
