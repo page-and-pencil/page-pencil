@@ -468,11 +468,11 @@ async function printReport(sidArg){
   const apiKey=DB.api();
   if(apiKey&&les.length){
     try{
-      const lessSummary=les.slice(0,15).map(l=>`${l.date}: ${Object.entries(l.materials||{}).filter(([,v])=>v.book).map(([,v])=>v.book+(v.unit?' '+v.unit:'')).join(', ')} ${l.cmt||''}`).join('\n');
+      const lessSummary=les.slice(0,15).map(l=>`[${l.date}]\n교재: ${Object.entries(l.materials||{}).filter(([,v])=>v.book).map(([,v])=>v.book+(v.unit?' '+v.unit:'')).join(', ')||'—'}${(l.polishedCmt||l.cmt)?'\n코멘트: '+(l.polishedCmt||l.cmt):''}`).join('\n\n');
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
-        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,messages:[{role:'user',content:`영어학원 선생님이 학부모에게 드리는 학습 총평을 작성해주세요.\n톤: 담담하고 따뜻한 격식체(합쇼체+요체 혼용). 절제된 표현, 감탄사/이모지 없음. 200자 이상.\n\n학생: ${s.name} (${s.grade||''})\n수업 ${les.length}회, 원서 ${rds.length}권, 단어 평균 ${avgV!=null?avgV+'%':'미측정'}\n\n최근 수업 기록:\n${lessSummary}\n\n학부모께 드리는 학기 총평을 200자 이상으로 작성하세요. 메모에 없는 내용 추가 금지.`}]})
+        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:500,messages:[{role:'user',content:`영어학원 선생님이 학부모에게 드리는 수업 기간 통합 코멘트를 작성해주세요.\n\n규칙:\n- 톤: 전문적이면서 따뜻한 격식체(합쇼체+요체 혼용). 감탄사·이모지 없음.\n- 구성: 학습 태도 → 주요 진도 내용 → 특기 사항 순\n- 아래 일별 기록의 내용을 바탕으로 통합·재구성하세요. 기록에 없는 내용 추가 금지.\n- 200자 이상 출력\n\n학생: ${s.name} (${s.grade||''})\n수업 ${les.length}회 | 원서 ${rds.length}권 | 단어 평균 ${avgV!=null?avgV+'%':'미측정'}\n\n일별 수업 기록:\n${lessSummary}\n\n통합 코멘트만 출력하세요.`}]})
       });
       if(res.ok){const d=await res.json();aiComment=d.content?.[0]?.text?.trim()||'';}
     }catch(e){console.warn('printReport AI 실패:',e.message);}
@@ -527,7 +527,7 @@ async function printReport(sidArg){
     ${(latTst.wrongWords||[]).length?`<div style="font-size:12px">다시 볼 단어: <strong>${latTst.wrongWords.slice(0,8).join(', ')}</strong></div>`:''}
   </div>`:''}
   ${aiComment?`<div class="section">
-    <div class="section-title">📝 선생님 종합 코멘트</div>
+    <div class="section-title">💬 수업 기간 종합 코멘트</div>
     <div class="comment-box" style="font-size:13px;line-height:1.8">${aiComment}</div>
   </div>`:''}
   ${Object.keys(matMap).length?`<div class="section">
@@ -536,13 +536,6 @@ async function printReport(sidArg){
       <thead><tr style="background:#f0fffe"><th style="text-align:left;padding:5px 8px;border-bottom:1px solid #d0f0f0">구분</th><th style="text-align:left;padding:5px 8px;border-bottom:1px solid #d0f0f0">교재명</th><th style="text-align:left;padding:5px 8px;border-bottom:1px solid #d0f0f0">진도 기록</th></tr></thead>
       <tbody>${Object.values(matMap).map(m=>`<tr style="border-bottom:1px solid #eee"><td style="padding:5px 8px;color:#888">${m.label}</td><td style="padding:5px 8px;font-weight:600">${m.book}</td><td style="padding:5px 8px;color:#666">${m.units.slice(-5).join(' → ')||'—'}</td></tr>`).join('')}</tbody>
     </table>
-  </div>`:''}
-  ${recentLes.length?`<div class="section">
-    <div class="section-title">💬 수업별 코멘트</div>
-    ${recentLes.map(l=>`<div class="comment-box">
-      <div class="comment-date">${l.date||''}</div>
-      <div>${l.polishedCmt||l.cmt}</div>
-    </div>`).join('')}
   </div>`:''}
   ${rds.length?`<div class="section">
     <div class="section-title">📗 읽은 원서 (${rds.length}권)</div>

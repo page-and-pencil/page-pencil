@@ -275,7 +275,7 @@ function renderSpVocab(sid){
     <input type="checkbox" class="vocab-chk" data-id="${c.id}" style="margin-top:4px;flex-shrink:0;cursor:pointer">
     <div style="flex:1;min-width:0">
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:5px">
-        <span style="font-weight:700;font-size:13px;font-family:var(--fd)">${c.word}</span>
+        <input type="text" value="${escAttr(c.word||'')}" placeholder="영단어" onblur="saveVocabField('${c.id}','${sid}','word',this.value)" style="${inpStyle};font-size:13px;font-weight:700;font-family:var(--fd);width:auto;min-width:80px;max-width:150px">
         ${c.pos?`<span style="font-size:10px;color:var(--slate)">${c.pos}</span>`:''}
         <span class="badge ${PHASE_CLS[c.phase||0]}" style="font-size:10px">${PHASE_LBL[c.phase||0]}</span>
         ${srcBadge(c.source)}
@@ -397,7 +397,18 @@ async function loadStuPanel(sid){
   document.getElementById('sp-lessons').innerHTML=!les.length
     ?'<div class="empty"><div class="empty-i">📚</div><div class="empty-t">수업 기록 없음</div></div>'
     :`${lesSlice.map(l=>{
-      const mats=matsToHtml(l.materials);const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
+      const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
+      const tbParts=[],bookParts=[];
+      Object.entries(l.materials||{}).forEach(([k,v])=>{
+        if(!v.book)return;
+        const isBook=k==='_book'||k.startsWith('_book_');
+        const baseKey=k.replace(/_\d+$/,'');
+        const label=isBook?'원서':(SLBL[baseKey]||'');
+        const cls=isBook?'srd':(SCLS[baseKey]||'');
+        if(!label&&!v.book)return;
+        const html=`<span class="spill ${cls}">${label}</span> ${v.book||''}${v.unit?' '+v.unit:''}`;
+        if(isBook)bookParts.push(html);else tbParts.push(html);
+      });
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
         <div style="display:flex;gap:4px;margin-bottom:4px;justify-content:space-between;align-items:center">
           <span style="font-size:12px;font-family:var(--fm);color:var(--slate)">${l.date||''}</span>
@@ -407,7 +418,8 @@ async function loadStuPanel(sid){
             <button class="btn bd" style="padding:2px 8px;font-size:10px" onclick="reqDelLesFromPanel('${l.id}','${sid}')">🗑️</button>
           </div>
         </div>
-        ${mats?`<div style="font-size:12px;margin-bottom:3px;line-height:1.8">${mats}</div>`:''}
+        ${tbParts.length?`<div style="font-size:12px;margin-bottom:${bookParts.length||l.cmt?'4px':'0'};line-height:1.8">${tbParts.join(' &nbsp;')}</div>`:''}
+        ${bookParts.length?`<div style="font-size:12px;margin-bottom:${l.cmt?'4px':'0'};line-height:1.8;padding:4px 8px;background:var(--cream2);border-radius:6px">${bookParts.join(' &nbsp;')}</div>`:''}
         ${l.cmt?`<div style="font-size:12px;color:var(--slate)">${l.cmt}</div>`:''}
       </div>`;
     }).join('')}
@@ -811,18 +823,11 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   const addBtn=baseKey==='naesin'?`<button class="btn-xadd" title="내신 교재 추가" onclick="addSRowTo('${wrapperId}','naesin')">+</button>`:'';
   const noUnit=wrapperId==='ec-subj-rows';
   const unitInput=noUnit?'':` <input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}">`;
-  // 특별 항목: Pencil Down / Sing Together는 wrapperId 무관하게 고정 처리
   if(baseKey==='pencil_down'){
-    const songVal=unitVal||'';const hasSing=!!songVal;
-    const iS='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;flex:1;min-width:80px';
-    d.innerHTML=`<span class="sl spd" style="font-style:italic;font-size:11px;padding:4px 8px;white-space:nowrap">✏️ Pencil Down</span>
-      <div style="display:flex;align-items:center;gap:6px;grid-column:span 2;min-width:0;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--navy);white-space:nowrap">Pencil Down Day</span>
-        <button type="button" class="chip sst ${hasSing?'active':''}" style="font-size:10px;padding:2px 9px;flex-shrink:0" onclick="togglePdSing(this)">🎵 Sing Together</button>
-        <input type="text" data-f="unit" placeholder="곡명 입력" value="${escAttr(songVal)}" style="${iS};display:${hasSing?'block':'none'}">
-      </div>
-      <button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
-    const hidden=document.createElement('input');hidden.type='hidden';hidden.dataset.f='book';hidden.value='Pencil Down Day';d.appendChild(hidden);
+    const bookVal2=(bookVal==='Pencil Down Day'||!bookVal)?'':bookVal;
+    const dlId='dl-pd-'+Math.random().toString(36).slice(2,7);
+    const pdSugg=['리딩 완주','Sing Together','파닉스 완주','어법 완주','자유 활동'];
+    d.innerHTML=`<span class="sl spd" style="font-size:11px;padding:4px 8px;white-space:nowrap">✏️ Pencil Down</span><datalist id="${dlId}">${pdSugg.map(v=>`<option value="${escAttr(v)}">`).join('')}</datalist><input type="text" placeholder="활동명" data-f="book" list="${dlId}" autocomplete="off" value="${escAttr(bookVal2)}">${noUnit?'':`<input type="text" placeholder="세부 내용" data-f="unit" value="${escAttr(unitVal||'')}">` }<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
     wrap.appendChild(d);return;
   }
   if(baseKey==='sing_together'){
