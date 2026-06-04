@@ -668,7 +668,7 @@ function renderMemCard(el){
         </div>
         <div class="vc-face vc-back">
           <div class="vc-meaning" id="vc-meaning-${card.id}">${card.meaning?card.meaning:'<span style="font-size:13px;color:var(--slate)">뜻 불러오는 중...</span>'}</div>
-          ${card.example?`<div class="vc-ex">${card.example}</div>`:''}
+          ${card.example&&/[a-zA-Z]/.test(card.example)?`<div class="vc-ex">${card.example}</div>`:''}
         </div>
       </div>
     </div>
@@ -1021,26 +1021,44 @@ async function completeAssignment(sid,asgnId){
 
 // ── STUDENT HOME TAB ──
 let homeAsgnAudioBlob=null,homeAsgnCurrentId='';
+function showStatDetail(sid,type){
+  let title='',rows='';
+  if(type==='assign'){
+    const items=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
+    title=`완료한 숙제 (${items.length}건)`;
+    const catIcon={phonics:'📘',vocab:'📝',grammar:'✏️',reading:'📖',listening:'🎧',writing:'✍️',naesin:'📋',book:'📗',class5:'🎮'};
+    rows=items.map(a=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span>${catIcon[a.category]||'📋'} ${a.bookTitle||a.text||''}</span>${a.range?`<span style="color:var(--slate)"> · ${a.range}</span>`:''}</div>`).join('')||'없음';
+  }else if(type==='vocab'){
+    const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&(c.hits||0)>0).sort((a,b)=>(b.hits||0)-(a.hits||0));
+    title=`외운 단어 히트 수 기준`;
+    rows=cards.slice(0,30).map(c=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="font-weight:600;font-family:var(--fd)">${c.word}</span><span style="color:var(--teal)">×${c.hits}</span></div>`).join('')||'없음';
+  }else{
+    const rds=DB.rds().filter(r=>r.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    title=`읽은 책 (${rds.length}권)`;
+    rows=rds.map(r=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="font-weight:600">${r.title||'—'}</span>${r.progress?`<span style="color:var(--slate)"> · ${r.progress}</span>`:''} <span style="font-size:10px;color:var(--slate)">${r.date||''}</span></div>`).join('')||'없음';
+  }
+  const box=document.createElement('div');
+  box.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:var(--rs);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:2000;padding:20px;min-width:260px;max-width:400px;width:88vw;max-height:65vh;overflow-y:auto';
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-size:13px;font-weight:700">${title}</span><button style="background:none;border:none;font-size:20px;cursor:pointer" onclick="this.closest('div[style]').remove();document.getElementById('stat-overlay').remove()">×</button></div>${rows}`;
+  const ov=document.createElement('div');ov.id='stat-overlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1999';
+  ov.onclick=()=>{box.remove();ov.remove();};
+  document.body.appendChild(ov);document.body.appendChild(box);
+}
 function renderHomeStats(sid){
   const completedCount=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).length;
   const vocabHits=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).reduce((s,c)=>s+(c.hits||0),0);
   const rdsCount=DB.rds().filter(r=>r.sid===sid).length;
   if(!completedCount&&!vocabHits&&!rdsCount)return '';
+  const statBox=(val,color,label,type)=>`<div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center;cursor:pointer;transition:.15s" onclick="showStatDetail('${sid}','${type}')" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background='#fff'">
+    <div style="font-size:24px;font-weight:700;color:${color};font-family:var(--fm)">${val}</div>
+    <div style="font-size:10px;color:var(--slate);margin-top:2px">${label}</div>
+  </div>`;
   return `<details style="margin-top:16px">
-    <summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;padding:4px 0">📊 내 기록</summary>
+    <summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;padding:4px 0">📊 내 기록 (클릭하면 상세 보기)</summary>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px">
-      <div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center">
-        <div style="font-size:24px;font-weight:700;color:var(--navy);font-family:var(--fm)">${completedCount}</div>
-        <div style="font-size:10px;color:var(--slate);margin-top:2px">완료 숙제</div>
-      </div>
-      <div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center">
-        <div style="font-size:24px;font-weight:700;color:var(--teal);font-family:var(--fm)">${vocabHits}</div>
-        <div style="font-size:10px;color:var(--slate);margin-top:2px">외운 단어</div>
-      </div>
-      <div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center">
-        <div style="font-size:24px;font-weight:700;color:var(--navy);font-family:var(--fm)">${rdsCount}</div>
-        <div style="font-size:10px;color:var(--slate);margin-top:2px">읽은 책</div>
-      </div>
+      ${statBox(completedCount,'var(--navy)','완료 숙제','assign')}
+      ${statBox(vocabHits,'var(--teal)','외운 단어','vocab')}
+      ${statBox(rdsCount,'var(--navy)','읽은 책','rds')}
     </div>
   </details>`;
 }
@@ -1169,7 +1187,10 @@ function renderStudentHome(sid){
       body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">단어 암기</div><div class="wl" style="margin-top:4px">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
       if(!isDone)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:12px" onclick="openVocabForAssignment('${sid}','${a.id}')">📚 단어장 열기 →</button>`;
     } else {
-      body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">${a.text||''}</div>`;
+      const catIcon={phonics:'📘',vocab:'📝',grammar:'✏️',reading:'📖',listening:'🎧',writing:'✍️',naesin:'📋',book:'📗',class5:'🎮'};
+      const icon=catIcon[a.category]||'📋';
+      body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">${icon} ${a.bookTitle||a.text||''}</div>`;
+      if(a.range)body+=`<div style="font-size:12px;color:var(--slate);margin-top:3px">${a.range}</div>`;
     }
     const canCheck=(a.type!=='reading'||!!hw);
     return `<div class="hw-check-card${isDone?' done':''}" id="hw-card-${a.id}">
