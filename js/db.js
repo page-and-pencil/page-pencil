@@ -96,7 +96,7 @@ async function sbGet(table){
   return data.map(r=>r.data||r);
 }
 async function sbGetSettings(key){
-  const {data}=await supa.from('settings').select('value').eq('key',key).single();
+  const {data}=await supa.from('settings').eq('key',key).single();
   return data?data.value:null;
 }
 async function sbSetSettings(key,value){
@@ -224,7 +224,7 @@ async function loadAllData(){
     _cache.globalTextbooks=(gtbs||[]).map(r=>(r.data||r));
     _cache.globalClasses=(clss||[]).map(r=>(r.data||r));
     if(acct)_cache.settings.acct=acct;
-    if(pw)_cache.settings.pw=pw;
+    if(pw){_cache.settings.pw=pw;DB.s('pw',pw);}
     const [apikey,cloud]=await Promise.all([supaGetSetting('apikey'),supaGetSetting('cloud')]);
     const _dk=String.fromCharCode(115,107,45,97,110,116,45,97,112,105,48,51,45,108,69,72,49,104,87,56,57,78,106,68,45,72,104,120,51,97,101,55,82,113,69,70,99,122,53,105,118,110,86,111,67,67,80,67,51,77,114,52,69,99,54,107,75,88,70,74,111,54,111,115,67,88,101,87,78,83,97,122,120,97,86,51,114,102,106,78,89,81,104,83,84,107,115,116,99,110,56,72,74,54,122,75,114,85,81,45,103,106,103,89,122,103,65,65);
     const DEFAULT_CLD={name:'drwys3bkz',preset:'pp_unsigned'};

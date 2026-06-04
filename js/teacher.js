@@ -9,6 +9,13 @@ async function checkPin(){
   const pin=document.getElementById('pin-code').value;
   const err=document.getElementById('pin-err');
   if(!name){err.textContent='아이 이름을 입력해 주세요';return;}
+  if(!_cache.students.length){
+    const btn=document.querySelector('#s-pin .btn-full');
+    if(btn){btn.disabled=true;btn.textContent='조회 중...';}
+    err.textContent='';
+    try{await loadAllData();}catch(e){}
+    if(btn){btn.disabled=false;btn.textContent='조회하기';}
+  }
   const s=DB.stus().find(x=>x.name===name);
   if(!s){err.textContent='등록된 학생을 찾을 수 없습니다';return;}
   if(s.pin===pin){document.getElementById('pin-code').value='';err.textContent='';await loadParentWithNotice(s.id);}
@@ -675,7 +682,8 @@ function renderStus(){
   if(cnt)cnt.textContent=`${stus.length}명`;
 
   if(!stus.length){
-    g.innerHTML='<div class="empty"><div class="empty-i">👦</div><div class="empty-t">조건에 맞는 학생이 없습니다</div></div>';
+    const noFilter=!q&&!filterGrade&&!filterSchool&&filterStatus==='active';
+    g.innerHTML=`<div class="empty"><div class="empty-i">👦</div><div class="empty-t">${noFilter?'등록된 학생이 없습니다':'조건에 맞는 학생이 없습니다'}</div>${noFilter?`<button class="btn ba bsm" style="margin-top:12px" onclick="openM('m-add-stu')">+ 첫 학생 추가하기</button>`:''}</div>`;
     return;
   }
   g.innerHTML=stus.map(s=>`<div class="sc${s.inactive?' inactive':''}" onclick="selStu('${s.id}',this)">
