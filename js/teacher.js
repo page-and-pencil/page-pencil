@@ -519,7 +519,8 @@ async function loadStuPanel(sid){
             <div style="font-size:12px;font-weight:700;margin-top:2px">${
               a.type==='reading'?`📖 ${a.bookTitle||''}${a.range?' ('+a.range+')':''}`:
               a.type==='vocab'?`📝 단어: ${(a.words||[]).join(', ')}`:
-              `${a.category==='class5'?'🎮 Class5':a.bookTitle||a.text||''}${a.range?' · '+a.range:''}`
+              a.category==='class5'?`🎮 [클래스5] ${c5BookLbl(a)}`:
+              `${a.bookTitle||a.text||''}${a.range?' · '+a.range:''}`
             }</div>
           </div>
           ${a.type==='reading'?`<span class="hw-status-badge ${submitted?'checked':'pending'}">${submitted?'제출완료':'미제출'}</span>`:''}
@@ -4654,7 +4655,7 @@ function showAssignDateDetail(dateStr){
   const rows=assigns.map(a=>{
     const s=stus.find(x=>x.id===a.sid);
     const cat=CAT_LABELS[a.category||'']||'';
-    const book=a.bookTitle||a.text||'';
+    const book=a.category==='class5'?c5BookLbl(a):a.bookTitle||a.text||'';
     return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;gap:8px;align-items:flex-start">
         <span style="font-weight:700;font-size:13px;min-width:48px">${s?.name||'—'}</span>
@@ -4694,7 +4695,7 @@ function renderAssignTab(){
   const assigns=DB.assigns().sort((a,b)=>(b.due||b.date||'').localeCompare(a.due||a.date||''));
   if(!showStus.length){el.innerHTML='<div class="empty"><div class="empty-i">📋</div><div class="empty-t">학생 없음</div></div>';return;}
   const hws=_cache.homeworks||[];
-  const CAT_LABELS={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','other':'기타'};
+  const CAT_LABELS={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','other':'기타'};
   const cards=showStus.map(s=>{
     const sa=assigns.filter(a=>a.sid===s.id);
     if(!sa.length&&filterStu)return'';
@@ -4715,7 +4716,7 @@ function renderAssignTab(){
         ${recent.length?recent.map(a=>{
           const hw=hws.find(h=>h.assignmentId===a.id);
           const catLabel=CAT_LABELS[a.category||'']||'';
-          const bookLabel=a.category==='class5'?`클래스5 진도 (${(a.schedule||[]).length}일)`:a.bookTitle?a.bookTitle:(a.text?a.text:'');
+          const bookLabel=a.category==='class5'?c5BookLbl(a):a.bookTitle?a.bookTitle:(a.text?a.text:'');
           const needSub=a.type==='reading';
           const statusCls=a.completedAt?'bteal':hw?'bamber':(needSub?'bslate':'');
           const statusTxt=a.completedAt?'완료':hw?'제출':(needSub?'미제출':'');
@@ -4727,13 +4728,14 @@ function renderAssignTab(){
             ${statusTxt?`<span class="badge ${statusCls}" style="font-size:9px;flex-shrink:0">${statusTxt}</span>`:''}
           </div>`;
         }).join(''):`<div style="font-size:12px;color:var(--slate);padding:8px 0">할당된 과제 없음</div>`}
-        ${extra.length?`<div id="assign-extra-${s.id}" style="display:none">${extra.map(a=>{const hw=hws.find(h=>h.assignmentId===a.id);const catLabel=CAT_LABELS[a.category||'']||'';const bookLabel=a.bookTitle?a.bookTitle:(a.text?a.text:'');const needSub=a.type==='reading';const statusCls=a.completedAt?'bteal':hw?'bamber':(needSub?'bslate':'');const statusTxt=a.completedAt?'완료':hw?'제출':(needSub?'미제출':'');return `<div class="assign-item"><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.range?' '+a.range:''}</div><div style="font-size:10px;color:var(--slate)">${a.due?'~'+a.due:a.date||''}</div></div>${statusTxt?`<span class="badge ${statusCls}" style="font-size:9px;flex-shrink:0">${statusTxt}</span>`:''}</div>`;}).join('')}</div>
+        ${extra.length?`<div id="assign-extra-${s.id}" style="display:none">${extra.map(a=>{const hw=hws.find(h=>h.assignmentId===a.id);const catLabel=CAT_LABELS[a.category||'']||'';const bookLabel=a.category==='class5'?c5BookLbl(a):a.bookTitle?a.bookTitle:(a.text?a.text:'');const needSub=a.type==='reading';const statusCls=a.completedAt?'bteal':hw?'bamber':(needSub?'bslate':'');const statusTxt=a.completedAt?'완료':hw?'제출':(needSub?'미제출':'');return `<div class="assign-item"><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.range?' '+a.range:''}</div><div style="font-size:10px;color:var(--slate)">${a.due?'~'+a.due:a.date||''}</div></div>${statusTxt?`<span class="badge ${statusCls}" style="font-size:9px;flex-shrink:0">${statusTxt}</span>`:''}</div>`;}).join('')}</div>
         <div style="font-size:10px;color:var(--teal);text-align:center;padding-top:4px;cursor:pointer;font-weight:600" onclick="const el=document.getElementById('assign-extra-${s.id}');el.style.display=el.style.display==='none'?'block':'none';this.textContent=el.style.display==='none'?'+${extra.length}건 더보기':'접기'">+${extra.length}건 더보기</div>`:''}
       </div>
     </div>`;
   }).filter(Boolean).join('');
   el.innerHTML=`<div class="assign-grid">${cards||'<div style="color:var(--slate);font-size:13px">과제 없음</div>'}</div>`;
 }
+function c5BookLbl(a){const sc=a.schedule||[];if(!sc.length)return '';const f=sc[0];const c=[f.book,f.unit].filter(Boolean).join(', ');return sc.length>1?c+` 외 ${sc.length-1}일`:c;}
 function openAssignModal(sid){
   document.getElementById('modal-assign-stu').value=sid||'';
   const today=new Date().toISOString().split('T')[0];
