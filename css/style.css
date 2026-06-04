@@ -8,7 +8,7 @@
   --slate:#4A5568;--border:rgba(13,37,66,0.1);
   --sh:0 2px 16px rgba(13,37,66,0.08);--shlg:0 8px 32px rgba(13,37,66,0.14);
   --r:10px;--rs:6px;
-  --fb:'Pretendard','Noto Sans KR',sans-serif;--fd:'Montserrat',sans-serif;--fm:'DM Mono',monospace;
+  --fb:'Pretendard','Noto Sans KR',sans-serif;--fd:'Montserrat',sans-serif;--fm:'Pretendard','Noto Sans KR',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height:100vh;font-size:14px;line-height:1.6;}
@@ -53,7 +53,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .vc-face{position:absolute;inset:0;backface-visibility:hidden;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;}
 .vc-front{background:var(--navy);color:#fff;}
 .vc-back{background:#fff;border:2px solid var(--teal);transform:rotateY(180deg);}
-.vc-word{font-family:var(--fd);font-size:clamp(22px,6vw,36px);font-weight:700;letter-spacing:-.01em;text-align:center;}
+.vc-word{font-family:var(--fb);font-size:clamp(22px,6vw,36px);font-weight:700;letter-spacing:-.01em;text-align:center;}
 .vc-pos{font-size:11px;opacity:.5;margin-top:4px;font-family:var(--fm);letter-spacing:.08em;text-transform:uppercase;}
 .vc-meaning{font-size:clamp(16px,4vw,22px);font-weight:600;color:var(--navy);text-align:center;}
 .vc-ex{font-size:12px;color:var(--slate);margin-top:8px;line-height:1.7;text-align:center;font-style:italic;}
@@ -75,7 +75,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 
 /* RECALL INPUT */
 .recall-wrap{width:100%;max-width:340px;margin:0 auto;}
-.recall-word{font-family:var(--fd);font-size:28px;font-weight:700;color:var(--navy);text-align:center;margin-bottom:6px;}
+.recall-word{font-family:var(--fb);font-size:28px;font-weight:700;color:var(--navy);text-align:center;margin-bottom:6px;}
 .recall-pos{font-size:11px;color:var(--slate);text-align:center;margin-bottom:20px;font-family:var(--fm);}
 .recall-input{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:10px;font-family:var(--fb);font-size:18px;font-weight:600;color:var(--navy);text-align:center;outline:none;transition:border-color .2s;background:#fff;}
 .recall-input:focus{border-color:var(--teal);}
@@ -85,11 +85,11 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 
 /* SPELL INPUT */
 .spell-blanks{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:16px 0;}
-.spell-blank{width:34px;height:40px;border-bottom:2px solid var(--navy);display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:20px;font-weight:700;color:var(--navy);transition:border-color .2s;}
+.spell-blank{width:34px;height:40px;border-bottom:2px solid var(--navy);display:flex;align-items:center;justify-content:center;font-family:var(--fb);font-size:20px;font-weight:700;color:var(--navy);transition:border-color .2s;}
 .spell-blank.filled{border-bottom-color:var(--teal);}
 .spell-blank.hint-shown{color:rgba(13,37,66,.3);}
 .spell-keys{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px;}
-.spell-key{width:34px;height:38px;border-radius:7px;border:1.5px solid var(--border);background:#fff;font-family:var(--fd);font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;color:var(--navy);}
+.spell-key{width:34px;height:38px;border-radius:7px;border:1.5px solid var(--border);background:#fff;font-family:var(--fb);font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;color:var(--navy);}
 .spell-key:hover{border-color:var(--teal);background:var(--tl);}
 .spell-key:disabled{opacity:.3;cursor:default;}
 
@@ -272,7 +272,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 
 /* PARENT */
 .ph{background:var(--navy);padding:1.5rem 1.25rem 1rem;color:#fff;}
-.psn{font-family:var(--fd);font-size:24px;margin-bottom:2px;}
+.psn{font-family:var(--fb);font-size:24px;margin-bottom:2px;}
 .pmeta{font-size:12px;color:rgba(255,255,255,.5);}
 .ptabs{background:#fff;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;padding:0 1rem;scrollbar-width:none;}
 .ptabs::-webkit-scrollbar{display:none;}
