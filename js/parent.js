@@ -26,14 +26,6 @@ async function loadParent(sid){
 
   let blocks='';
 
-  // 미니 추이 차트 (최상단)
-  if(tsts.length>=2){
-    blocks+=`<div class="p-score-mini" style="margin-bottom:10px">
-      <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:6px">📈 단어 점수 추이 (최근 5회)</div>
-      <div style="height:56px"><canvas id="p-mini-trend"></canvas></div>
-    </div>`;
-  }
-
   // 블록 A — 최근 수업
   if(latLes){
     const mats=matsToHtml(latLes.materials);
@@ -253,33 +245,6 @@ async function loadParent(sid){
         if(pC.trend)pC.trend.destroy();
         const ct=[...tsts].reverse().slice(-10);
         pC.trend=new Chart(cv.getContext('2d'),{type:'line',data:{labels:ct.map(t=>t.date?t.date.slice(5):''),datasets:[{label:'단어',data:ct.map(t=>pct(t.vocabCorrect,t.vocabTotal)),borderColor:'#00c4cc',backgroundColor:'rgba(0,196,204,.1)',tension:.3,fill:true,pointBackgroundColor:'#00c4cc',pointRadius:4},{label:'어법',data:ct.map(t=>pct(t.grammarCorrect,t.grammarTotal)),borderColor:'#005f6b',backgroundColor:'rgba(0,95,107,.07)',tension:.3,fill:true,pointBackgroundColor:'#005f6b',pointRadius:4},{label:'평균',data:ct.map(()=>Math.round(ct.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/ct.length)),borderColor:'rgba(0,0,0,.2)',borderDash:[5,5],borderWidth:1.5,pointRadius:0,fill:false,tension:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
-      }
-      const cvMini=document.getElementById('p-mini-trend');
-      if(cvMini){
-        if(pC.miniTrend)pC.miniTrend.destroy();
-        const ct5=[...tsts].reverse().slice(-5);
-        pC.miniTrend=new Chart(cvMini.getContext('2d'),{
-          type:'line',
-          data:{
-            labels:ct5.map(t=>t.date?t.date.slice(5):''),
-            datasets:[{
-              data:ct5.map(t=>pct(t.vocabCorrect,t.vocabTotal)),
-              borderColor:'#00c4cc',
-              backgroundColor:'rgba(0,196,204,.1)',
-              tension:.3,fill:true,
-              pointBackgroundColor:'#00c4cc',
-              pointRadius:3,borderWidth:2
-            }]
-          },
-          options:{
-            responsive:true,maintainAspectRatio:false,
-            plugins:{legend:{display:false}},
-            scales:{
-              y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:9},maxTicksLimit:3},grid:{color:'rgba(0,0,0,.04)'}},
-              x:{ticks:{font:{size:9}},grid:{display:false}}
-            }
-          }
-        });
       }
     }
   },150);

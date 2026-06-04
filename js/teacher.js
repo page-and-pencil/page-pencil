@@ -635,6 +635,7 @@ function renderStus(){
     <span class="slv lv1">${s.grade||s.lv||''}</span>
     ${s.school?`<div style="font-size:10px;color:var(--slate);margin-top:2px">${s.school}</div>`:''}
     ${s.memo?`<div style="font-size:11px;color:var(--slate);margin-top:2px">${s.memo}</div>`:''}
+    ${!s.inactive?`<button class="btn bt bsm" style="margin-top:6px;width:100%;font-size:10px;padding:3px 0" onclick="event.stopPropagation();goAddLesson('${s.id}')">+ 수업 기록</button>`:''}
   </div>`).join('');
 }
 
@@ -926,8 +927,8 @@ async function saveLes(){
   const _sStu=DB.stus().find(x=>x.id===sid);
   const rawCmt=document.getElementById('ls-cmt').value.trim();
   toast('저장 중...');
-  // 저장 시점에 코멘트 변환 (학부모용)
-  const polishedCmt=rawCmt?await polishCmt(rawCmt):'';
+  // 캐시된 다듬기 결과 재사용 (미리보기를 이미 클릭한 경우 API 중복 호출 방지)
+  const polishedCmt=rawCmt?(typeof _polishedCmtCache!=='undefined'&&_polishedCmtCache.raw===rawCmt&&_polishedCmtCache.polished?_polishedCmtCache.polished:await polishCmt(rawCmt)):'';
   const _sStuGrade=document.getElementById('ls-grade')?.value||(_sStu&&(_sStu.grade||_sStu.lv))||'';
   const newLes={id:uid(),sid,date:document.getElementById('ls-date').value,grade:_sStuGrade,att:document.getElementById('ls-att').value,materials:getSMats(),cmt:rawCmt,polishedCmt};
   await supaUpsert('lessons',newLes.id,newLes,sid);
@@ -935,6 +936,8 @@ async function saveLes(){
   addUnitWordsToVocab(sid,newLes.materials,newLes.date).catch(()=>{});
   document.getElementById('ls-cmt').value='';clearSRows();
   document.getElementById('ls-last-hint').style.display='none';
+  if(typeof _polishedCmtCache!=='undefined')_polishedCmtCache={raw:'',polished:''};
+  const _ph=document.getElementById('polished-ready-hint');if(_ph)_ph.style.display='none';
   renderLes();toast('수업 기록이 저장되었습니다');
   checkNewBadges(sid);
   showLesFollowup(sid,newLes.date,_sStu?.name||'');
@@ -4159,16 +4162,25 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
   if(!todayClasses.length){
     body=`<div style="color:var(--slate);font-size:13px">오늘 수업 없음 — <span style="color:var(--teal);cursor:pointer;text-decoration:underline" onclick="swTab('t-class')">클래스 만들기</span></div>`;
   } else {
+    const todayLessonSids=new Set(DB.less().filter(l=>l.date===todayStr).map(l=>l.sid));
     body=todayClasses.map(c=>{
-      const done=DB.less().some(l=>l.date===todayStr&&l.classId===c.id);
+      const classRecorded=DB.less().some(l=>l.date===todayStr&&l.classId===c.id);
       const students=(allStus||[]).filter(s=>(c.studentIds||[]).includes(s.id));
-      return `<div class="dash-class-row${done?' done':''}">
+      const timeLabel=(c.timeStart||c.time)?`<span style="font-size:12px;color:var(--slate);font-weight:400;margin-left:6px">${c.timeStart?(c.timeStart+(c.timeEnd?'~'+c.timeEnd:'')):c.time}</span>`:'';
+      const stuRows=students.map(s=>{
+        const done=todayLessonSids.has(s.id);
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0">
+          <span style="font-size:12px;cursor:pointer;color:${done?'var(--slate)':'var(--navy)'}" onclick="loadStuPanel('${s.id}')">${s.name}</span>
+          ${done?`<span style="font-size:11px;color:#0A5940;font-weight:700">✓</span>`:`<button class="btn bt bsm" style="font-size:10px;padding:1px 8px" onclick="goAddLesson('${s.id}')">+ 기록</button>`}
+        </div>`;
+      }).join('');
+      return `<div class="dash-class-row">
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px">${c.name}${(c.timeStart||c.time)?`<span style="font-size:12px;color:var(--slate);font-weight:400;margin-left:6px">${c.timeStart?(c.timeStart+(c.timeEnd?'~'+c.timeEnd:'')):c.time}</span>`:''}</div>
-          <div style="font-size:12px;color:var(--slate);margin-top:2px">${students.map(s=>`<span onclick="loadStuPanel('${s.id}')" style="cursor:pointer;text-decoration:underline">${s.name}</span>`).join(' · ')||'학생 없음'}</div>
-        </div>
-        <div style="flex-shrink:0">
-          ${done?`<span style="font-size:12px;color:#0A5940;font-weight:600">✓ 완료</span> <button class="btn bo bsm" onclick="openClassLessonEdit('${c.id}','${todayStr}')">수정</button>`:`<button class="btn bt bsm" onclick="openClassLesson('${c.id}','${todayStr}')">수업 기록</button>`}
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${students.length?'6px':'0'}">
+            <div><span style="font-weight:700;font-size:14px">${c.name}</span>${timeLabel}</div>
+            <button class="btn ${classRecorded?'bo':'bt'} bsm" style="font-size:11px;flex-shrink:0" onclick="${classRecorded?`openClassLessonEdit('${c.id}','${todayStr}')`:`openClassLesson('${c.id}','${todayStr}')`}">${classRecorded?'수정':'클래스 기록'}</button>
+          </div>
+          ${stuRows||`<span style="font-size:12px;color:var(--slate)">학생 없음</span>`}
         </div>
       </div>`;
     }).join('');

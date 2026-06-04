@@ -2,6 +2,8 @@
 let pinInput=[];
 let _stuPin=''; // legacy
 let currentStudentSid=null;
+let vocabSessionSize=10;
+let _polishedCmtCache={raw:'',polished:''};
 async function goStudentPin(){
   const sess=loadSession();
   if(sess?.role==='student'){
@@ -144,6 +146,9 @@ async function previewPolishedCmt(){
   if(status)status.textContent='';
   box.style.display='block';
   txt.textContent=polished||raw;
+  _polishedCmtCache={raw,polished:polished||raw};
+  const hint=document.getElementById('polished-ready-hint');
+  if(hint){hint.style.display='flex';hint.textContent='✓ 학부모용 코멘트 준비됨 — '+(polished||raw).slice(0,40)+((polished||raw).length>40?'…':'');}
 }
 
 // ── STUDENT LIBRARY TAB ──
@@ -611,7 +616,7 @@ function renderVocabDeck(sid){
     if(aDue!==bDue)return bDue-aDue;
     return (b.misses||0)-(a.misses||0);
   });
-  const session=sorted.slice(0,10);
+  const session=vocabSessionSize?sorted.slice(0,vocabSessionSize):sorted;
   deckState={cards:session,idx:0,phase:0,phaseResults:[],sessionResults:[]};
   renderMemCard(el);
 }
@@ -630,7 +635,11 @@ function renderVocabPhaseIntro(el){
       <span class="vc-phase ${p.cls}" style="font-size:13px;padding:6px 16px">${p.icon} 단계 ${p.id+1}: ${p.name}</span>
     </div>
     <div style="font-size:22px;font-weight:700;color:var(--navy);margin-bottom:6px">${total}개 단어</div>
-    <div style="font-size:13px;color:var(--slate);margin-bottom:2rem;line-height:1.8">${p.sub}</div>
+    <div style="font-size:13px;color:var(--slate);margin-bottom:1.2rem;line-height:1.8">${p.sub}</div>
+    ${deckState.phase===0?`<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:1.4rem;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--slate)">세션:</span>
+      ${[10,20,null].map(n=>`<button class="btn ${vocabSessionSize===n?'bt':'bo'} bsm" style="font-size:11px;padding:3px 10px" onclick="vocabSessionSize=${n};renderVocabDeck(currentStudentSid)">${n?n+'개':'전체'}</button>`).join('')}
+    </div>`:''}
     <button class="btn bt" style="padding:14px 40px;font-size:15px;border-radius:50px" onclick="startVocabPhase()">시작 →</button>
     ${deckState.phase>0?`<div style="margin-top:1rem"><button class="btn bo bsm" onclick="renderVocabDeck(currentStudentSid)">처음부터</button></div>`:''}
   </div>`;
