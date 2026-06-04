@@ -112,7 +112,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 /* FORM */
 .f{margin-bottom:1rem;}
 .f label{display:block;font-size:11px;font-weight:700;color:var(--slate);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;}
-.f input,.f select,.f textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:14px;color:var(--navy);background:var(--cream);outline:none;transition:border-color .2s;}
+.f input,.f select,.f textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:14px;color:var(--navy);background:var(--cream2);outline:none;transition:border-color .2s;}
 .f input:focus,.f select:focus,.f textarea:focus{border-color:var(--teal);background:#fff;}
 .f textarea{min-height:70px;resize:vertical;}
 .err{color:var(--coral);font-size:12px;margin-bottom:10px;min-height:16px;}
@@ -185,7 +185,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 /* SUBJECT ROWS */
 .sr-wrap{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
 .sr{display:grid;grid-template-columns:64px 1fr 1fr auto;gap:6px;align-items:center;}
-.sr input{padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream);outline:none;transition:border-color .2s;}
+.sr input{padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;transition:border-color .2s;}
 .sr input:focus{border-color:var(--teal);background:#fff;}
 .sl{font-size:10px;font-weight:700;padding:5px 6px;border-radius:var(--rs);text-align:center;font-family:var(--fm);}
 .sv{background:#DBEAFE;color:#1E40AF;}.sg2{background:#EDE9FE;color:#4C1D95;}.srd{background:#D1FAE5;color:#065F46;}.sls{background:#FEF3C7;color:#92400E;}.swt{background:#FCE7F3;color:#9D174D;}.sns{background:#FFF7ED;color:#9A3412;}.spd{background:#FDF4FF;color:#6B21A8;font-style:italic;}
@@ -232,7 +232,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .tst-photo-thumb{width:100%;max-height:200px;object-fit:contain;border-radius:var(--rs);border:1px solid var(--border);margin-bottom:10px;background:var(--cream2);}
 
 /* UPLOAD */
-.uz{border:2px dashed var(--border);border-radius:var(--r);padding:1.5rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--cream);}
+.uz{border:2px dashed var(--border);border-radius:var(--r);padding:1.5rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--cream2);}
 .uz:hover,.uz.dv{border-color:var(--teal);background:var(--tl);}
 .ui{font-size:28px;margin-bottom:6px;}
 .ut{font-size:12px;color:var(--slate);}
@@ -372,7 +372,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 
 /* 학생 필터 바 */
 .filter-bar{display:flex;gap:8px;align-items:center;margin-bottom:1rem;flex-wrap:wrap;}
-.filter-sel{padding:7px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none;cursor:pointer;transition:border-color .2s;}
+.filter-sel{padding:7px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream2);outline:none;cursor:pointer;transition:border-color .2s;}
 .filter-sel:focus{border-color:var(--teal);}
 
 /* 테스트 입력 — 점수 필드 풀 폭 */
@@ -420,7 +420,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 
 /* 학생 검색/필터 바 */
 .stu-filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;align-items:center;}
-.stu-search-input{flex:1;min-width:140px;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none;transition:border-color .2s;}
+.stu-search-input{flex:1;min-width:140px;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream2);outline:none;transition:border-color .2s;}
 .stu-search-input:focus{border-color:var(--teal);}
 .stu-filter-chip{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--slate);transition:all .2s;font-family:var(--fb);}
 .stu-filter-chip.active{background:var(--navy);color:#fff;border-color:var(--navy);}
@@ -433,7 +433,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .lib-tbl td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
 .lib-tbl tr:hover td{background:var(--cream);}
 .lib-search-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
-.lib-search-input{flex:1;min-width:160px;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none;transition:border-color .2s;}
+.lib-search-input{flex:1;min-width:160px;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream2);outline:none;transition:border-color .2s;}
 .lib-search-input:focus{border-color:var(--teal);}
 .lib-table-container{height:calc(100vh - 280px);min-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);}
 /* 자료 DB 탭 외부 스크롤 제거 — 내부 테이블이 남은 높이를 채움 */

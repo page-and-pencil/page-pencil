@@ -401,6 +401,7 @@
           <div class="fg">
             <div class="f"><label>날짜</label><input type="date" id="lg-date"></div>
             <div class="f"><label>학생</label><select id="lg-stu"></select></div>
+            <div class="f s2"><label>읽은 책 제목 (선택)</label><input type="text" id="lg-book" placeholder="예) Nate the Great, In the Trolley..." list="dl-lib-books"><datalist id="dl-lib-books"></datalist></div>
           </div>
           <div class="f">
             <label>리딩로그 사진 & 단어</label>
@@ -1284,6 +1285,19 @@
     <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
       <button class="btn bo bsm" onclick="closeM('m-bulk-text')">취소</button>
       <button class="btn bt" onclick="confirmBulkText()" id="bulk-text-confirm-btn">저장 시작</button>
+    </div>
+  </div>
+</div>
+
+<!-- 리딩로그 단어 검토 모달 -->
+<div id="m-vocab-review" class="mo" data-protect>
+  <div class="mdl" style="max-width:520px">
+    <div class="mh"><div class="mt">📝 단어 검토 후 단어장 추가</div><button class="bx" onclick="closeVocabReview()">×</button></div>
+    <div style="font-size:12px;color:var(--slate);margin-bottom:12px">추가할 단어를 확인하고 뜻을 수정할 수 있습니다. 체크 해제 시 해당 단어는 제외됩니다.</div>
+    <div id="vocab-review-list" style="max-height:50vh;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs)"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="btn bo bsm" onclick="closeVocabReview()">취소</button>
+      <button class="btn bt bsm" onclick="confirmVocabReview()">단어장에 추가</button>
     </div>
   </div>
 </div>
