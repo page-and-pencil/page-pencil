@@ -1,8 +1,15 @@
 // ── AUTH ──
+async function hashPw(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 async function checkPw(){
   const v=document.getElementById('pw-in').value.trim();
-  if(v===DB.pw()){document.getElementById('pw-in').value='';document.getElementById('pw-err').textContent='';saveSession({role:'teacher'});show('s-teacher');await initApp();}
-  else document.getElementById('pw-err').textContent='비밀번호가 맞지 않습니다';
+  const stored=DB.pw();
+  const vHash=await hashPw(v);
+  const ok=(v===stored||vHash===stored);
+  if(ok){
+    if(v===stored){const h=await hashPw(v);_cache.settings.pw=h;DB.s('pw',h);supaSetSetting('pw',h).catch(()=>{});}
+    document.getElementById('pw-in').value='';document.getElementById('pw-err').textContent='';
+    saveSession({role:'teacher'});show('s-teacher');await initApp();
+  } else document.getElementById('pw-err').textContent='비밀번호가 맞지 않습니다';
 }
 async function checkPin(){
   const name=document.getElementById('pin-name').value.trim();
@@ -32,9 +39,10 @@ async function changePw(){
   if(nw.length<4){e.textContent='4자 이상 입력해 주세요';return;}
   if(nw!==cf){e.textContent='새 비밀번호 불일치';return;}
   // localStorage + Supabase 양쪽 저장
-  DB.s('pw',nw);
-  _cache.settings.pw=nw;
-  await supaSetSetting('pw',nw);
+  const nwHash=await hashPw(nw);
+  DB.s('pw',nwHash);
+  _cache.settings.pw=nwHash;
+  await supaSetSetting('pw',nwHash);
   e.textContent='';
   ['pw-cur','pw-nw','pw-cf'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   toast('비밀번호가 변경되었습니다');
@@ -2063,10 +2071,10 @@ function renderTbookTable(){
   if(!paged.length){tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--slate);padding:24px">교재 없음</td></tr>`;}
   else tbody.innerHTML=paged.map((b,i)=>{const uCnt=Object.keys(b.units||{}).length;return`<tr>
     <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="tbook-chk" data-idx="${i}" onchange="tbookUpdateBulkBar()" style="cursor:pointer"></td>
-    <td style="font-weight:600">${b.title}</td>
+    <td style="font-weight:600"><span class="cell-title" title="${escAttr(b.title)}">${b.title}</span></td>
     <td>${b.level||'—'}</td>
     <td>${['파닉스','어휘','어법','리딩','리스닝','라이팅','내신'].includes(b.category)?b.category:'—'}</td>
-    <td>${b.publisher||'—'}</td>
+    <td><span class="cell-title" title="${escAttr(b.publisher||'')}">${b.publisher||'—'}</span></td>
     <td><div style="display:flex;gap:4px">
       <button class="btn bo bsm" onclick="openEditTbook('${b.id}')">수정</button>
       <button class="btn ba bsm" onclick="openTbookUnits('${b.id}')" title="단원별 단어 관리">📝 단어${uCnt?` (${uCnt})`:''}</button>
@@ -3508,8 +3516,8 @@ function renderLibTable(){
     const hasText=textChaps.some(c=>c.text);
     return `<tr>
       <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="lib-chk" data-id="${b.id}" onchange="libUpdateBulkBar()" style="cursor:pointer"></td>
-      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">${b.title}</td>
-      <td style="font-size:12px;color:var(--slate);white-space:nowrap">${b.series||'—'}</td>
+      <td style="font-weight:500"><span class="cell-title" title="${escAttr(b.title)}">${b.title}</span></td>
+      <td style="font-size:12px;color:var(--slate)"><span class="cell-title" title="${escAttr(b.series||'')}">${b.series||'—'}</span></td>
       <td><span class="badge bnavy" style="white-space:nowrap">${arDisplay!=='—'?'AR '+arDisplay:'—'}</span></td>
       <td style="font-size:12px;color:var(--slate)">${b.lexile||'—'}</td>
       <td style="font-size:12px;color:var(--slate)">${b.level||'—'}</td>
