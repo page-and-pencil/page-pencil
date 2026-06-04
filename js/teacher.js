@@ -812,11 +812,20 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   const unitInput=noUnit?'':` <input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}">`;
   // 특별 항목: Pencil Down / Sing Together는 wrapperId 무관하게 고정 처리
   if(baseKey==='pencil_down'){
-    d.innerHTML=`<span class="sl spd" style="font-style:italic;font-size:11px;padding:4px 10px">✏️ Pencil Down</span><span style="font-size:11px;color:var(--slate);flex:1;padding-left:8px">리딩 완주 특별 활동</span><button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
+    const songVal=unitVal||'';const hasSing=!!songVal;
+    const iS='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;flex:1;min-width:80px';
+    d.innerHTML=`<span class="sl spd" style="font-style:italic;font-size:11px;padding:4px 8px;white-space:nowrap">✏️ Pencil Down</span>
+      <div style="display:flex;align-items:center;gap:6px;grid-column:span 2;min-width:0;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--navy);white-space:nowrap">Pencil Down Day</span>
+        <button type="button" class="chip sst ${hasSing?'active':''}" style="font-size:10px;padding:2px 9px;flex-shrink:0" onclick="togglePdSing(this)">🎵 Sing Together</button>
+        <input type="text" data-f="unit" placeholder="곡명 입력" value="${escAttr(songVal)}" style="${iS};display:${hasSing?'block':'none'}">
+      </div>
+      <button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
     const hidden=document.createElement('input');hidden.type='hidden';hidden.dataset.f='book';hidden.value='Pencil Down Day';d.appendChild(hidden);
     wrap.appendChild(d);return;
   }
   if(baseKey==='sing_together'){
+    // 기존 데이터 하위 호환 표시용 (신규 입력 불가)
     const iStyle='padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;grid-column:span 2;width:100%;';
     d.innerHTML=`<span class="sl sst" style="font-size:11px;padding:4px 8px;white-space:nowrap">🎵 Sing</span><input type="text" placeholder="곡명 입력" data-f="book" style="${iStyle}" value="${escAttr(bookVal||'')}"><button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
     wrap.appendChild(d);return;
@@ -859,6 +868,17 @@ function rmSRowFrom(wrapperId,s,btn){
 }
 function addSRow(s){addSRowTo('subj-rows',s);}
 function rmSRow(s,btn){rmSRowFrom('subj-rows',s,btn);}
+function togglePdSing(btn){
+  const row=btn.closest('.sr');
+  const input=row.querySelector('input[data-f="unit"]');
+  if(btn.classList.contains('active')){
+    btn.classList.remove('active');
+    if(input){input.style.display='none';input.value='';}
+  }else{
+    btn.classList.add('active');
+    if(input){input.style.display='';setTimeout(()=>input.focus(),0);}
+  }
+}
 function getSMatsFrom(wrapperId){
   const r={};const counts={};
   document.querySelectorAll('#'+wrapperId+' .sr').forEach(row=>{
