@@ -4633,7 +4633,7 @@ function renderAssignTab(){
         ${recent.length?recent.map(a=>{
           const hw=hws.find(h=>h.assignmentId===a.id);
           const catLabel=CAT_LABELS[a.category||'']||'';
-          const bookLabel=a.bookTitle?a.bookTitle:(a.text?a.text:'');
+          const bookLabel=a.category==='class5'?`클래스5 진도 (${(a.schedule||[]).length}일)`:a.bookTitle?a.bookTitle:(a.text?a.text:'');
           const needSub=a.type==='reading';
           const statusCls=a.completedAt?'bteal':hw?'bamber':(needSub?'bslate':'');
           const statusTxt=a.completedAt?'완료':hw?'제출':(needSub?'미제출':'');
@@ -4659,8 +4659,10 @@ function openAssignModal(sid){
   const due=new Date();due.setDate(due.getDate()+1);
   document.getElementById('modal-assign-due').value=due.toISOString().split('T')[0];
   document.getElementById('modal-assign-cat').value='';
-  document.getElementById('modal-assign-book').value='';
-  document.getElementById('modal-assign-range').value='';
+  const bookEl=document.getElementById('modal-assign-book');
+  if(bookEl){bookEl.value='';const bf=bookEl.closest('.f');if(bf)bf.style.display='';}
+  const rangeEl=document.getElementById('modal-assign-range');
+  if(rangeEl){rangeEl.value='';const rf=rangeEl.closest('.f');if(rf)rf.style.display='';}
   document.getElementById('modal-assign-extra').innerHTML='';
   openM('m-add-assign');
 }
@@ -4669,14 +4671,18 @@ function modalAssignCatChange(){
   const sid=document.getElementById('modal-assign-stu').value;
   const bookEl=document.getElementById('modal-assign-book');
   fillAsgnBookDatalist('dl-modal-assign-books',cat);
-  if(cat&&cat!=='other'&&sid&&bookEl&&!bookEl.value){
+  const bookF=bookEl?.closest('.f');
+  const rangeF=document.getElementById('modal-assign-range')?.closest('.f');
+  const isC5=cat==='class5';
+  if(bookF)bookF.style.display=isC5?'none':'';
+  if(rangeF)rangeF.style.display=isC5?'none':'';
+  if(cat&&cat!=='other'&&!isC5&&sid&&bookEl&&!bookEl.value){
     const stClasses=DB.classes().filter(c=>(c.studentIds||[]).includes(sid));
     for(const c of stClasses){
       const matched=Object.entries(c.commonMaterials||{}).find(([k])=>k===cat||k.startsWith(cat+'_'));
       if(matched){bookEl.value=matched[1].book||'';break;}
     }
   }
-  // 어휘 구분이면 단어 선택 UI 추가
   const extra=document.getElementById('modal-assign-extra');
   if(cat==='vocab'&&sid){
     const recentCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).slice(0,20);
@@ -4685,7 +4691,50 @@ function modalAssignCatChange(){
         ${recentCards.length?recentCards.map(c=>`<label style="display:flex;align-items:center;gap:8px;padding:2px 0;cursor:pointer"><input type="checkbox" class="modal-vocab-check" value="${c.word}"> <span style="font-family:var(--fd);font-weight:700">${c.word}</span><span style="font-size:11px;color:var(--slate)">${c.meaning||''}</span></label>`).join(''):'<span style="font-size:12px;color:var(--slate)">단어 카드 없음</span>'}
       </div></div>
       <div class="f"><label>단어 직접 입력 (쉼표 구분)</label><input type="text" id="modal-vocab-extra" placeholder="apple, enormous..."></div>`;
+  } else if(isC5){
+    const today=document.getElementById('modal-assign-date')?.value||new Date().toISOString().split('T')[0];
+    const dueVal=document.getElementById('modal-assign-due')?.value||today;
+    const iS='padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%';
+    extra.innerHTML=`<div style="margin-top:10px;border:1.5px solid var(--border);border-radius:var(--rs);padding:10px 12px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📅 일별 진도 스케줄</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">
+        <div><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:3px">시작일</label><input type="date" id="c5-from" value="${today}" style="${iS}"></div>
+        <div><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:3px">종료일</label><input type="date" id="c5-to" value="${dueVal}" style="${iS}"></div>
+        <button class="btn bt bsm" style="align-self:flex-end" onclick="buildC5Schedule()">생성</button>
+      </div>
+      <div id="c5-rows"></div>
+      <button class="btn bo bsm" style="margin-top:6px;width:100%;font-size:11px" onclick="addC5Row()">+ 행 직접 추가</button>
+    </div>`;
   } else {extra.innerHTML='';}
+}
+function c5RowHtml(date,book,unit){
+  const iS='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;min-width:0';
+  const lbl=date.length>=10?date.slice(5).replace('-','/'):date;
+  return `<div class="c5-row" data-date="${date}" style="display:grid;grid-template-columns:46px 1fr 1fr auto;gap:4px;align-items:center;margin-bottom:4px">
+    <span style="font-size:11px;color:var(--navy);font-family:var(--fm);white-space:nowrap">${lbl}</span>
+    <input type="text" data-c5="book" value="${escAttr(book||'')}" placeholder="교재명" style="${iS}" list="dl-tbooks-assign" autocomplete="off">
+    <input type="text" data-c5="unit" value="${escAttr(unit||'')}" placeholder="유닛" style="${iS}">
+    <button style="background:none;border:none;cursor:pointer;color:var(--slate);font-size:16px;padding:0 4px;line-height:1" onclick="this.closest('.c5-row').remove()">×</button>
+  </div>`;
+}
+function buildC5Schedule(){
+  const from=document.getElementById('c5-from')?.value;
+  const to=document.getElementById('c5-to')?.value;
+  if(!from||!to||from>to){toast('날짜 범위를 확인해 주세요');return;}
+  if((new Date(to)-new Date(from))/(864e5)>60){toast('최대 60일까지 생성할 수 있습니다');return;}
+  const rows=document.getElementById('c5-rows');if(!rows)return;
+  const existing={};
+  rows.querySelectorAll('.c5-row').forEach(r=>{const d=r.dataset.date;existing[d]={b:r.querySelector('[data-c5="book"]')?.value||'',u:r.querySelector('[data-c5="unit"]')?.value||''};});
+  const dates=[];const cur=new Date(from);const end=new Date(to);
+  while(cur<=end){dates.push(new Date(cur).toISOString().split('T')[0]);cur.setDate(cur.getDate()+1);}
+  rows.innerHTML=dates.map(d=>c5RowHtml(d,existing[d]?.b||'',existing[d]?.u||'')).join('');
+}
+function addC5Row(){
+  const rows=document.getElementById('c5-rows');if(!rows)return;
+  const last=rows.querySelector('.c5-row:last-child');
+  let next=new Date().toISOString().split('T')[0];
+  if(last?.dataset.date){const d=new Date(last.dataset.date);d.setDate(d.getDate()+1);next=d.toISOString().split('T')[0];}
+  rows.insertAdjacentHTML('beforeend',c5RowHtml(next,'',''));
 }
 function filterModalBooks(){
   const q=(document.getElementById('modal-book-search')?.value||'').toLowerCase().trim();
@@ -4712,6 +4761,16 @@ async function saveModalAssignment(){
   const date=document.getElementById('modal-assign-date').value;
   const due=document.getElementById('modal-assign-due').value;
   if(!cat){toast('구분을 선택해 주세요');return;}
+  if(cat==='class5'){
+    const schedRows=document.querySelectorAll('#c5-rows .c5-row');
+    const schedule=[...schedRows].map(r=>({date:r.dataset.date,book:(r.querySelector('[data-c5="book"]')?.value||'').trim(),unit:(r.querySelector('[data-c5="unit"]')?.value||'').trim()})).filter(x=>x.book||x.unit);
+    if(!schedule.length){toast('진도 스케줄을 입력해 주세요');return;}
+    const a={id:uid(),sid,type:'class5',category:'class5',date,due,bookTitle:'클래스5',schedule};
+    await supaUpsert('assignments',a.id,a,sid);
+    if(!_cache.assignments)_cache.assignments=[];
+    _cache.assignments.unshift(a);
+    closeM('m-add-assign');renderAssignTab();toast('과제가 할당되었습니다');return;
+  }
   const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
   const isReading=cat==='book'||allLib.some(b=>b.title===book);
   const type=isReading?'reading':cat==='vocab'?'vocab':cat==='other'?'other':'textbook';
