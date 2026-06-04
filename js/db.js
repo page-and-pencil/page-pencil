@@ -71,6 +71,7 @@ const DB={
   pw(){return _cache.settings.pw||this.g('pw')||'pencil2025';},
   cld(){return this.g('cloud')||{name:'',preset:''};},
   api(){return _cache.settings.apikey||this.g('apikey')||'';},
+  gbooks(){return _cache.settings.gbooks_key||this.g('gbooks_key')||'';},
 
   // 캐시에서 읽기
   stus(){return _cache.students;},
@@ -225,7 +226,9 @@ async function loadAllData(){
     _cache.globalClasses=(clss||[]).map(r=>(r.data||r));
     if(acct)_cache.settings.acct=acct;
     if(pw){_cache.settings.pw=pw;DB.s('pw',pw);}
-    const [apikey,cloud]=await Promise.all([supaGetSetting('apikey'),supaGetSetting('cloud')]);
+    const [apikey,cloud,gbooksKey]=await Promise.all([supaGetSetting('apikey'),supaGetSetting('cloud'),supaGetSetting('gbooks_key')]);
+    if(gbooksKey){_cache.settings.gbooks_key=gbooksKey;DB.s('gbooks_key',gbooksKey);}
+    else{const lg=DB.g('gbooks_key');if(lg)_cache.settings.gbooks_key=lg;}
     const _dk=String.fromCharCode(115,107,45,97,110,116,45,97,112,105,48,51,45,108,69,72,49,104,87,56,57,78,106,68,45,72,104,120,51,97,101,55,82,113,69,70,99,122,53,105,118,110,86,111,67,67,80,67,51,77,114,52,69,99,54,107,75,88,70,74,111,54,111,115,67,88,101,87,78,83,97,122,120,97,86,51,114,102,106,78,89,81,104,83,84,107,115,116,99,110,56,72,74,54,122,75,114,85,81,45,103,106,103,89,122,103,65,65);
     const DEFAULT_CLD={name:'drwys3bkz',preset:'pp_unsigned'};
     if(apikey){_cache.settings.apikey=apikey;DB.s('apikey',apikey);}
@@ -311,6 +314,63 @@ async function callClaudeProxy(body){
   if(!res.ok)throw new Error(d.error?.message||'HTTP '+res.status);
   return d;
 }
+// ── EXTERNAL APIs ──
+// MyMemory 무료 번역 API (한국어 뜻, API Key 불필요)
+async function getMeaningKoFast(word){
+  try{
+    const r=await fetch(`https://api.mymemory.translated.world/get?q=${encodeURIComponent(word)}&langpair=en|ko`,{signal:AbortSignal.timeout(3000)});
+    if(!r.ok)return null;
+    const d=await r.json();
+    if(d.responseStatus!==200)return null;
+    let ko=(d.responseData?.translatedText||'').trim();
+    if(!ko||/^[A-Za-z]/.test(ko)||ko.length>25||ko===word)return null;
+    return ko;
+  }catch{return null;}
+}
+// Google Books + Open Library fallback으로 책 메타데이터 조회
+async function getBookMeta(title){
+  const gkey=DB.g('gbooks_key')||_cache.settings?.gbooks_key||'';
+  if(gkey){
+    try{
+      const r=await fetch(`https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(title)}&maxResults=1&key=${gkey}`,{signal:AbortSignal.timeout(5000)});
+      if(r.ok){
+        const d=await r.json();
+        const vi=d.items?.[0]?.volumeInfo;
+        if(vi){return{
+          coverUrl:(vi.imageLinks?.thumbnail||vi.imageLinks?.smallThumbnail||'').replace('http:','https:'),
+          description:(vi.description||'').slice(0,300),
+          pages:vi.pageCount?String(vi.pageCount):'',
+          isbn:vi.industryIdentifiers?.find(x=>x.type==='ISBN_13')?.identifier||'',
+          source:'google'
+        };}
+      }
+    }catch{}
+  }
+  try{
+    const r=await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=1`,{signal:AbortSignal.timeout(6000)});
+    if(r.ok){
+      const d=await r.json();
+      const doc=d.docs?.[0];
+      if(doc){return{
+        coverUrl:doc.cover_i?`https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`:'',
+        description:'',
+        pages:doc.number_of_pages_median?String(doc.number_of_pages_median):'',
+        isbn:doc.isbn?.[0]||'',
+        source:'openlibrary'
+      };}
+    }
+  }catch{}
+  return null;
+}
+// 브라우저 내장 TTS로 단어 발음 (무료·오프라인 가능)
+function speakWord(word,rate=0.85){
+  if(!('speechSynthesis' in window))return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(word);
+  u.lang='en-US';u.rate=rate;
+  window.speechSynthesis.speak(u);
+}
+
 async function getMeaningKo(word){
   const apiKey=DB.api();
   let engDef='';
@@ -318,6 +378,8 @@ async function getMeaningKo(word){
     const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
     if(r.ok){const d=await r.json();engDef=d[0]?.meanings[0]?.definitions[0]?.definition||'';}
   }catch(e){}
+  const koFast=await getMeaningKoFast(word);
+  if(koFast)return koFast;
   if(!apiKey)return engDef;
   try{
     const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:20,messages:[{role:'user',content:`영어 단어 "${word}"의 한국어 뜻만 출력하세요. 조건: 한국어 2-4단어, 영어·화살표·콜론·단어 반복 없이 한국어 뜻만.`}]});
@@ -369,16 +431,18 @@ async function getWordMetaFull(word,grade){
     const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
     if(r.ok){const d=await r.json();const m=d[0]?.meanings[0];if(m){if(!pos)pos=m.partOfSpeech||'';if(!ko)ko=m.definitions[0]?.definition||'';}}
   }catch(e){}
-  if(apiKey){
+  const koFast=await getMeaningKoFast(word);
+  if(koFast)ko=koFast;
+  if(apiKey&&(!ko||!bookEx)){
     try{
       const lvHint=grade?`학생 학년: ${grade}.`:'';
-      const prompt=!bookEx
+      const prompt=(!bookEx&&!example)
         ?`영어 단어/표현 "${word}"의 정보. ${lvHint} 한국어 뜻 2-4단어, 예문은 ${grade||'초등'}생 수준의 자연스러운 문장.\nJSON만: {"ko":"뜻","pos":"noun|verb|adj|adv|phrase","example":"문장"}`
-        :`영어 단어/표현 "${word}"의 한국어 뜻·품사. 한국어 뜻 2-4단어.\nJSON만: {"ko":"뜻","pos":"noun|verb|adj|adv|phrase"}`;
+        :`영어 단어/표현 "${word}"의 품사만. JSON만: {"pos":"noun|verb|adj|adv|phrase"}`;
       const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:80,messages:[{role:'user',content:prompt}]});
       const txt=d.content?.[0]?.text?.trim()||'';
       const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
-      if(json.ko&&!/^[A-Za-z]/.test(json.ko))ko=json.ko;
+      if(json.ko&&!/^[A-Za-z]/.test(json.ko)&&!koFast)ko=json.ko;
       if(json.pos)pos=json.pos;
       if(json.example&&!bookEx){example=json.example;exampleSrc='ai';}
     }catch(e){}

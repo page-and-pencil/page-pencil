@@ -47,6 +47,67 @@ async function changePw(){
   ['pw-cur','pw-nw','pw-cf'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   toast('비밀번호가 변경되었습니다');
 }
+// ── GOOGLE BOOKS KEY ──
+function updateGbooksStatusDot(){
+  const dot=document.getElementById('gbooks-status-dot');if(!dot)return;
+  const k=DB.gbooks();
+  dot.style.color=k?'#0A5940':'var(--slate)';dot.textContent=k?'● 저장됨':'● 미설정';
+}
+async function saveGbooksKey(){
+  const k=document.getElementById('cfg-gbooks').value.trim();
+  DB.s('gbooks_key',k);
+  _cache.settings.gbooks_key=k;
+  if(k)await supaSetSetting('gbooks_key',k);
+  updateGbooksStatusDot();
+  toast(k?'Google Books Key가 저장되었습니다':'Google Books Key가 삭제되었습니다');
+}
+async function testGbooksKey(){
+  const el=document.getElementById('gbooks-test-result');
+  const inputVal=document.getElementById('cfg-gbooks').value.trim();
+  if(inputVal)await saveGbooksKey();
+  const k=DB.gbooks();
+  if(!k){el.innerHTML='<div class="ais">ℹ️ Key 없이도 Open Library로 표지 조회 가능합니다</div>';return;}
+  el.innerHTML='<div class="ais loading"><div class="spin"></div>연결 확인 중...</div>';
+  try{
+    const r=await fetch(`https://www.googleapis.com/books/v1/volumes?q=harry+potter&maxResults=1&key=${k}`);
+    if(r.ok){el.innerHTML='<div class="ais ok">✅ Google Books API 연결 성공</div>';}
+    else{const d=await r.json();el.innerHTML=`<div class="ais err">❌ ${d.error?.message||'연결 실패'}</div>`;}
+  }catch(e){el.innerHTML=`<div class="ais err">❌ 연결 오류: ${e.message}</div>`;}
+}
+// ── 원서 자동 메타데이터 조회 ──
+async function autoFetchBookMeta(){
+  const title=document.getElementById('lib-title')?.value.trim();
+  const statusEl=document.getElementById('lib-autofetch-status');
+  const btn=document.getElementById('lib-autofetch-btn');
+  if(!title){toast('책 제목을 먼저 입력해 주세요');return;}
+  if(btn)btn.disabled=true;
+  if(statusEl)statusEl.textContent='조회 중...';
+  const meta=await getBookMeta(title);
+  if(btn)btn.disabled=false;
+  if(!meta){
+    if(statusEl)statusEl.textContent='조회 결과 없음 — 직접 입력해 주세요';
+    return;
+  }
+  if(meta.pages&&!document.getElementById('lib-pages')?.value)document.getElementById('lib-pages').value=meta.pages;
+  if(meta.description&&!document.getElementById('lib-desc')?.value)document.getElementById('lib-desc').value=meta.description;
+  if(meta.coverUrl){
+    libCoverB64='';libCoverMime='';
+    window._libAutoCoverUrl=meta.coverUrl;
+    const prev=document.getElementById('lib-cover-preview');
+    if(prev){prev.innerHTML=`<img src="${meta.coverUrl}" style="width:100%;height:100%;object-fit:cover">`;}
+    if(statusEl)statusEl.textContent=`✓ ${meta.source==='google'?'Google Books':'Open Library'}에서 조회 완료`;
+  }else{
+    if(statusEl)statusEl.textContent=`✓ ${meta.source==='google'?'Google Books':'Open Library'}에서 조회 (표지 없음)`;
+  }
+}
+function clearLibAutoFetch(){
+  window._libAutoCoverUrl='';
+  const prev=document.getElementById('lib-cover-preview');
+  if(prev)prev.innerHTML='📗';
+  const statusEl=document.getElementById('lib-autofetch-status');
+  if(statusEl)statusEl.textContent='';
+}
+
 function updateApiKeyStatusDot(){
   const dot=document.getElementById('apikey-status-dot');if(!dot)return;
   const k=DB.api();
@@ -158,6 +219,8 @@ async function initApp(){
   renderStus();populateSels();populateFilterSels();
   setToday();renderLes();renderTst();renderRd();renderLog();
   populateLibSel();checkCldWarn();renderDash();
+  updateApiKeyStatusDot();updateGbooksStatusDot();
+  const gk=DB.gbooks();const cfgGEl=document.getElementById('cfg-gbooks');if(cfgGEl&&gk)cfgGEl.value='••••••';
 }
 function setToday(){const t=new Date().toISOString().split('T')[0];['ls-date','ts-date','rd-date','lg-date','qp-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=t;});}
 function populateSels(){
@@ -1548,13 +1611,16 @@ async function addLib(){
   const title=document.getElementById('lib-title').value.trim();
   if(!title){toast('제목을 입력해 주세요');return;}
   toast('저장 중...');
-  const coverUrl=await saveLibCover();
+  let coverUrl=await saveLibCover();
+  if(!coverUrl&&window._libAutoCoverUrl)coverUrl=window._libAutoCoverUrl;
   const newLib={id:uid(),title,series:document.getElementById('lib-series').value.trim(),arLevel:document.getElementById('lib-ar').value.trim(),pages:document.getElementById('lib-pages').value.trim(),publisher:document.getElementById('lib-pub').value.trim(),description:document.getElementById('lib-desc').value.trim(),coverUrl};
   await supaUpsert('library',newLib.id,newLib,null);
   _cache.library.push(newLib);
   closeM('m-add-lib');
-  ['lib-title','lib-series','lib-ar','lib-genre','lib-pages','lib-pub','lib-desc'].forEach(i=>document.getElementById(i).value='');
-  libCoverB64='';libCoverMime='';document.getElementById('lib-cover-fname').textContent='클릭하여 표지 사진 선택';
+  ['lib-title','lib-series','lib-ar','lib-genre','lib-pages','lib-pub','lib-desc'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+  libCoverB64='';libCoverMime='';window._libAutoCoverUrl='';
+  const fnEl=document.getElementById('lib-cover-fname');if(fnEl)fnEl.textContent='클릭하여 직접 업로드';
+  const prevEl=document.getElementById('lib-cover-preview');if(prevEl)prevEl.innerHTML='📗';
   renderLib();populateLibSel();toast('원서목록에 추가되었습니다');
 }
 function elibTab(tab){

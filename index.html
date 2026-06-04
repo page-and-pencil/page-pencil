@@ -666,6 +666,21 @@
           <div id="apikey-test-result" style="margin-top:8px"></div>
         </div>
       </div>
+      <div class="card" style="margin-bottom:1rem">
+        <div class="ch">
+          <span class="ct">Google Books API Key (표지 자동 조회)</span>
+          <span id="gbooks-status-dot" style="font-size:13px;color:var(--slate)">● 미설정</span>
+        </div>
+        <div class="cb">
+          <div class="ib iba">console.cloud.google.com에서 Books API 활성화 후 발급. 원서 추가 시 표지·설명·페이지 수 자동 조회에 사용됩니다 (미설정 시 Open Library 무료 조회)</div>
+          <div class="f"><label>API Key</label><input type="password" id="cfg-gbooks" placeholder="AIza..."></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn bp bsm" onclick="saveGbooksKey()">저장</button>
+            <button class="btn ba bsm" onclick="testGbooksKey()">연결 테스트</button>
+          </div>
+          <div id="gbooks-test-result" style="margin-top:8px"></div>
+        </div>
+      </div>
       <div class="card">
         <div class="ch"><span class="ct">비밀번호 변경</span></div>
         <div class="cb">
@@ -1205,17 +1220,28 @@
   <div class="mdl">
     <div class="mh"><div class="mt">원서 추가</div><button class="bx" onclick="closeM('m-add-lib')">×</button></div>
     <div class="fg">
-      <div class="f s2"><label>책 제목</label><input type="text" id="lib-title" placeholder="Magic Tree House #3"></div>
+      <div class="f s2">
+        <label>책 제목</label>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="lib-title" placeholder="Magic Tree House #3" style="flex:1" oninput="clearLibAutoFetch()">
+          <button class="btn bo bsm" id="lib-autofetch-btn" onclick="autoFetchBookMeta()" title="Google Books·Open Library에서 자동 조회">🔍 자동 조회</button>
+        </div>
+        <div id="lib-autofetch-status" style="font-size:11px;color:var(--slate);margin-top:4px;min-height:16px"></div>
+      </div>
       <div class="f"><label>시리즈</label><input type="text" id="lib-series" placeholder="Magic Tree House"></div>
       <div class="f"><label>AR 레벨</label><input type="text" id="lib-ar" placeholder="3.3"></div>
       <div class="f"><label>총 페이지</label><input type="text" id="lib-pages" placeholder="86"></div>
       <div class="f"><label>출판사</label><input type="text" id="lib-pub" placeholder="Random House"></div>
-      <div class="f s2"><label>표지 사진 업로드</label>
-        <div class="uz" style="padding:1rem" onclick="document.getElementById('lib-cover-file').click()">
-          <div style="font-size:20px;margin-bottom:4px">🖼️</div>
-          <div class="ut" id="lib-cover-fname">클릭하여 표지 사진 선택</div>
+      <div class="f s2"><label>표지</label>
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <div id="lib-cover-preview" style="width:60px;height:80px;border-radius:6px;border:1px solid var(--border);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--cream2)">📗</div>
+          <div style="flex:1">
+            <div class="uz" style="padding:0.75rem" onclick="document.getElementById('lib-cover-file').click()">
+              <div class="ut" id="lib-cover-fname">클릭하여 직접 업로드</div>
+            </div>
+            <input type="file" id="lib-cover-file" accept="image/*" style="display:none" onchange="handleLibCover(event)">
+          </div>
         </div>
-        <input type="file" id="lib-cover-file" accept="image/*" style="display:none" onchange="handleLibCover(event)">
       </div>
       <div class="f s2"><label>설명</label><input type="text" id="lib-desc" placeholder="책 설명 (선택)"></div>
     </div>
