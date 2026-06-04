@@ -892,6 +892,7 @@ function getSMats(){return getSMatsFrom('subj-rows');}
 function clearSRows(){aSubjs.clear();document.querySelectorAll('#subj-chips .chip').forEach(c=>c.classList.remove('active'));document.getElementById('subj-rows').innerHTML='';}
 function clearEditSRows(){aEditSubjs.clear();document.querySelectorAll('#el-subj-chips .chip').forEach(c=>c.classList.remove('active'));document.getElementById('el-subj-rows').innerHTML='';}
 function escAttr(s){return(s||'').replace(/"/g,'&quot;');}
+function addElCmtChip(text){const ta=document.getElementById('el-cmt');if(!ta)return;ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;ta.focus();}
 function matsToHtml(materials){
   if(!materials)return '';
   return Object.entries(materials).map(([k,v])=>{
