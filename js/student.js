@@ -1068,16 +1068,27 @@ function renderLastLesson(sid){
       <span style="font-size:12px;color:var(--navy)">${v.book||''}${v.unit?' '+v.unit:''}</span>
     </div>`;
   }).filter(Boolean).join('');
-  const cmt=(last.cmt||'').slice(0,80)+(last.cmt&&last.cmt.length>80?'…':'');
+  const rawCmt=last.cmt||'';
   return `<div style="background:var(--cream2);border-radius:var(--rs);border:1px solid var(--border);padding:12px;margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <span style="font-size:12px;font-weight:700;color:var(--navy)">📝 지난 수업</span>
       <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${last.date||''}</span>
     </div>
     ${matLines?`<div style="margin-bottom:6px">${matLines}</div>`:''}
-    ${cmt?`<div style="font-size:12px;color:var(--slate);line-height:1.6">${cmt}</div>`:''}
+    ${rawCmt?`<div id="stu-lesson-cmt" data-raw="${escAttr(rawCmt)}" style="font-size:12px;color:var(--slate);line-height:1.6">...</div>`:''}
     <button class="btn bt bsm" style="margin-top:8px;border-radius:50px" onclick="swStuTab('st-vocab')">📚 단어 복습 →</button>
   </div>`;
+}
+async function polishStudentCmt(givenName){
+  const el=document.getElementById('stu-lesson-cmt');if(!el)return;
+  const raw=el.dataset.raw||'';if(!raw){el.textContent='';return;}
+  const apiKey=DB.api();
+  if(!apiKey){el.textContent=raw.slice(0,80)+(raw.length>80?'…':'');return;}
+  try{
+    const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:150,messages:[{role:'user',content:`당신은 영어 학원 선생님입니다. 아래는 수업 후 선생님 메모입니다. 이것을 학생 ${givenName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 문장으로 바꿔주세요.\n규칙: 학생에게 직접 말하는 말투(예: "오늘 수업 정말 잘했어!", "집중을 잘했네!"), 70자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n메모: ${raw}`}]});
+    const text=d.content?.[0]?.text?.trim();
+    if(text&&el)el.textContent=text;
+  }catch(e){if(el)el.textContent=raw.slice(0,80)+(raw.length>80?'…':'');}
 }
 function renderStudentHome(sid){
   const el=document.getElementById('st-home');if(!el)return;
@@ -1119,6 +1130,7 @@ function renderStudentHome(sid){
       </div>
       ${streakHtml}${renderHomeStats(sid)}
     </div>`;
+    polishStudentCmt(givenName);
     return;
   }
 
@@ -1189,6 +1201,7 @@ function renderStudentHome(sid){
     ${done.length?`<details style="margin-top:8px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none">✅ 완료된 숙제 (${done.length}건)</summary><div style="margin-top:8px">${done.map(asgnCard).join('')}</div></details>`:''}
     ${streakHtml}${renderHomeStats(sid)}
   </div>`;
+  polishStudentCmt(givenName);
 }
 function handleHomeAsgnAudio(e,asgnId,sid){
   const f=e.target.files[0];if(!f)return;
