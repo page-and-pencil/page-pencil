@@ -1052,14 +1052,14 @@ function renderHomeStats(sid){
     <div style="font-size:24px;font-weight:700;color:${color};font-family:var(--fm)">${val}</div>
     <div style="font-size:10px;color:var(--slate);margin-top:2px">${label}</div>
   </div>`;
-  return `<details style="margin-top:16px">
-    <summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;padding:4px 0">📊 내 기록 (클릭하면 상세 보기)</summary>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px">
+  return `<div style="margin-top:16px">
+    <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:8px;letter-spacing:.04em">📊 내 기록 <span style="font-weight:400;font-size:10px">(숫자 클릭 시 상세)</span></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
       ${statBox(completedCount,'var(--navy)','완료 숙제','assign')}
       ${statBox(vocabHits,'var(--teal)','외운 단어','vocab')}
       ${statBox(rdsCount,'var(--navy)','읽은 책','rds')}
     </div>
-  </details>`;
+  </div>`;
 }
 function dueLabelHtml(dueStr,today){
   if(!dueStr)return '';

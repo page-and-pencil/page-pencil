@@ -46,6 +46,10 @@ async function goTeacherLogin(){
     else await initApp();
     return;
   }
+  // 새 기기(localStorage 없음)에서도 Supabase 비밀번호로 로그인 가능하도록 사전 로드
+  if(typeof _cache!=='undefined'&&!_cache.settings?.pw){
+    try{const pw=await sbGetSettings('pw');if(pw)_cache.settings.pw=pw;}catch(e){}
+  }
   show('s-login');setTimeout(()=>document.getElementById('pw-in').focus(),100);
 }
 async function goPinScreen(){

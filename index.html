@@ -39,7 +39,7 @@
   <div class="ac">
     <div class="ac-logo">Page <span>&</span> Pencil</div>
     <div class="ac-title">선생님 로그인</div>
-    <div class="f"><label>비밀번호</label><input type="password" id="pw-in" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')checkPw()"></div>
+    <div class="f"><label>비밀번호</label><input type="password" id="pw-in" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')checkPw()" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"></div>
     <div class="err" id="pw-err"></div>
     <button class="btn-full" onclick="checkPw()">로그인</button>
     <span class="back-lnk" onclick="show('s-land')">← 돌아가기</span>

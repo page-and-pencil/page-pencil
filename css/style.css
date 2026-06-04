@@ -1,6 +1,6 @@
 :root{
   --navy:#0d2542;--navy2:#163358;--navy3:#091b30;
-  --cream:#F5F1EA;--cream2:#EDE8DF;--cream3:#FAF8F4;
+  --cream:#FFFFFF;--cream2:#F2F4F6;--cream3:#FAFBFC;
   --teal:#00c4cc;--tl:#E0FAFB;
   --coral:#C4614A;--cl:#F5E6E1;
   --amber:#00c4cc;--al:#E0FAFB;
@@ -11,7 +11,7 @@
   --fb:'Pretendard','Noto Sans KR',sans-serif;--fd:'Montserrat',sans-serif;--fm:'DM Mono',monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:var(--fb);background:var(--cream);color:var(--navy);min-height:100vh;font-size:14px;line-height:1.6;}
+body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height:100vh;font-size:14px;line-height:1.6;}
 .screen{display:none;min-height:100vh;flex-direction:column;}
 .screen.active{display:flex;}
 

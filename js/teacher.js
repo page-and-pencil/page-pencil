@@ -1,6 +1,6 @@
 // ── AUTH ──
 async function checkPw(){
-  const v=document.getElementById('pw-in').value;
+  const v=document.getElementById('pw-in').value.trim();
   if(v===DB.pw()){document.getElementById('pw-in').value='';document.getElementById('pw-err').textContent='';saveSession({role:'teacher'});show('s-teacher');await initApp();}
   else document.getElementById('pw-err').textContent='비밀번호가 맞지 않습니다';
 }
@@ -4443,10 +4443,12 @@ function renderAssignCal(){
     const isToday=dateStr===todayStr;
     const items=byDate[dateStr]||[];
     const bg=isToday?'rgba(0,196,204,.08)':'#fff';
-    const first=items[0];
+    const uniqueStuIds=[...new Set(items.map(x=>x.stu.id))];
+    const firstStu=uniqueStuIds.length?stus.find(s=>s.id===uniqueStuIds[0]):null;
+    const extraStus=uniqueStuIds.length-1;
     html+=`<div style="min-height:52px;border:1px solid ${isToday?'var(--teal)':'var(--border)'};border-radius:6px;padding:4px;background:${bg}">
       <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--teal)':'var(--navy)'};margin-bottom:2px">${d}</div>
-      ${first?`<div style="font-size:9px;background:var(--teal);color:#fff;border-radius:3px;padding:1px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="showAssignDateDetail('${dateStr}')">${first.stu.name}${items.length>1?' 외 '+(items.length-1)+'명':''}</div>`:''}
+      ${firstStu?`<div style="font-size:9px;background:var(--teal);color:#fff;border-radius:3px;padding:1px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="showAssignDateDetail('${dateStr}')">${firstStu.name}${extraStus>0?' 외 '+extraStus+'명':''}</div>`:''}
     </div>`;
   }
   html+=`</div>`;
@@ -4853,14 +4855,40 @@ function renderClassTab(){
   const el=document.getElementById('class-list');if(!el)return;
   const classes=DB.classes().filter(c=>c.active!==false);
   const allStus=DB.stus().filter(s=>!s.inactive);
-  if(!classes.length){
-    el.innerHTML='<div class="empty"><div class="empty-i">👥</div><div class="empty-t">클래스가 없습니다</div><div class="empty-s">+ 클래스 만들기로 수업 그룹을 만들어보세요</div></div>';
-    return;
-  }
   const DAYS=['일','월','화','수','목','금','토'];
   const todayDay=DAYS[new Date().getDay()];
   const todayStr=new Date().toISOString().split('T')[0];
-  el.innerHTML=classes.map(c=>{
+
+  // 주간 타임테이블
+  const WEEKDAYS=['월','화','수','목','금','토'];
+  const ttCols=WEEKDAYS.map(day=>{
+    const dayCls=classes.filter(c=>(c.days||[]).includes(day));
+    const isToday=day===todayDay;
+    return `<div style="min-width:0">
+      <div style="font-size:10px;font-weight:700;text-align:center;padding:5px 3px;background:${isToday?'var(--teal)':'var(--navy)'};color:#fff;border-radius:5px 5px 0 0">${day}</div>
+      <div style="border:1.5px solid ${isToday?'var(--teal)':'var(--border)'};border-top:none;border-radius:0 0 5px 5px;min-height:56px;padding:3px">
+        ${dayCls.length?dayCls.map(c=>`<div style="background:${isToday?'rgba(0,196,204,.13)':'rgba(13,37,66,.05)'};border-radius:3px;padding:3px 4px;margin-bottom:2px;cursor:pointer" onclick="openEditClass('${c.id}')">
+          <div style="font-size:9px;font-weight:700;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4">${c.name}</div>
+          ${c.timeStart?`<div style="font-size:8px;color:var(--slate)">${c.timeStart}${c.timeEnd?'~'+c.timeEnd:''}</div>`:''}
+        </div>`).join(''):''}
+      </div>
+    </div>`;
+  }).join('');
+  const timetableHtml=`<div class="card" style="margin-bottom:1rem">
+    <div class="ch" style="cursor:pointer" onclick="const b=document.getElementById('tt-body');b.style.display=b.style.display==='none'?'block':'none'">
+      <span class="ct">📅 주간 시간표</span>
+      <span style="font-size:11px;color:var(--slate)">탭하면 접기/펼치기</span>
+    </div>
+    <div class="cb" id="tt-body">
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px">${ttCols}</div>
+    </div>
+  </div>`;
+
+  if(!classes.length){
+    el.innerHTML=timetableHtml+'<div class="empty"><div class="empty-i">👥</div><div class="empty-t">클래스가 없습니다</div><div class="empty-s">+ 클래스 만들기로 수업 그룹을 만들어보세요</div></div>';
+    return;
+  }
+  el.innerHTML=timetableHtml+classes.map(c=>{
     const students=allStus.filter(s=>(c.studentIds||[]).includes(s.id));
     const isToday=(c.days||[]).includes(todayDay);
     const done=isToday&&DB.less().some(l=>l.date===todayStr&&l.classId===c.id);

@@ -294,12 +294,21 @@ function toggleAllBooks(){
   el.innerHTML=rds.map((rd,ri)=>{
     const lib=allBookSrc.find(x=>x.title===rd.title);
     const arDisplay=rd.arLevel||(lib&&(lib.ar||lib.arLevel))||'';
-    return `<div style="display:flex;align-items:flex-start;padding:8px 0;${ri<rds.length-1?'border-bottom:1px solid var(--border)':''}">
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:13px;line-height:1.4">${rd.title||'—'}</div>
-        <div style="display:flex;gap:5px;margin-top:3px;align-items:center;flex-wrap:wrap">
-          ${arDisplay?`<span class="badge bnavy">AR ${arDisplay}</span>`:''}
-          <span style="font-size:10px;color:var(--slate)">${rd.date||''}</span>
+    const series=rd.series||(lib&&lib.series)||'';
+    const pages=rd.pages||rd.pg||(lib&&lib.pages)||'';
+    const comment=rd.comment||rd.note||'';
+    return `<div style="padding:10px 0;${ri<rds.length-1?'border-bottom:1px solid var(--border)':''}">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <div style="width:36px;height:48px;background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📗</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px;line-height:1.4;color:var(--navy)">${rd.title||'—'}</div>
+          <div style="display:flex;gap:5px;margin-top:4px;align-items:center;flex-wrap:wrap">
+            ${arDisplay?`<span class="badge bnavy">AR ${arDisplay}</span>`:''}
+            ${series?`<span class="badge bslate">${series}</span>`:''}
+            ${pages?`<span style="font-size:10px;color:var(--slate)">${pages}p</span>`:''}
+            <span style="font-size:10px;color:var(--slate)">${rd.date||''}</span>
+          </div>
+          ${comment?`<div style="font-size:11px;color:var(--slate);margin-top:5px;line-height:1.5;font-style:italic">"${comment}"</div>`:''}
         </div>
       </div>
     </div>`;
