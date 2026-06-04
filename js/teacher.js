@@ -785,9 +785,19 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
     const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
     bookInput=`<select data-f="book" onchange="clUpdateUnitHint(this)" style="flex:1;min-width:0;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">${opts}</select>`;
+  }else if(baseKey==='pencil_down'){
+    // Pencil Down Day: 특별 활동, 책/유닛 없음
+    d.innerHTML=`<span class="sl spd" style="font-style:italic;font-size:11px;padding:4px 10px">✏️ Pencil Down Day</span><span style="font-size:11px;color:var(--slate);flex:1;padding-left:8px">리딩 완주 특별 활동</span><button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
+    // data-f="book"은 저장 시 필요하므로 hidden으로 추가
+    const hidden=document.createElement('input');hidden.type='hidden';hidden.dataset.f='book';hidden.value='Pencil Down Day';d.appendChild(hidden);
+    wrap.appendChild(d);return;
   }else{
-    const bookList=baseKey==='phonics'?'dl-phonics-books':'dl-tbooks-les';
-    bookInput=`<input type="text" placeholder="교재명" data-f="book" list="${bookList}" autocomplete="off" value="${escAttr(bookVal||'')}">`;
+    // ec-subj-rows 등: 카테고리별 필터된 인라인 datalist
+    const catF=_CAT_KO[baseKey];
+    let filtBooks=catF?(_cache.globalTextbooks||[]).filter(b=>b.category===catF):(_cache.globalTextbooks||[]);
+    if(!filtBooks.length)filtBooks=_cache.globalTextbooks||[];
+    const dlId='dl-sr-'+Math.random().toString(36).slice(2,7);
+    bookInput=`<datalist id="${dlId}">${filtBooks.map(b=>`<option value="${escAttr(b.title)}">${b.title}${b.level?' ('+b.level+')':''}</option>`).join('')}</datalist><input type="text" placeholder="교재명" data-f="book" list="${dlId}" autocomplete="off" value="${escAttr(bookVal||'')}">`;
   }
   d.innerHTML=`<span class="sl ${cls}">${label}</span>${bookInput}${unitInput} ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
   wrap.appendChild(d);

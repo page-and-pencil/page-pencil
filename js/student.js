@@ -537,10 +537,9 @@ function showParentNoticeBanner(){
 
 // ── STUDENT TABS (updated) ──
 function swStuTab(id){
-  const IDS=['st-home','st-vocab','st-library','st-links'];
-  document.querySelectorAll('.stutab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
+  document.querySelectorAll('.stutab[data-tab]').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
   document.querySelectorAll('#s-student .panel').forEach(p=>{
-    if(['st-home','st-vocab','st-library','st-links'].includes(p.id))p.classList.toggle('active',p.id===id);
+    if(['st-home','st-vocab','st-library'].includes(p.id))p.classList.toggle('active',p.id===id);
     else p.classList.remove('active');
   });
   if(id==='st-home')renderStudentHome(currentStudentSid);
