@@ -613,15 +613,27 @@ async function saveQuickPay(){
 
 // ── LAST LESSON HINT ──
 let _lastLessonRef=null;
+function checkLesDuplicate(){
+  const sid=document.getElementById('ls-stu')?.value;
+  const date=document.getElementById('ls-date')?.value;
+  const w=document.getElementById('les-dup-warn');if(!w)return;
+  if(!sid||!date){w.style.display='none';return;}
+  const existing=DB.less().filter(l=>l.sid===sid&&l.date===date);
+  if(!existing.length){w.style.display='none';return;}
+  const hasClass=existing.some(l=>l.classId);
+  w.innerHTML=`⚠️ ${date}에 ${hasClass?'클래스 수업 포함 ':''}<strong>${existing.length}건</strong> 수업 기록이 이미 있습니다. 계속 입력하면 추가 기록이 됩니다.&nbsp;<button class="btn bo bsm" style="font-size:10px;padding:1px 8px" onclick="openEditLes('${existing[0].id}')">기존 기록 수정 →</button>`;
+  w.style.display='block';
+}
 function fillLastLesson(sid){
   const hint=document.getElementById('ls-last-hint');if(!hint)return;
-  if(!sid){hint.style.display='none';_lastLessonRef=null;return;}
+  if(!sid){hint.style.display='none';_lastLessonRef=null;checkLesDuplicate();return;}
   // 학생 학년 자동 설정
   const stu=DB.stus().find(s=>s.id===sid);
   if(stu){
     const gradeEl=document.getElementById('ls-grade');
     if(gradeEl&&(stu.grade||stu.lv))gradeEl.value=stu.grade||stu.lv;
   }
+  checkLesDuplicate();
   const les=DB.less().filter(l=>l.sid===sid);
   if(!les.length){hint.style.display='none';_lastLessonRef=null;return;}
   const last=les[0];
@@ -979,7 +991,9 @@ async function saveLes(){
   const _ph=document.getElementById('polished-ready-hint');if(_ph)_ph.style.display='none';
   renderLes();toast('수업 기록이 저장되었습니다');
   checkNewBadges(sid);
+  const _dupW=document.getElementById('les-dup-warn');if(_dupW)_dupW.style.display='none';
   showLesFollowup(sid,newLes.date,_sStu?.name||'');
+  setTimeout(()=>{const fu=document.getElementById('les-followup');if(fu&&fu.style.display!=='none')fu.scrollIntoView({behavior:'smooth',block:'nearest'});},200);
   }catch(e){
     console.error('save error:',e);
     toast('저장 중 오류가 발생했습니다. 입력 내용은 유지됩니다.');
@@ -993,7 +1007,7 @@ async function saveLes(){
 function showLesFollowup(sid,date,stuName){
   const el=document.getElementById('les-followup');if(!el)return;
   el.style.display='block';
-  el.innerHTML=`<div class="followup-card">
+  el.innerHTML=`<div class="followup-card" style="border-top:3px solid var(--teal);background:linear-gradient(to bottom,#f0fffe,#fff)">
     <div style="font-size:13px;font-weight:700;color:#005f6b;margin-bottom:12px">✅ ${stuName} 수업 기록 저장됨 — 이어서 입력하시겠어요?</div>
     <div id="les-fu-tst">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,196,204,.15)">
@@ -4230,14 +4244,24 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
 function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus){
   const el=document.getElementById('dash-actions');if(!el)return;
   const items=[];
+  // 우선순위 1: 미확인 숙제
   Object.entries(uncheckedHwByStu).forEach(([sid,cnt])=>{
     const s=stus.find(x=>x.id===sid);if(!s)return;
-    items.push({icon:'📤',text:`${s.name} — 과제 제출 ${cnt}건 미확인`,action:`openStuPanelTab('${sid}','sp-hw')`});
+    items.push({icon:'📤',text:`${s.name} — 과제 제출 ${cnt}건 미확인`,label:'확인',action:`openStuPanelTab('${sid}','sp-hw')`});
   });
+  // 우선순위 2: 이번 달 미납
   unpaidStus.forEach(s=>{items.push({icon:'💰',text:`${s.name} — 이번 달 미납`,label:'납입 안내',action:`openPayMsg('${s.id}')`});});
-  scoreDrops.forEach(({s,cur,prev})=>{items.push({icon:'📉',text:`${s.name} — 점수 하락 (${prev}% → ${cur}%)`,action:`loadStuPanel('${s.id}')`});});
+  // 우선순위 3: 점수 하락
+  scoreDrops.forEach(({s,cur,prev})=>{items.push({icon:'📉',text:`${s.name} — 점수 하락 (${prev}% → ${cur}%)`,label:'확인',action:`loadStuPanel('${s.id}')`});});
+  // 우선순위 4: 이번 달 수업 없음
   noLessonStus.forEach(s=>{items.push({icon:'⚠️',text:`${s.name} — 이번 달 수업 없음`,label:'수업 추가',action:`goAddLesson('${s.id}')`});});
-  if(!items.length){el.innerHTML='';return;}
+  if(!items.length){
+    el.innerHTML=`<div class="card" style="border-left:4px solid #0A5940">
+      <div class="ch"><span class="ct" style="color:#0A5940">✅ 모두 처리됨</span></div>
+      <div class="cb" style="font-size:12px;color:var(--slate);padding:4px 0">확인할 사항이 없습니다 🎉</div>
+    </div>`;
+    return;
+  }
   el.innerHTML=`<div class="card" style="border-left:4px solid var(--coral)">
     <div class="ch"><span class="ct" style="color:var(--coral)">🚨 지금 처리할 것</span><span style="font-size:12px;color:var(--slate)">${items.length}건</span></div>
     <div class="cb" style="padding:0">${items.map(it=>`<div class="dash-action-item" onclick="${it.action||`loadStuPanel('${it.sid}')`}">

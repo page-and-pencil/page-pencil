@@ -2,6 +2,41 @@
 let pinInput=[];
 let _stuPin=''; // legacy
 let currentStudentSid=null;
+let _cmtPreviewTimer=null;
+let _brRecorder=null,_brStream=null,_brChunks=[],_brTimerInterval=null;
+function debouncedCmtPreview(){
+  clearTimeout(_cmtPreviewTimer);
+  const raw=document.getElementById('ls-cmt')?.value.trim()||'';
+  if(raw.length<8){const b=document.getElementById('cmt-preview-box');if(b)b.style.display='none';return;}
+  _cmtPreviewTimer=setTimeout(previewPolishedCmt,1800);
+}
+async function startBrowserRec(asgnId,sid){
+  try{
+    _brStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    _brRecorder=new MediaRecorder(_brStream);_brChunks=[];
+    _brRecorder.ondataavailable=e=>{if(e.data.size>0)_brChunks.push(e.data);};
+    _brRecorder.onstop=()=>{
+      const blob=new Blob(_brChunks,{type:'audio/webm'});
+      _brStream?.getTracks().forEach(t=>t.stop());
+      homeAsgnAudioBlob=blob;homeAsgnCurrentId=asgnId;
+      const url=URL.createObjectURL(blob);
+      const player=document.getElementById(`home-asgn-player-${asgnId}`);
+      const preview=document.getElementById(`home-asgn-preview-${asgnId}`);
+      if(player)player.src=url;if(preview)preview.style.display='block';
+      clearInterval(_brTimerInterval);
+      const s=document.getElementById(`rec-start-${asgnId}`);if(s)s.style.display='';
+      const st=document.getElementById(`rec-stop-${asgnId}`);if(st)st.style.display='none';
+      const ti=document.getElementById(`rec-timer-${asgnId}`);if(ti)ti.style.display='none';
+    };
+    _brRecorder.start();
+    const s=document.getElementById(`rec-start-${asgnId}`);if(s)s.style.display='none';
+    const st=document.getElementById(`rec-stop-${asgnId}`);if(st)st.style.display='';
+    const ti=document.getElementById(`rec-timer-${asgnId}`);if(ti)ti.style.display='block';
+    let secs=0;
+    _brTimerInterval=setInterval(()=>{secs++;const m=Math.floor(secs/60),sc=secs%60;const el=document.getElementById(`rec-time-${asgnId}`);if(el)el.textContent=m+':'+(sc<10?'0':'')+sc;},1000);
+  }catch(e){toast('마이크 접근이 필요합니다. 파일로 올려주세요.');}
+}
+function stopBrowserRec(asgnId){if(_brRecorder&&_brRecorder.state==='recording')_brRecorder.stop();}
 let vocabSessionSize=10;
 let _polishedCmtCache={raw:'',polished:''};
 async function goStudentPin(){
@@ -232,6 +267,7 @@ function renderStudentLibrary(sid){
     if(b.id===lastReadBookId)return 1;
     return (b.audioUrl?1:0)-(a.audioUrl?1:0);
   });
+  const unreadWithAudio=withAudio.filter(b=>!myBookIds.has(b.id)).slice(0,6);
   el.innerHTML=`<div style="padding:1.25rem">
     <div style="font-size:12px;color:var(--slate);margin-bottom:12px">내가 읽은 책과 오디오가 있는 책을 모아뒀어요</div>
     ${sorted.map(b=>{
@@ -257,6 +293,17 @@ function renderStudentLibrary(sid){
         ${renderStuAudio(b)}
       </div>`;
     }).join('')}
+    ${unreadWithAudio.length?`<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">🔍 다음에 읽어볼 책</div>
+      ${unreadWithAudio.map(b=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="width:36px;height:36px;border-radius:8px;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${b.emoji||'📚'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.title||'—'}</div>
+          <div style="font-size:11px;color:var(--slate)">${b.series||''}${(b.arLevel||b.ar)?` · AR ${b.arLevel||b.ar}`:''}${b.level?' · Lv.'+b.level:''}</div>
+        </div>
+        <span style="font-size:10px;padding:2px 7px;background:rgba(0,196,204,.1);color:#005f6b;border-radius:10px;font-weight:700;flex-shrink:0">🎧 오디오</span>
+      </div>`).join('')}
+    </div>`:''}
   </div>`;
 }
 
@@ -934,7 +981,17 @@ async function renderVocabResult(el){
       await supaUpsert('vocab_cards',card.id,updated,card.sid);
     }
   }
-  if(pctScore>=80){updateStreak(currentStudentSid);setTimeout(()=>showMiniConfetti(),200);}
+  if(pctScore>=80){
+    updateStreak(currentStudentSid);
+    setTimeout(()=>showMiniConfetti(),200);
+    // 80% 이상 + 숙제 연결 시 자동 완료
+    if(vocabDeckFilter?.asgnId){
+      const aid=vocabDeckFilter.asgnId;
+      vocabDeckFilter=null;
+      completeAssignment(currentStudentSid,aid);
+      return;
+    }
+  }
   el.innerHTML=`<div style="padding:2rem;text-align:center">
     <div class="result-ring ${cls}">${pctScore}%</div>
     <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:4px">
@@ -1188,15 +1245,18 @@ function renderStudentHome(sid){
         }
       }
       if(!isDone&&!hw){
-        body+=`<div style="margin-top:10px;border:2px solid var(--teal);border-radius:12px;padding:20px;background:linear-gradient(135deg,var(--tl),rgba(0,196,204,.2));text-align:center;cursor:pointer" onclick="document.getElementById('home-asgn-audio-${a.id}').click()">
-          <div style="font-size:32px;margin-bottom:4px">🎤</div>
-          <div style="font-size:13px;font-weight:700;color:var(--navy)">녹음 제출하기</div>
-          <div style="font-size:11px;color:var(--slate);margin-top:2px">탭해서 파일 선택</div>
-        </div>
-        <input type="file" id="home-asgn-audio-${a.id}" accept="audio/*" style="display:none" onchange="handleHomeAsgnAudio(event,'${a.id}','${sid}')">
-        <div id="home-asgn-preview-${a.id}" style="display:none;margin-top:8px">
-          <audio id="home-asgn-player-${a.id}" controls style="width:100%;height:28px"></audio>
-          <button class="btn bt" style="width:100%;margin-top:6px;border-radius:50px" onclick="submitHomeAsgnHw('${sid}','${a.id}')">제출하기</button>
+        body+=`<div style="margin-top:10px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <button id="rec-start-${a.id}" class="btn bt" style="border-radius:50px;padding:13px;font-size:13px" onclick="startBrowserRec('${a.id}','${sid}')">🎙 직접 녹음</button>
+            <label class="btn bo" style="border-radius:50px;padding:13px;cursor:pointer;text-align:center;font-size:13px" for="home-asgn-audio-${a.id}">📁 파일 올리기</label>
+          </div>
+          <div id="rec-timer-${a.id}" style="display:none;text-align:center;font-size:13px;color:var(--coral);font-weight:700;margin-bottom:8px;padding:8px;background:rgba(196,97,74,.06);border-radius:8px">🔴 녹음 중... <span id="rec-time-${a.id}">0:00</span></div>
+          <button id="rec-stop-${a.id}" class="btn bd" style="display:none;width:100%;border-radius:50px;padding:12px" onclick="stopBrowserRec('${a.id}')">⏹ 녹음 완료</button>
+          <input type="file" id="home-asgn-audio-${a.id}" accept="audio/*" style="display:none" onchange="handleHomeAsgnAudio(event,'${a.id}','${sid}')">
+          <div id="home-asgn-preview-${a.id}" style="display:none;margin-top:8px">
+            <audio id="home-asgn-player-${a.id}" controls style="width:100%;height:28px"></audio>
+            <button class="btn bt" style="width:100%;margin-top:6px;border-radius:50px" onclick="submitHomeAsgnHw('${sid}','${a.id}')">제출하기</button>
+          </div>
         </div>`;
       } else if(hw){
         body+=`<div style="font-size:11px;color:#005f6b;margin-top:4px">✅ 제출 완료 ${hw.date||''}</div>`;
@@ -1235,11 +1295,13 @@ function renderStudentHome(sid){
   </div>`:'';
 
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
-    ${lastLessonHtml}
     ${noHwHtml}
-    ${pending.length?`<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📌 미완료 숙제</div>${pending.map(asgnCard).join('')}`:''}
-    ${done.length?`<details style="margin-top:8px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none">✅ 완료된 숙제 (${done.length}건)</summary><div style="margin-top:8px">${done.map(asgnCard).join('')}</div></details>`:''}
-    ${streakHtml}${renderHomeStats(sid)}
+    ${pending.length?`<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📌 오늘 할 것</div>${pending.map(asgnCard).join('')}`:''}
+    ${done.length?`<details style="margin-top:8px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 완료된 숙제 (${done.length}건)</summary><div style="margin-top:8px">${done.map(asgnCard).join('')}</div></details>`:''}
+    <details style="margin-top:14px">
+      <summary style="font-size:12px;font-weight:600;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">📊 지난 수업 &amp; 학습 현황 <span style="font-size:10px;color:var(--teal)">▾</span></summary>
+      <div style="margin-top:8px">${lastLessonHtml}${streakHtml}${renderHomeStats(sid)}</div>
+    </details>
   </div>`;
   polishStudentCmt(givenName);
 }

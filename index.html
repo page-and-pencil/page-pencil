@@ -220,8 +220,9 @@
         <div class="ch"><span class="ct">새 수업 기록</span></div>
         <div class="cb">
           <div class="fg">
-            <div class="f"><label>날짜</label><input type="date" id="ls-date"></div>
+            <div class="f"><label>날짜</label><input type="date" id="ls-date" onchange="checkLesDuplicate()"></div>
             <div class="f"><label>학생</label><select id="ls-stu" onchange="fillLastLesson(this.value)"></select></div>
+            <div id="les-dup-warn" class="cld-warn" style="display:none;grid-column:span 2"></div>
 
             <div class="f"><label>출결</label>
               <select id="ls-att"><option value="normal">정상</option><option value="absent">결석</option><option value="late">지각</option><option value="sick">병결</option><option value="teacher_cancel">선생님 취소</option><option value="holiday">휴강</option><option value="makeup">보강</option></select>
@@ -276,7 +277,7 @@
               <button type="button" class="cmt-chip" onclick="addCmtChip('듣기 이해도 향상 중')">듣기 이해도 향상 중</button>
               <button type="button" class="cmt-chip" onclick="addCmtChip('문장 구성 능숙')">문장 구성 능숙</button>
             </div>
-            <textarea id="ls-cmt" placeholder="예) 집중도 좋음. 리딩 속도 향상 중. 어휘 복습 필요"></textarea></div>
+            <textarea id="ls-cmt" placeholder="예) 집중도 좋음. 리딩 속도 향상 중. 어휘 복습 필요" oninput="debouncedCmtPreview()"></textarea></div>
           <div style="display:flex;gap:6px;margin-top:4px;margin-bottom:8px">
             <button type="button" class="btn bo bsm" onclick="previewPolishedCmt()" id="cmt-preview-btn">👁 학부모용 미리보기</button>
             <span id="cmt-preview-status" style="font-size:11px;color:var(--slate);align-self:center"></span>
