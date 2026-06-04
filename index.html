@@ -249,6 +249,7 @@
               <button class="chip" data-s="listening" onclick="togSubj(this)">리스닝</button>
               <button class="chip" data-s="writing" onclick="togSubj(this)">라이팅</button>
               <button class="chip" data-s="naesin" onclick="togSubj(this)">내신</button>
+              <button class="chip" data-s="pencil_down" onclick="togSubj(this)">✏️ Pencil Down</button>
               <button class="chip" data-s="sing_together" onclick="togSubj(this)">🎵 Sing Together</button>
             </div>
             <div id="subj-rows" class="sr-wrap"></div>
@@ -419,8 +420,9 @@
               </div>
               <div id="log-word-area" style="min-width:0">
                 <div id="log-ai" style="margin-bottom:6px"></div>
-                <label style="font-size:12px;color:var(--slate);font-weight:600;display:block;margin-bottom:4px">단어 목록 (AI 자동 입력 또는 직접 입력)</label>
-                <input type="text" id="lg-words" placeholder="gloomy, enormous, quietly">
+                <label style="font-size:12px;color:var(--slate);font-weight:600;display:block;margin-bottom:4px">단어 목록 <span style="font-weight:400;font-size:11px">(영단어 · 뜻 미리보기)</span></label>
+                <div id="lg-word-rows" style="display:flex;flex-direction:column;gap:3px;min-height:20px"></div>
+                <button class="btn bo bsm" style="width:100%;margin-top:5px;font-size:11px" onclick="addLogWordRow()">+ 단어 추가</button>
               </div>
             </div>
           </div>
@@ -846,6 +848,7 @@
         <button class="chip" data-s="listening" onclick="togEditSubj(this)">리스닝</button>
         <button class="chip" data-s="writing" onclick="togEditSubj(this)">라이팅</button>
         <button class="chip" data-s="naesin" onclick="togEditSubj(this)">내신</button>
+        <button class="chip" data-s="pencil_down" onclick="togEditSubj(this)">✏️ Pencil Down</button>
         <button class="chip" data-s="sing_together" onclick="togEditSubj(this)">🎵 Sing Together</button>
       </div>
       <div id="el-subj-rows" class="sr-wrap"></div>

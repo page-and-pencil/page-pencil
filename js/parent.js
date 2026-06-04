@@ -581,7 +581,7 @@ async function printReport(sidArg){
   </div>`:''}
   ${rds.length?`<div class="section">
     <div class="section-title">📗 읽은 원서 (${rds.length}권)</div>
-    <div class="book-list">${rds.slice(0,8).map(r=>`<div class="book-item">📚 ${r.title}${r.arLevel?' <span style="color:#00c4cc;font-size:10px">AR${r.arLevel}</span>':''}${r.progress?`<div style="font-size:10px;color:#888">${r.progress}</div>`:''}</div>`).join('')}</div>
+    <div class="book-list">${rds.slice(0,8).map(r=>`<div class="book-item">📚 ${r.title}${r.arLevel?` <span style="color:#00c4cc;font-size:10px">AR ${r.arLevel}</span>`:''}${r.progress?`<div style="font-size:10px;color:#888">${r.progress}</div>`:''}</div>`).join('')}</div>
   </div>`:''}
   ${latTst?`<div class="section">
     <div class="section-title">📝 최근 테스트 (${latTst.date})</div>

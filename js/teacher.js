@@ -3692,7 +3692,7 @@ async function handleLogPhoto(e){
 function clearLogPhoto(){
   pendingLogFile=null;pendingLogB64='';pendingLogMime='';
   document.getElementById('lg-file').value='';
-  document.getElementById('lg-words').value='';
+  const lgRows=document.getElementById('lg-word-rows');if(lgRows)lgRows.innerHTML='';
   document.getElementById('log-ai').innerHTML='';
   document.getElementById('log-upload-zone').style.display='block';
   document.getElementById('log-preview-wrap').style.display='none';
@@ -3701,6 +3701,22 @@ function clearLogPhoto(){
   document.getElementById('log-preview-wrap').style.flex='';
   document.getElementById('log-word-area').style.flex='';
 }
+function logWordRowHtml(i,word,ko){
+  const iS='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;min-width:0';
+  return `<div class="log-word-row" data-idx="${i}" style="display:grid;grid-template-columns:1fr 1fr auto;gap:4px;align-items:center">
+    <input type="text" class="lwr-word" value="${escAttr(word)}" placeholder="영단어" style="${iS}">
+    <input type="text" class="lwr-ko" value="${escAttr(ko)}" placeholder="뜻 조회 중..." style="${iS}">
+    <button style="background:none;border:none;cursor:pointer;color:var(--slate);font-size:16px;padding:0 4px;line-height:1" onclick="this.closest('.log-word-row').remove()">×</button>
+  </div>`;
+}
+function addLogWordRow(){
+  const el=document.getElementById('lg-word-rows');if(!el)return;
+  const iS='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;min-width:0';
+  const div=document.createElement('div');div.className='log-word-row';
+  div.style.cssText='display:grid;grid-template-columns:1fr 1fr auto;gap:4px;align-items:center';
+  div.innerHTML=`<input type="text" class="lwr-word" placeholder="영단어" style="${iS}"><input type="text" class="lwr-ko" placeholder="뜻" style="${iS}"><button style="background:none;border:none;cursor:pointer;color:var(--slate);font-size:16px;padding:0 4px;line-height:1" onclick="this.closest('.log-word-row').remove()">×</button>`;
+  el.appendChild(div);div.querySelector('.lwr-word')?.focus();
+}
 async function runLogAI(){
   const apiKey=DB.api();const status=document.getElementById('log-ai');
   if(!apiKey){status.innerHTML='<div class="ais warn">⚠️ API Key 미설정 — 단어를 직접 입력해 주세요</div>';return;}
@@ -3708,7 +3724,23 @@ async function runLogAI(){
   try{
     const r=await callVision(apiKey,pendingLogB64,pendingLogMime,'이 리딩로그 이미지에서 "New words" 섹션(하단 표)에 기록된 영어 단어만 추출하세요.\n규칙:\n1. "New words" 표 안의 단어만, 본문·제목·기타 영역 제외\n2. 사람 이름·지명·고유명사 제외\n3. 단수/복수 둘 다 있으면 단수 원형만\n4. 동사 -ing/-ed/-s 형태는 원형 동사로 통일\nJSON만 반환: {"words":["word1","word2"]}');
     const d=JSON.parse(r.replace(/```json|```/g,'').trim());
-    if(d.words&&d.words.length){document.getElementById('lg-words').value=d.words.join(', ');status.innerHTML='<div class="ais ok">✅ '+d.words.length+'개 단어 추출 완료</div>';}
+    if(d.words&&d.words.length){
+      const words=d.words.map(w=>(w||'').toLowerCase().trim()).filter(Boolean);
+      const rowsEl=document.getElementById('lg-word-rows');
+      if(rowsEl){
+        rowsEl.innerHTML=words.map((w,i)=>logWordRowHtml(i,w,'')).join('');
+        status.innerHTML=`<div class="ais loading"><div class="spin"></div>${words.length}개 단어 추출 완료, 뜻 조회 중...</div>`;
+        const stu=(_cache.students||[]).find(s=>s.id===document.getElementById('lg-stu')?.value);
+        const grade=stu?.grade||stu?.lv||'';
+        Promise.allSettled(words.map(async(w,i)=>{
+          try{
+            const m=await getWordMetaFull(w,grade);
+            const row=rowsEl.querySelectorAll('.log-word-row')[i];
+            if(row){const koEl=row.querySelector('.lwr-ko');if(koEl&&!koEl.value&&m.ko)koEl.value=m.ko;}
+          }catch{}
+        })).then(()=>{status.innerHTML=`<div class="ais ok">✅ ${words.length}개 단어 추출 완료</div>`;});
+      }
+    }else{status.innerHTML='<div class="ais warn">⚠️ 단어를 인식하지 못했습니다. 직접 입력해 주세요</div>';}
   }catch(e){status.innerHTML='<div class="ais err">⚠️ AI 인식 실패: '+e.message+'</div>';}
 }
 async function uploadCld(file){
@@ -3720,8 +3752,9 @@ async function uploadCld(file){
 }
 async function saveLog(){
   const sid=document.getElementById('lg-stu').value;if(!sid){toast('학생을 선택해 주세요');return;}
-  const wordsRaw=document.getElementById('lg-words').value;
-  const words=wordsRaw?wordsRaw.split(',').map(w=>w.trim()).filter(Boolean):[];
+  const wordRows=document.querySelectorAll('#lg-word-rows .log-word-row');
+  const wordEntries=[...wordRows].map(r=>({word:(r.querySelector('.lwr-word')?.value||'').trim().toLowerCase(),ko:(r.querySelector('.lwr-ko')?.value||'').trim()})).filter(e=>e.word);
+  const words=wordEntries.map(e=>e.word);
   let photoUrl='';
   if(pendingLogFile){
     toast('저장 중...');
@@ -3737,12 +3770,13 @@ async function saveLog(){
   clearLogPhoto();
   if(document.getElementById('lg-book'))document.getElementById('lg-book').value='';
   document.getElementById('log-ut').textContent='클릭하거나 사진을 드래그';
-  // 단어 검토 워크플로 (단어가 있을 때만 모달)
-  if(words.length){
-    showVocabReviewModal(sid,words,date,bookTitle);
-    renderLog();
+  renderLog();
+  if(wordEntries.length){
+    try{await syncVocabCards(sid,wordEntries,[],date,bookTitle||'리딩로그');}catch(e){console.error(e);}
+    renderSpVocab?.(sid);
+    toast(`리딩로그 저장 + ${wordEntries.length}개 단어 단어장 추가`);
   }else{
-    renderLog();toast('리딩로그가 저장되었습니다');
+    toast('리딩로그가 저장되었습니다');
   }
 }
 function reqDelLog(id){
@@ -4692,16 +4726,14 @@ function modalAssignCatChange(){
       </div></div>
       <div class="f"><label>단어 직접 입력 (쉼표 구분)</label><input type="text" id="modal-vocab-extra" placeholder="apple, enormous..."></div>`;
   } else if(isC5){
-    const today=document.getElementById('modal-assign-date')?.value||new Date().toISOString().split('T')[0];
-    const dueVal=document.getElementById('modal-assign-due')?.value||today;
-    const iS='padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%';
     extra.innerHTML=`<div style="margin-top:10px;border:1.5px solid var(--border);border-radius:var(--rs);padding:10px 12px">
       <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📅 일별 진도 스케줄</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">
-        <div><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:3px">시작일</label><input type="date" id="c5-from" value="${today}" style="${iS}"></div>
-        <div><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:3px">종료일</label><input type="date" id="c5-to" value="${dueVal}" style="${iS}"></div>
-        <button class="btn bt bsm" style="align-self:flex-end" onclick="buildC5Schedule()">생성</button>
+      <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap">
+        <label for="c5-upload" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2)">📎 파일 업로드</label>
+        <input type="file" id="c5-upload" accept=".csv,.txt" style="display:none" onchange="loadC5File(event)">
+        <button class="btn bo bsm" style="font-size:11px" onclick="downloadC5Template()">📥 템플릿</button>
       </div>
+      <div style="font-size:10px;color:var(--slate);margin-bottom:8px">CSV 형식: 날짜(YYYY-MM-DD),교재명,유닛</div>
       <div id="c5-rows"></div>
       <button class="btn bo bsm" style="margin-top:6px;width:100%;font-size:11px" onclick="addC5Row()">+ 행 직접 추가</button>
     </div>`;
@@ -4735,6 +4767,47 @@ function addC5Row(){
   let next=new Date().toISOString().split('T')[0];
   if(last?.dataset.date){const d=new Date(last.dataset.date);d.setDate(d.getDate()+1);next=d.toISOString().split('T')[0];}
   rows.insertAdjacentHTML('beforeend',c5RowHtml(next,'',''));
+}
+function parseC5Date(s){
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+  const m=s.match(/(\d+)월\s*(\d+)일/);
+  if(m){const y=new Date().getFullYear();return`${y}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;}
+  return null;
+}
+function loadC5File(e){
+  const f=e.target.files[0];if(!f)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const text=ev.target.result;
+    const rows=document.getElementById('c5-rows');if(!rows)return;
+    const entries=[];
+    for(const line of text.split('\n')){
+      const t=line.trim();
+      if(!t||/^날짜|^-{3,}|^={3,}|\[/.test(t))continue;
+      // CSV
+      const csv=t.split(',');
+      if(csv.length>=2){const d=parseC5Date(csv[0].trim());if(d){entries.push({date:d,book:(csv[1]||'').trim(),unit:(csv[2]||'').trim()});continue;}}
+      // Tab-separated
+      const tsv=t.split('\t');
+      if(tsv.length>=2){const d=parseC5Date(tsv[0].trim());if(d){entries.push({date:d,book:(tsv[1]||'').trim(),unit:(tsv[2]||'').trim()});continue;}}
+      // Space-padded (나연_학습진도.txt 형식)
+      const sp=t.match(/^(\S+(?:\s+\S+){0,1})\s{2,}(.+?)\s{2,}(.+)$/);
+      if(sp){const d=parseC5Date(sp[1].trim());if(d){entries.push({date:d,book:sp[2].trim(),unit:sp[3].trim()});continue;}}
+    }
+    e.target.value='';
+    if(!entries.length){toast('파싱 가능한 데이터가 없습니다. 템플릿 형식을 확인해 주세요');return;}
+    rows.innerHTML=entries.map(en=>c5RowHtml(en.date,en.book,en.unit)).join('');
+    toast(`${entries.length}개 항목 입력됨`);
+  };
+  reader.readAsText(f,'UTF-8');
+}
+function downloadC5Template(){
+  const today=new Date().toISOString().split('T')[0];
+  const d2=new Date();d2.setDate(d2.getDate()+1);const tom=d2.toISOString().split('T')[0];
+  const csv=`날짜,교재명,유닛\n${today},The Best Reading 1.2,Unit 03 My Room\n${tom},The Best Reading 1.2,Unit 04 I Brush My Teeth`;
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='class5_schedule.csv';a.click();
+  URL.revokeObjectURL(a.href);
 }
 function filterModalBooks(){
   const q=(document.getElementById('modal-book-search')?.value||'').toLowerCase().trim();
