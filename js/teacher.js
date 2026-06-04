@@ -181,7 +181,34 @@ function filterLibSel(){
 }
 function checkCldWarn(){
   const {name,preset}=DB.cld();
-  const w=document.getElementById('cld-log-warn');if(w)w.style.display=(name&&preset)?'none':'block';
+  const hasCld=!!(name&&preset);
+  const hasApi=!!DB.api();
+  const show=(id,visible)=>{const el=document.getElementById(id);if(el)el.style.display=visible?'block':'none';};
+  show('cld-log-warn',!hasCld);
+  show('api-les-warn',!hasApi);
+  show('api-tst-warn',!hasApi);
+  show('api-log-warn',!hasApi);
+}
+async function autoSyncBookReads(sid,materials,date){
+  const bookEntries=Object.entries(materials||{}).filter(([k])=>k==='_book'||k.startsWith('_book_'));
+  if(!bookEntries.length)return;
+  const allLib=[...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]),...DB.libs()];
+  let added=0;
+  for(const [,v] of bookEntries){
+    if(!v.book)continue;
+    const exists=(_cache.readings||[]).some(r=>r.sid===sid&&r.date===date&&r.title===v.book);
+    if(exists)continue;
+    const lb=allLib.find(b=>b.title===v.book);
+    const newRd={id:uid(),sid,date,title:v.book,series:lb?.series||'',arLevel:lb?.arLevel||lb?.ar||'',progress:v.unit||''};
+    await supaUpsert('readings',newRd.id,newRd,sid);
+    if(!_cache.readings)_cache.readings=[];
+    _cache.readings.unshift(newRd);
+    added++;
+  }
+  if(added>0){
+    renderRd();
+    if(currentSpStuId===sid){renderSpBooks(currentSpStuId);renderSpRdlog(currentSpStuId);}
+  }
 }
 
 // ── ACCOUNT SETTINGS ──
@@ -395,7 +422,7 @@ async function loadStuPanel(sid){
   // ── 수업 (최근 10개, 더보기 가능) ──
   const lesSlice=les.slice(0,10);
   document.getElementById('sp-lessons').innerHTML=!les.length
-    ?'<div class="empty"><div class="empty-i">📚</div><div class="empty-t">수업 기록 없음</div></div>'
+    ?`<div class="empty"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div><button class="btn bt bsm" style="margin-top:10px" onclick="goAddLesson('${sid}')">+ 첫 수업 기록하기 →</button></div>`
     :`${lesSlice.map(l=>{
       const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
       const tbParts=[],bookParts=[];
@@ -428,7 +455,7 @@ async function loadStuPanel(sid){
 
   // ── 테스트 (최근 5개) ──
   document.getElementById('sp-tests').innerHTML=!tsts.length
-    ?'<div class="empty"><div class="empty-i">📝</div><div class="empty-t">테스트 기록 없음</div></div>'
+    ?`<div class="empty"><div class="empty-i">📝</div><div class="empty-t">아직 테스트 기록이 없습니다</div><button class="btn bt bsm" style="margin-top:10px" onclick="swTab('t-tst');setTimeout(()=>{const el=document.getElementById('ts-stu');if(el)el.value='${sid}'},200)">+ 테스트 입력하기 →</button></div>`
     :tsts.slice(0,5).map(t=>{
       const vp=pct(t.vocabCorrect,t.vocabTotal),gp=pct(t.grammarCorrect,t.grammarTotal);
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
@@ -546,7 +573,7 @@ async function loadStuPanel(sid){
       ${h.memo?`<div style="font-size:11px;color:var(--slate);margin-top:3px">💬 ${h.memo}</div>`:''}
     </div>`).join('')}
   </div>`:''}
-  ${!sAssigns.length&&!sHws.length?`<div class="empty"><div class="empty-i">📤</div><div class="empty-t">제출된 과제 없음</div></div>`:''}
+  ${!sAssigns.length&&!sHws.length?`<div class="empty"><div class="empty-i">📤</div><div class="empty-t">할당된 과제가 없습니다</div><button class="btn bt bsm" style="margin-top:10px" onclick="openAssignModal('${sid}')">+ 과제 할당하기 →</button></div>`:''}
   `;
 
   document.getElementById('stu-panel').classList.add('open');
@@ -945,6 +972,7 @@ async function saveLes(){
   await supaUpsert('lessons',newLes.id,newLes,sid);
   _cache.lessons.unshift(newLes);
   addUnitWordsToVocab(sid,newLes.materials,newLes.date).catch(()=>{});
+  autoSyncBookReads(sid,newLes.materials,newLes.date).catch(()=>{});
   document.getElementById('ls-cmt').value='';clearSRows();
   document.getElementById('ls-last-hint').style.display='none';
   if(typeof _polishedCmtCache!=='undefined')_polishedCmtCache={raw:'',polished:''};
@@ -1232,6 +1260,7 @@ async function updLes(){
   const polishedCmt=rawCmt?await polishCmt(rawCmt):'';
   _cache.lessons[idx]={..._cache.lessons[idx],date:document.getElementById('el-date').value,sid,grade:document.getElementById('el-grade').value,att:document.getElementById('el-att').value,materials:getSMatsFrom('el-subj-rows'),cmt:rawCmt,polishedCmt};
   await supaUpsert('lessons',id,_cache.lessons[idx],sid);
+  autoSyncBookReads(sid,_cache.lessons[idx].materials,_cache.lessons[idx].date).catch(()=>{});
   closeM('m-edit-les');clearEditSRows();renderLes();toast('수정되었습니다');
 }
 function reqDelLes(){
