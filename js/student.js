@@ -1042,10 +1042,12 @@ function showStatDetail(sid,type){
     rows=rds.map(r=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="font-weight:600">${r.title||'—'}</span>${r.progress?`<span style="color:var(--slate)"> · ${r.progress}</span>`:''} <span style="font-size:10px;color:var(--slate)">${r.date||''}</span></div>`).join('')||'없음';
   }
   const box=document.createElement('div');
-  box.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:var(--rs);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:2000;padding:20px;min-width:260px;max-width:400px;width:88vw;max-height:65vh;overflow-y:auto';
-  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-size:13px;font-weight:700">${title}</span><button style="background:none;border:none;font-size:20px;cursor:pointer" onclick="this.closest('div[style]').remove();document.getElementById('stat-overlay').remove()">×</button></div>${rows}`;
+  box.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:var(--rs);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:2000;min-width:260px;max-width:400px;width:88vw;max-height:65vh;display:flex;flex-direction:column;overflow:hidden';
+  const closeBox=()=>{box.remove();const o=document.getElementById('stat-overlay');if(o)o.remove();};
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0"><span style="font-size:13px;font-weight:700">${title}</span><button id="stat-close-btn" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--slate);line-height:1;padding:0 2px">×</button></div><div style="padding:8px 20px 16px;overflow-y:auto;flex:1">${rows}</div>`;
+  box.querySelector('#stat-close-btn').onclick=closeBox;
   const ov=document.createElement('div');ov.id='stat-overlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1999';
-  ov.onclick=()=>{box.remove();ov.remove();};
+  ov.onclick=closeBox;
   document.body.appendChild(ov);document.body.appendChild(box);
 }
 function renderHomeStats(sid){
