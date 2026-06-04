@@ -428,7 +428,7 @@
                 <input type="file" id="lg-file" accept="image/*" style="display:none" onchange="handleLogPhoto(event)">
               </div>
               <div id="log-preview-wrap" style="display:none;min-width:0">
-                <img id="log-preview-img" style="width:100%;border-radius:8px;max-height:280px;object-fit:contain;border:1px solid var(--border);background:var(--cream2)">
+                <img id="log-preview-img" style="width:100%;border-radius:8px;max-height:400px;object-fit:contain;border:1px solid var(--border);background:var(--cream2)">
                 <button onclick="clearLogPhoto()" style="display:block;width:100%;margin-top:6px;padding:4px 0;font-size:11px;color:var(--slate);background:none;border:1px solid var(--border);border-radius:var(--rs);cursor:pointer;font-family:var(--fb)">× 다시 선택</button>
               </div>
               <div id="log-word-area" style="min-width:0">
@@ -1036,20 +1036,6 @@
     <div style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">👤 학생별 기록</div>
       <div id="cl-students"></div>
-    </div>
-    <div style="margin-bottom:12px">
-      <label style="font-size:12px;color:var(--slate);display:block;margin-bottom:4px">공통 코멘트 (선택)</label>
-      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px">
-        <button type="button" class="cmt-chip" onclick="addClCommonCmtChip('집중도 좋음')">집중도 좋음</button>
-        <button type="button" class="cmt-chip" onclick="addClCommonCmtChip('이해도 높음')">이해도 높음</button>
-        <button type="button" class="cmt-chip" onclick="addClCommonCmtChip('적극 참여')">적극 참여</button>
-        <button type="button" class="cmt-chip" onclick="addClCommonCmtChip('질문 잘 함')">질문 잘 함</button>
-        <button type="button" class="cmt-chip" onclick="addClCommonCmtChip('전반적으로 우수')">전반적으로 우수</button>
-        <button type="button" class="cmt-chip" onclick="addClCommonCmtChip('복습 필요')">복습 필요</button>
-        <button type="button" class="cmt-chip" onclick="addClCommonCmtChip('속도 향상 중')">속도 향상 중</button>
-        <button type="button" class="cmt-chip" onclick="addClCommonCmtChip('집중 유지 필요')">집중 유지 필요</button>
-      </div>
-      <textarea id="cl-common-cmt" placeholder="수업 내용, 특이사항 등..." style="width:100%;min-height:52px;resize:vertical;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none;box-sizing:border-box"></textarea>
     </div>
     <div class="card" style="margin-bottom:12px">
       <div class="ch"><span class="ct">📋 과제 설정 (선택)</span></div>

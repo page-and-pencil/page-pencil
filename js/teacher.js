@@ -3727,9 +3727,7 @@ async function handleLogPhoto(e){
   document.getElementById('log-upload-zone').style.display='none';
   document.getElementById('log-preview-wrap').style.display='block';
   const area=document.getElementById('log-content-area');
-  area.style.display='flex';area.style.gap='12px';area.style.alignItems='flex-start';
-  document.getElementById('log-preview-wrap').style.flex='1';
-  document.getElementById('log-word-area').style.flex='1';
+  area.style.display='flex';area.style.flexDirection='column';area.style.gap='10px';
   await runLogAI();
 }
 function clearLogPhoto(){
@@ -3740,13 +3738,11 @@ function clearLogPhoto(){
   document.getElementById('log-upload-zone').style.display='block';
   document.getElementById('log-preview-wrap').style.display='none';
   const area=document.getElementById('log-content-area');
-  area.style.display='block';area.style.gap='';area.style.alignItems='';
-  document.getElementById('log-preview-wrap').style.flex='';
-  document.getElementById('log-word-area').style.flex='';
+  area.style.display='block';area.style.flexDirection='';area.style.gap='';
 }
 function logWordRowHtml(i,word,ko){
   const iS='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;min-width:0';
-  return `<div class="log-word-row" data-idx="${i}" style="display:grid;grid-template-columns:1fr 1fr auto;gap:4px;align-items:center">
+  return `<div class="log-word-row" data-idx="${i}" style="display:grid;grid-template-columns:1fr 1fr auto;gap:4px;align-items:center;margin-bottom:2px">
     <input type="text" class="lwr-word" value="${escAttr(word)}" placeholder="영단어" style="${iS}">
     <input type="text" class="lwr-ko" value="${escAttr(ko)}" placeholder="뜻 조회 중..." style="${iS}">
     <button style="background:none;border:none;cursor:pointer;color:var(--slate);font-size:16px;padding:0 4px;line-height:1" onclick="this.closest('.log-word-row').remove()">×</button>
@@ -5414,7 +5410,7 @@ function openClassLesson(classId,dateStr){
     // 기존 선택된 교재에 직전 진도 힌트 설정
     document.querySelectorAll('#cl-subj-rows select[data-f="book"]').forEach(clUpdateUnitHint);
   }
-  document.getElementById('cl-common-cmt').value='';
+  const _clCmt=document.getElementById('cl-common-cmt');if(_clCmt)_clCmt.value='';
   // 과제 초기화 후 날짜별 공통 과제 행 자동 생성 (교재별 1행씩)
   document.getElementById('cl-hw-ind-rows').innerHTML='';
   clHwSyncFromSubj();
@@ -5703,7 +5699,7 @@ async function saveClassLesson(){
   const date=document.getElementById('cl-date').value;
   if(!date){toast('날짜를 선택하세요');return;}
   const commonMats=getSMatsFrom('cl-subj-rows');
-  const commonCmt=document.getElementById('cl-common-cmt').value.trim();
+  const commonCmt=document.getElementById('cl-common-cmt')?.value.trim()||'';
   const stuRows=document.querySelectorAll('.cl-stu-row');
   if(!stuRows.length){toast('학생이 없습니다');return;}
   const stuData=[];
