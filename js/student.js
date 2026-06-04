@@ -350,7 +350,11 @@ function renderAssignmentTab(sid){
       const tbl=sched.length?`<div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:var(--cream)"><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">날짜</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">교재</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">유닛</th></tr></thead><tbody>${sched.map(r=>`<tr style="${r.date===today?'background:#e8f5e9;font-weight:700':''}"><td style="padding:3px 6px;border-bottom:1px solid var(--border);white-space:nowrap">${(r.date||'').slice(5).replace('-','/')}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.book||''}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.unit||''}</td></tr>`).join('')}</tbody></table></div>`:'';
       content=`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">🎮 클래스5 진도 스케줄</div>${tbl}`;
     } else {
-      content=`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">💬 ${a.text||''}</div>`;
+      const _ci={phonics:'📘',grammar:'✏️',listening:'🎧',writing:'✍️',naesin:'📋',other:'💬'};
+      const _cl={phonics:'파닉스',grammar:'어법',listening:'리스닝',writing:'라이팅',naesin:'내신',other:'기타'};
+      const icon=_ci[a.category]||'📋';
+      const label=_cl[a.category]||a.category||'과제';
+      content=`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">${icon} ${label}${a.bookTitle?' — '+a.bookTitle:''}</div>${a.range?`<div style="font-size:12px;color:var(--slate);margin-top:2px">${a.range}</div>`:''}${!a.bookTitle&&!a.range&&a.text?`<div style="font-size:12px;color:var(--slate)">${a.text}</div>`:''}`;
     }
 
     if(submitted){

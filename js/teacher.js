@@ -893,6 +893,19 @@ function clearSRows(){aSubjs.clear();document.querySelectorAll('#subj-chips .chi
 function clearEditSRows(){aEditSubjs.clear();document.querySelectorAll('#el-subj-chips .chip').forEach(c=>c.classList.remove('active'));document.getElementById('el-subj-rows').innerHTML='';}
 function escAttr(s){return(s||'').replace(/"/g,'&quot;');}
 function addElCmtChip(text){const ta=document.getElementById('el-cmt');if(!ta)return;ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;ta.focus();}
+function addClCommonCmtChip(text){const ta=document.getElementById('cl-common-cmt');if(!ta)return;ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;ta.focus();}
+async function previewElPolishedCmt(){
+  const raw=document.getElementById('el-cmt').value.trim();
+  if(!raw){toast('코멘트를 먼저 입력해 주세요');return;}
+  const status=document.getElementById('el-cmt-preview-status');
+  const box=document.getElementById('el-cmt-preview-box');
+  const txt=document.getElementById('el-cmt-preview-text');
+  if(status)status.textContent='변환 중...';
+  const polished=await polishCmt(raw);
+  if(status)status.textContent='';
+  if(box)box.style.display='block';
+  if(txt)txt.textContent=polished||raw;
+}
 function matsToHtml(materials){
   if(!materials)return '';
   return Object.entries(materials).map(([k,v])=>{
@@ -1181,6 +1194,7 @@ function openEditLes(id){
   document.getElementById('el-att').value=l.att||'normal';
   document.getElementById('el-cmt').value=l.cmt||'';
   document.getElementById('el-stu').value=l.sid||'';
+  const _epb=document.getElementById('el-cmt-preview-box');if(_epb)_epb.style.display='none';
   // 교재 진도 기존 값으로 칩+행 복원
   clearEditSRows();
   if(l.materials){
@@ -1399,7 +1413,7 @@ function renderRd(){
       <td style="font-family:var(--fm);font-size:11px;white-space:nowrap">${r.date||''}</td>
       <td style="font-weight:700;white-space:nowrap">${s?s.name:'—'}</td>
       <td>${r.title||'—'}${r.series?`<br><span style="font-size:11px;color:var(--slate)">${r.series}</span>`:''}${lvl?`<br><span style="font-size:10px;color:var(--slate)">Lv.${lvl}</span>`:''}</td>
-      <td style="white-space:nowrap"><span class="badge bnavy">${r.arLevel?'AR '+r.arLevel:'—'}</span></td>
+      <td style="white-space:nowrap"><span class="badge bnavy">${(r.arLevel||r.ar)?'AR '+(r.arLevel||r.ar):'—'}</span></td>
       <td style="font-size:11px;color:var(--slate)">${r.progress||'—'}</td>
       <td><div style="display:flex;gap:4px;justify-content:flex-end;white-space:nowrap">
         <button class="btn bo bsm" onclick="openEditRd('${r.id}')">수정</button>
