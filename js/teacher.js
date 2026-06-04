@@ -4576,13 +4576,18 @@ function showAssignDateDetail(dateStr){
       </div>
     </div>`;
   }).join('');
+  // 기존 모달 제거
+  document.getElementById('assign-detail-modal')?.remove();
+  document.getElementById('assign-detail-overlay')?.remove();
   const el=document.createElement('div');
+  el.id='assign-detail-modal';
   el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:var(--rs);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:2000;padding:20px;min-width:280px;max-width:480px;width:90vw;max-height:70vh;overflow-y:auto';
-  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-size:14px;font-weight:700">${dateStr} 과제 (${assigns.length}건)</span><button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--slate)" onclick="this.closest('div').remove();document.getElementById('assign-detail-overlay').remove()">×</button></div>${rows}`;
+  const closeDetail=()=>{document.getElementById('assign-detail-modal')?.remove();document.getElementById('assign-detail-overlay')?.remove();};
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-size:14px;font-weight:700">${dateStr} 과제 (${assigns.length}건)</span><button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--slate)" onclick="(()=>{document.getElementById('assign-detail-modal')?.remove();document.getElementById('assign-detail-overlay')?.remove();})()">×</button></div>${rows}`;
   const overlay=document.createElement('div');
   overlay.id='assign-detail-overlay';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1999';
-  overlay.onclick=()=>{el.remove();overlay.remove();};
+  overlay.onclick=closeDetail;
   document.body.appendChild(overlay);document.body.appendChild(el);
 }
 function openAssignForDate(dateStr){
@@ -5241,7 +5246,7 @@ function openClassLesson(classId,dateStr){
       </div>
       <button class="btn ba" style="font-size:11px;padding:3px 10px;margin-bottom:6px" onclick="addClBookRow(this)">+ 원서 추가</button>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px">
-        ${['집중도 좋음','복습 필요','속도 향상 중','이해도 높음','어휘 보완 필요','발음 교정 중','자신감 향상 중'].map(c=>`<button type="button" class="cmt-chip" onclick="clAddIndCmt(this,'${c}')">${c}</button>`).join('')}
+        ${['집중도 좋음','이해도 높음','자신감 향상 중','적극 참여','질문 잘 함','예습 완료','숙제 성실','읽기 유창','단어 암기 우수','발표 잘 함','복습 필요','속도 향상 중','어휘 보완 필요','발음 교정 중','문법 점검 필요','쓰기 연습 필요','집중 유지 필요','리듬감·억양 개선','듣기 이해도 향상 중','문장 구성 능숙'].map(c=>`<button type="button" class="cmt-chip" onclick="clAddIndCmt(this,'${c}')">${c}</button>`).join('')}
       </div>
       <textarea class="cl-ind-cmt" placeholder="개인 코멘트 (선택)" rows="2" style="${iStyle};width:100%;box-sizing:border-box;resize:none"></textarea>
       <div style="display:flex;align-items:center;gap:8px;margin-top:5px">
