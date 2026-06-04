@@ -810,6 +810,17 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   const addBtn=baseKey==='naesin'?`<button class="btn-xadd" title="내신 교재 추가" onclick="addSRowTo('${wrapperId}','naesin')">+</button>`:'';
   const noUnit=wrapperId==='ec-subj-rows';
   const unitInput=noUnit?'':` <input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}">`;
+  // 특별 항목: Pencil Down / Sing Together는 wrapperId 무관하게 고정 처리
+  if(baseKey==='pencil_down'){
+    d.innerHTML=`<span class="sl spd" style="font-style:italic;font-size:11px;padding:4px 10px">✏️ Pencil Down</span><span style="font-size:11px;color:var(--slate);flex:1;padding-left:8px">리딩 완주 특별 활동</span><button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
+    const hidden=document.createElement('input');hidden.type='hidden';hidden.dataset.f='book';hidden.value='Pencil Down Day';d.appendChild(hidden);
+    wrap.appendChild(d);return;
+  }
+  if(baseKey==='sing_together'){
+    const iStyle='padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;grid-column:span 2;width:100%;';
+    d.innerHTML=`<span class="sl sst" style="font-size:11px;padding:4px 8px;white-space:nowrap">🎵 Sing</span><input type="text" placeholder="곡명 입력" data-f="book" style="${iStyle}" value="${escAttr(bookVal||'')}"><button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
+    wrap.appendChild(d);return;
+  }
   // cl-subj-rows: 교재 DB select 드롭다운, 나머지: text input with datalist
   let bookInput;
   if(wrapperId==='cl-subj-rows'&&!isBook){
@@ -820,12 +831,6 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
     const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
     bookInput=`<select data-f="book" onchange="clUpdateUnitHint(this)" style="flex:1;min-width:0;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">${opts}</select>`;
-  }else if(baseKey==='pencil_down'){
-    // Pencil Down Day: 특별 활동, 책/유닛 없음
-    d.innerHTML=`<span class="sl spd" style="font-style:italic;font-size:11px;padding:4px 10px">✏️ Pencil Down Day</span><span style="font-size:11px;color:var(--slate);flex:1;padding-left:8px">리딩 완주 특별 활동</span><button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
-    // data-f="book"은 저장 시 필요하므로 hidden으로 추가
-    const hidden=document.createElement('input');hidden.type='hidden';hidden.dataset.f='book';hidden.value='Pencil Down Day';d.appendChild(hidden);
-    wrap.appendChild(d);return;
   }else{
     // ec-subj-rows 등: 카테고리별 필터된 인라인 datalist
     const catF=_CAT_KO[baseKey];
@@ -1368,19 +1373,18 @@ function renderRd(){
   const el=document.getElementById('rd-list');
   if(!rds.length){el.innerHTML='<div class="empty"><div class="empty-i">📗</div><div class="empty-t">원서 기록이 없습니다</div></div>';return;}
   const allLibSrc=[...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]),...(_cache.library||[])];
-  el.innerHTML=`<div class="card"><table class="tbl"><thead><tr><th>날짜</th><th>학생</th><th>제목</th><th>AR</th><th>레벨</th><th>진도</th><th></th></tr></thead><tbody>
+  el.innerHTML=`<div class="card"><div style="overflow-x:auto"><table class="tbl" style="min-width:520px"><thead><tr><th style="white-space:nowrap">날짜</th><th>학생</th><th>제목</th><th style="white-space:nowrap;min-width:60px">AR 레벨</th><th>진도</th><th></th></tr></thead><tbody>
     ${rds.map(r=>{const s=stus.find(x=>x.id===r.sid);const bk=allLibSrc.find(b=>b.title===r.title);const lvl=bk?.level||'';return `<tr>
-      <td style="font-family:var(--fm);font-size:11px">${r.date||''}</td>
-      <td style="font-weight:700">${s?s.name:'—'}</td>
-      <td>${r.title||'—'}${r.series?`<br><span style="font-size:11px;color:var(--slate)">${r.series}</span>`:''}</td>
-      <td><span class="badge bnavy">${r.arLevel||'—'}</span></td>
-      <td style="font-size:11px;color:var(--slate)">${lvl||'—'}</td>
+      <td style="font-family:var(--fm);font-size:11px;white-space:nowrap">${r.date||''}</td>
+      <td style="font-weight:700;white-space:nowrap">${s?s.name:'—'}</td>
+      <td>${r.title||'—'}${r.series?`<br><span style="font-size:11px;color:var(--slate)">${r.series}</span>`:''}${lvl?`<br><span style="font-size:10px;color:var(--slate)">Lv.${lvl}</span>`:''}</td>
+      <td style="white-space:nowrap"><span class="badge bnavy">${r.arLevel?'AR '+r.arLevel:'—'}</span></td>
       <td style="font-size:11px;color:var(--slate)">${r.progress||'—'}</td>
-      <td><div style="display:flex;gap:4px;justify-content:flex-end">
+      <td><div style="display:flex;gap:4px;justify-content:flex-end;white-space:nowrap">
         <button class="btn bo bsm" onclick="openEditRd('${r.id}')">수정</button>
         <button class="btn bd bsm" onclick="reqDelRdInline('${r.id}')">삭제</button>
       </div></td>
-    </tr>`;}).join('')}</tbody></table></div>`;
+    </tr>`;}).join('')}</tbody></table></div></div>`;
 }
 function openEditRd(id){
   const r=DB.rds().find(x=>x.id===id);if(!r)return;
@@ -4752,25 +4756,30 @@ function renderSpBooks(sid){
   const derivedBooks=[...lessonBookMap.values()].filter(b=>!tbTitles.has(b.title))
     .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const allBooks=[...tbs.map(t=>({id:t.id,title:t.title,type:t.type||'교재',unit:t.currentUnit||'',manual:true,completed:t.completed,completedDate:t.completedDate})),...derivedBooks.map(b=>({id:null,title:b.title,type:b.type,unit:b.unit,manual:false}))];
-  const booksOnly=allBooks.filter(b=>b.type!=='원서');
-  const rdBooks=allBooks.filter(b=>b.type==='원서');
+  const booksOnly=allBooks.filter(b=>b.type!=='원서'&&!b.completed);
+  const completedBooks=tbs.filter(t=>t.type!=='원서'&&t.completed).map(t=>({id:t.id,title:t.title,type:t.type||'교재',unit:t.currentUnit||'',completedDate:t.completedDate}));
+  const rdBooks=allBooks.filter(b=>b.type==='원서'&&!b.completed);
+  const completedRdBooks=tbs.filter(t=>t.type==='원서'&&t.completed).map(t=>({id:t.id,title:t.title,unit:t.currentUnit||'',completedDate:t.completedDate}));
   const libOpts=[...BOOK_DB,...DB.libs()].map(b=>`<option value="${b.id}">${b.title}</option>`).join('');
-  const bookRow=t=>`<div style="padding:10px 0;border-bottom:1px solid var(--border);${t.completed?'opacity:.6':''}">
+  const bookRow=t=>`<div style="padding:10px 0;border-bottom:1px solid var(--border)">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
       <div style="flex:1">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span style="font-size:13px;font-weight:700;${t.completed?'text-decoration:line-through':''}">${t.title}</span>
-          ${t.completed?`<span class="badge bteal" style="font-size:10px">✓ 완료 ${t.completedDate||''}</span>`:''}
+          <span style="font-size:13px;font-weight:700">${t.title}</span>
           ${t.type&&t.type!=='교재'?`<span class="badge bslate" style="font-size:9px">${t.type}</span>`:''}
         </div>
         <div style="font-size:11px;color:var(--slate)">${t.unit||''}${!t.manual?` <span style="color:var(--teal)">(수업 기록)</span>`:''}</div>
         ${t.manual?`<input type="text" value="${t.unit||''}" placeholder="현재 진도 (예: Unit 3)" style="margin-top:4px;width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream2);outline:none" onchange="updateTextbookUnit('${t.id}','${sid}',this.value)">`:''}
       </div>
       <div style="display:flex;gap:4px;flex-shrink:0">
-        ${t.manual&&!t.completed?`<button class="btn ba" style="padding:2px 8px;font-size:11px" onclick="markTextbookDone('${t.id}','${sid}')">✓ 완료</button>`:''}
+        ${t.manual?`<button class="btn ba" style="padding:2px 8px;font-size:11px" onclick="markTextbookDone('${t.id}','${sid}')">✓ 완료</button>`:''}
         ${t.manual?`<button class="btn bd" style="padding:2px 8px;font-size:11px" onclick="removeTextbook('${t.id}','${sid}')">삭제</button>`:''}
       </div>
     </div>
+  </div>`;
+  const doneRow=t=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+    <span style="font-size:13px;font-weight:600;color:var(--slate);text-decoration:line-through;flex:1">${t.title}</span>
+    <span class="badge bteal" style="font-size:10px;white-space:nowrap">✓ ${t.completedDate||'완료'}</span>
   </div>`;
   el.innerHTML=`
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -4780,9 +4789,17 @@ function renderSpBooks(sid){
   <div id="sp-books-list">
     ${booksOnly.length?booksOnly.map(bookRow).join(''):'<div style="font-size:12px;color:var(--slate);padding:8px 0">등록된 교재 없음</div>'}
   </div>
+  ${completedBooks.length?`<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
+    <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:6px">✅ 완료 교재 (${completedBooks.length}권)</div>
+    ${completedBooks.map(doneRow).join('')}
+  </div>`:''}
   ${rdBooks.length?`<div style="margin-top:14px;padding-top:14px;border-top:2px solid var(--border)">
     <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📗 원서 (${rdBooks.length}권)</div>
     ${rdBooks.map(bookRow).join('')}
+  </div>`:''}
+  ${completedRdBooks.length?`<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
+    <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:6px">✅ 완료 원서 (${completedRdBooks.length}권)</div>
+    ${completedRdBooks.map(doneRow).join('')}
   </div>`:''}</div>
   <div id="sp-books-add" style="display:none;margin-top:12px;padding:10px;background:var(--cream);border-radius:var(--rs)">
     <div class="f"><label>교재 종류</label>
