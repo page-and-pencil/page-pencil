@@ -942,22 +942,27 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   const addBtn=baseKey==='naesin'?`<button class="btn-xadd" title="내신 교재 추가" onclick="addSRowTo('${wrapperId}','naesin')">+</button>`:'';
   const noUnit=wrapperId==='ec-subj-rows';
   const unitInput=noUnit?'':` <input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}">`;
-  if(baseKey==='pencil_down'){
-    const bookVal2=(bookVal==='Pencil Down Day'||!bookVal)?'':bookVal;
-    const iS='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;box-sizing:border-box';
-    d.innerHTML=`<span class="sl spd" style="font-size:11px;padding:4px 8px;white-space:nowrap">✏️ Pencil Down</span>
-      <div style="min-width:0;display:flex;flex-direction:column;gap:3px">
-        <input type="text" placeholder="활동명" data-f="book" value="${escAttr(bookVal2)}" style="${iS}">
-        <button type="button" onclick="const i=this.previousElementSibling;i.value=i.value==='Sing Together'?'':'Sing Together';" style="padding:1px 8px;background:var(--cream2);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:10px;color:var(--slate);font-family:var(--fb);align-self:flex-start;white-space:nowrap">🎵 Sing Together</button>
+  if(baseKey==='pencil_down'||baseKey==='sing_together'){
+    const rawVal=baseKey==='sing_together'?bookVal:(bookVal==='Pencil Down Day'||!bookVal)?'':bookVal;
+    const PD_ACTS=[
+      {v:'Sing Together',lbl:'🎵 싱 투게더'},
+      {v:'Story Time',lbl:'📖 스토리 타임'},
+      {v:'Movie/Video',lbl:'🎬 영화·영상'},
+      {v:'Game',lbl:'🎮 게임'},
+      {v:'Arts & Crafts',lbl:'🎨 만들기·공예'},
+      {v:'Free Talk',lbl:'💬 프리톡'},
+    ];
+    const isKnown=!rawVal||PD_ACTS.some(a=>a.v===rawVal);
+    const iS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;box-sizing:border-box';
+    const opts=`<option value="">-- 활동 선택 --</option>`+PD_ACTS.map(a=>`<option value="${escAttr(a.v)}"${rawVal===a.v?' selected':''}>${a.lbl}</option>`).join('')+`<option value="__other__"${!isKnown&&rawVal?' selected':''}>✏️ 기타 (직접 입력)</option>`;
+    d.style.gridTemplateColumns='80px 1fr 1fr auto';
+    d.innerHTML=`<span class="sl spd" style="line-height:1.4">✏️<br>Pencil Down</span>
+      <div style="min-width:0">
+        <select ${isKnown?'data-f="book"':''} class="pd-act-sel" onchange="pdSelChange(this)" style="${iS}${isKnown?'':';display:none'}">${opts}</select>
+        <input ${!isKnown?'data-f="book"':''} class="pd-cus-inp" type="text" placeholder="활동명 직접 입력" value="${escAttr(!isKnown?rawVal:'')}" style="${iS}${isKnown?';display:none':''}">
       </div>
-      ${noUnit?'':`<input type="text" placeholder="세부 내용" data-f="unit" value="${escAttr(unitVal||'')}" style="${iS}">` }
+      ${noUnit?'':`<input type="text" data-f="unit" placeholder="세부 내용 (곡명·주제)" value="${escAttr(unitVal||'')}" style="${iS}">`}
       <button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
-    wrap.appendChild(d);return;
-  }
-  if(baseKey==='sing_together'){
-    // 기존 데이터 하위 호환 표시용 (신규 입력 불가)
-    const iStyle='padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;grid-column:span 2;width:100%;';
-    d.innerHTML=`<span class="sl sst" style="font-size:11px;padding:4px 8px;white-space:nowrap">🎵 Sing</span><input type="text" placeholder="곡명 입력" data-f="book" style="${iStyle}" value="${escAttr(bookVal||'')}"><button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
     wrap.appendChild(d);return;
   }
   // cl-subj-rows: 교재 DB select 드롭다운, 나머지: text input with datalist
@@ -1019,6 +1024,19 @@ function getSMatsFrom(wrapperId){
   return r;
 }
 function getSMats(){return getSMatsFrom('subj-rows');}
+function pdSelChange(sel){
+  const row=sel.closest('.sr');
+  const cus=row.querySelector('.pd-cus-inp');
+  if(!cus)return;
+  if(sel.value==='__other__'){
+    sel.removeAttribute('data-f');sel.style.display='none';
+    cus.setAttribute('data-f','book');cus.style.removeProperty('display');
+    cus.value='';cus.focus();
+  }else{
+    sel.setAttribute('data-f','book');
+    cus.removeAttribute('data-f');cus.style.display='none';
+  }
+}
 function clearSRows(){aSubjs.clear();document.querySelectorAll('#subj-chips .chip').forEach(c=>c.classList.remove('active'));document.getElementById('subj-rows').innerHTML='';}
 function clearEditSRows(){aEditSubjs.clear();document.querySelectorAll('#el-subj-chips .chip').forEach(c=>c.classList.remove('active'));document.getElementById('el-subj-rows').innerHTML='';}
 function escAttr(s){return(s||'').replace(/"/g,'&quot;');}
