@@ -388,6 +388,30 @@ function renderSpVocab(sid){
   const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).sort((a,b)=>a.word.localeCompare(b.word));
   if(!cards.length){el.innerHTML='<div class="empty"><div class="empty-i">📚</div><div class="empty-t">단어장이 비어있습니다</div></div>';return;}
   // 다음 수업까지 외울 단어: 미숙달(phase<2) 단어, 오답 많은 순
+  // Dolch 습득 시각화
+  const cardWordSet=new Set(cards.map(c=>(c.word||'').toLowerCase()));
+  const masteredSet=new Set(cards.filter(c=>(c.phase||0)>=2).map(c=>(c.word||'').toLowerCase()));
+  const dolchLevels=[['pk','Pre-K',40],['k','K',52],['g1','1학년',41],['g2','2학년',46],['g3','3학년',41]];
+  const dolchRows=dolchLevels.map(([lv,lbl,total])=>{
+    const inLevel=Object.entries(DOLCH_WORDS).filter(([w,l])=>l===lv).map(([w])=>w);
+    const learned=inLevel.filter(w=>cardWordSet.has(w)).length;
+    const mastered=inLevel.filter(w=>masteredSet.has(w)).length;
+    const pct=Math.round(learned/total*100);
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+      <span style="font-size:10px;color:var(--slate);width:40px;flex-shrink:0">${lbl}</span>
+      <div style="flex:1;background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:var(--teal);border-radius:4px;transition:width .4s"></div>
+      </div>
+      <span style="font-size:10px;color:var(--navy);width:56px;flex-shrink:0;text-align:right">${learned}/${total} <span style="color:var(--slate)">(${pct}%)</span></span>
+    </div>`;
+  }).join('');
+  const dolchTotal=Object.keys(DOLCH_WORDS).length;
+  const dolchLearned=Object.keys(DOLCH_WORDS).filter(w=>cardWordSet.has(w)).length;
+  const dolchHtml=`<div style="margin-bottom:14px;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border)">
+    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px">📊 Dolch 기초어휘 습득 현황 <span style="font-weight:400;color:var(--slate);font-size:11px">${dolchLearned}/${dolchTotal}단어</span></div>
+    ${dolchRows}
+  </div>`;
+
   const studyCards=cards.filter(c=>(c.phase||0)<2).sort((a,b)=>(b.misses||0)-(a.misses||0)||a.word.localeCompare(b.word));
   const studyHtml=`<div style="margin-bottom:16px;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border)">
     <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📝 다음 수업까지 외울 단어 <span style="color:var(--teal);font-weight:400">${studyCards.length}개</span></div>
@@ -411,6 +435,7 @@ function renderSpVocab(sid){
         ${c.pos?`<span style="font-size:10px;color:var(--slate)">${c.pos}</span>`:''}
         <span class="badge ${PHASE_CLS[c.phase||0]}" style="font-size:10px">${PHASE_LBL[c.phase||0]}</span>
         ${srcBadge(c.source)}
+        ${(()=>{const lv=(c.wlevel||getWordLevel(c.word).display);return lv?`<span style="font-size:9px;padding:1px 6px;border-radius:8px;${lv.startsWith('Dolch')?'background:#e0f2fe;color:#0369a1':lv.startsWith('A')?'background:#dcfce7;color:#166534':lv.startsWith('B')?'background:#fef9c3;color:#92400e':lv.startsWith('C')?'background:#ffe4e6;color:#9f1239':'background:#f3e8ff;color:#7e22ce'}">${lv}</span>`:'';})()}
       </div>
       <input type="text" value="${escAttr(c.meaning||'')}" placeholder="뜻 입력..."
         onblur="saveVocabField('${c.id}','${sid}','meaning',this.value)"
@@ -422,7 +447,7 @@ function renderSpVocab(sid){
     </div>
     <button onclick="delVocabCard('${c.id}','${sid}','${escAttr(c.word)}')" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;color:var(--slate)">삭제</button>
   </div>`).join('');
-  el.innerHTML=`${studyHtml}
+  el.innerHTML=`${dolchHtml}${studyHtml}
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <span style="font-size:12px;font-weight:700;color:var(--navy)">📚 전체 단어 목록 (${cards.length}개)</span>
       <div style="display:flex;gap:6px;align-items:center">
@@ -1887,7 +1912,7 @@ async function elibAIFillInline(id,idx){
   const btn=document.querySelector(`#elib-vocab-tbody tr[data-rowidx="${idx}"] button[onclick^="elibAIFillInline"]`);
   if(btn){btn.textContent='...';btn.disabled=true;}
   try{
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`영어 단어/표현 "${word}"의 정보 JSON (동사면 v2/v3 필수, 불규칙만 입력):\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장","en_def":"영어 정의 1문장","v2":"과거형(불규칙만, 규칙이면 빈 문자열)","v3":"과거분사(불규칙만, 규칙이면 빈 문자열)"}`}]});
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`영어 단어/표현 "${word}"${(()=>{const lv=getWordLevel(word).display;return lv?` (${lv} 수준)`:'';})()} 정보 JSON (동사면 v2/v3 필수, 불규칙만 입력):\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장","en_def":"영어 정의 1문장","v2":"과거형(불규칙만, 규칙이면 빈 문자열)","v3":"과거분사(불규칙만, 규칙이면 빈 문자열)"}`}]});
     const json=JSON.parse((d.content?.[0]?.text?.trim()||'').replace(/```json|```/g,'').trim());
     const koEl=document.getElementById('elib-ie-ko');const posEl=document.getElementById('elib-ie-pos');const exEl=document.getElementById('elib-ie-ex');const edEl=document.getElementById('elib-ie-endef');
     const v2El=document.getElementById('elib-ie-v2');const v3El=document.getElementById('elib-ie-v3');
@@ -2428,7 +2453,7 @@ async function tuAIFillInline(tbId,unitKey,idx){
   const btn=document.querySelector(`#tu-word-tbody tr[data-rowidx="${idx}"] button[onclick^="tuAIFillInline"]`);
   if(btn){btn.textContent='...';btn.disabled=true;}
   try{
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`영어 단어/표현 "${word}"의 정보 JSON (동사면 v2/v3 필수, 불규칙만 입력):\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장","en_def":"영어 정의 1문장","v2":"과거형(불규칙만, 규칙이면 빈 문자열)","v3":"과거분사(불규칙만, 규칙이면 빈 문자열)"}`}]});
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`영어 단어/표현 "${word}"${(()=>{const lv=getWordLevel(word).display;return lv?` (${lv} 수준)`:'';})()} 정보 JSON (동사면 v2/v3 필수, 불규칙만 입력):\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장","en_def":"영어 정의 1문장","v2":"과거형(불규칙만, 규칙이면 빈 문자열)","v3":"과거분사(불규칙만, 규칙이면 빈 문자열)"}`}]});
     const json=JSON.parse((d.content?.[0]?.text?.trim()||'').replace(/```json|```/g,'').trim());
     const koEl=document.getElementById('tu-ie-ko');const posEl=document.getElementById('tu-ie-pos');const exEl=document.getElementById('tu-ie-ex');const edEl=document.getElementById('tu-ie-endef');
     const v2El=document.getElementById('tu-ie-v2');const v3El=document.getElementById('tu-ie-v3');
@@ -3137,7 +3162,7 @@ async function wdbAIFillInline(idx){
   const btn=document.querySelector(`#wdb-tbody tr[data-rowidx="${idx}"] button[onclick^="wdbAIFillInline"]`);
   if(btn){btn.textContent='...';btn.disabled=true;}
   try{
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`영어 단어/표현 "${w.word}"의 정보 JSON (동사면 v2/v3 필수, 불규칙만 입력):\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장","en_def":"영어 정의 1문장","v2":"과거형(불규칙만, 규칙이면 빈 문자열)","v3":"과거분사(불규칙만, 규칙이면 빈 문자열)"}`}]});
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`영어 단어/표현 "${w.word}"${(()=>{const lv=getWordLevel(w.word).display;return lv?` (${lv} 수준)`:'';})()} 정보 JSON (동사면 v2/v3 필수, 불규칙만 입력):\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장","en_def":"영어 정의 1문장","v2":"과거형(불규칙만, 규칙이면 빈 문자열)","v3":"과거분사(불규칙만, 규칙이면 빈 문자열)"}`}]});
     const json=JSON.parse((d.content?.[0]?.text?.trim()||'').replace(/```json|```/g,'').trim());
     const koEl=document.getElementById('wdb-ie-ko');const posEl=document.getElementById('wdb-ie-pos');const exEl=document.getElementById('wdb-ie-ex');const edEl=document.getElementById('wdb-ie-endef');
     const v2El=document.getElementById('wdb-ie-v2');const v3El=document.getElementById('wdb-ie-v3');

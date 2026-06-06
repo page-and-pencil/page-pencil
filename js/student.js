@@ -728,6 +728,7 @@ function renderMemCard(el){
         <div class="vc-face vc-front">
           <div class="vc-word">${card.word}</div>
           <div class="vc-pos">${card.pos||''}</div>
+          ${(()=>{const lv=(card.wlevel||getWordLevel(card.word).display);return lv?`<div style="margin-top:6px"><span style="font-size:10px;padding:2px 8px;border-radius:10px;font-family:var(--fm);${lv.startsWith('Dolch')?'background:#e0f2fe;color:#0369a1':lv.startsWith('A')?'background:#dcfce7;color:#166534':lv.startsWith('B')?'background:#fef9c3;color:#92400e':lv.startsWith('C')?'background:#ffe4e6;color:#9f1239':'background:#f3e8ff;color:#7e22ce'}">${lv}</span></div>`:'';})()}
           <button onclick="event.stopPropagation();speakWord('${card.word.replace(/'/g,"\\'")}');" style="margin-top:8px;background:none;border:1.5px solid rgba(0,196,204,.35);border-radius:20px;padding:4px 14px;font-size:13px;cursor:pointer;color:var(--teal);font-family:var(--fb)">🔊 발음 듣기</button>
           <div class="vc-hint" style="margin-top:8px">탭하면 뜻이 보여요</div>
         </div>
