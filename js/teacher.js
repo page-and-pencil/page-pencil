@@ -1231,7 +1231,7 @@ async function saveLes(){
   const newLes={id:uid(),sid,date:document.getElementById('ls-date').value,grade:_sStuGrade,att:document.getElementById('ls-att').value,materials:getSMats(),cmt:rawCmt,polishedCmt,...(_rubric?{rubric:_rubric}:{})};
   await supaUpsert('lessons',newLes.id,newLes,sid);
   _cache.lessons.unshift(newLes);
-  addUnitWordsToVocab(sid,newLes.materials,newLes.date).catch(()=>{});
+  addUnitWordsToVocab(sid,newLes.materials,newLes.date).catch(e=>console.error('vocab sync:',e));
   autoSyncBookReads(sid,newLes.materials,newLes.date).catch(()=>{});
   document.getElementById('ls-cmt').value='';clearSRows();
   document.getElementById('ls-last-hint').style.display='none';
@@ -1524,6 +1524,7 @@ async function updLes(){
   _cache.lessons[idx]={..._cache.lessons[idx],date:document.getElementById('el-date').value,sid,grade:document.getElementById('el-grade').value,att:document.getElementById('el-att').value,materials:getSMatsFrom('el-subj-rows'),cmt:rawCmt,polishedCmt};
   await supaUpsert('lessons',id,_cache.lessons[idx],sid);
   autoSyncBookReads(sid,_cache.lessons[idx].materials,_cache.lessons[idx].date).catch(()=>{});
+  addUnitWordsToVocab(sid,_cache.lessons[idx].materials,_cache.lessons[idx].date).catch(e=>console.error('vocab sync:',e));
   closeM('m-edit-les');clearEditSRows();renderLes();toast('수정되었습니다');
 }
 function reqDelLes(){
@@ -2402,7 +2403,7 @@ async function tbookSaveInline(id){
   const title=(document.getElementById('tbe-title')?.value||'').trim();
   if(!title)return toast('교재명을 입력하세요');
   const existing=(_cache.globalTextbooks||[]).find(b=>b.id===id);if(!existing)return;
-  const tb={...existing,title,
+  const tb={...existing,type:'textbook',title,
     publisher:(document.getElementById('tbe-pub')?.value||'').trim(),
     level:(document.getElementById('tbe-level')?.value||'').trim(),
     category:document.getElementById('tbe-cat')?.value||'',
@@ -2418,7 +2419,7 @@ function tbookStartAdd(){_tbookEditingId=null;_tbookAdding=true;tbookPage=0;rend
 async function tbookSaveAdd(){
   const title=(document.getElementById('tba-title')?.value||'').trim();
   if(!title)return toast('교재명을 입력하세요');
-  const tb={id:uid(),title,
+  const tb={id:uid(),type:'textbook',title,
     publisher:(document.getElementById('tba-pub')?.value||'').trim(),
     level:(document.getElementById('tba-level')?.value||'').trim(),
     category:document.getElementById('tba-cat')?.value||'',
@@ -2462,14 +2463,14 @@ async function saveTbook(){
     if(editId){
       // 수정 모드: 기존 units 유지
       const existing=(_cache.globalTextbooks||[]).find(b=>b.id===editId)||{};
-      const tb={...existing,title,publisher,level,category,grade,totalUnits};
+      const tb={...existing,type:'textbook',title,publisher,level,category,grade,totalUnits};
       await supaUpsert('global_textbooks',editId,tb,null);
       const idx=_cache.globalTextbooks.findIndex(b=>b.id===editId);
       if(idx>=0)_cache.globalTextbooks[idx]=tb;
       toast('수정되었습니다');
     }else{
       // 추가 모드
-      const tb={id:uid(),title,publisher,level,category,grade,totalUnits};
+      const tb={id:uid(),type:'textbook',title,publisher,level,category,grade,totalUnits};
       await supaUpsert('global_textbooks',tb.id,tb,null);
       if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
       _cache.globalTextbooks.push(tb);
