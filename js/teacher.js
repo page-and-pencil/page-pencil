@@ -3142,7 +3142,9 @@ function renderBookDB(){
   const q=(document.getElementById('book-q')?.value||'').toLowerCase();
   const pageSize=parseInt(document.getElementById('book-per-page')?.value||'50');
   const tbooks=(_cache.globalTextbooks||[]).map(b=>({...b,_bt:'textbook'}));
-  const libs=(_cache.library||[]).filter(b=>!b._deleted).map(b=>({...b,_bt:'library'}));
+  const seenLibIds=new Set((_cache.library||[]).map(b=>b.id));
+  const bookDbFallback=(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!seenLibIds.has(b.id)&&!b._deleted);
+  const libs=[...(_cache.library||[]).filter(b=>!b._deleted),...bookDbFallback].map(b=>({...b,_bt:'library'}));
   let all=[...tbooks,...libs];
   if(_bookDBFilter)all=all.filter(b=>b._bt===_bookDBFilter);
   if(q)all=all.filter(b=>
@@ -4512,6 +4514,120 @@ function importLibCSV(e){
   };
   reader.readAsText(file,'UTF-8');
 }
+
+// ── 마스터 CSV (책+어휘 통합) ──
+function exportMasterCSV(){
+  const q=v=>`"${(v===null||v===undefined?'':String(v)).replace(/"/g,'""')}"`;
+  const header='타입,제목,시리즈,AR,레벨,분류,유닛,단어,한국어,품사,예문,v2,v3';
+  const rows=[header];
+  // 교재
+  for(const b of (_cache.globalTextbooks||[])){
+    const units=b.units||{};const uKeys=Object.keys(units);
+    if(!uKeys.length){rows.push([q('textbook'),q(b.title||''),q(b.series||''),q(''),q(b.level||''),q(b.category||''),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));continue;}
+    for(const uName of uKeys){
+      const words=Array.isArray(units[uName])?units[uName]:[];
+      if(!words.length){rows.push([q('textbook'),q(b.title||''),q(b.series||''),q(''),q(b.level||''),q(b.category||''),q(uName),q(''),q(''),q(''),q(''),q(''),q('')].join(','));continue;}
+      for(const w of words)rows.push([q('textbook'),q(b.title||''),q(b.series||''),q(''),q(b.level||''),q(b.category||''),q(uName),q(w.en||''),q(w.ko||''),q(w.pos||''),q(w.ex||''),q(w.v2||''),q(w.v3||'')].join(','));
+    }
+  }
+  // 원서 (Supabase + BOOK_DB 폴백)
+  const seenIds=new Set((_cache.library||[]).map(b=>b.id));
+  const allLib=[...(_cache.library||[]).filter(b=>!b._deleted),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!seenIds.has(b.id)&&!b._deleted)];
+  for(const b of allLib){
+    const vocab=b.vocab||[];
+    if(!vocab.length){rows.push([q('library'),q(b.title||''),q(b.series||''),q(b.arLevel||b.ar||''),q(b.level||''),q(b.genre||''),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));continue;}
+    for(const w of vocab)rows.push([q('library'),q(b.title||''),q(b.series||''),q(b.arLevel||b.ar||''),q(b.level||''),q(b.genre||''),q(w.chapter||w.unit||''),q(w.en||''),q(w.ko||''),q(w.pos||''),q(w.ex||''),q(w.v2||''),q(w.v3||'')].join(','));
+  }
+  const blob=new Blob(['﻿'+rows.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`master_db_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  toast(`마스터 CSV 다운로드 완료 (교재 ${(_cache.globalTextbooks||[]).length}권, 원서 ${allLib.length}권)`);
+}
+async function importMasterCSV(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const rows=parseCSVText(ev.target.result);
+    if(rows.length<2){toast('CSV 파일이 비어있습니다');e.target.value='';return;}
+    const hdrs=rows[0].map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
+    const col=k=>{const i=hdrs.indexOf(k);return i>=0?i:-1;};
+    const iType=col('타입'),iTitle=col('제목'),iSeries=col('시리즈'),iAr=col('ar'),
+          iLevel=col('레벨'),iCat=col('분류'),iUnit=col('유닛'),iEn=col('단어'),
+          iKo=col('한국어'),iPos=col('품사'),iEx=col('예문'),iV2=col('v2'),iV3=col('v3');
+    if(iType<0||iTitle<0){toast('헤더 오류: "타입","제목" 컬럼이 필요합니다');e.target.value='';return;}
+    const get=(r,i)=>i>=0?(r[i]||'').replace(/^"|"$/g,'').trim():'';
+    // 책별 행 그룹화
+    const bookMap={};
+    for(let i=1;i<rows.length;i++){
+      const r=rows[i];const type=get(r,iType).toLowerCase();const title=get(r,iTitle);
+      if(!type||!title)continue;
+      const key=type+'|'+title.toLowerCase();
+      if(!bookMap[key])bookMap[key]={type,title,rows:[]};
+      bookMap[key].rows.push(r);
+    }
+    let addedBooks=0,updatedBooks=0,addedWords=0;
+    for(const bk of Object.values(bookMap)){
+      const {type,title,rows:brows}=bk;const first=brows[0];
+      if(type==='textbook'){
+        let b=(_cache.globalTextbooks||[]).find(x=>(x.title||'').trim().toLowerCase()===title.toLowerCase());
+        if(!b){
+          b={id:uid(),type:'textbook',title,series:get(first,iSeries),level:get(first,iLevel),category:get(first,iCat),publisher:'',units:{}};
+          await supaUpsert('global_textbooks',b.id,b,null);
+          _cache.globalTextbooks=_cache.globalTextbooks||[];_cache.globalTextbooks.push(b);addedBooks++;
+        }
+        const units=b.units||{};
+        for(const r of brows){
+          const en=get(r,iEn);if(!en)continue;
+          const uKey=get(r,iUnit)||'기본';
+          if(!units[uKey])units[uKey]=[];
+          if(!units[uKey].find(w=>w.en.toLowerCase()===en.toLowerCase())){
+            units[uKey].push({en,ko:get(r,iKo),pos:get(r,iPos),ex:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3)});
+            addedWords++;
+          }
+        }
+        b.units=units;await supaUpsert('global_textbooks',b.id,b,null);updatedBooks++;
+      } else if(type==='library'){
+        let b=(_cache.library||[]).find(x=>(x.title||'').trim().toLowerCase()===title.toLowerCase());
+        if(!b){
+          b={id:uid(),type:'library',title,series:get(first,iSeries),arLevel:get(first,iAr),level:get(first,iLevel),genre:get(first,iCat),vocab:[]};
+          await supaUpsert('global_textbooks',b.id,b,null);
+          _cache.library=_cache.library||[];_cache.library.push(b);addedBooks++;
+        }
+        const vocab=b.vocab||[];
+        for(const r of brows){
+          const en=get(r,iEn);if(!en)continue;
+          if(!vocab.find(w=>w.en.toLowerCase()===en.toLowerCase())){
+            vocab.push({en,ko:get(r,iKo),pos:get(r,iPos),ex:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3),chapter:get(r,iUnit)});
+            addedWords++;
+          }
+        }
+        b.vocab=vocab;await supaUpsert('global_textbooks',b.id,b,null);updatedBooks++;
+      }
+    }
+    renderBookDB();
+    if(typeof wdbPage!=='undefined')wdbPage=0;
+    if(typeof renderWordDB==='function')renderWordDB();
+    toast(`임포트 완료: 책 ${addedBooks}권 신규, ${updatedBooks}권 갱신, 단어 ${addedWords}개 추가`);
+    e.target.value='';
+  };
+  reader.readAsText(file,'UTF-8');
+}
+function downloadMasterCSVTemplate(){
+  const lines=[
+    '타입,제목,시리즈,AR,레벨,분류,유닛,단어,한국어,품사,예문,v2,v3',
+    'textbook,EFL Phonics 1,,,"B",파닉스,Unit 1,apple,사과,noun,An apple a day.,,',
+    'textbook,EFL Phonics 1,,,"B",파닉스,Unit 1,banana,바나나,noun,I like bananas.,,',
+    'textbook,EFL Phonics 1,,,"B",파닉스,Unit 2,cat,고양이,noun,The cat is cute.,,',
+    'library,Magic Tree House #3,MTH,3.3,,"",Ch.1,mysterious,신비한,adj,The forest was mysterious.,,',
+    'library,Magic Tree House #3,MTH,3.3,,"",Ch.1,ancient,고대의,adj,,,',
+    'library,Harry Potter 1,HP,5.5,,,"",magic,마법,noun,She has magic powers.,,'
+  ];
+  const blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='master_csv_template.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
 function parseCSVLine(line){
   const result=[];let cur='',inQ=false;
   for(let i=0;i<line.length;i++){
