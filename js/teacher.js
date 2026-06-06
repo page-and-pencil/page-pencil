@@ -3129,7 +3129,7 @@ async function addUnitWordsToVocab(sid,materials,date){
       return kl===ul||ul.includes(kl)||kl.includes(ul);
     });
     if(!matchKey)continue;
-    const words=tuNormWords(tb.units[matchKey]);
+    const words=tuNormWords(tb.units[matchKey]).map(w=>({...(w&&typeof w==='object'?w:{word:String(w)}),srcId:tb.id,srcType:'textbook',srcUnit:matchKey}));
     if(words?.length)await syncVocabCards(sid,words,[],date,mat.book||'수업');
   }
 }
@@ -3378,6 +3378,28 @@ async function wdbSaveInline(idx){
       if(v2&&c.v2!==v2){c.v2=v2;changed=true;}
       if(v3&&c.v3!==v3){c.v3=v3;changed=true;}
       if(changed)supaUpsert('vocab_cards',c.id,c,c.sid).catch(()=>{});
+    }
+    // 메모리에 없는 학생 카드도 DB에서 직접 cascade
+    if(e.srcId){
+      try{
+        const r=await fetch(SUPA_URL+'/rest/v1/vocab_cards?data->>srcId=eq.'+encodeURIComponent(e.srcId),{headers:SUPA_HEADERS});
+        if(r.ok){
+          const loadedIds=new Set((_cache.vocab_cards||[]).map(c=>c.id));
+          const dbCards=(await r.json()).map(r=>r.data||r)
+            .filter(c=>(c.word||'').toLowerCase()===wordLower&&!loadedIds.has(c.id));
+          for(const c of dbCards){
+            let changed=false;const updated={...c};
+            if(newWord!==e.word&&c.word!==newWord){updated.word=newWord;changed=true;}
+            if(ko&&c.meaning!==ko){updated.meaning=ko;changed=true;}
+            if(pos&&c.pos!==pos){updated.pos=pos;changed=true;}
+            if(ex&&c.example!==ex){updated.example=ex;changed=true;}
+            if(en_def&&c.en_def!==en_def){updated.en_def=en_def;changed=true;}
+            if(v2&&c.v2!==v2){updated.v2=v2;changed=true;}
+            if(v3&&c.v3!==v3){updated.v3=v3;changed=true;}
+            if(changed)supaUpsert('vocab_cards',c.id,updated,c.sid).catch(()=>{});
+          }
+        }
+      }catch(_){}
     }
     renderWordDB();toast('저장되었습니다');
   }catch(err){toast('저장 실패: '+err.message);}
