@@ -58,7 +58,7 @@ const supa={
 // ── 인메모리 캐시 (Supabase → 로컬 캐시 → UI) ──
 const _cache={
   students:[],lessons:[],tests:[],readings:[],logs:[],
-  library:[],notices:[],settings:{},vocab_cards:[],homeworks:[],assignments:[],textbooks:[],messages:[],globalClasses:[]
+  library:[],notices:[],settings:{},vocab_cards:[],homeworks:[],assignments:[],textbooks:[],messages:[],globalClasses:[],monthlyReports:[]
 };
 
 // ── DATA ──
@@ -73,6 +73,7 @@ const DB={
   api(){return _cache.settings.apikey||this.g('apikey')||'';},
   gbooks(){return _cache.settings.gbooks_key||this.g('gbooks_key')||'';},
   kakao(){return _cache.settings.kakao||this.g('kakao')||{phone:'',openchat:''};},
+  reports(){return _cache.monthlyReports||[];},
 
   // 캐시에서 읽기
   stus(){return _cache.students;},
@@ -200,7 +201,7 @@ async function loadAllData(){
   showLoading(true);
   try{
     // 테이블별 독립 로드: 한 테이블이 404(미생성)여도 나머지는 정상 로드
-    const tables=['students','lessons','tests','readings','logs','library','notices','homeworks','assignments','textbooks','messages','global_textbooks','classes'];
+    const tables=['students','lessons','tests','readings','logs','library','notices','homeworks','assignments','textbooks','messages','global_textbooks','classes','monthly_reports'];
     const res=await Promise.allSettled([
       ...tables.map(t=>supaFetch(t,'',true)),
       supaGetSetting('acct'),supaGetSetting('pw'),
@@ -210,7 +211,7 @@ async function loadAllData(){
     // 모든 테이블 fetch가 실패하면(네트워크 단절/프로젝트 중단) 재시도 UI 노출
     if(tables.every((t,i)=>res[i].status==='rejected'))throw new Error('all table fetches failed');
     const val=i=>res[i].status==='fulfilled'?res[i].value:null;
-    const [stus,les,tsts,rds,logs,libs,notices,hws,assigns,tbs,msgs,gtbs,clss]=tables.map((t,i)=>val(i));
+    const [stus,les,tsts,rds,logs,libs,notices,hws,assigns,tbs,msgs,gtbs,clss,mrpts]=tables.map((t,i)=>val(i));
     const acct=val(13),pw=val(14);
     _cache.students=(stus||[]).map(r=>(r.data||r));
     _cache.lessons=(les||[]).map(r=>(r.data||r));
@@ -225,6 +226,7 @@ async function loadAllData(){
     _cache.messages=(msgs||[]).map(r=>(r.data||r));
     _cache.globalTextbooks=(gtbs||[]).map(r=>(r.data||r));
     _cache.globalClasses=(clss||[]).map(r=>(r.data||r));
+    _cache.monthlyReports=(mrpts||[]).map(r=>({...( r.data||r),_id:r.id,sid:r.sid,month:r.month}));
     if(acct)_cache.settings.acct=acct;
     if(pw){_cache.settings.pw=pw;DB.s('pw',pw);}
     const [apikey,cloud,gbooksKey,kakao]=await Promise.all([supaGetSetting('apikey'),supaGetSetting('cloud'),supaGetSetting('gbooks_key'),supaGetSetting('kakao')]);

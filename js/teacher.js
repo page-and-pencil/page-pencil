@@ -4144,6 +4144,158 @@ function polishCmtLocal(r){
   return s;
 }
 
+// ── 월별 리포트 ──
+function openMonthlyReportManager(month){
+  const mo=document.getElementById('m-monthly-report');if(!mo)return;
+  const stus=DB.stus().filter(s=>!s.inactive);
+  const reports=DB.reports();
+  const m=month||new Date().toISOString().slice(0,7);
+  const [yr,mn]=m.split('-');
+  const monthLabel=yr+'년 '+mn+'월';
+  document.getElementById('mrpt-month').textContent=monthLabel;
+  document.getElementById('mrpt-month-val').value=m;
+  const listEl=document.getElementById('mrpt-stu-list');
+  listEl.innerHTML=stus.map(s=>{
+    const rpt=reports.find(r=>r.sid===s.id&&r.month===m);
+    const status=rpt?.status||'none';
+    const badge=status==='sent'?'<span class="badge bteal">발송 완료</span>':status==='edited'?'<span class="badge bamber">수정됨 (미발송)</span>':status==='draft'?'<span class="badge bslate">초안 생성됨</span>':'<span class="badge bslate">미생성</span>';
+    return `<div class="mrpt-stu-row" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">${s.name}</div><div style="font-size:11px;color:var(--slate)">${s.grade||''}</div></div>
+      ${badge}
+      <button class="btn bt bsm" onclick="openReportEditor('${s.id}','${m}')">편집 / 발송</button>
+    </div>`;
+  }).join('');
+  mo.classList.add('open');mo.style.removeProperty('display');
+}
+async function openReportEditor(sid,month){
+  const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+  const mo=document.getElementById('m-report-editor');if(!mo)return;
+  document.getElementById('re-stu-name').textContent=s.name;
+  document.getElementById('re-sid').value=sid;
+  document.getElementById('re-month').value=month;
+  const [yr,mn]=month.split('-');
+  document.getElementById('re-title').textContent=`${s.name} · ${yr}년 ${mn}월 학습 리포트`;
+  // 기존 리포트 확인
+  const existing=DB.reports().find(r=>r.sid===sid&&r.month===month);
+  const textEl=document.getElementById('re-text');
+  textEl.value=existing?.final||existing?.draft||'';
+  document.getElementById('re-status').textContent=existing?.status==='sent'?'✅ 발송 완료':existing?.status==='edited'?'✏️ 수정됨':existing?.draft?'📝 초안 있음':'';
+  if(document.getElementById('m-monthly-report'))document.getElementById('m-monthly-report').classList.remove('open');
+  mo.classList.add('open');mo.style.removeProperty('display');
+}
+async function generateReportDraft(){
+  const sid=document.getElementById('re-sid').value;
+  const month=document.getElementById('re-month').value;
+  const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+  const btn=document.getElementById('re-gen-btn');
+  if(btn){btn.disabled=true;btn.textContent='AI 생성 중...';}
+  const textEl=document.getElementById('re-text');
+  try{
+    const [yr,mn]=month.split('-');
+    const monthLabel=yr+'년 '+Number(mn)+'월';
+    const les=DB.less().filter(l=>l.sid===sid&&l.date?.startsWith(month));
+    const tsts=DB.tsts().filter(t=>t.sid===sid&&t.date?.startsWith(month));
+    const rds=DB.rds().filter(r=>r.sid===sid&&r.date?.startsWith(month));
+    const logs=DB.logs().filter(l=>l.sid===sid&&l.date?.startsWith(month));
+    const allLes=DB.less().filter(l=>l.sid===sid);
+    const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+    const mastered=cards.filter(c=>(c.hits||0)>=3).length;
+    // 수업 요약
+    const lesSummary=les.length?les.map(l=>{
+      const mats=Object.entries(l.materials||{}).filter(([,v])=>v.book).map(([,v])=>v.book+(v.unit?' '+v.unit:'')).join(', ')||'—';
+      const cmt=l.polishedCmt||l.cmt||'';
+      const att=l.att&&l.att!=='normal'?`(${l.att})`:'';
+      return `[${l.date}${att}] 교재: ${mats}${cmt?' / 코멘트: '+cmt:''}`;
+    }).join('\n'):'수업 없음';
+    const attendNormal=les.filter(l=>!['absent','late'].includes(l.att||'normal')).length;
+    const attendAbsent=les.filter(l=>l.att==='absent').length;
+    // 테스트 요약
+    const tstSummary=tsts.length?tsts.map(t=>`[${t.date}] 단어 ${pct(t.vocabCorrect,t.vocabTotal)}% / 어법 ${pct(t.grammarCorrect,t.grammarTotal)}%${t.wrongWords?.length?' / 틀린 단어: '+t.wrongWords.slice(0,5).join(', '):''}${t.grammarWeak?' / 약점 어법: '+t.grammarWeak:''}`).join('\n'):'테스트 없음';
+    // 원서/리딩로그
+    const allBookSrc=[...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]),...DB.libs()];
+    const rdSummary=rds.length?rds.map(r=>{const lib=allBookSrc.find(b=>b.title===r.title);const ar=r.arLevel||(lib&&(lib.ar||lib.arLevel))||'';return r.title+(ar?' (AR '+ar+')':'')+(r.progress?' ['+r.progress+']':'');}).join(', '):'없음';
+    const logSummary=logs.length?`${logs.length}회 (단어 ${[...new Set(logs.flatMap(l=>l.words||[]))].length}개 추출)`:'없음';
+    const prompt=`당신은 영어 소수 정예 전문 강사입니다. 학부모에게 보내는 월별 학습 종합 리포트를 작성해주세요.
+
+어조 규칙:
+- 전문적이면서 따뜻한 격식체 (합쇼체: ~했습니다, ~됩니다)
+- 구체적 사실 중심, 절제된 표현
+- 감탄사·이모지·과장 없음. 마크다운 없음.
+- 250~400자 (한국어 기준)
+
+구성 순서 (자연스러운 한 단락):
+수업 태도·참여도 → 교재 진도 요약 → 테스트 성과 → 원서·리딩 → 특기사항 및 다음 달 방향
+
+[절대 금지] 이름·"학생"·"아이"를 문장 첫 주어로 쓰지 마세요. 서술어 또는 부사로 시작하세요.
+기록에 없는 내용 추가 금지. 리포트 문장만 출력하세요.
+
+학생: ${s.name} (${s.grade||''}${s.school?', '+s.school:''})
+누적 출석: ${allLes.filter(l=>l.att!=='absent').length}회 (전체 기간)
+대상 월: ${monthLabel}
+이번 달 수업: ${les.length}회 (정상 출석 ${attendNormal}회${attendAbsent?', 결석 '+attendAbsent+'회':''})
+단어카드: 총 ${cards.length}개, 마스터 ${mastered}개
+
+수업 기록:
+${lesSummary}
+
+테스트:
+${tstSummary}
+
+이번 달 원서: ${rdSummary}
+리딩로그: ${logSummary}`;
+    const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:600,messages:[{role:'user',content:prompt}]});
+    const draft=d.content?.[0]?.text?.trim()||'';
+    if(draft)textEl.value=draft;
+    // DB 저장
+    await saveReportToDB(sid,month,{draft,final:draft,status:'draft'});
+  }catch(e){toast('AI 생성 실패: '+e.message);}
+  if(btn){btn.disabled=false;btn.textContent='🤖 AI 초안 생성';}
+}
+async function saveReportToDB(sid,month,fields){
+  const existing=DB.reports().find(r=>r.sid===sid&&r.month===month);
+  const id=existing?._id||uid();
+  const data={...(existing||{}), sid, month, ...fields, updatedAt:new Date().toISOString()};
+  delete data._id;
+  const row={id,sid,month,data,updated_at:new Date().toISOString()};
+  await fetch(SUPA_URL+'/rest/v1/monthly_reports',{method:'POST',headers:{...SUPA_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(row)});
+  const ci=_cache.monthlyReports.findIndex(r=>r.sid===sid&&r.month===month);
+  const cached={...data,_id:id,sid,month};
+  if(ci>=0)_cache.monthlyReports[ci]=cached;else _cache.monthlyReports.push(cached);
+}
+async function saveAndSendReport(){
+  const sid=document.getElementById('re-sid').value;
+  const month=document.getElementById('re-month').value;
+  const text=document.getElementById('re-text').value.trim();
+  if(!text){toast('리포트 내용을 입력해 주세요');return;}
+  const btn=document.getElementById('re-send-btn');
+  if(btn){btn.disabled=true;btn.textContent='처리 중...';}
+  await saveReportToDB(sid,month,{final:text,status:'edited'});
+  toast('저장됐습니다. 카카오톡으로 발송합니다.');
+  await new Promise(r=>setTimeout(r,400));
+  // 카카오톡 발송
+  const s=DB.stus().find(x=>x.id===sid);
+  const [yr,mn]=month.split('-');
+  const fullText=`[Page & Pencil] ${s?.name||''} ${yr}년 ${mn}월 학습 리포트\n\n${text}\n\n— Page & Pencil`;
+  const kakao=DB.kakao();
+  if(kakao.openchat){window.open(kakao.openchat,'_blank');}
+  else if(kakao.phone){window.open(`kakaotalk://open/chat?phoneNum=${kakao.phone}`);}
+  else{window.open('kakaotalk://launch');}
+  try{await navigator.clipboard.writeText(fullText);}catch(e){}
+  await saveReportToDB(sid,month,{final:text,status:'sent',sentAt:new Date().toISOString()});
+  toast('카카오톡에 붙여넣기 해서 발송해 주세요 📋');
+  document.getElementById('m-report-editor')?.classList.remove('open');
+  renderDash();
+  if(btn){btn.disabled=false;btn.textContent='📤 카카오톡으로 발송';}
+}
+async function saveReportDraftOnly(){
+  const sid=document.getElementById('re-sid').value;
+  const month=document.getElementById('re-month').value;
+  const text=document.getElementById('re-text').value.trim();
+  if(!text){toast('내용을 입력해 주세요');return;}
+  await saveReportToDB(sid,month,{final:text,status:'edited'});
+  toast('저장됐습니다');
+}
+
 // ── DASHBOARD ──
 function renderDash(){
   const stus=DB.stus().filter(s=>!s.inactive);
@@ -4163,7 +4315,7 @@ function renderDash(){
   const todayClasses=DB.classes().filter(c=>c.active!==false&&(c.days||[]).includes(todayDay));
   renderDashToday(dateLabel,todayClasses,todayStr,stus);
 
-  // Section 2: 처리할 것
+  // Section 2: 처리할 것 (월별 리포트 포함)
   const uncheckedHwByStu={};
   hws.filter(h=>h.submitted&&!h.checked).forEach(h=>{uncheckedHwByStu[h.sid]=(uncheckedHwByStu[h.sid]||0)+1;});
   const unpaidStus=stus.filter(s=>hasUnpaid(s));
@@ -4178,7 +4330,13 @@ function renderDash(){
   });
   const stuWithLesson=new Set(les.filter(l=>l.date&&l.date.startsWith(thisMonth)&&l.att!=='absent').map(l=>l.sid));
   const noLessonStus=today.getDate()>=8?stus.filter(s=>!stuWithLesson.has(s.id)):[];
-  renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus);
+  // 이번 달 리포트 미발송 학생 (매월 1일 이후 표시)
+  const reports=DB.reports();
+  const reportPendingStus=stus.filter(s=>{
+    const rpt=reports.find(r=>r.sid===s.id&&r.month===thisMonth);
+    return !rpt||rpt.status!=='sent';
+  });
+  renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus,reportPendingStus,thisMonth);
 
   // Section 3: 이번 달 현황
   const thisLes=les.filter(l=>l.date&&l.date.startsWith(thisMonth)&&l.att!=='absent').length;
@@ -4372,7 +4530,7 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
   </div>`;
 }
 
-function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus){
+function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus,reportPendingStus,thisMonth){
   const el=document.getElementById('dash-actions');if(!el)return;
   const items=[];
   // 우선순위 1: 미확인 숙제
@@ -4386,6 +4544,11 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
   scoreDrops.forEach(({s,cur,prev})=>{items.push({icon:'📉',text:`${s.name} — 점수 하락 (${prev}% → ${cur}%)`,label:'확인',action:`loadStuPanel('${s.id}')`});});
   // 우선순위 4: 이번 달 수업 없음
   noLessonStus.forEach(s=>{items.push({icon:'⚠️',text:`${s.name} — 이번 달 수업 없음`,label:'수업 추가',action:`goAddLesson('${s.id}')`});});
+  // 우선순위 5: 월별 리포트 미발송 (이달 1~7일은 준비 기간, 8일부터 알림)
+  const today=new Date();
+  if(today.getDate()>=1&&(reportPendingStus||[]).length>0){
+    items.push({icon:'📋',text:`이번 달 학부모 리포트 미발송 — ${(reportPendingStus||[]).length}명`,label:'리포트 보내기',action:`openMonthlyReportManager('${thisMonth||''}')`});
+  }
   if(!items.length){
     el.innerHTML=`<div class="card" style="border-left:4px solid #0A5940">
       <div class="ch"><span class="ct" style="color:#0A5940">✅ 모두 처리됨</span></div>

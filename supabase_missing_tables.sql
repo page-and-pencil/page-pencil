@@ -12,12 +12,13 @@ create table if not exists public.messages         (id text primary key, sid tex
 create table if not exists public.global_textbooks (id text primary key, sid text, data jsonb, updated_at timestamptz default now());
 create table if not exists public.vocab_cards      (id text primary key, sid text, data jsonb, updated_at timestamptz default now());
 create table if not exists public.classes          (id text primary key, sid text, data jsonb, updated_at timestamptz default now());
+create table if not exists public.monthly_reports  (id text primary key, sid text, month text, data jsonb, updated_at timestamptz default now());
 
 -- 익명(anon) 키로 읽기/쓰기 가능하도록 (기존 동작과 동일하게 전체 허용)
 do $$
 declare t text;
 begin
-  foreach t in array array['library','homeworks','assignments','textbooks','messages','global_textbooks','vocab_cards','classes']
+  foreach t in array array['library','homeworks','assignments','textbooks','messages','global_textbooks','vocab_cards','classes','monthly_reports']
   loop
     execute format('alter table public.%I enable row level security;', t);
     execute format('drop policy if exists "anon all" on public.%I;', t);

@@ -252,7 +252,26 @@ async function loadParent(sid){
   }
 
   // 액션 버튼 (최하단)
-  blocks+=`<div style="display:flex;gap:8px;padding:4px 0 16px"><button onclick="openParentMsgModal('${sid}')" style="flex:1;padding:11px;background:#FEE500;border:none;border-radius:10px;font-family:var(--fb);font-size:13px;font-weight:700;cursor:pointer;color:#3C1E1E">💬 카카오톡으로 질문하기</button><button class="print-btn" onclick="printReport()" style="flex:1">🖨️ 리포트 인쇄</button></div>`;
+  // 월별 리포트 섹션
+  const mReports=(DB.reports?DB.reports():[]).filter(r=>r.sid===sid&&r.status==='sent').sort((a,b)=>(b.month||'').localeCompare(a.month||''));
+  if(mReports.length){
+    blocks+=`<div class="card">
+      <div class="ch"><span class="ct">📋 월별 학습 리포트</span><span style="font-size:11px;color:var(--slate)">${mReports.length}개월</span></div>
+      <div class="cb" style="padding:0">
+        ${mReports.map((r,i)=>{
+          const [yr,mn]=((r.month)||'').split('-');
+          return `<details style="border-bottom:${i<mReports.length-1?'1px solid var(--border)':'none'}">
+            <summary style="padding:12px 16px;font-size:13px;font-weight:600;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;color:var(--navy)">
+              <span>${yr}년 ${mn}월 리포트</span><span style="font-size:11px;color:var(--slate)">▼</span>
+            </summary>
+            <div style="padding:12px 16px;padding-top:0;font-size:13px;line-height:1.85;color:var(--navy);white-space:pre-wrap">${r.final||r.draft||''}</div>
+          </details>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  blocks+=`<div style="padding:4px 0 16px"><button onclick="openParentMsgModal('${sid}')" style="width:100%;padding:11px;background:#FEE500;border:none;border-radius:10px;font-family:var(--fb);font-size:13px;font-weight:700;cursor:pointer;color:#3C1E1E">💬 카카오톡으로 질문하기</button></div>`;
 
   document.getElementById('pp-body').innerHTML=blocks;
 
