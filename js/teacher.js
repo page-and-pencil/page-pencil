@@ -4299,7 +4299,8 @@ async function importTbookCSV(e){
         const rowId=(row['교재ID']||'').toString().trim();
         const title=(row['교재명']||'').toString().trim();
         if(!title)continue;
-        const mapKey=rowId||title;
+        const lvl=(row['레벨']||'').toString().trim();
+        const mapKey=rowId||(title+'|'+lvl);
         if(!tbMap.has(mapKey)){
           tbMap.set(mapKey,{id:rowId,title,
             publisher:(row['출판사']||'').toString().trim(),
@@ -4322,7 +4323,9 @@ async function importTbookCSV(e){
           category:data.category,grade:data.grade};
         const existing=data.id
           ?(_cache.globalTextbooks||[]).find(b=>b.id===data.id)
-          :(_cache.globalTextbooks||[]).find(b=>b.title.trim().toLowerCase()===data.title.trim().toLowerCase());
+          :(_cache.globalTextbooks||[]).find(b=>
+              b.title.trim().toLowerCase()===data.title.trim().toLowerCase()&&
+              (b.level||'').trim().toLowerCase()===(data.level||'').trim().toLowerCase());
         if(existing){
           const newUnits={...(existing.units||{})};
           const newTitles={...(existing.unitTitles||{})};
