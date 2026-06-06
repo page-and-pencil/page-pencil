@@ -1030,6 +1030,13 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
     const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
     bookInput=`<select data-f="book" onchange="clUpdateUnitHint(this)" style="${_bkSelSt}">${opts}</select>`;
+    if(!noUnit){
+      const initTbCl=bookVal?books.find(b=>b.title===bookVal):null;
+      const initUnitsCl=initTbCl?Object.keys(initTbCl.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
+      const initTitlesCl=initTbCl?.unitTitles||{};
+      const dlCUId='dl-clu-'+Math.random().toString(36).slice(2,7);
+      unitInput=` <datalist id="${dlCUId}">${initUnitsCl.map(k=>`<option value="${escAttr(k)}">${k}${initTitlesCl[k]?' — '+initTitlesCl[k]:''}</option>`).join('')}</datalist><input type="text" data-f="unit" list="${dlCUId}" placeholder="유닛/진도" value="${escAttr(unitVal||'')}" autocomplete="off" style="${_bkSelSt}">`;
+    }
   }else if((wrapperId==='subj-rows'||wrapperId==='el-subj-rows')&&!isBook){
     const catFilter=_CAT_KO[baseKey];
     let books=(_cache.globalTextbooks||[]).filter(b=>catFilter?b.category===catFilter:true);
@@ -1040,10 +1047,23 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
     bookInput=`<select data-f="book" onchange="lesUpdateUnitSel(this)" style="${_bkSelSt}">${opts}</select>`;
     if(!noUnit){
       const initTb=bookVal?(_cache.globalTextbooks||[]).find(b=>b.title===bookVal):null;
-      const initUnits=initTb?Object.keys(initTb.units||{}):[];
+      const initUnits=initTb?Object.keys(initTb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
       const initTitles=initTb?.unitTitles||{};
-      const unitOpts='<option value="">-- 단원 선택 --</option>'+initUnits.map(k=>`<option value="${escAttr(k)}"${unitVal===k?' selected':''}>${k}${initTitles[k]?' — '+initTitles[k]:''}</option>`).join('');
-      unitInput=` <select data-f="unit" style="${_bkSelSt}">${unitOpts}</select>`;
+      const dlUId='dl-u-'+Math.random().toString(36).slice(2,7);
+      unitInput=` <datalist id="${dlUId}">${initUnits.map(k=>`<option value="${escAttr(k)}">${k}${initTitles[k]?' — '+initTitles[k]:''}</option>`).join('')}</datalist><input type="text" data-f="unit" list="${dlUId}" placeholder="${initUnits.length?'단원 선택 또는 직접 입력':'유닛/진도'}" value="${escAttr(unitVal||'')}" autocomplete="off" style="${_bkSelSt}">`;
+    }
+  }else if(isBook){
+    // 원서 행: 원서 목록 datalist + 챕터 자동 힌트
+    const seenLibIds=new Set((_cache.library||[]).map(b=>b.id));
+    const allLibCombined=[...(_cache.library||[]).filter(b=>!b._deleted),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!seenLibIds.has(b.id))];
+    const sortedLib=allLibCombined.sort((a,b2)=>(a.title||'').localeCompare(b2.title||''));
+    const dlLibId='dl-lib-'+Math.random().toString(36).slice(2,7);
+    const dlChId='dl-ch-'+Math.random().toString(36).slice(2,7);
+    bookInput=`<datalist id="${dlLibId}">${sortedLib.map(b=>`<option value="${escAttr(b.title)}">`).join('')}</datalist><input type="text" placeholder="원서 제목" data-f="book" list="${dlLibId}" autocomplete="off" value="${escAttr(bookVal||'')}" oninput="libUpdateChapterHint(this)" style="${_bkSelSt}">`;
+    if(!noUnit){
+      const initLibBk=bookVal?allLibCombined.find(b=>b.title===bookVal):null;
+      const initChs=[...new Set((initLibBk?.vocab||[]).map(w=>w.chapter||w.unit).filter(Boolean))];
+      unitInput=` <datalist id="${dlChId}">${initChs.map(c=>`<option value="${escAttr(c)}">`).join('')}</datalist><input type="text" data-f="unit" list="${dlChId}" placeholder="${initChs.length?'챕터 선택 또는 직접 입력':'챕터/진도'}" value="${escAttr(unitVal||'')}" autocomplete="off" style="${_bkSelSt}">`;
     }
   }else{
     // ec-subj-rows 등: 카테고리별 필터된 인라인 datalist
@@ -6679,30 +6699,56 @@ function clFillFromLib(input){
   if(ar&&!ar.value&&(b.ar||b.arLevel))ar.value=b.ar||b.arLevel||'';
   if(ser)ser.value=b.series||'';
 }
-// 교재 선택 시 유닛 입력란에 직전 진도 힌트 표시
+// 교재 선택 시 유닛 datalist 업데이트 + 직전 진도 힌트
 function clUpdateUnitHint(sel){
   const sr=sel.closest('.sr');if(!sr)return;
-  const unitInput=sr.querySelector('[data-f="unit"]');if(!unitInput)return;
+  const unitInp=sr.querySelector('[data-f="unit"]');if(!unitInp)return;
   const bookTitle=sel.value;
-  if(!bookTitle){unitInput.placeholder='유닛/진도';return;}
+  const dlId=unitInp.getAttribute('list');
+  const dl=dlId?document.getElementById(dlId):null;
+  if(dl){
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.title===bookTitle);
+    const units=tb?Object.keys(tb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
+    const titlesMap=tb?.unitTitles||{};
+    dl.innerHTML=units.map(k=>`<option value="${escAttr(k)}">${k}${titlesMap[k]?' — '+titlesMap[k]:''}</option>`).join('');
+  }
+  if(!bookTitle){unitInp.placeholder='유닛/진도';return;}
   const classId=document.getElementById('cl-class-id')?.value;
-  if(!classId){unitInput.placeholder='유닛/진도';return;}
-  const lessons=(_cache.lessons||[]).filter(l=>l.classId===classId&&l.materials).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const lessons=classId?(_cache.lessons||[]).filter(l=>l.classId===classId&&l.materials).sort((a,b)=>(b.date||'').localeCompare(a.date||'')):[];
   let lastUnit='';
   outer:for(const les of lessons){
     for(const m of Object.values(les.materials||{})){
       if(m.book===bookTitle&&m.unit){lastUnit=m.unit;break outer;}
     }
   }
-  unitInput.placeholder=lastUnit?`직전: ${lastUnit}`:'유닛/진도';
+  unitInp.placeholder=lastUnit?`직전: ${lastUnit}`:'단원 선택 또는 직접 입력';
 }
 function lesUpdateUnitSel(sel){
   const sr=sel.closest('.sr');if(!sr)return;
-  const unitSel=sr.querySelector('[data-f="unit"]');if(!unitSel||unitSel.tagName!=='SELECT')return;
+  const unitInp=sr.querySelector('[data-f="unit"]');if(!unitInp)return;
   const tb=(_cache.globalTextbooks||[]).find(b=>b.title===sel.value);
-  const units=tb?Object.keys(tb.units||{}):[];
+  const units=tb?Object.keys(tb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
   const titlesMap=tb?.unitTitles||{};
-  unitSel.innerHTML='<option value="">-- 단원 선택 --</option>'+units.map(k=>`<option value="${escAttr(k)}">${k}${titlesMap[k]?' — '+titlesMap[k]:''}</option>`).join('');
+  const dlId=unitInp.getAttribute('list');
+  const dl=dlId?document.getElementById(dlId):null;
+  if(dl)dl.innerHTML=units.map(k=>`<option value="${escAttr(k)}">${k}${titlesMap[k]?' — '+titlesMap[k]:''}</option>`).join('');
+  unitInp.placeholder=units.length?'단원 선택 또는 직접 입력':'유닛/진도';
+  unitInp.value='';
+}
+function libUpdateChapterHint(inp){
+  const sr=inp.closest('.sr');if(!sr)return;
+  const unitInp=sr.querySelector('[data-f="unit"]');if(!unitInp)return;
+  const dlId=unitInp.getAttribute('list');
+  const dl=dlId?document.getElementById(dlId):null;
+  if(!dl)return;
+  const title=(inp.value||'').trim();
+  if(!title){dl.innerHTML='';unitInp.placeholder='챕터/진도';return;}
+  const seenIds=new Set((_cache.library||[]).map(b=>b.id));
+  const allLib=[...(_cache.library||[]).filter(b=>!b._deleted),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!seenIds.has(b.id))];
+  const book=allLib.find(b=>b.title===title);
+  const chapters=[...new Set((book?.vocab||[]).map(w=>w.chapter||w.unit).filter(Boolean))];
+  dl.innerHTML=chapters.map(c=>`<option value="${escAttr(c)}">`).join('');
+  unitInp.placeholder=chapters.length?'챕터 선택 또는 직접 입력':'챕터/진도';
 }
 function ecRenderTags(){
   const allStus=DB.stus();
