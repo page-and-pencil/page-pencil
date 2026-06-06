@@ -5371,7 +5371,6 @@ async function saveModalAssignment(){
 function renderSpBooks(sid){
   const el=document.getElementById('sp-books');if(!el)return;
   const tbs=(_cache.textbooks||[]).filter(t=>t.sid===sid&&t.active!==false);
-  // 레슨 materials에서 교재 자동 도출 (최근 6개월)
   const sixAgo=new Date();sixAgo.setMonth(sixAgo.getMonth()-6);
   const sixAgoStr=sixAgo.toISOString().split('T')[0];
   const lessonBookMap=new Map();
@@ -5381,27 +5380,27 @@ function renderSpBooks(sid){
       const isBook=k==='_book'||k.startsWith('_book_');
       const baseKey=k.replace(/_\d+$/,'');
       const label=isBook?'원서':(SLBL[baseKey]||'교재');
-      if(!lessonBookMap.has(v.book)||(v.unit&&!lessonBookMap.get(v.book).unit)){
+      if(!lessonBookMap.has(v.book)||(v.unit&&!lessonBookMap.get(v.book).unit))
         lessonBookMap.set(v.book,{title:v.book,type:label,unit:v.unit||'',date:l.date||''});
-      }
     });
   });
   const tbTitles=new Set(tbs.map(t=>t.title));
-  const derivedBooks=[...lessonBookMap.values()].filter(b=>!tbTitles.has(b.title))
-    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const allBooks=[...tbs.map(t=>({id:t.id,title:t.title,type:t.type||'교재',unit:t.currentUnit||'',manual:true,completed:t.completed,completedDate:t.completedDate})),...derivedBooks.map(b=>({id:null,title:b.title,type:b.type,unit:b.unit,manual:false}))];
-  const booksOnly=allBooks.filter(b=>b.type!=='원서'&&!b.completed);
-  const completedBooks=tbs.filter(t=>t.type!=='원서'&&t.completed).map(t=>({id:t.id,title:t.title,type:t.type||'교재',unit:t.currentUnit||'',completedDate:t.completedDate}));
-  const rdBooks=allBooks.filter(b=>b.type==='원서'&&!b.completed);
-  const completedRdBooks=tbs.filter(t=>t.type==='원서'&&t.completed).map(t=>({id:t.id,title:t.title,unit:t.currentUnit||'',completedDate:t.completedDate}));
-  const libOpts=[...BOOK_DB,...DB.libs()].map(b=>`<option value="${b.id}">${b.title}</option>`).join('');
+  const derivedBooks=[...lessonBookMap.values()].filter(b=>!tbTitles.has(b.title)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const manualEntries=tbs.map(t=>({id:t.id,title:t.title,type:t.type||'교재',unit:t.currentUnit||'',manual:true,completed:t.completed,completedDate:t.completedDate,bookId:t.bookId||''}));
+  const derivedEntries=derivedBooks.map(b=>({id:null,title:b.title,type:b.type,unit:b.unit,manual:false,completed:false}));
+  const allEntries=[...manualEntries,...derivedEntries];
+  const activeTbs=allEntries.filter(b=>b.type!=='원서'&&!b.completed);
+  const doneTbs=manualEntries.filter(b=>b.type!=='원서'&&b.completed);
+  const activeRds=allEntries.filter(b=>b.type==='원서'&&!b.completed);
+  const doneRds=manualEntries.filter(b=>b.type==='원서'&&b.completed);
+  const today=new Date().toISOString().split('T')[0];
+  const ddSt='background:#fff;border:1px solid var(--border);border-radius:var(--rs);max-height:160px;overflow-y:auto;display:none;margin-top:2px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.1)';
+  const selSt='font-size:12px;color:var(--teal);font-weight:600;padding:4px 8px;background:var(--cream);border-radius:4px;margin-top:4px;display:none';
+  const formSt='display:none;margin-top:10px;padding:12px;background:var(--cream);border-radius:var(--rs);border:1px solid var(--border)';
   const bookRow=t=>`<div style="padding:10px 0;border-bottom:1px solid var(--border)">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
       <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span style="font-size:13px;font-weight:700">${t.title}</span>
-          ${t.type&&t.type!=='교재'?`<span class="badge bslate" style="font-size:9px">${t.type}</span>`:''}
-        </div>
+        <div style="font-size:13px;font-weight:700">${t.title}</div>
         <div style="font-size:11px;color:var(--slate)">${t.unit||''}${!t.manual?` <span style="color:var(--teal)">(수업 기록)</span>`:''}</div>
         ${t.manual?`<input type="text" value="${t.unit||''}" placeholder="현재 진도 (예: Unit 3)" style="margin-top:4px;width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream2);outline:none" onchange="updateTextbookUnit('${t.id}','${sid}',this.value)">`:''}
       </div>
@@ -5417,84 +5416,184 @@ function renderSpBooks(sid){
   </div>`;
   el.innerHTML=`
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <span style="font-size:12px;font-weight:700;color:var(--navy)">📚 현재 교재 (${booksOnly.length}권)</span>
-    <button class="btn bt bsm" onclick="openAddTextbook('${sid}')">+ 추가</button>
+    <span style="font-size:12px;font-weight:700;color:var(--navy)">📚 교재 (${activeTbs.length}권)</span>
+    <button class="btn bt bsm" onclick="openSpTbAdd('${sid}')">+ 교재 추가</button>
   </div>
-  <div id="sp-books-list">
-    ${booksOnly.length?booksOnly.map(bookRow).join(''):'<div style="font-size:12px;color:var(--slate);padding:8px 0">등록된 교재 없음</div>'}
-  </div>
-  ${completedBooks.length?`<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
-    <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:6px">✅ 완료 교재 (${completedBooks.length}권)</div>
-    ${completedBooks.map(doneRow).join('')}
-  </div>`:''}
-  ${rdBooks.length?`<div style="margin-top:14px;padding-top:14px;border-top:2px solid var(--border)">
-    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📗 원서 (${rdBooks.length}권)</div>
-    ${rdBooks.map(bookRow).join('')}
-  </div>`:''}
-  ${completedRdBooks.length?`<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
-    <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:6px">✅ 완료 원서 (${completedRdBooks.length}권)</div>
-    ${completedRdBooks.map(doneRow).join('')}
-  </div>`:''}</div>
-  <div id="sp-books-add" style="display:none;margin-top:12px;padding:10px;background:var(--cream);border-radius:var(--rs)">
-    <div class="f"><label>교재 종류</label>
-      <select id="tb-type-sel"><option value="교재">교재</option><option value="원서">원서</option><option value="단어장">단어장</option></select>
+  <div>${activeTbs.length?activeTbs.map(bookRow).join(''):'<div style="font-size:12px;color:var(--slate);padding:8px 0">등록된 교재 없음</div>'}</div>
+  ${doneTbs.length?`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+    <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:6px">✅ 완료 교재 (${doneTbs.length}권)</div>
+    ${doneTbs.map(doneRow).join('')}</div>`:''}
+  <div id="sp-tb-add" style="${formSt}">
+    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">교재 추가</div>
+    <div class="f"><label>교재 검색 <span style="color:var(--coral)">*</span></label>
+      <input type="text" id="sp-tb-q" placeholder="교재명·레벨 입력..." oninput="spTbSearch()" autocomplete="off">
+      <div id="sp-tb-dd" style="${ddSt}"></div>
+      <div id="sp-tb-sel" style="${selSt}"></div>
+      <input type="hidden" id="sp-tb-id">
     </div>
-    <div class="f"><label>교재명 (직접 입력 또는 원서 DB 선택)</label>
-      <input type="text" id="tb-title-input" placeholder="예) Grammar in Use, Nate the Great...">
-    </div>
-    <div class="f"><label>원서 DB에서 연결 (선택)</label>
-      <select id="tb-lib-sel" onchange="if(this.value){const o=this.options[this.selectedIndex];document.getElementById('tb-title-input').value=o.text;}">
-        <option value="">-- 직접 입력 위 --</option>${libOpts}
-      </select>
+    <div class="f"><label>현재 진도 <span style="font-size:10px;color:var(--slate)">(선택)</span></label>
+      <input type="text" id="sp-tb-unit" placeholder="예: Unit 3">
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn bo bsm" onclick="document.getElementById('sp-books-add').style.display='none'">취소</button>
-      <button class="btn bt bsm" onclick="saveTextbook('${sid}')">저장</button>
+      <button class="btn bo bsm" onclick="closeSpTbAdd()">취소</button>
+      <button class="btn bt bsm" onclick="saveTbEntry('${sid}')">저장</button>
+    </div>
+  </div>
+  <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span style="font-size:12px;font-weight:700;color:var(--navy)">📗 원서 (${activeRds.length}권)</span>
+      <button class="btn bt bsm" onclick="openSpRdAdd('${sid}')">+ 원서 추가</button>
+    </div>
+    <div>${activeRds.length?activeRds.map(bookRow).join(''):'<div style="font-size:12px;color:var(--slate);padding:8px 0">등록된 원서 없음</div>'}</div>
+    ${doneRds.length?`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:6px">✅ 완료 원서 (${doneRds.length}권)</div>
+      ${doneRds.map(doneRow).join('')}</div>`:''}
+    <div id="sp-rd-add" style="${formSt}">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">원서 추가</div>
+      <div class="f"><label>원서 검색 <span style="color:var(--coral)">*</span></label>
+        <input type="text" id="sp-rd-q" placeholder="제목·저자·시리즈 입력..." oninput="spRdSearch()" autocomplete="off">
+        <div id="sp-rd-dd" style="${ddSt}"></div>
+        <div id="sp-rd-sel" style="${selSt}"></div>
+        <input type="hidden" id="sp-rd-id">
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--navy);cursor:pointer;margin:6px 0">
+        <input type="checkbox" id="sp-rd-done" onchange="document.getElementById('sp-rd-date-row').style.display=this.checked?'':'none'"> 이미 다 읽음
+      </label>
+      <div class="f" id="sp-rd-date-row" style="display:none"><label>완료 날짜</label>
+        <input type="date" id="sp-rd-done-dt" value="${today}">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn bo bsm" onclick="closeSpRdAdd()">취소</button>
+        <button class="btn bt bsm" onclick="saveRdEntry('${sid}')">저장</button>
+      </div>
     </div>
   </div>`;
 }
-function openAddTextbook(sid){document.getElementById('sp-books-add').style.display='block';}
+function openSpTbAdd(sid){
+  const el=document.getElementById('sp-tb-add');if(!el)return;
+  el.style.display='block';
+  const q=document.getElementById('sp-tb-q');if(q){q.value='';setTimeout(()=>q.focus(),50);}
+  ['sp-tb-id','sp-tb-unit'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const sel=document.getElementById('sp-tb-sel');if(sel)sel.style.display='none';
+  const dd=document.getElementById('sp-tb-dd');if(dd)dd.style.display='none';
+}
+function closeSpTbAdd(){const el=document.getElementById('sp-tb-add');if(el)el.style.display='none';}
+function spTbSearch(){
+  const q=(document.getElementById('sp-tb-q')?.value||'').toLowerCase().trim();
+  const dd=document.getElementById('sp-tb-dd');if(!dd)return;
+  if(!q){dd.style.display='none';return;}
+  const books=(_cache.globalTextbooks||[]).filter(b=>b.title&&(
+    b.title.toLowerCase().includes(q)||(b.level||'').toLowerCase().includes(q)||(b.publisher||'').toLowerCase().includes(q)
+  )).slice(0,10);
+  if(!books.length){dd.innerHTML='<div style="padding:8px 10px;color:var(--slate);font-size:12px">검색 결과 없음</div>';dd.style.display='block';return;}
+  dd.innerHTML=books.map(b=>`<div onclick="spTbSelect('${escAttr(b.id)}','${escAttr(b.title)}','${escAttr(b.level||'')}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border)" onmouseenter="this.style.background='var(--cream)'" onmouseleave="this.style.background=''">
+    <span style="font-weight:700;font-size:12px">${b.title}</span>${b.level?` <span style="color:var(--slate);font-size:10px">(${b.level})</span>`:''}${b.publisher?` <span style="color:var(--slate);font-size:10px">· ${b.publisher}</span>`:''}
+  </div>`).join('');
+  dd.style.display='block';
+}
+function spTbSelect(id,title,level){
+  document.getElementById('sp-tb-q').value='';
+  document.getElementById('sp-tb-dd').style.display='none';
+  document.getElementById('sp-tb-id').value=id;
+  const sel=document.getElementById('sp-tb-sel');
+  if(sel){sel.textContent=`✓ ${title}${level?' ('+level+')':''}`;sel.style.display='block';}
+}
+async function saveTbEntry(sid){
+  const id=document.getElementById('sp-tb-id')?.value||'';
+  if(!id){toast('교재를 검색하여 선택해 주세요');return;}
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===id);
+  if(!tb){toast('교재를 찾을 수 없습니다');return;}
+  const unit=document.getElementById('sp-tb-unit')?.value.trim()||'';
+  const entry={id:uid(),sid,title:tb.title,type:'교재',bookId:tb.id,currentUnit:unit,active:true};
+  await supaUpsert('textbooks',entry.id,entry,sid);
+  if(!_cache.textbooks)_cache.textbooks=[];_cache.textbooks.push(entry);
+  closeSpTbAdd();renderSpBooks(sid);toast('교재가 추가되었습니다');
+}
+function openSpRdAdd(sid){
+  const el=document.getElementById('sp-rd-add');if(!el)return;
+  el.style.display='block';
+  const q=document.getElementById('sp-rd-q');if(q){q.value='';setTimeout(()=>q.focus(),50);}
+  ['sp-rd-id'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const sel=document.getElementById('sp-rd-sel');if(sel)sel.style.display='none';
+  const dd=document.getElementById('sp-rd-dd');if(dd)dd.style.display='none';
+  const done=document.getElementById('sp-rd-done');if(done)done.checked=false;
+  const dateRow=document.getElementById('sp-rd-date-row');if(dateRow)dateRow.style.display='none';
+  const dt=document.getElementById('sp-rd-done-dt');if(dt)dt.value=new Date().toISOString().split('T')[0];
+}
+function closeSpRdAdd(){const el=document.getElementById('sp-rd-add');if(el)el.style.display='none';}
+function spRdSearch(){
+  const q=(document.getElementById('sp-rd-q')?.value||'').toLowerCase().trim();
+  const dd=document.getElementById('sp-rd-dd');if(!dd)return;
+  if(!q){dd.style.display='none';return;}
+  const seen=new Set();
+  const books=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])].filter(b=>{
+    if(seen.has(b.id))return false;seen.add(b.id);
+    return b.title&&(b.title.toLowerCase().includes(q)||(b.author||'').toLowerCase().includes(q)||(b.series||'').toLowerCase().includes(q));
+  }).slice(0,10);
+  if(!books.length){dd.innerHTML='<div style="padding:8px 10px;color:var(--slate);font-size:12px">검색 결과 없음</div>';dd.style.display='block';return;}
+  dd.innerHTML=books.map(b=>`<div onclick="spRdSelect('${escAttr(b.id)}','${escAttr(b.title||'')}','${escAttr(String(b.arLevel||b.ar||''))}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border)" onmouseenter="this.style.background='var(--cream)'" onmouseleave="this.style.background=''">
+    <span style="font-weight:700;font-size:12px">${b.title}</span>${(b.arLevel||b.ar)?` <span style="color:var(--slate);font-size:10px">AR ${b.arLevel||b.ar}</span>`:''}${b.author?` <span style="color:var(--slate);font-size:10px">· ${b.author}</span>`:''}
+  </div>`).join('');
+  dd.style.display='block';
+}
+function spRdSelect(id,title,ar){
+  document.getElementById('sp-rd-q').value='';
+  document.getElementById('sp-rd-dd').style.display='none';
+  document.getElementById('sp-rd-id').value=id;
+  const sel=document.getElementById('sp-rd-sel');
+  if(sel){sel.textContent=`✓ ${title}${ar?' (AR '+ar+')':''}`;sel.style.display='block';}
+}
+async function saveRdEntry(sid){
+  const id=document.getElementById('sp-rd-id')?.value||'';
+  if(!id){toast('원서를 검색하여 선택해 주세요');return;}
+  const seen=new Set();
+  const book=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])].find(b=>{if(seen.has(b.id))return false;seen.add(b.id);return b.id===id;});
+  const title=book?.title||id;
+  const isDone=document.getElementById('sp-rd-done')?.checked||false;
+  const doneDate=document.getElementById('sp-rd-done-dt')?.value||new Date().toISOString().split('T')[0];
+  const entry={id:uid(),sid,title,type:'원서',bookId:id,currentUnit:'',active:true,completed:isDone,completedDate:isDone?doneDate:''};
+  await supaUpsert('textbooks',entry.id,entry,sid);
+  if(!_cache.textbooks)_cache.textbooks=[];_cache.textbooks.push(entry);
+  closeSpRdAdd();renderSpBooks(sid);
+  if(isDone&&book?.vocab?.length){
+    const vocabWords=book.vocab.filter(w=>w.word).map(w=>({...w,srcId:id,srcType:'library',srcTitle:title}));
+    toast(`원서 추가! 단어 ${vocabWords.length}개를 단어장에 추가 중...`);
+    await syncVocabCards(sid,vocabWords,[],doneDate,'원서완료');
+    renderSpVocab(sid);
+    toast(`✓ ${title} — ${vocabWords.length}개 단어가 단어장에 추가됐습니다`);
+  }else{
+    toast('원서가 추가되었습니다');
+  }
+}
 async function markTextbookDone(id,sid){
   const tb=(_cache.textbooks||[]).find(t=>t.id===id);if(!tb)return;
   tb.completed=true;tb.completedDate=new Date().toISOString().split('T')[0];
   await supaUpsert('textbooks',id,tb,sid);
   const idx=_cache.textbooks.findIndex(t=>t.id===id);if(idx>=0)_cache.textbooks[idx]=tb;
   renderSpBooks(sid);
-  // 교재 DB에서 단어 조회 후 단어장에 자동 추가
-  const globalTb=(_cache.globalTextbooks||[]).find(g=>g.title===tb.title||(tb.bookId&&g.id===tb.bookId));
-  if(globalTb&&globalTb.units){
-    const allWords=Object.entries(globalTb.units).flatMap(([unitName,ws])=>
-      (Array.isArray(ws)?ws:[]).filter(w=>w.word).map(w=>({...w,srcUnit:unitName,srcId:globalTb.id,srcTitle:globalTb.title}))
-    );
-    if(allWords.length){
-      toast(`교재 완료! 단어 ${allWords.length}개를 단어장에 추가 중...`);
-      await syncVocabCards(sid,allWords,[],tb.completedDate,'교재완료');
-      const stu=DB.stus().find(x=>x.id===sid);
-      toast(`✓ ${tb.title} 완료 — ${allWords.length}개 단어가 단어장에 추가됐습니다`);
+  if(tb.type==='원서'){
+    const seen=new Set();
+    const book=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])].find(b=>{if(seen.has(b.id))return false;seen.add(b.id);return b.id===tb.bookId||b.title===tb.title;});
+    const vocabWords=(book?.vocab||[]).filter(w=>w.word).map(w=>({...w,srcId:book?.id||tb.bookId,srcType:'library',srcTitle:tb.title}));
+    if(vocabWords.length){
+      toast(`원서 완료! 단어 ${vocabWords.length}개를 단어장에 추가 중...`);
+      await syncVocabCards(sid,vocabWords,[],tb.completedDate,'원서완료');
       renderSpVocab(sid);
-    }else{
-      toast(`완료 처리됐습니다 (교재 DB에 단어 미등록)`);
-    }
+      toast(`✓ ${tb.title} 완료 — ${vocabWords.length}개 단어가 단어장에 추가됐습니다`);
+    }else{toast('완료 처리됐습니다');}
   }else{
-    toast('완료 처리됐습니다');
-  }
-}
-async function saveTextbook(sid){
-  try{
-  const title=document.getElementById('tb-title-input').value.trim();
-  if(!title){toast('교재명을 입력해 주세요');return;}
-  const libSel=document.getElementById('tb-lib-sel');
-  const tb={id:uid(),sid,title,type:document.getElementById('tb-type-sel').value,bookId:libSel?.value||'',currentUnit:'',active:true};
-  await supaUpsert('textbooks',tb.id,tb,sid);
-  if(!_cache.textbooks)_cache.textbooks=[];
-  _cache.textbooks.push(tb);
-  document.getElementById('sp-books-add').style.display='none';
-  renderSpBooks(sid);toast('교재가 추가되었습니다');
-  }catch(e){
-    console.error('saveTextbook:',e);
-    toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
-  }finally{
-    showLoading(false);
+    const globalTb=(_cache.globalTextbooks||[]).find(g=>g.id===tb.bookId||g.title===tb.title);
+    if(globalTb?.units){
+      const allWords=Object.entries(globalTb.units).flatMap(([unitName,ws])=>
+        (Array.isArray(ws)?ws:[]).filter(w=>w.word).map(w=>({...w,srcUnit:unitName,srcId:globalTb.id,srcType:'textbook',srcTitle:globalTb.title}))
+      );
+      if(allWords.length){
+        toast(`교재 완료! 단어 ${allWords.length}개를 단어장에 추가 중...`);
+        await syncVocabCards(sid,allWords,[],tb.completedDate,'교재완료');
+        renderSpVocab(sid);
+        toast(`✓ ${tb.title} 완료 — ${allWords.length}개 단어가 단어장에 추가됐습니다`);
+      }else{toast('완료 처리됐습니다 (교재 DB에 단어 미등록)');}
+    }else{toast('완료 처리됐습니다');}
   }
 }
 async function updateTextbookUnit(id,sid,val){
