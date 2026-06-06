@@ -415,7 +415,7 @@ function renderSpVocab(sid){
       <input type="text" value="${escAttr(c.meaning||'')}" placeholder="뜻 입력..."
         onblur="saveVocabField('${c.id}','${sid}','meaning',this.value)"
         style="${inpStyle};font-size:12px;color:var(--navy);margin-bottom:3px">
-      ${c.pos==='verb'?`<div style="display:flex;gap:6px;margin-bottom:3px"><input type="text" value="${escAttr(c.v2||'')}" placeholder="과거형 (불규칙만)" onblur="saveVocabField('${c.id}','${sid}','v2',this.value)" style="${inpStyle};font-size:11px;font-family:var(--fd);flex:1;color:var(--slate)"><input type="text" value="${escAttr(c.v3||'')}" placeholder="과거분사 (불규칙만)" onblur="saveVocabField('${c.id}','${sid}','v3',this.value)" style="${inpStyle};font-size:11px;font-family:var(--fd);flex:1;color:var(--slate)"></div>`:''}
+      ${(c.v2||c.v3||c.pos==='verb')?`<div style="display:flex;gap:6px;margin-bottom:3px"><input type="text" value="${escAttr(c.v2||'')}" placeholder="과거형 (불규칙만)" onblur="saveVocabField('${c.id}','${sid}','v2',this.value)" style="${inpStyle};font-size:11px;font-family:var(--fd);flex:1;color:var(--slate)"><input type="text" value="${escAttr(c.v3||'')}" placeholder="과거분사 (불규칙만)" onblur="saveVocabField('${c.id}','${sid}','v3',this.value)" style="${inpStyle};font-size:11px;font-family:var(--fd);flex:1;color:var(--slate)"></div>`:''}
       <input type="text" value="${escAttr(c.example||'')}" placeholder="예문 입력..."
         onblur="saveVocabField('${c.id}','${sid}','example',this.value)"
         style="${inpStyle};font-size:11px;color:var(--slate);font-style:italic">
@@ -1828,7 +1828,7 @@ function renderLibVocabTable(id){
   const tbody=document.getElementById('elib-vocab-tbody');if(!tbody)return;
   if(!vocab.length){tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단어가 없습니다. AI 추출 또는 직접 추가하세요.</td></tr>';return;}
   tbody.innerHTML=vocab.map((w,i)=>`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)">
-    <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}${w.pos==='verb'&&(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:''}</td>
+    <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}${(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:''}</td>
     <td style="padding:6px 8px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
     <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px">${w.pos||'—'}</span></td>
     <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic">${w.example||'—'}</td>
@@ -2241,7 +2241,7 @@ async function tbookDeleteSelected(){
         _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>c.srcId!==b.id);
         _cache.globalTextbooks=(_cache.globalTextbooks||[]).filter(x=>x.id!==b.id);
       }
-      renderTbookTable();updateTbookDatalist();renderWordDB();
+      renderTbookTable();tbookUpdateBulkBar();updateTbookDatalist();renderWordDB();
       toast(cardCount?`${entries.length}개 삭제 (학생 단어장 카드 ${cardCount}개도 삭제)`:`${entries.length}개 삭제되었습니다`);
     }catch(e){toast('삭제 실패: '+e.message);}
   });
@@ -2368,7 +2368,7 @@ function tuRenderWords(tbId,unitKey){
   const words=tuNormWords(tb?.units?.[unitKey]||[]);
   if(!words.length){tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단어가 없습니다. 아래에서 추가하거나 Excel/CSV 파일을 가져오세요.</td></tr>';return;}
   tbody.innerHTML=words.map((w,i)=>`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)">
-    <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}${w.pos==='verb'&&(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:''}</td>
+    <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}${(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:''}</td>
     <td style="padding:6px 8px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
     <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px;white-space:nowrap">${w.pos||'—'}</span></td>
     <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic">${w.example||'—'}</td>
@@ -3015,7 +3015,7 @@ function renderWordDB(){
   tbody.innerHTML=paged.map((w,i)=>{
     const groupByWord=wdbSortField==='word';
     const isFirst=groupByWord?w.word!==prev:true;prev=w.word;
-    const v2v3Sub=w.pos==='verb'&&(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px;font-family:var(--fd)">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:'';
+    const v2v3Sub=(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px;font-family:var(--fd)">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:'';
     const wordCell=isFirst
       ?`<td style="padding:6px 8px;font-weight:700;font-family:var(--fd);color:var(--navy);white-space:nowrap">${w.word}${v2v3Sub}</td>`
       :`<td style="padding:6px 8px;color:var(--slate);font-size:11px;padding-left:18px">↳</td>`;
