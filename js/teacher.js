@@ -347,11 +347,12 @@ function closeStuPanel(){
 }
 function openEditStuFromPanel(){closeStuPanel();openEditStu(currentSpStuId);}
 function swSpTab(id){
-  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-reading','sp-vocab','sp-payment'];
+  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-reading','sp-vocab','sp-payment','sp-diag'];
   document.querySelectorAll('.sptab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
   document.querySelectorAll('.sp-pane').forEach(p=>p.style.display=p.id===id?'block':'none');
   if(id==='sp-reading'){renderSpBooks(currentSpStuId);renderSpRdlog(currentSpStuId);}
   if(id==='sp-vocab')renderSpVocab(currentSpStuId);
+  if(id==='sp-diag')renderSpDiag();
 }
 function renderSpRdlog(sid){
   if(!sid)return;
@@ -1127,6 +1128,50 @@ function matsToHtml(materials){
   }).filter(Boolean).join(' &nbsp;');
 }
 
+// ── RUBRIC ──
+const RUBRIC_DEF={
+  speaking:{label:'🗣 말하기',cats:['발음','유창성','어휘','문법','내용'],levels:['1·시작','2·발전','3·능숙','4·우수']},
+  writing:{label:'✍️ 쓰기',cats:['아이디어','구성','어휘','문법','맞춤법'],levels:['1·시작','2·발전','3·능숙','4·우수']}
+};
+let _rubricActive=false,_rubricType='speaking',_rubricScores={};
+function toggleRubric(){
+  _rubricActive=!_rubricActive;
+  const sec=document.getElementById('rubric-section');if(sec)sec.style.display=_rubricActive?'block':'none';
+  const arrow=document.getElementById('rubric-arrow');if(arrow)arrow.textContent=_rubricActive?'▲':'▼';
+  if(_rubricActive)renderRubricRows();
+}
+function setRubricType(type){
+  _rubricType=type;
+  const sp=document.getElementById('rbtn-sp');const wr=document.getElementById('rbtn-wr');
+  if(sp){sp.className='btn bsm '+(type==='speaking'?'bt':'bo');sp.style.fontSize='11px';}
+  if(wr){wr.className='btn bsm '+(type==='writing'?'bt':'bo');wr.style.fontSize='11px';}
+  renderRubricRows();
+}
+function renderRubricRows(){
+  const el=document.getElementById('rubric-rows');if(!el)return;
+  const{cats,levels}=RUBRIC_DEF[_rubricType];
+  el.innerHTML=cats.map(cat=>{
+    const cur=_rubricScores[cat]||0;
+    return`<div style="display:flex;align-items:center;gap:4px;margin-bottom:5px">
+      <span style="width:48px;font-size:11px;font-weight:600;color:var(--navy);flex-shrink:0">${cat}</span>
+      ${levels.map((lbl,i)=>{const v=i+1,a=cur===v;return`<button type="button" onclick="setRubricScore('${cat}',${v})" style="flex:1;padding:4px 2px;border-radius:4px;font-size:10px;cursor:pointer;white-space:nowrap;border:1.5px solid ${a?'var(--teal)':'var(--border)'};background:${a?'var(--teal)':'#fff'};color:${a?'#fff':'var(--slate)'};font-family:var(--fb)">${lbl}</button>`;}).join('')}
+    </div>`;
+  }).join('');
+}
+function setRubricScore(cat,val){_rubricScores[cat]=(_rubricScores[cat]===val?0:val);renderRubricRows();}
+function clearRubric(){_rubricScores={};renderRubricRows();}
+function getRubricData(){
+  const{cats}=RUBRIC_DEF[_rubricType];
+  const scored=cats.filter(c=>_rubricScores[c]>0);
+  if(!_rubricActive||!scored.length)return null;
+  const scores={};scored.forEach(c=>scores[c]=_rubricScores[c]);
+  return{type:_rubricType,scores};
+}
+function _resetRubric(){
+  _rubricActive=false;_rubricScores={};
+  const s=document.getElementById('rubric-section');if(s)s.style.display='none';
+  const a=document.getElementById('rubric-arrow');if(a)a.textContent='▼';
+}
 // ── LESSONS ──
 async function saveLes(){
   if(_saving['saveLes'])return; _saving['saveLes']=true;
@@ -1138,7 +1183,8 @@ async function saveLes(){
   // 캐시된 다듬기 결과 재사용 (미리보기를 이미 클릭한 경우 API 중복 호출 방지)
   const polishedCmt=rawCmt?(typeof _polishedCmtCache!=='undefined'&&_polishedCmtCache.raw===rawCmt&&_polishedCmtCache.polished?_polishedCmtCache.polished:await polishCmt(rawCmt)):'';
   const _sStuGrade=document.getElementById('ls-grade')?.value||(_sStu&&(_sStu.grade||_sStu.lv))||'';
-  const newLes={id:uid(),sid,date:document.getElementById('ls-date').value,grade:_sStuGrade,att:document.getElementById('ls-att').value,materials:getSMats(),cmt:rawCmt,polishedCmt};
+  const _rubric=getRubricData();
+  const newLes={id:uid(),sid,date:document.getElementById('ls-date').value,grade:_sStuGrade,att:document.getElementById('ls-att').value,materials:getSMats(),cmt:rawCmt,polishedCmt,...(_rubric?{rubric:_rubric}:{})};
   await supaUpsert('lessons',newLes.id,newLes,sid);
   _cache.lessons.unshift(newLes);
   addUnitWordsToVocab(sid,newLes.materials,newLes.date).catch(()=>{});
@@ -1147,7 +1193,7 @@ async function saveLes(){
   document.getElementById('ls-last-hint').style.display='none';
   if(typeof _polishedCmtCache!=='undefined')_polishedCmtCache={raw:'',polished:''};
   const _ph=document.getElementById('polished-ready-hint');if(_ph)_ph.style.display='none';
-  renderLes();toast('수업 기록이 저장되었습니다');
+  _resetRubric();renderLes();toast('수업 기록이 저장되었습니다');
   checkNewBadges(sid);
   const _dupW=document.getElementById('les-dup-warn');if(_dupW)_dupW.style.display='none';
   showLesFollowup(sid,newLes.date,_sStu?.name||'');
@@ -1377,6 +1423,7 @@ function renderLes(){
           <span style="font-weight:700">${s?s.name:'—'}</span>
           <span class="badge bnavy">${l.grade||l.lv||''}</span>
           ${attLabel?`<span class="att-chip ${ATTCLS[l.att]}">${attLabel}</span>`:''}
+          ${l.rubric?`<span style="font-size:10px;padding:2px 6px;border-radius:8px;background:${l.rubric.type==='speaking'?'#dbeafe':'#fce7f3'};color:${l.rubric.type==='speaking'?'#1d4ed8':'#be185d'};white-space:nowrap">${l.rubric.type==='speaking'?'🗣':'✍️'}${Object.values(l.rubric.scores).length?' '+((Object.values(l.rubric.scores).reduce((a,b)=>a+b,0)/Object.values(l.rubric.scores).length).toFixed(1)):''}</span>`:''}
         </div>
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${l.date||''}</span>
@@ -3842,6 +3889,153 @@ function wdbExportCSV(){
 let libPage=0,libSortDir='asc',libSortField='title';
 let _libPagedEntries=[];
 function getLibPageSize(){return parseInt(document.getElementById('lib-per-page')?.value||'50');}
+// ── PHONICS & VOCAB SIZE DIAGNOSTIC ──
+const PHONICS_PATTERNS=[
+  {cat:'단모음 (Short Vowels)',items:[
+    {k:'cvc_a',l:'단모음 /æ/ — cat, bat, hat, lamp'},{k:'cvc_e',l:'단모음 /ɛ/ — bed, pen, ten, desk'},
+    {k:'cvc_i',l:'단모음 /ɪ/ — sit, big, lip, pick'},{k:'cvc_o',l:'단모음 /ɒ/ — hot, dog, top, fox'},
+    {k:'cvc_u',l:'단모음 /ʌ/ — cup, bug, sun, drum'},
+  ]},
+  {cat:'장모음 CVCe (Long Vowels)',items:[
+    {k:'cvce_a',l:'장모음 /eɪ/ — cake, name, lake, face'},{k:'cvce_i',l:'장모음 /aɪ/ — bike, time, kite, ride'},
+    {k:'cvce_o',l:'장모음 /oʊ/ — home, note, rope, bone'},{k:'cvce_u',l:'장모음 /juː/ — cute, tube, mule, cube'},
+    {k:'cvce_e',l:'장모음 /iː/ — Pete, eve, theme'},
+  ]},
+  {cat:'자음 군집 (Blends)',items:[
+    {k:'bl_l',l:'L-blends: bl, cl, fl, gl, pl, sl — blue, clock'},
+    {k:'bl_r',l:'R-blends: br, cr, dr, fr, gr, pr, tr — bring, cross'},
+    {k:'bl_s',l:'S-blends: sc, sk, sm, sn, sp, st, sw — stop, swim'},
+    {k:'bl_end',l:'끝자음 군집: -nd, -nt, -nk, -st, -mp — hand, sink'},
+    {k:'bl_3',l:'3자음 군집: str, spr, scr, spl — string, spring'},
+  ]},
+  {cat:'이중자음 (Digraphs)',items:[
+    {k:'dg_sh',l:'sh /ʃ/ — ship, wish, shell'},{k:'dg_ch',l:'ch/tch /tʃ/ — chin, catch'},
+    {k:'dg_th_v',l:'th 유성 /ð/ — this, that, them'},{k:'dg_th_vl',l:'th 무성 /θ/ — thin, think, three'},
+    {k:'dg_wh',l:'wh — when, where, white'},{k:'dg_ph',l:'ph=/f/ — phone, photo, graph'},
+    {k:'dg_ck',l:'ck — back, clock, duck'},
+  ]},
+  {cat:'이중모음 (Vowel Teams)',items:[
+    {k:'vt_ai',l:'ai/ay /eɪ/ — rain, day, train'},{k:'vt_ee',l:'ee/ea /iː/ — feet, eat, tree'},
+    {k:'vt_oa',l:'oa/ow /oʊ/ — boat, snow, road'},{k:'vt_oo',l:'oo 단/장 — book /ʊ/ vs moon /uː/'},
+    {k:'vt_ou',l:'ou/ow 이중모음 /aʊ/ — cloud, cow'},{k:'vt_oi',l:'oi/oy /ɔɪ/ — oil, boy, coin'},
+    {k:'vt_au',l:'au/aw /ɔː/ — haul, saw, cause'},
+  ]},
+  {cat:'R-통제 모음 (R-Controlled)',items:[
+    {k:'rc_ar',l:'ar /ɑːr/ — car, star, farm'},{k:'rc_or',l:'or /ɔːr/ — for, corn, storm'},
+    {k:'rc_er',l:'er/ir/ur /ɜːr/ — her, bird, burn'},{k:'rc_air',l:'air/are /ɛr/ — chair, care, bear'},
+    {k:'rc_ear',l:'ear/eer /ɪr/ — hear, deer, year'},
+  ]},
+  {cat:'특수 패턴 (Special Patterns)',items:[
+    {k:'sp_soft_c',l:'연자음 c — city, cent, cycle'},{k:'sp_soft_g',l:'연자음 g — gem, giant, page'},
+    {k:'sp_le',l:'-le 결말 — table, purple, bubble'},{k:'sp_tion',l:'-tion/-sion — nation, vision, action'},
+    {k:'sp_silent',l:'묵음 kn/wr/gh — knee, write, night'},{k:'sp_y',l:'y 모음 — fly/aɪ/, baby/iː/, gym/ɪ/'},
+  ]},
+];
+function renderSpDiag(){
+  const el=document.getElementById('sp-diag');if(!el)return;
+  const sid=currentSpStuId;
+  const stu=DB.stus().find(s=>s.id===sid);if(!stu){el.innerHTML='';return;}
+  const ph=stu.phonics||{};
+  const mastered=ph._mastered||0;const total=ph._total||0;const pct=total?Math.round(mastered/total*100):0;
+  const vd=stu.vocabDiag||null;
+  const catProg=PHONICS_PATTERNS.map(({cat,items})=>({short:cat.split(' (')[0],m:items.filter(({k})=>ph[k]).length,t:items.length}));
+  el.innerHTML=`<div style="padding:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700;color:var(--navy)">🔡 파닉스 진단</div>
+      <button class="btn bt bsm" onclick="openPhonicsModal('${sid}')">진단하기</button>
+    </div>
+    ${ph._date?`<div style="margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span style="color:var(--slate)">습득 패턴: <strong>${mastered}/${total}</strong> (${pct}%)</span>
+        <span style="color:var(--slate)">${ph._date}</span>
+      </div>
+      <div style="height:7px;background:var(--border);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--teal);border-radius:4px"></div></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">
+      ${catProg.map(({short,m,t})=>`<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:${m===t?'#d1fae5;color:#065f46':m>0?'#fef3c7;color:#92400e':'var(--cream2);color:var(--slate)'}">${short}: ${m}/${t}</span>`).join('')}
+    </div>`:`<div style="font-size:12px;color:var(--slate);padding:6px 0 12px">진단 기록이 없습니다. 오른쪽 버튼으로 시작하세요.</div>`}
+    <div style="border-top:1px solid var(--border);margin-bottom:12px"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700;color:var(--navy)">📊 어휘 크기 진단</div>
+      <button class="btn bt bsm" onclick="openVocabSizeModal('${sid}')">진단하기</button>
+    </div>
+    ${vd?`<div style="font-size:14px;color:var(--navy);margin-bottom:3px">추정 어휘: <strong style="font-size:18px;color:var(--teal)">${vd.score.toLocaleString()}</strong>단어 <span style="font-size:11px;color:var(--slate)">${vd.date}</span></div>
+    ${vd.memo?`<div style="font-size:11px;color:var(--slate)">${vd.memo}</div>`:''}`
+    :`<div style="font-size:12px;color:var(--slate)">진단 기록이 없습니다.</div>`}
+  </div>`;
+}
+function openPhonicsModal(sid){
+  const stu=DB.stus().find(s=>s.id===sid);if(!stu)return;
+  document.getElementById('phd-sid').value=sid;
+  document.getElementById('phd-title').textContent=`${stu.name} — 파닉스 진단`;
+  document.getElementById('phd-date').value=new Date().toISOString().slice(0,10);
+  const ph=stu.phonics||{};
+  document.getElementById('phd-body').innerHTML=PHONICS_PATTERNS.map(({cat,items})=>
+    `<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--navy);padding:3px 8px;background:var(--cream2);border-radius:4px;margin-bottom:4px">${cat}</div>
+    ${items.map(({k,l})=>`<label style="display:flex;align-items:flex-start;gap:8px;padding:4px 8px;cursor:pointer;border-radius:4px">
+      <input type="checkbox" id="phd-${k}" ${ph[k]?'checked':''} style="margin-top:2px;cursor:pointer;flex-shrink:0">
+      <span style="font-size:12px;color:var(--navy);line-height:1.4">${l}</span>
+    </label>`).join('')}</div>`
+  ).join('');
+  openM('m-phonics-diag');
+}
+function phSelectAll(v){PHONICS_PATTERNS.forEach(({items})=>items.forEach(({k})=>{const el=document.getElementById(`phd-${k}`);if(el)el.checked=v;}));}
+async function savePhonicsResult(){
+  const sid=document.getElementById('phd-sid').value;
+  const date=document.getElementById('phd-date').value;
+  const stu=DB.stus().find(s=>s.id===sid);if(!stu)return;
+  const patterns={};let mastered=0,total=0;
+  PHONICS_PATTERNS.forEach(({items})=>items.forEach(({k})=>{
+    const v=document.getElementById(`phd-${k}`)?.checked||false;
+    patterns[k]=v;if(v)mastered++;total++;
+  }));
+  const updated={...stu,phonics:{...patterns,_date:date,_mastered:mastered,_total:total}};
+  await supaUpsert('students',sid,updated,null);
+  const idx=_cache.students.findIndex(s=>s.id===sid);if(idx>=0)_cache.students[idx]=updated;
+  closeM('m-phonics-diag');renderSpDiag();toast(`파닉스 진단 저장: ${mastered}/${total} 패턴 습득`);
+}
+function openVocabSizeModal(sid){
+  const stu=DB.stus().find(s=>s.id===sid);if(!stu)return;
+  document.getElementById('vsd-sid').value=sid;
+  document.getElementById('vsd-title').textContent=`${stu.name} — 어휘 크기 진단`;
+  document.getElementById('vsd-date').value=new Date().toISOString().slice(0,10);
+  const vd=stu.vocabDiag||{};
+  document.getElementById('vsd-score').value=vd.score||'';
+  document.getElementById('vsd-memo').value=vd.memo||'';
+  renderVocabSampler();openM('m-vocab-size');
+}
+function renderVocabSampler(){
+  const el=document.getElementById('vsd-sampler');if(!el)return;
+  const byRank=Object.entries(FRY_WORDS||{}).sort((a,b)=>a[1]-b[1]);
+  const BANDS=[[1,200,'기초 (Fry 1-200위)','#dbeafe'],[201,500,'초급 (Fry 201-500위)','#dcfce7'],
+    [501,800,'중급 (Fry 501-800위)','#fef3c7'],[801,1000,'고급 Fry (801-1000위)','#fce7f3']];
+  const cefrSample=Object.entries(OXFORD_CEFR||{}).filter(([,l])=>l==='B1').slice(0,5).map(([w])=>w);
+  const cefrB2=Object.entries(OXFORD_CEFR||{}).filter(([,l])=>l==='B2').slice(0,4).map(([w])=>w);
+  el.innerHTML=`<div style="font-size:11px;font-weight:600;color:var(--slate);margin-bottom:8px">📌 아래 단어 중 학생이 아는 것을 확인해 수준을 가늠해 보세요</div>`+
+  BANDS.map(([s,e,lbl,bg])=>{
+    const words=byRank.filter(([,r])=>r>=s&&r<=e);
+    const step=Math.max(1,Math.floor(words.length/5));
+    const sample=[0,1,2,3,4].map(i=>words[i*step]?.[0]).filter(Boolean);
+    return`<div style="margin-bottom:7px"><span style="font-size:10px;font-weight:700;padding:1px 6px;background:${bg};border-radius:4px">${lbl}</span>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px">${sample.map(w=>`<span style="padding:2px 8px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:var(--fd)">${w}</span>`).join('')}</div></div>`;
+  }).join('')+
+  (cefrSample.length?`<div style="margin-bottom:4px"><span style="font-size:10px;font-weight:700;padding:1px 6px;background:#f3e8ff;border-radius:4px">CEFR B1 (약 2000-4000위 수준)</span>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px">${cefrSample.map(w=>`<span style="padding:2px 8px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:var(--fd)">${w}</span>`).join('')}</div></div>`:'')
+  +(cefrB2.length?`<div><span style="font-size:10px;font-weight:700;padding:1px 6px;background:#fef2f2;border-radius:4px">CEFR B2 (약 4000-6000위 수준)</span>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px">${cefrB2.map(w=>`<span style="padding:2px 8px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:var(--fd)">${w}</span>`).join('')}</div></div>`:'');
+}
+async function saveVocabSizeResult(){
+  const sid=document.getElementById('vsd-sid').value;
+  const score=parseInt(document.getElementById('vsd-score').value)||0;
+  if(!score)return toast('어휘 크기를 입력하세요');
+  const date=document.getElementById('vsd-date').value;
+  const memo=document.getElementById('vsd-memo').value.trim();
+  const stu=DB.stus().find(s=>s.id===sid);if(!stu)return;
+  const updated={...stu,vocabDiag:{score,date,memo}};
+  await supaUpsert('students',sid,updated,null);
+  const idx=_cache.students.findIndex(s=>s.id===sid);if(idx>=0)_cache.students[idx]=updated;
+  closeM('m-vocab-size');renderSpDiag();toast(`어휘 크기 저장: 약 ${score.toLocaleString()}단어`);
+}
 let tbookSortDir='asc',tbookPage=0,tbookSortField='title';
 const TBOOK_PAGE_SIZE=50;
 let _tbookPagedEntries=[];
