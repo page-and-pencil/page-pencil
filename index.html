@@ -278,8 +278,7 @@
               <button type="button" class="cmt-chip" onclick="addCmtChip('문장 구성 능숙')">문장 구성 능숙</button>
             </div>
             <textarea id="ls-cmt" placeholder="예) 집중도 좋음. 리딩 속도 향상 중. 어휘 복습 필요" oninput="debouncedCmtPreview()"></textarea></div>
-          <div style="display:flex;gap:6px;margin-top:4px;margin-bottom:8px">
-            <button type="button" class="btn bo bsm" onclick="previewPolishedCmt()" id="cmt-preview-btn">👁 학부모용 미리보기</button>
+          <div style="display:flex;gap:6px;margin-top:4px;margin-bottom:4px">
             <span id="cmt-preview-status" style="font-size:11px;color:var(--slate);align-self:center"></span>
           </div>
           <div id="cmt-preview-box" style="display:none;margin-bottom:8px;padding:12px;background:var(--tl);border-radius:8px;border-left:3px solid var(--teal)">
@@ -1487,9 +1486,10 @@
           <option value="other">기타</option>
         </select>
       </div>
-      <div class="f s2"><label>교재/원서</label><input type="text" id="modal-assign-book" list="dl-modal-assign-books" placeholder="교재 또는 원서명 (자동완성)" autocomplete="off"><datalist id="dl-modal-assign-books"></datalist></div>
+      <div class="f s2"><label>교재/원서</label><input type="text" id="modal-assign-book" list="dl-modal-assign-books" placeholder="교재 또는 원서명 (자동완성)" autocomplete="off" oninput="assignBookChange()"><datalist id="dl-modal-assign-books"></datalist></div>
       <div class="f s2"><label>범위/내용</label><input type="text" id="modal-assign-range" placeholder="예: Unit 3 p.24-28 / Ch.1~3 완독"></div>
     </div>
+    <div id="modal-assign-range-helper" style="display:none;margin:-4px 0 8px;padding:0 2px"></div>
     <div id="modal-assign-extra"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
       <button class="btn bo bsm" onclick="closeM('m-add-assign')">취소</button>

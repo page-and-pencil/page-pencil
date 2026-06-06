@@ -134,7 +134,7 @@ async function migrateBookDB(){
   let done=0;
   for(const b of toMigrate){
     if(btn)btn.textContent=`⏳ ${done+1}/${toMigrate.length}`;
-    const entry={...b,type:'library'};
+    const entry={...b,type:'library',arLevel:b.arLevel||b.ar||''};
     await supaUpsert('global_textbooks',b.id,entry,null);
     if(!_cache.library)_cache.library=[];
     _cache.library.push(entry);
@@ -5755,6 +5755,8 @@ function modalAssignCatChange(){
       if(matched){bookEl.value=matched[1].book||'';break;}
     }
   }
+  const rangeHelper=document.getElementById('modal-assign-range-helper');
+  if(rangeHelper){rangeHelper.style.display='none';rangeHelper.innerHTML='';}
   const extra=document.getElementById('modal-assign-extra');
   if(cat==='vocab'&&sid){
     const recentCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).slice(0,20);
@@ -5776,6 +5778,21 @@ function modalAssignCatChange(){
       <button class="btn bo bsm" style="margin-top:6px;width:100%;font-size:11px" onclick="addC5Row()">+ 행 직접 추가</button>
     </div>`;
   } else {extra.innerHTML='';}
+}
+function assignBookChange(){
+  const cat=document.getElementById('modal-assign-cat')?.value||'';
+  const helper=document.getElementById('modal-assign-range-helper');
+  if(!helper)return;
+  const val=(document.getElementById('modal-assign-book')?.value||'').trim();
+  if(!val||cat!=='book'){helper.style.display='none';helper.innerHTML='';return;}
+  const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+  const book=allLib.find(b=>(b.title||'').trim().toLowerCase()===val.toLowerCase());
+  if(!book){helper.style.display='none';helper.innerHTML='';return;}
+  const chapters=(elibGetChapters(book.id)||[]).filter(c=>c.name);
+  if(!chapters.length){helper.style.display='none';helper.innerHTML='';return;}
+  helper.style.display='block';
+  helper.innerHTML=`<div style="font-size:11px;color:var(--slate);margin-bottom:4px">챕터 선택 (클릭 시 범위 자동 입력)</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px">${chapters.map(c=>`<button type="button" class="btn bo bsm" style="font-size:11px;padding:2px 8px" onclick="document.getElementById('modal-assign-range').value='${c.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}';">${c.name}</button>`).join('')}</div>`;
 }
 function c5RowHtml(date,book,unit){
   const iS='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;min-width:0';
