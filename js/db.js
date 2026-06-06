@@ -364,41 +364,6 @@ async function getMeaningKoFast(word){
     return ko;
   }catch{return null;}
 }
-// Google Books + Open Library fallback으로 책 메타데이터 조회
-async function getBookMeta(title){
-  const gkey=DB.g('gbooks_key')||_cache.settings?.gbooks_key||'';
-  if(gkey){
-    try{
-      const r=await fetch(`https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(title)}&maxResults=1&key=${gkey}`,{signal:AbortSignal.timeout(5000)});
-      if(r.ok){
-        const d=await r.json();
-        const vi=d.items?.[0]?.volumeInfo;
-        if(vi){return{
-          coverUrl:(vi.imageLinks?.thumbnail||vi.imageLinks?.smallThumbnail||'').replace('http:','https:'),
-          description:(vi.description||'').slice(0,300),
-          pages:vi.pageCount?String(vi.pageCount):'',
-          isbn:vi.industryIdentifiers?.find(x=>x.type==='ISBN_13')?.identifier||'',
-          source:'google'
-        };}
-      }
-    }catch{}
-  }
-  try{
-    const r=await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&limit=1`,{signal:AbortSignal.timeout(6000)});
-    if(r.ok){
-      const d=await r.json();
-      const doc=d.docs?.[0];
-      if(doc){return{
-        coverUrl:doc.cover_i?`https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`:'',
-        description:'',
-        pages:doc.number_of_pages_median?String(doc.number_of_pages_median):'',
-        isbn:doc.isbn?.[0]||'',
-        source:'openlibrary'
-      };}
-    }
-  }catch{}
-  return null;
-}
 // 브라우저 내장 TTS로 단어 발음 (무료·오프라인 가능)
 function speakWord(word,rate=0.85){
   if(!('speechSynthesis' in window))return;

@@ -98,32 +98,6 @@ async function testGbooksKey(){
     else{const d=await r.json();el.innerHTML=`<div class="ais err">❌ ${d.error?.message||'연결 실패'}</div>`;}
   }catch(e){el.innerHTML=`<div class="ais err">❌ 연결 오류: ${e.message}</div>`;}
 }
-// ── 원서 자동 메타데이터 조회 ──
-async function autoFetchBookMeta(){
-  const title=document.getElementById('lib-title')?.value.trim();
-  const statusEl=document.getElementById('lib-autofetch-status');
-  const btn=document.getElementById('lib-autofetch-btn');
-  if(!title){toast('책 제목을 먼저 입력해 주세요');return;}
-  if(btn)btn.disabled=true;
-  if(statusEl)statusEl.textContent='조회 중...';
-  const meta=await getBookMeta(title);
-  if(btn)btn.disabled=false;
-  if(!meta){
-    if(statusEl)statusEl.textContent='조회 결과 없음 — 직접 입력해 주세요';
-    return;
-  }
-  if(meta.pages&&!document.getElementById('lib-pages')?.value)document.getElementById('lib-pages').value=meta.pages;
-  if(meta.description&&!document.getElementById('lib-desc')?.value)document.getElementById('lib-desc').value=meta.description;
-  if(meta.coverUrl){
-    libCoverB64='';libCoverMime='';
-    window._libAutoCoverUrl=meta.coverUrl;
-    const prev=document.getElementById('lib-cover-preview');
-    if(prev){prev.innerHTML=`<img src="${meta.coverUrl}" style="width:100%;height:100%;object-fit:cover">`;}
-    if(statusEl)statusEl.textContent=`✓ ${meta.source==='google'?'Google Books':'Open Library'}에서 조회 완료`;
-  }else{
-    if(statusEl)statusEl.textContent=`✓ ${meta.source==='google'?'Google Books':'Open Library'}에서 조회 (표지 없음)`;
-  }
-}
 async function migrateBookDB(){
   const libIds=new Set((_cache.library||[]).map(b=>b.id));
   const toMigrate=(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!libIds.has(b.id));
@@ -145,41 +119,7 @@ async function migrateBookDB(){
   renderLib();renderLibTable();
   toast(`✅ ${done}권이 원서 DB에 추가되었습니다`);
 }
-async function bulkFetchCovers(){
-  const libIds=new Set((_cache.library||[]).map(b=>b.id));
-  const deletedIds=new Set((_cache.library||[]).filter(b=>b._deleted).map(b=>b.id));
-  const libBooks=(_cache.library||[]).filter(b=>!b.coverUrl&&!b._deleted);
-  const dbBooks=(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!libIds.has(b.id)&&!deletedIds.has(b.id)&&!b.coverUrl);
-  const books=[...libBooks,...dbBooks];
-  if(!books.length)return toast('표지 없는 원서가 없습니다 (모두 완료)');
-  const btn=document.querySelector('[onclick="bulkFetchCovers()"]');
-  const origText=btn?.textContent||'🖼 표지 일괄 조회';
-  if(btn)btn.disabled=true;
-  const total=books.length;let done=0,found=0;
-  for(const b of books){
-    if(btn)btn.textContent=`⏳ ${done+1}/${total} — ${b.title.slice(0,12)}`;
-    const meta=await getBookMeta(b.title);done++;
-    if(meta?.coverUrl){
-      found++;
-      const updated={...b,coverUrl:meta.coverUrl};
-      await supaUpsert('global_textbooks',b.id,updated,null);
-      const idx=(_cache.library||[]).findIndex(x=>x.id===b.id);
-      if(idx>=0)_cache.library[idx]=updated;
-      else{if(!_cache.library)_cache.library=[];_cache.library.push(updated);}
-    }
-    await new Promise(r=>setTimeout(r,200));
-  }
-  if(btn){btn.disabled=false;btn.textContent=origText;}
-  renderLib();renderLibTable();
-  toast(`완료 — ${total}권 조회, ${found}권 표지 적용`);
-}
-function clearLibAutoFetch(){
-  window._libAutoCoverUrl='';
-  const prev=document.getElementById('lib-cover-preview');
-  if(prev)prev.innerHTML='📗';
-  const statusEl=document.getElementById('lib-autofetch-status');
-  if(statusEl)statusEl.textContent='';
-}
+
 
 function updateApiKeyStatusDot(){
   const dot=document.getElementById('apikey-status-dot');if(!dot)return;
@@ -1780,39 +1720,16 @@ function reqDelRdInline(id){
 }
 
 // ── LIBRARY ──
-let libCoverB64='',libCoverMime='',_elibCurChapter=null;
-async function handleLibCover(e){
-  const f=e.target.files[0];if(!f)return;
-  document.getElementById('lib-cover-fname').textContent='선택됨: '+f.name;
-  libCoverMime=f.type;libCoverB64=await fileToB64(f);
-}
-async function saveLibCover(){
-  if(!libCoverB64)return '';
-  const {name,preset}=DB.cld();
-  if(name&&preset){
-    try{
-      const blob=await(await fetch('data:'+libCoverMime+';base64,'+libCoverB64)).blob();
-      const fd=new FormData();fd.append('file',blob,'cover.jpg');fd.append('upload_preset',preset);
-      const res=await fetch(`https://api.cloudinary.com/v1_1/${name}/image/upload`,{method:'POST',body:fd});
-      if(res.ok)return(await res.json()).secure_url;
-    }catch(e){console.error(e);}
-  }
-  return 'data:'+libCoverMime+';base64,'+libCoverB64;
-}
+let _elibCurChapter=null;
 async function addLib(){
   const title=document.getElementById('lib-title').value.trim();
   if(!title){toast('제목을 입력해 주세요');return;}
   toast('저장 중...');
-  let coverUrl=await saveLibCover();
-  if(!coverUrl&&window._libAutoCoverUrl)coverUrl=window._libAutoCoverUrl;
-  const newLib={id:uid(),type:'library',title,series:document.getElementById('lib-series').value.trim(),arLevel:document.getElementById('lib-ar').value.trim(),pages:document.getElementById('lib-pages').value.trim(),publisher:document.getElementById('lib-pub').value.trim(),description:document.getElementById('lib-desc').value.trim(),coverUrl};
+  const newLib={id:uid(),type:'library',title,series:document.getElementById('lib-series').value.trim(),arLevel:document.getElementById('lib-ar').value.trim(),pages:document.getElementById('lib-pages').value.trim(),publisher:document.getElementById('lib-pub').value.trim(),description:document.getElementById('lib-desc').value.trim()};
   await supaUpsert('global_textbooks',newLib.id,newLib,null);
   _cache.library.push(newLib);
   closeM('m-add-lib');
   ['lib-title','lib-series','lib-ar','lib-genre','lib-pages','lib-pub','lib-desc'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
-  libCoverB64='';libCoverMime='';window._libAutoCoverUrl='';
-  const fnEl=document.getElementById('lib-cover-fname');if(fnEl)fnEl.textContent='클릭하여 직접 업로드';
-  const prevEl=document.getElementById('lib-cover-preview');if(prevEl)prevEl.innerHTML='📗';
   renderLib();populateLibSel();toast('원서목록에 추가되었습니다');
 }
 function elibTab(tab){
@@ -1943,7 +1860,7 @@ async function updLib(){
   }else{
     // BOOK_DB 항목을 library에 복사하여 수정
     const base=BOOK_DB.find(x=>x.id===id)||{};
-    const newEntry={...base,...fields,id,type:'library',coverUrl:base.coverUrl||''};
+    const newEntry={...base,...fields,id,type:'library'};
     await supaUpsert('global_textbooks',id,newEntry,null);
     if(!_cache.library)_cache.library=[];
     _cache.library.push(newEntry);
@@ -3183,7 +3100,7 @@ function renderLib(){
   const libs=DB.libs();const g=document.getElementById('lib-grid');if(!g)return;
   if(!libs.length){g.innerHTML='<div class="empty" style="grid-column:1/-1"><div class="empty-i">📚</div><div class="empty-t">원서목록이 비어있습니다</div></div>';return;}
   g.innerHTML=libs.map(b=>`<div class="book-card" onclick="openEditLib('${b.id}')">
-    <div class="book-cover-wrap">${b.coverUrl?`<img src="${b.coverUrl}" alt="${b.title}" loading="lazy" onerror="this.style.display='none'">`:''}<span style="${b.coverUrl?'display:none':''}">📗</span></div>
+    <div class="book-cover-wrap">📗</div>
     <div class="book-info"><div class="book-title">${b.title}</div><div class="book-meta">${[b.arLevel?'AR '+b.arLevel:'',b.genre].filter(Boolean).join(' · ')}</div></div>
   </div>`).join('');
 }
@@ -4190,7 +4107,7 @@ function renderLibTable(){
     const hasText=textChaps.some(c=>c.text);
     return `<tr>
       <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="lib-chk" data-id="${b.id}" onchange="libUpdateBulkBar()" style="cursor:pointer"></td>
-      <td style="font-weight:500"><div style="display:flex;align-items:center;gap:8px">${b.coverUrl?`<img src="${escAttr(b.coverUrl)}" alt="" style="width:28px;height:38px;object-fit:cover;border-radius:3px;flex-shrink:0" loading="lazy" onerror="this.style.display='none'">`:`<div style="width:28px;height:38px;background:#f3f4f6;border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px">📗</div>`}<span class="cell-title" title="${escAttr(b.title)}">${b.title}</span></div></td>
+      <td style="font-weight:500"><span class="cell-title" title="${escAttr(b.title)}">${b.title}</span></td>
       <td style="font-size:12px;color:var(--slate)"><span class="cell-title" title="${escAttr(b.series||'')}">${b.series||'—'}</span></td>
       <td><span class="badge bnavy" style="white-space:nowrap">${arDisplay!=='—'?'AR '+arDisplay:'—'}</span></td>
       <td style="font-size:12px;color:var(--slate)">${b.lexile||'—'}</td>

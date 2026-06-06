@@ -526,7 +526,6 @@
             <input type="file" id="bulk-audio-files" accept="audio/*" multiple style="display:none" onchange="previewBulkAudio(event)">
             <button class="btn ba bsm" onclick="openBulkText()">📄 일괄 본문</button>
             <input type="file" id="bulk-text-files" accept=".txt" multiple style="display:none" onchange="previewBulkText(event)">
-            <button class="btn ba bsm" onclick="bulkFetchCovers()">🖼 표지 일괄 조회</button>
             <button class="btn bo bsm" onclick="migrateBookDB()">📥 기본 원서 가져오기</button>
             <button class="btn bt bsm" onclick="openM('m-add-lib')">+ 추가</button>
           </div>
@@ -1296,27 +1295,12 @@
     <div class="fg">
       <div class="f s2">
         <label>책 제목</label>
-        <div style="display:flex;gap:6px">
-          <input type="text" id="lib-title" placeholder="Magic Tree House #3" style="flex:1" oninput="clearLibAutoFetch()">
-          <button class="btn bo bsm" id="lib-autofetch-btn" onclick="autoFetchBookMeta()" title="Google Books·Open Library에서 자동 조회">🔍 자동 조회</button>
-        </div>
-        <div id="lib-autofetch-status" style="font-size:11px;color:var(--slate);margin-top:4px;min-height:16px"></div>
+        <input type="text" id="lib-title" placeholder="Magic Tree House #3">
       </div>
       <div class="f"><label>시리즈</label><input type="text" id="lib-series" placeholder="Magic Tree House"></div>
       <div class="f"><label>AR 레벨</label><input type="text" id="lib-ar" placeholder="3.3"></div>
       <div class="f"><label>총 페이지</label><input type="text" id="lib-pages" placeholder="86"></div>
       <div class="f"><label>출판사</label><input type="text" id="lib-pub" placeholder="Random House"></div>
-      <div class="f s2"><label>표지</label>
-        <div style="display:flex;gap:8px;align-items:flex-start">
-          <div id="lib-cover-preview" style="width:60px;height:80px;border-radius:6px;border:1px solid var(--border);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--cream2)">📗</div>
-          <div style="flex:1">
-            <div class="uz" style="padding:0.75rem" onclick="document.getElementById('lib-cover-file').click()">
-              <div class="ut" id="lib-cover-fname">클릭하여 직접 업로드</div>
-            </div>
-            <input type="file" id="lib-cover-file" accept="image/*" style="display:none" onchange="handleLibCover(event)">
-          </div>
-        </div>
-      </div>
       <div class="f s2"><label>설명</label><input type="text" id="lib-desc" placeholder="책 설명 (선택)"></div>
     </div>
     <button class="btn bt" style="width:100%;margin-top:8px" onclick="addLib()">추가</button>
