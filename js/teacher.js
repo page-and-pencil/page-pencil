@@ -498,8 +498,11 @@ async function saveVocabField(cardId,sid,field,value){
         if(dirty)changedBooks.push({table:'library',id:b.id,data:b});
       }
     }
-    for(const{table,id,data}of changedBooks)await supaUpsert(table,id,data,null).catch(()=>{});
-    if(changedBooks.length)toast('어휘 DB에도 반영되었습니다');
+    if(changedBooks.length){
+      let syncFailed=0;
+      for(const{table,id,data}of changedBooks){try{await supaUpsert(table,id,data,null);}catch{syncFailed++;}}
+      toast(syncFailed?`⚠️ 어휘 DB 동기화 ${syncFailed}건 실패`:'어휘 DB에도 반영되었습니다');
+    }
   }
 }
 async function reqRefreshVocabExamples(sid){
@@ -2004,10 +2007,18 @@ async function elibAddWord(){
 }
 async function delLibVocabWord(id,idx){
   const b=_cache.library.find(x=>x.id===id);if(!b)return;
+  const deletedWord=(b.vocab||[])[idx];
   const vocab=[...(b.vocab||[])];vocab.splice(idx,1);
   const updated={...b,vocab};
   await supaUpsert('global_textbooks',id,updated,null);
   const ci=_cache.library.findIndex(x=>x.id===id);if(ci>=0)_cache.library[ci]=updated;
+  // 연쇄: 이 단어를 가진 학생 vocab_card 삭제
+  if(deletedWord?.word){
+    const wLow=deletedWord.word.toLowerCase();
+    const orphans=(_cache.vocab_cards||[]).filter(c=>c.srcId===id&&(c.word||'').toLowerCase()===wLow);
+    for(const c of orphans)await supaDelete('vocab_cards',c.id).catch(()=>{});
+    if(orphans.length)_cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>!orphans.some(o=>o.id===c.id));
+  }
   renderLibVocabTable(id);renderLibTable();
 }
 async function elibAutoFill(){
@@ -3564,7 +3575,7 @@ async function wdbSaveInline(idx){
       if(en_def&&c.en_def!==en_def){c.en_def=en_def;changed=true;}
       if(v2&&c.v2!==v2){c.v2=v2;changed=true;}
       if(v3&&c.v3!==v3){c.v3=v3;changed=true;}
-      if(changed)supaUpsert('vocab_cards',c.id,c,c.sid).catch(()=>{});
+      if(changed)supaUpsert('vocab_cards',c.id,c,c.sid).catch(e=>console.warn('카드 동기화 실패:',e));
     }
     // 메모리에 없는 학생 카드도 DB에서 직접 cascade
     if(e.srcId){
@@ -3583,7 +3594,7 @@ async function wdbSaveInline(idx){
             if(en_def&&c.en_def!==en_def){updated.en_def=en_def;changed=true;}
             if(v2&&c.v2!==v2){updated.v2=v2;changed=true;}
             if(v3&&c.v3!==v3){updated.v3=v3;changed=true;}
-            if(changed)supaUpsert('vocab_cards',c.id,updated,c.sid).catch(()=>{});
+            if(changed)supaUpsert('vocab_cards',c.id,updated,c.sid).catch(e=>console.warn('카드 동기화 실패:',e));
           }
         }
       }catch(_){}
@@ -3777,7 +3788,11 @@ async function wdbDeleteSelected(){
         const book=_cache.library.find(b=>b.id===srcId);
         if(book){book.vocab=(book.vocab||[]).filter(w=>!remove.some(r=>r.word===(w.word||'').toLowerCase().trim()&&r.pos===(w.pos||'')&&r.ko===(w.ko||'')));await supaUpsert('global_textbooks',book.id,book,null,60000);const i=_cache.library.findIndex(b=>b.id===srcId);if(i>=0)_cache.library[i]=book;}
       }
-      renderWordDB();toast(`${entries.length}개 삭제되었습니다`);
+      // 연쇄: 삭제된 단어와 연결된 학생 vocab_card 삭제
+      const orphans=(_cache.vocab_cards||[]).filter(c=>entries.some(e=>c.srcId===e.srcId&&(c.word||'').toLowerCase()===e.word));
+      for(const c of orphans)await supaDelete('vocab_cards',c.id).catch(()=>{});
+      if(orphans.length)_cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>!orphans.some(o=>o.id===c.id));
+      renderWordDB();toast(`${entries.length}개 삭제되었습니다${orphans.length?` (학생 카드 ${orphans.length}개도 삭제)`:''}`);;
     }catch(err){toast('삭제 실패: '+err.message);}
   });
 }
@@ -3836,7 +3851,11 @@ async function wdbDeleteAll(){
         if(book){book.vocab=(book.vocab||[]).filter(w=>!remove.has((w.word||'').toLowerCase().trim()+'|'+(w.pos||'')+'|'+(w.ko||'')));await supaUpsert('global_textbooks',book.id,book,null,90000);}
         prog.update(++done);
       }
-      prog.remove();renderWordDB();toast(`${words.length}개 삭제되었습니다`);
+      // 연쇄: 학생 vocab_card 삭제
+      const orphans=(_cache.vocab_cards||[]).filter(c=>words.some(e=>c.srcId===e.srcId&&(c.word||'').toLowerCase()===e.word));
+      for(const c of orphans)await supaDelete('vocab_cards',c.id).catch(()=>{});
+      if(orphans.length)_cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>!orphans.some(o=>o.id===c.id));
+      prog.remove();renderWordDB();toast(`${words.length}개 삭제되었습니다${orphans.length?` (학생 카드 ${orphans.length}개도 삭제)`:''}`);;
     }catch(err){prog.remove();toast('삭제 실패: '+err.message);}
   });
 }
@@ -3859,7 +3878,11 @@ async function wdbDeleteEntry(idx){
           const idx3=_cache.library.findIndex(b=>b.id===book.id);if(idx3>=0)_cache.library[idx3]=book;
         }
       }
-      renderWordDB();toast('삭제되었습니다');
+      // 연쇄: 학생 vocab_card 삭제
+      const orphans=(_cache.vocab_cards||[]).filter(c=>c.srcId===e.srcId&&(c.word||'').toLowerCase()===e.word);
+      for(const c of orphans)await supaDelete('vocab_cards',c.id).catch(()=>{});
+      if(orphans.length)_cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>!orphans.some(o=>o.id===c.id));
+      renderWordDB();toast(`삭제되었습니다${orphans.length?` (학생 카드 ${orphans.length}개도 삭제)`:''}`);;
     }catch(err){toast('삭제 실패: '+err.message);}
   });
 }
@@ -4656,8 +4679,16 @@ async function importMasterCSV(e){
     let addedBooks=0,updatedBooks=0,addedWords=0;
     for(const bk of Object.values(bookMap)){
       const {type,title,rows:brows}=bk;const first=brows[0];
+      const csvLevel=(get(first,iLevel)||'').trim().toLowerCase();
+      const csvSeries=(get(first,iSeries)||'').trim().toLowerCase();
       if(type==='textbook'){
-        let b=(_cache.globalTextbooks||[]).find(x=>(x.title||'').trim().toLowerCase()===title.toLowerCase());
+        const tl=title.toLowerCase();
+        // 제목+레벨 복합키 — 둘 다 값이 있을 때만 레벨 비교, 하나라도 비어 있으면 제목만
+        let b=(_cache.globalTextbooks||[]).find(x=>{
+          if((x.title||'').trim().toLowerCase()!==tl)return false;
+          const xl=(x.level||'').trim().toLowerCase();
+          return !csvLevel||!xl||csvLevel===xl;
+        });
         if(!b){
           b={id:uid(),type:'textbook',title,series:get(first,iSeries),level:get(first,iLevel),category:get(first,iCat),publisher:'',units:{}};
           await supaUpsert('global_textbooks',b.id,b,null);
@@ -4675,7 +4706,13 @@ async function importMasterCSV(e){
         }
         b.units=units;await supaUpsert('global_textbooks',b.id,b,null);updatedBooks++;
       } else if(type==='library'){
-        let b=(_cache.library||[]).find(x=>(x.title||'').trim().toLowerCase()===title.toLowerCase());
+        const tl=title.toLowerCase();
+        // 제목+시리즈 복합키
+        let b=(_cache.library||[]).find(x=>{
+          if((x.title||'').trim().toLowerCase()!==tl)return false;
+          const xs=(x.series||'').trim().toLowerCase();
+          return !csvSeries||!xs||csvSeries===xs;
+        });
         if(!b){
           b={id:uid(),type:'library',title,series:get(first,iSeries),arLevel:get(first,iAr),level:get(first,iLevel),genre:get(first,iCat),vocab:[]};
           await supaUpsert('global_textbooks',b.id,b,null);

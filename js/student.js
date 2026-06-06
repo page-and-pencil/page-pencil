@@ -102,11 +102,14 @@ async function loginStudent(s){
   saveSession({role:'student',sid:s.id});
   document.getElementById('stu-name-badge').textContent=s.name;
   show('s-student');
-  await loadVocabCards(s.id);
-  const hwRows=await supaFetchBySid('homeworks',s.id);
+  // 3개 요청 병렬 실행 — 순차 대비 ~2배 빠름, 캐시 준비 전 렌더링 방지
+  const [,hwRows,asgnRows]=await Promise.all([
+    loadVocabCards(s.id),
+    supaFetchBySid('homeworks',s.id),
+    supaFetchBySid('assignments',s.id)
+  ]);
   if(!_cache.homeworks)_cache.homeworks=[];
   _cache.homeworks=_cache.homeworks.filter(h=>h.sid!==s.id).concat(hwRows);
-  const asgnRows=await supaFetchBySid('assignments',s.id);
   if(!_cache.assignments)_cache.assignments=[];
   _cache.assignments=_cache.assignments.filter(a=>a.sid!==s.id).concat(asgnRows);
   swStuTab('st-home');
