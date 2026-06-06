@@ -124,6 +124,27 @@ async function autoFetchBookMeta(){
     if(statusEl)statusEl.textContent=`✓ ${meta.source==='google'?'Google Books':'Open Library'}에서 조회 (표지 없음)`;
   }
 }
+async function migrateBookDB(){
+  const libIds=new Set((_cache.library||[]).map(b=>b.id));
+  const toMigrate=(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!libIds.has(b.id));
+  if(!toMigrate.length)return toast('BOOK_DB 항목이 이미 모두 원서 DB에 있습니다');
+  const btn=document.querySelector('[onclick="migrateBookDB()"]');
+  const origText=btn?.textContent||'📥 기본 원서 가져오기';
+  if(btn)btn.disabled=true;
+  let done=0;
+  for(const b of toMigrate){
+    if(btn)btn.textContent=`⏳ ${done+1}/${toMigrate.length}`;
+    const entry={...b,type:'library'};
+    await supaUpsert('global_textbooks',b.id,entry,null);
+    if(!_cache.library)_cache.library=[];
+    _cache.library.push(entry);
+    done++;
+    await new Promise(r=>setTimeout(r,80));
+  }
+  if(btn){btn.disabled=false;btn.textContent=origText;}
+  renderLib();renderLibTable();
+  toast(`✅ ${done}권이 원서 DB에 추가되었습니다`);
+}
 async function bulkFetchCovers(){
   const libIds=new Set((_cache.library||[]).map(b=>b.id));
   const deletedIds=new Set((_cache.library||[]).filter(b=>b._deleted).map(b=>b.id));
@@ -4169,7 +4190,7 @@ function renderLibTable(){
     const hasText=textChaps.some(c=>c.text);
     return `<tr>
       <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="lib-chk" data-id="${b.id}" onchange="libUpdateBulkBar()" style="cursor:pointer"></td>
-      <td style="font-weight:500"><span class="cell-title" title="${escAttr(b.title)}">${b.title}</span></td>
+      <td style="font-weight:500"><div style="display:flex;align-items:center;gap:8px">${b.coverUrl?`<img src="${escAttr(b.coverUrl)}" alt="" style="width:28px;height:38px;object-fit:cover;border-radius:3px;flex-shrink:0" loading="lazy" onerror="this.style.display='none'">`:`<div style="width:28px;height:38px;background:#f3f4f6;border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px">📗</div>`}<span class="cell-title" title="${escAttr(b.title)}">${b.title}</span></div></td>
       <td style="font-size:12px;color:var(--slate)"><span class="cell-title" title="${escAttr(b.series||'')}">${b.series||'—'}</span></td>
       <td><span class="badge bnavy" style="white-space:nowrap">${arDisplay!=='—'?'AR '+arDisplay:'—'}</span></td>
       <td style="font-size:12px;color:var(--slate)">${b.lexile||'—'}</td>
