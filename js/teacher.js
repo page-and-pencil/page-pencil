@@ -125,28 +125,32 @@ async function autoFetchBookMeta(){
   }
 }
 async function bulkFetchCovers(){
-  const books=(_cache.library||[]).filter(b=>!b.coverUrl);
+  const libIds=new Set((_cache.library||[]).map(b=>b.id));
+  const deletedIds=new Set((_cache.library||[]).filter(b=>b._deleted).map(b=>b.id));
+  const libBooks=(_cache.library||[]).filter(b=>!b.coverUrl&&!b._deleted);
+  const dbBooks=(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!libIds.has(b.id)&&!deletedIds.has(b.id)&&!b.coverUrl);
+  const books=[...libBooks,...dbBooks];
   if(!books.length)return toast('표지 없는 원서가 없습니다 (모두 완료)');
-  const total=books.length;
-  let done=0,found=0;
-  toast(`표지 조회 시작 — ${total}권 처리 중...`);
+  const btn=document.querySelector('[onclick="bulkFetchCovers()"]');
+  const origText=btn?.textContent||'🖼 표지 일괄 조회';
+  if(btn)btn.disabled=true;
+  const total=books.length;let done=0,found=0;
   for(const b of books){
-    const meta=await getBookMeta(b.title);
-    done++;
+    if(btn)btn.textContent=`⏳ ${done+1}/${total} — ${b.title.slice(0,12)}`;
+    const meta=await getBookMeta(b.title);done++;
     if(meta?.coverUrl){
+      found++;
       const updated={...b,coverUrl:meta.coverUrl};
       await supaUpsert('library',b.id,updated,null);
-      const idx=_cache.library.findIndex(x=>x.id===b.id);if(idx>=0)_cache.library[idx]=updated;
-      found++;
+      const idx=(_cache.library||[]).findIndex(x=>x.id===b.id);
+      if(idx>=0)_cache.library[idx]=updated;
+      else{if(!_cache.library)_cache.library=[];_cache.library.push(updated);}
     }
-    if(done%5===0||done===total){
-      const pct=Math.round(done/total*100);
-      const statusEls=document.querySelectorAll('.lib-bulk-cover-status');
-      statusEls.forEach(el=>el.textContent=`표지 조회 중... ${done}/${total} (${pct}%)`);
-    }
+    await new Promise(r=>setTimeout(r,200));
   }
+  if(btn){btn.disabled=false;btn.textContent=origText;}
   renderLib();renderLibTable();
-  toast(`완료 — ${total}권 중 ${found}권 표지 적용됨`);
+  toast(`완료 — ${total}권 조회, ${found}권 표지 적용`);
 }
 function clearLibAutoFetch(){
   window._libAutoCoverUrl='';
