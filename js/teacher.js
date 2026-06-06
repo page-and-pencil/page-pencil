@@ -3067,7 +3067,7 @@ function wdbEditInline(idx){
   const iStyle='width:100%;box-sizing:border-box;padding:4px 6px;border:1.5px solid var(--teal);border-radius:4px;font-size:12px;font-family:var(--fb);outline:none';
   tr.innerHTML=`
     <td></td>
-    <td style="padding:6px 8px;font-weight:700;font-family:var(--fd);color:var(--navy);white-space:nowrap">${escAttr(w.word)}</td>
+    <td style="padding:4px"><input id="wdb-ie-word" value="${escAttr(w.word||'')}" placeholder="영단어" style="${iStyle};font-weight:700;font-family:var(--fd);color:var(--navy)"></td>
     <td style="padding:4px"><input id="wdb-ie-ko" value="${escAttr(w.ko||'')}" placeholder="한국어" style="${iStyle}"></td>
     <td style="padding:4px"><input id="wdb-ie-endef" value="${escAttr(w.en_def||'')}" placeholder="영영 의미 (선택)" style="${iStyle};color:#6b7280"></td>
     <td style="padding:4px"><select id="wdb-ie-pos" style="padding:4px 2px;border:1.5px solid var(--teal);border-radius:4px;font-size:11px;font-family:var(--fb);outline:none">${posOptionsHtml(w.pos||'')}</select></td>
@@ -3089,19 +3089,21 @@ function wdbEditInline(idx){
 
 async function wdbSaveInline(idx){
   const e=_wdbPagedEntries[idx];if(!e)return;
+  const newWord=(document.getElementById('wdb-ie-word')?.value.trim()||e.word);
   const ko=document.getElementById('wdb-ie-ko')?.value.trim()||'';
   const pos=document.getElementById('wdb-ie-pos')?.value||'';
   const ex=document.getElementById('wdb-ie-ex')?.value.trim()||'';
   const en_def=document.getElementById('wdb-ie-endef')?.value.trim()||'';
   const v2=document.getElementById('wdb-ie-v2')?.value.trim().toLowerCase()||'';
   const v3=document.getElementById('wdb-ie-v3')?.value.trim().toLowerCase()||'';
+  if(!newWord)return toast('영단어를 입력해주세요');
   try{
     if(e.srcType==='textbook'){
       const tb=(_cache.globalTextbooks||[]).find(b=>b.id===e.srcId);
       if(tb&&tb.units?.[e.srcUnit]){
         const ws=tuNormWords(tb.units[e.srcUnit]);
         const wi=ws.findIndex(w=>w.word.toLowerCase()===e.word&&(w.pos||'')===(e.pos||''));
-        if(wi>=0){ws[wi]={...ws[wi],ko,pos,example:ex,en_def,v2,v3};tb.units[e.srcUnit]=ws;await supaUpsert('global_textbooks',tb.id,tb,null);const idx2=_cache.globalTextbooks.findIndex(b=>b.id===tb.id);if(idx2>=0)_cache.globalTextbooks[idx2]=tb;}
+        if(wi>=0){ws[wi]={...ws[wi],word:newWord,ko,pos,example:ex,en_def,v2,v3};tb.units[e.srcUnit]=ws;await supaUpsert('global_textbooks',tb.id,tb,null);const idx2=_cache.globalTextbooks.findIndex(b=>b.id===tb.id);if(idx2>=0)_cache.globalTextbooks[idx2]=tb;}
       }
     }else{
       let book=_cache.library.find(b=>b.id===e.srcId);
@@ -3109,7 +3111,7 @@ async function wdbSaveInline(idx){
       if(book){
         const vocab=[...(book.vocab||[])];
         const wi=vocab.findIndex(w=>(w.word||'').toLowerCase()===e.word&&(w.pos||'')===(e.pos||''));
-        if(wi>=0){vocab[wi]={...vocab[wi],ko,pos,example:ex,en_def,v2,v3};book.vocab=vocab;await supaUpsert('library',book.id,book,null);const idx3=_cache.library.findIndex(b=>b.id===book.id);if(idx3>=0)_cache.library[idx3]=book;}
+        if(wi>=0){vocab[wi]={...vocab[wi],word:newWord,ko,pos,example:ex,en_def,v2,v3};book.vocab=vocab;await supaUpsert('library',book.id,book,null);const idx3=_cache.library.findIndex(b=>b.id===book.id);if(idx3>=0)_cache.library[idx3]=book;}
       }
     }
     const wordLower=e.word.toLowerCase();
@@ -3117,6 +3119,7 @@ async function wdbSaveInline(idx){
       if((c.word||'').toLowerCase()!==wordLower)continue;
       if(c.srcId&&c.srcId!==e.srcId)continue;
       let changed=false;
+      if(newWord!==e.word&&c.word!==newWord){c.word=newWord;changed=true;}
       if(ko&&c.meaning!==ko){c.meaning=ko;changed=true;}
       if(pos&&c.pos!==pos){c.pos=pos;changed=true;}
       if(ex&&c.example!==ex){c.example=ex;changed=true;}
