@@ -248,13 +248,15 @@ async function loadAllData(){
     _cache.tests=(tsts||[]).map(r=>(r.data||r));
     _cache.readings=(rds||[]).map(r=>(r.data||r));
     _cache.logs=(logs||[]).map(r=>(r.data||r));
-    _cache.library=(libs||[]).map(r=>(r.data||r));
+    // _cache.library는 아래 globalTextbooks 로드 후 type 기반으로 파생됨
     _cache.notices=(notices||[]).map(r=>(r.data||r));
     _cache.homeworks=(hws||[]).map(r=>(r.data||r));
     _cache.assignments=(assigns||[]).map(r=>(r.data||r));
     _cache.textbooks=(tbs||[]).map(r=>(r.data||r));
     _cache.messages=(msgs||[]).map(r=>(r.data||r));
-    _cache.globalTextbooks=(gtbs||[]).map(r=>(r.data||r));
+    const _allBooks=(gtbs||[]).map(r=>(r.data||r));
+    _cache.library=_allBooks.filter(b=>b.type==='library');
+    _cache.globalTextbooks=_allBooks.filter(b=>b.type==='textbook'||!b.type);
     _cache.globalClasses=(clss||[]).map(r=>(r.data||r));
     _cache.monthlyReports=(mrpts||[]).map(r=>({...( r.data||r),_id:r.id,sid:r.sid,month:r.month}));
     if(acct)_cache.settings.acct=acct;

@@ -141,7 +141,7 @@ async function bulkFetchCovers(){
     if(meta?.coverUrl){
       found++;
       const updated={...b,coverUrl:meta.coverUrl};
-      await supaUpsert('library',b.id,updated,null);
+      await supaUpsert('global_textbooks',b.id,updated,null);
       const idx=(_cache.library||[]).findIndex(x=>x.id===b.id);
       if(idx>=0)_cache.library[idx]=updated;
       else{if(!_cache.library)_cache.library=[];_cache.library.push(updated);}
@@ -1783,8 +1783,8 @@ async function addLib(){
   toast('저장 중...');
   let coverUrl=await saveLibCover();
   if(!coverUrl&&window._libAutoCoverUrl)coverUrl=window._libAutoCoverUrl;
-  const newLib={id:uid(),title,series:document.getElementById('lib-series').value.trim(),arLevel:document.getElementById('lib-ar').value.trim(),pages:document.getElementById('lib-pages').value.trim(),publisher:document.getElementById('lib-pub').value.trim(),description:document.getElementById('lib-desc').value.trim(),coverUrl};
-  await supaUpsert('library',newLib.id,newLib,null);
+  const newLib={id:uid(),type:'library',title,series:document.getElementById('lib-series').value.trim(),arLevel:document.getElementById('lib-ar').value.trim(),pages:document.getElementById('lib-pages').value.trim(),publisher:document.getElementById('lib-pub').value.trim(),description:document.getElementById('lib-desc').value.trim(),coverUrl};
+  await supaUpsert('global_textbooks',newLib.id,newLib,null);
   _cache.library.push(newLib);
   closeM('m-add-lib');
   ['lib-title','lib-series','lib-ar','lib-genre','lib-pages','lib-pub','lib-desc'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
@@ -1859,7 +1859,7 @@ function elibAddChapter(){
   if(b.chapters.some(c=>c.name===name))return toast('이미 있는 챕터명입니다');
   elibSaveCurText();
   b.chapters.push({name,text:''});
-  supaUpsert('library',id,b,null).then(()=>{
+  supaUpsert('global_textbooks',id,b,null).then(()=>{
     document.getElementById('elib-ch-name').value='';
     _elibCurChapter=name;elibPopulateChapSel(id);
     document.getElementById('elib-booktext').value='';
@@ -1872,7 +1872,7 @@ function elibDelChapter(){
   askConfirm(`'${_elibCurChapter}' 삭제`,'이 챕터와 본문을 삭제할까요?','삭제','bd',async()=>{
     const b=_cache.library.find(x=>x.id===id);if(!b)return;
     b.chapters=(b.chapters||[]).filter(c=>c.name!==_elibCurChapter);
-    await supaUpsert('library',id,b,null);
+    await supaUpsert('global_textbooks',id,b,null);
     _elibCurChapter=null;elibPopulateChapSel(id);toast('삭제되었습니다');
   });
 }
@@ -1904,7 +1904,7 @@ async function elibImportChapterCSV(e){
       const idx=b.chapters.findIndex(c=>c.name===name);
       if(idx>=0)b.chapters[idx].text=text;else{b.chapters.push({name,text});added++;}
     }
-    await supaUpsert('library',id,b,null);
+    await supaUpsert('global_textbooks',id,b,null);
     _elibCurChapter=null;elibPopulateChapSel(id);
     toast(`${added}개 챕터 추가 완료`);
   };
@@ -1917,12 +1917,12 @@ async function updLib(){
   const idx=_cache.library.findIndex(x=>x.id===id);
   if(idx>=0){
     _cache.library[idx]={..._cache.library[idx],...fields};
-    await supaUpsert('library',id,_cache.library[idx],null);
+    await supaUpsert('global_textbooks',id,_cache.library[idx],null);
   }else{
     // BOOK_DB 항목을 library에 복사하여 수정
     const base=BOOK_DB.find(x=>x.id===id)||{};
-    const newEntry={...base,...fields,id,coverUrl:base.coverUrl||''};
-    await supaUpsert('library',id,newEntry,null);
+    const newEntry={...base,...fields,id,type:'library',coverUrl:base.coverUrl||''};
+    await supaUpsert('global_textbooks',id,newEntry,null);
     if(!_cache.library)_cache.library=[];
     _cache.library.push(newEntry);
   }
@@ -1932,7 +1932,7 @@ async function saveLibText(){
   const id=document.getElementById('elib-id').value;
   const idx=_cache.library.findIndex(x=>x.id===id);if(idx<0)return;
   _cache.library[idx]={..._cache.library[idx],bookText:document.getElementById('elib-booktext').value.trim()};
-  await supaUpsert('library',id,_cache.library[idx],null);
+  await supaUpsert('global_textbooks',id,_cache.library[idx],null);
   toast('본문이 저장되었습니다');
   const sids=[...new Set((_cache.vocab_cards||[]).map(c=>c.sid))];
   sids.forEach(sid=>refreshVocabExamples(sid).catch(()=>{}));
@@ -1992,7 +1992,7 @@ async function elibSaveInline(id,idx){
   vocab[idx]={...vocab[idx],word,ko,pos,example,en_def,v2,v3};
   const updated={...b,vocab};
   try{
-    await supaUpsert('library',id,updated,null);
+    await supaUpsert('global_textbooks',id,updated,null);
     const i=_cache.library.findIndex(x=>x.id===id);if(i>=0)_cache.library[i]=updated;
     renderLibVocabTable(id);toast('저장되었습니다');
   }catch(err){toast('저장 실패: '+err.message);}
@@ -2040,7 +2040,7 @@ async function extractLibVocab(){
     const newWords=json.words.filter(w=>w.word&&!existSet.has(`${w.word.toLowerCase()}|${w.pos||''}`));
     const updatedVocab=[...existing,...newWords];
     const updated={...b,vocab:updatedVocab,bookText:text};
-    await supaUpsert('library',id,updated,null);
+    await supaUpsert('global_textbooks',id,updated,null);
     const idx=_cache.library.findIndex(x=>x.id===id);if(idx>=0)_cache.library[idx]=updated;else _cache.library.push(updated);
     renderLibVocabTable(id);renderLibTable();elibPopulateChapSel(id);
     if(status)status.textContent='';
@@ -2057,7 +2057,7 @@ async function elibAddWord(){
   if(existing.some(w=>w.word.toLowerCase()===word))return toast('이미 있는 단어입니다');
   const newEntry={word,ko:document.getElementById('elib-wrd-ko').value.trim(),pos:document.getElementById('elib-wrd-pos').value,example:document.getElementById('elib-wrd-ex').value.trim()};
   const updated={...b,vocab:[...existing,newEntry]};
-  await supaUpsert('library',id,updated,null);
+  await supaUpsert('global_textbooks',id,updated,null);
   const idx=_cache.library.findIndex(x=>x.id===id);if(idx>=0)_cache.library[idx]=updated;
   ['elib-wrd-en','elib-wrd-ko','elib-wrd-ex'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   document.getElementById('elib-wrd-pos').value='';
@@ -2067,7 +2067,7 @@ async function delLibVocabWord(id,idx){
   const b=_cache.library.find(x=>x.id===id);if(!b)return;
   const vocab=[...(b.vocab||[])];vocab.splice(idx,1);
   const updated={...b,vocab};
-  await supaUpsert('library',id,updated,null);
+  await supaUpsert('global_textbooks',id,updated,null);
   const ci=_cache.library.findIndex(x=>x.id===id);if(ci>=0)_cache.library[ci]=updated;
   renderLibVocabTable(id);renderLibTable();
 }
@@ -2260,7 +2260,7 @@ async function elibProcessImport(rows,id,mode){
     finalVocab=[...existing,...newWords];
   }
   const updated={...b,vocab:finalVocab};
-  await supaUpsert('library',id,updated,null);
+  await supaUpsert('global_textbooks',id,updated,null);
   const idx=_cache.library.findIndex(x=>x.id===id);if(idx>=0)_cache.library[idx]=updated;
   renderLibVocabTable(id);renderLibTable();
   toast(mode==='overwrite'?`${finalVocab.length}개 단어로 교체되었습니다`:`${finalVocab.length-(b.vocab||[]).length}단어 추가 완료 (총 ${finalVocab.length}개)`);
@@ -2278,7 +2278,7 @@ function elibExportVocab(){
 function delLib(){
   const id=document.getElementById('elib-id').value;
   askConfirm('원서 삭제','원서목록에서 삭제할까요?','삭제','bd',async()=>{
-    await supaDelete('library',id);
+    await supaDelete('global_textbooks',id);
     _cache.library=_cache.library.filter(x=>x.id!==id);
     closeM('m-edit-lib');renderLib();populateLibSel();toast('삭제되었습니다');
   });
@@ -3362,7 +3362,7 @@ async function wdbSaveInline(idx){
       if(book){
         const vocab=[...(book.vocab||[])];
         const wi=vocab.findIndex(w=>(w.word||'').toLowerCase()===e.word&&(w.pos||'')===(e.pos||''));
-        if(wi>=0){vocab[wi]={...vocab[wi],word:newWord,ko,pos,example:ex,en_def,v2,v3};book.vocab=vocab;await supaUpsert('library',book.id,book,null);const idx3=_cache.library.findIndex(b=>b.id===book.id);if(idx3>=0)_cache.library[idx3]=book;}
+        if(wi>=0){vocab[wi]={...vocab[wi],word:newWord,ko,pos,example:ex,en_def,v2,v3};book.vocab=vocab;await supaUpsert('global_textbooks',book.id,book,null);const idx3=_cache.library.findIndex(b=>b.id===book.id);if(idx3>=0)_cache.library[idx3]=book;}
       }
     }
     const wordLower=e.word.toLowerCase();
@@ -3478,7 +3478,7 @@ async function wdbNewWordSave(){
       const existing=book.vocab||[];
       if(existing.some(w=>(w.word||'').toLowerCase()===word&&(w.pos||'')===(pos||'')))return toast('이미 존재하는 단어입니다');
       book.vocab=[...existing,newWord];
-      await supaUpsert('library',srcId,book,null);
+      await supaUpsert('global_textbooks',srcId,book,null);
       const idx=(_cache.library||[]).findIndex(b=>b.id===srcId);if(idx>=0)_cache.library[idx]=book;
       closeM('m-add-word');renderWordDB();toast('단어가 추가되었습니다');
     }
@@ -3566,7 +3566,7 @@ async function wdbDeleteSelected(){
       }
       for(const{srcId,remove}of Object.values(libMap)){
         const book=_cache.library.find(b=>b.id===srcId);
-        if(book){book.vocab=(book.vocab||[]).filter(w=>!remove.some(r=>r.word===(w.word||'').toLowerCase().trim()&&r.pos===(w.pos||'')&&r.ko===(w.ko||'')));await supaUpsert('library',book.id,book,null,60000);const i=_cache.library.findIndex(b=>b.id===srcId);if(i>=0)_cache.library[i]=book;}
+        if(book){book.vocab=(book.vocab||[]).filter(w=>!remove.some(r=>r.word===(w.word||'').toLowerCase().trim()&&r.pos===(w.pos||'')&&r.ko===(w.ko||'')));await supaUpsert('global_textbooks',book.id,book,null,60000);const i=_cache.library.findIndex(b=>b.id===srcId);if(i>=0)_cache.library[i]=book;}
       }
       renderWordDB();toast(`${entries.length}개 삭제되었습니다`);
     }catch(err){toast('삭제 실패: '+err.message);}
@@ -3624,7 +3624,7 @@ async function wdbDeleteAll(){
       }
       for(const{srcId,remove}of libEntries){
         const book=_cache.library.find(b=>b.id===srcId);
-        if(book){book.vocab=(book.vocab||[]).filter(w=>!remove.has((w.word||'').toLowerCase().trim()+'|'+(w.pos||'')+'|'+(w.ko||'')));await supaUpsert('library',book.id,book,null,90000);}
+        if(book){book.vocab=(book.vocab||[]).filter(w=>!remove.has((w.word||'').toLowerCase().trim()+'|'+(w.pos||'')+'|'+(w.ko||'')));await supaUpsert('global_textbooks',book.id,book,null,90000);}
         prog.update(++done);
       }
       prog.remove();renderWordDB();toast(`${words.length}개 삭제되었습니다`);
@@ -3646,7 +3646,7 @@ async function wdbDeleteEntry(idx){
         const book=_cache.library.find(b=>b.id===e.srcId);
         if(book){
           book.vocab=(book.vocab||[]).filter(w=>!((w.word||'').toLowerCase()===e.word&&(w.pos||'')===(e.pos||'')));
-          await supaUpsert('library',book.id,book,null);
+          await supaUpsert('global_textbooks',book.id,book,null);
           const idx3=_cache.library.findIndex(b=>b.id===book.id);if(idx3>=0)_cache.library[idx3]=book;
         }
       }
@@ -3781,8 +3781,8 @@ async function wdbImportCSV(e){
       ||(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).find(b=>b.title?.trim()===grp.srcTitle.trim());
     if(!book){
       // 자동 생성
-      const newBook={id:uid(),title:grp.srcTitle,series:grp.series||'',arLevel:grp.level||'',publisher:grp.publisher||'',description:'',coverUrl:'',vocab:[]};
-      await supaUpsert('library',newBook.id,newBook,null);
+      const newBook={id:uid(),type:'library',title:grp.srcTitle,series:grp.series||'',arLevel:grp.level||'',publisher:grp.publisher||'',description:'',coverUrl:'',vocab:[]};
+      await supaUpsert('global_textbooks',newBook.id,newBook,null);
       _cache.library.push(newBook);
       createdSrc++;
       return newBook;
@@ -3794,7 +3794,7 @@ async function wdbImportCSV(e){
     if(!book.arLevel&&grp.level){book.arLevel=grp.level;dirty=true;}
     if(!book.series&&grp.series){book.series=grp.series;dirty=true;}
     if(!book.publisher&&grp.publisher){book.publisher=grp.publisher;dirty=true;}
-    if(dirty){await supaUpsert('library',book.id,book,null);const idx=_cache.library.findIndex(b=>b.id===book.id);if(idx>=0)_cache.library[idx]=book;updatedMeta++;}
+    if(dirty){await supaUpsert('global_textbooks',book.id,book,null);const idx=_cache.library.findIndex(b=>b.id===book.id);if(idx>=0)_cache.library[idx]=book;updatedMeta++;}
     return book;
   }
 
@@ -3871,7 +3871,7 @@ async function wdbImportCSV(e){
   for(const libId of modifiedLibs){
     const book=(_cache.library||[]).find(b=>b.id===libId);
     if(book){
-      try{await supaUpsert('library',book.id,book,null,90000);}
+      try{await supaUpsert('global_textbooks',book.id,book,null,90000);}
       catch(e){console.error('원서 저장 실패',book.title,e);skipLog.push({row:'-',reason:'저장 실패: '+book.title,word:'',ko:'',src:book.title,unit:''});}
     }
   }
@@ -4199,7 +4199,7 @@ function switchLibTextChap(idx){
 }
 function reqDelLibItem(id){
   askConfirm('원서 삭제','추가한 원서를 삭제할까요? 기본 DB 항목은 삭제되지 않습니다.','삭제','bd',async()=>{
-    const ok=await supaDelete('library',id);
+    const ok=await supaDelete('global_textbooks',id);
     if(!ok)return toast('Supabase 삭제 실패 — 새로고침 후 다시 시도해 주세요');
     _cache.library=_cache.library.filter(x=>x.id!==id);
     renderLibTable();populateLibSel();toast('삭제되었습니다');
@@ -4224,7 +4224,7 @@ async function libDeleteSelected(){
       // library 항목 제거 (Supabase + 캐시) — 성공한 항목만 캐시에서 제거
       const deletedLibIds=[];
       for(const id of libraryIds){
-        const ok=await supaDelete('library',id);
+        const ok=await supaDelete('global_textbooks',id);
         if(ok)deletedLibIds.push(id);
         else console.warn('supaDelete failed for library id:',id);
       }
@@ -4232,8 +4232,8 @@ async function libDeleteSelected(){
       // BOOK_DB 기본 항목 → _deleted 플래그로 library에 저장해 영구 숨김
       for(const id of bookDbIds){
         const base=BOOK_DB.find(b=>b.id===id)||{};
-        const entry={...base,id,_deleted:true};
-        await supaUpsert('library',id,entry,null);
+        const entry={...base,id,type:'library',_deleted:true};
+        await supaUpsert('global_textbooks',id,entry,null);
         const idx=(_cache.library||[]).findIndex(b=>b.id===id);
         if(idx>=0)_cache.library[idx]=entry;else{if(!_cache.library)_cache.library=[];_cache.library.push(entry);}
       }
@@ -4383,8 +4383,8 @@ function importLibCSV(e){
       const cols=parseCSVLine(lines[i]);if(!cols.length)continue;
       const row={};headers.forEach((h,j)=>row[h]=cols[j]||'');
       if(!row.title)continue;
-      const newLib={id:uid(),title:row.title,series:row.series||'',arLevel:row.arLevel||'',genre:row.genre||'',pages:row.pages||'',publisher:row.publisher||'',description:row.description||'',coverUrl:''};
-      await supaUpsert('library',newLib.id,newLib,null);
+      const newLib={id:uid(),type:'library',title:row.title,series:row.series||'',arLevel:row.arLevel||'',genre:row.genre||'',pages:row.pages||'',publisher:row.publisher||'',description:row.description||'',coverUrl:''};
+      await supaUpsert('global_textbooks',newLib.id,newLib,null);
       _cache.library.push(newLib);
       added++;
     }
@@ -5324,7 +5324,7 @@ async function delChapter(bookId,idx){
   const ao=getAudioObj(b);if(!ao||!ao.chapters)return;
   ao.chapters.splice(idx,1);
   if(!ao.chapters.length){delete b.audioUrl;}else{b.audioUrl=ao;}
-  await supaUpsert('library',bookId,b,null);
+  await supaUpsert('global_textbooks',bookId,b,null);
   renderLibTable();toast('챕터가 삭제되었습니다');
 }
 
@@ -5378,7 +5378,7 @@ async function confirmBulkText(){
       }else{
         bookData.bookText=text;
       }
-      await supaUpsert('library',m.book.id,bookData,null);
+      await supaUpsert('global_textbooks',m.book.id,bookData,null);
       const idx=_cache.library.findIndex(x=>x.id===m.book.id);if(idx>=0)_cache.library[idx]=bookData;
       done++;
     }catch(err){console.error('bulk text',err);}
@@ -5450,7 +5450,7 @@ async function confirmBulkAudio(){
         bookData.audioUrl=ao;
       }
       if(!existing)_cache.library.push(bookData);
-      await supaUpsert('library',m.book.id,bookData,null);
+      await supaUpsert('global_textbooks',m.book.id,bookData,null);
       done++;
     }catch(err){console.error('bulk audio',err);}
   }
@@ -5468,7 +5468,7 @@ function reqDelAudio(bookId,e){
     const existing=_cache.library.find(x=>x.id===bookId);
     if(existing){
       delete existing.audioUrl;
-      await supaUpsert('library',bookId,existing,null);
+      await supaUpsert('global_textbooks',bookId,existing,null);
     }
     renderLibTable();
     toast('오디오가 삭제되었습니다');
@@ -5508,7 +5508,7 @@ async function uploadBookAudio(e, bookId, uploadType='full'){
     ao.chapters.push({num:nextNum,url:audioUrl});
     bookData.audioUrl=ao;
   }
-  await supaUpsert('library',bookId,bookData,null);
+  await supaUpsert('global_textbooks',bookId,bookData,null);
   renderLibTable();
   toast(uploadType==='full'?'전권 오디오 저장됨':'챕터 '+((getAudioObj(bookData)?.chapters?.length)||1)+' 저장됨');
 }
