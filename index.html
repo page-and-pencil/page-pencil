@@ -472,90 +472,65 @@
     <div id="t-data" class="panel">
       <!-- Sub-tab 네비게이션 -->
       <div class="dtabs">
-        <button id="dtab-tbook" data-dtab="tbook" onclick="switchDataTab('tbook')" style="padding:8px 16px;font-size:13px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📚 교재 DB</button>
-        <button id="dtab-lib" data-dtab="lib" onclick="switchDataTab('lib')" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📖 원서 DB</button>
+        <button id="dtab-book" data-dtab="book" onclick="switchDataTab('book')" style="padding:8px 16px;font-size:13px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📚 책 DB</button>
         <button id="dtab-word" data-dtab="word" onclick="switchDataTab('word')" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📝 어휘 DB</button>
       </div>
 
-      <!-- 교재 DB sub-panel -->
-      <div id="dp-tbook">
+      <!-- 책 DB sub-panel (교재+원서 통합) -->
+      <div id="dp-book">
         <div class="sh">
-          <div><div class="st">교재 DB</div><div class="ssub" id="tbook-total"></div></div>
+          <div><div class="st">책 DB</div><div class="ssub" id="book-total"></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn bt bsm" onclick="document.getElementById('tbook-csv-file').click()">📥 CSV 가져오기</button>
-            <button class="btn bo bsm" onclick="exportTbookCSV()">⬇ CSV 내보내기</button>
+            <button class="btn bt bsm" onclick="document.getElementById('tbook-csv-file').click()">📥 교재 CSV</button>
             <input type="file" id="tbook-csv-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="importTbookCSV(event)">
-            <button class="btn bt bsm" onclick="tbookStartAdd()">+ 추가</button>
-          </div>
-        </div>
-        <div class="lib-search-bar">
-          <input type="text" class="lib-search-input" id="tbook-q" placeholder="교재명 검색..." oninput="tbookPage=0;renderTbookTable()">
-          <select class="filter-sel" id="tbook-filter-cat" onchange="tbookPage=0;renderTbookTable()">
-            <option value="">전체 분류</option>
-            <option value="파닉스">파닉스</option><option value="어휘">어휘</option><option value="어법">어법</option>
-            <option value="리딩">리딩</option><option value="리스닝">리스닝</option><option value="라이팅">라이팅</option><option value="내신">내신</option>
-          </select>
-          <button class="btn bo bsm" onclick="tbookResetFilters()">초기화</button>
-        </div>
-        <div id="tbook-bulk-bar" style="display:none;align-items:center;gap:10px;padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin-bottom:8px">
-          <span id="tbook-sel-count" style="font-size:13px;color:#dc2626;font-weight:600"></span>
-          <button class="btn bd bsm" onclick="tbookDeleteSelected()">선택 삭제</button>
-          <button onclick="tbookClearSelection()" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate);margin-left:auto">✕ 선택 해제</button>
-        </div>
-        <div class="lib-table-container">
-          <table class="lib-tbl">
-            <thead><tr>
-              <th style="width:32px;text-align:center"><input type="checkbox" id="tbook-chk-all" onchange="tbookToggleAll(this)" style="cursor:pointer"></th>
-              <th>교재명</th><th>레벨</th><th>분류</th><th>출판사</th><th></th>
-            </tr></thead>
-            <tbody id="tbook-tbody"></tbody>
-          </table>
-        </div>
-        <div id="tbook-pager" style="margin-top:10px"></div>
-      </div>
-
-      <!-- 원서 DB sub-panel -->
-      <div id="dp-lib" style="display:none">
-        <div class="sh">
-          <div><div class="st">원서 DB</div><div class="ssub" id="lib-total-count"></div></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn bt bsm" onclick="document.getElementById('lib-csv-file2').click()">📥 CSV 가져오기</button>
-            <button class="btn bo bsm" onclick="exportLibCSV()">⬇ CSV 내보내기</button>
+            <button class="btn bo bsm" onclick="exportTbookCSV()">⬇ 교재 CSV</button>
+            <button class="btn bt bsm" onclick="document.getElementById('lib-csv-file2').click()">📥 원서 CSV</button>
             <input type="file" id="lib-csv-file2" accept=".csv" style="display:none" onchange="importLibCSV(event)">
+            <button class="btn bo bsm" onclick="exportLibCSV()">⬇ 원서 CSV</button>
             <button class="btn ba bsm" onclick="openBulkAudio()">🎵 일괄 오디오</button>
             <input type="file" id="bulk-audio-files" accept="audio/*" multiple style="display:none" onchange="previewBulkAudio(event)">
             <button class="btn ba bsm" onclick="openBulkText()">📄 일괄 본문</button>
             <input type="file" id="bulk-text-files" accept=".txt" multiple style="display:none" onchange="previewBulkText(event)">
-            <button class="btn bo bsm" onclick="migrateBookDB()">📥 기본 원서 가져오기</button>
-            <button class="btn bt bsm" onclick="openM('m-add-lib')">+ 추가</button>
+            <button class="btn bo bsm" onclick="migrateBookDB()">📥 기본 원서</button>
+            <button class="btn bt bsm" onclick="openBookAdd()">+ 추가</button>
           </div>
         </div>
         <div class="lib-search-bar">
-          <input type="text" class="lib-search-input" id="lib-q" placeholder="제목 또는 시리즈 검색..." oninput="libPage=0;renderLibTable()">
-          <select class="filter-sel" id="lib-filter-series" onchange="libPage=0;renderLibTable()"><option value="">전체 시리즈</option></select>
-          <select class="filter-sel" id="lib-per-page" onchange="libPage=0;renderLibTable()" title="페이지당 표시 권수">
-            <option value="10">10권</option><option value="50" selected>50권</option><option value="100">100권</option><option value="500">500권</option><option value="1000">1000권</option>
+          <div style="display:flex;gap:2px;flex-shrink:0">
+            <button id="bdb-f-all" class="btn bt bsm" style="padding:5px 10px;font-size:12px" onclick="bookDBFilter('')">전체</button>
+            <button id="bdb-f-tb" class="btn bo bsm" style="padding:5px 10px;font-size:12px" onclick="bookDBFilter('textbook')">교재</button>
+            <button id="bdb-f-lib" class="btn bo bsm" style="padding:5px 10px;font-size:12px" onclick="bookDBFilter('library')">원서</button>
+          </div>
+          <input type="text" class="lib-search-input" id="book-q" placeholder="제목·시리즈·카테고리 검색..." oninput="bookPage=0;renderBookDB()">
+          <select class="filter-sel" id="book-per-page" onchange="bookPage=0;renderBookDB()">
+            <option value="25">25개</option><option value="50" selected>50개</option><option value="100">100개</option><option value="500">500개</option>
           </select>
-          <button class="btn bo bsm" onclick="libResetFilters()">초기화</button>
+          <button class="btn bo bsm" onclick="bookDBResetFilters()">초기화</button>
         </div>
-        <div id="lib-bulk-bar" style="display:none;align-items:center;gap:10px;padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin-bottom:8px">
-          <span id="lib-sel-count" style="font-size:13px;color:#dc2626;font-weight:600"></span>
-          <button class="btn bd bsm" onclick="libDeleteSelected()">선택 삭제</button>
-          <button onclick="libClearSelection()" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate);margin-left:auto">✕ 선택 해제</button>
+        <div id="book-bulk-bar" style="display:none;align-items:center;gap:10px;padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin-bottom:8px">
+          <span id="book-sel-count" style="font-size:13px;color:#dc2626;font-weight:600"></span>
+          <button class="btn bd bsm" onclick="bookDeleteSelected()">선택 삭제</button>
+          <button onclick="bookClearSelection()" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate);margin-left:auto">✕ 선택 해제</button>
         </div>
         <div class="lib-table-container">
           <table class="lib-tbl">
             <thead><tr>
-              <th style="width:32px;text-align:center"><input type="checkbox" id="lib-chk-all" onchange="libToggleAll(this)" style="cursor:pointer"></th>
-              <th>제목</th><th>시리즈</th><th>AR</th><th>렉사일</th><th>레벨</th><th>오디오</th><th>원문</th><th></th>
+              <th style="width:32px;text-align:center"><input type="checkbox" id="book-chk-all" onchange="bookToggleAll(this)" style="cursor:pointer"></th>
+              <th style="width:48px">타입</th>
+              <th>제목</th>
+              <th>시리즈/카테고리</th>
+              <th>AR/레벨</th>
+              <th style="text-align:center">유닛/챕터</th>
+              <th style="text-align:center">단어</th>
+              <th style="width:40px"></th>
             </tr></thead>
-            <tbody id="lib-tbody"></tbody>
+            <tbody id="book-tbody"></tbody>
           </table>
         </div>
-        <div id="lib-pager" style="margin-top:10px"></div>
+        <div id="book-pager" style="margin-top:10px"></div>
       </div>
 
-      <!-- 단어 DB sub-panel -->
+            <!-- 단어 DB sub-panel -->
       <div id="dp-word" style="display:none">
         <div class="sh">
           <div><div class="st">어휘 DB</div><div class="ssub" id="wdb-total"></div></div>
@@ -1176,6 +1151,17 @@
       <div class="f s2" id="wdb-new-unit-row"><label>단원</label><input type="text" id="wdb-new-unit" placeholder="단원명 (예: Unit 1, 전체)"></div>
     </div>
     <button class="btn bt" style="width:100%;margin-top:8px" onclick="wdbNewWordSave()">추가하기</button>
+  </div>
+</div>
+
+<!-- 책 타입 선택 -->
+<div id="m-book-type-pick" class="mo">
+  <div class="mdl" style="max-width:270px">
+    <div class="mh"><div class="mt">무엇을 추가할까요?</div><button class="bx" onclick="closeM('m-book-type-pick')">×</button></div>
+    <div style="display:flex;gap:10px;padding:4px 0 8px">
+      <button class="btn bt" style="flex:1;padding:16px 8px;font-size:14px" onclick="closeM('m-book-type-pick');openTbookAdd()">📚 교재</button>
+      <button class="btn bt" style="flex:1;padding:16px 8px;font-size:14px" onclick="closeM('m-book-type-pick');openM('m-add-lib')">📖 원서</button>
+    </div>
   </div>
 </div>
 

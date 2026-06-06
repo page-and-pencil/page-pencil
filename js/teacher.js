@@ -212,7 +212,7 @@ function swTab(id){
   if(id==='t-class')renderClassTab();
   if(id==='t-lib'){renderLibTable();populateLibSeriesFilter();}
   if(id==='t-tbooks')renderTbookTable();
-  if(id==='t-data')switchDataTab(_dataTab||'tbook');
+  if(id==='t-data')switchDataTab(_dataTab||'book');
   if(id==='t-cfg'){
     const c=DB.cld();document.getElementById('cfg-cld-name').value=c.name||'';document.getElementById('cfg-cld-preset').value=c.preset||'';
     document.getElementById('cfg-apikey').value=DB.api()?'••••••':'';
@@ -1730,7 +1730,7 @@ async function addLib(){
   _cache.library.push(newLib);
   closeM('m-add-lib');
   ['lib-title','lib-series','lib-ar','lib-genre','lib-pages','lib-pub','lib-desc'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
-  renderLib();populateLibSel();toast('원서목록에 추가되었습니다');
+  renderLib();renderBookDB();populateLibSel();toast('원서목록에 추가되었습니다');
 }
 function elibTab(tab){
   document.getElementById('elib-pane-info').style.display=tab==='info'?'block':'none';
@@ -1865,7 +1865,7 @@ async function updLib(){
     if(!_cache.library)_cache.library=[];
     _cache.library.push(newEntry);
   }
-  closeM('m-edit-lib');renderLib();populateLibSel();renderLibTable();toast('수정되었습니다');
+  closeM('m-edit-lib');renderLib();renderBookDB();populateLibSel();renderLibTable();toast('수정되었습니다');
 }
 async function saveLibText(){
   const id=document.getElementById('elib-id').value;
@@ -2414,7 +2414,7 @@ async function saveTbook(){
       _cache.globalTextbooks.push(tb);
       toast('교재가 추가되었습니다');
     }
-    renderTbookTable();updateTbookDatalist();
+    renderTbookTable();renderBookDB();updateTbookDatalist();
     closeM('m-add-tbook');
     ['tbook-title','tbook-publisher','tbook-level','tbook-edit-id','tbook-grade','tbook-total-units'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display='none';
@@ -3108,17 +3108,134 @@ function renderLib(){
 
 
 // ── 자료 DB 통합 탭 ──
-let _dataTab='tbook';
+let _dataTab='book';
 function switchDataTab(tab){
   _dataTab=tab;
-  ['tbook','lib','word'].forEach(t=>{
+  ['book','word'].forEach(t=>{
     const p=document.getElementById('dp-'+t);const b=document.getElementById('dtab-'+t);
     if(p)p.style.display=t===tab?'':'none';
     if(b){b.style.color=t===tab?'var(--teal)':'var(--slate)';b.style.borderBottomColor=t===tab?'var(--teal)':'transparent';b.style.fontWeight=t===tab?'700':'600';}
   });
-  if(tab==='tbook')renderTbookTable();
-  if(tab==='lib'){renderLibTable();populateLibSeriesFilter();}
+  if(tab==='book')renderBookDB();
   if(tab==='word'){wdbPage=0;renderWordDB();}
+}
+
+// ── 책 DB (마스터: 교재+원서 통합) ──
+let _bookDBFilter='',bookPage=0;
+function renderBookDB(){
+  const q=(document.getElementById('book-q')?.value||'').toLowerCase();
+  const pageSize=parseInt(document.getElementById('book-per-page')?.value||'50');
+  const tbooks=(_cache.globalTextbooks||[]).map(b=>({...b,_bt:'textbook'}));
+  const libs=(_cache.library||[]).filter(b=>!b._deleted).map(b=>({...b,_bt:'library'}));
+  let all=[...tbooks,...libs];
+  if(_bookDBFilter)all=all.filter(b=>b._bt===_bookDBFilter);
+  if(q)all=all.filter(b=>
+    (b.title||'').toLowerCase().includes(q)||
+    (b.series||'').toLowerCase().includes(q)||
+    (b.category||'').toLowerCase().includes(q)||
+    (b.publisher||'').toLowerCase().includes(q)
+  );
+  const totalEl=document.getElementById('book-total');
+  if(totalEl)totalEl.textContent=`${all.length}개`;
+  const pageSize2=parseInt(document.getElementById('book-per-page')?.value||'50');
+  const totalPages=Math.ceil(all.length/pageSize2)||1;
+  if(bookPage>=totalPages)bookPage=0;
+  const paged=all.slice(bookPage*pageSize2,(bookPage+1)*pageSize2);
+  const tbody=document.getElementById('book-tbody');if(!tbody)return;
+  if(!paged.length){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--slate)">결과 없음</td></tr>';
+  }else{
+    tbody.innerHTML=paged.map(b=>{
+      const isTb=b._bt==='textbook';
+      const unitCnt=isTb?Object.keys(b.units||{}).length:(b.chapters||[]).length;
+      const wordCnt=isTb
+        ?Object.values(b.units||{}).reduce((s,a)=>s+(Array.isArray(a)?a.length:0),0)
+        :(b.vocab?.length||0);
+      const typeBadge=isTb
+        ?`<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;white-space:nowrap">교재</span>`
+        :`<span class="badge" style="background:#d1fae5;color:#065f46;font-size:10px;white-space:nowrap">원서</span>`;
+      const meta=escHtml(isTb?(b.category||'—'):(b.series||'—'));
+      const level=isTb?(b.level||'—'):((b.arLevel||b.ar)?'AR '+(b.arLevel||b.ar):'—');
+      const editFn=isTb?`openEditTbook('${b.id}')`:`openEditLib('${b.id}')`;
+      const unitsFn=isTb?`openTbookUnits('${b.id}')`:editFn;
+      return`<tr>
+        <td style="text-align:center"><input type="checkbox" class="book-chk" data-id="${b.id}" data-bt="${b._bt}" onchange="bookUpdateBulkBar()" style="cursor:pointer"></td>
+        <td>${typeBadge}</td>
+        <td style="font-weight:500;cursor:pointer" onclick="${editFn}">${escHtml(b.title||'')}</td>
+        <td style="font-size:12px;color:var(--slate)">${meta}</td>
+        <td><span class="badge bnavy" style="font-size:10px;white-space:nowrap">${escHtml(level)}</span></td>
+        <td style="font-size:12px;text-align:center">${unitCnt?`<span style="cursor:pointer;color:var(--navy)" onclick="${unitsFn}" title="${isTb?'유닛 관리':'챕터 보기'}">${unitCnt}</span>`:'—'}</td>
+        <td style="font-size:12px;text-align:center">${wordCnt?`<span style="color:var(--teal);font-weight:600;cursor:pointer" onclick="jumpToBookVocab('${b.id}','${b._bt}')" title="어휘 DB에서 보기">${wordCnt}</span>`:'—'}</td>
+        <td style="text-align:right"><button class="btn bo bsm" style="font-size:11px;padding:2px 8px" onclick="${editFn}">수정</button></td>
+      </tr>`;
+    }).join('');
+  }
+  const pagerEl=document.getElementById('book-pager');
+  if(pagerEl)pagerEl.innerHTML=totalPages<=1?'':[...Array(totalPages)].map((_,i)=>
+    `<button class="btn ${i===bookPage?'bt':'bo'} bsm" style="min-width:30px;padding:3px 8px;margin:0 2px" onclick="bookPage=${i};renderBookDB()">${i+1}</button>`
+  ).join('');
+}
+function bookDBFilter(type){
+  _bookDBFilter=type;bookPage=0;
+  const map={all:'',tb:'textbook',lib:'library'};
+  Object.entries(map).forEach(([k,v])=>{
+    const btn=document.getElementById('bdb-f-'+k);
+    if(btn){btn.className=`btn ${v===type?'bt':'bo'} bsm`;btn.style.cssText='padding:5px 10px;font-size:12px';}
+  });
+  renderBookDB();
+}
+function bookDBResetFilters(){
+  _bookDBFilter='';bookPage=0;
+  const q=document.getElementById('book-q');if(q)q.value='';
+  const pp=document.getElementById('book-per-page');if(pp)pp.value='50';
+  bookDBFilter('');
+}
+function bookUpdateBulkBar(){
+  const checked=document.querySelectorAll('.book-chk:checked');
+  const bar=document.getElementById('book-bulk-bar');const cnt=document.getElementById('book-sel-count');
+  if(bar)bar.style.display=checked.length?'flex':'none';
+  if(cnt)cnt.textContent=`${checked.length}개 선택됨`;
+}
+function bookToggleAll(cb){document.querySelectorAll('.book-chk').forEach(c=>c.checked=cb.checked);bookUpdateBulkBar();}
+function bookClearSelection(){
+  document.querySelectorAll('.book-chk').forEach(c=>c.checked=false);
+  const all=document.getElementById('book-chk-all');if(all)all.checked=false;
+  bookUpdateBulkBar();
+}
+function bookDeleteSelected(){
+  const checked=[...document.querySelectorAll('.book-chk:checked')];
+  if(!checked.length)return;
+  const tbIds=checked.filter(c=>c.dataset.bt==='textbook').map(c=>c.dataset.id);
+  const libIds=checked.filter(c=>c.dataset.bt==='library').map(c=>c.dataset.id);
+  askConfirm('책 삭제',`선택한 ${checked.length}권을 삭제할까요?`,'삭제','bd',async()=>{
+    for(const id of tbIds){await supaDelete('global_textbooks',id);_cache.globalTextbooks=(_cache.globalTextbooks||[]).filter(x=>x.id!==id);}
+    for(const id of libIds){await supaDelete('global_textbooks',id);_cache.library=(_cache.library||[]).filter(x=>x.id!==id);}
+    bookClearSelection();renderBookDB();toast(`${checked.length}권 삭제됨`);
+  });
+}
+function openBookAdd(){openM('m-book-type-pick');}
+function openTbookAdd(){
+  document.getElementById('tbook-edit-id').value='';
+  document.getElementById('tbook-title').value='';
+  document.getElementById('tbook-publisher').value='';
+  document.getElementById('tbook-level').value='';
+  document.getElementById('tbook-category').value='';
+  document.getElementById('tbook-grade').value='';
+  document.getElementById('tbook-total-units').value='';
+  document.getElementById('tbook-modal-title').textContent='교재 추가';
+  document.getElementById('tbook-submit-btn').textContent='추가';
+  const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display='none';
+  openM('m-add-tbook');
+}
+function jumpToBookVocab(id,type){
+  switchDataTab('word');
+  const srcSel=document.getElementById('wdb-src');
+  if(srcSel){srcSel.value=type;wdbSrcTypeChange();}
+  setTimeout(()=>{
+    const idSel=document.getElementById('wdb-src-id');
+    if(idSel){idSel.value=id;wdbSrcIdChange();}
+    wdbPage=0;renderWordDB();
+  },60);
 }
 
 // ── 단어 DB (교재+원서 통합) ──
