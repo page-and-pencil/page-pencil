@@ -3154,16 +3154,16 @@ function renderBookDB(){
       const typeBadge=isTb
         ?`<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;white-space:nowrap">교재</span>`
         :`<span class="badge" style="background:#d1fae5;color:#065f46;font-size:10px;white-space:nowrap">원서</span>`;
-      const meta=escHtml(isTb?(b.category||'—'):(b.series||'—'));
+      const meta=escAttr(isTb?(b.category||'—'):(b.series||'—'));
       const level=isTb?(b.level||'—'):((b.arLevel||b.ar)?'AR '+(b.arLevel||b.ar):'—');
       const editFn=isTb?`openEditTbook('${b.id}')`:`openEditLib('${b.id}')`;
       const unitsFn=isTb?`openTbookUnits('${b.id}')`:editFn;
       return`<tr>
         <td style="text-align:center"><input type="checkbox" class="book-chk" data-id="${b.id}" data-bt="${b._bt}" onchange="bookUpdateBulkBar()" style="cursor:pointer"></td>
         <td>${typeBadge}</td>
-        <td style="font-weight:500;cursor:pointer" onclick="${editFn}">${escHtml(b.title||'')}</td>
+        <td style="font-weight:500;cursor:pointer" onclick="${editFn}">${escAttr(b.title||'')}</td>
         <td style="font-size:12px;color:var(--slate)">${meta}</td>
-        <td><span class="badge bnavy" style="font-size:10px;white-space:nowrap">${escHtml(level)}</span></td>
+        <td><span class="badge bnavy" style="font-size:10px;white-space:nowrap">${escAttr(level)}</span></td>
         <td style="font-size:12px;text-align:center">${unitCnt?`<span style="cursor:pointer;color:var(--navy)" onclick="${unitsFn}" title="${isTb?'유닛 관리':'챕터 보기'}">${unitCnt}</span>`:'—'}</td>
         <td style="font-size:12px;text-align:center">${wordCnt?`<span style="color:var(--teal);font-weight:600;cursor:pointer" onclick="jumpToBookVocab('${b.id}','${b._bt}')" title="어휘 DB에서 보기">${wordCnt}</span>`:'—'}</td>
         <td style="text-align:right"><button class="btn bo bsm" style="font-size:11px;padding:2px 8px" onclick="${editFn}">수정</button></td>
