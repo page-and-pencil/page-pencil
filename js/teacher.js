@@ -4322,7 +4322,7 @@ async function importTbookCSV(e){
           category:data.category,grade:data.grade};
         const existing=data.id
           ?(_cache.globalTextbooks||[]).find(b=>b.id===data.id)
-          :(_cache.globalTextbooks||[]).find(b=>b.title===data.title);
+          :(_cache.globalTextbooks||[]).find(b=>b.title.trim().toLowerCase()===data.title.trim().toLowerCase());
         if(existing){
           const newUnits={...(existing.units||{})};
           const newTitles={...(existing.unitTitles||{})};
