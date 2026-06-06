@@ -3187,13 +3187,13 @@ function wdbSrcTypeChange(){
   let opts='<option value="">전체</option>';
   if(type==='textbook'){
     const books=[...(_cache.globalTextbooks||[])].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
-    opts+=books.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title||b.id)}</option>`).join('');
+    opts+=books.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title||b.id)}${b.level?' ('+escAttr(b.level)+')':''}</option>`).join('');
   }else{
     const seen=new Set();
     const books=[...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]),...(_cache.library||[])]
       .filter(b=>{if(seen.has(b.id))return false;seen.add(b.id);return b.vocab?.length;})
       .sort((a,b)=>(a.title||'').localeCompare(b.title||''));
-    opts+=books.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title||b.id)}</option>`).join('');
+    opts+=books.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title||b.id)}${(b.arLevel||b.ar)?' (AR '+(b.arLevel||b.ar)+')':''}</option>`).join('');
   }
   idSel.innerHTML=opts;idSel.style.display='';
 }
