@@ -212,7 +212,7 @@ function swTab(id){
   if(id==='t-class')renderClassTab();
   if(id==='t-lib'){renderLibTable();populateLibSeriesFilter();}
   if(id==='t-tbooks')renderTbookTable();
-  if(id==='t-data')switchDataTab(_dataTab||'book');
+  if(id==='t-data')switchDataTab(_dataTab||'master');
   if(id==='t-cfg'){
     const c=DB.cld();document.getElementById('cfg-cld-name').value=c.name||'';document.getElementById('cfg-cld-preset').value=c.preset||'';
     document.getElementById('cfg-apikey').value=DB.api()?'••••••':'';
@@ -1730,7 +1730,7 @@ async function addLib(){
   _cache.library.push(newLib);
   closeM('m-add-lib');
   ['lib-title','lib-series','lib-ar','lib-genre','lib-pages','lib-pub','lib-desc'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
-  renderLib();renderBookDB();populateLibSel();toast('원서목록에 추가되었습니다');
+  renderLib();renderBookDB();renderMasterDB();populateLibSel();toast('원서목록에 추가되었습니다');
 }
 function elibTab(tab){
   document.getElementById('elib-pane-info').style.display=tab==='info'?'block':'none';
@@ -1865,7 +1865,7 @@ async function updLib(){
     if(!_cache.library)_cache.library=[];
     _cache.library.push(newEntry);
   }
-  closeM('m-edit-lib');renderLib();renderBookDB();populateLibSel();renderLibTable();toast('수정되었습니다');
+  closeM('m-edit-lib');renderLib();renderBookDB();renderMasterDB();populateLibSel();renderLibTable();toast('수정되었습니다');
 }
 async function saveLibText(){
   const id=document.getElementById('elib-id').value;
@@ -2350,7 +2350,7 @@ async function tbookSaveInline(id){
   try{
     await supaUpsert('global_textbooks',id,tb,null);
     const idx=_cache.globalTextbooks.findIndex(b=>b.id===id);if(idx>=0)_cache.globalTextbooks[idx]=tb;
-    _tbookEditingId=null;renderTbookTable();renderBookDB();updateTbookDatalist();closeM('m-tbook-detail');toast('저장되었습니다');
+    _tbookEditingId=null;renderTbookTable();renderBookDB();renderMasterDB();updateTbookDatalist();closeM('m-tbook-detail');toast('저장되었습니다');
   }catch(e){toast('저장 실패: '+e.message);}
 }
 function tbookStartAdd(){_tbookEditingId=null;_tbookAdding=true;tbookPage=0;renderTbookTable();setTimeout(()=>document.getElementById('tba-title')?.focus(),40);}
@@ -2418,7 +2418,7 @@ async function saveTbook(){
       _cache.globalTextbooks.push(tb);
       toast('교재가 추가되었습니다');
     }
-    renderTbookTable();renderBookDB();updateTbookDatalist();
+    renderTbookTable();renderBookDB();renderMasterDB();updateTbookDatalist();
     closeM('m-tbook-detail');
     ['tbook-title','tbook-publisher','tbook-level','tbook-edit-id','tbook-grade','tbook-total-units'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display='none';
@@ -3124,16 +3124,29 @@ function renderLib(){
 
 
 // ── 자료 DB 통합 탭 ──
-let _dataTab='book';
+let _dataTab='master';
 function switchDataTab(tab){
   _dataTab=tab;
-  ['book','word'].forEach(t=>{
-    const p=document.getElementById('dp-'+t);const b=document.getElementById('dtab-'+t);
-    if(p)p.style.display=t===tab?'':'none';
-    if(b){b.style.color=t===tab?'var(--teal)':'var(--slate)';b.style.borderBottomColor=t===tab?'var(--teal)':'transparent';b.style.fontWeight=t===tab?'700':'600';}
-  });
-  if(tab==='book')renderBookDB();
-  if(tab==='word'){wdbPage=0;renderWordDB();}
+  // 패널 전환: master·book 공유, word 별도
+  ['master','book','word'].forEach(id=>{const p=document.getElementById('dp-'+id);if(p)p.style.display='none';});
+  // 탭 버튼 스타일 초기화
+  ['master','tbook','lib','word'].forEach(t=>{const b=document.getElementById('dtab-'+t);if(b){b.style.color='var(--slate)';b.style.borderBottomColor='transparent';b.style.fontWeight='600';}});
+  const act=document.getElementById('dtab-'+tab);
+  if(act){act.style.color='var(--teal)';act.style.borderBottomColor='var(--teal)';act.style.fontWeight='700';}
+  if(tab==='master'){
+    const p=document.getElementById('dp-master');if(p)p.style.display='';
+    renderMasterDB();
+  } else if(tab==='tbook'||tab==='lib'){
+    const p=document.getElementById('dp-book');if(p)p.style.display='';
+    const titleEl=document.getElementById('book-db-title');if(titleEl)titleEl.textContent=tab==='tbook'?'교재 DB':'원서 DB';
+    const tbar=document.getElementById('book-tbar-tbook');if(tbar)tbar.style.display=tab==='tbook'?'flex':'none';
+    const lbar=document.getElementById('book-tbar-lib');if(lbar)lbar.style.display=tab==='lib'?'flex':'none';
+    _bookDBFilter=tab==='tbook'?'textbook':'library';
+    bookPage=0;renderBookDB();
+  } else if(tab==='word'){
+    const p=document.getElementById('dp-word');if(p)p.style.display='';
+    wdbPage=0;renderWordDB();
+  }
 }
 
 // ── 책 DB (마스터: 교재+원서 통합) ──
@@ -3192,6 +3205,80 @@ function renderBookDB(){
   if(pagerEl)pagerEl.innerHTML=totalPages<=1?'':[...Array(totalPages)].map((_,i)=>
     `<button class="btn ${i===bookPage?'bt':'bo'} bsm" style="min-width:30px;padding:3px 8px;margin:0 2px" onclick="bookPage=${i};renderBookDB()">${i+1}</button>`
   ).join('');
+  if(_dataTab==='master')renderMasterDB();
+}
+// ── 마스터 DB (교재+원서+어휘 통합 평탄화 뷰) ──
+let _masterFilter='',masterPage=0;
+function renderMasterDB(){
+  const q=(document.getElementById('master-q')?.value||'').toLowerCase();
+  const pageSize=parseInt(document.getElementById('master-per-page')?.value||'100');
+  const rows=[];
+  if(!_masterFilter||_masterFilter==='textbook'){
+    for(const tb of (_cache.globalTextbooks||[])){
+      const units=tb.units||{};const uKeys=Object.keys(units);
+      if(!uKeys.length){rows.push({type:'textbook',title:tb.title||'',sc:tb.category||tb.series||'',level:tb.level||'',unit:'',word:'',ko:'',pos:'',_id:tb.id});continue;}
+      for(const uName of uKeys){
+        const words=tuNormWords(units[uName]||[]);
+        if(!words.length){rows.push({type:'textbook',title:tb.title||'',sc:tb.category||tb.series||'',level:tb.level||'',unit:uName,word:'',ko:'',pos:'',_id:tb.id});continue;}
+        for(const w of words)rows.push({type:'textbook',title:tb.title||'',sc:tb.category||tb.series||'',level:tb.level||'',unit:uName,word:w.word||'',ko:w.ko||'',pos:w.pos||'',_id:tb.id});
+      }
+    }
+  }
+  if(!_masterFilter||_masterFilter==='library'){
+    const seenIds=new Set((_cache.library||[]).map(b=>b.id));
+    const allLib=[...(_cache.library||[]).filter(b=>!b._deleted),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!seenIds.has(b.id)&&!b._deleted)];
+    for(const b of allLib){
+      const vocab=b.vocab||[];
+      if(!vocab.length){rows.push({type:'library',title:b.title||'',sc:b.series||'',level:b.arLevel||b.ar||'',unit:'',word:'',ko:'',pos:'',_id:b.id});continue;}
+      for(const w of vocab)rows.push({type:'library',title:b.title||'',sc:b.series||'',level:b.arLevel||b.ar||'',unit:w.chapter||w.unit||'',word:w.word||'',ko:w.ko||'',pos:w.pos||'',_id:b.id});
+    }
+  }
+  let filtered=rows;
+  if(q)filtered=rows.filter(r=>r.title.toLowerCase().includes(q)||r.word.toLowerCase().includes(q)||(r.ko||'').toLowerCase().includes(q)||(r.sc||'').toLowerCase().includes(q));
+  const total=filtered.length;
+  const totalEl=document.getElementById('master-total');if(totalEl)totalEl.textContent=`${total.toLocaleString()}개`;
+  const totalPages=Math.ceil(total/pageSize)||1;
+  if(masterPage>=totalPages)masterPage=0;
+  const paged=filtered.slice(masterPage*pageSize,(masterPage+1)*pageSize);
+  const tbody=document.getElementById('master-tbody');if(!tbody)return;
+  if(!paged.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--slate)">결과 없음</td></tr>';return;}
+  tbody.innerHTML=paged.map(r=>{
+    const isTb=r.type==='textbook';
+    const badge=isTb
+      ?`<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;white-space:nowrap">교재</span>`
+      :`<span class="badge" style="background:#d1fae5;color:#065f46;font-size:10px;white-space:nowrap">원서</span>`;
+    const lvl=r.level?(isTb?r.level:`AR ${r.level}`):'—';
+    const editFn=isTb?`openEditTbook('${r._id}')`:`openEditLib('${r._id}')`;
+    return`<tr style="border-bottom:1px solid var(--border)">
+      <td>${badge}</td>
+      <td style="font-weight:500;cursor:pointer;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="${editFn}" title="${escAttr(r.title)}">${escAttr(r.title)}</td>
+      <td style="font-size:12px;color:var(--slate);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(r.sc||'—')}</td>
+      <td><span class="badge bnavy" style="font-size:10px;white-space:nowrap">${escAttr(lvl)}</span></td>
+      <td style="font-size:11px;color:var(--slate);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(r.unit||'')}</td>
+      <td style="font-weight:600;font-family:var(--fd)">${escAttr(r.word)}</td>
+      <td style="font-size:12px">${escAttr(r.ko)}</td>
+      <td style="font-size:11px"><span style="background:var(--cream2);padding:1px 4px;border-radius:3px">${escAttr(r.pos||'')}</span></td>
+      <td style="text-align:right"><button class="btn bo bsm" style="font-size:11px;padding:2px 8px" onclick="${editFn}">수정</button></td>
+    </tr>`;
+  }).join('');
+  const pagerEl=document.getElementById('master-pager');
+  if(pagerEl){
+    const maxP=Math.min(totalPages,10);
+    pagerEl.innerHTML=totalPages<=1?'':[...Array(maxP)].map((_,i)=>
+      `<button class="btn ${i===masterPage?'bt':'bo'} bsm" style="min-width:30px;padding:3px 8px;margin:0 2px" onclick="masterPage=${i};renderMasterDB()">${i+1}</button>`
+    ).join('')+(totalPages>10?`<span style="font-size:12px;color:var(--slate);margin-left:4px">…${totalPages}페이지</span>`:'');
+  }
+}
+function masterDBFilter(type){
+  _masterFilter=type;masterPage=0;
+  ['all','tb','lib'].forEach(k=>{const v=k==='all'?'':k==='tb'?'textbook':'library';const btn=document.getElementById('mdb-f-'+k);if(btn)btn.className=`btn ${v===type?'bt':'bo'} bsm`;});
+  renderMasterDB();
+}
+function masterDBResetFilters(){
+  _masterFilter='';masterPage=0;
+  const q=document.getElementById('master-q');if(q)q.value='';
+  const pp=document.getElementById('master-per-page');if(pp)pp.value='100';
+  masterDBFilter('');
 }
 function bookDBFilter(type){
   _bookDBFilter=type;bookPage=0;
@@ -4527,7 +4614,7 @@ function exportMasterCSV(){
     for(const uName of uKeys){
       const words=Array.isArray(units[uName])?units[uName]:[];
       if(!words.length){rows.push([q('textbook'),q(b.title||''),q(b.series||''),q(''),q(b.level||''),q(b.category||''),q(uName),q(''),q(''),q(''),q(''),q(''),q('')].join(','));continue;}
-      for(const w of words)rows.push([q('textbook'),q(b.title||''),q(b.series||''),q(''),q(b.level||''),q(b.category||''),q(uName),q(w.en||''),q(w.ko||''),q(w.pos||''),q(w.ex||''),q(w.v2||''),q(w.v3||'')].join(','));
+      for(const w of words)rows.push([q('textbook'),q(b.title||''),q(b.series||''),q(''),q(b.level||''),q(b.category||''),q(uName),q(w.word||''),q(w.ko||''),q(w.pos||''),q(w.example||''),q(w.v2||''),q(w.v3||'')].join(','));
     }
   }
   // 원서 (Supabase + BOOK_DB 폴백)
@@ -4536,7 +4623,7 @@ function exportMasterCSV(){
   for(const b of allLib){
     const vocab=b.vocab||[];
     if(!vocab.length){rows.push([q('library'),q(b.title||''),q(b.series||''),q(b.arLevel||b.ar||''),q(b.level||''),q(b.genre||''),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));continue;}
-    for(const w of vocab)rows.push([q('library'),q(b.title||''),q(b.series||''),q(b.arLevel||b.ar||''),q(b.level||''),q(b.genre||''),q(w.chapter||w.unit||''),q(w.en||''),q(w.ko||''),q(w.pos||''),q(w.ex||''),q(w.v2||''),q(w.v3||'')].join(','));
+    for(const w of vocab)rows.push([q('library'),q(b.title||''),q(b.series||''),q(b.arLevel||b.ar||''),q(b.level||''),q(b.genre||''),q(w.chapter||w.unit||''),q(w.word||''),q(w.ko||''),q(w.pos||''),q(w.example||''),q(w.v2||''),q(w.v3||'')].join(','));
   }
   const blob=new Blob(['﻿'+rows.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
@@ -4581,8 +4668,8 @@ async function importMasterCSV(e){
           const en=get(r,iEn);if(!en)continue;
           const uKey=get(r,iUnit)||'기본';
           if(!units[uKey])units[uKey]=[];
-          if(!units[uKey].find(w=>w.en.toLowerCase()===en.toLowerCase())){
-            units[uKey].push({en,ko:get(r,iKo),pos:get(r,iPos),ex:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3)});
+          if(!units[uKey].find(w=>(w.word||'').toLowerCase()===en.toLowerCase())){
+            units[uKey].push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3)});
             addedWords++;
           }
         }
@@ -4597,15 +4684,15 @@ async function importMasterCSV(e){
         const vocab=b.vocab||[];
         for(const r of brows){
           const en=get(r,iEn);if(!en)continue;
-          if(!vocab.find(w=>w.en.toLowerCase()===en.toLowerCase())){
-            vocab.push({en,ko:get(r,iKo),pos:get(r,iPos),ex:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3),chapter:get(r,iUnit)});
+          if(!vocab.find(w=>(w.word||'').toLowerCase()===en.toLowerCase())){
+            vocab.push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3),chapter:get(r,iUnit)});
             addedWords++;
           }
         }
         b.vocab=vocab;await supaUpsert('global_textbooks',b.id,b,null);updatedBooks++;
       }
     }
-    renderBookDB();
+    renderBookDB();renderMasterDB();
     if(typeof wdbPage!=='undefined')wdbPage=0;
     if(typeof renderWordDB==='function')renderWordDB();
     toast(`임포트 완료: 책 ${addedBooks}권 신규, ${updatedBooks}권 갱신, 단어 ${addedWords}개 추가`);
