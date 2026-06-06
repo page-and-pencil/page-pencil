@@ -72,6 +72,7 @@ const DB={
   cld(){return this.g('cloud')||{name:'',preset:''};},
   api(){return _cache.settings.apikey||this.g('apikey')||'';},
   gbooks(){return _cache.settings.gbooks_key||this.g('gbooks_key')||'';},
+  kakao(){return _cache.settings.kakao||this.g('kakao')||{phone:'',openchat:''};},
 
   // 캐시에서 읽기
   stus(){return _cache.students;},
@@ -226,9 +227,11 @@ async function loadAllData(){
     _cache.globalClasses=(clss||[]).map(r=>(r.data||r));
     if(acct)_cache.settings.acct=acct;
     if(pw){_cache.settings.pw=pw;DB.s('pw',pw);}
-    const [apikey,cloud,gbooksKey]=await Promise.all([supaGetSetting('apikey'),supaGetSetting('cloud'),supaGetSetting('gbooks_key')]);
+    const [apikey,cloud,gbooksKey,kakao]=await Promise.all([supaGetSetting('apikey'),supaGetSetting('cloud'),supaGetSetting('gbooks_key'),supaGetSetting('kakao')]);
     if(gbooksKey){_cache.settings.gbooks_key=gbooksKey;DB.s('gbooks_key',gbooksKey);}
     else{const lg=DB.g('gbooks_key');if(lg)_cache.settings.gbooks_key=lg;}
+    if(kakao){_cache.settings.kakao=kakao;DB.s('kakao',kakao);}
+    else{const lk=DB.g('kakao');if(lk)_cache.settings.kakao=lk;}
     const _dk=String.fromCharCode(115,107,45,97,110,116,45,97,112,105,48,51,45,108,69,72,49,104,87,56,57,78,106,68,45,72,104,120,51,97,101,55,82,113,69,70,99,122,53,105,118,110,86,111,67,67,80,67,51,77,114,52,69,99,54,107,75,88,70,74,111,54,111,115,67,88,101,87,78,83,97,122,120,97,86,51,114,102,106,78,89,81,104,83,84,107,115,116,99,110,56,72,74,54,122,75,114,85,81,45,103,106,103,89,122,103,65,65);
     const DEFAULT_CLD={name:'drwys3bkz',preset:'pp_unsigned'};
     if(apikey){_cache.settings.apikey=apikey;DB.s('apikey',apikey);}

@@ -48,6 +48,30 @@ async function changePw(){
   toast('비밀번호가 변경되었습니다');
 }
 // ── GOOGLE BOOKS KEY ──
+// ── 카카오톡 연결 설정 ──
+function updateKakaoStatusDot(){
+  const dot=document.getElementById('kakao-status-dot');if(!dot)return;
+  const k=DB.kakao();
+  const connected=!!(k.phone||k.openchat);
+  dot.style.color=connected?'#FEE500':'var(--slate)';
+  dot.textContent=connected?'● 연결됨':'● 미설정';
+}
+async function saveKakaoContact(){
+  const phone=(document.getElementById('cfg-kakao-phone')?.value||'').trim().replace(/[^0-9]/g,'');
+  const openchat=(document.getElementById('cfg-kakao-openchat')?.value||'').trim();
+  const kakao={phone,openchat};
+  DB.s('kakao',kakao);
+  _cache.settings.kakao=kakao;
+  await supaSetSetting('kakao',kakao);
+  updateKakaoStatusDot();
+  toast('카카오톡 연결 정보가 저장됐습니다');
+}
+function openKakaoPreview(){
+  const k=DB.kakao();
+  if(k.openchat){window.open(k.openchat,'_blank');return;}
+  if(k.phone){const url=`kakaotalk://open/chat?phoneNum=${k.phone}`;window.open(url);return;}
+  toast('전화번호 또는 오픈채팅 URL을 먼저 입력해 주세요');
+}
 function updateGbooksStatusDot(){
   const dot=document.getElementById('gbooks-status-dot');if(!dot)return;
   const k=DB.gbooks();
@@ -219,8 +243,11 @@ async function initApp(){
   renderStus();populateSels();populateFilterSels();
   setToday();renderLes();renderTst();renderRd();renderLog();
   populateLibSel();checkCldWarn();renderDash();
-  updateApiKeyStatusDot();updateGbooksStatusDot();
+  updateApiKeyStatusDot();updateGbooksStatusDot();updateKakaoStatusDot();
   const gk=DB.gbooks();const cfgGEl=document.getElementById('cfg-gbooks');if(cfgGEl&&gk)cfgGEl.value='••••••';
+  const kk=DB.kakao();
+  if(kk.phone){const ph=document.getElementById('cfg-kakao-phone');if(ph)ph.value=kk.phone;}
+  if(kk.openchat){const oc=document.getElementById('cfg-kakao-openchat');if(oc)oc.value=kk.openchat;}
 }
 function setToday(){const t=new Date().toISOString().split('T')[0];['ls-date','ts-date','rd-date','lg-date','qp-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=t;});}
 function populateSels(){

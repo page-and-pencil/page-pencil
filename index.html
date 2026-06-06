@@ -668,6 +668,21 @@
       </div>
       <div class="card" style="margin-bottom:1rem">
         <div class="ch">
+          <span class="ct">💬 카카오톡 연결 (학부모 질문 수신)</span>
+          <span id="kakao-status-dot" style="font-size:13px;color:var(--slate)">● 미설정</span>
+        </div>
+        <div class="cb">
+          <div class="ib iba">학부모가 "선생님께 질문하기"를 누르면 메시지가 클립보드에 복사되고 카카오톡이 열립니다. 번호 또는 오픈채팅 URL 중 하나만 입력해도 됩니다.</div>
+          <div class="f"><label>카카오톡 전화번호</label><input type="tel" id="cfg-kakao-phone" placeholder="01012345678 (숫자만)"></div>
+          <div class="f"><label>오픈채팅 URL <span style="font-size:11px;font-weight:400;color:var(--slate)">(없으면 비워두세요)</span></label><input type="url" id="cfg-kakao-openchat" placeholder="https://open.kakao.com/o/xxxxx"></div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn bp bsm" onclick="saveKakaoContact()">저장</button>
+            <button class="btn ba bsm" onclick="openKakaoPreview()">연결 테스트</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:1rem">
+        <div class="ch">
           <span class="ct">Google Books API Key (표지 자동 조회)</span>
           <span id="gbooks-status-dot" style="font-size:13px;color:var(--slate)">● 미설정</span>
         </div>

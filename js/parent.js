@@ -629,19 +629,22 @@ function togglePaySection(){
   if(icon)icon.textContent=isHidden?'▲':'▼';
 }
 
-// ── 학부모 질문 메시지 ──
+// ── 학부모 질문 메시지 (카카오톡 연동) ──
 function openParentMsgModal(sid){
   const existing=document.getElementById('parent-msg-modal');
   if(existing)existing.remove();
+  const kakao=DB.kakao();
+  const hasKakao=!!(kakao.phone||kakao.openchat);
   const modal=document.createElement('div');
   modal.id='parent-msg-modal';
   modal.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center';
   modal.innerHTML=`<div style="background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:500px;box-sizing:border-box">
-    <div style="font-size:15px;font-weight:700;margin-bottom:14px">선생님께 질문하기</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:6px">선생님께 질문하기</div>
+    <div style="font-size:12px;color:var(--slate);margin-bottom:14px;line-height:1.6">${hasKakao?'✅ 카카오톡으로 연결됩니다<br>메시지가 복사되고 카카오톡이 열려요':'📋 메시지가 클립보드에 복사됩니다<br>카카오톡에 직접 붙여넣기 해주세요'}</div>
     <textarea id="parent-msg-input" placeholder="궁금한 점을 입력해 주세요" style="width:100%;height:100px;border:1.5px solid var(--border);border-radius:10px;padding:10px;font-family:var(--fb);font-size:13px;resize:none;outline:none;box-sizing:border-box"></textarea>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button onclick="document.getElementById('parent-msg-modal').remove()" style="flex:1;padding:11px;border:1.5px solid var(--border);border-radius:10px;background:none;font-family:var(--fb);cursor:pointer;font-size:13px">취소</button>
-      <button onclick="sendParentMsg('${sid}')" style="flex:2;padding:11px;background:var(--teal);color:#fff;border:none;border-radius:10px;font-family:var(--fb);font-weight:700;cursor:pointer;font-size:13px">보내기</button>
+      <button onclick="sendParentMsg('${sid}')" style="flex:2;padding:11px;background:#FEE500;color:#3C1E1E;border:none;border-radius:10px;font-family:var(--fb);font-weight:700;cursor:pointer;font-size:13px">${hasKakao?'💬 카카오톡으로 보내기':'📋 복사하고 카톡 열기'}</button>
     </div>
   </div>`;
   document.body.appendChild(modal);
@@ -653,14 +656,31 @@ async function sendParentMsg(sid){
   if(!input)return;
   const text=input.value.trim();
   if(!text){toast('내용을 입력해 주세요');return;}
+  const s=DB.stus().find(x=>x.id===sid);
+  const stuName=s?.name||'학생';
+  const fullText=`[Page & Pencil] ${stuName} 학부모 문의\n${text}`;
+  document.getElementById('parent-msg-modal')?.remove();
+  // 클립보드 복사
+  try{await navigator.clipboard.writeText(fullText);}catch(e){}
+  // 카카오톡 열기
+  const kakao=DB.kakao();
+  if(kakao.openchat){
+    window.open(kakao.openchat,'_blank');
+    toast('메시지를 복사했어요! 카카오톡 오픈채팅에 붙여넣기 해주세요 📋');
+  }else if(kakao.phone){
+    window.open(`kakaotalk://open/chat?phoneNum=${kakao.phone}`);
+    setTimeout(()=>{toast('메시지를 복사했어요! 카카오톡에 붙여넣기 해주세요 📋');},300);
+  }else{
+    window.open('kakaotalk://launch');
+    setTimeout(()=>{toast('메시지를 복사했어요! 카카오톡에 붙여넣기 해주세요 📋');},300);
+  }
+  // Supabase 백업 (조용히)
   try{
     const msg={id:uid(),sid,from:'parent',text,date:new Date().toISOString().split('T')[0],type:'question'};
     await supaUpsert('messages',msg.id,msg,sid);
     if(!_cache.messages)_cache.messages=[];
     _cache.messages.push(msg);
-    document.getElementById('parent-msg-modal')?.remove();
-    toast('선생님께 전달됐습니다 ✓');
-  }catch(e){toast('전송 실패: '+e.message);}
+  }catch(e){}
 }
 
 // ── GROWTH TIMELINE ──
