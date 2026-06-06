@@ -754,7 +754,7 @@ function renderStus(){
 
   if(!stus.length){
     const noFilter=!q&&!filterGrade&&!filterSchool&&filterStatus==='active';
-    g.innerHTML=`<div class="empty"><div class="empty-i">👦</div><div class="empty-t">${noFilter?'등록된 학생이 없습니다':'조건에 맞는 학생이 없습니다'}</div>${noFilter?`<button class="btn ba bsm" style="margin-top:12px" onclick="openM('m-add-stu')">+ 첫 학생 추가하기</button>`:''}</div>`;
+    g.innerHTML=`<div class="empty"><div class="empty-i">👦</div><div class="empty-t">${noFilter?'등록된 학생이 없습니다':'조건에 맞는 학생이 없습니다'}</div>${noFilter?`<button class="btn ba bsm" style="margin-top:12px" onclick="openAddStu()">+ 첫 학생 추가하기</button>`:''}</div>`;
     return;
   }
   g.innerHTML=stus.map(s=>`<div class="sc${s.inactive?' inactive':''}" onclick="selStu('${s.id}',this)">
@@ -847,15 +847,19 @@ function openAddStu(){
   const nsClasses=document.getElementById('ns-classes');
   if(nsClasses){
     const classes=DB.classes().filter(c=>c.active!==false);
-    nsClasses.innerHTML=classes.length
-      ?classes.map(c=>`<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;background:var(--cream)">
+    if(classes.length){
+      nsClasses.innerHTML=classes.map(c=>`<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;background:var(--cream)">
         <input type="checkbox" value="${c.id}" style="flex-shrink:0;width:16px;height:16px;cursor:pointer">
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600;color:var(--navy)">${c.name}</div>
           <div style="font-size:11px;color:var(--slate);margin-top:2px">${(c.days||[]).join('·')}요일${c.timeStart?' · '+c.timeStart+(c.timeEnd?'~'+c.timeEnd:''):''}</div>
         </div>
-      </label>`).join('')
-      :'<span style="font-size:12px;color:var(--slate)">클래스 없음 — 클래스 탭에서 먼저 만들어 주세요</span>';
+      </label>`).join('');
+    }else if(_cache.globalClasses!==undefined){
+      nsClasses.innerHTML='<span style="font-size:12px;color:var(--slate)">클래스 없음 — 클래스 탭에서 먼저 만들어 주세요</span>';
+    }else{
+      nsClasses.innerHTML='<span style="font-size:12px;color:var(--slate)">데이터 로딩 중...</span>';
+    }
   }
   openM('m-add-stu');
 }
