@@ -501,6 +501,8 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source=''){
       if(meta.pos&&!found.pos)updated.pos=meta.pos;
       if(meta.example&&!found.example)updated.example=meta.example;
       if(meta.srcId&&!found.srcId){updated.srcId=meta.srcId;updated.srcType=meta.srcType||'';updated.srcUnit=meta.srcUnit||'';}
+      if(meta.v2&&!found.v2)updated.v2=meta.v2;
+      if(meta.v3&&!found.v3)updated.v3=meta.v3;
       await supaUpsert('vocab_cards',found.id,updated,sid);
       const ci=_cache.vocab_cards.findIndex(c=>c.id===found.id);if(ci>=0)_cache.vocab_cards[ci]=updated;
       if(!updated.meaning||!updated.example){
@@ -515,7 +517,7 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source=''){
         }).catch(()=>{});
       }
     }else{
-      const newCard={id:uid(),sid,word:wordText,meaning:meta.ko||'',pos:meta.pos||'',example:meta.example||'',exampleSrc:meta.example?'':'',hits:isWrong?0:1,misses:isWrong?1:0,phase:0,lastSeen:date,due:date,addedDate:date,source,srcId:meta.srcId||'',srcType:meta.srcType||'',srcUnit:meta.srcUnit||''};
+      const newCard={id:uid(),sid,word:wordText,meaning:meta.ko||'',pos:meta.pos||'',example:meta.example||'',exampleSrc:meta.example?'':'',hits:isWrong?0:1,misses:isWrong?1:0,phase:0,lastSeen:date,due:date,addedDate:date,source,srcId:meta.srcId||'',srcType:meta.srcType||'',srcUnit:meta.srcUnit||'',v2:meta.v2||'',v3:meta.v3||''};
       await supaUpsert('vocab_cards',newCard.id,newCard,sid);
       if(!_cache.vocab_cards)_cache.vocab_cards=[];_cache.vocab_cards.push(newCard);
       if(!meta.ko||!newCard.example){
