@@ -3889,58 +3889,53 @@ function libSetSort(field){if(libSortField===field)libSortDir=libSortDir==='asc'
 function libResetFilters(){const q=document.getElementById('lib-q');if(q)q.value='';const s=document.getElementById('lib-filter-series');if(s)s.value='';libPage=0;renderLibTable();}
 function libGoPage(val,total){libPage=Math.max(0,Math.min(total-1,(parseInt(val)||1)-1));renderLibTable();}
 
-function exportTbookExcel(){
+function exportTbookCSV(){
   const books=_cache.globalTextbooks||[];
-  const COLS=['교재ID','교재명','출판사','레벨','분류','시리즈','권/호','대상학년','총유닛수'];
-  const data=[COLS,...books.map(b=>[
-    b.id||'',b.title||'',b.publisher||'',b.level||'',b.category||'',
-    b.series||'',b.volume||'',b.grade||'',b.totalUnits||''
-  ])];
-  const ws=XLSX.utils.aoa_to_sheet(data);
-  // 헤더 행 스타일
-  COLS.forEach((_,ci)=>{
-    const cell=ws[XLSX.utils.encode_cell({r:0,c:ci})];
-    if(cell){cell.s={fill:{fgColor:{rgb:'1A7F8E'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center'}};}
+  const q=v=>`"${(v===null||v===undefined?'':String(v)).replace(/"/g,'""')}"`;
+  const HEADER='교재ID,교재명,출판사,레벨,분류,시리즈,권/호,대상학년,총유닛수,유닛목록(|구분)';
+  const rows=books.map(b=>{
+    const unitKeys=Object.keys(b.units||{}).join('|');
+    return[q(b.id),q(b.title),q(b.publisher||''),q(b.level||''),q(b.category||''),
+      q(b.series||''),q(b.volume||''),q(b.grade||''),q(b.totalUnits||''),q(unitKeys)].join(',');
   });
-  ws['!cols']=[{wch:24},{wch:28},{wch:14},{wch:10},{wch:8},{wch:22},{wch:8},{wch:12},{wch:10}];
-  // 유효성 안내: 분류 드롭다운
-  ws['!dataValidations']=[{sqref:'E2:E1000',type:'list',formula1:'"파닉스,어휘,어법,리딩,리스닝,라이팅,내신"'}];
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,'교재DB',ws);
-  // 가이드 시트
-  const guide=[
-    ['컬럼','설명','예시'],
-    ['교재ID','수정 시 필수 (내보내기 파일에 포함됨). 신규 추가 시 비워두세요','tb_xxxx'],
-    ['교재명','필수','Grammar Inside Level 1'],
-    ['출판사','출판사명','NE능률'],
-    ['레벨','학교/학년 기준 레벨','중1, 초3-4, Level 2'],
-    ['분류','파닉스/어휘/어법/리딩/리스닝/라이팅/내신 중 선택','리딩'],
-    ['시리즈','같은 시리즈 묶음 이름','Grammar Inside'],
-    ['권/호','시리즈 내 권 번호','1, 2A, Starter'],
-    ['대상학년','실제 수업 대상 학년','초5-6, 중1'],
-    ['총유닛수','교재 내 단원 총 개수 (숫자)','12'],
-  ];
-  const wsG=XLSX.utils.aoa_to_sheet(guide);
-  wsG['!cols']=[{wch:12},{wch:40},{wch:30}];
-  XLSX.utils.book_append_sheet(wb,'작성가이드',wsG);
-  XLSX.writeFile(wb,'PagePencil_교재DB_'+new Date().toISOString().slice(0,10)+'.xlsx');
-  toast(`${books.length}권 엑셀 다운로드 완료`);
+  const csv='﻿'+[HEADER,...rows].join('\r\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='PagePencil_교재DB_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  toast(`${books.length}권 CSV 다운로드 완료`);
 }
-async function importTbookExcel(e){
+async function importTbookCSV(e){
   const file=e.target.files[0];if(!file)return;
+  const isXlsx=/\.(xlsx|xls)$/i.test(file.name);
   const reader=new FileReader();
   reader.onload=async ev=>{
     try{
-      const data=new Uint8Array(ev.target.result);
-      const wb=XLSX.read(data,{type:'array'});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      let rows=[];
+      if(isXlsx){
+        const data=new Uint8Array(ev.target.result);
+        const wb=XLSX.read(data,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      }else{
+        const text=ev.target.result;
+        const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+        if(lines.length<2){toast('데이터가 없습니다');return;}
+        const headers=parseCSVLine(lines[0]).map(h=>h.trim());
+        for(let i=1;i<lines.length;i++){
+          const cols=parseCSVLine(lines[i]);if(!cols.length)continue;
+          const row={};headers.forEach((h,j)=>row[h]=(cols[j]||'').trim());
+          rows.push(row);
+        }
+      }
       if(!rows.length){toast('파일에 데이터가 없습니다');return;}
       let updated=0,added=0;
       for(const row of rows){
         const rowId=(row['교재ID']||'').toString().trim();
-        const title=(row['교재명']||row['title']||'').toString().trim();
+        const title=(row['교재명']||'').toString().trim();
         if(!title)continue;
+        const unitListRaw=(row['유닛목록(|구분)']||row['유닛목록']||'').toString().trim();
+        const unitKeys=unitListRaw?unitListRaw.split('|').map(s=>s.trim()).filter(Boolean):null;
         const fields={
           title,
           publisher:(row['출판사']||'').toString().trim(),
@@ -3949,19 +3944,24 @@ async function importTbookExcel(e){
           series:(row['시리즈']||'').toString().trim(),
           volume:(row['권/호']||'').toString().trim(),
           grade:(row['대상학년']||'').toString().trim(),
-          totalUnits:parseInt(row['총유닛수'])||0
+          totalUnits:parseInt(row['총유닛수'])||0,
         };
         const existing=rowId
           ?(_cache.globalTextbooks||[]).find(b=>b.id===rowId)
           :(_cache.globalTextbooks||[]).find(b=>b.title===title);
         if(existing){
-          const tb={...existing,...fields};
+          // 기존 유닛 단어 보존 + 새 유닛 키만 추가
+          const newUnits={...(existing.units||{})};
+          if(unitKeys)unitKeys.forEach(k=>{if(!(k in newUnits))newUnits[k]=[];});
+          const tb={...existing,...fields,units:newUnits};
           await supaUpsert('global_textbooks',existing.id,tb,null);
           const idx=(_cache.globalTextbooks||[]).findIndex(b=>b.id===existing.id);
           if(idx>=0)_cache.globalTextbooks[idx]=tb;
           updated++;
         }else{
-          const tb={id:uid(),...fields};
+          const newUnits={};
+          if(unitKeys)unitKeys.forEach(k=>newUnits[k]=[]);
+          const tb={id:uid(),...fields,units:newUnits};
           await supaUpsert('global_textbooks',tb.id,tb,null);
           if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
           _cache.globalTextbooks.push(tb);
@@ -3973,7 +3973,7 @@ async function importTbookExcel(e){
     }catch(err){toast('가져오기 실패: '+err.message);}
     e.target.value='';
   };
-  reader.readAsArrayBuffer(file);
+  if(isXlsx)reader.readAsArrayBuffer(file);else reader.readAsText(file,'UTF-8');
 }
 function exportLibCSV(){
   const allSrc=[...BOOK_DB,...DB.libs()];
