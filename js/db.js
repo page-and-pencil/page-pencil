@@ -168,6 +168,20 @@ async function supaDelete(table,id){
     throw e;
   }
 }
+async function supaDeleteWhere(table,jsonKey,value){
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),15000);
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/'+table+'?data->>'+encodeURIComponent(jsonKey)+'=eq.'+encodeURIComponent(value),{method:'DELETE',headers:SUPA_HEADERS,signal:ctrl.signal});
+    clearTimeout(tid);
+    if(!r.ok){const t=await r.text();console.error('deleteWhere',table,jsonKey,t);return false;}
+    return true;
+  }catch(e){
+    clearTimeout(tid);
+    if(e.name==='AbortError')toast('서버 응답이 느립니다. 잠시 후 다시 시도해 주세요.');
+    return false;
+  }
+}
 async function supaGetSetting(key){
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),15000);
@@ -486,6 +500,7 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source=''){
       if(meta.ko&&!found.meaning)updated.meaning=meta.ko;
       if(meta.pos&&!found.pos)updated.pos=meta.pos;
       if(meta.example&&!found.example)updated.example=meta.example;
+      if(meta.srcId&&!found.srcId){updated.srcId=meta.srcId;updated.srcType=meta.srcType||'';updated.srcUnit=meta.srcUnit||'';}
       await supaUpsert('vocab_cards',found.id,updated,sid);
       const ci=_cache.vocab_cards.findIndex(c=>c.id===found.id);if(ci>=0)_cache.vocab_cards[ci]=updated;
       if(!updated.meaning||!updated.example){
@@ -500,7 +515,7 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source=''){
         }).catch(()=>{});
       }
     }else{
-      const newCard={id:uid(),sid,word:wordText,meaning:meta.ko||'',pos:meta.pos||'',example:meta.example||'',exampleSrc:meta.example?'':'',hits:isWrong?0:1,misses:isWrong?1:0,phase:0,lastSeen:date,due:date,addedDate:date,source};
+      const newCard={id:uid(),sid,word:wordText,meaning:meta.ko||'',pos:meta.pos||'',example:meta.example||'',exampleSrc:meta.example?'':'',hits:isWrong?0:1,misses:isWrong?1:0,phase:0,lastSeen:date,due:date,addedDate:date,source,srcId:meta.srcId||'',srcType:meta.srcType||'',srcUnit:meta.srcUnit||''};
       await supaUpsert('vocab_cards',newCard.id,newCard,sid);
       if(!_cache.vocab_cards)_cache.vocab_cards=[];_cache.vocab_cards.push(newCard);
       if(!meta.ko||!newCard.example){
