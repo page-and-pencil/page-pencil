@@ -5815,29 +5815,53 @@ function clHwSyncFromSubj(){
     const cat=baseKey==='_book'||baseKey.startsWith('_book')?'book':baseKey;
     const bookEl=row.querySelector('[data-f="book"]');
     const unitEl=row.querySelector('[data-f="unit"]');
-    // 직접 입력값 우선, 없으면 placeholder의 "직전: ..." 값 참조
     const unitTyped=(unitEl?.value||'').trim();
     const unitHint=(unitEl?.placeholder||'').replace('직전: ','').replace('유닛/진도','').trim();
     const unit=unitTyped||unitHint;
     const book=(bookEl?.value||'').trim();
-    // 교재 레벨 조회
     const tb=(_cache.globalTextbooks||[]).find(b=>b.title===book);
     const bookDisplay=tb?.level?`${book} (${tb.level})`:book;
-    // 범위 계산
     const next=nextUnitName(unit);
     const range=cat==='book'?''
       :cat==='vocab'?(next?next+' 단어 암기, 워크북 풀기':unit?unit+' 단어 암기, 워크북 풀기':'다음 단원 단어 암기, 워크북 풀기')
       :(unit?unit+' 복습, 워크북 풀기':'복습, 워크북 풀기');
     mats.push({cat,book:bookDisplay,range});
   });
-  document.getElementById('cl-hw-common-rows').innerHTML='';
-  if(mats.length){hwDates.forEach(d=>mats.forEach(m=>addClHwRow(d,true,m.cat,m.book,m.range)));}
-  else{hwDates.forEach(d=>addClHwRow(d,true));}
-  hwDates.forEach(d=>addClHwRow(d,true,'class5','Class5',''));
+  const container=document.getElementById('cl-hw-common-rows');
+  container.innerHTML='';
+  hwDates.forEach(d=>{
+    const groupBody=clHwMakeDateGroup(d,container);
+    if(mats.length){mats.forEach(m=>addClHwRow(d,true,m.cat,m.book,m.range,groupBody));}
+    else{addClHwRow(d,true,'','','',groupBody);}
+    addClHwRow(d,true,'class5','Class5','',groupBody);
+  });
+}
+function clHwMakeDateGroup(dateStr,parentEl){
+  const DAYS=['일','월','화','수','목','금','토'];
+  const d=new Date(dateStr);
+  const dayLabel=DAYS[d.getDay()];
+  const group=document.createElement('div');
+  group.className='cl-hw-date-group';
+  group.dataset.date=dateStr;
+  group.style.cssText='margin-bottom:12px;border-radius:var(--rs);overflow:hidden;border:1.5px solid var(--navy)';
+  const header=document.createElement('div');
+  header.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--navy);color:#fff';
+  header.innerHTML=`<span style="font-size:15px;font-weight:700">${dayLabel}요일</span><span style="font-size:12px;opacity:.55;font-family:var(--fm)">${dateStr}</span><button type="button" onclick="clHwAddToGroup(this.closest('.cl-hw-date-group'))" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:11px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">+ 과제 추가</button>`;
+  const body=document.createElement('div');
+  body.className='cl-hw-group-body';
+  body.style.cssText='display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:var(--cream2)';
+  group.appendChild(header);group.appendChild(body);
+  if(parentEl)parentEl.appendChild(group);
+  return body;
+}
+function clHwAddToGroup(groupEl){
+  const dateStr=groupEl.dataset.date||'';
+  const body=groupEl.querySelector('.cl-hw-group-body');
+  addClHwRow(dateStr,true,'','','',body);
 }
 const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
 
-function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook='',prefillRange=''){
+function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook='',prefillRange='',targetEl=null){
   const DAYS=['일','월','화','수','목','금','토'];
   const d=dateStr?new Date(dateStr):new Date();
   const dayLabel=DAYS[d.getDay()];
@@ -5846,30 +5870,46 @@ function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook='',prefillRange='
     .map(s=>`<option value="${s.id}">${s.name}</option>`).join(''));
   const row=document.createElement('div');
   row.className='cl-hw-row';
-  row.style.cssText='background:var(--cream);border-radius:var(--rs);padding:8px 10px;margin-bottom:6px;border:1px solid var(--border)';
   const rowDlId='dl-hwr-'+Math.random().toString(36).slice(2,8);
-  row.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
-    ${!isCommon?`<select class="cl-hw-ind-stu filter-sel" style="flex:0 0 auto">${stuOpts}</select>`:''}
-    <input type="date" class="cl-hw-date" value="${dateStr||''}" style="${IS};flex:0 0 auto">
-    <span class="cl-hw-day-label" style="font-size:11px;color:var(--slate)">${dateStr?dayLabel+'요일':''}</span>
-    <select class="cl-hw-cat filter-sel" style="flex:0 0 auto" onchange="clHwCatChange(this)">${HW_CAT_SEL}</select>
-    <button onclick="this.closest('.cl-hw-row').remove()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--slate);padding:0;margin-left:auto">×</button>
-  </div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap">
-    <datalist id="${rowDlId}"></datalist>
-    <input type="text" class="cl-hw-book" placeholder="교재 선택 또는 직접 입력" list="${rowDlId}" autocomplete="off" style="${IS};flex:2;min-width:130px">
-    <input type="text" class="cl-hw-range" placeholder="범위/내용" style="${IS};flex:3;min-width:150px">
-  </div>`;
-  if(prefillCat){const catEl=row.querySelector('.cl-hw-cat');if(catEl){catEl.value=prefillCat;fillClHwRowDl(row);}}
-  if(prefillBook){const bookEl=row.querySelector('.cl-hw-book');if(bookEl)bookEl.value=prefillBook;}
-  if(prefillRange){const rangeEl=row.querySelector('.cl-hw-range');if(rangeEl)rangeEl.value=prefillRange;}
-  // 날짜 변경 시 요일 레이블 업데이트
-  row.querySelector('.cl-hw-date').addEventListener('change',function(){
-    const nd=new Date(this.value);
-    row.querySelector('.cl-hw-day-label').textContent=this.value?DAYS[nd.getDay()]+'요일':'';
-  });
-  const target=isCommon?document.getElementById('cl-hw-common-rows'):document.getElementById('cl-hw-ind-rows');
-  if(target)target.appendChild(row);
+  if(targetEl){
+    // 컴팩트 1줄 모드 (날짜 그룹 내부)
+    row.style.cssText='display:flex;align-items:center;gap:6px;background:#fff;border-radius:var(--rs);padding:6px 8px;border:1px solid var(--border)';
+    row.innerHTML=`<input type="hidden" class="cl-hw-date" value="${dateStr||''}">
+      ${!isCommon?`<select class="cl-hw-ind-stu filter-sel" style="flex:0 0 auto;${IS}">${stuOpts}</select>`:''}
+      <datalist id="${rowDlId}"></datalist>
+      <select class="cl-hw-cat filter-sel" style="flex:0 0 100px;${IS}" onchange="clHwCatChange(this)">${HW_CAT_SEL}</select>
+      <input type="text" class="cl-hw-book" placeholder="교재" list="${rowDlId}" autocomplete="off" style="flex:2;min-width:100px;${IS}">
+      <input type="text" class="cl-hw-range" placeholder="범위/내용" style="flex:3;min-width:120px;${IS}">
+      <button type="button" onclick="this.closest('.cl-hw-row').remove()" style="background:none;border:none;cursor:pointer;font-size:17px;color:var(--slate);padding:0 2px;flex-shrink:0">×</button>`;
+    if(prefillCat){const catEl=row.querySelector('.cl-hw-cat');if(catEl){catEl.value=prefillCat;fillClHwRowDl(row);}}
+    if(prefillBook){const bookEl=row.querySelector('.cl-hw-book');if(bookEl)bookEl.value=prefillBook;}
+    if(prefillRange){const rangeEl=row.querySelector('.cl-hw-range');if(rangeEl)rangeEl.value=prefillRange;}
+    targetEl.appendChild(row);
+  }else{
+    // 기존 2줄 모드 (개별 추가 시)
+    row.style.cssText='background:var(--cream);border-radius:var(--rs);padding:8px 10px;margin-bottom:6px;border:1px solid var(--border)';
+    row.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+      ${!isCommon?`<select class="cl-hw-ind-stu filter-sel" style="flex:0 0 auto">${stuOpts}</select>`:''}
+      <input type="date" class="cl-hw-date" value="${dateStr||''}" style="${IS};flex:0 0 auto">
+      <span class="cl-hw-day-label" style="font-size:11px;color:var(--slate)">${dateStr?dayLabel+'요일':''}</span>
+      <select class="cl-hw-cat filter-sel" style="flex:0 0 auto" onchange="clHwCatChange(this)">${HW_CAT_SEL}</select>
+      <button onclick="this.closest('.cl-hw-row').remove()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--slate);padding:0;margin-left:auto">×</button>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <datalist id="${rowDlId}"></datalist>
+      <input type="text" class="cl-hw-book" placeholder="교재 선택 또는 직접 입력" list="${rowDlId}" autocomplete="off" style="${IS};flex:2;min-width:130px">
+      <input type="text" class="cl-hw-range" placeholder="범위/내용" style="${IS};flex:3;min-width:150px">
+    </div>`;
+    if(prefillCat){const catEl=row.querySelector('.cl-hw-cat');if(catEl){catEl.value=prefillCat;fillClHwRowDl(row);}}
+    if(prefillBook){const bookEl=row.querySelector('.cl-hw-book');if(bookEl)bookEl.value=prefillBook;}
+    if(prefillRange){const rangeEl=row.querySelector('.cl-hw-range');if(rangeEl)rangeEl.value=prefillRange;}
+    row.querySelector('.cl-hw-date').addEventListener('change',function(){
+      const nd=new Date(this.value);
+      row.querySelector('.cl-hw-day-label').textContent=this.value?DAYS[nd.getDay()]+'요일':'';
+    });
+    const target=isCommon?document.getElementById('cl-hw-common-rows'):document.getElementById('cl-hw-ind-rows');
+    if(target)target.appendChild(row);
+  }
 }
 
 async function saveClassLesson(){
