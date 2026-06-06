@@ -124,6 +124,30 @@ async function autoFetchBookMeta(){
     if(statusEl)statusEl.textContent=`✓ ${meta.source==='google'?'Google Books':'Open Library'}에서 조회 (표지 없음)`;
   }
 }
+async function bulkFetchCovers(){
+  const books=(_cache.library||[]).filter(b=>!b.coverUrl);
+  if(!books.length)return toast('표지 없는 원서가 없습니다 (모두 완료)');
+  const total=books.length;
+  let done=0,found=0;
+  toast(`표지 조회 시작 — ${total}권 처리 중...`);
+  for(const b of books){
+    const meta=await getBookMeta(b.title);
+    done++;
+    if(meta?.coverUrl){
+      const updated={...b,coverUrl:meta.coverUrl};
+      await supaUpsert('library',b.id,updated,null);
+      const idx=_cache.library.findIndex(x=>x.id===b.id);if(idx>=0)_cache.library[idx]=updated;
+      found++;
+    }
+    if(done%5===0||done===total){
+      const pct=Math.round(done/total*100);
+      const statusEls=document.querySelectorAll('.lib-bulk-cover-status');
+      statusEls.forEach(el=>el.textContent=`표지 조회 중... ${done}/${total} (${pct}%)`);
+    }
+  }
+  renderLib();renderLibTable();
+  toast(`완료 — ${total}권 중 ${found}권 표지 적용됨`);
+}
 function clearLibAutoFetch(){
   window._libAutoCoverUrl='';
   const prev=document.getElementById('lib-cover-preview');
