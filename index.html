@@ -1189,7 +1189,7 @@
       <div class="f"><label>출판사</label><input type="text" id="tbook-publisher" placeholder="출판사"></div>
       <div class="f"><label>레벨</label><input type="text" id="tbook-level" placeholder="예: 초3, 중1, Level 2"></div>
       <div class="f s2"><label>분류</label>
-        <select id="tbook-category" class="filter-sel" style="width:100%">
+        <select id="tbook-category" class="filter-sel" style="width:100%" onchange="const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display=this.value==='내신'?'':'none'">
           <option value="">선택하세요</option>
           <option value="파닉스">파닉스</option>
           <option value="어휘">어휘</option>
@@ -1200,9 +1200,7 @@
           <option value="내신">내신</option>
         </select>
       </div>
-      <div class="f"><label>시리즈명</label><input type="text" id="tbook-series" placeholder="예: Grammar Zone, 완자 영어"></div>
-      <div class="f"><label>권/호</label><input type="text" id="tbook-volume" placeholder="예: 1, 2A, Starter"></div>
-      <div class="f"><label>대상학년</label><input type="text" id="tbook-grade" placeholder="예: 초3-4, 중1, 고1-2"></div>
+      <div class="f" id="tbook-grade-f" style="display:none"><label>대상학년</label><input type="text" id="tbook-grade" placeholder="예: 초3-4, 중1, 고1-2"></div>
       <div class="f"><label>총 유닛 수</label><input type="number" id="tbook-total-units" placeholder="0" min="0" style="width:100%"></div>
     </div>
     <button class="btn bt" style="width:100%;margin-top:8px" id="tbook-submit-btn" onclick="saveTbook()">추가</button>
@@ -1232,7 +1230,8 @@
     <div id="tu-unit-list" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:8px;background:#fff"></div>
     <!-- 단원 생성 -->
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
-      <input type="text" id="tu-new-unit-name" placeholder="새 단원명 (예: Unit 1)" style="flex:1;min-width:120px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
+      <input type="text" id="tu-new-unit-name" placeholder="단원번호 (Unit 1, Lesson 3 등)" style="flex:1;min-width:100px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
+      <input type="text" id="tu-new-unit-subtitle" placeholder="소제목 (선택)" style="flex:1;min-width:80px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
       <button class="btn bt bsm" onclick="tuCreateUnit()">+ 단원 생성</button>
     </div>
     <!-- 단어 테이블 -->

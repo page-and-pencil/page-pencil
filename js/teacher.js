@@ -1003,7 +1003,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   const cls=isBook?'srd':(SCLS[baseKey]||'');
   const addBtn=baseKey==='naesin'?`<button class="btn-xadd" title="내신 교재 추가" onclick="addSRowTo('${wrapperId}','naesin')">+</button>`:'';
   const noUnit=wrapperId==='ec-subj-rows';
-  const unitInput=noUnit?'':` <input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}">`;
+  let unitInput=noUnit?'':` <input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}">`;
   if(baseKey==='pencil_down'||baseKey==='sing_together'){
     const rawVal=baseKey==='sing_together'?bookVal:(bookVal==='Pencil Down Day'||!bookVal)?'':bookVal;
     const PD_ACTS=[
@@ -1027,7 +1027,8 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
       <button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
     wrap.appendChild(d);return;
   }
-  // cl-subj-rows: 교재 DB select 드롭다운, 나머지: text input with datalist
+  // cl/subj/el-subj-rows: 교재 DB select 드롭다운, 나머지: text input with datalist
+  const _bkSelSt='flex:1;min-width:0;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)';
   let bookInput;
   if(wrapperId==='cl-subj-rows'&&!isBook){
     const catFilter=_CAT_KO[baseKey];
@@ -1036,7 +1037,22 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
     if(noMatch)books=_cache.globalTextbooks||[];
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
     const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
-    bookInput=`<select data-f="book" onchange="clUpdateUnitHint(this)" style="flex:1;min-width:0;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">${opts}</select>`;
+    bookInput=`<select data-f="book" onchange="clUpdateUnitHint(this)" style="${_bkSelSt}">${opts}</select>`;
+  }else if((wrapperId==='subj-rows'||wrapperId==='el-subj-rows')&&!isBook){
+    const catFilter=_CAT_KO[baseKey];
+    let books=(_cache.globalTextbooks||[]).filter(b=>catFilter?b.category===catFilter:true);
+    const noMatch=catFilter&&!books.length;
+    if(noMatch)books=_cache.globalTextbooks||[];
+    const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
+    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
+    bookInput=`<select data-f="book" onchange="lesUpdateUnitSel(this)" style="${_bkSelSt}">${opts}</select>`;
+    if(!noUnit){
+      const initTb=bookVal?(_cache.globalTextbooks||[]).find(b=>b.title===bookVal):null;
+      const initUnits=initTb?Object.keys(initTb.units||{}):[];
+      const initTitles=initTb?.unitTitles||{};
+      const unitOpts='<option value="">-- 단원 선택 --</option>'+initUnits.map(k=>`<option value="${escAttr(k)}"${unitVal===k?' selected':''}>${k}${initTitles[k]?' — '+initTitles[k]:''}</option>`).join('');
+      unitInput=` <select data-f="unit" style="${_bkSelSt}">${unitOpts}</select>`;
+    }
   }else{
     // ec-subj-rows 등: 카테고리별 필터된 인라인 datalist
     const catF=_CAT_KO[baseKey];
@@ -2254,8 +2270,6 @@ function renderTbookTable(){
       case 'level':{return _td*(a.level||'').localeCompare(b.level||'');}
       case 'category':{return _td*(a.category||'').localeCompare(b.category||'');}
       case 'publisher':{return _td*(a.publisher||'').localeCompare(b.publisher||'');}
-      case 'series':{return _td*(a.series||'').localeCompare(b.series||'');}
-      case 'volume':{return _td*(a.volume||'').localeCompare(b.volume||'');}
       case 'grade':{return _td*(a.grade||'').localeCompare(b.grade||'');}
       default:{return _td*(a.title||'').localeCompare(b.title||'');}
     }
@@ -2263,7 +2277,7 @@ function renderTbookTable(){
   const total=books.length;
   const totalEl=document.getElementById('tbook-total');if(totalEl)totalEl.textContent=`총 ${total}개`;
   const theadTrT=document.querySelector('#tbook-tbody')?.closest('table')?.querySelector('thead tr');
-  if(theadTrT){const tth=(f,l)=>{const act=tbookSortField===f;const ic=act?(tbookSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="tbookSetSort('${f}')">${l} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};theadTrT.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="tbook-chk-all" onchange="tbookToggleAll(this)" style="cursor:pointer"></th>${tth('title','교재명')}${tth('series','시리즈')}${tth('volume','권/호')}${tth('level','레벨')}${tth('grade','학년')}${tth('category','분류')}${tth('publisher','출판사')}<th></th>`;}
+  if(theadTrT){const tth=(f,l)=>{const act=tbookSortField===f;const ic=act?(tbookSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="tbookSetSort('${f}')">${l} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};theadTrT.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="tbook-chk-all" onchange="tbookToggleAll(this)" style="cursor:pointer"></th>${tth('title','교재명')}${tth('level','레벨')}${tth('grade','학년')}${tth('category','분류')}${tth('publisher','출판사')}<th></th>`;}
   const maxPage=Math.max(0,Math.ceil(total/TBOOK_PAGE_SIZE)-1);
   if(tbookPage>maxPage)tbookPage=maxPage;
   const paged=books.slice(tbookPage*TBOOK_PAGE_SIZE,(tbookPage+1)*TBOOK_PAGE_SIZE);
@@ -2276,27 +2290,23 @@ function renderTbookTable(){
   if(_tbookAdding){addRow=`<tr style="background:#f0fff8;border-bottom:2px solid var(--teal)">
     <td style="padding:4px 8px;text-align:center;font-weight:700;color:var(--teal)">+</td>
     <td style="padding:3px 4px"><input id="tba-title" ${_tbkKD('add')} style="${_tbkISt};font-weight:600" placeholder="교재명 *" autofocus></td>
-    <td style="padding:3px 4px"><input id="tba-series" ${_tbkKD('add')} style="${_tbkISt}" placeholder="시리즈"></td>
-    <td style="padding:3px 4px"><input id="tba-volume" ${_tbkKD('add')} style="${_tbkISt}" placeholder="권/호"></td>
     <td style="padding:3px 4px"><input id="tba-level" ${_tbkKD('add')} style="${_tbkISt}" placeholder="레벨"></td>
-    <td style="padding:3px 4px"><input id="tba-grade" ${_tbkKD('add')} style="${_tbkISt}" placeholder="학년"></td>
-    <td style="padding:3px 4px"><select id="tba-cat" style="padding:3px 4px;border:1.5px solid var(--teal);border-radius:4px;font-size:11px;font-family:var(--fb);outline:none;width:100%">${_tbkCatOpts('')}</select></td>
+    <td style="padding:3px 4px"><input id="tba-grade" ${_tbkKD('add')} style="${_tbkISt};display:none" placeholder="학년"></td>
+    <td style="padding:3px 4px"><select id="tba-cat" onchange="const g=document.getElementById('tba-grade');if(g){g.style.display=this.value==='내신'?'':'none';if(this.value!=='내신')g.value='';}" style="padding:3px 4px;border:1.5px solid var(--teal);border-radius:4px;font-size:11px;font-family:var(--fb);outline:none;width:100%">${_tbkCatOpts('')}</select></td>
     <td style="padding:3px 4px"><input id="tba-pub" ${_tbkKD('add')} style="${_tbkISt}" placeholder="출판사"></td>
     <td style="padding:3px 4px;white-space:nowrap"><div style="display:flex;gap:4px">
       <button class="btn bt bsm" onclick="tbookSaveAdd()">추가</button>
       <button onclick="_tbookAdding=false;renderTbookTable()" style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 7px;cursor:pointer;font-size:11px;color:var(--slate)">취소</button>
     </div></td>
   </tr>`;}
-  tbody.innerHTML=addRow+(!paged.length?`<tr><td colspan="9" style="text-align:center;color:var(--slate);padding:24px">교재 없음. 위 "+ 추가" 버튼으로 추가하세요.</td></tr>`:paged.map((b,i)=>{
+  tbody.innerHTML=addRow+(!paged.length?`<tr><td colspan="7" style="text-align:center;color:var(--slate);padding:24px">교재 없음. 위 "+ 추가" 버튼으로 추가하세요.</td></tr>`:paged.map((b,i)=>{
     const uCnt=Object.keys(b.units||{}).length;
     if(b.id===_tbookEditingId){return`<tr style="background:var(--tl)">
       <td style="padding:4px 8px;text-align:center"></td>
       <td style="padding:3px 4px"><input id="tbe-title" value="${escAttr(b.title)}" ${_tbkKD(b.id)} style="${_tbkISt};font-weight:600" placeholder="교재명 *"></td>
-      <td style="padding:3px 4px"><input id="tbe-series" value="${escAttr(b.series||'')}" ${_tbkKD(b.id)} style="${_tbkISt}" placeholder="시리즈"></td>
-      <td style="padding:3px 4px"><input id="tbe-volume" value="${escAttr(b.volume||'')}" ${_tbkKD(b.id)} style="${_tbkISt}" placeholder="권/호"></td>
       <td style="padding:3px 4px"><input id="tbe-level" value="${escAttr(b.level||'')}" ${_tbkKD(b.id)} style="${_tbkISt}" placeholder="레벨"></td>
-      <td style="padding:3px 4px"><input id="tbe-grade" value="${escAttr(b.grade||'')}" ${_tbkKD(b.id)} style="${_tbkISt}" placeholder="학년"></td>
-      <td style="padding:3px 4px"><select id="tbe-cat" style="padding:3px 4px;border:1.5px solid var(--teal);border-radius:4px;font-size:11px;font-family:var(--fb);outline:none;width:100%">${_tbkCatOpts(b.category||'')}</select></td>
+      <td style="padding:3px 4px"><input id="tbe-grade" value="${escAttr(b.grade||'')}" ${_tbkKD(b.id)} style="${_tbkISt}${b.category!=='내신'?';display:none':''}" placeholder="학년"></td>
+      <td style="padding:3px 4px"><select id="tbe-cat" onchange="const g=document.getElementById('tbe-grade');if(g){g.style.display=this.value==='내신'?'':'none';if(this.value!=='내신')g.value='';}" style="padding:3px 4px;border:1.5px solid var(--teal);border-radius:4px;font-size:11px;font-family:var(--fb);outline:none;width:100%">${_tbkCatOpts(b.category||'')}</select></td>
       <td style="padding:3px 4px"><input id="tbe-pub" value="${escAttr(b.publisher||'')}" ${_tbkKD(b.id)} style="${_tbkISt}" placeholder="출판사"></td>
       <td style="padding:3px 4px;white-space:nowrap"><div style="display:flex;gap:4px">
         <button class="btn bt bsm" onclick="tbookSaveInline('${b.id}')">저장</button>
@@ -2306,15 +2316,13 @@ function renderTbookTable(){
     return`<tr>
       <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="tbook-chk" data-idx="${i}" onchange="tbookUpdateBulkBar()" style="cursor:pointer"></td>
       <td style="font-weight:600"><span class="cell-title" title="${escAttr(b.title)}">${b.title}</span></td>
-      <td style="font-size:12px;color:var(--slate)"><span class="cell-title" title="${escAttr(b.series||'')}">${b.series||'—'}</span></td>
-      <td style="font-size:12px;text-align:center">${b.volume||'—'}</td>
       <td>${b.level||'—'}</td>
-      <td style="font-size:12px">${b.grade||'—'}</td>
+      <td style="font-size:12px">${b.category==='내신'&&b.grade?b.grade:'—'}</td>
       <td>${['파닉스','어휘','어법','리딩','리스닝','라이팅','내신'].includes(b.category)?b.category:'—'}</td>
       <td><span class="cell-title" title="${escAttr(b.publisher||'')}">${b.publisher||'—'}</span></td>
       <td><div style="display:flex;gap:4px">
         <button class="btn bo bsm" onclick="tbookEditInline('${b.id}')">수정</button>
-        <button class="btn ba bsm" onclick="openTbookUnits('${b.id}')" title="단원별 단어 관리">📝 단어${uCnt?` (${uCnt})`:''}</button>
+        <button class="btn ba bsm" onclick="openTbookUnits('${b.id}')" title="단원별 단어 관리">📝 단원${uCnt?` (${uCnt})`:''}</button>
       </div></td>
     </tr>`;}).join(''));
   const pg=document.getElementById('tbook-pager');if(!pg)return;
@@ -2370,8 +2378,6 @@ async function tbookSaveInline(id){
     publisher:(document.getElementById('tbe-pub')?.value||'').trim(),
     level:(document.getElementById('tbe-level')?.value||'').trim(),
     category:document.getElementById('tbe-cat')?.value||'',
-    series:(document.getElementById('tbe-series')?.value||'').trim(),
-    volume:(document.getElementById('tbe-volume')?.value||'').trim(),
     grade:(document.getElementById('tbe-grade')?.value||'').trim(),
   };
   try{
@@ -2388,8 +2394,6 @@ async function tbookSaveAdd(){
     publisher:(document.getElementById('tba-pub')?.value||'').trim(),
     level:(document.getElementById('tba-level')?.value||'').trim(),
     category:document.getElementById('tba-cat')?.value||'',
-    series:(document.getElementById('tba-series')?.value||'').trim(),
-    volume:(document.getElementById('tba-volume')?.value||'').trim(),
     grade:(document.getElementById('tba-grade')?.value||'').trim(),
     totalUnits:0,units:{}
   };
@@ -2410,9 +2414,8 @@ function openEditTbook(id){
   document.getElementById('tbook-publisher').value=b.publisher||'';
   document.getElementById('tbook-level').value=b.level||'';
   document.getElementById('tbook-category').value=b.category||'';
-  document.getElementById('tbook-series').value=b.series||'';
-  document.getElementById('tbook-volume').value=b.volume||'';
   document.getElementById('tbook-grade').value=b.grade||'';
+  const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display=b.category==='내신'?'':'none';
   document.getElementById('tbook-total-units').value=b.totalUnits||'';
   document.getElementById('tbook-modal-title').textContent='교재 수정';
   document.getElementById('tbook-submit-btn').textContent='저장';
@@ -2424,8 +2427,6 @@ async function saveTbook(){
   const publisher=document.getElementById('tbook-publisher')?.value.trim()||'';
   const level=document.getElementById('tbook-level')?.value.trim()||'';
   const category=document.getElementById('tbook-category')?.value||'';
-  const series=document.getElementById('tbook-series')?.value.trim()||'';
-  const volume=document.getElementById('tbook-volume')?.value.trim()||'';
   const grade=document.getElementById('tbook-grade')?.value.trim()||'';
   const totalUnits=parseInt(document.getElementById('tbook-total-units')?.value)||0;
   const editId=document.getElementById('tbook-edit-id')?.value||'';
@@ -2433,14 +2434,14 @@ async function saveTbook(){
     if(editId){
       // 수정 모드: 기존 units 유지
       const existing=(_cache.globalTextbooks||[]).find(b=>b.id===editId)||{};
-      const tb={...existing,title,publisher,level,category,series,volume,grade,totalUnits};
+      const tb={...existing,title,publisher,level,category,grade,totalUnits};
       await supaUpsert('global_textbooks',editId,tb,null);
       const idx=_cache.globalTextbooks.findIndex(b=>b.id===editId);
       if(idx>=0)_cache.globalTextbooks[idx]=tb;
       toast('수정되었습니다');
     }else{
       // 추가 모드
-      const tb={id:uid(),title,publisher,level,category,series,volume,grade,totalUnits};
+      const tb={id:uid(),title,publisher,level,category,grade,totalUnits};
       await supaUpsert('global_textbooks',tb.id,tb,null);
       if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
       _cache.globalTextbooks.push(tb);
@@ -2448,7 +2449,8 @@ async function saveTbook(){
     }
     renderTbookTable();updateTbookDatalist();
     closeM('m-add-tbook');
-    ['tbook-title','tbook-publisher','tbook-level','tbook-edit-id','tbook-series','tbook-volume','tbook-grade','tbook-total-units'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    ['tbook-title','tbook-publisher','tbook-level','tbook-edit-id','tbook-grade','tbook-total-units'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display='none';
     const catEl=document.getElementById('tbook-category');if(catEl)catEl.value='';
     document.getElementById('tbook-modal-title').textContent='교재 추가';
     document.getElementById('tbook-submit-btn').textContent='추가';
@@ -2482,7 +2484,7 @@ function tuPopulateUnitSel(tbId){
   const units=tb?.units||{};const keys=Object.keys(units);
   const sub=document.getElementById('tu-sub');if(sub)sub.textContent=`(${keys.length}개)`;
   const sel=document.getElementById('tu-unit-sel');
-  if(sel)sel.innerHTML='<option value="">-- 단원 선택 --</option>'+keys.map(k=>`<option value="${escAttr(k)}"${_tuCurUnit===k?' selected':''}>${k}</option>`).join('');
+  if(sel)sel.innerHTML='<option value="">-- 단원 선택 --</option>'+keys.map(k=>`<option value="${escAttr(k)}"${_tuCurUnit===k?' selected':''}>${k}${tb?.unitTitles?.[k]?' — '+tb.unitTitles[k]:''}</option>`).join('');
   const list=document.getElementById('tu-unit-list');if(!list)return;
   if(!keys.length){
     list.innerHTML='<div style="padding:16px;text-align:center;font-size:12px;color:var(--slate)">단원이 없습니다. 아래에서 생성하거나 CSV 파일을 가져오세요.</div>';
@@ -2492,18 +2494,27 @@ function tuPopulateUnitSel(tbId){
   list.innerHTML=keys.map(k=>{
     const wCnt=tuNormWords(units[k]).length;
     const isSel=_tuCurUnit===k;
+    const subtitle=tb?.unitTitles?.[k]||'';
     if(_tuRenamingUnit===k){return`<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid var(--border);background:var(--tl)">
-      <input id="tu-rename-inp" value="${escAttr(k)}"
-        onkeydown="if(event.key==='Enter'){event.preventDefault();tuRenameUnitSave('${escAttr(tbId)}','${escAttr(k)}')}else if(event.key==='Escape'){_tuRenamingUnit=null;tuPopulateUnitSel('${escAttr(tbId)}')}"
-        style="${iSt}">
+      <div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0">
+        <input id="tu-rename-inp" value="${escAttr(k)}" placeholder="단원번호 (Unit 1 등)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();tuRenameUnitSave('${escAttr(tbId)}','${escAttr(k)}')}else if(event.key==='Escape'){_tuRenamingUnit=null;tuPopulateUnitSel('${escAttr(tbId)}')}"
+          style="${iSt}">
+        <input id="tu-rename-sub" value="${escAttr(subtitle)}" placeholder="소제목 (선택)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();tuRenameUnitSave('${escAttr(tbId)}','${escAttr(k)}')}else if(event.key==='Escape'){_tuRenamingUnit=null;tuPopulateUnitSel('${escAttr(tbId)}')}"
+          style="${iSt};font-size:11px">
+      </div>
       <button onclick="tuRenameUnitSave('${escAttr(tbId)}','${escAttr(k)}')" style="background:var(--teal);color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;white-space:nowrap">저장</button>
       <button onclick="_tuRenamingUnit=null;tuPopulateUnitSel('${escAttr(tbId)}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 5px;cursor:pointer;font-size:11px;color:var(--slate)">✕</button>
     </div>`;}
     return`<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);background:${isSel?'var(--tl)':'transparent'}">
       <input type="checkbox" class="tu-unit-chk" data-key="${escAttr(k)}" onclick="event.stopPropagation()" style="flex-shrink:0;cursor:pointer">
-      <span onclick="tuSelectUnitRow('${escAttr(k)}')" style="flex:1;font-size:13px;font-weight:${isSel?'700':'400'};color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer">${k}</span>
+      <div onclick="tuSelectUnitRow('${escAttr(k)}')" style="flex:1;cursor:pointer;overflow:hidden;min-width:0">
+        <div style="font-size:13px;font-weight:${isSel?'700':'400'};color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k}</div>
+        ${subtitle?`<div style="font-size:11px;color:var(--slate);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${subtitle}</div>`:''}
+      </div>
       <span style="font-size:11px;color:var(--slate);flex-shrink:0;white-space:nowrap">${wCnt}단어</span>
-      <button onclick="event.stopPropagation();_tuRenamingUnit='${escAttr(k)}';tuPopulateUnitSel('${escAttr(tbId)}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 3px;color:var(--slate);flex-shrink:0;line-height:1" title="이름 변경">✏️</button>
+      <button onclick="event.stopPropagation();_tuRenamingUnit='${escAttr(k)}';tuPopulateUnitSel('${escAttr(tbId)}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 3px;color:var(--slate);flex-shrink:0;line-height:1" title="이름·소제목 변경">✏️</button>
       <button onclick="event.stopPropagation();tuDeleteUnitDirect('${escAttr(tbId)}','${escAttr(k)}')" style="background:none;border:none;cursor:pointer;font-size:15px;padding:0 3px;color:var(--coral);flex-shrink:0;line-height:1" title="삭제">×</button>
     </div>`;
   }).join('');
@@ -2527,7 +2538,8 @@ async function tuDeleteSelected(){
     const tbId=document.getElementById('tu-tb-id').value;
     const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
     const units={...(tb.units||{})};keys.forEach(k=>delete units[k]);
-    const updated={...tb,units};
+    const unitTitles={...(tb.unitTitles||{})};keys.forEach(k=>delete unitTitles[k]);
+    const updated={...tb,units,unitTitles};
     await supaUpsert('global_textbooks',tbId,updated,null);
     const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
     if(keys.includes(_tuCurUnit))_tuCurUnit=null;
@@ -2620,13 +2632,17 @@ async function tuAIFillInline(tbId,unitKey,idx){
 function tuCreateUnit(){
   const tbId=document.getElementById('tu-tb-id').value;
   const name=document.getElementById('tu-new-unit-name').value.trim();
-  if(!name)return toast('단원명을 입력하세요');
+  const sub=(document.getElementById('tu-new-unit-subtitle')?.value||'').trim();
+  if(!name)return toast('단원번호를 입력하세요');
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   if(tb.units?.[name])return toast('이미 있는 단원명입니다');
-  const updated={...tb,units:{...(tb.units||{}),[name]:[]}};
+  const unitTitles={...(tb.unitTitles||{})};if(sub)unitTitles[name]=sub;
+  const updated={...tb,units:{...(tb.units||{}),[name]:[]},unitTitles};
   supaUpsert('global_textbooks',tbId,updated,null).then(()=>{
     const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
-    document.getElementById('tu-new-unit-name').value='';_tuCurUnit=name;
+    document.getElementById('tu-new-unit-name').value='';
+    const subEl=document.getElementById('tu-new-unit-subtitle');if(subEl)subEl.value='';
+    _tuCurUnit=name;
     tuPopulateUnitSel(tbId);tuRenderWords(tbId,name);renderTbookTable();toast(`'${name}' 단원 생성됨`);
   });
 }
@@ -2644,24 +2660,30 @@ function tuDeleteUnit(){
 }
 async function tuRenameUnitSave(tbId,oldKey){
   const newKey=(document.getElementById('tu-rename-inp')?.value||'').trim();
-  if(!newKey)return toast('단원명을 입력하세요');
-  if(newKey===oldKey){_tuRenamingUnit=null;tuPopulateUnitSel(tbId);return;}
+  const newSub=(document.getElementById('tu-rename-sub')?.value||'').trim();
+  if(!newKey)return toast('단원번호를 입력하세요');
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
-  if(tb.units?.[newKey])return toast('이미 있는 단원명입니다');
+  const oldSub=tb.unitTitles?.[oldKey]||'';
+  if(newKey===oldKey&&newSub===oldSub){_tuRenamingUnit=null;tuPopulateUnitSel(tbId);return;}
+  if(newKey!==oldKey&&tb.units?.[newKey])return toast('이미 있는 단원명입니다');
   const units={...(tb.units||{})};
-  units[newKey]=units[oldKey];delete units[oldKey];
-  const updated={...tb,units};
+  if(newKey!==oldKey){units[newKey]=units[oldKey];delete units[oldKey];}
+  const unitTitles={...(tb.unitTitles||{})};
+  if(newKey!==oldKey){if(unitTitles[oldKey]!==undefined)unitTitles[newKey]=unitTitles[oldKey];delete unitTitles[oldKey];}
+  if(newSub)unitTitles[newKey]=newSub;else delete unitTitles[newKey];
+  const updated={...tb,units,unitTitles};
   await supaUpsert('global_textbooks',tbId,updated,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
   if(_tuCurUnit===oldKey)_tuCurUnit=newKey;
-  _tuRenamingUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,_tuCurUnit);renderTbookTable();toast('단원명이 변경되었습니다');
+  _tuRenamingUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,_tuCurUnit);renderTbookTable();toast('단원 저장됨');
 }
 function tuDeleteUnitDirect(tbId,key){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const wCnt=tuNormWords(tb.units?.[key]||[]).length;
   askConfirm('단원 삭제',`'${key}' 단원${wCnt?`과 단어 ${wCnt}개`:''}을 삭제할까요?`,'삭제','bd',async()=>{
     const units={...(tb.units||{})};delete units[key];
-    const updated={...tb,units};
+    const unitTitles={...(tb.unitTitles||{})};delete unitTitles[key];
+    const updated={...tb,units,unitTitles};
     await supaUpsert('global_textbooks',tbId,updated,null);
     const i=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(i>=0)_cache.globalTextbooks[i]=updated;
     if(_tuCurUnit===key)_tuCurUnit=null;
@@ -4202,16 +4224,15 @@ function libGoPage(val,total){libPage=Math.max(0,Math.min(total-1,(parseInt(val)
 function exportTbookCSV(){
   const books=_cache.globalTextbooks||[];
   const q=v=>`"${(v===null||v===undefined?'':String(v)).replace(/"/g,'""')}"`;
-  const HEADER='교재ID,교재명,출판사,레벨,분류,시리즈,권/호,대상학년,유닛명,영어,한국어,품사,예문,영영의미,과거형(v2),과거분사(v3)';
+  const HEADER='교재ID,교재명,출판사,레벨,분류,학년,유닛번호,소제목';
   const rows=[];
   for(const b of books){
-    const meta=[q(b.id),q(b.title),q(b.publisher||''),q(b.level||''),q(b.category||''),q(b.series||''),q(b.volume||''),q(b.grade||'')];
+    const meta=[q(b.id),q(b.title),q(b.publisher||''),q(b.level||''),q(b.category||''),q(b.category==='내신'?b.grade||'':'')];
     const unitKeys=Object.keys(b.units||{});
-    if(!unitKeys.length){rows.push([...meta,q(''),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));continue;}
+    if(!unitKeys.length){rows.push([...meta,q(''),q('')].join(','));continue;}
     for(const uk of unitKeys){
-      const words=tuNormWords(b.units[uk]||[]);
-      if(!words.length){rows.push([...meta,q(uk),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));continue;}
-      for(const w of words){rows.push([...meta,q(uk),q(w.word||''),q(w.ko||''),q(w.pos||''),q(w.example||''),q(w.en_def||''),q(w.v2||''),q(w.v3||'')].join(','));}
+      const subtitle=(b.unitTitles||{})[uk]||'';
+      rows.push([...meta,q(uk),q(subtitle)].join(','));
     }
   }
   const csv='﻿'+[HEADER,...rows].join('\r\n');
@@ -4245,7 +4266,6 @@ async function importTbookCSV(e){
         }
       }
       if(!rows.length){toast('파일에 데이터가 없습니다');return;}
-      // 교재별 그룹화 (교재ID 또는 교재명 기준)
       const tbMap=new Map();
       for(const row of rows){
         const rowId=(row['교재ID']||'').toString().trim();
@@ -4257,46 +4277,36 @@ async function importTbookCSV(e){
             publisher:(row['출판사']||'').toString().trim(),
             level:(row['레벨']||'').toString().trim(),
             category:(row['분류']||'').toString().trim(),
-            series:(row['시리즈']||'').toString().trim(),
-            volume:(row['권/호']||'').toString().trim(),
-            grade:(row['대상학년']||'').toString().trim(),
-            units:{}});
+            grade:(row['학년']||row['대상학년']||'').toString().trim(),
+            units:{},unitTitles:{}});
         }
         const tb=tbMap.get(mapKey);
-        const unitName=(row['유닛명']||'').toString().trim();
-        const word=(row['영어']||'').toString().trim().toLowerCase();
-        if(unitName){
-          if(!tb.units[unitName])tb.units[unitName]=[];
-          if(word){tb.units[unitName].push({
-            word,ko:(row['한국어']||'').toString().trim(),
-            pos:(row['품사']||'').toString().trim(),
-            example:(row['예문']||'').toString().trim(),
-            en_def:(row['영영의미']||'').toString().trim(),
-            v2:(row['과거형(v2)']||'').toString().trim().toLowerCase(),
-            v3:(row['과거분사(v3)']||'').toString().trim().toLowerCase(),
-          });}
+        const unitNum=(row['유닛번호']||'').toString().trim();
+        const subtitle=(row['소제목']||'').toString().trim();
+        if(unitNum&&!(unitNum in tb.units)){
+          tb.units[unitNum]=[];
+          if(subtitle)tb.unitTitles[unitNum]=subtitle;
         }
       }
       let updated=0,added=0;
       for(const[,data]of tbMap){
         const fields={title:data.title,publisher:data.publisher,level:data.level,
-          category:data.category,series:data.series,volume:data.volume,grade:data.grade};
+          category:data.category,grade:data.grade};
         const existing=data.id
           ?(_cache.globalTextbooks||[]).find(b=>b.id===data.id)
           :(_cache.globalTextbooks||[]).find(b=>b.title===data.title);
         if(existing){
           const newUnits={...(existing.units||{})};
-          for(const[uk,ws]of Object.entries(data.units)){
-            if(ws.length>0)newUnits[uk]=ws;
-            else if(!(uk in newUnits))newUnits[uk]=[];
-          }
-          const tb={...existing,...fields,units:newUnits};
+          const newTitles={...(existing.unitTitles||{})};
+          for(const[uk]of Object.entries(data.units)){if(!(uk in newUnits))newUnits[uk]=[];}
+          for(const[uk,sub]of Object.entries(data.unitTitles)){newTitles[uk]=sub;}
+          const tb={...existing,...fields,units:newUnits,unitTitles:newTitles};
           await supaUpsert('global_textbooks',existing.id,tb,null);
           const idx=(_cache.globalTextbooks||[]).findIndex(b=>b.id===existing.id);
           if(idx>=0)_cache.globalTextbooks[idx]=tb;
           updated++;
         }else{
-          const tb={id:data.id||uid(),...fields,totalUnits:0,units:data.units};
+          const tb={id:data.id||uid(),...fields,totalUnits:0,units:data.units,unitTitles:data.unitTitles};
           await supaUpsert('global_textbooks',tb.id,tb,null);
           if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
           _cache.globalTextbooks.push(tb);
@@ -6277,6 +6287,14 @@ function clUpdateUnitHint(sel){
     }
   }
   unitInput.placeholder=lastUnit?`직전: ${lastUnit}`:'유닛/진도';
+}
+function lesUpdateUnitSel(sel){
+  const sr=sel.closest('.sr');if(!sr)return;
+  const unitSel=sr.querySelector('[data-f="unit"]');if(!unitSel||unitSel.tagName!=='SELECT')return;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.title===sel.value);
+  const units=tb?Object.keys(tb.units||{}):[];
+  const titlesMap=tb?.unitTitles||{};
+  unitSel.innerHTML='<option value="">-- 단원 선택 --</option>'+units.map(k=>`<option value="${escAttr(k)}">${k}${titlesMap[k]?' — '+titlesMap[k]:''}</option>`).join('');
 }
 function ecRenderTags(){
   const allStus=DB.stus();
