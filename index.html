@@ -469,9 +469,9 @@
         <div class="sh">
           <div><div class="st">교재 DB</div><div class="ssub" id="tbook-total"></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn bt bsm" onclick="document.getElementById('tbook-csv-file').click()">📥 CSV 가져오기</button>
-            <button class="btn bo bsm" onclick="exportTbookCSV()">⬇ CSV 내보내기</button>
-            <input type="file" id="tbook-csv-file" accept=".csv" style="display:none" onchange="importTbookCSV(event)">
+            <button class="btn bt bsm" onclick="document.getElementById('tbook-xlsx-file').click()">📥 엑셀 가져오기</button>
+            <button class="btn bo bsm" onclick="exportTbookExcel()">⬇ 엑셀 템플릿</button>
+            <input type="file" id="tbook-xlsx-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importTbookExcel(event)">
             <button class="btn bt bsm" onclick="openM('m-add-tbook')">+ 추가</button>
           </div>
         </div>
@@ -1186,6 +1186,10 @@
           <option value="내신">내신</option>
         </select>
       </div>
+      <div class="f"><label>시리즈명</label><input type="text" id="tbook-series" placeholder="예: Grammar Zone, 완자 영어"></div>
+      <div class="f"><label>권/호</label><input type="text" id="tbook-volume" placeholder="예: 1, 2A, Starter"></div>
+      <div class="f"><label>대상학년</label><input type="text" id="tbook-grade" placeholder="예: 초3-4, 중1, 고1-2"></div>
+      <div class="f"><label>총 유닛 수</label><input type="number" id="tbook-total-units" placeholder="0" min="0" style="width:100%"></div>
     </div>
     <button class="btn bt" style="width:100%;margin-top:8px" id="tbook-submit-btn" onclick="saveTbook()">추가</button>
   </div>
