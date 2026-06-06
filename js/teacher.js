@@ -5374,7 +5374,25 @@ async function markTextbookDone(id,sid){
   tb.completed=true;tb.completedDate=new Date().toISOString().split('T')[0];
   await supaUpsert('textbooks',id,tb,sid);
   const idx=_cache.textbooks.findIndex(t=>t.id===id);if(idx>=0)_cache.textbooks[idx]=tb;
-  renderSpBooks(sid);toast('완료 처리되었습니다');
+  renderSpBooks(sid);
+  // 교재 DB에서 단어 조회 후 단어장에 자동 추가
+  const globalTb=(_cache.globalTextbooks||[]).find(g=>g.title===tb.title||(tb.bookId&&g.id===tb.bookId));
+  if(globalTb&&globalTb.units){
+    const allWords=Object.entries(globalTb.units).flatMap(([unitName,ws])=>
+      (Array.isArray(ws)?ws:[]).filter(w=>w.word).map(w=>({...w,srcUnit:unitName,srcId:globalTb.id,srcTitle:globalTb.title}))
+    );
+    if(allWords.length){
+      toast(`교재 완료! 단어 ${allWords.length}개를 단어장에 추가 중...`);
+      await syncVocabCards(sid,allWords,[],tb.completedDate,'교재완료');
+      const stu=DB.stus().find(x=>x.id===sid);
+      toast(`✓ ${tb.title} 완료 — ${allWords.length}개 단어가 단어장에 추가됐습니다`);
+      renderSpVocab(sid);
+    }else{
+      toast(`완료 처리됐습니다 (교재 DB에 단어 미등록)`);
+    }
+  }else{
+    toast('완료 처리됐습니다');
+  }
 }
 async function saveTextbook(sid){
   try{
