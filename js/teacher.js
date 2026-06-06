@@ -2222,21 +2222,54 @@ function renderTbookTable(){
   const paged=books.slice(tbookPage*TBOOK_PAGE_SIZE,(tbookPage+1)*TBOOK_PAGE_SIZE);
   _tbookPagedEntries=paged;
   const tbody=document.getElementById('tbook-tbody');if(!tbody)return;
-  if(!paged.length){tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--slate);padding:24px">교재 없음</td></tr>`;}
-  else tbody.innerHTML=paged.map((b,i)=>{const uCnt=Object.keys(b.units||{}).length;return`<tr>
-    <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="tbook-chk" data-idx="${i}" onchange="tbookUpdateBulkBar()" style="cursor:pointer"></td>
-    <td style="font-weight:600"><span class="cell-title" title="${escAttr(b.title)}">${b.title}</span></td>
-    <td style="font-size:12px;color:var(--slate)"><span class="cell-title" title="${escAttr(b.series||'')}">${b.series||'—'}</span></td>
-    <td style="font-size:12px;text-align:center">${b.volume||'—'}</td>
-    <td>${b.level||'—'}</td>
-    <td style="font-size:12px">${b.grade||'—'}</td>
-    <td>${['파닉스','어휘','어법','리딩','리스닝','라이팅','내신'].includes(b.category)?b.category:'—'}</td>
-    <td><span class="cell-title" title="${escAttr(b.publisher||'')}">${b.publisher||'—'}</span></td>
-    <td><div style="display:flex;gap:4px">
-      <button class="btn bo bsm" onclick="openEditTbook('${b.id}')">수정</button>
-      <button class="btn ba bsm" onclick="openTbookUnits('${b.id}')" title="단원별 단어 관리">📝 단어${uCnt?` (${uCnt})`:''}</button>
+  const _tbkISt='width:100%;box-sizing:border-box;padding:3px 5px;border:1.5px solid var(--teal);border-radius:4px;font-size:12px;font-family:var(--fb);outline:none';
+  const _tbkCatOpts=v=>['','파닉스','어휘','어법','리딩','리스닝','라이팅','내신'].map(c=>`<option value="${c}"${c===v?'selected':''}>${c||'—'}</option>`).join('');
+  const _tbkKD=id=>`onkeydown="if(event.key==='Enter'){event.preventDefault();${id==='add'?'tbookSaveAdd()':'tbookSaveInline(\''+id+'\')'}}else if(event.key==='Escape'){${id==='add'?'_tbookAdding=false;renderTbookTable()':'tbookCancelInline()'}}"`;
+  let addRow='';
+  if(_tbookAdding){addRow=`<tr style="background:#f0fff8;border-bottom:2px solid var(--teal)">
+    <td style="padding:4px 8px;text-align:center;font-weight:700;color:var(--teal)">+</td>
+    <td style="padding:3px 4px"><input id="tba-title" ${_tbkKD('add')} style="${_tbkISt};font-weight:600" placeholder="교재명 *" autofocus></td>
+    <td style="padding:3px 4px"><input id="tba-series" ${_tbkKD('add')} style="${_tbkISt}" placeholder="시리즈"></td>
+    <td style="padding:3px 4px"><input id="tba-volume" ${_tbkKD('add')} style="${_tbkISt}" placeholder="권/호"></td>
+    <td style="padding:3px 4px"><input id="tba-level" ${_tbkKD('add')} style="${_tbkISt}" placeholder="레벨"></td>
+    <td style="padding:3px 4px"><input id="tba-grade" ${_tbkKD('add')} style="${_tbkISt}" placeholder="학년"></td>
+    <td style="padding:3px 4px"><select id="tba-cat" style="padding:3px 4px;border:1.5px solid var(--teal);border-radius:4px;font-size:11px;font-family:var(--fb);outline:none;width:100%">${_tbkCatOpts('')}</select></td>
+    <td style="padding:3px 4px"><input id="tba-pub" ${_tbkKD('add')} style="${_tbkISt}" placeholder="출판사"></td>
+    <td style="padding:3px 4px;white-space:nowrap"><div style="display:flex;gap:4px">
+      <button class="btn bt bsm" onclick="tbookSaveAdd()">추가</button>
+      <button onclick="_tbookAdding=false;renderTbookTable()" style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 7px;cursor:pointer;font-size:11px;color:var(--slate)">취소</button>
     </div></td>
-  </tr>`;}).join('');
+  </tr>`;}
+  tbody.innerHTML=addRow+(!paged.length?`<tr><td colspan="9" style="text-align:center;color:var(--slate);padding:24px">교재 없음. 위 "+ 추가" 버튼으로 추가하세요.</td></tr>`:paged.map((b,i)=>{
+    const uCnt=Object.keys(b.units||{}).length;
+    if(b.id===_tbookEditingId){return`<tr style="background:var(--tl)">
+      <td style="padding:4px 8px;text-align:center"></td>
+      <td style="padding:3px 4px"><input id="tbe-title" value="${escAttr(b.title)}" ${_tbkKD(b.id)} style="${_tbkISt};font-weight:600" placeholder="교재명 *"></td>
+      <td style="padding:3px 4px"><input id="tbe-series" value="${escAttr(b.series||'')}" ${_tbkKD(b.id)} style="${_tbkISt}" placeholder="시리즈"></td>
+      <td style="padding:3px 4px"><input id="tbe-volume" value="${escAttr(b.volume||'')}" ${_tbkKD(b.id)} style="${_tbkISt}" placeholder="권/호"></td>
+      <td style="padding:3px 4px"><input id="tbe-level" value="${escAttr(b.level||'')}" ${_tbkKD(b.id)} style="${_tbkISt}" placeholder="레벨"></td>
+      <td style="padding:3px 4px"><input id="tbe-grade" value="${escAttr(b.grade||'')}" ${_tbkKD(b.id)} style="${_tbkISt}" placeholder="학년"></td>
+      <td style="padding:3px 4px"><select id="tbe-cat" style="padding:3px 4px;border:1.5px solid var(--teal);border-radius:4px;font-size:11px;font-family:var(--fb);outline:none;width:100%">${_tbkCatOpts(b.category||'')}</select></td>
+      <td style="padding:3px 4px"><input id="tbe-pub" value="${escAttr(b.publisher||'')}" ${_tbkKD(b.id)} style="${_tbkISt}" placeholder="출판사"></td>
+      <td style="padding:3px 4px;white-space:nowrap"><div style="display:flex;gap:4px">
+        <button class="btn bt bsm" onclick="tbookSaveInline('${b.id}')">저장</button>
+        <button onclick="tbookCancelInline()" style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 7px;cursor:pointer;font-size:11px;color:var(--slate)">취소</button>
+      </div></td>
+    </tr>`;}
+    return`<tr>
+      <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="tbook-chk" data-idx="${i}" onchange="tbookUpdateBulkBar()" style="cursor:pointer"></td>
+      <td style="font-weight:600"><span class="cell-title" title="${escAttr(b.title)}">${b.title}</span></td>
+      <td style="font-size:12px;color:var(--slate)"><span class="cell-title" title="${escAttr(b.series||'')}">${b.series||'—'}</span></td>
+      <td style="font-size:12px;text-align:center">${b.volume||'—'}</td>
+      <td>${b.level||'—'}</td>
+      <td style="font-size:12px">${b.grade||'—'}</td>
+      <td>${['파닉스','어휘','어법','리딩','리스닝','라이팅','내신'].includes(b.category)?b.category:'—'}</td>
+      <td><span class="cell-title" title="${escAttr(b.publisher||'')}">${b.publisher||'—'}</span></td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn bo bsm" onclick="tbookEditInline('${b.id}')">수정</button>
+        <button class="btn ba bsm" onclick="openTbookUnits('${b.id}')" title="단원별 단어 관리">📝 단어${uCnt?` (${uCnt})`:''}</button>
+      </div></td>
+    </tr>`;}).join(''));
   const pg=document.getElementById('tbook-pager');if(!pg)return;
   const totalPages=Math.ceil(total/TBOOK_PAGE_SIZE)||1;
   if(totalPages<=1){pg.innerHTML=`<div class="pager"><span style="font-size:12px;color:var(--slate)">${total}개</span></div>`;return;}
@@ -2280,6 +2313,49 @@ async function tbookDeleteSelected(){
 function tbookSetSort(field){if(tbookSortField===field)tbookSortDir=tbookSortDir==='asc'?'desc':'asc';else{tbookSortField=field;tbookSortDir='asc';}tbookPage=0;renderTbookTable();}
 function tbookResetFilters(){const q=document.getElementById('tbook-q');if(q)q.value='';const c=document.getElementById('tbook-filter-cat');if(c)c.value='';tbookPage=0;renderTbookTable();}
 function tbookGoPage(val,total){tbookPage=Math.max(0,Math.min(total-1,(parseInt(val)||1)-1));renderTbookTable();}
+function tbookEditInline(id){_tbookAdding=false;_tbookEditingId=id;renderTbookTable();setTimeout(()=>document.getElementById('tbe-title')?.focus(),40);}
+function tbookCancelInline(){_tbookEditingId=null;renderTbookTable();}
+async function tbookSaveInline(id){
+  const title=(document.getElementById('tbe-title')?.value||'').trim();
+  if(!title)return toast('교재명을 입력하세요');
+  const existing=(_cache.globalTextbooks||[]).find(b=>b.id===id);if(!existing)return;
+  const tb={...existing,title,
+    publisher:(document.getElementById('tbe-pub')?.value||'').trim(),
+    level:(document.getElementById('tbe-level')?.value||'').trim(),
+    category:document.getElementById('tbe-cat')?.value||'',
+    series:(document.getElementById('tbe-series')?.value||'').trim(),
+    volume:(document.getElementById('tbe-volume')?.value||'').trim(),
+    grade:(document.getElementById('tbe-grade')?.value||'').trim(),
+  };
+  try{
+    await supaUpsert('global_textbooks',id,tb,null);
+    const idx=_cache.globalTextbooks.findIndex(b=>b.id===id);if(idx>=0)_cache.globalTextbooks[idx]=tb;
+    _tbookEditingId=null;renderTbookTable();updateTbookDatalist();toast('저장되었습니다');
+  }catch(e){toast('저장 실패: '+e.message);}
+}
+function tbookStartAdd(){_tbookEditingId=null;_tbookAdding=true;tbookPage=0;renderTbookTable();setTimeout(()=>document.getElementById('tba-title')?.focus(),40);}
+async function tbookSaveAdd(){
+  const title=(document.getElementById('tba-title')?.value||'').trim();
+  if(!title)return toast('교재명을 입력하세요');
+  const tb={id:uid(),title,
+    publisher:(document.getElementById('tba-pub')?.value||'').trim(),
+    level:(document.getElementById('tba-level')?.value||'').trim(),
+    category:document.getElementById('tba-cat')?.value||'',
+    series:(document.getElementById('tba-series')?.value||'').trim(),
+    volume:(document.getElementById('tba-volume')?.value||'').trim(),
+    grade:(document.getElementById('tba-grade')?.value||'').trim(),
+    totalUnits:0,units:{}
+  };
+  try{
+    await supaUpsert('global_textbooks',tb.id,tb,null);
+    if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
+    _cache.globalTextbooks.push(tb);
+    _tbookAdding=false;renderTbookTable();updateTbookDatalist();toast('교재가 추가되었습니다');
+  }catch(e){
+    if(e.message?.includes('404'))toast('global_textbooks 테이블이 없습니다. supabase_missing_tables.sql을 실행해 주세요.');
+    else toast('추가 실패: '+e.message);
+  }
+}
 function openEditTbook(id){
   const b=(_cache.globalTextbooks||[]).find(x=>x.id===id);if(!b)return;
   document.getElementById('tbook-edit-id').value=id;
@@ -3730,6 +3806,7 @@ function getLibPageSize(){return parseInt(document.getElementById('lib-per-page'
 let tbookSortDir='asc',tbookPage=0,tbookSortField='title';
 const TBOOK_PAGE_SIZE=50;
 let _tbookPagedEntries=[];
+let _tbookEditingId=null,_tbookAdding=false;
 
 function populateLibSeriesFilter(){
   const sel=document.getElementById('lib-filter-series');if(!sel)return;
