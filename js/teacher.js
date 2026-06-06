@@ -2350,7 +2350,7 @@ async function tbookSaveInline(id){
   try{
     await supaUpsert('global_textbooks',id,tb,null);
     const idx=_cache.globalTextbooks.findIndex(b=>b.id===id);if(idx>=0)_cache.globalTextbooks[idx]=tb;
-    _tbookEditingId=null;renderTbookTable();updateTbookDatalist();toast('저장되었습니다');
+    _tbookEditingId=null;renderTbookTable();renderBookDB();updateTbookDatalist();closeM('m-tbook-detail');toast('저장되었습니다');
   }catch(e){toast('저장 실패: '+e.message);}
 }
 function tbookStartAdd(){_tbookEditingId=null;_tbookAdding=true;tbookPage=0;renderTbookTable();setTimeout(()=>document.getElementById('tba-title')?.focus(),40);}
@@ -2386,7 +2386,11 @@ function openEditTbook(id){
   document.getElementById('tbook-total-units').value=b.totalUnits||'';
   document.getElementById('tbook-modal-title').textContent='교재 수정';
   document.getElementById('tbook-submit-btn').textContent='저장';
-  openM('m-add-tbook');
+  const delBtn=document.getElementById('tbd-del-btn');if(delBtn)delBtn.style.display='';
+  const gotoBtn=document.getElementById('tbd-goto-units');if(gotoBtn)gotoBtn.style.display='';
+  const unitCnt=Object.keys(b.units||{}).length;
+  const cntEl=document.getElementById('tbd-unit-cnt');if(cntEl)cntEl.textContent=unitCnt?`(${unitCnt})`:'';
+  tbdTab('info');openM('m-tbook-detail');
 }
 async function saveTbook(){
   const title=document.getElementById('tbook-title')?.value.trim();
@@ -2415,7 +2419,7 @@ async function saveTbook(){
       toast('교재가 추가되었습니다');
     }
     renderTbookTable();renderBookDB();updateTbookDatalist();
-    closeM('m-add-tbook');
+    closeM('m-tbook-detail');
     ['tbook-title','tbook-publisher','tbook-level','tbook-edit-id','tbook-grade','tbook-total-units'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display='none';
     const catEl=document.getElementById('tbook-category');if(catEl)catEl.value='';
@@ -2444,7 +2448,19 @@ function openTbookUnits(tbId){
   document.getElementById('tu-tb-id').value=tbId;
   document.getElementById('tu-title').textContent=tb.title;
   document.getElementById('tu-new-unit-name').value='';
-  _tuCurUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,null);openM('m-tbook-units');
+  const tbObj=(_cache.globalTextbooks||[]).find(b=>b.id===tbId)||{};
+  document.getElementById('tbook-edit-id').value=tbId;
+  document.getElementById('tbook-title').value=tbObj.title||'';
+  document.getElementById('tbook-publisher').value=tbObj.publisher||'';
+  document.getElementById('tbook-level').value=tbObj.level||'';
+  document.getElementById('tbook-category').value=tbObj.category||'';
+  document.getElementById('tbook-grade').value=tbObj.grade||'';
+  document.getElementById('tbook-total-units').value=tbObj.totalUnits||'';
+  document.getElementById('tbook-modal-title').textContent=tbObj.title||'단원 단어 관리';
+  document.getElementById('tbook-submit-btn').textContent='저장';
+  const delBtnU=document.getElementById('tbd-del-btn');if(delBtnU)delBtnU.style.display='';
+  const gotoBtnU=document.getElementById('tbd-goto-units');if(gotoBtnU)gotoBtnU.style.display='';
+  _tuCurUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,null);tbdTab('units');openM('m-tbook-detail');
 }
 function tuPopulateUnitSel(tbId){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
@@ -3225,7 +3241,10 @@ function openTbookAdd(){
   document.getElementById('tbook-modal-title').textContent='교재 추가';
   document.getElementById('tbook-submit-btn').textContent='추가';
   const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display='none';
-  openM('m-add-tbook');
+  const delBtn2=document.getElementById('tbd-del-btn');if(delBtn2)delBtn2.style.display='none';
+  const gotoBtn2=document.getElementById('tbd-goto-units');if(gotoBtn2)gotoBtn2.style.display='none';
+  const cntEl2=document.getElementById('tbd-unit-cnt');if(cntEl2)cntEl2.textContent='';
+  tbdTab('info');openM('m-tbook-detail');
 }
 function jumpToBookVocab(id,type){
   switchDataTab('word');
@@ -3237,6 +3256,29 @@ function jumpToBookVocab(id,type){
     wdbPage=0;renderWordDB();
   },60);
 }
+function tbdTab(tab){
+  const infoPane=document.getElementById('tbd-pane-info');
+  const unitsPane=document.getElementById('tbd-pane-units');
+  if(infoPane)infoPane.style.display=tab==='info'?'':'none';
+  if(unitsPane)unitsPane.style.display=tab==='units'?'':'none';
+  const infoBtn=document.getElementById('tbd-tab-info');
+  const unitsBtn=document.getElementById('tbd-tab-units');
+  const on='color:var(--teal);border-bottom-color:var(--teal);font-weight:700';
+  const off='color:var(--slate);border-bottom-color:transparent;font-weight:600';
+  if(infoBtn)infoBtn.style.cssText=`padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;margin-bottom:-2px;font-family:var(--fb);${tab==='info'?on:off}`;
+  if(unitsBtn)unitsBtn.style.cssText=`padding:8px 16px;font-size:12px;border:none;background:none;cursor:pointer;margin-bottom:-2px;font-family:var(--fb);${tab==='units'?on:off}`;
+  if(tab==='units'){
+    const id=document.getElementById('tbook-edit-id')?.value;
+    if(id&&id!==document.getElementById('tu-tb-id')?.value){
+      document.getElementById('tu-tb-id').value=id;
+      _tuCurUnit=null;tuPopulateUnitSel(id);tuRenderWords(id,null);
+    }
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.id===id);
+    const cnt=Object.keys(tb?.units||{}).length;
+    const cntEl=document.getElementById('tbd-unit-cnt');if(cntEl)cntEl.textContent=cnt?`(${cnt})`:'';
+  }
+}
+
 
 // ── 단어 DB (교재+원서 통합) ──
 let _wdbPagedEntries=[],wdbPage=0,wdbSortDir='asc',wdbSortField='word';

@@ -1165,99 +1165,92 @@
   </div>
 </div>
 
-<!-- 교재 추가 -->
-<div id="m-add-tbook" class="mo" data-protect>
-  <div class="mdl">
-    <div class="mh"><div class="mt" id="tbook-modal-title">교재 추가</div><button class="bx" onclick="closeM('m-add-tbook')">×</button></div>
-    <input type="hidden" id="tbook-edit-id">
-    <div class="fg">
-      <div class="f s2"><label>교재명</label><input type="text" id="tbook-title" placeholder="교재명을 입력하세요"></div>
-      <div class="f"><label>출판사</label><input type="text" id="tbook-publisher" placeholder="출판사"></div>
-      <div class="f"><label>레벨</label><input type="text" id="tbook-level" placeholder="예: 초3, 중1, Level 2"></div>
-      <div class="f s2"><label>분류</label>
-        <select id="tbook-category" class="filter-sel" style="width:100%" onchange="const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display=this.value==='내신'?'':'none'">
-          <option value="">선택하세요</option>
-          <option value="파닉스">파닉스</option>
-          <option value="어휘">어휘</option>
-          <option value="어법">어법</option>
-          <option value="리딩">리딩</option>
-          <option value="리스닝">리스닝</option>
-          <option value="라이팅">라이팅</option>
-          <option value="내신">내신</option>
-        </select>
-      </div>
-      <div class="f" id="tbook-grade-f" style="display:none"><label>대상학년</label><input type="text" id="tbook-grade" placeholder="예: 초3-4, 중1, 고1-2"></div>
-      <div class="f"><label>총 유닛 수</label><input type="number" id="tbook-total-units" placeholder="0" min="0" style="width:100%"></div>
-    </div>
-    <button class="btn bt" style="width:100%;margin-top:8px" id="tbook-submit-btn" onclick="saveTbook()">추가</button>
-  </div>
-</div>
-
-<!-- 교재 단원 단어 관리 -->
-<div id="m-tbook-units" class="mo" data-protect>
+<!-- 교재 상세 (기본정보 + 단원·단어 통합) -->
+<div id="m-tbook-detail" class="mo" data-protect>
   <div class="mdl mdl-xl">
     <div class="mh">
-      <div>
-        <div class="mt" id="tu-title">단원별 단어 관리</div>
-        <div style="font-size:12px;color:var(--slate)" id="tu-sub"></div>
+      <div class="mt" id="tbook-modal-title">교재 추가</div>
+      <button class="bx" onclick="closeM('m-tbook-detail')">×</button>
+    </div>
+    <input type="hidden" id="tbook-edit-id">
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px">
+      <button id="tbd-tab-info" onclick="tbdTab('info')" style="padding:8px 16px;font-size:12px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb)">기본 정보</button>
+      <button id="tbd-tab-units" onclick="tbdTab('units')" style="padding:8px 16px;font-size:12px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb)">&#128218; 단원&#183;단어 <span id="tbd-unit-cnt" style="font-size:10px"></span></button>
+    </div>
+    <!-- 기본 정보 탭 -->
+    <div id="tbd-pane-info">
+      <div class="fg">
+        <div class="f s2"><label>교재명</label><input type="text" id="tbook-title" placeholder="교재명을 입력하세요"></div>
+        <div class="f"><label>출판사</label><input type="text" id="tbook-publisher" placeholder="출판사"></div>
+        <div class="f"><label>레벨</label><input type="text" id="tbook-level" placeholder="예: 초3, 중1, Level 2"></div>
+        <div class="f s2"><label>분류</label>
+          <select id="tbook-category" class="filter-sel" style="width:100%" onchange="const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display=this.value==='내신'?'':'none'">
+            <option value="">선택하세요</option>
+            <option value="파닉스">파닉스</option><option value="어휘">어휘</option><option value="어법">어법</option>
+            <option value="리딩">리딩</option><option value="리스닝">리스닝</option><option value="라이팅">라이팅</option><option value="내신">내신</option>
+          </select>
+        </div>
+        <div class="f" id="tbook-grade-f" style="display:none"><label>대상학년</label><input type="text" id="tbook-grade" placeholder="예: 초3-4, 중1, 고1-2"></div>
+        <div class="f"><label>총 유닛 수</label><input type="number" id="tbook-total-units" placeholder="0" min="0" style="width:100%"></div>
       </div>
-      <button class="bx" onclick="closeM('m-tbook-units')">×</button>
-    </div>
-    <input type="hidden" id="tu-tb-id">
-    <select id="tu-unit-sel" style="display:none"></select>
-    <!-- 단원 목록 -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div style="font-size:12px;font-weight:700;color:var(--navy)">단원 목록 <span id="tu-sub" style="font-weight:400;color:var(--slate)"></span></div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--slate);cursor:pointer;user-select:none"><input type="checkbox" id="tu-sel-all" onchange="tuToggleAllUnits(this)"> 전체 선택</label>
-        <button class="btn bd bsm" onclick="tuDeleteSelected()">선택 삭제</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn bt" style="flex:1" id="tbook-submit-btn" onclick="saveTbook()">추가</button>
+        <button id="tbd-del-btn" class="btn bd bsm" style="display:none" onclick="delGlobalTbook(document.getElementById('tbook-edit-id').value)">삭제</button>
       </div>
+      <button id="tbd-goto-units" class="btn ba bsm" style="display:none;width:100%;margin-top:8px" onclick="tbdTab('units')">&#128218; 단원&#183;단어 관리 →</button>
     </div>
-    <div id="tu-unit-list" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:8px;background:#fff"></div>
-    <!-- 단원 생성 -->
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
-      <input type="text" id="tu-new-unit-name" placeholder="단원번호 (Unit 1, Lesson 3 등)" style="flex:1;min-width:100px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
-      <input type="text" id="tu-new-unit-subtitle" placeholder="소제목 (선택)" style="flex:1;min-width:80px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
-      <button class="btn bt bsm" onclick="tuCreateUnit()">+ 단원 생성</button>
-    </div>
-    <!-- 단어 테이블 -->
-    <div style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:10px">
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <thead><tr style="background:var(--cream2);position:sticky;top:0">
-          <th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate);white-space:nowrap">영어</th>
-          <th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate)">한국어</th>
-          <th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate);white-space:nowrap">품사</th>
-          <th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate)">예문</th>
-          <th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate)">영영의미</th>
-          <th style="padding:4px;width:24px"></th>
-        </tr></thead>
-        <tbody id="tu-word-tbody"></tbody>
-      </table>
-    </div>
-    <!-- 단어 추가 폼 -->
-    <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap">
-      <div style="flex:1.2;min-width:80px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">영어 *</label><input type="text" id="tu-en" placeholder="apple" style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fd);color:var(--navy);background:var(--cream);box-sizing:border-box"></div>
-      <div style="flex:1;min-width:70px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">한국어</label><input type="text" id="tu-ko" placeholder="사과" style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream);box-sizing:border-box"></div>
-      <div style="flex:0.7;min-width:70px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">품사</label>
-        <select id="tu-pos" style="width:100%;padding:7px 6px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
-          <option value="">—</option><option value="noun">명사</option><option value="verb">동사</option>
-          <option value="adj">형용사</option><option value="adv">부사</option>
-          <option value="prep">전치사</option><option value="conj">접속사</option><option value="pron">대명사</option>
-          <option value="phrase">구동사/숙어</option>
-        </select>
+    <!-- 단원·단어 탭 -->
+    <div id="tbd-pane-units" style="display:none">
+      <input type="hidden" id="tu-tb-id">
+      <select id="tu-unit-sel" style="display:none"></select>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="font-size:12px;font-weight:700;color:var(--navy)">단원 목록 <span id="tu-sub" style="font-weight:400;color:var(--slate)"></span></div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--slate);cursor:pointer;user-select:none"><input type="checkbox" id="tu-sel-all" onchange="tuToggleAllUnits(this)"> 전체 선택</label>
+          <button class="btn bd bsm" onclick="tuDeleteSelected()">선택 삭제</button>
+        </div>
       </div>
-      <div style="flex:2;min-width:120px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">예문</label><input type="text" id="tu-ex" placeholder="I eat an apple every day." style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream);box-sizing:border-box"></div>
-      <button class="btn ba bsm" onclick="tuAutoFill()" title="AI로 한국어·품사·예문 자동 생성" style="white-space:nowrap">✨ AI채우기</button>
-      <button class="btn bt bsm" onclick="tuAddWord()" style="white-space:nowrap">+ 추가</button>
-    </div>
-    <!-- 파일 가져오기/내보내기 -->
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="btn bt bsm" onclick="document.getElementById('tu-any-file').click()" style="white-space:nowrap">🤖 AI 파일 가져오기</button>
-      <input type="file" id="tu-any-file" accept=".txt,.csv,.xlsx,.xls" style="display:none" onchange="tuImportAny(event)">
-      <button class="btn bt bsm" onclick="tuAutoFillAll()" style="white-space:nowrap">✨ AI 전체 채우기</button>
-      <button class="btn ba bsm" onclick="tuRefreshFromLib()" style="white-space:nowrap" title="원서 DB 텍스트에서 예문 갱신">📚 원서 예문 갱신</button>
-      <button class="btn ba bsm" onclick="tuExportWords()" style="white-space:nowrap">⬇ CSV 내보내기</button>
-      <span style="font-size:11px;color:var(--teal)" id="tu-import-status"></span>
+      <div id="tu-unit-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:8px;background:#fff"></div>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
+        <input type="text" id="tu-new-unit-name" placeholder="단원번호 (Unit 1, Lesson 3 등)" style="flex:1;min-width:100px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
+        <input type="text" id="tu-new-unit-subtitle" placeholder="소제목 (선택)" style="flex:1;min-width:80px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
+        <button class="btn bt bsm" onclick="tuCreateUnit()">+ 단원 생성</button>
+      </div>
+      <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:10px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:var(--cream2);position:sticky;top:0">
+            <th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate);white-space:nowrap">영어</th>
+            <th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate)">한국어</th>
+            <th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate);white-space:nowrap">품사</th>
+            <th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate)">예문</th>
+            <th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate)">영영의미</th>
+            <th style="padding:4px;width:24px"></th>
+          </tr></thead>
+          <tbody id="tu-word-tbody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap">
+        <div style="flex:1.2;min-width:80px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">영어 *</label><input type="text" id="tu-en" placeholder="apple" style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fd);color:var(--navy);background:var(--cream);box-sizing:border-box"></div>
+        <div style="flex:1;min-width:70px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">한국어</label><input type="text" id="tu-ko" placeholder="사과" style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream);box-sizing:border-box"></div>
+        <div style="flex:0.7;min-width:70px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">품사</label>
+          <select id="tu-pos" style="width:100%;padding:7px 6px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
+            <option value="">—</option><option value="noun">명사</option><option value="verb">동사</option>
+            <option value="adj">형용사</option><option value="adv">부사</option><option value="prep">전치사</option>
+            <option value="conj">접속사</option><option value="pron">대명사</option><option value="phrase">구동사/숙어</option>
+          </select>
+        </div>
+        <div style="flex:2;min-width:120px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">예문</label><input type="text" id="tu-ex" placeholder="I eat an apple every day." style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream);box-sizing:border-box"></div>
+        <button class="btn ba bsm" onclick="tuAutoFill()" title="AI로 자동 생성" style="white-space:nowrap">✨ AI채우기</button>
+        <button class="btn bt bsm" onclick="tuAddWord()" style="white-space:nowrap">+ 추가</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn bt bsm" onclick="document.getElementById('tu-any-file').click()" style="white-space:nowrap">🤖 AI 파일 가져오기</button>
+        <input type="file" id="tu-any-file" accept=".txt,.csv,.xlsx,.xls" style="display:none" onchange="tuImportAny(event)">
+        <button class="btn bt bsm" onclick="tuAutoFillAll()" style="white-space:nowrap">✨ AI 전체 채우기</button>
+        <button class="btn ba bsm" onclick="tuRefreshFromLib()" style="white-space:nowrap">📚 원서 예문 갱신</button>
+        <button class="btn ba bsm" onclick="tuExportWords()" style="white-space:nowrap">⬇ CSV 내보내기</button>
+        <span style="font-size:11px;color:var(--teal)" id="tu-import-status"></span>
+      </div>
     </div>
   </div>
 </div>
