@@ -2941,11 +2941,15 @@ function renderWordDB(){
   const q=(document.getElementById('wdb-q')?.value||'').toLowerCase().trim();
   const posF=document.getElementById('wdb-pos')?.value||'';
   const srcF=document.getElementById('wdb-src')?.value||'';
+  const srcIdF=document.getElementById('wdb-src-id')?.value||'';
+  const srcUnitF=document.getElementById('wdb-src-unit')?.value||'';
   const noKoF=document.getElementById('wdb-no-ko')?.checked||false;
   let words=buildWordDB();
   if(q)words=words.filter(w=>w.word.includes(q)||w.ko.includes(q)||w.srcTitle.toLowerCase().includes(q));
   if(posF)words=words.filter(w=>w.pos===posF);
   if(srcF)words=words.filter(w=>w.srcType===srcF);
+  if(srcIdF)words=words.filter(w=>w.srcId===srcIdF);
+  if(srcUnitF)words=words.filter(w=>w.srcUnit===srcUnitF);
   if(noKoF)words=words.filter(w=>!w.ko);
   const _wd=wdbSortDir==='asc'?1:-1;
   words.sort((a,b)=>{
@@ -3169,7 +3173,41 @@ function wdbResetFilters(){
   const pos=document.getElementById('wdb-pos');if(pos)pos.value='';
   const src=document.getElementById('wdb-src');if(src)src.value='';
   const noKo=document.getElementById('wdb-no-ko');if(noKo)noKo.checked=false;
+  const srcId=document.getElementById('wdb-src-id');if(srcId){srcId.style.display='none';srcId.innerHTML='<option value="">전체</option>';}
+  const srcUnit=document.getElementById('wdb-src-unit');if(srcUnit){srcUnit.style.display='none';srcUnit.innerHTML='<option value="">전체 단원</option>';}
   wdbPage=0;renderWordDB();
+}
+function wdbSrcTypeChange(){
+  const type=document.getElementById('wdb-src')?.value||'';
+  const idSel=document.getElementById('wdb-src-id');
+  const unitSel=document.getElementById('wdb-src-unit');
+  if(!idSel)return;
+  if(unitSel){unitSel.style.display='none';unitSel.innerHTML='<option value="">전체 단원</option>';}
+  if(!type){idSel.style.display='none';idSel.innerHTML='<option value="">전체</option>';return;}
+  let opts='<option value="">전체</option>';
+  if(type==='textbook'){
+    const books=[...(_cache.globalTextbooks||[])].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+    opts+=books.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title||b.id)}</option>`).join('');
+  }else{
+    const seen=new Set();
+    const books=[...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]),...(_cache.library||[])]
+      .filter(b=>{if(seen.has(b.id))return false;seen.add(b.id);return b.vocab?.length;})
+      .sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+    opts+=books.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title||b.id)}</option>`).join('');
+  }
+  idSel.innerHTML=opts;idSel.style.display='';
+}
+function wdbSrcIdChange(){
+  const type=document.getElementById('wdb-src')?.value||'';
+  const srcId=document.getElementById('wdb-src-id')?.value||'';
+  const unitSel=document.getElementById('wdb-src-unit');
+  if(!unitSel)return;
+  if(type!=='textbook'||!srcId){unitSel.style.display='none';unitSel.innerHTML='<option value="">전체 단원</option>';return;}
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===srcId);
+  if(!tb?.units){unitSel.style.display='none';return;}
+  const units=Object.keys(tb.units).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  unitSel.innerHTML='<option value="">전체 단원</option>'+units.map(u=>`<option value="${escAttr(u)}">${escAttr(u)}</option>`).join('');
+  unitSel.style.display='';
 }
 function wdbGoPage(val,total){
   wdbPage=Math.max(0,Math.min(total-1,(parseInt(val)||1)-1));
@@ -3236,14 +3274,21 @@ async function wdbDeleteAll(){
   const q=(document.getElementById('wdb-q')?.value||'').toLowerCase().trim();
   const posF=document.getElementById('wdb-pos')?.value||'';
   const srcF=document.getElementById('wdb-src')?.value||'';
+  const srcIdF=document.getElementById('wdb-src-id')?.value||'';
+  const srcUnitF=document.getElementById('wdb-src-unit')?.value||'';
   const noKoF=document.getElementById('wdb-no-ko')?.checked||false;
   let words=buildWordDB();
   if(q)words=words.filter(w=>w.word.includes(q)||w.ko.includes(q)||w.srcTitle.toLowerCase().includes(q));
   if(posF)words=words.filter(w=>w.pos===posF);
   if(srcF)words=words.filter(w=>w.srcType===srcF);
+  if(srcIdF)words=words.filter(w=>w.srcId===srcIdF);
+  if(srcUnitF)words=words.filter(w=>w.srcUnit===srcUnitF);
   if(noKoF)words=words.filter(w=>!w.ko);
   if(!words.length)return toast('삭제할 단어가 없습니다');
-  const filterDesc=q||posF||srcF||noKoF?`현재 필터 조건의 ${words.length}개`:`전체 ${words.length}개`;
+  const srcIdLabel=srcIdF?(buildWordDB().find(w=>w.srcId===srcIdF)?.srcTitle||srcIdF):'';
+  const filterDesc=q||posF||srcF||srcIdF||srcUnitF||noKoF
+    ?(srcUnitF?`[${srcIdLabel} · ${srcUnitF}] ${words.length}개`:srcIdF?`[${srcIdLabel}] ${words.length}개`:`현재 필터 조건의 ${words.length}개`)
+    :`전체 ${words.length}개`;
   askConfirm('일괄 삭제',`${filterDesc} 단어를 모두 삭제할까요?`,'삭제','bd',async()=>{
     const tbMap={},libMap={};
     for(const e of words){
