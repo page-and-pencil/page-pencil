@@ -252,7 +252,7 @@ async function loadParent(sid){
   }
 
   // 액션 버튼 (최하단)
-  blocks+=`<div style="display:flex;gap:8px;padding:4px 0 16px"><button onclick="openParentMsgModal('${sid}')" style="flex:1;padding:11px;background:none;border:1.5px solid var(--border);border-radius:10px;font-family:var(--fb);font-size:13px;font-weight:600;cursor:pointer;color:var(--navy)">💬 선생님께 질문하기</button><button class="print-btn" onclick="printReport()" style="flex:1">🖨️ 리포트 인쇄</button></div>`;
+  blocks+=`<div style="display:flex;gap:8px;padding:4px 0 16px"><button onclick="openParentMsgModal('${sid}')" style="flex:1;padding:11px;background:#FEE500;border:none;border-radius:10px;font-family:var(--fb);font-size:13px;font-weight:700;cursor:pointer;color:#3C1E1E">💬 카카오톡으로 질문하기</button><button class="print-btn" onclick="printReport()" style="flex:1">🖨️ 리포트 인쇄</button></div>`;
 
   document.getElementById('pp-body').innerHTML=blocks;
 
@@ -629,58 +629,16 @@ function togglePaySection(){
   if(icon)icon.textContent=isHidden?'▲':'▼';
 }
 
-// ── 학부모 질문 메시지 (카카오톡 연동) ──
+// ── 학부모 카카오톡 바로 연결 ──
 function openParentMsgModal(sid){
-  const existing=document.getElementById('parent-msg-modal');
-  if(existing)existing.remove();
-  const kakao=DB.kakao();
-  const hasKakao=!!(kakao.phone||kakao.openchat);
-  const modal=document.createElement('div');
-  modal.id='parent-msg-modal';
-  modal.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center';
-  modal.innerHTML=`<div style="background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:500px;box-sizing:border-box">
-    <div style="font-size:15px;font-weight:700;margin-bottom:6px">선생님께 질문하기</div>
-    <div style="font-size:12px;color:var(--slate);margin-bottom:14px;line-height:1.6">${hasKakao?'✅ 카카오톡으로 연결됩니다<br>메시지가 복사되고 카카오톡이 열려요':'📋 메시지가 클립보드에 복사됩니다<br>카카오톡에 직접 붙여넣기 해주세요'}</div>
-    <textarea id="parent-msg-input" placeholder="궁금한 점을 입력해 주세요" style="width:100%;height:100px;border:1.5px solid var(--border);border-radius:10px;padding:10px;font-family:var(--fb);font-size:13px;resize:none;outline:none;box-sizing:border-box"></textarea>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button onclick="document.getElementById('parent-msg-modal').remove()" style="flex:1;padding:11px;border:1.5px solid var(--border);border-radius:10px;background:none;font-family:var(--fb);cursor:pointer;font-size:13px">취소</button>
-      <button onclick="sendParentMsg('${sid}')" style="flex:2;padding:11px;background:#FEE500;color:#3C1E1E;border:none;border-radius:10px;font-family:var(--fb);font-weight:700;cursor:pointer;font-size:13px">${hasKakao?'💬 카카오톡으로 보내기':'📋 복사하고 카톡 열기'}</button>
-    </div>
-  </div>`;
-  document.body.appendChild(modal);
-  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
-  setTimeout(()=>document.getElementById('parent-msg-input')?.focus(),100);
-}
-async function sendParentMsg(sid){
-  const input=document.getElementById('parent-msg-input');
-  if(!input)return;
-  const text=input.value.trim();
-  if(!text){toast('내용을 입력해 주세요');return;}
-  const s=DB.stus().find(x=>x.id===sid);
-  const stuName=s?.name||'학생';
-  const fullText=`[Page & Pencil] ${stuName} 학부모 문의\n${text}`;
-  document.getElementById('parent-msg-modal')?.remove();
-  // 클립보드 복사
-  try{await navigator.clipboard.writeText(fullText);}catch(e){}
-  // 카카오톡 열기
   const kakao=DB.kakao();
   if(kakao.openchat){
     window.open(kakao.openchat,'_blank');
-    toast('메시지를 복사했어요! 카카오톡 오픈채팅에 붙여넣기 해주세요 📋');
   }else if(kakao.phone){
     window.open(`kakaotalk://open/chat?phoneNum=${kakao.phone}`);
-    setTimeout(()=>{toast('메시지를 복사했어요! 카카오톡에 붙여넣기 해주세요 📋');},300);
   }else{
-    window.open('kakaotalk://launch');
-    setTimeout(()=>{toast('메시지를 복사했어요! 카카오톡에 붙여넣기 해주세요 📋');},300);
+    toast('선생님 카카오톡이 아직 설정되지 않았어요');
   }
-  // Supabase 백업 (조용히)
-  try{
-    const msg={id:uid(),sid,from:'parent',text,date:new Date().toISOString().split('T')[0],type:'question'};
-    await supaUpsert('messages',msg.id,msg,sid);
-    if(!_cache.messages)_cache.messages=[];
-    _cache.messages.push(msg);
-  }catch(e){}
 }
 
 // ── GROWTH TIMELINE ──
