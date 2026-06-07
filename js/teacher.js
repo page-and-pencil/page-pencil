@@ -4759,9 +4759,10 @@ async function importMasterCSV(e){
             addedWords++;
           }
           if(importMode==='append'){
-            // 기존 단어 유지 + CSV 단어 추가/갱신 (word 기준 merge)
-            const existMap=new Map((b.vocab||[]).map(w=>[(w.word||'').toLowerCase(),w]));
-            for(const nw of csvVocab) existMap.set((nw.word||'').toLowerCase(),{...(existMap.get((nw.word||'').toLowerCase())||{}),...nw});
+            // 기존 단어 유지 + CSV 단어 추가/갱신 — 챕터가 다르면 별도 항목 유지
+            const vKey=w=>`${(w.word||'').toLowerCase()}|${(w.chapter||'').toLowerCase()}`;
+            const existMap=new Map((b.vocab||[]).map(w=>[vKey(w),w]));
+            for(const nw of csvVocab) existMap.set(vKey(nw),{...(existMap.get(vKey(nw))||{}),...nw});
             b.vocab=[...existMap.values()];
           } else {
             b.vocab=csvVocab;
