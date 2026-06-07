@@ -1028,7 +1028,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
     const noMatch=catFilter&&!books.length;
     if(noMatch)books=_cache.globalTextbooks||[];
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
-    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
+    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
     bookInput=`<select data-f="book" onchange="clUpdateUnitHint(this)" style="${_bkSelSt}">${opts}</select>`;
     if(!noUnit){
       const initTbCl=bookVal?books.find(b=>b.title===bookVal):null;
@@ -1043,7 +1043,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
     const noMatch=catFilter&&!books.length;
     if(noMatch)books=_cache.globalTextbooks||[];
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
-    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
+    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
     bookInput=`<select data-f="book" onchange="lesUpdateUnitSel(this)" style="${_bkSelSt}">${opts}</select>`;
     if(!noUnit){
       const initTb=bookVal?(_cache.globalTextbooks||[]).find(b=>b.title===bookVal):null;
@@ -6704,10 +6704,11 @@ function clUpdateUnitHint(sel){
   const sr=sel.closest('.sr');if(!sr)return;
   const unitInp=sr.querySelector('[data-f="unit"]');if(!unitInp)return;
   const bookTitle=sel.value;
+  const bkId=sel.options[sel.selectedIndex]?.getAttribute('data-bk-id')||'';
   const dlId=unitInp.getAttribute('list');
   const dl=dlId?document.getElementById(dlId):null;
   if(dl){
-    const tb=(_cache.globalTextbooks||[]).find(b=>b.title===bookTitle);
+    const tb=bkId?(_cache.globalTextbooks||[]).find(b=>b.id===bkId):(_cache.globalTextbooks||[]).find(b=>b.title===bookTitle);
     const units=tb?Object.keys(tb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
     const titlesMap=tb?.unitTitles||{};
     dl.innerHTML=units.map(k=>`<option value="${escAttr(k)}">${k}${titlesMap[k]?' — '+titlesMap[k]:''}</option>`).join('');
@@ -6726,7 +6727,8 @@ function clUpdateUnitHint(sel){
 function lesUpdateUnitSel(sel){
   const sr=sel.closest('.sr');if(!sr)return;
   const unitInp=sr.querySelector('[data-f="unit"]');if(!unitInp)return;
-  const tb=(_cache.globalTextbooks||[]).find(b=>b.title===sel.value);
+  const bkId=sel.options[sel.selectedIndex]?.getAttribute('data-bk-id')||'';
+  const tb=bkId?(_cache.globalTextbooks||[]).find(b=>b.id===bkId):(_cache.globalTextbooks||[]).find(b=>b.title===sel.value);
   const units=tb?Object.keys(tb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
   const titlesMap=tb?.unitTitles||{};
   const dlId=unitInp.getAttribute('list');
