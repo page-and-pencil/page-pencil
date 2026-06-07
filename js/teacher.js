@@ -2229,12 +2229,16 @@ async function elibProcessImport(rows,id,mode){
 function elibExportVocab(){
   const id=document.getElementById('elib-id').value;
   const b=_cache.library.find(x=>x.id===id);if(!b)return;
-  const vocab=b.vocab||[];if(!vocab.length)return toast('단어가 없습니다');
-  const header='영어,한국어,품사,예문';
-  const rows=vocab.map(w=>[`"${(w.word||'').replace(/"/g,'""')}"`,`"${(w.ko||'').replace(/"/g,'""')}"`,`"${(w.pos||'').replace(/"/g,'""')}"`,`"${(w.example||'').replace(/"/g,'""')}"`].join(','));
+  const vocab=b.vocab||[];
+  const q=v=>`"${(v===null||v===undefined?'':String(v)).replace(/"/g,'""')}"`;
+  const header='타입,제목,시리즈,AR,레벨,분류,유닛,단어,한국어,품사,예문,v2,v3';
+  const rows=vocab.length
+    ?vocab.map(w=>[q('library'),q(b.title||''),q(b.series||''),q(b.arLevel||b.ar||''),q(b.level||''),q(b.genre||''),q(w.chapter||w.unit||''),q(w.word||''),q(w.ko||''),q(w.pos||''),q(w.example||''),q(w.v2||''),q(w.v3||'')].join(','))
+    :[[q('library'),q(b.title||''),q(b.series||''),q(b.arLevel||b.ar||''),q(b.level||''),q(b.genre||''),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(',')];
   const csv='﻿'+[header,...rows].join('\r\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download=`${b.title||'원서'}_단어장.csv`;a.click();
+  a.download=`${b.title||'원서'}_마스터.csv`;a.click();
+  toast(vocab.length?`${vocab.length}개 단어 내보내기 완료`:'단어 없이 책 정보만 내보냈습니다');
 }
 function delLib(){
   const id=document.getElementById('elib-id').value;
@@ -2961,11 +2965,34 @@ function tuExportWords(){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const words=tuNormWords(tb.units?.[_tuCurUnit]||[]);
   if(!words.length)return toast('단어가 없습니다');
-  const header='영어,한국어,품사,예문';
-  const rows=words.map(w=>[`"${(w.word||'').replace(/"/g,'""')}"`,`"${(w.ko||'').replace(/"/g,'""')}"`,`"${(w.pos||'').replace(/"/g,'""')}"`,`"${(w.example||'').replace(/"/g,'""')}"`].join(','));
+  const q=v=>`"${(v===null||v===undefined?'':String(v)).replace(/"/g,'""')}"`;
+  const header='타입,제목,시리즈,AR,레벨,분류,유닛,단어,한국어,품사,예문,v2,v3';
+  const rows=words.map(w=>[q('textbook'),q(tb.title||''),q(tb.series||''),q(''),q(tb.level||''),q(tb.category||''),q(_tuCurUnit),q(w.word||''),q(w.ko||''),q(w.pos||''),q(w.example||''),q(w.v2||''),q(w.v3||'')].join(','));
   const csv='﻿'+[header,...rows].join('\r\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download=`${tb.title}_${_tuCurUnit}_단어.csv`;a.click();
+  a.download=`${tb.title}_${_tuCurUnit}_마스터.csv`;a.click();
+}
+function tuExportAllWords(){
+  const tbId=document.getElementById('tu-tb-id').value;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const q=v=>`"${(v===null||v===undefined?'':String(v)).replace(/"/g,'""')}"`;
+  const header='타입,제목,시리즈,AR,레벨,분류,유닛,단어,한국어,품사,예문,v2,v3';
+  const rows=[];
+  const units=tb.units||{};
+  if(!Object.keys(units).length){
+    rows.push([q('textbook'),q(tb.title||''),q(tb.series||''),q(''),q(tb.level||''),q(tb.category||''),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  } else {
+    for(const [uKey,ws] of Object.entries(units)){
+      const words=tuNormWords(ws||[]);
+      if(!words.length){rows.push([q('textbook'),q(tb.title||''),q(tb.series||''),q(''),q(tb.level||''),q(tb.category||''),q(uKey),q(''),q(''),q(''),q(''),q(''),q('')].join(','));continue;}
+      for(const w of words)rows.push([q('textbook'),q(tb.title||''),q(tb.series||''),q(''),q(tb.level||''),q(tb.category||''),q(uKey),q(w.word||''),q(w.ko||''),q(w.pos||''),q(w.example||''),q(w.v2||''),q(w.v3||'')].join(','));
+    }
+  }
+  const wordCount=rows.filter(r=>r.split(',')[7].replace(/"/g,'').trim()).length;
+  const csv='﻿'+[header,...rows].join('\r\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`${tb.title||'교재'}_전체_마스터.csv`;a.click();
+  toast(`전체 내보내기 완료 (단원 ${Object.keys(units).length}개, 단어 ${wordCount}개)`);
 }
 // 모지바케(UTF-8→Latin-1 잘못 저장) 자동 복구
 function tryFixEncoding(text){
@@ -4646,6 +4673,7 @@ async function importMasterCSV(e){
   const reader=new FileReader();
   reader.onload=async ev=>{
     if(btn){btn.disabled=true;btn.textContent='가져오는 중...';}
+    const typeFilter=(document.getElementById('master-csv-filter')?.value||'all');
     try{
       const rows=parseCSVText(ev.target.result);
       if(rows.length<2){toast('CSV 파일이 비어있습니다');e.target.value='';return;}
@@ -4661,6 +4689,7 @@ async function importMasterCSV(e){
       for(let i=1;i<rows.length;i++){
         const r=rows[i];const type=get(r,iType).toLowerCase();const title=get(r,iTitle);
         if(!type||!title)continue;
+        if(typeFilter!=='all'&&type!==typeFilter)continue;
         const lk=(get(r,iLevel)||'').trim().toLowerCase();
         const sk=(get(r,iSeries)||'').trim().toLowerCase();
         const key=type==='textbook'?type+'|'+title.toLowerCase()+'|'+lk:type+'|'+title.toLowerCase()+'|'+sk;
@@ -4668,6 +4697,7 @@ async function importMasterCSV(e){
         bookMap[key].rows.push(r);
       }
       let addedBooks=0,updatedBooks=0,addedWords=0,failedBooks=0;
+      const failedTitles=[];
       const bookEntries=Object.values(bookMap);
       let processed=0;
       for(const bk of bookEntries){
@@ -4698,7 +4728,7 @@ async function importMasterCSV(e){
           const sz=JSON.stringify(b).length;
           if(sz>500000)console.warn(`[importMasterCSV] 교재 "${title}" ${(sz/1024).toFixed(0)}KB — Supabase 행 크기 한도 초과 위험`);
           try{await supaUpsert('global_textbooks',b.id,b,null);}
-          catch(err){failedBooks++;console.error(`[importMasterCSV] "${title}" 저장 실패:`,err);}
+          catch(err){failedBooks++;failedTitles.push(title);console.error(`[importMasterCSV] "${title}" 저장 실패:`,err);}
         } else if(type==='library'){
           const tl=title.toLowerCase();
           let b=(_cache.library||[]).find(x=>(x.title||'').trim().toLowerCase()===tl&&(x.series||'').trim().toLowerCase()===csvSeries);
@@ -4720,14 +4750,17 @@ async function importMasterCSV(e){
           const sz=JSON.stringify(b).length;
           if(sz>500000)console.warn(`[importMasterCSV] 원서 "${title}" ${(sz/1024).toFixed(0)}KB — Supabase 행 크기 한도 초과 위험`);
           try{await supaUpsert('global_textbooks',b.id,b,null);}
-          catch(err){failedBooks++;console.error(`[importMasterCSV] "${title}" 저장 실패:`,err);}
+          catch(err){failedBooks++;failedTitles.push(title);console.error(`[importMasterCSV] "${title}" 저장 실패:`,err);}
         }
       }
       renderBookDB();renderMasterDB();
       if(typeof wdbPage!=='undefined')wdbPage=0;
       if(typeof renderWordDB==='function')renderWordDB();
-      const failMsg=failedBooks>0?` (${failedBooks}개 저장 실패 — 콘솔 확인)`:'';
-      toast(`임포트 완료: 책 ${addedBooks}권 신규, ${updatedBooks}권 갱신, 단어 ${addedWords}개 추가${failMsg}`);
+      const filterLabel=typeFilter==='textbook'?' (교재만)':typeFilter==='library'?' (원서만)':'';
+      toast(`임포트 완료${filterLabel}: 책 ${addedBooks}권 신규, ${updatedBooks}권 갱신, 단어 ${addedWords}개 추가`);
+      if(failedBooks>0){
+        askConfirm(`${failedBooks}권 저장 실패`,`다음 책이 저장되지 않았습니다:\n${failedTitles.map(t=>`• ${t}`).join('\n')}\n\n행 크기 초과 또는 네트워크 오류일 수 있습니다.\n해당 책만 담은 CSV로 재시도해 보세요.`,'확인','bo',()=>{});
+      }
       e.target.value='';
     }finally{
       if(btn){btn.disabled=false;btn.textContent='📥 마스터 CSV';}
