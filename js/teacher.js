@@ -4753,7 +4753,7 @@ async function importMasterCSV(e){
           catch(err){failedBooks++;failedTitles.push(title);console.error(`[importMasterCSV] "${title}" 저장 실패:`,err);}
         }
       }
-      renderBookDB();renderMasterDB();
+      renderBookDB();renderMasterDB();renderTbookTable();
       if(typeof wdbPage!=='undefined')wdbPage=0;
       if(typeof renderWordDB==='function')renderWordDB();
       const filterLabel=typeFilter==='textbook'?' (교재만)':typeFilter==='library'?' (원서만)':'';
