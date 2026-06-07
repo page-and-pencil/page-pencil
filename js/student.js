@@ -285,7 +285,7 @@ function renderStudentLibrary(sid){
             <div class="stu-book-title">${b.title||'—'}</div>
             <div class="stu-book-series">${b.series||''}${b.level?' · Lv.'+b.level:''}</div>
             <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
-              ${isCurrent?`<span style="font-size:10px;padding:2px 8px;background:#FFF3CD;color:#856404;border-radius:10px;font-weight:700">현재 읽는 중 📖</span>`:''}
+              ${isCurrent?`<span class="badge badge-xs badge-reading">현재 읽는 중 📖</span>`:''}
               ${isMine&&!isCurrent?`<span style="font-size:10px;padding:2px 7px;background:var(--tl);color:var(--purple);border-radius:10px;font-weight:700">✓ 읽음</span>`:''}
               ${rdDate?`<span style="font-size:10px;color:var(--slate)">${rdDate}</span>`:''}
               ${hasAudio?`<span style="font-size:10px;padding:2px 7px;background:rgba(0,196,204,.1);color:#005f6b;border-radius:10px;font-weight:700">🎧 오디오</span>`:
@@ -722,7 +722,7 @@ function renderMemCard(el){
       <span class="vc-phase phase-mem">👀 암기</span>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
-        <button class="btn bo" style="font-size:10px;padding:2px 8px;line-height:1.6" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
+        <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
       </div>
     </div>
     <div class="vc-prog">${prog}</div>
@@ -731,7 +731,7 @@ function renderMemCard(el){
         <div class="vc-face vc-front">
           <div class="vc-word">${card.word}</div>
           <div class="vc-pos">${card.pos||''}</div>
-          ${(()=>{const lv=(card.wlevel||getWordLevel(card.word).display);return lv?`<div style="margin-top:6px"><span style="font-size:10px;padding:2px 8px;border-radius:10px;font-family:var(--fm);${lv.startsWith('Dolch')?'background:#e0f2fe;color:#0369a1':lv.startsWith('A')?'background:#dcfce7;color:#166534':lv.startsWith('B')?'background:#fef9c3;color:#92400e':lv.startsWith('C')?'background:#ffe4e6;color:#9f1239':'background:#f3e8ff;color:#7e22ce'}">${lv}</span></div>`:'';})()}
+          ${(()=>{const lv=(card.wlevel||getWordLevel(card.word).display);if(!lv)return'';const cls=lv.startsWith('Dolch')?'blv-dolch':lv.startsWith('A')?'blv-a':lv.startsWith('B')?'blv-b':lv.startsWith('C')?'blv-c':'blv-other';return`<div style="margin-top:6px"><span class="badge badge-xs ${cls}">${lv}</span></div>`;})()}
           <button onclick="event.stopPropagation();speakWord('${card.word.replace(/'/g,"\\'")}');" style="margin-top:8px;background:none;border:1.5px solid rgba(0,196,204,.35);border-radius:20px;padding:4px 14px;font-size:13px;cursor:pointer;color:var(--teal);font-family:var(--fb)">🔊 발음 듣기</button>
           <div class="vc-hint" style="margin-top:8px">탭하면 뜻이 보여요</div>
         </div>
@@ -801,7 +801,7 @@ function renderRecallCard(el){
       <span class="vc-phase phase-rec">🧠 리콜</span>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
-        <button class="btn bo" style="font-size:10px;padding:2px 8px;line-height:1.6" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
+        <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
       </div>
     </div>
     <div class="vc-prog">${prog}</div>
@@ -891,7 +891,7 @@ function renderSpellCard(el){
       <span class="vc-phase phase-spl">✍️ 스펠</span>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
-        <button class="btn bo" style="font-size:10px;padding:2px 8px;line-height:1.6" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
+        <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
       </div>
     </div>
     <div class="vc-prog">${prog}</div>

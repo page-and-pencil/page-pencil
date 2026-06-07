@@ -534,7 +534,7 @@ async function loadStuPanel(sid){
   // ── 수업 (최근 10개, 더보기 가능) ──
   const lesSlice=les.slice(0,10);
   document.getElementById('sp-lessons').innerHTML=!les.length
-    ?`<div class="empty"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div><button class="btn bt bsm" style="margin-top:10px" onclick="goAddLesson('${sid}')">+ 첫 수업 기록하기 →</button></div>`
+    ?`<div class="empty"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div><button class="btn bt bsm" onclick="goAddLesson('${sid}')">+ 첫 수업 기록하기 →</button></div>`
     :`${lesSlice.map(l=>{
       const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
       const tbParts=[],bookParts=[];
@@ -553,8 +553,8 @@ async function loadStuPanel(sid){
           <span style="font-size:12px;font-family:var(--fm);color:var(--slate)">${l.date||''}</span>
           <div style="display:flex;gap:4px">
             ${attLabel?`<span class="att-chip ${ATTCLS[l.att]}" style="font-size:10px">${attLabel}</span>`:''}
-            <button class="btn bo" style="padding:2px 8px;font-size:10px" onclick="openEditLes('${l.id}')">✏️</button>
-            <button class="btn bd" style="padding:2px 8px;font-size:10px" onclick="reqDelLesFromPanel('${l.id}','${sid}')">🗑️</button>
+            <button class="btn bo bxxs" onclick="openEditLes('${l.id}')">✏️</button>
+            <button class="btn bd bxxs" onclick="reqDelLesFromPanel('${l.id}','${sid}')">🗑️</button>
           </div>
         </div>
         ${tbParts.length?`<div style="font-size:12px;margin-bottom:${bookParts.length||l.cmt?'4px':'0'};line-height:1.8">${tbParts.join(' &nbsp;')}</div>`:''}
@@ -567,7 +567,7 @@ async function loadStuPanel(sid){
 
   // ── 테스트 (최근 5개) ──
   document.getElementById('sp-tests').innerHTML=!tsts.length
-    ?`<div class="empty"><div class="empty-i">📝</div><div class="empty-t">아직 테스트 기록이 없습니다</div><button class="btn bt bsm" style="margin-top:10px" onclick="swTab('t-tst');setTimeout(()=>{const el=document.getElementById('ts-stu');if(el)el.value='${sid}'},200)">+ 테스트 입력하기 →</button></div>`
+    ?`<div class="empty"><div class="empty-i">📝</div><div class="empty-t">아직 테스트 기록이 없습니다</div><button class="btn bt bsm" onclick="swTab('t-tst');setTimeout(()=>{const el=document.getElementById('ts-stu');if(el)el.value='${sid}'},200)">+ 테스트 입력하기 →</button></div>`
     :tsts.slice(0,5).map(t=>{
       const vp=pct(t.vocabCorrect,t.vocabTotal),gp=pct(t.grammarCorrect,t.grammarTotal);
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
@@ -614,7 +614,7 @@ async function loadStuPanel(sid){
             <td style="padding:5px 6px;font-weight:700">${Number(p.amt||0).toLocaleString()}원</td>
             <td style="padding:5px 6px"><span class="badge bnavy">${PAY_METHOD_LBL[p.method]||'—'}</span></td>
             <td style="padding:5px 6px"><span class="badge ${p.receipt==='issued'?'bteal':p.receipt==='requested'?'bamber':'bslate'}">${PAY_RECEIPT_LBL[p.receipt]||'—'}</span></td>
-            <td style="padding:5px 6px"><button class="btn bd" style="padding:2px 8px;font-size:11px" onclick="reqRemovePay('${sid}',${origIdx},true)">삭제</button></td>
+            <td style="padding:5px 6px"><button class="btn bd bxxs" onclick="reqRemovePay('${sid}',${origIdx},true)">삭제</button></td>
           </tr>`;
         }).join('')}</tbody>
       </table>`}`;
@@ -685,7 +685,7 @@ async function loadStuPanel(sid){
       ${h.memo?`<div style="font-size:11px;color:var(--slate);margin-top:3px">💬 ${h.memo}</div>`:''}
     </div>`).join('')}
   </div>`:''}
-  ${!sAssigns.length&&!sHws.length?`<div class="empty"><div class="empty-i">📤</div><div class="empty-t">할당된 과제가 없습니다</div><button class="btn bt bsm" style="margin-top:10px" onclick="openAssignModal('${sid}')">+ 과제 할당하기 →</button></div>`:''}
+  ${!sAssigns.length&&!sHws.length?`<div class="empty"><div class="empty-i">📤</div><div class="empty-t">할당된 과제가 없습니다</div><button class="btn bt bsm" onclick="openAssignModal('${sid}')">+ 과제 할당하기 →</button></div>`:''}
   `;
 
   document.getElementById('stu-panel').classList.add('open');
@@ -789,7 +789,7 @@ function renderStus(){
 
   if(!stus.length){
     const noFilter=!q&&!filterGrade&&!filterSchool&&filterStatus==='active';
-    g.innerHTML=`<div class="empty"><div class="empty-i">👦</div><div class="empty-t">${noFilter?'등록된 학생이 없습니다':'조건에 맞는 학생이 없습니다'}</div>${noFilter?`<button class="btn ba bsm" style="margin-top:12px" onclick="openAddStu()">+ 첫 학생 추가하기</button>`:''}</div>`;
+    g.innerHTML=`<div class="empty"><div class="empty-i">👦</div><div class="empty-t">${noFilter?'등록된 학생이 없습니다':'조건에 맞는 학생이 없습니다'}</div>${noFilter?`<button class="btn ba bsm" onclick="openAddStu()">+ 첫 학생 추가하기</button>`:''}</div>`;
     return;
   }
   g.innerHTML=stus.map(s=>`<div class="sc${s.inactive?' inactive':''}" onclick="selStu('${s.id}',this)">
@@ -847,7 +847,7 @@ function renderPayList(stuId, payments){
         <td style="padding:5px 6px"><span class="badge bnavy">${PAY_METHOD_LBL[p.method]||p.method||'—'}</span></td>
         <td style="padding:5px 6px"><span class="badge ${p.receipt==='issued'?'bteal':p.receipt==='requested'?'bamber':'bslate'}">${PAY_RECEIPT_LBL[p.receipt]||'—'}</span></td>
         <td style="padding:5px 6px;color:var(--slate)">${p.memo||''}</td>
-        <td style="padding:5px 6px"><button class="btn bd" style="padding:2px 8px;font-size:11px" onclick="reqRemovePay('${stuId}',${origIdx})">삭제</button></td>
+        <td style="padding:5px 6px"><button class="btn bd bxxs" onclick="reqRemovePay('${stuId}',${origIdx})">삭제</button></td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
@@ -3206,8 +3206,8 @@ function renderBookDB(){
         ?Object.values(b.units||{}).reduce((s,a)=>s+(Array.isArray(a)?a.length:0),0)
         :(b.vocab?.length||0);
       const typeBadge=isTb
-        ?`<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;white-space:nowrap">교재</span>`
-        :`<span class="badge" style="background:#d1fae5;color:#065f46;font-size:10px;white-space:nowrap">원서</span>`;
+        ?`<span class="badge badge-xs btextbook">교재</span>`
+        :`<span class="badge badge-xs blibrary">원서</span>`;
       const meta=escAttr(isTb?(b.category||'—'):(b.series||'—'));
       const level=isTb?(b.level||'—'):((b.arLevel||b.ar)?'AR '+(b.arLevel||b.ar):'—');
       const editFn=isTb?`openEditTbook('${b.id}')`:`openEditLib('${b.id}')`;
@@ -3268,8 +3268,8 @@ function renderMasterDB(){
   tbody.innerHTML=paged.map(r=>{
     const isTb=r.type==='textbook';
     const badge=isTb
-      ?`<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;white-space:nowrap">교재</span>`
-      :`<span class="badge" style="background:#d1fae5;color:#065f46;font-size:10px;white-space:nowrap">원서</span>`;
+      ?`<span class="badge badge-xs btextbook">교재</span>`
+      :`<span class="badge badge-xs blibrary">원서</span>`;
     const lvl=r.level?(isTb?r.level:`AR ${r.level}`):'—';
     const editFn=isTb?`openEditTbook('${r._id}')`:`openEditLib('${r._id}')`;
     return`<tr style="border-bottom:1px solid var(--border)">
@@ -4378,9 +4378,9 @@ function renderLibTable(){
       <td style="font-size:12px;color:var(--slate)">${b.lexile||'—'}</td>
       <td style="font-size:12px;color:var(--slate)">${b.level||'—'}</td>
       <td style="text-align:center;min-width:160px">${renderAudioCell(b)}</td>
-      <td style="text-align:center">${hasText?`<button class="btn bt" style="padding:2px 8px;font-size:10px" onclick="openLibTextViewer('${b.id}')">📄 원문</button>`:'<span style="color:var(--slate);font-size:11px">—</span>'}</td>
+      <td style="text-align:center">${hasText?`<button class="btn bt bxxs" onclick="openLibTextViewer('${b.id}')">📄 원문</button>`:'<span style="color:var(--slate);font-size:11px">—</span>'}</td>
       <td style="white-space:nowrap">
-        <button class="btn bo" style="padding:2px 8px;font-size:11px" onclick="openEditLib('${b.id}')">수정</button>
+        <button class="btn bo bxxs" onclick="openEditLib('${b.id}')">수정</button>
       </td>
     </tr>`;
   }).join('');
@@ -6272,8 +6272,8 @@ function renderSpBooks(sid){
         ${t.manual?`<input type="text" value="${t.unit||''}" placeholder="현재 진도 (예: Unit 3)" style="margin-top:4px;width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream2);outline:none" onchange="updateTextbookUnit('${t.id}','${sid}',this.value)">`:''}
       </div>
       <div style="display:flex;gap:4px;flex-shrink:0">
-        ${t.manual?`<button class="btn ba" style="padding:2px 8px;font-size:11px" onclick="markTextbookDone('${t.id}','${sid}')">✓ 완료</button>`:''}
-        ${t.manual?`<button class="btn bd" style="padding:2px 8px;font-size:11px" onclick="removeTextbook('${t.id}','${sid}')">삭제</button>`:''}
+        ${t.manual?`<button class="btn ba bxxs" onclick="markTextbookDone('${t.id}','${sid}')">✓ 완료</button>`:''}
+        ${t.manual?`<button class="btn bd bxxs" onclick="removeTextbook('${t.id}','${sid}')">삭제</button>`:''}
       </div>
     </div>
   </div>`;
