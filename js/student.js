@@ -338,7 +338,7 @@ async function saveAssignment(sid){
   const a={id:uid(),sid,date,type};
   if(type==='reading'){
     const bookTitle=(document.getElementById(`asgn-book-${sid}`)?.value||'').trim();
-    const allBooks=[...BOOK_DB,...DB.libs()];
+    const allBooks=[...DB.libs()];
     const book=allBooks.find(b=>b.title===bookTitle);
     a.bookId=book?.id||'';
     a.bookTitle=bookTitle;
@@ -372,7 +372,7 @@ function renderAssignmentTab(sid){
   const hws=(_cache.homeworks||[]).filter(h=>h.sid===sid);
   const isSubmitted=a=>hws.some(h=>h.assignmentId===a.id);
   const getHw=a=>hws.find(h=>h.assignmentId===a.id);
-  const allBooks=[...BOOK_DB,...DB.libs()];
+  const allBooks=[...DB.libs()];
 
   const pending=assigns.filter(a=>!isSubmitted(a));
   const done=assigns.filter(a=>isSubmitted(a));
@@ -1199,7 +1199,7 @@ function renderStudentHome(sid){
   const streak=getStreak(sid);
   const lv=getStuLevel(sid);
   const week=getWeeklyStats(sid);
-  const allBooks=[...BOOK_DB,...DB.libs()];
+  const allBooks=[...DB.libs()];
 
   const givenName=stu&&stu.name&&stu.name.length>1?stu.name.slice(1):stu?.name||'';
   const greetHtml=`<div style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:12px">안녕, ${givenName}아! 👋</div>`;

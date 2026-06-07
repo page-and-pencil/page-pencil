@@ -131,7 +131,7 @@ async function loadParent(sid){
 
   // 블록 E — 읽은 원서
   if(rds.length){
-    const allBookSrc=[...BOOK_DB,...DB.libs()];
+    const allBookSrc=[...DB.libs()];
     const recentRds=rds.slice(0,3);
     blocks+=`<div class="card" id="pp-bks-card">
       <div class="ch"><span class="ct">📗 읽은 책</span><span style="font-size:11px;color:var(--slate)">누적 ${rds.length}권</span></div>
@@ -313,7 +313,7 @@ async function loadParent(sid){
 function toggleAllBooks(){
   const el=document.getElementById('pp-bks-inner');if(!el)return;
   const rds=DB.rds().filter(r=>r.sid===currentParentSid);
-  const allBookSrc=[...BOOK_DB,...DB.libs()];
+  const allBookSrc=[...DB.libs()];
   el.innerHTML=rds.map((rd,ri)=>{
     const lib=allBookSrc.find(x=>x.title===rd.title);
     const arDisplay=rd.arLevel||(lib&&(lib.ar||lib.arLevel))||'';
@@ -437,7 +437,7 @@ function renderCalendar(sid){
 // ── AR TREND (원서 난이도 추이) ──
 function getArTrend(sid){
   const rds=DB.rds().filter(r=>r.sid===sid);
-  const allSrc=[...BOOK_DB,...DB.libs()];
+  const allSrc=[...DB.libs()];
   const arData=rds.map(r=>{
     const lib=allSrc.find(x=>x.title===r.title);
     const arStr=r.arLevel||(lib&&(lib.ar||lib.arLevel))||'';
@@ -448,7 +448,7 @@ function getArTrend(sid){
 }
 function getBookRecommendations(sid){
   const rds=DB.rds().filter(r=>r.sid===sid);
-  const allBooks=[...BOOK_DB,...DB.libs()];
+  const allBooks=[...DB.libs()];
   const readTitles=new Set(rds.map(r=>r.title));
   const arData=getArTrend(sid);
   const currentAr=arData.length?arData[arData.length-1].ar:2.0;

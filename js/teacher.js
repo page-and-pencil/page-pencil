@@ -98,28 +98,6 @@ async function testGbooksKey(){
     else{const d=await r.json();el.innerHTML=`<div class="ais err">❌ ${d.error?.message||'연결 실패'}</div>`;}
   }catch(e){el.innerHTML=`<div class="ais err">❌ 연결 오류: ${e.message}</div>`;}
 }
-async function migrateBookDB(){
-  const libIds=new Set((_cache.library||[]).map(b=>b.id));
-  const toMigrate=(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!libIds.has(b.id));
-  if(!toMigrate.length)return toast('BOOK_DB 항목이 이미 모두 원서 DB에 있습니다');
-  const btn=document.querySelector('[onclick="migrateBookDB()"]');
-  const origText=btn?.textContent||'📥 기본 원서 가져오기';
-  if(btn)btn.disabled=true;
-  let done=0;
-  for(const b of toMigrate){
-    if(btn)btn.textContent=`⏳ ${done+1}/${toMigrate.length}`;
-    const entry={...b,type:'library',arLevel:b.arLevel||b.ar||''};
-    await supaUpsert('global_textbooks',b.id,entry,null);
-    if(!_cache.library)_cache.library=[];
-    _cache.library.push(entry);
-    done++;
-    await new Promise(r=>setTimeout(r,80));
-  }
-  if(btn){btn.disabled=false;btn.textContent=origText;}
-  renderLib();renderLibTable();
-  toast(`✅ ${done}권이 원서 DB에 추가되었습니다`);
-}
-
 
 function updateApiKeyStatusDot(){
   const dot=document.getElementById('apikey-status-dot');if(!dot)return;
@@ -254,8 +232,7 @@ function populateFilterSels(){
 }
 function populateLibSel(){
   const sel=document.getElementById('rd-lib-sel');if(!sel)return;
-  // BOOK_DB 우선 (CSV 내장), 없으면 localStorage
-  const src=BOOK_DB.length?BOOK_DB:DB.libs();
+  const src=DB.libs();
   const series=[...new Set(src.map(b=>b.series).filter(Boolean))].sort();
   const serSel=document.getElementById('rd-series-filter');
   if(serSel){serSel.innerHTML='<option value="">전체 시리즈</option>'+series.map(s=>`<option value="${s}">${s}</option>`).join('');}
@@ -263,7 +240,7 @@ function populateLibSel(){
 }
 function filterLibSel(){
   const sel=document.getElementById('rd-lib-sel');if(!sel)return;
-  const src=BOOK_DB.length?BOOK_DB:DB.libs();
+  const src=DB.libs();
   const serF=document.getElementById('rd-series-filter')?.value||'';
   const q=(document.getElementById('rd-book-search')?.value||'').toLowerCase();
   const filtered=src.filter(b=>{
@@ -286,7 +263,7 @@ function checkCldWarn(){
 async function autoSyncBookReads(sid,materials,date){
   const bookEntries=Object.entries(materials||{}).filter(([k])=>k==='_book'||k.startsWith('_book_'));
   if(!bookEntries.length)return;
-  const allLib=[...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]),...DB.libs()];
+  const allLib=[...DB.libs()];
   let added=0;
   for(const [,v] of bookEntries){
     if(!v.book)continue;
@@ -1055,7 +1032,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   }else if(isBook){
     // 원서 행: 원서 목록 datalist + 챕터 자동 힌트
     const seenLibIds=new Set((_cache.library||[]).map(b=>b.id));
-    const allLibCombined=[...(_cache.library||[]).filter(b=>!b._deleted),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!seenLibIds.has(b.id))];
+    const allLibCombined=[...(_cache.library||[]).filter(b=>!b._deleted)];
     const sortedLib=allLibCombined.sort((a,b2)=>(a.title||'').localeCompare(b2.title||''));
     const dlLibId='dl-lib-'+Math.random().toString(36).slice(2,7);
     const dlChId='dl-ch-'+Math.random().toString(36).slice(2,7);
@@ -1351,7 +1328,7 @@ function filterFuBooks(){
   const q=(document.getElementById('fu-book-search')?.value||'').toLowerCase().trim();
   const dd=document.getElementById('fu-book-dd');if(!dd)return;
   if(!q){dd.style.display='none';return;}
-  const hits=[...BOOK_DB,...DB.libs()].filter(b=>b.title.toLowerCase().includes(q)).slice(0,8);
+  const hits=[...DB.libs()].filter(b=>b.title.toLowerCase().includes(q)).slice(0,8);
   dd.innerHTML=hits.map(b=>`<div style="padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--border)" onclick="selectFuBook('${b.id}','${escAttr(b.title)}')">${b.title}</div>`).join('');
   dd.style.display=hits.length?'block':'none';
 }
@@ -1664,7 +1641,7 @@ function reqDelTst(){
 // ── READINGS ──
 function fillFromLib(libId){
   if(!libId)return;
-  const src=[...BOOK_DB,...DB.libs()];
+  const src=[...DB.libs()];
   const b=src.find(x=>x.id===libId);if(!b)return;
   document.getElementById('rd-title').value=b.title||'';
   document.getElementById('rd-series').value=b.series||'';
@@ -1698,7 +1675,7 @@ function renderRd(){
   rds=rds.slice(0,50);
   const el=document.getElementById('rd-list');
   if(!rds.length){el.innerHTML='<div class="empty"><div class="empty-i">📗</div><div class="empty-t">원서 기록이 없습니다</div></div>';return;}
-  const allLibSrc=[...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]),...(_cache.library||[])];
+  const allLibSrc=[...(_cache.library||[])];
   el.innerHTML=`<div class="card"><div style="overflow-x:auto"><table class="tbl" style="min-width:520px"><thead><tr><th style="white-space:nowrap">날짜</th><th>학생</th><th>제목</th><th style="white-space:nowrap;min-width:60px">AR 레벨</th><th>진도</th><th></th></tr></thead><tbody>
     ${rds.map(r=>{const s=stus.find(x=>x.id===r.sid);const bk=allLibSrc.find(b=>b.title===r.title);const lvl=bk?.level||'';return `<tr>
       <td style="font-family:var(--fm);font-size:11px;white-space:nowrap">${r.date||''}</td>
@@ -1764,7 +1741,7 @@ function elibTab(tab){
   if(vocabBtn){vocabBtn.style.color=tab==='vocab'?'var(--teal)':'var(--slate)';vocabBtn.style.borderBottomColor=tab==='vocab'?'var(--teal)':'transparent';vocabBtn.style.fontWeight=tab==='vocab'?'700':'600';}
 }
 function openEditLib(id){
-  const b=DB.libs().find(x=>x.id===id)||BOOK_DB.find(x=>x.id===id);if(!b)return;
+  const b=DB.libs().find(x=>x.id===id);if(!b)return;
   document.getElementById('elib-id').value=b.id;
   document.getElementById('elib-title').value=b.title||'';
   document.getElementById('elib-series').value=b.series||'';
@@ -1778,7 +1755,7 @@ function openEditLib(id){
   openM('m-edit-lib');
 }
 function elibGetChapters(id){
-  const b=_cache.library.find(x=>x.id===id)||BOOK_DB.find(x=>x.id===id)||{};
+  const b=_cache.library.find(x=>x.id===id)||{};
   if(b.chapters?.length)return b.chapters;
   if(b.bookText)return [{name:'전체',text:b.bookText}];
   return [];
@@ -1816,7 +1793,7 @@ function elibAddChapter(){
   if(!name)return toast('챕터명을 입력하세요');
   const id=document.getElementById('elib-id').value;
   let b=_cache.library.find(x=>x.id===id);
-  if(!b){const base=BOOK_DB.find(x=>x.id===id)||{};b={...base,id,chapters:[]};_cache.library.push(b);}
+  if(!b){b={id,type:'library',chapters:[]};_cache.library.push(b);}
   if(!b.chapters)b.chapters=elibGetChapters(id).length?[...elibGetChapters(id)]:[];
   if(b.chapters.some(c=>c.name===name))return toast('이미 있는 챕터명입니다');
   elibSaveCurText();
@@ -1856,7 +1833,7 @@ async function elibImportChapterCSV(e){
     const cI=isHeader?headers.findIndex(h=>['챕터','chapter','제목','name'].includes(h)):0;
     const tI=isHeader?headers.findIndex(h=>['본문','text','내용','content'].includes(h)):1;
     let b=_cache.library.find(x=>x.id===id);
-    if(!b){const base=BOOK_DB.find(x=>x.id===id)||{};b={...base,id,chapters:[]};_cache.library.push(b);}
+    if(!b){b={id,type:'library',chapters:[]};_cache.library.push(b);}
     if(!b.chapters)b.chapters=[];
     let added=0;
     for(let i=isHeader?1:0;i<lines.length;i++){
@@ -1881,9 +1858,7 @@ async function updLib(){
     _cache.library[idx]={..._cache.library[idx],...fields};
     await supaUpsert('global_textbooks',id,_cache.library[idx],null);
   }else{
-    // BOOK_DB 항목을 library에 복사하여 수정
-    const base=BOOK_DB.find(x=>x.id===id)||{};
-    const newEntry={...base,...fields,id,type:'library'};
+    const newEntry={...fields,id,type:'library'};
     await supaUpsert('global_textbooks',id,newEntry,null);
     if(!_cache.library)_cache.library=[];
     _cache.library.push(newEntry);
@@ -1996,7 +1971,7 @@ async function extractLibVocab(){
     if(!json.words?.length){if(status)status.textContent='';return toast('추출된 단어가 없습니다');}
     // 기존 항목 조회: 같은 word+pos 조합 중복 방지
     let b=_cache.library.find(x=>x.id===id);
-    if(!b){const base=BOOK_DB.find(x=>x.id===id)||{};b={...base,id,vocab:[],bookText:text};_cache.library.push(b);}
+    if(!b){b={id,type:'library',vocab:[],bookText:text};_cache.library.push(b);}
     const existing=(b.vocab||[]);
     const existSet=new Set(existing.map(w=>`${w.word.toLowerCase()}|${w.pos||''}`));
     const newWords=json.words.filter(w=>w.word&&!existSet.has(`${w.word.toLowerCase()}|${w.pos||''}`));
@@ -3131,14 +3106,14 @@ function updateTbookDatalist(){
   const hwDl=document.getElementById('dl-hw-books');
   if(hwDl){
     const tbOpts=books.map(b=>`<option value="${escAttr(b.title)}" data-type="tbook">`);
-    const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+    const allLib=[...(_cache.library||[])];
     const libOpts=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}" data-type="reading">`);
     hwDl.innerHTML=[...tbOpts,...libOpts].join('');
   }
   // 리딩로그 원서 datalist
   const libBkDl=document.getElementById('dl-lib-books');
   if(libBkDl){
-    const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+    const allLib=[...(_cache.library||[])];
     libBkDl.innerHTML=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
   }
 }
@@ -3186,9 +3161,7 @@ function renderBookDB(){
   const q=(document.getElementById('book-q')?.value||'').toLowerCase();
   const pageSize=parseInt(document.getElementById('book-per-page')?.value||'50');
   const tbooks=(_cache.globalTextbooks||[]).map(b=>({...b,_bt:'textbook'}));
-  const seenLibIds=new Set((_cache.library||[]).map(b=>b.id));
-  const bookDbFallback=(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!seenLibIds.has(b.id)&&!b._deleted);
-  const libs=[...(_cache.library||[]).filter(b=>!b._deleted),...bookDbFallback].map(b=>({...b,_bt:'library'}));
+  const libs=[...(_cache.library||[]).filter(b=>!b._deleted)].map(b=>({...b,_bt:'library'}));
   let all=[...tbooks,...libs];
   if(_bookDBFilter)all=all.filter(b=>b._bt===_bookDBFilter);
   if(q)all=all.filter(b=>
@@ -3257,7 +3230,7 @@ function renderMasterDB(){
   }
   if(!_masterFilter||_masterFilter==='library'){
     const seenIds=new Set((_cache.library||[]).map(b=>b.id));
-    const allLib=[...(_cache.library||[]).filter(b=>!b._deleted),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!seenIds.has(b.id)&&!b._deleted)];
+    const allLib=[...(_cache.library||[]).filter(b=>!b._deleted)];
     for(const b of allLib){
       const vocab=b.vocab||[];
       if(!vocab.length){rows.push({type:'library',title:b.title||'',sc:b.series||'',level:b.arLevel||b.ar||'',unit:'',word:'',ko:'',pos:'',_id:b.id});continue;}
@@ -3422,11 +3395,9 @@ function buildWordDB(){
       }
     }
   }
-  // 원서 DB에서 (library 우선, BOOK_DB는 library에 없는 것만)
-  const seenLib=new Set();
+  // 원서 DB에서
   for(const book of _cache.library||[]){
     if(!book.vocab?.length)continue;
-    seenLib.add(book.id);
     for(const w of book.vocab){
       if(!w.word)continue;
       words.push({word:(w.word||'').toLowerCase().trim(),ko:w.ko||'',pos:w.pos||'',example:w.example||'',en_def:w.en_def||'',v2:w.v2||'',v3:w.v3||'',
@@ -3434,16 +3405,7 @@ function buildWordDB(){
         srcLevel:book.arLevel||book.ar||'',srcPublisher:book.publisher||'',srcCategory:'',srcSeries:book.series||''});
     }
   }
-  for(const book of (typeof BOOK_DB!=='undefined'?BOOK_DB:[])){
-    if(seenLib.has(book.id)||!book.vocab?.length)continue;
-    seenLib.add(book.id);
-    for(const w of book.vocab){
-      if(!w.word)continue;
-      words.push({word:(w.word||'').toLowerCase().trim(),ko:w.ko||'',pos:w.pos||'',example:w.example||'',en_def:w.en_def||'',v2:w.v2||'',v3:w.v3||'',
-        srcType:'library',srcTitle:book.title||'',srcId:book.id,srcUnit:null,
-        srcLevel:book.arLevel||book.ar||'',srcPublisher:book.publisher||'',srcCategory:'',srcSeries:book.series||''});
-    }
-  }
+
   return words;
 }
 
@@ -3576,7 +3538,7 @@ async function wdbSaveInline(idx){
       }
     }else{
       let book=_cache.library.find(b=>b.id===e.srcId);
-      if(!book){const base=(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).find(b=>b.id===e.srcId);if(base){book={...base};_cache.library.push(book);}}
+      
       if(book){
         const vocab=[...(book.vocab||[])];
         const wi=vocab.findIndex(w=>(w.word||'').toLowerCase()===e.word&&(w.pos||'')===(e.pos||''));
@@ -3671,7 +3633,7 @@ function wdbNewSrcTypeChange(){
     if(lbl)lbl.textContent='원서';if(unitRow)unitRow.style.display='none';
     const deletedIds=new Set((_cache.library||[]).filter(b=>b._deleted).map(b=>b.id));
     const libIds=new Set((_cache.library||[]).map(b=>b.id));
-    const allLib=[...(typeof BOOK_DB!=='undefined'?BOOK_DB.filter(b=>!libIds.has(b.id)&&!deletedIds.has(b.id)):[]),...(_cache.library||[]).filter(b=>!b._deleted)];
+    const allLib=[...(_cache.library||[]).filter(b=>!b._deleted)];
     allLib.sort((a,b)=>a.title.localeCompare(b.title));
     if(sel)sel.innerHTML='<option value="">-- 원서 선택 --</option>'+allLib.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title)}</option>`).join('');
   }
@@ -3714,7 +3676,7 @@ async function wdbNewWordSave(){
       const srcId=document.getElementById('wdb-new-src-sel')?.value||'';
       if(!srcId)return toast('원서를 선택하세요');
       let book=(_cache.library||[]).find(b=>b.id===srcId);
-      if(!book){const base=(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).find(b=>b.id===srcId)||{};book={...base,id:srcId,vocab:[]};(_cache.library||(_cache.library=[])).push(book);}
+      if(!book){book={id:srcId,type:'library',vocab:[]};(_cache.library||(_cache.library=[])).push(book);}
       const existing=book.vocab||[];
       if(existing.some(w=>(w.word||'').toLowerCase()===word&&(w.pos||'')===(pos||'')))return toast('이미 존재하는 단어입니다');
       book.vocab=[...existing,newWord];
@@ -3748,7 +3710,7 @@ function wdbSrcTypeChange(){
     opts+=books.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title||b.id)}${b.level?' ('+escAttr(b.level)+')':''}</option>`).join('');
   }else{
     const seen=new Set();
-    const books=[...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]),...(_cache.library||[])]
+    const books=[...(_cache.library||[])]
       .filter(b=>{if(seen.has(b.id))return false;seen.add(b.id);return b.vocab?.length;})
       .sort((a,b)=>(a.title||'').localeCompare(b.title||''));
     opts+=books.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title||b.id)}${(b.arLevel||b.ar)?' (AR '+(b.arLevel||b.ar)+')':''}</option>`).join('');
@@ -4030,7 +3992,7 @@ async function wdbImportCSV(e){
   }
   async function findOrCreateLib(grp){
     let book=_cache.library.find(b=>b.title?.trim()===grp.srcTitle.trim())
-      ||(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).find(b=>b.title?.trim()===grp.srcTitle.trim());
+      ;
     if(!book){
       // 자동 생성
       const newBook={id:uid(),type:'library',title:grp.srcTitle,series:grp.series||'',arLevel:grp.level||'',publisher:grp.publisher||'',description:'',coverUrl:'',vocab:[]};
@@ -4039,8 +4001,7 @@ async function wdbImportCSV(e){
       createdSrc++;
       return newBook;
     }
-    // BOOK_DB 항목이면 library로 복사
-    if(!_cache.library.find(b=>b.id===book.id)){const copy={...book};_cache.library.push(copy);book=copy;}
+
     // 메타 업데이트 (빈 필드만)
     let dirty=false;
     if(!book.arLevel&&grp.level){book.arLevel=grp.level;dirty=true;}
@@ -4090,7 +4051,7 @@ async function wdbImportCSV(e){
       tb.units[unitName]=[...existing,...toAdd];
       modifiedTbooks.add(tb.id);
       addedTotal+=toAdd.length;updatedTotal+=updateCnt;srcCount++;
-    }else if(isLib||((!isTbook)&&((_cache.library.some(b=>b.title?.trim()===grp.srcTitle.trim()))||((typeof BOOK_DB!=='undefined'?BOOK_DB:[]).some(b=>b.title?.trim()===grp.srcTitle.trim()))))){
+    }else if(isLib||((!isTbook)&&_cache.library.some(b=>b.title?.trim()===grp.srcTitle.trim()))){
       const book=await findOrCreateLib(grp);
       const existing=book.vocab||[];
       const{toAdd,updateCnt}=mergeWords(existing,grp.words);
@@ -4345,7 +4306,7 @@ let _tbookEditingId=null,_tbookAdding=false;
 
 function populateLibSeriesFilter(){
   const sel=document.getElementById('lib-filter-series');if(!sel)return;
-  const allSrc=[...BOOK_DB,...DB.libs()];
+  const allSrc=[...DB.libs()];
   const series=[...new Set(allSrc.map(b=>b.series).filter(Boolean))].sort();
   const cur=sel.value;
   sel.innerHTML='<option value="">전체 시리즈</option>'+series.map(s=>`<option value="${s}"${s===cur?' selected':''}>${s}</option>`).join('');
@@ -4354,8 +4315,7 @@ function populateLibSeriesFilter(){
 function renderLibTable(){
   const libIds=new Set(DB.libs().map(b=>b.id));
   const deletedIds=new Set(DB.libs().filter(b=>b._deleted).map(b=>b.id));
-  // library 항목이 BOOK_DB와 같은 id면 library 버전만 표시 (중복 제거), _deleted 제외
-  const allSrc=[...BOOK_DB.filter(b=>!libIds.has(b.id)&&!deletedIds.has(b.id)),...DB.libs().filter(b=>!b._deleted)];
+  const allSrc=[...DB.libs().filter(b=>!b._deleted)];
   const q=(document.getElementById('lib-q')?.value||'').toLowerCase().trim();
   const serF=document.getElementById('lib-filter-series')?.value||'';
 
@@ -4429,7 +4389,7 @@ function renderLibTable(){
 
 let _libTextChapters=[];
 function openLibTextViewer(id){
-  const b=(_cache.library||[]).find(x=>x.id===id)||BOOK_DB.find(x=>x.id===id);
+  const b=(_cache.library||[]).find(x=>x.id===id);
   if(!b)return;
   const chapters=elibGetChapters(id).filter(c=>c.text);
   if(!chapters.length)return toast('원문이 없습니다');
@@ -4467,33 +4427,19 @@ function libUpdateBulkBar(){
 async function libDeleteSelected(){
   const checked=[...document.querySelectorAll('#lib-tbody .lib-chk:checked')];if(!checked.length)return;
   const ids=checked.map(el=>el.dataset.id).filter(Boolean);
-  const libIds=new Set(DB.libs().map(b=>b.id));
-  const bookDbIds=ids.filter(id=>!libIds.has(id));
-  const libraryIds=ids.filter(id=>libIds.has(id));
-  const msg=bookDbIds.length?`${ids.length}개 원서를 삭제할까요? 기본 DB 항목은 숨김 처리됩니다.`:`${ids.length}개 원서를 삭제할까요?`;
-  askConfirm('원서 삭제',msg,'삭제','bd',async()=>{
+  askConfirm('원서 삭제',`${ids.length}개 원서를 삭제할까요?`,'삭제','bd',async()=>{
     try{
-      // library 항목 제거 (Supabase + 캐시) — 성공한 항목만 캐시에서 제거
-      const deletedLibIds=[];
-      for(const id of libraryIds){
+      const deletedIds=[];
+      for(const id of ids){
         const ok=await supaDelete('global_textbooks',id);
-        if(ok)deletedLibIds.push(id);
-        else console.warn('supaDelete failed for library id:',id);
+        if(ok)deletedIds.push(id);
+        else console.warn('supaDelete failed for id:',id);
       }
-      _cache.library=(_cache.library||[]).filter(b=>!deletedLibIds.includes(b.id));
-      // BOOK_DB 기본 항목 → _deleted 플래그로 library에 저장해 영구 숨김
-      for(const id of bookDbIds){
-        const base=BOOK_DB.find(b=>b.id===id)||{};
-        const entry={...base,id,type:'library',_deleted:true};
-        await supaUpsert('global_textbooks',id,entry,null);
-        const idx=(_cache.library||[]).findIndex(b=>b.id===id);
-        if(idx>=0)_cache.library[idx]=entry;else{if(!_cache.library)_cache.library=[];_cache.library.push(entry);}
-      }
-      const doneCount=deletedLibIds.length+bookDbIds.length;
-      const failCount=libraryIds.length-deletedLibIds.length;
+      _cache.library=(_cache.library||[]).filter(b=>!deletedIds.includes(b.id));
       renderLibTable();populateLibSel();
-      if(failCount>0)toast(`${doneCount}개 삭제, ${failCount}개 실패 — 실패 항목은 새로고침 후 다시 삭제해 주세요`);
-      else toast(`${doneCount}개 삭제되었습니다`);
+      const failCount=ids.length-deletedIds.length;
+      if(failCount>0)toast(`${deletedIds.length}개 삭제, ${failCount}개 실패`);
+      else toast(`${deletedIds.length}개 삭제되었습니다`);
     }catch(e){toast('삭제 실패: '+e.message);}
   });
 }
@@ -4604,7 +4550,7 @@ async function importTbookCSV(e){
   if(isXlsx)reader.readAsArrayBuffer(file);else reader.readAsText(file,'UTF-8');
 }
 function exportLibCSV(){
-  const allSrc=[...BOOK_DB,...DB.libs()];
+  const allSrc=[...DB.libs()];
   const customIds=new Set(DB.libs().map(b=>b.id));
   const header='제목,시리즈,AR 지수,렉사일 지수,레벨,구분';
   const rows=allSrc.map(b=>[
@@ -4660,9 +4606,9 @@ function exportMasterCSV(){
       for(const w of words)rows.push([q('textbook'),q(b.title||''),q(b.series||''),q(''),q(b.level||''),q(b.category||''),q(uName),q(w.word||''),q(w.ko||''),q(w.pos||''),q(w.example||''),q(w.v2||''),q(w.v3||'')].join(','));
     }
   }
-  // 원서 (Supabase + BOOK_DB 폴백)
+  // 원서 DB
   const seenIds=new Set((_cache.library||[]).map(b=>b.id));
-  const allLib=[...(_cache.library||[]).filter(b=>!b._deleted),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!seenIds.has(b.id)&&!b._deleted)];
+  const allLib=[...(_cache.library||[]).filter(b=>!b._deleted)];
   for(const b of allLib){
     const vocab=b.vocab||[];
     if(!vocab.length){rows.push([q('library'),q(b.title||''),q(b.series||''),q(b.arLevel||b.ar||''),q(b.level||''),q(b.genre||''),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));continue;}
@@ -5163,7 +5109,7 @@ async function generateReportDraft(){
     // 테스트 요약
     const tstSummary=tsts.length?tsts.map(t=>`[${t.date}] 단어 ${pct(t.vocabCorrect,t.vocabTotal)}% / 어법 ${pct(t.grammarCorrect,t.grammarTotal)}%${t.wrongWords?.length?' / 틀린 단어: '+t.wrongWords.slice(0,5).join(', '):''}${t.grammarWeak?' / 약점 어법: '+t.grammarWeak:''}`).join('\n'):'테스트 없음';
     // 원서/리딩로그
-    const allBookSrc=[...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]),...DB.libs()];
+    const allBookSrc=[...DB.libs()];
     const rdSummary=rds.length?rds.map(r=>{const lib=allBookSrc.find(b=>b.title===r.title);const ar=r.arLevel||(lib&&(lib.ar||lib.arLevel))||'';return r.title+(ar?' (AR '+ar+')':'')+(r.progress?' ['+r.progress+']':'');}).join(', '):'없음';
     const logSummary=logs.length?`${logs.length}회 (단어 ${[...new Set(logs.flatMap(l=>l.words||[]))].length}개 추출)`:'없음';
     const prompt=`당신은 영어 소수 정예 전문 강사입니다. 학부모에게 보내는 월별 학습 종합 리포트를 작성해주세요.
@@ -5708,7 +5654,7 @@ function openBulkText(){document.getElementById('bulk-text-files').click();}
 async function previewBulkText(e){
   const files=[...e.target.files];if(!files.length)return;
   e.target.value='';
-  const allSrc=[...BOOK_DB,...DB.libs()];
+  const allSrc=[...DB.libs()];
   _bulkTextData=await Promise.all(files.map(async f=>{
     const text=await f.text();
     const name=f.name.replace(/\.[^.]+$/,'');
@@ -5742,7 +5688,7 @@ async function confirmBulkText(){
   for(const m of valid){
     try{
       let bookData=_cache.library.find(x=>x.id===m.book.id);
-      if(!bookData){const base=BOOK_DB.find(x=>x.id===m.book.id)||{};bookData={...base,id:m.book.id};_cache.library.push(bookData);}
+      if(!bookData){bookData={id:m.book.id,type:'library'};_cache.library.push(bookData);}
       const text=m.text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
       if(m.type==='chapter'){
         if(!bookData.chapters)bookData.chapters=[];
@@ -5770,7 +5716,7 @@ function openBulkAudio(){document.getElementById('bulk-audio-files').click();}
 function previewBulkAudio(e){
   _bulkAudioFiles=[...e.target.files];if(!_bulkAudioFiles.length)return;
   e.target.value='';
-  const allSrc=[...BOOK_DB,...DB.libs()];
+  const allSrc=[...DB.libs()];
   const matches=_bulkAudioFiles.map(f=>{
     const name=f.name.replace(/\.[^.]+$/,'');
     const chMatch=name.match(/^(.+?)\s*[-—]\s*[Cc]h(\d+)$/);
@@ -5869,7 +5815,7 @@ async function uploadBookAudio(e, bookId, uploadType='full'){
   if(!audioUrl){toast('Cloudinary 설정 후 오디오 업로드가 가능합니다');return;}
 
   const existing=_cache.library.find(x=>x.id===bookId);
-  const bookData=existing||(() => {const orig=BOOK_DB.find(x=>x.id===bookId);if(orig){const n={...orig};_cache.library.push(n);return n;}return null;})();
+  const bookData=existing||null;
   if(!bookData){toast('책 정보를 찾을 수 없습니다');return;}
 
   if(uploadType==='full'){
@@ -6115,7 +6061,7 @@ function assignBookChange(){
   if(!helper)return;
   const val=(document.getElementById('modal-assign-book')?.value||'').trim();
   if(!val||cat!=='book'){helper.style.display='none';helper.innerHTML='';return;}
-  const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+  const allLib=[...(_cache.library||[])];
   const book=allLib.find(b=>(b.title||'').trim().toLowerCase()===val.toLowerCase());
   if(!book){helper.style.display='none';helper.innerHTML='';return;}
   const chapters=(elibGetChapters(book.id)||[]).filter(c=>c.name);
@@ -6198,7 +6144,7 @@ function filterModalBooks(){
   const q=(document.getElementById('modal-book-search')?.value||'').toLowerCase().trim();
   const dd=document.getElementById('modal-book-dropdown');if(!dd)return;
   if(!q){dd.style.display='none';return;}
-  const allBooks=[...BOOK_DB,...DB.libs()];
+  const allBooks=[...DB.libs()];
   const hits=allBooks.filter(b=>b.title.toLowerCase().includes(q)).slice(0,10);
   dd.innerHTML=hits.map(b=>`<div style="padding:6px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)" onclick="selectModalBook('${b.id}','${escAttr(b.title)}')">${b.title}</div>`).join('');
   dd.style.display=hits.length?'block':'none';
@@ -6229,7 +6175,7 @@ async function saveModalAssignment(){
     _cache.assignments.unshift(a);
     closeM('m-add-assign');renderAssignTab();toast('과제가 할당되었습니다');return;
   }
-  const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+  const allLib=[...(_cache.library||[])];
   const isReading=cat==='book'||allLib.some(b=>b.title===book);
   const type=isReading?'reading':cat==='vocab'?'vocab':cat==='other'?'other':'textbook';
   const a={id:uid(),sid,type,category:cat,date,due,bookTitle:book,range};
@@ -6409,7 +6355,7 @@ function spRdSearch(){
   const dd=document.getElementById('sp-rd-dd');if(!dd)return;
   if(!q){dd.style.display='none';return;}
   const seen=new Set();
-  const books=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])].filter(b=>{
+  const books=[...(_cache.library||[])].filter(b=>{
     if(seen.has(b.id))return false;seen.add(b.id);
     return b.title&&(b.title.toLowerCase().includes(q)||(b.author||'').toLowerCase().includes(q)||(b.series||'').toLowerCase().includes(q));
   }).slice(0,10);
@@ -6430,7 +6376,7 @@ async function saveRdEntry(sid){
   const id=document.getElementById('sp-rd-id')?.value||'';
   if(!id){toast('원서를 검색하여 선택해 주세요');return;}
   const seen=new Set();
-  const book=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])].find(b=>{if(seen.has(b.id))return false;seen.add(b.id);return b.id===id;});
+  const book=[...(_cache.library||[])].find(b=>{if(seen.has(b.id))return false;seen.add(b.id);return b.id===id;});
   const title=book?.title||id;
   const isDone=document.getElementById('sp-rd-done')?.checked||false;
   const doneDate=document.getElementById('sp-rd-done-dt')?.value||new Date().toISOString().split('T')[0];
@@ -6456,7 +6402,7 @@ async function markTextbookDone(id,sid){
   renderSpBooks(sid);
   if(tb.type==='원서'){
     const seen=new Set();
-    const book=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])].find(b=>{if(seen.has(b.id))return false;seen.add(b.id);return b.id===tb.bookId||b.title===tb.title;});
+    const book=[...(_cache.library||[])].find(b=>{if(seen.has(b.id))return false;seen.add(b.id);return b.id===tb.bookId||b.title===tb.title;});
     const vocabWords=(book?.vocab||[]).filter(w=>w.word).map(w=>({...w,srcId:book?.id||tb.bookId,srcType:'library',srcTitle:tb.title}));
     if(vocabWords.length){
       toast(`원서 완료! 단어 ${vocabWords.length}개를 단어장에 추가 중...`);
@@ -6687,7 +6633,7 @@ function ecTogSubj(el){
 }
 function clFillFromLib(input){
   const title=input.value.trim();if(!title)return;
-  const b=[...BOOK_DB,...DB.libs()].find(x=>x.title===title);if(!b)return;
+  const b=[...DB.libs()].find(x=>x.title===title);if(!b)return;
   const row=input.closest('.cl-book-row');if(!row)return;  // fix: was .cl-stu-row
   const ar=row.querySelector('.cl-rd-ar');const ser=row.querySelector('.cl-rd-series');
   if(ar&&!ar.value&&(b.ar||b.arLevel))ar.value=b.ar||b.arLevel||'';
@@ -6740,7 +6686,7 @@ function libUpdateChapterHint(inp){
   const title=(inp.value||'').trim();
   if(!title){dl.innerHTML='';unitInp.placeholder='챕터/진도';return;}
   const seenIds=new Set((_cache.library||[]).map(b=>b.id));
-  const allLib=[...(_cache.library||[]).filter(b=>!b._deleted),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[]).filter(b=>!seenIds.has(b.id))];
+  const allLib=[...(_cache.library||[]).filter(b=>!b._deleted)];
   const book=allLib.find(b=>b.title===title);
   const chapters=[...new Set((book?.vocab||[]).map(w=>w.chapter||w.unit).filter(Boolean))];
   dl.innerHTML=chapters.map(c=>`<option value="${escAttr(c)}">`).join('');
@@ -6950,7 +6896,7 @@ const _CAT_KO={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리�
 function fillAsgnBookDatalist(dlId,cat){
   const dl=document.getElementById(dlId);if(!dl)return;
   const tbooks=_cache.globalTextbooks||[];
-  const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+  const allLib=[...(_cache.library||[])];
   let opts='';
   if(cat==='book'){
     opts=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
@@ -6990,7 +6936,7 @@ async function saveStudentAssign(sid){
   const date=document.getElementById(`asgn-date-${sid}`)?.value||new Date().toISOString().split('T')[0];
   const due=document.getElementById(`asgn-due-${sid}`)?.value||date;
   if(!cat){toast('구분을 선택해 주세요');return;}
-  const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+  const allLib=[...(_cache.library||[])];
   const isReading=cat==='book'||allLib.some(b=>b.title===book);
   const type=isReading?'reading':cat==='vocab'?'vocab':cat==='other'?'other':'textbook';
   const a={id:uid(),sid,type,category:cat,date,due,bookTitle:book,range};
@@ -7079,7 +7025,7 @@ function fillClHwRowDl(rowEl){
   const cat=rowEl.querySelector('.cl-hw-cat')?.value||'';
   const dl=rowEl.querySelector('datalist');if(!dl)return;
   const tbooks=_cache.globalTextbooks||[];
-  const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+  const allLib=[...(_cache.library||[])];
   const tbOpt=b=>`<option value="${escAttr(b.title)}">${b.title}${b.level?' ('+b.level+')':''}</option>`;
   let opts='';
   if(cat==='class5'){
@@ -7272,7 +7218,7 @@ async function saveClassLesson(){
       // 공통 과제 → 결석 제외
       if(d.att!=='absent'){
         for(const hw of commonHws){
-          const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+          const allLib=[...(_cache.library||[])];
           const isReading=allLib.some(b=>b.title===hw.book);
           const a={id:uid(),sid:d.sid,date,due:hw.due,classId,category:hw.cat,
             type:isReading?'reading':'textbook',bookTitle:hw.book,range:hw.range};
@@ -7282,7 +7228,7 @@ async function saveClassLesson(){
     }
     // 개별 과제
     for(const hw of indHws){
-      const allLib=[...(_cache.library||[]),...(typeof BOOK_DB!=='undefined'?BOOK_DB:[])];
+      const allLib=[...(_cache.library||[])];
       const isReading=allLib.some(b=>b.title===hw.book);
       const a={id:uid(),sid:hw.sid,date,due:hw.due,classId,category:hw.cat,
         type:isReading?'reading':'textbook',bookTitle:hw.book,range:hw.range};
