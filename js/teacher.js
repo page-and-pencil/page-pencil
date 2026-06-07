@@ -6,7 +6,7 @@ async function checkPw(){
   const vHash=await hashPw(v);
   const ok=(v===stored||vHash===stored);
   if(ok){
-    if(v===stored){const h=await hashPw(v);_cache.settings.pw=h;DB.s('pw',h);supaSetSetting('pw',h).catch(()=>{});}
+    if(v===stored){const h=await hashPw(v);_cache.settings.pw=h;DB.s('pw',h);supaSetSetting('pw',h).catch(e=>console.warn('비밀번호 저장 실패:',e));}
     document.getElementById('pw-in').value='';document.getElementById('pw-err').textContent='';
     saveSession({role:'teacher'});show('s-teacher');await initApp();
   } else document.getElementById('pw-err').textContent='비밀번호가 맞지 않습니다';
@@ -42,10 +42,11 @@ async function changePw(){
   const nwHash=await hashPw(nw);
   DB.s('pw',nwHash);
   _cache.settings.pw=nwHash;
-  await supaSetSetting('pw',nwHash);
+  let _pwSaveOk=true;
+  try{await supaSetSetting('pw',nwHash);}catch(err){console.warn('설정 저장 실패:',err);_pwSaveOk=false;}
   e.textContent='';
   ['pw-cur','pw-nw','pw-cf'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
-  toast('비밀번호가 변경되었습니다');
+  toast(_pwSaveOk?'비밀번호가 변경되었습니다':'비밀번호 변경됨 (서버 동기화 실패)');
 }
 // ── GOOGLE BOOKS KEY ──
 // ── 카카오톡 연결 설정 ──
@@ -62,9 +63,10 @@ async function saveKakaoContact(){
   const kakao={phone,openchat};
   DB.s('kakao',kakao);
   _cache.settings.kakao=kakao;
-  await supaSetSetting('kakao',kakao);
+  let _kakaoSaveOk=true;
+  try{await supaSetSetting('kakao',kakao);}catch(err){console.warn('설정 저장 실패:',err);_kakaoSaveOk=false;}
   updateKakaoStatusDot();
-  toast('카카오톡 연결 정보가 저장됐습니다');
+  toast(_kakaoSaveOk?'카카오톡 연결 정보가 저장됐습니다':'카카오톡 저장됨 (서버 동기화 실패)');
 }
 function openKakaoPreview(){
   const k=DB.kakao();
@@ -81,9 +83,11 @@ async function saveGbooksKey(){
   const k=document.getElementById('cfg-gbooks').value.trim();
   DB.s('gbooks_key',k);
   _cache.settings.gbooks_key=k;
-  if(k)await supaSetSetting('gbooks_key',k);
+  let _gbooksSyncFail=false;
+  if(k){try{await supaSetSetting('gbooks_key',k);}catch(err){console.warn('설정 저장 실패:',err);_gbooksSyncFail=true;}}
   updateGbooksStatusDot();
-  toast(k?'Google Books Key가 저장되었습니다':'Google Books Key가 삭제되었습니다');
+  const _gbooksMsg=k?'Google Books Key가 저장되었습니다':'Google Books Key가 삭제되었습니다';
+  toast(_gbooksSyncFail?_gbooksMsg+' (서버 동기화 실패)':_gbooksMsg);
 }
 async function testGbooksKey(){
   const el=document.getElementById('gbooks-test-result');
@@ -110,10 +114,11 @@ async function saveApiKey(){
   if(!k){document.getElementById('cfg-apikey-err').textContent='API Key를 입력해 주세요';return;}
   DB.s('apikey',k);
   _cache.settings.apikey=k;
-  await supaSetSetting('apikey',k);
+  let _apiSaveOk=true;
+  try{await supaSetSetting('apikey',k);}catch(err){console.warn('설정 저장 실패:',err);_apiSaveOk=false;}
   document.getElementById('cfg-apikey-err').textContent='';
   updateApiKeyStatusDot();
-  toast('API Key가 저장되었습니다');
+  toast(_apiSaveOk?'API Key가 저장되었습니다':'API Key 저장됨 (서버 동기화 실패)');
 }
 async function testApiKey(){
   const el=document.getElementById('apikey-test-result');
@@ -142,8 +147,10 @@ async function saveCld(){
   const n=document.getElementById('cfg-cld-name').value.trim(),p=document.getElementById('cfg-cld-preset').value.trim();
   if(!n||!p){document.getElementById('cfg-cld-err').textContent='모두 입력해 주세요';return;}
   DB.s('cloud',{name:n,preset:p});
-  await supaSetSetting('cloud',{name:n,preset:p});
-  document.getElementById('cfg-cld-err').textContent='';toast('저장되었습니다');
+  let _cldSaveOk=true;
+  try{await supaSetSetting('cloud',{name:n,preset:p});}catch(err){console.warn('설정 저장 실패:',err);_cldSaveOk=false;}
+  document.getElementById('cfg-cld-err').textContent='';
+  toast(_cldSaveOk?'저장되었습니다':'저장됨 (서버 동기화 실패)');
 }
 async function testCld(){
   const {name,preset}=DB.cld();
@@ -942,6 +949,10 @@ function reqDelStu(){
       for(const it of items) await supaDelete(tbl,it.id);
       _cache[tbl]=_cache[tbl].filter(x=>x.sid!==id);
     }
+    // vocab_cards cascade
+    const vcOrphans=(_cache.vocab_cards||[]).filter(c=>c.sid===id);
+    for(const c of vcOrphans) await supaDelete('vocab_cards',c.id).catch(e=>console.warn('vocab_cards 삭제 실패:',e));
+    _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>c.sid!==id);
     _cache.students=_cache.students.filter(x=>x.id!==id);
     closeM('m-edit-stu');renderStus();populateSels();toast('삭제되었습니다');
   });
@@ -1193,7 +1204,7 @@ async function saveLes(){
   await supaUpsert('lessons',newLes.id,newLes,sid);
   _cache.lessons.unshift(newLes);
   addUnitWordsToVocab(sid,newLes.materials,newLes.date).catch(e=>console.error('vocab sync:',e));
-  autoSyncBookReads(sid,newLes.materials,newLes.date).catch(()=>{});
+  autoSyncBookReads(sid,newLes.materials,newLes.date).catch(e=>console.warn('autoSyncBookReads 실패:',e));
   document.getElementById('ls-cmt').value='';clearSRows();
   document.getElementById('ls-last-hint').style.display='none';
   if(typeof _polishedCmtCache!=='undefined')_polishedCmtCache={raw:'',polished:''};
@@ -1484,7 +1495,7 @@ async function updLes(){
   const polishedCmt=rawCmt?await polishCmt(rawCmt):'';
   _cache.lessons[idx]={..._cache.lessons[idx],date:document.getElementById('el-date').value,sid,grade:document.getElementById('el-grade').value,att:document.getElementById('el-att').value,materials:getSMatsFrom('el-subj-rows'),cmt:rawCmt,polishedCmt};
   await supaUpsert('lessons',id,_cache.lessons[idx],sid);
-  autoSyncBookReads(sid,_cache.lessons[idx].materials,_cache.lessons[idx].date).catch(()=>{});
+  autoSyncBookReads(sid,_cache.lessons[idx].materials,_cache.lessons[idx].date).catch(e=>console.warn('autoSyncBookReads 실패:',e));
   addUnitWordsToVocab(sid,_cache.lessons[idx].materials,_cache.lessons[idx].date).catch(e=>console.error('vocab sync:',e));
   closeM('m-edit-les');clearEditSRows();renderLes();toast('수정되었습니다');
 }
@@ -4413,6 +4424,9 @@ function reqDelLibItem(id){
   askConfirm('원서 삭제','추가한 원서를 삭제할까요? 기본 DB 항목은 삭제되지 않습니다.','삭제','bd',async()=>{
     const ok=await supaDelete('global_textbooks',id);
     if(!ok)return toast('Supabase 삭제 실패 — 새로고침 후 다시 시도해 주세요');
+    const vcOrphans=(_cache.vocab_cards||[]).filter(c=>c.srcId===id);
+    for(const c of vcOrphans) await supaDelete('vocab_cards',c.id).catch(e=>console.warn('vocab_cards 삭제 실패:',e));
+    _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>c.srcId!==id);
     _cache.library=_cache.library.filter(x=>x.id!==id);
     renderLibTable();populateLibSel();toast('삭제되었습니다');
   });
@@ -4436,6 +4450,9 @@ async function libDeleteSelected(){
         else console.warn('supaDelete failed for id:',id);
       }
       _cache.library=(_cache.library||[]).filter(b=>!deletedIds.includes(b.id));
+      const vcOrphans=(_cache.vocab_cards||[]).filter(c=>deletedIds.includes(c.srcId));
+      for(const c of vcOrphans) await supaDelete('vocab_cards',c.id).catch(e=>console.warn('vocab_cards 삭제 실패:',e));
+      _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>!deletedIds.includes(c.srcId));
       renderLibTable();populateLibSel();
       const failCount=ids.length-deletedIds.length;
       if(failCount>0)toast(`${deletedIds.length}개 삭제, ${failCount}개 실패`);
@@ -4622,78 +4639,96 @@ function exportMasterCSV(){
 }
 async function importMasterCSV(e){
   const file=e.target.files[0];if(!file)return;
+  const btn=document.getElementById('master-csv-btn');
   const reader=new FileReader();
   reader.onload=async ev=>{
-    const rows=parseCSVText(ev.target.result);
-    if(rows.length<2){toast('CSV 파일이 비어있습니다');e.target.value='';return;}
-    const hdrs=rows[0].map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
-    const col=k=>{const i=hdrs.indexOf(k);return i>=0?i:-1;};
-    const iType=col('타입'),iTitle=col('제목'),iSeries=col('시리즈'),iAr=col('ar'),
-          iLevel=col('레벨'),iCat=col('분류'),iUnit=col('유닛'),iEn=col('단어'),
-          iKo=col('한국어'),iPos=col('품사'),iEx=col('예문'),iV2=col('v2'),iV3=col('v3');
-    if(iType<0||iTitle<0){toast('헤더 오류: "타입","제목" 컬럼이 필요합니다');e.target.value='';return;}
-    const get=(r,i)=>i>=0?(r[i]||'').replace(/^"|"$/g,'').trim():'';
-    // 책별 행 그룹화 — 교재는 title+level, 원서는 title+series로 구분
-    const bookMap={};
-    for(let i=1;i<rows.length;i++){
-      const r=rows[i];const type=get(r,iType).toLowerCase();const title=get(r,iTitle);
-      if(!type||!title)continue;
-      const lk=(get(r,iLevel)||'').trim().toLowerCase();
-      const sk=(get(r,iSeries)||'').trim().toLowerCase();
-      const key=type==='textbook'?type+'|'+title.toLowerCase()+'|'+lk:type+'|'+title.toLowerCase()+'|'+sk;
-      if(!bookMap[key])bookMap[key]={type,title,rows:[]};
-      bookMap[key].rows.push(r);
-    }
-    let addedBooks=0,updatedBooks=0,addedWords=0;
-    for(const bk of Object.values(bookMap)){
-      const {type,title,rows:brows}=bk;const first=brows[0];
-      const csvLevel=(get(first,iLevel)||'').trim().toLowerCase();
-      const csvSeries=(get(first,iSeries)||'').trim().toLowerCase();
-      if(type==='textbook'){
-        const tl=title.toLowerCase();
-        let b=(_cache.globalTextbooks||[]).find(x=>(x.title||'').trim().toLowerCase()===tl&&(x.level||'').trim().toLowerCase()===csvLevel);
-        if(!b){
-          b={id:uid(),type:'textbook',title,series:get(first,iSeries),level:get(first,iLevel),category:get(first,iCat),publisher:'',units:{}};
-          _cache.globalTextbooks=_cache.globalTextbooks||[];_cache.globalTextbooks.push(b);addedBooks++;
-        } else {
-          b.series=get(first,iSeries)||b.series;b.level=get(first,iLevel)||b.level;b.category=get(first,iCat)||b.category;
-          updatedBooks++;
-        }
-        // CSV가 소스 오브 트루스 — 기존 단어 대체
-        const units={};
-        for(const r of brows){
-          const en=get(r,iEn);if(!en)continue;
-          const uKey=get(r,iUnit)||'기본';
-          if(!units[uKey])units[uKey]=[];
-          units[uKey].push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3)});
-          addedWords++;
-        }
-        b.units=units;await supaUpsert('global_textbooks',b.id,b,null);
-      } else if(type==='library'){
-        const tl=title.toLowerCase();
-        let b=(_cache.library||[]).find(x=>(x.title||'').trim().toLowerCase()===tl&&(x.series||'').trim().toLowerCase()===csvSeries);
-        if(!b){
-          b={id:uid(),type:'library',title,series:get(first,iSeries),arLevel:get(first,iAr),level:get(first,iLevel),genre:get(first,iCat),vocab:[]};
-          _cache.library=_cache.library||[];_cache.library.push(b);addedBooks++;
-        } else {
-          b.series=get(first,iSeries)||b.series;b.arLevel=get(first,iAr)||b.arLevel;b.genre=get(first,iCat)||b.genre;
-          updatedBooks++;
-        }
-        // CSV가 소스 오브 트루스 — 기존 단어 대체
-        const vocab=[];
-        for(const r of brows){
-          const en=get(r,iEn);if(!en)continue;
-          vocab.push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3),chapter:get(r,iUnit)});
-          addedWords++;
-        }
-        b.vocab=vocab;await supaUpsert('global_textbooks',b.id,b,null);
+    if(btn){btn.disabled=true;btn.textContent='가져오는 중...';}
+    try{
+      const rows=parseCSVText(ev.target.result);
+      if(rows.length<2){toast('CSV 파일이 비어있습니다');e.target.value='';return;}
+      const hdrs=rows[0].map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
+      const col=k=>{const i=hdrs.indexOf(k);return i>=0?i:-1;};
+      const iType=col('타입'),iTitle=col('제목'),iSeries=col('시리즈'),iAr=col('ar'),
+            iLevel=col('레벨'),iCat=col('분류'),iUnit=col('유닛'),iEn=col('단어'),
+            iKo=col('한국어'),iPos=col('품사'),iEx=col('예문'),iV2=col('v2'),iV3=col('v3');
+      if(iType<0||iTitle<0){toast('헤더 오류: "타입","제목" 컬럼이 필요합니다');e.target.value='';return;}
+      const get=(r,i)=>i>=0?(r[i]||'').replace(/^"|"$/g,'').trim():'';
+      // 책별 행 그룹화 — 교재는 title+level, 원서는 title+series로 구분
+      const bookMap={};
+      for(let i=1;i<rows.length;i++){
+        const r=rows[i];const type=get(r,iType).toLowerCase();const title=get(r,iTitle);
+        if(!type||!title)continue;
+        const lk=(get(r,iLevel)||'').trim().toLowerCase();
+        const sk=(get(r,iSeries)||'').trim().toLowerCase();
+        const key=type==='textbook'?type+'|'+title.toLowerCase()+'|'+lk:type+'|'+title.toLowerCase()+'|'+sk;
+        if(!bookMap[key])bookMap[key]={type,title,rows:[]};
+        bookMap[key].rows.push(r);
       }
+      let addedBooks=0,updatedBooks=0,addedWords=0,failedBooks=0;
+      const bookEntries=Object.values(bookMap);
+      let processed=0;
+      for(const bk of bookEntries){
+        const {type,title,rows:brows}=bk;const first=brows[0];
+        const csvLevel=(get(first,iLevel)||'').trim().toLowerCase();
+        const csvSeries=(get(first,iSeries)||'').trim().toLowerCase();
+        if(btn)btn.textContent=`가져오는 중... (${++processed}/${bookEntries.length})`;
+        if(type==='textbook'){
+          const tl=title.toLowerCase();
+          let b=(_cache.globalTextbooks||[]).find(x=>(x.title||'').trim().toLowerCase()===tl&&(x.level||'').trim().toLowerCase()===csvLevel);
+          if(!b){
+            b={id:uid(),type:'textbook',title,series:get(first,iSeries),level:get(first,iLevel),category:get(first,iCat),publisher:'',units:{}};
+            _cache.globalTextbooks=_cache.globalTextbooks||[];_cache.globalTextbooks.push(b);addedBooks++;
+          } else {
+            b.series=get(first,iSeries)||b.series;b.level=get(first,iLevel)||b.level;b.category=get(first,iCat)||b.category;
+            updatedBooks++;
+          }
+          // CSV가 소스 오브 트루스 — 기존 단어 대체
+          const units={};
+          for(const r of brows){
+            const en=get(r,iEn);if(!en)continue;
+            const uKey=get(r,iUnit)||'기본';
+            if(!units[uKey])units[uKey]=[];
+            units[uKey].push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3)});
+            addedWords++;
+          }
+          b.units=units;
+          const sz=JSON.stringify(b).length;
+          if(sz>500000)console.warn(`[importMasterCSV] 교재 "${title}" ${(sz/1024).toFixed(0)}KB — Supabase 행 크기 한도 초과 위험`);
+          try{await supaUpsert('global_textbooks',b.id,b,null);}
+          catch(err){failedBooks++;console.error(`[importMasterCSV] "${title}" 저장 실패:`,err);}
+        } else if(type==='library'){
+          const tl=title.toLowerCase();
+          let b=(_cache.library||[]).find(x=>(x.title||'').trim().toLowerCase()===tl&&(x.series||'').trim().toLowerCase()===csvSeries);
+          if(!b){
+            b={id:uid(),type:'library',title,series:get(first,iSeries),arLevel:get(first,iAr),level:get(first,iLevel),genre:get(first,iCat),vocab:[]};
+            _cache.library=_cache.library||[];_cache.library.push(b);addedBooks++;
+          } else {
+            b.series=get(first,iSeries)||b.series;b.arLevel=get(first,iAr)||b.arLevel;b.genre=get(first,iCat)||b.genre;
+            updatedBooks++;
+          }
+          // CSV가 소스 오브 트루스 — 기존 단어 대체
+          const vocab=[];
+          for(const r of brows){
+            const en=get(r,iEn);if(!en)continue;
+            vocab.push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3),chapter:get(r,iUnit)});
+            addedWords++;
+          }
+          b.vocab=vocab;
+          const sz=JSON.stringify(b).length;
+          if(sz>500000)console.warn(`[importMasterCSV] 원서 "${title}" ${(sz/1024).toFixed(0)}KB — Supabase 행 크기 한도 초과 위험`);
+          try{await supaUpsert('global_textbooks',b.id,b,null);}
+          catch(err){failedBooks++;console.error(`[importMasterCSV] "${title}" 저장 실패:`,err);}
+        }
+      }
+      renderBookDB();renderMasterDB();
+      if(typeof wdbPage!=='undefined')wdbPage=0;
+      if(typeof renderWordDB==='function')renderWordDB();
+      const failMsg=failedBooks>0?` (${failedBooks}개 저장 실패 — 콘솔 확인)`:'';
+      toast(`임포트 완료: 책 ${addedBooks}권 신규, ${updatedBooks}권 갱신, 단어 ${addedWords}개 추가${failMsg}`);
+      e.target.value='';
+    }finally{
+      if(btn){btn.disabled=false;btn.textContent='📥 마스터 CSV';}
     }
-    renderBookDB();renderMasterDB();
-    if(typeof wdbPage!=='undefined')wdbPage=0;
-    if(typeof renderWordDB==='function')renderWordDB();
-    toast(`임포트 완료: 책 ${addedBooks}권 신규, ${updatedBooks}권 갱신, 단어 ${addedWords}개 추가`);
-    e.target.value='';
   };
   reader.readAsText(file,'UTF-8');
 }

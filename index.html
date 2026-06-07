@@ -483,7 +483,7 @@
         <div class="sh">
           <div><div class="st">마스터 DB</div><div class="ssub" id="master-total"></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn bt bsm" style="background:var(--teal);color:#fff;font-weight:700" onclick="document.getElementById('master-csv-file').click()">📥 마스터 CSV</button>
+            <button id="master-csv-btn" class="btn bt bsm" style="background:var(--teal);color:#fff;font-weight:700" onclick="document.getElementById('master-csv-file').click()">📥 마스터 CSV</button>
             <input type="file" id="master-csv-file" accept=".csv" style="display:none" onchange="importMasterCSV(event)">
             <button class="btn bo bsm" onclick="exportMasterCSV()">⬇ 마스터 CSV</button>
             <button class="btn bo bsm" onclick="downloadMasterCSVTemplate()">📋 템플릿</button>
