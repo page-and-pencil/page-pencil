@@ -4674,6 +4674,7 @@ async function importMasterCSV(e){
   reader.onload=async ev=>{
     if(btn){btn.disabled=true;btn.textContent='가져오는 중...';}
     const typeFilter=(document.getElementById('master-csv-filter')?.value||'all');
+    const importMode=(document.getElementById('master-csv-mode')?.value||'overwrite');
     try{
       const rows=parseCSVText(ev.target.result);
       if(rows.length<2){toast('CSV 파일이 비어있습니다');e.target.value='';return;}
@@ -4715,16 +4716,27 @@ async function importMasterCSV(e){
             b.series=get(first,iSeries)||b.series;b.level=get(first,iLevel)||b.level;b.category=get(first,iCat)||b.category;
             updatedBooks++;
           }
-          // CSV가 소스 오브 트루스 — 기존 단어 대체
-          const units={};
+          // CSV에서 단원별 단어 수집
+          const csvUnits={};
           for(const r of brows){
             const en=get(r,iEn);if(!en)continue;
             const uKey=get(r,iUnit)||'기본';
-            if(!units[uKey])units[uKey]=[];
-            units[uKey].push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3)});
+            if(!csvUnits[uKey])csvUnits[uKey]=[];
+            csvUnits[uKey].push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3)});
             addedWords++;
           }
-          b.units=units;
+          if(importMode==='append'){
+            // 기존 단어 유지 + CSV 단어 추가/갱신 (word 기준 merge)
+            const merged={...(b.units||{})};
+            for(const [uKey,newWords] of Object.entries(csvUnits)){
+              const existMap=new Map((merged[uKey]||[]).map(w=>[(w.word||'').toLowerCase(),w]));
+              for(const nw of newWords) existMap.set((nw.word||'').toLowerCase(),{...(existMap.get((nw.word||'').toLowerCase())||{}),...nw});
+              merged[uKey]=[...existMap.values()];
+            }
+            b.units=merged;
+          } else {
+            b.units=csvUnits;
+          }
           const sz=JSON.stringify(b).length;
           if(sz>500000)console.warn(`[importMasterCSV] 교재 "${title}" ${(sz/1024).toFixed(0)}KB — Supabase 행 크기 한도 초과 위험`);
           try{await supaUpsert('global_textbooks',b.id,b,null);}
@@ -4739,25 +4751,35 @@ async function importMasterCSV(e){
             b.series=get(first,iSeries)||b.series;b.arLevel=get(first,iAr)||b.arLevel;b.genre=get(first,iCat)||b.genre;
             updatedBooks++;
           }
-          // CSV가 소스 오브 트루스 — 기존 단어 대체
-          const vocab=[];
+          // CSV에서 단어 수집
+          const csvVocab=[];
           for(const r of brows){
             const en=get(r,iEn);if(!en)continue;
-            vocab.push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3),chapter:get(r,iUnit)});
+            csvVocab.push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3),chapter:get(r,iUnit)});
             addedWords++;
           }
-          b.vocab=vocab;
+          if(importMode==='append'){
+            // 기존 단어 유지 + CSV 단어 추가/갱신 (word 기준 merge)
+            const existMap=new Map((b.vocab||[]).map(w=>[(w.word||'').toLowerCase(),w]));
+            for(const nw of csvVocab) existMap.set((nw.word||'').toLowerCase(),{...(existMap.get((nw.word||'').toLowerCase())||{}),...nw});
+            b.vocab=[...existMap.values()];
+          } else {
+            b.vocab=csvVocab;
+          }
           const sz=JSON.stringify(b).length;
           if(sz>500000)console.warn(`[importMasterCSV] 원서 "${title}" ${(sz/1024).toFixed(0)}KB — Supabase 행 크기 한도 초과 위험`);
           try{await supaUpsert('global_textbooks',b.id,b,null);}
           catch(err){failedBooks++;failedTitles.push(title);console.error(`[importMasterCSV] "${title}" 저장 실패:`,err);}
         }
       }
+      // 모든 관련 DB 뷰 일괄 갱신
       renderBookDB();renderMasterDB();renderTbookTable();
+      renderLib();renderLibTable();populateLibSel();updateTbookDatalist();
       if(typeof wdbPage!=='undefined')wdbPage=0;
       if(typeof renderWordDB==='function')renderWordDB();
       const filterLabel=typeFilter==='textbook'?' (교재만)':typeFilter==='library'?' (원서만)':'';
-      toast(`임포트 완료${filterLabel}: 책 ${addedBooks}권 신규, ${updatedBooks}권 갱신, 단어 ${addedWords}개 추가`);
+      const modeLabel=importMode==='append'?' — 추가 모드':' — 덮어쓰기 모드';
+      toast(`임포트 완료${filterLabel}${modeLabel}: 책 ${addedBooks}권 신규, ${updatedBooks}권 갱신, 단어 ${addedWords}개`);
       if(failedBooks>0){
         askConfirm(`${failedBooks}권 저장 실패`,`다음 책이 저장되지 않았습니다:\n${failedTitles.map(t=>`• ${t}`).join('\n')}\n\n행 크기 초과 또는 네트워크 오류일 수 있습니다.\n해당 책만 담은 CSV로 재시도해 보세요.`,'확인','bo',()=>{});
       }

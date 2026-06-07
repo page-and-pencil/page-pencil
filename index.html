@@ -484,6 +484,7 @@
           <div><div class="st">마스터 DB</div><div class="ssub" id="master-total"></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <select id="master-csv-filter" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)"><option value="all">전체</option><option value="textbook">교재만</option><option value="library">원서만</option></select>
+            <select id="master-csv-mode" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)"><option value="overwrite">덮어쓰기</option><option value="append">추가</option></select>
             <button id="master-csv-btn" class="btn bt bsm" style="background:var(--teal);color:#fff;font-weight:700" onclick="document.getElementById('master-csv-file').click()">📥 마스터 CSV</button>
             <input type="file" id="master-csv-file" accept=".csv" style="display:none" onchange="importMasterCSV(event)">
             <button class="btn bo bsm" onclick="exportMasterCSV()">⬇ 마스터 CSV</button>
