@@ -4687,12 +4687,14 @@ async function importMasterCSV(e){
           iKo=col('한국어'),iPos=col('품사'),iEx=col('예문'),iV2=col('v2'),iV3=col('v3');
     if(iType<0||iTitle<0){toast('헤더 오류: "타입","제목" 컬럼이 필요합니다');e.target.value='';return;}
     const get=(r,i)=>i>=0?(r[i]||'').replace(/^"|"$/g,'').trim():'';
-    // 책별 행 그룹화
+    // 책별 행 그룹화 — 교재는 title+level, 원서는 title+series로 구분
     const bookMap={};
     for(let i=1;i<rows.length;i++){
       const r=rows[i];const type=get(r,iType).toLowerCase();const title=get(r,iTitle);
       if(!type||!title)continue;
-      const key=type+'|'+title.toLowerCase();
+      const lk=(get(r,iLevel)||'').trim().toLowerCase();
+      const sk=(get(r,iSeries)||'').trim().toLowerCase();
+      const key=type==='textbook'?type+'|'+title.toLowerCase()+'|'+lk:type+'|'+title.toLowerCase()+'|'+sk;
       if(!bookMap[key])bookMap[key]={type,title,rows:[]};
       bookMap[key].rows.push(r);
     }
@@ -4703,50 +4705,42 @@ async function importMasterCSV(e){
       const csvSeries=(get(first,iSeries)||'').trim().toLowerCase();
       if(type==='textbook'){
         const tl=title.toLowerCase();
-        // 제목+레벨 복합키 — 둘 다 값이 있을 때만 레벨 비교, 하나라도 비어 있으면 제목만
-        let b=(_cache.globalTextbooks||[]).find(x=>{
-          if((x.title||'').trim().toLowerCase()!==tl)return false;
-          const xl=(x.level||'').trim().toLowerCase();
-          return !csvLevel||!xl||csvLevel===xl;
-        });
+        let b=(_cache.globalTextbooks||[]).find(x=>(x.title||'').trim().toLowerCase()===tl&&(x.level||'').trim().toLowerCase()===csvLevel);
         if(!b){
           b={id:uid(),type:'textbook',title,series:get(first,iSeries),level:get(first,iLevel),category:get(first,iCat),publisher:'',units:{}};
-          await supaUpsert('global_textbooks',b.id,b,null);
           _cache.globalTextbooks=_cache.globalTextbooks||[];_cache.globalTextbooks.push(b);addedBooks++;
+        } else {
+          b.series=get(first,iSeries)||b.series;b.level=get(first,iLevel)||b.level;b.category=get(first,iCat)||b.category;
+          updatedBooks++;
         }
-        const units=b.units||{};
+        // CSV가 소스 오브 트루스 — 기존 단어 대체
+        const units={};
         for(const r of brows){
           const en=get(r,iEn);if(!en)continue;
           const uKey=get(r,iUnit)||'기본';
           if(!units[uKey])units[uKey]=[];
-          if(!units[uKey].find(w=>(w.word||'').toLowerCase()===en.toLowerCase())){
-            units[uKey].push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3)});
-            addedWords++;
-          }
+          units[uKey].push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3)});
+          addedWords++;
         }
-        b.units=units;await supaUpsert('global_textbooks',b.id,b,null);updatedBooks++;
+        b.units=units;await supaUpsert('global_textbooks',b.id,b,null);
       } else if(type==='library'){
         const tl=title.toLowerCase();
-        // 제목+시리즈 복합키
-        let b=(_cache.library||[]).find(x=>{
-          if((x.title||'').trim().toLowerCase()!==tl)return false;
-          const xs=(x.series||'').trim().toLowerCase();
-          return !csvSeries||!xs||csvSeries===xs;
-        });
+        let b=(_cache.library||[]).find(x=>(x.title||'').trim().toLowerCase()===tl&&(x.series||'').trim().toLowerCase()===csvSeries);
         if(!b){
           b={id:uid(),type:'library',title,series:get(first,iSeries),arLevel:get(first,iAr),level:get(first,iLevel),genre:get(first,iCat),vocab:[]};
-          await supaUpsert('global_textbooks',b.id,b,null);
           _cache.library=_cache.library||[];_cache.library.push(b);addedBooks++;
+        } else {
+          b.series=get(first,iSeries)||b.series;b.arLevel=get(first,iAr)||b.arLevel;b.genre=get(first,iCat)||b.genre;
+          updatedBooks++;
         }
-        const vocab=b.vocab||[];
+        // CSV가 소스 오브 트루스 — 기존 단어 대체
+        const vocab=[];
         for(const r of brows){
           const en=get(r,iEn);if(!en)continue;
-          if(!vocab.find(w=>(w.word||'').toLowerCase()===en.toLowerCase())){
-            vocab.push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3),chapter:get(r,iUnit)});
-            addedWords++;
-          }
+          vocab.push({word:en,ko:get(r,iKo),pos:get(r,iPos),example:get(r,iEx),v2:get(r,iV2),v3:get(r,iV3),chapter:get(r,iUnit)});
+          addedWords++;
         }
-        b.vocab=vocab;await supaUpsert('global_textbooks',b.id,b,null);updatedBooks++;
+        b.vocab=vocab;await supaUpsert('global_textbooks',b.id,b,null);
       }
     }
     renderBookDB();renderMasterDB();
