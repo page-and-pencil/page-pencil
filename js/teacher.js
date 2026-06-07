@@ -713,6 +713,7 @@ async function saveQuickPay(){
   closeM('m-quick-pay');
   document.getElementById('qp-amt').value='';document.getElementById('qp-memo').value='';
   toast('결제 기록이 추가되었습니다');
+  renderStus();
   if(currentSpStuId===sid)loadStuPanel(sid);
   }catch(e){
     console.error('saveQuickPay:',e);
@@ -943,11 +944,11 @@ function reqDelStu(){
   askConfirm('완전 삭제',`${s?s.name:'이 학생'}의 모든 수업·테스트·원서 기록이 함께 삭제됩니다. 되돌릴 수 없습니다.`,'완전 삭제','bd',async()=>{
     await supaDelete('students',id);
     // 연관 기록 삭제
-    const relIds={lessons:'sid',tests:'sid',readings:'sid',logs:'sid'};
+    const relIds={lessons:'sid',tests:'sid',readings:'sid',logs:'sid',homeworks:'sid',assignments:'sid'};
     for(const [tbl] of Object.entries(relIds)){
-      const items=_cache[tbl].filter(x=>x.sid===id);
+      const items=(_cache[tbl]||[]).filter(x=>x.sid===id);
       for(const it of items) await supaDelete(tbl,it.id);
-      _cache[tbl]=_cache[tbl].filter(x=>x.sid!==id);
+      _cache[tbl]=(_cache[tbl]||[]).filter(x=>x.sid!==id);
     }
     // vocab_cards cascade
     const vcOrphans=(_cache.vocab_cards||[]).filter(c=>c.sid===id);
@@ -1203,8 +1204,10 @@ async function saveLes(){
   const newLes={id:uid(),sid,date:document.getElementById('ls-date').value,grade:_sStuGrade,att:document.getElementById('ls-att').value,materials:getSMats(),cmt:rawCmt,polishedCmt,...(_rubric?{rubric:_rubric}:{})};
   await supaUpsert('lessons',newLes.id,newLes,sid);
   _cache.lessons.unshift(newLes);
-  addUnitWordsToVocab(sid,newLes.materials,newLes.date).catch(e=>console.error('vocab sync:',e));
-  autoSyncBookReads(sid,newLes.materials,newLes.date).catch(e=>console.warn('autoSyncBookReads 실패:',e));
+  (async()=>{
+    await addUnitWordsToVocab(sid,newLes.materials,newLes.date).catch(e=>console.error('vocab sync:',e));
+    await autoSyncBookReads(sid,newLes.materials,newLes.date).catch(e=>console.warn('autoSyncBookReads 실패:',e));
+  })();
   document.getElementById('ls-cmt').value='';clearSRows();
   document.getElementById('ls-last-hint').style.display='none';
   if(typeof _polishedCmtCache!=='undefined')_polishedCmtCache={raw:'',polished:''};
@@ -1495,8 +1498,10 @@ async function updLes(){
   const polishedCmt=rawCmt?await polishCmt(rawCmt):'';
   _cache.lessons[idx]={..._cache.lessons[idx],date:document.getElementById('el-date').value,sid,grade:document.getElementById('el-grade').value,att:document.getElementById('el-att').value,materials:getSMatsFrom('el-subj-rows'),cmt:rawCmt,polishedCmt};
   await supaUpsert('lessons',id,_cache.lessons[idx],sid);
-  autoSyncBookReads(sid,_cache.lessons[idx].materials,_cache.lessons[idx].date).catch(e=>console.warn('autoSyncBookReads 실패:',e));
-  addUnitWordsToVocab(sid,_cache.lessons[idx].materials,_cache.lessons[idx].date).catch(e=>console.error('vocab sync:',e));
+  (async()=>{
+    await addUnitWordsToVocab(sid,_cache.lessons[idx].materials,_cache.lessons[idx].date).catch(e=>console.error('vocab sync:',e));
+    await autoSyncBookReads(sid,_cache.lessons[idx].materials,_cache.lessons[idx].date).catch(e=>console.warn('autoSyncBookReads 실패:',e));
+  })();
   closeM('m-edit-les');clearEditSRows();renderLes();toast('수정되었습니다');
 }
 function reqDelLes(){
@@ -2022,7 +2027,7 @@ async function delLibVocabWord(id,idx){
   if(deletedWord?.word){
     const wLow=deletedWord.word.toLowerCase();
     const orphans=(_cache.vocab_cards||[]).filter(c=>c.srcId===id&&(c.word||'').toLowerCase()===wLow);
-    for(const c of orphans)await supaDelete('vocab_cards',c.id).catch(()=>{});
+    for(const c of orphans)await supaDelete('vocab_cards',c.id).catch(e=>console.warn('vocab_cards 삭제 실패:',e));
     if(orphans.length)_cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>!orphans.some(o=>o.id===c.id));
   }
   renderLibVocabTable(id);renderLibTable();
@@ -2235,6 +2240,9 @@ function delLib(){
   const id=document.getElementById('elib-id').value;
   askConfirm('원서 삭제','원서목록에서 삭제할까요?','삭제','bd',async()=>{
     await supaDelete('global_textbooks',id);
+    const vcOrphans=(_cache.vocab_cards||[]).filter(c=>c.srcId===id);
+    for(const c of vcOrphans) await supaDelete('vocab_cards',c.id).catch(e=>console.warn('vocab_cards 삭제 실패:',e));
+    _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>c.srcId!==id);
     _cache.library=_cache.library.filter(x=>x.id!==id);
     closeM('m-edit-lib');renderLib();populateLibSel();toast('삭제되었습니다');
   });
@@ -3642,8 +3650,6 @@ function wdbNewSrcTypeChange(){
   }else{
     if(txt)txt.style.display='none';if(sel)sel.style.display='';
     if(lbl)lbl.textContent='원서';if(unitRow)unitRow.style.display='none';
-    const deletedIds=new Set((_cache.library||[]).filter(b=>b._deleted).map(b=>b.id));
-    const libIds=new Set((_cache.library||[]).map(b=>b.id));
     const allLib=[...(_cache.library||[]).filter(b=>!b._deleted)];
     allLib.sort((a,b)=>a.title.localeCompare(b.title));
     if(sel)sel.innerHTML='<option value="">-- 원서 선택 --</option>'+allLib.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title)}</option>`).join('');
@@ -3783,7 +3789,7 @@ async function wdbDeleteSelected(){
       }
       // 연쇄: 삭제된 단어와 연결된 학생 vocab_card 삭제
       const orphans=(_cache.vocab_cards||[]).filter(c=>entries.some(e=>c.srcId===e.srcId&&(c.word||'').toLowerCase()===e.word));
-      for(const c of orphans)await supaDelete('vocab_cards',c.id).catch(()=>{});
+      for(const c of orphans)await supaDelete('vocab_cards',c.id).catch(e=>console.warn('vocab_cards 삭제 실패:',e));
       if(orphans.length)_cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>!orphans.some(o=>o.id===c.id));
       renderWordDB();toast(`${entries.length}개 삭제되었습니다${orphans.length?` (학생 카드 ${orphans.length}개도 삭제)`:''}`);;
     }catch(err){toast('삭제 실패: '+err.message);}
@@ -3846,7 +3852,7 @@ async function wdbDeleteAll(){
       }
       // 연쇄: 학생 vocab_card 삭제
       const orphans=(_cache.vocab_cards||[]).filter(c=>words.some(e=>c.srcId===e.srcId&&(c.word||'').toLowerCase()===e.word));
-      for(const c of orphans)await supaDelete('vocab_cards',c.id).catch(()=>{});
+      for(const c of orphans)await supaDelete('vocab_cards',c.id).catch(e=>console.warn('vocab_cards 삭제 실패:',e));
       if(orphans.length)_cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>!orphans.some(o=>o.id===c.id));
       prog.remove();renderWordDB();toast(`${words.length}개 삭제되었습니다${orphans.length?` (학생 카드 ${orphans.length}개도 삭제)`:''}`);;
     }catch(err){prog.remove();toast('삭제 실패: '+err.message);}
@@ -3873,7 +3879,7 @@ async function wdbDeleteEntry(idx){
       }
       // 연쇄: 학생 vocab_card 삭제
       const orphans=(_cache.vocab_cards||[]).filter(c=>c.srcId===e.srcId&&(c.word||'').toLowerCase()===e.word);
-      for(const c of orphans)await supaDelete('vocab_cards',c.id).catch(()=>{});
+      for(const c of orphans)await supaDelete('vocab_cards',c.id).catch(e=>console.warn('vocab_cards 삭제 실패:',e));
       if(orphans.length)_cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>!orphans.some(o=>o.id===c.id));
       renderWordDB();toast(`삭제되었습니다${orphans.length?` (학생 카드 ${orphans.length}개도 삭제)`:''}`);;
     }catch(err){toast('삭제 실패: '+err.message);}
@@ -4324,9 +4330,7 @@ function populateLibSeriesFilter(){
 }
 
 function renderLibTable(){
-  const libIds=new Set(DB.libs().map(b=>b.id));
-  const deletedIds=new Set(DB.libs().filter(b=>b._deleted).map(b=>b.id));
-  const allSrc=[...DB.libs().filter(b=>!b._deleted)];
+  const allSrc=[...DB.libs()];
   const q=(document.getElementById('lib-q')?.value||'').toLowerCase().trim();
   const serF=document.getElementById('lib-filter-series')?.value||'';
 
@@ -4364,7 +4368,6 @@ function renderLibTable(){
   const tbody=document.getElementById('lib-tbody');if(!tbody)return;
   tbody.innerHTML=paged.map(b=>{
     const arDisplay=b.ar||b.arLevel||'—';
-    const isDeletable=libIds.has(b.id);
     const textChaps=elibGetChapters(b.id);
     const hasText=textChaps.some(c=>c.text);
     return `<tr>
