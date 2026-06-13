@@ -4798,9 +4798,10 @@ async function importMasterCSV(e){
         if(type==='textbook'){
           const tl=title.toLowerCase();
           let b=(_cache.globalTextbooks||[]).find(x=>(x.title||'').trim().toLowerCase()===tl&&(x.level||'').trim().toLowerCase()===csvLevel);
+          const isNewTb=!b;
           if(!b){
             b={id:uid(),type:'textbook',title,series:get(first,iSeries),level:get(first,iLevel),category:get(first,iCat),publisher:'',units:{}};
-            _cache.globalTextbooks=_cache.globalTextbooks||[];_cache.globalTextbooks.push(b);addedBooks++;
+            addedBooks++;
           } else {
             b.series=get(first,iSeries)||b.series;b.level=get(first,iLevel)||b.level;b.category=get(first,iCat)||b.category;
             updatedBooks++;
@@ -4833,14 +4834,22 @@ async function importMasterCSV(e){
           }
           const sz=JSON.stringify(b).length;
           if(sz>500000)console.warn(`[importMasterCSV] 교재 "${title}" ${(sz/1024).toFixed(0)}KB — Supabase 행 크기 한도 초과 위험`);
-          try{await supaUpsert('global_textbooks',b.id,b,null);}
-          catch(err){failedBooks++;failedTitles.push(title);console.error(`[importMasterCSV] "${title}" 저장 실패:`,err);}
+          let savedTb=false;
+          for(let attempt=1;attempt<=3&&!savedTb;attempt++){
+            try{await supaUpsert('global_textbooks',b.id,b,null,60000);savedTb=true;}
+            catch(err){
+              if(attempt<3)await new Promise(r=>setTimeout(r,500*attempt));
+              else{failedBooks++;if(!failedTitles.includes(title))failedTitles.push(title);console.error(`[importMasterCSV] "${title}" 저장 실패:`,err);}
+            }
+          }
+          if(savedTb&&isNewTb){_cache.globalTextbooks=_cache.globalTextbooks||[];_cache.globalTextbooks.push(b);}
         } else if(type==='library'){
           const tl=title.toLowerCase();
           let b=(_cache.library||[]).find(x=>(x.title||'').trim().toLowerCase()===tl&&(x.series||'').trim().toLowerCase()===csvSeries);
+          const isNewLib=!b;
           if(!b){
             b={id:uid(),type:'library',title,series:get(first,iSeries),arLevel:get(first,iAr),level:get(first,iLevel),genre:get(first,iCat),vocab:[]};
-            _cache.library=_cache.library||[];_cache.library.push(b);addedBooks++;
+            addedBooks++;
           } else {
             b.series=get(first,iSeries)||b.series;b.arLevel=get(first,iAr)||b.arLevel;b.genre=get(first,iCat)||b.genre;
             updatedBooks++;
@@ -4868,8 +4877,15 @@ async function importMasterCSV(e){
           }
           const sz=JSON.stringify(b).length;
           if(sz>500000)console.warn(`[importMasterCSV] 원서 "${title}" ${(sz/1024).toFixed(0)}KB — Supabase 행 크기 한도 초과 위험`);
-          try{await supaUpsert('global_textbooks',b.id,b,null);}
-          catch(err){failedBooks++;failedTitles.push(title);console.error(`[importMasterCSV] "${title}" 저장 실패:`,err);}
+          let savedLib=false;
+          for(let attempt=1;attempt<=3&&!savedLib;attempt++){
+            try{await supaUpsert('global_textbooks',b.id,b,null,60000);savedLib=true;}
+            catch(err){
+              if(attempt<3)await new Promise(r=>setTimeout(r,500*attempt));
+              else{failedBooks++;if(!failedTitles.includes(title))failedTitles.push(title);console.error(`[importMasterCSV] "${title}" 저장 실패:`,err);}
+            }
+          }
+          if(savedLib&&isNewLib){_cache.library=_cache.library||[];_cache.library.push(b);}
         }
       }
       // 모든 관련 DB 뷰 일괄 갱신

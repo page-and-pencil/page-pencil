@@ -153,6 +153,29 @@ async function supaFetch(table,params='',silent=false){
     throw e;
   }
 }
+// 1000행 초과 테이블을 페이지 단위로 전체 로드 (PostgREST 기본 max-rows=1000 우회)
+async function supaFetchAll(table,silent=false){
+  const PAGE=1000;
+  let all=[],offset=0;
+  while(true){
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),30000);
+    try{
+      const r=await fetch(`${SUPA_URL}/rest/v1/${table}?limit=${PAGE}&offset=${offset}&order=updated_at.desc`,{headers:SUPA_HEADERS,signal:ctrl.signal});
+      clearTimeout(tid);
+      if(!r.ok){if(!silent)handleSupaError(r.status);break;}
+      const rows=await r.json();
+      all=all.concat(rows);
+      if(rows.length<PAGE)break;
+      offset+=PAGE;
+    }catch(e){
+      clearTimeout(tid);
+      if(e.name==='AbortError'&&!silent)toast('서버 응답이 느립니다. 잠시 후 다시 시도해 주세요.');
+      break;
+    }
+  }
+  return all;
+}
 async function supaUpsert(table,id,dataObj,sid=null,timeoutMs=15000){
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),timeoutMs);
@@ -233,7 +256,7 @@ async function loadAllData(){
     // 테이블별 독립 로드: 한 테이블이 404(미생성)여도 나머지는 정상 로드
     const tables=['students','lessons','tests','readings','logs','library','notices','homeworks','assignments','textbooks','messages','global_textbooks','classes','monthly_reports'];
     const res=await Promise.allSettled([
-      ...tables.map(t=>supaFetch(t,'',true)),
+      ...tables.map(t=>t==='global_textbooks'?supaFetchAll(t,true):supaFetch(t,'',true)),
       supaGetSetting('acct'),supaGetSetting('pw'),
     ]);
     const missing=tables.filter((t,i)=>res[i].status==='rejected');
