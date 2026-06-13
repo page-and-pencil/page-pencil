@@ -3257,6 +3257,10 @@ function renderBookDB(){
   ).join('');
   if(_dataTab==='master')renderMasterDB();
 }
+// ── SP-BOOKS 큐 상태 ──
+let _spTbQueue=[];
+let _spRdQueue=[];
+
 // ── 마스터 DB (교재+원서+어휘 통합 평탄화 뷰) ──
 let _masterFilter='',masterPage=0;
 let _masterSelected=new Set(); // 선택된 book id Set
@@ -6405,8 +6409,8 @@ function renderSpBooks(sid){
   const tbTitles=new Set(tbs.map(t=>t.title));
   const derivedBooks=[...lessonBookMap.values()].filter(b=>!tbTitles.has(b.title)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const manualEntries=tbs.map(t=>{
-    const globalTb=(_cache.globalTextbooks||[]).find(g=>g.id===t.bookId||g.title===t.title);
-    return {id:t.id,title:t.title,type:t.type||'교재',unit:t.currentUnit||'',manual:true,completed:t.completed,completedDate:t.completedDate,bookId:t.bookId||'',level:globalTb?.level||''};
+    const globalTb=t.bookId?(_cache.globalTextbooks||[]).find(g=>g.id===t.bookId):(_cache.globalTextbooks||[]).find(g=>g.title===t.title);
+    return {id:t.id,title:t.title,type:t.type||'교재',unit:t.currentUnit||'',manual:true,completed:t.completed,completedDate:t.completedDate,bookId:t.bookId||'',level:t.level||globalTb?.level||''};
   });
   const derivedEntries=derivedBooks.map(b=>({id:null,title:b.title,type:b.type,unit:b.unit,manual:false,completed:false}));
   const allEntries=[...manualEntries,...derivedEntries];
@@ -6450,47 +6454,41 @@ function renderSpBooks(sid){
     <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:6px">✅ 완료 교재 (${doneTbs.length}권)</div>
     ${doneTbs.map(doneRow).join('')}</div>`:''}
   <div id="sp-tb-add" style="${formSt}">
-    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">교재 추가</div>
-    <div class="f"><label>교재 검색 <span style="color:var(--coral)">*</span></label>
+    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">교재 추가 <span id="sp-tb-queue-hint" style="font-size:11px;font-weight:normal;color:var(--slate)">여러 권 선택 후 한 번에 저장 가능</span></div>
+    <div id="sp-tb-queue-list" style="margin-bottom:8px"></div>
+    <div class="f"><label>교재 검색</label>
       <input type="text" id="sp-tb-q" placeholder="교재명·레벨 입력..." oninput="spTbSearch()" autocomplete="off">
       <div id="sp-tb-dd" style="${ddSt}"></div>
-      <div id="sp-tb-sel" style="${selSt}"></div>
-      <input type="hidden" id="sp-tb-id">
     </div>
-    <div class="f"><label>현재 진도 <span style="font-size:10px;color:var(--slate)">(선택)</span></label>
-      <input type="text" id="sp-tb-unit" placeholder="예: Unit 3">
-    </div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn bo bsm" onclick="closeSpTbAdd()">취소</button>
-      <button class="btn bt bsm" onclick="saveTbEntry('${sid}')">저장</button>
+      <button id="sp-tb-save-btn" class="btn bt bsm" onclick="saveTbEntries('${sid}')">저장</button>
     </div>
   </div>
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
       <span style="font-size:12px;font-weight:700;color:var(--navy)">📗 원서 (${activeRds.length}권)</span>
-      <button class="btn bt bsm" onclick="openSpRdAdd('${sid}')">+ 원서 추가</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn bt bsm" onclick="openSpRdAdd('${sid}')">+ 원서 추가</button>
+        <button class="btn bo bsm" style="font-size:11px" onclick="downloadRdCsvTemplate()">📋 완료 원서 템플릿</button>
+        <input type="file" id="sp-rd-csv-file" accept=".csv" style="display:none" onchange="importRdCsv(event,'${sid}')">
+        <button class="btn bo bsm" style="font-size:11px" onclick="document.getElementById('sp-rd-csv-file').click()">📥 완료 원서 CSV</button>
+      </div>
     </div>
     <div>${activeRds.length?activeRds.map(bookRow).join(''):'<div style="font-size:12px;color:var(--slate);padding:8px 0">등록된 원서 없음</div>'}</div>
     ${doneRds.length?`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
       <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:6px">✅ 완료 원서 (${doneRds.length}권)</div>
       ${doneRds.map(doneRow).join('')}</div>`:''}
     <div id="sp-rd-add" style="${formSt}">
-      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">원서 추가</div>
-      <div class="f"><label>원서 검색 <span style="color:var(--coral)">*</span></label>
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">원서 추가 <span style="font-size:11px;font-weight:normal;color:var(--slate)">여러 권 선택 후 한 번에 저장 가능</span></div>
+      <div id="sp-rd-queue-list" style="margin-bottom:8px"></div>
+      <div class="f"><label>원서 검색</label>
         <input type="text" id="sp-rd-q" placeholder="제목·저자·시리즈 입력..." oninput="spRdSearch()" autocomplete="off">
         <div id="sp-rd-dd" style="${ddSt}"></div>
-        <div id="sp-rd-sel" style="${selSt}"></div>
-        <input type="hidden" id="sp-rd-id">
       </div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--navy);cursor:pointer;margin:6px 0">
-        <input type="checkbox" id="sp-rd-done" onchange="document.getElementById('sp-rd-date-row').style.display=this.checked?'':'none'"> 이미 다 읽음
-      </label>
-      <div class="f" id="sp-rd-date-row" style="display:none"><label>완료 날짜</label>
-        <input type="date" id="sp-rd-done-dt" value="${today}">
-      </div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn bo bsm" onclick="closeSpRdAdd()">취소</button>
-        <button class="btn bt bsm" onclick="saveRdEntry('${sid}')">저장</button>
+        <button id="sp-rd-save-btn" class="btn bt bsm" onclick="saveRdEntries('${sid}')">저장</button>
       </div>
     </div>
   </div>`;
@@ -6498,9 +6496,8 @@ function renderSpBooks(sid){
 function openSpTbAdd(sid){
   const el=document.getElementById('sp-tb-add');if(!el)return;
   el.style.display='block';
+  _spTbQueue=[];spTbRenderQueue();
   const q=document.getElementById('sp-tb-q');if(q){q.value='';setTimeout(()=>q.focus(),50);}
-  ['sp-tb-id','sp-tb-unit'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  const sel=document.getElementById('sp-tb-sel');if(sel)sel.style.display='none';
   const dd=document.getElementById('sp-tb-dd');if(dd)dd.style.display='none';
 }
 function closeSpTbAdd(){const el=document.getElementById('sp-tb-add');if(el)el.style.display='none';}
@@ -6512,39 +6509,53 @@ function spTbSearch(){
     b.title.toLowerCase().includes(q)||(b.level||'').toLowerCase().includes(q)||(b.publisher||'').toLowerCase().includes(q)
   )).slice(0,10);
   if(!books.length){dd.innerHTML='<div style="padding:8px 10px;color:var(--slate);font-size:12px">검색 결과 없음</div>';dd.style.display='block';return;}
-  dd.innerHTML=books.map(b=>`<div onclick="spTbSelect('${escAttr(b.id)}','${escAttr(b.title)}','${escAttr(b.level||'')}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border)" onmouseenter="this.style.background='var(--cream)'" onmouseleave="this.style.background=''">
+  dd.innerHTML=books.map(b=>`<div onclick="spTbAddToQueue('${escAttr(b.id)}','${escAttr(b.title)}','${escAttr(b.level||'')}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border)" onmouseenter="this.style.background='var(--cream)'" onmouseleave="this.style.background=''">
     <span style="font-weight:700;font-size:12px">${b.title}</span>${b.level?` <span style="color:var(--slate);font-size:10px">(${b.level})</span>`:''}${b.publisher?` <span style="color:var(--slate);font-size:10px">· ${b.publisher}</span>`:''}
   </div>`).join('');
   dd.style.display='block';
 }
-function spTbSelect(id,title,level){
-  document.getElementById('sp-tb-q').value='';
-  document.getElementById('sp-tb-dd').style.display='none';
-  document.getElementById('sp-tb-id').value=id;
-  const sel=document.getElementById('sp-tb-sel');
-  if(sel){sel.textContent=`✓ ${title}${level?' ('+level+')':''}`;sel.style.display='block';}
+function spTbSelect(id,title,level){spTbAddToQueue(id,title,level);}
+async function saveTbEntry(sid){saveTbEntries(sid);}
+function spTbAddToQueue(id,title,level){
+  if(_spTbQueue.some(b=>b.id===id)){toast('이미 선택된 교재입니다');return;}
+  _spTbQueue.push({id,title,level:level||'',unit:''});
+  const q=document.getElementById('sp-tb-q');if(q)q.value='';
+  const dd=document.getElementById('sp-tb-dd');if(dd)dd.style.display='none';
+  spTbRenderQueue();
 }
-async function saveTbEntry(sid){
-  const id=document.getElementById('sp-tb-id')?.value||'';
-  if(!id){toast('교재를 검색하여 선택해 주세요');return;}
-  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===id);
-  if(!tb){toast('교재를 찾을 수 없습니다');return;}
-  const unit=document.getElementById('sp-tb-unit')?.value.trim()||'';
-  const entry={id:uid(),sid,title:tb.title,type:'교재',bookId:tb.id,currentUnit:unit,active:true};
-  await supaUpsert('textbooks',entry.id,entry,sid);
-  if(!_cache.textbooks)_cache.textbooks=[];_cache.textbooks.push(entry);
-  closeSpTbAdd();renderSpBooks(sid);toast('교재가 추가되었습니다');
+function spTbRemoveFromQueue(i){_spTbQueue.splice(i,1);spTbRenderQueue();}
+function spTbRenderQueue(){
+  const el=document.getElementById('sp-tb-queue-list');if(!el)return;
+  const btn=document.getElementById('sp-tb-save-btn');
+  if(btn)btn.textContent=_spTbQueue.length?`저장 (${_spTbQueue.length}권)`:'저장';
+  if(!_spTbQueue.length){el.innerHTML='';return;}
+  el.innerHTML=_spTbQueue.map((b,i)=>`<div style="display:flex;align-items:flex-start;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:12px;font-weight:600">${escAttr(b.title)}${b.level?` <span style="font-size:10px;color:var(--slate)">${escAttr(b.level)}</span>`:''}</div>
+      <input type="text" placeholder="현재 진도 (예: Unit 3)" value="${escAttr(b.unit||'')}" oninput="_spTbQueue[${i}].unit=this.value" style="margin-top:3px;width:100%;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;font-family:var(--fb)">
+    </div>
+    <button onclick="spTbRemoveFromQueue(${i})" style="border:none;background:none;color:var(--coral);font-size:16px;cursor:pointer;padding:2px 4px;flex-shrink:0">×</button>
+  </div>`).join('');
+}
+async function saveTbEntries(sid){
+  if(!_spTbQueue.length){toast('교재를 선택해 주세요');return;}
+  const btn=document.getElementById('sp-tb-save-btn');if(btn){btn.disabled=true;btn.textContent='저장 중...';}
+  let count=0;
+  for(const b of _spTbQueue){
+    const tb=(_cache.globalTextbooks||[]).find(g=>g.id===b.id);if(!tb)continue;
+    const entry={id:uid(),sid,title:tb.title,level:tb.level||'',type:'교재',bookId:tb.id,currentUnit:b.unit||'',active:true};
+    await supaUpsert('textbooks',entry.id,entry,sid);
+    if(!_cache.textbooks)_cache.textbooks=[];_cache.textbooks.push(entry);count++;
+  }
+  _spTbQueue=[];if(btn){btn.disabled=false;}
+  closeSpTbAdd();renderSpBooks(sid);toast(`교재 ${count}권이 추가되었습니다`);
 }
 function openSpRdAdd(sid){
   const el=document.getElementById('sp-rd-add');if(!el)return;
   el.style.display='block';
+  _spRdQueue=[];spRdRenderQueue();
   const q=document.getElementById('sp-rd-q');if(q){q.value='';setTimeout(()=>q.focus(),50);}
-  ['sp-rd-id'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  const sel=document.getElementById('sp-rd-sel');if(sel)sel.style.display='none';
   const dd=document.getElementById('sp-rd-dd');if(dd)dd.style.display='none';
-  const done=document.getElementById('sp-rd-done');if(done)done.checked=false;
-  const dateRow=document.getElementById('sp-rd-date-row');if(dateRow)dateRow.style.display='none';
-  const dt=document.getElementById('sp-rd-done-dt');if(dt)dt.value=new Date().toISOString().split('T')[0];
 }
 function closeSpRdAdd(){const el=document.getElementById('sp-rd-add');if(el)el.style.display='none';}
 function spRdSearch(){
@@ -6557,39 +6568,101 @@ function spRdSearch(){
     return b.title&&(b.title.toLowerCase().includes(q)||(b.author||'').toLowerCase().includes(q)||(b.series||'').toLowerCase().includes(q));
   }).slice(0,10);
   if(!books.length){dd.innerHTML='<div style="padding:8px 10px;color:var(--slate);font-size:12px">검색 결과 없음</div>';dd.style.display='block';return;}
-  dd.innerHTML=books.map(b=>`<div onclick="spRdSelect('${escAttr(b.id)}','${escAttr(b.title||'')}','${escAttr(String(b.arLevel||b.ar||''))}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border)" onmouseenter="this.style.background='var(--cream)'" onmouseleave="this.style.background=''">
+  dd.innerHTML=books.map(b=>`<div onclick="spRdAddToQueue('${escAttr(b.id)}','${escAttr(b.title||'')}','${escAttr(String(b.arLevel||b.ar||''))}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border)" onmouseenter="this.style.background='var(--cream)'" onmouseleave="this.style.background=''">
     <span style="font-weight:700;font-size:12px">${b.title}</span>${(b.arLevel||b.ar)?` <span style="color:var(--slate);font-size:10px">AR ${b.arLevel||b.ar}</span>`:''}${b.author?` <span style="color:var(--slate);font-size:10px">· ${b.author}</span>`:''}
   </div>`).join('');
   dd.style.display='block';
 }
-function spRdSelect(id,title,ar){
-  document.getElementById('sp-rd-q').value='';
-  document.getElementById('sp-rd-dd').style.display='none';
-  document.getElementById('sp-rd-id').value=id;
-  const sel=document.getElementById('sp-rd-sel');
-  if(sel){sel.textContent=`✓ ${title}${ar?' (AR '+ar+')':''}`;sel.style.display='block';}
+function spRdSelect(id,title,ar){spRdAddToQueue(id,title,ar);}
+async function saveRdEntry(sid){saveRdEntries(sid);}
+function spRdAddToQueue(id,title,ar){
+  if(_spRdQueue.some(b=>b.id===id)){toast('이미 선택된 원서입니다');return;}
+  const today=new Date().toISOString().split('T')[0];
+  _spRdQueue.push({id,title,ar:ar||'',done:false,doneDate:today});
+  const q=document.getElementById('sp-rd-q');if(q)q.value='';
+  const dd=document.getElementById('sp-rd-dd');if(dd)dd.style.display='none';
+  spRdRenderQueue();
 }
-async function saveRdEntry(sid){
-  const id=document.getElementById('sp-rd-id')?.value||'';
-  if(!id){toast('원서를 검색하여 선택해 주세요');return;}
-  const seen=new Set();
-  const book=[...(_cache.library||[])].find(b=>{if(seen.has(b.id))return false;seen.add(b.id);return b.id===id;});
-  const title=book?.title||id;
-  const isDone=document.getElementById('sp-rd-done')?.checked||false;
-  const doneDate=document.getElementById('sp-rd-done-dt')?.value||new Date().toISOString().split('T')[0];
-  const entry={id:uid(),sid,title,type:'원서',bookId:id,currentUnit:'',active:true,completed:isDone,completedDate:isDone?doneDate:''};
-  await supaUpsert('textbooks',entry.id,entry,sid);
-  if(!_cache.textbooks)_cache.textbooks=[];_cache.textbooks.push(entry);
-  closeSpRdAdd();renderSpBooks(sid);
-  if(isDone&&book?.vocab?.length){
-    const vocabWords=book.vocab.filter(w=>w.word).map(w=>({...w,srcId:id,srcType:'library',srcTitle:title}));
-    toast(`원서 추가! 단어 ${vocabWords.length}개를 단어장에 추가 중...`);
-    await syncVocabCards(sid,vocabWords,[],doneDate,'원서완료');
-    renderSpVocab(sid);
-    toast(`✓ ${title} — ${vocabWords.length}개 단어가 단어장에 추가됐습니다`);
-  }else{
-    toast('원서가 추가되었습니다');
+function spRdRemoveFromQueue(i){_spRdQueue.splice(i,1);spRdRenderQueue();}
+function spRdQueueToggleDone(i,checked){_spRdQueue[i].done=checked;spRdRenderQueue();}
+function spRdRenderQueue(){
+  const el=document.getElementById('sp-rd-queue-list');if(!el)return;
+  const btn=document.getElementById('sp-rd-save-btn');
+  if(btn)btn.textContent=_spRdQueue.length?`저장 (${_spRdQueue.length}권)`:'저장';
+  if(!_spRdQueue.length){el.innerHTML='';return;}
+  const today=new Date().toISOString().split('T')[0];
+  el.innerHTML=_spRdQueue.map((b,i)=>`<div style="padding:5px 0;border-bottom:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:6px">
+      <div style="flex:1;font-size:12px;font-weight:600">${escAttr(b.title)}${b.ar?` <span style="font-size:10px;font-weight:normal;color:var(--slate)">AR ${escAttr(b.ar)}</span>`:''}
+      </div>
+      <label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;white-space:nowrap">
+        <input type="checkbox" ${b.done?'checked':''} onchange="spRdQueueToggleDone(${i},this.checked)"> 완료
+      </label>
+      <button onclick="spRdRemoveFromQueue(${i})" style="border:none;background:none;color:var(--coral);font-size:16px;cursor:pointer;padding:0 4px">×</button>
+    </div>
+    ${b.done?`<input type="date" value="${escAttr(b.doneDate||today)}" oninput="_spRdQueue[${i}].doneDate=this.value" style="margin-top:4px;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;font-family:var(--fb)">`:''}</div>`).join('');
+}
+async function saveRdEntries(sid){
+  if(!_spRdQueue.length){toast('원서를 선택해 주세요');return;}
+  const btn=document.getElementById('sp-rd-save-btn');if(btn){btn.disabled=true;btn.textContent='저장 중...';}
+  const today=new Date().toISOString().split('T')[0];
+  const allVocab=[];let count=0;
+  for(const b of _spRdQueue){
+    const book=(_cache.library||[]).find(x=>x.id===b.id);
+    const title=book?.title||b.title;
+    const doneDate=b.doneDate||today;
+    const entry={id:uid(),sid,title,type:'원서',bookId:b.id,currentUnit:'',active:true,completed:b.done,completedDate:b.done?doneDate:''};
+    await supaUpsert('textbooks',entry.id,entry,sid);
+    if(!_cache.textbooks)_cache.textbooks=[];_cache.textbooks.push(entry);
+    if(b.done&&book?.vocab?.length)book.vocab.filter(w=>w.word).forEach(w=>allVocab.push({...w,srcId:b.id,srcType:'library',srcTitle:title,_doneDate:doneDate}));
+    count++;
   }
+  if(allVocab.length){
+    await syncVocabCards(sid,allVocab,[],today,'원서완료');
+    renderSpVocab(sid);
+  }
+  _spRdQueue=[];if(btn){btn.disabled=false;}
+  closeSpRdAdd();renderSpBooks(sid);
+  toast(`원서 ${count}권 추가${allVocab.length?` (단어 ${allVocab.length}개 단어장 추가)`:''}됐습니다`);
+}
+function downloadRdCsvTemplate(){
+  const csv='﻿제목,AR레벨,완료날짜\n"Harry Potter and the Sorcerer\'s Stone","4.5","2026-03-15"\n"Charlotte\'s Web","4.4","2026-04-10"';
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='완료원서_템플릿.csv';a.click();
+}
+async function importRdCsv(e,sid){
+  const file=e.target.files[0];if(!file){e.target.value='';return;}
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    try{
+      const rows=parseCSVText(ev.target.result);
+      if(rows.length<2){toast('CSV가 비어있습니다');e.target.value='';return;}
+      const hdrs=rows[0].map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
+      const iTitle=hdrs.indexOf('제목'),iAr=hdrs.indexOf('ar레벨'),iDate=hdrs.indexOf('완료날짜');
+      if(iTitle<0){toast('헤더 오류: "제목" 컬럼이 필요합니다');e.target.value='';return;}
+      const get=(r,i)=>i>=0?(r[i]||'').replace(/^"|"$/g,'').trim():'';
+      const today=new Date().toISOString().split('T')[0];
+      let added=0;const notFound=[];
+      for(let i=1;i<rows.length;i++){
+        const r=rows[i];const title=get(r,iTitle);if(!title)continue;
+        const date=get(r,iDate)||today;
+        const book=(_cache.library||[]).find(b=>(b.title||'').toLowerCase()===title.toLowerCase());
+        if(!book){notFound.push(title);continue;}
+        const entry={id:uid(),sid,title:book.title,type:'원서',bookId:book.id,currentUnit:'',active:true,completed:true,completedDate:date};
+        await supaUpsert('textbooks',entry.id,entry,sid);
+        if(!_cache.textbooks)_cache.textbooks=[];_cache.textbooks.push(entry);
+        if(book.vocab?.length){
+          const words=book.vocab.filter(w=>w.word).map(w=>({...w,srcId:book.id,srcType:'library',srcTitle:book.title}));
+          await syncVocabCards(sid,words,[],date,'원서완료');
+        }
+        added++;
+      }
+      renderSpBooks(sid);if(typeof renderSpVocab==='function')renderSpVocab(sid);
+      toast(`${added}권 추가${notFound.length?` / 미매칭 ${notFound.length}권: ${notFound.slice(0,3).join(', ')}${notFound.length>3?'…':''}`:''}됐습니다`);
+    }catch(err){toast('CSV 오류: '+err.message);}
+    e.target.value='';
+  };
+  reader.readAsText(file,'utf-8');
 }
 let _tbDoneId='',_tbDoneSid='',_tbDoneMode='new';
 function markTextbookDone(id,sid){
