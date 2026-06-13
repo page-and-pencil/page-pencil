@@ -1127,9 +1127,26 @@ function showStatDetail(sid,type){
     const catIcon={phonics:'📘',vocab:'📝',grammar:'✏️',reading:'📖',listening:'🎧',writing:'✍️',naesin:'📋',book:'📗',class5:'🎮'};
     rows=items.map(a=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span>${catIcon[a.category]||'📋'} ${a.bookTitle||a.text||''}</span>${a.range?`<span style="color:var(--slate)"> · ${a.range}</span>`:''}</div>`).join('')||'없음';
   }else if(type==='vocab'){
-    const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&(c.hits||0)>0).sort((a,b)=>(b.hits||0)-(a.hits||0));
-    title=`외운 단어 히트 수 기준`;
-    rows=cards.slice(0,30).map(c=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="font-weight:600;font-family:var(--fd)">${c.word}</span><span style="color:var(--teal)">×${c.hits}</span></div>`).join('')||'없음';
+    const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+    const mastered=allCards.filter(c=>(c.hits||0)>=3).sort((a,b)=>(b.hits||0)-(a.hits||0));
+    const learning=allCards.filter(c=>(c.hits||0)>0&&(c.hits||0)<3).sort((a,b)=>(b.hits||0)-(a.hits||0));
+    const unseen=allCards.filter(c=>!(c.hits||0));
+    title=`단어 현황 (전체 ${allCards.length}개)`;
+    const wordRow=c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <span style="font-weight:600;font-family:var(--fd)">${c.word}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        ${c.meaning?`<span style="font-size:10px;color:var(--slate)">${c.meaning}</span>`:''}
+        <span style="color:var(--teal);font-size:11px;min-width:24px;text-align:right">×${c.hits||0}</span>
+      </div>
+    </div>`;
+    const section=(lbl,cls,color,items)=>items.length?`<div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:${color};margin:8px 0 4px;letter-spacing:.03em">${lbl} (${items.length}개)</div>
+      ${items.map(wordRow).join('')}
+    </div>`:'';
+    rows=section('✅ 마스터 (3회 이상 정답)','mastered','#16a34a',mastered)
+        +section('📖 연습 중 (1–2회 정답)','learning','var(--teal)',learning)
+        +section('🔖 아직 안 풀어봄','unseen','var(--slate)',unseen)
+        ||'단어 없음';
   }else{
     const rds=DB.rds().filter(r=>r.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     title=`읽은 책 (${rds.length}권)`;
