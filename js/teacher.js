@@ -441,6 +441,7 @@ function renderSpVocab(sid){
       <span style="font-size:12px;font-weight:700;color:var(--navy)">📚 전체 단어 목록 (${cards.length}개)</span>
       <div style="display:flex;gap:6px;align-items:center">
         <button class="btn bo bsm" onclick="reqRefreshVocabExamples('${sid}')">원서 예문 갱신</button>
+        <button class="btn bo bsm" onclick="batchFillEmptyExamples('${sid}')">빈 예문 채우기</button>
         <button class="btn bo bsm" onclick="batchFixKoreanExamples('${sid}')">한국어 예문 교체</button>
         <label style="font-size:11px;color:var(--slate);cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="vocab-sel-all" onchange="vocabToggleAll(this)"> 전체 선택</label>
         <button class="btn bd bsm" onclick="vocabDeleteSelected('${sid}')">선택 삭제</button>
@@ -1450,9 +1451,19 @@ async function shareUpdate(name){
 // ── VOCAB MEANING FILL (학생 앱에서 빈 뜻 채우기) ──
 async function fillMissingMeanings(cards){
   for(const c of cards){
-    if(c.meaning&&c.example)continue;
     const stu=(_cache.students||[]).find(s=>s.id===c.sid);
     const grade=stu?.grade||stu?.lv||'';
+    // AI 예문 → 원서 텍스트 생기면 자동 업그레이드 (API 비용 없음)
+    if(c.example&&c.exampleSrc==='ai'){
+      const bookEx=findExampleFromBooks(c.word,grade);
+      if(bookEx&&bookEx!==c.example){
+        c.example=bookEx;c.exampleSrc='book';
+        await supaUpsert('vocab_cards',c.id,c,c.sid);
+        const ci=_cache.vocab_cards.findIndex(x=>x.id===c.id);
+        if(ci>=0)_cache.vocab_cards[ci]={...c};
+      }
+    }
+    if(c.meaning&&c.example)continue; // 둘 다 있으면 API 생략
     const m=await getWordMetaFull(c.word,grade);
     let changed=false;
     if(m.ko&&!c.meaning){c.meaning=m.ko;changed=true;}
@@ -1464,6 +1475,34 @@ async function fillMissingMeanings(cards){
       if(ci>=0)_cache.vocab_cards[ci]={...c};
     }
   }
+}
+async function batchFillEmptyExamples(sid){
+  if(!DB.api())return toast('API 키가 필요합니다');
+  const stu=(_cache.students||[]).find(s=>s.id===sid);
+  const grade=stu?.grade||stu?.lv||'';
+  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&!c.example);
+  if(!cards.length)return toast('빈 예문이 없습니다 (모두 입력됨)');
+  toast(`${cards.length}개 예문 생성 중...`);
+  let updated=0;
+  for(const card of cards){
+    try{
+      const bookEx=findExampleFromBooks(card.word,grade);
+      if(bookEx){
+        card.example=bookEx;card.exampleSrc='book';
+      }else{
+        const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:60,messages:[{role:'user',content:`One short natural English sentence using the word "${card.word}". Output the sentence only:`}]});
+        const ex=(d.content?.[0]?.text?.trim()||'');
+        if(!ex||/[가-힣]/.test(ex))continue;
+        card.example=ex;card.exampleSrc='ai';
+      }
+      await supaUpsert('vocab_cards',card.id,card,card.sid);
+      const ci=(_cache.vocab_cards||[]).findIndex(c=>c.id===card.id);
+      if(ci>=0)_cache.vocab_cards[ci]={...card};
+      updated++;
+    }catch(e){}
+  }
+  renderSpVocab(sid);
+  toast(`${updated}개 예문 생성 완료`);
 }
 
 let lesPage=0;
