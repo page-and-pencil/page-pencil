@@ -4668,10 +4668,10 @@ function exportMasterCSV(){
   toast(`마스터 CSV 다운로드 완료 (교재 ${(_cache.globalTextbooks||[]).length}권, 원서 ${allLib.length}권)`);
 }
 let _masterCSVMode='overwrite';
-function openMasterCSVModal(){show('m-master-csv-mode',true);}
+function openMasterCSVModal(){openM('m-master-csv-mode');}
 function startMasterCSVImport(mode){
   _masterCSVMode=mode;
-  show('m-master-csv-mode',false);
+  closeM('m-master-csv-mode');
   document.getElementById('master-csv-file').click();
 }
 async function importMasterCSV(e){
@@ -4733,11 +4733,16 @@ async function importMasterCSV(e){
             addedWords++;
           }
           if(importMode==='append'){
-            // 기존 단어 유지 + CSV 단어 추가/갱신 (word 기준 merge)
+            // 기존 단어 유지 + CSV 단어 추가/갱신 (word 기준 merge, 빈 값으로 기존 데이터 덮어쓰지 않음)
             const merged={...(b.units||{})};
             for(const [uKey,newWords] of Object.entries(csvUnits)){
               const existMap=new Map((merged[uKey]||[]).map(w=>[(w.word||'').toLowerCase(),w]));
-              for(const nw of newWords) existMap.set((nw.word||'').toLowerCase(),{...(existMap.get((nw.word||'').toLowerCase())||{}),...nw});
+              for(const nw of newWords){
+                const exist=existMap.get((nw.word||'').toLowerCase())||{};
+                const upd={...exist};
+                for(const [k,v] of Object.entries(nw)){if(v!==undefined&&v!==null&&v!=='')upd[k]=v;}
+                existMap.set((nw.word||'').toLowerCase(),upd);
+              }
               merged[uKey]=[...existMap.values()];
             }
             b.units=merged;
@@ -4766,10 +4771,15 @@ async function importMasterCSV(e){
             addedWords++;
           }
           if(importMode==='append'){
-            // 기존 단어 유지 + CSV 단어 추가/갱신 — 챕터가 다르면 별도 항목 유지
+            // 기존 단어 유지 + CSV 단어 추가/갱신 — 챕터가 다르면 별도 항목 유지, 빈 값으로 기존 데이터 덮어쓰지 않음
             const vKey=w=>`${(w.word||'').toLowerCase()}|${(w.chapter||'').toLowerCase()}`;
             const existMap=new Map((b.vocab||[]).map(w=>[vKey(w),w]));
-            for(const nw of csvVocab) existMap.set(vKey(nw),{...(existMap.get(vKey(nw))||{}),...nw});
+            for(const nw of csvVocab){
+              const exist=existMap.get(vKey(nw))||{};
+              const upd={...exist};
+              for(const [k,v] of Object.entries(nw)){if(v!==undefined&&v!==null&&v!=='')upd[k]=v;}
+              existMap.set(vKey(nw),upd);
+            }
             b.vocab=[...existMap.values()];
           } else {
             b.vocab=csvVocab;
@@ -4825,7 +4835,7 @@ function parseCSVLine(line){
 // 따옴표 안에 줄바꿈이 있는 멀티라인 CSV를 올바르게 파싱 (행별 split 대신 전체 파싱)
 function parseCSVText(text){
   const rows=[];let cur='',inQ=false,fields=[];
-  const src=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const src=text.replace(/^﻿/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
   for(let i=0;i<src.length;i++){
     const c=src[i];
     if(c==='"'){inQ=!inQ;}
@@ -6512,7 +6522,7 @@ function markTextbookDone(id,sid){
   const today=new Date().toISOString().split('T')[0];
   const inp=document.getElementById('tb-done-date-inp');
   if(inp){inp.max=today;inp.value=today;}
-  show('m-tb-done-date',true);
+  openM('m-tb-done-date');
 }
 function editTbDone(id,sid){
   _tbDoneId=id;_tbDoneSid=sid;_tbDoneMode='edit';
@@ -6522,7 +6532,7 @@ function editTbDone(id,sid){
   const today=new Date().toISOString().split('T')[0];
   const inp=document.getElementById('tb-done-date-inp');
   if(inp){inp.max=today;inp.value=tb?.completedDate||today;}
-  show('m-tb-done-date',true);
+  openM('m-tb-done-date');
 }
 function removeDoneTb(id,sid){
   const tb=(_cache.textbooks||[]).find(t=>t.id===id);
@@ -6531,7 +6541,7 @@ function removeDoneTb(id,sid){
 async function confirmTbDone(){
   const id=_tbDoneId,sid=_tbDoneSid;
   const doneDate=document.getElementById('tb-done-date-inp')?.value||new Date().toISOString().split('T')[0];
-  show('m-tb-done-date',false);
+  closeM('m-tb-done-date');
   const tb=(_cache.textbooks||[]).find(t=>t.id===id);if(!tb)return;
   if(_tbDoneMode==='edit'){
     tb.completedDate=doneDate;
