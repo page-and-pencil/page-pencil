@@ -3259,6 +3259,50 @@ function renderBookDB(){
 }
 // ── 마스터 DB (교재+원서+어휘 통합 평탄화 뷰) ──
 let _masterFilter='',masterPage=0;
+let _masterSelected=new Set(); // 선택된 book id Set
+
+function updateMasterDelBtn(){
+  const btn=document.getElementById('master-del-btn');
+  const cnt=document.getElementById('master-sel-cnt');
+  const n=_masterSelected.size;
+  if(btn){btn.style.display=n>0?'':'none';}
+  if(cnt)cnt.textContent=n;
+}
+function masterToggle(bookId,checked){
+  if(checked)_masterSelected.add(bookId);else _masterSelected.delete(bookId);
+  updateMasterDelBtn();
+  const allCk=document.getElementById('master-check-all');
+  if(allCk){
+    const boxes=document.querySelectorAll('.master-row-ck');
+    const total=boxes.length,sel=[...boxes].filter(b=>b.checked).length;
+    allCk.checked=sel===total&&total>0;
+    allCk.indeterminate=sel>0&&sel<total;
+  }
+}
+function masterCheckAll(checked){
+  const boxes=document.querySelectorAll('.master-row-ck');
+  boxes.forEach(b=>{b.checked=checked;if(checked)_masterSelected.add(b.dataset.bid);else _masterSelected.delete(b.dataset.bid);});
+  updateMasterDelBtn();
+}
+async function deleteMasterSelected(){
+  if(!_masterSelected.size)return;
+  const n=_masterSelected.size;
+  if(!confirm(`선택한 교재/원서 ${n}개를 삭제합니다.\n포함된 단어도 모두 삭제됩니다. 계속하시겠습니까?`))return;
+  const ids=[..._masterSelected];
+  let failed=0;
+  for(const id of ids){
+    try{
+      await supaDelete('global_textbooks',id);
+      _cache.globalTextbooks=(_cache.globalTextbooks||[]).filter(b=>b.id!==id);
+      _cache.library=(_cache.library||[]).filter(b=>b.id!==id);
+    }catch(e){failed++;console.error('삭제 실패:',id,e);}
+  }
+  _masterSelected.clear();
+  updateMasterDelBtn();
+  renderMasterDB();renderTbookTable();renderLib();renderLibTable();renderBookDB();
+  if(typeof renderWordDB==='function')renderWordDB();
+  toast(failed?`삭제 완료 (실패 ${failed}개)`:`${n}개 삭제 완료`);
+}
 function renderMasterDB(){
   const q=(document.getElementById('master-q')?.value||'').toLowerCase();
   const pageSize=parseInt(document.getElementById('master-per-page')?.value||'100');
@@ -3291,7 +3335,9 @@ function renderMasterDB(){
   if(masterPage>=totalPages)masterPage=0;
   const paged=filtered.slice(masterPage*pageSize,(masterPage+1)*pageSize);
   const tbody=document.getElementById('master-tbody');if(!tbody)return;
-  if(!paged.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--slate)">결과 없음</td></tr>';return;}
+  if(!paged.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--slate)">결과 없음</td></tr>';return;}
+  // 현재 페이지 책 ID 목록(중복 제거)
+  const pageBookIds=new Set(paged.map(r=>r._id));
   tbody.innerHTML=paged.map(r=>{
     const isTb=r.type==='textbook';
     const badge=isTb
@@ -3299,7 +3345,9 @@ function renderMasterDB(){
       :`<span class="badge badge-xs blibrary">원서</span>`;
     const lvl=r.level?(isTb?r.level:`AR ${r.level}`):'—';
     const editFn=isTb?`openEditTbook('${r._id}')`:`openEditLib('${r._id}')`;
-    return`<tr style="border-bottom:1px solid var(--border)">
+    const chk=_masterSelected.has(r._id)?'checked':'';
+    return`<tr style="border-bottom:1px solid var(--border)${_masterSelected.has(r._id)?';background:rgba(229,62,62,.05)':''}">
+      <td style="text-align:center"><input type="checkbox" class="master-row-ck" data-bid="${r._id}" ${chk} onchange="masterToggle('${r._id}',this.checked)"></td>
       <td>${badge}</td>
       <td style="font-weight:500;cursor:pointer;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="${editFn}" title="${escAttr(r.title)}">${escAttr(r.title)}</td>
       <td style="font-size:12px;color:var(--slate);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(r.sc||'—')}</td>
@@ -3311,6 +3359,13 @@ function renderMasterDB(){
       <td style="text-align:right"><button class="btn bo bsm" style="font-size:11px;padding:2px 8px" onclick="${editFn}">수정</button></td>
     </tr>`;
   }).join('');
+  // 헤더 체크박스 상태 동기화
+  const allCk=document.getElementById('master-check-all');
+  if(allCk){
+    const selOnPage=[...pageBookIds].filter(id=>_masterSelected.has(id)).length;
+    allCk.checked=selOnPage===pageBookIds.size&&pageBookIds.size>0;
+    allCk.indeterminate=selOnPage>0&&selOnPage<pageBookIds.size;
+  }
   const pagerEl=document.getElementById('master-pager');
   if(pagerEl){
     const maxP=Math.min(totalPages,10);
@@ -3326,6 +3381,7 @@ function masterDBFilter(type){
 }
 function masterDBResetFilters(){
   _masterFilter='';masterPage=0;
+  _masterSelected.clear();updateMasterDelBtn();
   const q=document.getElementById('master-q');if(q)q.value='';
   const pp=document.getElementById('master-per-page');if(pp)pp.value='100';
   masterDBFilter('');
