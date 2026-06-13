@@ -735,12 +735,13 @@ function renderMemCard(el){
           <div class="vc-hint" style="margin-top:8px">탭하면 뜻이 보여요</div>
         </div>
         <div class="vc-face vc-back">
-          ${deckState.vocabMode==='advanced'
-            ?`${card.en_def?`<div style="font-size:15px;font-weight:600;color:var(--navy);margin-bottom:8px;line-height:1.4">${card.en_def}</div>`:''}
-               ${card.example&&/[a-zA-Z]/.test(card.example)?`<div class="vc-ex">${card.example}</div>`:''}
-               ${!card.en_def&&!(card.example&&/[a-zA-Z]/.test(card.example))?`<div class="vc-meaning">${card.meaning||'...'}</div>`:''}`
-            :`<div class="vc-meaning" id="vc-meaning-${card.id}">${card.meaning?card.meaning:'<span style="font-size:13px;color:var(--slate)">뜻 불러오는 중...</span>'}</div>
-               ${card.example&&/[a-zA-Z]/.test(card.example)?`<div class="vc-ex">${card.example}</div>`:''}`}
+          ${(()=>{const enEx=card.example&&/[a-zA-Z]/.test(card.example)&&!/[가-힣]/.test(card.example);
+            if(deckState.vocabMode==='advanced')return`${card.en_def?`<div style="font-size:15px;font-weight:600;color:var(--navy);margin-bottom:8px;line-height:1.4">${card.en_def}</div>`:''}
+               ${enEx?`<div class="vc-ex">${card.example}</div>`:''}
+               ${!card.en_def&&!enEx?`<div class="vc-meaning">${card.meaning||'...'}</div>`:''}`;
+            return`<div class="vc-meaning" id="vc-meaning-${card.id}">${card.meaning?card.meaning:'<span style="font-size:13px;color:var(--slate)">뜻 불러오는 중...</span>'}</div>
+               ${enEx?`<div class="vc-ex">${card.example}</div>`:''}`;
+          })()}
         </div>
       </div>
     </div>

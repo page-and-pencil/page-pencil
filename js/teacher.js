@@ -441,6 +441,7 @@ function renderSpVocab(sid){
       <span style="font-size:12px;font-weight:700;color:var(--navy)">📚 전체 단어 목록 (${cards.length}개)</span>
       <div style="display:flex;gap:6px;align-items:center">
         <button class="btn bo bsm" onclick="reqRefreshVocabExamples('${sid}')">원서 예문 갱신</button>
+        <button class="btn bo bsm" onclick="batchFixKoreanExamples('${sid}')">한국어 예문 교체</button>
         <label style="font-size:11px;color:var(--slate);cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="vocab-sel-all" onchange="vocabToggleAll(this)"> 전체 선택</label>
         <button class="btn bd bsm" onclick="vocabDeleteSelected('${sid}')">선택 삭제</button>
       </div>
@@ -511,6 +512,28 @@ async function saveVocabField(cardId,sid,field,value){
       toast(syncFailed?`⚠️ 어휘 DB 동기화 ${syncFailed}건 실패`:'어휘 DB에도 반영되었습니다');
     }
   }
+}
+async function batchFixKoreanExamples(sid){
+  if(!DB.api())return toast('API 키가 필요합니다');
+  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.example&&/[가-힣]/.test(c.example));
+  if(!cards.length)return toast('교체할 한국어 예문이 없습니다');
+  toast(`${cards.length}개 예문 교체 중...`);
+  let updated=0;
+  for(const card of cards){
+    try{
+      const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:80,messages:[{role:'user',content:`Write one short natural English example sentence using the word "${card.word}". Output the sentence only, no quotes:`}]});
+      const ex=(d.content?.[0]?.text?.trim()||'');
+      if(ex&&!/[가-힣]/.test(ex)){
+        card.example=ex;card.exampleSrc='ai';
+        await supaUpsert('vocab_cards',card.id,card,card.sid);
+        const ci=(_cache.vocab_cards||[]).findIndex(c=>c.id===card.id);
+        if(ci>=0)_cache.vocab_cards[ci]={...card};
+        updated++;
+      }
+    }catch(e){}
+  }
+  renderSpVocab(sid);
+  toast(`${updated}개 예문이 영어로 교체됐습니다`);
 }
 async function reqRefreshVocabExamples(sid){
   toast('원서에서 예문 검색 중...');
