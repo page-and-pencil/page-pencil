@@ -750,10 +750,10 @@ function renderMemCard(el){
         <div class="vc-face vc-back">
           ${(()=>{const enEx=card.example&&/[a-zA-Z]/.test(card.example)&&!/[가-힣]/.test(card.example);
             if(deckState.vocabMode==='advanced')return`${card.en_def?`<div style="font-size:15px;font-weight:600;color:var(--navy);margin-bottom:8px;line-height:1.4">${card.en_def}</div>`:''}
-               ${enEx?`<div class="vc-ex">${card.example}</div>`:''}
+               ${enEx?`<div class="vc-ex" id="vc-ex-${card.id}">${card.example}</div>`:`<div class="vc-ex" id="vc-ex-${card.id}" style="display:none"></div>`}
                ${!card.en_def&&!enEx?`<div class="vc-meaning">${card.meaning||'...'}</div>`:''}`;
             return`<div class="vc-meaning" id="vc-meaning-${card.id}">${card.meaning?card.meaning:'<span style="font-size:13px;color:var(--slate)">뜻 불러오는 중...</span>'}</div>
-               ${enEx?`<div class="vc-ex">${card.example}</div>`:''}`;
+               ${enEx?`<div class="vc-ex" id="vc-ex-${card.id}">${card.example}</div>`:`<div class="vc-ex" id="vc-ex-${card.id}" style="display:none"></div>`}`;
           })()}
         </div>
       </div>
@@ -767,20 +767,34 @@ function renderMemCard(el){
     </div>
   </div>`;
 }
-// 뜻이 없으면 조회 후 DOM 업데이트
+// 뜻·예문 없으면 자동 조회 후 DOM 주입
 (function(){
   const card=deckState.cards[deckState.idx];
-  if(card&&!card.meaning){
-    fetchWordMeaning(card.word).then(async m=>{
-      if(!m||!m.meaning)return;
-      card.meaning=m.meaning;card.pos=m.pos;
+  if(!card||( card.meaning && card.example && !/[가-힣]/.test(card.example) ))return;
+  const stu=(_cache.students||[]).find(s=>s.id===card.sid);
+  const grade=stu?.grade||stu?.lv||'';
+  getWordMetaFull(card.word,grade).then(async m=>{
+    if(!m)return;
+    let changed=false;
+    if(m.ko&&!card.meaning){
+      card.meaning=m.ko;card.pos=m.pos||card.pos;
       const el=document.getElementById('vc-meaning-'+card.id);
-      if(el)el.textContent=m.meaning;
+      if(el)el.textContent=m.ko;
+      changed=true;
+    }
+    const newEx=m.example&&!/[가-힣]/.test(m.example)?m.example:'';
+    if(newEx&&(!card.example||/[가-힣]/.test(card.example))){
+      card.example=newEx;card.exampleSrc=m.exampleSrc||'ai';
+      const el=document.getElementById('vc-ex-'+card.id);
+      if(el){el.textContent=newEx;el.style.display='';}
+      changed=true;
+    }
+    if(changed){
       await supaUpsert('vocab_cards',card.id,card,card.sid);
       const ci=_cache.vocab_cards.findIndex(c=>c.id===card.id);
       if(ci>=0)_cache.vocab_cards[ci]={...card};
-    });
-  }
+    }
+  });
 })();
 function flipMemCard(deckEl){
   const card=deckEl.querySelector('.vc-card');
