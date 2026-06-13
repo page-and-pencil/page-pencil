@@ -611,9 +611,9 @@ function swStuTab(id){
   if(id==='st-library')renderStudentLibrary(currentStudentSid);
 }
 
-// ── VOCAB DECK (3단계: 암기→리콜→스펠) ──
-// phase: 0=암기(플립카드), 1=리콜(뜻보고 영어입력), 2=스펠(스크램블)
-let deckState={cards:[],idx:0,phase:0,phaseResults:[],sessionResults:[]};
+// ── VOCAB DECK (레벨별: 초급=암기 / 중급=암기+리콜 / 고급=암기(영어)+리콜) ──
+// phase: 0=암기(플립카드), 1=리콜(뜻보고 영어입력)
+let deckState={cards:[],idx:0,phase:0,phaseResults:[],sessionResults:[],vocabMode:'intermediate'};
 function saveDeckState(){
   try{sessionStorage.setItem('deckState_'+currentStudentSid,JSON.stringify(deckState));}catch(e){}
 }
@@ -624,7 +624,7 @@ function resumeVocabDeck(){
   const el=document.getElementById('st-vocab');
   if(deckState.phase===0)renderMemCard(el);
   else if(deckState.phase===1)renderRecallCard(el);
-  else renderSpellCard(el);
+  else renderVocabDeck(currentStudentSid);
 }
 
 function renderVocabDeck(sid){
@@ -652,7 +652,6 @@ function renderVocabDeck(sid){
           deckState=saved;
           if(deckState.phase===0)renderMemCard(el);
           else if(deckState.phase===1)renderRecallCard(el);
-          else renderSpellCard(el);
           return;
         }
       }catch(e){}
@@ -667,7 +666,9 @@ function renderVocabDeck(sid){
     return (b.misses||0)-(a.misses||0);
   });
   const session=vocabSessionSize?sorted.slice(0,vocabSessionSize):sorted;
-  deckState={cards:session,idx:0,phase:0,phaseResults:[],sessionResults:[]};
+  const stu=(_cache.students||[]).find(s=>s.id===sid);
+  const vocabMode=stu?.vocabMode||'intermediate';
+  deckState={cards:session,idx:0,phase:0,phaseResults:[],sessionResults:[],vocabMode};
   renderMemCard(el);
 }
 
@@ -675,7 +676,6 @@ function renderVocabPhaseIntro(el){
   const phaseInfo=[
     {id:0,name:'암기',sub:'카드를 보고 뜻을 떠올리세요',icon:'👀',cls:'phase-mem'},
     {id:1,name:'리콜',sub:'뜻을 보고 영어 단어를 입력하세요',icon:'🧠',cls:'phase-rec'},
-    {id:2,name:'스펠',sub:'글자를 조합해 단어를 완성하세요',icon:'✍️',cls:'phase-spl'},
   ];
   const p=phaseInfo[deckState.phase];
   const total=deckState.cards.length;
@@ -699,8 +699,7 @@ function startVocabPhase(){
   deckState.idx=0;deckState.phaseResults=[];
   const el=document.getElementById('st-vocab');
   if(deckState.phase===0)renderMemCard(el);
-  else if(deckState.phase===1)renderRecallCard(el);
-  else renderSpellCard(el);
+  else renderRecallCard(el);
 }
 
 function vocabHwBanner(){
@@ -736,8 +735,12 @@ function renderMemCard(el){
           <div class="vc-hint" style="margin-top:8px">탭하면 뜻이 보여요</div>
         </div>
         <div class="vc-face vc-back">
-          <div class="vc-meaning" id="vc-meaning-${card.id}">${card.meaning?card.meaning:'<span style="font-size:13px;color:var(--slate)">뜻 불러오는 중...</span>'}</div>
-          ${card.example&&/[a-zA-Z]/.test(card.example)?`<div class="vc-ex">${card.example}</div>`:''}
+          ${deckState.vocabMode==='advanced'
+            ?`${card.en_def?`<div style="font-size:15px;font-weight:600;color:var(--navy);margin-bottom:8px;line-height:1.4">${card.en_def}</div>`:''}
+               ${card.example&&/[a-zA-Z]/.test(card.example)?`<div class="vc-ex">${card.example}</div>`:''}
+               ${!card.en_def&&!(card.example&&/[a-zA-Z]/.test(card.example))?`<div class="vc-meaning">${card.meaning||'...'}</div>`:''}`
+            :`<div class="vc-meaning" id="vc-meaning-${card.id}">${card.meaning?card.meaning:'<span style="font-size:13px;color:var(--slate)">뜻 불러오는 중...</span>'}</div>
+               ${card.example&&/[a-zA-Z]/.test(card.example)?`<div class="vc-ex">${card.example}</div>`:''}`}
         </div>
       </div>
     </div>
@@ -776,13 +779,16 @@ function memResult(knew){
   deckState.idx++;
   const el=document.getElementById('st-vocab');
   if(deckState.idx>=deckState.cards.length){
-    deckState.phase=1;
+    const mode=deckState.vocabMode||'intermediate';
     const unsure=deckState.phaseResults.filter(r=>!r.knew).map(r=>r.word);
-    if(unsure.length===0)deckState.phase=2;
-    deckState.idx=0;deckState.phaseResults=[];
-    saveDeckState();
-    if(deckState.phase===1){toast('🧠 리콜 단계 시작!');renderRecallCard(el);}
-    else{toast('✍️ 스펠 단계 시작!');renderSpellCard(el);}
+    if(mode==='beginner'||(mode==='intermediate'&&!unsure.length)){
+      renderVocabResult(el);
+    }else{
+      const recallCards=mode==='advanced'?[...deckState.cards]:deckState.cards.filter(c=>unsure.includes(c.word));
+      deckState.phase=1;deckState.idx=0;deckState.phaseResults=[];deckState.cards=recallCards;
+      saveDeckState();
+      toast('🧠 리콜 단계 시작!');renderRecallCard(el);
+    }
   }else{
     saveDeckState();
     renderMemCard(el);
@@ -810,6 +816,7 @@ function renderRecallCard(el){
       <div style="background:var(--tl);border-radius:10px;padding:16px;text-align:center;margin-bottom:16px">
         <div style="font-size:20px;font-weight:700;color:var(--navy)">${card.meaning||'(뜻 미입력)'}</div>
         ${card.pos?`<div style="font-size:11px;color:var(--slate);margin-top:4px;font-family:var(--fm)">${card.pos}</div>`:''}
+        ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:12px;color:#005f6b;margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
       </div>
       <input class="recall-input" id="recall-in" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
         placeholder="영어로 입력..." onkeydown="if(event.key==='Enter')checkRecall()">
@@ -859,9 +866,7 @@ function recallNext(){
   deckState.idx++;
   const el=document.getElementById('st-vocab');
   if(deckState.idx>=deckState.cards.length){
-    deckState.phase=2;deckState.idx=0;deckState.phaseResults=[];
-    saveDeckState();
-    toast('✍️ 스펠 단계 시작!');renderSpellCard(el);
+    renderVocabResult(el);
   }else{
     saveDeckState();
     renderRecallCard(el);
@@ -966,15 +971,15 @@ async function renderVocabResult(el){
   try{sessionStorage.removeItem('deckState_'+currentStudentSid);}catch(e){}
   const results=deckState.phaseResults;
   const total=deckState.cards.length;
-  const correct=results.filter(r=>r.correct).length;
+  const correct=results.filter(r=>'correct' in r?r.correct:r.knew).length;
   const pctScore=total?Math.round(correct/total*100):0;
   const cls=pctScore>=80?'hi':pctScore>=50?'md':'lo';
-  const missed=results.filter(r=>!r.correct).map(r=>r.word);
+  const missed=results.filter(r=>'correct' in r?!r.correct:!r.knew).map(r=>r.word);
   // Supabase 업데이트
   const today=new Date().toISOString().split('T')[0];
   for(const card of deckState.cards){
     const res=results.find(r=>r.word===card.word);
-    const correct=res?res.correct:false;
+    const correct=res?('correct' in res?res.correct:res.knew):false;
     const ci=(_cache.vocab_cards||[]).findIndex(c=>c.id===card.id);
     if(ci>=0){
       const updated={..._cache.vocab_cards[ci],

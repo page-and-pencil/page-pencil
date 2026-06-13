@@ -462,7 +462,7 @@ async function getWordMetaFull(word,grade){
     try{
       const lvHint=grade?`학생 학년: ${grade}.`:'';
       const prompt=(!bookEx&&!example)
-        ?`영어 단어/표현 "${word}"의 정보. ${lvHint} 한국어 뜻 2-4단어, 예문은 ${grade||'초등'}생 수준의 자연스러운 문장.\nJSON만: {"ko":"뜻","pos":"noun|verb|adj|adv|phrase","example":"문장"}`
+        ?`영어 단어/표현 "${word}"의 정보. ${lvHint} 한국어 뜻 2-4단어, example은 반드시 자연스러운 영어 문장.\nJSON만: {"ko":"뜻","pos":"noun|verb|adj|adv|phrase","example":"Short English example sentence"}`
         :`영어 단어/표현 "${word}"의 품사만. JSON만: {"pos":"noun|verb|adj|adv|phrase"}`;
       const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:80,messages:[{role:'user',content:prompt}]});
       const txt=d.content?.[0]?.text?.trim()||'';

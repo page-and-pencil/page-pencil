@@ -1,4 +1,4 @@
-// ── AUTH ──
+﻿// ── AUTH ──
 async function hashPw(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 async function checkPw(){
   const v=document.getElementById('pw-in').value.trim();
@@ -361,7 +361,22 @@ function renderSpVocab(sid){
   const el=document.getElementById('sp-vocab');if(!el)return;
   const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).sort((a,b)=>a.word.localeCompare(b.word));
   if(!cards.length){el.innerHTML='<div class="empty"><div class="empty-i">📚</div><div class="empty-t">단어장이 비어있습니다</div></div>';return;}
-  // 다음 수업까지 외울 단어: 미숙달(phase<2) 단어, 오답 많은 순
+  const spStu=(_cache.students||[]).find(s=>s.id===sid);
+  const vocabMode=spStu?.vocabMode||'intermediate';
+  const modeOptions=[
+    {key:'beginner',lbl:'초급',sub:'암기만 (플립카드)',tip:'단어를 보고 뜻을 확인 — 인식 중심 학습'},
+    {key:'intermediate',lbl:'중급',sub:'암기 → 리콜',tip:'플립카드 후 틀린 단어 직접 입력 연습'},
+    {key:'advanced',lbl:'고급',sub:'암기(영어뜻) → 전체 리콜',tip:'영어 정의·예문으로 암기 후 전 단어 리콜'},
+  ];
+  const modeHtml=`<div style="margin-bottom:14px;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border)">
+    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📖 단어 학습 방식</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${modeOptions.map(o=>`<button onclick="saveVocabMode('${sid}','${o.key}')" title="${escAttr(o.tip)}" style="padding:8px 14px;border:2px solid ${vocabMode===o.key?'var(--teal)':'var(--border)'};border-radius:10px;background:${vocabMode===o.key?'var(--tl)':'#fff'};cursor:pointer;text-align:left;transition:border-color .15s">
+        <div style="font-size:12px;font-weight:700;color:${vocabMode===o.key?'var(--teal)':'var(--navy)'}">${o.lbl}</div>
+        <div style="font-size:10px;color:var(--slate)">${o.sub}</div>
+      </button>`).join('')}
+    </div>
+  </div>`;
   // Dolch 습득 시각화
   const cardWordSet=new Set(cards.map(c=>(c.word||'').toLowerCase()));
   const masteredSet=new Set(cards.filter(c=>(c.phase||0)>=2).map(c=>(c.word||'').toLowerCase()));
@@ -421,7 +436,7 @@ function renderSpVocab(sid){
     </div>
     <button onclick="delVocabCard('${c.id}','${sid}','${escAttr(c.word)}')" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;color:var(--slate)">삭제</button>
   </div>`).join('');
-  el.innerHTML=`${dolchHtml}${studyHtml}
+  el.innerHTML=`${modeHtml}${dolchHtml}${studyHtml}
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <span style="font-size:12px;font-weight:700;color:var(--navy)">📚 전체 단어 목록 (${cards.length}개)</span>
       <div style="display:flex;gap:6px;align-items:center">
@@ -431,6 +446,14 @@ function renderSpVocab(sid){
       </div>
     </div>
     ${listHtml}`;
+}
+async function saveVocabMode(sid,mode){
+  const stu=(_cache.students||[]).find(s=>s.id===sid);
+  if(!stu)return;
+  stu.vocabMode=mode;
+  await supaUpsert('students',sid,stu,null);
+  renderSpVocab(sid);
+  toast('학습 방식이 저장됐습니다');
 }
 function vocabToggleAll(cb){
   document.querySelectorAll('#sp-vocab .vocab-chk').forEach(el=>el.checked=cb.checked);
@@ -1956,7 +1979,7 @@ async function elibAIFillInline(id,idx){
   const btn=document.querySelector(`#elib-vocab-tbody tr[data-rowidx="${idx}"] button[onclick^="elibAIFillInline"]`);
   if(btn){btn.textContent='...';btn.disabled=true;}
   try{
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`영어 단어/표현 "${word}"${(()=>{const lv=getWordLevel(word).display;return lv?` (${lv} 수준)`:'';})()} 정보 JSON (동사면 v2/v3 필수, 불규칙만 입력):\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장","en_def":"영어 정의 1문장","v2":"과거형(불규칙만, 규칙이면 빈 문자열)","v3":"과거분사(불규칙만, 규칙이면 빈 문자열)"}`}]});
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`영어 단어/표현 "${word}"${(()=>{const lv=getWordLevel(word).display;return lv?` (${lv} 수준)`:'';})()} 정보 JSON (동사면 v2/v3 필수, 불규칙만 입력):\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"Short natural English example sentence","en_def":"영어 정의 1문장","v2":"과거형(불규칙만, 규칙이면 빈 문자열)","v3":"과거분사(불규칙만, 규칙이면 빈 문자열)"}`}]});
     const json=JSON.parse((d.content?.[0]?.text?.trim()||'').replace(/```json|```/g,'').trim());
     const koEl=document.getElementById('elib-ie-ko');const posEl=document.getElementById('elib-ie-pos');const exEl=document.getElementById('elib-ie-ex');const edEl=document.getElementById('elib-ie-endef');
     const v2El=document.getElementById('elib-ie-v2');const v3El=document.getElementById('elib-ie-v3');
@@ -2627,7 +2650,7 @@ async function tuAIFillInline(tbId,unitKey,idx){
   const btn=document.querySelector(`#tu-word-tbody tr[data-rowidx="${idx}"] button[onclick^="tuAIFillInline"]`);
   if(btn){btn.textContent='...';btn.disabled=true;}
   try{
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`영어 단어/표현 "${word}"${(()=>{const lv=getWordLevel(word).display;return lv?` (${lv} 수준)`:'';})()} 정보 JSON (동사면 v2/v3 필수, 불규칙만 입력):\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장","en_def":"영어 정의 1문장","v2":"과거형(불규칙만, 규칙이면 빈 문자열)","v3":"과거분사(불규칙만, 규칙이면 빈 문자열)"}`}]});
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`영어 단어/표현 "${word}"${(()=>{const lv=getWordLevel(word).display;return lv?` (${lv} 수준)`:'';})()} 정보 JSON (동사면 v2/v3 필수, 불규칙만 입력):\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"Short natural English example sentence","en_def":"영어 정의 1문장","v2":"과거형(불규칙만, 규칙이면 빈 문자열)","v3":"과거분사(불규칙만, 규칙이면 빈 문자열)"}`}]});
     const json=JSON.parse((d.content?.[0]?.text?.trim()||'').replace(/```json|```/g,'').trim());
     const koEl=document.getElementById('tu-ie-ko');const posEl=document.getElementById('tu-ie-pos');const exEl=document.getElementById('tu-ie-ex');const edEl=document.getElementById('tu-ie-endef');
     const v2El=document.getElementById('tu-ie-v2');const v3El=document.getElementById('tu-ie-v3');
@@ -3723,7 +3746,7 @@ async function wdbAIFillInline(idx){
   const btn=document.querySelector(`#wdb-tbody tr[data-rowidx="${idx}"] button[onclick^="wdbAIFillInline"]`);
   if(btn){btn.textContent='...';btn.disabled=true;}
   try{
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`영어 단어/표현 "${w.word}"${(()=>{const lv=getWordLevel(w.word).display;return lv?` (${lv} 수준)`:'';})()} 정보 JSON (동사면 v2/v3 필수, 불규칙만 입력):\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"예문 1문장","en_def":"영어 정의 1문장","v2":"과거형(불규칙만, 규칙이면 빈 문자열)","v3":"과거분사(불규칙만, 규칙이면 빈 문자열)"}`}]});
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:`영어 단어/표현 "${w.word}"${(()=>{const lv=getWordLevel(w.word).display;return lv?` (${lv} 수준)`:'';})()} 정보 JSON (동사면 v2/v3 필수, 불규칙만 입력):\n{"ko":"뜻 2-4단어","pos":"noun/verb/adj/adv/prep/phrase/conj","example":"Short natural English example sentence","en_def":"영어 정의 1문장","v2":"과거형(불규칙만, 규칙이면 빈 문자열)","v3":"과거분사(불규칙만, 규칙이면 빈 문자열)"}`}]});
     const json=JSON.parse((d.content?.[0]?.text?.trim()||'').replace(/```json|```/g,'').trim());
     const koEl=document.getElementById('wdb-ie-ko');const posEl=document.getElementById('wdb-ie-pos');const exEl=document.getElementById('wdb-ie-ex');const edEl=document.getElementById('wdb-ie-endef');
     const v2El=document.getElementById('wdb-ie-v2');const v3El=document.getElementById('wdb-ie-v3');
