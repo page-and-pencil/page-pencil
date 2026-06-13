@@ -253,10 +253,12 @@ function renderStudentLibrary(sid){
   const allBooks=_cache.library;
   const withAudio=allBooks.filter(b=>b.audioUrl);
   const myBooks=allBooks.filter(b=>myBookIds.has(b.id));
+  // 선생님이 학생 패널에 등록한 원서 (textbooks 테이블, type==='원서')
+  const tbRds=(_cache.textbooks||[]).filter(t=>t.sid===sid&&t.type==='원서').sort((a,b)=>(b.completedDate||'').localeCompare(a.completedDate||''));
   const shown=new Map();
   [...myBooks,...withAudio].forEach(b=>shown.set(b.id,b));
   const list=[...shown.values()];
-  if(!list.length){
+  if(!list.length&&!tbRds.length){
     el.innerHTML=`<div style="padding:2rem;text-align:center">
       <div style="font-size:36px;margin-bottom:10px">📖</div>
       <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">원서 목록이 없습니다</div>
@@ -272,7 +274,7 @@ function renderStudentLibrary(sid){
   });
   const unreadWithAudio=withAudio.filter(b=>!myBookIds.has(b.id)).slice(0,6);
   el.innerHTML=`<div style="padding:1.25rem">
-    <div style="font-size:12px;color:var(--slate);margin-bottom:12px">내가 읽은 책과 오디오가 있는 책을 모아뒀어요</div>
+    ${list.length?`<div style="font-size:12px;color:var(--slate);margin-bottom:12px">내가 읽은 책과 오디오가 있는 책을 모아뒀어요</div>`:''}
     ${sorted.map(b=>{
       const isMine=myBookIds.has(b.id);
       const isCurrent=b.id===lastReadBookId;
@@ -305,6 +307,17 @@ function renderStudentLibrary(sid){
           <div style="font-size:11px;color:var(--slate)">${b.series||''}${(b.arLevel||b.ar)?` · AR ${b.arLevel||b.ar}`:''}${b.level?' · Lv.'+b.level:''}</div>
         </div>
         <span style="font-size:10px;padding:2px 7px;background:rgba(0,196,204,.1);color:#005f6b;border-radius:10px;font-weight:700;flex-shrink:0">🎧 오디오</span>
+      </div>`).join('')}
+    </div>`:''}
+    ${tbRds.length?`<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">📗 선생님이 기록한 원서</div>
+      ${tbRds.map(t=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="width:36px;height:36px;border-radius:8px;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📗</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--navy)">${t.title||'—'}</div>
+          <div style="font-size:11px;color:var(--slate)">${t.level?'Lv.'+t.level+' · ':''} ${t.currentUnit||''}</div>
+        </div>
+        ${t.completed?`<span style="font-size:10px;padding:2px 8px;background:#dcfce7;color:#166534;border-radius:10px;font-weight:700;flex-shrink:0">✅ 완료${t.completedDate?' '+t.completedDate:''}</span>`:`<span style="font-size:10px;padding:2px 8px;background:var(--tl);color:#005f6b;border-radius:10px;font-weight:700;flex-shrink:0">📖 진행중</span>`}
       </div>`).join('')}
     </div>`:''}
   </div>`;
