@@ -601,7 +601,9 @@ async function loadStuPanel(sid){
   const lastPay=payments.length?payments[payments.length-1]:null;
 
   document.getElementById('sp-name').textContent=s.name+(s.inactive?' (퇴원)':'');
-  document.getElementById('sp-meta').textContent=(s.grade||s.lv||'')+(s.school?' · '+s.school:'')+(s.enrollDate?' · 입회 '+s.enrollDate:'');
+  const schedStr=(s.scheduleDays&&s.scheduleDays.length?s.scheduleDays.join('·')+'요일':'')+((s.scheduleDays&&s.scheduleDays.length)&&s.scheduleTime?' '+s.scheduleTime:s.scheduleTime||'');
+  const parentStr=s.parentName||s.parentPhone?(s.parentName||'')+(s.parentPhone?(s.parentName?' ':'')+s.parentPhone:''):'';
+  document.getElementById('sp-meta').textContent=(s.grade||s.lv||'')+(s.school?' · '+s.school:'')+(s.enrollDate?' · 입회 '+s.enrollDate:'')+(schedStr?' · '+schedStr:'')+(parentStr?' · 📱'+parentStr:'');
 
   // 이번 달 수업 수
   const today2=new Date();
@@ -897,6 +899,10 @@ function openEditStu(id){
   document.getElementById('es-fee').value=s.fee||'';
   document.getElementById('es-payday').value=s.payday||'';
   document.getElementById('es-memo').value=s.memo||'';
+  document.querySelectorAll('#m-edit-stu input[name="es-day"]').forEach(cb=>{cb.checked=(s.scheduleDays||[]).includes(cb.value);});
+  document.getElementById('es-schedtime').value=s.scheduleTime||'';
+  document.getElementById('es-parent-name').value=s.parentName||'';
+  document.getElementById('es-parent-phone').value=s.parentPhone||'';
   document.getElementById('es-paid-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('es-paid-amt').value=s.fee||'';
   document.getElementById('es-paid-method').value='transfer';
@@ -984,7 +990,7 @@ async function addStu(){
   const pin=document.getElementById('ns-pin').value.trim();
   if(!name){toast('이름을 입력해 주세요');return;}
   if(!pin||pin.length!==4){toast('PIN은 4자리여야 합니다');return;}
-  const newStu={id:uid(),name,grade:document.getElementById('ns-grade').value,school:document.getElementById('ns-school')?.value.trim()||'',pin,enrollDate:document.getElementById('ns-enroll').value,fee:parseInt(document.getElementById('ns-fee').value)||0,payday:parseInt(document.getElementById('ns-payday').value)||0,memo:document.getElementById('ns-memo').value.trim(),payments:[],inactive:false};
+  const newStu={id:uid(),name,grade:document.getElementById('ns-grade').value,school:document.getElementById('ns-school')?.value.trim()||'',pin,enrollDate:document.getElementById('ns-enroll').value,fee:parseInt(document.getElementById('ns-fee').value)||0,payday:parseInt(document.getElementById('ns-payday').value)||0,memo:document.getElementById('ns-memo').value.trim(),scheduleDays:[...document.querySelectorAll('#m-add-stu input[name="ns-day"]:checked')].map(cb=>cb.value),scheduleTime:document.getElementById('ns-schedtime')?.value.trim()||'',parentName:document.getElementById('ns-parent-name')?.value.trim()||'',parentPhone:document.getElementById('ns-parent-phone')?.value.trim()||'',payments:[],inactive:false};
   await supaUpsert('students',newStu.id,newStu,null);
   _cache.students.unshift(newStu);
   // 선택된 클래스에 학생 추가
@@ -999,13 +1005,14 @@ async function addStu(){
     }
   }
   closeM('m-add-stu');
-  ['ns-name','ns-pin','ns-enroll','ns-fee','ns-payday','ns-memo','ns-school'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+  ['ns-name','ns-pin','ns-enroll','ns-fee','ns-payday','ns-memo','ns-school','ns-schedtime','ns-parent-name','ns-parent-phone'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+  document.querySelectorAll('#m-add-stu input[name="ns-day"]').forEach(cb=>cb.checked=false);
   renderStus();populateSels();populateFilterSels();renderClassTab();toast(name+' 학생이 추가되었습니다');
 }
 async function updStu(){
   const id=document.getElementById('es-id').value;
   const idx=_cache.students.findIndex(s=>s.id===id);if(idx<0)return;
-  _cache.students[idx]={..._cache.students[idx],name:document.getElementById('es-name').value.trim(),grade:document.getElementById('es-grade').value,school:document.getElementById('es-school').value.trim(),pin:document.getElementById('es-pin').value.trim(),enrollDate:document.getElementById('es-enroll').value,fee:parseInt(document.getElementById('es-fee').value)||0,payday:parseInt(document.getElementById('es-payday').value)||0,memo:document.getElementById('es-memo').value.trim()};
+  _cache.students[idx]={..._cache.students[idx],name:document.getElementById('es-name').value.trim(),grade:document.getElementById('es-grade').value,school:document.getElementById('es-school').value.trim(),pin:document.getElementById('es-pin').value.trim(),enrollDate:document.getElementById('es-enroll').value,fee:parseInt(document.getElementById('es-fee').value)||0,payday:parseInt(document.getElementById('es-payday').value)||0,memo:document.getElementById('es-memo').value.trim(),scheduleDays:[...document.querySelectorAll('#m-edit-stu input[name="es-day"]:checked')].map(cb=>cb.value),scheduleTime:document.getElementById('es-schedtime').value.trim(),parentName:document.getElementById('es-parent-name').value.trim(),parentPhone:document.getElementById('es-parent-phone').value.trim()};
   await supaUpsert('students',id,_cache.students[idx],null);
   closeM('m-edit-stu');renderStus();populateSels();toast('수정되었습니다');
 }
@@ -1465,16 +1472,17 @@ async function saveFuAssign(sid,date){
 // ── 학부모 알림 공유 ──
 async function shareParentUpdate(){
   const stu=DB.stus().find(s=>s.id===currentParentSid);
-  shareUpdate(stu?.name||'');
+  shareUpdate(stu?.name||'',stu?.parentPhone||'');
 }
 async function shareParentUpdateByStu(sid){
   const stu=DB.stus().find(s=>s.id===sid);
-  shareUpdate(stu?.name||'');
+  shareUpdate(stu?.name||'',stu?.parentPhone||'');
 }
-async function shareUpdate(name){
+async function shareUpdate(name,parentPhone=''){
   const url='https://page-and-pencil.github.io/page-pencil/';
   const text=`[Page & Pencil] ${name} 수업 기록이 업데이트됐습니다. 확인하기: ${url}`;
-  const kakaoUrl=`kakaotalk://send?text=${encodeURIComponent(text)}`;
+  const phone=parentPhone||(DB.kakao()?.phone||'');
+  const kakaoUrl=phone?`kakaotalk://open/chat?phoneNum=${phone}`:`kakaotalk://send?text=${encodeURIComponent(text)}`;
   window.open(kakaoUrl);
   setTimeout(async()=>{
     try{await navigator.clipboard.writeText(text);toast('링크가 복사됐습니다. 카카오톡에 붙여넣기 해주세요');}

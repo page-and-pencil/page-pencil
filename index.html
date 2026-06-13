@@ -351,7 +351,7 @@
               <div class="f"><label>맞힌 수</label><input type="number" id="ts-gc" min="0" placeholder="7" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
               <div style="padding-bottom:10px;font-size:22px;color:var(--slate);font-family:var(--fm)">/</div>
               <div class="f"><label>전체 문제 수</label><input type="number" id="ts-gt" min="0" placeholder="10" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
-              <div class="f" style="flex:2"><label>어법 약점/헷갈린 내용</label><input type="text" id="ts-gweak" placeholder="현재진행형, 불규칙동사"></div>
+              <div class="f" style="flex:2"><label>어법 약점/헷갈린 내용</label><input list="grammar-topics" id="ts-gweak" placeholder="현재진행형, 불규칙동사"></div>
             </div>
           </div>
           <div class="f"><label>종합 코멘트</label><input type="text" id="ts-cmt" placeholder="다음 시험 재수록, 특이사항 등"></div>
@@ -864,6 +864,17 @@
       <div class="f"><label>수업료 (월)</label><input type="number" id="ns-fee" placeholder="150000"></div>
       <div class="f"><label>결제일 (매월 며칠)</label><input type="number" id="ns-payday" min="1" max="31" placeholder="5"></div>
       <div class="f s2"><label>메모</label><input type="text" id="ns-memo" placeholder="예) 주 5일, 화~토"></div>
+      <div class="f s2"><label>수업 요일</label><div style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 0">
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="ns-day" value="월"> 월</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="ns-day" value="화"> 화</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="ns-day" value="수"> 수</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="ns-day" value="목"> 목</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="ns-day" value="금"> 금</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="ns-day" value="토"> 토</label>
+      </div></div>
+      <div class="f"><label>수업 시간</label><input type="text" id="ns-schedtime" placeholder="예) 16:00"></div>
+      <div class="f"><label>학부모 성함</label><input type="text" id="ns-parent-name" placeholder="예) 김민준 어머니"></div>
+      <div class="f"><label>학부모 연락처</label><input type="tel" id="ns-parent-phone" placeholder="01012345678" inputmode="numeric"></div>
       <div class="f s2"><label>클래스 지정 <span style="font-size:11px;color:var(--slate);font-weight:400">(선택)</span></label><div id="ns-classes" style="display:flex;flex-direction:column;gap:8px;padding:2px 0"></div></div>
     </div>
     <button class="btn bt" style="width:100%;margin-top:8px;justify-content:center" onclick="addStu()">추가</button>
@@ -889,6 +900,17 @@
       <div class="f"><label>수업료 (월)</label><input type="number" id="es-fee"></div>
       <div class="f"><label>결제일 (매월 며칠)</label><input type="number" id="es-payday" min="1" max="31"></div>
       <div class="f s2"><label>메모</label><input type="text" id="es-memo"></div>
+      <div class="f s2"><label>수업 요일</label><div style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 0">
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="es-day" value="월"> 월</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="es-day" value="화"> 화</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="es-day" value="수"> 수</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="es-day" value="목"> 목</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="es-day" value="금"> 금</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="es-day" value="토"> 토</label>
+      </div></div>
+      <div class="f"><label>수업 시간</label><input type="text" id="es-schedtime" placeholder="예) 16:00"></div>
+      <div class="f"><label>학부모 성함</label><input type="text" id="es-parent-name" placeholder="예) 김민준 어머니"></div>
+      <div class="f"><label>학부모 연락처</label><input type="tel" id="es-parent-phone" placeholder="01012345678" inputmode="numeric"></div>
     </div>
     <div class="section-label" style="margin-top:4px">결제 기록 추가</div>
     <div class="fg">
@@ -1026,7 +1048,7 @@
     <div class="fg" style="margin-bottom:8px">
       <div class="f"><label>맞힌 수</label><input type="number" id="et-gc" min="0"></div>
       <div class="f"><label>전체 문제 수</label><input type="number" id="et-gt" min="0"></div>
-      <div class="f s2"><label>어법 약점/헷갈린 내용</label><input type="text" id="et-gweak"></div>
+      <div class="f s2"><label>어법 약점/헷갈린 내용</label><input list="grammar-topics" id="et-gweak"></div>
     </div>
     <div class="f"><label>종합 코멘트</label><input type="text" id="et-cmt"></div>
     <div style="display:flex;gap:8px;margin-top:4px">
@@ -1657,11 +1679,23 @@
 <datalist id="dl-tbooks-assign"></datalist>
 <datalist id="dl-hw-books"></datalist>
 <datalist id="dl-phonics-books"></datalist>
+<datalist id="grammar-topics">
+  <option value="현재시제"><option value="과거시제"><option value="현재진행형"><option value="과거진행형">
+  <option value="현재완료"><option value="과거완료"><option value="미래시제(will/be going to)">
+  <option value="수동태"><option value="관계대명사"><option value="관계부사">
+  <option value="가정법 과거"><option value="가정법 과거완료"><option value="혼합가정법">
+  <option value="부정사(to V)"><option value="동명사(V-ing)"><option value="분사(현재·과거)">
+  <option value="비교급·최상급"><option value="접속사"><option value="전치사">
+  <option value="의문사"><option value="간접의문문"><option value="조동사(can/must/should/may)">
+  <option value="명사절"><option value="부사절"><option value="형용사절">
+  <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
+</datalist>
 
-<script src="js/utils.js?v=20260614n"></script>
-<script src="js/db.js?v=20260614n"></script>
-<script src="js/teacher.js?v=20260614n"></script>
-<script src="js/student.js?v=20260614n"></script>
-<script src="js/parent.js?v=20260614n"></script>
+<script src="js/utils.js?v=20260614o"></script>
+<script src="vocab_ref_data.js?v=20260614o"></script>
+<script src="js/db.js?v=20260614o"></script>
+<script src="js/teacher.js?v=20260614o"></script>
+<script src="js/student.js?v=20260614o"></script>
+<script src="js/parent.js?v=20260614o"></script>
 </body>
 </html>
