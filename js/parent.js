@@ -1,17 +1,11 @@
 // ── PARENT VIEW ──
 let pC={};
-function getAllRds(sid){
-  const rdBase=DB.rds().filter(r=>r.sid===sid);
-  const tbRds=(_cache.textbooks||[]).filter(t=>t.sid===sid&&t.type==='원서'&&t.completed).map(t=>({...t,date:t.completedDate||''}));
-  const seen=new Set(rdBase.map(r=>r.title).filter(Boolean));
-  return [...rdBase,...tbRds.filter(t=>t.title&&!seen.has(t.title))].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-}
 async function loadParent(sid){
   currentParentSid=sid;
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
   const les=DB.less().filter(l=>l.sid===sid);
   const tsts=DB.tsts().filter(t=>t.sid===sid);
-  const rds=getAllRds(sid);
+  const rds=DB.allRds(sid);
   const logs=DB.logs().filter(l=>l.sid===sid);
   const latLes=les[0];
 
@@ -318,7 +312,7 @@ async function loadParent(sid){
 }
 function toggleAllBooks(){
   const el=document.getElementById('pp-bks-inner');if(!el)return;
-  const rds=getAllRds(currentParentSid);
+  const rds=DB.allRds(currentParentSid);
   const allBookSrc=[...DB.libs()];
   el.innerHTML=rds.map((rd,ri)=>{
     const lib=allBookSrc.find(x=>x.title===rd.title);
@@ -395,7 +389,7 @@ function renderCalendar(sid){
 
 // ── AR TREND (원서 난이도 추이) ──
 function getArTrend(sid){
-  const rds=getAllRds(sid);
+  const rds=DB.allRds(sid);
   const allSrc=[...DB.libs()];
   const arData=rds.map(r=>{
     const lib=allSrc.find(x=>x.title===r.title);
@@ -406,7 +400,7 @@ function getArTrend(sid){
   return arData;
 }
 function getBookRecommendations(sid){
-  const rds=getAllRds(sid);
+  const rds=DB.allRds(sid);
   const allBooks=[...DB.libs()];
   const readTitles=new Set(rds.map(r=>r.title));
   const arData=getArTrend(sid);
@@ -462,7 +456,7 @@ async function printReport(sidArg){
   toast('리포트 생성 중...');
   const les=DB.less().filter(l=>l.sid===sid);
   const tsts=DB.tsts().filter(t=>t.sid===sid);
-  const rds=getAllRds(sid);
+  const rds=DB.allRds(sid);
   const assigns=(_cache.assignments||[]).filter(a=>a.sid===sid);
   const badges=getBadges(sid).filter(b=>b.unlocked);
   const today=new Date();

@@ -31,7 +31,6 @@ async function startBrowserRec(asgnId,sid){
 }
 function stopBrowserRec(asgnId){if(_brRecorder&&_brRecorder.state==='recording')_brRecorder.stop();}
 let vocabSessionSize=10;
-let _polishedCmtCache={raw:'',polished:''};
 async function goStudentPin(){
   const sess=loadSession();
   if(sess?.role==='student'){
@@ -217,8 +216,8 @@ function renderStuAudio(b){
 }
 function renderStudentLibrary(sid){
   const el=document.getElementById('st-library');if(!el)return;
-  const myRds=DB.rds().filter(r=>r.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const myBookIds=new Set(myRds.map(r=>r.bookId));
+  const myRds=DB.allRds(sid);
+  const myBookIds=new Set(myRds.map(r=>r.bookId).filter(Boolean));
   const lastReadBookId=myRds[0]?.bookId||'';
   const allBooks=_cache.library;
   const withAudio=allBooks.filter(b=>b.audioUrl);
@@ -1035,7 +1034,7 @@ function showStatDetail(sid,type){
         +section('🔖 아직 안 풀어봄','unseen','var(--slate)',unseen)
         ||'단어 없음';
   }else{
-    const rds=DB.rds().filter(r=>r.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const rds=DB.allRds(sid);
     title=`읽은 책 (${rds.length}권)`;
     rows=rds.map(r=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="font-weight:600">${r.title||'—'}</span>${r.progress?`<span style="color:var(--slate)"> · ${r.progress}</span>`:''} <span style="font-size:10px;color:var(--slate)">${r.date||''}</span></div>`).join('')||'없음';
   }
@@ -1051,7 +1050,7 @@ function showStatDetail(sid,type){
 function renderHomeStats(sid){
   const completedCount=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).length;
   const vocabLearned=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&(c.hits||0)>0).length;
-  const rdsCount=DB.rds().filter(r=>r.sid===sid).length;
+  const rdsCount=DB.allRds(sid).length;
   if(!completedCount&&!vocabLearned&&!rdsCount)return '';
   const statBox=(val,color,label,type)=>`<div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center;cursor:pointer;transition:.15s" onclick="showStatDetail('${sid}','${type}')" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background='#fff'">
     <div style="font-size:24px;font-weight:700;color:${color};font-family:var(--fm)">${val}</div>

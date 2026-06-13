@@ -96,6 +96,12 @@ const DB={
   less(){return _cache.lessons;},
   tsts(){return _cache.tests;},
   rds(){return _cache.readings;},
+  allRds(sid){
+    const base=_cache.readings.filter(r=>r.sid===sid);
+    const tbRds=(_cache.textbooks||[]).filter(t=>t.sid===sid&&t.type==='원서'&&t.completed).map(t=>({...t,date:t.completedDate||''}));
+    const seen=new Set(base.map(r=>r.title).filter(Boolean));
+    return [...base,...tbRds.filter(t=>t.title&&!seen.has(t.title))].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  },
   logs(){return _cache.logs;},
   libs(){return _cache.library;},
 

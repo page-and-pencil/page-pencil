@@ -1245,7 +1245,7 @@ async function saveLes(){
   const rawCmt=document.getElementById('ls-cmt').value.trim();
   toast('저장 중...');
   // 캐시된 다듬기 결과 재사용 (미리보기를 이미 클릭한 경우 API 중복 호출 방지)
-  const polishedCmt=rawCmt?(typeof _polishedCmtCache!=='undefined'&&_polishedCmtCache.raw===rawCmt&&_polishedCmtCache.polished?_polishedCmtCache.polished:await polishCmt(rawCmt)):'';
+  const polishedCmt=rawCmt?(_polishedCmtCache.raw===rawCmt&&_polishedCmtCache.polished?_polishedCmtCache.polished:await polishCmt(rawCmt)):'';
   const _sStuGrade=document.getElementById('ls-grade')?.value||(_sStu&&(_sStu.grade||_sStu.lv))||'';
   const _rubric=getRubricData();
   const newLes={id:uid(),sid,date:document.getElementById('ls-date').value,grade:_sStuGrade,att:document.getElementById('ls-att').value,materials:getSMats(),cmt:rawCmt,polishedCmt,...(_rubric?{rubric:_rubric}:{})};
@@ -1257,7 +1257,7 @@ async function saveLes(){
   })();
   document.getElementById('ls-cmt').value='';clearSRows();
   document.getElementById('ls-last-hint').style.display='none';
-  if(typeof _polishedCmtCache!=='undefined')_polishedCmtCache={raw:'',polished:''};
+  _polishedCmtCache={raw:'',polished:''};
   const _ph=document.getElementById('polished-ready-hint');if(_ph)_ph.style.display='none';
   _resetRubric();renderLes();toast('수업 기록이 저장되었습니다');
   checkNewBadges(sid);
@@ -5322,7 +5322,7 @@ function checkStreak(les){
   return recent.length>=20;
 }
 function getBadges(sid){
-  const rds=DB.rds().filter(r=>r.sid===sid);
+  const rds=DB.allRds(sid);
   const les=DB.less().filter(l=>l.sid===sid);
   const tsts=DB.tsts().filter(t=>t.sid===sid);
   const perfect=tsts.filter(t=>pct(t.vocabCorrect,t.vocabTotal)===100).length;
@@ -5363,6 +5363,7 @@ function checkNewBadges(sid){
 
 // ── 코멘트 칩/미리보기 (teacher 수업 기록 폼) ──
 let _cmtPreviewTimer=null;
+let _polishedCmtCache={raw:'',polished:''};
 function addCmtChip(text){
   const ta=document.getElementById('ls-cmt');
   if(!ta)return;
@@ -5386,7 +5387,7 @@ async function previewPolishedCmt(){
   if(status)status.textContent='';
   box.style.display='block';
   txt.textContent=polished||raw;
-  if(typeof _polishedCmtCache!=='undefined')_polishedCmtCache={raw,polished:polished||raw};
+  _polishedCmtCache={raw,polished:polished||raw};
   const hint=document.getElementById('polished-ready-hint');
   if(hint){hint.style.display='flex';hint.textContent='✓ 학부모용 코멘트 준비됨 — '+(polished||raw).slice(0,40)+((polished||raw).length>40?'…':'');}
 }
