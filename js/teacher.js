@@ -4667,6 +4667,13 @@ function exportMasterCSV(){
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   toast(`마스터 CSV 다운로드 완료 (교재 ${(_cache.globalTextbooks||[]).length}권, 원서 ${allLib.length}권)`);
 }
+let _masterCSVMode='overwrite';
+function openMasterCSVModal(){show('m-master-csv-mode',true);}
+function startMasterCSVImport(mode){
+  _masterCSVMode=mode;
+  show('m-master-csv-mode',false);
+  document.getElementById('master-csv-file').click();
+}
 async function importMasterCSV(e){
   const file=e.target.files[0];if(!file)return;
   const btn=document.getElementById('master-csv-btn');
@@ -4674,7 +4681,7 @@ async function importMasterCSV(e){
   reader.onload=async ev=>{
     if(btn){btn.disabled=true;btn.textContent='가져오는 중...';}
     const typeFilter=(document.getElementById('master-csv-filter')?.value||'all');
-    const importMode=(document.getElementById('master-csv-mode')?.value||'overwrite');
+    const importMode=_masterCSVMode||'overwrite';
     try{
       const rows=parseCSVText(ev.target.result);
       if(rows.length<2){toast('CSV 파일이 비어있습니다');e.target.value='';return;}

@@ -484,8 +484,7 @@
           <div><div class="st">마스터 DB</div><div class="ssub" id="master-total"></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <select id="master-csv-filter" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)"><option value="all">전체</option><option value="textbook">교재만</option><option value="library">원서만</option></select>
-            <select id="master-csv-mode" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)"><option value="overwrite">덮어쓰기</option><option value="append">추가</option></select>
-            <button id="master-csv-btn" class="btn bt bsm" style="background:var(--teal);color:#fff;font-weight:700" onclick="document.getElementById('master-csv-file').click()">📥 마스터 CSV</button>
+            <button id="master-csv-btn" class="btn bt bsm" style="background:var(--teal);color:#fff;font-weight:700" onclick="openMasterCSVModal()">📥 마스터 CSV</button>
             <input type="file" id="master-csv-file" accept=".csv" style="display:none" onchange="importMasterCSV(event)">
             <button class="btn bo bsm" onclick="exportMasterCSV()">⬇ 마스터 CSV</button>
             <button class="btn bo bsm" onclick="downloadMasterCSVTemplate()">📋 템플릿</button>
@@ -1571,6 +1570,19 @@
   <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">공지사항</div>
   <div id="notice-text" style="font-size:13px;line-height:1.7;color:var(--slate);margin-bottom:1rem"></div>
   <button class="btn bt" style="width:100%;justify-content:center" onclick="closeNotice()">확인</button>
+</div>
+
+<!-- 마스터 CSV 임포트 모드 선택 -->
+<div id="m-master-csv-mode" class="mo">
+  <div class="mdl" style="max-width:320px">
+    <div class="mh"><div class="mt">마스터 CSV 가져오기</div></div>
+    <p style="font-size:13px;color:var(--slate);margin-bottom:1.2rem;line-height:1.6">기존 데이터를 어떻게 처리할까요?</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn bt" style="background:var(--teal);color:#fff;font-weight:700" onclick="startMasterCSVImport('overwrite')">덮어쓰기 — 기존 데이터 교체</button>
+      <button class="btn bt" style="background:var(--navy);color:#fff;font-weight:700" onclick="startMasterCSVImport('append')">추가 — 기존 데이터 유지·병합</button>
+      <button class="btn bo" onclick="show('m-master-csv-mode',false)">취소</button>
+    </div>
+  </div>
 </div>
 
 <!-- 커스텀 확인 다이얼로그 -->
