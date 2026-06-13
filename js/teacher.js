@@ -5315,6 +5315,82 @@ async function polishCmt(raw){
   }
 }
 
+// ── 뱃지 시스템 ──
+function checkStreak(les){
+  if(les.length<20)return false;
+  const recent=les.filter(l=>l.att!=='absent').slice(0,20);
+  return recent.length>=20;
+}
+function getBadges(sid){
+  const rds=DB.rds().filter(r=>r.sid===sid);
+  const les=DB.less().filter(l=>l.sid===sid);
+  const tsts=DB.tsts().filter(t=>t.sid===sid);
+  const perfect=tsts.filter(t=>pct(t.vocabCorrect,t.vocabTotal)===100).length;
+  return [
+    {id:'rd10',icon:'📚',name:'원서 10권',unlocked:rds.length>=10},
+    {id:'rd25',icon:'📖',name:'원서 25권',unlocked:rds.length>=25},
+    {id:'rd50',icon:'🏆',name:'원서 50권',unlocked:rds.length>=50},
+    {id:'les50',icon:'⭐',name:'수업 50회',unlocked:les.filter(l=>l.att!=='absent').length>=50},
+    {id:'les100',icon:'🎖️',name:'수업 100회',unlocked:les.filter(l=>l.att!=='absent').length>=100},
+    {id:'perfect',icon:'💯',name:'만점 1회',unlocked:perfect>=1},
+    {id:'perfect5',icon:'🥇',name:'만점 5회',unlocked:perfect>=5},
+    {id:'streak',icon:'🔥',name:'개근 1개월',unlocked:checkStreak(les)},
+  ];
+}
+function showBadgeToast(badge){
+  const el=document.createElement('div');
+  el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);z-index:99999;background:#fff;border-radius:20px;padding:28px 36px;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,.18);transition:transform .3s cubic-bezier(.34,1.56,.64,1)';
+  el.innerHTML=`<div style="font-size:52px;margin-bottom:8px">${badge.icon}</div>
+    <div style="font-size:11px;color:var(--slate);margin-bottom:4px;letter-spacing:.08em;text-transform:uppercase">새 뱃지 획득!</div>
+    <div style="font-size:18px;font-weight:700;color:var(--navy)">${badge.name}</div>`;
+  document.body.appendChild(el);
+  requestAnimationFrame(()=>el.style.transform='translate(-50%,-50%) scale(1)');
+  if(typeof showMiniConfetti==='function')showMiniConfetti();
+  setTimeout(()=>{el.style.transform='translate(-50%,-50%) scale(0)';setTimeout(()=>el.remove(),300);},2500);
+}
+function checkNewBadges(sid){
+  const badges=getBadges(sid);
+  const unlocked=badges.filter(b=>b.unlocked).map(b=>b.id);
+  const storageKey=`badges_${sid}`;
+  const prev=JSON.parse(localStorage.getItem(storageKey)||'[]');
+  const newOnes=unlocked.filter(id=>!prev.includes(id));
+  localStorage.setItem(storageKey,JSON.stringify(unlocked));
+  if(newOnes.length){
+    const badge=badges.find(b=>b.id===newOnes[0]);
+    if(badge)showBadgeToast(badge);
+  }
+}
+
+// ── 코멘트 칩/미리보기 (teacher 수업 기록 폼) ──
+let _cmtPreviewTimer=null;
+function addCmtChip(text){
+  const ta=document.getElementById('ls-cmt');
+  if(!ta)return;
+  ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;
+  ta.focus();
+}
+function debouncedCmtPreview(){
+  clearTimeout(_cmtPreviewTimer);
+  const raw=document.getElementById('ls-cmt')?.value.trim()||'';
+  if(raw.length<8){const b=document.getElementById('cmt-preview-box');if(b)b.style.display='none';return;}
+  _cmtPreviewTimer=setTimeout(previewPolishedCmt,1800);
+}
+async function previewPolishedCmt(){
+  const raw=document.getElementById('ls-cmt').value.trim();
+  if(!raw){toast('코멘트를 먼저 입력해 주세요');return;}
+  const status=document.getElementById('cmt-preview-status');
+  const box=document.getElementById('cmt-preview-box');
+  const txt=document.getElementById('cmt-preview-text');
+  if(status)status.textContent='변환 중...';
+  const polished=await polishCmt(raw);
+  if(status)status.textContent='';
+  box.style.display='block';
+  txt.textContent=polished||raw;
+  if(typeof _polishedCmtCache!=='undefined')_polishedCmtCache={raw,polished:polished||raw};
+  const hint=document.getElementById('polished-ready-hint');
+  if(hint){hint.style.display='flex';hint.textContent='✓ 학부모용 코멘트 준비됨 — '+(polished||raw).slice(0,40)+((polished||raw).length>40?'…':'');}
+}
+
 // API 미설정 시 키워드 매칭 폴백
 function polishCmtLocal(r){
   if(!r||!r.trim()) return '';

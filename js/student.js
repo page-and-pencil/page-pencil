@@ -2,14 +2,7 @@
 let pinInput=[];
 let _stuPin=''; // legacy
 let currentStudentSid=null;
-let _cmtPreviewTimer=null;
 let _brRecorder=null,_brStream=null,_brChunks=[],_brTimerInterval=null;
-function debouncedCmtPreview(){
-  clearTimeout(_cmtPreviewTimer);
-  const raw=document.getElementById('ls-cmt')?.value.trim()||'';
-  if(raw.length<8){const b=document.getElementById('cmt-preview-box');if(b)b.style.display='none';return;}
-  _cmtPreviewTimer=setTimeout(previewPolishedCmt,1800);
-}
 async function startBrowserRec(asgnId,sid){
   try{
     _brStream=await navigator.mediaDevices.getUserMedia({audio:true});
@@ -53,11 +46,11 @@ function updatePinDots(){
   const dots=document.querySelectorAll('#pin-dots .pin-dot');
   dots.forEach((d,i)=>{d.classList.toggle('filled',i<pinInput.length);d.classList.remove('error');});
 }
-function stuPinKey(v){
+async function stuPinKey(v){
   document.getElementById('stupin-err').textContent='';
   if(v==='del'){pinInput=pinInput.slice(0,-1);updatePinDots();return;}
   if(pinInput.length<4){pinInput.push(v);updatePinDots();}
-  if(pinInput.length===4)checkStudentPin();
+  if(pinInput.length===4)await checkStudentPin();
 }
 // 기존 키패드 호환
 async function stuPinPress(v){
@@ -86,7 +79,6 @@ async function checkStudentPin(){
   document.getElementById('stupin-name-sel').style.display='block';
   document.getElementById('stu-keypad').style.display='none';
 }
-async function doCheckStudentPin(){await checkStudentPin();}
 async function confirmStudentByName(){
   const sid=document.getElementById('stupin-name-sel-val').value;
   const s=DB.stus().find(x=>x.id===sid);
@@ -165,28 +157,6 @@ async function copyLastLesson(){
     }
   }
   toast('✓ 이전 수업 교재가 복사됐습니다');
-}
-
-function addCmtChip(text){
-  const ta=document.getElementById('ls-cmt');
-  if(!ta)return;
-  ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;
-  ta.focus();
-}
-async function previewPolishedCmt(){
-  const raw=document.getElementById('ls-cmt').value.trim();
-  if(!raw){toast('코멘트를 먼저 입력해 주세요');return;}
-  const status=document.getElementById('cmt-preview-status');
-  const box=document.getElementById('cmt-preview-box');
-  const txt=document.getElementById('cmt-preview-text');
-  if(status)status.textContent='변환 중...';
-  const polished=await polishCmt(raw);
-  if(status)status.textContent='';
-  box.style.display='block';
-  txt.textContent=polished||raw;
-  _polishedCmtCache={raw,polished:polished||raw};
-  const hint=document.getElementById('polished-ready-hint');
-  if(hint){hint.style.display='flex';hint.textContent='✓ 학부모용 코멘트 준비됨 — '+(polished||raw).slice(0,40)+((polished||raw).length>40?'…':'');}
 }
 
 // ── STUDENT LIBRARY TAB ──
@@ -340,10 +310,6 @@ function renderAsgnForm(sid){
 }
 async function saveAssignment(sid){
   if(!sid){toast('학생을 선택해 주세요');return;}
-  const type=document.getElementById('assign-type')?.value;
-  if(!type){toast('과제 종류를 선택해 주세요');return;}
-  const due=document.getElementById('assign-due')?.value;
-  if(!due){toast('마감일을 입력해 주세요');return;}
   if(_saving['saveAssignment'])return; _saving['saveAssignment']=true;
   try{
   const type=document.getElementById(`asgn-type-${sid}`)?.value||'reading';
@@ -794,7 +760,7 @@ function renderMemCard(el){
       const ci=_cache.vocab_cards.findIndex(c=>c.id===card.id);
       if(ci>=0)_cache.vocab_cards[ci]={...card};
     }
-  });
+  }).catch(e=>console.warn('vocab auto-fill error:',e));
 })();
 function flipMemCard(deckEl){
   const card=deckEl.querySelector('.vc-card');
@@ -898,99 +864,6 @@ function recallNext(){
   }else{
     saveDeckState();
     renderRecallCard(el);
-  }
-}
-
-// ── 단계 2: 스펠 (글자 조합) ──
-let spellState={answer:'',chosen:[],letters:[]};
-function renderSpellCard(el){
-  const card=deckState.cards[deckState.idx];
-  const total=deckState.cards.length;
-  const prog=deckState.cards.map((_,i)=>
-    `<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`
-  ).join('');
-  // 글자 섞기 (정답 + 2개 더미 추가해서 최소 5개)
-  const word=(card.word||'').toLowerCase();
-  const letters=word.split('');
-  const extras='abcdefghijklmnoprstuvwy'.split('').filter(c=>!letters.includes(c));
-  while(letters.length<5&&extras.length)letters.push(extras.splice(Math.floor(Math.random()*extras.length),1)[0]);
-  // 섞기
-  for(let i=letters.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[letters[i],letters[j]]=[letters[j],letters[i]];}
-  spellState={answer:word,chosen:[],letters:[...letters]};
-  const blanks=word.split('').map((_,i)=>`<div class="spell-blank" id="spb-${i}"></div>`).join('');
-  const keys=letters.map((l,i)=>`<button class="spell-key" id="spk-${i}" onclick="spellPick(${i},'${l}')">${l}</button>`).join('');
-  el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span class="vc-phase phase-spl">✍️ 스펠</span>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
-        <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
-      </div>
-    </div>
-    <div class="vc-prog">${prog}</div>
-    <div style="text-align:center;margin-bottom:8px">
-      <div style="font-size:13px;color:var(--slate);margin-bottom:6px">글자를 눌러 단어를 완성하세요</div>
-      <div style="font-size:18px;font-weight:700;color:var(--navy)">${card.meaning||'(뜻 미입력)'}</div>
-    </div>
-    <div class="spell-blanks" id="spell-blanks">${blanks}</div>
-    <div id="spell-feedback" style="text-align:center;font-size:14px;font-weight:600;min-height:22px;margin-bottom:8px"></div>
-    <div class="spell-keys" id="spell-keys">${keys}</div>
-    <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
-      <button class="btn bo bsm" onclick="spellClear()">지우기</button>
-      <button class="btn-vc unsure" id="spell-skip-btn" onclick="spellSkip()">건너뛰기</button>
-      <button class="btn-vc know" id="spell-next-btn" style="display:none" onclick="spellNext()">다음 →</button>
-    </div>
-  </div>`;
-}
-function spellPick(keyIdx,letter){
-  const btn=document.getElementById(`spk-${keyIdx}`);
-  if(btn&&btn.disabled)return;
-  if(btn)btn.disabled=true;
-  spellState.chosen.push({keyIdx,letter});
-  const blanks=document.getElementById('spell-blanks');
-  const blankEls=blanks.querySelectorAll('.spell-blank');
-  const pos=spellState.chosen.length-1;
-  if(blankEls[pos]){blankEls[pos].textContent=letter;blankEls[pos].classList.add('filled');}
-  if(spellState.chosen.length===spellState.answer.length){
-    const formed=spellState.chosen.map(c=>c.letter).join('');
-    const correct=formed===spellState.answer;
-    const fb=document.getElementById('spell-feedback');
-    document.getElementById('spell-skip-btn').style.display='none';
-    document.getElementById('spell-next-btn').style.display='';
-    if(correct){
-      fb.style.color='#00c4cc';fb.textContent='✓ 정답!';
-      blankEls.forEach(b=>b.style.borderBottomColor='var(--teal)');
-    }else{
-      fb.style.color='var(--coral)';fb.innerHTML=`✗ 정답: <strong>${spellState.answer}</strong>`;
-      blankEls.forEach(b=>b.style.borderBottomColor='var(--coral)');
-    }
-    deckState.phaseResults.push({word:spellState.answer,correct});
-  }
-}
-function spellClear(){
-  spellState.chosen=[];
-  const blanks=document.querySelectorAll('.spell-blank');
-  blanks.forEach(b=>{b.textContent='';b.classList.remove('filled');b.style.borderBottomColor='';});
-  document.getElementById('spell-feedback').textContent='';
-  spellState.letters.forEach((_,i)=>{const k=document.getElementById(`spk-${i}`);if(k)k.disabled=false;});
-  document.getElementById('spell-skip-btn').style.display='';
-  document.getElementById('spell-next-btn').style.display='none';
-}
-function spellSkip(){
-  const fb=document.getElementById('spell-feedback');
-  fb.style.color='var(--coral)';fb.innerHTML=`정답: <strong>${spellState.answer}</strong>`;
-  document.getElementById('spell-skip-btn').style.display='none';
-  document.getElementById('spell-next-btn').style.display='';
-  deckState.phaseResults.push({word:spellState.answer,correct:false});
-}
-function spellNext(){
-  deckState.idx++;
-  const el=document.getElementById('st-vocab');
-  if(deckState.idx>=deckState.cards.length){
-    renderVocabResult(el);
-  }else{
-    saveDeckState();
-    renderSpellCard(el);
   }
 }
 
