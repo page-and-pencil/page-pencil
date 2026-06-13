@@ -3314,24 +3314,25 @@ function deleteAllMasterDB(){
     }
   });
 }
-async function deleteMasterSelected(){
+function deleteMasterSelected(){
   if(!_masterSelected.size)return;
   const n=_masterSelected.size;
-  if(!confirm(`선택한 교재/원서 ${n}개를 삭제합니다.\n포함된 단어도 모두 삭제됩니다. 계속하시겠습니까?`))return;
-  const ids=[..._masterSelected];
-  let failed=0;
-  for(const id of ids){
-    try{
-      await supaDelete('global_textbooks',id);
-      _cache.globalTextbooks=(_cache.globalTextbooks||[]).filter(b=>b.id!==id);
-      _cache.library=(_cache.library||[]).filter(b=>b.id!==id);
-    }catch(e){failed++;console.error('삭제 실패:',id,e);}
-  }
-  _masterSelected.clear();
-  updateMasterDelBtn();
-  renderMasterDB();renderTbookTable();renderLib();renderLibTable();renderBookDB();
-  if(typeof renderWordDB==='function')renderWordDB();
-  toast(failed?`삭제 완료 (실패 ${failed}개)`:`${n}개 삭제 완료`);
+  askConfirm('선택 항목 삭제',`교재/원서 ${n}개를 삭제합니다. 포함된 단어도 모두 삭제됩니다.`,'삭제','bd',async()=>{
+    const ids=[..._masterSelected];
+    let failed=0;
+    for(const id of ids){
+      try{
+        await supaDelete('global_textbooks',id);
+        _cache.globalTextbooks=(_cache.globalTextbooks||[]).filter(b=>b.id!==id);
+        _cache.library=(_cache.library||[]).filter(b=>b.id!==id);
+      }catch(e){failed++;console.error('삭제 실패:',id,e);}
+    }
+    _masterSelected.clear();
+    updateMasterDelBtn();
+    renderMasterDB();renderTbookTable();renderLib();renderLibTable();renderBookDB();
+    if(typeof renderWordDB==='function')renderWordDB();
+    toast(failed?`삭제 완료 (실패 ${failed}개)`:`${n}개 삭제 완료`);
+  });
 }
 function renderMasterDB(){
   const q=(document.getElementById('master-q')?.value||'').toLowerCase();

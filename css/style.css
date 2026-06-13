@@ -8,7 +8,7 @@
   --slate:#4A5568;--border:rgba(13,37,66,0.1);
   --sh:0 2px 16px rgba(13,37,66,0.08);--shlg:0 8px 32px rgba(13,37,66,0.14);
   --r:10px;--rs:6px;
-  --fb:'Pretendard','Noto Sans KR',sans-serif;--fd:'Montserrat',sans-serif;--fm:'Pretendard','Noto Sans KR',sans-serif;
+  --fb:'Pretendard','Noto Sans KR',sans-serif;--fd:'Montserrat',sans-serif;--fm:var(--fb);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height:100vh;font-size:14px;line-height:1.6;}
@@ -299,11 +299,6 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .cwtit{font-size:13px;font-weight:700;margin-bottom:12px;}
 .cc{position:relative;height:180px;}
 
-/* COMMENT BOX */
-.pcmt{background:linear-gradient(135deg,#f0fdf8,#e8f5ff);border:1px solid rgba(0,196,204,.15);border-radius:var(--r);padding:14px 16px;margin-top:8px;}
-.pcmt-lbl{font-size:10px;font-weight:700;color:#00c4cc;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;}
-.pcmt-txt{font-size:13px;color:var(--navy);line-height:1.7;}
-
 /* PAYMENT BOX */
 .pay-box{background:linear-gradient(135deg,#fdf8ff,#f0f4ff);border:1px solid rgba(91,79,187,.2);border-radius:var(--r);padding:16px;margin-bottom:1rem;}
 .pay-box h3{font-size:14px;font-weight:700;margin-bottom:10px;}
@@ -316,8 +311,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 
 /* AI STATUS */
 .ais{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-top:8px;}
-.ais.loading{background:var(--tl);color:#005f6b;}
-.ais.ok{background:var(--tl);color:#005f6b;}
+.ais.loading,.ais.ok{background:var(--tl);color:#005f6b;}
 .ais.err{background:var(--cl);color:#A03020;}
 .ais.warn{background:var(--al);color:#7A4A0A;}
 .spin{width:13px;height:13px;border:2px solid rgba(0,196,204,.3);border-top-color:var(--teal);border-radius:50%;animation:sp .7s linear infinite;flex-shrink:0;}
@@ -368,8 +362,6 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .empty .btn{margin-top:12px;}
 .div-line{border:none;border-top:1px solid var(--border);margin:1rem 0;}
 .section-label{font-size:11px;font-weight:700;color:var(--slate);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;}
-
-/* ── v6 ADDITIONS ── */
 
 /* 학생 슬라이드 패널 */
 .stu-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:999;opacity:0;pointer-events:none;transition:opacity .3s;}
@@ -451,11 +443,10 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .lib-tbl td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
 .lib-tbl tr:hover td{background:var(--cream);}
 .lib-tbl .cell-title{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;}
-.lib-table-container{overflow-x:auto;}
 .lib-search-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
 .lib-search-input{flex:1;min-width:160px;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream2);outline:none;transition:border-color .2s;}
 .lib-search-input:focus{border-color:var(--teal);}
-.lib-table-container{height:calc(100vh - 280px);min-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);}
+.lib-table-container{height:calc(100vh - 280px);min-height:300px;overflow-x:auto;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);}
 /* 자료 DB 탭 외부 스크롤 제거 — 내부 테이블이 남은 높이를 채움 */
 #t-data.panel.active{display:flex;flex-direction:column;height:100%;overflow:hidden;box-sizing:border-box;}
 #dp-tbook,#dp-lib,#dp-word{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
@@ -469,8 +460,6 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .pcmt{background:linear-gradient(135deg,#f0f8f9,#e8f4f8);border-left:3px solid var(--teal);border-radius:0 var(--rs) var(--rs) 0;padding:10px 14px;margin-top:8px;}
 .pcmt-lbl{font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px;}
 .pcmt-txt{font-size:13px;line-height:1.75;color:var(--navy);}
-
-/* ── v11 추가 기능 스타일 ── */
 
 /* 대시보드 카드 */
 .dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:1.5rem;}

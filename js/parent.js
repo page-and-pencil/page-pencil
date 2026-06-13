@@ -582,7 +582,7 @@ async function printReport(sidArg){
       <div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>단어</span><span style="font-weight:700">${pct(latTst.vocabCorrect,latTst.vocabTotal)}%</span></div><div class="score-bar"><div class="score-fill" style="width:${pct(latTst.vocabCorrect,latTst.vocabTotal)}%;background:${pct(latTst.vocabCorrect,latTst.vocabTotal)>=80?'#00c4cc':'#F4784A'}"></div></div></div>
       <div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>어법</span><span style="font-weight:700">${pct(latTst.grammarCorrect,latTst.grammarTotal)}%</span></div><div class="score-bar"><div class="score-fill" style="width:${pct(latTst.grammarCorrect,latTst.grammarTotal)}%;background:${pct(latTst.grammarCorrect,latTst.grammarTotal)>=80?'#00c4cc':'#F4784A'}"></div></div></div>
     </div>
-    ${(latTst.wrongWords||[]).length?`<div style="font-size:12px">다시 볼 단어: <strong>${latTst.wrongWords.slice(0,8).join(', ')}</strong></div>`:''}
+    ${(latTst.wrongWords||[]).length?`<div style="font-size:12px">다시 볼 단어: <strong>${latTst.wrongWords.slice(0,10).join(', ')}</strong></div>`:''}
   </div>`:''}
   ${aiComment?`<div class="section">
     <div class="section-title">💬 수업 기간 종합 코멘트</div>
@@ -599,14 +599,6 @@ async function printReport(sidArg){
     <div class="section-title">📗 읽은 원서 (${rds.length}권)</div>
     <div class="book-list">${rds.slice(0,8).map(r=>`<div class="book-item">📚 ${r.title}${(r.arLevel||r.ar)?` <span style="color:#00c4cc;font-size:10px">AR ${r.arLevel||r.ar}</span>`:''}${r.progress?`<div style="font-size:10px;color:#888">${r.progress}</div>`:''}</div>`).join('')}</div>
   </div>`:''}
-  ${latTst?`<div class="section">
-    <div class="section-title">📝 최근 테스트 (${latTst.date})</div>
-    <div style="display:flex;gap:16px;margin-bottom:8px">
-      <div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>단어</span><span style="font-weight:700">${pct(latTst.vocabCorrect,latTst.vocabTotal)}%</span></div><div class="score-bar"><div class="score-fill" style="width:${pct(latTst.vocabCorrect,latTst.vocabTotal)}%;background:${pct(latTst.vocabCorrect,latTst.vocabTotal)>=80?'#00c4cc':'#F4784A'}"></div></div></div>
-      <div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>어법</span><span style="font-weight:700">${pct(latTst.grammarCorrect,latTst.grammarTotal)}%</span></div><div class="score-bar"><div class="score-fill" style="width:${pct(latTst.grammarCorrect,latTst.grammarTotal)}%;background:${pct(latTst.grammarCorrect,latTst.grammarTotal)>=80?'#00c4cc':'#F4784A'}"></div></div></div>
-    </div>
-    ${(latTst.wrongWords||[]).length?`<div style="font-size:12px">다시 볼 단어: <strong>${latTst.wrongWords.slice(0,10).join(', ')}</strong></div>`:''}
-  </div>`:''}
   ${badges.length?`<div class="section">
     <div class="section-title">🏅 달성 뱃지</div>
     <div class="badge-list">${badges.map(b=>`<div class="badge">${b.icon} ${b.name}</div>`).join('')}</div>
@@ -618,9 +610,6 @@ async function printReport(sidArg){
   w.document.close();
   setTimeout(()=>w.print(),600);
 }
-
-// ── swPTab (하위호환 유지, 탭 UI 제거) ──
-function swPTab(id){}
 
 // ── PARENT ACK (수업 확인) ──
 async function parentAckLesson(sid,lesId){
