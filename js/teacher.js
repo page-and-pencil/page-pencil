@@ -6316,7 +6316,10 @@ function renderSpBooks(sid){
   });
   const tbTitles=new Set(tbs.map(t=>t.title));
   const derivedBooks=[...lessonBookMap.values()].filter(b=>!tbTitles.has(b.title)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const manualEntries=tbs.map(t=>({id:t.id,title:t.title,type:t.type||'교재',unit:t.currentUnit||'',manual:true,completed:t.completed,completedDate:t.completedDate,bookId:t.bookId||''}));
+  const manualEntries=tbs.map(t=>{
+    const globalTb=(_cache.globalTextbooks||[]).find(g=>g.id===t.bookId||g.title===t.title);
+    return {id:t.id,title:t.title,type:t.type||'교재',unit:t.currentUnit||'',manual:true,completed:t.completed,completedDate:t.completedDate,bookId:t.bookId||'',level:globalTb?.level||''};
+  });
   const derivedEntries=derivedBooks.map(b=>({id:null,title:b.title,type:b.type,unit:b.unit,manual:false,completed:false}));
   const allEntries=[...manualEntries,...derivedEntries];
   const activeTbs=allEntries.filter(b=>b.type!=='원서'&&!b.completed);
@@ -6341,7 +6344,10 @@ function renderSpBooks(sid){
     </div>
   </div>`;
   const doneRow=t=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
-    <span style="font-size:13px;font-weight:600;color:var(--slate);text-decoration:line-through;flex:1">${t.title}</span>
+    <div style="flex:1;min-width:0">
+      <span style="font-size:13px;font-weight:600;color:var(--slate);text-decoration:line-through">${t.title}</span>
+      ${t.level?`<span style="font-size:10px;color:var(--slate);margin-left:6px;font-weight:normal">${t.level}</span>`:''}
+    </div>
     <span class="badge bteal" style="font-size:10px;white-space:nowrap">✓ ${t.completedDate||'완료'}</span>
   </div>`;
   el.innerHTML=`
@@ -6495,9 +6501,23 @@ async function saveRdEntry(sid){
     toast('원서가 추가되었습니다');
   }
 }
-async function markTextbookDone(id,sid){
+let _tbDoneId='',_tbDoneSid='';
+function markTextbookDone(id,sid){
+  _tbDoneId=id;_tbDoneSid=sid;
+  const tb=(_cache.textbooks||[]).find(t=>t.id===id);
+  const titleEl=document.getElementById('tb-done-date-title');
+  if(titleEl)titleEl.textContent=(tb?.title||'교재')+' 완료 처리';
+  const today=new Date().toISOString().split('T')[0];
+  const inp=document.getElementById('tb-done-date-inp');
+  if(inp){inp.max=today;inp.value=today;}
+  show('m-tb-done-date',true);
+}
+async function confirmTbDone(){
+  const id=_tbDoneId,sid=_tbDoneSid;
+  const doneDate=document.getElementById('tb-done-date-inp')?.value||new Date().toISOString().split('T')[0];
+  show('m-tb-done-date',false);
   const tb=(_cache.textbooks||[]).find(t=>t.id===id);if(!tb)return;
-  tb.completed=true;tb.completedDate=new Date().toISOString().split('T')[0];
+  tb.completed=true;tb.completedDate=doneDate;
   await supaUpsert('textbooks',id,tb,sid);
   const idx=_cache.textbooks.findIndex(t=>t.id===id);if(idx>=0)_cache.textbooks[idx]=tb;
   renderSpBooks(sid);

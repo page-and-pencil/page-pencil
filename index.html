@@ -1572,6 +1572,19 @@
   <button class="btn bt" style="width:100%;justify-content:center" onclick="closeNotice()">확인</button>
 </div>
 
+<!-- 교재/원서 완료 날짜 선택 -->
+<div id="m-tb-done-date" class="mo">
+  <div class="mdl" style="max-width:300px">
+    <div class="mh"><div class="mt" id="tb-done-date-title">완료 처리</div></div>
+    <p style="font-size:13px;color:var(--slate);margin-bottom:1rem;line-height:1.6">완료 날짜를 선택하세요</p>
+    <input type="date" id="tb-done-date-inp" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:14px;font-family:var(--fb);color:var(--navy);margin-bottom:1.2rem;box-sizing:border-box">
+    <div style="display:flex;gap:8px">
+      <button class="btn bo" style="flex:1" onclick="show('m-tb-done-date',false)">취소</button>
+      <button class="btn bt" style="flex:1;background:var(--teal);color:#fff;font-weight:700" onclick="confirmTbDone()">✓ 완료</button>
+    </div>
+  </div>
+</div>
+
 <!-- 마스터 CSV 임포트 모드 선택 -->
 <div id="m-master-csv-mode" class="mo">
   <div class="mdl" style="max-width:320px">
