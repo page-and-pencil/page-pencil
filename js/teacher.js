@@ -3294,20 +3294,24 @@ function deleteAllMasterDB(){
   askConfirm('마스터 DB 전체 삭제',`교재+원서 ${total}개를 모두 삭제합니다. 되돌릴 수 없습니다.`,'전체 삭제','bd',async()=>{
     const btn=document.querySelector('[onclick="deleteAllMasterDB()"]');
     if(btn){btn.disabled=true;btn.textContent='삭제 중...';}
-    const allIds=new Set([...(_cache.globalTextbooks||[]).map(b=>b.id),...(_cache.library||[]).map(b=>b.id)]);
-    const ids=[...allIds];
-    let failed=0;
-    for(let i=0;i<ids.length;i++){
-      if(btn)btn.textContent=`삭제 중... (${i+1}/${ids.length})`;
-      const ok=await supaDelete('global_textbooks',ids[i]).catch(e=>{console.error('전체삭제 실패:',ids[i],e);return false;});
-      if(!ok)failed++;
+    try{
+      // 캐시 한도 무관하게 테이블 전체를 단일 요청으로 삭제
+      const ctrl=new AbortController();
+      const tid=setTimeout(()=>ctrl.abort(),60000);
+      const r=await fetch(`${SUPA_URL}/rest/v1/global_textbooks?id=not.is.null`,{method:'DELETE',headers:SUPA_HEADERS,signal:ctrl.signal});
+      clearTimeout(tid);
+      if(!r.ok){const t=await r.text();throw new Error(t);}
+      _cache.globalTextbooks=[];_cache.library=[];
+      _masterSelected.clear();updateMasterDelBtn();
+      renderMasterDB();renderTbookTable();renderLib();renderLibTable();renderBookDB();
+      if(typeof renderWordDB==='function')renderWordDB();
+      toast('전체 삭제 완료');
+    }catch(e){
+      console.error('전체 삭제 오류:',e);
+      toast('전체 삭제 중 오류: '+e.message);
+    }finally{
+      if(btn){btn.disabled=false;btn.textContent='🗑 전체 삭제';}
     }
-    _cache.globalTextbooks=[];_cache.library=[];
-    _masterSelected.clear();updateMasterDelBtn();
-    renderMasterDB();renderTbookTable();renderLib();renderLibTable();renderBookDB();
-    if(typeof renderWordDB==='function')renderWordDB();
-    if(btn){btn.disabled=false;btn.textContent='🗑 전체 삭제';}
-    toast(failed?`삭제 완료 (실패 ${failed}개)`:`전체 삭제 완료 (${ids.length}개)`);
   });
 }
 async function deleteMasterSelected(){
