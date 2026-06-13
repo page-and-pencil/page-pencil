@@ -6343,12 +6343,14 @@ function renderSpBooks(sid){
       </div>
     </div>
   </div>`;
-  const doneRow=t=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+  const doneRow=t=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px">
     <div style="flex:1;min-width:0">
       <span style="font-size:13px;font-weight:600;color:var(--slate);text-decoration:line-through">${t.title}</span>
       ${t.level?`<span style="font-size:10px;color:var(--slate);margin-left:6px;font-weight:normal">${t.level}</span>`:''}
     </div>
     <span class="badge bteal" style="font-size:10px;white-space:nowrap">✓ ${t.completedDate||'완료'}</span>
+    <button class="btn bo bxxs" onclick="editTbDone('${t.id}','${sid}')">수정</button>
+    <button class="btn bd bxxs" onclick="removeDoneTb('${t.id}','${sid}')">삭제</button>
   </div>`;
   el.innerHTML=`
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -6501,9 +6503,9 @@ async function saveRdEntry(sid){
     toast('원서가 추가되었습니다');
   }
 }
-let _tbDoneId='',_tbDoneSid='';
+let _tbDoneId='',_tbDoneSid='',_tbDoneMode='new';
 function markTextbookDone(id,sid){
-  _tbDoneId=id;_tbDoneSid=sid;
+  _tbDoneId=id;_tbDoneSid=sid;_tbDoneMode='new';
   const tb=(_cache.textbooks||[]).find(t=>t.id===id);
   const titleEl=document.getElementById('tb-done-date-title');
   if(titleEl)titleEl.textContent=(tb?.title||'교재')+' 완료 처리';
@@ -6512,11 +6514,32 @@ function markTextbookDone(id,sid){
   if(inp){inp.max=today;inp.value=today;}
   show('m-tb-done-date',true);
 }
+function editTbDone(id,sid){
+  _tbDoneId=id;_tbDoneSid=sid;_tbDoneMode='edit';
+  const tb=(_cache.textbooks||[]).find(t=>t.id===id);
+  const titleEl=document.getElementById('tb-done-date-title');
+  if(titleEl)titleEl.textContent=(tb?.title||'교재')+' 완료 날짜 수정';
+  const today=new Date().toISOString().split('T')[0];
+  const inp=document.getElementById('tb-done-date-inp');
+  if(inp){inp.max=today;inp.value=tb?.completedDate||today;}
+  show('m-tb-done-date',true);
+}
+function removeDoneTb(id,sid){
+  const tb=(_cache.textbooks||[]).find(t=>t.id===id);
+  askConfirm('완료 교재 삭제',`'${tb?.title||''}' 완료 기록을 삭제할까요?`,'삭제','bd',()=>removeTextbook(id,sid));
+}
 async function confirmTbDone(){
   const id=_tbDoneId,sid=_tbDoneSid;
   const doneDate=document.getElementById('tb-done-date-inp')?.value||new Date().toISOString().split('T')[0];
   show('m-tb-done-date',false);
   const tb=(_cache.textbooks||[]).find(t=>t.id===id);if(!tb)return;
+  if(_tbDoneMode==='edit'){
+    tb.completedDate=doneDate;
+    await supaUpsert('textbooks',id,tb,sid);
+    const idx=_cache.textbooks.findIndex(t=>t.id===id);if(idx>=0)_cache.textbooks[idx]=tb;
+    renderSpBooks(sid);toast('완료 날짜가 수정되었습니다');
+    return;
+  }
   tb.completed=true;tb.completedDate=doneDate;
   await supaUpsert('textbooks',id,tb,sid);
   const idx=_cache.textbooks.findIndex(t=>t.id===id);if(idx>=0)_cache.textbooks[idx]=tb;
