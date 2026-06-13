@@ -3284,6 +3284,28 @@ function masterCheckAll(checked){
   boxes.forEach(b=>{b.checked=checked;if(checked)_masterSelected.add(b.dataset.bid);else _masterSelected.delete(b.dataset.bid);});
   updateMasterDelBtn();
 }
+async function deleteAllMasterDB(){
+  const total=(_cache.globalTextbooks||[]).length+(_cache.library||[]).length;
+  if(!total){toast('삭제할 데이터가 없습니다');return;}
+  if(!confirm(`마스터 DB 전체 (교재+원서 ${total}개)를 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`))return;
+  const btn=document.querySelector('[onclick="deleteAllMasterDB()"]');
+  if(btn){btn.disabled=true;btn.textContent='삭제 중...';}
+  // 중복 없이 모든 ID 수집
+  const allIds=new Set([...(_cache.globalTextbooks||[]).map(b=>b.id),...(_cache.library||[]).map(b=>b.id)]);
+  const ids=[...allIds];
+  let failed=0;
+  for(let i=0;i<ids.length;i++){
+    if(btn)btn.textContent=`삭제 중... (${i+1}/${ids.length})`;
+    try{await supaDelete('global_textbooks',ids[i]);}
+    catch(e){failed++;console.error('전체삭제 실패:',ids[i],e);}
+  }
+  _cache.globalTextbooks=[];_cache.library=[];
+  _masterSelected.clear();updateMasterDelBtn();
+  renderMasterDB();renderTbookTable();renderLib();renderLibTable();renderBookDB();
+  if(typeof renderWordDB==='function')renderWordDB();
+  if(btn){btn.disabled=false;btn.textContent='🗑 전체 삭제';}
+  toast(failed?`삭제 완료 (실패 ${failed}개)`:`전체 삭제 완료 (${ids.length}개)`);
+}
 async function deleteMasterSelected(){
   if(!_masterSelected.size)return;
   const n=_masterSelected.size;
