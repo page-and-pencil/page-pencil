@@ -310,7 +310,7 @@ function renderStudentLibrary(sid){
       </div>`).join('')}
     </div>`:''}
     ${tbRds.length?`<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
-      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">📗 선생님이 기록한 원서</div>
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">📗 내가 읽은 책</div>
       ${tbRds.map(t=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
         <div style="width:36px;height:36px;border-radius:8px;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📗</div>
         <div style="flex:1;min-width:0">
