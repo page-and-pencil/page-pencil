@@ -1515,7 +1515,9 @@
       <div style="font-size:16px;font-weight:700" id="sp-name">—</div>
       <div style="font-size:12px;color:var(--slate)" id="sp-meta">—</div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center">
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <button class="btn bo bsm" onclick="previewAsStudent(currentSpStuId)" title="학생 화면 미리보기">👁 학생뷰</button>
+      <button class="btn bo bsm" onclick="previewAsParent(currentSpStuId)" title="학부모 화면 미리보기">👨‍👩‍👧 학부모뷰</button>
       <button class="btn ba bsm" onclick="openEditStuFromPanel()">수정</button>
       <button class="bx" onclick="closeStuPanel()">×</button>
     </div>
@@ -1656,10 +1658,10 @@
 <datalist id="dl-hw-books"></datalist>
 <datalist id="dl-phonics-books"></datalist>
 
-<script src="js/utils.js?v=20260614m"></script>
-<script src="js/db.js?v=20260614m"></script>
-<script src="js/teacher.js?v=20260614m"></script>
-<script src="js/student.js?v=20260614m"></script>
-<script src="js/parent.js?v=20260614m"></script>
+<script src="js/utils.js?v=20260614n"></script>
+<script src="js/db.js?v=20260614n"></script>
+<script src="js/teacher.js?v=20260614n"></script>
+<script src="js/student.js?v=20260614n"></script>
+<script src="js/parent.js?v=20260614n"></script>
 </body>
 </html>

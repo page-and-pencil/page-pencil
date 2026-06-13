@@ -319,6 +319,40 @@ function closeStuPanel(){
   document.querySelectorAll('.sc').forEach(c=>c.classList.remove('sel'));
 }
 function openEditStuFromPanel(){closeStuPanel();openEditStu(currentSpStuId);}
+
+// ── 선생님 뷰 전환 (미리보기) ──
+function _injectPreviewBar(label){
+  document.getElementById('_teacher-preview-bar')?.remove();
+  const bar=document.createElement('div');
+  bar.id='_teacher-preview-bar';
+  bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#0d2542;color:#fff;padding:9px 16px;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-family:var(--fb);box-shadow:0 2px 8px rgba(0,0,0,.25)';
+  bar.innerHTML=`<span style="opacity:.85">👁 ${label}</span><button onclick="returnToTeacher()" style="background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);color:#fff;padding:5px 14px;border-radius:20px;cursor:pointer;font-size:12px;font-family:var(--fb);font-weight:700">← 선생님 뷰로 돌아가기</button>`;
+  document.body.appendChild(bar);
+}
+async function previewAsStudent(sid){
+  if(!sid){toast('학생을 선택해 주세요');return;}
+  const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+  closeStuPanel();
+  await loginStudent(s);
+  _injectPreviewBar(s.name+' 학생 뷰');
+}
+async function previewAsParent(sid){
+  if(!sid){toast('학생을 선택해 주세요');return;}
+  const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+  closeStuPanel();
+  await loadParent(sid);
+  _injectPreviewBar(s.name+' 학부모 뷰');
+}
+function returnToTeacher(){
+  document.getElementById('_teacher-preview-bar')?.remove();
+  saveSession({role:'teacher'});
+  show('s-teacher');
+  if(currentSpStuId){
+    document.getElementById('stu-panel')?.classList.add('open');
+    document.getElementById('stu-panel-overlay')?.classList.add('open');
+    loadStuPanel(currentSpStuId);
+  }
+}
 function swSpTab(id){
   const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-reading','sp-vocab','sp-payment','sp-diag'];
   document.querySelectorAll('.sptab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
