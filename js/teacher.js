@@ -2754,11 +2754,20 @@ async function tuSaveInline(tbId,unitKey,idx){
   const v3=document.getElementById('tu-ie-v3')?.value.trim().toLowerCase()||'';
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const words=tuNormWords(tb.units?.[unitKey]||[]);
+  const oldExample=(words[idx]?.example)||'';
   words[idx]={...words[idx],word,ko,pos,example,en_def,v2,v3};
   const updated={...tb,units:{...(tb.units||{}),[unitKey]:words}};
   try{
     await supaUpsert('global_textbooks',tbId,updated,null);
     const i=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(i>=0)_cache.globalTextbooks[i]=updated;
+    if(example&&example!==oldExample){
+      for(const card of(_cache.vocab_cards||[])){
+        if(card.word!==word||card.srcId!==tbId)continue;
+        card.example=example;card.exampleSrc='book';
+        await supaUpsert('vocab_cards',card.id,card,card.sid);
+        const ci=(_cache.vocab_cards||[]).findIndex(c=>c.id===card.id);if(ci>=0)_cache.vocab_cards[ci]={...card};
+      }
+    }
     tuRenderWords(tbId,unitKey);toast('저장되었습니다');
   }catch(err){toast('저장 실패: '+err.message);}
 }
