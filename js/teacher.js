@@ -456,7 +456,7 @@ function renderSpVocab(sid){
     <div style="flex:1;min-width:0">
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:5px">
         <input type="text" value="${escAttr(c.word||'')}" placeholder="영단어" onblur="saveVocabField('${c.id}','${sid}','word',this.value)" style="${inpStyle};font-size:13px;font-weight:700;font-family:var(--fd);width:auto;min-width:80px;max-width:150px">
-        ${c.pos?`<span style="font-size:10px;color:var(--slate)">${c.pos}</span>`:''}
+        ${c.pos?`<span style="font-size:10px;color:var(--slate)">${POS_KO[c.pos]||c.pos}</span>`:''}
         <span class="badge ${PHASE_CLS[c.phase||0]}" style="font-size:10px">${PHASE_LBL[c.phase||0]}</span>
         ${srcBadge(c.source)}
         ${(()=>{const lv=(c.wlevel||getWordLevel(c.word).display);return lv?`<span style="font-size:9px;padding:1px 6px;border-radius:8px;${lv.startsWith('Dolch')?'background:#e0f2fe;color:#0369a1':lv.startsWith('A')?'background:#dcfce7;color:#166534':lv.startsWith('B')?'background:#fef9c3;color:#92400e':lv.startsWith('C')?'background:#ffe4e6;color:#9f1239':'background:#f3e8ff;color:#7e22ce'}">${lv}</span>`:'';})()}
@@ -1282,8 +1282,8 @@ function matsToHtml(materials){
 
 // ── RUBRIC ──
 const RUBRIC_DEF={
-  speaking:{label:'🗣 말하기',cats:['발음','유창성','어휘','문법','내용'],levels:['1·시작','2·발전','3·능숙','4·우수']},
-  writing:{label:'✍️ 쓰기',cats:['아이디어','구성','어휘','문법','맞춤법'],levels:['1·시작','2·발전','3·능숙','4·우수']}
+  speaking:{label:'🗣 말하기',cats:['발음','유창성','어휘','어법','내용'],levels:['1·시작','2·발전','3·능숙','4·우수']},
+  writing:{label:'✍️ 쓰기',cats:['아이디어','구성','어휘','어법','맞춤법'],levels:['1·시작','2·발전','3·능숙','4·우수']}
 };
 let _rubricActive=false,_rubricType='speaking',_rubricScores={};
 function toggleRubric(){
@@ -2076,7 +2076,7 @@ function renderLibVocabTable(id){
   tbody.innerHTML=vocab.map((w,i)=>`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)">
     <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}${(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:''}</td>
     <td style="padding:6px 8px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
-    <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px">${w.pos||'—'}</span></td>
+    <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px">${POS_KO[w.pos]||w.pos||'—'}</span></td>
     <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic">${w.example||'—'}</td>
     <td style="padding:6px 8px;font-size:11px;color:#6b7280;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.en_def)}">${w.en_def||'<span style="color:var(--slate)">—</span>'}</td>
     <td style="padding:4px;white-space:nowrap">
@@ -2778,7 +2778,7 @@ function tuRenderWords(tbId,unitKey){
   tbody.innerHTML=words.map((w,i)=>`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)">
     <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}${(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:''}</td>
     <td style="padding:6px 8px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
-    <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px;white-space:nowrap">${w.pos||'—'}</span></td>
+    <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px;white-space:nowrap">${POS_KO[w.pos]||w.pos||'—'}</span></td>
     <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic">${w.example||'—'}</td>
     <td style="padding:6px 8px;font-size:11px;color:#6b7280;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.en_def)}">${w.en_def||'<span style="color:var(--slate)">—</span>'}</td>
     <td style="padding:4px;white-space:nowrap">
@@ -3316,7 +3316,7 @@ function parseBookWordFormat(text){
   const posMap=[
     {ko:'조동사',pos:'verb'},{ko:'감탄사',pos:'verb'},
     {ko:'전치사구',pos:'phrase'},{ko:'동사구',pos:'phrase'},{ko:'명사구',pos:'phrase'},{ko:'형용사구',pos:'phrase'},
-    {ko:'대명사',pos:'noun'},{ko:'형용사',pos:'adj'},{ko:'명사',pos:'noun'},
+    {ko:'대명사',pos:'pron'},{ko:'형용사',pos:'adj'},{ko:'명사',pos:'noun'},
     {ko:'동사',pos:'verb'},{ko:'부사',pos:'adv'},{ko:'전치사',pos:'prep'},
     {ko:'수사',pos:'noun'},{ko:'접속사',pos:'conj'},{ko:'구',pos:'phrase'},
   ];
@@ -3690,7 +3690,7 @@ function renderMasterDB(){
       <td style="font-size:11px;color:var(--slate);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(r.unit||'')}</td>
       <td style="font-weight:600;font-family:var(--fd)">${escAttr(r.word)}</td>
       <td style="font-size:12px">${escAttr(r.ko)}</td>
-      <td style="font-size:11px"><span style="background:var(--cream2);padding:1px 4px;border-radius:3px">${escAttr(r.pos||'')}</span></td>
+      <td style="font-size:11px"><span style="background:var(--cream2);padding:1px 4px;border-radius:3px">${escAttr(POS_KO[r.pos]||r.pos||'')}</span></td>
       <td style="text-align:right"><button class="btn bo bsm" style="font-size:11px;padding:2px 8px" onclick="${editFn}">수정</button></td>
     </tr>`;
   }).join('');
@@ -3812,7 +3812,7 @@ function tbdTab(tab){
 // ── 단어 DB (교재+원서 통합) ──
 let _wdbPagedEntries=[],wdbPage=0,wdbSortDir='asc',wdbSortField='word';
 const WDB_PAGE_SIZE=50;
-const POS_KO={noun:'명사',verb:'동사',adj:'형용사',adv:'부사',prep:'전치사',phrase:'구/숙어',conj:'접속사'};
+const POS_KO={noun:'명사',verb:'동사',adj:'형용사',adv:'부사',prep:'전치사',phrase:'구동사/숙어',conj:'접속사',pron:'대명사'};
 function posOptionsHtml(sel){
   return [['','—'],['noun','명사'],['verb','동사'],['adj','형용사'],['adv','부사'],['prep','전치사'],['phrase','구동사/숙어'],['conj','접속사'],['pron','대명사']]
     .map(([v,l])=>`<option value="${v}"${sel===v?' selected':''}>${l}</option>`).join('');
@@ -7472,7 +7472,7 @@ function openClassLesson(classId,dateStr){
       </div>
       <button class="btn ba" style="font-size:11px;padding:3px 10px;margin-bottom:6px" onclick="addClBookRow(this)">+ 원서 추가</button>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px">
-        ${['집중도 좋음','이해도 높음','자신감 향상 중','적극 참여','질문 잘 함','예습 완료','숙제 성실','읽기 유창','단어 암기 우수','발표 잘 함','복습 필요','속도 향상 중','어휘 보완 필요','발음 교정 중','문법 점검 필요','쓰기 연습 필요','집중 유지 필요','리듬감·억양 개선','듣기 이해도 향상 중','문장 구성 능숙'].map(c=>`<button type="button" class="cmt-chip" onclick="clAddIndCmt(this,'${c}')">${c}</button>`).join('')}
+        ${['집중도 좋음','이해도 높음','자신감 향상 중','적극 참여','질문 잘 함','예습 완료','숙제 성실','읽기 유창','단어 암기 우수','발표 잘 함','복습 필요','속도 향상 중','어휘 보완 필요','발음 교정 중','어법 점검 필요','쓰기 연습 필요','집중 유지 필요','리듬감·억양 개선','듣기 이해도 향상 중','문장 구성 능숙'].map(c=>`<button type="button" class="cmt-chip" onclick="clAddIndCmt(this,'${c}')">${c}</button>`).join('')}
       </div>
       <textarea class="cl-ind-cmt" placeholder="개인 코멘트 (선택)" rows="2" style="${iStyle};width:100%;box-sizing:border-box;resize:none"></textarea>
       <div style="display:flex;align-items:center;gap:8px;margin-top:5px">

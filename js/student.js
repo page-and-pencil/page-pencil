@@ -736,7 +736,7 @@ function renderMemCard(el){
       <div class="vc-card" id="mem-card">
         <div class="vc-face vc-front">
           <div class="vc-word" onclick="event.stopPropagation();speakWord('${card.word.replace(/'/g,"\\'")}');" style="cursor:pointer">${card.word}</div>
-          <div class="vc-pos">${card.pos||''}</div>
+          <div class="vc-pos">${POS_KO[card.pos]||card.pos||''}</div>
           ${(()=>{const lv=(card.wlevel||getWordLevel(card.word).display);if(!lv)return'';const cls=lv.startsWith('Dolch')?'blv-dolch':lv.startsWith('A')?'blv-a':lv.startsWith('B')?'blv-b':lv.startsWith('C')?'blv-c':'blv-other';return`<div style="margin-top:6px"><span class="badge badge-xs ${cls}">${lv}</span></div>`;})()}
           <div class="vc-hint" style="margin-top:10px">🔊 단어 탭 → 발음 &nbsp;|&nbsp; 카드 탭 → 뒤집기</div>
         </div>
@@ -843,7 +843,7 @@ function renderRecallCard(el){
       <div style="font-size:12px;color:var(--slate);text-align:center;margin-bottom:8px">뜻을 보고 영어 단어를 입력하세요</div>
       <div style="background:var(--tl);border-radius:10px;padding:16px;text-align:center;margin-bottom:16px">
         <div style="font-size:20px;font-weight:700;color:var(--navy)">${card.meaning||'(뜻 미입력)'}</div>
-        ${card.pos?`<div style="font-size:11px;color:var(--slate);margin-top:4px;font-family:var(--fm)">${card.pos}</div>`:''}
+        ${card.pos?`<div style="font-size:11px;color:var(--slate);margin-top:4px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
         ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:12px;color:#005f6b;margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
       </div>
       <input class="recall-input" id="recall-in" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
@@ -1336,7 +1336,7 @@ function renderUrWords(tb,body,footer){
     ${words.map((w,i)=>`<div id="ur-word-row-${i}" onclick="urRevealWord(${i},'${(w.word||'').replace(/'/g,"\\'")}','${(w.ko||'').replace(/'/g,"\\'")}','${(w.pos||'').replace(/'/g,"\\'")}',this)" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;transition:border-color .15s">
       <div style="flex:1">
         <span id="ur-word-ko-${i}" style="font-size:14px;font-weight:600;color:var(--navy)">${w.ko||'—'}</span>
-        ${w.pos?`<span style="font-size:10px;color:var(--slate);margin-left:5px">[${w.pos}]</span>`:''}
+        ${w.pos?`<span style="font-size:10px;color:var(--slate);margin-left:5px">[${POS_KO[w.pos]||w.pos}]</span>`:''}
       </div>
       <div style="text-align:right">
         <span id="ur-word-en-${i}" style="font-size:14px;font-weight:700;color:var(--teal);opacity:0;transition:opacity .2s">${w.word||''}</span>
