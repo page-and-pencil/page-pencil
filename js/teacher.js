@@ -1104,6 +1104,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
     let books=(_cache.globalTextbooks||[]).filter(b=>catFilter?b.category===catFilter:true);
     const noMatch=catFilter&&!books.length;
     if(noMatch)books=_cache.globalTextbooks||[];
+    books=[...books].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
     const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
     bookInput=`<select data-f="book" onchange="clUpdateUnitHint(this)" style="${_bkSelSt}">${opts}</select>`;
@@ -1119,6 +1120,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
     let books=(_cache.globalTextbooks||[]).filter(b=>catFilter?b.category===catFilter:true);
     const noMatch=catFilter&&!books.length;
     if(noMatch)books=_cache.globalTextbooks||[];
+    books=[...books].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
     const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
     bookInput=`<select data-f="book" onchange="lesUpdateUnitSel(this)" style="${_bkSelSt}">${opts}</select>`;
@@ -1147,6 +1149,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
     const catF=_CAT_KO[baseKey];
     let filtBooks=catF?(_cache.globalTextbooks||[]).filter(b=>b.category===catF):(_cache.globalTextbooks||[]);
     if(!filtBooks.length)filtBooks=_cache.globalTextbooks||[];
+    filtBooks=[...filtBooks].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
     const dlId='dl-sr-'+Math.random().toString(36).slice(2,7);
     bookInput=`<datalist id="${dlId}">${filtBooks.map(b=>`<option value="${escAttr(b.title)}">${b.title}${b.level?' ('+b.level+')':''}</option>`).join('')}</datalist><input type="text" placeholder="교재명" data-f="book" list="${dlId}" autocomplete="off" value="${escAttr(bookVal||'')}">`;
   }
@@ -2620,7 +2623,7 @@ function openTbookUnits(tbId){
 }
 function tuPopulateUnitSel(tbId){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
-  const units=tb?.units||{};const keys=Object.keys(units);
+  const units=tb?.units||{};const keys=Object.keys(units).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
   const sub=document.getElementById('tu-sub');if(sub)sub.textContent=`(${keys.length}개)`;
   const sel=document.getElementById('tu-unit-sel');
   if(sel)sel.innerHTML='<option value="">-- 단원 선택 --</option>'+keys.map(k=>`<option value="${escAttr(k)}"${_tuCurUnit===k?' selected':''}>${k}${tb?.unitTitles?.[k]?' — '+tb.unitTitles[k]:''}</option>`).join('');
@@ -3362,7 +3365,7 @@ async function addUnitWordsToVocab(sid,materials,date){
   }
 }
 function updateTbookDatalist(){
-  const books=_cache.globalTextbooks||[];
+  const books=[...(_cache.globalTextbooks||[])].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
   ['dl-textbooks','dl-tbooks-les','dl-tbooks-assign'].forEach(id=>{
     const dl=document.getElementById(id);
     if(dl)dl.innerHTML=books.map(b=>`<option value="${escAttr(b.title)}">`).join('');
