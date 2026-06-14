@@ -2547,7 +2547,6 @@ function openEditTbook(id){
   document.getElementById('tbook-modal-title').textContent='교재 수정';
   document.getElementById('tbook-submit-btn').textContent='저장';
   const delBtn=document.getElementById('tbd-del-btn');if(delBtn)delBtn.style.display='';
-  const gotoBtn=document.getElementById('tbd-goto-units');if(gotoBtn)gotoBtn.style.display='';
   const unitCnt=Object.keys(b.units||{}).length;
   const cntEl=document.getElementById('tbd-unit-cnt');if(cntEl)cntEl.textContent=unitCnt?`(${unitCnt})`:'';
   tbdTab('info');openM('m-tbook-detail');
@@ -2603,6 +2602,8 @@ async function delGlobalTbook(id){
 // ── TBOOK UNITS ──
 let _tuCurUnit=null,_tuRenamingUnit=null;
 function tuNormWords(arr){return(arr||[]).map(w=>typeof w==='string'?{word:w,ko:'',pos:'',example:''}:w);}
+// JS 인라인 단일따옴표 문자열용 이스케이프 (HTML 디코딩 후에도 안전)
+function jsq(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,'\\x27');}
 function openTbookUnits(tbId){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   document.getElementById('tu-tb-id').value=tbId;
@@ -2619,7 +2620,6 @@ function openTbookUnits(tbId){
   document.getElementById('tbook-modal-title').textContent=tbObj.title||'단원 단어 관리';
   document.getElementById('tbook-submit-btn').textContent='저장';
   const delBtnU=document.getElementById('tbd-del-btn');if(delBtnU)delBtnU.style.display='';
-  const gotoBtnU=document.getElementById('tbd-goto-units');if(gotoBtnU)gotoBtnU.style.display='';
   _tuCurUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,null);tbdTab('units');openM('m-tbook-detail');
 }
 function tuPopulateUnitSel(tbId){
@@ -2641,24 +2641,24 @@ function tuPopulateUnitSel(tbId){
     if(_tuRenamingUnit===k){return`<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid var(--border);background:var(--tl)">
       <div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0">
         <input id="tu-rename-inp" value="${escAttr(k)}" placeholder="단원번호 (Unit 1 등)"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();tuRenameUnitSave('${escAttr(tbId)}','${escAttr(k)}')}else if(event.key==='Escape'){_tuRenamingUnit=null;tuPopulateUnitSel('${escAttr(tbId)}')}"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();tuRenameUnitSave('${jsq(tbId)}','${jsq(k)}')}else if(event.key==='Escape'){_tuRenamingUnit=null;tuPopulateUnitSel('${jsq(tbId)}')}"
           style="${iSt}">
         <input id="tu-rename-sub" value="${escAttr(subtitle)}" placeholder="소제목 (선택)"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();tuRenameUnitSave('${escAttr(tbId)}','${escAttr(k)}')}else if(event.key==='Escape'){_tuRenamingUnit=null;tuPopulateUnitSel('${escAttr(tbId)}')}"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();tuRenameUnitSave('${jsq(tbId)}','${jsq(k)}')}else if(event.key==='Escape'){_tuRenamingUnit=null;tuPopulateUnitSel('${jsq(tbId)}')}"
           style="${iSt};font-size:11px">
       </div>
-      <button onclick="tuRenameUnitSave('${escAttr(tbId)}','${escAttr(k)}')" style="background:var(--teal);color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;white-space:nowrap">저장</button>
-      <button onclick="_tuRenamingUnit=null;tuPopulateUnitSel('${escAttr(tbId)}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 5px;cursor:pointer;font-size:11px;color:var(--slate)">✕</button>
+      <button onclick="tuRenameUnitSave('${jsq(tbId)}','${jsq(k)}')" style="background:var(--teal);color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;white-space:nowrap">저장</button>
+      <button onclick="_tuRenamingUnit=null;tuPopulateUnitSel('${jsq(tbId)}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 5px;cursor:pointer;font-size:11px;color:var(--slate)">✕</button>
     </div>`;}
     return`<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);background:${isSel?'var(--tl)':'transparent'}">
       <input type="checkbox" class="tu-unit-chk" data-key="${escAttr(k)}" onclick="event.stopPropagation()" style="flex-shrink:0;cursor:pointer">
-      <div onclick="tuSelectUnitRow('${escAttr(k)}')" style="flex:1;cursor:pointer;overflow:hidden;min-width:0">
-        <div style="font-size:13px;font-weight:${isSel?'700':'400'};color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k}</div>
-        ${subtitle?`<div style="font-size:11px;color:var(--slate);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${subtitle}</div>`:''}
+      <div onclick="tuSelectUnitRow('${jsq(k)}')" style="flex:1;cursor:pointer;overflow:hidden;min-width:0">
+        <div style="font-size:13px;font-weight:${isSel?'700':'400'};color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(k)}</div>
+        ${subtitle?`<div style="font-size:11px;color:var(--slate);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(subtitle)}</div>`:''}
       </div>
       <span style="font-size:11px;color:var(--slate);flex-shrink:0;white-space:nowrap">${wCnt}단어</span>
-      <button onclick="event.stopPropagation();_tuRenamingUnit='${escAttr(k)}';tuPopulateUnitSel('${escAttr(tbId)}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 3px;color:var(--slate);flex-shrink:0;line-height:1" title="이름·소제목 변경">✏️</button>
-      <button onclick="event.stopPropagation();tuDeleteUnitDirect('${escAttr(tbId)}','${escAttr(k)}')" style="background:none;border:none;cursor:pointer;font-size:15px;padding:0 3px;color:var(--coral);flex-shrink:0;line-height:1" title="삭제">×</button>
+      <button onclick="event.stopPropagation();_tuRenamingUnit='${jsq(k)}';tuPopulateUnitSel('${jsq(tbId)}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 3px;color:var(--slate);flex-shrink:0;line-height:1" title="이름·소제목 변경">✏️</button>
+      <button onclick="event.stopPropagation();tuDeleteUnitDirect('${jsq(tbId)}','${jsq(k)}')" style="background:none;border:none;cursor:pointer;font-size:15px;padding:0 3px;color:var(--coral);flex-shrink:0;line-height:1" title="삭제">×</button>
     </div>`;
   }).join('');
   if(_tuRenamingUnit)setTimeout(()=>document.getElementById('tu-rename-inp')?.focus(),40);
@@ -3708,7 +3708,6 @@ function openTbookAdd(){
   document.getElementById('tbook-submit-btn').textContent='추가';
   const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display='none';
   const delBtn2=document.getElementById('tbd-del-btn');if(delBtn2)delBtn2.style.display='none';
-  const gotoBtn2=document.getElementById('tbd-goto-units');if(gotoBtn2)gotoBtn2.style.display='none';
   const cntEl2=document.getElementById('tbd-unit-cnt');if(cntEl2)cntEl2.textContent='';
   tbdTab('info');openM('m-tbook-detail');
 }
