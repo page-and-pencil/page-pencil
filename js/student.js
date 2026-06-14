@@ -199,6 +199,14 @@ function makeAudioPlayer(url,bookTitle){
     </div>
   </div>`;
 }
+function toggleBookAudio(safeId){
+  const audioEl=document.getElementById('ba-'+safeId);
+  const btn=document.getElementById('bab-'+safeId);
+  if(!audioEl)return;
+  const hidden=audioEl.style.display==='none'||!audioEl.style.display;
+  audioEl.style.display=hidden?'':'none';
+  if(btn)btn.textContent=hidden?'⏸ 숨기기':'🎧 다시 듣기';
+}
 function renderStuAudio(b){
   const ao=getAudioObj(b);
   if(!ao) return `<div class="stu-no-audio">🎵 오디오가 아직 준비되지 않았어요</div>`;
@@ -252,22 +260,21 @@ function renderStudentLibrary(sid){
   const myBookIds=new Set(myRds.map(r=>r.bookId).filter(Boolean));
   const lastReadBookId=myRds[0]?.bookId||'';
   const allBooks=_cache.library;
-  const withAudio=allBooks.filter(b=>b.audioUrl);
   const myBooks=allBooks.filter(b=>myBookIds.has(b.id));
   const tbRds=(_cache.textbooks||[]).filter(t=>t.sid===sid&&t.type==='원서').sort((a,b)=>(b.completedDate||'').localeCompare(a.completedDate||''));
-  const shown=new Map();
-  [...myBooks,...withAudio].forEach(b=>shown.set(b.id,b));
-  const list=[...shown.values()].sort((a,b)=>{
-    if(a.id===lastReadBookId)return -1;if(b.id===lastReadBookId)return 1;
-    return (b.audioUrl?1:0)-(a.audioUrl?1:0);
-  });
 
-  const libHtml=list.map(b=>{
-    const isMine=myBookIds.has(b.id);
-    const isCurrent=b.id===lastReadBookId;
-    const hasAudio=!!b.audioUrl;
+  // 현재 읽는 중 / 이미 읽은 원서 / 미읽은 오디오 원서 구분
+  const currentBook=lastReadBookId?allBooks.find(b=>b.id===lastReadBookId):null;
+  const readBooksWithAudio=myBooks.filter(b=>b.audioUrl&&b.id!==lastReadBookId);
+  const otherWithAudio=allBooks.filter(b=>b.audioUrl&&!myBookIds.has(b.id));
+
+  function bookCardHtml(b,isCurrent,isRead){
     const rdDate=myRds.find(r=>r.bookId===b.id)?.date||'';
-    return`<div class="stu-book-card" style="${hasAudio?'':'opacity:.55'}">
+    const safeId=b.id.replace(/[^a-z0-9]/gi,'_');
+    const audioSection=isRead
+      ?`<div style="margin-top:8px"><button id="bab-${safeId}" class="btn bt bsm" style="border-radius:50px;width:100%" onclick="toggleBookAudio('${safeId}')">🎧 다시 듣기</button><div id="ba-${safeId}" style="display:none;margin-top:8px">${renderStuAudio(b)}</div></div>`
+      :renderStuAudio(b);
+    return`<div class="stu-book-card">
       <div class="stu-book-top">
         <div class="stu-book-cover">${b.emoji||'📚'}</div>
         <div style="flex:1;min-width:0">
@@ -275,15 +282,23 @@ function renderStudentLibrary(sid){
           <div class="stu-book-series">${b.series||''}${b.level?' · Lv.'+b.level:''}</div>
           <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
             ${isCurrent?`<span class="badge badge-xs badge-reading">현재 읽는 중 📖</span>`:''}
-            ${isMine&&!isCurrent?`<span style="font-size:10px;padding:2px 7px;background:var(--tl);color:var(--purple);border-radius:10px;font-weight:700">✓ 읽음</span>`:''}
+            ${isRead&&!isCurrent?`<span style="font-size:10px;padding:2px 7px;background:var(--tl);color:var(--purple);border-radius:10px;font-weight:700">✓ 읽음</span>`:''}
             ${rdDate?`<span style="font-size:10px;color:var(--slate)">${rdDate}</span>`:''}
-            ${hasAudio?`<span style="font-size:10px;padding:2px 7px;background:rgba(0,196,204,.1);color:#005f6b;border-radius:10px;font-weight:700">🎧 오디오</span>`:`<span style="font-size:10px;padding:2px 7px;background:var(--cream2);color:var(--slate);border-radius:10px">오디오 없음</span>`}
           </div>
         </div>
       </div>
-      ${renderStuAudio(b)}
+      ${audioSection}
     </div>`;
-  }).join('');
+  }
+
+  const currentHtml=currentBook?bookCardHtml(currentBook,true,false):'';
+  const readHtml=readBooksWithAudio.map(b=>bookCardHtml(b,false,true)).join('');
+  const otherHtml=otherWithAudio.map(b=>bookCardHtml(b,false,false)).join('');
+
+  const hasLib=!!(currentBook||readBooksWithAudio.length||otherWithAudio.length||tbRds.length);
+  const libHtml=(currentHtml?`<div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:6px">📖 현재 읽는 중</div>${currentHtml}`:'')
+    +(readHtml?`<div style="font-size:11px;font-weight:700;color:var(--slate);margin:${currentHtml?10:0}px 0 6px">🔁 이미 읽은 원서 — 다시 듣기</div>${readHtml}`:'')
+    +(otherHtml?`<div style="font-size:11px;font-weight:700;color:var(--slate);margin:${currentHtml||readHtml?10:0}px 0 6px">🎧 다른 오디오 원서</div>${otherHtml}`:'');
 
   const tbRdHtml=tbRds.length?`<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
     <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:8px">📗 내가 읽은 책</div>
@@ -297,14 +312,14 @@ function renderStudentLibrary(sid){
     </div>`).join('')}
   </div>`:'';
 
-  const noContent=!myTbooks.length&&!list.length&&!tbRds.length;
+  const noContent=!myTbooks.length&&!hasLib;
   el.innerHTML=noContent?`<div style="padding:2rem;text-align:center">
     <div style="font-size:36px;margin-bottom:10px">📖</div>
     <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">복습 자료가 없습니다</div>
     <div style="font-size:12px;color:var(--slate)">교재 단원 원문이나 원서가 등록되면 여기에 보입니다</div>
   </div>`:`<div style="padding:1.25rem">
     ${myTbooks.length?`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">📚 교재 원문 복습</div>${tbookHtml}`:''}
-    ${list.length||tbRds.length?`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-top:${myTbooks.length?20:0}px;margin-bottom:10px${myTbooks.length?';padding-top:16px;border-top:1px solid var(--border)':''}">🎧 원서 듣기</div>${libHtml}${tbRdHtml}`:''}
+    ${hasLib?`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-top:${myTbooks.length?20:0}px;margin-bottom:10px${myTbooks.length?';padding-top:16px;border-top:1px solid var(--border)':''}">🎧 원서 듣기</div>${libHtml}${tbRdHtml}`:''}
   </div>`;
 }
 
@@ -618,6 +633,7 @@ function resumeVocabDeck(){
   const el=document.getElementById('st-vocab');
   if(deckState.phase===0)renderMemCard(el);
   else if(deckState.phase===1)renderRecallCard(el);
+  else if(deckState.phase===2)renderSpellCard(el);
   else renderVocabDeck(currentStudentSid);
 }
 
@@ -669,7 +685,8 @@ function renderVocabDeck(sid){
 function renderVocabPhaseIntro(el){
   const phaseInfo=[
     {id:0,name:'암기',sub:'카드를 보고 뜻을 떠올리세요',icon:'👀',cls:'phase-mem'},
-    {id:1,name:'리콜',sub:'뜻을 보고 영어 단어를 입력하세요',icon:'🧠',cls:'phase-rec'},
+    {id:1,name:'리콜',sub:'뜻을 보고 영어 단어를 속으로 떠올리세요',icon:'🧠',cls:'phase-rec'},
+    {id:2,name:'스펠',sub:'뜻을 보고 스펠링을 입력하세요',icon:'✍️',cls:'phase-spell'},
   ];
   const p=phaseInfo[deckState.phase];
   const total=deckState.cards.length;
@@ -808,14 +825,11 @@ function memResult(knew){
   const el=document.getElementById('st-vocab');
   if(deckState.idx>=deckState.cards.length){
     const mode=deckState.vocabMode||'intermediate';
-    const unsure=deckState.phaseResults.filter(r=>!r.knew).map(r=>r.word);
-    if(mode==='beginner'||(mode==='intermediate'&&!unsure.length)){
+    if(mode==='beginner'){
       renderVocabResult(el);
     }else{
-      const recallCards=mode==='advanced'?[...deckState.cards]:deckState.cards.filter(c=>unsure.includes(c.word));
-      deckState.phase=1;deckState.idx=0;deckState.phaseResults=[];deckState.cards=recallCards;
-      saveDeckState();
-      toast('🧠 리콜 단계 시작!');renderRecallCard(el);
+      deckState._sessionCards=[...deckState.cards];
+      renderPhaseTransition(el,1);
     }
   }else{
     saveDeckState();
@@ -823,13 +837,54 @@ function memResult(knew){
   }
 }
 
-// ── 단계 1: 리콜 (뜻 보고 단어 입력) ──
+function renderPhaseTransition(el,nextPhase){
+  const phases=[{name:'암기',icon:'👀'},{name:'리콜',icon:'🧠'},{name:'스펠',icon:'✍️'}];
+  const doneName=phases[nextPhase-1]?.name||'학습';
+  const nextName=phases[nextPhase]?.name||'';
+  const nextSub=nextPhase===1?'뜻을 보고 영어 단어를 속으로 떠올리세요':nextPhase===2?'뜻을 보고 영어 스펠링을 직접 입력하세요':'';
+  const circles=phases.map((p,i)=>{
+    const done=i<nextPhase,active=i===nextPhase;
+    const bg=done?'var(--teal)':active?'var(--navy)':'var(--cream2)';
+    const fg=done||active?'#fff':'var(--slate)';
+    const lw=active?'700':'400';
+    const lc=active?'var(--navy)':'var(--slate)';
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:5px">'
+      +'<div style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:'+(done?'20':'18')+'px;background:'+bg+';color:'+fg+';font-weight:700">'+(done?'✓':p.icon)+'</div>'
+      +'<span style="font-size:11px;font-weight:'+lw+';color:'+lc+'">'+p.name+'</span></div>';
+  });
+  const sep='<div style="flex:1;height:2px;background:var(--border);align-self:center;margin-bottom:18px;min-width:16px"></div>';
+  const bar=circles[0]+sep+circles[1]+sep+circles[2];
+  el.innerHTML='<div style="padding:2rem;text-align:center">'
+    +'<div style="font-size:48px;margin-bottom:12px">✅</div>'
+    +'<div style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px">'+doneName+' 완료!</div>'
+    +'<div style="display:flex;align-items:center;justify-content:center;padding:20px 16px">'+bar+'</div>'
+    +'<div style="font-size:13px;color:var(--slate);margin-bottom:24px;line-height:1.7">'+nextSub+'</div>'
+    +'<button class="btn bt" style="padding:14px 40px;font-size:15px;border-radius:50px" onclick="startNextPhase('+nextPhase+')">다음: '+nextName+' 시작 →</button>'
+    +'<div style="margin-top:12px"><button class="btn bo bsm" onclick="sessionStorage.removeItem(\'deckState_\'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button></div>'
+    +'</div>';
+}
+
+function startNextPhase(phase){
+  deckState.phase=phase;
+  deckState.idx=0;
+  deckState.phaseResults=[];
+  deckState.cards=deckState._sessionCards||deckState.cards;
+  saveDeckState();
+  const el=document.getElementById('st-vocab');
+  if(phase===1)renderRecallCard(el);
+  else if(phase===2)renderSpellCard(el);
+  else renderVocabResult(el);
+}
+
+// ── 단계 1: 리콜 (뜻 보고 단어 속으로 떠올리기) ──
 function renderRecallCard(el){
   const card=deckState.cards[deckState.idx];
   const total=deckState.cards.length;
   const prog=deckState.cards.map((_,i)=>
     `<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`
   ).join('');
+  const exHtml=card.example&&/[a-zA-Z]/.test(card.example)&&!/[가-힣]/.test(card.example)
+    ?`<div style="font-size:12px;color:var(--slate);margin-top:8px;font-style:italic;line-height:1.5">${card.example}</div>`:'';
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span class="vc-phase phase-rec">🧠 리콜</span>
@@ -840,27 +895,82 @@ function renderRecallCard(el){
     </div>
     <div class="vc-prog">${prog}</div>
     <div class="recall-wrap">
-      <div style="font-size:12px;color:var(--slate);text-align:center;margin-bottom:8px">뜻을 보고 영어 단어를 입력하세요</div>
+      <div style="font-size:12px;color:var(--slate);text-align:center;margin-bottom:8px">뜻을 보고 영어 단어를 속으로 떠올리세요</div>
+      <div style="background:var(--tl);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px">
+        <div style="font-size:22px;font-weight:700;color:var(--navy)">${card.meaning||'(뜻 미입력)'}</div>
+        ${card.pos?`<div style="font-size:11px;color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
+        ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:12px;color:#005f6b;margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
+      </div>
+      <div id="recall-reveal-box" style="background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px;cursor:pointer" onclick="recallReveal()">
+        <div id="recall-tap-hint" style="font-size:13px;color:var(--slate)">탭해서 정답 확인 →</div>
+        <div id="recall-answer" style="display:none">
+          <div style="font-size:22px;font-weight:700;color:var(--teal);font-family:var(--fd)">${card.word}</div>
+          ${exHtml}
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-vc unsure" style="flex:1" onclick="recallResult(false)">모르겠어요 😅</button>
+        <button class="btn-vc know" style="flex:1" onclick="recallResult(true)">알겠어요 ✓</button>
+      </div>
+    </div>
+  </div>`;
+}
+function recallReveal(){
+  document.getElementById('recall-tap-hint').style.display='none';
+  document.getElementById('recall-answer').style.display='block';
+  const card=deckState.cards[deckState.idx];
+  if(card?.word)speakWord(card.word);
+}
+function recallResult(knew){
+  deckState.phaseResults.push({word:deckState.cards[deckState.idx].word,knew});
+  deckState.idx++;
+  const el=document.getElementById('st-vocab');
+  if(deckState.idx>=deckState.cards.length){
+    renderPhaseTransition(el,2);
+  }else{
+    saveDeckState();
+    renderRecallCard(el);
+  }
+}
+
+// ── 단계 2: 스펠 (뜻 보고 스펠링 입력) ──
+function renderSpellCard(el){
+  const card=deckState.cards[deckState.idx];
+  const total=deckState.cards.length;
+  const prog=deckState.cards.map((_,i)=>
+    `<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`
+  ).join('');
+  el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="vc-phase phase-spell">✍️ 스펠</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+        <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
+      </div>
+    </div>
+    <div class="vc-prog">${prog}</div>
+    <div class="recall-wrap">
+      <div style="font-size:12px;color:var(--slate);text-align:center;margin-bottom:8px">뜻을 보고 영어 스펠링을 입력하세요</div>
       <div style="background:var(--tl);border-radius:10px;padding:16px;text-align:center;margin-bottom:16px">
         <div style="font-size:20px;font-weight:700;color:var(--navy)">${card.meaning||'(뜻 미입력)'}</div>
         ${card.pos?`<div style="font-size:11px;color:var(--slate);margin-top:4px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
         ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:12px;color:#005f6b;margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
       </div>
-      <input class="recall-input" id="recall-in" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
-        placeholder="영어로 입력..." onkeydown="if(event.key==='Enter')checkRecall()">
-      <div class="recall-feedback" id="recall-fb"></div>
+      <input class="recall-input" id="spell-in" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+        placeholder="영어로 입력..." onkeydown="if(event.key==='Enter')checkSpell()">
+      <div class="recall-feedback" id="spell-fb"></div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
-        <button class="btn-vc unsure" id="recall-skip-btn" onclick="recallSkip()">모르겠어요</button>
-        <button class="btn-vc know" id="recall-next-btn" style="display:none" onclick="recallNext()">다음 →</button>
+        <button class="btn-vc unsure" id="spell-skip-btn" onclick="spellSkip()">모르겠어요</button>
+        <button class="btn-vc know" id="spell-next-btn" style="display:none" onclick="spellNext()">다음 →</button>
       </div>
     </div>
   </div>`;
-  setTimeout(()=>document.getElementById('recall-in')?.focus(),100);
+  setTimeout(()=>document.getElementById('spell-in')?.focus(),100);
 }
-function checkRecall(){
+function checkSpell(){
   const card=deckState.cards[deckState.idx];
-  const inp=document.getElementById('recall-in');
-  const fb=document.getElementById('recall-fb');
+  const inp=document.getElementById('spell-in');
+  const fb=document.getElementById('spell-fb');
   const val=(inp.value||'').trim().toLowerCase();
   const ans=(card.word||'').toLowerCase();
   if(!val)return;
@@ -868,37 +978,28 @@ function checkRecall(){
   inp.classList.toggle('correct',correct);
   inp.classList.toggle('wrong',!correct);
   inp.readOnly=true;
-  document.getElementById('recall-skip-btn').style.display='none';
-  document.getElementById('recall-next-btn').style.display='';
-  if(correct){
-    fb.style.color='#00c4cc';
-    fb.textContent='✓ 정답!';
-  }else{
-    fb.style.color='var(--coral)';
-    fb.innerHTML=`✗ 정답: <strong>${card.word}</strong>`;
-  }
+  document.getElementById('spell-skip-btn').style.display='none';
+  document.getElementById('spell-next-btn').style.display='';
+  if(correct){fb.style.color='#00c4cc';fb.textContent='✓ 정답!';}
+  else{fb.style.color='var(--coral)';fb.innerHTML='✗ 정답: <strong>'+card.word+'</strong>';}
   deckState.phaseResults.push({word:card.word,correct});
 }
-function recallSkip(){
+function spellSkip(){
   const card=deckState.cards[deckState.idx];
-  const inp=document.getElementById('recall-in');
-  const fb=document.getElementById('recall-fb');
+  const inp=document.getElementById('spell-in');
+  const fb=document.getElementById('spell-fb');
   inp.readOnly=true;
   fb.style.color='var(--coral)';
-  fb.innerHTML=`정답: <strong>${card.word}</strong>`;
-  document.getElementById('recall-skip-btn').style.display='none';
-  document.getElementById('recall-next-btn').style.display='';
+  fb.innerHTML='정답: <strong>'+card.word+'</strong>';
+  document.getElementById('spell-skip-btn').style.display='none';
+  document.getElementById('spell-next-btn').style.display='';
   deckState.phaseResults.push({word:card.word,correct:false});
 }
-function recallNext(){
+function spellNext(){
   deckState.idx++;
   const el=document.getElementById('st-vocab');
-  if(deckState.idx>=deckState.cards.length){
-    renderVocabResult(el);
-  }else{
-    saveDeckState();
-    renderRecallCard(el);
-  }
+  if(deckState.idx>=deckState.cards.length){renderVocabResult(el);}
+  else{saveDeckState();renderSpellCard(el);}
 }
 
 // ── 결과 화면 ──
