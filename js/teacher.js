@@ -361,6 +361,33 @@ function renderSpRdlog(sid){
     <span style="font-size:11px;color:var(--slate)">${logs.length}건</span>
   </div>${logsHtml}`;
 }
+function openDolchModal(sid){
+  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const cardSet=new Set(cards.map(c=>(c.word||'').toLowerCase()));
+  const masterSet=new Set(cards.filter(c=>(c.phase||0)>=2).map(c=>(c.word||'').toLowerCase()));
+  const LEVEL_LABEL={pk:'Pre-K (40단어)',k:'K (52단어)',g1:'1학년 (41단어)',g2:'2학년 (46단어)',g3:'3학년 (41단어)'};
+  const levOrder=['pk','k','g1','g2','g3'];
+  const grouped={};
+  Object.entries(DOLCH_WORDS).forEach(([w,lv])=>{if(!grouped[lv])grouped[lv]=[];grouped[lv].push(w);});
+  const html=levOrder.map(lv=>{
+    const words=(grouped[lv]||[]).sort();
+    const mastered=words.filter(w=>masterSet.has(w)).length;
+    const learned=words.filter(w=>cardSet.has(w)).length;
+    return `<div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;padding:4px 8px;background:var(--cream2);border-radius:6px">
+        ${LEVEL_LABEL[lv]} — 습득 ${mastered}개 / 학습중 ${learned-mastered}개
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${words.map(w=>{
+          const st=masterSet.has(w)?'background:#d1fae5;color:#065f46;border-color:#6ee7b7':cardSet.has(w)?'background:#fef3c7;color:#92400e;border-color:#fcd34d':'background:#fff;color:var(--slate);border-color:var(--border)';
+          return `<span style="font-size:12px;padding:2px 8px;border:1.5px solid;border-radius:10px;font-family:var(--fd);${st}">${w}</span>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('dolch-body').innerHTML=html;
+  openM('m-dolch');
+}
 function renderSpVocab(sid){
   if(!sid)return;
   const el=document.getElementById('sp-vocab');if(!el)return;
@@ -402,11 +429,14 @@ function renderSpVocab(sid){
   const dolchTotal=Object.keys(DOLCH_WORDS).length;
   const dolchLearned=Object.keys(DOLCH_WORDS).filter(w=>cardWordSet.has(w)).length;
   const dolchHtml=`<div style="margin-bottom:14px;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border)">
-    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px">📊 Dolch 기초어휘 습득 현황 <span style="font-weight:400;color:var(--slate);font-size:11px">${dolchLearned}/${dolchTotal}단어</span></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span style="font-size:12px;font-weight:700;color:var(--navy)">📊 Dolch 기초어휘 습득 현황 <span style="font-weight:400;color:var(--slate);font-size:11px">${dolchLearned}/${dolchTotal}단어</span></span>
+      <button class="btn bo bsm" style="font-size:10px;padding:2px 8px" onclick="openDolchModal('${sid}')">목록 보기</button>
+    </div>
     ${dolchRows}
   </div>`;
 
-  const studyCards=cards.filter(c=>(c.phase||0)<2).sort((a,b)=>(b.misses||0)-(a.misses||0)||a.word.localeCompare(b.word));
+  const studyCards=cards.filter(c=>(c.phase||0)<2&&c.srcType!=='library').sort((a,b)=>(b.misses||0)-(a.misses||0)||a.word.localeCompare(b.word));
   const studyHtml=`<div style="margin-bottom:16px;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border)">
     <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📝 다음 수업까지 외울 단어 <span style="color:var(--teal);font-weight:400">${studyCards.length}개</span></div>
     ${studyCards.length?`<div style="display:flex;flex-wrap:wrap;gap:6px">
@@ -620,8 +650,8 @@ async function loadStuPanel(sid){
     `;
 
   // ── 테스트 (최근 5개) ──
-  document.getElementById('sp-tests').innerHTML=!tsts.length
-    ?`<div class="empty"><div class="empty-i">📝</div><div class="empty-t">아직 테스트 기록이 없습니다</div><button class="btn bt bsm" onclick="swTab('t-tst');setTimeout(()=>{const el=document.getElementById('ts-stu');if(el)el.value='${sid}'},200)">+ 테스트 입력하기 →</button></div>`
+  const tstListHtml=!tsts.length
+    ?`<div class="empty"><div class="empty-i">📝</div><div class="empty-t">아직 테스트 기록이 없습니다</div><button class="btn bt bsm" onclick="closeStuPanel();swTab('t-tst');setTimeout(()=>{const el=document.getElementById('ts-stu');if(el){el.value='${sid}';el.dispatchEvent(new Event('change'));}},200)">+ 테스트 입력하기 →</button></div>`
     :tsts.slice(0,5).map(t=>{
       const vp=pct(t.vocabCorrect,t.vocabTotal),gp=pct(t.grammarCorrect,t.grammarTotal);
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
@@ -633,6 +663,23 @@ async function loadStuPanel(sid){
         </div>
       </div>`;
     }).join('');
+  // ── NELT 결과 ──
+  const neltList=(s.neltResults||[]).slice().reverse();
+  const neltHtml=`<div style="margin-top:16px;padding-top:14px;border-top:1.5px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:700;color:var(--navy)">🏆 NELT 결과</span>
+      <button class="btn bo bsm" onclick="openNeltModal('${sid}')">+ 결과 입력</button>
+    </div>
+    ${neltList.length?neltList.map(n=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:10px;color:var(--slate);font-family:var(--fm);white-space:nowrap">${n.date||''}</span>
+      <span class="badge bteal" style="font-size:10px;flex-shrink:0">${n.term||''}</span>
+      <span style="font-size:16px;font-weight:700;color:var(--navy);font-family:var(--fd)">${n.score!=null?n.score:''}</span>
+      ${n.level?`<span style="font-size:11px;color:var(--teal);font-weight:600">${n.level}</span>`:''}
+      ${n.memo?`<span style="font-size:11px;color:var(--slate);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.memo}</span>`:''}
+      <button onclick="delNeltResult('${sid}','${n.id}')" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 7px;cursor:pointer;font-size:11px;color:var(--slate);flex-shrink:0">삭제</button>
+    </div>`).join(''):`<div style="font-size:12px;color:var(--slate)">NELT 결과가 없습니다</div>`}
+  </div>`;
+  document.getElementById('sp-tests').innerHTML=tstListHtml+neltHtml;
 
   // ── 결제 ──
   const payToday=new Date();
@@ -5656,6 +5703,38 @@ function renderDash(){
   renderDashNotice();
 }
 
+function openNeltModal(sid){
+  const stu=DB.stus().find(s=>s.id===sid);if(!stu)return;
+  document.getElementById('nelt-sid').value=sid;
+  document.getElementById('nelt-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('nelt-term').value='';
+  document.getElementById('nelt-score').value='';
+  document.getElementById('nelt-level').value='';
+  document.getElementById('nelt-memo').value='';
+  openM('m-nelt');
+}
+async function saveNeltResult(){
+  const sid=document.getElementById('nelt-sid').value;
+  const stu=DB.stus().find(s=>s.id===sid);if(!stu)return;
+  const date=document.getElementById('nelt-date').value;
+  const term=document.getElementById('nelt-term').value;
+  const score=document.getElementById('nelt-score').value.trim();
+  const level=document.getElementById('nelt-level').value.trim();
+  const memo=document.getElementById('nelt-memo').value.trim();
+  if(!term){toast('상반기/하반기를 선택하세요');return;}
+  const entry={id:uid(),date,term,score:score!==''?Number(score):null,level,memo};
+  const updated={...stu,neltResults:[...(stu.neltResults||[]),entry]};
+  await supaUpsert('students',sid,updated,null);
+  const idx=_cache.students.findIndex(s=>s.id===sid);if(idx>=0)_cache.students[idx]=updated;
+  closeM('m-nelt');renderSpSummary(currentSpStuId,'month');toast('NELT 결과 저장됨');
+}
+async function delNeltResult(sid,nid){
+  const stu=DB.stus().find(s=>s.id===sid);if(!stu)return;
+  const updated={...stu,neltResults:(stu.neltResults||[]).filter(n=>n.id!==nid)};
+  await supaUpsert('students',sid,updated,null);
+  const idx=_cache.students.findIndex(s=>s.id===sid);if(idx>=0)_cache.students[idx]=updated;
+  renderSpSummary(currentSpStuId,'month');toast('삭제됨');
+}
 function renderSpSummary(sid,period,from,to){
   const el=document.getElementById('sp-summary');if(!el)return;
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
@@ -7543,7 +7622,7 @@ function fillClHwRowDl(rowEl){
   const tbOpt=b=>`<option value="${escAttr(b.title)}">${b.title}${b.level?' ('+b.level+')':''}</option>`;
   let opts='';
   if(cat==='class5'){
-    opts='<option value="Class5">Class5</option>';
+    opts='<option value="클래스5">클래스5</option>';
   }else if(cat==='book'){
     opts=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
   }else if(_CAT_KO[cat]){
@@ -7558,7 +7637,7 @@ function clHwCatChange(sel){
   fillClHwRowDl(row);
   const cat=sel.value;if(!cat)return;
   const bookInput=row.querySelector('.cl-hw-book');if(!bookInput||bookInput.value)return;
-  if(cat==='class5'){bookInput.value='Class5';return;}
+  if(cat==='class5'){bookInput.value='클래스5';return;}
   // cl-subj-rows에서 당일 수업 내용 먼저 참조
   const subjRow=document.querySelector(`#cl-subj-rows .sr[data-s="${cat}"]`)||document.querySelector(`#cl-subj-rows .sr[data-s^="${cat}_"]`);
   if(subjRow){const bookEl=subjRow.querySelector('[data-f="book"]');if(bookEl&&bookEl.value){bookInput.value=bookEl.value;return;}}
@@ -7605,7 +7684,7 @@ function clHwSyncFromSubj(){
     const groupBody=clHwMakeDateGroup(d,container);
     if(mats.length){mats.forEach(m=>addClHwRow(d,true,m.cat,m.book,m.range,groupBody));}
     else{addClHwRow(d,true,'','','',groupBody);}
-    addClHwRow(d,true,'class5','Class5','',groupBody);
+    addClHwRow(d,true,'class5','클래스5','',groupBody);
   });
 }
 function clHwMakeDateGroup(dateStr,parentEl){
