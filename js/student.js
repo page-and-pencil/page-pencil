@@ -235,7 +235,7 @@ function renderStudentLibrary(sid){
           <div style="font-size:11px;color:var(--slate);margin-top:2px">단어 ${wCnt}개</div>
         </div>
         <div style="display:flex;gap:5px;flex-shrink:0">
-          ${hasText?`<button class="btn bt bsm" onclick="openUnitRead('${tb.id}','${u.replace(/'/g,"\\'")}')">📖 원문</button>`:''}
+          ${hasText?`<button class="btn bt bsm" onclick="openUnitReview('${tb.id}','${u.replace(/'/g,"\\'")}')">📖 복습</button>`:''}
           ${hasAudio&&!hasText?`<button class="btn ba bsm" onclick="openUnitRead('${tb.id}','${u.replace(/'/g,"\\'")}')">🎧 듣기</button>`:''}
           ${hasLink?`<a href="${tb.unitLinks[u]}" target="_blank" rel="noopener" class="btn ba bsm">🔗 심화</a>`:''}
         </div>
@@ -1276,6 +1276,191 @@ function openVocabForAssignment(sid,asgnId){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);
   vocabDeckFilter=a&&a.words?.length?{words:a.words,asgnId}:null;
   swStuTab('st-vocab');
+}
+
+// ── 단원 3단계 복습 ──
+let _urState={tbId:'',unitKey:'',tb:null,words:[],step:1};
+
+function openUnitReview(tbId,unitKey){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  if(!tb)return toast('교재 정보가 없습니다');
+  const words=tuNormWords(tb.units?.[unitKey]||[]);
+  _urState={tbId,unitKey,tb,words,step:1};
+  document.getElementById('ur-title').textContent=tb.title||'복습';
+  document.getElementById('ur-sub').textContent=unitKey+(tb.unitTitles?.[unitKey]?' — '+tb.unitTitles[unitKey]:'');
+  stopSpeak();
+  renderUrStep(1);
+  openM('m-unit-review');
+}
+
+function renderUrStep(step){
+  _urState.step=step;
+  [1,2,3].forEach(n=>{
+    const btn=document.getElementById('ur-step-'+n);if(!btn)return;
+    const active=n===step;
+    btn.style.flex='1';btn.style.padding='10px';btn.style.fontWeight=active?'700':'400';
+    btn.style.borderBottom=active?'3px solid var(--teal)':'3px solid transparent';
+    btn.style.color=active?'var(--teal)':'var(--slate)';
+    btn.style.background='none';btn.style.border='none';
+    btn.style.borderBottom=active?'3px solid var(--teal)':'3px solid transparent';
+    btn.style.cursor='pointer';btn.style.fontSize='13px';
+  });
+  const body=document.getElementById('ur-body');
+  const footer=document.getElementById('ur-footer');
+  if(!body||!footer)return;
+  if(step===1)renderUrWords(_urState.tb,body,footer);
+  else if(step===2)renderUrText(_urState.tb,body,footer);
+  else if(step===3)renderUrPatterns(_urState.tb,body,footer);
+}
+
+// Step 1: 단어 확인 (KO 보이고 EN 탭하면 공개)
+function renderUrWords(tb,body,footer){
+  const words=_urState.words;
+  if(!words.length){
+    body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">단어 목록이 없습니다</div>';
+    footer.innerHTML='';return;
+  }
+  body.innerHTML=`<div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px">
+    ${words.map((w,i)=>`<div id="ur-word-row-${i}" onclick="urRevealWord(${i},'${(w.word||'').replace(/'/g,"\\'")}','${(w.ko||'').replace(/'/g,"\\'")}','${(w.pos||'').replace(/'/g,"\\'")}',this)" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;transition:border-color .15s">
+      <div style="flex:1">
+        <span id="ur-word-ko-${i}" style="font-size:14px;font-weight:600;color:var(--navy)">${w.ko||'—'}</span>
+        ${w.pos?`<span style="font-size:10px;color:var(--slate);margin-left:5px">[${w.pos}]</span>`:''}
+      </div>
+      <div style="text-align:right">
+        <span id="ur-word-en-${i}" style="font-size:14px;font-weight:700;color:var(--teal);opacity:0;transition:opacity .2s">${w.word||''}</span>
+        <span id="ur-word-ck-${i}" style="font-size:16px;margin-left:6px;opacity:0">✓</span>
+      </div>
+    </div>`).join('')}
+  </div>`;
+  footer.innerHTML=`<div style="display:flex;gap:8px">
+    <button class="btn ba" onclick="urRevealAll()" style="flex:1">전체 보기</button>
+    <button class="btn bt" onclick="renderUrStep(2)" style="flex:1">다음: 본문 읽기 →</button>
+  </div>`;
+}
+
+function urRevealWord(idx,word,ko,pos,rowEl){
+  const en=document.getElementById('ur-word-en-'+idx);
+  const ck=document.getElementById('ur-word-ck-'+idx);
+  if(en)en.style.opacity='1';
+  if(ck){ck.style.opacity='1';ck.style.color='var(--teal)';}
+  if(rowEl){rowEl.style.borderColor='var(--teal)';rowEl.style.cursor='default';rowEl.onclick=null;}
+  speakWord(word);
+}
+
+function urRevealAll(){
+  const words=_urState.words;
+  words.forEach((w,i)=>{
+    const en=document.getElementById('ur-word-en-'+i);
+    const ck=document.getElementById('ur-word-ck-'+i);
+    const row=document.getElementById('ur-word-row-'+i);
+    if(en)en.style.opacity='1';
+    if(ck){ck.style.opacity='1';ck.style.color='var(--teal)';}
+    if(row){row.style.borderColor='var(--teal)';row.style.cursor='default';row.onclick=null;}
+  });
+}
+
+// Step 2: 본문 읽기
+function renderUrText(tb,body,footer){
+  const unitKey=_urState.unitKey;
+  const text=tb.unitTexts?.[unitKey]||'';
+  const audioUrl=tb.unitAudio?.[unitKey]||'';
+  const link=tb.unitLinks?.[unitKey]||'';
+  const words=_urState.words;
+  const hasPatterns=!!(tb.unitPatterns?.[unitKey]||'').trim();
+
+  if(!text){
+    body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">이 단원에 등록된 원문이 없습니다</div>';
+    footer.innerHTML=`<button class="btn bt" style="width:100%" onclick="renderUrStep(${hasPatterns?3:1})">← 돌아가기</button>`;
+    return;
+  }
+
+  let audioHtml='';
+  if(audioUrl){
+    audioHtml=`<audio controls src="${audioUrl}" style="width:100%;height:32px;margin-bottom:8px"></audio>`;
+  }else{
+    audioHtml=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <button id="ur-tts-btn" class="btn bt bsm" onclick="startUrTTS()" style="border-radius:50px;padding:6px 14px">▶ TTS 읽기</button>
+      <button class="btn ba bsm" onclick="stopSpeak();const b=document.getElementById('ur-tts-btn');if(b)b.textContent='▶ TTS 읽기'" style="border-radius:50px;padding:6px 12px">■ 정지</button>
+    </div>`;
+  }
+
+  body.innerHTML=`<div style="padding:12px 16px">
+    ${audioHtml}
+    ${link?`<a href="${link}" target="_blank" rel="noopener" class="btn ba bsm" style="display:inline-flex;align-items:center;gap:5px;margin-bottom:10px;border-radius:50px;padding:6px 14px">🔗 심화 자료</a>`:''}
+    <div id="ur-text-body" style="font-size:15px;line-height:1.85;color:var(--navy);letter-spacing:.01em">${_renderHighlightedText(text,words)}</div>
+  </div>`;
+
+  footer.innerHTML=`<button class="btn bt" style="width:100%" onclick="renderUrStep(${hasPatterns?3:1})">${hasPatterns?'다음: 패턴 드릴 →':'← 처음으로'}</button>`;
+}
+
+function startUrTTS(){
+  const body=document.getElementById('ur-text-body');if(!body)return;
+  const text=body.innerText||'';if(!text.trim())return;
+  stopSpeak();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='en-US';u.rate=0.85;
+  const btn=document.getElementById('ur-tts-btn');if(btn)btn.textContent='▶ 재생 중...';
+  u.onend=u.onerror=()=>{if(btn)btn.textContent='▶ TTS 읽기';};
+  window.speechSynthesis.speak(u);
+}
+
+// Step 3: 패턴 드릴
+function renderUrPatterns(tb,body,footer){
+  const unitKey=_urState.unitKey;
+  const raw=(tb.unitPatterns?.[unitKey]||'').trim();
+  const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+
+  if(!lines.length){
+    body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">이 단원에 등록된 패턴 드릴이 없습니다</div>';
+    footer.innerHTML=`<button class="btn bt" style="width:100%" onclick="renderUrStep(2)">← 본문으로</button>`;
+    return;
+  }
+
+  body.innerHTML=`<div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px">
+    ${lines.map((ln,i)=>`<div id="ur-pat-row-${i}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs)">
+      <button onclick="urPlayPattern(${i})" style="width:32px;height:32px;border-radius:50%;border:none;background:var(--tl);color:var(--teal);font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">▶</button>
+      <span id="ur-pat-text-${i}" style="font-size:14px;color:var(--navy);line-height:1.5">${ln}</span>
+    </div>`).join('')}
+  </div>`;
+
+  footer.innerHTML=`<div style="display:flex;gap:8px">
+    <button class="btn ba" onclick="urPlayAllPatterns()" style="flex:1">🔊 전체 재생</button>
+    <button class="btn bt" onclick="closeM('m-unit-review');stopSpeak()" style="flex:1">✓ 완료</button>
+  </div>`;
+}
+
+function urPlayPattern(idx){
+  const raw=(_urState.tb?.unitPatterns?.[_urState.unitKey]||'').trim();
+  const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  const line=lines[idx];if(!line)return;
+  stopSpeak();
+  const row=document.getElementById('ur-pat-row-'+idx);
+  document.querySelectorAll('[id^="ur-pat-row-"]').forEach(el=>el.style.borderColor='var(--border)');
+  if(row)row.style.borderColor='var(--teal)';
+  const u=new SpeechSynthesisUtterance(line);
+  u.lang='en-US';u.rate=0.82;
+  u.onend=u.onerror=()=>{if(row)row.style.borderColor='var(--border)';};
+  window.speechSynthesis.speak(u);
+}
+
+function urPlayAllPatterns(){
+  const raw=(_urState.tb?.unitPatterns?.[_urState.unitKey]||'').trim();
+  const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(!lines.length)return;
+  stopSpeak();
+  let idx=0;
+  function playNext(){
+    if(idx>=lines.length)return;
+    document.querySelectorAll('[id^="ur-pat-row-"]').forEach(el=>el.style.borderColor='var(--border)');
+    const row=document.getElementById('ur-pat-row-'+idx);
+    if(row){row.style.borderColor='var(--teal)';row.scrollIntoView({behavior:'smooth',block:'nearest'});}
+    const u=new SpeechSynthesisUtterance(lines[idx]);
+    u.lang='en-US';u.rate=0.82;
+    u.onend=()=>{if(row)row.style.borderColor='var(--border)';idx++;setTimeout(playNext,400);};
+    u.onerror=()=>{idx++;setTimeout(playNext,400);};
+    window.speechSynthesis.speak(u);
+  }
+  playNext();
 }
 
 // ── 단원 원문 읽기 ──

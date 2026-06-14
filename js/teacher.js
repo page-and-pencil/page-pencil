@@ -2697,6 +2697,7 @@ function tuRenderWords(tbId,unitKey){
   if(unitKey){
     const tb0=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
     const ta=document.getElementById('tu-unit-text');if(ta)ta.value=tb0?.unitTexts?.[unitKey]||'';
+    const pa=document.getElementById('tu-unit-patterns');if(pa)pa.value=tb0?.unitPatterns?.[unitKey]||'';
     const li=document.getElementById('tu-unit-link');if(li)li.value=tb0?.unitLinks?.[unitKey]||'';
     const audioUrl=tb0?.unitAudio?.[unitKey]||'';
     const ind=document.getElementById('tu-audio-indicator');if(ind)ind.textContent=audioUrl?'✓ 업로드됨':'없음';
@@ -3063,11 +3064,13 @@ async function tuSaveUnitText(){
   const tbId=document.getElementById('tu-tb-id').value;
   if(!_tuCurUnit)return toast('단원을 선택하세요');
   const text=(document.getElementById('tu-unit-text')?.value||'').trim();
+  const patterns=(document.getElementById('tu-unit-patterns')?.value||'').trim();
   const link=(document.getElementById('tu-unit-link')?.value||'').trim();
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const unitTexts={...(tb.unitTexts||{}),[_tuCurUnit]:text};
+  const unitPatterns={...(tb.unitPatterns||{}),[_tuCurUnit]:patterns};
   const unitLinks={...(tb.unitLinks||{}),[_tuCurUnit]:link};
-  const updated={...tb,unitTexts,unitLinks};
+  const updated={...tb,unitTexts,unitPatterns,unitLinks};
   await supaUpsert('global_textbooks',tbId,updated,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
   toast('저장되었습니다');
@@ -3123,7 +3126,9 @@ async function tuExtractExamples(){
   const unitTexts={...(tb.unitTexts||{}),[_tuCurUnit]:text};
   const link=(document.getElementById('tu-unit-link')?.value||'').trim();
   const unitLinks={...(tb.unitLinks||{}),[_tuCurUnit]:link};
-  const updTb={...tb,units:{...(tb.units||{}),[_tuCurUnit]:words},unitTexts,unitLinks};
+  const patterns=(document.getElementById('tu-unit-patterns')?.value||'').trim();
+  const unitPatterns={...(tb.unitPatterns||{}),[_tuCurUnit]:patterns};
+  const updTb={...tb,units:{...(tb.units||{}),[_tuCurUnit]:words},unitTexts,unitPatterns,unitLinks};
   await supaUpsert('global_textbooks',tbId,updTb,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updTb;
   let cardUpdated=0;
