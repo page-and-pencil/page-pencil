@@ -7742,7 +7742,7 @@ function clHwMakeDateGroup(dateStr,parentEl){
   group.style.cssText='margin-bottom:12px;border-radius:var(--rs);overflow:hidden;border:1.5px solid var(--navy)';
   const header=document.createElement('div');
   header.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--navy);color:#fff';
-  header.innerHTML=`<span style="font-size:15px;font-weight:700">${dayLabel}요일</span><span style="font-size:12px;opacity:.55;font-family:var(--fm)">${dateStr}</span><button type="button" onclick="clHwAddToGroup(this.closest('.cl-hw-date-group'))" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:11px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">+ 과제 추가</button>`;
+  header.innerHTML=`<span style="font-size:15px;font-weight:700">${dayLabel}요일</span><span style="font-size:12px;opacity:.55;font-family:var(--fm)">${dateStr}</span><button type="button" onclick="clHwAddToGroup(this.closest('.cl-hw-date-group'))" class="cl-hw-add-btn" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:11px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">+ 과제 추가</button><button type="button" onclick="clHwToggleSkip(this.closest('.cl-hw-date-group'))" class="cl-hw-skip-btn" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:20px;color:rgba(255,255,255,.7);font-size:11px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">생략</button>`;
   const body=document.createElement('div');
   body.className='cl-hw-group-body';
   body.style.cssText='display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:var(--cream2)';
@@ -7754,6 +7754,21 @@ function clHwAddToGroup(groupEl){
   const dateStr=groupEl.dataset.date||'';
   const body=groupEl.querySelector('.cl-hw-group-body');
   addClHwRow(dateStr,true,'','','',body);
+}
+function clHwToggleSkip(groupEl){
+  const skipped=groupEl.dataset.skip==='true';
+  groupEl.dataset.skip=skipped?'false':'true';
+  const nowSkipped=!skipped;
+  const header=groupEl.querySelector('div');
+  header.style.background=nowSkipped?'var(--slate)':'var(--navy)';
+  const body=groupEl.querySelector('.cl-hw-group-body');
+  body.style.display=nowSkipped?'none':'';
+  const skipBtn=groupEl.querySelector('.cl-hw-skip-btn');
+  skipBtn.style.background=nowSkipped?'rgba(255,255,255,.35)':'rgba(255,255,255,.1)';
+  skipBtn.style.color=nowSkipped?'#fff':'rgba(255,255,255,.7)';
+  skipBtn.textContent=nowSkipped?'생략됨':'생략';
+  const addBtn=groupEl.querySelector('.cl-hw-add-btn');
+  addBtn.style.display=nowSkipped?'none':'';
 }
 const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
 
@@ -7830,13 +7845,15 @@ async function saveClassLesson(){
       indCmt:row.querySelector('.cl-ind-cmt')?.value.trim()||''});
   });
   // 과제 rows 수집
-  const collectHwRows=sel=>[...document.querySelectorAll(sel)].map(row=>({
-    sid:row.querySelector('.cl-hw-ind-stu')?.value||null,
-    due:row.querySelector('.cl-hw-date')?.value||date,
-    cat:row.querySelector('.cl-hw-cat')?.value||'',
-    book:row.querySelector('.cl-hw-book')?.value.trim()||'',
-    range:row.querySelector('.cl-hw-range')?.value.trim()||''
-  })).filter(r=>r.book||r.range);
+  const collectHwRows=sel=>[...document.querySelectorAll(sel)]
+    .filter(row=>row.closest('.cl-hw-date-group')?.dataset.skip!=='true')
+    .map(row=>({
+      sid:row.querySelector('.cl-hw-ind-stu')?.value||null,
+      due:row.querySelector('.cl-hw-date')?.value||date,
+      cat:row.querySelector('.cl-hw-cat')?.value||'',
+      book:row.querySelector('.cl-hw-book')?.value.trim()||'',
+      range:row.querySelector('.cl-hw-range')?.value.trim()||''
+    })).filter(r=>r.book||r.range);
   const commonHws=collectHwRows('#cl-hw-common-rows .cl-hw-row');
   const indHws=collectHwRows('#cl-hw-ind-rows .cl-hw-row').filter(r=>r.sid);
   const btn=document.getElementById('cl-save-btn');btn.disabled=true;
