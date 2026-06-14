@@ -1856,7 +1856,7 @@ async function addLib(){
 function elibTab(tab){
   document.getElementById('elib-pane-info').style.display=tab==='info'?'block':'none';
   document.getElementById('elib-pane-vocab').style.display=tab==='vocab'?'block':'none';
-  if(tab==='vocab'){const id=document.getElementById('elib-id').value;if(id)elibPopulateChapSel(id);}
+  if(tab==='vocab'){const id=document.getElementById('elib-id').value;if(id){elibSaveInfo(true).catch(()=>{});elibPopulateChapSel(id);}}
   const infoBtn=document.getElementById('elib-tab-info'),vocabBtn=document.getElementById('elib-tab-vocab');
   if(infoBtn){infoBtn.style.color=tab==='info'?'var(--teal)':'var(--slate)';infoBtn.style.borderBottomColor=tab==='info'?'var(--teal)':'transparent';infoBtn.style.fontWeight=tab==='info'?'700':'600';}
   if(vocabBtn){vocabBtn.style.color=tab==='vocab'?'var(--teal)':'var(--slate)';vocabBtn.style.borderBottomColor=tab==='vocab'?'var(--teal)':'transparent';vocabBtn.style.fontWeight=tab==='vocab'?'700':'600';}
@@ -1972,8 +1972,8 @@ async function elibImportChapterCSV(e){
   };
   reader.readAsText(file,'UTF-8');e.target.value='';
 }
-async function updLib(){
-  const id=document.getElementById('elib-id').value;
+async function elibSaveInfo(silent=false){
+  const id=document.getElementById('elib-id').value;if(!id)return;
   const ytVal=(document.getElementById('elib-youtube')?.value||'').trim();
   const fields={title:document.getElementById('elib-title').value.trim(),series:document.getElementById('elib-series').value.trim(),arLevel:document.getElementById('elib-ar').value.trim(),pages:document.getElementById('elib-pages').value.trim(),publisher:document.getElementById('elib-pub').value.trim(),youtubeUrl:ytVal||undefined};
   const idx=_cache.library.findIndex(x=>x.id===id);
@@ -1986,8 +1986,9 @@ async function updLib(){
     if(!_cache.library)_cache.library=[];
     _cache.library.push(newEntry);
   }
-  closeM('m-edit-lib');renderLib();renderBookDB();renderMasterDB();populateLibSel();renderLibTable();toast('수정되었습니다');
+  if(!silent){closeM('m-edit-lib');renderLib();renderBookDB();renderMasterDB();populateLibSel();renderLibTable();toast('수정되었습니다');}
 }
+async function updLib(){await elibSaveInfo(false);}
 async function saveLibText(){
   const id=document.getElementById('elib-id').value;
   const idx=_cache.library.findIndex(x=>x.id===id);if(idx<0)return;
