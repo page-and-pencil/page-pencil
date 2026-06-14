@@ -2691,7 +2691,15 @@ function tuRenderWords(tbId,unitKey){
   const tbody=document.getElementById('tu-word-tbody');if(!tbody)return;
   const textSec=document.getElementById('tu-text-section');
   if(textSec)textSec.style.display=unitKey?'':'none';
-  if(unitKey){const tb0=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);const ta=document.getElementById('tu-unit-text');if(ta)ta.value=tb0?.unitTexts?.[unitKey]||'';const st=document.getElementById('tu-text-status');if(st)st.textContent='';}
+  if(unitKey){
+    const tb0=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+    const ta=document.getElementById('tu-unit-text');if(ta)ta.value=tb0?.unitTexts?.[unitKey]||'';
+    const li=document.getElementById('tu-unit-link');if(li)li.value=tb0?.unitLinks?.[unitKey]||'';
+    const audioUrl=tb0?.unitAudio?.[unitKey]||'';
+    const ind=document.getElementById('tu-audio-indicator');if(ind)ind.textContent=audioUrl?'✓ 업로드됨':'없음';
+    const delBtn=document.getElementById('tu-audio-del-btn');if(delBtn)delBtn.style.display=audioUrl?'':'none';
+    const st=document.getElementById('tu-text-status');if(st)st.textContent='';
+  }
   if(!unitKey){tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단원을 선택하거나 새 단원을 생성하세요</td></tr>';return;}
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
   const words=tuNormWords(tb?.units?.[unitKey]||[]);
@@ -3043,12 +3051,46 @@ async function tuSaveUnitText(){
   const tbId=document.getElementById('tu-tb-id').value;
   if(!_tuCurUnit)return toast('단원을 선택하세요');
   const text=(document.getElementById('tu-unit-text')?.value||'').trim();
+  const link=(document.getElementById('tu-unit-link')?.value||'').trim();
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const unitTexts={...(tb.unitTexts||{}),[_tuCurUnit]:text};
-  const updated={...tb,unitTexts};
+  const unitLinks={...(tb.unitLinks||{}),[_tuCurUnit]:link};
+  const updated={...tb,unitTexts,unitLinks};
   await supaUpsert('global_textbooks',tbId,updated,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
-  toast('원문이 저장되었습니다');
+  toast('저장되었습니다');
+}
+async function tuUploadUnitAudio(e){
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  const tbId=document.getElementById('tu-tb-id').value;
+  if(!_tuCurUnit)return toast('단원을 선택하세요');
+  const {name,preset}=DB.cld();if(!name||!preset)return toast('Cloudinary 설정이 필요합니다');
+  const ind=document.getElementById('tu-audio-indicator');if(ind)ind.textContent='업로드 중...';
+  try{
+    const fd=new FormData();fd.append('file',f);fd.append('upload_preset',preset);fd.append('resource_type','video');
+    const res=await fetch(`https://api.cloudinary.com/v1_1/${name}/video/upload`,{method:'POST',body:fd});
+    if(!res.ok)throw new Error(res.status);
+    const url=(await res.json()).secure_url;
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+    const unitAudio={...(tb.unitAudio||{}),[_tuCurUnit]:url};
+    const updated={...tb,unitAudio};
+    await supaUpsert('global_textbooks',tbId,updated,null);
+    const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
+    if(ind)ind.textContent='✓ 업로드됨';
+    const delBtn=document.getElementById('tu-audio-del-btn');if(delBtn)delBtn.style.display='';
+    toast('오디오 업로드 완료');
+  }catch(err){if(ind)ind.textContent='실패';toast('업로드 실패: '+err.message);}
+}
+async function tuRemoveUnitAudio(){
+  const tbId=document.getElementById('tu-tb-id').value;if(!_tuCurUnit)return;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const unitAudio={...(tb.unitAudio||{})};delete unitAudio[_tuCurUnit];
+  const updated={...tb,unitAudio};
+  await supaUpsert('global_textbooks',tbId,updated,null);
+  const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
+  const ind=document.getElementById('tu-audio-indicator');if(ind)ind.textContent='없음';
+  const delBtn=document.getElementById('tu-audio-del-btn');if(delBtn)delBtn.style.display='none';
+  toast('오디오가 삭제되었습니다');
 }
 async function tuExtractExamples(){
   const tbId=document.getElementById('tu-tb-id').value;
@@ -3067,7 +3109,9 @@ async function tuExtractExamples(){
   }
   if(!updated)return toast('원문에서 일치하는 예문을 찾지 못했습니다');
   const unitTexts={...(tb.unitTexts||{}),[_tuCurUnit]:text};
-  const updTb={...tb,units:{...(tb.units||{}),[_tuCurUnit]:words},unitTexts};
+  const link=(document.getElementById('tu-unit-link')?.value||'').trim();
+  const unitLinks={...(tb.unitLinks||{}),[_tuCurUnit]:link};
+  const updTb={...tb,units:{...(tb.units||{}),[_tuCurUnit]:words},unitTexts,unitLinks};
   await supaUpsert('global_textbooks',tbId,updTb,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updTb;
   let cardUpdated=0;

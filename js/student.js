@@ -720,6 +720,12 @@ function renderMemCard(el){
             return`<div class="vc-meaning" id="vc-meaning-${card.id}">${card.meaning?card.meaning:'<span style="font-size:13px;color:var(--slate)">뜻 불러오는 중...</span>'}</div>
                ${enEx?`<div class="vc-ex" id="vc-ex-${card.id}">${card.example}</div>`:`<div class="vc-ex" id="vc-ex-${card.id}" style="display:none"></div>`}`;
           })()}
+          ${(()=>{
+            if(card.srcType!=='textbook'||!card.srcId||!card.srcUnit)return'';
+            const tb=(_cache.globalTextbooks||[]).find(b=>b.id===card.srcId);
+            if(!tb?.unitTexts?.[card.srcUnit])return'';
+            return`<button onclick="event.stopPropagation();openUnitRead('${card.srcId}','${card.srcUnit.replace(/'/g,"\\'")}')" style="margin-top:10px;background:none;border:1.5px solid rgba(0,196,204,.4);border-radius:20px;padding:4px 14px;font-size:12px;cursor:pointer;color:var(--teal);font-family:var(--fb)">📖 원문 읽기</button>`;
+          })()}
         </div>
       </div>
     </div>
@@ -1253,5 +1259,96 @@ function openVocabForAssignment(sid,asgnId){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);
   vocabDeckFilter=a&&a.words?.length?{words:a.words,asgnId}:null;
   swStuTab('st-vocab');
+}
+
+// ── 단원 원문 읽기 ──
+function stopSpeak(){try{window.speechSynthesis?.cancel();}catch(e){}}
+
+function openUnitRead(tbId,unitKey){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  if(!tb)return toast('교재 정보가 없습니다');
+  const text=tb.unitTexts?.[unitKey]||'';
+  const audioUrl=tb.unitAudio?.[unitKey]||'';
+  const link=tb.unitLinks?.[unitKey]||'';
+  const words=tuNormWords(tb.units?.[unitKey]||[]);
+
+  document.getElementById('unit-read-title').textContent=tb.title||'원문 읽기';
+  document.getElementById('unit-read-sub').textContent=unitKey+(tb.unitTitles?.[unitKey]?' — '+tb.unitTitles[unitKey]:'');
+
+  const audioEl=document.getElementById('unit-read-audio');
+  if(audioUrl){
+    audioEl.innerHTML=`<audio controls src="${audioUrl}" style="width:100%;height:32px"></audio>`;
+  }else if(text){
+    audioEl.innerHTML=`<div style="display:flex;gap:8px;align-items:center">
+      <button id="tts-play-btn" class="btn bt bsm" onclick="startUnitTTS()" style="border-radius:50px;padding:6px 14px">▶ TTS 읽기</button>
+      <button class="btn ba bsm" onclick="stopSpeak();const b=document.getElementById('tts-play-btn');if(b)b.textContent='▶ TTS 읽기'" style="border-radius:50px;padding:6px 12px">■ 정지</button>
+      <span style="font-size:11px;color:var(--slate)">업로드 오디오 없음</span>
+    </div>`;
+  }else{
+    audioEl.innerHTML='';
+  }
+
+  const linkDiv=document.getElementById('unit-read-link');
+  if(link){
+    linkDiv.style.display='';
+    const a=document.getElementById('unit-read-link-btn');
+    if(a)a.href=link;
+  }else{
+    linkDiv.style.display='none';
+  }
+
+  const bodyEl=document.getElementById('unit-read-body');
+  if(!text){
+    bodyEl.innerHTML='<div style="text-align:center;padding:2rem;color:var(--slate);font-size:13px">이 단원에 등록된 원문이 없습니다.</div>';
+  }else{
+    bodyEl.innerHTML=_renderHighlightedText(text,words);
+  }
+
+  stopSpeak();
+  openM('m-unit-read');
+}
+
+function _renderHighlightedText(text,words){
+  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  if(!words.length)return esc(text);
+  const sorted=[...words].filter(w=>w.word).sort((a,b)=>b.word.length-a.word.length);
+  if(!sorted.length)return esc(text);
+  const wordMap={};sorted.forEach(w=>{wordMap[w.word.toLowerCase()]=w;});
+  const reStr=sorted.map(w=>w.word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|');
+  const re=new RegExp('\\b('+reStr+')\\b','gi');
+  return esc(text).replace(re,match=>{
+    const key=match.toLowerCase();
+    const w=wordMap[key]||sorted.find(x=>x.word.toLowerCase()===key);
+    if(!w)return match;
+    const ko=(w.ko||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const pos=(w.pos||'').replace(/'/g,"\\'");
+    return`<span onclick="showUnitWordPopup(event,'${w.word.replace(/'/g,"\\'")}','${ko}','${pos}')" style="background:rgba(0,196,204,.22);border-radius:3px;padding:0 2px;cursor:pointer;font-weight:700;color:var(--teal)">${match}</span>`;
+  });
+}
+
+function showUnitWordPopup(event,word,ko,pos){
+  event.stopPropagation();
+  speakWord(word);
+  const popup=document.getElementById('unit-word-popup');if(!popup)return;
+  document.getElementById('uwp-word').textContent=word;
+  document.getElementById('uwp-pos').textContent=pos?'['+pos+']':'';
+  document.getElementById('uwp-ko').textContent=ko||'—';
+  popup.style.display='block';
+  const x=Math.min(event.clientX,window.innerWidth-215);
+  const y=Math.min(event.clientY+16,window.innerHeight-90);
+  popup.style.left=x+'px';popup.style.top=y+'px';
+  clearTimeout(popup._t);
+  popup._t=setTimeout(()=>{popup.style.display='none';},2800);
+}
+
+function startUnitTTS(){
+  const body=document.getElementById('unit-read-body');if(!body)return;
+  const text=body.innerText||'';if(!text.trim())return;
+  stopSpeak();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='en-US';u.rate=0.85;
+  const btn=document.getElementById('tts-play-btn');if(btn)btn.textContent='▶ 재생 중...';
+  u.onend=u.onerror=()=>{if(btn)btn.textContent='▶ TTS 읽기';};
+  window.speechSynthesis.speak(u);
 }
 

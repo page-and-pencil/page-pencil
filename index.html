@@ -1288,6 +1288,17 @@
           </div>
         </div>
         <textarea id="tu-unit-text" placeholder="이 단원의 원문(지문)을 붙여넣으세요. '원문 예문 추출'을 누르면 단어마다 해당 문장이 예문으로 자동 설정됩니다." style="width:100%;height:90px;padding:10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--slate);white-space:nowrap">🔊 오디오</span>
+          <span id="tu-audio-indicator" style="font-size:11px;color:var(--slate);flex:1">없음</span>
+          <button class="btn ba bsm" onclick="document.getElementById('tu-audio-file').click()" style="white-space:nowrap">📤 업로드</button>
+          <input type="file" id="tu-audio-file" accept="audio/*" style="display:none" onchange="tuUploadUnitAudio(event)">
+          <button id="tu-audio-del-btn" class="btn bd bsm" style="display:none;white-space:nowrap" onclick="tuRemoveUnitAudio()">삭제</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+          <span style="font-size:11px;color:var(--slate);white-space:nowrap">🔗 외부 링크</span>
+          <input type="url" id="tu-unit-link" placeholder="https://quizlet.com/..." style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream);outline:none">
+        </div>
         <div style="font-size:11px;color:var(--teal);margin-top:4px" id="tu-text-status"></div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
@@ -1333,6 +1344,30 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- 단원 원문 읽기 (학생) -->
+<div id="m-unit-read" class="mo">
+  <div class="mdl mdl-xl" style="display:flex;flex-direction:column;max-height:90vh">
+    <div class="mh" style="flex-shrink:0">
+      <div>
+        <div class="mt" id="unit-read-title">원문 읽기</div>
+        <div style="font-size:11px;color:var(--slate);margin-top:2px" id="unit-read-sub"></div>
+      </div>
+      <button class="bx" onclick="closeM('m-unit-read');stopSpeak()">×</button>
+    </div>
+    <div id="unit-read-audio" style="flex-shrink:0;padding:8px 16px;border-bottom:1px solid var(--border)"></div>
+    <div id="unit-read-body" style="flex:1;overflow-y:auto;padding:18px 20px;font-size:15px;line-height:2.4;font-family:var(--fd);color:var(--navy);min-height:0;white-space:pre-wrap"></div>
+    <div id="unit-read-link" style="flex-shrink:0;padding:10px 16px;border-top:1px solid var(--border);display:none">
+      <a id="unit-read-link-btn" href="#" target="_blank" rel="noopener" class="btn ba" style="width:100%;text-align:center;display:block;border-radius:50px;padding:11px">🔗 심화 학습 앱 열기</a>
+    </div>
+  </div>
+</div>
+<!-- 단어 팝업 (원문 읽기 중 단어 클릭) -->
+<div id="unit-word-popup" style="display:none;position:fixed;background:#fff;border:1.5px solid var(--teal);border-radius:10px;padding:10px 14px;box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:10001;max-width:200px">
+  <div style="font-size:17px;font-weight:700;color:var(--navy);font-family:var(--fd)" id="uwp-word"></div>
+  <div style="font-size:11px;color:var(--slate);margin-top:2px;font-family:var(--fm)" id="uwp-pos"></div>
+  <div style="font-size:14px;color:#005f6b;font-weight:600;margin-top:4px" id="uwp-ko"></div>
 </div>
 
 <!-- 원서 원문 뷰어 -->
@@ -1703,11 +1738,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260614q"></script>
-<script src="vocab_ref_data.js?v=20260614q"></script>
-<script src="js/db.js?v=20260614q"></script>
-<script src="js/teacher.js?v=20260614q"></script>
-<script src="js/student.js?v=20260614q"></script>
-<script src="js/parent.js?v=20260614q"></script>
+<script src="js/utils.js?v=20260614r"></script>
+<script src="vocab_ref_data.js?v=20260614r"></script>
+<script src="js/db.js?v=20260614r"></script>
+<script src="js/teacher.js?v=20260614r"></script>
+<script src="js/student.js?v=20260614r"></script>
+<script src="js/parent.js?v=20260614r"></script>
 </body>
 </html>
