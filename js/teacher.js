@@ -2105,9 +2105,10 @@ async function elibAIFillInline(id,idx){
 }
 async function extractLibVocab(){
   const id=document.getElementById('elib-id').value;
-  elibSaveCurText(); // 현재 챕터 텍스트 먼저 저장 (줄바꿈 포함 원본)
   const rawText=document.getElementById('elib-booktext').value.trim();
   if(!rawText)return toast('챕터 본문을 입력하세요');
+  // async 이후에도 챕터명·원문 보존 (캐시 상태와 무관하게 보장)
+  const savedChapterName=_elibCurChapter||'전체';
   // AI 프롬프트용 압축본 (줄바꿈→공백) — 저장에는 사용하지 않음
   const text=rawText.replace(/\r\n|\r/g,'\n').replace(/\n+/g,' ').replace(/[ \t]+/g,' ').trim();
   const status=document.getElementById('elib-extract-status');if(status)status.textContent='AI가 단어 추출 중...';
@@ -2120,12 +2121,18 @@ async function extractLibVocab(){
     if(!json.words?.length){if(status)status.textContent='';return toast('추출된 단어가 없습니다');}
     // 기존 항목 조회: 같은 word+pos 조합 중복 방지
     let b=_cache.library.find(x=>x.id===id);
-    if(!b){b={id,type:'library',vocab:[],bookText:text};_cache.library.push(b);}
+    if(!b){b={id,type:'library',vocab:[]};_cache.library.push(b);}
+    // 챕터 텍스트 명시적 보존 (async 이후 캐시 상태와 무관하게 rawText 원문 유지)
+    const chapters=[...(b.chapters||[])];
+    const ci=chapters.findIndex(c=>c.name===savedChapterName);
+    if(ci>=0){chapters[ci]={...chapters[ci],text:rawText};}
+    else{chapters.push({name:savedChapterName,text:rawText});}
+    if(!_elibCurChapter)_elibCurChapter=savedChapterName;
     const existing=(b.vocab||[]);
     const existSet=new Set(existing.map(w=>`${w.word.toLowerCase()}|${w.pos||''}`));
     const newWords=json.words.filter(w=>w.word&&!existSet.has(`${w.word.toLowerCase()}|${w.pos||''}`));
     const updatedVocab=[...existing,...newWords];
-    const updated={...b,vocab:updatedVocab}; // 줄바꿈 살린 원본은 chapters에 보존, bookText 덮어쓰지 않음
+    const updated={...b,chapters,vocab:updatedVocab};
     await supaUpsert('global_textbooks',id,updated,null);
     const idx=_cache.library.findIndex(x=>x.id===id);if(idx>=0)_cache.library[idx]=updated;else _cache.library.push(updated);
     renderLibVocabTable(id);renderLibTable();elibPopulateChapSel(id);
