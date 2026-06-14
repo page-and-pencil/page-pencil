@@ -95,8 +95,11 @@ const DB={
   allRds(sid){
     const base=_cache.readings.filter(r=>r.sid===sid);
     const tbRds=(_cache.textbooks||[]).filter(t=>t.sid===sid&&t.type==='원서'&&t.completed).map(t=>({...t,date:t.completedDate||''}));
-    const seen=new Set(base.map(r=>r.title).filter(Boolean));
-    return [...base,...tbRds.filter(t=>t.title&&!seen.has(t.title))].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    // 선생님 입력 completedDate 우선 적용 (readings와 textbooks 둘 다 있을 때)
+    const tbDateMap=new Map(tbRds.map(t=>[t.title,t.completedDate||'']));
+    const merged=base.map(r=>r.title&&tbDateMap.has(r.title)?{...r,date:tbDateMap.get(r.title)||r.date}:r);
+    const seen=new Set(merged.map(r=>r.title).filter(Boolean));
+    return [...merged,...tbRds.filter(t=>t.title&&!seen.has(t.title))].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   },
   logs(){return _cache.logs;},
   libs(){return _cache.library;},
