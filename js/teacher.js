@@ -3061,9 +3061,9 @@ async function tuRefreshFromLib(){
   tuRenderWords(tbId,_tuCurUnit);
   toast(`${updated}개 예문을 원서에서 갱신했습니다`);
 }
-async function tuSaveUnitText(){
+async function tuSaveUnitText(silent=false){
   const tbId=document.getElementById('tu-tb-id').value;
-  if(!_tuCurUnit)return toast('단원을 선택하세요');
+  if(!_tuCurUnit)return silent?null:toast('단원을 선택하세요');
   const text=(document.getElementById('tu-unit-text')?.value||'').trim();
   const patterns=(document.getElementById('tu-unit-patterns')?.value||'').trim();
   const link=(document.getElementById('tu-unit-link')?.value||'').trim();
@@ -3074,7 +3074,7 @@ async function tuSaveUnitText(){
   const updated={...tb,unitTexts,unitPatterns,unitLinks};
   await supaUpsert('global_textbooks',tbId,updated,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
-  toast('저장되었습니다');
+  if(!silent)toast('저장되었습니다');
 }
 async function tuUploadUnitAudio(e){
   const f=e.target.files[0];e.target.value='';if(!f)return;

@@ -1237,7 +1237,7 @@
   <div class="mdl mdl-xl">
     <div class="mh">
       <div class="mt" id="tbook-modal-title">교재 추가</div>
-      <button class="bx" onclick="closeM('m-tbook-detail')">×</button>
+      <button class="bx" onclick="if(_tuCurUnit)tuSaveUnitText(true);closeM('m-tbook-detail')">×</button>
     </div>
     <input type="hidden" id="tbook-edit-id">
     <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px">
@@ -1296,10 +1296,7 @@
           <button id="tu-audio-del-btn" class="btn bd bsm" style="display:none;white-space:nowrap" onclick="tuRemoveUnitAudio()">삭제</button>
         </div>
         <div style="margin-top:8px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-            <div style="font-size:11px;color:var(--slate)">🎤 패턴 드릴 문장 (한 줄씩)</div>
-            <button class="btn ba bsm" onclick="tuSaveUnitText()" style="font-size:10px;padding:2px 8px;white-space:nowrap">저장</button>
-          </div>
+          <div style="font-size:11px;color:var(--slate);margin-bottom:3px">🎤 패턴 드릴 문장 (한 줄씩)</div>
           <textarea id="tu-unit-patterns" placeholder="I have small seeds on my body.&#10;I have yellow skin on my body.&#10;I have white stripes on my body." style="width:100%;height:64px;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fd);font-size:12px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
         </div>
         <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
@@ -1765,11 +1762,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260614v"></script>
-<script src="vocab_ref_data.js?v=20260614v"></script>
-<script src="js/db.js?v=20260614v"></script>
-<script src="js/teacher.js?v=20260614v"></script>
-<script src="js/student.js?v=20260614v"></script>
-<script src="js/parent.js?v=20260614v"></script>
+<script src="js/utils.js?v=20260614w"></script>
+<script src="vocab_ref_data.js?v=20260614w"></script>
+<script src="js/db.js?v=20260614w"></script>
+<script src="js/teacher.js?v=20260614w"></script>
+<script src="js/student.js?v=20260614w"></script>
+<script src="js/parent.js?v=20260614w"></script>
 </body>
 </html>
