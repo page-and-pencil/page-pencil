@@ -75,34 +75,6 @@ function openKakaoPreview(){
   if(k.phone){const url=`kakaotalk://open/chat?phoneNum=${k.phone}`;window.open(url);return;}
   toast('전화번호 또는 오픈채팅 URL을 먼저 입력해 주세요');
 }
-function updateGbooksStatusDot(){
-  const dot=document.getElementById('gbooks-status-dot');if(!dot)return;
-  const k=DB.gbooks();
-  dot.style.color=k?'#0A5940':'var(--slate)';dot.textContent=k?'● 저장됨':'● 미설정';
-}
-async function saveGbooksKey(){
-  const k=document.getElementById('cfg-gbooks').value.trim();
-  DB.s('gbooks_key',k);
-  _cache.settings.gbooks_key=k;
-  let _gbooksSyncFail=false;
-  if(k){try{await supaSetSetting('gbooks_key',k);}catch(err){console.warn('설정 저장 실패:',err);_gbooksSyncFail=true;}}
-  updateGbooksStatusDot();
-  const _gbooksMsg=k?'Google Books Key가 저장되었습니다':'Google Books Key가 삭제되었습니다';
-  toast(_gbooksSyncFail?_gbooksMsg+' (서버 동기화 실패)':_gbooksMsg);
-}
-async function testGbooksKey(){
-  const el=document.getElementById('gbooks-test-result');
-  const inputVal=document.getElementById('cfg-gbooks').value.trim();
-  if(inputVal)await saveGbooksKey();
-  const k=DB.gbooks();
-  if(!k){el.innerHTML='<div class="ais">ℹ️ Key 없이도 Open Library로 표지 조회 가능합니다</div>';return;}
-  el.innerHTML='<div class="ais loading"><div class="spin"></div>연결 확인 중...</div>';
-  try{
-    const r=await fetch(`https://www.googleapis.com/books/v1/volumes?q=harry+potter&maxResults=1&key=${k}`);
-    if(r.ok){el.innerHTML='<div class="ais ok">✅ Google Books API 연결 성공</div>';}
-    else{const d=await r.json();el.innerHTML=`<div class="ais err">❌ ${d.error?.message||'연결 실패'}</div>`;}
-  }catch(e){el.innerHTML=`<div class="ais err">❌ 연결 오류: ${e.message}</div>`;}
-}
 
 function updateApiKeyStatusDot(){
   const dot=document.getElementById('apikey-status-dot');if(!dot)return;
@@ -218,8 +190,7 @@ async function initApp(){
   renderStus();populateSels();populateFilterSels();
   setToday();renderLes();renderTst();renderRd();renderLog();
   populateLibSel();checkCldWarn();renderDash();
-  updateApiKeyStatusDot();updateGbooksStatusDot();updateKakaoStatusDot();
-  const gk=DB.gbooks();const cfgGEl=document.getElementById('cfg-gbooks');if(cfgGEl&&gk)cfgGEl.value='••••••';
+  updateApiKeyStatusDot();updateKakaoStatusDot();
   const kk=DB.kakao();
   if(kk.phone){const ph=document.getElementById('cfg-kakao-phone');if(ph)ph.value=kk.phone;}
   if(kk.openchat){const oc=document.getElementById('cfg-kakao-openchat');if(oc)oc.value=kk.openchat;}
@@ -1064,7 +1035,7 @@ function togEditSubj(el){
   if(aEditSubjs.has(s)){aEditSubjs.delete(s);el.classList.remove('active');document.querySelector(`#el-subj-rows .sr[data-s="${s}"]`)?.remove();}
   else{aEditSubjs.add(s);el.classList.add('active');addSRowTo('el-subj-rows',s);}
 }
-function addSRowTo(wrapperId,s,bookVal,unitVal){
+function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
   const wrap=document.getElementById(wrapperId);if(!wrap)return;
   const d=document.createElement('div');d.className='sr';d.dataset.s=s;
   const isBook=s==='_book'||s.startsWith('_book_');
@@ -1100,6 +1071,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
   // cl/subj/el-subj-rows: 교재 DB select 드롭다운, 나머지: text input with datalist
   const _bkSelSt='flex:1;min-width:0;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)';
   let bookInput;
+  const _selMatch=(b)=>bookId?b.id===bookId:b.title===bookVal;
   if(wrapperId==='cl-subj-rows'&&!isBook){
     const catFilter=_CAT_KO[baseKey];
     let books=(_cache.globalTextbooks||[]).filter(b=>catFilter?b.category===catFilter:true);
@@ -1107,10 +1079,10 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
     if(noMatch)books=_cache.globalTextbooks||[];
     books=[...books].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
-    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
+    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${_selMatch(b)?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
     bookInput=`<select data-f="book" onchange="clUpdateUnitHint(this)" style="${_bkSelSt}">${opts}</select>`;
     if(!noUnit){
-      const initTbCl=bookVal?books.find(b=>b.title===bookVal):null;
+      const initTbCl=books.find(_selMatch)||null;
       const initUnitsCl=initTbCl?Object.keys(initTbCl.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
       const initTitlesCl=initTbCl?.unitTitles||{};
       const dlCUId='dl-clu-'+Math.random().toString(36).slice(2,7);
@@ -1123,10 +1095,10 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
     if(noMatch)books=_cache.globalTextbooks||[];
     books=[...books].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
-    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${bookVal===b.title?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
+    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${_selMatch(b)?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
     bookInput=`<select data-f="book" onchange="lesUpdateUnitSel(this)" style="${_bkSelSt}">${opts}</select>`;
     if(!noUnit){
-      const initTb=bookVal?(_cache.globalTextbooks||[]).find(b=>b.title===bookVal):null;
+      const initTb=books.find(_selMatch)||null;
       const initUnits=initTb?Object.keys(initTb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
       const initTitles=initTb?.unitTitles||{};
       const dlUId='dl-u-'+Math.random().toString(36).slice(2,7);
@@ -1146,13 +1118,13 @@ function addSRowTo(wrapperId,s,bookVal,unitVal){
       unitInput=` <datalist id="${dlChId}">${initChs.map(c=>`<option value="${escAttr(c)}">`).join('')}</datalist><input type="text" data-f="unit" list="${dlChId}" placeholder="${initChs.length?'챕터 선택 또는 직접 입력':'챕터/진도'}" value="${escAttr(unitVal||'')}" autocomplete="off" style="${_bkSelSt}">`;
     }
   }else{
-    // ec-subj-rows 등: 카테고리별 필터된 인라인 datalist
+    // ec-subj-rows: select 드롭다운 (레벨 표시, bookId로 정확 매칭)
     const catF=_CAT_KO[baseKey];
     let filtBooks=catF?(_cache.globalTextbooks||[]).filter(b=>b.category===catF):(_cache.globalTextbooks||[]);
     if(!filtBooks.length)filtBooks=_cache.globalTextbooks||[];
     filtBooks=[...filtBooks].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
-    const dlId='dl-sr-'+Math.random().toString(36).slice(2,7);
-    bookInput=`<datalist id="${dlId}">${filtBooks.map(b=>`<option value="${escAttr(b.title)}">${b.title}${b.level?' ('+b.level+')':''}</option>`).join('')}</datalist><input type="text" placeholder="교재명" data-f="book" list="${dlId}" autocomplete="off" value="${escAttr(bookVal||'')}">`;
+    const opts2=`<option value="">-- 교재 선택 --</option>`+filtBooks.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${_selMatch(b)?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
+    bookInput=`<select data-f="book" style="${_bkSelSt}">${opts2}</select>`;
   }
   d.innerHTML=`<span class="sl ${cls}">${label}</span>${bookInput}${unitInput} ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
   wrap.appendChild(d);
@@ -1189,8 +1161,10 @@ function getSMatsFrom(wrapperId){
   const r={};const counts={};
   document.querySelectorAll('#'+wrapperId+' .sr').forEach(row=>{
     const baseS=row.dataset.s.replace(/_\d+$/,'');
-    const b=row.querySelector('[data-f="book"]').value.trim(),u=row.querySelector('[data-f="unit"]')?.value.trim()||'';
-    if(b||u){counts[baseS]=(counts[baseS]||0)+1;const key=counts[baseS]===1?baseS:`${baseS}_${counts[baseS]}`;r[key]={book:b,unit:u};};
+    const bkEl=row.querySelector('[data-f="book"]');
+    const b=bkEl.value.trim(),u=row.querySelector('[data-f="unit"]')?.value.trim()||'';
+    const bkId=bkEl.tagName==='SELECT'?(bkEl.options[bkEl.selectedIndex]?.dataset?.bkId||''):'';
+    if(b||u){counts[baseS]=(counts[baseS]||0)+1;const key=counts[baseS]===1?baseS:`${baseS}_${counts[baseS]}`;r[key]={book:b,unit:u,...(bkId&&{bookId:bkId})};};
   });
   return r;
 }
@@ -1615,7 +1589,7 @@ function openEditLes(id){
         aEditSubjs.add(s);
         document.querySelectorAll('#el-subj-chips .chip').forEach(c=>{if(c.dataset.s===s)c.classList.add('active');});
       }
-      addSRowTo('el-subj-rows',s,v.book,v.unit);
+      addSRowTo('el-subj-rows',s,v.book,v.unit,v.bookId||'');
     });
   }
   openM('m-edit-les');
@@ -7401,7 +7375,7 @@ function openEditClass(id=null){
       ecSubjs.add(s);
       const ch=document.querySelector(`#ec-subj-chips .chip[data-s="${s}"]`);
       if(ch)ch.classList.add('active');
-      addSRowTo('ec-subj-rows',s,v.book,v.unit);
+      addSRowTo('ec-subj-rows',s,v.book,v.unit,v.bookId||'');
     });
   }
   _ecStuIds=c?[...(c.studentIds||[])]:[];
@@ -7504,7 +7478,7 @@ function openClassLesson(classId,dateStr){
       clSubjs.add(s);
       const ch=document.querySelector(`#cl-subj-chips .chip[data-s="${s}"]`);
       if(ch)ch.classList.add('active');
-      addSRowTo('cl-subj-rows',s,v.book,v.unit);
+      addSRowTo('cl-subj-rows',s,v.book,v.unit,v.bookId||'');
     });
     // 기존 선택된 교재에 직전 진도 힌트 설정
     document.querySelectorAll('#cl-subj-rows select[data-f="book"]').forEach(clUpdateUnitHint);
