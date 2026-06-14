@@ -4703,52 +4703,6 @@ function populateLibSeriesFilter(){
   sel.innerHTML='<option value="">전체 시리즈</option>'+series.map(s=>`<option value="${s}"${s===cur?' selected':''}>${s}</option>`).join('');
 }
 
-let _fixQuotesChanges=[];
-function libBatchFixQuotes(){
-  _fixQuotesChanges=[];
-  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const rows=[];
-  for(const book of(_cache.library||[])){
-    const vocab=book.vocab||[];
-    for(let i=0;i<vocab.length;i++){
-      const w=vocab[i];
-      const ex=w.example||'';
-      if(ex.startsWith('"')&&ex.endsWith('"')&&ex.length>2){
-        const newEx=ex.slice(1,-1).trim();
-        _fixQuotesChanges.push({bookId:book.id,idx:i,newExample:newEx});
-        rows.push(`<div style="padding:7px 0;border-bottom:1px solid var(--border)"><span style="color:var(--teal);font-weight:700">${esc(book.title||book.id)}</span> · <span style="font-family:var(--fd)">${esc(w.word)}</span><div style="margin-top:3px;color:#b45309">${esc(ex)}</div><div style="margin-top:2px;color:var(--navy)">→ ${esc(newEx)}</div></div>`);
-      }
-    }
-  }
-  const content=document.getElementById('fix-quotes-content');if(!content)return;
-  const btn=document.getElementById('fix-quotes-apply-btn');
-  if(!rows.length){
-    content.innerHTML='<div style="color:var(--slate);text-align:center;padding:24px">수정할 예문이 없습니다.</div>';
-    if(btn)btn.style.display='none';
-  }else{
-    content.innerHTML=`<div style="color:var(--teal);font-weight:700;margin-bottom:10px">수정 대상 ${rows.length}개</div>${rows.join('')}`;
-    if(btn)btn.style.display='';
-  }
-  openM('m-fix-quotes');
-}
-async function libApplyFixQuotes(){
-  if(!_fixQuotesChanges.length)return;
-  const btn=document.getElementById('fix-quotes-apply-btn');if(btn)btn.disabled=true;
-  const byBook={};
-  for(const ch of _fixQuotesChanges){(byBook[ch.bookId]||(byBook[ch.bookId]=[])).push(ch);}
-  let total=0;
-  for(const[bookId,changes]of Object.entries(byBook)){
-    const b=_cache.library.find(x=>x.id===bookId);if(!b)continue;
-    const vocab=[...(b.vocab||[])];
-    for(const ch of changes){if(vocab[ch.idx]){vocab[ch.idx]={...vocab[ch.idx],example:ch.newExample};total++;}}
-    const updated={...b,vocab};
-    await supaUpsert('global_textbooks',bookId,updated,null);
-    const idx=_cache.library.findIndex(x=>x.id===bookId);if(idx>=0)_cache.library[idx]=updated;
-  }
-  _fixQuotesChanges=[];
-  closeM('m-fix-quotes');
-  toast(`${total}개 예문 따옴표 수정 완료`);
-}
 function renderLibTable(){
   const allSrc=[...DB.libs()];
   const q=(document.getElementById('lib-q')?.value||'').toLowerCase().trim();

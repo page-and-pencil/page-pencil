@@ -542,7 +542,6 @@
             <input type="file" id="bulk-audio-files" accept="audio/*" multiple style="display:none" onchange="previewBulkAudio(event)">
             <button class="btn ba bsm" onclick="openBulkText()">📄 일괄 본문</button>
             <input type="file" id="bulk-text-files" accept=".txt" multiple style="display:none" onchange="previewBulkText(event)">
-            <button class="btn ba bsm" onclick="libBatchFixQuotes()">📋 예문 따옴표 정리</button>
             <button class="btn bt bsm" onclick="openM('m-add-lib')">+ 원서 추가</button>
           </div>
         </div>
@@ -1509,18 +1508,6 @@
   </div>
 </div>
 
-<!-- 예문 따옴표 일괄 정리 모달 -->
-<div id="m-fix-quotes" class="mo" data-protect>
-  <div class="mb" style="max-width:560px">
-    <div class="mh"><div class="mt">📋 예문 따옴표 정리</div><button class="bx" onclick="closeM('m-fix-quotes')">×</button></div>
-    <div id="fix-quotes-content" style="padding:12px 16px;max-height:420px;overflow-y:auto;font-size:12px;font-family:var(--fb)"></div>
-    <div style="padding:8px 16px 16px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border)">
-      <button class="btn ba bsm" onclick="closeM('m-fix-quotes')">취소</button>
-      <button id="fix-quotes-apply-btn" class="btn bt bsm" onclick="libApplyFixQuotes()">일괄 적용</button>
-    </div>
-  </div>
-</div>
-
 <!-- 일괄 오디오 업로드 미리보기 모달 -->
 <div id="m-bulk-audio" class="mo" data-protect>
   <div class="mdl" style="max-width:560px">
@@ -1774,11 +1761,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260614ad"></script>
-<script src="vocab_ref_data.js?v=20260614ad"></script>
-<script src="js/db.js?v=20260614ad"></script>
-<script src="js/teacher.js?v=20260614ad"></script>
-<script src="js/student.js?v=20260614ad"></script>
-<script src="js/parent.js?v=20260614ad"></script>
+<script src="js/utils.js?v=20260614ae"></script>
+<script src="vocab_ref_data.js?v=20260614ae"></script>
+<script src="js/db.js?v=20260614ae"></script>
+<script src="js/teacher.js?v=20260614ae"></script>
+<script src="js/student.js?v=20260614ae"></script>
+<script src="js/parent.js?v=20260614ae"></script>
 </body>
 </html>
