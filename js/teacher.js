@@ -2663,8 +2663,9 @@ function tuPopulateUnitSel(tbId){
   }).join('');
   if(_tuRenamingUnit)setTimeout(()=>document.getElementById('tu-rename-inp')?.focus(),40);
 }
-function tuSelectUnit(unitKey){_tuCurUnit=unitKey||null;tuRenderWords(document.getElementById('tu-tb-id').value,_tuCurUnit);}
-function tuSelectUnitRow(key){
+async function tuSelectUnit(unitKey){await tuSaveUnitText(true);_tuCurUnit=unitKey||null;tuRenderWords(document.getElementById('tu-tb-id').value,_tuCurUnit);}
+async function tuSelectUnitRow(key){
+  await tuSaveUnitText(true);
   _tuCurUnit=key||null;
   const tbId=document.getElementById('tu-tb-id').value;
   tuPopulateUnitSel(tbId);tuRenderWords(tbId,_tuCurUnit);
