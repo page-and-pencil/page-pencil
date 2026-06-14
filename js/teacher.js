@@ -2,6 +2,7 @@
 async function hashPw(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 async function checkPw(){
   const v=document.getElementById('pw-in').value.trim();
+  if(!_cache.settings.pw){try{const sp=await supaGetSetting('pw');if(sp){_cache.settings.pw=sp;DB.s('pw',sp);}}catch(e){}}
   const stored=DB.pw();
   const vHash=await hashPw(v);
   const ok=(v===stored||vHash===stored);
