@@ -7714,7 +7714,8 @@ function clHwSyncFromSubj(){
     const unitHint=(unitEl?.placeholder||'').replace('직전: ','').replace('유닛/진도','').trim();
     const unit=unitTyped||unitHint;
     const book=(bookEl?.value||'').trim();
-    const tb=(_cache.globalTextbooks||[]).find(b=>b.title===book);
+    const bookId=bookEl?.tagName==='SELECT'?(bookEl.options[bookEl.selectedIndex]?.dataset?.bkId||''):'';
+    const tb=(_cache.globalTextbooks||[]).find(b=>bookId?b.id===bookId:b.title===book);
     const bookDisplay=tb?.level?`${book} (${tb.level})`:book;
     const next=nextUnitName(unit);
     const range=cat==='book'?''
