@@ -1923,9 +1923,11 @@ function elibSaveCurText(){
   if(!_elibCurChapter)return;
   const id=document.getElementById('elib-id').value;
   const b=_cache.library.find(x=>x.id===id);if(!b)return;
+  const newText=document.getElementById('elib-booktext').value;
   if(!b.chapters)b.chapters=[];
   const idx=b.chapters.findIndex(c=>c.name===_elibCurChapter);
-  if(idx>=0)b.chapters[idx].text=document.getElementById('elib-booktext').value;
+  if(idx>=0){b.chapters[idx].text=newText;}
+  else{b.chapters.push({name:_elibCurChapter,text:newText});} // bookText 기반 가상 챕터 포함
 }
 function elibSelectChapter(name){
   elibSaveCurText();
@@ -2103,10 +2105,10 @@ async function elibAIFillInline(id,idx){
 }
 async function extractLibVocab(){
   const id=document.getElementById('elib-id').value;
-  elibSaveCurText(); // 현재 챕터 텍스트 먼저 저장
+  elibSaveCurText(); // 현재 챕터 텍스트 먼저 저장 (줄바꿈 포함 원본)
   const rawText=document.getElementById('elib-booktext').value.trim();
   if(!rawText)return toast('챕터 본문을 입력하세요');
-  // 줄바꿈 정규화: \r\n → space, 연속 공백 정리
+  // AI 프롬프트용 압축본 (줄바꿈→공백) — 저장에는 사용하지 않음
   const text=rawText.replace(/\r\n|\r/g,'\n').replace(/\n+/g,' ').replace(/[ \t]+/g,' ').trim();
   const status=document.getElementById('elib-extract-status');if(status)status.textContent='AI가 단어 추출 중...';
   const truncated=text.split(/\s+/).filter(Boolean).slice(0,2500).join(' ');
@@ -2123,7 +2125,7 @@ async function extractLibVocab(){
     const existSet=new Set(existing.map(w=>`${w.word.toLowerCase()}|${w.pos||''}`));
     const newWords=json.words.filter(w=>w.word&&!existSet.has(`${w.word.toLowerCase()}|${w.pos||''}`));
     const updatedVocab=[...existing,...newWords];
-    const updated={...b,vocab:updatedVocab,bookText:text};
+    const updated={...b,vocab:updatedVocab}; // 줄바꿈 살린 원본은 chapters에 보존, bookText 덮어쓰지 않음
     await supaUpsert('global_textbooks',id,updated,null);
     const idx=_cache.library.findIndex(x=>x.id===id);if(idx>=0)_cache.library[idx]=updated;else _cache.library.push(updated);
     renderLibVocabTable(id);renderLibTable();elibPopulateChapSel(id);
