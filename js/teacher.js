@@ -3103,7 +3103,7 @@ async function tuExtractExamples(){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const words=tuNormWords(tb.units?.[_tuCurUnit]||[]);
   if(!words.length)return toast('단어가 없습니다');
-  const sentences=(text.match(/[^.!?]+[.!?]+/g)||[text]).map(s=>s.trim()).filter(Boolean);
+  const sentences=(text.match(/[^.!?]+[.!?]+/g)||[text]).map(s=>s.trim().replace(/^[“”‘’"'`\s]+|[“”‘’"'`\s]+$/g,'')).filter(Boolean);
   let updated=0;
   for(const w of words){
     const re=new RegExp('\\b'+w.word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:s|es|ed|ing|er|est|ly|d)?\\b','i');
