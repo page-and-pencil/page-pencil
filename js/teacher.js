@@ -1,4 +1,18 @@
 ﻿// ── AUTH ──
+function handlePwKey(e){
+  // NumpadEnter 또는 Enter → 로그인 시도
+  if(e.key==='Enter'||e.code==='NumpadEnter'){e.preventDefault();checkPw();return;}
+  // 오른쪽 숫자패드(Numpad0-9)를 한국어 IME가 가로채는 문제 해결:
+  // e.preventDefault()로 IME 개입 차단 후 직접 숫자 삽입
+  const nm=e.code?.match(/^Numpad(\d)$/);
+  if(nm){
+    e.preventDefault();
+    const digit=nm[1],inp=e.target;
+    const s=inp.selectionStart??inp.value.length,end=inp.selectionEnd??inp.value.length;
+    inp.value=inp.value.slice(0,s)+digit+inp.value.slice(end);
+    inp.selectionStart=inp.selectionEnd=s+1;
+  }
+}
 async function hashPw(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 async function checkPw(){
   const v=document.getElementById('pw-in').value.trim();
