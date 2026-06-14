@@ -2689,6 +2689,9 @@ async function tuDeleteSelected(){
 }
 function tuRenderWords(tbId,unitKey){
   const tbody=document.getElementById('tu-word-tbody');if(!tbody)return;
+  const textSec=document.getElementById('tu-text-section');
+  if(textSec)textSec.style.display=unitKey?'':'none';
+  if(unitKey){const tb0=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);const ta=document.getElementById('tu-unit-text');if(ta)ta.value=tb0?.unitTexts?.[unitKey]||'';const st=document.getElementById('tu-text-status');if(st)st.textContent='';}
   if(!unitKey){tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단원을 선택하거나 새 단원을 생성하세요</td></tr>';return;}
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
   const words=tuNormWords(tb?.units?.[unitKey]||[]);
@@ -3035,6 +3038,53 @@ async function tuRefreshFromLib(){
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updTb;
   tuRenderWords(tbId,_tuCurUnit);
   toast(`${updated}개 예문을 원서에서 갱신했습니다`);
+}
+async function tuSaveUnitText(){
+  const tbId=document.getElementById('tu-tb-id').value;
+  if(!_tuCurUnit)return toast('단원을 선택하세요');
+  const text=(document.getElementById('tu-unit-text')?.value||'').trim();
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const unitTexts={...(tb.unitTexts||{}),[_tuCurUnit]:text};
+  const updated={...tb,unitTexts};
+  await supaUpsert('global_textbooks',tbId,updated,null);
+  const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
+  toast('원문이 저장되었습니다');
+}
+async function tuExtractExamples(){
+  const tbId=document.getElementById('tu-tb-id').value;
+  if(!_tuCurUnit)return toast('단원을 선택하세요');
+  const text=(document.getElementById('tu-unit-text')?.value||'').trim();
+  if(!text)return toast('원문 텍스트를 먼저 입력하세요');
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const words=tuNormWords(tb.units?.[_tuCurUnit]||[]);
+  if(!words.length)return toast('단어가 없습니다');
+  const sentences=(text.match(/[^.!?]+[.!?]+/g)||[text]).map(s=>s.trim()).filter(Boolean);
+  let updated=0;
+  for(const w of words){
+    const re=new RegExp('\\b'+w.word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:s|es|ed|ing|er|est|ly|d)?\\b','i');
+    const found=sentences.find(s=>re.test(s));
+    if(found&&found!==w.example){w.example=found;updated++;}
+  }
+  if(!updated)return toast('원문에서 일치하는 예문을 찾지 못했습니다');
+  const unitTexts={...(tb.unitTexts||{}),[_tuCurUnit]:text};
+  const updTb={...tb,units:{...(tb.units||{}),[_tuCurUnit]:words},unitTexts};
+  await supaUpsert('global_textbooks',tbId,updTb,null);
+  const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updTb;
+  let cardUpdated=0;
+  for(const w of words){
+    if(!w.example)continue;
+    for(const card of(_cache.vocab_cards||[])){
+      if(card.word!==w.word||card.srcId!==tbId||card.example===w.example)continue;
+      card.example=w.example;card.exampleSrc='book';
+      await supaUpsert('vocab_cards',card.id,card,card.sid);
+      const ci=(_cache.vocab_cards||[]).findIndex(c=>c.id===card.id);if(ci>=0)_cache.vocab_cards[ci]={...card};
+      cardUpdated++;
+    }
+  }
+  tuRenderWords(tbId,_tuCurUnit);
+  const st=document.getElementById('tu-text-status');
+  if(st)st.textContent=`✓ ${updated}개 예문 추출됨${cardUpdated?`, 단어장 ${cardUpdated}개 동기화`:''}`;
+  toast(`${updated}개 예문이 원문에서 추출되었습니다`);
 }
 async function tuAutoFill(){
   const word=document.getElementById('tu-en').value.trim();

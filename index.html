@@ -1278,6 +1278,18 @@
         </div>
       </div>
       <div id="tu-unit-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:8px;background:#fff"></div>
+      <!-- 단원 원문 텍스트 -->
+      <div id="tu-text-section" style="display:none;margin-bottom:10px;background:var(--cream2);border:1px solid var(--border);border-radius:var(--rs);padding:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-size:12px;font-weight:700;color:var(--navy)">📖 단원 원문 텍스트</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn ba bsm" onclick="tuSaveUnitText()" style="white-space:nowrap">저장</button>
+            <button class="btn bt bsm" onclick="tuExtractExamples()" style="white-space:nowrap">✨ 원문 예문 추출</button>
+          </div>
+        </div>
+        <textarea id="tu-unit-text" placeholder="이 단원의 원문(지문)을 붙여넣으세요. '원문 예문 추출'을 누르면 단어마다 해당 문장이 예문으로 자동 설정됩니다." style="width:100%;height:90px;padding:10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
+        <div style="font-size:11px;color:var(--teal);margin-top:4px" id="tu-text-status"></div>
+      </div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
         <input type="text" id="tu-new-unit-name" placeholder="단원번호 (Unit 1, Lesson 3 등)" style="flex:1;min-width:100px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
         <input type="text" id="tu-new-unit-subtitle" placeholder="소제목 (선택)" style="flex:1;min-width:80px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
@@ -1691,11 +1703,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260614p"></script>
-<script src="vocab_ref_data.js?v=20260614p"></script>
-<script src="js/db.js?v=20260614p"></script>
-<script src="js/teacher.js?v=20260614p"></script>
-<script src="js/student.js?v=20260614p"></script>
-<script src="js/parent.js?v=20260614p"></script>
+<script src="js/utils.js?v=20260614q"></script>
+<script src="vocab_ref_data.js?v=20260614q"></script>
+<script src="js/db.js?v=20260614q"></script>
+<script src="js/teacher.js?v=20260614q"></script>
+<script src="js/student.js?v=20260614q"></script>
+<script src="js/parent.js?v=20260614q"></script>
 </body>
 </html>
