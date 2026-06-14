@@ -361,33 +361,7 @@ function renderSpRdlog(sid){
     <span style="font-size:11px;color:var(--slate)">${logs.length}건</span>
   </div>${logsHtml}`;
 }
-function openDolchModal(sid){
-  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
-  const cardSet=new Set(cards.map(c=>(c.word||'').toLowerCase()));
-  const masterSet=new Set(cards.filter(c=>(c.phase||0)>=2).map(c=>(c.word||'').toLowerCase()));
-  const LEVEL_LABEL={pk:'Pre-K (40단어)',k:'K (52단어)',g1:'1학년 (41단어)',g2:'2학년 (46단어)',g3:'3학년 (41단어)'};
-  const levOrder=['pk','k','g1','g2','g3'];
-  const grouped={};
-  Object.entries(DOLCH_WORDS).forEach(([w,lv])=>{if(!grouped[lv])grouped[lv]=[];grouped[lv].push(w);});
-  const html=levOrder.map(lv=>{
-    const words=(grouped[lv]||[]).sort();
-    const mastered=words.filter(w=>masterSet.has(w)).length;
-    const learned=words.filter(w=>cardSet.has(w)).length;
-    return `<div style="margin-bottom:16px">
-      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;padding:4px 8px;background:var(--cream2);border-radius:6px">
-        ${LEVEL_LABEL[lv]} — 습득 ${mastered}개 / 학습중 ${learned-mastered}개
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px">
-        ${words.map(w=>{
-          const st=masterSet.has(w)?'background:#d1fae5;color:#065f46;border-color:#6ee7b7':cardSet.has(w)?'background:#fef3c7;color:#92400e;border-color:#fcd34d':'background:#fff;color:var(--slate);border-color:var(--border)';
-          return `<span style="font-size:12px;padding:2px 8px;border:1.5px solid;border-radius:10px;font-family:var(--fd);${st}">${w}</span>`;
-        }).join('')}
-      </div>
-    </div>`;
-  }).join('');
-  document.getElementById('dolch-body').innerHTML=html;
-  openM('m-dolch');
-}
+
 function renderSpVocab(sid){
   if(!sid)return;
   const el=document.getElementById('sp-vocab');if(!el)return;
@@ -408,32 +382,6 @@ function renderSpVocab(sid){
         <div style="font-size:10px;color:var(--slate)">${o.sub}</div>
       </button>`).join('')}
     </div>
-  </div>`;
-  // Dolch 습득 시각화
-  const cardWordSet=new Set(cards.map(c=>(c.word||'').toLowerCase()));
-  const masteredSet=new Set(cards.filter(c=>(c.phase||0)>=2).map(c=>(c.word||'').toLowerCase()));
-  const dolchLevels=[['pk','Pre-K',40],['k','K',52],['g1','1학년',41],['g2','2학년',46],['g3','3학년',41]];
-  const dolchRows=dolchLevels.map(([lv,lbl,total])=>{
-    const inLevel=Object.entries(DOLCH_WORDS).filter(([w,l])=>l===lv).map(([w])=>w);
-    const learned=inLevel.filter(w=>cardWordSet.has(w)).length;
-    const mastered=inLevel.filter(w=>masteredSet.has(w)).length;
-    const pct=Math.round(learned/total*100);
-    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
-      <span style="font-size:10px;color:var(--slate);width:40px;flex-shrink:0">${lbl}</span>
-      <div style="flex:1;background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:var(--teal);border-radius:4px;transition:width .4s"></div>
-      </div>
-      <span style="font-size:10px;color:var(--navy);width:56px;flex-shrink:0;text-align:right">${learned}/${total} <span style="color:var(--slate)">(${pct}%)</span></span>
-    </div>`;
-  }).join('');
-  const dolchTotal=Object.keys(DOLCH_WORDS).length;
-  const dolchLearned=Object.keys(DOLCH_WORDS).filter(w=>cardWordSet.has(w)).length;
-  const dolchHtml=`<div style="margin-bottom:14px;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <span style="font-size:12px;font-weight:700;color:var(--navy)">📊 Dolch 기초어휘 습득 현황 <span style="font-weight:400;color:var(--slate);font-size:11px">${dolchLearned}/${dolchTotal}단어</span></span>
-      <button class="btn bo bsm" style="font-size:10px;padding:2px 8px" onclick="openDolchModal('${sid}')">목록 보기</button>
-    </div>
-    ${dolchRows}
   </div>`;
 
   const studyCards=cards.filter(c=>(c.phase||0)<2&&c.srcType!=='library').sort((a,b)=>(b.misses||0)-(a.misses||0)||a.word.localeCompare(b.word));
@@ -471,7 +419,7 @@ function renderSpVocab(sid){
     </div>
     <button onclick="delVocabCard('${c.id}','${sid}','${escAttr(c.word)}')" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;color:var(--slate)">삭제</button>
   </div>`).join('');
-  el.innerHTML=`${modeHtml}${dolchHtml}${studyHtml}
+  el.innerHTML=`${modeHtml}${studyHtml}
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <span style="font-size:12px;font-weight:700;color:var(--navy)">📚 전체 단어 목록 (${cards.length}개)</span>
       <div style="display:flex;gap:6px;align-items:center">
