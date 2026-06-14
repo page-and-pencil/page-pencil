@@ -3514,7 +3514,7 @@ let _spTbQueue=[];
 let _spRdQueue=[];
 
 // ── 마스터 DB (교재+원서+어휘 통합 평탄화 뷰) ──
-let _masterFilter='',masterPage=0;
+let _masterFilter='',masterPage=0,masterSortField='title',masterSortDir='asc';
 let _masterSelected=new Set(); // 선택된 book id Set
 
 function updateMasterDelBtn(){
@@ -3586,6 +3586,7 @@ function deleteMasterSelected(){
     toast(failed?`삭제 완료 (실패 ${failed}개)`:`${n}개 삭제 완료`);
   });
 }
+function masterSetSort(field){if(masterSortField===field)masterSortDir=masterSortDir==='asc'?'desc':'asc';else{masterSortField=field;masterSortDir='asc';}masterPage=0;renderMasterDB();}
 function renderMasterDB(){
   const q=(document.getElementById('master-q')?.value||'').toLowerCase();
   const pageSize=parseInt(document.getElementById('master-per-page')?.value||'100');
@@ -3612,12 +3613,30 @@ function renderMasterDB(){
   }
   let filtered=rows;
   if(q)filtered=rows.filter(r=>r.title.toLowerCase().includes(q)||r.word.toLowerCase().includes(q)||(r.ko||'').toLowerCase().includes(q)||(r.sc||'').toLowerCase().includes(q));
+  const _md=masterSortDir==='asc'?1:-1;
+  filtered.sort((a,b)=>{
+    switch(masterSortField){
+      case 'type':return _md*a.type.localeCompare(b.type);
+      case 'sc':return _md*(a.sc||'').localeCompare(b.sc||'');
+      case 'level':return _md*(a.level||'').localeCompare(b.level||'');
+      case 'unit':return _md*(a.unit||'').localeCompare(b.unit||'',undefined,{numeric:true});
+      case 'word':return _md*(a.word||'').localeCompare(b.word||'');
+      case 'ko':return _md*(a.ko||'').localeCompare(b.ko||'');
+      case 'pos':return _md*(a.pos||'').localeCompare(b.pos||'');
+      default:return _md*(a.title||'').localeCompare(b.title||'');
+    }
+  });
   const total=filtered.length;
   const totalEl=document.getElementById('master-total');if(totalEl)totalEl.textContent=`${total.toLocaleString()}개`;
   const totalPages=Math.ceil(total/pageSize)||1;
   if(masterPage>=totalPages)masterPage=0;
   const paged=filtered.slice(masterPage*pageSize,(masterPage+1)*pageSize);
   const tbody=document.getElementById('master-tbody');if(!tbody)return;
+  const theadTrM=tbody.closest('table')?.querySelector('thead tr');
+  if(theadTrM){
+    const mth=(f,l)=>{const act=masterSortField===f;const ic=act?(masterSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="masterSetSort('${f}')">${l} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};
+    theadTrM.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="master-check-all" onchange="masterCheckAll(this.checked)" title="현재 페이지 전체 선택"></th>${mth('type','타입')}${mth('title','책제목')}${mth('sc','시리즈/분류')}${mth('level','AR/레벨')}${mth('unit','유닛/챕터')}${mth('word','영어')}${mth('ko','한국어')}${mth('pos','품사')}<th style="width:40px"></th>`;
+  }
   if(!paged.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--slate)">결과 없음</td></tr>';return;}
   // 현재 페이지 책 ID 목록(중복 제거)
   const pageBookIds=new Set(paged.map(r=>r._id));
@@ -3813,6 +3832,7 @@ function renderWordDB(){
       case 'ko':{return _wd*(a.ko||'').localeCompare(b.ko||'');}
       case 'en_def':{return _wd*(a.en_def||'').localeCompare(b.en_def||'');}
       case 'pos':{return _wd*(a.pos||'').localeCompare(b.pos||'');}
+      case 'example':{return _wd*(a.example||'').localeCompare(b.example||'');}
       case 'src':{return _wd*(a.srcTitle||'').localeCompare(b.srcTitle||'');}
       default:{const c=_wd*a.word.localeCompare(b.word);return c||a.srcType.localeCompare(b.srcType);}
     }
@@ -3820,7 +3840,7 @@ function renderWordDB(){
   const total=words.length;
   const totalEl=document.getElementById('wdb-total');if(totalEl)totalEl.textContent=`총 ${total.toLocaleString()}개`;
   const theadTrW=document.querySelector('#wdb-tbody')?.closest('table')?.querySelector('thead tr');
-  if(theadTrW){const wth=(f,l)=>{const act=wdbSortField===f;const ic=act?(wdbSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="wdbSetSort('${f}')">${l} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};theadTrW.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="wdb-chk-all" onchange="wdbToggleAll(this)" style="cursor:pointer"></th>${wth('word','영어')}${wth('ko','한국어')}${wth('en_def','영영의미')}${wth('pos','품사')}<th>예문</th>${wth('src','출처')}<th></th>`;}
+  if(theadTrW){const wth=(f,l)=>{const act=wdbSortField===f;const ic=act?(wdbSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="wdbSetSort('${f}')">${l} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};theadTrW.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="wdb-chk-all" onchange="wdbToggleAll(this)" style="cursor:pointer"></th>${wth('word','영어')}${wth('ko','한국어')}${wth('en_def','영영의미')}${wth('pos','품사')}${wth('example','예문')}${wth('src','출처')}<th></th>`;}
   const maxPage=Math.max(0,Math.ceil(total/WDB_PAGE_SIZE)-1);
   if(wdbPage>maxPage)wdbPage=maxPage;
   const paged=words.slice(wdbPage*WDB_PAGE_SIZE,(wdbPage+1)*WDB_PAGE_SIZE);
@@ -4556,6 +4576,7 @@ function renderLibTable(){
   if(q)filtered=filtered.filter(b=>b.title.toLowerCase().includes(q)||(b.series||'').toLowerCase().includes(q));
   if(serF)filtered=filtered.filter(b=>b.series===serF);
   const d=libSortDir==='asc'?1:-1;
+  const _textSet=new Set(filtered.filter(b=>elibGetChapters(b.id).some(c=>c.text)).map(b=>b.id));
   filtered.sort((a,b)=>{
     switch(libSortField){
       case 'series':{const va=a.series||'',vb=b.series||'';return d*va.localeCompare(vb);}
@@ -4563,6 +4584,8 @@ function renderLibTable(){
       case 'lexile':{const va=parseFloat((a.lexile||'').replace(/[^0-9.]/g,''))||0,vb=parseFloat((b.lexile||'').replace(/[^0-9.]/g,''))||0;return d*(va-vb);}
       case 'level':{const va=a.level||'',vb=b.level||'';return d*va.localeCompare(vb);}
       case 'vocab':{const va=(a.vocab||[]).length,vb=(b.vocab||[]).length;return d*(va-vb);}
+      case 'audio':{return d*((a.audioUrl?1:0)-(b.audioUrl?1:0));}
+      case 'text':{return d*((_textSet.has(a.id)?1:0)-(_textSet.has(b.id)?1:0));}
       default:{const va=a.title||'',vb=b.title||'';return d*va.localeCompare(vb);}
     }
   });
@@ -4570,7 +4593,7 @@ function renderLibTable(){
   const theadTr=document.querySelector('#lib-tbody')?.closest('table')?.querySelector('thead tr');
   if(theadTr){
     const lth=(field,label)=>{const act=libSortField===field;const ic=act?(libSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="libSetSort('${field}')">${label} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};
-    theadTr.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="lib-chk-all" onchange="libToggleAll(this)" style="cursor:pointer"></th>${lth('title','제목')}${lth('series','시리즈')}${lth('ar','AR')}${lth('lexile','렉사일')}${lth('level','레벨')}<th>오디오</th><th>원문</th><th></th>`;
+    theadTr.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="lib-chk-all" onchange="libToggleAll(this)" style="cursor:pointer"></th>${lth('title','제목')}${lth('series','시리즈')}${lth('ar','AR')}${lth('lexile','렉사일')}${lth('level','레벨')}${lth('audio','오디오')}${lth('text','원문')}<th></th>`;
   }
 
   const total=filtered.length;
@@ -6651,7 +6674,7 @@ function renderSpBooks(sid){
   const activeTbs=allEntries.filter(b=>b.type!=='원서'&&!b.completed);
   const doneTbs=manualEntries.filter(b=>b.type!=='원서'&&b.completed);
   const activeRds=allEntries.filter(b=>b.type==='원서'&&!b.completed);
-  const doneRds=manualEntries.filter(b=>b.type==='원서'&&b.completed);
+  const doneRds=manualEntries.filter(b=>b.type==='원서'&&b.completed).sort((a,b)=>(b.completedDate||'').localeCompare(a.completedDate||''));
   const today=new Date().toISOString().split('T')[0];
   const ddSt='background:#fff;border:1px solid var(--border);border-radius:var(--rs);max-height:160px;overflow-y:auto;display:none;margin-top:2px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.1)';
   const selSt='font-size:12px;color:var(--teal);font-weight:600;padding:4px 8px;background:var(--cream);border-radius:4px;margin-top:4px;display:none';
