@@ -326,12 +326,11 @@ function returnToTeacher(){
   }
 }
 function swSpTab(id){
-  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-reading','sp-vocab','sp-payment','sp-diag'];
+  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-reading','sp-vocab','sp-payment'];
   document.querySelectorAll('.sptab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
   document.querySelectorAll('.sp-pane').forEach(p=>p.style.display=p.id===id?'block':'none');
   if(id==='sp-reading'){renderSpBooks(currentSpStuId);renderSpRdlog(currentSpStuId);}
   if(id==='sp-vocab')renderSpVocab(currentSpStuId);
-  if(id==='sp-diag')renderSpDiag();
 }
 function renderSpRdlog(sid){
   if(!sid)return;
@@ -1035,6 +1034,14 @@ function togEditSubj(el){
   if(aEditSubjs.has(s)){aEditSubjs.delete(s);el.classList.remove('active');document.querySelector(`#el-subj-rows .sr[data-s="${s}"]`)?.remove();}
   else{aEditSubjs.add(s);el.classList.add('active');addSRowTo('el-subj-rows',s);}
 }
+function _mkUnitInputsHtml(unitVal,dlId,dlOptsHtml,placeholder){
+  const vals=(unitVal||'').split(', ').filter(Boolean);
+  if(!vals.length)vals.push('');
+  const st='flex:1;min-width:0;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream);outline:none';
+  const ph=placeholder||'유닛/진도';
+  const rows=vals.map((v,i)=>`<div class="unit-irow" style="display:flex;align-items:center;gap:3px"><input type="text" data-f="unit"${dlId?` list="${dlId}"`:''}placeholder="${ph}" value="${escAttr(v)}" autocomplete="off" style="${st}">${i===0?`<button type="button" onclick="addUnitInput(this,'${dlId||''}')" title="과 추가" style="flex-shrink:0;width:22px;height:22px;background:var(--teal);color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:17px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center">+</button>`:`<button type="button" onclick="this.closest('.unit-irow').remove()" style="flex-shrink:0;width:22px;height:22px;background:none;border:1px solid var(--border);border-radius:50%;cursor:pointer;font-size:15px;color:var(--slate);line-height:1;padding:0">×</button>`}</div>`).join('');
+  return `${dlId?`<datalist id="${dlId}">${dlOptsHtml||''}</datalist>`:''}<div class="unit-inputs-wrap" style="display:flex;flex-direction:column;gap:3px;width:100%;min-width:0">${rows}</div>`;
+}
 function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
   const wrap=document.getElementById(wrapperId);if(!wrap)return;
   const d=document.createElement('div');d.className='sr';d.dataset.s=s;
@@ -1044,7 +1051,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
   const cls=isBook?'srd':(SCLS[baseKey]||'');
   const addBtn=baseKey==='naesin'?`<button class="btn-xadd" title="내신 교재 추가" onclick="addSRowTo('${wrapperId}','naesin')">+</button>`:'';
   const noUnit=wrapperId==='ec-subj-rows';
-  let unitInput=noUnit?'':` <input type="text" placeholder="유닛/진도" data-f="unit" value="${escAttr(unitVal||'')}">`;
+  let unitInput=noUnit?'':_mkUnitInputsHtml(unitVal,'','','유닛/진도');
   if(baseKey==='pencil_down'||baseKey==='sing_together'){
     const rawVal=baseKey==='sing_together'?bookVal:(bookVal==='Pencil Down Day'||!bookVal)?'':bookVal;
     const PD_ACTS=[
@@ -1086,7 +1093,8 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
       const initUnitsCl=initTbCl?Object.keys(initTbCl.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
       const initTitlesCl=initTbCl?.unitTitles||{};
       const dlCUId='dl-clu-'+Math.random().toString(36).slice(2,7);
-      unitInput=` <datalist id="${dlCUId}">${initUnitsCl.map(k=>`<option value="${escAttr(k)}">${k}${initTitlesCl[k]?' — '+initTitlesCl[k]:''}</option>`).join('')}</datalist><input type="text" data-f="unit" list="${dlCUId}" placeholder="유닛/진도" value="${escAttr(unitVal||'')}" autocomplete="off" style="${_bkSelSt}">`;
+      const dlOptsCl=initUnitsCl.map(k=>`<option value="${escAttr(k)}">${k}${initTitlesCl[k]?' — '+initTitlesCl[k]:''}</option>`).join('');
+      unitInput=_mkUnitInputsHtml(unitVal,dlCUId,dlOptsCl,'유닛/진도');
     }
   }else if((wrapperId==='subj-rows'||wrapperId==='el-subj-rows')&&!isBook){
     const catFilter=_CAT_KO[baseKey];
@@ -1102,7 +1110,8 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
       const initUnits=initTb?Object.keys(initTb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
       const initTitles=initTb?.unitTitles||{};
       const dlUId='dl-u-'+Math.random().toString(36).slice(2,7);
-      unitInput=` <datalist id="${dlUId}">${initUnits.map(k=>`<option value="${escAttr(k)}">${k}${initTitles[k]?' — '+initTitles[k]:''}</option>`).join('')}</datalist><input type="text" data-f="unit" list="${dlUId}" placeholder="${initUnits.length?'단원 선택 또는 직접 입력':'유닛/진도'}" value="${escAttr(unitVal||'')}" autocomplete="off" style="${_bkSelSt}">`;
+      const dlOptsU=initUnits.map(k=>`<option value="${escAttr(k)}">${k}${initTitles[k]?' — '+initTitles[k]:''}</option>`).join('');
+      unitInput=_mkUnitInputsHtml(unitVal,dlUId,dlOptsU,initUnits.length?'단원 선택 또는 직접 입력':'유닛/진도');
     }
   }else if(isBook){
     // 원서 행: 원서 목록 datalist + 챕터 자동 힌트
@@ -1115,7 +1124,8 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
     if(!noUnit){
       const initLibBk=bookVal?allLibCombined.find(b=>b.title===bookVal):null;
       const initChs=[...new Set((initLibBk?.vocab||[]).map(w=>w.chapter||w.unit).filter(Boolean))];
-      unitInput=` <datalist id="${dlChId}">${initChs.map(c=>`<option value="${escAttr(c)}">`).join('')}</datalist><input type="text" data-f="unit" list="${dlChId}" placeholder="${initChs.length?'챕터 선택 또는 직접 입력':'챕터/진도'}" value="${escAttr(unitVal||'')}" autocomplete="off" style="${_bkSelSt}">`;
+      const dlOptsCh=initChs.map(c=>`<option value="${escAttr(c)}">`).join('');
+      unitInput=_mkUnitInputsHtml(unitVal,dlChId,dlOptsCh,initChs.length?'챕터 선택 또는 직접 입력':'챕터/진도');
     }
   }else{
     // ec-subj-rows: select 드롭다운 (레벨 표시, bookId로 정확 매칭)
@@ -1162,13 +1172,25 @@ function getSMatsFrom(wrapperId){
   document.querySelectorAll('#'+wrapperId+' .sr').forEach(row=>{
     const baseS=row.dataset.s.replace(/_\d+$/,'');
     const bkEl=row.querySelector('[data-f="book"]');
-    const b=bkEl.value.trim(),u=row.querySelector('[data-f="unit"]')?.value.trim()||'';
+    const b=bkEl.value.trim();
+    const units=[...row.querySelectorAll('[data-f="unit"]')].map(el=>el.value.trim()).filter(Boolean);
+    const u=units.join(', ');
     const bkId=bkEl.tagName==='SELECT'?(bkEl.options[bkEl.selectedIndex]?.dataset?.bkId||''):'';
     if(b||u){counts[baseS]=(counts[baseS]||0)+1;const key=counts[baseS]===1?baseS:`${baseS}_${counts[baseS]}`;r[key]={book:b,unit:u,...(bkId&&{bookId:bkId})};};
   });
   return r;
 }
 function getSMats(){return getSMatsFrom('subj-rows');}
+function addUnitInput(btn,dlId){
+  const wrap=btn.closest('.unit-inputs-wrap');if(!wrap)return;
+  const st='flex:1;min-width:0;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream);outline:none';
+  const irow=document.createElement('div');
+  irow.className='unit-irow';
+  irow.style.cssText='display:flex;align-items:center;gap:3px';
+  irow.innerHTML=`<input type="text" data-f="unit"${dlId?` list="${dlId}"`:''}placeholder="유닛/진도" autocomplete="off" style="${st}"><button type="button" onclick="this.closest('.unit-irow').remove()" style="flex-shrink:0;width:22px;height:22px;background:none;border:1px solid var(--border);border-radius:50%;cursor:pointer;font-size:15px;color:var(--slate);line-height:1;padding:0">×</button>`;
+  wrap.appendChild(irow);
+  irow.querySelector('input').focus();
+}
 function pdSelChange(sel){
   const row=sel.closest('.sr');
   const cus=row.querySelector('.pd-cus-inp');
@@ -3382,8 +3404,7 @@ function updateTbookDatalist(){
     const dl=document.getElementById(id);
     if(dl)dl.innerHTML=books.map(b=>`<option value="${escAttr(b.title)}">`).join('');
   });
-  const phonicsDl=document.getElementById('dl-phonics-books');
-  if(phonicsDl)phonicsDl.innerHTML=books.filter(b=>b.category==='phonics').map(b=>`<option value="${escAttr(b.title)}">`).join('');
+
   // 과제용 통합 datalist: 교재DB + 원서DB
   const hwDl=document.getElementById('dl-hw-books');
   if(hwDl){
@@ -4518,153 +4539,6 @@ function wdbExportCSV(){
 let libPage=0,libSortDir='asc',libSortField='title';
 let _libPagedEntries=[];
 function getLibPageSize(){return parseInt(document.getElementById('lib-per-page')?.value||'50');}
-// ── PHONICS & VOCAB SIZE DIAGNOSTIC ──
-const PHONICS_PATTERNS=[
-  {cat:'단모음 (Short Vowels)',items:[
-    {k:'cvc_a',l:'단모음 /æ/ — cat, bat, hat, lamp'},{k:'cvc_e',l:'단모음 /ɛ/ — bed, pen, ten, desk'},
-    {k:'cvc_i',l:'단모음 /ɪ/ — sit, big, lip, pick'},{k:'cvc_o',l:'단모음 /ɒ/ — hot, dog, top, fox'},
-    {k:'cvc_u',l:'단모음 /ʌ/ — cup, bug, sun, drum'},
-  ]},
-  {cat:'장모음 CVCe (Long Vowels)',items:[
-    {k:'cvce_a',l:'장모음 /eɪ/ — cake, name, lake, face'},{k:'cvce_i',l:'장모음 /aɪ/ — bike, time, kite, ride'},
-    {k:'cvce_o',l:'장모음 /oʊ/ — home, note, rope, bone'},{k:'cvce_u',l:'장모음 /juː/ — cute, tube, mule, cube'},
-    {k:'cvce_e',l:'장모음 /iː/ — Pete, eve, theme'},
-  ]},
-  {cat:'자음 군집 (Blends)',items:[
-    {k:'bl_l',l:'L-blends: bl, cl, fl, gl, pl, sl — blue, clock'},
-    {k:'bl_r',l:'R-blends: br, cr, dr, fr, gr, pr, tr — bring, cross'},
-    {k:'bl_s',l:'S-blends: sc, sk, sm, sn, sp, st, sw — stop, swim'},
-    {k:'bl_end',l:'끝자음 군집: -nd, -nt, -nk, -st, -mp — hand, sink'},
-    {k:'bl_3',l:'3자음 군집: str, spr, scr, spl — string, spring'},
-  ]},
-  {cat:'이중자음 (Digraphs)',items:[
-    {k:'dg_sh',l:'sh /ʃ/ — ship, wish, shell'},{k:'dg_ch',l:'ch/tch /tʃ/ — chin, catch'},
-    {k:'dg_th_v',l:'th 유성 /ð/ — this, that, them'},{k:'dg_th_vl',l:'th 무성 /θ/ — thin, think, three'},
-    {k:'dg_wh',l:'wh — when, where, white'},{k:'dg_ph',l:'ph=/f/ — phone, photo, graph'},
-    {k:'dg_ck',l:'ck — back, clock, duck'},
-  ]},
-  {cat:'이중모음 (Vowel Teams)',items:[
-    {k:'vt_ai',l:'ai/ay /eɪ/ — rain, day, train'},{k:'vt_ee',l:'ee/ea /iː/ — feet, eat, tree'},
-    {k:'vt_oa',l:'oa/ow /oʊ/ — boat, snow, road'},{k:'vt_oo',l:'oo 단/장 — book /ʊ/ vs moon /uː/'},
-    {k:'vt_ou',l:'ou/ow 이중모음 /aʊ/ — cloud, cow'},{k:'vt_oi',l:'oi/oy /ɔɪ/ — oil, boy, coin'},
-    {k:'vt_au',l:'au/aw /ɔː/ — haul, saw, cause'},
-  ]},
-  {cat:'R-통제 모음 (R-Controlled)',items:[
-    {k:'rc_ar',l:'ar /ɑːr/ — car, star, farm'},{k:'rc_or',l:'or /ɔːr/ — for, corn, storm'},
-    {k:'rc_er',l:'er/ir/ur /ɜːr/ — her, bird, burn'},{k:'rc_air',l:'air/are /ɛr/ — chair, care, bear'},
-    {k:'rc_ear',l:'ear/eer /ɪr/ — hear, deer, year'},
-  ]},
-  {cat:'특수 패턴 (Special Patterns)',items:[
-    {k:'sp_soft_c',l:'연자음 c — city, cent, cycle'},{k:'sp_soft_g',l:'연자음 g — gem, giant, page'},
-    {k:'sp_le',l:'-le 결말 — table, purple, bubble'},{k:'sp_tion',l:'-tion/-sion — nation, vision, action'},
-    {k:'sp_silent',l:'묵음 kn/wr/gh — knee, write, night'},{k:'sp_y',l:'y 모음 — fly/aɪ/, baby/iː/, gym/ɪ/'},
-  ]},
-];
-function renderSpDiag(){
-  const el=document.getElementById('sp-diag');if(!el)return;
-  const sid=currentSpStuId;
-  const stu=DB.stus().find(s=>s.id===sid);if(!stu){el.innerHTML='';return;}
-  const ph=stu.phonics||{};
-  const mastered=ph._mastered||0;const total=ph._total||0;const pct=total?Math.round(mastered/total*100):0;
-  const vd=stu.vocabDiag||null;
-  const catProg=PHONICS_PATTERNS.map(({cat,items})=>({short:cat.split(' (')[0],m:items.filter(({k})=>ph[k]).length,t:items.length}));
-  el.innerHTML=`<div style="padding:14px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-size:13px;font-weight:700;color:var(--navy)">🔡 파닉스 진단</div>
-      <button class="btn bt bsm" onclick="openPhonicsModal('${sid}')">진단하기</button>
-    </div>
-    ${ph._date?`<div style="margin-bottom:6px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-        <span style="color:var(--slate)">습득 패턴: <strong>${mastered}/${total}</strong> (${pct}%)</span>
-        <span style="color:var(--slate)">${ph._date}</span>
-      </div>
-      <div style="height:7px;background:var(--border);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--teal);border-radius:4px"></div></div>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">
-      ${catProg.map(({short,m,t})=>`<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:${m===t?'#d1fae5;color:#065f46':m>0?'#fef3c7;color:#92400e':'var(--cream2);color:var(--slate)'}">${short}: ${m}/${t}</span>`).join('')}
-    </div>`:`<div style="font-size:12px;color:var(--slate);padding:6px 0 12px">진단 기록이 없습니다. 오른쪽 버튼으로 시작하세요.</div>`}
-    <div style="border-top:1px solid var(--border);margin-bottom:12px"></div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-size:13px;font-weight:700;color:var(--navy)">📊 어휘 크기 진단</div>
-      <button class="btn bt bsm" onclick="openVocabSizeModal('${sid}')">진단하기</button>
-    </div>
-    ${vd?`<div style="font-size:14px;color:var(--navy);margin-bottom:3px">추정 어휘: <strong style="font-size:18px;color:var(--teal)">${vd.score.toLocaleString()}</strong>단어 <span style="font-size:11px;color:var(--slate)">${vd.date}</span></div>
-    ${vd.memo?`<div style="font-size:11px;color:var(--slate)">${vd.memo}</div>`:''}`
-    :`<div style="font-size:12px;color:var(--slate)">진단 기록이 없습니다.</div>`}
-  </div>`;
-}
-function openPhonicsModal(sid){
-  const stu=DB.stus().find(s=>s.id===sid);if(!stu)return;
-  document.getElementById('phd-sid').value=sid;
-  document.getElementById('phd-title').textContent=`${stu.name} — 파닉스 진단`;
-  document.getElementById('phd-date').value=new Date().toISOString().slice(0,10);
-  const ph=stu.phonics||{};
-  document.getElementById('phd-body').innerHTML=PHONICS_PATTERNS.map(({cat,items})=>
-    `<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--navy);padding:3px 8px;background:var(--cream2);border-radius:4px;margin-bottom:4px">${cat}</div>
-    ${items.map(({k,l})=>`<label style="display:flex;align-items:flex-start;gap:8px;padding:4px 8px;cursor:pointer;border-radius:4px">
-      <input type="checkbox" id="phd-${k}" ${ph[k]?'checked':''} style="margin-top:2px;cursor:pointer;flex-shrink:0">
-      <span style="font-size:12px;color:var(--navy);line-height:1.4">${l}</span>
-    </label>`).join('')}</div>`
-  ).join('');
-  openM('m-phonics-diag');
-}
-function phSelectAll(v){PHONICS_PATTERNS.forEach(({items})=>items.forEach(({k})=>{const el=document.getElementById(`phd-${k}`);if(el)el.checked=v;}));}
-async function savePhonicsResult(){
-  const sid=document.getElementById('phd-sid').value;
-  const date=document.getElementById('phd-date').value;
-  const stu=DB.stus().find(s=>s.id===sid);if(!stu)return;
-  const patterns={};let mastered=0,total=0;
-  PHONICS_PATTERNS.forEach(({items})=>items.forEach(({k})=>{
-    const v=document.getElementById(`phd-${k}`)?.checked||false;
-    patterns[k]=v;if(v)mastered++;total++;
-  }));
-  const updated={...stu,phonics:{...patterns,_date:date,_mastered:mastered,_total:total}};
-  await supaUpsert('students',sid,updated,null);
-  const idx=_cache.students.findIndex(s=>s.id===sid);if(idx>=0)_cache.students[idx]=updated;
-  closeM('m-phonics-diag');renderSpDiag();toast(`파닉스 진단 저장: ${mastered}/${total} 패턴 습득`);
-}
-function openVocabSizeModal(sid){
-  const stu=DB.stus().find(s=>s.id===sid);if(!stu)return;
-  document.getElementById('vsd-sid').value=sid;
-  document.getElementById('vsd-title').textContent=`${stu.name} — 어휘 크기 진단`;
-  document.getElementById('vsd-date').value=new Date().toISOString().slice(0,10);
-  const vd=stu.vocabDiag||{};
-  document.getElementById('vsd-score').value=vd.score||'';
-  document.getElementById('vsd-memo').value=vd.memo||'';
-  renderVocabSampler();openM('m-vocab-size');
-}
-function renderVocabSampler(){
-  const el=document.getElementById('vsd-sampler');if(!el)return;
-  const byRank=Object.entries(FRY_WORDS||{}).sort((a,b)=>a[1]-b[1]);
-  const BANDS=[[1,200,'기초 (Fry 1-200위)','#dbeafe'],[201,500,'초급 (Fry 201-500위)','#dcfce7'],
-    [501,800,'중급 (Fry 501-800위)','#fef3c7'],[801,1000,'고급 Fry (801-1000위)','#fce7f3']];
-  const cefrSample=Object.entries(OXFORD_CEFR||{}).filter(([,l])=>l==='B1').slice(0,5).map(([w])=>w);
-  const cefrB2=Object.entries(OXFORD_CEFR||{}).filter(([,l])=>l==='B2').slice(0,4).map(([w])=>w);
-  el.innerHTML=`<div style="font-size:11px;font-weight:600;color:var(--slate);margin-bottom:8px">📌 아래 단어 중 학생이 아는 것을 확인해 수준을 가늠해 보세요</div>`+
-  BANDS.map(([s,e,lbl,bg])=>{
-    const words=byRank.filter(([,r])=>r>=s&&r<=e);
-    const step=Math.max(1,Math.floor(words.length/5));
-    const sample=[0,1,2,3,4].map(i=>words[i*step]?.[0]).filter(Boolean);
-    return`<div style="margin-bottom:7px"><span style="font-size:10px;font-weight:700;padding:1px 6px;background:${bg};border-radius:4px">${lbl}</span>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px">${sample.map(w=>`<span style="padding:2px 8px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:var(--fd)">${w}</span>`).join('')}</div></div>`;
-  }).join('')+
-  (cefrSample.length?`<div style="margin-bottom:4px"><span style="font-size:10px;font-weight:700;padding:1px 6px;background:#f3e8ff;border-radius:4px">CEFR B1 (약 2000-4000위 수준)</span>
-    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px">${cefrSample.map(w=>`<span style="padding:2px 8px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:var(--fd)">${w}</span>`).join('')}</div></div>`:'')
-  +(cefrB2.length?`<div><span style="font-size:10px;font-weight:700;padding:1px 6px;background:#fef2f2;border-radius:4px">CEFR B2 (약 4000-6000위 수준)</span>
-    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px">${cefrB2.map(w=>`<span style="padding:2px 8px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:var(--fd)">${w}</span>`).join('')}</div></div>`:'');
-}
-async function saveVocabSizeResult(){
-  const sid=document.getElementById('vsd-sid').value;
-  const score=parseInt(document.getElementById('vsd-score').value)||0;
-  if(!score)return toast('어휘 크기를 입력하세요');
-  const date=document.getElementById('vsd-date').value;
-  const memo=document.getElementById('vsd-memo').value.trim();
-  const stu=DB.stus().find(s=>s.id===sid);if(!stu)return;
-  const updated={...stu,vocabDiag:{score,date,memo}};
-  await supaUpsert('students',sid,updated,null);
-  const idx=_cache.students.findIndex(s=>s.id===sid);if(idx>=0)_cache.students[idx]=updated;
-  closeM('m-vocab-size');renderSpDiag();toast(`어휘 크기 저장: 약 ${score.toLocaleString()}단어`);
-}
 let tbookSortDir='asc',tbookPage=0,tbookSortField='title';
 const TBOOK_PAGE_SIZE=50;
 let _tbookPagedEntries=[];
@@ -7313,6 +7187,8 @@ function lesUpdateUnitSel(sel){
   const dl=dlId?document.getElementById(dlId):null;
   if(dl)dl.innerHTML=units.map(k=>`<option value="${escAttr(k)}">${k}${titlesMap[k]?' — '+titlesMap[k]:''}</option>`).join('');
   unitInp.placeholder=units.length?'단원 선택 또는 직접 입력':'유닛/진도';
+  const wrap=sr.querySelector('.unit-inputs-wrap');
+  if(wrap){[...wrap.querySelectorAll('.unit-irow')].slice(1).forEach(el=>el.remove());}
   unitInp.value='';
 }
 function libUpdateChapterHint(inp){
