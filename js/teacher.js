@@ -725,7 +725,7 @@ async function loadStuPanel(sid){
               `${a.bookTitle||a.text||''}${a.range?' · '+a.range:''}`
             }</div>
           </div>
-          ${a.type==='reading'&&submitted?`<span class="hw-status-badge checked">제출완료</span>`:''}
+          ${a.requireRecording&&submitted?`<span class="hw-status-badge checked">제출완료</span>`:''}
         </div>
         ${submitted&&hw.audioUrl?`<audio controls src="${hw.audioUrl}" style="width:100%;height:26px;margin-top:6px"></audio>`:''}
         ${submitted&&hw.aiScore?`<div style="font-size:11px;color:#005f6b;background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:4px">🤖 AI 평가: ${hw.aiScore}</div>`:''}

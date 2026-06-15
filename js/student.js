@@ -331,7 +331,9 @@ function renderAsgnForm(sid){
     el.innerHTML=`
       <div class="f"><label>원서 선택</label><input type="text" id="asgn-book-${sid}" placeholder="제목으로 검색..." list="dl-library" autocomplete="off"></div>
       <div class="f"><label>챕터/페이지 범위</label><input type="text" id="asgn-range-${sid}" placeholder="Ch.1-2 또는 p.1-20"></div>
-      <div class="f"><label>평가용 원문 텍스트 (선택)</label><textarea id="asgn-ref-${sid}" placeholder="해당 구간 영어 원문 붙여넣기..." style="min-height:60px;resize:vertical;width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none"></textarea></div>`;
+      <div class="f" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="asgn-rec-${sid}" style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer"><label for="asgn-rec-${sid}" style="font-size:13px;cursor:pointer;margin:0">🎤 녹음 제출 필요</label></div>
+      <div class="f" id="asgn-ref-wrap-${sid}" style="display:none"><label>평가용 원문 텍스트 (선택)</label><textarea id="asgn-ref-${sid}" placeholder="해당 구간 영어 원문 붙여넣기..." style="min-height:60px;resize:vertical;width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none"></textarea></div>`;
+    setTimeout(()=>{const cb=document.getElementById(`asgn-rec-${sid}`);if(cb)cb.addEventListener('change',()=>{const w=document.getElementById(`asgn-ref-wrap-${sid}`);if(w)w.style.display=cb.checked?'':'none';});},0);
   } else if(type==='vocab'){
     el.innerHTML=`<div class="f"><label>단어 목록 (쉼표 구분)</label><input type="text" id="asgn-words-${sid}" placeholder="apple, enormous, quickly..."></div>`;
   } else {
@@ -352,7 +354,8 @@ async function saveAssignment(sid){
     a.bookId=book?.id||'';
     a.bookTitle=bookTitle;
     a.range=document.getElementById(`asgn-range-${sid}`)?.value.trim()||'';
-    a.referenceText=document.getElementById(`asgn-ref-${sid}`)?.value.trim()||'';
+    a.requireRecording=!!(document.getElementById(`asgn-rec-${sid}`)?.checked);
+    a.referenceText=a.requireRecording?(document.getElementById(`asgn-ref-${sid}`)?.value.trim()||''):'';
   } else if(type==='vocab'){
     a.words=(document.getElementById(`asgn-words-${sid}`)?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
   } else {
@@ -439,7 +442,7 @@ function renderAssignmentTab(sid){
         <span style="font-size:10px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
       </div>
       ${content}
-      ${a.type==='reading'?`
+      ${a.type==='reading'&&a.requireRecording?`
       <div style="margin-top:8px">
         <div class="hw-upload-zone" style="padding:12px" onclick="document.getElementById('asgn-audio-${a.id}').click()">
           <div style="font-size:13px;font-weight:700;color:var(--navy)">🎤 녹음 제출</div>
@@ -1318,7 +1321,7 @@ function renderStudentHome(sid){
           body+=`<audio controls src="${ao.url||ao}" style="width:100%;height:26px;margin-top:6px"></audio>`;
         }
       }
-      if(!isDone&&!hw){
+      if(!isDone&&!hw&&a.requireRecording){
         body+=`<div style="margin-top:10px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
             <button id="rec-start-${a.id}" class="btn bt" style="border-radius:50px;padding:13px;font-size:13px" onclick="startBrowserRec('${a.id}','${sid}')">🎙 직접 녹음</button>
@@ -1332,7 +1335,7 @@ function renderStudentHome(sid){
             <button class="btn bt" style="width:100%;margin-top:6px;border-radius:50px" onclick="submitHomeAsgnHw('${sid}','${a.id}')">제출하기</button>
           </div>
         </div>`;
-      } else if(hw){
+      } else if(hw&&a.requireRecording){
         body+=`<div style="font-size:11px;color:#005f6b;margin-top:4px">✅ 제출 완료 ${hw.date||''}</div>`;
         if(hw.aiScore)body+=`<div style="font-size:11px;color:#005f6b;background:var(--tl);border-radius:6px;padding:5px 8px;margin-top:4px">🤖 ${hw.aiScore}</div>`;
       }
@@ -1345,7 +1348,7 @@ function renderStudentHome(sid){
       body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">${icon} ${a.bookTitle||a.text||''}</div>`;
       if(a.range)body+=`<div style="font-size:12px;color:var(--slate);margin-top:3px">${a.range}</div>`;
     }
-    const canCheck=(a.type!=='reading'||!!hw);
+    const canCheck=(!(a.type==='reading'&&a.requireRecording)||!!hw);
     return `<div class="hw-check-card${isDone?' done':''}" id="hw-card-${a.id}">
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone||!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')'}" title="${!canCheck?'녹음 제출 후 완료 가능':'완료 처리'}">${isDone?'✓':''}</div>
