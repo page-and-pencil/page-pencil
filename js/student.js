@@ -1216,35 +1216,51 @@ function renderLastLesson(sid){
   const les=DB.less().filter(l=>l.sid===sid);
   if(!les.length)return '';
   const last=les[0];
-  const matLines=Object.entries(last.materials||{}).map(([k,v])=>{
+  let matHtml='',matsTextParts=[];
+  Object.entries(last.materials||{}).forEach(([k,v])=>{
     const isBook=k==='_book'||k.startsWith('_book_');
     const baseKey=k.replace(/_\d+$/,'');
     const label=isBook?'원서':(SLBL[baseKey]||'');
     const cls=isBook?'srd':(SCLS[baseKey]||'');
-    if(!label&&!v.book)return '';
-    return `<div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px">
-      <span class="spill ${cls}" style="flex-shrink:0;font-size:10px">${label}</span>
-      <span style="font-size:12px;color:var(--navy)">${v.book||''}${v.unit?' '+v.unit:''}</span>
-    </div>`;
-  }).filter(Boolean).join('');
+    if(!label&&!v.book)return;
+    const units=(v.unit||'').split(', ').filter(Boolean);
+    if(units.length>1){
+      matHtml+=`<div style="margin-bottom:5px">
+        <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:2px">
+          <span class="spill ${cls}" style="flex-shrink:0;font-size:10px">${label}</span>
+          <span style="font-size:12px;font-weight:600;color:var(--navy)">${v.book||''}</span>
+        </div>
+        <div style="padding-left:38px">${units.map(u=>`<div style="font-size:11px;color:var(--navy);line-height:1.7">${u}</div>`).join('')}</div>
+      </div>`;
+    }else{
+      matHtml+=`<div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px">
+        <span class="spill ${cls}" style="flex-shrink:0;font-size:10px">${label}</span>
+        <span style="font-size:12px;color:var(--navy)">${v.book||''}${units[0]?' '+units[0]:''}</span>
+      </div>`;
+    }
+    matsTextParts.push(`${label} ${v.book||''}${units.length?' '+units.join(', '):''}`.trim());
+  });
+  const matsText=matsTextParts.join(' / ');
   const rawCmt=last.cmt||'';
   return `<div style="background:var(--cream2);border-radius:var(--rs);border:1px solid var(--border);padding:12px;margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <span style="font-size:12px;font-weight:700;color:var(--navy)">📝 지난 수업</span>
       <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${last.date||''}</span>
     </div>
-    ${matLines?`<div style="margin-bottom:6px">${matLines}</div>`:''}
-    ${rawCmt?`<div id="stu-lesson-cmt" data-raw="${escAttr(rawCmt)}" style="font-size:12px;color:var(--slate);line-height:1.6">...</div>`:''}
+    ${matHtml?`<div style="margin-bottom:6px">${matHtml}</div>`:''}
+    ${rawCmt?`<div id="stu-lesson-cmt" data-raw="${escAttr(rawCmt)}" data-mats="${escAttr(matsText)}" style="font-size:12px;color:var(--slate);line-height:1.6">...</div>`:''}
     <button class="btn bt bsm" style="margin-top:8px;border-radius:50px" onclick="swStuTab('st-vocab')">📚 단어 복습 →</button>
   </div>`;
 }
 async function polishStudentCmt(givenName){
   const el=document.getElementById('stu-lesson-cmt');if(!el)return;
   const raw=el.dataset.raw||'';if(!raw){el.textContent='';return;}
+  const mats=el.dataset.mats||'';
   const apiKey=DB.api();
   if(!apiKey){el.textContent=raw.slice(0,80)+(raw.length>80?'…':'');return;}
   try{
-    const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:150,messages:[{role:'user',content:`당신은 영어 학원 선생님입니다. 아래는 수업 후 선생님 메모입니다. 이것을 학생 ${givenName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 문장으로 바꿔주세요.\n규칙: 학생에게 직접 말하는 말투(예: "오늘 수업 정말 잘했어!", "집중을 잘했네!"), 70자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n메모: ${raw}`}]});
+    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${givenName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 수업 진도에 나온 교재·단원 이름을 1개 이상 자연스럽게 언급(예: "오늘 Day 17 진짜 잘 읽었어!", "EFL Phonics oo 발음 완전 잘했어~"), 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${mats||'없음'}\n선생님 메모: ${raw}`;
+    const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:150,messages:[{role:'user',content}]});
     const text=d.content?.[0]?.text?.trim();
     if(text&&el)el.textContent=text;
   }catch(e){if(el)el.textContent=raw.slice(0,80)+(raw.length>80?'…':'');}
