@@ -1312,6 +1312,13 @@ async function saveLes(){
   if(_saving['saveLes'])return; _saving['saveLes']=true;
   try{
   const sid=document.getElementById('ls-stu').value;if(!sid){toast('학생을 선택해 주세요');return;}
+  const _lesDate=document.getElementById('ls-date').value;
+  const _existingLes=(_cache.lessons||[]).filter(l=>l.sid===sid&&l.date===_lesDate);
+  if(_existingLes.length){
+    toast('이 날 수업 기록이 이미 있습니다. 기존 기록 수정 창을 엽니다.');
+    setTimeout(()=>openEditLes(_existingLes[0].id),900);
+    return;
+  }
   const _sStu=DB.stus().find(x=>x.id===sid);
   const rawCmt=document.getElementById('ls-cmt').value.trim();
   toast('저장 중...');
