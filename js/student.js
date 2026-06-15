@@ -437,7 +437,6 @@ function renderAssignmentTab(sid){
     return `<div class="stu-book-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <span style="font-size:10px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
-        <span style="font-size:11px;font-weight:700;color:var(--coral);background:var(--cl);padding:2px 8px;border-radius:10px">미제출</span>
       </div>
       ${content}
       ${a.type==='reading'?`
@@ -459,7 +458,7 @@ function renderAssignmentTab(sid){
   }
 
   el.innerHTML=`<div style="padding:1.25rem">
-    ${pending.length?`<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📌 미제출 (${pending.length}건)</div>${pending.map(a=>asgnCard(a,false)).join('')}`:''}
+    ${pending.length?`<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📌 할 것 (${pending.length}건)</div>${pending.map(a=>asgnCard(a,false)).join('')}`:''}
     ${done.length?`<div style="font-size:12px;font-weight:700;color:var(--slate);margin:12px 0 8px">✅ 완료된 숙제 (${done.length}건)</div>${done.map(a=>asgnCard(a,true)).join('')}`:''}
   </div>`;
 }

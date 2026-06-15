@@ -725,7 +725,7 @@ async function loadStuPanel(sid){
               `${a.bookTitle||a.text||''}${a.range?' · '+a.range:''}`
             }</div>
           </div>
-          ${a.type==='reading'?`<span class="hw-status-badge ${submitted?'checked':'pending'}">${submitted?'제출완료':'미제출'}</span>`:''}
+          ${a.type==='reading'&&submitted?`<span class="hw-status-badge checked">제출완료</span>`:''}
         </div>
         ${submitted&&hw.audioUrl?`<audio controls src="${hw.audioUrl}" style="width:100%;height:26px;margin-top:6px"></audio>`:''}
         ${submitted&&hw.aiScore?`<div style="font-size:11px;color:#005f6b;background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:4px">🤖 AI 평가: ${hw.aiScore}</div>`:''}
@@ -6445,9 +6445,8 @@ function renderAssignTab(){
           const hw=hws.find(h=>h.assignmentId===a.id);
           const catLabel=CAT_LABELS[a.category||'']||'';
           const bookLabel=a.category==='class5'?c5BookLbl(a):a.bookTitle?a.bookTitle:(a.text?a.text:'');
-          const needSub=a.type==='reading';
-          const statusCls=a.completedAt?'bteal':hw?'bamber':(needSub?'bslate':'');
-          const statusTxt=a.completedAt?'완료':hw?'제출':(needSub?'미제출':'');
+          const statusCls=a.completedAt?'bteal':hw?'bamber':'';
+          const statusTxt=a.completedAt?'완료':hw?'제출':'';
           return `<div class="assign-item">
             <div style="flex:1;min-width:0">
               <div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.range?' '+a.range:''}</div>
