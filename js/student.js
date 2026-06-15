@@ -1251,9 +1251,21 @@ function renderStudentHome(sid){
   const el=document.getElementById('st-home');if(!el)return;
   const stu=DB.stus().find(s=>s.id===sid);
   const today=new Date().toISOString().split('T')[0];
-  const allAssigns=(_cache.assignments||[]).filter(a=>a.sid===sid).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-  const pending=allAssigns.filter(a=>!a.completedAt);
-  const done=allAssigns.filter(a=>a.completedAt);
+  const allAssigns=(_cache.assignments||[]).filter(a=>a.sid===sid);
+  const done=allAssigns.filter(a=>a.completedAt).sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
+  // 긴급도 정렬: 늦은 것 → 오늘 마감 → 내일 → 가까운 순 → 마감 없음(날짜 오름차순)
+  const pending=allAssigns.filter(a=>!a.completedAt).sort((a,b)=>{
+    const urgency=d=>{
+      if(!d)return 99;
+      const diff=Math.round((new Date(d)-new Date(today))/86400000);
+      if(diff<0)return 0;   // 늦음
+      if(diff===0)return 1; // 오늘
+      return 1+diff;        // 내일=2, 모레=3, ...
+    };
+    const ua=urgency(a.due),ub=urgency(b.due);
+    if(ua!==ub)return ua-ub;
+    return (a.due||a.date||'').localeCompare(b.due||b.date||'');
+  });
   const streak=getStreak(sid);
   const lv=getStuLevel(sid);
   const week=getWeeklyStats(sid);
