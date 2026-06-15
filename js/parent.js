@@ -119,12 +119,29 @@ async function loadParent(sid){
   // 블록 D — 미완료 과제
   const assigns=DB.assigns().filter(a=>a.sid===sid&&!a.completedAt);
   if(assigns.length){
-    const TYPE_LBL={reading:'📖 원서 읽기',vocab:'📝 단어 암기',textbook:'📘 교재 진도',other:'💬 기타'};
+    const CAT_LBL={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','other':'기타'};
+    const todayD=new Date().toISOString().split('T')[0];
+    const sorted=[...assigns].sort((a,b)=>{
+      const urg=d=>{if(!d)return 99;const df=Math.round((new Date(d)-new Date(todayD))/86400000);return df<0?0:df===0?1:1+df;};
+      const ua=urg(a.due),ub=urg(b.due);return ua!==ub?ua-ub:(a.due||a.date||'').localeCompare(b.due||b.date||'');
+    });
+    const assignRow=a=>{
+      const cat=a.category?CAT_LBL[a.category]:'';
+      const catHtml=cat?`<span style="font-size:10px;font-weight:700;color:var(--teal)">[${cat}]</span> `:'';
+      const label=a.category==='vocab'?((a.words||[]).slice(0,3).join(', ')+(a.words?.length>3?` 외 ${a.words.length-3}개`:'')):(a.bookTitle||a.text||'');
+      const range=a.range?` <span style="font-size:11px;color:var(--slate)">${a.range}</span>`:'';
+      const dueCol=a.due&&a.due<=todayD?'var(--coral)':'var(--slate)';
+      const due=a.due?` <span style="font-size:11px;color:${dueCol}">~${a.due}</span>`:'';
+      return `<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--navy);line-height:1.5">${catHtml}${label}${range}${due}</div>`;
+    };
+    const shown=sorted.slice(0,3);
+    const rest=sorted.slice(3);
     blocks+=`<div class="card">
       <div class="ch"><span class="ct">📋 숙제</span><span style="font-size:11px;color:var(--coral);font-weight:700">${assigns.length}개 남음</span></div>
       <div class="cb" style="padding:12px 16px">
-        ${assigns.slice(0,4).map(a=>`<div style="font-size:13px;padding:4px 0;color:var(--navy)">${TYPE_LBL[a.type]||'💬 기타'}${a.bookTitle?' · '+a.bookTitle:''}${a.due?` <span style="font-size:11px;color:var(--slate)">(~${a.due})</span>`:''}</div>`).join('')}
-        ${assigns.length>4?`<div style="font-size:11px;color:var(--slate);margin-top:4px">외 ${assigns.length-4}개 더</div>`:''}
+        ${shown.map(assignRow).join('')}
+        ${rest.length?`<div id="pp-assign-more" style="display:none">${rest.map(assignRow).join('')}</div>
+          <button onclick="const el=document.getElementById('pp-assign-more');const open=el.style.display==='none';el.style.display=open?'':'none';this.textContent=open?'접기 ▴':'외 ${rest.length}개 더 ▾'" style="background:none;border:none;font-size:12px;color:var(--teal);cursor:pointer;font-family:var(--fb);margin-top:6px">외 ${rest.length}개 더 ▾</button>`:''}
       </div>
     </div>`;
   }

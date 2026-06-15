@@ -253,6 +253,22 @@ function checkCldWarn(){
   show('api-tst-warn',!hasApi);
   show('api-log-warn',!hasApi);
 }
+async function syncCompletedReadingToTextbooks(sid,bookTitle,date){
+  const libBook=DB.libs().find(b=>b.title===bookTitle);
+  const existing=(_cache.textbooks||[]).find(t=>t.sid===sid&&t.title===bookTitle&&t.type==='원서');
+  if(existing){
+    if(!existing.completed){
+      existing.completed=true;existing.completedDate=date;
+      await supaUpsert('textbooks',existing.id,existing,sid);
+      const idx=(_cache.textbooks||[]).findIndex(t=>t.id===existing.id);
+      if(idx>=0)_cache.textbooks[idx]=existing;
+    }
+  }else{
+    const entry={id:uid(),sid,title:bookTitle,type:'원서',bookId:libBook?.id||'',active:true,completed:true,completedDate:date};
+    await supaUpsert('textbooks',entry.id,entry,sid);
+    if(!_cache.textbooks)_cache.textbooks=[];_cache.textbooks.push(entry);
+  }
+}
 async function autoSyncBookReads(sid,materials,date){
   const bookEntries=Object.entries(materials||{}).filter(([k])=>k==='_book'||k.startsWith('_book_'));
   if(!bookEntries.length)return;
@@ -268,6 +284,11 @@ async function autoSyncBookReads(sid,materials,date){
     if(!_cache.readings)_cache.readings=[];
     _cache.readings.unshift(newRd);
     added++;
+  }
+  // 완독 처리: 완료 원서 리스트에 자동 등록
+  for(const [,v] of bookEntries){
+    if(v.book&&(v.unit||'').trim()==='완독')
+      await syncCompletedReadingToTextbooks(sid,v.book,date).catch(()=>{});
   }
   if(added>0){
     renderRd();
@@ -6707,7 +6728,7 @@ function renderSpBooks(sid){
   </div>`;
   const doneRow=t=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px">
     <div style="flex:1;min-width:0">
-      <span style="font-size:13px;font-weight:600;color:var(--slate);text-decoration:line-through">${t.title}</span>
+      <span style="font-size:13px;font-weight:600;color:var(--slate)">${t.title}</span>
       ${t.level?`<span style="font-size:10px;color:var(--slate);margin-left:6px;font-weight:normal">${t.level}</span>`:''}
     </div>
     <span class="badge bteal" style="font-size:10px;white-space:nowrap">✓ ${t.completedDate||'완료'}</span>
@@ -7809,6 +7830,20 @@ async function saveClassLesson(){
       for(const b of (d.books||[])){
         const rd={id:uid(),sid:d.sid,date,title:b.title,series:b.series,arLevel:b.ar,genre:'',progress:b.prog,classId};
         await supaUpsert('readings',rd.id,rd,d.sid);_cache.readings.unshift(rd);
+        // 완독 → 완료 원서 리스트
+        if((b.prog||'').trim()==='완독')
+          await syncCompletedReadingToTextbooks(d.sid,b.title,date).catch(()=>{});
+      }
+      // 클래스 공통 교재 → 학생 개별 교재 동기화
+      const classTbEntries=Object.entries(commonMats||{}).filter(([k,v])=>!k.startsWith('_book')&&v.book);
+      const studentTbTitles=new Set((_cache.textbooks||[]).filter(t=>t.sid===d.sid&&t.active!==false).map(t=>t.title));
+      for(const [,v] of classTbEntries){
+        if(studentTbTitles.has(v.book))continue;
+        const gTb=(_cache.globalTextbooks||[]).find(g=>g.title===v.book);
+        const entry={id:uid(),sid:d.sid,title:v.book,type:'교재',bookId:gTb?.id||'',level:gTb?.level||'',currentUnit:v.unit||'',active:true,completed:false};
+        await supaUpsert('textbooks',entry.id,entry,d.sid);
+        if(!_cache.textbooks)_cache.textbooks=[];_cache.textbooks.push(entry);
+        studentTbTitles.add(v.book);
       }
       // 공통 과제 → 결석 제외
       if(d.att!=='absent'){
