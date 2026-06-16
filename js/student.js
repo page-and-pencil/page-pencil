@@ -1307,17 +1307,15 @@ function renderLastLesson(sid){
     if(!label&&!v.book)return;
     const units=(v.unit||'').split(', ').filter(Boolean);
     if(units.length>1){
-      matHtml+=`<div style="margin-bottom:5px">
-        <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:2px">
-          <span class="spill ${cls}" style="flex-shrink:0;font-size:10px">${label}</span>
-          <span style="font-size:12px;font-weight:600;color:var(--navy)">${v.book||''}</span>
-        </div>
-        <div style="padding-left:38px">${units.map(u=>`<div style="font-size:11px;color:var(--navy);line-height:1.7">${u}</div>`).join('')}</div>
+      matHtml+=`<div style="margin-bottom:7px">
+        <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:2px">${v.book||''}</div>
+        <span class="spill ${cls}" style="font-size:10px">${label}</span>
+        <div style="padding-left:6px;margin-top:3px">${units.map(u=>`<div style="font-size:11px;color:var(--navy);line-height:1.7">${u}</div>`).join('')}</div>
       </div>`;
     }else{
-      matHtml+=`<div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px">
-        <span class="spill ${cls}" style="flex-shrink:0;font-size:10px">${label}</span>
-        <span style="font-size:12px;color:var(--navy)">${v.book||''}${units[0]?' '+units[0]:''}</span>
+      matHtml+=`<div style="margin-bottom:7px">
+        <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:2px">${v.book||''}${units[0]?' <span style="font-weight:400">'+units[0]+'</span>':''}</div>
+        <span class="spill ${cls}" style="font-size:10px">${label}</span>
       </div>`;
     }
     matsTextParts.push(`${label} ${v.book||''}${units.length?' '+units.join(', '):''}`.trim());
