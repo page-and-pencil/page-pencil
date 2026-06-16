@@ -6449,6 +6449,25 @@ function openAssignForDate(dateStr){
 function openBulkAssign(){openM('m-add-assign');}
 
 // ── TEACHER ASSIGN TAB ──
+function _assignItemHtml(a,hws){
+  const CAT_LABELS={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','other':'기타'};
+  const hw=hws.find(h=>h.assignmentId===a.id);
+  const catLabel=CAT_LABELS[a.category||'']||'';
+  const bookLabel=a.category==='class5'?c5BookLbl(a):a.bookTitle||(a.text||'');
+  const statusCls=a.completedAt?'bteal':hw?'bamber':'';
+  const statusTxt=a.completedAt?'완료':hw?'제출':'';
+  return `<div class="assign-item">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.range?' '+a.range:''}</div>
+      <div style="font-size:10px;color:var(--slate)">${a.due?'~'+a.due:a.date||''}</div>
+    </div>
+    <div style="display:flex;gap:3px;flex-shrink:0;align-items:center">
+      ${statusTxt?`<span class="badge ${statusCls}" style="font-size:9px">${statusTxt}</span>`:''}
+      <button class="btn bo" style="font-size:9px;padding:1px 5px;min-height:0;line-height:1.2" onclick="openEditAssignModal('${a.id}')">수정</button>
+      <button class="btn bd" style="font-size:9px;padding:1px 5px;min-height:0;line-height:1.2" onclick="deleteAssign('${a.id}')">삭제</button>
+    </div>
+  </div>`;
+}
 function renderAssignTab(){
   const el=document.getElementById('assign-list');if(!el)return;
   const filterStu=document.getElementById('assign-filter-stu')?.value||'';
@@ -6475,21 +6494,8 @@ function renderAssignTab(){
         </div>
       </div>
       <div class="assign-card-body">
-        ${recent.length?recent.map(a=>{
-          const hw=hws.find(h=>h.assignmentId===a.id);
-          const catLabel=CAT_LABELS[a.category||'']||'';
-          const bookLabel=a.category==='class5'?c5BookLbl(a):a.bookTitle?a.bookTitle:(a.text?a.text:'');
-          const statusCls=a.completedAt?'bteal':hw?'bamber':'';
-          const statusTxt=a.completedAt?'완료':hw?'제출':'';
-          return `<div class="assign-item">
-            <div style="flex:1;min-width:0">
-              <div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.range?' '+a.range:''}</div>
-              <div style="font-size:10px;color:var(--slate)">${a.due?'~'+a.due:a.date||''}</div>
-            </div>
-            ${statusTxt?`<span class="badge ${statusCls}" style="font-size:9px;flex-shrink:0">${statusTxt}</span>`:''}
-          </div>`;
-        }).join(''):`<div style="font-size:12px;color:var(--slate);padding:8px 0">할당된 과제 없음</div>`}
-        ${extra.length?`<div id="assign-extra-${s.id}" style="display:none">${extra.map(a=>{const hw=hws.find(h=>h.assignmentId===a.id);const catLabel=CAT_LABELS[a.category||'']||'';const bookLabel=a.category==='class5'?c5BookLbl(a):a.bookTitle?a.bookTitle:(a.text?a.text:'');const needSub=a.type==='reading';const statusCls=a.completedAt?'bteal':hw?'bamber':(needSub?'bslate':'');const statusTxt=a.completedAt?'완료':hw?'제출':(needSub?'미제출':'');return `<div class="assign-item"><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.range?' '+a.range:''}</div><div style="font-size:10px;color:var(--slate)">${a.due?'~'+a.due:a.date||''}</div></div>${statusTxt?`<span class="badge ${statusCls}" style="font-size:9px;flex-shrink:0">${statusTxt}</span>`:''}</div>`;}).join('')}</div>
+        ${recent.length?recent.map(a=>_assignItemHtml(a,hws)).join(''):`<div style="font-size:12px;color:var(--slate);padding:8px 0">할당된 과제 없음</div>`}
+        ${extra.length?`<div id="assign-extra-${s.id}" style="display:none">${extra.map(a=>_assignItemHtml(a,hws)).join('')}</div>
         <div style="font-size:10px;color:var(--teal);text-align:center;padding-top:4px;cursor:pointer;font-weight:600" onclick="const el=document.getElementById('assign-extra-${s.id}');el.style.display=el.style.display==='none'?'block':'none';this.textContent=el.style.display==='none'?'+${extra.length}건 더보기':'접기'">+${extra.length}건 더보기</div>`:''}
       </div>
     </div>`;
@@ -6497,7 +6503,11 @@ function renderAssignTab(){
   el.innerHTML=`<div class="assign-grid">${cards||'<div style="color:var(--slate);font-size:13px">과제 없음</div>'}</div>`;
 }
 function c5BookLbl(a){const sc=a.schedule||[];if(!sc.length)return '';const f=sc[0];const c=[f.book,f.unit].filter(Boolean).join(', ');return sc.length>1?c+` 외 ${sc.length-1}일`:c;}
+let _editAssignId=null;
 function openAssignModal(sid){
+  _editAssignId=null;
+  const mt=document.querySelector('#m-add-assign .mt');
+  if(mt)mt.textContent='📋 과제 할당';
   document.getElementById('modal-assign-stu').value=sid||'';
   const today=new Date().toISOString().split('T')[0];
   document.getElementById('modal-assign-date').value=today;
@@ -6510,6 +6520,30 @@ function openAssignModal(sid){
   if(rangeEl){rangeEl.value='';const rf=rangeEl.closest('.f');if(rf)rf.style.display='';}
   document.getElementById('modal-assign-extra').innerHTML='';
   openM('m-add-assign');
+}
+function openEditAssignModal(aid){
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);
+  if(!a)return;
+  _editAssignId=aid;
+  const mt=document.querySelector('#m-add-assign .mt');
+  if(mt)mt.textContent='📋 과제 수정';
+  document.getElementById('modal-assign-stu').value=a.sid||'';
+  document.getElementById('modal-assign-date').value=a.date||'';
+  document.getElementById('modal-assign-due').value=a.due||'';
+  document.getElementById('modal-assign-cat').value=a.category||'';
+  modalAssignCatChange();
+  const bookEl=document.getElementById('modal-assign-book');
+  if(bookEl)bookEl.value=a.bookTitle||'';
+  const rangeEl=document.getElementById('modal-assign-range');
+  if(rangeEl)rangeEl.value=a.range||'';
+  openM('m-add-assign');
+}
+async function deleteAssign(aid){
+  askConfirm('과제 삭제','이 과제를 삭제할까요?','삭제','bd',async()=>{
+    await supaDelete('assignments',aid);
+    _cache.assignments=(_cache.assignments||[]).filter(a=>a.id!==aid);
+    renderAssignTab();toast('삭제되었습니다');
+  });
 }
 function modalAssignCatChange(){
   const cat=document.getElementById('modal-assign-cat').value;
@@ -6662,6 +6696,20 @@ async function saveModalAssignment(){
   const date=document.getElementById('modal-assign-date').value;
   const due=document.getElementById('modal-assign-due').value;
   if(!cat){toast('구분을 선택해 주세요');return;}
+  if(_editAssignId){
+    const existing=(_cache.assignments||[]).find(x=>x.id===_editAssignId);
+    if(existing){
+      existing.category=cat;existing.date=date;existing.due=due;
+      existing.bookTitle=book;existing.range=range;
+      await supaUpsert('assignments',_editAssignId,existing,sid);
+      const idx=(_cache.assignments||[]).findIndex(x=>x.id===_editAssignId);
+      if(idx>=0)_cache.assignments[idx]=existing;
+    }
+    _editAssignId=null;
+    const mt=document.querySelector('#m-add-assign .mt');
+    if(mt)mt.textContent='📋 과제 할당';
+    closeM('m-add-assign');renderAssignTab();toast('수정되었습니다');return;
+  }
   if(cat==='class5'){
     const schedRows=document.querySelectorAll('#c5-rows .c5-row');
     const schedule=[...schedRows].map(r=>({date:r.dataset.date,book:(r.querySelector('[data-c5="book"]')?.value||'').trim(),unit:(r.querySelector('[data-c5="unit"]')?.value||'').trim()})).filter(x=>x.book||x.unit);
