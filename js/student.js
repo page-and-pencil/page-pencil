@@ -3,6 +3,7 @@ let pinInput=[];
 let _stuPin=''; // legacy
 let currentStudentSid=null;
 let _brRecorder=null,_brStream=null,_brChunks=[],_brTimerInterval=null;
+let _libRecBlobs={},_libTimerInterval=null,_libRecSafeId=null;
 async function startBrowserRec(asgnId,sid){
   try{
     _brStream=await navigator.mediaDevices.getUserMedia({audio:true});
@@ -30,6 +31,67 @@ async function startBrowserRec(asgnId,sid){
   }catch(e){toast('마이크 접근이 필요합니다. 파일로 올려주세요.');}
 }
 function stopBrowserRec(asgnId){if(_brRecorder&&_brRecorder.state==='recording')_brRecorder.stop();}
+async function startLibRec(safeId,sid,title){
+  if(_libRecSafeId&&_libRecSafeId!==safeId){stopLibRec(_libRecSafeId);}
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const rec=new MediaRecorder(stream);const chunks=[];
+    rec.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+    rec.onstop=()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      _libRecBlobs[safeId]=new Blob(chunks,{type:'audio/webm'});
+      const url=URL.createObjectURL(_libRecBlobs[safeId]);
+      const player=document.getElementById(`lib-player-${safeId}`);if(player)player.src=url;
+      const preview=document.getElementById(`lib-preview-${safeId}`);if(preview)preview.style.display='block';
+      clearInterval(_libTimerInterval);_libTimerInterval=null;_libRecSafeId=null;
+      document.getElementById(`lib-rec-start-${safeId}`)?.style.setProperty('display','');
+      document.getElementById(`lib-rec-stop-${safeId}`)?.style.setProperty('display','none');
+      document.getElementById(`lib-rec-timer-${safeId}`)?.style.setProperty('display','none');
+    };
+    rec.start();
+    _brStream=stream;_brRecorder=rec;_libRecSafeId=safeId;
+    document.getElementById(`lib-rec-start-${safeId}`)?.style.setProperty('display','none');
+    document.getElementById(`lib-rec-stop-${safeId}`)?.style.setProperty('display','');
+    document.getElementById(`lib-rec-timer-${safeId}`)?.style.setProperty('display','block');
+    let secs=0;clearInterval(_libTimerInterval);
+    _libTimerInterval=setInterval(()=>{secs++;const m=Math.floor(secs/60),sc=secs%60;const el=document.getElementById(`lib-rec-time-${safeId}`);if(el)el.textContent=m+':'+(sc<10?'0':'')+sc;},1000);
+  }catch(e){toast('마이크 접근이 필요합니다');}
+}
+function stopLibRec(safeId){if(_brRecorder&&_brRecorder.state==='recording')_brRecorder.stop();}
+async function submitLibRec(safeId,bookId,sid,title){
+  const blob=_libRecBlobs[safeId];if(!blob){toast('녹음이 없습니다');return;}
+  const aiEl=document.getElementById(`lib-ai-${safeId}`);
+  const submitBtn=document.getElementById(`lib-submit-${safeId}`);
+  if(aiEl)aiEl.innerHTML='<span style="color:var(--slate)">업로드 중...</span>';
+  if(submitBtn)submitBtn.disabled=true;
+  const{name,preset}=DB.cld();
+  let audioUrl='';
+  try{
+    if(name&&preset){
+      const fd=new FormData();fd.append('file',new File([blob],'reading.webm',{type:'audio/webm'}));
+      fd.append('upload_preset',preset);fd.append('resource_type','video');
+      const res=await fetch(`https://api.cloudinary.com/v1_1/${name}/video/upload`,{method:'POST',body:fd});
+      if(res.ok)audioUrl=(await res.json()).secure_url;
+    }
+  }catch(e){console.error(e);}
+  if(!audioUrl){if(aiEl)aiEl.innerHTML='<span style="color:red">업로드 실패</span>';if(submitBtn)submitBtn.disabled=false;return;}
+  const today=new Date().toISOString().split('T')[0];
+  const logId=uid();
+  const logEntry={id:logId,sid,date:today,audioUrl,bookTitle:title,bookId:bookId||'',type:'recording',read:false};
+  await supaUpsert('logs',logId,logEntry,sid);
+  if(!_cache.logs)_cache.logs=[];_cache.logs.unshift(logEntry);
+  delete _libRecBlobs[safeId];
+  const apiKey=DB.api();
+  if(apiKey){
+    if(aiEl)aiEl.innerHTML='<span style="color:var(--slate)">AI 피드백 생성 중...</span>';
+    try{
+      const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:120,messages:[{role:'user',content:`학생이 영어 원서 "${title}"을 낭독했습니다. 학생에게 힘이 되는 한국어 격려 피드백을 1-2문장으로 작성해주세요 (80자 이내, 이모지 1개 포함, 자신감·발음·리듬 등 언급):`}]});
+      const feedback=d.content?.[0]?.text?.trim()||'';
+      if(aiEl)aiEl.innerHTML=feedback?`<span style="color:var(--teal)">${feedback}</span>`:'<span style="color:var(--teal)">제출 완료! 선생님이 확인할 예정이에요 📝</span>';
+    }catch(e){if(aiEl)aiEl.innerHTML='<span style="color:var(--teal)">제출 완료! 선생님이 확인할 예정이에요 📝</span>';}
+  }else{if(aiEl)aiEl.innerHTML='<span style="color:var(--teal)">제출 완료! 선생님이 확인할 예정이에요 📝</span>';}
+  if(submitBtn)submitBtn.style.display='none';
+}
 let vocabSessionSize=0;
 async function goStudentPin(){
   const sess=loadSession();
@@ -274,6 +336,18 @@ function renderStudentLibrary(sid){
     const audioSection=isRead
       ?`<div style="margin-top:8px"><button id="bab-${safeId}" class="btn bt bsm" style="border-radius:50px;width:100%" onclick="toggleBookAudio('${safeId}')">🎧 다시 듣기</button><div id="ba-${safeId}" style="display:none;margin-top:8px">${renderStuAudio(b)}</div></div>`
       :renderStuAudio(b);
+    const recSection=`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button id="lib-rec-start-${safeId}" class="btn bo bsm" style="font-size:11px" onclick="startLibRec('${safeId}','${sid}','${escAttr(b.title)}')">🎙 낭독 녹음</button>
+        <button id="lib-rec-stop-${safeId}" class="btn bd bsm" style="display:none;font-size:11px" onclick="stopLibRec('${safeId}')">⏹ 중지</button>
+        <span id="lib-rec-timer-${safeId}" style="display:none;font-size:12px;color:var(--teal);font-family:var(--fm)">⏺ <span id="lib-rec-time-${safeId}">0:00</span></span>
+      </div>
+      <div id="lib-preview-${safeId}" style="display:none;margin-top:8px">
+        <audio id="lib-player-${safeId}" controls style="width:100%;height:34px"></audio>
+        <button id="lib-submit-${safeId}" class="btn bt bsm" style="margin-top:6px;width:100%;font-size:12px" onclick="submitLibRec('${safeId}','${escAttr(b.id)}','${sid}','${escAttr(b.title)}')">📤 낭독 제출</button>
+        <div id="lib-ai-${safeId}" style="margin-top:6px;font-size:12px;line-height:1.6"></div>
+      </div>
+    </div>`;
     return`<div class="stu-book-card">
       <div class="stu-book-top">
         <div class="stu-book-cover">${b.emoji||'📚'}</div>
@@ -288,6 +362,7 @@ function renderStudentLibrary(sid){
         </div>
       </div>
       ${audioSection}
+      ${recSection}
     </div>`;
   }
 

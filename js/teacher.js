@@ -7158,7 +7158,15 @@ function renderSpBooks(sid){
     <button class="btn bo bxxs" onclick="editTbDone('${t.id}','${sid}')">수정</button>
     <button class="btn bd bxxs" onclick="removeDoneTb('${t.id}','${sid}')">삭제</button>
   </div>`;
-  el.innerHTML=`
+  const nextBanner=_pendingNextBook?`<div style="background:var(--tl);border:1.5px solid var(--teal);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px">
+    <div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:3px">🎉 완료! 다음 교재 추천</div>
+    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px">${_pendingNextBook.title}${_pendingNextBook.level?` <span style="font-size:10px;font-weight:normal;color:var(--slate)">(Lv.${_pendingNextBook.level})</span>`:''}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn bt bsm" onclick="addNextBookFromSuggestion('${sid}')">+ 바로 추가</button>
+      <button class="btn bo bsm" onclick="_pendingNextBook=null;renderSpBooks('${sid}')">다른 책 선택</button>
+    </div>
+  </div>`:'';
+  el.innerHTML=nextBanner+`
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
     <span style="font-size:12px;font-weight:700;color:var(--navy)">📚 교재 (${activeTbs.length}권)</span>
     <button class="btn bt bsm" onclick="openSpTbAdd('${sid}')">+ 교재 추가</button>
@@ -7378,6 +7386,40 @@ async function importRdCsv(e,sid){
   };
   reader.readAsText(file,'utf-8');
 }
+let _pendingNextBook=null;
+function getNextInSeries(title,bookId){
+  const allBooks=_cache.globalTextbooks||[];
+  const current=bookId?allBooks.find(b=>b.id===bookId):allBooks.find(b=>b.title===title);
+  const lvNum=s=>{const m=(s||'0').match(/(\d+(?:\.\d+)?)/);return m?parseFloat(m[1]):0;};
+  const curLv=lvNum(current?.level||'0');
+  const curPub=current?.publisher||'';
+  // Try same publisher + higher level
+  if(curPub){
+    const samePub=allBooks.filter(b=>b.id!==(current?.id||'')&&b.publisher===curPub&&lvNum(b.level||'0')>curLv)
+      .sort((a,b2)=>lvNum(a.level||'0')-lvNum(b2.level||'0'));
+    if(samePub.length)return samePub[0];
+  }
+  // Fallback: strip trailing number from title and match stem
+  const stem=title.replace(/\s*\d+(\.\d+)?\s*$/,'').trim();
+  if(stem&&stem!==title){
+    const sameStem=allBooks.filter(b=>b.id!==(current?.id||'')&&b.title.replace(/\s*\d+(\.\d+)?\s*$/,'').trim()===stem&&lvNum(b.level||b.title)>curLv)
+      .sort((a,b2)=>lvNum(a.level||a.title)-lvNum(b2.level||b2.title));
+    if(sameStem.length)return sameStem[0];
+  }
+  return null;
+}
+async function addNextBookFromSuggestion(sid){
+  if(!_pendingNextBook)return;
+  const nb=_pendingNextBook;
+  const isRd=nb.type==='원서';
+  const id=uid();
+  const entry={id,sid,title:nb.title,type:nb.type||'교재',bookId:nb.id||'',level:nb.level||'',currentUnit:'',active:true,completed:false};
+  await supaUpsert('textbooks',id,entry,sid);
+  if(!_cache.textbooks)_cache.textbooks=[];_cache.textbooks.push(entry);
+  _pendingNextBook=null;
+  renderSpBooks(sid);
+  toast(`✓ ${nb.title} 추가됐습니다`);
+}
 async function markDerivedTbDone(title,type,sid){
   const existing=(_cache.textbooks||[]).find(t=>t.sid===sid&&t.title===title);
   if(existing){markTextbookDone(existing.id,sid);return;}
@@ -7428,6 +7470,8 @@ async function confirmTbDone(){
   tb.completed=true;tb.completedDate=doneDate;
   await supaUpsert('textbooks',id,tb,sid);
   const idx=_cache.textbooks.findIndex(t=>t.id===id);if(idx>=0)_cache.textbooks[idx]=tb;
+  _pendingNextBook=getNextInSeries(tb.title,tb.bookId||'');
+  if(_pendingNextBook)_pendingNextBook={..._pendingNextBook,type:tb.type||'교재'};
   renderSpBooks(sid);
   if(tb.type==='원서'){
     const seen=new Set();
