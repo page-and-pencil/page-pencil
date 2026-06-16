@@ -432,16 +432,17 @@
             <div class="f s2"><label>읽은 책 제목 (선택)</label><input type="text" id="lg-book" placeholder="예) Nate the Great, In the Trolley..." list="dl-lib-books"><datalist id="dl-lib-books"></datalist></div>
           </div>
           <div class="f">
-            <label>리딩로그 사진 & 단어</label>
+            <label>리딩로그 PDF & 단어</label>
             <div id="log-content-area" style="display:block">
               <div id="log-upload-zone">
                 <div class="uz" id="log-uz" onclick="document.getElementById('lg-file').click()" ondragover="dov(event,'log-uz')" ondrop="ddr(event,'log-uz','log')">
-                  <div class="ui">📸</div><div class="ut" id="log-ut">클릭하거나 사진을 드래그</div>
+                  <div class="ui">📄</div><div class="ut" id="log-ut">클릭하거나 PDF를 드래그</div>
                 </div>
-                <input type="file" id="lg-file" accept="image/*" style="display:none" onchange="handleLogPhoto(event)">
+                <input type="file" id="lg-file" accept="image/*,application/pdf" style="display:none" onchange="handleLogPhoto(event)">
               </div>
               <div id="log-preview-wrap" style="display:none;min-width:0">
-                <img id="log-preview-img" style="width:100%;border-radius:8px;max-height:400px;object-fit:contain;border:1px solid var(--border);background:var(--cream2)">
+                <img id="log-preview-img" style="display:none;width:100%;border-radius:8px;max-height:400px;object-fit:contain;border:1px solid var(--border);background:var(--cream2)">
+                <embed id="log-preview-pdf" style="display:none;width:100%;height:380px;border-radius:8px;border:1px solid var(--border)" type="application/pdf">
                 <button onclick="clearLogPhoto()" style="display:block;width:100%;margin-top:6px;padding:4px 0;font-size:11px;color:var(--slate);background:none;border:1px solid var(--border);border-radius:var(--rs);cursor:pointer;font-family:var(--fb)">× 다시 선택</button>
               </div>
               <div id="log-word-area" style="min-width:0">

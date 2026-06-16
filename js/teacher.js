@@ -5310,18 +5310,26 @@ function dov(e,zid){e.preventDefault();document.getElementById(zid).classList.ad
 function ddr(e,zid,type){
   e.preventDefault();document.getElementById(zid).classList.remove('dv');
   const f=e.dataTransfer.files[0];
-  if(f&&f.type.startsWith('image/')){
-    if(type==='log'){handleLogPhoto({target:{files:[f]}});}
-    else if(type==='tst'){const dt=new DataTransfer();dt.items.add(f);document.getElementById('tst-file').files=dt.files;handleTstPhoto({target:{files:dt.files}});}
+  if(f){
+    const isImg=f.type.startsWith('image/');const isPdf=f.type==='application/pdf';
+    if(type==='log'&&(isImg||isPdf)){handleLogPhoto({target:{files:[f]}});}
+    else if(type==='tst'&&isImg){const dt=new DataTransfer();dt.items.add(f);document.getElementById('tst-file').files=dt.files;handleTstPhoto({target:{files:dt.files}});}
   }
 }
 async function handleLogPhoto(e){
   const f=e.target.files[0];if(!f)return;
   pendingLogFile=f;pendingLogMime=f.type;
   pendingLogB64=await fileToB64(f);
-  // 이미지 미리보기 표시 + 분할 레이아웃 전환
+  const isPdf=f.type==='application/pdf';
   const previewImg=document.getElementById('log-preview-img');
-  if(previewImg)previewImg.src='data:'+f.type+';base64,'+pendingLogB64;
+  const previewPdf=document.getElementById('log-preview-pdf');
+  if(isPdf){
+    if(previewImg)previewImg.style.display='none';
+    if(previewPdf){previewPdf.style.display='block';previewPdf.src=URL.createObjectURL(f);}
+  }else{
+    if(previewPdf)previewPdf.style.display='none';
+    if(previewImg){previewImg.style.display='block';previewImg.src='data:'+f.type+';base64,'+pendingLogB64;}
+  }
   document.getElementById('log-upload-zone').style.display='none';
   document.getElementById('log-preview-wrap').style.display='block';
   const area=document.getElementById('log-content-area');
@@ -5333,6 +5341,10 @@ function clearLogPhoto(){
   document.getElementById('lg-file').value='';
   const lgRows=document.getElementById('lg-word-rows');if(lgRows)lgRows.innerHTML='';
   document.getElementById('log-ai').innerHTML='';
+  const previewPdf=document.getElementById('log-preview-pdf');
+  if(previewPdf){previewPdf.style.display='none';previewPdf.src='';}
+  const previewImg=document.getElementById('log-preview-img');
+  if(previewImg){previewImg.style.display='none';previewImg.src='';}
   document.getElementById('log-upload-zone').style.display='block';
   document.getElementById('log-preview-wrap').style.display='none';
   const area=document.getElementById('log-content-area');
@@ -5359,7 +5371,7 @@ async function runLogAI(){
   if(!apiKey){status.innerHTML='<div class="ais warn">⚠️ API Key 미설정 — 단어를 직접 입력해 주세요</div>';return;}
   status.innerHTML='<div class="ais loading"><div class="spin"></div>AI가 단어를 읽고 있습니다...</div>';
   try{
-    const r=await callVision(apiKey,pendingLogB64,pendingLogMime,'이 리딩로그 이미지에서 "New words" 섹션(하단 표)에 기록된 영어 단어만 추출하세요.\n규칙:\n1. "New words" 표 안의 단어만, 본문·제목·기타 영역 제외\n2. 사람 이름·지명·고유명사 제외\n3. 단수/복수 둘 다 있으면 단수 원형만\n4. 동사 -ing/-ed/-s 형태는 원형 동사로 통일\nJSON만 반환: {"words":["word1","word2"]}');
+    const r=await callVision(apiKey,pendingLogB64,pendingLogMime,'이 리딩로그에서 "New words" 섹션(하단 표)에 기록된 영어 단어만 추출하세요.\n규칙:\n1. "New words" 표 안의 단어만, 본문·제목·기타 영역 제외\n2. 사람 이름·지명·고유명사 제외\n3. 단수/복수 둘 다 있으면 단수 원형만\n4. 동사 -ing/-ed/-s 형태는 원형 동사로 통일\nJSON만 반환: {"words":["word1","word2"]}');
     const d=JSON.parse(r.replace(/```json|```/g,'').trim());
     if(d.words&&d.words.length){
       const words=d.words.map(w=>(w||'').toLowerCase().trim()).filter(Boolean);
@@ -5383,7 +5395,7 @@ async function runLogAI(){
 async function uploadCld(file){
   const {name,preset}=DB.cld();if(!name||!preset)return null;
   const fd=new FormData();fd.append('file',file);fd.append('upload_preset',preset);
-  const res=await fetch(`https://api.cloudinary.com/v1_1/${name}/image/upload`,{method:'POST',body:fd});
+  const res=await fetch(`https://api.cloudinary.com/v1_1/${name}/auto/upload`,{method:'POST',body:fd});
   if(!res.ok){const d=await res.json().catch(()=>({}));throw new Error(d.error?.message||'업로드 실패 ('+res.status+')');}
   return (await res.json()).secure_url;
 }
@@ -5406,7 +5418,7 @@ async function saveLog(){
   // 초기화 먼저
   clearLogPhoto();
   if(document.getElementById('lg-book'))document.getElementById('lg-book').value='';
-  document.getElementById('log-ut').textContent='클릭하거나 사진을 드래그';
+  document.getElementById('log-ut').textContent='클릭하거나 PDF를 드래그';
   renderLog();
   if(wordEntries.length){
     try{await syncVocabCards(sid,wordEntries,[],date,bookTitle||'리딩로그');}catch(e){console.error(e);}
@@ -5502,7 +5514,10 @@ async function handleTstPhoto(e){
 
 // ── AI VISION ──
 async function callVision(apiKey,b64,mime,prompt){
-  const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mime,data:b64}},{type:'text',text:prompt}]}]});
+  const mediaBlock=mime==='application/pdf'
+    ?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
+    :{type:'image',source:{type:'base64',media_type:mime,data:b64}};
+  const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:[mediaBlock,{type:'text',text:prompt}]}]});
   if(!d.content?.[0]?.text)throw new Error('AI 응답 없음');
   return d.content[0].text;
 }
