@@ -390,12 +390,46 @@ async function getMeaningKoFast(word){
     return ko;
   }catch{return null;}
 }
-// 브라우저 내장 TTS로 단어 발음 (무료·오프라인 가능)
-function speakWord(word,rate=0.85){
+// TTS: 단어는 사전 녹음 오디오, 구문/문장은 브라우저 최고품질 음성
+const _ttsCache={};
+let _bestVoice=null;
+function _initBestVoice(){
+  const vs=(window.speechSynthesis?.getVoices()||[]).filter(v=>v.lang.startsWith('en'));
+  for(const pred of[
+    v=>v.name.toLowerCase().includes('google')&&v.lang==='en-US',
+    v=>v.name==='Samantha',
+    v=>v.name.toLowerCase().includes('microsoft')&&v.lang==='en-US',
+    v=>v.lang==='en-US',
+    v=>v.lang.startsWith('en-'),
+  ]){const f=vs.find(pred);if(f){_bestVoice=f;return;}}
+}
+if('speechSynthesis' in window){
+  window.speechSynthesis.onvoiceschanged=()=>{_bestVoice=null;_initBestVoice();};
+  if(window.speechSynthesis.getVoices().length)_initBestVoice();
+}
+async function speakWord(text,rate=0.85){
+  if(!text||!text.trim())return;
+  const clean=text.trim();
+  if(/^\w+$/.test(clean)){
+    const key=clean.toLowerCase();
+    if(_ttsCache[key]===undefined){
+      try{
+        const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(key)}`,{signal:AbortSignal.timeout(3000)});
+        const d=r.ok?await r.json():null;
+        const au=d?.[0]?.phonetics?.find(p=>p.audio&&p.audio.includes('-us.'))?.audio
+          ||d?.[0]?.phonetics?.find(p=>p.audio&&p.audio.trim())?.audio||'';
+        _ttsCache[key]=au;
+      }catch{_ttsCache[key]='';}
+    }
+    if(_ttsCache[key]){
+      try{const a=new Audio(_ttsCache[key]);a.playbackRate=1;await a.play();return;}catch(e){}
+    }
+  }
   if(!('speechSynthesis' in window))return;
   window.speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(word);
+  const u=new SpeechSynthesisUtterance(clean);
   u.lang='en-US';u.rate=rate;
+  if(_bestVoice)u.voice=_bestVoice;
   window.speechSynthesis.speak(u);
 }
 

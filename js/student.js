@@ -1549,7 +1549,7 @@ function startUrTTS(){
   const text=body.innerText||'';if(!text.trim())return;
   stopSpeak();
   const u=new SpeechSynthesisUtterance(text);
-  u.lang='en-US';u.rate=0.85;
+  u.lang='en-US';u.rate=0.85;if(_bestVoice)u.voice=_bestVoice;
   const btn=document.getElementById('ur-tts-btn');if(btn)btn.textContent='▶ 재생 중...';
   u.onend=u.onerror=()=>{if(btn)btn.textContent='▶ 듣기';};
   window.speechSynthesis.speak(u);
@@ -1589,7 +1589,7 @@ function urPlayPattern(idx){
   document.querySelectorAll('[id^="ur-pat-row-"]').forEach(el=>el.style.borderColor='var(--border)');
   if(row)row.style.borderColor='var(--teal)';
   const u=new SpeechSynthesisUtterance(line);
-  u.lang='en-US';u.rate=0.82;
+  u.lang='en-US';u.rate=0.82;if(_bestVoice)u.voice=_bestVoice;
   u.onend=u.onerror=()=>{if(row)row.style.borderColor='var(--border)';};
   window.speechSynthesis.speak(u);
 }
@@ -1606,7 +1606,7 @@ function urPlayAllPatterns(){
     const row=document.getElementById('ur-pat-row-'+idx);
     if(row){row.style.borderColor='var(--teal)';row.scrollIntoView({behavior:'smooth',block:'nearest'});}
     const u=new SpeechSynthesisUtterance(lines[idx]);
-    u.lang='en-US';u.rate=0.82;
+    u.lang='en-US';u.rate=0.82;if(_bestVoice)u.voice=_bestVoice;
     u.onend=()=>{if(row)row.style.borderColor='var(--border)';idx++;setTimeout(playNext,400);};
     u.onerror=()=>{idx++;setTimeout(playNext,400);};
     window.speechSynthesis.speak(u);
@@ -1699,7 +1699,7 @@ function startUnitTTS(){
   const text=body.innerText||'';if(!text.trim())return;
   stopSpeak();
   const u=new SpeechSynthesisUtterance(text);
-  u.lang='en-US';u.rate=0.85;
+  u.lang='en-US';u.rate=0.85;if(_bestVoice)u.voice=_bestVoice;
   const btn=document.getElementById('tts-play-btn');if(btn)btn.textContent='▶ 재생 중...';
   u.onend=u.onerror=()=>{if(btn)btn.textContent='▶ 듣기';};
   window.speechSynthesis.speak(u);

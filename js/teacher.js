@@ -371,30 +371,22 @@ function renderSpRdlog(sid){
   if(!sid)return;
   const el=document.getElementById('sp-rdlog');if(!el)return;
   const logs=DB.logs().filter(l=>l.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const cardMap={};(_cache.vocab_cards||[]).filter(c=>c.sid===sid).forEach(c=>cardMap[c.word.toLowerCase()]=c);
-  const logsHtml=!logs.length?'<div class="empty"><div class="empty-i">📖</div><div class="empty-t">리딩로그 없음</div></div>':
-    logs.map(l=>`<div style="padding:12px 0;border-bottom:1px solid var(--border)">
-      <div style="display:flex;gap:10px;align-items:flex-start">
-        ${l.photoUrl?`<img src="${l.photoUrl}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer" onclick="openLb('${escU(l.photoUrl||'')}')">`:
-        `<div style="width:72px;height:72px;border-radius:8px;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📝</div>`}
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-            <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${l.date||''}</span>
-            ${l.bookTitle?`<span style="font-size:11px;font-weight:700;color:var(--navy);font-family:var(--fd)">📗 ${l.bookTitle}</span>`:''}
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px">
-            ${(l.words||[]).length?(l.words||[]).map(w=>{const c=cardMap[w.toLowerCase()];return`<span style="display:inline-flex;align-items:center;gap:3px;background:var(--cream2);border:1px solid var(--border);border-radius:12px;padding:2px 8px;font-size:11px">
-              <span style="font-weight:600">${w}</span>${c?.meaning?`<span style="color:var(--slate);font-size:10px">· ${c.meaning}</span>`:''}
-              <button onclick="delVocabCard('${c?.id||''}','${sid}','${escAttr(w)}')" style="background:none;border:none;cursor:pointer;color:var(--coral);font-size:13px;padding:0;line-height:1;margin-left:2px">×</button>
-            </span>`}).join(''):'<span style="color:var(--slate);font-size:11px">추출된 단어 없음</span>'}
-          </div>
-        </div>
+  if(!logs.length){el.innerHTML='<div class="empty"><div class="empty-i">📸</div><div class="empty-t">리딩로그 없음</div></div>';return;}
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <span style="font-size:13px;font-weight:700">📸 리딩로그</span>
+    <span style="font-size:11px;color:var(--slate)">${logs.length}장</span>
+  </div>
+  <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scroll-snap-type:x mandatory">
+    ${logs.map(l=>`<div style="flex-shrink:0;width:140px;scroll-snap-align:start">
+      <div style="width:140px;height:105px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="openLb('${escU(l.photoUrl||'')}')">
+        ${l.photoUrl?`<img src="${l.photoUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`:`<div style="font-size:28px">📷</div>`}
       </div>
-    </div>`).join('');
-  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-    <span style="font-size:13px;font-weight:700">📖 리딩로그 & 단어 목록</span>
-    <span style="font-size:11px;color:var(--slate)">${logs.length}건</span>
-  </div>${logsHtml}`;
+      <div style="margin-top:5px;padding:0 2px">
+        <div style="font-size:10px;color:var(--slate);font-family:var(--fm)">${l.date||''}</div>
+        ${l.bookTitle?`<div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(l.bookTitle)}">📗 ${l.bookTitle}</div>`:''}
+      </div>
+    </div>`).join('')}
+  </div>`;
 }
 
 let _vocabFilter={search:'',phase:'',src:'',sort:'alpha'};
@@ -5350,65 +5342,14 @@ async function handleLogPhoto(e){
   }
   document.getElementById('log-upload-zone').style.display='none';
   document.getElementById('log-preview-wrap').style.display='block';
-  const area=document.getElementById('log-content-area');
-  area.style.display='flex';area.style.flexDirection='column';area.style.gap='10px';
-  await runLogAI();
 }
 function clearLogPhoto(){
   pendingLogFile=null;pendingLogB64='';pendingLogMime='';
   document.getElementById('lg-file').value='';
-  const lgRows=document.getElementById('lg-word-rows');if(lgRows)lgRows.innerHTML='';
-  document.getElementById('log-ai').innerHTML='';
-  const previewPdf=document.getElementById('log-preview-pdf');
-  if(previewPdf){previewPdf.style.display='none';previewPdf.src='';}
   const previewImg=document.getElementById('log-preview-img');
-  if(previewImg){previewImg.style.display='none';previewImg.src='';}
+  if(previewImg){previewImg.src='';}
   document.getElementById('log-upload-zone').style.display='block';
   document.getElementById('log-preview-wrap').style.display='none';
-  const area=document.getElementById('log-content-area');
-  area.style.display='block';area.style.flexDirection='';area.style.gap='';
-}
-function logWordRowHtml(i,word,ko){
-  const iS='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;min-width:0';
-  return `<div class="log-word-row" data-idx="${i}" style="display:grid;grid-template-columns:1fr 1fr auto;gap:4px;align-items:center;margin-bottom:2px">
-    <input type="text" class="lwr-word" value="${escAttr(word)}" placeholder="영단어" style="${iS}">
-    <input type="text" class="lwr-ko" value="${escAttr(ko)}" placeholder="뜻 조회 중..." style="${iS}">
-    <button style="background:none;border:none;cursor:pointer;color:var(--slate);font-size:16px;padding:0 4px;line-height:1" onclick="this.closest('.log-word-row').remove()">×</button>
-  </div>`;
-}
-function addLogWordRow(){
-  const el=document.getElementById('lg-word-rows');if(!el)return;
-  const iS='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;min-width:0';
-  const div=document.createElement('div');div.className='log-word-row';
-  div.style.cssText='display:grid;grid-template-columns:1fr 1fr auto;gap:4px;align-items:center';
-  div.innerHTML=`<input type="text" class="lwr-word" placeholder="영단어" style="${iS}"><input type="text" class="lwr-ko" placeholder="뜻" style="${iS}"><button style="background:none;border:none;cursor:pointer;color:var(--slate);font-size:16px;padding:0 4px;line-height:1" onclick="this.closest('.log-word-row').remove()">×</button>`;
-  el.appendChild(div);div.querySelector('.lwr-word')?.focus();
-}
-async function runLogAI(){
-  const apiKey=DB.api();const status=document.getElementById('log-ai');
-  if(!apiKey){status.innerHTML='<div class="ais warn">⚠️ API Key 미설정 — 단어를 직접 입력해 주세요</div>';return;}
-  status.innerHTML='<div class="ais loading"><div class="spin"></div>AI가 단어를 읽고 있습니다...</div>';
-  try{
-    const r=await callVision(apiKey,pendingLogB64,pendingLogMime,'이 리딩로그에서 "New words" 섹션(하단 표)에 기록된 영어 단어만 추출하세요.\n규칙:\n1. "New words" 표 안의 단어만, 본문·제목·기타 영역 제외\n2. 사람 이름·지명·고유명사 제외\n3. 단수/복수 둘 다 있으면 단수 원형만\n4. 동사 -ing/-ed/-s 형태는 원형 동사로 통일\nJSON만 반환: {"words":["word1","word2"]}');
-    const d=JSON.parse(r.replace(/```json|```/g,'').trim());
-    if(d.words&&d.words.length){
-      const words=d.words.map(w=>(w||'').toLowerCase().trim()).filter(Boolean);
-      const rowsEl=document.getElementById('lg-word-rows');
-      if(rowsEl){
-        rowsEl.innerHTML=words.map((w,i)=>logWordRowHtml(i,w,'')).join('');
-        status.innerHTML=`<div class="ais loading"><div class="spin"></div>${words.length}개 단어 추출 완료, 뜻 조회 중...</div>`;
-        const stu=(_cache.students||[]).find(s=>s.id===document.getElementById('lg-stu')?.value);
-        const grade=stu?.grade||stu?.lv||'';
-        Promise.allSettled(words.map(async(w,i)=>{
-          try{
-            const m=await getWordMetaFull(w,grade);
-            const row=rowsEl.querySelectorAll('.log-word-row')[i];
-            if(row){const koEl=row.querySelector('.lwr-ko');if(koEl&&!koEl.value&&m.ko)koEl.value=m.ko;}
-          }catch{}
-        })).then(()=>{status.innerHTML=`<div class="ais ok">✅ ${words.length}개 단어 추출 완료</div>`;});
-      }
-    }else{status.innerHTML='<div class="ais warn">⚠️ 단어를 인식하지 못했습니다. 직접 입력해 주세요</div>';}
-  }catch(e){status.innerHTML='<div class="ais err">⚠️ AI 인식 실패: '+e.message+'</div>';}
 }
 async function uploadCld(file){
   const {name,preset}=DB.cld();if(!name||!preset)return null;
@@ -5419,9 +5360,6 @@ async function uploadCld(file){
 }
 async function saveLog(){
   const sid=document.getElementById('lg-stu').value;if(!sid){toast('학생을 선택해 주세요');return;}
-  const wordRows=document.querySelectorAll('#lg-word-rows .log-word-row');
-  const wordEntries=[...wordRows].map(r=>({word:(r.querySelector('.lwr-word')?.value||'').trim().toLowerCase(),ko:(r.querySelector('.lwr-ko')?.value||'').trim()})).filter(e=>e.word);
-  const words=wordEntries.map(e=>e.word);
   let photoUrl='';
   if(pendingLogFile){
     toast('저장 중...');
@@ -5430,21 +5368,13 @@ async function saveLog(){
   }
   const date=document.getElementById('lg-date').value||new Date().toISOString().split('T')[0];
   const bookTitle=(document.getElementById('lg-book')?.value||'').trim();
-  const newLog={id:uid(),sid,date,words,photoUrl,bookTitle};
+  const newLog={id:uid(),sid,date,photoUrl,bookTitle};
   await supaUpsert('logs',newLog.id,newLog,sid);
   _cache.logs.unshift(newLog);
-  // 초기화 먼저
   clearLogPhoto();
   if(document.getElementById('lg-book'))document.getElementById('lg-book').value='';
-  document.getElementById('log-ut').textContent='클릭하거나 PDF를 드래그';
   renderLog();
-  if(wordEntries.length){
-    try{await syncVocabCards(sid,wordEntries,[],date,bookTitle||'리딩로그');}catch(e){console.error(e);}
-    renderSpVocab?.(sid);
-    toast(`리딩로그 저장 + ${wordEntries.length}개 단어 단어장 추가`);
-  }else{
-    toast('리딩로그가 저장되었습니다');
-  }
+  toast('리딩로그가 저장되었습니다');
 }
 function reqDelLog(id){
   askConfirm('리딩로그 삭제','이 리딩로그를 삭제할까요?','삭제','bd',async()=>{
@@ -5472,7 +5402,7 @@ function renderLog(){
         <button onclick="openEditLog('${l.id}')" style="background:rgba(255,255,255,.85);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;font-size:12px">✏️</button>
         <button onclick="reqDelLog('${l.id}')" style="background:rgba(255,255,255,.85);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;font-size:12px">🗑️</button>
       </div>
-      <div class="pim"><div style="font-weight:700">${s?s.name:'—'}</div><div>${l.date||''}</div>${l.words&&l.words.length?`<div style="opacity:.8">${l.words.slice(0,3).join(', ')}${l.words.length>3?'…':''}</div>`:''}</div>
+      <div class="pim"><div style="font-weight:700">${s?s.name:'—'}</div><div>${l.date||''}</div>${l.bookTitle?`<div style="opacity:.8;font-size:10px">📗 ${l.bookTitle}</div>`:''}</div>
     </div>`;
   }).join('');
 }
