@@ -5316,17 +5316,35 @@ function ddr(e,zid,type){
     else if(type==='tst'&&isImg){const dt=new DataTransfer();dt.items.add(f);document.getElementById('tst-file').files=dt.files;handleTstPhoto({target:{files:dt.files}});}
   }
 }
+async function pdfFirstPageToB64(file){
+  if(!window.pdfjsLib)throw new Error('PDF.js 로드 실패');
+  const ab=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:new Uint8Array(ab)}).promise;
+  const page=await pdf.getPage(1);
+  const vp=page.getViewport({scale:2.5});
+  const canvas=document.createElement('canvas');
+  canvas.width=vp.width;canvas.height=vp.height;
+  await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
+  return canvas.toDataURL('image/jpeg',0.92).split(',')[1];
+}
 async function handleLogPhoto(e){
   const f=e.target.files[0];if(!f)return;
-  pendingLogFile=f;pendingLogMime=f.type;
-  pendingLogB64=await fileToB64(f);
+  pendingLogFile=f;
   const isPdf=f.type==='application/pdf';
   const previewImg=document.getElementById('log-preview-img');
   const previewPdf=document.getElementById('log-preview-pdf');
   if(isPdf){
-    if(previewImg)previewImg.style.display='none';
-    if(previewPdf){previewPdf.style.display='block';previewPdf.src=URL.createObjectURL(f);}
+    const status=document.getElementById('log-ai');
+    if(status)status.innerHTML='<div class="ais loading"><div class="spin"></div>PDF 변환 중...</div>';
+    try{
+      pendingLogB64=await pdfFirstPageToB64(f);
+      pendingLogMime='image/jpeg';
+    }catch(err){toast('PDF 변환 실패: '+err.message);return;}
+    if(previewPdf)previewPdf.style.display='none';
+    if(previewImg){previewImg.style.display='block';previewImg.src='data:image/jpeg;base64,'+pendingLogB64;}
   }else{
+    pendingLogMime=f.type;
+    pendingLogB64=await fileToB64(f);
     if(previewPdf)previewPdf.style.display='none';
     if(previewImg){previewImg.style.display='block';previewImg.src='data:'+f.type+';base64,'+pendingLogB64;}
   }
@@ -5514,10 +5532,7 @@ async function handleTstPhoto(e){
 
 // ── AI VISION ──
 async function callVision(apiKey,b64,mime,prompt){
-  const mediaBlock=mime==='application/pdf'
-    ?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
-    :{type:'image',source:{type:'base64',media_type:mime,data:b64}};
-  const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:[mediaBlock,{type:'text',text:prompt}]}]});
+  const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mime,data:b64}},{type:'text',text:prompt}]}]});
   if(!d.content?.[0]?.text)throw new Error('AI 응답 없음');
   return d.content[0].text;
 }
