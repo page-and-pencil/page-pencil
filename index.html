@@ -328,12 +328,18 @@
               <button type="button" class="cmt-chip" onclick="addCmtChip('문장 구성 능숙')">문장 구성 능숙</button>
             </div>
             <textarea id="ls-cmt" placeholder="예) 집중도 좋음. 리딩 속도 향상 중. 어휘 복습 필요" oninput="debouncedCmtPreview()"></textarea></div>
-          <div style="display:flex;gap:6px;margin-top:4px;margin-bottom:4px">
+          <div style="display:flex;gap:6px;margin-top:4px;margin-bottom:4px;flex-wrap:wrap">
+            <button type="button" class="btn bo bsm" onclick="previewPolishedCmt()" style="font-size:11px">👁 학부모 미리보기</button>
+            <button type="button" class="btn bo bsm" onclick="previewStuCmt()" style="font-size:11px">🙋 학생 응원 미리보기</button>
             <span id="cmt-preview-status" style="font-size:11px;color:var(--slate);align-self:center"></span>
           </div>
-          <div id="cmt-preview-box" style="display:none;margin-bottom:8px;padding:12px;background:var(--tl);border-radius:8px;border-left:3px solid var(--teal)">
-            <div style="font-size:10px;font-weight:700;color:var(--slate);margin-bottom:4px">학부모에게 보여질 내용</div>
-            <div id="cmt-preview-text" style="font-size:13px;color:var(--navy);line-height:1.7"></div>
+          <div id="cmt-preview-box" style="display:none;margin-bottom:6px;padding:10px 12px;background:var(--tl);border-radius:8px;border-left:3px solid var(--teal)">
+            <div style="font-size:10px;font-weight:700;color:var(--teal);margin-bottom:4px">📨 학부모 코멘트 <span style="font-weight:400;color:var(--slate)">(수정 가능)</span></div>
+            <textarea id="cmt-preview-text" style="font-size:12px;color:var(--navy);line-height:1.6;width:100%;border:none;background:transparent;resize:vertical;font-family:var(--fb);min-height:56px;outline:none;box-sizing:border-box"></textarea>
+          </div>
+          <div id="stu-cmt-preview-box" style="display:none;margin-bottom:6px;padding:10px 12px;background:var(--cream2);border-radius:8px;border-left:3px solid var(--navy)">
+            <div style="font-size:10px;font-weight:700;color:var(--navy);margin-bottom:4px">🙋 학생 응원 코멘트 <span style="font-weight:400;color:var(--slate)">(수정 가능)</span></div>
+            <textarea id="stu-cmt-preview-text" style="font-size:12px;color:var(--navy);line-height:1.6;width:100%;border:none;background:transparent;resize:vertical;font-family:var(--fb);min-height:56px;outline:none;box-sizing:border-box"></textarea>
           </div>
           <div id="polished-ready-hint" style="display:none;font-size:11px;color:#0A5940;background:rgba(10,89,64,.07);border-radius:6px;padding:6px 10px;margin-bottom:6px;line-height:1.5"></div>
           <!-- 루브릭 평가 (선택) -->
@@ -1046,13 +1052,18 @@
         <button type="button" class="cmt-chip" onclick="addElCmtChip('문장 구성 능숙')">문장 구성 능숙</button>
       </div>
       <textarea id="el-cmt" style="min-height:90px;margin-bottom:0"></textarea>
-      <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:4px">
-        <button type="button" class="btn bo bsm" onclick="previewElPolishedCmt()">👁 학부모용 미리보기</button>
+      <div style="display:flex;gap:6px;margin-top:6px;margin-bottom:4px;flex-wrap:wrap">
+        <button type="button" class="btn bo bsm" onclick="previewElPolishedCmt()" style="font-size:11px">👁 학부모 미리보기</button>
+        <button type="button" class="btn bo bsm" onclick="previewElStuCmt()" style="font-size:11px">🙋 학생 응원 미리보기</button>
         <span id="el-cmt-preview-status" style="font-size:11px;color:var(--slate);align-self:center"></span>
       </div>
       <div id="el-cmt-preview-box" style="display:none;padding:10px 12px;background:var(--tl);border-radius:8px;border-left:3px solid var(--teal);margin-bottom:4px">
-        <div style="font-size:10px;font-weight:700;color:var(--slate);margin-bottom:4px">학부모에게 보여질 내용</div>
-        <div id="el-cmt-preview-text" style="font-size:13px;color:var(--navy);line-height:1.7"></div>
+        <div style="font-size:10px;font-weight:700;color:var(--teal);margin-bottom:4px">📨 학부모 코멘트 <span style="font-weight:400;color:var(--slate)">(수정 가능)</span></div>
+        <textarea id="el-cmt-preview-text" style="font-size:12px;color:var(--navy);line-height:1.6;width:100%;border:none;background:transparent;resize:vertical;font-family:var(--fb);min-height:56px;outline:none;box-sizing:border-box"></textarea>
+      </div>
+      <div id="el-stu-cmt-preview-box" style="display:none;padding:10px 12px;background:var(--cream2);border-radius:8px;border-left:3px solid var(--navy);margin-bottom:4px">
+        <div style="font-size:10px;font-weight:700;color:var(--navy);margin-bottom:4px">🙋 학생 응원 코멘트 <span style="font-weight:400;color:var(--slate)">(수정 가능)</span></div>
+        <textarea id="el-stu-cmt-preview-text" style="font-size:12px;color:var(--navy);line-height:1.6;width:100%;border:none;background:transparent;resize:vertical;font-family:var(--fb);min-height:56px;outline:none;box-sizing:border-box"></textarea>
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:4px">
@@ -1617,7 +1628,11 @@
           <option value="other">기타</option>
         </select>
       </div>
-      <div class="f s2"><label>교재/원서</label><input type="text" id="modal-assign-book" list="dl-modal-assign-books" placeholder="교재 또는 원서명 (자동완성)" autocomplete="off" oninput="assignBookChange()"><datalist id="dl-modal-assign-books"></datalist></div>
+      <div class="f s2" id="modal-assign-book-wrap"><label>교재/원서</label>
+        <input type="text" id="modal-assign-book" placeholder="제목 검색 또는 직접 입력" autocomplete="off" oninput="modalAssignBookSearch()" style="width:100%;box-sizing:border-box">
+        <div id="modal-assign-book-dd" style="display:none;position:relative;z-index:20;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);max-height:140px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1);font-size:12px;margin-top:2px"></div>
+        <input type="hidden" id="modal-assign-book-id">
+      </div>
       <div class="f s2"><label>범위/내용</label><input type="text" id="modal-assign-range" placeholder="예: Unit 3 p.24-28 / Ch.1~3 완독"></div>
     </div>
     <div id="modal-assign-range-helper" style="display:none;margin:-4px 0 8px;padding:0 2px"></div>

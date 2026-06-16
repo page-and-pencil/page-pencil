@@ -30,7 +30,7 @@ async function startBrowserRec(asgnId,sid){
   }catch(e){toast('마이크 접근이 필요합니다. 파일로 올려주세요.');}
 }
 function stopBrowserRec(asgnId){if(_brRecorder&&_brRecorder.state==='recording')_brRecorder.stop();}
-let vocabSessionSize=10;
+let vocabSessionSize=0;
 async function goStudentPin(){
   const sess=loadSession();
   if(sess?.role==='student'){
@@ -669,9 +669,16 @@ function renderVocabDeck(sid){
       }catch(e){}
     }
   }
-  // 복습 우선 정렬: misses 많은 것, due 지난 것
+  // 복습 우선 정렬: 직전 수업 단어 → due 지난 것 → misses 많은 것
   const today=new Date().toISOString().split('T')[0];
+  const recentLes=DB.less().filter(l=>l.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
+  const recentDate=recentLes?.date||'';
   const sorted=[...cards].sort((a,b)=>{
+    // 직전 수업일에 추가된 단어 최우선
+    const aRecent=a.addedDate===recentDate?1:0;
+    const bRecent=b.addedDate===recentDate?1:0;
+    if(aRecent!==bRecent)return bRecent-aRecent;
+    // due 지난 것 다음 우선
     const aDue=(a.due||'')<=today?1:0;
     const bDue=(b.due||'')<=today?1:0;
     if(aDue!==bDue)return bDue-aDue;
@@ -701,7 +708,7 @@ function renderVocabPhaseIntro(el){
     <div style="font-size:13px;color:var(--slate);margin-bottom:1.2rem;line-height:1.8">${p.sub}</div>
     ${deckState.phase===0?`<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:1.4rem;flex-wrap:wrap">
       <span style="font-size:12px;color:var(--slate)">세션:</span>
-      ${[10,20,null].map(n=>`<button class="btn ${vocabSessionSize===n?'bt':'bo'} bsm" style="font-size:11px;padding:3px 10px" onclick="vocabSessionSize=${n};renderVocabDeck(currentStudentSid)">${n?n+'개':'전체'}</button>`).join('')}
+      ${[null,20,10].map(n=>`<button class="btn ${vocabSessionSize===n?'bt':'bo'} bsm" style="font-size:11px;padding:3px 10px" onclick="vocabSessionSize=${n};renderVocabDeck(currentStudentSid)">${n?n+'개':'전체'}</button>`).join('')}
     </div>`:''}
     <button class="btn bt" style="padding:14px 40px;font-size:15px;border-radius:50px" onclick="startVocabPhase()">시작 →</button>
     ${deckState.phase>0?`<div style="margin-top:1rem"><button class="btn bo bsm" onclick="renderVocabDeck(currentStudentSid)">처음부터</button></div>`:''}
@@ -1198,7 +1205,7 @@ function renderHomeStats(sid){
     <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:8px;letter-spacing:.04em">📊 내 기록 <span style="font-weight:400;font-size:10px">(숫자 클릭 시 상세)</span></div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
       ${statBox(completedCount,'var(--navy)','완료 숙제','assign')}
-      ${statBox(vocabLearned,'var(--teal)','외운 단어','vocab')}
+      ${statBox(vocabLearned,'var(--teal)','공부한 단어','vocab')}
       ${statBox(rdsCount,'var(--navy)','읽은 책','rds')}
     </div>
   </div>`;
@@ -1248,12 +1255,14 @@ function renderLastLesson(sid){
       <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${last.date||''}</span>
     </div>
     ${matHtml?`<div style="margin-bottom:6px">${matHtml}</div>`:''}
-    ${rawCmt?`<div id="stu-lesson-cmt" data-raw="${escAttr(rawCmt)}" data-mats="${escAttr(matsText)}" style="font-size:12px;color:var(--slate);line-height:1.6">...</div>`:''}
+    ${rawCmt?`<div id="stu-lesson-cmt" data-raw="${escAttr(rawCmt)}" data-mats="${escAttr(matsText)}" data-stored="${escAttr(last.stuCmt||'')}" style="font-size:12px;color:var(--slate);line-height:1.6">...</div>`:''}
     <button class="btn bt bsm" style="margin-top:8px;border-radius:50px" onclick="swStuTab('st-vocab')">📚 단어 복습 →</button>
   </div>`;
 }
 async function polishStudentCmt(givenName){
   const el=document.getElementById('stu-lesson-cmt');if(!el)return;
+  const stored=el.dataset.stored||'';
+  if(stored){el.textContent=stored;return;}
   const raw=el.dataset.raw||'';if(!raw){el.textContent='';return;}
   const mats=el.dataset.mats||'';
   const apiKey=DB.api();

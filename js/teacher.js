@@ -859,7 +859,7 @@ async function loadStuPanel(sid){
         const unitHtml=units.length>1
           ?`<div style="padding-left:4px;margin-top:1px">${units.map(u=>`<div style="font-size:11px;color:var(--slate);line-height:1.6">${u}</div>`).join('')}</div>`
           :units.length===1?` <span style="color:var(--slate)">${units[0]}</span>`:'';
-        const html=`<div style="margin-bottom:3px"><span class="spill ${cls}">${label}</span> <span style="font-weight:600">${v.book||''}</span>${unitHtml}</div>`;
+        const html=`<div style="margin-bottom:3px"><span style="font-weight:600">${v.book||''}</span> <span class="spill ${cls}">${label}</span>${unitHtml}</div>`;
         if(isBook)bookParts.push(html);else tbParts.push(html);
       });
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
@@ -871,9 +871,10 @@ async function loadStuPanel(sid){
             <button class="btn bd bxxs" onclick="reqDelLesFromPanel('${l.id}','${sid}')">🗑️</button>
           </div>
         </div>
-        ${tbParts.length?`<div style="font-size:12px;margin-bottom:${bookParts.length||l.cmt?'6px':'0'}">${tbParts.join('')}</div>`:''}
-        ${bookParts.length?`<div style="font-size:12px;margin-bottom:${l.cmt?'6px':'0'};padding:6px 8px;background:var(--cream2);border-radius:6px">${bookParts.join('')}</div>`:''}
-        ${l.cmt?`<div style="font-size:12px;color:var(--slate)">${l.cmt}</div>`:''}
+        ${tbParts.length?`<div style="font-size:12px;margin-bottom:${bookParts.length||l.polishedCmt||l.stuCmt?'6px':'0'}">${tbParts.join('')}</div>`:''}
+        ${bookParts.length?`<div style="font-size:12px;margin-bottom:${l.polishedCmt||l.stuCmt?'6px':'0'};padding:6px 8px;background:var(--cream2);border-radius:6px">${bookParts.join('')}</div>`:''}
+        ${l.polishedCmt?`<div style="font-size:12px;color:var(--slate);padding:5px 8px;background:var(--tl);border-radius:6px;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:var(--teal);display:block;margin-bottom:1px">학부모</span>${l.polishedCmt}</div>`:(l.cmt&&!l.stuCmt?`<div style="font-size:12px;color:var(--slate)">${l.cmt}</div>`:'')}
+        ${l.stuCmt?`<div style="font-size:12px;color:var(--slate);padding:5px 8px;background:var(--cream2);border-radius:6px"><span style="font-size:10px;font-weight:700;color:var(--navy);display:block;margin-bottom:1px">학생</span>${l.stuCmt}</div>`:''}
       </div>`;
     }).join('')}
     ${les.length>10?`<div style="text-align:center;padding:10px 0;font-size:12px;color:var(--teal);cursor:pointer" onclick="swTab('t-les');document.getElementById('les-filter-stu').value='${sid}';lesPage=0;renderLes()">전체 ${les.length}건 수업 기록 보기 →</div>`:''}
@@ -1495,16 +1496,32 @@ function escAttr(s){return(s||'').replace(/"/g,'&quot;');}
 function addElCmtChip(text){const ta=document.getElementById('el-cmt');if(!ta)return;ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;ta.focus();}
 function addClCommonCmtChip(text){const ta=document.getElementById('cl-common-cmt');if(!ta)return;ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;ta.focus();}
 async function previewElPolishedCmt(){
-  const raw=document.getElementById('el-cmt').value.trim();
+  const raw=document.getElementById('el-cmt')?.value.trim()||'';
   if(!raw){toast('코멘트를 먼저 입력해 주세요');return;}
+  const mats=getSMatsFrom('el-subj-rows');
+  const matsText=_getMatsTextFromMaterials(mats);
   const status=document.getElementById('el-cmt-preview-status');
+  if(status)status.textContent='변환 중...';
+  const polished=await polishCmt(raw,matsText);
+  if(status)status.textContent='';
   const box=document.getElementById('el-cmt-preview-box');
   const txt=document.getElementById('el-cmt-preview-text');
-  if(status)status.textContent='변환 중...';
-  const polished=await polishCmt(raw);
-  if(status)status.textContent='';
   if(box)box.style.display='block';
-  if(txt)txt.textContent=polished||raw;
+  if(txt)txt.value=polished||raw;
+}
+async function previewElStuCmt(){
+  const raw=document.getElementById('el-cmt')?.value.trim()||'';
+  if(!raw){toast('코멘트를 먼저 입력해 주세요');return;}
+  const mats=getSMatsFrom('el-subj-rows');
+  const matsText=_getMatsTextFromMaterials(mats);
+  const status=document.getElementById('el-cmt-preview-status');
+  if(status)status.textContent='학생 코멘트 생성 중...';
+  const stuPolished=await polishStuCmt_teacher(raw,matsText,'');
+  if(status)status.textContent='';
+  const box=document.getElementById('el-stu-cmt-preview-box');
+  const txt=document.getElementById('el-stu-cmt-preview-text');
+  if(box)box.style.display='block';
+  if(txt)txt.value=stuPolished||'';
 }
 function matsToHtml(materials){
   if(!materials)return '';
@@ -1518,7 +1535,7 @@ function matsToHtml(materials){
     const unitHtml=units.length>1
       ?`<div style="padding-left:4px;margin-top:2px">${units.map(u=>`<div style="font-size:11px;color:var(--slate);line-height:1.6">${u}</div>`).join('')}</div>`
       :units.length===1?` <span style="color:var(--slate)">${units[0]}</span>`:'';
-    return `<div style="margin-bottom:4px"><span class="spill ${cls}">${label}</span> <span style="font-weight:600">${v.book||''}</span>${unitHtml}</div>`;
+    return `<div style="margin-bottom:4px"><span style="font-weight:600">${v.book||''}</span> <span class="spill ${cls}">${label}</span>${unitHtml}</div>`;
   }).filter(Boolean).join('');
 }
 
@@ -1581,11 +1598,20 @@ async function saveLes(){
   const _sStu=DB.stus().find(x=>x.id===sid);
   const rawCmt=document.getElementById('ls-cmt').value.trim();
   toast('저장 중...');
-  // 캐시된 다듬기 결과 재사용 (미리보기를 이미 클릭한 경우 API 중복 호출 방지)
-  const polishedCmt=rawCmt?(_polishedCmtCache.raw===rawCmt&&_polishedCmtCache.polished?_polishedCmtCache.polished:await polishCmt(rawCmt)):'';
+  const mats=getSMats();
+  const matsText=_getMatsTextFromMaterials(mats);
+  // 미리보기에서 편집된 텍스트 우선 사용, 없으면 생성
+  const previewTxt=(document.getElementById('cmt-preview-box')?.style.display!=='none')
+    ?(document.getElementById('cmt-preview-text')?.value?.trim()||''):'';;
+  const polishedCmt=rawCmt?(previewTxt||(_polishedCmtCache.raw===rawCmt&&_polishedCmtCache.polished?_polishedCmtCache.polished:await polishCmt(rawCmt,matsText))):'';
+  // 학생 응원 코멘트 - 미리보기 편집본 우선, 없으면 생성
+  const stuPreviewTxt=(document.getElementById('stu-cmt-preview-box')?.style.display!=='none')
+    ?(document.getElementById('stu-cmt-preview-text')?.value?.trim()||''):'';
+  const stuCmt=rawCmt?(stuPreviewTxt||_polishedCmtCache.stuCmt||await polishStuCmt_teacher(rawCmt,matsText,_sStu?.name||'')):'';
+  if(rawCmt&&polishedCmt)_saveCmtExample(rawCmt,polishedCmt);
   const _sStuGrade=document.getElementById('ls-grade')?.value||(_sStu&&(_sStu.grade||_sStu.lv))||'';
   const _rubric=getRubricData();
-  const newLes={id:uid(),sid,date:document.getElementById('ls-date').value,grade:_sStuGrade,att:document.getElementById('ls-att').value,materials:getSMats(),cmt:rawCmt,polishedCmt,...(_rubric?{rubric:_rubric}:{})};
+  const newLes={id:uid(),sid,date:document.getElementById('ls-date').value,grade:_sStuGrade,att:document.getElementById('ls-att').value,materials:mats,cmt:rawCmt,polishedCmt,stuCmt,...(_rubric?{rubric:_rubric}:{})};
   await supaUpsert('lessons',newLes.id,newLes,sid);
   _cache.lessons.unshift(newLes);
   (async()=>{
@@ -1594,7 +1620,9 @@ async function saveLes(){
   })();
   document.getElementById('ls-cmt').value='';clearSRows();
   document.getElementById('ls-last-hint').style.display='none';
-  _polishedCmtCache={raw:'',polished:''};
+  _polishedCmtCache={raw:'',polished:'',stuCmt:'',matsText:''};
+  const _pb=document.getElementById('cmt-preview-box');if(_pb)_pb.style.display='none';
+  const _sb=document.getElementById('stu-cmt-preview-box');if(_sb)_sb.style.display='none';
   const _ph=document.getElementById('polished-ready-hint');if(_ph)_ph.style.display='none';
   _resetRubric();renderLes();toast('수업 기록이 저장되었습니다');
   checkNewBadges(sid);
@@ -1874,7 +1902,8 @@ function renderLes(){
         </div>
       </div>
       ${mats?`<div style="font-size:12px;margin-bottom:4px;line-height:1.8">${mats}</div>`:''}
-      ${l.cmt?`<div style="font-size:12px;background:var(--cream);padding:8px;border-radius:6px">${l.cmt}</div>`:''}
+      ${l.polishedCmt?`<div style="font-size:12px;background:var(--tl);padding:7px 10px;border-radius:6px;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:var(--teal);margin-right:4px">학부모</span>${l.polishedCmt}</div>`:(l.cmt&&!l.stuCmt?`<div style="font-size:12px;background:var(--cream);padding:8px;border-radius:6px">${l.cmt}</div>`:'')}
+      ${l.stuCmt?`<div style="font-size:12px;background:var(--cream2);padding:7px 10px;border-radius:6px"><span style="font-size:10px;font-weight:700;color:var(--navy);margin-right:4px">학생</span>${l.stuCmt}</div>`:''}
     </div>`;
   }).join('');
   renderLesPage(total,perPage);
@@ -1897,7 +1926,13 @@ function openEditLes(id){
   document.getElementById('el-att').value=l.att||'normal';
   document.getElementById('el-cmt').value=l.cmt||'';
   document.getElementById('el-stu').value=l.sid||'';
-  const _epb=document.getElementById('el-cmt-preview-box');if(_epb)_epb.style.display='none';
+  // 기존 확정 코멘트가 있으면 미리보기에 로드
+  const _epb=document.getElementById('el-cmt-preview-box');
+  const _ept=document.getElementById('el-cmt-preview-text');
+  if(_epb&&l.polishedCmt){_epb.style.display='block';if(_ept)_ept.value=l.polishedCmt;}else if(_epb){_epb.style.display='none';}
+  const _esb=document.getElementById('el-stu-cmt-preview-box');
+  const _est=document.getElementById('el-stu-cmt-preview-text');
+  if(_esb&&l.stuCmt){_esb.style.display='block';if(_est)_est.value=l.stuCmt;}else if(_esb){_esb.style.display='none';}
   // 교재 진도 기존 값으로 칩+행 복원
   clearEditSRows();
   if(l.materials){
@@ -1918,8 +1953,16 @@ async function updLes(){
   const sid=document.getElementById('el-stu').value;
   const rawCmt=document.getElementById('el-cmt').value.trim();
   toast('저장 중...');
-  const polishedCmt=rawCmt?await polishCmt(rawCmt):'';
-  _cache.lessons[idx]={..._cache.lessons[idx],date:document.getElementById('el-date').value,sid,grade:document.getElementById('el-grade').value,att:document.getElementById('el-att').value,materials:getSMatsFrom('el-subj-rows'),cmt:rawCmt,polishedCmt};
+  const mats=getSMatsFrom('el-subj-rows');
+  const matsText=_getMatsTextFromMaterials(mats);
+  const elPreviewTxt=(document.getElementById('el-cmt-preview-box')?.style.display!=='none')
+    ?(document.getElementById('el-cmt-preview-text')?.value?.trim()||''):'';
+  const polishedCmt=rawCmt?(elPreviewTxt||await polishCmt(rawCmt,matsText)):'';
+  const elStuPreviewTxt=(document.getElementById('el-stu-cmt-preview-box')?.style.display!=='none')
+    ?(document.getElementById('el-stu-cmt-preview-text')?.value?.trim()||''):'';
+  const stuCmt=rawCmt?(elStuPreviewTxt||_cache.lessons[idx]?.stuCmt||''):'';
+  if(rawCmt&&polishedCmt)_saveCmtExample(rawCmt,polishedCmt);
+  _cache.lessons[idx]={..._cache.lessons[idx],date:document.getElementById('el-date').value,sid,grade:document.getElementById('el-grade').value,att:document.getElementById('el-att').value,materials:mats,cmt:rawCmt,polishedCmt,stuCmt};
   await supaUpsert('lessons',id,_cache.lessons[idx],sid);
   (async()=>{
     await addUnitWordsToVocab(sid,_cache.lessons[idx].materials,_cache.lessons[idx].date).catch(e=>console.error('vocab sync:',e));
@@ -5606,6 +5649,21 @@ async function callVision(apiKey,b64,mime,prompt){
 function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=()=>rej(new Error('파일 읽기 실패'));r.readAsDataURL(file);});}
 
 // ── COMMENT POLISH ──
+function _getCmtExamples(){try{return JSON.parse(localStorage.getItem('pp_cmt_examples')||'[]');}catch{return[];}}
+function _saveCmtExample(raw,confirmed){
+  if(!raw||!confirmed||raw===confirmed)return;
+  const ex=_getCmtExamples();
+  ex.push({raw:raw.trim(),confirmed:confirmed.trim()});
+  localStorage.setItem('pp_cmt_examples',JSON.stringify(ex.slice(-5)));
+}
+function _getMatsTextFromMaterials(mats){
+  return Object.entries(mats||{}).map(([k,v])=>{
+    if(!v.book)return '';
+    const baseKey=k.replace(/_\d+$/,'');
+    const label=(k==='_book'||k.startsWith('_book_'))?'원서':(SLBL[baseKey]||'');
+    return `${label} ${v.book}${v.unit?' '+v.unit:''}`.trim();
+  }).filter(Boolean).join(' / ');
+}
 async function polishIndCmt(raw,stuName){
   if(!raw||!raw.trim())return '';
   const r=raw.trim();
@@ -5616,22 +5674,31 @@ async function polishIndCmt(raw,stuName){
     return d.content?.[0]?.text?.trim()||polishCmtLocal(r);
   }catch(e){return polishCmtLocal(r);}
 }
-async function polishCmt(raw){
+async function polishCmt(raw,matsText=''){
   if(!raw||!raw.trim()) return '';
   const r=raw.trim();
   const apiKey=DB.api();
-
-  // API Key 없으면 키워드 매칭 폴백
   if(!apiKey) return polishCmtLocal(r);
-
   try{
-    const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다.\n\n작성 규칙:\n분량: 100~200자 (한국어 기준)\n어조: 전문적이면서도 따뜻하고 친근한 존댓말\n구조: 수업 태도 → 학습 내용 → 격려 또는 다음 수업 방향 순으로 자연스럽게 이어지는 한 단락\n\n[절대 금지 — 반드시 지켜야 할 규칙]\n첫 단어로 주어(이름, "학생", "아이")를 쓰지 마세요.\n"○○ 학생은", "○○은/는", "학생이" 등 주어로 시작하는 문장은 절대 금지입니다.\n반드시 서술어 또는 부사로 시작하세요. 올바른 예: "오늘 수업에서 ~", "집중력이 ~", "새로운 어휘를 ~", "꾸준한 ~"\n\n과장된 칭찬이나 부정적 표현은 피하고, 구체적이고 사실에 기반한 내용으로 작성\n마침표로 문장을 마무리\n마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.\n\n키워드: ${r}`;
+    const examples=_getCmtExamples();
+    const fewShot=examples.length?'\n\n[이전 승인된 코멘트 예시 — 이 말투와 형식을 참고하세요]\n'+examples.map(e=>`메모: "${e.raw}" → 코멘트: "${e.confirmed}"`).join('\n')+'\n':'\n';
+    const matsLine=matsText?`\n교재 진도: ${matsText}`:'';
+    const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다.\n\n작성 규칙:\n분량: 100~200자 (한국어 기준)\n어조: 전문적이면서도 따뜻하고 친근한 존댓말\n구조: 수업 태도 → 학습 내용 → 격려 또는 다음 수업 방향 순으로 자연스럽게 이어지는 한 단락\n교재 진도가 있으면 교재명·단원명을 자연스럽게 1개 이상 언급하세요.\n\n[절대 금지]\n첫 단어로 주어(이름, "학생", "아이")를 쓰지 마세요. 반드시 서술어 또는 부사로 시작하세요.\n과장된 칭찬이나 부정적 표현 피하기. 마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.${fewShot}\n키워드: ${r}${matsLine}`;
     const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:400,messages:[{role:'user',content:prompt}]});
     return d.content?.[0]?.text?.trim()||polishCmtLocal(r);
   }catch(e){
     console.warn('polishCmt API 실패, 로컬 폴백:', e.message);
     return polishCmtLocal(r);
   }
+}
+async function polishStuCmt_teacher(raw,matsText,stuName){
+  if(!raw||!raw.trim())return '';
+  const apiKey=DB.api();if(!apiKey)return '';
+  try{
+    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${stuName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 수업 진도에 나온 교재·단원 이름을 1개 이상 자연스럽게 언급(예: "오늘 Day 17 진짜 잘 읽었어!", "EFL Phonics oo 발음 완전 잘했어~"), 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${matsText||'없음'}\n선생님 메모: ${raw}`;
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content}]});
+    return d.content?.[0]?.text?.trim()||'';
+  }catch(e){return '';}
 }
 
 // ── 뱃지 시스템 ──
@@ -5696,19 +5763,38 @@ function debouncedCmtPreview(){
   _cmtPreviewTimer=setTimeout(previewPolishedCmt,1800);
 }
 async function previewPolishedCmt(){
-  const raw=document.getElementById('ls-cmt').value.trim();
+  const raw=document.getElementById('ls-cmt')?.value.trim()||'';
   if(!raw){toast('코멘트를 먼저 입력해 주세요');return;}
+  const mats=getSMats();
+  const matsText=_getMatsTextFromMaterials(mats);
   const status=document.getElementById('cmt-preview-status');
+  if(status)status.textContent='변환 중...';
+  const polished=await polishCmt(raw,matsText);
+  if(status)status.textContent='';
   const box=document.getElementById('cmt-preview-box');
   const txt=document.getElementById('cmt-preview-text');
-  if(status)status.textContent='변환 중...';
-  const polished=await polishCmt(raw);
-  if(status)status.textContent='';
-  box.style.display='block';
-  txt.textContent=polished||raw;
-  _polishedCmtCache={raw,polished:polished||raw};
+  if(box)box.style.display='block';
+  if(txt)txt.value=polished||raw;
+  _polishedCmtCache={raw,polished:polished||raw,matsText};
   const hint=document.getElementById('polished-ready-hint');
-  if(hint){hint.style.display='flex';hint.textContent='✓ 학부모용 코멘트 준비됨 — '+(polished||raw).slice(0,40)+((polished||raw).length>40?'…':'');}
+  if(hint){hint.style.display='flex';hint.textContent='✓ 학부모 코멘트 준비됨';}
+}
+async function previewStuCmt(){
+  const raw=document.getElementById('ls-cmt')?.value.trim()||'';
+  if(!raw){toast('코멘트를 먼저 입력해 주세요');return;}
+  const mats=getSMats();
+  const matsText=_getMatsTextFromMaterials(mats);
+  const sid=document.querySelector('#subj-rows')?.closest('form,#m-add-les,#t-les')?.dataset?.sid||'';
+  const stuName='';
+  const status=document.getElementById('cmt-preview-status');
+  if(status)status.textContent='학생 코멘트 생성 중...';
+  const stuPolished=await polishStuCmt_teacher(raw,matsText,stuName);
+  if(status)status.textContent='';
+  const box=document.getElementById('stu-cmt-preview-box');
+  const txt=document.getElementById('stu-cmt-preview-text');
+  if(box)box.style.display='block';
+  if(txt)txt.value=stuPolished||'';
+  _polishedCmtCache={..._polishedCmtCache,stuCmt:stuPolished||'',matsText};
 }
 
 // API 미설정 시 키워드 매칭 폴백
@@ -6763,6 +6849,8 @@ function openAssignModal(sid){
   document.getElementById('modal-assign-cat').value='';
   const bookEl=document.getElementById('modal-assign-book');
   if(bookEl){bookEl.value='';const bf=bookEl.closest('.f');if(bf)bf.style.display='';}
+  const bookIdEl=document.getElementById('modal-assign-book-id');if(bookIdEl)bookIdEl.value='';
+  const bookDd=document.getElementById('modal-assign-book-dd');if(bookDd)bookDd.style.display='none';
   const rangeEl=document.getElementById('modal-assign-range');
   if(rangeEl){rangeEl.value='';const rf=rangeEl.closest('.f');if(rf)rf.style.display='';}
   document.getElementById('modal-assign-extra').innerHTML='';
@@ -6781,6 +6869,8 @@ function openEditAssignModal(aid){
   modalAssignCatChange();
   const bookEl=document.getElementById('modal-assign-book');
   if(bookEl)bookEl.value=a.bookTitle||'';
+  const bookIdEl2=document.getElementById('modal-assign-book-id');if(bookIdEl2)bookIdEl2.value=a.bookId||'';
+  const bookDd2=document.getElementById('modal-assign-book-dd');if(bookDd2)bookDd2.style.display='none';
   const rangeEl=document.getElementById('modal-assign-range');
   if(rangeEl)rangeEl.value=a.range||'';
   openM('m-add-assign');
@@ -6832,6 +6922,27 @@ function modalAssignCatChange(){
       <button class="btn bo bsm" style="margin-top:6px;width:100%;font-size:11px" onclick="addC5Row()">+ 행 직접 추가</button>
     </div>`;
   } else {extra.innerHTML='';}
+}
+function modalAssignBookSearch(){
+  const q=(document.getElementById('modal-assign-book')?.value||'').trim().toLowerCase();
+  const dd=document.getElementById('modal-assign-book-dd');if(!dd)return;
+  document.getElementById('modal-assign-book-id').value='';
+  if(!q){dd.style.display='none';return;}
+  const cat=document.getElementById('modal-assign-cat')?.value||'';
+  const isLibCat=cat==='book'||!cat;
+  const allBooks=isLibCat?[...(_cache.library||[])]:[];
+  if(isLibCat){
+    const hits=allBooks.filter(b=>b.title&&b.title.toLowerCase().includes(q)).slice(0,8);
+    if(!hits.length){dd.style.display='none';return;}
+    dd.innerHTML=hits.map(b=>`<div onclick="modalAssignSelectBook('${escAttr(b.id)}','${escAttr(b.title)}')" style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background=''">${b.title}</div>`).join('');
+    dd.style.display='block';
+  }else{dd.style.display='none';}
+}
+function modalAssignSelectBook(id,title){
+  const inp=document.getElementById('modal-assign-book');if(inp)inp.value=title;
+  const hid=document.getElementById('modal-assign-book-id');if(hid)hid.value=id;
+  const dd=document.getElementById('modal-assign-book-dd');if(dd)dd.style.display='none';
+  assignBookChange();
 }
 function assignBookChange(){
   const cat=document.getElementById('modal-assign-cat')?.value||'';
@@ -6938,7 +7049,8 @@ async function saveModalAssignment(){
   const sid=document.getElementById('modal-assign-stu').value;
   if(!sid){toast('학생을 선택해 주세요');return;}
   const cat=document.getElementById('modal-assign-cat').value;
-  const book=document.getElementById('modal-assign-book').value.trim();
+  const book=document.getElementById('modal-assign-book')?.value.trim()||'';
+  const bookId=document.getElementById('modal-assign-book-id')?.value||'';
   const range=document.getElementById('modal-assign-range').value.trim();
   const date=document.getElementById('modal-assign-date').value;
   const due=document.getElementById('modal-assign-due').value;
@@ -6968,9 +7080,9 @@ async function saveModalAssignment(){
     closeM('m-add-assign');renderAssignTab();toast('과제가 할당되었습니다');return;
   }
   const allLib=[...(_cache.library||[])];
-  const isReading=cat==='book'||allLib.some(b=>b.title===book);
+  const isReading=cat==='book'||!!bookId||allLib.some(b=>b.title===book);
   const type=isReading?'reading':cat==='vocab'?'vocab':cat==='other'?'other':'textbook';
-  const a={id:uid(),sid,type,category:cat,date,due,bookTitle:book,range};
+  const a={id:uid(),sid,type,category:cat,date,due,bookTitle:book,bookId:bookId||'',range};
   if(type==='vocab'){
     const checked=[...document.querySelectorAll('.modal-vocab-check:checked')].map(c=>c.value);
     const extra=(document.getElementById('modal-vocab-extra')?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
