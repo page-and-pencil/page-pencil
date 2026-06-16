@@ -175,11 +175,11 @@ async function postNoticeText(v){
 function swTab(id){
   document.querySelectorAll('.ntab[data-tab]').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
   document.querySelectorAll('#s-teacher .panel').forEach(p=>p.classList.toggle('active',p.id===id));
+  const ab=document.querySelector('.ab');if(ab)ab.classList.toggle('stu-mode',id==='t-stu');
   if(id==='t-dash')renderDash();
   if(id==='t-les'){populateFilterSels();renderLes();}
   if(id==='t-tst'){populateFilterSels();renderTst();}
   if(id==='t-bks'){populateLibSel();populateFilterSels();renderRd();}
-  if(id==='t-log'){populateFilterSels();renderLog();checkCldWarn();}
   if(id==='t-assign'){populateFilterSels();renderAssignTab();renderAssignCal();const el=document.getElementById('assign-filter-date');if(el&&!el.value)el.value=new Date().toISOString().split('T')[0];}
   if(id==='t-class')renderClassTab();
   if(id==='t-lib'){renderLibTable();populateLibSeriesFilter();}
@@ -311,18 +311,25 @@ async function saveAcct(){
   }
 }
 
-// ── STUDENT SLIDE PANEL ──
+// ── STUDENT SPLIT PANEL ──
 let currentSpStuId=null;
 let currentParentSid=null;
 function selStu(id,el){
   document.querySelectorAll('.sc').forEach(c=>c.classList.remove('sel'));
   if(el)el.classList.add('sel');
   currentSpStuId=id;
+  // 오른쪽 상세 패널 표시
+  const noStu=document.getElementById('sp-no-stu');
+  const wrap=document.getElementById('sp-detail-wrap');
+  if(noStu)noStu.style.display='none';
+  if(wrap){wrap.style.display='flex';}
+  // 모바일: detail 슬라이드인
+  document.getElementById('stu-split')?.classList.add('detail-open');
   loadStuPanel(id);
 }
 function closeStuPanel(){
-  document.getElementById('stu-panel').classList.remove('open');
-  document.getElementById('stu-panel-overlay').classList.remove('open');
+  // 모바일: 목록으로 돌아가기
+  document.getElementById('stu-split')?.classList.remove('detail-open');
   document.querySelectorAll('.sc').forEach(c=>c.classList.remove('sel'));
 }
 function openEditStuFromPanel(){closeStuPanel();openEditStu(currentSpStuId);}
@@ -354,17 +361,23 @@ function returnToTeacher(){
   document.getElementById('_teacher-preview-bar')?.remove();
   saveSession({role:'teacher'});
   show('s-teacher');
+  swTab('t-stu');
   if(currentSpStuId){
-    document.getElementById('stu-panel')?.classList.add('open');
-    document.getElementById('stu-panel-overlay')?.classList.add('open');
+    const ab=document.querySelector('.ab');if(ab)ab.classList.add('stu-mode');
+    const noStu=document.getElementById('sp-no-stu');
+    const wrap=document.getElementById('sp-detail-wrap');
+    if(noStu)noStu.style.display='none';
+    if(wrap)wrap.style.display='flex';
+    document.getElementById('stu-split')?.classList.add('detail-open');
     loadStuPanel(currentSpStuId);
   }
 }
 function swSpTab(id){
-  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-reading','sp-vocab','sp-payment'];
+  const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-reading','sp-rdlog-tab','sp-vocab','sp-payment'];
   document.querySelectorAll('.sptab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
   document.querySelectorAll('.sp-pane').forEach(p=>p.style.display=p.id===id?'block':'none');
-  if(id==='sp-reading'){renderSpBooks(currentSpStuId);renderSpRdlog(currentSpStuId);}
+  if(id==='sp-reading')renderSpBooks(currentSpStuId);
+  if(id==='sp-rdlog-tab')renderSpRdlog(currentSpStuId);
   if(id==='sp-vocab')renderSpVocab(currentSpStuId);
 }
 function renderSpRdlog(sid){
@@ -380,8 +393,10 @@ function renderSpRdlog(sid){
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
           <div><label style="font-size:10px;color:var(--slate);font-weight:600;display:block;margin-bottom:2px">날짜</label>
             <input type="date" id="sp-log-date" value="${today}" style="${inp}"></div>
-          <div><label style="font-size:10px;color:var(--slate);font-weight:600;display:block;margin-bottom:2px">원서 제목</label>
-            <input type="text" id="sp-log-book" placeholder="제목 입력" style="${inp}"></div>
+          <div style="position:relative"><label style="font-size:10px;color:var(--slate);font-weight:600;display:block;margin-bottom:2px">원서 제목</label>
+            <input type="text" id="sp-log-book" placeholder="제목 검색..." autocomplete="off" oninput="spLogSearch()" style="${inp}">
+            <div id="sp-log-book-dd" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);max-height:140px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1);font-size:12px"></div>
+            <div id="sp-log-book-sel" style="display:none;font-size:11px;color:var(--teal);font-weight:600;margin-top:2px"></div></div>
         </div>
         <div id="sp-log-upload-zone" onclick="document.getElementById('sp-log-file').click()" style="border:2px dashed var(--border);border-radius:8px;padding:16px;text-align:center;cursor:pointer;font-size:12px;color:var(--slate)">📷 사진 / PDF 클릭하여 업로드</div>
         <input type="file" id="sp-log-file" accept="image/*,application/pdf" style="display:none" onchange="handleSpLogPhoto(event,'${sid}')">
@@ -398,12 +413,14 @@ function renderSpRdlog(sid){
     ${logs.length?`<div style="font-size:11px;color:var(--slate);margin-bottom:6px">${logs.length}장</div>
     <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scroll-snap-type:x mandatory">
       ${logs.map(l=>`<div style="flex-shrink:0;width:140px;scroll-snap-align:start">
-        <div style="width:140px;height:105px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="openLb('${escU(l.photoUrl||'')}')">
+        <div style="width:140px;height:105px;border-radius:10px;overflow:hidden;border:1.5px solid ${l.read?'var(--teal)':'var(--border)'};background:var(--cream2);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative" onclick="openLb('${escU(l.photoUrl||'')}')">
           ${l.photoUrl?`<img src="${l.photoUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`:`<div style="font-size:28px">📷</div>`}
+          ${l.read?`<div style="position:absolute;top:4px;right:4px;background:var(--teal);color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px">완독</div>`:''}
         </div>
         <div style="margin-top:5px;padding:0 2px">
           <div style="font-size:10px;color:var(--slate);font-family:var(--fm)">${l.date||''}</div>
           ${l.bookTitle?`<div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(l.bookTitle)}">📗 ${l.bookTitle}</div>`:''}
+          <button onclick="event.stopPropagation();toggleRdlogRead('${l.id}','${sid}')" style="margin-top:4px;width:100%;font-size:10px;padding:3px 0;border-radius:5px;border:1.5px solid ${l.read?'var(--teal)':'var(--border)'};background:${l.read?'var(--tl)':'#fff'};color:${l.read?'var(--teal)':'var(--slate)'};cursor:pointer;font-family:var(--fb);font-weight:600">${l.read?'✓ 완독':'+ 완독'}</button>
         </div>
       </div>`).join('')}
     </div>`:'<div class="empty"><div class="empty-i">📸</div><div class="empty-t">리딩로그 없음</div></div>'}`;
@@ -412,7 +429,7 @@ function toggleSpLogForm(){
   const f=document.getElementById('sp-log-form');if(!f)return;
   f.style.display=f.style.display==='none'?'block':'none';
 }
-let _spLogFile=null,_spLogB64='',_spLogMime='';
+let _spLogFile=null,_spLogB64='',_spLogMime='',_spLogBookId='',_spLogBookTitle='';
 async function handleSpLogPhoto(e,sid){
   const f=e.target.files[0];if(!f)return;
   _spLogFile=f;
@@ -444,17 +461,65 @@ async function saveSpLog(sid){
     catch(e){if(_spLogB64)photoUrl='data:'+_spLogMime+';base64,'+_spLogB64;else{toast('사진 저장 실패: '+e.message);return;}}
   }
   const date=document.getElementById('sp-log-date')?.value||new Date().toISOString().split('T')[0];
-  const bookTitle=(document.getElementById('sp-log-book')?.value||'').trim();
-  const newLog={id:uid(),sid,date,photoUrl,bookTitle};
+  const bookTitle=_spLogBookTitle||(document.getElementById('sp-log-book')?.value||'').trim();
+  const bookId=_spLogBookId||'';
+  const newLog={id:uid(),sid,date,photoUrl,bookTitle,bookId};
   await supaUpsert('logs',newLog.id,newLog,sid);
   _cache.logs.unshift(newLog);
   clearSpLogPhoto();
+  _spLogBookId='';_spLogBookTitle='';
   const bookEl=document.getElementById('sp-log-book');if(bookEl)bookEl.value='';
   const form=document.getElementById('sp-log-form');if(form)form.style.display='none';
   renderSpRdlog(sid);renderLog();
   toast('리딩로그가 저장되었습니다');
 }
 
+function spLogSearch(){
+  const q=(document.getElementById('sp-log-book')?.value||'').trim().toLowerCase();
+  const dd=document.getElementById('sp-log-book-dd');if(!dd)return;
+  if(!q){dd.style.display='none';return;}
+  const matches=(_cache.library||[]).filter(b=>b.title&&b.title.toLowerCase().includes(q)).slice(0,10);
+  if(!matches.length){dd.style.display='none';return;}
+  dd.innerHTML=matches.map(b=>`<div onclick="spLogSelectBook('${escAttr(b.id)}','${escAttr(b.title)}')" style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--border);line-height:1.3" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background=''">${b.title}${b.level?` <span style="font-size:10px;color:var(--slate)">(Lv${b.level})</span>`:''}</div>`).join('');
+  dd.style.display='block';
+}
+function spLogSelectBook(id,title){
+  _spLogBookId=id;_spLogBookTitle=title;
+  const inp=document.getElementById('sp-log-book');if(inp)inp.value=title;
+  const dd=document.getElementById('sp-log-book-dd');if(dd)dd.style.display='none';
+  const sel=document.getElementById('sp-log-book-sel');if(sel){sel.textContent='✓ '+title;sel.style.display='block';}
+}
+async function toggleRdlogRead(logId,sid){
+  const log=(_cache.logs||[]).find(l=>l.id===logId);if(!log)return;
+  log.read=!log.read;
+  await supaUpsert('logs',logId,log,sid);
+  const idx=_cache.logs.findIndex(l=>l.id===logId);if(idx>=0)_cache.logs[idx]=log;
+  renderSpRdlog(sid);
+  if(!log.read)return;
+  if(!log.bookId&&!log.bookTitle){toast('완독 표시됐습니다');return;}
+  const libBook=log.bookId
+    ?(_cache.library||[]).find(b=>b.id===log.bookId)
+    :(_cache.library||[]).find(b=>b.title===log.bookTitle);
+  let tb=(_cache.textbooks||[]).find(t=>t.sid===sid&&(t.bookId===log.bookId||(t.title===log.bookTitle&&!t.completed)));
+  if(!tb&&(log.bookId||log.bookTitle)){
+    tb={id:uid(),sid,type:'원서',title:libBook?.title||log.bookTitle||'',bookId:log.bookId||libBook?.id||'',level:libBook?.level||'',active:true};
+    _cache.textbooks.push(tb);
+  }
+  if(tb&&!tb.completed){
+    const doneDate=log.date||new Date().toISOString().split('T')[0];
+    tb.completed=true;tb.completedDate=doneDate;
+    await supaUpsert('textbooks',tb.id,tb,sid);
+    const tidx=_cache.textbooks.findIndex(t=>t.id===tb.id);if(tidx>=0)_cache.textbooks[tidx]=tb;
+    renderSpBooks(sid);
+    const vocabWords=(libBook?.vocab||[]).filter(w=>w.word).map(w=>({...w,srcId:libBook?.id||'',srcType:'library',srcTitle:tb.title}));
+    if(vocabWords.length){
+      toast(`완독! 단어 ${vocabWords.length}개를 단어장에 추가 중...`);
+      await syncVocabCards(sid,vocabWords,[],doneDate,'원서완독');
+      renderSpVocab(sid);
+      toast(`✓ ${tb.title} 완독 — ${vocabWords.length}개 단어가 단어장에 추가됐습니다`);
+    }else{toast('완독 처리됐습니다');}
+  }else{toast('완독 표시됐습니다');}
+}
 let _vocabFilter={search:'',phase:'',src:'',sort:'alpha'};
 let _vocabSid='';
 let _vocabSearchTimer=null;
@@ -964,8 +1029,6 @@ async function loadStuPanel(sid){
   ${!sAssigns.length&&!sHws.length?`<div class="empty"><div class="empty-i">📤</div><div class="empty-t">할당된 과제가 없습니다</div><button class="btn bt bsm" onclick="openAssignModal('${sid}')">+ 과제 할당하기 →</button></div>`:''}
   `;
 
-  document.getElementById('stu-panel').classList.add('open');
-  document.getElementById('stu-panel-overlay').classList.add('open');
   swSpTab('sp-summary');
 }
 
@@ -6057,10 +6120,17 @@ function goAddLesson(sid){
   setTimeout(()=>{const el=document.getElementById('ls-stu');if(el){el.value=sid;fillLastLesson(sid);}},150);
 }
 function openStuPanelTab(sid,tabId){
+  swTab('t-stu');
+  currentSpStuId=sid;
+  const noStu=document.getElementById('sp-no-stu');
+  const wrap=document.getElementById('sp-detail-wrap');
+  if(noStu)noStu.style.display='none';
+  if(wrap)wrap.style.display='flex';
+  document.getElementById('stu-split')?.classList.add('detail-open');
   loadStuPanel(sid);
   setTimeout(()=>swSpTab(tabId),300);
 }
-function openPayMsg(sid){loadStuPanel(sid);}
+function openPayMsg(sid){openStuPanelTab(sid,'sp-summary');}
 function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
   const el=document.getElementById('dash-today');if(!el)return;
   let body;
@@ -6938,7 +7008,10 @@ function renderSpBooks(sid){
   const tbTitles=new Set(tbs.map(t=>t.title));
   const derivedBooks=[...lessonBookMap.values()].filter(b=>!tbTitles.has(b.title)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const manualEntries=tbs.map(t=>{
-    const globalTb=t.bookId?(_cache.globalTextbooks||[]).find(g=>g.id===t.bookId):(_cache.globalTextbooks||[]).find(g=>g.title===t.title);
+    const globalTb=t.bookId
+      ?(_cache.globalTextbooks||[]).find(g=>g.id===t.bookId)
+      :(_cache.globalTextbooks||[]).find(g=>g.title===t.title&&(g.level||'')===(t.level||''))
+        ||(_cache.globalTextbooks||[]).find(g=>g.title===t.title);
     return {id:t.id,title:t.title,type:t.type||'교재',unit:t.currentUnit||'',manual:true,completed:t.completed,completedDate:t.completedDate,bookId:t.bookId||'',level:t.level||globalTb?.level||''};
   });
   const derivedEntries=derivedBooks.map(b=>({id:null,title:b.title,type:b.type,unit:b.unit,manual:false,completed:false}));
@@ -7255,7 +7328,9 @@ async function confirmTbDone(){
       toast(`✓ ${tb.title} 완료 — ${vocabWords.length}개 단어가 단어장에 추가됐습니다`);
     }else{toast('완료 처리됐습니다');}
   }else{
-    const globalTb=(_cache.globalTextbooks||[]).find(g=>g.id===tb.bookId||g.title===tb.title);
+    const globalTb=(_cache.globalTextbooks||[]).find(g=>g.id===tb.bookId)
+    ||(_cache.globalTextbooks||[]).find(g=>g.title===tb.title&&(g.level||'')===(tb.level||''))
+    ||(_cache.globalTextbooks||[]).find(g=>g.title===tb.title);
     if(globalTb?.units){
       const allWords=Object.entries(globalTb.units).flatMap(([unitName,ws])=>
         (Array.isArray(ws)?ws:[]).filter(w=>w.word).map(w=>({...w,srcUnit:unitName,srcId:globalTb.id,srcType:'textbook',srcTitle:globalTb.title}))
