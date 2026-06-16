@@ -397,75 +397,195 @@ function renderSpRdlog(sid){
   </div>${logsHtml}`;
 }
 
+let _vocabFilter={search:'',phase:'',src:'',sort:'alpha'};
+let _vocabSid='';
+let _vocabSearchTimer=null;
 function renderSpVocab(sid){
   if(!sid)return;
   const el=document.getElementById('sp-vocab');if(!el)return;
-  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).sort((a,b)=>a.word.localeCompare(b.word));
-  if(!cards.length){el.innerHTML='<div class="empty"><div class="empty-i">📚</div><div class="empty-t">단어장이 비어있습니다</div></div>';return;}
+  if(_vocabSid!==sid){_vocabFilter={search:'',phase:'',src:'',sort:'alpha'};}_vocabSid=sid;
+  const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const p0=allCards.filter(c=>(c.phase||0)===0).length;
+  const p1=allCards.filter(c=>(c.phase||0)===1).length;
+  const p2=allCards.filter(c=>(c.phase||0)===2).length;
+  const srcSet=new Set(allCards.map(c=>c.source||'').filter(Boolean));
+  const srcList=[...srcSet].sort();
   const spStu=(_cache.students||[]).find(s=>s.id===sid);
   const vocabMode=spStu?.vocabMode||'intermediate';
-  const modeOptions=[
-    {key:'beginner',lbl:'초급',sub:'암기만 (플립카드)',tip:'단어를 보고 뜻을 확인 — 인식 중심 학습'},
-    {key:'intermediate',lbl:'중급',sub:'암기 → 리콜',tip:'플립카드 후 틀린 단어 직접 입력 연습'},
-    {key:'advanced',lbl:'고급',sub:'암기(영어뜻) → 전체 리콜',tip:'영어 정의·예문으로 암기 후 전 단어 리콜'},
-  ];
-  const modeHtml=`<div style="margin-bottom:14px;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border)">
-    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📖 단어 학습 방식</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      ${modeOptions.map(o=>`<button onclick="saveVocabMode('${sid}','${o.key}')" title="${escAttr(o.tip)}" style="padding:8px 14px;border:2px solid ${vocabMode===o.key?'var(--teal)':'var(--border)'};border-radius:10px;background:${vocabMode===o.key?'var(--tl)':'#fff'};cursor:pointer;text-align:left;transition:border-color .15s">
-        <div style="font-size:12px;font-weight:700;color:${vocabMode===o.key?'var(--teal)':'var(--navy)'}">${o.lbl}</div>
-        <div style="font-size:10px;color:var(--slate)">${o.sub}</div>
-      </button>`).join('')}
+  const selSt='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;background:var(--cream2);outline:none';
+  el.innerHTML=`
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:55px;padding:8px 6px;background:var(--cream2);border-radius:10px;text-align:center">
+        <div id="vstat-total" style="font-size:18px;font-weight:700;color:var(--navy)">${allCards.length}</div>
+        <div style="font-size:10px;color:var(--slate)">전체</div>
+      </div>
+      <div style="flex:1;min-width:55px;padding:8px 6px;background:#f8fafc;border:1.5px solid var(--border);border-radius:10px;text-align:center;cursor:pointer" onclick="_vocabFilter.phase=_vocabFilter.phase==='0'?'':'0';renderVocabList('${sid}')">
+        <div id="vstat-0" style="font-size:18px;font-weight:700;color:var(--slate)">${p0}</div>
+        <div style="font-size:10px;color:var(--slate)">신규</div>
+      </div>
+      <div style="flex:1;min-width:55px;padding:8px 6px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:10px;text-align:center;cursor:pointer" onclick="_vocabFilter.phase=_vocabFilter.phase==='1'?'':'1';renderVocabList('${sid}')">
+        <div id="vstat-1" style="font-size:18px;font-weight:700;color:#92400e">${p1}</div>
+        <div style="font-size:10px;color:#92400e">학습중</div>
+      </div>
+      <div style="flex:1;min-width:55px;padding:8px 6px;background:var(--tl);border:1.5px solid var(--teal);border-radius:10px;text-align:center;cursor:pointer" onclick="_vocabFilter.phase=_vocabFilter.phase==='2'?'':'2';renderVocabList('${sid}')">
+        <div id="vstat-2" style="font-size:18px;font-weight:700;color:var(--teal)">${p2}</div>
+        <div style="font-size:10px;color:var(--teal)">숙달</div>
+      </div>
     </div>
-  </div>`;
-
-  const studyCards=cards.filter(c=>(c.phase||0)<2&&c.srcType!=='library').sort((a,b)=>(b.misses||0)-(a.misses||0)||a.word.localeCompare(b.word));
-  const studyHtml=`<div style="margin-bottom:16px;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border)">
-    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📝 다음 수업까지 외울 단어 <span style="color:var(--teal);font-weight:400">${studyCards.length}개</span></div>
-    ${studyCards.length?`<div style="display:flex;flex-wrap:wrap;gap:6px">
-      ${studyCards.map(c=>`<div style="background:${(c.misses||0)>0?'rgba(239,83,80,.08)':'#fff'};border:1.5px solid ${(c.misses||0)>0?'rgba(239,83,80,.35)':'var(--border)'};border-radius:10px;padding:4px 10px;display:flex;align-items:center;gap:4px">
-        <span style="font-size:12px;font-weight:600;font-family:var(--fd)">${c.word}</span>
-        ${c.meaning?`<span style="font-size:10px;color:var(--slate)">· ${c.meaning}</span>`:''}
-        ${(c.misses||0)>0?`<span style="font-size:10px;color:var(--coral);font-weight:700">×${c.misses}</span>`:''}
-      </div>`).join('')}
-    </div>`:'<div style="font-size:12px;color:var(--slate)">외울 단어가 없습니다 — 모두 숙달됨 🎉</div>'}
-  </div>`;
+    <input type="text" id="vocab-search" value="${escAttr(_vocabFilter.search)}" placeholder="🔍 단어 / 뜻 검색..."
+      oninput="vocabFilterSearch(this.value,'${sid}')"
+      style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;background:var(--cream2);outline:none;box-sizing:border-box;margin-bottom:8px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+      <select onchange="_vocabFilter.phase=this.value;renderVocabList('${sid}')" style="${selSt}">
+        <option value="" ${_vocabFilter.phase===''?'selected':''}>단계 전체</option>
+        <option value="0" ${_vocabFilter.phase==='0'?'selected':''}>신규</option>
+        <option value="1" ${_vocabFilter.phase==='1'?'selected':''}>학습중</option>
+        <option value="2" ${_vocabFilter.phase==='2'?'selected':''}>숙달</option>
+      </select>
+      <select onchange="_vocabFilter.src=this.value;renderVocabList('${sid}')" style="${selSt};max-width:130px">
+        <option value="" ${_vocabFilter.src===''?'selected':''}>출처 전체</option>
+        ${srcList.map(s=>`<option value="${escAttr(s)}" ${_vocabFilter.src===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+      <select onchange="_vocabFilter.sort=this.value;renderVocabList('${sid}')" style="${selSt}">
+        <option value="alpha" ${_vocabFilter.sort==='alpha'?'selected':''}>가나다순</option>
+        <option value="phase" ${_vocabFilter.sort==='phase'?'selected':''}>단계순</option>
+        <option value="misses" ${_vocabFilter.sort==='misses'?'selected':''}>오답순</option>
+        <option value="recent" ${_vocabFilter.sort==='recent'?'selected':''}>최신순</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-bottom:10px;border-bottom:1.5px solid var(--border);margin-bottom:10px">
+      <button class="btn bt bsm" onclick="toggleVocabAddForm()">+ 단어 추가</button>
+      <label style="font-size:11px;color:var(--slate);cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="vocab-sel-all" onchange="vocabToggleAll(this)"> 전체 선택</label>
+      <button class="btn bd bsm" onclick="vocabDeleteSelected('${sid}')">선택 삭제</button>
+      <button class="btn bo bsm" onclick="const u=document.getElementById('vocab-utils');u.style.display=u.style.display==='none'?'block':'none'">도구 ▾</button>
+    </div>
+    <div id="vocab-utils" style="display:none;padding:10px 12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border);margin-bottom:12px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn bo bsm" onclick="reqRefreshVocabExamples('${sid}')">📚 원서 예문 갱신</button>
+        <button class="btn bo bsm" onclick="batchFillEmptyExamples('${sid}')">✏️ 빈 예문 채우기</button>
+        <button class="btn bo bsm" onclick="batchFixKoreanExamples('${sid}')">🔄 한국어 예문 교체</button>
+      </div>
+    </div>
+    <div id="vocab-add-form" style="display:none;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--teal);margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">단어 직접 추가</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+        <input type="text" id="vadd-word" placeholder="영단어" style="flex:1;min-width:100px;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fd);font-size:13px;font-weight:700;background:#fff;outline:none">
+        <input type="text" id="vadd-meaning" placeholder="뜻" style="flex:1;min-width:100px;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;background:#fff;outline:none">
+      </div>
+      <input type="text" id="vadd-example" placeholder="예문 (선택)" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:11px;background:#fff;outline:none;box-sizing:border-box;margin-bottom:8px">
+      <div style="display:flex;gap:6px">
+        <button class="btn bt bsm" onclick="saveManualVocabCard('${sid}')">추가</button>
+        <button class="btn bo bsm" onclick="toggleVocabAddForm()">취소</button>
+      </div>
+    </div>
+    <div id="vocab-list-hdr" style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px"></div>
+    <div id="vocab-list"></div>
+    <details style="margin-top:16px">
+      <summary style="font-size:12px;font-weight:600;color:var(--slate);cursor:pointer;padding:10px 0;border-top:1.5px solid var(--border);list-style:none">⚙️ 학습 방식 설정 ▾</summary>
+      <div style="margin-top:10px;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border)">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${[{key:'beginner',lbl:'초급',sub:'암기만 (플립카드)'},{key:'intermediate',lbl:'중급',sub:'암기 → 리콜'},{key:'advanced',lbl:'고급',sub:'암기(영어뜻) → 전체 리콜'}].map(o=>`<button onclick="saveVocabMode('${sid}','${o.key}')" style="padding:8px 14px;border:2px solid ${vocabMode===o.key?'var(--teal)':'var(--border)'};border-radius:10px;background:${vocabMode===o.key?'var(--tl)':'#fff'};cursor:pointer;text-align:left">
+            <div style="font-size:12px;font-weight:700;color:${vocabMode===o.key?'var(--teal)':'var(--navy)'}">${o.lbl}</div>
+            <div style="font-size:10px;color:var(--slate)">${o.sub}</div>
+          </button>`).join('')}
+        </div>
+      </div>
+    </details>`;
+  renderVocabList(sid);
+}
+function renderVocabList(sid){
+  const listEl=document.getElementById('vocab-list');
+  const hdrEl=document.getElementById('vocab-list-hdr');
+  if(!listEl)return;
+  const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  let cards=[...allCards];
+  if(_vocabFilter.search){const q=_vocabFilter.search.toLowerCase();cards=cards.filter(c=>(c.word||'').toLowerCase().includes(q)||(c.meaning||'').toLowerCase().includes(q));}
+  if(_vocabFilter.phase!==''){const ph=parseInt(_vocabFilter.phase);cards=cards.filter(c=>(c.phase||0)===ph);}
+  if(_vocabFilter.src)cards=cards.filter(c=>(c.source||'')===_vocabFilter.src);
+  if(_vocabFilter.sort==='alpha')cards.sort((a,b)=>(a.word||'').localeCompare(b.word));
+  else if(_vocabFilter.sort==='recent')cards.sort((a,b)=>(b.id||'').localeCompare(a.id||''));
+  else if(_vocabFilter.sort==='misses')cards.sort((a,b)=>(b.misses||0)-(a.misses||0)||(a.word||'').localeCompare(b.word));
+  else if(_vocabFilter.sort==='phase')cards.sort((a,b)=>(a.phase||0)-(b.phase||0)||(a.word||'').localeCompare(b.word));
+  if(hdrEl)hdrEl.textContent=cards.length===allCards.length?`전체 ${allCards.length}개`:`${cards.length}개 표시 / 전체 ${allCards.length}개`;
+  if(!cards.length){listEl.innerHTML=`<div style="font-size:12px;color:var(--slate);padding:20px 0;text-align:center">${allCards.length?'검색/필터 결과 없음':'단어장이 비어있습니다'}</div>`;return;}
   const PHASE_LBL=['신규','학습중','숙달'];const PHASE_CLS=['bslate','bamber','bteal'];
-  const FIXED_SRC={리딩로그:'bamber',테스트:'bcoral',과제:'bnavy'};
-  const srcBadge=src=>{if(!src)return'';if(FIXED_SRC[src])return`<span class="badge ${FIXED_SRC[src]}" style="font-size:9px">${src}</span>`;return`<span class="badge bteal" style="font-size:9px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(src)}">${src}</span>`;};
-  const inpStyle='width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-family:var(--fb);background:var(--cream2);outline:none;box-sizing:border-box';
-  const listHtml=cards.map(c=>`<div style="display:flex;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);align-items:flex-start">
-    <input type="checkbox" class="vocab-chk" data-id="${c.id}" style="margin-top:4px;flex-shrink:0;cursor:pointer">
-    <div style="flex:1;min-width:0">
-      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:5px">
-        <input type="text" value="${escAttr(c.word||'')}" placeholder="영단어" onblur="saveVocabField('${c.id}','${sid}','word',this.value)" style="${inpStyle};font-size:13px;font-weight:700;font-family:var(--fd);width:auto;min-width:80px;max-width:150px">
-        ${c.pos?`<span style="font-size:10px;color:var(--slate)">${POS_KO[c.pos]||c.pos}</span>`:''}
-        <span class="badge ${PHASE_CLS[c.phase||0]}" style="font-size:10px">${PHASE_LBL[c.phase||0]}</span>
-        ${srcBadge(c.source)}
-        ${(()=>{const lv=(c.wlevel||getWordLevel(c.word).display);return lv?`<span style="font-size:9px;padding:1px 6px;border-radius:8px;${lv.startsWith('Dolch')?'background:#e0f2fe;color:#0369a1':lv.startsWith('A')?'background:#dcfce7;color:#166534':lv.startsWith('B')?'background:#fef9c3;color:#92400e':lv.startsWith('C')?'background:#ffe4e6;color:#9f1239':'background:#f3e8ff;color:#7e22ce'}">${lv}</span>`:'';})()}
+  const FIXED_SRC={리딩로그:'bamber',테스트:'bcoral',과제:'bnavy',직접추가:'bnavy'};
+  const srcBadge=src=>{if(!src)return'';if(FIXED_SRC[src])return`<span class="badge ${FIXED_SRC[src]}" style="font-size:9px">${src}</span>`;return`<span class="badge bteal" style="font-size:9px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(src)}">${src}</span>`;};
+  const lvBadge=c=>{const lv=c.wlevel||'';if(!lv)return'';const col=lv.startsWith('Dolch')?'background:#e0f2fe;color:#0369a1':lv.startsWith('A')?'background:#dcfce7;color:#166534':lv.startsWith('B')?'background:#fef9c3;color:#92400e':lv.startsWith('C')?'background:#ffe4e6;color:#9f1239':'background:#f3e8ff;color:#7e22ce';return`<span style="font-size:9px;padding:1px 5px;border-radius:8px;${col}">${lv}</span>`;};
+  const inp='padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--fb);background:var(--cream2);outline:none;box-sizing:border-box;width:100%';
+  listEl.innerHTML=cards.map(c=>{
+    const ph=c.phase||0;
+    const nextPhLbl=PHASE_LBL[(ph+1)%3];
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <input type="checkbox" class="vocab-chk" data-id="${c.id}" style="margin-top:6px;flex-shrink:0;cursor:pointer;width:14px;height:14px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:7px">
+            <input type="text" value="${escAttr(c.word||'')}" placeholder="영단어"
+              onblur="saveVocabField('${c.id}','${sid}','word',this.value)"
+              style="${inp};font-size:14px;font-weight:700;font-family:var(--fd);width:auto;min-width:90px;max-width:160px">
+            ${c.pos?`<span style="font-size:10px;color:var(--slate);padding:1px 5px;background:var(--cream2);border:1px solid var(--border);border-radius:4px">${POS_KO[c.pos]||c.pos}</span>`:''}
+            <button class="badge ${PHASE_CLS[ph]}" style="cursor:pointer;border:none;padding:2px 8px;font-size:10px"
+              onclick="cycleVocabPhase('${c.id}','${sid}',${ph})"
+              title="→ ${nextPhLbl}">${PHASE_LBL[ph]} ↻</button>
+            ${srcBadge(c.source)}${lvBadge(c)}
+            ${(c.misses||0)>0?`<span style="font-size:10px;color:var(--coral);font-weight:700">오답 ${c.misses}회</span>`:''}
+          </div>
+          <input type="text" value="${escAttr(c.meaning||'')}" placeholder="뜻 입력..."
+            onblur="saveVocabField('${c.id}','${sid}','meaning',this.value)"
+            style="${inp};font-size:12px;margin-bottom:5px">
+          <input type="text" value="${escAttr(c.example||'')}" placeholder="예문 입력..."
+            onblur="saveVocabField('${c.id}','${sid}','example',this.value)"
+            style="${inp};font-size:11px;color:var(--slate);font-style:italic${c.v2||c.v3||c.pos==='verb'?';margin-bottom:5px':''}">
+          ${(c.v2||c.v3||c.pos==='verb')?`<div style="display:flex;gap:6px"><input type="text" value="${escAttr(c.v2||'')}" placeholder="과거형 (불규칙)" onblur="saveVocabField('${c.id}','${sid}','v2',this.value)" style="${inp};font-size:11px;font-family:var(--fd);flex:1"><input type="text" value="${escAttr(c.v3||'')}" placeholder="과거분사 (불규칙)" onblur="saveVocabField('${c.id}','${sid}','v3',this.value)" style="${inp};font-size:11px;font-family:var(--fd);flex:1"></div>`:''}
+        </div>
+        <button onclick="delVocabCard('${c.id}','${sid}','${escAttr(c.word)}')"
+          style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--slate);margin-top:2px">삭제</button>
       </div>
-      <input type="text" value="${escAttr(c.meaning||'')}" placeholder="뜻 입력..."
-        onblur="saveVocabField('${c.id}','${sid}','meaning',this.value)"
-        style="${inpStyle};font-size:12px;color:var(--navy);margin-bottom:3px">
-      ${(c.v2||c.v3||c.pos==='verb')?`<div style="display:flex;gap:6px;margin-bottom:3px"><input type="text" value="${escAttr(c.v2||'')}" placeholder="과거형 (불규칙만)" onblur="saveVocabField('${c.id}','${sid}','v2',this.value)" style="${inpStyle};font-size:11px;font-family:var(--fd);flex:1;color:var(--slate)"><input type="text" value="${escAttr(c.v3||'')}" placeholder="과거분사 (불규칙만)" onblur="saveVocabField('${c.id}','${sid}','v3',this.value)" style="${inpStyle};font-size:11px;font-family:var(--fd);flex:1;color:var(--slate)"></div>`:''}
-      <input type="text" value="${escAttr(c.example||'')}" placeholder="예문 입력..."
-        onblur="saveVocabField('${c.id}','${sid}','example',this.value)"
-        style="${inpStyle};font-size:11px;color:var(--slate);font-style:italic">
-    </div>
-    <button onclick="delVocabCard('${c.id}','${sid}','${escAttr(c.word)}')" style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;color:var(--slate)">삭제</button>
-  </div>`).join('');
-  el.innerHTML=`${modeHtml}${studyHtml}
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <span style="font-size:12px;font-weight:700;color:var(--navy)">📚 전체 단어 목록 (${cards.length}개)</span>
-      <div style="display:flex;gap:6px;align-items:center">
-        <button class="btn bo bsm" onclick="reqRefreshVocabExamples('${sid}')">원서 예문 갱신</button>
-        <button class="btn bo bsm" onclick="batchFillEmptyExamples('${sid}')">빈 예문 채우기</button>
-        <button class="btn bo bsm" onclick="batchFixKoreanExamples('${sid}')">한국어 예문 교체</button>
-        <label style="font-size:11px;color:var(--slate);cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="vocab-sel-all" onchange="vocabToggleAll(this)"> 전체 선택</label>
-        <button class="btn bd bsm" onclick="vocabDeleteSelected('${sid}')">선택 삭제</button>
-      </div>
-    </div>
-    ${listHtml}`;
+    </div>`;
+  }).join('');
+}
+function vocabFilterSearch(val,sid){
+  _vocabFilter.search=val;
+  clearTimeout(_vocabSearchTimer);
+  _vocabSearchTimer=setTimeout(()=>{
+    renderVocabList(sid);
+    const el=document.getElementById('vocab-search');
+    if(el){const p=el.selectionStart;el.focus();try{el.setSelectionRange(p,p);}catch(e){}}
+  },150);
+}
+function toggleVocabAddForm(){
+  const el=document.getElementById('vocab-add-form');if(!el)return;
+  el.style.display=el.style.display==='none'?'block':'none';
+  if(el.style.display==='block')setTimeout(()=>document.getElementById('vadd-word')?.focus(),50);
+}
+async function saveManualVocabCard(sid){
+  const word=(document.getElementById('vadd-word')?.value||'').trim();
+  const meaning=(document.getElementById('vadd-meaning')?.value||'').trim();
+  const example=(document.getElementById('vadd-example')?.value||'').trim();
+  if(!word){toast('영단어를 입력해 주세요');return;}
+  const existing=(_cache.vocab_cards||[]).find(c=>c.sid===sid&&(c.word||'').toLowerCase()===word.toLowerCase());
+  if(existing){toast('이미 단어장에 있는 단어입니다');return;}
+  await syncVocabCards(sid,[{word,ko:meaning,example}],[],new Date().toISOString().split('T')[0],'직접추가');
+  document.getElementById('vadd-word').value='';
+  document.getElementById('vadd-meaning').value='';
+  document.getElementById('vadd-example').value='';
+  const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const upd=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  upd('vstat-total',allCards.length);upd('vstat-0',allCards.filter(c=>(c.phase||0)===0).length);
+  upd('vstat-1',allCards.filter(c=>(c.phase||0)===1).length);upd('vstat-2',allCards.filter(c=>(c.phase||0)===2).length);
+  renderVocabList(sid);toggleVocabAddForm();toast('단어가 추가되었습니다');
+}
+async function cycleVocabPhase(cardId,sid,currentPhase){
+  const card=(_cache.vocab_cards||[]).find(c=>c.id===cardId);if(!card)return;
+  card.phase=(currentPhase+1)%3;
+  await supaUpsert('vocab_cards',cardId,card,sid);
+  const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const upd=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  upd('vstat-0',allCards.filter(c=>(c.phase||0)===0).length);
+  upd('vstat-1',allCards.filter(c=>(c.phase||0)===1).length);
+  upd('vstat-2',allCards.filter(c=>(c.phase||0)===2).length);
+  renderVocabList(sid);
 }
 async function saveVocabMode(sid,mode){
   const stu=(_cache.students||[]).find(s=>s.id===sid);
