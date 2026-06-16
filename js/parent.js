@@ -562,7 +562,7 @@ async function printReport(sidArg){
     <div class="section-title">📚 교재 진도</div>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr style="background:#f0fffe"><th style="text-align:left;padding:5px 8px;border-bottom:1px solid #d0f0f0">구분</th><th style="text-align:left;padding:5px 8px;border-bottom:1px solid #d0f0f0">교재명</th><th style="text-align:left;padding:5px 8px;border-bottom:1px solid #d0f0f0">진도 기록</th></tr></thead>
-      <tbody>${Object.values(matMap).map(m=>`<tr style="border-bottom:1px solid #eee"><td style="padding:5px 8px;color:#888">${m.label}</td><td style="padding:5px 8px;font-weight:600">${m.book}</td><td style="padding:5px 8px;color:#666">${m.units.slice(-5).join(' → ')||'—'}</td></tr>`).join('')}</tbody>
+      <tbody>${Object.values(matMap).map(m=>{const flatU=[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];return`<tr style="border-bottom:1px solid #eee"><td style="padding:5px 8px;color:#888;vertical-align:top">${m.label}</td><td style="padding:5px 8px;font-weight:600;vertical-align:top">${m.book}</td><td style="padding:5px 8px;color:#666">${flatU.length?flatU.map(u=>`<div style="line-height:1.7">${u}</div>`).join(''):'—'}</td></tr>`;}).join('')}</tbody>
     </table>
   </div>`:''}
   ${rds.length?`<div class="section">

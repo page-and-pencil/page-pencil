@@ -612,7 +612,11 @@ async function loadStuPanel(sid){
         const label=isBook?'원서':(SLBL[baseKey]||'');
         const cls=isBook?'srd':(SCLS[baseKey]||'');
         if(!label&&!v.book)return;
-        const html=`<span class="spill ${cls}">${label}</span> ${v.book||''}${v.unit?' '+v.unit:''}`;
+        const units=(v.unit||'').split(', ').filter(Boolean);
+        const unitHtml=units.length>1
+          ?`<div style="padding-left:4px;margin-top:1px">${units.map(u=>`<div style="font-size:11px;color:var(--slate);line-height:1.6">${u}</div>`).join('')}</div>`
+          :units.length===1?` <span style="color:var(--slate)">${units[0]}</span>`:'';
+        const html=`<div style="margin-bottom:3px"><span class="spill ${cls}">${label}</span> <span style="font-weight:600">${v.book||''}</span>${unitHtml}</div>`;
         if(isBook)bookParts.push(html);else tbParts.push(html);
       });
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
@@ -624,8 +628,8 @@ async function loadStuPanel(sid){
             <button class="btn bd bxxs" onclick="reqDelLesFromPanel('${l.id}','${sid}')">🗑️</button>
           </div>
         </div>
-        ${tbParts.length?`<div style="font-size:12px;margin-bottom:${bookParts.length||l.cmt?'4px':'0'};line-height:1.8">${tbParts.join(' &nbsp;')}</div>`:''}
-        ${bookParts.length?`<div style="font-size:12px;margin-bottom:${l.cmt?'4px':'0'};line-height:1.8;padding:4px 8px;background:var(--cream2);border-radius:6px">${bookParts.join(' &nbsp;')}</div>`:''}
+        ${tbParts.length?`<div style="font-size:12px;margin-bottom:${bookParts.length||l.cmt?'6px':'0'}">${tbParts.join('')}</div>`:''}
+        ${bookParts.length?`<div style="font-size:12px;margin-bottom:${l.cmt?'6px':'0'};padding:6px 8px;background:var(--cream2);border-radius:6px">${bookParts.join('')}</div>`:''}
         ${l.cmt?`<div style="font-size:12px;color:var(--slate)">${l.cmt}</div>`:''}
       </div>`;
     }).join('')}
@@ -1265,8 +1269,12 @@ function matsToHtml(materials){
     const label=isBook?'원서':(SLBL[baseKey]||'');
     const cls=isBook?'srd':(SCLS[baseKey]||'');
     if(!label&&!v.book)return '';
-    return `<span class="spill ${cls}">${label}</span> ${v.book||''}${v.unit?' '+v.unit:''}`;
-  }).filter(Boolean).join(' &nbsp;');
+    const units=(v.unit||'').split(', ').filter(Boolean);
+    const unitHtml=units.length>1
+      ?`<div style="padding-left:4px;margin-top:2px">${units.map(u=>`<div style="font-size:11px;color:var(--slate);line-height:1.6">${u}</div>`).join('')}</div>`
+      :units.length===1?` <span style="color:var(--slate)">${units[0]}</span>`:'';
+    return `<div style="margin-bottom:4px"><span class="spill ${cls}">${label}</span> <span style="font-weight:600">${v.book||''}</span>${unitHtml}</div>`;
+  }).filter(Boolean).join('');
 }
 
 // ── RUBRIC ──
@@ -5818,19 +5826,24 @@ function renderSpSummary(sid,period,from,to){
     </div>
     ${Object.keys(tbMap).length?`<div style="margin-bottom:10px">
       <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">📚 교재 진도</div>
-      ${Object.values(tbMap).map(m=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
-        <span class="spill ${SCLS[m.label]==='sns'?'sns':(Object.entries(SCLS).find(([k])=>SLBL[k]===m.label)?.[1]||'srd')}">${m.label}</span>
-        <span style="font-weight:600">${m.book}</span>
-        ${m.units.length?`<span style="color:var(--slate)">${m.units.slice(-3).join(', ')}</span>`:''}
-      </div>`).join('')}
+      ${Object.values(tbMap).map(m=>{
+        const cls2=Object.entries(SCLS).find(([k])=>SLBL[k]===m.label)?.[1]||'srd';
+        const flatU=[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];
+        return `<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+          <div style="display:flex;align-items:center;gap:8px"><span class="spill ${cls2}">${m.label}</span><span style="font-weight:600">${m.book}</span></div>
+          ${flatU.length?`<div style="padding-left:52px;margin-top:2px">${flatU.map(u=>`<div style="font-size:11px;color:var(--slate);line-height:1.7">${u}</div>`).join('')}</div>`:''}
+        </div>`;
+      }).join('')}
     </div>`:''}
     ${Object.keys(rdMap).length?`<div style="margin-bottom:10px">
       <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">📗 원서 진도</div>
-      ${Object.values(rdMap).map(m=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
-        <span class="spill sns">원서</span>
-        <span style="font-weight:600;font-family:var(--fd)">${m.book}</span>
-        ${m.units.length?`<span style="color:var(--slate)">${m.units.slice(-2).join(', ')}</span>`:''}
-      </div>`).join('')}
+      ${Object.values(rdMap).map(m=>{
+        const flatU=[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];
+        return `<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+          <div style="display:flex;align-items:center;gap:8px"><span class="spill srd">원서</span><span style="font-weight:600;font-family:var(--fd)">${m.book}</span></div>
+          ${flatU.length?`<div style="padding-left:52px;margin-top:2px">${flatU.map(u=>`<div style="font-size:11px;color:var(--slate);line-height:1.7">${u}</div>`).join('')}</div>`:''}
+        </div>`;
+      }).join('')}
     </div>`:''}
     ${(()=>{
       // ── 원내 규칙 현황 ──
