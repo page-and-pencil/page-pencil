@@ -371,22 +371,88 @@ function renderSpRdlog(sid){
   if(!sid)return;
   const el=document.getElementById('sp-rdlog');if(!el)return;
   const logs=DB.logs().filter(l=>l.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  if(!logs.length){el.innerHTML='<div class="empty"><div class="empty-i">📸</div><div class="empty-t">리딩로그 없음</div></div>';return;}
-  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-    <span style="font-size:13px;font-weight:700">📸 리딩로그</span>
-    <span style="font-size:11px;color:var(--slate)">${logs.length}장</span>
-  </div>
-  <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scroll-snap-type:x mandatory">
-    ${logs.map(l=>`<div style="flex-shrink:0;width:140px;scroll-snap-align:start">
-      <div style="width:140px;height:105px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="openLb('${escU(l.photoUrl||'')}')">
-        ${l.photoUrl?`<img src="${l.photoUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`:`<div style="font-size:28px">📷</div>`}
+  const today=new Date().toISOString().split('T')[0];
+  const inp='width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;outline:none;box-sizing:border-box';
+  el.innerHTML=`
+    <div style="margin-bottom:12px">
+      <button onclick="toggleSpLogForm()" id="sp-log-add-btn" class="btn bt" style="font-size:12px;padding:6px 14px">+ 리딩로그 추가</button>
+      <div id="sp-log-form" style="display:none;margin-top:8px;padding:10px;background:var(--cream2);border-radius:10px;border:1.5px solid var(--border)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+          <div><label style="font-size:10px;color:var(--slate);font-weight:600;display:block;margin-bottom:2px">날짜</label>
+            <input type="date" id="sp-log-date" value="${today}" style="${inp}"></div>
+          <div><label style="font-size:10px;color:var(--slate);font-weight:600;display:block;margin-bottom:2px">원서 제목</label>
+            <input type="text" id="sp-log-book" placeholder="제목 입력" style="${inp}"></div>
+        </div>
+        <div id="sp-log-upload-zone" onclick="document.getElementById('sp-log-file').click()" style="border:2px dashed var(--border);border-radius:8px;padding:16px;text-align:center;cursor:pointer;font-size:12px;color:var(--slate)">📷 사진 / PDF 클릭하여 업로드</div>
+        <input type="file" id="sp-log-file" accept="image/*,application/pdf" style="display:none" onchange="handleSpLogPhoto(event,'${sid}')">
+        <div id="sp-log-preview-wrap" style="display:none;text-align:center;margin-top:6px">
+          <img id="sp-log-preview-img" style="max-width:100%;max-height:140px;border-radius:8px;border:1.5px solid var(--border)">
+          <button onclick="clearSpLogPhoto()" style="display:block;margin:4px auto 0;font-size:11px;color:var(--slate);background:none;border:none;cursor:pointer;font-family:var(--fb)">× 제거</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button onclick="saveSpLog('${sid}')" class="btn bt" style="flex:1;font-size:12px;padding:7px">저장</button>
+          <button onclick="toggleSpLogForm()" class="btn" style="font-size:12px;padding:7px;background:var(--bg);color:var(--slate)">취소</button>
+        </div>
       </div>
-      <div style="margin-top:5px;padding:0 2px">
-        <div style="font-size:10px;color:var(--slate);font-family:var(--fm)">${l.date||''}</div>
-        ${l.bookTitle?`<div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(l.bookTitle)}">📗 ${l.bookTitle}</div>`:''}
-      </div>
-    </div>`).join('')}
-  </div>`;
+    </div>
+    ${logs.length?`<div style="font-size:11px;color:var(--slate);margin-bottom:6px">${logs.length}장</div>
+    <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scroll-snap-type:x mandatory">
+      ${logs.map(l=>`<div style="flex-shrink:0;width:140px;scroll-snap-align:start">
+        <div style="width:140px;height:105px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="openLb('${escU(l.photoUrl||'')}')">
+          ${l.photoUrl?`<img src="${l.photoUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`:`<div style="font-size:28px">📷</div>`}
+        </div>
+        <div style="margin-top:5px;padding:0 2px">
+          <div style="font-size:10px;color:var(--slate);font-family:var(--fm)">${l.date||''}</div>
+          ${l.bookTitle?`<div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(l.bookTitle)}">📗 ${l.bookTitle}</div>`:''}
+        </div>
+      </div>`).join('')}
+    </div>`:'<div class="empty"><div class="empty-i">📸</div><div class="empty-t">리딩로그 없음</div></div>'}`;
+}
+function toggleSpLogForm(){
+  const f=document.getElementById('sp-log-form');if(!f)return;
+  f.style.display=f.style.display==='none'?'block':'none';
+}
+let _spLogFile=null,_spLogB64='',_spLogMime='';
+async function handleSpLogPhoto(e,sid){
+  const f=e.target.files[0];if(!f)return;
+  _spLogFile=f;
+  const isPdf=f.type==='application/pdf';
+  if(isPdf){
+    try{_spLogB64=await pdfFirstPageToB64(f);_spLogMime='image/jpeg';}
+    catch(err){toast('PDF 변환 실패: '+err.message);return;}
+  }else{
+    _spLogMime=f.type;
+    _spLogB64=await fileToB64(f);
+  }
+  const zone=document.getElementById('sp-log-upload-zone');if(zone)zone.style.display='none';
+  const img=document.getElementById('sp-log-preview-img');if(img)img.src='data:'+_spLogMime+';base64,'+_spLogB64;
+  const wrap=document.getElementById('sp-log-preview-wrap');if(wrap)wrap.style.display='block';
+}
+function clearSpLogPhoto(){
+  _spLogFile=null;_spLogB64='';_spLogMime='';
+  const fi=document.getElementById('sp-log-file');if(fi)fi.value='';
+  const img=document.getElementById('sp-log-preview-img');if(img)img.src='';
+  const wrap=document.getElementById('sp-log-preview-wrap');if(wrap)wrap.style.display='none';
+  const zone=document.getElementById('sp-log-upload-zone');if(zone)zone.style.display='block';
+}
+async function saveSpLog(sid){
+  if(!sid){toast('학생 정보 오류');return;}
+  let photoUrl='';
+  if(_spLogFile){
+    toast('저장 중...');
+    try{const url=await uploadCld(_spLogFile);if(url)photoUrl=url;else if(_spLogB64)photoUrl='data:'+_spLogMime+';base64,'+_spLogB64;}
+    catch(e){if(_spLogB64)photoUrl='data:'+_spLogMime+';base64,'+_spLogB64;else{toast('사진 저장 실패: '+e.message);return;}}
+  }
+  const date=document.getElementById('sp-log-date')?.value||new Date().toISOString().split('T')[0];
+  const bookTitle=(document.getElementById('sp-log-book')?.value||'').trim();
+  const newLog={id:uid(),sid,date,photoUrl,bookTitle};
+  await supaUpsert('logs',newLog.id,newLog,sid);
+  _cache.logs.unshift(newLog);
+  clearSpLogPhoto();
+  const bookEl=document.getElementById('sp-log-book');if(bookEl)bookEl.value='';
+  const form=document.getElementById('sp-log-form');if(form)form.style.display='none';
+  renderSpRdlog(sid);renderLog();
+  toast('리딩로그가 저장되었습니다');
 }
 
 let _vocabFilter={search:'',phase:'',src:'',sort:'alpha'};

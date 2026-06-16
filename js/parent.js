@@ -204,18 +204,20 @@ async function loadParent(sid){
 
   // 블록 G — 리딩로그
   if(logs.length){
-    blocks+=`<div class="card" id="pp-log-card">
+    blocks+=`<div class="card">
       <div class="ch"><span class="ct">📷 리딩로그</span><span style="font-size:11px;color:var(--slate)">${logs.length}회</span></div>
       <div class="cb" style="padding:12px 16px">
-        <div id="pp-log-inner">
-          <div class="pg">${logs.slice(0,4).map(l=>`
-            <div class="pi" onclick="openLb('${escU(l.photoUrl||'')}')">
-              ${l.photoUrl?`<img src="${l.photoUrl}" alt="리딩로그" loading="lazy">`:'<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;background:var(--cream2)">📝</div>'}
-              <div class="pim"><div>${l.date||''}</div>${l.words&&l.words.length?`<div style="opacity:.8">${l.words.slice(0,2).join(', ')}${l.words.length>2?'…':''}</div>`:''}</div>
-            </div>`).join('')}
-          </div>
+        <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scroll-snap-type:x mandatory">
+          ${logs.map(l=>`<div style="flex:0 0 120px;scroll-snap-align:start">
+            <div style="width:120px;height:90px;border-radius:8px;overflow:hidden;border:1.5px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="openLb('${escU(l.photoUrl||'')}')">
+              ${l.photoUrl?`<img src="${l.photoUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`:`<div style="font-size:28px">📷</div>`}
+            </div>
+            <div style="margin-top:4px;padding:0 2px">
+              <div style="font-size:10px;color:var(--slate);text-align:center;font-family:var(--fm)">${l.date||''}</div>
+              ${l.bookTitle?`<div style="font-size:10px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center">${l.bookTitle}</div>`:''}
+            </div>
+          </div>`).join('')}
         </div>
-        ${logs.length>4?`<div style="text-align:center;margin-top:8px"><button id="pp-log-more-btn" onclick="toggleAllLogs()" style="background:none;border:none;font-size:12px;color:var(--teal);cursor:pointer;font-family:var(--fb)">더보기 (${logs.length-4}회 더) →</button></div>`:''}
       </div>
     </div>`;
   }
