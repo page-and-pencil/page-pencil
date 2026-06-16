@@ -735,10 +735,12 @@ async function loadStuPanel(sid){
     ${sAssigns.map(a=>{
       const hw=sHws.find(h=>h.assignmentId===a.id);
       const submitted=!!hw;
-      return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+      const today2=new Date().toISOString().split('T')[0];
+      const overdue=a.due&&a.due<today2&&!a.completedAt;
+      return `<div id="asgn-row-${a.id}" style="padding:8px 0;border-bottom:1px solid var(--border)">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1">
-            <div style="font-size:11px;color:var(--slate);font-family:var(--fm)">${a.date||''}</div>
+            <div style="font-size:11px;color:${overdue?'var(--red)':'var(--slate)'};font-family:var(--fm)">${a.date||''}${a.due?' · 마감 '+a.due:''}</div>
             <div style="font-size:12px;font-weight:700;margin-top:2px">${
               a.type==='reading'?`📖 ${a.bookTitle||''}${a.range?' ('+a.range+')':''}`:
               a.type==='vocab'?`📝 단어: ${(a.words||[]).join(', ')}`:
@@ -746,7 +748,11 @@ async function loadStuPanel(sid){
               `${a.bookTitle||a.text||''}${a.range?' · '+a.range:''}`
             }</div>
           </div>
-          ${a.requireRecording&&submitted?`<span class="hw-status-badge checked">제출완료</span>`:''}
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+            ${a.requireRecording&&submitted?`<span class="hw-status-badge checked">제출완료</span>`:''}
+            <button class="btn bo bsm" style="font-size:10px;padding:2px 6px" onclick="toggleAssignEdit('${a.id}','${sid}')">수정</button>
+            <button class="btn bd bsm" style="font-size:10px;padding:2px 6px" onclick="deleteStudentAssign('${a.id}','${sid}')">삭제</button>
+          </div>
         </div>
         ${submitted&&hw.audioUrl?`<audio controls src="${hw.audioUrl}" style="width:100%;height:26px;margin-top:6px"></audio>`:''}
         ${submitted&&hw.aiScore?`<div style="font-size:11px;color:#005f6b;background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:4px">🤖 AI 평가: ${hw.aiScore}</div>`:''}
@@ -7552,6 +7558,8 @@ async function saveStudentAssign(sid){
     if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제');
   }
   if(!book&&!range&&type!=='vocab'){toast('교재/원서 또는 범위를 입력해 주세요');return;}
+  const isDup=(_cache.assignments||[]).some(x=>x.sid===sid&&x.bookTitle===book&&(x.range||'')===range&&x.due===due);
+  if(isDup){toast('이미 동일한 과제가 있습니다');return;}
   try{
     await supaUpsert('assignments',a.id,a,sid);
     if(!_cache.assignments)_cache.assignments=[];
@@ -7560,6 +7568,46 @@ async function saveStudentAssign(sid){
     swSpTab('sp-hw');
     toast('과제가 할당되었습니다');
   }catch(e){toast('저장 실패: '+e.message);}
+}
+function toggleAssignEdit(aid,sid){
+  const existing=document.getElementById(`asgn-edit-${aid}`);
+  if(existing){existing.remove();return;}
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);
+  if(!a)return;
+  const row=document.getElementById(`asgn-row-${aid}`);
+  if(!row)return;
+  const div=document.createElement('div');
+  div.id=`asgn-edit-${aid}`;
+  div.style.cssText='padding:8px;background:var(--cream2);border-radius:8px;margin-top:4px';
+  const rangeVal=(a.range||a.text||'').replace(/"/g,'&quot;');
+  div.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+    <div style="flex:1;min-width:120px"><label style="font-size:11px;display:block;margin-bottom:2px">범위/내용</label><input type="text" id="ae-range-${aid}" value="${rangeVal}" style="width:100%"></div>
+    <div style="flex:0 0 140px"><label style="font-size:11px;display:block;margin-bottom:2px">마감일</label><input type="date" id="ae-due-${aid}" value="${a.due||''}"></div>
+  </div>
+  <div style="display:flex;gap:6px">
+    <button class="btn bt bsm" style="font-size:11px" onclick="saveAssignEdit('${aid}','${sid}')">저장</button>
+    <button class="btn bo bsm" style="font-size:11px" onclick="document.getElementById('asgn-edit-${aid}')?.remove()">취소</button>
+  </div>`;
+  row.after(div);
+}
+async function saveAssignEdit(aid,sid){
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);
+  if(!a)return;
+  const due=document.getElementById(`ae-due-${aid}`)?.value||'';
+  const range=document.getElementById(`ae-range-${aid}`)?.value.trim()||'';
+  a.due=due;
+  if(a.type==='other')a.text=range; else a.range=range;
+  await supaUpsert('assignments',aid,a,sid);
+  const idx=(_cache.assignments||[]).findIndex(x=>x.id===aid);
+  if(idx>=0)_cache.assignments[idx]=a;
+  await loadStuPanel(sid);swSpTab('sp-hw');toast('수정되었습니다');
+}
+async function deleteStudentAssign(aid,sid){
+  askConfirm('과제 삭제','이 과제를 삭제할까요?','삭제','bd',async()=>{
+    await supaDelete('assignments',aid);
+    _cache.assignments=(_cache.assignments||[]).filter(a=>a.id!==aid);
+    await loadStuPanel(sid);swSpTab('sp-hw');toast('삭제되었습니다');
+  });
 }
 function clAddIndCmt(btn,chip){
   const row=btn.closest('.cl-stu-row');if(!row)return;
@@ -7855,6 +7903,8 @@ async function saveClassLesson(){
       // 공통 과제 → 결석 제외
       if(d.att!=='absent'){
         for(const hw of commonHws){
+          const isDupA=(_cache.assignments||[]).some(x=>x.sid===d.sid&&x.bookTitle===hw.book&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date);
+          if(isDupA)continue;
           const allLib=[...(_cache.library||[])];
           const isReading=allLib.some(b=>b.title===hw.book);
           const a={id:uid(),sid:d.sid,date,due:hw.due,classId,category:hw.cat,
@@ -7865,6 +7915,8 @@ async function saveClassLesson(){
     }
     // 개별 과제
     for(const hw of indHws){
+      const isDupA=(_cache.assignments||[]).some(x=>x.sid===hw.sid&&x.bookTitle===hw.book&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date);
+      if(isDupA)continue;
       const allLib=[...(_cache.library||[])];
       const isReading=allLib.some(b=>b.title===hw.book);
       const a={id:uid(),sid:hw.sid,date,due:hw.due,classId,category:hw.cat,
