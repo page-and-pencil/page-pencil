@@ -5309,7 +5309,15 @@ function ddr(e,zid,type){
   }
 }
 async function pdfFirstPageToB64(file){
-  if(!window.pdfjsLib)throw new Error('PDF.js 로드 실패');
+  if(!window.pdfjsLib){
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload=()=>{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';res();};
+      s.onerror=()=>rej(new Error('PDF.js 로드 실패'));
+      document.head.appendChild(s);
+    });
+  }
   const ab=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:new Uint8Array(ab)}).promise;
   const page=await pdf.getPage(1);
@@ -8095,6 +8103,10 @@ async function saveClassLesson(){
 }
 
 // ── URL PARAM AUTO LOGIN ──
+function _prefetchPw(){
+  if(_cache.settings.pw)return;
+  supaGetSetting('pw').then(sp=>{if(sp){_cache.settings.pw=sp;DB.s('pw',sp);}}).catch(()=>{});
+}
 document.addEventListener('DOMContentLoaded',async()=>{
   try{
     const params=new URLSearchParams(location.search);
@@ -8133,10 +8145,12 @@ document.addEventListener('DOMContentLoaded',async()=>{
     const verEl=document.getElementById('app-version');
     if(verEl)verEl.textContent=APP_VERSION;
     if(!document.querySelector('.screen.active')){
+      _prefetchPw();
       show('s-land');
     }
   }catch(e){
     console.error('init error:',e);
+    _prefetchPw();
     show('s-land');
   }
   function showOfflineBanner(show){
