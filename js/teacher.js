@@ -7638,63 +7638,152 @@ function renderQRCode(){
 // ── CLASSES ──
 const clSubjs=new Set();
 
+let _currentClsId=null;
 function renderClassTab(){
-  const el=document.getElementById('class-list');if(!el)return;
   const classes=DB.classes().filter(c=>c.active!==false);
   const allStus=DB.stus().filter(s=>!s.inactive);
   const DAYS=['일','월','화','수','목','금','토'];
   const todayDay=DAYS[new Date().getDay()];
   const todayStr=new Date().toISOString().split('T')[0];
 
-  // 주간 타임테이블
-  const WEEKDAYS=['월','화','수','목','금','토'];
-  const ttCols=WEEKDAYS.map(day=>{
-    const dayCls=classes.filter(c=>(c.days||[]).includes(day));
-    const isToday=day===todayDay;
-    return `<div style="min-width:0">
-      <div style="font-size:10px;font-weight:700;text-align:center;padding:5px 3px;background:${isToday?'var(--teal)':'var(--navy)'};color:#fff;border-radius:5px 5px 0 0">${day}</div>
-      <div style="border:1.5px solid ${isToday?'var(--teal)':'var(--border)'};border-top:none;border-radius:0 0 5px 5px;min-height:56px;padding:3px">
-        ${dayCls.length?dayCls.map(c=>`<div style="background:${isToday?'rgba(0,196,204,.13)':'rgba(13,37,66,.05)'};border-radius:3px;padding:3px 4px;margin-bottom:2px;cursor:pointer" onclick="openEditClass('${c.id}')">
-          <div style="font-size:9px;font-weight:700;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4">${c.name}</div>
-          ${c.timeStart?`<div style="font-size:8px;color:var(--slate)">${c.timeStart}${c.timeEnd?'~'+c.timeEnd:''}</div>`:''}
-        </div>`).join(''):''}
-      </div>
-    </div>`;
-  }).join('');
-  const timetableHtml=`<div class="card" style="margin-bottom:1rem">
-    <div class="ch" style="cursor:pointer" onclick="const b=document.getElementById('tt-body');b.style.display=b.style.display==='none'?'block':'none'">
-      <span class="ct">📅 주간 시간표</span>
-      <span style="font-size:11px;color:var(--slate)">탭하면 접기/펼치기</span>
+  // 상단 주간 시간표
+  const ttEl=document.getElementById('cls-timetable');
+  if(ttEl){
+    const WEEKDAYS=['월','화','수','목','금','토'];
+    const ttCols=WEEKDAYS.map(day=>{
+      const dayCls=classes.filter(c=>(c.days||[]).includes(day));
+      const isToday=day===todayDay;
+      return`<div style="min-width:0">
+        <div style="font-size:10px;font-weight:700;text-align:center;padding:4px 2px;background:${isToday?'var(--teal)':'var(--navy)'};color:#fff;border-radius:4px 4px 0 0">${day}</div>
+        <div style="border:1.5px solid ${isToday?'var(--teal)':'var(--border)'};border-top:none;border-radius:0 0 4px 4px;min-height:44px;padding:2px">
+          ${dayCls.map(c=>`<div style="background:${isToday?'rgba(0,196,204,.15)':'rgba(13,37,66,.05)'};border-radius:3px;padding:2px 4px;margin-bottom:2px;cursor:pointer;line-height:1.3" onclick="openClsDetail('${c.id}')">
+            <div style="font-size:9px;font-weight:700;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</div>
+            ${c.timeStart?`<div style="font-size:8px;color:var(--slate)">${c.timeStart}${c.timeEnd?'~'+c.timeEnd:''}</div>`:''}
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+    ttEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--navy)">📅 주간 시간표</span>
+      <span style="font-size:10px;color:var(--slate)">탭하면 상세 보기</span>
     </div>
-    <div class="cb" id="tt-body">
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px">${ttCols}</div>
-    </div>
-  </div>`;
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px">${ttCols}</div>`;
+  }
 
-  if(!classes.length){
-    el.innerHTML=timetableHtml+'<div class="empty"><div class="empty-i">👥</div><div class="empty-t">클래스가 없습니다</div><div class="empty-s">+ 클래스 만들기로 수업 그룹을 만들어보세요</div></div>';
+  // 왼쪽 클래스 카드 목록
+  const listEl=document.getElementById('cls-list-inner');
+  if(listEl){
+    if(!classes.length){
+      listEl.innerHTML=`<div style="padding:20px;text-align:center;color:var(--slate);font-size:12px">클래스 없음<br><button class="btn bt bsm" style="margin-top:8px" onclick="openEditClass()">+ 만들기</button></div>`;
+    }else{
+      listEl.innerHTML=classes.map(c=>{
+        const stus=allStus.filter(s=>(c.studentIds||[]).includes(s.id));
+        const isToday=(c.days||[]).includes(todayDay);
+        const done=isToday&&DB.less().some(l=>l.date===todayStr&&l.classId===c.id);
+        const isActive=_currentClsId===c.id;
+        return`<div class="cls-card${isToday?' today-cls':''}${isActive?' active':''}" onclick="openClsDetail('${c.id}')">
+          <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+            <span style="font-size:13px;font-weight:700;color:var(--navy);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
+            ${isToday&&!done?'<span style="font-size:9px;padding:1px 5px;background:var(--teal);color:#fff;border-radius:8px;flex-shrink:0">오늘</span>':''}
+            ${done?'<span style="font-size:9px;padding:1px 5px;background:#0A5940;color:#fff;border-radius:8px;flex-shrink:0">✓완료</span>':''}
+          </div>
+          <div style="font-size:10px;color:var(--slate)">${(c.days||[]).join('·')}요일${c.timeStart?' · '+c.timeStart+(c.timeEnd?'~'+c.timeEnd:''):''} · ${stus.length}명</div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // 열려있는 클래스 detail 새로고침
+  if(_currentClsId)renderClsLessons(_currentClsId);
+}
+function openClsDetail(classId){
+  _currentClsId=classId;
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const allStus=DB.stus().filter(s=>!s.inactive);
+  const stus=allStus.filter(s=>(c.studentIds||[]).includes(s.id));
+  const todayStr=new Date().toISOString().split('T')[0];
+  const DAYS=['일','월','화','수','목','금','토'];
+  const todayDay=DAYS[new Date().getDay()];
+  const isToday=(c.days||[]).includes(todayDay);
+  const done=isToday&&DB.less().some(l=>l.date===todayStr&&l.classId===classId);
+  // active card 표시
+  document.querySelectorAll('#cls-list-inner .cls-card').forEach(el=>el.classList.toggle('active',el.getAttribute('onclick')===`openClsDetail('${classId}')`));
+  // header
+  const hdr=document.getElementById('cls-detail-header');
+  if(hdr)hdr.innerHTML=`<div style="flex:1;min-width:0">
+    <button class="sp-back-btn cls-back-btn" style="display:none" onclick="closeClsDetail()">← 목록</button>
+    <div style="font-size:16px;font-weight:700;color:var(--navy)">${c.name}</div>
+    <div style="font-size:12px;color:var(--slate);margin-top:2px">${(c.days||[]).join('·')}요일${c.timeStart?' · '+c.timeStart+(c.timeEnd?'~'+c.timeEnd:''):''} · 학생 ${stus.length}명</div>
+    <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${stus.map(s=>`<span class="class-stu-chip" onclick="loadStuPanel('${s.id}')">${s.name}</span>`).join('')||'<span style="font-size:11px;color:var(--slate)">학생 없음</span>'}</div>
+  </div>
+  <div style="display:flex;gap:6px;align-items:flex-start;flex-shrink:0;flex-wrap:wrap">
+    ${isToday&&!done?`<button class="btn bt bsm" onclick="openClassLesson('${classId}','${todayStr}')">수업 기록</button>`:''}
+    ${done?`<button class="btn bo bsm" onclick="openClassLessonEdit('${classId}','${todayStr}')">오늘 수정</button>`:''}
+    ${!isToday?`<button class="btn ba bsm" onclick="openClassLesson('${classId}')">수업 기록</button>`:''}
+    <button class="btn bo bsm" onclick="openEditClass('${classId}')">클래스 수정</button>
+  </div>`;
+  // show detail pane
+  document.getElementById('cls-no-sel').style.display='none';
+  const wrap=document.getElementById('cls-detail-wrap');
+  if(wrap){wrap.style.display='flex';}
+  document.getElementById('cls-split')?.classList.add('detail-open');
+  renderClsLessons(classId);
+}
+function closeClsDetail(){
+  document.getElementById('cls-split')?.classList.remove('detail-open');
+}
+function renderClsLessons(classId){
+  const el=document.getElementById('cls-lessons-body');if(!el)return;
+  const allStus=DB.stus().filter(s=>!s.inactive);
+  // group lessons by date
+  const rawLes=(DB.less()||[]).filter(l=>l.classId===classId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const byDate=new Map();
+  rawLes.forEach(l=>{
+    if(!byDate.has(l.date))byDate.set(l.date,[]);
+    byDate.get(l.date).push(l);
+  });
+  if(!byDate.size){
+    el.innerHTML=`<div class="empty" style="padding:2rem 0"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div></div>`;
     return;
   }
-  el.innerHTML=timetableHtml+classes.map(c=>{
-    const students=allStus.filter(s=>(c.studentIds||[]).includes(s.id));
-    const isToday=(c.days||[]).includes(todayDay);
-    const done=isToday&&DB.less().some(l=>l.date===todayStr&&l.classId===c.id);
-    return `<div class="class-card${isToday?' class-today':''}">
-      <div class="class-card-head">
-        <div style="flex:1;min-width:0">
-          <div class="class-card-name">${c.name}${isToday?'<span class="class-today-badge">오늘</span>':''}</div>
-          <div class="class-card-meta">${(c.days||[]).map(d=>d+'요일').join(' · ')}${c.timeStart?' · '+c.timeStart+(c.timeEnd?'~'+c.timeEnd:''):c.time?' · '+c.time:''} · 학생 ${students.length}명</div>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
-          ${isToday&&!done?`<button class="btn bt bsm" onclick="openClassLesson('${c.id}','${todayStr}')">수업 기록</button>`:''}
-          ${done?`<span style="font-size:12px;color:#0A5940;font-weight:600">✓ 오늘 완료</span><button class="btn bo bsm" onclick="openClassLessonEdit('${c.id}','${todayStr}')">수업 수정</button>`:''}
-          ${!isToday?`<button class="btn ba bsm" onclick="openClassLesson('${c.id}')">수업 기록</button>`:''}
-          <button class="btn bo bsm" onclick="openEditClass('${c.id}')">수정</button>
-        </div>
+  const rows=[...byDate.entries()].map(([date,les])=>{
+    // collect materials across all student records for this date
+    const commonMats=new Map();
+    les.forEach(l=>{
+      Object.entries(l.materials||{}).forEach(([k,v])=>{
+        if(!v.book)return;
+        const isBook=k==='_book'||k.startsWith('_book_');
+        const baseKey=k.replace(/_\d+$/,'');
+        const label=isBook?'원서':(SLBL[baseKey]||'');
+        const cls=isBook?'srd':(SCLS[baseKey]||'');
+        const key=`${label}::${v.book}`;
+        if(!commonMats.has(key))commonMats.set(key,{label,cls,book:v.book,units:new Set()});
+        (v.unit||'').split(', ').filter(Boolean).forEach(u=>commonMats.get(key).units.add(u));
+      });
+    });
+    const matsHtml=[...commonMats.values()].map(m=>{
+      const units=[...m.units];
+      return`<div style="margin-bottom:2px"><span style="font-weight:600;font-size:12px">${m.book}</span> <span class="spill ${m.cls}" style="font-size:10px">${m.label}</span>${units.length?` <span style="font-size:11px;color:var(--slate)">${units.join(', ')}</span>`:''}`;
+    }).join('');
+    // per-student attendance
+    const attRows=les.map(l=>{
+      const stu=allStus.find(s=>s.id===l.sid);
+      const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
+      return`<span style="font-size:11px;color:var(--slate)">${stu?.name||'—'}${attLabel?` <span class="att-chip ${ATTCLS[l.att]}" style="font-size:9px;padding:0 5px">${attLabel}</span>`:''}</span>`;
+    }).join(' · ');
+    // edit button targets the first lesson date
+    const firstLesSid=les[0]?.sid||'';
+    return`<div style="padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+        <span style="font-size:12px;font-family:var(--fm);color:var(--slate);font-weight:700">${date}</span>
+        <button class="btn bo bxxs" onclick="openClassLessonEdit('${classId}','${date}')">✏️ 수정</button>
       </div>
-      <div class="class-card-stus">${students.map(s=>`<span class="class-stu-chip" onclick="loadStuPanel('${s.id}')">${s.name}</span>`).join('')||'<span style="color:var(--slate);font-size:12px">학생 없음</span>'}</div>
+      ${matsHtml?`<div style="margin-bottom:6px">${matsHtml}</div>`:''}
+      <div style="font-size:11px;color:var(--slate);line-height:1.8">${attRows}</div>
+      ${les[0]?.cmt?`<div style="font-size:12px;color:var(--slate);margin-top:4px;padding:5px 8px;background:var(--tl);border-radius:6px">${les[0].cmt}</div>`:''}
     </div>`;
   }).join('');
+  el.innerHTML=rows;
 }
 
 let _ecStuIds=[];

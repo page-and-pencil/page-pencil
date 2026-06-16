@@ -678,11 +678,30 @@
 
     <!-- 클래스 관리 -->
     <div id="t-class" class="panel">
-      <div class="sh">
-        <div><div class="st">클래스</div></div>
-        <button class="btn bt bsm" onclick="openEditClass()">+ 클래스 만들기</button>
+      <!-- 상단 시간표 -->
+      <div class="cls-tt" id="cls-timetable"></div>
+      <!-- 좌우 분할 -->
+      <div class="cls-split" id="cls-split">
+        <!-- 왼쪽: 클래스 목록 -->
+        <div class="cls-list-col">
+          <div class="cls-list-head">
+            <span style="font-size:13px;font-weight:700;color:var(--navy)">클래스</span>
+            <button class="btn bt bsm" onclick="openEditClass()">+ 만들기</button>
+          </div>
+          <div class="cls-list-inner" id="cls-list-inner"></div>
+        </div>
+        <!-- 오른쪽: 클래스 상세 -->
+        <div class="cls-detail-col">
+          <div id="cls-no-sel" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--slate);gap:8px">
+            <div style="font-size:36px">👈</div>
+            <div style="font-size:13px;font-weight:600">왼쪽에서 클래스를 선택하세요</div>
+          </div>
+          <div id="cls-detail-wrap" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0">
+            <div class="stu-panel-header" id="cls-detail-header"></div>
+            <div class="stu-panel-body" id="cls-lessons-body"></div>
+          </div>
+        </div>
       </div>
-      <div id="class-list"></div>
     </div>
 
     <!-- 과제 관리 -->
@@ -1757,11 +1776,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260617a"></script>
-<script src="vocab_ref_data.js?v=20260617a"></script>
-<script src="js/db.js?v=20260617a"></script>
-<script src="js/teacher.js?v=20260617a"></script>
-<script src="js/student.js?v=20260617a"></script>
-<script src="js/parent.js?v=20260617a"></script>
+<script src="js/utils.js?v=20260617b"></script>
+<script src="vocab_ref_data.js?v=20260617b"></script>
+<script src="js/db.js?v=20260617b"></script>
+<script src="js/teacher.js?v=20260617b"></script>
+<script src="js/student.js?v=20260617b"></script>
+<script src="js/parent.js?v=20260617b"></script>
 </body>
 </html>
