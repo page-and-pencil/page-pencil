@@ -746,9 +746,13 @@ async function loadStuPanel(sid){
           <div style="flex:1">
             <div style="font-size:11px;color:${overdue?'var(--red)':'var(--slate)'};font-family:var(--fm)">${a.date||''}${a.due?' · 마감 '+a.due:''}</div>
             <div style="font-size:12px;font-weight:700;margin-top:2px">${
-              a.type==='reading'?`📖 ${a.bookTitle||''}${a.range?' ('+a.range+')':''}`:
+              a.type==='reading'?`📖 ${a.bookTitle||''}${a.range?' · '+a.range:''}`:
               a.type==='vocab'?`📝 단어: ${(a.words||[]).join(', ')}`:
-              a.category==='class5'?`🎮 [클래스5] ${c5BookLbl(a)}`:
+              a.category==='class5'?(()=>{
+                const sc=a.schedule||[];
+                if(!sc.length)return`🎮 [클래스5]${a.bookTitle&&a.bookTitle!=='클래스5'?` · ${a.bookTitle}`:''}${a.range?' · '+a.range:''}`;
+                return`🎮 [클래스5]<div style="margin-top:3px">${sc.slice(0,5).map(s=>`<div style="font-size:11px;font-weight:normal;color:var(--slate);line-height:1.7;padding-left:2px">${s.date||''} ${[s.book,s.unit].filter(Boolean).join(' · ')}</div>`).join('')}${sc.length>5?`<div style="font-size:10px;font-weight:normal;color:var(--slate);padding-left:2px">외 ${sc.length-5}일...</div>`:''}</div>`;
+              })():
               `${a.bookTitle||a.text||''}${a.range?' · '+a.range:''}`
             }</div>
           </div>
@@ -6466,12 +6470,18 @@ function _assignItemHtml(a,hws){
   const CAT_LABELS={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','other':'기타'};
   const hw=hws.find(h=>h.assignmentId===a.id);
   const catLabel=CAT_LABELS[a.category||'']||'';
-  const bookLabel=a.category==='class5'?c5BookLbl(a):a.bookTitle||(a.text||'');
   const statusCls=a.completedAt?'bteal':hw?'bamber':'';
   const statusTxt=a.completedAt?'완료':hw?'제출':'';
-  return `<div class="assign-item">
+  const c5Detail=(()=>{
+    const sc=a.schedule||[];
+    if(a.category!=='class5')return'';
+    if(sc.length)return`<div style="margin-top:2px">${sc.slice(0,3).map(s=>`<div style="font-size:10px;color:var(--slate);line-height:1.5">${s.date||''} ${[s.book,s.unit].filter(Boolean).join(' · ')}</div>`).join('')}${sc.length>3?`<div style="font-size:10px;color:var(--slate)">외 ${sc.length-3}일...</div>`:''}</div>`;
+    return(a.bookTitle&&a.bookTitle!=='클래스5'?` · ${a.bookTitle}`:'')+(a.range?' · '+a.range:'');
+  })();
+  const bookLabel=a.category==='class5'?'🎮 클래스5':a.bookTitle||(a.text||'');
+  return `<div class="assign-item" style="align-items:flex-start">
     <div style="flex:1;min-width:0">
-      <div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.range?' '+a.range:''}</div>
+      <div style="font-size:11px;font-weight:600;color:var(--navy);${a.category!=='class5'?'white-space:nowrap;overflow:hidden;text-overflow:ellipsis':''}">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.category!=='class5'&&a.range?' '+a.range:''}${c5Detail}</div>
       <div style="font-size:10px;color:var(--slate)">${a.due?'~'+a.due:a.date||''}</div>
     </div>
     <div style="display:flex;gap:3px;flex-shrink:0;align-items:center">
@@ -6795,7 +6805,7 @@ function renderSpBooks(sid){
         ${t.manual?`<input type="text" value="${t.unit||''}" placeholder="현재 진도 (예: Unit 3)" style="margin-top:4px;width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream2);outline:none" onchange="updateTextbookUnit('${t.id}','${sid}',this.value)">`:''}
       </div>
       <div style="display:flex;gap:4px;flex-shrink:0">
-        ${t.manual?`<button class="btn ba bxxs" onclick="markTextbookDone('${t.id}','${sid}')">✓ 완료</button>`:''}
+        ${t.id?`<button class="btn ba bxxs" onclick="markTextbookDone('${t.id}','${sid}')">✓ 완료</button>`:`<button class="btn ba bxxs" onclick="markDerivedTbDone('${escAttr(t.title)}','${t.type||'교재'}','${sid}')">✓ 완료</button>`}
         ${t.manual?`<button class="btn bd bxxs" onclick="removeTextbook('${t.id}','${sid}')">삭제</button>`:''}
       </div>
     </div>
@@ -7028,6 +7038,16 @@ async function importRdCsv(e,sid){
     e.target.value='';
   };
   reader.readAsText(file,'utf-8');
+}
+async function markDerivedTbDone(title,type,sid){
+  const existing=(_cache.textbooks||[]).find(t=>t.sid===sid&&t.title===title);
+  if(existing){markTextbookDone(existing.id,sid);return;}
+  const gTb=(_cache.globalTextbooks||[]).find(g=>g.title===title);
+  const id=uid();
+  const entry={id,sid,title,type:type||'교재',bookId:gTb?.id||'',level:gTb?.level||'',currentUnit:'',active:true,completed:false};
+  await supaUpsert('textbooks',id,entry,sid);
+  if(!_cache.textbooks)_cache.textbooks=[];_cache.textbooks.push(entry);
+  markTextbookDone(id,sid);
 }
 let _tbDoneId='',_tbDoneSid='',_tbDoneMode='new';
 function markTextbookDone(id,sid){
