@@ -8075,10 +8075,11 @@ function startClsResize(e,colId,invert=false){
   const col=document.getElementById(colId);if(!col)return;
   const startX=e.clientX;
   const startW=col.offsetWidth;
-  // detail-col은 flex:1 유지 — 절대 flex:none 설정하지 않음
   const onMove=ev=>{
+    const container=document.getElementById('cls-split');
+    const maxW=container?(container.offsetWidth-200):9999; // 200px은 detail-col 최소 확보
     const dx=ev.clientX-startX;
-    const newW=Math.max(180,Math.min(800,startW+(invert?-dx:dx)));
+    const newW=Math.max(160,Math.min(maxW,startW+(invert?-dx:dx)));
     col.style.flexShrink='0';col.style.flexGrow='0';col.style.flexBasis=newW+'px';col.style.width=newW+'px';
   };
   const onUp=()=>{document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);};
