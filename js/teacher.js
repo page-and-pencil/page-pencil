@@ -8070,14 +8070,16 @@ function closeClsRecord(){
   const col=document.getElementById('cls-record-col');if(col)col.classList.remove('open');
   const r2=document.getElementById('cls-resizer-2');if(r2)r2.style.display='none';
 }
-function startClsResize(e,colId){
+function startClsResize(e,colId,invert=false){
   e.preventDefault();
   const col=document.getElementById(colId);if(!col)return;
   const startX=e.clientX;
   const startW=col.offsetWidth;
+  // detail-col은 flex:1 유지 — 절대 flex:none 설정하지 않음
   const onMove=ev=>{
-    const newW=Math.max(160,Math.min(700,startW+(ev.clientX-startX)));
-    col.style.flex='none';col.style.width=newW+'px';
+    const dx=ev.clientX-startX;
+    const newW=Math.max(180,Math.min(800,startW+(invert?-dx:dx)));
+    col.style.flexShrink='0';col.style.flexGrow='0';col.style.flexBasis=newW+'px';col.style.width=newW+'px';
   };
   const onUp=()=>{document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);};
   document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
