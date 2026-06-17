@@ -816,6 +816,7 @@ async function loadStuPanel(sid){
   if(!(_cache.vocab_cards||[]).some(c=>c.sid===sid)){
     await loadVocabCards(sid);
   }
+  await syncClassTbsToStudent(sid).catch(()=>{});
   const les=DB.less().filter(l=>l.sid===sid);
   const tsts=DB.tsts().filter(t=>t.sid===sid);
   const rds=DB.rds().filter(r=>r.sid===sid);
@@ -7104,6 +7105,26 @@ async function saveModalAssignment(){
   finally{showLoading(false);}
 }
 
+// ── 클래스 공통 교재 → 학생 교재 자동 동기화 ──
+async function syncClassTbsToStudent(sid){
+  const studentClasses=DB.classes().filter(c=>c.active!==false&&(c.studentIds||[]).includes(sid));
+  if(!studentClasses.length)return;
+  const studentTbTitles=new Set((_cache.textbooks||[]).filter(t=>t.sid===sid&&t.active!==false).map(t=>t.title));
+  for(const cls of studentClasses){
+    const commonMats=cls.commonMaterials||{};
+    const tbEntries=Object.entries(commonMats).filter(([k,v])=>!k.startsWith('_book')&&v.book);
+    for(const [,v] of tbEntries){
+      if(studentTbTitles.has(v.book))continue;
+      const gTb=(_cache.globalTextbooks||[]).find(g=>g.title===v.book);
+      const entry={id:uid(),sid,title:v.book,type:'교재',bookId:gTb?.id||'',level:gTb?.level||'',currentUnit:v.unit||'',active:true,completed:false};
+      await supaUpsert('textbooks',entry.id,entry,sid);
+      if(!_cache.textbooks)_cache.textbooks=[];
+      _cache.textbooks.push(entry);
+      studentTbTitles.add(v.book);
+    }
+  }
+}
+
 // ── SP-BOOKS (교재 탭) ──
 function renderSpBooks(sid){
   const el=document.getElementById('sp-books');if(!el)return;
@@ -8476,16 +8497,7 @@ async function saveClassLesson(){
           await syncCompletedReadingToTextbooks(d.sid,b.title,date).catch(()=>{});
       }
       // 클래스 공통 교재 → 학생 개별 교재 동기화
-      const classTbEntries=Object.entries(commonMats||{}).filter(([k,v])=>!k.startsWith('_book')&&v.book);
-      const studentTbTitles=new Set((_cache.textbooks||[]).filter(t=>t.sid===d.sid&&t.active!==false).map(t=>t.title));
-      for(const [,v] of classTbEntries){
-        if(studentTbTitles.has(v.book))continue;
-        const gTb=(_cache.globalTextbooks||[]).find(g=>g.title===v.book);
-        const entry={id:uid(),sid:d.sid,title:v.book,type:'교재',bookId:gTb?.id||'',level:gTb?.level||'',currentUnit:v.unit||'',active:true,completed:false};
-        await supaUpsert('textbooks',entry.id,entry,d.sid);
-        if(!_cache.textbooks)_cache.textbooks=[];_cache.textbooks.push(entry);
-        studentTbTitles.add(v.book);
-      }
+      await syncClassTbsToStudent(d.sid).catch(()=>{});
       // 공통 과제 → 결석 제외
       if(d.att!=='absent'){
         for(const hw of commonHws){
