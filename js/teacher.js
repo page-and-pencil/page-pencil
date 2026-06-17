@@ -6792,6 +6792,7 @@ function _assignItemHtml(a,hws){
   return `<div class="assign-item" style="align-items:flex-start">
     <div style="flex:1;min-width:0">
       <div style="font-size:11px;font-weight:600;color:var(--navy);${a.category!=='class5'?'white-space:nowrap;overflow:hidden;text-overflow:ellipsis':''}">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.category!=='class5'&&a.range?' '+a.range:''}${c5Detail}</div>
+      ${a.note?`<div style="font-size:10px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">💬 ${a.note}</div>`:''}
       <div style="font-size:10px;color:var(--slate)">${a.due?'~'+a.due:a.date||''}</div>
     </div>
     <div style="display:flex;gap:3px;flex-shrink:0;align-items:center">
@@ -6853,6 +6854,7 @@ function openAssignModal(sid){
   const bookDd=document.getElementById('modal-assign-book-dd');if(bookDd)bookDd.style.display='none';
   const rangeEl=document.getElementById('modal-assign-range');
   if(rangeEl){rangeEl.value='';const rf=rangeEl.closest('.f');if(rf)rf.style.display='';}
+  const noteEl=document.getElementById('modal-assign-note');if(noteEl)noteEl.value='';
   document.getElementById('modal-assign-extra').innerHTML='';
   openM('m-add-assign');
 }
@@ -6873,6 +6875,7 @@ function openEditAssignModal(aid){
   const bookDd2=document.getElementById('modal-assign-book-dd');if(bookDd2)bookDd2.style.display='none';
   const rangeEl=document.getElementById('modal-assign-range');
   if(rangeEl)rangeEl.value=a.range||'';
+  const noteEl2=document.getElementById('modal-assign-note');if(noteEl2)noteEl2.value=a.note||'';
   openM('m-add-assign');
 }
 async function deleteAssign(aid){
@@ -7052,6 +7055,7 @@ async function saveModalAssignment(){
   const book=document.getElementById('modal-assign-book')?.value.trim()||'';
   const bookId=document.getElementById('modal-assign-book-id')?.value||'';
   const range=document.getElementById('modal-assign-range').value.trim();
+  const note=document.getElementById('modal-assign-note')?.value.trim()||'';
   const date=document.getElementById('modal-assign-date').value;
   const due=document.getElementById('modal-assign-due').value;
   if(!cat){toast('구분을 선택해 주세요');return;}
@@ -7059,7 +7063,7 @@ async function saveModalAssignment(){
     const existing=(_cache.assignments||[]).find(x=>x.id===_editAssignId);
     if(existing){
       existing.category=cat;existing.date=date;existing.due=due;
-      existing.bookTitle=book;existing.range=range;
+      existing.bookTitle=book;existing.range=range;existing.note=note;
       await supaUpsert('assignments',_editAssignId,existing,sid);
       const idx=(_cache.assignments||[]).findIndex(x=>x.id===_editAssignId);
       if(idx>=0)_cache.assignments[idx]=existing;
@@ -7082,14 +7086,14 @@ async function saveModalAssignment(){
   const allLib=[...(_cache.library||[])];
   const isReading=cat==='book'||!!bookId||allLib.some(b=>b.title===book);
   const type=isReading?'reading':cat==='vocab'?'vocab':cat==='other'?'other':'textbook';
-  const a={id:uid(),sid,type,category:cat,date,due,bookTitle:book,bookId:bookId||'',range};
+  const a={id:uid(),sid,type,category:cat,date,due,bookTitle:book,bookId:bookId||'',range,note};
   if(type==='vocab'){
     const checked=[...document.querySelectorAll('.modal-vocab-check:checked')].map(c=>c.value);
     const extra=(document.getElementById('modal-vocab-extra')?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
     a.words=[...new Set([...checked,...extra])];
     if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제');
   }
-  if(!book&&!range&&type!=='vocab'){toast('교재/원서 또는 범위를 입력해 주세요');return;}
+  if(!book&&!range&&!note&&type!=='vocab'){toast('교재/원서, 범위 또는 메모를 입력해 주세요');return;}
   await supaUpsert('assignments',a.id,a,sid);
   if(!_cache.assignments)_cache.assignments=[];
   _cache.assignments.unshift(a);
