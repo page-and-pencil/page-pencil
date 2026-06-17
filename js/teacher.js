@@ -8059,7 +8059,28 @@ function openClassLesson(classId,dateStr){
       <div class="cl-preview-cmt" style="display:none;margin-top:6px;padding:8px 10px;background:#f0fafb;border-radius:var(--rs);font-size:12px;color:var(--navy);line-height:1.6;border:1px solid var(--teal)"></div>
     </div>`).join('')
     :'<div style="color:var(--slate);font-size:13px">소속 학생이 없습니다</div>';
-  openM('m-class-lesson');
+  openClsRecord();
+}
+function openClsRecord(){
+  const col=document.getElementById('cls-record-col');if(col)col.classList.add('open');
+  const r2=document.getElementById('cls-resizer-2');if(r2)r2.style.display='';
+  document.getElementById('cls-split')?.classList.add('detail-open');
+}
+function closeClsRecord(){
+  const col=document.getElementById('cls-record-col');if(col)col.classList.remove('open');
+  const r2=document.getElementById('cls-resizer-2');if(r2)r2.style.display='none';
+}
+function startClsResize(e,colId){
+  e.preventDefault();
+  const col=document.getElementById(colId);if(!col)return;
+  const startX=e.clientX;
+  const startW=col.offsetWidth;
+  const onMove=ev=>{
+    const newW=Math.max(160,Math.min(700,startW+(ev.clientX-startX)));
+    col.style.flex='none';col.style.width=newW+'px';
+  };
+  const onUp=()=>{document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);};
+  document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
 }
 
 const _CAT_KO={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신'};
@@ -8363,8 +8384,9 @@ function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook='',prefillRange='
       ${!isCommon?`<select class="cl-hw-ind-stu filter-sel" style="flex:0 0 auto;${IS}">${stuOpts}</select>`:''}
       <datalist id="${rowDlId}"></datalist>
       <select class="cl-hw-cat filter-sel" style="flex:0 0 100px;${IS}" onchange="clHwCatChange(this)">${HW_CAT_SEL}</select>
-      <input type="text" class="cl-hw-book" placeholder="교재" list="${rowDlId}" autocomplete="off" style="flex:2;min-width:100px;${IS}">
-      <input type="text" class="cl-hw-range" placeholder="범위/내용" style="flex:3;min-width:120px;${IS}">
+      <input type="text" class="cl-hw-book" placeholder="교재" list="${rowDlId}" autocomplete="off" style="flex:2;min-width:80px;${IS}">
+      <input type="text" class="cl-hw-range" placeholder="범위/내용" style="flex:2;min-width:80px;${IS}">
+      <input type="text" class="cl-hw-note" placeholder="자유 메모" style="flex:2;min-width:80px;${IS}">
       <button type="button" onclick="this.closest('.cl-hw-row').remove()" style="background:none;border:none;cursor:pointer;font-size:17px;color:var(--slate);padding:0 2px;flex-shrink:0">×</button>`;
     if(prefillCat){const catEl=row.querySelector('.cl-hw-cat');if(catEl){catEl.value=prefillCat;fillClHwRowDl(row);}}
     if(prefillBook){const bookEl=row.querySelector('.cl-hw-book');if(bookEl)bookEl.value=prefillBook;}
@@ -8383,7 +8405,8 @@ function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook='',prefillRange='
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <datalist id="${rowDlId}"></datalist>
       <input type="text" class="cl-hw-book" placeholder="교재 선택 또는 직접 입력" list="${rowDlId}" autocomplete="off" style="${IS};flex:2;min-width:130px">
-      <input type="text" class="cl-hw-range" placeholder="범위/내용" style="${IS};flex:3;min-width:150px">
+      <input type="text" class="cl-hw-range" placeholder="범위/내용" style="${IS};flex:2;min-width:120px">
+      <input type="text" class="cl-hw-note" placeholder="자유 메모 (선택)" style="${IS};flex:2;min-width:120px">
     </div>`;
     if(prefillCat){const catEl=row.querySelector('.cl-hw-cat');if(catEl){catEl.value=prefillCat;fillClHwRowDl(row);}}
     if(prefillBook){const bookEl=row.querySelector('.cl-hw-book');if(bookEl)bookEl.value=prefillBook;}
@@ -8426,8 +8449,9 @@ async function saveClassLesson(){
       due:row.querySelector('.cl-hw-date')?.value||date,
       cat:row.querySelector('.cl-hw-cat')?.value||'',
       book:row.querySelector('.cl-hw-book')?.value.trim()||'',
-      range:row.querySelector('.cl-hw-range')?.value.trim()||''
-    })).filter(r=>r.book||r.range);
+      range:row.querySelector('.cl-hw-range')?.value.trim()||'',
+      note:row.querySelector('.cl-hw-note')?.value.trim()||''
+    })).filter(r=>r.book||r.range||r.note);
   const commonHws=collectHwRows('#cl-hw-common-rows .cl-hw-row');
   const indHws=collectHwRows('#cl-hw-ind-rows .cl-hw-row').filter(r=>r.sid);
   const btn=document.getElementById('cl-save-btn');btn.disabled=true;
@@ -8467,7 +8491,7 @@ async function saveClassLesson(){
           const allLib=[...(_cache.library||[])];
           const isReading=allLib.some(b=>b.title===hw.book);
           const a={id:uid(),sid:d.sid,date,due:hw.due,classId,category:hw.cat,
-            type:isReading?'reading':'textbook',bookTitle:hw.book,range:hw.range};
+            type:isReading?'reading':'textbook',bookTitle:hw.book,range:hw.range,note:hw.note||''};
           await supaUpsert('assignments',a.id,a,d.sid);_cache.assignments.unshift(a);
         }
       }
@@ -8479,10 +8503,10 @@ async function saveClassLesson(){
       const allLib=[...(_cache.library||[])];
       const isReading=allLib.some(b=>b.title===hw.book);
       const a={id:uid(),sid:hw.sid,date,due:hw.due,classId,category:hw.cat,
-        type:isReading?'reading':'textbook',bookTitle:hw.book,range:hw.range};
+        type:isReading?'reading':'textbook',bookTitle:hw.book,range:hw.range,note:hw.note||''};
       await supaUpsert('assignments',a.id,a,hw.sid);_cache.assignments.unshift(a);
     }
-    closeM('m-class-lesson');
+    closeClsRecord();
     renderLes();renderRd();renderDash();renderClassTab();
     toast(stuData.length+'명 수업 기록 완료');
   }catch(e){

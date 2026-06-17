@@ -690,8 +690,10 @@
           </div>
           <div class="cls-list-inner" id="cls-list-inner"></div>
         </div>
-        <!-- 오른쪽: 클래스 상세 -->
-        <div class="cls-detail-col">
+        <!-- 리사이저 1 -->
+        <div class="cls-resizer" id="cls-resizer-1" onmousedown="startClsResize(event,'cls-list-col')"></div>
+        <!-- 가운데: 클래스 상세(수업 기록 목록) -->
+        <div class="cls-detail-col" id="cls-detail-col">
           <div id="cls-no-sel" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--slate);gap:8px">
             <div style="font-size:36px">👈</div>
             <div style="font-size:13px;font-weight:600">왼쪽에서 클래스를 선택하세요</div>
@@ -699,6 +701,60 @@
           <div id="cls-detail-wrap" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0">
             <div class="stu-panel-header" id="cls-detail-header"></div>
             <div class="stu-panel-body" id="cls-lessons-body"></div>
+          </div>
+        </div>
+        <!-- 리사이저 2 -->
+        <div class="cls-resizer" id="cls-resizer-2" style="display:none" onmousedown="startClsResize(event,'cls-detail-col')"></div>
+        <!-- 오른쪽: 수업 기록 입력 페인 -->
+        <div class="cls-record-col" id="cls-record-col">
+          <div class="stu-panel-header" style="flex-shrink:0">
+            <div style="flex:1;min-width:0">
+              <button class="sp-back-btn" style="display:inline-block" onclick="closeClsRecord()">← 닫기</button>
+              <div class="mt" id="cl-modal-title" style="font-size:15px;font-weight:700;color:var(--navy);margin-top:2px">클래스 수업 기록</div>
+              <div style="font-size:12px;color:var(--slate)" id="cl-modal-sub"></div>
+            </div>
+          </div>
+          <div class="cls-record-inner">
+            <input type="hidden" id="cl-class-id">
+            <div style="margin-bottom:14px">
+              <label style="font-size:12px;color:var(--slate);display:block;margin-bottom:4px">날짜</label>
+              <input type="date" id="cl-date" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none">
+            </div>
+            <div class="card" style="margin-bottom:12px">
+              <div class="ch"><span class="ct">📚 공통 교재 진도</span></div>
+              <div class="cb">
+                <div class="chips" id="cl-subj-chips">
+                  <button class="chip" data-s="phonics" onclick="clTogSubj(this)">파닉스</button>
+                  <button class="chip" data-s="vocab" onclick="clTogSubj(this)">어휘</button>
+                  <button class="chip" data-s="grammar" onclick="clTogSubj(this)">어법</button>
+                  <button class="chip" data-s="reading" onclick="clTogSubj(this)">리딩</button>
+                  <button class="chip" data-s="listening" onclick="clTogSubj(this)">리스닝</button>
+                  <button class="chip" data-s="writing" onclick="clTogSubj(this)">라이팅</button>
+                  <button class="chip" data-s="naesin" onclick="clTogSubj(this)">내신</button>
+                  <button class="chip" data-s="pencil_down" onclick="clTogSubj(this)">✏️ Pencil Down</button>
+                </div>
+                <div id="cl-subj-rows" class="sr-wrap"></div>
+              </div>
+            </div>
+            <div style="margin-bottom:12px">
+              <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">👤 학생별 기록</div>
+              <div id="cl-students"></div>
+            </div>
+            <div class="card" style="margin-bottom:12px">
+              <div class="ch"><span class="ct">📋 과제 설정 (선택)</span></div>
+              <div class="cb" style="padding-bottom:4px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                  <div style="font-size:12px;font-weight:700;color:var(--navy)">공통 과제 (전체 학생)</div>
+                  <button class="btn bo bsm" onclick="clHwSyncFromSubj()" title="위 수업 내용 기준으로 과제 행 재생성">↺ 수업 내용으로 채우기</button>
+                </div>
+                <div id="cl-hw-common-rows"></div>
+                <button class="btn ba bsm" style="width:100%;margin-bottom:16px" onclick="addClHwRow(null,true)">+ 공통 과제 추가</button>
+                <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;padding-top:10px;border-top:1px solid var(--border)">개별 과제 (학생 지정)</div>
+                <div id="cl-hw-ind-rows"></div>
+                <button class="btn bo bsm" style="width:100%" onclick="addClHwRow(null,false)">+ 개별 과제 추가</button>
+              </div>
+            </div>
+            <button class="btn bt" style="width:100%" id="cl-save-btn" onclick="saveClassLesson()">저장하기</button>
           </div>
         </div>
       </div>
@@ -1188,58 +1244,7 @@
   </div>
 </div>
 
-<!-- 클래스 수업 기록 -->
-<div id="m-class-lesson" class="mo" data-protect>
-  <div class="mdl mdl-xl">
-    <div class="mh">
-      <div>
-        <div class="mt" id="cl-modal-title">클래스 수업 기록</div>
-        <div style="font-size:12px;color:var(--slate)" id="cl-modal-sub"></div>
-      </div>
-      <button class="bx" onclick="closeM('m-class-lesson')">×</button>
-    </div>
-    <input type="hidden" id="cl-class-id">
-    <div style="margin:12px 0 16px">
-      <label style="font-size:12px;color:var(--slate);display:block;margin-bottom:4px">날짜</label>
-      <input type="date" id="cl-date" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none">
-    </div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="ch"><span class="ct">📚 공통 교재 진도</span></div>
-      <div class="cb">
-        <div class="chips" id="cl-subj-chips">
-          <button class="chip" data-s="phonics" onclick="clTogSubj(this)">파닉스</button>
-          <button class="chip" data-s="vocab" onclick="clTogSubj(this)">어휘</button>
-          <button class="chip" data-s="grammar" onclick="clTogSubj(this)">어법</button>
-          <button class="chip" data-s="reading" onclick="clTogSubj(this)">리딩</button>
-          <button class="chip" data-s="listening" onclick="clTogSubj(this)">리스닝</button>
-          <button class="chip" data-s="writing" onclick="clTogSubj(this)">라이팅</button>
-          <button class="chip" data-s="naesin" onclick="clTogSubj(this)">내신</button>
-          <button class="chip" data-s="pencil_down" onclick="clTogSubj(this)">✏️ Pencil Down</button>
-        </div>
-        <div id="cl-subj-rows" class="sr-wrap"></div>
-      </div>
-    </div>
-    <div style="margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">👤 학생별 기록</div>
-      <div id="cl-students"></div>
-    </div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="ch"><span class="ct">📋 과제 설정 (선택)</span></div>
-      <div class="cb" style="padding-bottom:4px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div style="font-size:12px;font-weight:700;color:var(--navy)">공통 과제 (전체 학생)</div>
-          <button class="btn bo bsm" onclick="clHwSyncFromSubj()" title="위 수업 내용 기준으로 과제 행 재생성">↺ 수업 내용으로 채우기</button>
-        </div>
-        <div id="cl-hw-common-rows"></div>
-        <button class="btn ba bsm" style="width:100%;margin-bottom:16px" onclick="addClHwRow(null,true)">+ 공통 과제 추가</button>
-        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;padding-top:10px;border-top:1px solid var(--border)">개별 과제 (학생 지정)</div>
-        <div id="cl-hw-ind-rows"></div>
-        <button class="btn bo bsm" style="width:100%" onclick="addClHwRow(null,false)">+ 개별 과제 추가</button>
-      </div>
-    </div>
-    <button class="btn bt" style="width:100%" id="cl-save-btn" onclick="saveClassLesson()">저장하기</button>
-  </div>
-</div>
+<!-- 클래스 수업 기록 모달 (모바일 폴백용 - 내용은 cls-record-col로 이동) -->
 
 <!-- 어휘 DB 단어 추가 -->
 <div id="m-add-word" class="mo" data-protect>
@@ -1777,11 +1782,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260617d"></script>
-<script src="vocab_ref_data.js?v=20260617d"></script>
-<script src="js/db.js?v=20260617d"></script>
-<script src="js/teacher.js?v=20260617d"></script>
-<script src="js/student.js?v=20260617d"></script>
-<script src="js/parent.js?v=20260617d"></script>
+<script src="js/utils.js?v=20260617e"></script>
+<script src="vocab_ref_data.js?v=20260617e"></script>
+<script src="js/db.js?v=20260617e"></script>
+<script src="js/teacher.js?v=20260617e"></script>
+<script src="js/student.js?v=20260617e"></script>
+<script src="js/parent.js?v=20260617e"></script>
 </body>
 </html>
