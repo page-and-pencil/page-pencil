@@ -1465,10 +1465,10 @@ function renderStudentHome(sid){
       <div style="margin-top:8px">${lastLessonHtml}${streakHtml}${renderHomeStats(sid)}</div>
     </details>
     ${(()=>{
-      const myLogs=(_cache.logs||[]).filter(l=>l.sid===sid&&l.photoUrl).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      const myLogs=(_cache.logs||[]).filter(l=>l.sid===sid&&(l.photoUrl||(l.photoUrls&&l.photoUrls.length))).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
       if(!myLogs.length)return '';
-      return '<div style="margin-top:14px"><div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">📸 리딩로그</div><div style="display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:4px">'+
-        myLogs.map(l=>'<div style="flex:0 0 120px;scroll-snap-align:start"><div style="width:120px;height:90px;border-radius:8px;overflow:hidden;cursor:pointer" onclick="openLb(\''+escU(l.photoUrl)+'\')"><img src="'+l.photoUrl+'" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div><div style="font-size:10px;color:var(--slate);margin-top:3px;text-align:center">'+(l.date||'')+'</div>'+(l.bookTitle?'<div style="font-size:10px;color:var(--navy);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+l.bookTitle+'</div>':'')+'</div>').join('')+
+      return '<div style="margin-top:14px"><div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">📸 리딩로그</div><div style="display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:4px">'+
+        myLogs.map(l=>{const imgs=logImgs(l);const first=imgs[0]||'';return '<div style="flex:0 0 150px;scroll-snap-align:start"><div style="width:150px;height:190px;border-radius:8px;overflow:hidden;cursor:pointer;position:relative" onclick="openLbLog(\''+l.id+'\')"><img src="'+first+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">'+(imgs.length>1?'<div class="rdlog-multi">📄 1/'+imgs.length+'</div>':'')+'</div><div style="font-size:10px;color:var(--slate);margin-top:3px;text-align:center">'+(l.date||'')+'</div>'+(l.bookTitle?'<div style="font-size:11px;font-weight:600;color:var(--navy);text-align:center;line-height:1.3;word-break:break-word">'+l.bookTitle+'</div>':'')+'</div>';}).join('')+
         '</div></div>';
     })()}
   </div>`;

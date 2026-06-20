@@ -208,15 +208,16 @@ async function loadParent(sid){
       <div class="ch"><span class="ct">📷 리딩로그</span><span style="font-size:11px;color:var(--slate)">${logs.length}회</span></div>
       <div class="cb" style="padding:12px 16px">
         <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scroll-snap-type:x mandatory">
-          ${logs.map(l=>`<div style="flex:0 0 120px;scroll-snap-align:start">
-            <div style="width:120px;height:90px;border-radius:8px;overflow:hidden;border:1.5px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="openLb('${escU(l.photoUrl||'')}')">
-              ${l.photoUrl?`<img src="${l.photoUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`:`<div style="font-size:28px">📷</div>`}
+          ${logs.map(l=>{const imgs=logImgs(l);const first=imgs[0]||'';return `<div style="flex:0 0 150px;scroll-snap-align:start">
+            <div style="width:150px;height:188px;border-radius:8px;overflow:hidden;border:1.5px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative" onclick="openLbLog('${l.id}')">
+              ${first?`<img src="${first}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.style.display='none'">`:`<div style="font-size:28px">📷</div>`}
+              ${imgs.length>1?`<div class="rdlog-multi">📄 1/${imgs.length}</div>`:''}
             </div>
             <div style="margin-top:4px;padding:0 2px">
               <div style="font-size:10px;color:var(--slate);text-align:center;font-family:var(--fm)">${l.date||''}</div>
-              ${l.bookTitle?`<div style="font-size:10px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center">${l.bookTitle}</div>`:''}
+              ${l.bookTitle?`<div style="font-size:11px;font-weight:600;color:var(--navy);text-align:center;line-height:1.3;word-break:break-word">${l.bookTitle}</div>`:''}
             </div>
-          </div>`).join('')}
+          </div>`;}).join('')}
         </div>
       </div>
     </div>`;
@@ -360,11 +361,12 @@ function toggleAllBooks(){
 function toggleAllLogs(){
   const el=document.getElementById('pp-log-inner');if(!el)return;
   const logs=DB.logs().filter(l=>l.sid===currentParentSid);
-  el.innerHTML=`<div class="pg">${logs.map(l=>`
-    <div class="pi" onclick="openLb('${escU(l.photoUrl||'')}')">
-      ${l.photoUrl?`<img src="${l.photoUrl}" alt="리딩로그" loading="lazy">`:'<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;background:var(--cream2)">📝</div>'}
+  el.innerHTML=`<div class="pg">${logs.map(l=>{const imgs=logImgs(l);const first=imgs[0]||'';return `
+    <div class="pi" onclick="openLbLog('${l.id}')">
+      ${first?`<img src="${first}" alt="리딩로그" loading="lazy">`:'<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;background:var(--cream2)">📝</div>'}
+      ${imgs.length>1?`<div class="rdlog-multi">📄 1/${imgs.length}</div>`:''}
       <div class="pim"><div>${l.date||''}</div>${l.words&&l.words.length?`<div style="opacity:.8">${l.words.slice(0,2).join(', ')}${l.words.length>2?'…':''}</div>`:''}</div>
-    </div>`).join('')}</div>`;
+    </div>`;}).join('')}</div>`;
   const btn=document.getElementById('pp-log-more-btn');if(btn)btn.remove();
 }
 

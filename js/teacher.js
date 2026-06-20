@@ -408,7 +408,8 @@ function renderSpRdlog(sid){
         <div id="sp-log-upload-zone" onclick="document.getElementById('sp-log-file').click()" style="border:2px dashed var(--border);border-radius:8px;padding:16px;text-align:center;cursor:pointer;font-size:12px;color:var(--slate)">📷 사진 / PDF 클릭하여 업로드</div>
         <input type="file" id="sp-log-file" accept="image/*,application/pdf" style="display:none" onchange="handleSpLogPhoto(event,'${sid}')">
         <div id="sp-log-preview-wrap" style="display:none;text-align:center;margin-top:6px">
-          <img id="sp-log-preview-img" style="max-width:100%;max-height:140px;border-radius:8px;border:1.5px solid var(--border)">
+          <img id="sp-log-preview-img" style="max-width:100%;max-height:180px;border-radius:8px;border:1.5px solid var(--border)">
+          <div id="sp-log-preview-count" style="font-size:11px;color:var(--teal);font-weight:600;margin-top:3px"></div>
           <button onclick="clearSpLogPhoto()" style="display:block;margin:4px auto 0;font-size:11px;color:var(--slate);background:none;border:none;cursor:pointer;font-family:var(--fb)">× 제거</button>
         </div>
         <div style="display:flex;gap:6px;margin-top:8px">
@@ -419,58 +420,76 @@ function renderSpRdlog(sid){
     </div>
     ${logs.length?`<div style="font-size:11px;color:var(--slate);margin-bottom:6px">${logs.length}장</div>
     <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scroll-snap-type:x mandatory">
-      ${logs.map(l=>`<div style="flex-shrink:0;width:140px;scroll-snap-align:start">
-        <div style="width:140px;height:105px;border-radius:10px;overflow:hidden;border:1.5px solid ${l.read?'var(--teal)':'var(--border)'};background:var(--cream2);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative" onclick="openLb('${escU(l.photoUrl||'')}')">
-          ${l.photoUrl?`<img src="${l.photoUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`:`<div style="font-size:28px">📷</div>`}
+      ${logs.map(l=>{const imgs=logImgs(l);const first=imgs[0]||'';return `<div style="flex-shrink:0;width:172px;scroll-snap-align:start">
+        <div style="width:172px;height:215px;border-radius:10px;overflow:hidden;border:1.5px solid ${l.read?'var(--teal)':'var(--border)'};background:var(--cream2);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative" onclick="openLbLog('${l.id}')">
+          ${first?`<img src="${first}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.style.display='none'">`:`<div style="font-size:28px">📷</div>`}
+          ${imgs.length>1?`<div class="rdlog-multi">📄 1/${imgs.length}</div>`:''}
           ${l.read?`<div style="position:absolute;top:4px;right:4px;background:var(--teal);color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px">완독</div>`:''}
         </div>
         <div style="margin-top:5px;padding:0 2px">
           <div style="font-size:10px;color:var(--slate);font-family:var(--fm)">${l.date||''}</div>
-          ${l.bookTitle?`<div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(l.bookTitle)}">📗 ${l.bookTitle}</div>`:''}
+          ${l.bookTitle?`<div style="font-size:12px;font-weight:700;color:var(--navy);line-height:1.35;word-break:break-word" title="${escAttr(l.bookTitle)}">📗 ${l.bookTitle}</div>`:''}
           <button onclick="event.stopPropagation();toggleRdlogRead('${l.id}','${sid}')" style="margin-top:4px;width:100%;font-size:10px;padding:3px 0;border-radius:5px;border:1.5px solid ${l.read?'var(--teal)':'var(--border)'};background:${l.read?'var(--tl)':'#fff'};color:${l.read?'var(--teal)':'var(--slate)'};cursor:pointer;font-family:var(--fb);font-weight:600">${l.read?'✓ 완독':'+ 완독'}</button>
         </div>
-      </div>`).join('')}
+      </div>`;}).join('')}
     </div>`:'<div class="empty"><div class="empty-i">📸</div><div class="empty-t">리딩로그 없음</div></div>'}`;
 }
 function toggleSpLogForm(){
   const f=document.getElementById('sp-log-form');if(!f)return;
   f.style.display=f.style.display==='none'?'block':'none';
 }
-let _spLogFile=null,_spLogB64='',_spLogMime='',_spLogBookId='',_spLogBookTitle='';
+let _spLogFile=null,_spLogB64s=[],_spLogMime='',_spLogBookId='',_spLogBookTitle='';
 async function handleSpLogPhoto(e,sid){
   const f=e.target.files[0];if(!f)return;
   _spLogFile=f;
   const isPdf=f.type==='application/pdf';
+  const zone=document.getElementById('sp-log-upload-zone');
   if(isPdf){
-    try{_spLogB64=await pdfFirstPageToB64(f);_spLogMime='image/jpeg';}
-    catch(err){toast('PDF 변환 실패: '+err.message);return;}
+    if(zone){zone.style.display='block';zone.textContent='PDF 변환 중...';}
+    try{_spLogB64s=await pdfAllPagesToB64(f);_spLogMime='image/jpeg';}
+    catch(err){toast('PDF 변환 실패: '+err.message);if(zone){zone.textContent='📷 사진 / PDF 클릭하여 업로드';}return;}
   }else{
     _spLogMime=f.type;
-    _spLogB64=await fileToB64(f);
+    _spLogB64s=[await fileToB64(f)];
   }
-  const zone=document.getElementById('sp-log-upload-zone');if(zone)zone.style.display='none';
-  const img=document.getElementById('sp-log-preview-img');if(img)img.src='data:'+_spLogMime+';base64,'+_spLogB64;
+  if(zone)zone.style.display='none';
+  const img=document.getElementById('sp-log-preview-img');if(img)img.src='data:'+_spLogMime+';base64,'+(_spLogB64s[0]||'');
   const wrap=document.getElementById('sp-log-preview-wrap');if(wrap)wrap.style.display='block';
+  const cnt=document.getElementById('sp-log-preview-count');
+  if(cnt)cnt.textContent=_spLogB64s.length>1?`📄 ${_spLogB64s.length}페이지 (캐러셀로 표시됩니다)`:'';
 }
 function clearSpLogPhoto(){
-  _spLogFile=null;_spLogB64='';_spLogMime='';
+  _spLogFile=null;_spLogB64s=[];_spLogMime='';
   const fi=document.getElementById('sp-log-file');if(fi)fi.value='';
   const img=document.getElementById('sp-log-preview-img');if(img)img.src='';
   const wrap=document.getElementById('sp-log-preview-wrap');if(wrap)wrap.style.display='none';
-  const zone=document.getElementById('sp-log-upload-zone');if(zone)zone.style.display='block';
+  const cnt=document.getElementById('sp-log-preview-count');if(cnt)cnt.textContent='';
+  const zone=document.getElementById('sp-log-upload-zone');if(zone){zone.style.display='block';zone.textContent='📷 사진 / PDF 클릭하여 업로드';}
+}
+// 리딩로그 이미지 업로드: 단일 이미지 파일은 원본 업로드(화질), PDF·다중 페이지는 페이지별 base64 업로드
+async function uploadLogImages(file,b64s,mime){
+  const urls=[];
+  const isSingleImage=file&&file.type!=='application/pdf'&&b64s.length===1;
+  if(isSingleImage){
+    try{const url=await uploadCld(file);if(url){urls.push(url);return urls;}}catch(e){}
+  }
+  for(const b of b64s){
+    try{const url=await uploadB64Cld(b,mime);urls.push(url||('data:'+mime+';base64,'+b));}
+    catch(e){urls.push('data:'+mime+';base64,'+b);}
+  }
+  return urls;
 }
 async function saveSpLog(sid){
   if(!sid){toast('학생 정보 오류');return;}
-  let photoUrl='';
-  if(_spLogFile){
+  let photoUrls=[];
+  if(_spLogB64s.length){
     toast('저장 중...');
-    try{const url=await uploadCld(_spLogFile);if(url)photoUrl=url;else if(_spLogB64)photoUrl='data:'+_spLogMime+';base64,'+_spLogB64;}
-    catch(e){if(_spLogB64)photoUrl='data:'+_spLogMime+';base64,'+_spLogB64;else{toast('사진 저장 실패: '+e.message);return;}}
+    photoUrls=await uploadLogImages(_spLogFile,_spLogB64s,_spLogMime);
   }
   const date=document.getElementById('sp-log-date')?.value||new Date().toISOString().split('T')[0];
   const bookTitle=_spLogBookTitle||(document.getElementById('sp-log-book')?.value||'').trim();
   const bookId=_spLogBookId||'';
-  const newLog={id:uid(),sid,date,photoUrl,bookTitle,bookId};
+  const newLog={id:uid(),sid,date,photoUrl:photoUrls[0]||'',photoUrls,bookTitle,bookId};
   await supaUpsert('logs',newLog.id,newLog,sid);
   _cache.logs.unshift(newLog);
   clearSpLogPhoto();
@@ -5489,7 +5508,7 @@ async function confirmVocabReview(){
 }
 
 // ── READING LOGS ──
-let pendingLogFile=null,pendingLogB64='',pendingLogMime='';
+let pendingLogFile=null,pendingLogB64s=[],pendingLogMime='';
 function dov(e,zid){e.preventDefault();document.getElementById(zid).classList.add('dv');}
 function ddr(e,zid,type){
   e.preventDefault();document.getElementById(zid).classList.remove('dv');
@@ -5500,16 +5519,18 @@ function ddr(e,zid,type){
     else if(type==='tst'&&isImg){const dt=new DataTransfer();dt.items.add(f);document.getElementById('tst-file').files=dt.files;handleTstPhoto({target:{files:dt.files}});}
   }
 }
+async function ensurePdfJs(){
+  if(window.pdfjsLib)return;
+  await new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=()=>{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';res();};
+    s.onerror=()=>rej(new Error('PDF.js 로드 실패'));
+    document.head.appendChild(s);
+  });
+}
 async function pdfFirstPageToB64(file){
-  if(!window.pdfjsLib){
-    await new Promise((res,rej)=>{
-      const s=document.createElement('script');
-      s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      s.onload=()=>{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';res();};
-      s.onerror=()=>rej(new Error('PDF.js 로드 실패'));
-      document.head.appendChild(s);
-    });
-  }
+  await ensurePdfJs();
   const ab=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:new Uint8Array(ab)}).promise;
   const page=await pdf.getPage(1);
@@ -5519,32 +5540,58 @@ async function pdfFirstPageToB64(file){
   await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
   return canvas.toDataURL('image/jpeg',0.92).split(',')[1];
 }
+// PDF 전 페이지를 JPEG base64 배열로 변환 (캐러셀용)
+async function pdfAllPagesToB64(file,maxPages=20){
+  await ensurePdfJs();
+  const ab=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:new Uint8Array(ab)}).promise;
+  const n=Math.min(pdf.numPages,maxPages);
+  const out=[];
+  for(let i=1;i<=n;i++){
+    const page=await pdf.getPage(i);
+    const vp=page.getViewport({scale:2});
+    const canvas=document.createElement('canvas');
+    canvas.width=vp.width;canvas.height=vp.height;
+    await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
+    out.push(canvas.toDataURL('image/jpeg',0.9).split(',')[1]);
+  }
+  return out;
+}
+// base64(데이터 URI) 이미지를 Cloudinary에 업로드
+async function uploadB64Cld(b64,mime){
+  const {name,preset}=DB.cld();if(!name||!preset)return null;
+  const fd=new FormData();fd.append('file','data:'+(mime||'image/jpeg')+';base64,'+b64);fd.append('upload_preset',preset);
+  const res=await fetch(`https://api.cloudinary.com/v1_1/${name}/auto/upload`,{method:'POST',body:fd});
+  if(!res.ok){const d=await res.json().catch(()=>({}));throw new Error(d.error?.message||'업로드 실패 ('+res.status+')');}
+  return (await res.json()).secure_url;
+}
 async function handleLogPhoto(e){
   const f=e.target.files[0];if(!f)return;
   pendingLogFile=f;
   const isPdf=f.type==='application/pdf';
   const previewImg=document.getElementById('log-preview-img');
   const previewPdf=document.getElementById('log-preview-pdf');
+  const status=document.getElementById('log-ai');
   if(isPdf){
-    const status=document.getElementById('log-ai');
     if(status)status.innerHTML='<div class="ais loading"><div class="spin"></div>PDF 변환 중...</div>';
     try{
-      pendingLogB64=await pdfFirstPageToB64(f);
+      pendingLogB64s=await pdfAllPagesToB64(f);
       pendingLogMime='image/jpeg';
     }catch(err){toast('PDF 변환 실패: '+err.message);return;}
+    if(status)status.innerHTML=pendingLogB64s.length>1?`<div style="font-size:11px;color:var(--teal);font-weight:600">📄 ${pendingLogB64s.length}페이지 (캐러셀로 표시됩니다)</div>`:'';
     if(previewPdf)previewPdf.style.display='none';
-    if(previewImg){previewImg.style.display='block';previewImg.src='data:image/jpeg;base64,'+pendingLogB64;}
+    if(previewImg){previewImg.style.display='block';previewImg.src='data:image/jpeg;base64,'+(pendingLogB64s[0]||'');}
   }else{
     pendingLogMime=f.type;
-    pendingLogB64=await fileToB64(f);
+    pendingLogB64s=[await fileToB64(f)];
     if(previewPdf)previewPdf.style.display='none';
-    if(previewImg){previewImg.style.display='block';previewImg.src='data:'+f.type+';base64,'+pendingLogB64;}
+    if(previewImg){previewImg.style.display='block';previewImg.src='data:'+f.type+';base64,'+pendingLogB64s[0];}
   }
   document.getElementById('log-upload-zone').style.display='none';
   document.getElementById('log-preview-wrap').style.display='block';
 }
 function clearLogPhoto(){
-  pendingLogFile=null;pendingLogB64='';pendingLogMime='';
+  pendingLogFile=null;pendingLogB64s=[];pendingLogMime='';
   document.getElementById('lg-file').value='';
   const previewImg=document.getElementById('log-preview-img');
   if(previewImg){previewImg.src='';}
@@ -5560,15 +5607,14 @@ async function uploadCld(file){
 }
 async function saveLog(){
   const sid=document.getElementById('lg-stu').value;if(!sid){toast('학생을 선택해 주세요');return;}
-  let photoUrl='';
-  if(pendingLogFile){
+  let photoUrls=[];
+  if(pendingLogB64s.length){
     toast('저장 중...');
-    try{const url=await uploadCld(pendingLogFile);if(url)photoUrl=url;else if(pendingLogB64)photoUrl='data:'+pendingLogMime+';base64,'+pendingLogB64;}
-    catch(e){if(pendingLogB64)photoUrl='data:'+pendingLogMime+';base64,'+pendingLogB64;else{toast('사진 저장 실패: '+e.message);return;}}
+    photoUrls=await uploadLogImages(pendingLogFile,pendingLogB64s,pendingLogMime);
   }
   const date=document.getElementById('lg-date').value||new Date().toISOString().split('T')[0];
   const bookTitle=(document.getElementById('lg-book')?.value||'').trim();
-  const newLog={id:uid(),sid,date,photoUrl,bookTitle};
+  const newLog={id:uid(),sid,date,photoUrl:photoUrls[0]||'',photoUrls,bookTitle};
   await supaUpsert('logs',newLog.id,newLog,sid);
   _cache.logs.unshift(newLog);
   clearLogPhoto();
@@ -5593,10 +5639,12 @@ function renderLog(){
   if(!logs.length){el.innerHTML='<div class="empty" style="grid-column:1/-1"><div class="empty-i">📸</div><div class="empty-t">아직 업로드된 리딩로그가 없습니다</div></div>';return;}
   el.innerHTML=logs.map(l=>{
     const s=stus.find(x=>x.id===l.sid);
+    const imgs=logImgs(l);const first=imgs[0]||'';
     return `<div class="pi">
-      <div onclick="openLb('${escU(l.photoUrl||'')}')" style="position:absolute;inset:0;z-index:1">
-        ${l.photoUrl?`<img src="${l.photoUrl}" alt="리딩로그" loading="lazy" onerror="this.style.display='none'">`:''}
-        ${!l.photoUrl?`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;background:var(--cream2)">📝</div>`:''}
+      <div onclick="openLbLog('${l.id}')" style="position:absolute;inset:0;z-index:1">
+        ${first?`<img src="${first}" alt="리딩로그" loading="lazy" onerror="this.style.display='none'">`:''}
+        ${!first?`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;background:var(--cream2)">📝</div>`:''}
+        ${imgs.length>1?`<div class="rdlog-multi">📄 1/${imgs.length}</div>`:''}
       </div>
       <div style="position:absolute;top:4px;right:4px;display:flex;gap:3px;z-index:2">
         <button onclick="openEditLog('${l.id}')" style="background:rgba(255,255,255,.85);border:none;border-radius:4px;padding:2px 5px;cursor:pointer;font-size:12px">✏️</button>
