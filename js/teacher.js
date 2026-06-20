@@ -16,10 +16,17 @@ function handlePwKey(e){
 async function hashPw(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 async function checkPw(){
   const v=document.getElementById('pw-in').value.trim();
-  if(!_cache.settings.pw){try{const sp=await supaGetSetting('pw');if(sp){_cache.settings.pw=sp;DB.s('pw',sp);}}catch(e){}}
-  const stored=DB.pw();
   const vHash=await hashPw(v);
-  const ok=(v===stored||vHash===stored);
+  let stored=DB.pw();
+  let ok=(v===stored||vHash===stored);
+  // 캐시/로컬 비밀번호로 실패하면 서버에서 최신 비밀번호를 다시 받아 재검증
+  // (첫 로드 시 비밀번호가 아직 동기화되지 않아 기본값으로 실패하던 문제 해결)
+  if(!ok){
+    try{
+      const sp=await supaGetSetting('pw');
+      if(sp){_cache.settings.pw=sp;DB.s('pw',sp);stored=sp;ok=(v===stored||vHash===stored);}
+    }catch(e){}
+  }
   if(ok){
     if(v===stored){const h=await hashPw(v);_cache.settings.pw=h;DB.s('pw',h);supaSetSetting('pw',h).catch(e=>console.warn('비밀번호 저장 실패:',e));}
     document.getElementById('pw-in').value='';document.getElementById('pw-err').textContent='';
@@ -1524,6 +1531,20 @@ async function previewElStuCmt(){
   if(box)box.style.display='block';
   if(txt)txt.value=stuPolished||'';
 }
+// 교재 진도 표시 — 앱 전체 공통 스타일
+// [구분 배지] 교재명(굵게) + 진도 줄(들여쓰기, 한 줄씩)
+function matLineHtml(label,cls,book,unitStr){
+  const units=(unitStr||'').split(', ').filter(Boolean);
+  const unitHtml=units.length
+    ?`<div style="margin-top:3px;padding-left:3px">${units.map(u=>`<div style="font-size:12px;color:var(--slate);line-height:1.7">${u}</div>`).join('')}</div>`
+    :'';
+  return `<div style="margin-bottom:9px">
+    <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+      ${label?`<span class="spill ${cls}" style="flex-shrink:0">${label}</span>`:''}
+      <span style="font-weight:700;color:var(--navy);font-size:14px;font-family:var(--fd)">${book||''}</span>
+    </div>${unitHtml}
+  </div>`;
+}
 function matsToHtml(materials){
   if(!materials)return '';
   return Object.entries(materials).map(([k,v])=>{
@@ -1532,11 +1553,7 @@ function matsToHtml(materials){
     const label=isBook?'원서':(SLBL[baseKey]||'');
     const cls=isBook?'srd':(SCLS[baseKey]||'');
     if(!label&&!v.book)return '';
-    const units=(v.unit||'').split(', ').filter(Boolean);
-    const unitHtml=units.length>1
-      ?`<div style="padding-left:4px;margin-top:2px">${units.map(u=>`<div style="font-size:11px;color:var(--slate);line-height:1.6">${u}</div>`).join('')}</div>`
-      :units.length===1?` <span style="color:var(--slate)">${units[0]}</span>`:'';
-    return `<div style="margin-bottom:4px"><span style="font-weight:600">${v.book||''}</span> <span class="spill ${cls}">${label}</span>${unitHtml}</div>`;
+    return matLineHtml(label,cls,v.book,v.unit);
   }).filter(Boolean).join('');
 }
 

@@ -1298,26 +1298,13 @@ function renderLastLesson(sid){
   const les=DB.less().filter(l=>l.sid===sid);
   if(!les.length)return '';
   const last=les[0];
-  let matHtml='',matsTextParts=[];
+  let matHtml=matsToHtml(last.materials),matsTextParts=[];
   Object.entries(last.materials||{}).forEach(([k,v])=>{
     const isBook=k==='_book'||k.startsWith('_book_');
     const baseKey=k.replace(/_\d+$/,'');
     const label=isBook?'원서':(SLBL[baseKey]||'');
-    const cls=isBook?'srd':(SCLS[baseKey]||'');
     if(!label&&!v.book)return;
     const units=(v.unit||'').split(', ').filter(Boolean);
-    if(units.length>1){
-      matHtml+=`<div style="margin-bottom:7px">
-        <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:2px">${v.book||''}</div>
-        <span class="spill ${cls}" style="font-size:10px">${label}</span>
-        <div style="padding-left:6px;margin-top:3px">${units.map(u=>`<div style="font-size:11px;color:var(--navy);line-height:1.7">${u}</div>`).join('')}</div>
-      </div>`;
-    }else{
-      matHtml+=`<div style="margin-bottom:7px">
-        <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:2px">${v.book||''}${units[0]?' <span style="font-weight:400">'+units[0]+'</span>':''}</div>
-        <span class="spill ${cls}" style="font-size:10px">${label}</span>
-      </div>`;
-    }
     matsTextParts.push(`${label} ${v.book||''}${units.length?' '+units.join(', '):''}`.trim());
   });
   const matsText=matsTextParts.join(' / ');
