@@ -55,7 +55,7 @@ async function loadParent(sid){
           :`<div style="font-size:12px;color:var(--slate);font-style:italic">수업 코멘트가 곧 업데이트됩니다 😊</div>`}
         <div style="margin-top:10px;display:flex;justify-content:flex-end">
           <button id="p-ack-btn" onclick="parentAckLesson('${sid}','${latLes.id}')"
-            style="background:none;border:1.5px solid ${isAcked?'#0A5940':'var(--border)'};border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;color:${isAcked?'#0A5940':'var(--slate)'};font-family:var(--fb);display:flex;align-items:center;gap:4px">
+            style="background:none;border:1.5px solid ${isAcked?'#047857':'var(--border)'};border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;color:${isAcked?'#047857':'var(--slate)'};font-family:var(--fb);display:flex;align-items:center;gap:4px">
             ${isAcked?'✓ 확인했습니다':'👍 확인했습니다'}
           </button>
         </div>
@@ -591,7 +591,7 @@ async function parentAckLesson(sid,lesId){
   if(localStorage.getItem(ackKey))return;
   localStorage.setItem(ackKey,new Date().toISOString());
   const btn=document.getElementById('p-ack-btn');
-  if(btn){btn.style.borderColor='#0A5940';btn.style.color='#0A5940';btn.innerHTML='✓ 확인했습니다';}
+  if(btn){btn.style.borderColor='#047857';btn.style.color='#047857';btn.innerHTML='✓ 확인했습니다';}
   try{
     const msg={id:uid(),sid,from:'parent',text:'수업 내용을 확인했습니다 👍',lesId,date:new Date().toISOString().split('T')[0],type:'ack'};
     await supaUpsert('messages',msg.id,msg,sid);
