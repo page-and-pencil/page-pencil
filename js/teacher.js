@@ -992,11 +992,12 @@ async function loadStuPanel(sid){
       const hw=sHws.find(h=>h.assignmentId===a.id);
       const submitted=!!hw;
       const today2=new Date().toISOString().split('T')[0];
-      const overdue=a.due&&a.due<today2&&!a.completedAt;
-      return `<div id="asgn-row-${a.id}" style="padding:8px 0;border-bottom:1px solid var(--border)">
+      const completed=!!a.completedAt;
+      const overdue=a.due&&a.due<today2&&!completed;
+      return `<div id="asgn-row-${a.id}" style="padding:8px 0;border-bottom:1px solid var(--border)${completed?';opacity:.72':''}">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1">
-            <div style="font-size:11px;color:${overdue?'var(--red)':'var(--slate)'};font-family:var(--fm)">${a.date||''}${a.due?' · 마감 '+a.due:''}</div>
+            <div style="font-size:11px;color:${overdue?'var(--red)':'var(--slate)'};font-family:var(--fm)">${a.date||''}${a.due?' · 마감 '+a.due:''}${completed?' · 완료 '+(a.completedAt||'').slice(0,10):''}</div>
             <div style="font-size:12px;font-weight:700;margin-top:2px">${
               a.type==='reading'?`📖 ${a.bookTitle||''}${a.range?' · '+a.range:''}`:
               a.type==='vocab'?`📝 단어: ${(a.words||[]).join(', ')}`:
@@ -1009,6 +1010,7 @@ async function loadStuPanel(sid){
             }</div>
           </div>
           <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+            ${completed?`<span class="hw-status-badge" style="background:#dcfce7;color:#166534">✓ 완료</span>`:''}
             ${a.requireRecording&&submitted?`<span class="hw-status-badge checked">제출완료</span>`:''}
             <button class="btn bo bsm" style="font-size:10px;padding:2px 6px" onclick="toggleAssignEdit('${a.id}','${sid}')">수정</button>
             <button class="btn bd bsm" style="font-size:10px;padding:2px 6px" onclick="deleteStudentAssign('${a.id}','${sid}')">삭제</button>
