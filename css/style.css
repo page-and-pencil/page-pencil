@@ -210,6 +210,11 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .blv-b{background:#fef9c3;color:#92400e;}
 .blv-c{background:#ffe4e6;color:#9f1239;}
 .blv-other{background:#f3e8ff;color:#7e22ce;}
+/* 점수 링/펠 (테스트 점수 시맨틱: 우수=에메랄드/양호=틸/보완=앰버) */
+.ring{display:inline-flex;align-items:center;justify-content:center;min-width:54px;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700;font-family:var(--fm);}
+.rhi{background:#D9F6E9;color:#047857;}
+.rmd{background:#E3F5FA;color:#0B8DAE;}
+.rlo{background:#FEF0D5;color:#B45309;}
 /* status & size modifiers */
 .badge-reading{background:#FFF3CD;color:#856404;}
 .badge-xs{font-size:10px;padding:2px 8px;}

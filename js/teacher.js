@@ -6890,7 +6890,7 @@ function _assignItemHtml(a,hws){
   const CAT_LABELS={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','other':'기타'};
   const hw=hws.find(h=>h.assignmentId===a.id);
   const catLabel=CAT_LABELS[a.category||'']||'';
-  const statusCls=a.completedAt?'bteal':hw?'bamber':'';
+  const statusCls=a.completedAt?'bgreen':hw?'bamber':'';
   const statusTxt=a.completedAt?'완료':hw?'제출':'';
   const c5Detail=(()=>{
     const sc=a.schedule||[];
