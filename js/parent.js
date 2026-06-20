@@ -91,26 +91,28 @@ async function loadParent(sid){
     const latTst=tsts[0];const prevTst=tsts[1]||null;
     const vp=pct(latTst.vocabCorrect,latTst.vocabTotal);
     const gp=pct(latTst.grammarCorrect,latTst.grammarTotal);
-    const vCol=vp>=80?'var(--teal)':vp>=60?'#F59E0B':'var(--coral)';
-    const gCol=gp>=80?'var(--teal)':gp>=60?'#F59E0B':'var(--coral)';
     const vPrev=prevTst?pct(prevTst.vocabCorrect,prevTst.vocabTotal):null;
     const vChange=vPrev!==null?vp-vPrev:null;
     const nextWords=(latTst.wrongWords||[]).slice(0,5);
+    // 시맨틱 점수 막대 (우수=에메랄드 / 양호=틸 / 보완=앰버)
+    const _sem=p=>p>=80?{f:'#10B981',t:'#047857',l:'우수'}:p>=60?{f:'#0CA4C9',t:'#0B8DAE',l:'양호'}:{f:'#F59E0B',t:'#B45309',l:'보완 중'};
+    const scoreBar=(label,p,delta)=>{const s=_sem(p);return `<div style="margin-bottom:13px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:12.5px;color:#46586B">${label}</span>
+        <span style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;font-weight:700;color:${s.t}">${s.l}</span>
+          <span style="font-size:15px;font-weight:700;color:${s.t};font-family:var(--fd)">${p}%</span>
+          ${delta!=null?`<span style="font-size:10.5px;font-weight:700;color:${delta>=0?'#047857':'#B45309'}">${delta>=0?'▲':'▼'}${Math.abs(delta)}</span>`:''}
+        </span>
+      </div>
+      <div style="height:7px;background:#EDF2F4;border-radius:4px;overflow:hidden"><div style="width:${p}%;height:100%;background:${s.f};border-radius:4px;transition:width .5s"></div></div>
+    </div>`;};
     blocks+=`<div class="card">
       <div class="ch"><span class="ct">📝 최근 테스트</span><span style="font-size:11px;color:var(--slate)">${latTst.date||''}</span></div>
-      <div class="cb" style="padding:12px 16px">
-        <div style="display:flex;gap:20px;margin-bottom:${nextWords.length||latTst.grammarWeak?'10px':'0'}">
-          <div>
-            <div style="font-size:10px;color:var(--slate);margin-bottom:2px">단어</div>
-            <span class="p-score-big" style="color:${vCol}">${vp}%</span>
-            ${vChange!==null?`<span style="font-size:11px;color:${vChange>=0?'var(--teal)':'var(--coral)'}"> ${vChange>=0?'▲':'▼'}${Math.abs(vChange)}%p</span>`:''}
-          </div>
-          <div>
-            <div style="font-size:10px;color:var(--slate);margin-bottom:2px">어법</div>
-            <span class="p-score-big" style="color:${gCol}">${gp}%</span>
-          </div>
-        </div>
-        ${nextWords.length?`<div style="font-size:11px;color:var(--slate);margin-bottom:4px">다시 볼 단어</div><div class="wl">${nextWords.map(w=>`<span class="wc rv">${w}</span>`).join('')}</div>`:''}
+      <div class="cb" style="padding:14px 18px">
+        ${scoreBar('단어',vp,vChange)}
+        ${scoreBar('어법',gp,null)}
+        ${nextWords.length?`<div style="font-size:11px;color:var(--slate);margin:2px 0 4px">다시 볼 단어</div><div class="wl">${nextWords.map(w=>`<span class="wc rv">${w}</span>`).join('')}</div>`:''}
         ${latTst.grammarWeak?`<div style="margin-top:6px;font-size:11px;color:var(--slate)">복습 어법: <span class="badge bamber">${latTst.grammarWeak}</span></div>`:''}
       </div>
     </div>`;
