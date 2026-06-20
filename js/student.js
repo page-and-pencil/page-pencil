@@ -356,7 +356,7 @@ function renderStudentLibrary(sid){
           <div class="stu-book-series">${b.series||''}${b.level?' · Lv.'+b.level:''}</div>
           <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
             ${isCurrent?`<span class="badge badge-xs badge-reading">현재 읽는 중 📖</span>`:''}
-            ${isRead&&!isCurrent?`<span style="font-size:10px;padding:2px 7px;background:var(--tl);color:var(--purple);border-radius:10px;font-weight:700">✓ 읽음</span>`:''}
+            ${isRead&&!isCurrent?`<span style="font-size:10px;padding:2px 7px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700">✓ 읽음</span>`:''}
             ${rdDate?`<span style="font-size:10px;color:var(--slate)">${rdDate}</span>`:''}
           </div>
         </div>
@@ -383,7 +383,7 @@ function renderStudentLibrary(sid){
         <div style="font-size:13px;font-weight:600;color:var(--navy)">${t.title||'—'}</div>
         <div style="font-size:11px;color:var(--slate)">${t.level?'Lv.'+t.level+' · ':''} ${t.currentUnit||''}</div>
       </div>
-      ${t.completed?`<span style="font-size:10px;padding:2px 8px;background:#dcfce7;color:#166534;border-radius:10px;font-weight:700;flex-shrink:0">✅ 완료</span>`:`<span style="font-size:10px;padding:2px 8px;background:var(--tl);color:#0B8DAE;border-radius:10px;font-weight:700;flex-shrink:0">📖 진행중</span>`}
+      ${t.completed?`<span style="font-size:10px;padding:2px 8px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700;flex-shrink:0">✅ 완료</span>`:`<span style="font-size:10px;padding:2px 8px;background:var(--tl);color:#0B8DAE;border-radius:10px;font-weight:700;flex-shrink:0">📖 진행중</span>`}
     </div>`).join('')}
   </div>`:'';
 
@@ -1249,8 +1249,8 @@ function showStatDetail(sid,type){
       <div style="font-size:11px;font-weight:700;color:${color};margin:8px 0 4px;letter-spacing:.03em">${lbl} (${items.length}개)</div>
       ${items.map(wordRow).join('')}
     </div>`:'';
-    rows=section('✅ 마스터 (3회 이상 정답)','mastered','#16a34a',mastered)
-        +section('📖 연습 중 (1–2회 정답)','learning','var(--teal)',learning)
+    rows=section('✅ 마스터 (3회 이상 정답)','mastered','#047857',mastered)
+        +section('📖 연습 중 (1–2회 정답)','learning','#0B8DAE',learning)
         +section('🔖 아직 안 풀어봄','unseen','var(--slate)',unseen)
         ||'단어 없음';
   }else{
