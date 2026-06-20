@@ -37,7 +37,7 @@ async function loadParent(sid){
   if(newLesCount)notifItems.push(`수업 기록 ${newLesCount}건`);
   if(newTstCount)notifItems.push(`테스트 ${newTstCount}건`);
   if(pendingCount)notifItems.push(`미완료 숙제 ${pendingCount}개`);
-  if(notifItems.length)blocks+=`<div style="background:linear-gradient(135deg,var(--tl),rgba(0,196,204,.15));border:1px solid rgba(0,196,204,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#005f6b">✨ 새 업데이트: ${notifItems.join(' · ')}</div>`;
+  if(notifItems.length)blocks+=`<div style="background:linear-gradient(135deg,var(--tl),rgba(12,164,201,.15));border:1px solid rgba(12,164,201,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#005f6b">✨ 새 업데이트: ${notifItems.join(' · ')}</div>`;
   localStorage.setItem(lastVisitKey,todayIso);
 
   // 블록 A — 최근 수업
@@ -78,7 +78,7 @@ async function loadParent(sid){
 
   const unlockedBadges=getBadges(sid).filter(b=>b.unlocked);
   if(unlockedBadges.length){
-    blocks+=`<div style="padding:10px 14px;background:rgba(0,196,204,.08);border-radius:10px;margin-bottom:10px;font-size:13px">
+    blocks+=`<div style="padding:10px 14px;background:rgba(12,164,201,.08);border-radius:10px;margin-bottom:10px;font-size:13px">
       🏅 ${unlockedBadges.map(b=>b.icon+' '+b.name).join(' · ')}
     </div>`;
   }
@@ -185,7 +185,7 @@ async function loadParent(sid){
     const showStats=totalVocab>0||rds.length>0;
     let statsRow='';
     if(showStats){
-      const statItem=(val,lbl,sub)=>`<div style="flex:1;text-align:center;padding:8px 6px;background:rgba(0,196,204,.06);border-radius:8px"><div style="font-size:20px;font-weight:700;color:var(--teal)">${val}</div><div style="font-size:10px;color:var(--slate);margin-top:2px">${lbl}</div>${sub?`<div style="font-size:9px;color:rgba(0,0,0,.3)">${sub}</div>`:''}</div>`;
+      const statItem=(val,lbl,sub)=>`<div style="flex:1;text-align:center;padding:8px 6px;background:rgba(12,164,201,.06);border-radius:8px"><div style="font-size:20px;font-weight:700;color:var(--teal)">${val}</div><div style="font-size:10px;color:var(--slate);margin-top:2px">${lbl}</div>${sub?`<div style="font-size:9px;color:rgba(0,0,0,.3)">${sub}</div>`:''}</div>`;
       const items=[];
       if(totalVocab>0)items.push(statItem(masteredVocab,'단어 마스터',totalVocab+'개 중'));
       if(rds.length>0)items.push(statItem(booksThisMonth,'이번 달 독서'+(bkChg>0?' ▲'+bkChg:bkChg<0?' ▼'+Math.abs(bkChg):''),''));
@@ -322,7 +322,7 @@ async function loadParent(sid){
       if(cv){
         if(pC.trend)pC.trend.destroy();
         const ct=[...tsts].reverse().slice(-10);
-        pC.trend=new Chart(cv.getContext('2d'),{type:'line',data:{labels:ct.map(t=>t.date?t.date.slice(5):''),datasets:[{label:'단어',data:ct.map(t=>pct(t.vocabCorrect,t.vocabTotal)),borderColor:'#00c4cc',backgroundColor:'rgba(0,196,204,.1)',tension:.3,fill:true,pointBackgroundColor:'#00c4cc',pointRadius:4},{label:'어법',data:ct.map(t=>pct(t.grammarCorrect,t.grammarTotal)),borderColor:'#005f6b',backgroundColor:'rgba(0,95,107,.07)',tension:.3,fill:true,pointBackgroundColor:'#005f6b',pointRadius:4},{label:'평균',data:ct.map(()=>Math.round(ct.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/ct.length)),borderColor:'rgba(0,0,0,.2)',borderDash:[5,5],borderWidth:1.5,pointRadius:0,fill:false,tension:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
+        pC.trend=new Chart(cv.getContext('2d'),{type:'line',data:{labels:ct.map(t=>t.date?t.date.slice(5):''),datasets:[{label:'단어',data:ct.map(t=>pct(t.vocabCorrect,t.vocabTotal)),borderColor:'#0CA4C9',backgroundColor:'rgba(12,164,201,.1)',tension:.3,fill:true,pointBackgroundColor:'#0CA4C9',pointRadius:4},{label:'어법',data:ct.map(t=>pct(t.grammarCorrect,t.grammarTotal)),borderColor:'#005f6b',backgroundColor:'rgba(0,95,107,.07)',tension:.3,fill:true,pointBackgroundColor:'#005f6b',pointRadius:4},{label:'평균',data:ct.map(()=>Math.round(ct.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/ct.length)),borderColor:'rgba(0,0,0,.2)',borderDash:[5,5],borderWidth:1.5,pointRadius:0,fill:false,tension:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
       }
     }
   },150);
@@ -403,7 +403,7 @@ function renderCalendar(sid){
     else if(att==='normal')cls+=' has-les';
     else if(att==='absent')cls+=' has-abs';
     else if(att==='makeup')cls+=' has-make';
-    html+=`<div class="${cls}">${d}${att&&dateStr!==todayStr?`<span class="cal-dot" style="background:${att==='absent'?'#C04040':att==='makeup'?'#9B8040':'#00c4cc'}"></span>`:''}</div>`;
+    html+=`<div class="${cls}">${d}${att&&dateStr!==todayStr?`<span class="cal-dot" style="background:${att==='absent'?'#C04040':att==='makeup'?'#9B8040':'#0CA4C9'}"></span>`:''}</div>`;
   }
   gridEl.innerHTML=html;
 }
@@ -515,22 +515,22 @@ async function printReport(sidArg){
   <style>
     *{margin:0;padding:0;box-sizing:border-box;}
     body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#1a1a2e;padding:32px;max-width:680px;margin:0 auto;font-size:13px;line-height:1.6;}
-    .header{text-align:center;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #00c4cc;}
+    .header{text-align:center;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #0CA4C9;}
     .logo{font-size:11px;color:#888;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;}
-    .name{font-size:26px;font-weight:800;color:#0d2542;margin-bottom:4px;}
+    .name{font-size:26px;font-weight:800;color:#14304A;margin-bottom:4px;}
     .meta{font-size:12px;color:#888;}
     .section{margin-bottom:20px;}
-    .section-title{font-size:13px;font-weight:700;color:#0d2542;padding:6px 0;border-bottom:1px solid #eee;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+    .section-title{font-size:13px;font-weight:700;color:#14304A;padding:6px 0;border-bottom:1px solid #eee;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
     .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:4px;}
     .stat{text-align:center;padding:10px;background:#f8fffe;border-radius:8px;border:1px solid #e0f7f8;}
-    .stat-n{font-size:22px;font-weight:700;color:#00c4cc;}
+    .stat-n{font-size:22px;font-weight:700;color:#0CA4C9;}
     .stat-l{font-size:10px;color:#888;margin-top:2px;}
     .score-bar{height:8px;border-radius:4px;background:#eee;margin-top:4px;}
-    .score-fill{height:100%;border-radius:4px;background:#00c4cc;}
-    .comment-box{background:#f0fffe;border-left:3px solid #00c4cc;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:8px;}
+    .score-fill{height:100%;border-radius:4px;background:#0CA4C9;}
+    .comment-box{background:#f0fffe;border-left:3px solid #0CA4C9;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:8px;}
     .comment-date{font-size:10px;color:#888;margin-bottom:4px;}
     .badge-list{display:flex;flex-wrap:wrap;gap:6px;}
-    .badge{padding:3px 10px;background:#f0fffe;border:1px solid #00c4cc;border-radius:20px;font-size:11px;}
+    .badge{padding:3px 10px;background:#f0fffe;border:1px solid #0CA4C9;border-radius:20px;font-size:11px;}
     .book-list{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;}
     .book-item{padding:6px 10px;background:#f8f8f8;border-radius:6px;font-size:12px;}
     .footer{text-align:center;margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:10px;color:#aaa;}
@@ -547,14 +547,14 @@ async function printReport(sidArg){
       <div class="stat"><div class="stat-n">${thisMonthLes.length}</div><div class="stat-l">이번 달 수업</div></div>
       <div class="stat"><div class="stat-n">${les.filter(l=>l.att!=='absent').length}</div><div class="stat-l">누적 출석</div></div>
       <div class="stat"><div class="stat-n">${rds.length}</div><div class="stat-l">읽은 원서</div></div>
-      <div class="stat"><div class="stat-n" style="color:${avgV>=80?'#00c4cc':avgV>=60?'#F4784A':'#D94B2B'}">${avgV!=null?avgV+'%':'—'}</div><div class="stat-l">단어 평균</div></div>
+      <div class="stat"><div class="stat-n" style="color:${avgV>=80?'#0CA4C9':avgV>=60?'#F4784A':'#D94B2B'}">${avgV!=null?avgV+'%':'—'}</div><div class="stat-l">단어 평균</div></div>
     </div>
   </div>
   ${latTst?`<div class="section">
     <div class="section-title">📝 최근 테스트 (${latTst.date})</div>
     <div style="display:flex;gap:16px;margin-bottom:8px">
-      <div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>단어</span><span style="font-weight:700">${pct(latTst.vocabCorrect,latTst.vocabTotal)}%</span></div><div class="score-bar"><div class="score-fill" style="width:${pct(latTst.vocabCorrect,latTst.vocabTotal)}%;background:${pct(latTst.vocabCorrect,latTst.vocabTotal)>=80?'#00c4cc':'#F4784A'}"></div></div></div>
-      <div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>어법</span><span style="font-weight:700">${pct(latTst.grammarCorrect,latTst.grammarTotal)}%</span></div><div class="score-bar"><div class="score-fill" style="width:${pct(latTst.grammarCorrect,latTst.grammarTotal)}%;background:${pct(latTst.grammarCorrect,latTst.grammarTotal)>=80?'#00c4cc':'#F4784A'}"></div></div></div>
+      <div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>단어</span><span style="font-weight:700">${pct(latTst.vocabCorrect,latTst.vocabTotal)}%</span></div><div class="score-bar"><div class="score-fill" style="width:${pct(latTst.vocabCorrect,latTst.vocabTotal)}%;background:${pct(latTst.vocabCorrect,latTst.vocabTotal)>=80?'#0CA4C9':'#F4784A'}"></div></div></div>
+      <div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>어법</span><span style="font-weight:700">${pct(latTst.grammarCorrect,latTst.grammarTotal)}%</span></div><div class="score-bar"><div class="score-fill" style="width:${pct(latTst.grammarCorrect,latTst.grammarTotal)}%;background:${pct(latTst.grammarCorrect,latTst.grammarTotal)>=80?'#0CA4C9':'#F4784A'}"></div></div></div>
     </div>
     ${(latTst.wrongWords||[]).length?`<div style="font-size:12px">다시 볼 단어: <strong>${latTst.wrongWords.slice(0,10).join(', ')}</strong></div>`:''}
   </div>`:''}
@@ -571,7 +571,7 @@ async function printReport(sidArg){
   </div>`:''}
   ${rds.length?`<div class="section">
     <div class="section-title">📗 읽은 원서 (${rds.length}권)</div>
-    <div class="book-list">${rds.slice(0,8).map(r=>`<div class="book-item">📚 ${r.title}${(r.arLevel||r.ar)?` <span style="color:#00c4cc;font-size:10px">AR ${r.arLevel||r.ar}</span>`:''}${r.progress?`<div style="font-size:10px;color:#888">${r.progress}</div>`:''}</div>`).join('')}</div>
+    <div class="book-list">${rds.slice(0,8).map(r=>`<div class="book-item">📚 ${r.title}${(r.arLevel||r.ar)?` <span style="color:#0CA4C9;font-size:10px">AR ${r.arLevel||r.ar}</span>`:''}${r.progress?`<div style="font-size:10px;color:#888">${r.progress}</div>`:''}</div>`).join('')}</div>
   </div>`:''}
   ${badges.length?`<div class="section">
     <div class="section-title">🏅 달성 뱃지</div>

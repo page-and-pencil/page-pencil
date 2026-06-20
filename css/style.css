@@ -1,12 +1,12 @@
 :root{
-  --navy:#0d2542;--navy2:#163358;--navy3:#091b30;
-  --cream:#FFFFFF;--cream2:#F2F4F6;--cream3:#FAFBFC;
-  --teal:#00c4cc;--tl:#E0FAFB;
-  --coral:#C4614A;--cl:#F5E6E1;
-  --amber:#00c4cc;--al:#E0FAFB;
+  --navy:#14304A;--navy2:#163358;--navy3:#091b30;
+  --cream:#FFFFFF;--cream2:#F2F4F6;--cream3:#F6FAFB;
+  --teal:#0CA4C9;--tl:#E0FAFB;
+  --coral:#F59E0B;--cl:#F5E6E1;
+  --amber:#F59E0B;--al:#E0FAFB;
   --purple:#005f6b;--pl:#D6F5F7;
-  --slate:#4A5568;--border:rgba(13,37,66,0.1);
-  --sh:0 2px 16px rgba(13,37,66,0.08);--shlg:0 8px 32px rgba(13,37,66,0.14);
+  --slate:#4A5568;--border:rgba(15,48,74,0.1);
+  --sh:0 2px 16px rgba(15,48,74,0.08);--shlg:0 8px 32px rgba(15,48,74,0.14);
   --r:10px;--rs:6px;
   --fb:'Pretendard','Noto Sans KR',sans-serif;--fd:'Montserrat',sans-serif;--fm:var(--fb);
 }

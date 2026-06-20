@@ -346,7 +346,7 @@ function _injectPreviewBar(label){
   document.getElementById('_teacher-preview-bar')?.remove();
   const bar=document.createElement('div');
   bar.id='_teacher-preview-bar';
-  bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#0d2542;color:#fff;padding:9px 16px;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-family:var(--fb);box-shadow:0 2px 8px rgba(0,0,0,.25)';
+  bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#14304A;color:#fff;padding:9px 16px;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-family:var(--fb);box-shadow:0 2px 8px rgba(0,0,0,.25)';
   bar.innerHTML=`<span style="opacity:.85">👁 ${label}</span><button onclick="returnToTeacher()" style="background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);color:#fff;padding:5px 14px;border-radius:20px;cursor:pointer;font-size:12px;font-family:var(--fb);font-weight:700">← 선생님 뷰로 돌아가기</button>`;
   document.body.appendChild(bar);
 }
@@ -1692,7 +1692,7 @@ function showLesFollowup(sid,date,stuName){
   el.innerHTML=`<div class="followup-card" style="border-top:3px solid var(--teal);background:linear-gradient(to bottom,#f0fffe,#fff)">
     <div style="font-size:13px;font-weight:700;color:#005f6b;margin-bottom:12px">✅ ${stuName} 수업 기록 저장됨 — 이어서 입력하시겠어요?</div>
     <div id="les-fu-tst">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,196,204,.15)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(12,164,201,.15)">
         <span style="font-size:13px;font-weight:600">📝 테스트도 있었나요?</span>
         <div style="display:flex;gap:6px">
           <button class="btn bt bsm" onclick="showInlineTst('${sid}','${date}')">있음</button>
@@ -1709,7 +1709,7 @@ function showLesFollowup(sid,date,stuName){
         </div>
       </div>
     </div>
-    <div id="les-fu-share" style="padding-top:8px;border-top:1px solid rgba(0,196,204,.15)">
+    <div id="les-fu-share" style="padding-top:8px;border-top:1px solid rgba(12,164,201,.15)">
       <button class="btn ba bsm" style="width:100%" onclick="shareParentUpdateByStu('${sid}')">📤 학부모에게 수업 알림 보내기</button>
     </div>
   </div>`;
@@ -1717,7 +1717,7 @@ function showLesFollowup(sid,date,stuName){
 function hideLesFollowup(){const el=document.getElementById('les-followup');if(el){el.style.display='none';el.innerHTML='';}}
 function showInlineTst(sid,date){
   const el=document.getElementById('les-fu-tst');if(!el)return;
-  el.innerHTML=`<div style="padding:10px 0;border-bottom:1px solid rgba(0,196,204,.15)">
+  el.innerHTML=`<div style="padding:10px 0;border-bottom:1px solid rgba(12,164,201,.15)">
     <div style="font-size:12px;font-weight:700;margin-bottom:8px">📝 테스트 간편 입력</div>
     <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px">
       <div class="f" style="margin:0;flex:1;min-width:80px"><label>단어 맞힌 수</label><input type="number" id="fu-vc" min="0" placeholder="8" style="font-family:var(--fm);font-size:16px;text-align:center"></div>
@@ -4578,7 +4578,7 @@ function _wdbProgressBar(total){
   el.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);min-width:300px;background:var(--navy);color:#fff;border-radius:10px;padding:14px 20px;z-index:9999;font-family:var(--fb);font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.3)';
   el.innerHTML=`<div style="font-weight:600;margin-bottom:8px">🗑️ 일괄 삭제 중...</div>
     <div style="background:rgba(255,255,255,.2);border-radius:4px;height:7px;overflow:hidden">
-      <div id="_wdb-dp-bar" style="background:#00c4cc;height:100%;width:0%;transition:width .25s ease"></div>
+      <div id="_wdb-dp-bar" style="background:#0CA4C9;height:100%;width:0%;transition:width .25s ease"></div>
     </div>
     <div id="_wdb-dp-txt" style="margin-top:6px;font-size:11px;opacity:.75">0 / ${total} (0%)</div>`;
   document.body.appendChild(el);
@@ -6791,7 +6791,7 @@ function renderAssignCal(){
     const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isToday=dateStr===todayStr;
     const items=byDate[dateStr]||[];
-    const bg=isToday?'rgba(0,196,204,.08)':'#fff';
+    const bg=isToday?'rgba(12,164,201,.08)':'#fff';
     const uniqueStuIds=[...new Set(items.map(x=>x.stu.id))];
     const firstStu=uniqueStuIds.length?stus.find(s=>s.id===uniqueStuIds[0]):null;
     const extraStus=uniqueStuIds.length-1;
@@ -7627,7 +7627,7 @@ function renderStudentMyInfo(sid){
     <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:1rem">${stu?stu.name+'의 ':''} 학습 현황</div>
     <div class="strow" style="margin-bottom:1.5rem">
       <div class="stc"><div class="stnum">${totalCards}</div><div class="stlbl">단어 카드</div></div>
-      <div class="stc"><div class="stnum" style="color:#00c4cc">${masteredCards}</div><div class="stlbl">완전 암기</div></div>
+      <div class="stc"><div class="stnum" style="color:#0CA4C9">${masteredCards}</div><div class="stlbl">완전 암기</div></div>
       <div class="stc"><div class="stnum" style="color:var(--coral)">${needsPractice}</div><div class="stlbl">더 연습 필요</div></div>
       <div class="stc"><div class="stnum">${les.filter(l=>l.att!=='absent').length}</div><div class="stlbl">출석 수업</div></div>
     </div>
@@ -7641,7 +7641,7 @@ function renderStudentMyInfo(sid){
               <div style="font-size:11px;color:var(--slate)">${c.meaning||'—'}</div>
             </div>
             <div style="text-align:right">
-              <div style="font-size:11px"><span style="color:#00c4cc">✓${c.hits||0}</span> <span style="color:var(--coral)">✗${c.misses||0}</span></div>
+              <div style="font-size:11px"><span style="color:#0CA4C9">✓${c.hits||0}</span> <span style="color:var(--coral)">✗${c.misses||0}</span></div>
             </div>
           </div>`).join('')}
       </div>
@@ -7653,7 +7653,7 @@ function renderStudentMyInfo(sid){
           const vp=pct(t.vocabCorrect,t.vocabTotal);
           return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
             <span style="font-size:12px;font-family:var(--fm);color:var(--slate)">${t.date||''}</span>
-            <span style="font-size:14px;font-weight:700;color:${vp>=80?'#00c4cc':vp>=60?'#F4784A':'var(--coral)'}">${t.vocabCorrect}/${t.vocabTotal} (${vp}%)</span>
+            <span style="font-size:14px;font-weight:700;color:${vp>=80?'#0CA4C9':vp>=60?'#F4784A':'var(--coral)'}">${t.vocabCorrect}/${t.vocabTotal} (${vp}%)</span>
           </div>`;
         }).join('')}
       </div>
@@ -7756,7 +7756,7 @@ function renderClassTab(){
       return`<div style="min-width:0">
         <div style="font-size:10px;font-weight:700;text-align:center;padding:4px 2px;background:${isToday?'var(--teal)':'var(--navy)'};color:#fff;border-radius:4px 4px 0 0">${day}</div>
         <div style="border:1.5px solid ${isToday?'var(--teal)':'var(--border)'};border-top:none;border-radius:0 0 4px 4px;min-height:44px;padding:2px">
-          ${dayCls.map(c=>`<div style="background:${isToday?'rgba(0,196,204,.15)':'rgba(13,37,66,.05)'};border-radius:3px;padding:2px 4px;margin-bottom:2px;cursor:pointer;line-height:1.3" onclick="openClsDetail('${c.id}')">
+          ${dayCls.map(c=>`<div style="background:${isToday?'rgba(12,164,201,.15)':'rgba(15,48,74,.05)'};border-radius:3px;padding:2px 4px;margin-bottom:2px;cursor:pointer;line-height:1.3" onclick="openClsDetail('${c.id}')">
             <div style="font-size:9px;font-weight:700;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</div>
             ${c.timeStart?`<div style="font-size:8px;color:var(--slate)">${c.timeStart}${c.timeEnd?'~'+c.timeEnd:''}</div>`:''}
           </div>`).join('')}

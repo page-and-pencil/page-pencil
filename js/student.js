@@ -254,7 +254,7 @@ function makeAudioPlayer(url,bookTitle){
       <div style="flex:1">
         <div style="font-size:12px;opacity:.7;margin-bottom:6px">${bookTitle||''}</div>
         <div id="prog_${pid}" style="height:4px;background:rgba(255,255,255,.2);border-radius:2px;cursor:pointer;position:relative">
-          <div id="bar_${pid}" style="height:100%;width:0%;background:#00c4cc;border-radius:2px;transition:width .1s"></div>
+          <div id="bar_${pid}" style="height:100%;width:0%;background:#0CA4C9;border-radius:2px;transition:width .1s"></div>
         </div>
         <div id="time_${pid}" style="font-size:11px;opacity:.5;margin-top:4px">0:00</div>
       </div>
@@ -500,7 +500,7 @@ function renderAssignmentTab(sid){
     }
 
     if(submitted){
-      return `<div class="stu-book-card" style="border-color:rgba(0,196,204,.3)">
+      return `<div class="stu-book-card" style="border-color:rgba(12,164,201,.3)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
           <span style="font-size:10px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
           <span style="font-size:11px;font-weight:700;color:#005f6b;background:var(--tl);padding:2px 8px;border-radius:10px">제출완료 ✓</span>
@@ -1064,7 +1064,7 @@ function checkSpell(){
   inp.readOnly=true;
   document.getElementById('spell-skip-btn').style.display='none';
   document.getElementById('spell-next-btn').style.display='';
-  if(correct){fb.style.color='#00c4cc';fb.textContent='✓ 정답!';}
+  if(correct){fb.style.color='#0CA4C9';fb.textContent='✓ 정답!';}
   else{fb.style.color='var(--coral)';fb.innerHTML='✗ 정답: <strong>'+card.word+'</strong>';}
   deckState.phaseResults.push({word:card.word,correct});
 }
@@ -1142,7 +1142,7 @@ async function renderVocabResult(el){
 
 // ── GAMIFICATION HELPERS ──
 function launchConfetti(){
-  const colors=['#00c4cc','#C4614A','#ffd700','#7c3aed','#10b981'];
+  const colors=['#0CA4C9','#F59E0B','#ffd700','#7c3aed','#10b981'];
   for(let i=0;i<40;i++){
     const el=document.createElement('div');
     el.className='confetti-piece';
@@ -1152,7 +1152,7 @@ function launchConfetti(){
   }
 }
 function showMiniConfetti(){
-  const colors=['#00c4cc','#F4784A','#5B4FBB','#FFD700','#ff6b6b'];
+  const colors=['#0CA4C9','#F4784A','#5B4FBB','#FFD700','#ff6b6b'];
   const container=document.createElement('div');
   container.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden';
   for(let i=0;i<30;i++){
@@ -1412,7 +1412,7 @@ function renderStudentHome(sid){
             <button id="rec-start-${a.id}" class="btn bt" style="border-radius:50px;padding:13px;font-size:13px" onclick="startBrowserRec('${a.id}','${sid}')">🎙 직접 녹음</button>
             <label class="btn bo" style="border-radius:50px;padding:13px;cursor:pointer;text-align:center;font-size:13px" for="home-asgn-audio-${a.id}">📁 파일 올리기</label>
           </div>
-          <div id="rec-timer-${a.id}" style="display:none;text-align:center;font-size:13px;color:var(--coral);font-weight:700;margin-bottom:8px;padding:8px;background:rgba(196,97,74,.06);border-radius:8px">🔴 녹음 중... <span id="rec-time-${a.id}">0:00</span></div>
+          <div id="rec-timer-${a.id}" style="display:none;text-align:center;font-size:13px;color:var(--coral);font-weight:700;margin-bottom:8px;padding:8px;background:rgba(245,158,11,.06);border-radius:8px">🔴 녹음 중... <span id="rec-time-${a.id}">0:00</span></div>
           <button id="rec-stop-${a.id}" class="btn bd" style="display:none;width:100%;border-radius:50px;padding:12px" onclick="stopBrowserRec('${a.id}')">⏹ 녹음 완료</button>
           <input type="file" id="home-asgn-audio-${a.id}" accept="audio/*" style="display:none" onchange="handleHomeAsgnAudio(event,'${a.id}','${sid}')">
           <div id="home-asgn-preview-${a.id}" style="display:none;margin-top:8px">
@@ -1751,7 +1751,7 @@ function _renderHighlightedText(text,words){
     if(!w)return match;
     const ko=(w.ko||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const pos=(w.pos||'').replace(/'/g,"\\'");
-    return`<span onclick="showUnitWordPopup(event,'${w.word.replace(/'/g,"\\'")}','${ko}','${pos}')" style="background:rgba(0,196,204,.22);border-radius:3px;padding:0 2px;cursor:pointer;font-weight:700;color:var(--teal)">${match}</span>`;
+    return`<span onclick="showUnitWordPopup(event,'${w.word.replace(/'/g,"\\'")}','${ko}','${pos}')" style="background:rgba(12,164,201,.22);border-radius:3px;padding:0 2px;cursor:pointer;font-weight:700;color:var(--teal)">${match}</span>`;
   }).replace(/\n/g,'<br>');
 }
 

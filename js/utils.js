@@ -6,7 +6,7 @@ function showLoading(show){
   if(!el){
     el=document.createElement('div');
     el.id='pp-loading';
-    el.style.cssText='position:fixed;inset:0;background:rgba(13,37,66,.7);display:flex;align-items:center;justify-content:center;z-index:999;color:#fff;font-size:16px;font-family:var(--fb);gap:12px;';
+    el.style.cssText='position:fixed;inset:0;background:rgba(15,48,74,.7);display:flex;align-items:center;justify-content:center;z-index:999;color:#fff;font-size:16px;font-family:var(--fb);gap:12px;';
     el.innerHTML='<div class="spin" style="width:24px;height:24px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>데이터 불러오는 중...';
     document.body.appendChild(el);
   }
