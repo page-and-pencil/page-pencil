@@ -8310,13 +8310,21 @@ function clHwCatChange(sel){
   const matched=Object.entries(c.commonMaterials).find(([k])=>k===cat||k.startsWith(cat+'_'));
   if(matched)bookInput.value=matched[1].book||'';
 }
-function nextUnitName(unit){
-  if(!unit)return '';
-  const nums=unit.match(/\d+/g);
-  if(!nums)return unit;
-  const lastNum=parseInt(nums[nums.length-1])+1;
-  const prefix=(unit.match(/^([^\d]+)/)||['',''])[1];
-  return prefix.trimEnd()+' '+lastNum;
+// 수업에서 다룬 진도 전량을 복습 범위로 계산
+// 직전 진도(prev)와 이번 진도(cur)가 같은 형식의 연속 숫자면 "Day 1-2"처럼 묶어서 반환
+function clHwReviewRange(prev,cur){
+  prev=(prev||'').trim();cur=(cur||'').trim();
+  if(!cur)return prev;
+  if(!prev)return cur;
+  if(/[-~–]/.test(cur))return cur; // 이미 범위로 입력됨
+  const curM=cur.match(/^(.*?)(\d+)\s*$/);
+  const prevM=prev.match(/^(.*?)(\d+)\s*$/);
+  if(!curM||!prevM)return cur;
+  const curPrefix=curM[1].trim(),prevPrefix=prevM[1].trim();
+  const curN=parseInt(curM[2]),prevN=parseInt(prevM[2]);
+  if(curPrefix===prevPrefix&&prevN<curN)
+    return (curPrefix?curPrefix+' ':'')+prevN+'-'+curN;
+  return cur;
 }
 function clHwSyncFromSubj(){
   const classId=document.getElementById('cl-class-id').value;
@@ -8336,10 +8344,10 @@ function clHwSyncFromSubj(){
     const bookId=bookEl?.tagName==='SELECT'?(bookEl.options[bookEl.selectedIndex]?.dataset?.bkId||''):'';
     const tb=(_cache.globalTextbooks||[]).find(b=>bookId?b.id===bookId:b.title===book);
     const bookDisplay=tb?.level?`${book} (${tb.level})`:book;
-    const next=nextUnitName(unit);
+    const reviewRange=clHwReviewRange(unitHint,unitTyped);
     const range=cat==='book'?''
-      :cat==='vocab'?(next?next+' 단어 암기, 워크북 풀기':unit?unit+' 단어 암기, 워크북 풀기':'다음 단원 단어 암기, 워크북 풀기')
-      :(unit?unit+' 복습, 워크북 풀기':'복습, 워크북 풀기');
+      :cat==='vocab'?(reviewRange?reviewRange+' 단어 암기, 워크북 풀기':'단어 암기, 워크북 풀기')
+      :(reviewRange?reviewRange+' 복습, 워크북 풀기':'복습, 워크북 풀기');
     mats.push({cat,book:bookDisplay,range});
   });
   const container=document.getElementById('cl-hw-common-rows');
@@ -8383,11 +8391,25 @@ function clHwToggleSkip(groupEl){
   const body=groupEl.querySelector('.cl-hw-group-body');
   body.style.display=nowSkipped?'none':'';
   const skipBtn=groupEl.querySelector('.cl-hw-skip-btn');
-  skipBtn.style.background=nowSkipped?'rgba(255,255,255,.35)':'rgba(255,255,255,.1)';
-  skipBtn.style.color=nowSkipped?'#fff':'rgba(255,255,255,.7)';
-  skipBtn.textContent=nowSkipped?'생략됨':'생략';
+  skipBtn.style.background=nowSkipped?'#fff':'rgba(255,255,255,.1)';
+  skipBtn.style.color=nowSkipped?'var(--navy)':'rgba(255,255,255,.7)';
+  skipBtn.textContent=nowSkipped?'↩ 되돌리기':'생략';
   const addBtn=groupEl.querySelector('.cl-hw-add-btn');
   addBtn.style.display=nowSkipped?'none':'';
+  // 생략 상태 안내 바 (되돌리기 가능함을 명확히 표시)
+  let note=groupEl.querySelector('.cl-hw-skip-note');
+  if(nowSkipped){
+    if(!note){
+      note=document.createElement('div');
+      note.className='cl-hw-skip-note';
+      note.style.cssText='padding:8px 14px;background:var(--cream2);color:var(--slate);font-size:12px;font-family:var(--fb);text-align:center';
+      note.textContent='이 요일은 과제를 생략합니다 · 상단 [↩ 되돌리기]로 복구할 수 있어요';
+      groupEl.appendChild(note);
+    }
+    note.style.display='';
+  }else if(note){
+    note.style.display='none';
+  }
 }
 const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
 
