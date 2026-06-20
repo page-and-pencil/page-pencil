@@ -424,7 +424,8 @@ function renderSpRdlog(sid){
         <div style="width:172px;height:215px;border-radius:10px;overflow:hidden;border:1.5px solid ${l.read?'var(--teal)':'var(--border)'};background:var(--cream2);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative" onclick="openLbLog('${l.id}')">
           ${first?`<img src="${first}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.style.display='none'">`:`<div style="font-size:28px">📷</div>`}
           ${imgs.length>1?`<div class="rdlog-multi">📄 1/${imgs.length}</div>`:''}
-          ${l.read?`<div style="position:absolute;top:4px;right:4px;background:var(--teal);color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px">완독</div>`:''}
+          ${l.read?`<div style="position:absolute;top:4px;right:32px;background:var(--teal);color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px">완독</div>`:''}
+          <button onclick="event.stopPropagation();reqDelSpLog('${l.id}','${sid}')" title="삭제" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:5px;width:22px;height:22px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">🗑️</button>
         </div>
         <div style="margin-top:5px;padding:0 2px">
           <div style="font-size:10px;color:var(--slate);font-family:var(--fm)">${l.date||''}</div>
@@ -514,6 +515,13 @@ function spLogSelectBook(id,title){
   const inp=document.getElementById('sp-log-book');if(inp)inp.value=title;
   const dd=document.getElementById('sp-log-book-dd');if(dd)dd.style.display='none';
   const sel=document.getElementById('sp-log-book-sel');if(sel){sel.textContent='✓ '+title;sel.style.display='block';}
+}
+function reqDelSpLog(logId,sid){
+  askConfirm('리딩로그 삭제','이 리딩로그를 삭제할까요?','삭제','bd',async()=>{
+    await supaDelete('logs',logId);
+    _cache.logs=_cache.logs.filter(x=>x.id!==logId);
+    renderSpRdlog(sid);renderLog();toast('삭제되었습니다');
+  });
 }
 async function toggleRdlogRead(logId,sid){
   const log=(_cache.logs||[]).find(l=>l.id===logId);if(!log)return;
