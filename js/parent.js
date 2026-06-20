@@ -247,7 +247,7 @@ async function loadParent(sid){
   const acct=DB.acct();
   if(fee||acct.bank||acct.number||payments.length){
     blocks+=`<div class="card">
-      <div class="ch" onclick="togglePaySection()" style="cursor:pointer"><span class="ct">💳 결제 안내</span>${isOverdue?'<span style="font-size:11px;color:var(--coral);font-weight:700;margin-left:auto">⚠️ 미납</span>':''}<span id="pay-toggle-icon" style="font-size:11px;color:var(--slate);margin-left:auto">▼</span></div>
+      <div class="ch" onclick="togglePaySection()" style="cursor:pointer"><span class="ct">💳 결제 안내</span>${fee?(isOverdue?'<span class="badge bcoral" style="margin-left:auto">미납</span>':'<span class="badge bgreen" style="margin-left:auto">완납</span>'):''}<span id="pay-toggle-icon" style="font-size:11px;color:var(--slate);margin-left:${fee?'8px':'auto'}">▼</span></div>
       <div id="pay-section-body" style="display:none"><div class="cb" style="padding:12px 16px">
         <div>
           <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span class="pay-label">월 수업료</span><span class="pay-value">${fee?fee.toLocaleString()+'원':'미설정'}</span></div>
