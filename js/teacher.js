@@ -7661,7 +7661,7 @@ function renderStudentMyInfo(sid){
     <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:1rem">${stu?stu.name+'의 ':''} 학습 현황</div>
     <div class="strow" style="margin-bottom:1.5rem">
       <div class="stc"><div class="stnum">${totalCards}</div><div class="stlbl">단어 카드</div></div>
-      <div class="stc"><div class="stnum" style="color:#0CA4C9">${masteredCards}</div><div class="stlbl">완전 암기</div></div>
+      <div class="stc"><div class="stnum" style="color:#047857">${masteredCards}</div><div class="stlbl">완전 암기</div></div>
       <div class="stc"><div class="stnum" style="color:var(--coral)">${needsPractice}</div><div class="stlbl">더 연습 필요</div></div>
       <div class="stc"><div class="stnum">${les.filter(l=>l.att!=='absent').length}</div><div class="stlbl">출석 수업</div></div>
     </div>
@@ -7675,7 +7675,7 @@ function renderStudentMyInfo(sid){
               <div style="font-size:11px;color:var(--slate)">${c.meaning||'—'}</div>
             </div>
             <div style="text-align:right">
-              <div style="font-size:11px"><span style="color:#0CA4C9">✓${c.hits||0}</span> <span style="color:var(--coral)">✗${c.misses||0}</span></div>
+              <div style="font-size:11px"><span style="color:#047857">✓${c.hits||0}</span> <span style="color:#B45309">✗${c.misses||0}</span></div>
             </div>
           </div>`).join('')}
       </div>

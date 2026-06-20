@@ -1064,7 +1064,7 @@ function checkSpell(){
   inp.readOnly=true;
   document.getElementById('spell-skip-btn').style.display='none';
   document.getElementById('spell-next-btn').style.display='';
-  if(correct){fb.style.color='#0CA4C9';fb.textContent='✓ 정답!';}
+  if(correct){fb.style.color='#047857';fb.textContent='✓ 정답!';}
   else{fb.style.color='var(--coral)';fb.innerHTML='✗ 정답: <strong>'+card.word+'</strong>';}
   deckState.phaseResults.push({word:card.word,correct});
 }
