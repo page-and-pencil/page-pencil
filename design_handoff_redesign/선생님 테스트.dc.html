@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased;color:#14304A;}
+  svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
+  .mono{font-family:'Montserrat',sans-serif;}
+  .cln-scroll::-webkit-scrollbar{width:8px;height:8px;}
+  .cln-scroll::-webkit-scrollbar-thumb{background:rgba(12,164,201,.2);border-radius:8px;}
+  .cln-scroll::-webkit-scrollbar-track{background:transparent;}
+</style>
+</helmet>
+
+<div style="height:100vh;display:flex;flex-direction:column;background:#F6FAFB;overflow:hidden;">
+
+  <div style="height:58px;background:#fff;border-bottom:1px solid rgba(15,48,74,.08);display:flex;align-items:center;justify-content:space-between;padding:0 26px;flex-shrink:0;">
+    <div style="display:flex;align-items:center;gap:30px;">
+      <div class="mono" style="font-size:19px;font-weight:700;color:#14304A;letter-spacing:-.01em;">Page <span style="color:#0CA4C9;font-style:italic;">&amp;</span> Pencil</div>
+      <div style="width:330px;height:38px;background:#F1F6F8;border-radius:10px;display:flex;align-items:center;gap:9px;padding:0 14px;color:#94A3AE;font-size:13px;"><i data-lucide="search" width="16" height="16"></i>학생, 교재, 원서 검색</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <span style="position:relative;width:38px;height:38px;border-radius:50%;background:#F1F6F8;display:flex;align-items:center;justify-content:center;color:#5A6B7B;"><i data-lucide="bell" width="18" height="18"></i><span style="position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:50%;background:#F59E0B;border:1.5px solid #fff;"></span></span>
+      <div style="display:flex;align-items:center;gap:9px;color:#14304A;font-size:13.5px;font-weight:600;"><span class="mono" style="width:34px;height:34px;border-radius:50%;background:#0CA4C9;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;">S</span>Sam T.</div>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;overflow:hidden;">
+    <div style="width:208px;flex-shrink:0;background:#fff;border-right:1px solid rgba(15,48,74,.08);display:flex;flex-direction:column;padding:18px 14px;gap:4px;">
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#5A6B7B;font-size:13.5px;font-weight:600;"><i data-lucide="layout-dashboard" width="18" height="18"></i>대시보드</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#5A6B7B;font-size:13.5px;font-weight:600;"><i data-lucide="pencil" width="18" height="18"></i>수업 기록</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#5A6B7B;font-size:13.5px;font-weight:600;"><i data-lucide="users" width="18" height="18"></i>클래스</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#5A6B7B;font-size:13.5px;font-weight:600;"><i data-lucide="graduation-cap" width="18" height="18"></i>학생</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#5A6B7B;font-size:13.5px;font-weight:600;"><i data-lucide="clipboard-list" width="18" height="18"></i>과제</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:11px;background:#0CA4C9;color:#fff;font-size:13.5px;font-weight:700;box-shadow:0 3px 10px rgba(12,164,201,.3);"><i data-lucide="flask-conical" width="18" height="18"></i>테스트</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#5A6B7B;font-size:13.5px;font-weight:600;"><i data-lucide="database" width="18" height="18"></i>자료 DB</div>
+      <div style="flex:1;"></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#94A3AE;font-size:13.5px;font-weight:600;"><i data-lucide="settings" width="18" height="18"></i>설정</div>
+    </div>
+
+    <div style="flex:1;display:flex;overflow:hidden;">
+
+      <!-- list column -->
+      <div style="width:300px;flex-shrink:0;background:#fff;border-right:1px solid rgba(15,48,74,.08);display:flex;flex-direction:column;overflow:hidden;">
+        <div style="padding:16px 18px 12px;flex-shrink:0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <h2 style="font-size:16px;font-weight:800;">테스트</h2>
+            <button style="display:flex;align-items:center;gap:5px;padding:7px 12px;border:none;background:#0CA4C9;color:#fff;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(12,164,201,.3);"><i data-lucide="plus" width="14" height="14"></i>출제</button>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span style="padding:5px 11px;border-radius:16px;font-size:11.5px;font-weight:700;background:#FEF0D5;color:#B45309;display:flex;align-items:center;gap:4px;"><i data-lucide="clock" width="12" height="12"></i>채점 대기 3</span>
+            <span style="padding:5px 11px;border-radius:16px;font-size:11.5px;font-weight:600;background:#fff;border:1.5px solid rgba(15,48,74,.12);color:#5A6B7B;">전체</span>
+            <span style="padding:5px 11px;border-radius:16px;font-size:11.5px;font-weight:600;background:#fff;border:1.5px solid rgba(15,48,74,.12);color:#5A6B7B;">완료</span>
+          </div>
+        </div>
+        <div class="cln-scroll" style="flex:1;overflow-y:auto;padding:0 10px 12px;">
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:.05em;color:#B45309;text-transform:uppercase;padding:6px 10px 8px;">채점 대기</div>
+          <div style="border-radius:12px;background:#FFFCF5;border:1.5px solid #F59E0B;padding:12px 13px;margin-bottom:6px;cursor:pointer;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><span style="font-size:13px;font-weight:700;">초4 리딩반 · Day 12</span><span style="font-size:10px;font-weight:700;background:#FEF0D5;color:#B45309;padding:2px 8px;border-radius:9px;">대기</span></div>
+            <div style="font-size:11.5px;color:#8A95A2;margin-bottom:8px;">단어 20문항 · 사진 5장 업로드</div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#B45309;font-weight:600;"><i data-lucide="sparkles" width="13" height="13"></i>AI 자동 채점 4/5 완료 · 1장 확인 필요</div>
+          </div>
+          <div style="border-radius:12px;border:1px solid rgba(15,48,74,.08);padding:12px 13px;margin-bottom:6px;cursor:pointer;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><span style="font-size:13px;font-weight:700;">초5 종합반 · 어법</span><span style="font-size:10px;font-weight:700;background:#FEF0D5;color:#B45309;padding:2px 8px;border-radius:9px;">대기</span></div>
+            <div style="font-size:11.5px;color:#8A95A2;">15문항 · 사진 2장</div>
+          </div>
+          <div style="border-radius:12px;border:1px solid rgba(15,48,74,.08);padding:12px 13px;margin-bottom:14px;cursor:pointer;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><span style="font-size:13px;font-weight:700;">중1 내신반 · 본문</span><span style="font-size:10px;font-weight:700;background:#FEF0D5;color:#B45309;padding:2px 8px;border-radius:9px;">대기</span></div>
+            <div style="font-size:11.5px;color:#8A95A2;">서술형 5문항 · 손채점</div>
+          </div>
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:.05em;color:#8A95A2;text-transform:uppercase;padding:6px 10px 8px;">완료</div>
+          <div style="border-radius:12px;border:1px solid rgba(15,48,74,.08);padding:12px 13px;margin-bottom:6px;cursor:pointer;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><span style="font-size:13px;font-weight:700;">초4 리딩반 · Day 11</span><span style="font-size:10px;font-weight:700;background:#D9F6E9;color:#047857;padding:2px 8px;border-radius:9px;">완료</span></div>
+            <div style="font-size:11.5px;color:#8A95A2;">평균 84점 · 6월 12일</div>
+          </div>
+          <div style="border-radius:12px;border:1px solid rgba(15,48,74,.08);padding:12px 13px;margin-bottom:6px;cursor:pointer;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><span style="font-size:13px;font-weight:700;">초5 종합반 · Day 9</span><span style="font-size:10px;font-weight:700;background:#D9F6E9;color:#047857;padding:2px 8px;border-radius:9px;">완료</span></div>
+            <div style="font-size:11.5px;color:#8A95A2;">평균 91점 · 6월 10일</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- detail: grading -->
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;background:#fff;">
+        <div style="padding:18px 26px 16px;flex-shrink:0;border-bottom:1px solid rgba(15,48,74,.08);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;"><h1 style="font-size:19px;font-weight:800;">초4 리딩반 · Day 12 단어 테스트</h1><span style="font-size:11px;font-weight:700;background:#FEF0D5;color:#B45309;padding:2px 9px;border-radius:10px;">채점 대기</span></div>
+            <div style="font-size:12.5px;color:#8A95A2;display:flex;gap:12px;"><span>2026.06.19</span><span>20문항 · 객관식+스펠링</span><span>응시 5명</span></div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button style="display:flex;align-items:center;gap:5px;padding:8px 13px;border:1px solid rgba(15,48,74,.13);background:#fff;color:#14304A;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;"><i data-lucide="upload" width="14" height="14"></i>사진 추가</button>
+            <button style="display:flex;align-items:center;gap:5px;padding:8px 13px;border:none;background:#0CA4C9;color:#fff;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(12,164,201,.3);"><i data-lucide="send" width="14" height="14"></i>점수 공개</button>
+          </div>
+        </div>
+
+        <div class="cln-scroll" style="flex:1;overflow-y:auto;padding:20px 26px;">
+          <!-- AI banner -->
+          <div style="display:flex;align-items:center;gap:12px;background:#E9F6F9;border:1px solid rgba(12,164,201,.2);border-radius:13px;padding:14px 16px;margin-bottom:20px;">
+            <span style="width:38px;height:38px;border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;color:#0B8DAE;flex-shrink:0;"><i data-lucide="sparkles" width="19" height="19"></i></span>
+            <div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#0B8DAE;">AI가 답안 사진을 읽어 자동 채점했어요</div><div style="font-size:12px;color:#46586B;margin-top:2px;">5명 중 4명 인식 완료 · 강하늘 답안은 글씨가 흐려 직접 확인이 필요합니다.</div></div>
+            <button style="padding:8px 14px;border:none;background:#0CA4C9;color:#fff;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">다시 인식</button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 312px;gap:20px;align-items:start;">
+            <!-- per student grading -->
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <div style="border:1px solid rgba(15,48,74,.08);border-radius:13px;padding:16px 18px;">
+                <div style="display:flex;align-items:center;gap:11px;margin-bottom:13px;">
+                  <span class="mono" style="width:36px;height:36px;border-radius:50%;background:#0CA4C9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">유</span>
+                  <div style="flex:1;"><div style="font-size:14px;font-weight:700;">최유진</div><div style="font-size:11px;color:#8A95A2;">AI 인식 완료 · 검토함</div></div>
+                  <div class="mono" style="font-size:22px;font-weight:700;color:#047857;">19<span style="font-size:13px;color:#B8C0C8;">/20</span></div>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                  <span class="mono" style="width:26px;height:26px;border-radius:7px;background:#D9F6E9;color:#047857;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">1</span>
+                  <span class="mono" style="width:26px;height:26px;border-radius:7px;background:#D9F6E9;color:#047857;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">2</span>
+                  <span class="mono" style="width:26px;height:26px;border-radius:7px;background:#FEE2E2;color:#DC2626;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">3</span>
+                  <span class="mono" style="width:26px;height:26px;border-radius:7px;background:#D9F6E9;color:#047857;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">4</span>
+                  <span class="mono" style="width:26px;height:26px;border-radius:7px;background:#D9F6E9;color:#047857;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">5</span>
+                  <span class="mono" style="width:26px;height:26px;border-radius:7px;background:#D9F6E9;color:#047857;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">…</span>
+                  <span style="font-size:11px;color:#8A95A2;align-self:center;margin-left:4px;">3번 오답 · railway</span>
+                </div>
+              </div>
+
+              <div style="border:1px solid rgba(15,48,74,.08);border-radius:13px;padding:16px 18px;">
+                <div style="display:flex;align-items:center;gap:11px;margin-bottom:13px;">
+                  <span class="mono" style="width:36px;height:36px;border-radius:50%;background:#F0F2F5;color:#5A6B7B;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">하</span>
+                  <div style="flex:1;"><div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">강하늘 <span style="font-size:10px;font-weight:700;background:#FEF0D5;color:#B45309;padding:1px 7px;border-radius:8px;">확인 필요</span></div><div style="font-size:11px;color:#B45309;">사진이 흐려 일부 미인식</div></div>
+                  <div class="mono" style="font-size:22px;font-weight:700;color:#B8C0C8;">—</div>
+                </div>
+                <div style="display:flex;gap:12px;align-items:flex-start;">
+                  <div style="width:96px;height:120px;border-radius:9px;background:repeating-linear-gradient(135deg,#F1F6F8,#F1F6F8 8px,#E8EFF2 8px,#E8EFF2 16px);border:1px solid rgba(15,48,74,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span class="mono" style="font-size:9px;color:#94A3AE;text-align:center;line-height:1.4;">답안<br>사진</span></div>
+                  <div style="flex:1;">
+                    <div style="font-size:12px;color:#46586B;line-height:1.6;margin-bottom:10px;">흐린 문항을 직접 입력하면 나머지는 그대로 저장돼요.</div>
+                    <button style="display:flex;align-items:center;gap:5px;padding:8px 14px;border:1px dashed rgba(12,164,201,.4);background:#fff;color:#0B8DAE;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;"><i data-lucide="pencil" width="13" height="13"></i>손으로 채점</button>
+                  </div>
+                </div>
+              </div>
+
+              <div style="border:1px solid rgba(15,48,74,.08);border-radius:13px;padding:14px 18px;display:flex;align-items:center;gap:11px;">
+                <span class="mono" style="width:34px;height:34px;border-radius:50%;background:#F0F2F5;color:#5A6B7B;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">진</span>
+                <div style="flex:1;"><div style="font-size:13.5px;font-weight:700;">강하진</div></div>
+                <div class="mono" style="font-size:18px;font-weight:700;color:#0B8DAE;">17<span style="font-size:12px;color:#B8C0C8;">/20</span></div>
+              </div>
+              <div style="border:1px solid rgba(15,48,74,.08);border-radius:13px;padding:14px 18px;display:flex;align-items:center;gap:11px;">
+                <span class="mono" style="width:34px;height:34px;border-radius:50%;background:#F0F2F5;color:#5A6B7B;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">서</span>
+                <div style="flex:1;"><div style="font-size:13.5px;font-weight:700;">박서연</div></div>
+                <div class="mono" style="font-size:18px;font-weight:700;color:#047857;">20<span style="font-size:12px;color:#B8C0C8;">/20</span></div>
+              </div>
+            </div>
+
+            <!-- right: summary + item analysis -->
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div style="border:1px solid rgba(15,48,74,.08);border-radius:13px;padding:18px;">
+                <div style="font-size:13px;font-weight:800;margin-bottom:14px;">반 평균</div>
+                <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px;"><span class="mono" style="font-size:34px;font-weight:700;color:#0B8DAE;">88</span><span style="font-size:12px;color:#8A95A2;">/ 100 · 응시 5명</span></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;"><span style="font-size:12px;color:#46586B;">정답률</span><span style="font-size:11px;font-weight:700;color:#047857;">88%</span></div>
+                <div style="height:6px;background:#EDF2F4;border-radius:4px;overflow:hidden;"><div style="width:88%;height:100%;background:#10B981;border-radius:4px;"></div></div>
+              </div>
+              <div style="border:1px solid rgba(15,48,74,.08);border-radius:13px;padding:18px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><i data-lucide="alert-triangle" width="15" height="15" style="color:#B45309;"></i><span style="font-size:13px;font-weight:800;">많이 틀린 문항</span></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;"><span style="font-size:12.5px;font-weight:600;">3. railway</span><span style="font-size:11px;font-weight:700;color:#B45309;">3명 오답</span></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;"><span style="font-size:12.5px;font-weight:600;">11. journey</span><span style="font-size:11px;font-weight:700;color:#B45309;">2명 오답</span></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;"><span style="font-size:12.5px;font-weight:600;">17. distance</span><span style="font-size:11px;font-weight:700;color:#46586B;">1명 오답</span></div>
+                <div style="margin-top:14px;padding-top:13px;border-top:1px solid rgba(15,48,74,.06);display:flex;align-items:flex-start;gap:8px;background:#F8FBFC;margin:14px -18px -18px;padding:14px 18px;border-radius:0 0 13px 13px;">
+                  <i data-lucide="sparkles" width="14" height="14" style="color:#0B8DAE;margin-top:2px;"></i>
+                  <span style="font-size:11.5px;color:#46586B;line-height:1.6;">교통수단 어휘가 약해요. 다음 단어장에 railway·journey를 다시 넣을까요?</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1320,&quot;height&quot;:840}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    const draw = () => { if (window.lucide && window.lucide.createIcons) { try { window.lucide.createIcons(); } catch (e) {} } };
+    let n = 0;
+    const iv = setInterval(() => { draw(); if (window.lucide || ++n > 50) clearInterval(iv); }, 80);
+    [200, 500, 1200].forEach(t => setTimeout(draw, t));
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased;color:#14304A;}
+  svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
+  .mono{font-family:'Montserrat',sans-serif;}
+  .pscroll::-webkit-scrollbar{width:0;display:none;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#E7EBEF;display:flex;align-items:center;justify-content:center;padding:40px 24px;gap:48px;flex-wrap:wrap;">
+
+  <div style="width:300px;flex-shrink:0;">
+    <div class="mono" style="font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#0B8DAE;margin-bottom:10px;">Parent · 메시지</div>
+    <h1 style="font-size:25px;font-weight:800;letter-spacing:-.02em;margin-bottom:10px;">학부모 — 선생님 메시지</h1>
+    <p style="font-size:13.5px;line-height:1.75;color:#5A6B7B;text-wrap:pretty;">담임 선생님과 1:1로 주고받는 따뜻한 대화. 수업 카드를 메시지에 인용해 맥락을 함께 전달하고, 공지는 별도 핀으로 구분합니다.</p>
+    <div style="margin-top:18px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:#46586B;">
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#0CA4C9;"></span>1:1 대화 · 받은/보낸 말풍선</div>
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#10B981;"></span>수업 카드 인용</div>
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#F59E0B;"></span>상단 공지 핀</div>
+    </div>
+  </div>
+
+  <div style="width:392px;height:830px;background:#0E1622;border-radius:46px;padding:11px;box-shadow:0 30px 70px rgba(15,48,74,.3);flex-shrink:0;">
+    <div style="width:100%;height:100%;background:#F6FAFB;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;position:relative;">
+
+      <div style="height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:#fff;">
+        <span class="mono" style="font-size:14px;font-weight:700;">9:41</span>
+        <div style="display:flex;align-items:center;gap:6px;color:#14304A;"><i data-lucide="signal" width="15" height="15"></i><i data-lucide="wifi" width="15" height="15"></i><i data-lucide="battery-full" width="17" height="17"></i></div>
+      </div>
+
+      <!-- chat header -->
+      <div style="flex-shrink:0;background:#fff;padding:8px 18px 12px;border-bottom:1px solid rgba(15,48,74,.07);display:flex;align-items:center;gap:11px;">
+        <i data-lucide="chevron-left" width="22" height="22" style="color:#5A6B7B;"></i>
+        <span class="mono" style="width:40px;height:40px;border-radius:50%;background:#0CA4C9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;">S</span>
+        <div style="flex:1;"><div style="font-size:15px;font-weight:800;">Sam 선생님</div><div style="font-size:11.5px;color:#047857;display:flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:50%;background:#10B981;"></span>보통 1시간 내 답장</div></div>
+        <span style="width:36px;height:36px;border-radius:50%;background:#F1F6F8;display:flex;align-items:center;justify-content:center;color:#5A6B7B;"><i data-lucide="phone" width="17" height="17"></i></span>
+      </div>
+
+      <div class="pscroll" style="flex:1;overflow-y:auto;padding:16px 18px;background:#F6FAFB;">
+
+        <!-- pinned notice -->
+        <div style="background:#FFFCF5;border:1px solid rgba(244,158,11,.3);border-radius:13px;padding:13px 15px;margin-bottom:18px;display:flex;gap:11px;">
+          <i data-lucide="pin" width="16" height="16" style="color:#B45309;margin-top:1px;flex-shrink:0;"></i>
+          <div><div style="font-size:12px;font-weight:700;color:#B45309;margin-bottom:3px;">공지 · 6/30 정기 학부모 상담</div><div style="font-size:12px;color:#46586B;line-height:1.55;">6월 마지막 주 상담 일정을 받습니다. 원하시는 시간을 알려주세요.</div></div>
+        </div>
+
+        <div style="text-align:center;margin-bottom:16px;"><span class="mono" style="font-size:11px;color:#94A3AE;background:#E7EDF0;padding:3px 11px;border-radius:11px;">6월 19일 금요일</span></div>
+
+        <!-- received w/ lesson quote -->
+        <div style="display:flex;gap:9px;margin-bottom:14px;">
+          <span class="mono" style="width:30px;height:30px;border-radius:50%;background:#0CA4C9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;align-self:flex-end;">S</span>
+          <div style="max-width:74%;">
+            <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:4px 16px 16px 16px;padding:12px 14px;box-shadow:0 1px 3px rgba(15,48,74,.05);">
+              <div style="font-size:13px;line-height:1.65;color:#14304A;text-wrap:pretty;">어머니, 오늘 수아 수업 코멘트 남겼어요. 지문을 끝까지 혼자 읽어낸 게 정말 좋았습니다 😊</div>
+              <!-- quoted lesson card -->
+              <div style="margin-top:10px;border-left:3px solid #0CA4C9;background:#F4FBFC;border-radius:4px 10px 10px 4px;padding:9px 12px;">
+                <div style="font-size:11px;font-weight:700;color:#0B8DAE;margin-bottom:3px;">6/19 수업 기록</div>
+                <div style="font-size:11.5px;color:#46586B;line-height:1.5;">리딩 · 어휘 · 읽기 유창 / 어휘 보완</div>
+              </div>
+            </div>
+            <div class="mono" style="font-size:10px;color:#B8C0C8;margin-top:4px;margin-left:4px;">15:20</div>
+          </div>
+        </div>
+
+        <!-- sent -->
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+          <div style="max-width:74%;">
+            <div style="background:#0CA4C9;border-radius:16px 4px 16px 16px;padding:12px 14px;box-shadow:0 2px 8px rgba(12,164,201,.25);">
+              <div style="font-size:13px;line-height:1.65;color:#fff;">감사합니다 선생님! 집에서 어휘는 어떻게 도와주면 좋을까요?</div>
+            </div>
+            <div class="mono" style="font-size:10px;color:#B8C0C8;margin-top:4px;text-align:right;margin-right:4px;">15:38 · 읽음</div>
+          </div>
+        </div>
+
+        <!-- received -->
+        <div style="display:flex;gap:9px;margin-bottom:14px;">
+          <span class="mono" style="width:30px;height:30px;border-radius:50%;background:#0CA4C9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;align-self:flex-end;">S</span>
+          <div style="max-width:74%;">
+            <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:4px 16px 16px 16px;padding:12px 14px;box-shadow:0 1px 3px rgba(15,48,74,.05);">
+              <div style="font-size:13px;line-height:1.65;color:#14304A;text-wrap:pretty;">짧은 글 한 단락을 소리 내어 읽고, 모르는 단어는 바로 사전을 찾기보다 앞뒤로 짐작해보게 해주세요. 단어장 앱도 오늘 10개 새로 넣어뒀어요.</div>
+            </div>
+            <div class="mono" style="font-size:10px;color:#B8C0C8;margin-top:4px;margin-left:4px;">15:52</div>
+          </div>
+        </div>
+
+        <!-- sent short -->
+        <div style="display:flex;justify-content:flex-end;">
+          <div style="max-width:74%;">
+            <div style="background:#0CA4C9;border-radius:16px 4px 16px 16px;padding:12px 14px;box-shadow:0 2px 8px rgba(12,164,201,.25);">
+              <div style="font-size:13px;line-height:1.65;color:#fff;">네 그렇게 해볼게요. 늘 감사해요 🙏</div>
+            </div>
+            <div class="mono" style="font-size:10px;color:#B8C0C8;margin-top:4px;text-align:right;margin-right:4px;">16:04 · 읽음</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- input -->
+      <div style="flex-shrink:0;background:#fff;border-top:1px solid rgba(15,48,74,.07);padding:10px 16px 22px;display:flex;align-items:center;gap:10px;">
+        <span style="width:38px;height:38px;border-radius:50%;background:#F1F6F8;display:flex;align-items:center;justify-content:center;color:#5A6B7B;flex-shrink:0;"><i data-lucide="plus" width="20" height="20"></i></span>
+        <div style="flex:1;height:42px;background:#F1F6F8;border-radius:21px;display:flex;align-items:center;padding:0 16px;font-size:13px;color:#94A3AE;">메시지 입력…</div>
+        <span style="width:42px;height:42px;border-radius:50%;background:#0CA4C9;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow:0 3px 10px rgba(12,164,201,.3);"><i data-lucide="send" width="19" height="19"></i></span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:820,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    const draw = () => { if (window.lucide && window.lucide.createIcons) { try { window.lucide.createIcons(); } catch (e) {} } };
+    let n = 0;
+    const iv = setInterval(() => { draw(); if (window.lucide || ++n > 50) clearInterval(iv); }, 80);
+    [200, 500, 1200].forEach(t => setTimeout(draw, t));
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased;color:#14304A;}
+  svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
+  .mono{font-family:'Montserrat',sans-serif;}
+  .pscroll::-webkit-scrollbar{width:0;display:none;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#E7EBEF;display:flex;align-items:center;justify-content:center;padding:40px 24px;gap:48px;flex-wrap:wrap;">
+
+  <div style="width:300px;flex-shrink:0;">
+    <div class="mono" style="font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#0B8DAE;margin-bottom:10px;">Student · 원서</div>
+    <h1 style="font-size:25px;font-weight:800;letter-spacing:-.02em;margin-bottom:10px;">학생 — 원서 듣기</h1>
+    <p style="font-size:13.5px;line-height:1.75;color:#5A6B7B;text-wrap:pretty;">읽으면서 듣는 원서 플레이어. 지금 읽는 문장이 함께 강조되고, 모르는 단어를 탭하면 뜻이 떠요. 챕터별 진행과 완독 보상으로 끝까지 읽는 끈기를 만듭니다.</p>
+    <div style="margin-top:18px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:#46586B;">
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#0CA4C9;"></span>문장 싱크 하이라이트</div>
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#10B981;"></span>단어 탭 → 뜻 · 단어장 담기</div>
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#F59E0B;"></span>챕터 진행 · 완독 보상</div>
+    </div>
+  </div>
+
+  <div style="width:392px;height:830px;background:#0E1622;border-radius:46px;padding:11px;box-shadow:0 30px 70px rgba(15,48,74,.3);flex-shrink:0;">
+    <div style="width:100%;height:100%;background:#0E2230;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;position:relative;">
+
+      <div style="height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 26px;color:#fff;">
+        <span class="mono" style="font-size:14px;font-weight:700;">9:41</span>
+        <div style="display:flex;align-items:center;gap:6px;"><i data-lucide="signal" width="15" height="15"></i><i data-lucide="wifi" width="15" height="15"></i><i data-lucide="battery-full" width="17" height="17"></i></div>
+      </div>
+
+      <!-- player header -->
+      <div style="flex-shrink:0;padding:8px 20px 16px;display:flex;align-items:center;justify-content:space-between;color:#fff;">
+        <i data-lucide="chevron-down" width="24" height="24" style="opacity:.85;"></i>
+        <div style="text-align:center;"><div style="font-size:11px;color:rgba(255,255,255,.6);">읽는 중</div><div style="font-size:13px;font-weight:700;">Charlotte's Web</div></div>
+        <i data-lucide="list" width="22" height="22" style="opacity:.85;"></i>
+      </div>
+
+      <!-- cover -->
+      <div style="flex-shrink:0;padding:6px 40px 18px;">
+        <div style="width:100%;aspect-ratio:3/4;max-height:230px;border-radius:18px;background:repeating-linear-gradient(135deg,#163243,#163243 10px,#1B3B4F 10px,#1B3B4F 20px);box-shadow:0 18px 44px rgba(0,0,0,.4);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:1px solid rgba(255,255,255,.08);">
+          <i data-lucide="book-open" width="40" height="40" style="color:rgba(255,255,255,.5);"></i>
+          <span class="mono" style="font-size:10px;color:rgba(255,255,255,.45);letter-spacing:.05em;">BOOK COVER</span>
+        </div>
+      </div>
+
+      <!-- now reading sentence -->
+      <div style="flex:1;overflow:hidden;padding:0 24px;color:#fff;">
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:8px;">Chapter 3 · 지금 읽는 문장</div>
+        <div style="font-size:17px;line-height:1.75;font-weight:500;">
+          <span style="color:rgba(255,255,255,.35);">Wilbur didn't want food, he wanted love. </span>
+          <span style="color:#fff;background:rgba(12,164,201,.35);border-radius:5px;padding:1px 2px;box-decoration-break:clone;-webkit-box-decoration-break:clone;">He wanted a friend, someone who would </span>
+          <span style="color:#7FD4E2;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;">play</span>
+          <span style="color:#fff;background:rgba(12,164,201,.35);border-radius:5px;padding:1px 2px;box-decoration-break:clone;-webkit-box-decoration-break:clone;"> with him.</span>
+        </div>
+        <!-- tapped word popover -->
+        <div style="margin-top:16px;display:inline-flex;align-items:center;gap:11px;background:#fff;border-radius:12px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.3);">
+          <div><div class="mono" style="font-size:14px;font-weight:700;color:#14304A;">play</div><div style="font-size:12px;color:#5A6B7B;">놀다, 함께 어울리다</div></div>
+          <span style="width:34px;height:34px;border-radius:9px;background:#E3F5FA;color:#0B8DAE;display:flex;align-items:center;justify-content:center;"><i data-lucide="plus" width="17" height="17"></i></span>
+        </div>
+      </div>
+
+      <!-- controls -->
+      <div style="flex-shrink:0;padding:18px 24px 26px;color:#fff;">
+        <!-- progress -->
+        <div style="height:5px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden;margin-bottom:7px;"><div style="width:58%;height:100%;background:#0CA4C9;border-radius:3px;position:relative;"><span style="position:absolute;right:-5px;top:50%;transform:translateY(-50%);width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.4);"></span></div></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:18px;"><span class="mono" style="font-size:11px;color:rgba(255,255,255,.6);">8:24</span><span class="mono" style="font-size:11px;color:rgba(255,255,255,.6);">14:10</span></div>
+        <!-- buttons -->
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,.7);width:44px;text-align:center;">0.8×</span>
+          <i data-lucide="rotate-ccw" width="26" height="26" style="opacity:.85;"></i>
+          <span style="width:66px;height:66px;border-radius:50%;background:#0CA4C9;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(12,164,201,.5);"><i data-lucide="pause" width="28" height="28" fill="#fff"></i></span>
+          <i data-lucide="rotate-cw" width="26" height="26" style="opacity:.85;"></i>
+          <span style="width:44px;display:flex;justify-content:center;"><i data-lucide="repeat" width="22" height="22" style="opacity:.85;"></i></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- chapter list secondary -->
+  <div style="width:300px;flex-shrink:0;">
+    <div style="font-size:13px;font-weight:800;margin-bottom:12px;color:#14304A;">챕터 · Charlotte's Web</div>
+    <div style="background:#fff;border:1px solid rgba(15,48,74,.08);border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(15,48,74,.06);">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(15,48,74,.05);">
+        <span style="width:32px;height:32px;border-radius:9px;background:#D9F6E9;display:flex;align-items:center;justify-content:center;color:#047857;"><i data-lucide="check" width="16" height="16"></i></span>
+        <div style="flex:1;"><div style="font-size:13px;font-weight:700;">1. Before Breakfast</div><div style="font-size:11px;color:#8A95A2;">완료 · 9분</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(15,48,74,.05);">
+        <span style="width:32px;height:32px;border-radius:9px;background:#D9F6E9;display:flex;align-items:center;justify-content:center;color:#047857;"><i data-lucide="check" width="16" height="16"></i></span>
+        <div style="flex:1;"><div style="font-size:13px;font-weight:700;">2. Wilbur</div><div style="font-size:11px;color:#8A95A2;">완료 · 11분</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(15,48,74,.05);background:#F4FBFC;">
+        <span style="width:32px;height:32px;border-radius:9px;background:#0CA4C9;display:flex;align-items:center;justify-content:center;color:#fff;"><i data-lucide="volume-2" width="16" height="16"></i></span>
+        <div style="flex:1;"><div style="font-size:13px;font-weight:800;color:#0B8DAE;">3. Escape</div><div style="font-size:11px;color:#0B8DAE;">듣는 중 · 8:24 / 14:10</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;">
+        <span style="width:32px;height:32px;border-radius:9px;background:#F0F2F5;display:flex;align-items:center;justify-content:center;color:#B8C0C8;"><i data-lucide="lock" width="15" height="15"></i></span>
+        <div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#94A3AE;">4. Loneliness</div><div style="font-size:11px;color:#B8C0C8;">잠김 · 13분</div></div>
+      </div>
+    </div>
+    <div style="margin-top:14px;background:#FEF0D5;border:1px solid rgba(244,158,11,.3);border-radius:13px;padding:13px 15px;display:flex;align-items:center;gap:11px;">
+      <span style="font-size:22px;">📖</span>
+      <div style="font-size:12px;color:#B45309;line-height:1.5;"><b>2 / 4 챕터</b> 들었어요. 끝까지 들으면 <b>완독 뱃지</b> 획득!</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1100,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    const draw = () => { if (window.lucide && window.lucide.createIcons) { try { window.lucide.createIcons(); } catch (e) {} } };
+    let n = 0;
+    const iv = setInterval(() => { draw(); if (window.lucide || ++n > 50) clearInterval(iv); }, 80);
+    [200, 500, 1200].forEach(t => setTimeout(draw, t));
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

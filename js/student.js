@@ -383,7 +383,7 @@ function renderStudentLibrary(sid){
         <div style="font-size:13px;font-weight:600;color:var(--navy)">${t.title||'—'}</div>
         <div style="font-size:11px;color:var(--slate)">${t.level?'Lv.'+t.level+' · ':''} ${t.currentUnit||''}</div>
       </div>
-      ${t.completed?`<span style="font-size:10px;padding:2px 8px;background:#dcfce7;color:#166534;border-radius:10px;font-weight:700;flex-shrink:0">✅ 완료</span>`:`<span style="font-size:10px;padding:2px 8px;background:var(--tl);color:#005f6b;border-radius:10px;font-weight:700;flex-shrink:0">📖 진행중</span>`}
+      ${t.completed?`<span style="font-size:10px;padding:2px 8px;background:#dcfce7;color:#166534;border-radius:10px;font-weight:700;flex-shrink:0">✅ 완료</span>`:`<span style="font-size:10px;padding:2px 8px;background:var(--tl);color:#0B8DAE;border-radius:10px;font-weight:700;flex-shrink:0">📖 진행중</span>`}
     </div>`).join('')}
   </div>`:'';
 
@@ -503,11 +503,11 @@ function renderAssignmentTab(sid){
       return `<div class="stu-book-card" style="border-color:rgba(12,164,201,.3)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
           <span style="font-size:10px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
-          <span style="font-size:11px;font-weight:700;color:#005f6b;background:var(--tl);padding:2px 8px;border-radius:10px">제출완료 ✓</span>
+          <span style="font-size:11px;font-weight:700;color:#0B8DAE;background:var(--tl);padding:2px 8px;border-radius:10px">제출완료 ✓</span>
         </div>
         ${content}
         ${hw?.audioUrl?`<audio controls src="${hw.audioUrl}" style="width:100%;height:26px;margin-top:4px"></audio>`:''}
-        ${hw?.aiScore?`<div style="font-size:11px;color:#005f6b;background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:6px">🤖 AI 피드백: ${hw.aiScore}</div>`:''}
+        ${hw?.aiScore?`<div style="font-size:11px;color:#0B8DAE;background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:6px">🤖 AI 피드백: ${hw.aiScore}</div>`:''}
       </div>`;
     }
 
@@ -719,7 +719,7 @@ function renderVocabDeck(sid){
   const missingCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&(!c.meaning||!c.example));
   if(missingCards.length) fillMissingMeanings(missingCards);
   let cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
-  const filterLabel=vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 1.25rem;background:var(--tl);font-size:12px;color:#005f6b"><span>📌 숙제 단어 ${vocabDeckFilter.words.length}개</span><button onclick="vocabDeckFilter=null;renderVocabDeck('${sid}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate)">전체 보기</button></div>`:'';
+  const filterLabel=vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 1.25rem;background:var(--tl);font-size:12px;color:#0B8DAE"><span>📌 숙제 단어 ${vocabDeckFilter.words.length}개</span><button onclick="vocabDeckFilter=null;renderVocabDeck('${sid}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate)">전체 보기</button></div>`:'';
   if(vocabDeckFilter)cards=cards.filter(c=>vocabDeckFilter.words.map(w=>w.toLowerCase()).includes((c.word||'').toLowerCase()));
   if(!cards.length){
     el.innerHTML=filterLabel+`<div style="text-align:center;padding:3rem 1rem">
@@ -774,7 +774,7 @@ function renderVocabPhaseIntro(el){
   ];
   const p=phaseInfo[deckState.phase];
   const total=deckState.cards.length;
-  const fb=vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 1.25rem;background:var(--tl);font-size:12px;color:#005f6b"><span>📌 숙제 단어 ${vocabDeckFilter.words.length}개</span><button onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate)">전체 보기</button></div>`:'';
+  const fb=vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 1.25rem;background:var(--tl);font-size:12px;color:#0B8DAE"><span>📌 숙제 단어 ${vocabDeckFilter.words.length}개</span><button onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate)">전체 보기</button></div>`:'';
   el.innerHTML=fb+`<div style="padding:1.5rem;text-align:center">
     <div style="margin-bottom:1.5rem">
       <span class="vc-phase ${p.cls}" style="font-size:13px;padding:6px 16px">${p.icon} 단계 ${p.id+1}: ${p.name}</span>
@@ -800,7 +800,7 @@ function startVocabPhase(){
 function vocabHwBanner(){
   if(!vocabDeckFilter)return '';
   return `<div style="background:var(--tl);border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:11px;color:#005f6b;font-weight:600">📌 숙제 단어 ${vocabDeckFilter.words.length}개 · 완료 후 과제 자동 처리</span>
+    <span style="font-size:11px;color:#0B8DAE;font-weight:600">📌 숙제 단어 ${vocabDeckFilter.words.length}개 · 완료 후 과제 자동 처리</span>
     <button onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--slate)">전체 보기</button>
   </div>`;
 }
@@ -983,7 +983,7 @@ function renderRecallCard(el){
       <div style="background:var(--tl);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px">
         <div style="font-size:22px;font-weight:700;color:var(--navy)">${card.meaning||'(뜻 미입력)'}</div>
         ${card.pos?`<div style="font-size:11px;color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
-        ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:12px;color:#005f6b;margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
+        ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:12px;color:#0B8DAE;margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
       </div>
       <div id="recall-reveal-box" style="background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px;cursor:pointer" onclick="recallReveal()">
         <div id="recall-tap-hint" style="font-size:13px;color:var(--slate)">탭해서 정답 확인 →</div>
@@ -1038,7 +1038,7 @@ function renderSpellCard(el){
       <div style="background:var(--tl);border-radius:10px;padding:16px;text-align:center;margin-bottom:16px">
         <div style="font-size:20px;font-weight:700;color:var(--navy)">${card.meaning||'(뜻 미입력)'}</div>
         ${card.pos?`<div style="font-size:11px;color:var(--slate);margin-top:4px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
-        ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:12px;color:#005f6b;margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
+        ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:12px;color:#0B8DAE;margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
       </div>
       <input class="recall-input" id="spell-in" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
         placeholder="영어로 입력..." onkeydown="if(event.key==='Enter')checkSpell()">
@@ -1152,7 +1152,7 @@ function launchConfetti(){
   }
 }
 function showMiniConfetti(){
-  const colors=['#0CA4C9','#F4784A','#5B4FBB','#FFD700','#ff6b6b'];
+  const colors=['#0CA4C9','#F59E0B','#5B4FBB','#FFD700','#ff6b6b'];
   const container=document.createElement('div');
   container.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden';
   for(let i=0;i<30;i++){
@@ -1421,8 +1421,8 @@ function renderStudentHome(sid){
           </div>
         </div>`;
       } else if(hw&&a.requireRecording){
-        body+=`<div style="font-size:11px;color:#005f6b;margin-top:4px">✅ 제출 완료 ${hw.date||''}</div>`;
-        if(hw.aiScore)body+=`<div style="font-size:11px;color:#005f6b;background:var(--tl);border-radius:6px;padding:5px 8px;margin-top:4px">🤖 ${hw.aiScore}</div>`;
+        body+=`<div style="font-size:11px;color:#0B8DAE;margin-top:4px">✅ 제출 완료 ${hw.date||''}</div>`;
+        if(hw.aiScore)body+=`<div style="font-size:11px;color:#0B8DAE;background:var(--tl);border-radius:6px;padding:5px 8px;margin-top:4px">🤖 ${hw.aiScore}</div>`;
       }
     } else if(a.type==='vocab'){
       body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">단어 암기</div><div class="wl" style="margin-top:4px">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;

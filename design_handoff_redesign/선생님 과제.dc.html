@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased;color:#14304A;}
+  svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
+  .mono{font-family:'Montserrat',sans-serif;}
+  .cln-scroll::-webkit-scrollbar{width:8px;height:8px;}
+  .cln-scroll::-webkit-scrollbar-thumb{background:rgba(12,164,201,.2);border-radius:8px;}
+  .cln-scroll::-webkit-scrollbar-track{background:transparent;}
+</style>
+</helmet>
+
+<div style="height:100vh;display:flex;flex-direction:column;background:#F6FAFB;overflow:hidden;">
+
+  <div style="height:58px;background:#fff;border-bottom:1px solid rgba(15,48,74,.08);display:flex;align-items:center;justify-content:space-between;padding:0 26px;flex-shrink:0;">
+    <div style="display:flex;align-items:center;gap:30px;">
+      <div class="mono" style="font-size:19px;font-weight:700;color:#14304A;letter-spacing:-.01em;">Page <span style="color:#0CA4C9;font-style:italic;">&amp;</span> Pencil</div>
+      <div style="width:330px;height:38px;background:#F1F6F8;border-radius:10px;display:flex;align-items:center;gap:9px;padding:0 14px;color:#94A3AE;font-size:13px;"><i data-lucide="search" width="16" height="16"></i>학생, 교재, 원서 검색</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <span style="position:relative;width:38px;height:38px;border-radius:50%;background:#F1F6F8;display:flex;align-items:center;justify-content:center;color:#5A6B7B;"><i data-lucide="bell" width="18" height="18"></i><span style="position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:50%;background:#F59E0B;border:1.5px solid #fff;"></span></span>
+      <div style="display:flex;align-items:center;gap:9px;color:#14304A;font-size:13.5px;font-weight:600;"><span class="mono" style="width:34px;height:34px;border-radius:50%;background:#0CA4C9;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;">S</span>Sam T.</div>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;overflow:hidden;">
+    <div style="width:208px;flex-shrink:0;background:#fff;border-right:1px solid rgba(15,48,74,.08);display:flex;flex-direction:column;padding:18px 14px;gap:4px;">
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#5A6B7B;font-size:13.5px;font-weight:600;"><i data-lucide="layout-dashboard" width="18" height="18"></i>대시보드</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#5A6B7B;font-size:13.5px;font-weight:600;"><i data-lucide="pencil" width="18" height="18"></i>수업 기록</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#5A6B7B;font-size:13.5px;font-weight:600;"><i data-lucide="users" width="18" height="18"></i>클래스</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#5A6B7B;font-size:13.5px;font-weight:600;"><i data-lucide="graduation-cap" width="18" height="18"></i>학생</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:11px;background:#0CA4C9;color:#fff;font-size:13.5px;font-weight:700;box-shadow:0 3px 10px rgba(12,164,201,.3);"><i data-lucide="clipboard-list" width="18" height="18"></i>과제</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#5A6B7B;font-size:13.5px;font-weight:600;"><i data-lucide="flask-conical" width="18" height="18"></i>테스트</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#5A6B7B;font-size:13.5px;font-weight:600;"><i data-lucide="database" width="18" height="18"></i>자료 DB</div>
+      <div style="flex:1;"></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:#94A3AE;font-size:13.5px;font-weight:600;"><i data-lucide="settings" width="18" height="18"></i>설정</div>
+    </div>
+
+    <div class="cln-scroll" style="flex:1;overflow-y:auto;padding:26px 30px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+        <div>
+          <h1 style="font-size:22px;font-weight:800;letter-spacing:-.02em;">과제</h1>
+          <div style="font-size:13px;color:#8A95A2;margin-top:3px;">반·학생에게 과제를 할당하고 제출 현황을 한눈에 봅니다</div>
+        </div>
+        <button style="display:flex;align-items:center;gap:6px;padding:10px 16px;border:none;background:#0CA4C9;color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 3px 10px rgba(12,164,201,.3);"><i data-lucide="plus" width="15" height="15"></i>과제 만들기</button>
+      </div>
+
+      <!-- stat row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px;">
+        <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 3px rgba(15,48,74,.04);padding:17px;"><div style="font-size:12px;color:#5A6B7B;font-weight:600;margin-bottom:9px;">진행 중</div><div class="mono" style="font-size:25px;font-weight:700;">5<span style="font-size:14px;color:#B8C0C8;"> 건</span></div></div>
+        <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 3px rgba(15,48,74,.04);padding:17px;"><div style="font-size:12px;color:#5A6B7B;font-weight:600;margin-bottom:9px;">오늘 마감</div><div class="mono" style="font-size:25px;font-weight:700;color:#0B8DAE;">2<span style="font-size:14px;color:#B8C0C8;"> 건</span></div></div>
+        <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 3px rgba(15,48,74,.04);padding:17px;"><div style="font-size:12px;color:#5A6B7B;font-weight:600;margin-bottom:9px;">미제출</div><div class="mono" style="font-size:25px;font-weight:700;color:#B45309;">7<span style="font-size:14px;color:#B8C0C8;"> 명</span></div></div>
+        <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 3px rgba(15,48,74,.04);padding:17px;"><div style="font-size:12px;color:#5A6B7B;font-weight:600;margin-bottom:9px;">확인 대기</div><div class="mono" style="font-size:25px;font-weight:700;color:#047857;">12<span style="font-size:14px;color:#B8C0C8;"> 건</span></div></div>
+      </div>
+
+      <!-- active assignment with submission grid -->
+      <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 3px rgba(15,48,74,.04);overflow:hidden;margin-bottom:18px;">
+        <div style="padding:18px 22px;border-bottom:1px solid rgba(15,48,74,.07);display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="width:40px;height:40px;border-radius:11px;background:#E3F5FA;display:flex;align-items:center;justify-content:center;color:#0B8DAE;"><i data-lucide="book-open" width="20" height="20"></i></span>
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:15px;font-weight:800;">Bricks Reading 200 · Unit 7 워크북</span><span style="font-size:11px;font-weight:700;background:#E3F5FA;color:#0B8DAE;padding:2px 9px;border-radius:10px;">초4 리딩반</span></div>
+              <div style="font-size:12px;color:#8A95A2;margin-top:3px;">오늘 마감 18:00 · 사진 제출</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="text-align:right;"><div class="mono" style="font-size:16px;font-weight:700;color:#047857;">3 / 5</div><div style="font-size:11px;color:#8A95A2;">제출</div></div>
+            <button style="padding:8px 13px;border:1px solid rgba(15,48,74,.13);background:#fff;color:#14304A;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">독려 알림</button>
+          </div>
+        </div>
+        <div style="padding:6px 10px;">
+          <!-- header row -->
+          <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 100px;padding:10px 14px;font-size:11px;font-weight:700;color:#8A95A2;text-transform:uppercase;letter-spacing:.04em;">
+            <span>학생</span><span>상태</span><span>제출 시각</span><span style="text-align:right;">확인</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 100px;align-items:center;padding:11px 14px;border-top:1px solid rgba(15,48,74,.05);">
+            <div style="display:flex;align-items:center;gap:10px;"><span class="mono" style="width:30px;height:30px;border-radius:50%;background:#F0F2F5;color:#5A6B7B;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">유</span><span style="font-size:13px;font-weight:600;">최유진</span></div>
+            <span><span style="font-size:11px;font-weight:700;background:#D9F6E9;color:#047857;padding:3px 10px;border-radius:11px;">제출</span></span>
+            <span class="mono" style="font-size:12px;color:#8A95A2;">16:42</span>
+            <span style="text-align:right;"><button style="padding:6px 12px;border:none;background:#E3F5FA;color:#0B8DAE;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">확인</button></span>
+          </div>
+          <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 100px;align-items:center;padding:11px 14px;border-top:1px solid rgba(15,48,74,.05);">
+            <div style="display:flex;align-items:center;gap:10px;"><span class="mono" style="width:30px;height:30px;border-radius:50%;background:#F0F2F5;color:#5A6B7B;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">서</span><span style="font-size:13px;font-weight:600;">박서연</span></div>
+            <span><span style="font-size:11px;font-weight:700;background:#D9F6E9;color:#047857;padding:3px 10px;border-radius:11px;">제출</span></span>
+            <span class="mono" style="font-size:12px;color:#8A95A2;">15:08</span>
+            <span style="text-align:right;"><span style="font-size:11px;font-weight:700;color:#047857;display:inline-flex;align-items:center;gap:4px;"><i data-lucide="check" width="13" height="13"></i>확인함</span></span>
+          </div>
+          <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 100px;align-items:center;padding:11px 14px;border-top:1px solid rgba(15,48,74,.05);">
+            <div style="display:flex;align-items:center;gap:10px;"><span class="mono" style="width:30px;height:30px;border-radius:50%;background:#F0F2F5;color:#5A6B7B;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">진</span><span style="font-size:13px;font-weight:600;">강하진</span></div>
+            <span><span style="font-size:11px;font-weight:700;background:#D9F6E9;color:#047857;padding:3px 10px;border-radius:11px;">제출</span></span>
+            <span class="mono" style="font-size:12px;color:#8A95A2;">14:55</span>
+            <span style="text-align:right;"><button style="padding:6px 12px;border:none;background:#E3F5FA;color:#0B8DAE;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">확인</button></span>
+          </div>
+          <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 100px;align-items:center;padding:11px 14px;border-top:1px solid rgba(15,48,74,.05);background:#FFFCF5;">
+            <div style="display:flex;align-items:center;gap:10px;"><span class="mono" style="width:30px;height:30px;border-radius:50%;background:#F0F2F5;color:#5A6B7B;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">하</span><span style="font-size:13px;font-weight:600;">강하늘</span></div>
+            <span><span style="font-size:11px;font-weight:700;background:#FEF0D5;color:#B45309;padding:3px 10px;border-radius:11px;">미제출</span></span>
+            <span class="mono" style="font-size:12px;color:#B8C0C8;">—</span>
+            <span style="text-align:right;"><button style="padding:6px 12px;border:1px solid rgba(244,158,11,.4);background:#fff;color:#B45309;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">독려</button></span>
+          </div>
+          <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 100px;align-items:center;padding:11px 14px;border-top:1px solid rgba(15,48,74,.05);">
+            <div style="display:flex;align-items:center;gap:10px;"><span class="mono" style="width:30px;height:30px;border-radius:50%;background:#F0F2F5;color:#5A6B7B;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">람</span><span style="font-size:13px;font-weight:600;">신가람</span></div>
+            <span><span style="font-size:11px;font-weight:700;background:#FEF0D5;color:#B45309;padding:3px 10px;border-radius:11px;">미제출</span></span>
+            <span class="mono" style="font-size:12px;color:#B8C0C8;">—</span>
+            <span style="text-align:right;"><button style="padding:6px 12px;border:1px solid rgba(244,158,11,.4);background:#fff;color:#B45309;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">독려</button></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- other assignments list -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 3px rgba(15,48,74,.04);padding:18px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="width:34px;height:34px;border-radius:9px;background:#E3F5FA;display:flex;align-items:center;justify-content:center;color:#0B8DAE;"><i data-lucide="layers" width="17" height="17"></i></span><div style="flex:1;"><div style="font-size:13.5px;font-weight:700;">단어장 Day 13 암기</div><div style="font-size:11.5px;color:#8A95A2;">초5 종합반 · 내일 마감</div></div><span style="font-size:11px;font-weight:700;background:#E3F5FA;color:#0B8DAE;padding:2px 9px;border-radius:10px;">진행</span></div>
+          <div style="height:6px;background:#EDF2F4;border-radius:4px;overflow:hidden;margin-bottom:7px;"><div style="width:40%;height:100%;background:#0CA4C9;border-radius:4px;"></div></div>
+          <div style="font-size:11.5px;color:#8A95A2;">2 / 5 시작 · 평균 진도 40%</div>
+        </div>
+        <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 3px rgba(15,48,74,.04);padding:18px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="width:34px;height:34px;border-radius:9px;background:#D9F6E9;display:flex;align-items:center;justify-content:center;color:#047857;"><i data-lucide="headphones" width="17" height="17"></i></span><div style="flex:1;"><div style="font-size:13.5px;font-weight:700;">원서 듣기 Charlotte's Web Ch.3</div><div style="font-size:11.5px;color:#8A95A2;">초4 리딩반 · 6/22 마감</div></div><span style="font-size:11px;font-weight:700;background:#D9F6E9;color:#047857;padding:2px 9px;border-radius:10px;">진행</span></div>
+          <div style="height:6px;background:#EDF2F4;border-radius:4px;overflow:hidden;margin-bottom:7px;"><div style="width:80%;height:100%;background:#10B981;border-radius:4px;"></div></div>
+          <div style="font-size:11.5px;color:#8A95A2;">4 / 5 완료</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1320,&quot;height&quot;:840}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    const draw = () => { if (window.lucide && window.lucide.createIcons) { try { window.lucide.createIcons(); } catch (e) {} } };
+    let n = 0;
+    const iv = setInterval(() => { draw(); if (window.lucide || ++n > 50) clearInterval(iv); }, 80);
+    [200, 500, 1200].forEach(t => setTimeout(draw, t));
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

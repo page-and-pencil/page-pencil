@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased;color:#14304A;}
+  svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
+  .mono{font-family:'Montserrat',sans-serif;}
+  .pscroll::-webkit-scrollbar{width:0;display:none;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#E7EBEF;display:flex;align-items:flex-start;justify-content:center;padding:40px 24px;gap:40px;flex-wrap:wrap;">
+
+  <!-- intro -->
+  <div style="width:280px;flex-shrink:0;padding-top:20px;">
+    <div class="mono" style="font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#0B8DAE;margin-bottom:10px;">Student · 단어장</div>
+    <h1 style="font-size:24px;font-weight:800;letter-spacing:-.02em;margin-bottom:10px;">3단계 단어 학습</h1>
+    <p style="font-size:13.5px;line-height:1.75;color:#5A6B7B;text-wrap:pretty;">기존 기능 그대로: ① 단어 확인(카드 뒤집기·발음 듣기) ② 뜻 맞히기(입력 채점) ③ 스펠링. 단계 인디케이터·진행 점·발음·알아요/애매해요 분류를 모두 유지했어요.</p>
+    <div style="margin-top:18px;display:flex;flex-direction:column;gap:10px;">
+      <div style="background:#fff;border:1px solid rgba(15,48,74,.08);border-radius:12px;padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;"><span style="width:22px;height:22px;border-radius:50%;background:#E3F5FA;color:#0B8DAE;display:flex;align-items:center;justify-content:center;font-size:11px;" class="mono">1</span>단어 확인 · 뒤집기</div></div>
+      <div style="background:#fff;border:1px solid rgba(15,48,74,.08);border-radius:12px;padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#8A95A2;"><span style="width:22px;height:22px;border-radius:50%;background:#F4F6F8;color:#94A3AE;display:flex;align-items:center;justify-content:center;font-size:11px;" class="mono">2</span>뜻 맞히기 · 입력</div></div>
+      <div style="background:#fff;border:1px solid rgba(15,48,74,.08);border-radius:12px;padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#8A95A2;"><span style="width:22px;height:22px;border-radius:50%;background:#F4F6F8;color:#94A3AE;display:flex;align-items:center;justify-content:center;font-size:11px;" class="mono">3</span>스펠링 · 받아쓰기</div></div>
+    </div>
+  </div>
+
+  <!-- phone -->
+  <div style="width:392px;height:830px;background:#0E1622;border-radius:46px;padding:11px;box-shadow:0 30px 70px rgba(15,48,74,.3);flex-shrink:0;">
+    <div style="width:100%;height:100%;background:#F6FAFB;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;position:relative;">
+
+      <!-- status bar -->
+      <div style="height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:#fff;">
+        <span class="mono" style="font-size:14px;font-weight:700;">9:41</span>
+        <div style="display:flex;align-items:center;gap:6px;color:#14304A;"><i data-lucide="signal" width="15" height="15"></i><i data-lucide="wifi" width="15" height="15"></i><i data-lucide="battery-full" width="17" height="17"></i></div>
+      </div>
+
+      <!-- learn header -->
+      <div style="flex-shrink:0;background:#fff;padding:8px 18px 14px;border-bottom:1px solid rgba(15,48,74,.07);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;">
+          <span style="width:36px;height:36px;border-radius:10px;background:#F1F6F8;display:flex;align-items:center;justify-content:center;color:#5A6B7B;"><i data-lucide="x" width="19" height="19"></i></span>
+          <span style="font-size:13px;font-weight:700;color:#14304A;">Bricks Reading 200 · U7</span>
+          <span class="mono" style="font-size:13px;font-weight:700;color:#0B8DAE;">8/20</span>
+        </div>
+        <!-- stage indicator -->
+        <div style="display:flex;gap:6px;align-items:center;">
+          <div style="flex:1;display:flex;align-items:center;gap:6px;"><span class="mono" style="width:22px;height:22px;border-radius:50%;background:#0CA4C9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">1</span><span style="font-size:11.5px;font-weight:700;color:#0B8DAE;">단어 확인</span></div>
+          <div style="width:18px;height:2px;background:#DCE3E8;border-radius:2px;"></div>
+          <div style="flex:1;display:flex;align-items:center;gap:6px;"><span class="mono" style="width:22px;height:22px;border-radius:50%;background:#F0F2F5;color:#94A3AE;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">2</span><span style="font-size:11.5px;font-weight:600;color:#94A3AE;">뜻 맞히기</span></div>
+          <div style="width:18px;height:2px;background:#DCE3E8;border-radius:2px;"></div>
+          <div style="display:flex;align-items:center;gap:6px;"><span class="mono" style="width:22px;height:22px;border-radius:50%;background:#F0F2F5;color:#94A3AE;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">3</span></div>
+        </div>
+      </div>
+
+      <!-- card area -->
+      <div style="flex:1;display:flex;flex-direction:column;padding:20px;">
+        <!-- progress dots -->
+        <div style="display:flex;gap:4px;justify-content:center;margin-bottom:18px;">
+          <span style="width:22px;height:5px;border-radius:3px;background:#10B981;"></span>
+          <span style="width:22px;height:5px;border-radius:3px;background:#10B981;"></span>
+          <span style="width:22px;height:5px;border-radius:3px;background:#0CA4C9;"></span>
+          <span style="width:22px;height:5px;border-radius:3px;background:#DCE3E8;"></span>
+          <span style="width:22px;height:5px;border-radius:3px;background:#DCE3E8;"></span>
+        </div>
+
+        <!-- flip card -->
+        <div style="flex:1;background:#fff;border:1px solid rgba(15,48,74,.08);border-radius:22px;box-shadow:0 8px 28px rgba(15,48,74,.09);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;position:relative;text-align:center;">
+          <span style="position:absolute;top:16px;right:16px;font-size:10.5px;font-weight:700;color:#0B8DAE;background:#E3F5FA;padding:3px 10px;border-radius:11px;">동사</span>
+          <div class="mono" style="font-size:40px;font-weight:700;letter-spacing:-.01em;margin-bottom:6px;">predict</div>
+          <button style="width:48px;height:48px;border-radius:50%;border:none;background:#E3F5FA;color:#0B8DAE;display:flex;align-items:center;justify-content:center;margin:10px 0 22px;cursor:pointer;"><i data-lucide="volume-2" width="22" height="22"></i></button>
+          <div style="width:54px;height:1px;background:rgba(15,48,74,.1);margin-bottom:20px;"></div>
+          <div style="font-size:22px;font-weight:700;color:#14304A;margin-bottom:12px;">예측하다</div>
+          <div style="font-size:13.5px;color:#8A95A2;line-height:1.7;font-style:italic;">You can predict the meaning<br>from the context.</div>
+          <div style="position:absolute;bottom:16px;display:flex;align-items:center;gap:5px;font-size:11px;color:#B8C0C8;"><i data-lucide="rotate-cw" width="13" height="13"></i>탭하면 단어만 보기</div>
+        </div>
+
+        <!-- actions -->
+        <div style="display:flex;gap:11px;margin-top:20px;">
+          <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:15px;border:1.5px solid #F59E0B;background:#FEF0D5;color:#B45309;border-radius:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;"><i data-lucide="rotate-ccw" width="17" height="17"></i>애매해요</button>
+          <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:15px;border:none;background:#10B981;color:#fff;border-radius:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(16,185,129,.32);"><i data-lucide="check" width="18" height="18"></i>알아요</button>
+        </div>
+      </div>
+
+      <!-- home indicator -->
+      <div style="height:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#F6FAFB;"><span style="width:130px;height:5px;border-radius:3px;background:#14304A;opacity:.25;"></span></div>
+    </div>
+  </div>
+
+  <!-- stage 2 + 3 mini previews -->
+  <div style="width:300px;flex-shrink:0;padding-top:20px;display:flex;flex-direction:column;gap:18px;">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:#5A6B7B;margin-bottom:9px;display:flex;align-items:center;gap:6px;"><span class="mono" style="width:20px;height:20px;border-radius:50%;background:#0CA4C9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">2</span>뜻 맞히기 — 입력 채점</div>
+      <div style="background:#fff;border:1px solid rgba(15,48,74,.08);border-radius:16px;box-shadow:0 2px 10px rgba(15,48,74,.06);padding:22px 20px;text-align:center;">
+        <div class="mono" style="font-size:28px;font-weight:700;margin-bottom:4px;">gather</div>
+        <div style="font-size:11px;color:#8A95A2;margin-bottom:16px;">동사</div>
+        <div style="border:2px solid #10B981;background:#E6F5EE;border-radius:11px;padding:12px;font-size:17px;font-weight:700;color:#047857;margin-bottom:9px;">모으다</div>
+        <div style="font-size:12.5px;font-weight:700;color:#047857;display:flex;align-items:center;justify-content:center;gap:5px;"><i data-lucide="check-circle-2" width="15" height="15"></i>정답이에요!</div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:12px;font-weight:700;color:#5A6B7B;margin-bottom:9px;display:flex;align-items:center;gap:6px;"><span class="mono" style="width:20px;height:20px;border-radius:50%;background:#0CA4C9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">3</span>스펠링 — 받아쓰기</div>
+      <div style="background:#fff;border:1px solid rgba(15,48,74,.08);border-radius:16px;box-shadow:0 2px 10px rgba(15,48,74,.06);padding:22px 20px;text-align:center;">
+        <div style="font-size:16px;font-weight:700;color:#14304A;margin-bottom:3px;">유창한</div>
+        <button style="width:42px;height:42px;border-radius:50%;border:none;background:#E3F5FA;color:#0B8DAE;display:inline-flex;align-items:center;justify-content:center;margin:8px 0 16px;cursor:pointer;"><i data-lucide="volume-2" width="20" height="20"></i></button>
+        <div style="display:flex;gap:7px;justify-content:center;">
+          <span class="mono" style="width:34px;height:42px;border-radius:9px;background:#F8FBFC;border:1.5px solid #0CA4C9;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;">f</span>
+          <span class="mono" style="width:34px;height:42px;border-radius:9px;background:#F8FBFC;border:1.5px solid #0CA4C9;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;">l</span>
+          <span class="mono" style="width:34px;height:42px;border-radius:9px;background:#F8FBFC;border:1.5px solid #0CA4C9;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;">u</span>
+          <span class="mono" style="width:34px;height:42px;border-radius:9px;background:#F8FBFC;border:1.5px solid #DCE3E8;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;color:#C8D0D8;">_</span>
+          <span class="mono" style="width:34px;height:42px;border-radius:9px;background:#F8FBFC;border:1.5px solid #DCE3E8;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;color:#C8D0D8;">_</span>
+          <span class="mono" style="width:34px;height:42px;border-radius:9px;background:#F8FBFC;border:1.5px solid #DCE3E8;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;color:#C8D0D8;">_</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1100,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    const draw = () => { if (window.lucide && window.lucide.createIcons) { try { window.lucide.createIcons(); } catch (e) {} } };
+    let n = 0;
+    const iv = setInterval(() => { draw(); if (window.lucide || ++n > 50) clearInterval(iv); }, 80);
+    [200, 500, 1200].forEach(t => setTimeout(draw, t));
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

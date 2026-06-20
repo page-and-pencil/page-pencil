@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased;color:#14304A;}
+  svg.lucide{stroke-width:1.7;vertical-align:middle;flex-shrink:0;}
+  .mono{font-family:'Montserrat',sans-serif;}
+</style>
+</helmet>
+
+<div style="background:#fff;">
+
+  <!-- nav -->
+  <div style="position:sticky;top:0;z-index:10;background:rgba(255,255,255,.88);backdrop-filter:blur(10px);border-bottom:1px solid rgba(15,48,74,.07);">
+    <div style="max-width:1080px;margin:0 auto;padding:16px 32px;display:flex;align-items:center;justify-content:space-between;">
+      <div class="mono" style="font-size:20px;font-weight:700;letter-spacing:-.01em;">Page <span style="color:#0CA4C9;font-style:italic;">&amp;</span> Pencil</div>
+      <div style="display:flex;align-items:center;gap:30px;">
+        <span style="font-size:13.5px;font-weight:600;color:#5A6B7B;">철학</span>
+        <span style="font-size:13.5px;font-weight:600;color:#5A6B7B;">수업</span>
+        <span style="font-size:13.5px;font-weight:600;color:#5A6B7B;">선생님</span>
+        <span style="font-size:13.5px;font-weight:600;color:#5A6B7B;">후기</span>
+        <button style="padding:9px 17px;border:none;background:#0CA4C9;color:#fff;border-radius:10px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 3px 10px rgba(12,164,201,.3);">상담 신청</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- hero -->
+  <div style="max-width:1080px;margin:0 auto;padding:88px 32px 72px;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;">
+    <div>
+      <div style="display:inline-flex;align-items:center;gap:7px;background:#E3F5FA;color:#0B8DAE;font-size:12.5px;font-weight:700;padding:6px 13px;border-radius:20px;margin-bottom:24px;"><i data-lucide="sprout" width="14" height="14"></i>초·중등 이해 기반 영어 공부방</div>
+      <h1 style="font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1.18;margin-bottom:20px;text-wrap:balance;">시험이 끝나도<br>손에 남는 영어</h1>
+      <p style="font-size:16px;line-height:1.75;color:#46586B;max-width:440px;margin-bottom:32px;text-wrap:pretty;">점수는 시험이 끝나면 휘발됩니다. 맥락으로 이해한 영어는 시험 뒤에도 남아 세상을 더 넓게 보게 합니다. 번역 현장 15년과 두 아이 엄마의 마음으로 가르칩니다.</p>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <button style="display:flex;align-items:center;gap:7px;padding:14px 24px;border:none;background:#0CA4C9;color:#fff;border-radius:12px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 6px 18px rgba(12,164,201,.32);">무료 상담 신청<i data-lucide="arrow-right" width="17" height="17"></i></button>
+        <button style="display:flex;align-items:center;gap:7px;padding:14px 22px;border:1px solid rgba(15,48,74,.14);background:#fff;color:#14304A;border-radius:12px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;">수업 방식 보기</button>
+      </div>
+      <div style="display:flex;gap:28px;margin-top:40px;">
+        <div><div class="mono" style="font-size:26px;font-weight:700;color:#0B8DAE;">15<span style="font-size:15px;">년</span></div><div style="font-size:12px;color:#8A95A2;margin-top:2px;">번역 현장 경력</div></div>
+        <div style="width:1px;background:rgba(15,48,74,.1);"></div>
+        <div><div class="mono" style="font-size:26px;font-weight:700;color:#0B8DAE;">수능 만점</div><div style="font-size:12px;color:#8A95A2;margin-top:2px;">국어·영어 동시</div></div>
+        <div style="width:1px;background:rgba(15,48,74,.1);"></div>
+        <div><div class="mono" style="font-size:26px;font-weight:700;color:#0B8DAE;">1:6</div><div style="font-size:12px;color:#8A95A2;margin-top:2px;">소수 정예 밀착</div></div>
+      </div>
+    </div>
+    <!-- hero image placeholder -->
+    <div style="aspect-ratio:4/5;border-radius:24px;background:repeating-linear-gradient(135deg,#F1F6F8,#F1F6F8 12px,#E8EFF2 12px,#E8EFF2 24px);border:1px solid rgba(15,48,74,.08);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;">
+      <i data-lucide="image" width="38" height="38" style="color:#94A3AE;"></i>
+      <span class="mono" style="font-size:11px;color:#94A3AE;letter-spacing:.04em;">수업 장면 사진</span>
+    </div>
+  </div>
+
+  <!-- pains -->
+  <div style="background:#F6FAFB;border-top:1px solid rgba(15,48,74,.06);border-bottom:1px solid rgba(15,48,74,.06);">
+    <div style="max-width:1080px;margin:0 auto;padding:72px 32px;">
+      <div style="text-align:center;margin-bottom:46px;">
+        <div class="mono" style="font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#0B8DAE;margin-bottom:12px;">왜 고민이 깊어질까요</div>
+        <h2 style="font-size:30px;font-weight:800;letter-spacing:-.02em;">영어 앞에서 부모가 흔들리는 세 가지</h2>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:22px;">
+        <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:16px;padding:28px;box-shadow:0 1px 3px rgba(15,48,74,.04);">
+          <span style="width:46px;height:46px;border-radius:13px;background:#FEF0D5;display:flex;align-items:center;justify-content:center;color:#B45309;margin-bottom:18px;"><i data-lucide="hourglass" width="22" height="22"></i></span>
+          <div style="font-size:18px;font-weight:800;margin-bottom:9px;">휘발되는 영어</div>
+          <p style="font-size:13.5px;line-height:1.7;color:#5A6B7B;text-wrap:pretty;">외우고 시험 보면 남는 게 없습니다. 지금 점수는 그럭저럭인데, 진짜 실력으로 쌓이는지 알 수 없습니다.</p>
+        </div>
+        <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:16px;padding:28px;box-shadow:0 1px 3px rgba(15,48,74,.04);">
+          <span style="width:46px;height:46px;border-radius:13px;background:#E3F5FA;display:flex;align-items:center;justify-content:center;color:#0B8DAE;margin-bottom:18px;"><i data-lucide="compass" width="22" height="22"></i></span>
+          <div style="font-size:18px;font-weight:800;margin-bottom:9px;">막막한 방향</div>
+          <p style="font-size:13.5px;line-height:1.7;color:#5A6B7B;text-wrap:pretty;">입시는 바뀌고 정보는 쏟아집니다. 우리 아이에게 무엇을, 언제부터, 어떻게 시켜야 할지 기준이 없습니다.</p>
+        </div>
+        <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:16px;padding:28px;box-shadow:0 1px 3px rgba(15,48,74,.04);">
+          <span style="width:46px;height:46px;border-radius:13px;background:#D9F6E9;display:flex;align-items:center;justify-content:center;color:#047857;margin-bottom:18px;"><i data-lucide="shield-question" width="22" height="22"></i></span>
+          <div style="font-size:18px;font-weight:800;margin-bottom:9px;">신뢰의 부재</div>
+          <p style="font-size:13.5px;line-height:1.7;color:#5A6B7B;text-wrap:pretty;">돈과 시간을 쏟는데 제대로 고르는지 확신이 없습니다. 늦은 건 아닌지, 비싼 게 효과는 있는지 휘둘립니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- philosophy contrast -->
+  <div style="max-width:1080px;margin:0 auto;padding:80px 32px;">
+    <div style="text-align:center;margin-bottom:44px;">
+      <div class="mono" style="font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#0B8DAE;margin-bottom:12px;">우리의 철학</div>
+      <h2 style="font-size:30px;font-weight:800;letter-spacing:-.02em;max-width:560px;margin:0 auto;text-wrap:balance;">암기로 쌓은 영어와 이해로 쌓은 영어는 다릅니다</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:stretch;max-width:880px;margin:0 auto;">
+      <div style="background:#F8FAFB;border:1px solid rgba(15,48,74,.08);border-radius:18px 0 0 18px;padding:32px;">
+        <div style="font-size:12px;font-weight:700;color:#8A95A2;text-transform:uppercase;letter-spacing:.05em;margin-bottom:18px;">점수·암기 영어</div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;gap:10px;align-items:flex-start;"><i data-lucide="x" width="17" height="17" style="color:#94A3AE;margin-top:1px;"></i><span style="font-size:14px;color:#5A6B7B;line-height:1.5;">시험이 끝나면 휘발된다</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;"><i data-lucide="x" width="17" height="17" style="color:#94A3AE;margin-top:1px;"></i><span style="font-size:14px;color:#5A6B7B;line-height:1.5;">모르는 단어 앞에서 사전부터 편다</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;"><i data-lucide="x" width="17" height="17" style="color:#94A3AE;margin-top:1px;"></i><span style="font-size:14px;color:#5A6B7B;line-height:1.5;">문제풀이 요령에 의존한다</span></div>
+        </div>
+      </div>
+      <div style="width:54px;display:flex;align-items:center;justify-content:center;background:#fff;border-top:1px solid rgba(15,48,74,.08);border-bottom:1px solid rgba(15,48,74,.08);"><span style="width:40px;height:40px;border-radius:50%;background:#0CA4C9;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(12,164,201,.35);"><i data-lucide="arrow-right" width="20" height="20"></i></span></div>
+      <div style="background:#E9F6F9;border:1px solid rgba(12,164,201,.25);border-radius:0 18px 18px 0;padding:32px;">
+        <div style="font-size:12px;font-weight:700;color:#0B8DAE;text-transform:uppercase;letter-spacing:.05em;margin-bottom:18px;">이해 기반 영어</div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;gap:10px;align-items:flex-start;"><i data-lucide="check" width="17" height="17" style="color:#047857;margin-top:1px;"></i><span style="font-size:14px;color:#14304A;line-height:1.5;font-weight:500;">시험 뒤에도 손에 남는다</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;"><i data-lucide="check" width="17" height="17" style="color:#047857;margin-top:1px;"></i><span style="font-size:14px;color:#14304A;line-height:1.5;font-weight:500;">앞뒤 맥락으로 뜻을 짐작한다</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;"><i data-lucide="check" width="17" height="17" style="color:#047857;margin-top:1px;"></i><span style="font-size:14px;color:#14304A;line-height:1.5;font-weight:500;">글의 요지를 스스로 잡는다</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- how it works -->
+  <div style="background:#F6FAFB;border-top:1px solid rgba(15,48,74,.06);">
+    <div style="max-width:1080px;margin:0 auto;padding:76px 32px;">
+      <div style="text-align:center;margin-bottom:46px;">
+        <div class="mono" style="font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#0B8DAE;margin-bottom:12px;">수업은 이렇게</div>
+        <h2 style="font-size:30px;font-weight:800;letter-spacing:-.02em;">읽고, 이해하고, 남기는 4단계</h2>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;">
+        <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:16px;padding:24px;">
+          <div class="mono" style="font-size:13px;font-weight:700;color:#0CA4C9;margin-bottom:14px;">01</div>
+          <span style="width:40px;height:40px;border-radius:11px;background:#E3F5FA;display:flex;align-items:center;justify-content:center;color:#0B8DAE;margin-bottom:14px;"><i data-lucide="book-open" width="20" height="20"></i></span>
+          <div style="font-size:15px;font-weight:800;margin-bottom:7px;">원서로 읽기</div>
+          <p style="font-size:12.5px;line-height:1.65;color:#5A6B7B;">수준에 맞는 원서를 끝까지 스스로 읽어냅니다.</p>
+        </div>
+        <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:16px;padding:24px;">
+          <div class="mono" style="font-size:13px;font-weight:700;color:#0CA4C9;margin-bottom:14px;">02</div>
+          <span style="width:40px;height:40px;border-radius:11px;background:#E3F5FA;display:flex;align-items:center;justify-content:center;color:#0B8DAE;margin-bottom:14px;"><i data-lucide="lightbulb" width="20" height="20"></i></span>
+          <div style="font-size:15px;font-weight:800;margin-bottom:7px;">맥락으로 짐작</div>
+          <p style="font-size:12.5px;line-height:1.65;color:#5A6B7B;">모르는 단어는 사전 대신 앞뒤 흐름으로 잡습니다.</p>
+        </div>
+        <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:16px;padding:24px;">
+          <div class="mono" style="font-size:13px;font-weight:700;color:#0CA4C9;margin-bottom:14px;">03</div>
+          <span style="width:40px;height:40px;border-radius:11px;background:#E3F5FA;display:flex;align-items:center;justify-content:center;color:#0B8DAE;margin-bottom:14px;"><i data-lucide="layers" width="20" height="20"></i></span>
+          <div style="font-size:15px;font-weight:800;margin-bottom:7px;">단어로 다지기</div>
+          <p style="font-size:12.5px;line-height:1.65;color:#5A6B7B;">3단계 단어 학습과 복습으로 휘발을 막습니다.</p>
+        </div>
+        <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:16px;padding:24px;">
+          <div class="mono" style="font-size:13px;font-weight:700;color:#0CA4C9;margin-bottom:14px;">04</div>
+          <span style="width:40px;height:40px;border-radius:11px;background:#E3F5FA;display:flex;align-items:center;justify-content:center;color:#0B8DAE;margin-bottom:14px;"><i data-lucide="message-circle" width="20" height="20"></i></span>
+          <div style="font-size:15px;font-weight:800;margin-bottom:7px;">기록으로 남기기</div>
+          <p style="font-size:12.5px;line-height:1.65;color:#5A6B7B;">수업마다 코멘트를 부모와 아이에게 전합니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- teacher -->
+  <div style="max-width:1080px;margin:0 auto;padding:80px 32px;display:grid;grid-template-columns:.9fr 1.1fr;gap:52px;align-items:center;">
+    <div style="aspect-ratio:1;border-radius:24px;background:repeating-linear-gradient(135deg,#F1F6F8,#F1F6F8 12px,#E8EFF2 12px,#E8EFF2 24px);border:1px solid rgba(15,48,74,.08);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;">
+      <i data-lucide="image" width="36" height="36" style="color:#94A3AE;"></i>
+      <span class="mono" style="font-size:11px;color:#94A3AE;letter-spacing:.04em;">선생님 사진</span>
+    </div>
+    <div>
+      <div class="mono" style="font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#0B8DAE;margin-bottom:14px;">누가 가르치나요</div>
+      <h2 style="font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.3;margin-bottom:18px;">국내파로 영어를 정복하고<br>현장에서 15년 살아낸 선생님</h2>
+      <p style="font-size:14.5px;line-height:1.8;color:#46586B;margin-bottom:24px;text-wrap:pretty;">영어유치원도 유학도 없이 국내파로 영어를 정복했습니다. 글로벌 OTT 자막 15년, 실리콘밸리 현지화 7년 동안 교과서 밖에서 언어가 어떻게 숨 쉬는지 몸으로 익혔습니다. 그 손으로 내 아이를, 그리고 같은 철학을 가진 부모의 아이를 가르칩니다.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:9px;">
+        <span style="font-size:12.5px;font-weight:600;background:#F6FAFB;border:1px solid rgba(15,48,74,.1);border-radius:10px;padding:8px 13px;">강원대 영어교육과 수석 입학·조기 졸업</span>
+        <span style="font-size:12.5px;font-weight:600;background:#F6FAFB;border:1px solid rgba(15,48,74,.1);border-radius:10px;padding:8px 13px;">고등 전문 과외 4년</span>
+        <span style="font-size:12.5px;font-weight:600;background:#F6FAFB;border:1px solid rgba(15,48,74,.1);border-radius:10px;padding:8px 13px;">두 아이의 엄마</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div style="max-width:1080px;margin:0 auto;padding:0 32px 90px;">
+    <div style="background:#0E2230;border-radius:28px;padding:60px 48px;text-align:center;position:relative;overflow:hidden;">
+      <div style="position:absolute;top:-40px;right:-30px;width:200px;height:200px;border-radius:50%;background:rgba(12,164,201,.18);"></div>
+      <div style="position:relative;">
+        <h2 style="font-size:32px;font-weight:800;letter-spacing:-.02em;color:#fff;margin-bottom:14px;text-wrap:balance;">안 늦었습니다. 방향이 맞습니다.</h2>
+        <p style="font-size:15px;line-height:1.7;color:rgba(255,255,255,.7);max-width:460px;margin:0 auto 30px;text-wrap:pretty;">아이의 지금을 함께 살펴보고, 무엇을 언제 시작하면 좋을지 기준선을 잡아드립니다. 부담 없는 1:1 상담부터 시작하세요.</p>
+        <button style="display:inline-flex;align-items:center;gap:8px;padding:16px 30px;border:none;background:#0CA4C9;color:#fff;border-radius:13px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 8px 24px rgba(12,164,201,.4);">무료 상담 신청하기<i data-lucide="arrow-right" width="18" height="18"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- footer -->
+  <div style="border-top:1px solid rgba(15,48,74,.07);">
+    <div style="max-width:1080px;margin:0 auto;padding:34px 32px;display:flex;align-items:center;justify-content:space-between;">
+      <div class="mono" style="font-size:16px;font-weight:700;">Page <span style="color:#0CA4C9;font-style:italic;">&amp;</span> Pencil</div>
+      <div style="font-size:12.5px;color:#8A95A2;">이해로 쌓은 영어 · 초·중등 영어 공부방</div>
+      <div style="display:flex;gap:16px;color:#94A3AE;"><i data-lucide="instagram" width="18" height="18"></i><i data-lucide="mail" width="18" height="18"></i></div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    const draw = () => { if (window.lucide && window.lucide.createIcons) { try { window.lucide.createIcons(); } catch (e) {} } };
+    let n = 0;
+    const iv = setInterval(() => { draw(); if (window.lucide || ++n > 50) clearInterval(iv); }, 80);
+    [200, 500, 1200].forEach(t => setTimeout(draw, t));
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

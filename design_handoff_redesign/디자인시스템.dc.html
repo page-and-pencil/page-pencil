@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased;color:#14304A;background:#EEF1F4;}
+  svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
+  .mono{font-family:'Montserrat',sans-serif;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;padding:48px 24px;">
+  <div style="max-width:1040px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 2px 24px rgba(15,48,74,.07);overflow:hidden;">
+
+    <!-- header -->
+    <div style="padding:38px 44px 30px;border-bottom:1px solid rgba(15,48,74,.08);">
+      <div class="mono" style="font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#0B8DAE;margin-bottom:10px;">Design System</div>
+      <h1 style="font-size:30px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px;">Page <span style="color:#0CA4C9;font-style:italic;" class="mono">&amp;</span> Pencil · UI 시스템</h1>
+      <p style="font-size:14px;color:#5A6B7B;line-height:1.7;max-width:680px;">화이트 베이스 · 틸블루 절제 포인트 · 비비드 의미 컬러. 모든 페이지(선생님·학생·학부모)에 이 토큰과 컴포넌트를 동일하게 적용합니다. Claude Code 반영 시 이 명세를 기준으로 삼으세요.</p>
+    </div>
+
+    <!-- COLORS -->
+    <div style="padding:32px 44px;border-bottom:1px solid rgba(15,48,74,.07);">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:18px;"><i data-lucide="palette" width="18" height="18" style="color:#0B8DAE;"></i><h2 style="font-size:17px;font-weight:800;">컬러 토큰</h2></div>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#8A95A2;text-transform:uppercase;margin-bottom:10px;">메인 · 틸블루 (절제해서 포인트로만)</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px;">
+        <div style="width:148px;"><div style="height:60px;border-radius:10px;background:#0CA4C9;"></div><div style="margin-top:7px;font-size:12px;font-weight:700;">Brand</div><div class="mono" style="font-size:11px;color:#8A95A2;">#0CA4C9</div></div>
+        <div style="width:148px;"><div style="height:60px;border-radius:10px;background:#0B8DAE;"></div><div style="margin-top:7px;font-size:12px;font-weight:700;">Brand Deep · 텍스트</div><div class="mono" style="font-size:11px;color:#8A95A2;">#0B8DAE</div></div>
+        <div style="width:148px;"><div style="height:60px;border-radius:10px;background:#E3F5FA;border:1px solid rgba(15,48,74,.08);"></div><div style="margin-top:7px;font-size:12px;font-weight:700;">Brand Soft · 배경</div><div class="mono" style="font-size:11px;color:#8A95A2;">#E3F5FA</div></div>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#8A95A2;text-transform:uppercase;margin-bottom:10px;">의미 컬러 · 비비드 (코멘트 3그룹 · 평가)</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px;">
+        <div style="width:200px;"><div style="height:54px;border-radius:10px;background:#10B981;"></div><div style="margin-top:7px;font-size:12px;font-weight:700;">강점 · 긍정 (Emerald)</div><div class="mono" style="font-size:11px;color:#8A95A2;">#10B981 · 텍스트 #047857 · 배경 #D9F6E9</div></div>
+        <div style="width:200px;"><div style="height:54px;border-radius:10px;background:#F59E0B;"></div><div style="margin-top:7px;font-size:12px;font-weight:700;">보완 필요 (Amber)</div><div class="mono" style="font-size:11px;color:#8A95A2;">#F59E0B · 텍스트 #B45309 · 배경 #FEF0D5</div></div>
+        <div style="width:200px;"><div style="height:54px;border-radius:10px;background:#46586B;"></div><div style="margin-top:7px;font-size:12px;font-weight:700;">진행 중 · 중립 (Slate)</div><div class="mono" style="font-size:11px;color:#8A95A2;">#46586B · 보조 #7A8694</div></div>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#8A95A2;text-transform:uppercase;margin-bottom:10px;">중립 · 배경 · 텍스트</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div style="width:120px;"><div style="height:48px;border-radius:10px;background:#14304A;"></div><div style="margin-top:6px;font-size:11.5px;font-weight:700;">Ink 본문</div><div class="mono" style="font-size:10.5px;color:#8A95A2;">#14304A</div></div>
+        <div style="width:120px;"><div style="height:48px;border-radius:10px;background:#5A6B7B;"></div><div style="margin-top:6px;font-size:11.5px;font-weight:700;">라벨</div><div class="mono" style="font-size:10.5px;color:#8A95A2;">#5A6B7B</div></div>
+        <div style="width:120px;"><div style="height:48px;border-radius:10px;background:#F8FBFC;border:1px solid rgba(15,48,74,.1);"></div><div style="margin-top:6px;font-size:11.5px;font-weight:700;">입력 배경</div><div class="mono" style="font-size:10.5px;color:#8A95A2;">#F8FBFC</div></div>
+        <div style="width:120px;"><div style="height:48px;border-radius:10px;background:#F6FAFB;border:1px solid rgba(15,48,74,.1);"></div><div style="margin-top:6px;font-size:11.5px;font-weight:700;">앱 배경</div><div class="mono" style="font-size:10.5px;color:#8A95A2;">#F6FAFB</div></div>
+        <div style="width:120px;"><div style="height:48px;border-radius:10px;background:#fff;border:1px solid rgba(15,48,74,.1);"></div><div style="margin-top:6px;font-size:11.5px;font-weight:700;">카드 · 면</div><div class="mono" style="font-size:10.5px;color:#8A95A2;">#FFFFFF</div></div>
+        <div style="width:120px;"><div style="height:48px;border-radius:10px;background:#fff;border:1.5px solid rgba(15,48,74,.08);"></div><div style="margin-top:6px;font-size:11.5px;font-weight:700;">테두리</div><div class="mono" style="font-size:10.5px;color:#8A95A2;">15,48,74 / .08</div></div>
+      </div>
+    </div>
+
+    <!-- TYPE -->
+    <div style="padding:32px 44px;border-bottom:1px solid rgba(15,48,74,.07);">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:18px;"><i data-lucide="type" width="18" height="18" style="color:#0B8DAE;"></i><h2 style="font-size:17px;font-weight:800;">타이포그래피</h2></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+        <div style="border:1px solid rgba(15,48,74,.08);border-radius:12px;padding:20px;">
+          <div class="mono" style="font-size:13px;font-weight:700;color:#0B8DAE;margin-bottom:4px;">Montserrat</div>
+          <div style="font-size:12px;color:#8A95A2;margin-bottom:14px;">로고 · 숫자 · 영문 라벨</div>
+          <div class="mono" style="font-size:30px;font-weight:700;letter-spacing:-.01em;">Page &amp; Pencil</div>
+          <div class="mono" style="font-size:22px;font-weight:700;margin-top:6px;">82 / 100 · AR 3.2</div>
+        </div>
+        <div style="border:1px solid rgba(15,48,74,.08);border-radius:12px;padding:20px;">
+          <div style="font-size:13px;font-weight:700;color:#0B8DAE;margin-bottom:4px;">Pretendard</div>
+          <div style="font-size:12px;color:#8A95A2;margin-bottom:14px;">본문 · UI 전체</div>
+          <div style="font-size:23px;font-weight:800;letter-spacing:-.02em;">새 수업 기록</div>
+          <div style="font-size:14px;margin-top:6px;line-height:1.7;">오늘 수아는 지문을 끝까지 읽어냈습니다.</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;font-size:12px;color:#5A6B7B;">
+        <span style="background:#F6FAFB;border:1px solid rgba(15,48,74,.08);border-radius:8px;padding:6px 12px;"><b>H1</b> 23·800</span>
+        <span style="background:#F6FAFB;border:1px solid rgba(15,48,74,.08);border-radius:8px;padding:6px 12px;"><b>H2</b> 17·800</span>
+        <span style="background:#F6FAFB;border:1px solid rgba(15,48,74,.08);border-radius:8px;padding:6px 12px;"><b>본문</b> 13.5·400/600</span>
+        <span style="background:#F6FAFB;border:1px solid rgba(15,48,74,.08);border-radius:8px;padding:6px 12px;"><b>라벨</b> 11·700 · UPPERCASE · .05em</span>
+        <span style="background:#F6FAFB;border:1px solid rgba(15,48,74,.08);border-radius:8px;padding:6px 12px;"><b>캡션</b> 11~12·500</span>
+      </div>
+    </div>
+
+    <!-- TOKENS -->
+    <div style="padding:32px 44px;border-bottom:1px solid rgba(15,48,74,.07);">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:18px;"><i data-lucide="ruler" width="18" height="18" style="color:#0B8DAE;"></i><h2 style="font-size:17px;font-weight:800;">반경 · 그림자 · 간격</h2></div>
+      <div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#8A95A2;text-transform:uppercase;margin-bottom:10px;">Radius</div>
+          <div style="display:flex;gap:12px;">
+            <div style="text-align:center;"><div style="width:54px;height:54px;background:#E3F5FA;border:1.5px solid #0CA4C9;border-radius:8px;"></div><div class="mono" style="font-size:10.5px;color:#8A95A2;margin-top:5px;">8 칩·입력</div></div>
+            <div style="text-align:center;"><div style="width:54px;height:54px;background:#E3F5FA;border:1.5px solid #0CA4C9;border-radius:14px;"></div><div class="mono" style="font-size:10.5px;color:#8A95A2;margin-top:5px;">14 카드</div></div>
+            <div style="text-align:center;"><div style="width:54px;height:54px;background:#E3F5FA;border:1.5px solid #0CA4C9;border-radius:20px;"></div><div class="mono" style="font-size:10.5px;color:#8A95A2;margin-top:5px;">20 pill</div></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#8A95A2;text-transform:uppercase;margin-bottom:10px;">Shadow</div>
+          <div style="display:flex;gap:14px;">
+            <div style="text-align:center;"><div style="width:64px;height:54px;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(15,48,74,.06);"></div><div class="mono" style="font-size:10.5px;color:#8A95A2;margin-top:7px;">카드 sm</div></div>
+            <div style="text-align:center;"><div style="width:64px;height:54px;background:#fff;border-radius:12px;box-shadow:0 3px 10px rgba(12,164,201,.3);"></div><div class="mono" style="font-size:10.5px;color:#8A95A2;margin-top:7px;">버튼 teal</div></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#8A95A2;text-transform:uppercase;margin-bottom:10px;">Spacing</div>
+          <div class="mono" style="font-size:12px;color:#5A6B7B;line-height:1.9;">카드 패딩 20~22<br>섹션 간격 16~18<br>칩 간격 7~8<br>필드 간격 14~16</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPONENTS -->
+    <div style="padding:32px 44px;border-bottom:1px solid rgba(15,48,74,.07);">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:18px;"><i data-lucide="component" width="18" height="18" style="color:#0B8DAE;"></i><h2 style="font-size:17px;font-weight:800;">컴포넌트</h2></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <!-- buttons -->
+        <div style="border:1px solid rgba(15,48,74,.08);border-radius:12px;padding:18px;">
+          <div style="font-size:12px;font-weight:700;color:#5A6B7B;margin-bottom:12px;">버튼</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+            <button style="display:flex;align-items:center;gap:6px;padding:11px 18px;border:none;background:#0CA4C9;color:#fff;border-radius:10px;font-size:13px;font-weight:700;font-family:inherit;box-shadow:0 3px 10px rgba(12,164,201,.3);"><i data-lucide="check" width="15" height="15"></i>주 액션</button>
+            <button style="display:flex;align-items:center;gap:6px;padding:11px 16px;border:1px solid rgba(15,48,74,.13);background:#fff;color:#14304A;border-radius:10px;font-size:13px;font-weight:700;font-family:inherit;">보조</button>
+            <button style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px dashed rgba(12,164,201,.4);background:#fff;color:#0B8DAE;border-radius:8px;font-size:12px;font-weight:600;font-family:inherit;"><i data-lucide="plus" width="13" height="13"></i>추가</button>
+          </div>
+        </div>
+        <!-- input -->
+        <div style="border:1px solid rgba(15,48,74,.08);border-radius:12px;padding:18px;">
+          <div style="font-size:12px;font-weight:700;color:#5A6B7B;margin-bottom:12px;">입력 필드</div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#5A6B7B;text-transform:uppercase;display:flex;align-items:center;gap:5px;margin-bottom:6px;"><i data-lucide="calendar" width="13" height="13"></i>날짜</div>
+          <div style="padding:10px 13px;border:1.5px solid rgba(15,48,74,.1);border-radius:10px;font-size:13.5px;color:#14304A;background:#F8FBFC;font-weight:600;">2026 · 06 · 19 (금)</div>
+        </div>
+        <!-- chip groups -->
+        <div style="border:1px solid rgba(15,48,74,.08);border-radius:12px;padding:18px;grid-column:span 2;">
+          <div style="font-size:12px;font-weight:700;color:#5A6B7B;margin-bottom:12px;">코멘트 칩 · 3그룹 색 코딩</div>
+          <div style="display:flex;gap:24px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:10.5px;font-weight:700;color:#047857;margin-bottom:7px;display:flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#10B981;"></span>강점</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;"><span style="padding:6px 13px;border-radius:18px;font-size:12.5px;font-weight:600;background:#D9F6E9;border:1px solid #10B981;color:#047857;">읽기 유창</span><span style="padding:6px 13px;border-radius:18px;font-size:12.5px;font-weight:600;background:#fff;border:1px solid rgba(16,185,129,.32);color:#047857;">집중도 좋음</span></div>
+            </div>
+            <div>
+              <div style="font-size:10.5px;font-weight:700;color:#46586B;margin-bottom:7px;display:flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#7A8694;"></span>진행 중</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;"><span style="padding:6px 13px;border-radius:18px;font-size:12.5px;font-weight:600;background:#fff;border:1px solid rgba(15,48,74,.14);color:#46586B;">속도 향상 중</span></div>
+            </div>
+            <div>
+              <div style="font-size:10.5px;font-weight:700;color:#B45309;margin-bottom:7px;display:flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#F59E0B;"></span>보완 필요</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;"><span style="padding:6px 13px;border-radius:18px;font-size:12.5px;font-weight:600;background:#FEF0D5;border:1px solid #F59E0B;color:#B45309;">어휘 보완</span></div>
+            </div>
+          </div>
+        </div>
+        <!-- badge + eval -->
+        <div style="border:1px solid rgba(15,48,74,.08);border-radius:12px;padding:18px;">
+          <div style="font-size:12px;font-weight:700;color:#5A6B7B;margin-bottom:12px;">뱃지 · 상태</div>
+          <div style="display:flex;flex-wrap:wrap;gap:7px;">
+            <span style="font-size:11px;font-weight:700;background:#E3F5FA;color:#0B8DAE;padding:3px 10px;border-radius:11px;">진행중</span>
+            <span style="font-size:11px;font-weight:700;background:#D9F6E9;color:#047857;padding:3px 10px;border-radius:11px;">완료</span>
+            <span style="font-size:11px;font-weight:700;background:#FEF0D5;color:#B45309;padding:3px 10px;border-radius:11px;">미납</span>
+            <span style="font-size:11px;font-weight:700;background:#F0F2F5;color:#5A6B7B;padding:3px 10px;border-radius:11px;">초4</span>
+          </div>
+        </div>
+        <div style="border:1px solid rgba(15,48,74,.08);border-radius:12px;padding:18px;">
+          <div style="font-size:12px;font-weight:700;color:#5A6B7B;margin-bottom:12px;">평가 막대</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;"><span style="font-size:12px;color:#46586B;">읽기 유창성</span><span style="font-size:11px;font-weight:700;color:#047857;">우수</span></div>
+          <div style="height:6px;background:#EDF2F4;border-radius:4px;overflow:hidden;"><div style="width:82%;height:100%;background:#10B981;border-radius:4px;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ICON MAP -->
+    <div style="padding:32px 44px;border-bottom:1px solid rgba(15,48,74,.07);">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;"><i data-lucide="shapes" width="18" height="18" style="color:#0B8DAE;"></i><h2 style="font-size:17px;font-weight:800;">아이콘 매핑 · 이모지 → Lucide</h2></div>
+      <p style="font-size:12.5px;color:#8A95A2;margin-bottom:18px;">기능 아이콘은 전부 Lucide 라인 아이콘으로 교체 (학생용 응원/게임 요소의 일부 이모지만 유지 가능).</p>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+        <div style="display:flex;align-items:center;gap:9px;background:#F6FAFB;border:1px solid rgba(15,48,74,.07);border-radius:10px;padding:10px 12px;"><span style="font-size:16px;">🏠</span><i data-lucide="arrow-right" width="13" height="13" style="color:#B8C0C8;"></i><i data-lucide="home" width="17" height="17" style="color:#0B8DAE;"></i><span class="mono" style="font-size:10.5px;color:#8A95A2;">home</span></div>
+        <div style="display:flex;align-items:center;gap:9px;background:#F6FAFB;border:1px solid rgba(15,48,74,.07);border-radius:10px;padding:10px 12px;"><span style="font-size:16px;">📊</span><i data-lucide="arrow-right" width="13" height="13" style="color:#B8C0C8;"></i><i data-lucide="layout-dashboard" width="17" height="17" style="color:#0B8DAE;"></i><span class="mono" style="font-size:10.5px;color:#8A95A2;">dashboard</span></div>
+        <div style="display:flex;align-items:center;gap:9px;background:#F6FAFB;border:1px solid rgba(15,48,74,.07);border-radius:10px;padding:10px 12px;"><span style="font-size:16px;">🏫</span><i data-lucide="arrow-right" width="13" height="13" style="color:#B8C0C8;"></i><i data-lucide="users" width="17" height="17" style="color:#0B8DAE;"></i><span class="mono" style="font-size:10.5px;color:#8A95A2;">users</span></div>
+        <div style="display:flex;align-items:center;gap:9px;background:#F6FAFB;border:1px solid rgba(15,48,74,.07);border-radius:10px;padding:10px 12px;"><span style="font-size:16px;">👩‍🎓</span><i data-lucide="arrow-right" width="13" height="13" style="color:#B8C0C8;"></i><i data-lucide="graduation-cap" width="17" height="17" style="color:#0B8DAE;"></i><span class="mono" style="font-size:10.5px;color:#8A95A2;">graduation-cap</span></div>
+        <div style="display:flex;align-items:center;gap:9px;background:#F6FAFB;border:1px solid rgba(15,48,74,.07);border-radius:10px;padding:10px 12px;"><span style="font-size:16px;">📋</span><i data-lucide="arrow-right" width="13" height="13" style="color:#B8C0C8;"></i><i data-lucide="clipboard-list" width="17" height="17" style="color:#0B8DAE;"></i><span class="mono" style="font-size:10.5px;color:#8A95A2;">clipboard-list</span></div>
+        <div style="display:flex;align-items:center;gap:9px;background:#F6FAFB;border:1px solid rgba(15,48,74,.07);border-radius:10px;padding:10px 12px;"><span style="font-size:16px;">✏️</span><i data-lucide="arrow-right" width="13" height="13" style="color:#B8C0C8;"></i><i data-lucide="flask-conical" width="17" height="17" style="color:#0B8DAE;"></i><span class="mono" style="font-size:10.5px;color:#8A95A2;">flask (테스트)</span></div>
+        <div style="display:flex;align-items:center;gap:9px;background:#F6FAFB;border:1px solid rgba(15,48,74,.07);border-radius:10px;padding:10px 12px;"><span style="font-size:16px;">📚</span><i data-lucide="arrow-right" width="13" height="13" style="color:#B8C0C8;"></i><i data-lucide="book-open" width="17" height="17" style="color:#0B8DAE;"></i><span class="mono" style="font-size:10.5px;color:#8A95A2;">book-open</span></div>
+        <div style="display:flex;align-items:center;gap:9px;background:#F6FAFB;border:1px solid rgba(15,48,74,.07);border-radius:10px;padding:10px 12px;"><span style="font-size:16px;">🗂️</span><i data-lucide="arrow-right" width="13" height="13" style="color:#B8C0C8;"></i><i data-lucide="database" width="17" height="17" style="color:#0B8DAE;"></i><span class="mono" style="font-size:10.5px;color:#8A95A2;">database</span></div>
+        <div style="display:flex;align-items:center;gap:9px;background:#F6FAFB;border:1px solid rgba(15,48,74,.07);border-radius:10px;padding:10px 12px;"><span style="font-size:16px;">💳</span><i data-lucide="arrow-right" width="13" height="13" style="color:#B8C0C8;"></i><i data-lucide="wallet" width="17" height="17" style="color:#0B8DAE;"></i><span class="mono" style="font-size:10.5px;color:#8A95A2;">wallet</span></div>
+        <div style="display:flex;align-items:center;gap:9px;background:#F6FAFB;border:1px solid rgba(15,48,74,.07);border-radius:10px;padding:10px 12px;"><span style="font-size:16px;">⚙️</span><i data-lucide="arrow-right" width="13" height="13" style="color:#B8C0C8;"></i><i data-lucide="settings" width="17" height="17" style="color:#0B8DAE;"></i><span class="mono" style="font-size:10.5px;color:#8A95A2;">settings</span></div>
+        <div style="display:flex;align-items:center;gap:9px;background:#F6FAFB;border:1px solid rgba(15,48,74,.07);border-radius:10px;padding:10px 12px;"><span style="font-size:16px;">📨</span><i data-lucide="arrow-right" width="13" height="13" style="color:#B8C0C8;"></i><i data-lucide="mail" width="17" height="17" style="color:#0B8DAE;"></i><span class="mono" style="font-size:10.5px;color:#8A95A2;">mail</span></div>
+        <div style="display:flex;align-items:center;gap:9px;background:#F6FAFB;border:1px solid rgba(15,48,74,.07);border-radius:10px;padding:10px 12px;"><span style="font-size:16px;">🤖</span><i data-lucide="arrow-right" width="13" height="13" style="color:#B8C0C8;"></i><i data-lucide="sparkles" width="17" height="17" style="color:#0B8DAE;"></i><span class="mono" style="font-size:10.5px;color:#8A95A2;">sparkles (AI)</span></div>
+      </div>
+    </div>
+
+    <!-- APPLY BY ROLE -->
+    <div style="padding:32px 44px;">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:18px;"><i data-lucide="layers" width="18" height="18" style="color:#0B8DAE;"></i><h2 style="font-size:17px;font-weight:800;">역할별 적용 규칙</h2></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+        <div style="border:1px solid rgba(15,48,74,.08);border-radius:12px;padding:18px;">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;"><i data-lucide="monitor" width="16" height="16" style="color:#0B8DAE;"></i><span style="font-size:13.5px;font-weight:800;">선생님 · PC</span></div>
+          <div style="font-size:12.5px;color:#5A6B7B;line-height:1.85;">화이트 좌측 사이드바(활성=틸블루 pill)<br>2단 레이아웃 · 우측 라이브 미리보기<br>밀도 높은 카드 + 테이블<br>경고는 작은 인라인 안내로</div>
+        </div>
+        <div style="border:1px solid rgba(15,48,74,.08);border-radius:12px;padding:18px;">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;"><i data-lucide="smartphone" width="16" height="16" style="color:#0B8DAE;"></i><span style="font-size:13.5px;font-weight:800;">학부모 · 모바일</span></div>
+          <div style="font-size:12.5px;color:#5A6B7B;line-height:1.85;">상단 탭 네비 · 큰 여백<br>메시지/리포트 카드 중심<br>점수 추이는 평가 막대 재사용<br>따뜻하고 읽기 쉬운 톤</div>
+        </div>
+        <div style="border:1px solid rgba(15,48,74,.08);border-radius:12px;padding:18px;">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;"><i data-lucide="smartphone" width="16" height="16" style="color:#0B8DAE;"></i><span style="font-size:13.5px;font-weight:800;">학생 · 모바일</span></div>
+          <div style="font-size:12.5px;color:#5A6B7B;line-height:1.85;">큰 탭 타깃(44px+) · 동기부여 UI<br>단어장 카드 · 미션 진행 막대<br>강점 그린 적극 활용<br>응원 요소엔 이모지 일부 허용</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    const draw = () => { if (window.lucide && window.lucide.createIcons) { try { window.lucide.createIcons(); } catch (e) {} } };
+    let n = 0;
+    const iv = setInterval(() => { draw(); if (window.lucide || ++n > 50) clearInterval(iv); }, 80);
+    [200, 500, 1200].forEach(t => setTimeout(draw, t));
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased;color:#14304A;}
+  svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
+  .mono{font-family:'Montserrat',sans-serif;}
+  .pscroll::-webkit-scrollbar{width:0;display:none;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#E7EBEF;display:flex;align-items:center;justify-content:center;padding:40px 24px;gap:48px;flex-wrap:wrap;">
+
+  <div style="width:300px;flex-shrink:0;">
+    <div class="mono" style="font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#0B8DAE;margin-bottom:10px;">Student · 복습</div>
+    <h1 style="font-size:25px;font-weight:800;letter-spacing:-.02em;margin-bottom:10px;">학생 — 망각곡선 복습</h1>
+    <p style="font-size:13.5px;line-height:1.75;color:#5A6B7B;text-wrap:pretty;">한 번 외운 단어가 휘발되지 않도록, 잊을 때쯤 다시 만나는 복습. 오늘 복습할 단어를 모아주고, 단계별로 얼마나 단단해졌는지 보여줍니다. 게임처럼 가볍게.</p>
+    <div style="margin-top:18px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:#46586B;">
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#0CA4C9;"></span>오늘 복습 큐 · 큰 CTA</div>
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#10B981;"></span>단계별 단단함(망각곡선)</div>
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#F59E0B;"></span>약한 단어는 앰버 우선</div>
+    </div>
+  </div>
+
+  <div style="width:392px;height:830px;background:#0E1622;border-radius:46px;padding:11px;box-shadow:0 30px 70px rgba(15,48,74,.3);flex-shrink:0;">
+    <div style="width:100%;height:100%;background:#F6FAFB;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;position:relative;">
+
+      <div style="height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:#fff;">
+        <span class="mono" style="font-size:14px;font-weight:700;">9:41</span>
+        <div style="display:flex;align-items:center;gap:6px;color:#14304A;"><i data-lucide="signal" width="15" height="15"></i><i data-lucide="wifi" width="15" height="15"></i><i data-lucide="battery-full" width="17" height="17"></i></div>
+      </div>
+
+      <div style="flex-shrink:0;background:#fff;padding:8px 20px 14px;display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:17px;font-weight:800;">복습</div>
+        <span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;background:#FEF0D5;color:#B45309;padding:5px 11px;border-radius:20px;">🔥 5일</span>
+      </div>
+
+      <div class="pscroll" style="flex:1;overflow-y:auto;">
+        <!-- review hero -->
+        <div style="padding:12px 20px 4px;">
+          <div style="background:linear-gradient(135deg,#0CA4C9,#0B93BB);border-radius:20px;padding:22px;color:#fff;box-shadow:0 8px 22px rgba(12,164,201,.28);">
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+              <span style="width:46px;height:46px;border-radius:13px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;"><i data-lucide="rotate-ccw" width="23" height="23"></i></span>
+              <div><div style="font-size:13px;color:rgba(255,255,255,.85);">오늘 복습할 단어</div><div style="display:flex;align-items:baseline;gap:6px;"><span class="mono" style="font-size:30px;font-weight:700;line-height:1;">14</span><span style="font-size:14px;">개</span></div></div>
+            </div>
+            <div style="font-size:12.5px;line-height:1.6;color:rgba(255,255,255,.92);margin-bottom:16px;text-wrap:pretty;">지난주에 외운 단어들이 슬슬 흐려질 시간이에요. 3분이면 다시 단단해져요!</div>
+            <button style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:14px;border:none;background:#fff;color:#0B8DAE;border-radius:13px;font-size:15px;font-weight:800;font-family:inherit;"><i data-lucide="play" width="18" height="18"></i>복습 시작하기</button>
+          </div>
+        </div>
+
+        <!-- weak words priority -->
+        <div style="padding:18px 20px 4px;">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:11px;"><i data-lucide="alert-circle" width="16" height="16" style="color:#B45309;"></i><span style="font-size:14px;font-weight:800;">먼저 잡을 단어</span></div>
+          <div style="display:flex;flex-direction:column;gap:9px;">
+            <div style="display:flex;align-items:center;gap:12px;background:#fff;border:1.5px solid rgba(244,158,11,.35);border-radius:14px;padding:13px 15px;">
+              <span style="width:38px;height:38px;border-radius:11px;background:#FEF0D5;display:flex;align-items:center;justify-content:center;color:#B45309;flex-shrink:0;"><i data-lucide="rotate-cw" width="18" height="18"></i></span>
+              <div style="flex:1;"><div class="mono" style="font-size:15px;font-weight:700;">railway</div><div style="font-size:11.5px;color:#8A95A2;">철도 · 3번 헷갈림</div></div>
+              <span style="font-size:10.5px;font-weight:700;background:#FEF0D5;color:#B45309;padding:3px 10px;border-radius:11px;">약함</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;background:#fff;border:1.5px solid rgba(244,158,11,.35);border-radius:14px;padding:13px 15px;">
+              <span style="width:38px;height:38px;border-radius:11px;background:#FEF0D5;display:flex;align-items:center;justify-content:center;color:#B45309;flex-shrink:0;"><i data-lucide="rotate-cw" width="18" height="18"></i></span>
+              <div style="flex:1;"><div class="mono" style="font-size:15px;font-weight:700;">journey</div><div style="font-size:11.5px;color:#8A95A2;">여행 · 2번 헷갈림</div></div>
+              <span style="font-size:10.5px;font-weight:700;background:#FEF0D5;color:#B45309;padding:3px 10px;border-radius:11px;">약함</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- mastery stages -->
+        <div style="padding:18px 20px 4px;">
+          <div style="font-size:14px;font-weight:800;margin-bottom:12px;">단어가 단단해지는 중 💪</div>
+          <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:16px;padding:18px;box-shadow:0 1px 4px rgba(15,48,74,.05);">
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+              <span style="width:14px;height:14px;border-radius:4px;background:#F59E0B;flex-shrink:0;"></span>
+              <span style="flex:1;font-size:13px;font-weight:600;">방금 외움 · 곧 다시</span>
+              <span class="mono" style="font-size:14px;font-weight:700;color:#B45309;">8</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+              <span style="width:14px;height:14px;border-radius:4px;background:#0CA4C9;flex-shrink:0;"></span>
+              <span style="flex:1;font-size:13px;font-weight:600;">익숙해지는 중</span>
+              <span class="mono" style="font-size:14px;font-weight:700;color:#0B8DAE;">23</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:11px;">
+              <span style="width:14px;height:14px;border-radius:4px;background:#10B981;flex-shrink:0;"></span>
+              <span style="flex:1;font-size:13px;font-weight:600;">완전히 내 단어</span>
+              <span class="mono" style="font-size:14px;font-weight:700;color:#047857;">61</span>
+            </div>
+            <div style="margin-top:16px;height:9px;border-radius:5px;overflow:hidden;display:flex;">
+              <span style="width:9%;background:#F59E0B;"></span>
+              <span style="width:25%;background:#0CA4C9;"></span>
+              <span style="width:66%;background:#10B981;"></span>
+            </div>
+            <div style="margin-top:8px;font-size:11.5px;color:#8A95A2;text-align:center;">전체 92개 중 <b style="color:#047857;">61개</b>가 완전히 내 단어가 됐어요</div>
+          </div>
+        </div>
+
+        <!-- yesterday result -->
+        <div style="padding:18px 20px 24px;">
+          <div style="background:#E6F5EE;border:1px solid rgba(16,185,129,.25);border-radius:14px;padding:15px 16px;display:flex;align-items:center;gap:12px;">
+            <span style="font-size:26px;">🎉</span>
+            <div><div style="font-size:13px;font-weight:800;color:#047857;">어제 복습 12개 완료!</div><div style="font-size:11.5px;color:#46586B;margin-top:2px;">9개를 한 번에 맞혔어요. 멋져요.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex-shrink:0;background:#fff;border-top:1px solid rgba(15,48,74,.07);display:flex;padding:8px 8px 20px;">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:#94A3AE;"><i data-lucide="home" width="22" height="22"></i><span style="font-size:10.5px;font-weight:600;">오늘</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:#94A3AE;"><i data-lucide="layers" width="22" height="22"></i><span style="font-size:10.5px;font-weight:600;">단어</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:#0B8DAE;"><i data-lucide="rotate-ccw" width="22" height="22"></i><span style="font-size:10.5px;font-weight:700;">복습</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:#94A3AE;"><i data-lucide="headphones" width="22" height="22"></i><span style="font-size:10.5px;font-weight:600;">원서</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:#94A3AE;"><i data-lucide="grid-3x3" width="22" height="22"></i><span style="font-size:10.5px;font-weight:600;">더보기</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:820,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    const draw = () => { if (window.lucide && window.lucide.createIcons) { try { window.lucide.createIcons(); } catch (e) {} } };
+    let n = 0;
+    const iv = setInterval(() => { draw(); if (window.lucide || ++n > 50) clearInterval(iv); }, 80);
+    [200, 500, 1200].forEach(t => setTimeout(draw, t));
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

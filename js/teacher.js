@@ -1044,7 +1044,7 @@ async function loadStuPanel(sid){
           </div>
         </div>
         ${submitted&&hw.audioUrl?`<audio controls src="${hw.audioUrl}" style="width:100%;height:26px;margin-top:6px"></audio>`:''}
-        ${submitted&&hw.aiScore?`<div style="font-size:11px;color:#005f6b;background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:4px">🤖 AI 평가: ${hw.aiScore}</div>`:''}
+        ${submitted&&hw.aiScore?`<div style="font-size:11px;color:#0B8DAE;background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:4px">🤖 AI 평가: ${hw.aiScore}</div>`:''}
         ${submitted&&!hw.checked?`<button class="btn ba bsm" style="font-size:10px;margin-top:4px" onclick="markHwChecked('${hw.id}','${sid}')">확인 완료</button>`:''}
       </div>`;
     }).join('')}
@@ -1690,7 +1690,7 @@ function showLesFollowup(sid,date,stuName){
   const el=document.getElementById('les-followup');if(!el)return;
   el.style.display='block';
   el.innerHTML=`<div class="followup-card" style="border-top:3px solid var(--teal);background:linear-gradient(to bottom,#f0fffe,#fff)">
-    <div style="font-size:13px;font-weight:700;color:#005f6b;margin-bottom:12px">✅ ${stuName} 수업 기록 저장됨 — 이어서 입력하시겠어요?</div>
+    <div style="font-size:13px;font-weight:700;color:#0B8DAE;margin-bottom:12px">✅ ${stuName} 수업 기록 저장됨 — 이어서 입력하시겠어요?</div>
     <div id="les-fu-tst">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(12,164,201,.15)">
         <span style="font-size:13px;font-weight:600">📝 테스트도 있었나요?</span>
@@ -1741,7 +1741,7 @@ async function saveFuTst(sid,date){
   await supaUpsert('tests',tst.id,tst,sid);
   _cache.tests.unshift(tst);
   if(wrongWords.length)await syncVocabCards(sid,wrongWords,wrongWords,date,'테스트');
-  document.getElementById('les-fu-tst').innerHTML=`<div style="font-size:12px;color:#005f6b;padding:6px 0">✅ 테스트 저장됨 (${vc}/${vt})</div>`;
+  document.getElementById('les-fu-tst').innerHTML=`<div style="font-size:12px;color:#0B8DAE;padding:6px 0">✅ 테스트 저장됨 (${vc}/${vt})</div>`;
   toast('테스트 저장됨');
   }catch(e){
     console.error('saveFuTst:',e);
@@ -1830,7 +1830,7 @@ async function saveFuAssign(sid,date){
   await supaUpsert('assignments',a.id,a,sid);
   if(!_cache.assignments)_cache.assignments=[];
   _cache.assignments.unshift(a);
-  document.getElementById('les-fu-assign').innerHTML=`<div style="font-size:12px;color:#005f6b;padding:6px 0">✅ 과제 할당됨</div>`;
+  document.getElementById('les-fu-assign').innerHTML=`<div style="font-size:12px;color:#0B8DAE;padding:6px 0">✅ 과제 할당됨</div>`;
   toast('과제 할당됨');
   }catch(e){
     console.error('saveFuAssign:',e);
@@ -7653,7 +7653,7 @@ function renderStudentMyInfo(sid){
           const vp=pct(t.vocabCorrect,t.vocabTotal);
           return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
             <span style="font-size:12px;font-family:var(--fm);color:var(--slate)">${t.date||''}</span>
-            <span style="font-size:14px;font-weight:700;color:${vp>=80?'#0CA4C9':vp>=60?'#F4784A':'var(--coral)'}">${t.vocabCorrect}/${t.vocabTotal} (${vp}%)</span>
+            <span style="font-size:14px;font-weight:700;color:${vp>=80?'#0CA4C9':vp>=60?'#F59E0B':'var(--coral)'}">${t.vocabCorrect}/${t.vocabTotal} (${vp}%)</span>
           </div>`;
         }).join('')}
       </div>
@@ -7697,7 +7697,7 @@ function renderNoticeBoard(){
         <div class="notice-text">${n.text.replace(/\n/g,'<br>')}</div>
         ${unreadStus.length?`<details style="margin-top:6px"><summary style="font-size:11px;color:var(--slate);cursor:pointer">미읽음 ${unreadStus.length}명 ▼</summary>
           <div style="font-size:11px;color:var(--slate);padding:4px 0">${unreadStus.map(s=>s.name).join(', ')}</div>
-        </details>`:'<div style="font-size:11px;color:#005f6b;margin-top:4px">✓ 전원 읽음</div>'}
+        </details>`:'<div style="font-size:11px;color:#0B8DAE;margin-top:4px">✓ 전원 읽음</div>'}
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
         <button class="btn ${n.active?'ba':'bo'} bsm" style="font-size:11px" onclick="toggleNoticeActive('${n.id}')">${n.active?'게시 중지':'게시'}</button>
