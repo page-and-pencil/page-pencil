@@ -549,14 +549,14 @@ async function printReport(sidArg){
       <div class="stat"><div class="stat-n">${thisMonthLes.length}</div><div class="stat-l">이번 달 수업</div></div>
       <div class="stat"><div class="stat-n">${les.filter(l=>l.att!=='absent').length}</div><div class="stat-l">누적 출석</div></div>
       <div class="stat"><div class="stat-n">${rds.length}</div><div class="stat-l">읽은 원서</div></div>
-      <div class="stat"><div class="stat-n" style="color:${avgV>=80?'#0CA4C9':avgV>=60?'#F59E0B':'#D94B2B'}">${avgV!=null?avgV+'%':'—'}</div><div class="stat-l">단어 평균</div></div>
+      <div class="stat"><div class="stat-n" style="color:${avgV>=80?'#047857':avgV>=60?'#0B8DAE':'#B45309'}">${avgV!=null?avgV+'%':'—'}</div><div class="stat-l">단어 평균</div></div>
     </div>
   </div>
   ${latTst?`<div class="section">
     <div class="section-title">📝 최근 테스트 (${latTst.date})</div>
     <div style="display:flex;gap:16px;margin-bottom:8px">
-      <div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>단어</span><span style="font-weight:700">${pct(latTst.vocabCorrect,latTst.vocabTotal)}%</span></div><div class="score-bar"><div class="score-fill" style="width:${pct(latTst.vocabCorrect,latTst.vocabTotal)}%;background:${pct(latTst.vocabCorrect,latTst.vocabTotal)>=80?'#0CA4C9':'#F59E0B'}"></div></div></div>
-      <div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>어법</span><span style="font-weight:700">${pct(latTst.grammarCorrect,latTst.grammarTotal)}%</span></div><div class="score-bar"><div class="score-fill" style="width:${pct(latTst.grammarCorrect,latTst.grammarTotal)}%;background:${pct(latTst.grammarCorrect,latTst.grammarTotal)>=80?'#0CA4C9':'#F59E0B'}"></div></div></div>
+      <div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>단어</span><span style="font-weight:700">${pct(latTst.vocabCorrect,latTst.vocabTotal)}%</span></div><div class="score-bar"><div class="score-fill" style="width:${pct(latTst.vocabCorrect,latTst.vocabTotal)}%;background:${pct(latTst.vocabCorrect,latTst.vocabTotal)>=80?'#10B981':'#F59E0B'}"></div></div></div>
+      <div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>어법</span><span style="font-weight:700">${pct(latTst.grammarCorrect,latTst.grammarTotal)}%</span></div><div class="score-bar"><div class="score-fill" style="width:${pct(latTst.grammarCorrect,latTst.grammarTotal)}%;background:${pct(latTst.grammarCorrect,latTst.grammarTotal)>=80?'#10B981':'#F59E0B'}"></div></div></div>
     </div>
     ${(latTst.wrongWords||[]).length?`<div style="font-size:12px">다시 볼 단어: <strong>${latTst.wrongWords.slice(0,10).join(', ')}</strong></div>`:''}
   </div>`:''}

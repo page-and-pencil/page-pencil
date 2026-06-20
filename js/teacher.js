@@ -7687,7 +7687,7 @@ function renderStudentMyInfo(sid){
           const vp=pct(t.vocabCorrect,t.vocabTotal);
           return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
             <span style="font-size:12px;font-family:var(--fm);color:var(--slate)">${t.date||''}</span>
-            <span style="font-size:14px;font-weight:700;color:${vp>=80?'#0CA4C9':vp>=60?'#F59E0B':'var(--coral)'}">${t.vocabCorrect}/${t.vocabTotal} (${vp}%)</span>
+            <span style="font-size:14px;font-weight:700;color:${vp>=80?'#047857':vp>=60?'#0B8DAE':'#B45309'}">${t.vocabCorrect}/${t.vocabTotal} (${vp}%)</span>
           </div>`;
         }).join('')}
       </div>
