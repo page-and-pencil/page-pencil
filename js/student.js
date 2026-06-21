@@ -1326,7 +1326,6 @@ function renderLastLesson(sid){
       <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${last.date||''}</span>
     </div>
     ${matHtml?`<div style="margin-bottom:6px">${matHtml}</div>`:''}
-    ${rawCmt?`<div id="stu-lesson-cmt" data-raw="${escAttr(rawCmt)}" data-mats="${escAttr(matsText)}" data-stored="${escAttr(last.stuCmt||'')}" style="font-size:12px;color:var(--slate);line-height:1.6">...</div>`:''}
     <button class="btn bt bsm" style="margin-top:8px;border-radius:50px" onclick="swStuTab('st-vocab')">📚 단어 복습 →</button>
   </div>`;
 }
@@ -1408,15 +1407,35 @@ function renderStudentHome(sid){
 
   const givenName=stu&&stu.name&&stu.name.length>1?stu.name.slice(1):stu?.name||'';
   const totalMission=pending.length+done.length;
-  const greetHtml=`<div style="background:linear-gradient(135deg,#0CA4C9,#0B8DAE);border-radius:18px;padding:18px 20px;color:#fff;margin-bottom:16px;box-shadow:0 8px 24px rgba(12,164,201,.28)">
-    <div style="display:flex;align-items:center;gap:13px">
-      <span style="width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:23px;flex-shrink:0">✨</span>
+  // 응원 hero — 선생님이 남긴 최근 코멘트
+  const homeLes=DB.less().filter(l=>l.sid===sid);
+  const lastLes=homeLes[0];
+  let heroMatsText='';
+  if(lastLes)Object.entries(lastLes.materials||{}).forEach(([k,v])=>{
+    const isBook=k==='_book'||k.startsWith('_book_');const baseKey=k.replace(/_\d+$/,'');const label=isBook?'원서':(SLBL[baseKey]||'');
+    if(!label&&!v.book)return;const units=(v.unit||'').split(', ').filter(Boolean);
+    heroMatsText+=(heroMatsText?' / ':'')+`${label} ${v.book||''}${units.length?' '+units.join(', '):''}`.trim();
+  });
+  const heroRaw=lastLes?.cmt||'';const heroStored=lastLes?.stuCmt||'';const hasCheer=!!(heroRaw||heroStored);
+  const greetHtml=`<div class="stu-hero">
+    <div class="stu-hero-top">
+      <span class="stu-hero-ico">✨</span>
       <div style="flex:1;min-width:0">
-        <div style="font-size:19px;font-weight:800">안녕, ${givenName}아! 👋</div>
-        <div style="font-size:12.5px;color:rgba(255,255,255,.9);margin-top:2px">${totalMission?`오늘 미션 ${done.length}/${totalMission} 완료`:'오늘도 화이팅! 🔥'}</div>
+        <div class="stu-hero-title">${givenName}아, 잘했어!</div>
+        <div class="stu-hero-sub">${hasCheer?'선생님이 남긴 응원':(totalMission?`오늘 미션 ${done.length}/${totalMission}개`:'오늘도 화이팅!')}</div>
       </div>
     </div>
+    ${hasCheer
+      ?`<div class="stu-hero-cmt" id="stu-lesson-cmt" data-raw="${escAttr(heroRaw)}" data-mats="${escAttr(heroMatsText)}" data-stored="${escAttr(heroStored)}">${heroStored||'...'}</div>`
+      :`<div class="stu-hero-cmt">${totalMission?`오늘 미션 ${done.length}/${totalMission}개 완료 중! 화이팅 🔥`:'오늘도 즐겁게 공부해요 😊'}</div>`}
   </div>`;
+  const vocabCtaHtml=`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:18px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <span style="width:46px;height:46px;border-radius:13px;background:#E3F5FA;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📚</span>
+      <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:var(--navy)">오늘의 단어 카드</div><div style="font-size:12px;color:#8A95A2;margin-top:2px">암기 → 뜻 맞히기 → 스펠링</div></div>
+    </div>
+    <button class="btn bt" style="width:100%;padding:14px;border-radius:13px;font-size:15px;font-weight:800" onclick="swStuTab('st-vocab')">▷ 이어서 학습하기</button>
+  </div></div>`;
   const weekDays=getWeekDays(sid);
   const weekCircles=`<div style="display:flex;justify-content:space-between">${weekDays.map(d=>{
     let c;
@@ -1437,23 +1456,24 @@ function renderStudentHome(sid){
         <span style="font-size:10px;color:var(--slate);white-space:nowrap">이번주 ${week.done}/${week.total}</span>
       </div>
     </div>
-  </div>
-  <div class="card" style="margin-bottom:10px"><div class="cb" style="padding:14px 16px">
-    <div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:13px">이번 주 연속 학습 🔥</div>
+  </div>`;
+  const weekCard=`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px">
+    <div style="font-size:14px;font-weight:800;color:var(--navy);margin-bottom:14px">이번 주 연속 학습 🔥</div>
     ${weekCircles}
   </div></div>`;
   const lastLessonHtml=renderLastLesson(sid);
+  {const sb=document.getElementById('stu-streak-badge');if(sb){sb.textContent='🔥 '+streak+'일';sb.style.display=streak>0?'':'none';}}
 
   // 전체 완료 화면
   if(allAssigns.length&&!pending.length){
-    el.innerHTML=`<div style="padding:1.25rem">${greetHtml}${lastLessonHtml}
-      <div style="text-align:center;padding:2rem">
-        <div style="font-size:56px;margin-bottom:8px">🏆</div>
-        <div style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px">모두 완료!</div>
-        <div style="font-size:13px;color:var(--slate)">오늘 숙제 다 했어요 👏</div>
-        <button class="btn bt" style="margin-top:16px;padding:12px 28px;border-radius:50px" onclick="swStuTab('st-vocab')">📚 단어 복습 하기 →</button>
+    el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
+      <div style="text-align:center;padding:1.25rem 0 1.5rem">
+        <div style="font-size:52px;margin-bottom:6px">🏆</div>
+        <div style="font-size:19px;font-weight:800;color:var(--navy);margin-bottom:4px">오늘 미션 모두 완료!</div>
+        <div style="font-size:13px;color:var(--slate)">정말 잘했어요 👏</div>
       </div>
-      ${streakHtml}${renderHomeStats(sid)}
+      ${vocabCtaHtml}${weekCard}${renderVocabReview(sid)}
+      <details open style="margin-top:8px"><summary style="font-size:12px;font-weight:600;color:var(--slate);cursor:pointer;list-style:none">📊 지난 수업 &amp; 학습 현황</summary><div style="margin-top:8px">${lastLessonHtml}${streakHtml}${renderHomeStats(sid)}</div></details>
     </div>`;
     polishStudentCmt(givenName);
     return;
@@ -1528,6 +1548,8 @@ function renderStudentHome(sid){
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
     ${noHwHtml}
     ${pending.length?`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:15px;font-weight:800;color:var(--navy)">오늘의 미션</span><span style="font-size:12px;color:var(--slate);font-weight:600">${done.length} / ${totalMission} 완료</span></div>${pending.map(asgnCard).join('')}`:''}
+    ${vocabCtaHtml}
+    ${weekCard}
     ${done.length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 완료된 숙제 (${done.length}건)</summary><div style="margin-top:8px">${done.map(asgnCard).join('')}</div></details>`:''}
     ${renderVocabReview(sid)}
     <details open style="margin-top:14px">
