@@ -104,13 +104,6 @@
       <button class="btn-lo" onclick="clearSession();show('s-land')">나가기</button>
     </div>
   </div>
-  <div class="stu-tabs">
-    <button class="stutab active" data-tab="st-home" onclick="swStuTab('st-home')">🏠 오늘</button>
-    <button class="stutab" data-tab="st-vocab" onclick="swStuTab('st-vocab')">📚 단어</button>
-    <button class="stutab" data-tab="st-library" onclick="swStuTab('st-library')">📖 복습</button>
-    <button class="stutab" onclick="window.open('https://play.class5.co.kr/','_blank')">🎮 클래스5</button>
-    <button class="stutab" onclick="window.open('https://www.autovoca.co.kr/login','_blank')">📖 오토보카</button>
-  </div>
   <div class="ab">
     <div id="st-home" class="panel active" style="max-width:480px;margin:0 auto"></div>
     <div id="st-vocab" class="panel" style="max-width:480px;margin:0 auto"></div>
@@ -148,6 +141,13 @@
       </div>
     </div>
   </div>
+  <nav class="stu-bottomnav">
+    <button class="stutab active" data-tab="st-home" onclick="swStuTab('st-home')"><span class="snav-ico">🏠</span><span class="snav-lbl">오늘</span></button>
+    <button class="stutab" data-tab="st-vocab" onclick="swStuTab('st-vocab')"><span class="snav-ico">📚</span><span class="snav-lbl">단어</span></button>
+    <button class="stutab" data-tab="st-library" onclick="swStuTab('st-library')"><span class="snav-ico">📖</span><span class="snav-lbl">복습</span></button>
+    <button class="stutab" onclick="window.open('https://play.class5.co.kr/','_blank')"><span class="snav-ico">🎮</span><span class="snav-lbl">클래스5</span></button>
+    <button class="stutab" onclick="window.open('https://www.autovoca.co.kr/login','_blank')"><span class="snav-ico">📖</span><span class="snav-lbl">오토보카</span></button>
+  </nav>
 </div>
 
 <!-- TEACHER APP -->
@@ -1796,11 +1796,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260621d"></script>
-<script src="vocab_ref_data.js?v=20260621d"></script>
-<script src="js/db.js?v=20260621d"></script>
-<script src="js/teacher.js?v=20260621d"></script>
-<script src="js/student.js?v=20260621d"></script>
-<script src="js/parent.js?v=20260621d"></script>
+<script src="js/utils.js?v=20260621e"></script>
+<script src="vocab_ref_data.js?v=20260621e"></script>
+<script src="js/db.js?v=20260621e"></script>
+<script src="js/teacher.js?v=20260621e"></script>
+<script src="js/student.js?v=20260621e"></script>
+<script src="js/parent.js?v=20260621e"></script>
 </body>
 </html>
