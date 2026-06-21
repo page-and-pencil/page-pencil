@@ -2086,7 +2086,22 @@ async function saveTst(){
   }
 }
 let tstPage=0;
+function renderTstStats(){
+  const el=document.getElementById('tst-stats');if(!el)return;
+  const month=new Date().toISOString().slice(0,7);
+  const monthT=DB.tsts().filter(t=>t.date&&t.date.startsWith(month));
+  const vAvg=monthT.length?Math.round(monthT.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/monthT.length):null;
+  const studentsTested=new Set(monthT.map(t=>t.sid)).size;
+  const lowCount=monthT.filter(t=>pct(t.vocabCorrect,t.vocabTotal)<60).length;
+  const card=(lbl,ico,icoCls,num,unit,color)=>`<div class="dash-stat"><div class="dash-stat-top"><span class="dash-stat-lbl">${lbl}</span><span class="dash-stat-ico ${icoCls}">${ico}</span></div><div class="dash-stat-num"${color?` style="color:${color}"`:''}>${num}${unit?`<small> ${unit}</small>`:''}</div></div>`;
+  el.innerHTML=
+    card('이번 달 테스트','✏️','',monthT.length,'건','')
+    +card('단어 평균','📊',vAvg!=null&&vAvg>=80?'st-green':'',vAvg!=null?vAvg:'—',vAvg!=null?'%':'',vAvg!=null?(vAvg>=80?'#047857':vAvg>=60?'#0B8DAE':'#B45309'):'')
+    +card('응시 학생','🎓','',studentsTested,'명','')
+    +card('보완 필요','⚠️',lowCount?'st-amber':'',lowCount,'건',lowCount?'#B45309':'');
+}
 function renderTst(){
+  renderTstStats();
   const stus=DB.stus();
   const filterSid=document.getElementById('tst-filter-stu')?.value||'';
   let tsts=DB.tsts();
