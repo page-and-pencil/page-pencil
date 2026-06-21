@@ -1002,7 +1002,7 @@ async function loadStuPanel(sid){
       <div class="f" style="margin-bottom:0"><label>마감일</label><input type="date" id="asgn-due-${sid}" value="${tomorrowStr}"></div>
       <div class="f s2" style="margin-bottom:0"><label>구분</label>
         <select id="asgn-cat-${sid}" onchange="spHwCatChange('${sid}')">
-          <option value="">선택하세요</option>
+          <option value="">— 구분 없음 (자유 입력) —</option>
           <option value="phonics">파닉스</option><option value="vocab">어휘</option><option value="grammar">어법</option>
           <option value="reading">리딩</option><option value="listening">리스닝</option><option value="writing">라이팅</option>
           <option value="naesin">내신</option><option value="book">원서</option>
@@ -7296,7 +7296,7 @@ async function saveModalAssignment(){
   const note=document.getElementById('modal-assign-note')?.value.trim()||'';
   const date=document.getElementById('modal-assign-date').value;
   const due=document.getElementById('modal-assign-due').value;
-  if(!cat){toast('구분을 선택해 주세요');return;}
+  if(!cat&&!book&&!range&&!note){toast('구분을 고르거나 교재·범위·메모 중 하나를 입력해 주세요');return;}
   if(_editAssignId){
     const existing=(_cache.assignments||[]).find(x=>x.id===_editAssignId);
     if(existing){
@@ -8387,7 +8387,7 @@ async function saveStudentAssign(sid){
   const range=document.getElementById(`asgn-range-${sid}`)?.value.trim()||'';
   const date=document.getElementById(`asgn-date-${sid}`)?.value||new Date().toISOString().split('T')[0];
   const due=document.getElementById(`asgn-due-${sid}`)?.value||date;
-  if(!cat){toast('구분을 선택해 주세요');return;}
+  if(!cat&&!book&&!range){toast('구분을 고르거나 교재·범위를 입력해 주세요');return;}
   const allLib=[...(_cache.library||[])];
   const isReading=cat==='book'||allLib.some(b=>b.title===book);
   const type=isReading?'reading':cat==='vocab'?'vocab':cat==='other'?'other':'textbook';
