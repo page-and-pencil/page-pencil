@@ -21,6 +21,7 @@ async function loadParent(sid){
 
   // 히어로 업데이트
   document.getElementById('p-name').textContent=s.name;
+  const av=document.getElementById('p-avatar');if(av)av.textContent=(s.name||'').trim().slice(0,1)||'학';
   const heroMeta=[(s.grade||s.lv||''),(s.school||''),(latLes?'마지막 수업: '+latLes.date:'')].filter(Boolean).join(' · ');
   document.getElementById('p-meta').textContent=heroMeta;
 
