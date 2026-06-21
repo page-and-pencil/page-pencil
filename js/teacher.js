@@ -185,7 +185,7 @@ function swTab(id){
   document.querySelectorAll('#s-teacher .panel').forEach(p=>p.classList.toggle('active',p.id===id));
   const ab=document.querySelector('.ab');if(ab)ab.classList.toggle('stu-mode',id==='t-stu');
   if(id==='t-dash')renderDash();
-  if(id==='t-les'){populateFilterSels();renderLes();}
+  if(id==='t-les'){populateFilterSels();renderLes();renderCmtChips();}
   if(id==='t-tst'){populateFilterSels();renderTst();}
   if(id==='t-bks'){populateLibSel();populateFilterSels();renderRd();}
   if(id==='t-assign'){populateFilterSels();renderAssignTab();renderAssignCal();const el=document.getElementById('assign-filter-date');if(el&&!el.value)el.value=new Date().toISOString().split('T')[0];}
@@ -198,6 +198,7 @@ function swTab(id){
     document.getElementById('cfg-apikey').value=DB.api()?'••••••':'';
     const a=DB.acct();document.getElementById('cfg-bank').value=a.bank||'';document.getElementById('cfg-acct').value=a.number||'';document.getElementById('cfg-acct-name').value=a.name||'';document.getElementById('cfg-pay-msg').value=a.msg||'';
     updateApiKeyStatusDot();
+    renderCmtChipSettings();
     renderLibTable();populateLibSeriesFilter();
     const qrSel=document.getElementById('qr-stu-sel');
     if(qrSel){const opts='<option value="">-- 선택 --</option>'+DB.stus().filter(s=>!s.inactive).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');qrSel.innerHTML=opts;}
@@ -211,7 +212,7 @@ async function initApp(){
   subscribeRealtime();
   renderStus();populateSels();populateFilterSels();
   setToday();renderLes();renderTst();renderRd();renderLog();
-  populateLibSel();checkCldWarn();renderDash();
+  populateLibSel();checkCldWarn();renderDash();renderCmtChips();
   updateApiKeyStatusDot();updateKakaoStatusDot();
   const kk=DB.kakao();
   if(kk.phone){const ph=document.getElementById('cfg-kakao-phone');if(ph)ph.value=kk.phone;}
@@ -5840,6 +5841,53 @@ function addCmtChip(text){
   if(!ta)return;
   ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;
   ta.focus();
+}
+// 코멘트 칩 관리 (강점/진행/보완 3그룹, 설정에서 편집 가능)
+const DEFAULT_CMT_CHIPS={
+  strength:['집중도 좋음','이해도 높음','적극 참여','질문 잘 함','예습 완료','숙제 성실','읽기 유창','단어 암기 우수','발표 잘 함','문장 구성 능숙'],
+  progress:['자신감 향상 중','속도 향상 중','발음 교정 중','듣기 이해도 향상 중','리듬감·억양 개선'],
+  improve:['복습 필요','어휘 보완 필요','어법 점검 필요','쓰기 연습 필요','집중 유지 필요']
+};
+function getCmtChips(){
+  const c=(_cache.settings&&_cache.settings.cmtChips)||DB.g('cmtChips');
+  if(c&&(c.strength||c.progress||c.improve))return {strength:c.strength||[],progress:c.progress||[],improve:c.improve||[]};
+  return DEFAULT_CMT_CHIPS;
+}
+function renderCmtChips(){
+  const host=document.getElementById('cmt-chips-host');if(!host)return;
+  const cfg=getCmtChips();
+  const grp=(arr,cls)=>arr.map(t=>`<button type="button" class="cmt-chip ${cls}" onclick="addCmtChip('${t.replace(/'/g,"\\'")}')">${t}</button>`).join('');
+  host.innerHTML=grp(cfg.strength,'cc-str')+grp(cfg.progress,'cc-prog')+grp(cfg.improve,'cc-imp');
+}
+function renderCmtChipSettings(){
+  const el=document.getElementById('cfg-cmt-chips');if(!el)return;
+  const cfg=getCmtChips();
+  const grp=(key,label,dotB,dotT,arr,cls)=>`
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:${dotT};margin-bottom:9px;display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${dotB}"></span>${label}</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        ${arr.map((t,i)=>`<span class="cmt-chip ${cls}" style="cursor:default;display:inline-flex;align-items:center;gap:5px">${t}<span onclick="removeCmtChip('${key}',${i})" style="cursor:pointer;font-size:14px;line-height:1;opacity:.55">×</span></span>`).join('')}
+        <button onclick="addCmtChipSetting('${key}')" class="cmt-chip" style="border-style:dashed">+ 추가</button>
+      </div>
+    </div>`;
+  el.innerHTML=grp('strength','강점','#10B981','#047857',cfg.strength,'cc-str')
+    +grp('progress','진행 중','#7A8694','#46586B',cfg.progress,'cc-prog')
+    +grp('improve','보완 필요','#F59E0B','#B45309',cfg.improve,'cc-imp');
+}
+function addCmtChipSetting(key){
+  const t=prompt('추가할 코멘트 칩 문구');if(!t||!t.trim())return;
+  const cfg=getCmtChips();const c={strength:[...cfg.strength],progress:[...cfg.progress],improve:[...cfg.improve]};
+  c[key].push(t.trim());saveCmtChips(c);
+}
+function removeCmtChip(key,i){
+  const cfg=getCmtChips();const c={strength:[...cfg.strength],progress:[...cfg.progress],improve:[...cfg.improve]};
+  c[key].splice(i,1);saveCmtChips(c);
+}
+function saveCmtChips(c){
+  if(!_cache.settings)_cache.settings={};
+  _cache.settings.cmtChips=c;DB.s('cmtChips',c);
+  supaSetSetting('cmtChips',c).catch(()=>{});
+  renderCmtChipSettings();renderCmtChips();
 }
 function debouncedCmtPreview(){
   clearTimeout(_cmtPreviewTimer);

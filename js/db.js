@@ -298,6 +298,7 @@ async function loadAllData(){
     else{const la=DB.g('apikey');if(la){_cache.settings.apikey=la;supaSetSetting('apikey',la).catch(()=>{});}else{_cache.settings.apikey=_dk;DB.s('apikey',_dk);await supaSetSetting('apikey',_dk);}}
     if(cloud){_cache.settings.cloud=cloud;DB.s('cloud',cloud);}
     else{const lc=DB.g('cloud');if(lc&&lc.name){_cache.settings.cloud=lc;supaSetSetting('cloud',lc).catch(()=>{});}else{_cache.settings.cloud=DEFAULT_CLD;DB.s('cloud',DEFAULT_CLD);await supaSetSetting('cloud',DEFAULT_CLD);}}
+    try{const cc=await supaGetSetting('cmtChips');if(cc){_cache.settings.cmtChips=cc;DB.s('cmtChips',cc);}else{const lcc=DB.g('cmtChips');if(lcc)_cache.settings.cmtChips=lcc;}}catch(e){const lcc=DB.g('cmtChips');if(lcc)_cache.settings.cmtChips=lcc;}
   }catch(e){
     console.error('loadAllData:',e);
     const currentScreen=document.querySelector('.screen.active')?.id;

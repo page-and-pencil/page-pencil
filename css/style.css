@@ -762,6 +762,12 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
 .les-copy-btn:hover{border-color:var(--teal);color:var(--teal);}
 .cmt-chip{padding:4px 10px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--fb);color:var(--slate);transition:all .15s;}
 .cmt-chip:hover{border-color:var(--teal);color:var(--teal);background:var(--tl);}
+.cmt-chip.cc-str{background:#D9F6E9;border-color:#10B981;color:#047857;}
+.cmt-chip.cc-str:hover{background:#C7F0DD;}
+.cmt-chip.cc-prog{background:#fff;border-color:rgba(15,48,74,.14);color:#46586B;}
+.cmt-chip.cc-prog:hover{background:#F1F6F8;color:#46586B;border-color:rgba(15,48,74,.28);}
+.cmt-chip.cc-imp{background:#FEF0D5;border-color:#F59E0B;color:#B45309;}
+.cmt-chip.cc-imp:hover{background:#FCE7BD;}
 
 /* PARENT MONTH SUMMARY */
 .p-month-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem;}
