@@ -42,6 +42,28 @@ function parentAreaGrowth(sid){
     </div>
   </div>`;
 }
+// 학부모 수업 탭: 이전 수업 기록 카드 리스트 (날짜+구분 배지+코멘트)
+function parentLessonList(les){
+  const DAYS=['일','월','화','수','목','금','토'];
+  const rest=les.slice(1,9); // 최근 수업(블록A) 다음부터
+  if(!rest.length)return '';
+  const cards=rest.map(l=>{
+    const cats=[];const set=new Set();
+    Object.entries(l.materials||{}).forEach(([k,v])=>{const isBook=k==='_book'||k.startsWith('_book_');const bk=k.replace(/_\d+$/,'');const label=isBook?'원서':(typeof SLBL!=='undefined'?SLBL[bk]||'':'');if(label&&v.book&&!set.has(label)){set.add(label);cats.push(label);}});
+    const day=l.date?DAYS[new Date(l.date).getDay()]:'';
+    const cmt=l.polishedCmt||l.cmt||'';
+    return `<div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-left:3px solid #0CA4C9;border-radius:14px;box-shadow:0 1px 4px rgba(15,48,74,.05);overflow:hidden;margin-bottom:12px">
+      <div style="padding:14px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:${cmt?'9px':'0'}">
+          <span style="font-size:13px;font-weight:800;color:var(--navy)">${l.date||''} <span style="font-size:11.5px;color:#8A95A2;font-weight:500">${day?day+'요일':''}</span></span>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">${cats.map(c=>`<span style="font-size:10.5px;font-weight:700;background:#E3F5FA;color:#0B8DAE;padding:2px 9px;border-radius:10px">${c}</span>`).join('')}</div>
+        </div>
+        ${cmt?`<div style="font-size:13px;line-height:1.8;color:#14304A">${cmt}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  return `<div><div style="font-size:14px;font-weight:800;color:var(--navy);margin:6px 2px 11px">📖 이전 수업 기록</div>${cards}</div>`;
+}
 async function loadParent(sid){
   currentParentSid=sid;
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
@@ -121,6 +143,9 @@ async function loadParent(sid){
       ${absentThisMonth.length?`<div style="font-size:11px;color:var(--slate);margin-top:6px">출결 이상 ${absentThisMonth.length}회 (결석/지각)</div>`:''}
     </div>
   </div>`;
+
+  // 이전 수업 기록 카드 리스트 (시안)
+  blocks+=parentLessonList(les);
 
   const unlockedBadges=getBadges(sid).filter(b=>b.unlocked);
   if(unlockedBadges.length){
