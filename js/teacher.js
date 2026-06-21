@@ -14,8 +14,10 @@ function handlePwKey(e){
   }
 }
 async function hashPw(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
-async function checkPw(){
-  const v=document.getElementById('pw-in').value.trim();
+async function checkPw(inputId='pw-in',errId='pw-err'){
+  const inEl=document.getElementById(inputId);
+  const errEl=document.getElementById(errId);
+  const v=(inEl?.value||'').trim();
   const vHash=await hashPw(v);
   let stored=DB.pw();
   let ok=(v===stored||vHash===stored);
@@ -29,27 +31,26 @@ async function checkPw(){
   }
   if(ok){
     if(v===stored){const h=await hashPw(v);_cache.settings.pw=h;DB.s('pw',h);supaSetSetting('pw',h).catch(e=>console.warn('비밀번호 저장 실패:',e));}
-    document.getElementById('pw-in').value='';document.getElementById('pw-err').textContent='';
+    if(inEl)inEl.value='';if(errEl)errEl.textContent='';
     saveSession({role:'teacher'});show('s-teacher');await initApp();
-  } else document.getElementById('pw-err').textContent='비밀번호가 맞지 않습니다';
+  } else if(errEl)errEl.textContent='비밀번호가 맞지 않습니다';
 }
-async function checkPin(){
-  const name=document.getElementById('pin-name').value.trim();
-  const pin=document.getElementById('pin-code').value;
-  const err=document.getElementById('pin-err');
-  if(!name){err.textContent='아이 이름을 입력해 주세요';return;}
+async function checkPin(nameId='pin-name',codeId='pin-code',errId='pin-err'){
+  const nameEl=document.getElementById(nameId),codeEl=document.getElementById(codeId);
+  const name=(nameEl?.value||'').trim();
+  const pin=codeEl?.value||'';
+  const err=document.getElementById(errId);
+  const setErr=t=>{if(err)err.textContent=t;};
+  if(!name){setErr('아이 이름을 입력해 주세요');return;}
   if(!_cache.students.length){
-    const btn=document.querySelector('#s-pin .btn-full');
-    if(btn){btn.disabled=true;btn.textContent='조회 중...';}
-    err.textContent='';
+    setErr('');
     try{await loadAllData();}catch(e){}
-    if(btn){btn.disabled=false;btn.textContent='조회하기';}
   }
   const s=DB.stus().find(x=>x.name===name);
-  if(!s){err.textContent='등록된 학생을 찾을 수 없습니다';return;}
-  if(s.pin===pin){document.getElementById('pin-code').value='';err.textContent='';await loadParentWithNotice(s.id);}
+  if(!s){setErr('등록된 학생을 찾을 수 없습니다');return;}
+  if(s.pin===pin){if(codeEl)codeEl.value='';setErr('');await loadParentWithNotice(s.id);}
   else{
-    err.textContent='PIN이 맞지 않습니다. 선생님께 문의해 주세요.';
+    setErr('PIN이 맞지 않습니다. 선생님께 문의해 주세요.');
     const contact=DB.acct()?.phone||DB.acct()?.contact||'';
     const h=document.getElementById('pin-contact-hint');
     if(h&&contact)h.textContent='📞 선생님 연락처: '+contact;

@@ -65,7 +65,71 @@ async function goPinScreen(){
 function saveSession(data){try{localStorage.setItem('pp_session',JSON.stringify(data));}catch(e){}}
 function loadSession(){try{const s=localStorage.getItem('pp_session');return s?JSON.parse(s):null;}catch(e){return null;}}
 function clearSession(){try{localStorage.removeItem('pp_session');}catch(e){}}
-function logout(){clearSession();show('s-land');}
+function logout(){clearSession();landRole('teacher');show('s-land');}
+
+// ── 랜딩 인라인 로그인 (역할 선택 → 같은 화면에서 입력) ──
+function landRole(role){
+  ['teacher','student','parent'].forEach(r=>{const c=document.getElementById('rc-'+r);if(c)c.classList.toggle('role-card-on',r===role);});
+  const area=document.getElementById('land-login-area');if(!area)return;
+  // 새 기기에서 선생님 비밀번호 사전 로드
+  if(role==='teacher'&&typeof _cache!=='undefined'&&!_cache.settings?.pw){supaGetSetting('pw').then(pw=>{if(pw){_cache.settings.pw=pw;DB.s('pw',pw);}}).catch(()=>{});}
+  if(role==='teacher'){
+    area.innerHTML=`
+      <label class="land-lbl">비밀번호</label>
+      <div class="land-field">
+        <span class="land-field-ico">🔒</span>
+        <input type="password" id="land-tpw" class="land-input" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter')checkPw('land-tpw','land-err')">
+        <button type="button" class="land-eye" onclick="landToggleEye('land-tpw',this)">👁</button>
+      </div>
+      <div class="land-err" id="land-err"></div>
+      <button class="land-submit" onclick="checkPw('land-tpw','land-err')">선생님으로 로그인 →</button>`;
+  }else if(role==='student'){
+    area.innerHTML=`
+      <label class="land-lbl">PIN <span class="land-lbl-sub">생년월일 4자리 (예: 0312)</span></label>
+      <div class="land-field">
+        <span class="land-field-ico">🎓</span>
+        <input type="password" id="land-spin" class="land-input" inputmode="numeric" maxlength="4" placeholder="0000" onkeydown="if(event.key==='Enter')landStudentSubmit()">
+      </div>
+      <select id="land-sname" class="land-input" style="display:none;margin-top:10px" onchange="landStudentByName()"></select>
+      <div class="land-err" id="land-err"></div>
+      <button class="land-submit" onclick="landStudentSubmit()">학생 입장 →</button>`;
+  }else{
+    area.innerHTML=`
+      <label class="land-lbl">아이 이름</label>
+      <div class="land-field">
+        <span class="land-field-ico">👤</span>
+        <input type="text" id="land-pname" class="land-input" placeholder="이름" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('land-ppin').focus()">
+      </div>
+      <label class="land-lbl" style="margin-top:12px">PIN <span class="land-lbl-sub">생년월일 4자리</span></label>
+      <div class="land-field">
+        <span class="land-field-ico">🔒</span>
+        <input type="password" id="land-ppin" class="land-input" inputmode="numeric" maxlength="4" placeholder="0000" onkeydown="if(event.key==='Enter')checkPin('land-pname','land-ppin','land-err')">
+      </div>
+      <div class="land-err" id="land-err"></div>
+      <button class="land-submit" onclick="checkPin('land-pname','land-ppin','land-err')">학부모 조회 →</button>`;
+  }
+}
+function landToggleEye(id,btn){const el=document.getElementById(id);if(!el)return;const showing=el.type==='password';el.type=showing?'text':'password';btn.style.opacity=showing?'1':'.5';}
+async function landStudentSubmit(){
+  const pin=(document.getElementById('land-spin')?.value||'').trim();
+  const err=document.getElementById('land-err');const setErr=t=>{if(err)err.textContent=t;};
+  if(pin.length<4){setErr('생년월일 4자리를 입력해 주세요');return;}
+  if(typeof _cache!=='undefined'&&!_cache.students.length){try{await loadAllData();}catch(e){}}
+  const matches=(typeof DB!=='undefined'?DB.stus():[]).filter(s=>s.pin===pin&&!s.inactive);
+  if(!matches.length){setErr('PIN이 맞지 않습니다');return;}
+  if(matches.length===1){setErr('');await loginStudent(matches[0]);return;}
+  const sel=document.getElementById('land-sname');
+  if(sel){sel.innerHTML='<option value="">이름 선택...</option>'+matches.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');sel.style.display='block';}
+  setErr('같은 PIN을 쓰는 학생이 있어요. 이름을 선택하세요.');
+}
+async function landStudentByName(){const sid=document.getElementById('land-sname')?.value;if(!sid)return;const s=DB.stus().find(x=>x.id===sid);if(s)await loginStudent(s);}
+function startConsult(){
+  const k=(typeof DB!=='undefined'&&DB.kakao)?DB.kakao():null;
+  if(k&&k.openchat){window.open(k.openchat,'_blank');return;}
+  if(k&&k.phone){window.open('tel:'+k.phone);return;}
+  toast('상담 문의는 선생님께 연락해 주세요 🙂');
+}
+document.addEventListener('DOMContentLoaded',()=>{try{if(document.getElementById('land-login-area'))landRole('teacher');}catch(e){}});
 
 // ── UTILS ──
 function escU(u){return(u||'').replace(/'/g,"\\'");}

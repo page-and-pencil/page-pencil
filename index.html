@@ -28,20 +28,21 @@
         <h2 class="land2-title">로그인</h2>
         <p class="land2-desc">역할을 선택하고 들어오세요</p>
         <div class="land2-roles">
-          <button class="role-card role-card-on" onclick="goTeacherLogin()">
+          <button class="role-card role-card-on" id="rc-teacher" onclick="landRole('teacher')">
             <span class="role-ico">🧑‍🏫</span>
             <span class="role-lbl">선생님</span>
           </button>
-          <button class="role-card" onclick="goStudentPin()">
+          <button class="role-card" id="rc-student" onclick="landRole('student')">
             <span class="role-ico">🎓</span>
             <span class="role-lbl">학생</span>
           </button>
-          <button class="role-card" onclick="goPinScreen()">
+          <button class="role-card" id="rc-parent" onclick="landRole('parent')">
             <span class="role-ico">👨‍👩‍👧</span>
             <span class="role-lbl">학부모</span>
           </button>
         </div>
-        <div class="land2-hint">선생님은 비밀번호로, 학생·학부모는 PIN으로 입장합니다.</div>
+        <div id="land-login-area"></div>
+        <div class="land2-hint" style="margin-top:18px">처음이세요? <span class="land2-link" onclick="startConsult()">상담으로 시작하기</span></div>
       </div>
     </div>
   </div>
@@ -1847,11 +1848,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260621r"></script>
-<script src="vocab_ref_data.js?v=20260621r"></script>
-<script src="js/db.js?v=20260621r"></script>
-<script src="js/teacher.js?v=20260621r"></script>
-<script src="js/student.js?v=20260621r"></script>
-<script src="js/parent.js?v=20260621r"></script>
+<script src="js/utils.js?v=20260621s"></script>
+<script src="vocab_ref_data.js?v=20260621s"></script>
+<script src="js/db.js?v=20260621s"></script>
+<script src="js/teacher.js?v=20260621s"></script>
+<script src="js/student.js?v=20260621s"></script>
+<script src="js/parent.js?v=20260621s"></script>
 </body>
 </html>

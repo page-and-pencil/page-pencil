@@ -45,6 +45,19 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .role-card.role-card-on .role-ico{background:#0CA4C9;}
 .role-card.role-card-on .role-lbl{color:#0B8DAE;font-weight:800;}
 .land2-hint{font-size:12px;color:#8A95A2;text-align:center;line-height:1.6;}
+.land2-link{color:#0B8DAE;font-weight:700;cursor:pointer;}
+/* 인라인 로그인 폼 */
+.land-lbl{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;color:#5A6B7B;text-transform:uppercase;margin-bottom:7px;}
+.land-lbl-sub{font-weight:400;text-transform:none;letter-spacing:0;color:#94A3AE;font-size:10.5px;}
+.land-field{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border-radius:11px;background:#F8FBFC;transition:all .15s;}
+.land-field:focus-within{border-color:#0CA4C9;background:#fff;box-shadow:0 0 0 3px rgba(12,164,201,.12);}
+.land-field-ico{font-size:15px;flex-shrink:0;opacity:.7;}
+.land-input{flex:1;border:none;background:none;outline:none;font-family:var(--fb);font-size:14px;color:var(--navy);min-width:0;}
+select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border-radius:11px;background:#F8FBFC;width:100%;cursor:pointer;}
+.land-eye{background:none;border:none;cursor:pointer;font-size:15px;opacity:.5;flex-shrink:0;padding:0;}
+.land-err{color:var(--coral);font-size:12px;min-height:18px;margin:6px 0 2px;}
+.land-submit{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:14px;border:none;background:#0CA4C9;color:#fff;border-radius:12px;font-size:15px;font-weight:800;font-family:var(--fb);cursor:pointer;box-shadow:0 6px 18px rgba(12,164,201,.32);transition:background .15s;}
+.land-submit:hover{background:#0B93BB;}
 @media(max-width:760px){
   #s-land{padding:0;align-items:stretch;}
   .land2{flex-direction:column;max-width:480px;margin:auto;border-radius:0;min-height:100vh;box-shadow:none;}
