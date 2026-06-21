@@ -6115,6 +6115,40 @@ function renderDash(){
 
   // Section 4: 공지
   renderDashNotice();
+  renderDashCal();
+}
+function renderDashCal(){
+  const el=document.getElementById('dash-cal');if(!el)return;
+  const today=new Date();
+  const y=today.getFullYear(),m=today.getMonth();
+  const mPad=String(m+1).padStart(2,'0');
+  const todayStr=`${y}-${mPad}-${String(today.getDate()).padStart(2,'0')}`;
+  const startDow=new Date(y,m,1).getDay();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const monthLes=(DB.less()||[]).filter(l=>l.date&&l.date.startsWith(`${y}-${mPad}`));
+  const lesDates=new Set(monthLes.filter(l=>l.att!=='absent'&&l.att!=='makeup').map(l=>l.date));
+  const offDates=new Set(monthLes.filter(l=>l.att==='absent'||l.att==='makeup').map(l=>l.date));
+  const DAYS=['일','월','화','수','목','금','토'];
+  let cells=DAYS.map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:#B8C0C8;padding:3px 0">${d}</div>`).join('');
+  for(let i=0;i<startDow;i++)cells+='<div></div>';
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${y}-${mPad}-${String(d).padStart(2,'0')}`;
+    let st='aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:11px;border-radius:7px;font-family:var(--fm);';
+    if(ds===todayStr)st+='background:#0CA4C9;color:#fff;font-weight:700;';
+    else if(lesDates.has(ds))st+='background:#E3F5FA;color:#0B8DAE;font-weight:700;';
+    else if(offDates.has(ds))st+='background:#FEF0D5;color:#B45309;font-weight:700;';
+    else st+='color:#C8D0D8;';
+    cells+=`<div style="${st}">${d}</div>`;
+  }
+  el.innerHTML=`<div class="card" style="padding:16px 18px;margin-bottom:0">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-size:14px">📅</span><span style="font-size:14px;font-weight:800;color:var(--navy)">${y}년 ${m+1}월</span></div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>
+    <div style="display:flex;gap:12px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(15,48,74,.06);font-size:10.5px;color:#8A95A2">
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#E3F5FA"></span>수업</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#FEF0D5"></span>결석/보강</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#0CA4C9"></span>오늘</span>
+    </div>
+  </div>`;
 }
 
 function openNeltModal(sid){
