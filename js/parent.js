@@ -10,6 +10,38 @@ function ppNav(btn,target){
   if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
   else window.scrollTo({top:0,behavior:'smooth'});
 }
+// 영역별 성장: 어휘/어법=최근 테스트 평균, 리딩/리스닝=해당 카테고리 과제 완료율
+// (앱이 실제로 측정하는 신호만 사용 — 데이터 없는 영역은 표시하지 않음)
+function parentAreaGrowth(sid){
+  const tsts=DB.tsts().filter(t=>t.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
+  const assigns=DB.assigns().filter(a=>a.sid===sid);
+  const avg=arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;
+  const catRate=cat=>{const ca=assigns.filter(a=>a.category===cat);return ca.length?Math.round(ca.filter(a=>a.completedAt).length/ca.length*100):null;};
+  const vocab=avg(tsts.filter(t=>t.vocabTotal>0).map(t=>pct(t.vocabCorrect,t.vocabTotal)));
+  const grammar=avg(tsts.filter(t=>t.grammarTotal>0).map(t=>pct(t.grammarCorrect,t.grammarTotal)));
+  const reading=catRate('reading');
+  const listening=catRate('listening');
+  const areas=[
+    {label:'리딩',val:reading,basis:'과제 완료율'},
+    {label:'어법',val:grammar,basis:'테스트 평균'},
+    {label:'리스닝',val:listening,basis:'과제 완료율'},
+    {label:'어휘',val:vocab,basis:'테스트 평균'}
+  ].filter(a=>a.val!=null);
+  if(areas.length<2)return '';
+  const sem=p=>p>=80?{f:'#10B981',t:'#047857',l:'우수'}:p>=60?{f:'#0CA4C9',t:'#0B8DAE',l:'양호'}:{f:'#F59E0B',t:'#B45309',l:'보완 중'};
+  return `<div class="card">
+    <div class="ch"><span class="ct">📈 영역별 성장</span></div>
+    <div class="cb" style="padding:14px 18px">
+      ${areas.map(a=>{const s=sem(a.val);return `<div style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:12.5px;color:#46586B">${a.label} <span style="font-size:10px;color:#B8C0C8">· ${a.basis}</span></span>
+          <span style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;font-weight:700;color:${s.t}">${s.l}</span><span style="font-size:14px;font-weight:700;color:${s.t};font-family:var(--fd)">${a.val}%</span></span>
+        </div>
+        <div style="height:7px;background:#EDF2F4;border-radius:4px;overflow:hidden"><div style="width:${a.val}%;height:100%;background:${s.f};border-radius:4px;transition:width .5s"></div></div>
+      </div>`;}).join('')}
+    </div>
+  </div>`;
+}
 async function loadParent(sid){
   currentParentSid=sid;
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
@@ -132,6 +164,9 @@ async function loadParent(sid){
       </div>
     </div>`;
   }
+
+  // 블록 C-2 — 영역별 성장 (어휘/어법=테스트, 리딩/리스닝=과제 완료율)
+  blocks+=parentAreaGrowth(sid);
 
   // 블록 D — 미완료 과제
   const assigns=DB.assigns().filter(a=>a.sid===sid&&!a.completedAt);
