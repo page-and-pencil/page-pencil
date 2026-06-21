@@ -10,22 +10,24 @@ function ppNav(btn,target){
   if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
   else window.scrollTo({top:0,behavior:'smooth'});
 }
-// 영역별 성장: 어휘/어법=최근 테스트 평균, 리딩/리스닝=해당 카테고리 과제 완료율
-// (앱이 실제로 측정하는 신호만 사용 — 데이터 없는 영역은 표시하지 않음)
+// 영역별 성장: 어휘/어법/리딩/리스닝 — 최근 테스트 평균 우선, 테스트 없으면 과제 완료율로 보완
 function parentAreaGrowth(sid){
   const tsts=DB.tsts().filter(t=>t.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
   const assigns=DB.assigns().filter(a=>a.sid===sid);
   const avg=arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;
+  const testAvg=(corr,tot)=>avg(tsts.filter(t=>t[tot]>0).map(t=>pct(t[corr],t[tot])));
   const catRate=cat=>{const ca=assigns.filter(a=>a.category===cat);return ca.length?Math.round(ca.filter(a=>a.completedAt).length/ca.length*100):null;};
-  const vocab=avg(tsts.filter(t=>t.vocabTotal>0).map(t=>pct(t.vocabCorrect,t.vocabTotal)));
-  const grammar=avg(tsts.filter(t=>t.grammarTotal>0).map(t=>pct(t.grammarCorrect,t.grammarTotal)));
-  const reading=catRate('reading');
-  const listening=catRate('listening');
+  // 테스트 점수(우선) → 과제 완료율(보완)
+  const pick=(testVal,cat)=>testVal!=null?{val:testVal,basis:'테스트 평균'}:(()=>{const r=catRate(cat);return r!=null?{val:r,basis:'과제 완료율'}:null;})();
+  const vocab=pick(testAvg('vocabCorrect','vocabTotal'),'vocab');
+  const grammar=pick(testAvg('grammarCorrect','grammarTotal'),'grammar');
+  const reading=pick(testAvg('readingCorrect','readingTotal'),'reading');
+  const listening=pick(testAvg('listeningCorrect','listeningTotal'),'listening');
   const areas=[
-    {label:'리딩',val:reading,basis:'과제 완료율'},
-    {label:'어법',val:grammar,basis:'테스트 평균'},
-    {label:'리스닝',val:listening,basis:'과제 완료율'},
-    {label:'어휘',val:vocab,basis:'테스트 평균'}
+    {label:'리딩',...(reading||{})},
+    {label:'어법',...(grammar||{})},
+    {label:'리스닝',...(listening||{})},
+    {label:'어휘',...(vocab||{})}
   ].filter(a=>a.val!=null);
   if(areas.length<2)return '';
   const sem=p=>p>=80?{f:'#10B981',t:'#047857',l:'우수'}:p>=60?{f:'#0CA4C9',t:'#0B8DAE',l:'양호'}:{f:'#F59E0B',t:'#B45309',l:'보완 중'};
@@ -159,6 +161,8 @@ async function loadParent(sid){
         </div>
         ${scoreBar('단어',vp,vChange)}
         ${scoreBar('어법',gp,null)}
+        ${latTst.readingTotal>0?scoreBar('리딩',pct(latTst.readingCorrect,latTst.readingTotal),null):''}
+        ${latTst.listeningTotal>0?scoreBar('리스닝',pct(latTst.listeningCorrect,latTst.listeningTotal),null):''}
         ${nextWords.length?`<div style="font-size:11px;color:var(--slate);margin:2px 0 4px">다시 볼 단어</div><div class="wl">${nextWords.map(w=>`<span class="wc rv">${w}</span>`).join('')}</div>`:''}
         ${latTst.grammarWeak?`<div style="margin-top:6px;font-size:11px;color:var(--slate)">복습 어법: <span class="badge bamber">${latTst.grammarWeak}</span></div>`:''}
       </div>

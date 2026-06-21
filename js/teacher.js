@@ -2056,11 +2056,13 @@ async function saveTst(){
   const sid=document.getElementById('ts-stu').value;if(!sid){toast('학생을 선택해 주세요');return;}
   const vc=parseInt(document.getElementById('ts-vc').value)||0,vt=parseInt(document.getElementById('ts-vt').value)||10;
   const gc=parseInt(document.getElementById('ts-gc').value)||0,gt=parseInt(document.getElementById('ts-gt').value)||10;
+  const rc=parseInt(document.getElementById('ts-rc').value)||0,rt=parseInt(document.getElementById('ts-rt').value)||0;
+  const lc=parseInt(document.getElementById('ts-lc').value)||0,lt=parseInt(document.getElementById('ts-lt').value)||0;
   const wr=document.getElementById('ts-wr').value;
   const allWordsRaw=document.getElementById('ts-allwords').value;
   const allWords=allWordsRaw?allWordsRaw.split(',').map(w=>w.trim()).filter(Boolean):[];
   const wrongWords=wr?wr.split(',').map(w=>w.trim()).filter(Boolean):[];
-  const newTst={id:uid(),sid,date:document.getElementById('ts-date').value,vocabCorrect:vc,vocabTotal:vt,grammarCorrect:gc,grammarTotal:gt,allWords,wrongWords,grammarWeak:document.getElementById('ts-gweak').value.trim(),cmt:document.getElementById('ts-cmt').value.trim(),photoUrl:tstPhotoUrl};
+  const newTst={id:uid(),sid,date:document.getElementById('ts-date').value,vocabCorrect:vc,vocabTotal:vt,grammarCorrect:gc,grammarTotal:gt,readingCorrect:rc,readingTotal:rt,listeningCorrect:lc,listeningTotal:lt,allWords,wrongWords,grammarWeak:document.getElementById('ts-gweak').value.trim(),cmt:document.getElementById('ts-cmt').value.trim(),photoUrl:tstPhotoUrl};
   await supaUpsert('tests',newTst.id,newTst,sid);
   _cache.tests.unshift(newTst);
   // vocab_cards 자동 저장
@@ -2068,7 +2070,7 @@ async function saveTst(){
     await syncVocabCards(sid,allWords,wrongWords,document.getElementById('ts-date').value,'테스트');
     showVocabCardStatus(sid,allWords);
   }
-  ['ts-vc','ts-vt','ts-gc','ts-gt','ts-wr','ts-allwords','ts-gweak','ts-cmt'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+  ['ts-vc','ts-vt','ts-gc','ts-gt','ts-rc','ts-rt','ts-lc','ts-lt','ts-wr','ts-allwords','ts-gweak','ts-cmt'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   tstPhotoUrl='';document.getElementById('tst-preview').style.display='none';
   renderTst();toast('테스트 결과가 저장되었습니다');
   checkNewBadges(sid);
@@ -2144,6 +2146,10 @@ function openEditTst(id){
   document.getElementById('et-vt').value=t.vocabTotal??'';
   document.getElementById('et-gc').value=t.grammarCorrect??'';
   document.getElementById('et-gt').value=t.grammarTotal??'';
+  document.getElementById('et-rc').value=t.readingCorrect??'';
+  document.getElementById('et-rt').value=t.readingTotal??'';
+  document.getElementById('et-lc').value=t.listeningCorrect??'';
+  document.getElementById('et-lt').value=t.listeningTotal??'';
   document.getElementById('et-wr').value=(t.wrongWords||[]).join(', ');
   document.getElementById('et-gweak').value=t.grammarWeak||'';
   document.getElementById('et-cmt').value=t.cmt||'';
@@ -2154,7 +2160,7 @@ async function updTst(){
   const idx=_cache.tests.findIndex(x=>x.id===id);if(idx<0){toast('기록을 찾을 수 없습니다');return;}
   const wr=document.getElementById('et-wr').value;
   const sid=_cache.tests[idx].sid;
-  _cache.tests[idx]={..._cache.tests[idx],date:document.getElementById('et-date').value,vocabCorrect:parseInt(document.getElementById('et-vc').value)||0,vocabTotal:parseInt(document.getElementById('et-vt').value)||10,grammarCorrect:parseInt(document.getElementById('et-gc').value)||0,grammarTotal:parseInt(document.getElementById('et-gt').value)||10,wrongWords:wr?wr.split(',').map(w=>w.trim()).filter(Boolean):[],grammarWeak:document.getElementById('et-gweak').value.trim(),cmt:document.getElementById('et-cmt').value.trim()};
+  _cache.tests[idx]={..._cache.tests[idx],date:document.getElementById('et-date').value,vocabCorrect:parseInt(document.getElementById('et-vc').value)||0,vocabTotal:parseInt(document.getElementById('et-vt').value)||10,grammarCorrect:parseInt(document.getElementById('et-gc').value)||0,grammarTotal:parseInt(document.getElementById('et-gt').value)||10,readingCorrect:parseInt(document.getElementById('et-rc').value)||0,readingTotal:parseInt(document.getElementById('et-rt').value)||0,listeningCorrect:parseInt(document.getElementById('et-lc').value)||0,listeningTotal:parseInt(document.getElementById('et-lt').value)||0,wrongWords:wr?wr.split(',').map(w=>w.trim()).filter(Boolean):[],grammarWeak:document.getElementById('et-gweak').value.trim(),cmt:document.getElementById('et-cmt').value.trim()};
   await supaUpsert('tests',id,_cache.tests[idx],sid);
   closeM('m-edit-tst');renderTst();toast('수정되었습니다');
 }
@@ -5702,13 +5708,15 @@ async function handleTstPhoto(e){
   if(!apiKey){status.innerHTML='<div class="ais warn">⚠️ API Key 미설정 — 직접 입력해 주세요</div>';return;}
   status.innerHTML='<div class="ais loading"><div class="spin"></div>테스트지 분석 중...</div>';
   try{
-    const prompt=`이 테스트지를 분석하세요.\n1. 단어(vocab) 시험 섹션 유무 확인 — 없으면 vocabTotal:0\n2. 어법(grammar) 시험 섹션 유무 확인 — 없으면 grammarTotal:0\n3. 각 섹션별 맞은 개수/전체 개수 파악\n4. 테스트지에 있는 모든 영단어 목록(allWords), 그 중 틀린 단어(wrongWords)\n5. 학부모 전달용 코멘트: 전문적이고 따뜻한 어조, 잘한 점·개선 방향 균형, 100자 내외\n\nJSON만 반환:\n{"vocabCorrect":숫자,"vocabTotal":숫자,"grammarCorrect":숫자,"grammarTotal":숫자,"allWords":["단어1"],"wrongWords":["단어1"],"parentComment":"코멘트"}`;
+    const prompt=`이 테스트지를 분석하세요.\n1. 단어(vocab) 시험 섹션 유무 확인 — 없으면 vocabTotal:0\n2. 어법(grammar) 시험 섹션 유무 확인 — 없으면 grammarTotal:0\n3. 리딩(reading, 독해) 시험 섹션 유무 확인 — 없으면 readingTotal:0\n4. 리스닝(listening, 듣기) 시험 섹션 유무 확인 — 없으면 listeningTotal:0\n5. 각 섹션별 맞은 개수/전체 개수 파악\n6. 테스트지에 있는 모든 영단어 목록(allWords), 그 중 틀린 단어(wrongWords)\n7. 학부모 전달용 코멘트: 전문적이고 따뜻한 어조, 잘한 점·개선 방향 균형, 100자 내외\n\nJSON만 반환:\n{"vocabCorrect":숫자,"vocabTotal":숫자,"grammarCorrect":숫자,"grammarTotal":숫자,"readingCorrect":숫자,"readingTotal":숫자,"listeningCorrect":숫자,"listeningTotal":숫자,"allWords":["단어1"],"wrongWords":["단어1"],"parentComment":"코멘트"}`;
     const r=await callVision(apiKey,b64,f.type,prompt);
     const d=JSON.parse(r.replace(/```json|```/g,'').trim());
     if(d.vocabCorrect!=null)document.getElementById('ts-vc').value=d.vocabCorrect;
     document.getElementById('ts-vt').value=d.vocabTotal??0;
     if(d.grammarCorrect!=null)document.getElementById('ts-gc').value=d.grammarCorrect;
     document.getElementById('ts-gt').value=d.grammarTotal??0;
+    if(d.readingTotal){if(d.readingCorrect!=null)document.getElementById('ts-rc').value=d.readingCorrect;document.getElementById('ts-rt').value=d.readingTotal;}
+    if(d.listeningTotal){if(d.listeningCorrect!=null)document.getElementById('ts-lc').value=d.listeningCorrect;document.getElementById('ts-lt').value=d.listeningTotal;}
     if(d.allWords?.length)document.getElementById('ts-allwords').value=d.allWords.join(', ');
     if(d.wrongWords?.length)document.getElementById('ts-wr').value=d.wrongWords.join(', ');
     if(d.parentComment){const cmtEl=document.getElementById('ts-cmt');if(cmtEl&&!cmtEl.value)cmtEl.value=d.parentComment;}

@@ -421,6 +421,22 @@
               <div class="f" style="flex:2"><label>어법 약점/헷갈린 내용</label><input list="grammar-topics" id="ts-gweak" placeholder="현재진행형, 불규칙동사"></div>
             </div>
           </div>
+          <div class="score-block">
+            <div class="score-block-title">리딩 테스트 <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--slate)">(선택)</span></div>
+            <div class="score-row">
+              <div class="f"><label>맞힌 수</label><input type="number" id="ts-rc" min="0" placeholder="0" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
+              <div style="padding-bottom:10px;font-size:22px;color:var(--slate);font-family:var(--fm)">/</div>
+              <div class="f"><label>전체 문제 수</label><input type="number" id="ts-rt" min="0" placeholder="0" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
+            </div>
+          </div>
+          <div class="score-block">
+            <div class="score-block-title">리스닝 테스트 <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--slate)">(선택)</span></div>
+            <div class="score-row">
+              <div class="f"><label>맞힌 수</label><input type="number" id="ts-lc" min="0" placeholder="0" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
+              <div style="padding-bottom:10px;font-size:22px;color:var(--slate);font-family:var(--fm)">/</div>
+              <div class="f"><label>전체 문제 수</label><input type="number" id="ts-lt" min="0" placeholder="0" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
+            </div>
+          </div>
           <div class="f"><label>종합 코멘트</label><input type="text" id="ts-cmt" placeholder="다음 시험 재수록, 특이사항 등"></div>
           <button class="btn bt" onclick="saveTst()">저장</button>
         </div>
@@ -1187,6 +1203,16 @@
       <div class="f"><label>전체 문제 수</label><input type="number" id="et-gt" min="0"></div>
       <div class="f s2"><label>어법 약점/헷갈린 내용</label><input list="grammar-topics" id="et-gweak"></div>
     </div>
+    <div class="section-label">리딩 테스트 (선택)</div>
+    <div class="fg" style="margin-bottom:8px">
+      <div class="f"><label>맞힌 수</label><input type="number" id="et-rc" min="0"></div>
+      <div class="f"><label>전체 문제 수</label><input type="number" id="et-rt" min="0"></div>
+    </div>
+    <div class="section-label">리스닝 테스트 (선택)</div>
+    <div class="fg" style="margin-bottom:8px">
+      <div class="f"><label>맞힌 수</label><input type="number" id="et-lc" min="0"></div>
+      <div class="f"><label>전체 문제 수</label><input type="number" id="et-lt" min="0"></div>
+    </div>
     <div class="f"><label>종합 코멘트</label><input type="text" id="et-cmt"></div>
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn bt" style="flex:1" onclick="updTst()">저장</button>
@@ -1806,11 +1832,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260621o"></script>
-<script src="vocab_ref_data.js?v=20260621o"></script>
-<script src="js/db.js?v=20260621o"></script>
-<script src="js/teacher.js?v=20260621o"></script>
-<script src="js/student.js?v=20260621o"></script>
-<script src="js/parent.js?v=20260621o"></script>
+<script src="js/utils.js?v=20260621p"></script>
+<script src="vocab_ref_data.js?v=20260621p"></script>
+<script src="js/db.js?v=20260621p"></script>
+<script src="js/teacher.js?v=20260621p"></script>
+<script src="js/student.js?v=20260621p"></script>
+<script src="js/parent.js?v=20260621p"></script>
 </body>
 </html>
