@@ -15,22 +15,44 @@
 
 <!-- LANDING -->
 <div id="s-land" class="screen active">
-  <div class="land-inner">
-    <div class="land-logo">Page <span>&</span> Pencil</div>
-    <div class="land-tag">기준이 다른 전문가의 밀착 영어</div>
-    <div class="land-btns">
-      <button class="btn-land student" onclick="goStudentPin()">
-        <span class="btn-land-icon">✏️</span>
-        <span class="btn-land-label">학생</span>
-      </button>
-      <button class="btn-land parent" onclick="goPinScreen()">
-        <span class="btn-land-icon">👨‍👩‍👧</span>
-        <span class="btn-land-label">학부모</span>
-      </button>
+  <div class="land2">
+    <div class="land2-brand">
+      <div class="land2-logo">Page <span>&</span> Pencil</div>
+      <div class="land2-mid">
+        <div class="land2-eyebrow">이해로 쌓은 영어</div>
+        <h1 class="land2-h1">시험이 끝나도<br>손에 남는 영어</h1>
+        <p class="land2-sub">선생님, 학생, 학부모가 한 곳에서 만납니다.<br>수업 기록과 성장을 같은 화면으로 나눕니다.</p>
+        <div class="land2-chips">
+          <span class="land2-chip">✏️ 수업 기록</span>
+          <span class="land2-chip">📚 단어 학습</span>
+          <span class="land2-chip">📈 성장 추이</span>
+        </div>
+      </div>
+      <div class="land2-foot">초·중등 영어 공부방 · 소수 정예 밀착 지도</div>
     </div>
-    <button class="teacher-link" onclick="goTeacherLogin()">선생님</button>
-    <div id="app-version" style="position:absolute;bottom:16px;right:16px;font-size:10px;color:rgba(255,255,255,.15);font-family:var(--fm)"></div>
+    <div class="land2-right">
+      <div class="land2-form">
+        <h2 class="land2-title">로그인</h2>
+        <p class="land2-desc">역할을 선택하고 들어오세요</p>
+        <div class="land2-roles">
+          <button class="role-card role-card-on" onclick="goTeacherLogin()">
+            <span class="role-ico">🧑‍🏫</span>
+            <span class="role-lbl">선생님</span>
+          </button>
+          <button class="role-card" onclick="goStudentPin()">
+            <span class="role-ico">🎓</span>
+            <span class="role-lbl">학생</span>
+          </button>
+          <button class="role-card" onclick="goPinScreen()">
+            <span class="role-ico">👨‍👩‍👧</span>
+            <span class="role-lbl">학부모</span>
+          </button>
+        </div>
+        <div class="land2-hint">선생님은 비밀번호로, 학생·학부모는 PIN으로 입장합니다.</div>
+      </div>
+    </div>
   </div>
+  <div id="app-version" style="position:absolute;bottom:12px;right:14px;font-size:10px;color:rgba(255,255,255,.2);font-family:var(--fm)"></div>
 </div>
 
 <!-- TEACHER LOGIN -->
@@ -1832,11 +1854,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260621p"></script>
-<script src="vocab_ref_data.js?v=20260621p"></script>
-<script src="js/db.js?v=20260621p"></script>
-<script src="js/teacher.js?v=20260621p"></script>
-<script src="js/student.js?v=20260621p"></script>
-<script src="js/parent.js?v=20260621p"></script>
+<script src="js/utils.js?v=20260621q"></script>
+<script src="vocab_ref_data.js?v=20260621q"></script>
+<script src="js/db.js?v=20260621q"></script>
+<script src="js/teacher.js?v=20260621q"></script>
+<script src="js/student.js?v=20260621q"></script>
+<script src="js/parent.js?v=20260621q"></script>
 </body>
 </html>
