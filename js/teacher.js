@@ -865,6 +865,7 @@ async function loadStuPanel(sid){
   const lastPay=payments.length?payments[payments.length-1]:null;
 
   document.getElementById('sp-name').textContent=s.name+(s.inactive?' (퇴원)':'');
+  {const av=document.getElementById('sp-avatar');if(av)av.textContent=(s.name||'').trim().slice(0,1)||'학';}
   const schedStr=(s.scheduleDays&&s.scheduleDays.length?s.scheduleDays.join('·')+'요일':'')+((s.scheduleDays&&s.scheduleDays.length)&&s.scheduleTime?' '+s.scheduleTime:s.scheduleTime||'');
   const parentStr=s.parentName||s.parentPhone?(s.parentName||'')+(s.parentPhone?(s.parentName?' ':'')+s.parentPhone:''):'';
   document.getElementById('sp-meta').textContent=(s.grade||s.lv||'')+(s.school?' · '+s.school:'')+(s.enrollDate?' · 입회 '+s.enrollDate:'')+(schedStr?' · '+schedStr:'')+(parentStr?' · 📱'+parentStr:'');
@@ -1173,14 +1174,16 @@ function renderStus(){
   }
   g.innerHTML=stus.map(s=>`<div class="sc${s.inactive?' inactive':''}" onclick="selStu('${s.id}',this)">
     ${s.inactive?'<span class="inactive-badge">퇴원</span>':''}
-    <div style="display:flex;align-items:center;gap:4px">
-      <div class="sn">${s.name}</div>
-      ${hasUnpaid(s)?'<span class="unpaid-dot" title="이번 달 미납"></span>':''}
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="sc-avatar">${(s.name||'').trim().slice(0,1)||'학'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:4px"><div class="sn">${s.name}</div>${hasUnpaid(s)?'<span class="unpaid-dot" title="이번 달 미납"></span>':''}</div>
+        ${s.school?`<div style="font-size:11px;color:#8A95A2;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.school}</div>`:''}
+      </div>
+      <span class="slv lv1" style="flex-shrink:0">${s.grade||s.lv||''}</span>
     </div>
-    <span class="slv lv1">${s.grade||s.lv||''}</span>
-    ${s.school?`<div style="font-size:10px;color:var(--slate);margin-top:2px">${s.school}</div>`:''}
-    ${s.memo?`<div style="font-size:11px;color:var(--slate);margin-top:2px">${s.memo}</div>`:''}
-    ${!s.inactive?`<button class="btn bt bsm" style="margin-top:6px;width:100%;font-size:10px;padding:3px 0" onclick="event.stopPropagation();goAddLesson('${s.id}')">+ 수업 기록</button>`:''}
+    ${s.memo?`<div style="font-size:11px;color:var(--slate);margin-top:6px">${s.memo}</div>`:''}
+    ${!s.inactive?`<button class="btn bt bsm" style="margin-top:8px;width:100%;font-size:10px;padding:3px 0" onclick="event.stopPropagation();goAddLesson('${s.id}')">+ 수업 기록</button>`:''}
   </div>`).join('');
 }
 
