@@ -1,5 +1,16 @@
 // ── PARENT VIEW ──
 let pC={};
+// 학부모 하단 내비: 단일 스크롤 내 섹션 이동 / 메시지 모달
+function ppNav(btn,target){
+  if(target==='msg'){if(typeof openParentMsgModal==='function'&&typeof currentParentSid!=='undefined'&&currentParentSid)openParentMsgModal(currentParentSid);return;}
+  document.querySelectorAll('#s-parent .stu-bottomnav .stutab').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  const body=document.getElementById('pp-body');
+  if(target==='top'){if(body)body.scrollTo({top:0,behavior:'smooth'});return;}
+  const el=document.getElementById('pp-sec-'+target);
+  if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+  else if(body)body.scrollTo({top:0,behavior:'smooth'});
+}
 async function loadParent(sid){
   currentParentSid=sid;
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
@@ -107,7 +118,7 @@ async function loadParent(sid){
       </div>
       <div style="height:7px;background:#EDF2F4;border-radius:4px;overflow:hidden"><div style="width:${p}%;height:100%;background:${s.f};border-radius:4px;transition:width .5s"></div></div>
     </div>`;};
-    blocks+=`<div class="card">
+    blocks+=`<div class="card" id="pp-sec-score">
       <div class="ch"><span class="ct">📝 최근 테스트</span><span style="font-size:11px;color:var(--slate)">${latTst.date||''}</span></div>
       <div class="cb" style="padding:14px 18px">
         ${scoreBar('단어',vp,vChange)}
@@ -246,7 +257,7 @@ async function loadParent(sid){
   const isOverdue=payday&&today.getDate()>payday&&(!lastPay||new Date(lastPay.date).getMonth()!==today.getMonth());
   const acct=DB.acct();
   if(fee||acct.bank||acct.number||payments.length){
-    blocks+=`<div class="card">
+    blocks+=`<div class="card" id="pp-sec-pay">
       <div class="ch" onclick="togglePaySection()" style="cursor:pointer"><span class="ct">💳 결제 안내</span>${fee?(isOverdue?'<span class="badge bcoral" style="margin-left:auto">미납</span>':'<span class="badge bgreen" style="margin-left:auto">완납</span>'):''}<span id="pay-toggle-icon" style="font-size:11px;color:var(--slate);margin-left:${fee?'8px':'auto'}">▼</span></div>
       <div id="pay-section-body" style="display:none"><div class="cb" style="padding:12px 16px">
         <div>
