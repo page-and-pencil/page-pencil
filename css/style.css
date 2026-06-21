@@ -89,7 +89,7 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
 .vc-face{position:absolute;inset:0;backface-visibility:hidden;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;}
 .vc-front{background:var(--navy);color:#fff;}
 .vc-back{background:#fff;border:2px solid var(--teal);transform:rotateY(180deg);}
-.vc-word{font-family:var(--fb);font-size:clamp(22px,6vw,36px);font-weight:700;letter-spacing:-.01em;text-align:center;}
+.vc-word{font-family:var(--fd);font-size:clamp(28px,8vw,40px);font-weight:700;letter-spacing:-.01em;text-align:center;}
 .vc-pos{font-size:11px;opacity:.5;margin-top:4px;font-family:var(--fm);letter-spacing:.08em;text-transform:uppercase;}
 .vc-meaning{font-size:clamp(16px,4vw,22px);font-weight:600;color:var(--navy);text-align:center;}
 .vc-ex{font-size:12px;color:var(--slate);margin-top:8px;line-height:1.7;text-align:center;font-style:italic;}

@@ -704,6 +704,18 @@ function resumeVocabDeck(){
   else renderVocabDeck(currentStudentSid);
 }
 
+// 단어카드 3단계 진행 표시 (시안: 1 단어 확인 → 2 뜻 맞히기 → 3 스펠링)
+function vcStageBar(active){
+  const st=[[1,'단어 확인'],[2,'뜻 맞히기'],[3,'스펠링']];
+  let h='<div style="display:flex;align-items:center;gap:7px;margin-bottom:16px">';
+  st.forEach(([n,l],i)=>{
+    const on=n<=active;
+    h+=`<span style="width:24px;height:24px;border-radius:50%;background:${on?'#0CA4C9':'#F0F2F5'};color:${on?'#fff':'#94A3AE'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--fd);flex-shrink:0">${n}</span>`;
+    h+=`<span style="font-size:11.5px;font-weight:${n===active?'700':'600'};color:${on?'#0B8DAE':'#94A3AE'};white-space:nowrap">${l}</span>`;
+    if(i<2)h+='<span style="flex:1;height:2px;background:#DCE3E8;border-radius:2px;min-width:8px"></span>';
+  });
+  return h+'</div>';
+}
 function renderVocabDeck(sid){
   const el=document.getElementById('st-vocab');if(!el)return;
   const missingCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&(!c.meaning||!c.example));
@@ -815,13 +827,11 @@ function renderMemCard(el){
     `<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`
   ).join('');
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span class="vc-phase phase-mem">👀 암기</span>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
-        <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
-      </div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
+      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>
+    ${vcStageBar(1)}
     <div class="vc-prog">${prog}</div>
     <div class="vc-deck" onclick="flipMemCard(this)">
       <div class="vc-card" id="mem-card">
@@ -960,13 +970,11 @@ function renderRecallCard(el){
   const exHtml=card.example&&/[a-zA-Z]/.test(card.example)&&!/[가-힣]/.test(card.example)
     ?`<div style="font-size:12px;color:var(--slate);margin-top:8px;font-style:italic;line-height:1.5">${card.example}</div>`:'';
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span class="vc-phase phase-rec">🧠 리콜</span>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
-        <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
-      </div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
+      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>
+    ${vcStageBar(2)}
     <div class="vc-prog">${prog}</div>
     <div class="recall-wrap">
       <div style="font-size:12px;color:var(--slate);text-align:center;margin-bottom:8px">뜻을 보고 영어 단어를 속으로 떠올리세요</div>
@@ -1015,13 +1023,11 @@ function renderSpellCard(el){
     `<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`
   ).join('');
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span class="vc-phase phase-spell">✍️ 스펠</span>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
-        <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
-      </div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
+      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>
+    ${vcStageBar(3)}
     <div class="vc-prog">${prog}</div>
     <div class="recall-wrap">
       <div style="font-size:12px;color:var(--slate);text-align:center;margin-bottom:8px">뜻을 보고 영어 스펠링을 입력하세요</div>
