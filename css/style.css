@@ -58,13 +58,26 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
 .land-err{color:var(--coral);font-size:12px;min-height:18px;margin:6px 0 2px;}
 .land-submit{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:14px;border:none;background:#0CA4C9;color:#fff;border-radius:12px;font-size:15px;font-weight:800;font-family:var(--fb);cursor:pointer;box-shadow:0 6px 18px rgba(12,164,201,.32);transition:background .15s;}
 .land-submit:hover{background:#0B93BB;}
+/* 모바일 특화 로그인 — 학생/학부모 중심 (밝은 앱형 화면) */
 @media(max-width:760px){
-  #s-land{padding:0;align-items:stretch;}
-  .land2{flex-direction:column;max-width:480px;margin:auto;border-radius:0;min-height:100vh;box-shadow:none;}
-  .land2-brand{width:auto;padding:32px 28px 26px;}
-  .land2-h1{font-size:26px;}
-  .land2-mid{margin:18px 0;}
-  .land2-right{padding:28px 24px 40px;}
+  #s-land{padding:0;align-items:stretch;background:#fff;}
+  .land2{flex-direction:column;max-width:420px;margin:0 auto;border-radius:0;min-height:100vh;box-shadow:none;background:#fff;}
+  /* 상단 브랜드: 다크 패널 대신 밝은 컴팩트 헤더 */
+  .land2-brand{width:auto;background:#fff;padding:max(34px,env(safe-area-inset-top)) 26px 6px;text-align:center;flex:0 0 auto;}
+  .land2-brand::before,.land2-brand::after{display:none;}
+  .land2-logo{color:var(--navy);font-size:25px;}
+  .land2-mid{margin:12px 0 0;}
+  .land2-h1{font-size:16px;font-weight:700;color:var(--slate);line-height:1.5;}
+  .land2-foot{display:none;}
+  /* 폼 영역 넓게 */
+  .land2-right{padding:18px 26px calc(34px + env(safe-area-inset-bottom));flex:1;align-items:flex-start;}
+  .land2-form{max-width:none;}
+  .land2-title{font-size:22px;}
+  .land2-roles{gap:9px;}
+  .role-card{padding:15px 6px;border-radius:13px;}
+  .role-card .role-ico{width:40px;height:40px;}
+  .land-submit{padding:15px;font-size:15.5px;}
+  .land-field{padding:13px 15px;}
 }
 
 /* STUDENT APP */
