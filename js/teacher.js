@@ -7003,7 +7003,26 @@ function _assignItemHtml(a,hws){
     </div>
   </div>`;
 }
+function renderAssignStats(){
+  const el=document.getElementById('assign-stats');if(!el)return;
+  const today=new Date().toISOString().split('T')[0];
+  const assigns=DB.assigns();
+  const pending=assigns.filter(a=>!a.completedAt);
+  const dueToday=pending.filter(a=>a.due===today).length;
+  const overdue=pending.filter(a=>a.due&&a.due<today).length;
+  const unchecked=(_cache.homeworks||[]).filter(h=>h.submitted&&!h.checked).length;
+  const card=(lbl,ico,icoCls,num,unit,subColor)=>`<div class="dash-stat">
+    <div class="dash-stat-top"><span class="dash-stat-lbl">${lbl}</span><span class="dash-stat-ico ${icoCls}">${ico}</span></div>
+    <div class="dash-stat-num"${subColor?` style="color:${subColor}"`:''}>${num}${unit?`<small> ${unit}</small>`:''}</div>
+  </div>`;
+  el.innerHTML=
+    card('진행 중','📋','',pending.length,'건','')
+    +card('오늘 마감','⏰',dueToday?'st-amber':'',dueToday,'건',dueToday?'#0B8DAE':'')
+    +card('미제출(지남)','⚠️',overdue?'st-amber':'',overdue,'건',overdue?'#B45309':'')
+    +card('확인 대기','📥',unchecked?'st-green':'',unchecked,'건',unchecked?'#047857':'');
+}
 function renderAssignTab(){
+  renderAssignStats();
   const el=document.getElementById('assign-list');if(!el)return;
   const filterStu=document.getElementById('assign-filter-stu')?.value||'';
   const stus=DB.stus().filter(s=>!s.inactive);
