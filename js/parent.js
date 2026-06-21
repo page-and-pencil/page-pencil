@@ -42,7 +42,16 @@ function parentAreaGrowth(sid){
     </div>
   </div>`;
 }
-// 학부모 수업 탭: 이전 수업 기록 카드 리스트 (날짜+구분 배지+코멘트)
+// 수업 코멘트에서 코멘트 칩(강점/진행/보완)을 감지해 색상 칩으로 표시
+function lessonChips(rawCmt){
+  if(!rawCmt||typeof getCmtChips!=='function')return '';
+  const cfg=getCmtChips();
+  const mk=(arr,bg,col)=>(arr||[]).filter(t=>t&&rawCmt.includes(t)).map(t=>`<span style="font-size:11px;font-weight:600;background:${bg};color:${col};padding:4px 11px;border-radius:11px">${t}</span>`);
+  const chips=[...mk(cfg.strength,'#D9F6E9','#047857'),...mk(cfg.progress,'#F0F2F5','#46586B'),...mk(cfg.improve,'#FEF0D5','#B45309')];
+  if(!chips.length)return '';
+  return `<div style="padding:11px 16px;background:#F8FBFC;border-top:1px solid rgba(15,48,74,.06);display:flex;gap:8px;flex-wrap:wrap">${chips.join('')}</div>`;
+}
+// 학부모 수업 탭: 이전 수업 기록 카드 리스트 (날짜+구분 배지+코멘트+칩)
 function parentLessonList(les){
   const DAYS=['일','월','화','수','목','금','토'];
   const rest=les.slice(1,9); // 최근 수업(블록A) 다음부터
@@ -60,6 +69,7 @@ function parentLessonList(les){
         </div>
         ${cmt?`<div style="font-size:13px;line-height:1.8;color:#14304A">${cmt}</div>`:''}
       </div>
+      ${lessonChips(l.cmt)}
     </div>`;
   }).join('');
   return `<div><div style="font-size:14px;font-weight:800;color:var(--navy);margin:6px 2px 11px">📖 이전 수업 기록</div>${cards}</div>`;
@@ -108,6 +118,28 @@ async function loadParent(sid){
   if(notifItems.length)blocks+=`<div style="background:linear-gradient(135deg,var(--tl),rgba(12,164,201,.15));border:1px solid rgba(12,164,201,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#0B8DAE">✨ 새 업데이트: ${notifItems.join(' · ')}</div>`;
   localStorage.setItem(lastVisitKey,todayIso);
 
+  // 히어로 요약 카드 (이번 달 + 3종 통계) — 시안
+  {
+    const givenName=s.name&&s.name.length>1?s.name.slice(1):(s.name||'');
+    const josa=(n)=>{if(!n)return '는';const c=n.charCodeAt(n.length-1);if(c<0xAC00||c>0xD7A3)return '는';return (c-0xAC00)%28===0?'는':'은';};
+    const avgScore=tsts.length?Math.round(tsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/tsts.length):null;
+    const doneBooks=((_cache.textbooks||[]).filter(t=>t.sid===sid&&t.completed).length)||rds.filter(r=>(r.progress||'').includes('완독')).length;
+    let summary;
+    if(!les.length)summary='곧 첫 수업 기록이 올라올 거예요.';
+    else if(lesChange>0)summary='꾸준히 나오며 잘 성장하고 있어요.';
+    else if(avgScore!=null&&avgScore>=80)summary='이번 달도 안정적으로 잘 해주고 있어요.';
+    else summary='이번 달도 성실하게 함께하고 있어요.';
+    blocks+=`<div style="background:#E9F6F9;border:1px solid rgba(12,164,201,.18);border-radius:16px;padding:18px;margin-bottom:14px">
+      <div style="font-size:13px;color:#0B8DAE;font-weight:700;margin-bottom:3px">${today.getMonth()+1}월 한 달, ${givenName}${josa(givenName)}</div>
+      <div style="font-size:14px;color:#14304A;line-height:1.6;margin-bottom:14px">${summary}</div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--navy);font-family:var(--fd)">${thisMonthLes.length}</div><div style="font-size:10.5px;color:#8A95A2;margin-top:2px">수업</div></div>
+        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div style="font-size:20px;font-weight:800;color:#0B8DAE;font-family:var(--fd)">${avgScore!=null?avgScore:'—'}</div><div style="font-size:10.5px;color:#8A95A2;margin-top:2px">평균 점수</div></div>
+        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div style="font-size:20px;font-weight:800;color:#047857;font-family:var(--fd)">${doneBooks}</div><div style="font-size:10.5px;color:#8A95A2;margin-top:2px">완독 원서</div></div>
+      </div>
+    </div>`;
+  }
+
   // 블록 A — 최근 수업
   if(latLes){
     const mats=matsToHtml(latLes.materials);
@@ -128,6 +160,7 @@ async function loadParent(sid){
           </button>
         </div>
       </div>
+      ${lessonChips(latLes.cmt)}
     </div>`;
   }
 
