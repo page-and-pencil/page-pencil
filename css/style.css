@@ -770,7 +770,10 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 @keyframes confettiFall{to{transform:translateY(100vh) rotate(720deg);opacity:0}}
 @keyframes checkPop{0%{transform:scale(1)}50%{transform:scale(1.3)}100%{transform:scale(1)}}
 .stu-audio-player{background:var(--navy);border-radius:16px;padding:16px;color:#fff;}
-.stu-play-btn{width:56px;height:56px;border-radius:50%;background:#0CA4C9;border:none;color:#fff;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.stu-play-btn{width:56px;height:56px;border-radius:50%;background:#0CA4C9;border:none;color:#fff;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.sap-ctrl{background:transparent;border:1px solid rgba(255,255,255,.25);color:rgba(255,255,255,.85);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--fm);transition:all .15s;min-width:48px;}
+.sap-ctrl:hover{background:rgba(255,255,255,.14);}
+.sap-ctrl.on{background:rgba(12,164,201,.35);border-color:#0CA4C9;color:#fff;}
 
 /* FOLLOW-UP */
 @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
