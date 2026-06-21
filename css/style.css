@@ -774,6 +774,10 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .sap-ctrl{background:transparent;border:1px solid rgba(255,255,255,.25);color:rgba(255,255,255,.85);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--fm);transition:all .15s;min-width:48px;}
 .sap-ctrl:hover{background:rgba(255,255,255,.14);}
 .sap-ctrl.on{background:rgba(12,164,201,.35);border-color:#0CA4C9;color:#fff;}
+.stu-audio-player2{background:var(--cream2);border-radius:12px;padding:12px 14px;}
+.sap-ctrl2{background:#fff;border:1px solid rgba(15,48,74,.15);color:#0B8DAE;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--fm);transition:all .15s;min-width:48px;}
+.sap-ctrl2:hover{border-color:#0CA4C9;}
+.sap-ctrl2.on{background:#E3F5FA;border-color:#0CA4C9;}
 
 /* FOLLOW-UP */
 @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}

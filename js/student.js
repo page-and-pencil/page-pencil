@@ -224,54 +224,24 @@ async function copyLastLesson(){
 function makeAudioPlayer(url,bookTitle){
   const pid='ap_'+Math.random().toString(36).slice(2);
   setTimeout(()=>{
-    const audio=document.getElementById('audio_'+pid);
-    const playBtn=document.getElementById('play_'+pid);
-    const bar=document.getElementById('bar_'+pid);
-    const timeEl=document.getElementById('time_'+pid);
-    const durEl=document.getElementById('dur_'+pid);
+    const audio=document.getElementById('audio_'+pid);if(!audio)return;
     const spdBtn=document.getElementById('spd_'+pid);
     const loopBtn=document.getElementById('loop_'+pid);
-    if(!audio)return;
-    const fmt=t=>{if(!isFinite(t))return '0:00';const m=Math.floor(t/60),s=Math.floor(t%60);return m+':'+String(s).padStart(2,'0');};
-    audio.addEventListener('loadedmetadata',()=>{if(durEl)durEl.textContent=fmt(audio.duration);});
-    audio.addEventListener('timeupdate',()=>{
-      if(audio.duration){
-        bar.style.width=(audio.currentTime/audio.duration*100)+'%';
-        timeEl.textContent=fmt(audio.currentTime);
-      }
-    });
-    audio.addEventListener('ended',()=>{if(!audio.loop)playBtn.textContent='▶';});
-    playBtn.onclick=()=>{
-      if(audio.paused){audio.play();playBtn.textContent='⏸';}
-      else{audio.pause();playBtn.textContent='▶';}
-    };
-    document.getElementById('prog_'+pid).onclick=(e)=>{
-      const rect=e.currentTarget.getBoundingClientRect();
-      audio.currentTime=((e.clientX-rect.left)/rect.width)*audio.duration;
-    };
-    document.getElementById('b15_'+pid).onclick=()=>{audio.currentTime=Math.max(0,audio.currentTime-15);};
-    document.getElementById('f15_'+pid).onclick=()=>{audio.currentTime=Math.min(audio.duration||0,audio.currentTime+15);};
+    const b15=document.getElementById('b15_'+pid),f15=document.getElementById('f15_'+pid);
+    if(b15)b15.onclick=()=>{audio.currentTime=Math.max(0,audio.currentTime-15);};
+    if(f15)f15.onclick=()=>{audio.currentTime=Math.min(audio.duration||0,audio.currentTime+15);};
     const speeds=[1,1.25,1.5,0.75];let si=0;
-    spdBtn.onclick=()=>{si=(si+1)%speeds.length;audio.playbackRate=speeds[si];spdBtn.textContent=speeds[si]+'×';};
-    loopBtn.onclick=()=>{audio.loop=!audio.loop;loopBtn.classList.toggle('on',audio.loop);};
-  },100);
-  return `<div class="stu-audio-player">
-    <audio id="audio_${pid}" src="${url}" style="display:none" preload="metadata"></audio>
-    <div style="display:flex;align-items:center;gap:12px">
-      <button class="stu-play-btn" id="play_${pid}">▶</button>
-      <div style="flex:1">
-        <div style="font-size:12px;opacity:.7;margin-bottom:6px">${bookTitle||''}</div>
-        <div id="prog_${pid}" style="height:4px;background:rgba(255,255,255,.2);border-radius:2px;cursor:pointer;position:relative">
-          <div id="bar_${pid}" style="height:100%;width:0%;background:#0CA4C9;border-radius:2px;transition:width .1s"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;opacity:.5;margin-top:4px"><span id="time_${pid}">0:00</span><span id="dur_${pid}">0:00</span></div>
-      </div>
-    </div>
-    <div style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:13px">
-      <button id="spd_${pid}" class="sap-ctrl" title="재생 속도">1×</button>
-      <button id="b15_${pid}" class="sap-ctrl" title="15초 뒤로">−15s</button>
-      <button id="f15_${pid}" class="sap-ctrl" title="15초 앞으로">+15s</button>
-      <button id="loop_${pid}" class="sap-ctrl" title="반복 재생">🔁</button>
+    if(spdBtn)spdBtn.onclick=()=>{si=(si+1)%speeds.length;audio.playbackRate=speeds[si];spdBtn.textContent=speeds[si]+'×';};
+    if(loopBtn)loopBtn.onclick=()=>{audio.loop=!audio.loop;loopBtn.classList.toggle('on',audio.loop);};
+  },80);
+  return `<div class="stu-audio-player2">
+    ${bookTitle?`<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">🎧 ${bookTitle}</div>`:''}
+    <audio id="audio_${pid}" src="${url}" controls preload="metadata" style="width:100%;height:40px"></audio>
+    <div style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:10px">
+      <button id="spd_${pid}" class="sap-ctrl2" title="재생 속도">1×</button>
+      <button id="b15_${pid}" class="sap-ctrl2" title="15초 뒤로">−15s</button>
+      <button id="f15_${pid}" class="sap-ctrl2" title="15초 앞으로">+15s</button>
+      <button id="loop_${pid}" class="sap-ctrl2" title="반복 재생">🔁</button>
     </div>
   </div>`;
 }
@@ -700,7 +670,13 @@ function showParentNoticeBanner(){
 }
 
 // ── STUDENT TABS (updated) ──
+// 재생 중인 오디오/TTS 전부 정지 (탭 이동·모달 닫기 시 끊김 방지)
+function stopAllStudentMedia(){
+  try{if(window.speechSynthesis)window.speechSynthesis.cancel();}catch(e){}
+  document.querySelectorAll('audio').forEach(a=>{try{a.pause();}catch(e){}});
+}
 function swStuTab(id){
+  stopAllStudentMedia();
   document.querySelectorAll('.stutab[data-tab]').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
   document.querySelectorAll('#s-student .panel').forEach(p=>{
     if(['st-home','st-vocab','st-library'].includes(p.id))p.classList.toggle('active',p.id===id);
