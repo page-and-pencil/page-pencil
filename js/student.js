@@ -1348,6 +1348,43 @@ async function polishStudentCmt(givenName){
     if(text&&el)el.textContent=text;
   }catch(e){if(el)el.textContent=raw.slice(0,80)+(raw.length>80?'…':'');}
 }
+// 단어 복습 현황: 약점 단어 + 숙련도 단계 (vocab_cards의 hits/misses 활용)
+function renderVocabReview(sid){
+  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  if(cards.length<3)return '';
+  const fresh=cards.filter(c=>(c.hits||0)<1).length;
+  const learning=cards.filter(c=>(c.hits||0)>=1&&(c.hits||0)<3).length;
+  const mastered=cards.filter(c=>(c.hits||0)>=3).length;
+  const total=cards.length;
+  const pct=n=>total?Math.round(n/total*100):0;
+  const weak=cards.filter(c=>(c.misses||0)>0).sort((a,b)=>(b.misses||0)-(a.misses||0)).slice(0,4);
+  return `<div class="card" style="margin-bottom:12px">
+    <div class="ch"><span class="ct">🧠 단어 복습 현황</span><span style="font-size:11px;color:var(--slate)">전체 ${total}개</span></div>
+    <div class="cb">
+      ${weak.length?`<div style="font-size:13px;font-weight:800;color:#B45309;margin-bottom:9px;display:flex;align-items:center;gap:5px">⚠️ 먼저 잡을 단어</div>
+      <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px">
+        ${weak.map(c=>`<div style="display:flex;align-items:center;gap:11px;background:#fff;border:1.5px solid rgba(245,158,11,.35);border-radius:12px;padding:10px 13px">
+          <span style="width:34px;height:34px;border-radius:10px;background:#FEF0D5;color:#B45309;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px">🔁</span>
+          <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--navy);font-family:var(--fd)">${c.word||''}</div><div style="font-size:11px;color:var(--slate)">${c.meaning||''}${c.misses?' · '+c.misses+'번 헷갈림':''}</div></div>
+          <span style="font-size:10px;font-weight:700;background:#FEF0D5;color:#B45309;padding:3px 10px;border-radius:11px;flex-shrink:0">약함</span>
+        </div>`).join('')}
+      </div>`:''}
+      <div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:11px">단어가 단단해지는 중 💪</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:13px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#F59E0B;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">방금 외움 · 곧 다시</span><span style="font-size:14px;font-weight:700;color:#B45309;font-family:var(--fd)">${fresh}</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#0CA4C9;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">익숙해지는 중</span><span style="font-size:14px;font-weight:700;color:#0B8DAE;font-family:var(--fd)">${learning}</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#10B981;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">완전히 내 단어</span><span style="font-size:14px;font-weight:700;color:#047857;font-family:var(--fd)">${mastered}</span></div>
+      </div>
+      <div style="height:9px;border-radius:5px;overflow:hidden;display:flex;background:#EDF2F4">
+        ${fresh?`<span style="width:${pct(fresh)}%;background:#F59E0B"></span>`:''}
+        ${learning?`<span style="width:${pct(learning)}%;background:#0CA4C9"></span>`:''}
+        ${mastered?`<span style="width:${pct(mastered)}%;background:#10B981"></span>`:''}
+      </div>
+      <div style="margin-top:8px;font-size:11.5px;color:var(--slate);text-align:center">전체 ${total}개 중 <b style="color:#047857">${mastered}개</b>가 완전히 내 단어가 됐어요</div>
+      <button class="btn bt" style="width:100%;margin-top:14px;border-radius:50px;padding:12px" onclick="swStuTab('st-vocab')">📚 단어 복습하기 →</button>
+    </div>
+  </div>`;
+}
 function renderStudentHome(sid){
   const el=document.getElementById('st-home');if(!el)return;
   const stu=DB.stus().find(s=>s.id===sid);
@@ -1482,7 +1519,8 @@ function renderStudentHome(sid){
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
     ${noHwHtml}
     ${pending.length?`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:15px;font-weight:800;color:var(--navy)">오늘의 미션</span><span style="font-size:12px;color:var(--slate);font-weight:600">${done.length} / ${totalMission} 완료</span></div>${pending.map(asgnCard).join('')}`:''}
-    ${done.length?`<details style="margin-top:8px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 완료된 숙제 (${done.length}건)</summary><div style="margin-top:8px">${done.map(asgnCard).join('')}</div></details>`:''}
+    ${done.length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 완료된 숙제 (${done.length}건)</summary><div style="margin-top:8px">${done.map(asgnCard).join('')}</div></details>`:''}
+    ${renderVocabReview(sid)}
     <details open style="margin-top:14px">
       <summary style="font-size:12px;font-weight:600;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">📊 지난 수업 &amp; 학습 현황 <span style="font-size:10px;color:var(--teal)">▾</span></summary>
       <div style="margin-top:8px">${lastLessonHtml}${streakHtml}${renderHomeStats(sid)}</div>
