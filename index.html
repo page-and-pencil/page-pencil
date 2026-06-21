@@ -152,32 +152,40 @@
 
 <!-- TEACHER APP -->
 <div id="s-teacher" class="screen">
-  <div class="ah">
-    <div class="ah-logo" style="cursor:pointer" onclick="show('s-land')">Page <span>&</span> Pencil</div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <span class="hbadge">선생님</span>
-      <button class="btn-lo" onclick="logout()">로그아웃</button>
+  <div class="t-topbar">
+    <div class="ah-logo t-topbar-logo" style="cursor:pointer" onclick="show('s-land')">Page <span>&</span> Pencil</div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="t-avatar">선생님</span>
+      <button class="btn-lo t-logout" onclick="logout()">로그아웃</button>
     </div>
   </div>
-  <div class="nt">
-    <button class="ntab" data-tab="t-dash" onclick="swTab('t-dash')">📊 대시보드</button>
-    <button class="ntab" data-tab="t-class" onclick="swTab('t-class')">🏫 클래스</button>
-    <button class="ntab active" data-tab="t-stu" onclick="swTab('t-stu')">👩‍🎓 학생</button>
-    <button class="ntab" data-tab="t-assign" onclick="swTab('t-assign')">📋 과제</button>
-    <button class="ntab" data-tab="t-tst" onclick="swTab('t-tst')">✏️ 테스트</button>
-    <button class="ntab" data-tab="t-data" onclick="swTab('t-data')">🗂️ 자료 DB</button>
-    <button class="ntab" data-tab="t-cfg" onclick="swTab('t-cfg')">⚙️ 설정</button>
-  </div>
-  <div class="ab">
+  <div class="t-body">
+    <nav class="t-sidebar">
+      <button class="ntab" data-tab="t-dash" onclick="swTab('t-dash')"><span class="ntab-ico">📊</span><span class="ntab-lbl">대시보드</span></button>
+      <button class="ntab" data-tab="t-class" onclick="swTab('t-class')"><span class="ntab-ico">🏫</span><span class="ntab-lbl">클래스</span></button>
+      <button class="ntab active" data-tab="t-stu" onclick="swTab('t-stu')"><span class="ntab-ico">👩‍🎓</span><span class="ntab-lbl">학생</span></button>
+      <button class="ntab" data-tab="t-assign" onclick="swTab('t-assign')"><span class="ntab-ico">📋</span><span class="ntab-lbl">과제</span></button>
+      <button class="ntab" data-tab="t-tst" onclick="swTab('t-tst')"><span class="ntab-ico">✏️</span><span class="ntab-lbl">테스트</span></button>
+      <button class="ntab" data-tab="t-data" onclick="swTab('t-data')"><span class="ntab-ico">🗂️</span><span class="ntab-lbl">자료 DB</span></button>
+      <div class="t-sidebar-spacer"></div>
+      <button class="ntab" data-tab="t-cfg" onclick="swTab('t-cfg')"><span class="ntab-ico">⚙️</span><span class="ntab-lbl">설정</span></button>
+    </nav>
+    <div class="ab">
 
     <!-- 대시보드 -->
     <div id="t-dash" class="panel">
       <div id="dash-greet" style="margin-bottom:16px"></div>
       <div id="dash-stats" class="dash-stats" style="margin-bottom:14px"></div>
-      <div id="dash-today" style="margin-bottom:12px"></div>
-      <div id="dash-actions" style="margin-bottom:12px"></div>
-      <div id="dash-monthly" style="margin-bottom:12px"></div>
-      <div id="dash-notice-section"></div>
+      <div class="dash-cols">
+        <div class="dash-col-main">
+          <div id="dash-today" style="margin-bottom:12px"></div>
+          <div id="dash-monthly" style="margin-bottom:12px"></div>
+        </div>
+        <div class="dash-col-side">
+          <div id="dash-actions" style="margin-bottom:12px"></div>
+          <div id="dash-notice-section"></div>
+        </div>
+      </div>
     </div>
 
     <!-- 학생 관리 (좌우 분할 레이아웃) -->
@@ -892,6 +900,7 @@
 
     </div>
 
+    </div>
   </div>
 </div>
 
@@ -1787,11 +1796,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260621c"></script>
-<script src="vocab_ref_data.js?v=20260621c"></script>
-<script src="js/db.js?v=20260621c"></script>
-<script src="js/teacher.js?v=20260621c"></script>
-<script src="js/student.js?v=20260621c"></script>
-<script src="js/parent.js?v=20260621c"></script>
+<script src="js/utils.js?v=20260621d"></script>
+<script src="vocab_ref_data.js?v=20260621d"></script>
+<script src="js/db.js?v=20260621d"></script>
+<script src="js/teacher.js?v=20260621d"></script>
+<script src="js/student.js?v=20260621d"></script>
+<script src="js/parent.js?v=20260621d"></script>
 </body>
 </html>
