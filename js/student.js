@@ -1215,6 +1215,21 @@ function getWeeklyStats(sid){
   const done=wa.filter(a=>a.completedAt).length;
   return{total:wa.length,done,pct:wa.length?Math.round(done/wa.length*100):0};
 }
+// 이번 주 요일별 학습 여부 (과제 완료일 기준) — 주간 연속 학습 7원형
+function getWeekDays(sid){
+  const today=new Date();
+  const todayStr=today.toISOString().split('T')[0];
+  const weekStart=new Date(today);weekStart.setDate(today.getDate()-today.getDay());
+  const doneDates=new Set((_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).map(a=>(a.completedAt||'').split('T')[0]));
+  const DAYS=['일','월','화','수','목','금','토'];
+  const out=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(weekStart);d.setDate(weekStart.getDate()+i);
+    const ds=d.toISOString().split('T')[0];
+    out.push({label:DAYS[i],done:doneDates.has(ds),isToday:ds===todayStr});
+  }
+  return out;
+}
 async function completeAssignment(sid,asgnId){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
   a.completedAt=new Date().toISOString();
@@ -1420,7 +1435,15 @@ function renderStudentHome(sid){
       </div>
     </div>
   </div>`;
-  const streakHtml=`<div class="streak-bar" style="margin-top:12px;margin-bottom:4px">
+  const weekDays=getWeekDays(sid);
+  const weekCircles=`<div style="display:flex;justify-content:space-between">${weekDays.map(d=>{
+    let c;
+    if(d.done)c=`<span style="width:34px;height:34px;border-radius:50%;background:#10B981;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:15px">✓</span>`;
+    else if(d.isToday)c=`<span style="width:34px;height:34px;border-radius:50%;background:#E3F5FA;color:#0B8DAE;border:2px solid #0CA4C9;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:15px">⭐</span>`;
+    else c=`<span style="width:34px;height:34px;border-radius:50%;background:#F4F6F8;color:#C8D0D8;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:13px">○</span>`;
+    return `<div style="text-align:center">${c}<div style="font-size:10.5px;color:${d.isToday?'#0B8DAE':'#8A95A2'};font-weight:${d.isToday?'700':'400'};margin-top:5px;font-family:var(--fm)">${d.label}</div></div>`;
+  }).join('')}</div>`;
+  const streakHtml=`<div class="streak-bar" style="margin-top:12px;margin-bottom:10px">
     <span style="font-size:18px">${lv.icon}</span>
     <div style="flex:1">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
@@ -1432,7 +1455,11 @@ function renderStudentHome(sid){
         <span style="font-size:10px;color:var(--slate);white-space:nowrap">이번주 ${week.done}/${week.total}</span>
       </div>
     </div>
-  </div>`;
+  </div>
+  <div class="card" style="margin-bottom:10px"><div class="cb" style="padding:14px 16px">
+    <div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:13px">이번 주 연속 학습 🔥</div>
+    ${weekCircles}
+  </div></div>`;
   const lastLessonHtml=renderLastLesson(sid);
 
   // 전체 완료 화면
