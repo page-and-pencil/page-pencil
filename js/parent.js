@@ -2,13 +2,11 @@
 let pC={};
 // 학부모 하단 내비: 단일 스크롤 내 섹션 이동 / 메시지 모달
 function ppNav(btn,target){
-  if(target==='msg'){if(typeof openParentMsgModal==='function'&&typeof currentParentSid!=='undefined'&&currentParentSid)openParentMsgModal(currentParentSid);return;}
   document.querySelectorAll('#s-parent .stu-bottomnav .stutab').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
-  if(target==='top'){window.scrollTo({top:0,behavior:'smooth'});return;}
-  const el=document.getElementById('pp-sec-'+target);
-  if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
-  else window.scrollTo({top:0,behavior:'smooth'});
+  document.querySelectorAll('#pp-body .pp-tab').forEach(t=>{t.style.display=(t.dataset.pptab===target)?'':'none';});
+  window.scrollTo({top:0,behavior:'auto'});
+  if(target==='score'&&pC&&pC.trend){try{pC.trend.resize();}catch(e){}}
 }
 // 영역별 성장: 어휘/어법/리딩/리스닝 — 최근 테스트 평균 우선, 테스트 없으면 과제 완료율로 보완
 function parentAreaGrowth(sid){
@@ -69,7 +67,10 @@ async function loadParent(sid){
   const absentThisMonth=les.filter(l=>l.date&&l.date.startsWith(thisMonthStr)&&(l.att==='absent'||l.att==='late'));
   const progPct=Math.min(100,Math.round(thisMonthLes.length/8*100));
 
-  let blocks='';
+  let blocks='';      // 수업 탭
+  let secScore='';    // 점수 탭
+  let secPay='';      // 결제 탭
+  let secMsg='';      // 메시지 탭
 
   // 미확인 항목 알림 배너
   const lastVisitKey='parentLastVisit_'+sid;
@@ -152,7 +153,7 @@ async function loadParent(sid){
       </div>
       <div style="height:7px;background:#EDF2F4;border-radius:4px;overflow:hidden"><div style="width:${p}%;height:100%;background:${s.f};border-radius:4px;transition:width .5s"></div></div>
     </div>`;};
-    blocks+=`<div class="card" id="pp-sec-score">
+    secScore+=`<div class="card" id="pp-sec-score">
       <div class="ch"><span class="ct">📝 최근 테스트</span><span style="font-size:11px;color:var(--slate)">${latTst.date||''}</span></div>
       <div class="cb" style="padding:14px 18px">
         <div style="background:#E9F6F9;border:1px solid rgba(12,164,201,.18);border-radius:14px;padding:15px 16px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between">
@@ -170,7 +171,7 @@ async function loadParent(sid){
   }
 
   // 블록 C-2 — 영역별 성장 (어휘/어법=테스트, 리딩/리스닝=과제 완료율)
-  blocks+=parentAreaGrowth(sid);
+  secScore+=parentAreaGrowth(sid);
 
   // 블록 D — 미완료 과제
   const assigns=DB.assigns().filter(a=>a.sid===sid&&!a.completedAt);
@@ -248,7 +249,7 @@ async function loadParent(sid){
       if(rds.length>0)items.push(statItem(rds.length,'누적 독서',''));
       statsRow=`<div style="display:flex;gap:10px;${showChart?'margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)':''}">${items.join('')}</div>`;
     }
-    blocks+=`<div class="card">
+    secScore+=`<div class="card">
       <div class="ch"><span class="ct">📈 성장 기록</span></div>
       <div class="cb" style="padding:12px 16px">
         ${statsRow}
@@ -300,9 +301,9 @@ async function loadParent(sid){
   const isOverdue=payday&&today.getDate()>payday&&(!lastPay||new Date(lastPay.date).getMonth()!==today.getMonth());
   const acct=DB.acct();
   if(fee||acct.bank||acct.number||payments.length){
-    blocks+=`<div class="card" id="pp-sec-pay">
-      <div class="ch" onclick="togglePaySection()" style="cursor:pointer"><span class="ct">💳 결제 안내</span>${fee?(isOverdue?'<span class="badge bcoral" style="margin-left:auto">미납</span>':'<span class="badge bgreen" style="margin-left:auto">완납</span>'):''}<span id="pay-toggle-icon" style="font-size:11px;color:var(--slate);margin-left:${fee?'8px':'auto'}">▼</span></div>
-      <div id="pay-section-body" style="display:none"><div class="cb" style="padding:12px 16px">
+    secPay+=`<div class="card" id="pp-sec-pay">
+      <div class="ch"><span class="ct">💳 결제 안내</span>${fee?(isOverdue?'<span class="badge bcoral" style="margin-left:auto">미납</span>':'<span class="badge bgreen" style="margin-left:auto">완납</span>'):''}</div>
+      <div><div class="cb" style="padding:12px 16px">
         <div>
           <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span class="pay-label">월 수업료</span><span class="pay-value">${fee?fee.toLocaleString()+'원':'미설정'}</span></div>
           <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span class="pay-label">정기 결제일</span><span class="pay-value${isOverdue?' pay-due':''}">${nextPayDate}${isOverdue?' ⚠️':''}</span></div>
@@ -324,6 +325,12 @@ async function loadParent(sid){
           </div>`).join('')}
         </div>`:''}
       </div>
+    </div></div>`;
+  }else{
+    secPay+=`<div class="card"><div class="cb" style="padding:30px 18px;text-align:center">
+      <div style="font-size:34px;margin-bottom:8px">💳</div>
+      <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">결제 정보가 아직 없어요</div>
+      <div style="font-size:12px;color:var(--slate)">선생님이 수업료·납부 계좌를 등록하면<br>여기에서 결제 안내를 볼 수 있어요.</div>
     </div></div>`;
   }
 
@@ -347,9 +354,28 @@ async function loadParent(sid){
     </div>`;
   }
 
-  blocks+=`<div style="padding:4px 0 16px"><button onclick="openParentMsgModal('${sid}')" style="width:100%;padding:11px;background:#FEE500;border:none;border-radius:10px;font-family:var(--fb);font-size:13px;font-weight:700;cursor:pointer;color:#3C1E1E">💬 카카오톡으로 질문하기</button></div>`;
+  // 메시지 탭
+  secMsg=`<div class="card"><div class="cb" style="padding:22px 18px;text-align:center">
+      <div style="font-size:34px;margin-bottom:10px">💬</div>
+      <div style="font-size:15px;font-weight:800;color:var(--navy);margin-bottom:6px">선생님께 문의하기</div>
+      <div style="font-size:12.5px;color:var(--slate);line-height:1.7;margin-bottom:18px">수업·과제·결제 등 궁금한 점이 있으면<br>카카오톡으로 편하게 물어보세요.</div>
+      <button onclick="openParentMsgModal('${sid}')" style="width:100%;padding:13px;background:#FEE500;border:none;border-radius:12px;font-family:var(--fb);font-size:14px;font-weight:800;cursor:pointer;color:#3C1E1E">💬 카카오톡으로 질문하기</button>
+    </div></div>`;
 
-  document.getElementById('pp-body').innerHTML=blocks;
+  // 점수 탭 빈 상태
+  if(!secScore.trim())secScore=`<div class="card"><div class="cb" style="padding:30px 18px;text-align:center">
+    <div style="font-size:34px;margin-bottom:8px">📝</div>
+    <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">아직 테스트 기록이 없어요</div>
+    <div style="font-size:12px;color:var(--slate)">시험을 보면 점수와 영역별 성장이<br>여기에 표시됩니다.</div>
+  </div></div>`;
+
+  document.getElementById('pp-body').innerHTML=`
+    <div class="pp-tab" data-pptab="les">${blocks}</div>
+    <div class="pp-tab" data-pptab="score" style="display:none">${secScore}</div>
+    <div class="pp-tab" data-pptab="msg" style="display:none">${secMsg}</div>
+    <div class="pp-tab" data-pptab="pay" style="display:none">${secPay}</div>`;
+  // 하단 내비 활성 상태를 기본(수업)으로 리셋
+  document.querySelectorAll('#s-parent .stu-bottomnav .stutab').forEach((b,i)=>b.classList.toggle('active',i===0));
 
   // 원서 추천
   const recs=getBookRecommendations(sid);
