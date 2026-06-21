@@ -5,11 +5,10 @@ function ppNav(btn,target){
   if(target==='msg'){if(typeof openParentMsgModal==='function'&&typeof currentParentSid!=='undefined'&&currentParentSid)openParentMsgModal(currentParentSid);return;}
   document.querySelectorAll('#s-parent .stu-bottomnav .stutab').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
-  const body=document.getElementById('pp-body');
-  if(target==='top'){if(body)body.scrollTo({top:0,behavior:'smooth'});return;}
+  if(target==='top'){window.scrollTo({top:0,behavior:'smooth'});return;}
   const el=document.getElementById('pp-sec-'+target);
   if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
-  else if(body)body.scrollTo({top:0,behavior:'smooth'});
+  else window.scrollTo({top:0,behavior:'smooth'});
 }
 async function loadParent(sid){
   currentParentSid=sid;
