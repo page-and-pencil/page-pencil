@@ -120,6 +120,10 @@ async function loadParent(sid){
     blocks+=`<div class="card" id="pp-sec-score">
       <div class="ch"><span class="ct">📝 최근 테스트</span><span style="font-size:11px;color:var(--slate)">${latTst.date||''}</span></div>
       <div class="cb" style="padding:14px 18px">
+        <div style="background:#E9F6F9;border:1px solid rgba(12,164,201,.18);border-radius:14px;padding:15px 16px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between">
+          <div><div style="font-size:12.5px;color:#0B8DAE;font-weight:700">최근 단어 테스트</div><div style="font-size:11px;color:#46586B;margin-top:2px">${latTst.date||''}</div></div>
+          <div style="text-align:right"><div style="font-size:30px;font-weight:800;color:#0B8DAE;line-height:1;font-family:var(--fd)">${vp}<span style="font-size:16px">%</span></div>${vChange!=null?`<div style="font-size:10.5px;font-weight:700;color:${vChange>=0?'#047857':'#B45309'};margin-top:3px">${vChange>=0?'▲':'▼'} ${Math.abs(vChange)}</div>`:''}</div>
+        </div>
         ${scoreBar('단어',vp,vChange)}
         ${scoreBar('어법',gp,null)}
         ${nextWords.length?`<div style="font-size:11px;color:var(--slate);margin:2px 0 4px">다시 볼 단어</div><div class="wl">${nextWords.map(w=>`<span class="wc rv">${w}</span>`).join('')}</div>`:''}

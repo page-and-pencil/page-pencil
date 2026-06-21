@@ -1359,7 +1359,16 @@ function renderStudentHome(sid){
   const allBooks=[...DB.libs()];
 
   const givenName=stu&&stu.name&&stu.name.length>1?stu.name.slice(1):stu?.name||'';
-  const greetHtml=`<div style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:12px">안녕, ${givenName}아! 👋</div>`;
+  const totalMission=pending.length+done.length;
+  const greetHtml=`<div style="background:linear-gradient(135deg,#0CA4C9,#0B8DAE);border-radius:18px;padding:18px 20px;color:#fff;margin-bottom:16px;box-shadow:0 8px 24px rgba(12,164,201,.28)">
+    <div style="display:flex;align-items:center;gap:13px">
+      <span style="width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:23px;flex-shrink:0">✨</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:19px;font-weight:800">안녕, ${givenName}아! 👋</div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,.9);margin-top:2px">${totalMission?`오늘 미션 ${done.length}/${totalMission} 완료`:'오늘도 화이팅! 🔥'}</div>
+      </div>
+    </div>
+  </div>`;
   const streakHtml=`<div class="streak-bar" style="margin-top:12px;margin-bottom:4px">
     <span style="font-size:18px">${lv.icon}</span>
     <div style="flex:1">
@@ -1458,7 +1467,7 @@ function renderStudentHome(sid){
 
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
     ${noHwHtml}
-    ${pending.length?`<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📌 오늘 할 것</div>${pending.map(asgnCard).join('')}`:''}
+    ${pending.length?`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:15px;font-weight:800;color:var(--navy)">오늘의 미션</span><span style="font-size:12px;color:var(--slate);font-weight:600">${done.length} / ${totalMission} 완료</span></div>${pending.map(asgnCard).join('')}`:''}
     ${done.length?`<details style="margin-top:8px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 완료된 숙제 (${done.length}건)</summary><div style="margin-top:8px">${done.map(asgnCard).join('')}</div></details>`:''}
     <details open style="margin-top:14px">
       <summary style="font-size:12px;font-weight:600;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">📊 지난 수업 &amp; 학습 현황 <span style="font-size:10px;color:var(--teal)">▾</span></summary>
