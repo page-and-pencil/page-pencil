@@ -6305,42 +6305,46 @@ function renderSpSummary(sid,period,from,to){
   });});
 
   const PERIODS=[{v:'week',l:'주간'},{v:'month',l:'월별'},{v:'semester',l:'학기별'},{v:'year',l:'연별'},{v:'all',l:'전체'},{v:'custom',l:'직접 설정'}];
+  // 교재 진도 카드
+  const tbCards=Object.values(tbMap).map(m=>{
+    const cls2=Object.entries(SCLS).find(([k])=>SLBL[k]===m.label)?.[1]||'srd';
+    const flatU=[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];
+    const shown=flatU.slice(0,5),hidden=flatU.slice(5);
+    return `<div class="sp-prog-card">
+      <div class="sp-prog-head"><span class="spill ${cls2}">${m.label}</span><span class="sp-prog-book">${m.book}</span></div>
+      ${flatU.length?`<div class="prog-pills">${shown.map(u=>`<span class="prog-pill">${u}</span>`).join('')}${hidden.length?`<span class="prog-more-wrap" style="display:none">${hidden.map(u=>`<span class="prog-pill">${u}</span>`).join('')}</span><button class="prog-more-btn" onclick="spProgMore(this)">+${hidden.length} 더보기</button>`:''}</div>`:`<div class="sp-prog-empty">진도 기록 없음</div>`}
+    </div>`;
+  }).join('');
+  // 원서 진도 한 줄 카드
+  const rdCards=Object.values(rdMap).map(m=>{
+    const flatU=[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];
+    const badges=flatU.length?flatU.map(u=>`<span class="prog-pill${/완독|완료/.test(u)?' done':''}">${u}</span>`).join(''):'<span class="prog-pill">기록</span>';
+    return `<div class="sp-rd-card"><span class="sp-rd-title">${m.book}</span><span class="sp-rd-badges">${badges}</span></div>`;
+  }).join('');
   el.innerHTML=`
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
-      ${PERIODS.map(p=>`<button class="btn ${period===p.v?'bt':'bo'} bsm" style="font-size:11px;padding:4px 10px" onclick="renderSpSummary('${sid}','${p.v}')">${p.l}</button>`).join('')}
+   <div class="sp-sum-wrap">
+    <div class="sp-seg">
+      ${PERIODS.map(p=>`<button class="${period===p.v?'on':''}" onclick="renderSpSummary('${sid}','${p.v}')">${p.l}</button>`).join('')}
     </div>
-    ${period==='custom'?`<div style="display:flex;gap:8px;margin-bottom:10px">
+    ${period==='custom'?`<div style="display:flex;gap:8px;margin-bottom:12px">
       <input type="date" id="sp-sum-from" value="${from||''}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;background:var(--cream);outline:none">
       <input type="date" id="sp-sum-to" value="${to||''}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;background:var(--cream);outline:none">
       <button class="btn bt bsm" onclick="renderSpSummary('${sid}','custom',document.getElementById('sp-sum-from').value,document.getElementById('sp-sum-to').value)">적용</button>
     </div>`:''}
-    <div class="strow" style="margin-bottom:12px">
+    <div class="strow" style="margin-bottom:16px">
       <div class="stc"><div class="stnum">${attended}</div><div class="stlbl">출석</div></div>
-      <div class="stc"><div class="stnum">${total?att+'%':'—'}</div><div class="stlbl">출석률</div></div>
+      <div class="stc"><div class="stnum">${total?att+'%':'<span class="stnum-empty">데이터 없음</span>'}</div><div class="stlbl">출석률</div></div>
       <div class="stc"><div class="stnum">${rds.length}</div><div class="stlbl">원서</div></div>
-      <div class="stc"><div class="stnum">${avgV!==null?avgV+'%':'—'}</div><div class="stlbl">단어 평균</div></div>
+      <div class="stc"><div class="stnum">${avgV!==null?avgV+'%':'<span class="stnum-empty">데이터 없음</span>'}</div><div class="stlbl">단어 평균</div></div>
     </div>
-    ${Object.keys(tbMap).length?`<div style="margin-bottom:10px">
-      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">📚 교재 진도</div>
-      ${Object.values(tbMap).map(m=>{
-        const cls2=Object.entries(SCLS).find(([k])=>SLBL[k]===m.label)?.[1]||'srd';
-        const flatU=[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];
-        return `<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
-          <div style="display:flex;align-items:center;gap:8px"><span class="spill ${cls2}">${m.label}</span><span style="font-weight:600">${m.book}</span></div>
-          ${flatU.length?`<div style="padding-left:52px;margin-top:2px">${flatU.map(u=>`<div style="font-size:11px;color:var(--slate);line-height:1.7">${u}</div>`).join('')}</div>`:''}
-        </div>`;
-      }).join('')}
-    </div>`:''}
-    ${Object.keys(rdMap).length?`<div style="margin-bottom:10px">
-      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">📗 원서 진도</div>
-      ${Object.values(rdMap).map(m=>{
-        const flatU=[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];
-        return `<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
-          <div style="display:flex;align-items:center;gap:8px"><span class="spill srd">원서</span><span style="font-weight:600;font-family:var(--fd)">${m.book}</span></div>
-          ${flatU.length?`<div style="padding-left:52px;margin-top:2px">${flatU.map(u=>`<div style="font-size:11px;color:var(--slate);line-height:1.7">${u}</div>`).join('')}</div>`:''}
-        </div>`;
-      }).join('')}
-    </div>`:''}
+    <div class="sp-sum-cols">
+      <div>
+        <div class="sp-sec-title">📚 교재 진도</div>
+        ${tbCards||'<div class="sp-prog-empty" style="margin-bottom:12px">교재 진도 기록 없음</div>'}
+      </div>
+      <div>
+        <div class="sp-sec-title">📗 원서 진도</div>
+        ${rdCards||'<div class="sp-prog-empty" style="margin-bottom:12px">원서 진도 기록 없음</div>'}
     ${(()=>{
       // ── 원내 규칙 현황 ──
       const todayY=new Date().getFullYear();
@@ -6380,6 +6384,8 @@ function renderSpSummary(sid,period,from,to){
         </div>
       </div>`;
     })()}
+      </div>
+    </div>
     <div style="font-size:12px;color:var(--slate);line-height:2;margin-top:8px">
       ${s.fee?`<div>월 수업료: <strong>${Number(s.fee).toLocaleString()}원</strong></div>`:''}
       ${s.payday?`<div>결제일: <strong>매월 ${s.payday}일</strong></div>`:''}
@@ -6388,7 +6394,13 @@ function renderSpSummary(sid,period,from,to){
     </div>
     <div style="margin-top:12px">
       <button class="btn bo bsm" onclick="printReport('${sid}')" style="width:100%">🖨️ 학습 리포트 인쇄</button>
-    </div>`;
+    </div>
+   </div>`;
+}
+function spProgMore(btn){
+  const w=btn.parentElement.querySelector('.prog-more-wrap');
+  if(w)w.style.display='contents';
+  btn.remove();
 }
 function goAddLesson(sid){
   swTab('t-les');
