@@ -503,6 +503,21 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
   .cls-back-btn{display:inline-block !important;}
   #cls-detail-header .cls-back-btn{display:inline-block !important;}
 }
+/* 클래스 수업기록 카드 */
+.cls-lessons-wrap{max-width:760px;}
+.cls-les-card{background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:20px 24px;margin-bottom:16px;}
+.cls-les-card:last-child{margin-bottom:0;}
+.cls-les-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;}
+.cls-les-date{font-size:12px;font-weight:600;color:#64748B;letter-spacing:.01em;font-family:var(--fm);}
+.cls-les-date .cls-today-lbl{color:var(--teal);font-weight:700;}
+.cls-les-mats{display:grid;grid-template-columns:max-content 1fr;column-gap:12px;row-gap:8px;align-items:center;margin-bottom:10px;}
+.cls-les-mat-l{display:flex;align-items:center;gap:6px;}
+.cls-les-mat-book{font-size:13px;font-weight:700;color:var(--navy);}
+.cls-les-mat-prog{font-size:12px;color:#475569;line-height:1.5;min-width:0;}
+.cls-les-mat-prog .none{color:#94A3B8;}
+.cls-les-att{font-size:11px;color:var(--slate);line-height:1.9;margin-bottom:8px;}
+.cls-les-cmt{display:flex;flex-wrap:wrap;gap:6px;}
+.cls-cmt-pill{display:inline-block;padding:3px 10px;border-radius:999px;background:#F1F5F9;color:#334155;font-size:11px;font-weight:500;line-height:1.5;}
 /* 학생 필터 바 */
 .filter-bar{display:flex;gap:8px;align-items:center;margin-bottom:1rem;flex-wrap:wrap;}
 .filter-sel{padding:7px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream2);outline:none;cursor:pointer;transition:border-color .2s;}

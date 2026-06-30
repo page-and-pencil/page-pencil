@@ -7916,11 +7916,11 @@ function renderClassTab(){
       const dayCls=classes.filter(c=>(c.days||[]).includes(day));
       const isToday=day===todayDay;
       return`<div style="min-width:0">
-        <div style="font-size:10px;font-weight:700;text-align:center;padding:4px 2px;background:${isToday?'var(--teal)':'var(--navy)'};color:#fff;border-radius:4px 4px 0 0">${day}</div>
+        <div style="font-size:10px;font-weight:700;text-align:center;padding:4px 2px;background:${isToday?'var(--teal)':'var(--navy)'};color:#fff;border-radius:4px 4px 0 0">${day}${isToday?' <span style="font-size:8px;font-weight:600;opacity:.95">오늘</span>':''}</div>
         <div style="border:1.5px solid ${isToday?'var(--teal)':'var(--border)'};border-top:none;border-radius:0 0 4px 4px;min-height:44px;padding:2px">
-          ${dayCls.map(c=>`<div style="background:${isToday?'rgba(12,164,201,.15)':'rgba(15,48,74,.05)'};border-radius:3px;padding:2px 4px;margin-bottom:2px;cursor:pointer;line-height:1.3" onclick="openClsDetail('${c.id}')">
-            <div style="font-size:9px;font-weight:700;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</div>
-            ${c.timeStart?`<div style="font-size:8px;color:var(--slate)">${c.timeStart}${c.timeEnd?'~'+c.timeEnd:''}</div>`:''}
+          ${dayCls.map(c=>`<div style="background:${isToday?'rgba(12,164,201,.1)':'rgba(15,48,74,.035)'};border-radius:3px;padding:2px 4px;margin-bottom:2px;cursor:pointer;line-height:1.3" onclick="openClsDetail('${c.id}')">
+            <div style="font-size:9px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</div>
+            ${c.timeStart?`<div style="font-size:8px;color:var(--slate);opacity:.85">${c.timeStart}${c.timeEnd?'~'+c.timeEnd:''}</div>`:''}
           </div>`).join('')}
         </div>
       </div>`;
@@ -7981,7 +7981,7 @@ function openClsDetail(classId){
   <div style="display:flex;gap:6px;align-items:flex-start;flex-shrink:0;flex-wrap:wrap">
     ${isToday&&!done?`<button class="btn bt bsm" onclick="openClassLesson('${classId}','${todayStr}')">수업 기록</button>`:''}
     ${done?`<button class="btn bo bsm" onclick="openClassLessonEdit('${classId}','${todayStr}')">오늘 수정</button>`:''}
-    ${!isToday?`<button class="btn ba bsm" onclick="openClassLesson('${classId}')">수업 기록</button>`:''}
+    ${!isToday?`<button class="btn bt bsm" onclick="openClassLesson('${classId}')">수업 기록</button>`:''}
     <button class="btn bo bsm" onclick="openEditClass('${classId}')">클래스 수정</button>
   </div>`;
   // show detail pane
@@ -7994,9 +7994,15 @@ function openClsDetail(classId){
 function closeClsDetail(){
   document.getElementById('cls-split')?.classList.remove('detail-open');
 }
+function cmtToPills(cmt){
+  // 코멘트 문자열을 구분자(. / , ; 줄바꿈)로 분리해 각각 pill로 렌더. 단어 내 ·는 보존.
+  return String(cmt||'').split(/\s*[\/.,;\n]+\s*/).map(s=>s.trim()).filter(Boolean)
+    .map(p=>`<span class="cls-cmt-pill">${p}</span>`).join('');
+}
 function renderClsLessons(classId){
   const el=document.getElementById('cls-lessons-body');if(!el)return;
   const allStus=DB.stus().filter(s=>!s.inactive);
+  const todayStr=new Date().toISOString().split('T')[0];
   // group lessons by date
   const rawLes=(DB.less()||[]).filter(l=>l.classId===classId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const byDate=new Map();
@@ -8025,27 +8031,26 @@ function renderClsLessons(classId){
     });
     const matsHtml=[...commonMats.values()].map(m=>{
       const units=[...m.units];
-      return`<div style="margin-bottom:2px"><span style="font-weight:600;font-size:12px">${m.book}</span> <span class="spill ${m.cls}" style="font-size:10px">${m.label}</span>${units.length?` <span style="font-size:11px;color:var(--slate)">${units.join(', ')}</span>`:''}`;
+      return`<div class="cls-les-mat-l"><span class="cls-les-mat-book">${m.book}</span><span class="spill ${m.cls}" style="font-size:10px">${m.label}</span></div><div class="cls-les-mat-prog">${units.length?units.join(', '):'<span class="none">진도 미기록</span>'}</div>`;
     }).join('');
-    // per-student attendance
-    const attRows=les.map(l=>{
+    // per-student attendance — 정상 출석은 헤더에 이미 노출되므로 예외(지각·결석 등)만 표시
+    const attRows=les.filter(l=>l.att&&l.att!=='normal').map(l=>{
       const stu=allStus.find(s=>s.id===l.sid);
-      const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
-      return`<span style="font-size:11px;color:var(--slate)">${stu?.name||'—'}${attLabel?` <span class="att-chip ${ATTCLS[l.att]}" style="font-size:9px;padding:0 5px">${attLabel}</span>`:''}</span>`;
+      return`<span>${stu?.name||'—'} <span class="att-chip ${ATTCLS[l.att]}" style="font-size:9px;padding:0 5px">${ATTLBL[l.att]}</span></span>`;
     }).join(' · ');
-    // edit button targets the first lesson date
-    const firstLesSid=les[0]?.sid||'';
-    return`<div style="padding:12px 0;border-bottom:1px solid var(--border)">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
-        <span style="font-size:12px;font-family:var(--fm);color:var(--slate);font-weight:700">${date}</span>
+    const cmtPills=cmtToPills(les[0]?.cmt);
+    const isTodayDate=date===todayStr;
+    return`<div class="cls-les-card">
+      <div class="cls-les-head">
+        <span class="cls-les-date">${date}${isTodayDate?' · <span class="cls-today-lbl">오늘</span>':''}</span>
         <button class="btn bo bxxs" onclick="openClassLessonEdit('${classId}','${date}')">✏️ 수정</button>
       </div>
-      ${matsHtml?`<div style="margin-bottom:6px">${matsHtml}</div>`:''}
-      <div style="font-size:11px;color:var(--slate);line-height:1.8">${attRows}</div>
-      ${les[0]?.cmt?`<div style="font-size:12px;color:var(--slate);margin-top:4px;padding:5px 8px;background:var(--tl);border-radius:6px">${les[0].cmt}</div>`:''}
+      ${matsHtml?`<div class="cls-les-mats">${matsHtml}</div>`:''}
+      ${attRows?`<div class="cls-les-att">${attRows}</div>`:''}
+      ${cmtPills?`<div class="cls-les-cmt">${cmtPills}</div>`:''}
     </div>`;
   }).join('');
-  el.innerHTML=rows;
+  el.innerHTML=`<div class="cls-lessons-wrap">${rows}</div>`;
 }
 
 let _ecStuIds=[];
