@@ -435,7 +435,7 @@ function renderSpRdlog(sid){
           <button onclick="event.stopPropagation();toggleRdlogRead('${l.id}','${sid}')" style="margin-top:4px;width:100%;font-size:10px;padding:3px 0;border-radius:5px;border:1.5px solid ${l.read?'var(--teal)':'var(--border)'};background:${l.read?'var(--tl)':'#fff'};color:${l.read?'var(--teal)':'var(--slate)'};cursor:pointer;font-family:var(--fb);font-weight:600">${l.read?'✓ 완독':'+ 완독'}</button>
         </div>
       </div>`;}).join('')}
-    </div>`:'<div class="empty"><div class="empty-i">📸</div><div class="empty-t">리딩로그 없음</div></div>'}`;
+    </div>`:'<div class="empty boxed sm"><div class="empty-i">📸</div><div class="empty-t">리딩로그 없음</div></div>'}`;
 }
 function toggleSpLogForm(){
   const f=document.getElementById('sp-log-form');if(!f)return;
@@ -882,7 +882,7 @@ async function loadStuPanel(sid){
   // ── 수업 (최근 10개, 더보기 가능) ──
   const lesSlice=les.slice(0,10);
   document.getElementById('sp-lessons').innerHTML=!les.length
-    ?`<div class="empty"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div><button class="btn bt bsm" onclick="goAddLesson('${sid}')">+ 첫 수업 기록하기 →</button></div>`
+    ?`<div class="empty boxed"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div><div class="empty-s">수업을 기록하면 교재 진도·코멘트가 학부모에게 전달됩니다</div><button class="btn bt bsm" onclick="goAddLesson('${sid}')">+ 첫 수업 기록하기</button></div>`
     :`${lesSlice.map(l=>{
       const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
       const tbParts=[],bookParts=[];
@@ -1067,7 +1067,7 @@ async function loadStuPanel(sid){
       ${h.memo?`<div style="font-size:11px;color:var(--slate);margin-top:3px">💬 ${h.memo}</div>`:''}
     </div>`).join('')}
   </div>`:''}
-  ${!sAssigns.length&&!sHws.length?`<div class="empty"><div class="empty-i">📤</div><div class="empty-t">할당된 과제가 없습니다</div><button class="btn bt bsm" onclick="openAssignModal('${sid}')">+ 과제 할당하기 →</button></div>`:''}
+  ${!sAssigns.length&&!sHws.length?`<div class="empty boxed"><div class="empty-i">📤</div><div class="empty-t">할당된 과제가 없습니다</div><div class="empty-s">과제를 할당하면 제출·확인 현황이 여기에 표시됩니다</div><button class="btn bt bsm" onclick="openAssignModal('${sid}')">+ 과제 할당하기</button></div>`:''}
   `;
 
   swSpTab('sp-summary');
@@ -1169,7 +1169,7 @@ function renderStus(){
 
   if(!stus.length){
     const noFilter=!q&&!filterGrade&&!filterSchool&&filterStatus==='active';
-    g.innerHTML=`<div class="empty"><div class="empty-i">👦</div><div class="empty-t">${noFilter?'등록된 학생이 없습니다':'조건에 맞는 학생이 없습니다'}</div>${noFilter?`<button class="btn ba bsm" onclick="openAddStu()">+ 첫 학생 추가하기</button>`:''}</div>`;
+    g.innerHTML=`<div class="empty boxed"><div class="empty-i">👦</div><div class="empty-t">${noFilter?'등록된 학생이 없습니다':'조건에 맞는 학생이 없습니다'}</div>${noFilter?`<button class="btn bt bsm" onclick="openAddStu()">+ 첫 학생 추가하기</button>`:''}</div>`;
     return;
   }
   g.innerHTML=stus.map(s=>`<div class="sc${s.inactive?' inactive':''}" onclick="selStu('${s.id}',this)">
@@ -1934,7 +1934,7 @@ function renderLes(){
   const paged=les.slice(lesPage*perPage,(lesPage+1)*perPage);
   const el=document.getElementById('les-list');
   const cnt=document.getElementById('les-count');if(cnt)cnt.textContent=total?`총 ${total}건`:'';
-  if(!paged.length){el.innerHTML='<div class="empty"><div class="empty-i">📚</div><div class="empty-t">수업 기록이 없습니다</div></div>';renderLesPage(total,perPage);return;}
+  if(!paged.length){el.innerHTML='<div class="empty boxed"><div class="empty-i">📚</div><div class="empty-t">수업 기록이 없습니다</div></div>';renderLesPage(total,perPage);return;}
   el.innerHTML=paged.map(l=>{
     const s=stus.find(x=>x.id===l.sid);
     const mats=matsToHtml(l.materials);
@@ -2114,7 +2114,7 @@ function renderTst(){
   const paged=tsts.slice(tstPage*perPage,(tstPage+1)*perPage);
   const el=document.getElementById('tst-list');
   const cnt=document.getElementById('tst-count');if(cnt)cnt.textContent=total?`총 ${total}건`:'';
-  if(!paged.length){el.innerHTML='<div class="empty"><div class="empty-i">📝</div><div class="empty-t">테스트 기록이 없습니다</div></div>';renderTstPage(total,perPage);return;}
+  if(!paged.length){el.innerHTML='<div class="empty boxed"><div class="empty-i">📝</div><div class="empty-t">테스트 기록이 없습니다</div></div>';renderTstPage(total,perPage);return;}
   el.innerHTML=paged.map(t=>{
     const s=stus.find(x=>x.id===t.sid);
     const vp=pct(t.vocabCorrect,t.vocabTotal),gp=pct(t.grammarCorrect,t.grammarTotal);
@@ -2229,7 +2229,7 @@ function renderRd(){
   if(filterSid)rds=rds.filter(r=>r.sid===filterSid);
   rds=rds.slice(0,50);
   const el=document.getElementById('rd-list');
-  if(!rds.length){el.innerHTML='<div class="empty"><div class="empty-i">📗</div><div class="empty-t">원서 기록이 없습니다</div></div>';return;}
+  if(!rds.length){el.innerHTML='<div class="empty boxed"><div class="empty-i">📗</div><div class="empty-t">원서 기록이 없습니다</div></div>';return;}
   const allLibSrc=[...(_cache.library||[])];
   el.innerHTML=`<div class="card"><div style="overflow-x:auto"><table class="tbl" style="min-width:520px"><thead><tr><th style="white-space:nowrap">날짜</th><th>학생</th><th>제목</th><th style="white-space:nowrap;min-width:60px">AR 레벨</th><th>진도</th><th></th></tr></thead><tbody>
     ${rds.map(r=>{const s=stus.find(x=>x.id===r.sid);const bk=allLibSrc.find(b=>b.title===r.title);const lvl=bk?.level||'';return `<tr>
@@ -3835,7 +3835,7 @@ function updateTbookDatalist(){
 
 function renderLib(){
   const libs=DB.libs();const g=document.getElementById('lib-grid');if(!g)return;
-  if(!libs.length){g.innerHTML='<div class="empty" style="grid-column:1/-1"><div class="empty-i">📚</div><div class="empty-t">원서목록이 비어있습니다</div></div>';return;}
+  if(!libs.length){g.innerHTML='<div class="empty boxed" style="grid-column:1/-1"><div class="empty-i">📚</div><div class="empty-t">원서목록이 비어있습니다</div></div>';return;}
   g.innerHTML=libs.map(b=>`<div class="book-card" onclick="openEditLib('${b.id}')">
     <div class="book-cover-wrap">📗</div>
     <div class="book-info"><div class="book-title">${b.title}</div><div class="book-meta">${[b.arLevel?'AR '+b.arLevel:'',b.genre].filter(Boolean).join(' · ')}</div></div>
@@ -5670,7 +5670,7 @@ function renderLog(){
   if(filterSid)logs=logs.filter(l=>l.sid===filterSid);
   const el=document.getElementById('log-grid');
   const cnt=document.getElementById('log-count');if(cnt)cnt.textContent=logs.length?`총 ${logs.length}건`:'';
-  if(!logs.length){el.innerHTML='<div class="empty" style="grid-column:1/-1"><div class="empty-i">📸</div><div class="empty-t">아직 업로드된 리딩로그가 없습니다</div></div>';return;}
+  if(!logs.length){el.innerHTML='<div class="empty boxed" style="grid-column:1/-1"><div class="empty-i">📸</div><div class="empty-t">아직 업로드된 리딩로그가 없습니다</div></div>';return;}
   el.innerHTML=logs.map(l=>{
     const s=stus.find(x=>x.id===l.sid);
     const imgs=logImgs(l);const first=imgs[0]||'';
@@ -8023,7 +8023,7 @@ function renderClsLessons(classId){
     byDate.get(l.date).push(l);
   });
   if(!byDate.size){
-    el.innerHTML=`<div class="empty" style="padding:2rem 0"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div></div>`;
+    el.innerHTML=`<div class="empty boxed sm"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div></div>`;
     return;
   }
   const rows=[...byDate.entries()].map(([date,les])=>{

@@ -372,7 +372,7 @@ function renderStudentLibrary(sid){
   </div>`:'';
 
   const noContent=!myTbooks.length&&!hasLib;
-  el.innerHTML=noContent?`<div style="padding:2rem;text-align:center">
+  el.innerHTML=noContent?`<div class="empty boxed" style="margin:16px">
     <div style="font-size:36px;margin-bottom:10px">📖</div>
     <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">복습 자료가 없습니다</div>
     <div style="font-size:12px;color:var(--slate)">교재 단원 원문이나 원서가 등록되면 여기에 보입니다</div>
@@ -449,7 +449,7 @@ function renderAssignmentTab(sid){
   const done=assigns.filter(a=>isSubmitted(a));
 
   if(!assigns.length){
-    el.innerHTML=`<div style="padding:2rem;text-align:center"><div style="font-size:36px;margin-bottom:10px">📋</div><div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">아직 숙제가 없어요</div><div style="font-size:12px;color:var(--slate)">선생님이 숙제를 할당하면 여기에 표시됩니다</div></div>`;
+    el.innerHTML=`<div class="empty boxed" style="margin:16px"><div style="font-size:36px;margin-bottom:10px">📋</div><div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">아직 숙제가 없어요</div><div style="font-size:12px;color:var(--slate)">선생님이 숙제를 할당하면 여기에 표시됩니다</div></div>`;
     return;
   }
 
@@ -724,7 +724,7 @@ function renderVocabDeck(sid){
   const filterLabel=vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 1.25rem;background:var(--tl);font-size:12px;color:#0B8DAE"><span>📌 숙제 단어 ${vocabDeckFilter.words.length}개</span><button onclick="vocabDeckFilter=null;renderVocabDeck('${sid}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate)">전체 보기</button></div>`:'';
   if(vocabDeckFilter)cards=cards.filter(c=>vocabDeckFilter.words.map(w=>w.toLowerCase()).includes((c.word||'').toLowerCase()));
   if(!cards.length){
-    el.innerHTML=filterLabel+`<div style="text-align:center;padding:3rem 1rem">
+    el.innerHTML=filterLabel+`<div class="empty boxed" style="margin:16px">
       <div style="font-size:40px;margin-bottom:12px">📭</div>
       <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">${vocabDeckFilter?'이 숙제에 단어 카드가 없어요':'아직 단어 카드가 없어요'}</div>
       <div style="font-size:13px;color:var(--slate);line-height:1.8">${vocabDeckFilter?'<button class="btn bo bsm" onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)">전체 단어장 보기</button>':'선생님이 테스트 결과를 입력하면<br>단어 카드가 자동으로 만들어집니다'}</div>
