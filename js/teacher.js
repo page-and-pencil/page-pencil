@@ -894,25 +894,23 @@ async function loadStuPanel(sid){
         const cls=isBook?'srd':(SCLS[baseKey]||'');
         if(!label&&!v.book)return;
         const units=(v.unit||'').split(', ').filter(Boolean);
-        const unitHtml=units.length>1
-          ?`<div style="padding-left:4px;margin-top:1px">${units.map(u=>`<div style="font-size:11px;color:var(--slate);line-height:1.6">${u}</div>`).join('')}</div>`
-          :units.length===1?` <span style="color:var(--slate)">${units[0]}</span>`:'';
-        const html=`<div style="margin-bottom:3px"><span style="font-weight:600">${v.book||''}</span> <span class="spill ${cls}">${label}</span>${unitHtml}</div>`;
+        const unitHtml=units.length?`<div class="prog-pills" style="margin-top:4px">${units.map(u=>`<span class="prog-pill">${u}</span>`).join('')}</div>`:'';
+        const html=`<div style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-weight:700;font-size:13px;color:var(--navy)">${v.book||''}</span><span class="spill ${cls}">${label}</span></div>${unitHtml}</div>`;
         if(isBook)bookParts.push(html);else tbParts.push(html);
       });
-      return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="display:flex;gap:4px;margin-bottom:4px;justify-content:space-between;align-items:center">
-          <span style="font-size:12px;font-family:var(--fm);color:var(--slate)">${l.date||''}</span>
-          <div style="display:flex;gap:4px">
+      return `<div class="cls-les-card">
+        <div class="cls-les-head">
+          <span class="cls-les-date">${l.date||''}</span>
+          <div style="display:flex;gap:4px;align-items:center">
             ${attLabel?`<span class="att-chip ${ATTCLS[l.att]}" style="font-size:10px">${attLabel}</span>`:''}
             <button class="btn bo bxxs" onclick="openEditLes('${l.id}')">✏️</button>
             <button class="btn bd bxxs" onclick="reqDelLesFromPanel('${l.id}','${sid}')">🗑️</button>
           </div>
         </div>
-        ${tbParts.length?`<div style="font-size:12px;margin-bottom:${bookParts.length||l.polishedCmt||l.stuCmt?'6px':'0'}">${tbParts.join('')}</div>`:''}
-        ${bookParts.length?`<div style="font-size:12px;margin-bottom:${l.polishedCmt||l.stuCmt?'6px':'0'};padding:6px 8px;background:var(--cream2);border-radius:6px">${bookParts.join('')}</div>`:''}
-        ${l.polishedCmt?`<div style="font-size:12px;color:var(--slate);padding:5px 8px;background:var(--tl);border-radius:6px;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:var(--teal);display:block;margin-bottom:1px">학부모</span>${l.polishedCmt}</div>`:(l.cmt&&!l.stuCmt?`<div style="font-size:12px;color:var(--slate)">${l.cmt}</div>`:'')}
-        ${l.stuCmt?`<div style="font-size:12px;color:var(--slate);padding:5px 8px;background:var(--cream2);border-radius:6px"><span style="font-size:10px;font-weight:700;color:var(--navy);display:block;margin-bottom:1px">학생</span>${l.stuCmt}</div>`:''}
+        ${tbParts.length?`<div>${tbParts.join('')}</div>`:''}
+        ${bookParts.length?`<div>${bookParts.join('')}</div>`:''}
+        ${l.polishedCmt?`<div style="font-size:12px;color:#334155;padding:5px 8px;background:var(--tl);border-radius:6px;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:var(--teal);display:block;margin-bottom:1px">학부모</span>${l.polishedCmt}</div>`:(l.cmt&&!l.stuCmt?`<div style="font-size:12px;color:#334155">${l.cmt}</div>`:'')}
+        ${l.stuCmt?`<div style="font-size:12px;color:#334155;padding:5px 8px;background:var(--cream2);border-radius:6px"><span style="font-size:10px;font-weight:700;color:var(--navy);display:block;margin-bottom:1px">학생</span>${l.stuCmt}</div>`:''}
       </div>`;
     }).join('')}
     ${les.length>10?`<div style="text-align:center;padding:10px 0;font-size:12px;color:var(--teal);cursor:pointer" onclick="swTab('t-les');document.getElementById('les-filter-stu').value='${sid}';lesPage=0;renderLes()">전체 ${les.length}건 수업 기록 보기 →</div>`:''}
@@ -965,7 +963,7 @@ async function loadStuPanel(sid){
   document.getElementById('sp-payment').innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${payChip?'8px':'12px'}">
       <span style="font-size:13px;font-weight:700">결제 기록</span>
-      <button class="btn ba bsm" onclick="openQuickPayFor('${sid}')">+ 추가</button>
+      <button class="btn bo bsm" onclick="openQuickPayFor('${sid}')">+ 추가</button>
     </div>
     ${payChip?`<div style="margin-bottom:12px">${payChip}</div>`:''}
     ${!payments.length?'<div style="color:var(--slate);font-size:12px">결제 기록 없음</div>'
@@ -1715,7 +1713,7 @@ function showLesFollowup(sid,date,stuName){
       </div>
     </div>
     <div id="les-fu-share" style="padding-top:8px;border-top:1px solid rgba(12,164,201,.15)">
-      <button class="btn ba bsm" style="width:100%" onclick="shareParentUpdateByStu('${sid}')">📤 학부모에게 수업 알림 보내기</button>
+      <button class="btn bt bsm" style="width:100%" onclick="shareParentUpdateByStu('${sid}')">📤 학부모에게 수업 알림 보내기</button>
     </div>
   </div>`;
 }

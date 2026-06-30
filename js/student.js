@@ -783,9 +783,9 @@ function renderVocabPhaseIntro(el){
     </div>
     <div style="font-size:22px;font-weight:700;color:var(--navy);margin-bottom:6px">${total}개 단어</div>
     <div style="font-size:13px;color:var(--slate);margin-bottom:1.2rem;line-height:1.8">${p.sub}</div>
-    ${deckState.phase===0?`<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:1.4rem;flex-wrap:wrap">
+    ${deckState.phase===0?`<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:1.4rem;flex-wrap:wrap">
       <span style="font-size:12px;color:var(--slate)">세션:</span>
-      ${[null,20,10].map(n=>`<button class="btn ${vocabSessionSize===n?'bt':'bo'} bsm" style="font-size:11px;padding:3px 10px" onclick="vocabSessionSize=${n};renderVocabDeck(currentStudentSid)">${n?n+'개':'전체'}</button>`).join('')}
+      <div class="sp-seg">${[null,20,10].map(n=>`<button class="${vocabSessionSize===n?'on':''}" onclick="vocabSessionSize=${n};renderVocabDeck(currentStudentSid)">${n?n+'개':'전체'}</button>`).join('')}</div>
     </div>`:''}
     <button class="btn bt" style="padding:14px 40px;font-size:15px;border-radius:50px" onclick="startVocabPhase()">시작 →</button>
     ${deckState.phase>0?`<div style="margin-top:1rem"><button class="btn bo bsm" onclick="renderVocabDeck(currentStudentSid)">처음부터</button></div>`:''}
