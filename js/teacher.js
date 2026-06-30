@@ -920,7 +920,7 @@ async function loadStuPanel(sid){
 
   // ── 테스트 (최근 5개) ──
   const tstListHtml=!tsts.length
-    ?`<div class="empty"><div class="empty-i">📝</div><div class="empty-t">아직 테스트 기록이 없습니다</div><button class="btn bt bsm" onclick="closeStuPanel();swTab('t-tst');setTimeout(()=>{const el=document.getElementById('ts-stu');if(el){el.value='${sid}';el.dispatchEvent(new Event('change'));}},200)">+ 테스트 입력하기 →</button></div>`
+    ?`<div class="empty boxed"><div class="empty-i">📝</div><div class="empty-t">아직 테스트 기록이 없습니다</div><div class="empty-s">회차별 점수를 입력하면 단어·어법 추이 그래프가 표시됩니다</div><button class="btn bt bsm" onclick="closeStuPanel();swTab('t-tst');setTimeout(()=>{const el=document.getElementById('ts-stu');if(el){el.value='${sid}';el.dispatchEvent(new Event('change'));}},200)">+ 테스트 입력하기</button></div>`
     :tsts.slice(0,5).map(t=>{
       const vp=pct(t.vocabCorrect,t.vocabTotal),gp=pct(t.grammarCorrect,t.grammarTotal);
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
@@ -934,9 +934,9 @@ async function loadStuPanel(sid){
     }).join('');
   // ── NELT 결과 ──
   const neltList=(s.neltResults||[]).slice().reverse();
-  const neltHtml=`<div style="margin-top:16px;padding-top:14px;border-top:1.5px solid var(--border)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <span style="font-size:12px;font-weight:700;color:var(--navy)">🏆 NELT 결과</span>
+  const neltHtml=`<div class="sp-card" style="margin-top:20px">
+    <div class="sp-card-head">
+      <span class="sp-card-title">🏆 NELT 결과</span>
       <button class="btn bo bsm" onclick="openNeltModal('${sid}')">+ 결과 입력</button>
     </div>
     ${neltList.length?neltList.map(n=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
@@ -946,9 +946,9 @@ async function loadStuPanel(sid){
       ${n.level?`<span style="font-size:11px;color:var(--teal);font-weight:600">${n.level}</span>`:''}
       ${n.memo?`<span style="font-size:11px;color:var(--slate);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.memo}</span>`:''}
       <button onclick="delNeltResult('${sid}','${n.id}')" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 7px;cursor:pointer;font-size:11px;color:var(--slate);flex-shrink:0">삭제</button>
-    </div>`).join(''):`<div style="font-size:12px;color:var(--slate)">NELT 결과가 없습니다</div>`}
+    </div>`).join(''):`<div class="empty boxed sm"><div class="empty-i" style="font-size:24px">🏆</div><div class="empty-t">NELT 결과가 없습니다</div></div>`}
   </div>`;
-  document.getElementById('sp-tests').innerHTML=tstListHtml+neltHtml;
+  document.getElementById('sp-tests').innerHTML=`<div class="sp-tests-wrap">${tstListHtml}${neltHtml}</div>`;
 
   // ── 결제 ──
   const payToday=new Date();
