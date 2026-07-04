@@ -1610,7 +1610,7 @@ function openUnitReview(tbId,unitKey){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
   if(!tb)return toast('교재 정보가 없습니다');
   const words=tuNormWords(tb.units?.[unitKey]||[]);
-  _urState={tbId,unitKey,tb,words,step:1};
+  _urState={tbId,unitKey,tb,words,step:1,ttsLevel:ttsLevelForTb(tb)};
   document.getElementById('ur-title').textContent=tb.title||'복습';
   document.getElementById('ur-sub').textContent=unitKey+(tb.unitTitles?.[unitKey]?' — '+tb.unitTitles[unitKey]:'');
   stopSpeak();
@@ -1707,20 +1707,25 @@ function renderUrText(tb,body,footer){
     return;
   }
 
+  if(!_urState.ttsLevel)_urState.ttsLevel=ttsLevelForTb(tb);
+  const sents=ttsSplitSents(text);
+  const sentHtml=sents.map((s,i)=>`<span id="ur-ls-${i}" style="transition:background .2s;border-radius:4px">${_renderHighlightedText(s,words)}</span>`).join(' ');
   let audioHtml='';
   if(audioUrl){
     audioHtml=`<audio controls src="${audioUrl}" style="width:100%;height:32px;margin-bottom:8px"></audio>`;
   }else{
-    audioHtml=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-      <button id="ur-tts-btn" class="btn bt bsm" onclick="startUrTTS()" style="border-radius:50px;padding:6px 14px">▶ 듣기</button>
+    audioHtml=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+      <button id="ur-tts-btn" class="btn bt bsm" onclick="urListenPlay()" style="border-radius:50px;padding:6px 14px">▶ 듣기</button>
       <button class="btn ba bsm" onclick="stopSpeak();const b=document.getElementById('ur-tts-btn');if(b)b.textContent='▶ 듣기'" style="border-radius:50px;padding:6px 12px">■ 정지</button>
-    </div>`;
+      ${ttsLevelSeg(_urState.ttsLevel,'urSetTtsLevel')}
+    </div>
+    <div style="font-size:11px;color:var(--slate);margin-bottom:8px">속도: 교재 수준에 맞춰 <b>${TTS_LEVELS[_urState.ttsLevel]?.short||'중급'}</b> 자동 선택 · 문장 하이라이트를 따라 읽으세요</div>`;
   }
 
   body.innerHTML=`<div style="padding:12px 16px">
     ${audioHtml}
     ${link?`<a href="${link}" target="_blank" rel="noopener" class="btn ba bsm" style="display:inline-flex;align-items:center;gap:5px;margin-bottom:10px;border-radius:50px;padding:6px 14px">🔗 심화 자료</a>`:''}
-    <div id="ur-text-body" style="font-size:15px;line-height:1.85;color:var(--navy);letter-spacing:.01em">${_renderHighlightedText(text,words)}</div>
+    <div id="ur-text-body" style="font-size:15px;line-height:1.85;color:var(--navy);letter-spacing:.01em">${sentHtml}</div>
   </div>`;
 
   footer.innerHTML=`<button class="btn bt" style="width:100%" onclick="renderUrStep(${hasPatterns?3:1})">${hasPatterns?'다음: 패턴 드릴 →':'← 처음으로'}</button>`;
@@ -1760,15 +1765,17 @@ function renderUrPatterns(tb,body,footer){
   </div>`;
 }
 
+function urTtsL(){return TTS_LEVELS[_urState?.ttsLevel]||TTS_LEVELS.intermediate;}
 async function urPlayPattern(idx){
   const raw=(_urState.tb?.unitPatterns?.[_urState.unitKey]||'').trim();
   const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
   const line=lines[idx];if(!line)return;
   stopSpeak();
+  const L=urTtsL();
   const row=document.getElementById('ur-pat-row-'+idx);
   document.querySelectorAll('[id^="ur-pat-row-"]').forEach(el=>el.style.borderColor='var(--border)');
   if(row)row.style.borderColor='var(--teal)';
-  await speakSmart(line,0.82);
+  await speakSmart(line,{el:L.el,tts:L.tts});
   if(row)row.style.borderColor='var(--border)';
 }
 
@@ -1778,14 +1785,15 @@ async function urPlayAllPatterns(){
   if(!lines.length)return;
   stopSpeak();
   const tok=_seqTok;
+  const L=urTtsL();
   for(let idx=0;idx<lines.length;idx++){
     if(tok!==_seqTok)return; // 다른 재생/정지로 취소됨
     document.querySelectorAll('[id^="ur-pat-row-"]').forEach(el=>el.style.borderColor='var(--border)');
     const row=document.getElementById('ur-pat-row-'+idx);
     if(row){row.style.borderColor='var(--teal)';row.scrollIntoView({behavior:'smooth',block:'nearest'});}
-    await speakSmart(lines[idx],0.82);
+    await speakSmart(lines[idx],{el:L.el,tts:L.tts});
     if(row)row.style.borderColor='var(--border)';
-    await new Promise(r=>setTimeout(r,400));
+    await new Promise(r=>setTimeout(r,L.gap)); // 문장 사이 쉼 (레벨별)
   }
 }
 
@@ -1891,7 +1899,7 @@ function openMissionPlayer(sid,asgnId){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===a.tbId);
   if(!tb)return toast('교재 정보가 없습니다');
   const missions=missionList(a,tb);
-  _msState={a,tb,sid,missions,unitKey:a.unitKey,idx:0};
+  _msState={a,tb,sid,missions,unitKey:a.unitKey,idx:0,ttsLevel:ttsLevelForTb(tb)};
   _msRecBlob=null;
   document.getElementById('ms-title').textContent='🎯 '+(a.bookTitle||tb.title||'학습 미션');
   document.getElementById('ms-sub').textContent=(a.unitKey||'')+(a.unitTitle?' — '+a.unitTitle:'');
@@ -2002,22 +2010,26 @@ function msRevealAllWords(){
   });
 }
 
-// 미션 2: 듣기 & 읽기 (오디오/TTS + 단어 하이라이트 본문)
+// 미션 2: 듣기 & 읽기 (문장별 재생 + 문장 하이라이트 + 속도 레벨)
 function renderMsListen(body,footer){
   const{tb,unitKey}=_msState;
   const text=tb.unitTexts?.[unitKey]||'';
   const audioUrl=tb.unitAudio?.[unitKey]||'';
   const words=tuNormWords(tb.units?.[unitKey]||[]);
   if(!text){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">이 단원에 등록된 본문이 없습니다</div>';footer.innerHTML=msDoneBtn('listen','✓ 완료');return;}
+  if(!_msState.ttsLevel)_msState.ttsLevel=ttsLevelForTb(tb);
+  const sents=ttsSplitSents(text);
+  const sentHtml=sents.map((s,i)=>'<span id="ms-ls-'+i+'" style="transition:background .2s;border-radius:4px">'+_renderHighlightedText(s,words)+'</span>').join(' ');
   const audioHtml=audioUrl
     ?'<audio controls src="'+audioUrl+'" style="width:100%;height:34px;margin-bottom:10px"></audio>'
-    :'<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">'
-      +'<button id="ms-tts-btn" class="btn bt bsm" onclick="msStartTTS()" style="border-radius:50px;padding:7px 16px">▶ 듣기</button>'
+    :'<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
+      +'<button id="ms-tts-btn" class="btn bt bsm" onclick="msListenPlay()" style="border-radius:50px;padding:7px 16px">▶ 듣기</button>'
       +'<button class="btn ba bsm" onclick="msStopTTS()" style="border-radius:50px;padding:7px 14px">■ 정지</button>'
-      +'<span style="font-size:11px;color:var(--slate)">들으면서 눈으로 따라 읽으세요</span>'
-      +'</div>';
+      +ttsLevelSeg(_msState.ttsLevel,'msSetTtsLevel')
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--slate);margin-bottom:8px">속도는 교재 수준에 맞춰 <b>'+(TTS_LEVELS[_msState.ttsLevel]?.short||'중급')+'</b>으로 자동 선택 — 하이라이트되는 문장을 눈으로 따라 읽으세요</div>';
   body.innerHTML='<div style="padding:12px 16px">'+audioHtml
-    +'<div id="ms-text-body" style="font-size:15px;line-height:1.9;color:var(--navy);letter-spacing:.01em">'+_renderHighlightedText(text,words)+'</div>'
+    +'<div id="ms-text-body" style="font-size:15px;line-height:1.9;color:var(--navy);letter-spacing:.01em">'+sentHtml+'</div>'
     +'</div>';
   footer.innerHTML=msDoneBtn('listen','✓ 다 듣고 읽었어요');
 }
@@ -2054,26 +2066,29 @@ function renderMsPattern(body,footer){
     +'<div style="flex:1.4">'+msDoneBtn('pattern','✓ 패턴 연습 끝!')+'</div>'
     +'</div>';
 }
+function msTtsL(){return TTS_LEVELS[_msState?.ttsLevel]||TTS_LEVELS.intermediate;}
 async function msPlayPattern(i){
   const lines=_msState._patLines||[];const line=lines[i];if(!line)return;
   stopSpeak();
+  const L=msTtsL();
   document.querySelectorAll('[id^="ms-pat-row-"]').forEach(el=>el.style.borderColor='var(--border)');
   const row=document.getElementById('ms-pat-row-'+i);if(row)row.style.borderColor='var(--teal)';
-  await speakSmart(line,0.82);
+  await speakSmart(line,{el:L.el,tts:L.tts});
   if(row)row.style.borderColor='var(--border)';
 }
 async function msPlayAllPatterns(){
   const lines=_msState._patLines||[];if(!lines.length)return;
   stopSpeak();
   const tok=_seqTok;
+  const L=msTtsL();
   for(let idx=0;idx<lines.length;idx++){
     if(tok!==_seqTok)return;
     document.querySelectorAll('[id^="ms-pat-row-"]').forEach(el=>el.style.borderColor='var(--border)');
     const row=document.getElementById('ms-pat-row-'+idx);
     if(row){row.style.borderColor='var(--teal)';row.scrollIntoView({behavior:'smooth',block:'nearest'});}
-    await speakSmart(lines[idx],0.82);
+    await speakSmart(lines[idx],{el:L.el,tts:L.tts});
     if(row)row.style.borderColor='var(--border)';
-    await new Promise(r=>setTimeout(r,500));
+    await new Promise(r=>setTimeout(r,L.gap)); // 문장 사이 쉼 (레벨별)
   }
 }
 
@@ -2230,7 +2245,8 @@ function msRenderReadSent(){
 }
 function msReadListen(){
   if(!_msRead)return;stopSpeak();
-  speakSmart(_msRead.sents[_msRead.idx],0.82);
+  const L=msTtsL();
+  speakSmart(_msRead.sents[_msRead.idx],{el:L.el,tts:L.tts});
 }
 // 본문 단어 vs 인식된 단어 순차 매칭 → 색칠, 정확도(%) 반환
 function msReadColor(transcript,final){
@@ -2359,4 +2375,46 @@ function msReadNext(skip,pct){
   if(!skip)_msRead.scores.push(pct||0);
   _msRead.idx++;
   msRenderReadSent();
+}
+
+// ── 속도 레벨 UI + 문장별 재생 (레벨별 쉼 + 문장 하이라이트) ──
+function ttsLevelSeg(cur,fnName){
+  return '<div class="seg" style="flex:0 0 auto">'+Object.entries(TTS_LEVELS).map(([id,L])=>
+    '<button type="button" class="'+(cur===id?'seg-on':'')+'" onclick="'+fnName+'(\''+id+'\')" style="font-size:11px;padding:5px 9px">'+L.label+'</button>').join('')+'</div>';
+}
+async function speakSentences(text,levelId,hiPrefix){
+  const L=TTS_LEVELS[levelId]||TTS_LEVELS.intermediate;
+  const sents=ttsSplitSents(text);
+  if(!sents.length)return true;
+  stopSpeak();
+  const tok=_seqTok;
+  for(let i=0;i<sents.length;i++){
+    if(tok!==_seqTok)return false;
+    if(hiPrefix){
+      document.querySelectorAll('[id^="'+hiPrefix+'"]').forEach(e=>e.style.background='');
+      const el=document.getElementById(hiPrefix+i);
+      if(el){el.style.background='var(--tl)';el.style.borderRadius='4px';el.scrollIntoView({behavior:'smooth',block:'center'});}
+    }
+    await speakSmart(sents[i],{el:L.el,tts:L.tts});
+    if(tok!==_seqTok)return false;
+    if(i<sents.length-1)await new Promise(r=>setTimeout(r,L.gap)); // 문장 사이 쉼
+  }
+  if(hiPrefix)document.querySelectorAll('[id^="'+hiPrefix+'"]').forEach(e=>e.style.background='');
+  return true;
+}
+function msSetTtsLevel(l){if(_msState){_msState.ttsLevel=l;stopSpeak();renderMsStep(_msState.idx);}}
+function urSetTtsLevel(l){if(_urState){_urState.ttsLevel=l;stopSpeak();renderUrStep(_urState.step);}}
+async function msListenPlay(){
+  const{tb,unitKey}=_msState||{};if(!tb)return;
+  const text=tb.unitTexts?.[unitKey]||'';if(!text)return;
+  const btn=document.getElementById('ms-tts-btn');if(btn)btn.textContent='▶ 재생 중...';
+  await speakSentences(text,_msState.ttsLevel||'intermediate','ms-ls-');
+  const b2=document.getElementById('ms-tts-btn');if(b2)b2.textContent='▶ 듣기';
+}
+async function urListenPlay(){
+  const tb=_urState?.tb;if(!tb)return;
+  const text=tb.unitTexts?.[_urState.unitKey]||'';if(!text)return;
+  const btn=document.getElementById('ur-tts-btn');if(btn)btn.textContent='▶ 재생 중...';
+  await speakSentences(text,_urState.ttsLevel||'intermediate','ur-ls-');
+  const b2=document.getElementById('ur-tts-btn');if(b2)b2.textContent='▶ 듣기';
 }

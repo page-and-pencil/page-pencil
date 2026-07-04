@@ -194,3 +194,23 @@ function missionList(a,tb){
   const filtered=sel.filter(m=>av[m]);
   return filtered.length?filtered:sel;
 }
+
+// ── TTS 속도 레벨 (초급/중급/고급) ──
+// el: ElevenLabs 캐시 오디오 재생 배속 / tts: 브라우저 TTS rate / gap: 문장 사이 쉼(ms)
+const TTS_LEVELS={
+  beginner:{label:'🐢 천천히',short:'초급',el:0.8,tts:0.7,gap:900},
+  intermediate:{label:'보통',short:'중급',el:0.9,tts:0.85,gap:550},
+  advanced:{label:'🐇 빠르게',short:'고급',el:1.0,tts:1.0,gap:300},
+};
+// 교재 메타(레벨·제목·카테고리·시리즈)로 초/중/고급 자동 판단
+function ttsLevelForTb(tb){
+  const lv=(tb?.level||'').toString();
+  const s=(lv+' '+(tb?.title||'')+' '+(tb?.category||'')+' '+(tb?.series||'')).toLowerCase();
+  if(/phonics|파닉스|starter|기초|beginner|입문/.test(s)||/\blevel\s*[0-2]\b/.test(s)||/^\s*[0-2]\s*$/.test(lv))return 'beginner';
+  if(/advanced|고급|master|중등|inter\s*2|upper/.test(s)||/\blevel\s*[6-9]\b/.test(s)||/^\s*[6-9]\s*$/.test(lv))return 'advanced';
+  return 'intermediate';
+}
+// 문장 분리 (TTS 재생용 — 빈 문장만 제외)
+function ttsSplitSents(text){
+  return (text||'').split(/\n+/).flatMap(p=>p.replace(/\s+/g,' ').trim().split(/(?<=[.!?…])\s+/)).map(s=>s.trim()).filter(Boolean);
+}

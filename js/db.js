@@ -455,10 +455,11 @@ async function elevenGetAudioUrl(text,cfg){
   if(url)supaUpsert('tts_cache',id,{url,voice,chars:text.length,at:new Date().toISOString()}).catch(()=>{});
   return url||URL.createObjectURL(blob);
 }
-function _playUrl(url,rate){
+function _playUrl(url,elRate){
   return new Promise(res=>{
     const a=new Audio(url);a._res=res;_elAudio=a;
-    if(rate&&rate<1)a.playbackRate=Math.max(0.7,rate+0.1); // 살짝만 느리게 (음성 왜곡 방지)
+    const r=Math.min(1.3,Math.max(0.7,elRate||1));
+    if(r!==1)a.playbackRate=r; // 캐시는 1배속 원본 하나, 재생 배속만 조절 (재생성 없음)
     a.onended=a.onerror=()=>{if(_elAudio===a)_elAudio=null;res();};
     a.play().catch(()=>res());
   });
@@ -486,22 +487,28 @@ async function legacySpeak(text,rate){
     const u=new SpeechSynthesisUtterance(clean);
     u.lang='en-US';u.rate=rate;
     if(_bestVoice)u.voice=_bestVoice;
-    u.onend=u.onerror=()=>res();
+    // 음성 미지원/무음 환경에서 onend가 안 오는 경우 대비한 안전 타이머
+    const guard=setTimeout(res,Math.min(30000,2000+clean.length*90));
+    u.onend=u.onerror=()=>{clearTimeout(guard);res();};
     window.speechSynthesis.speak(u);
   });
 }
+// rate: 숫자(레거시, 브라우저 TTS rate) 또는 {el, tts} 레벨 객체
 async function speakSmart(text,rate=0.85){
   text=(text||'').trim();if(!text)return;
   stopSmartAudio();
+  const isObj=typeof rate==='object'&&rate;
+  const elRate=isObj?(rate.el||1):(rate>=1?1:Math.max(0.7,rate+0.1));
+  const ttsRate=isObj?(rate.tts||0.85):rate;
   const cfg=elevenCfg();
   if(cfg&&text.length<=2500){
     try{
       const url=await elevenGetAudioUrl(text,cfg);
-      await _playUrl(url,rate);
+      await _playUrl(url,elRate);
       return;
     }catch(e){console.warn('ElevenLabs 실패 → 폴백:',e.message);}
   }
-  await legacySpeak(text,rate);
+  await legacySpeak(text,ttsRate);
 }
 async function speakWord(text,rate=0.85){return speakSmart(text,rate);}
 
