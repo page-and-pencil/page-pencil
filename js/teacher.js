@@ -3929,15 +3929,18 @@ function clearColF(key){
 let _dataTab='master';
 function switchDataTab(tab){
   _dataTab=tab;
-  // 패널 전환: master·book 공유, word 별도
-  ['master','book','word'].forEach(id=>{const p=document.getElementById('dp-'+id);if(p)p.style.display='none';});
+  // 패널 전환: master·book 공유, word·ws 별도
+  ['master','book','word','ws'].forEach(id=>{const p=document.getElementById('dp-'+id);if(p)p.style.display='none';});
   // 탭 버튼 스타일 초기화
-  ['master','tbook','lib','word'].forEach(t=>{const b=document.getElementById('dtab-'+t);if(b){b.style.color='var(--slate)';b.style.borderBottomColor='transparent';b.style.fontWeight='600';}});
+  ['master','tbook','lib','word','ws'].forEach(t=>{const b=document.getElementById('dtab-'+t);if(b){b.style.color='var(--slate)';b.style.borderBottomColor='transparent';b.style.fontWeight='600';}});
   const act=document.getElementById('dtab-'+tab);
   if(act){act.style.color='var(--teal)';act.style.borderBottomColor='var(--teal)';act.style.fontWeight='700';}
   if(tab==='master'){
     const p=document.getElementById('dp-master');if(p)p.style.display='';
     renderMasterDB();
+  } else if(tab==='ws'){
+    const p=document.getElementById('dp-ws');if(p)p.style.display='';
+    renderWsDB(true);
   } else if(tab==='tbook'||tab==='lib'){
     const p=document.getElementById('dp-book');if(p)p.style.display='';
     const titleEl=document.getElementById('book-db-title');if(titleEl)titleEl.textContent=tab==='tbook'?'교재 DB':'원서 DB';
@@ -3949,6 +3952,64 @@ function switchDataTab(tab){
     const p=document.getElementById('dp-word');if(p)p.style.display='';
     wdbPage=0;renderWordDB();
   }
+}
+
+// ── 워크시트 서브탭 (스튜디오에서 저장한 워크시트) ──
+async function renderWsDB(refetch){
+  const grid=document.getElementById('ws-cards');if(!grid)return;
+  if(refetch||!_cache.worksheets){
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--slate);font-size:13px">불러오는 중…</div>';
+    try{
+      const rows=await supaFetch('worksheets','select=*',true);
+      _cache.worksheets=(rows||[]).map(r=>({rowId:r.id,...(r.data||r)}));
+    }catch(e){_cache.worksheets=_cache.worksheets||[];}
+  }
+  const q=(document.getElementById('ws-q')?.value||'').trim().toLowerCase();
+  let list=[..._cache.worksheets].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  if(q)list=list.filter(w=>(w.title||'').toLowerCase().includes(q));
+  const total=document.getElementById('ws-total');
+  if(total)total.textContent=`${_cache.worksheets.length}개 저장됨`;
+  if(!list.length){
+    grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:34px 16px;color:var(--slate)">
+      <div style="font-size:34px;margin-bottom:8px">🗒️</div>
+      <div style="font-size:13px;font-weight:700;color:var(--navy)">${q?'검색 결과가 없어요':'저장된 워크시트가 없어요'}</div>
+      ${q?'':'<div style="font-size:12px;margin-top:4px">📝 워크시트 탭에서 만들고 저장하면 여기에 모여요</div>'}
+    </div>`;
+    return;
+  }
+  const typeKo=t=>t==='literature'?'문학':'정보글';
+  grid.innerHTML=list.map(w=>{
+    const secs=w.sections?Object.keys(w.sections).length:0;
+    const date=w.createdAt?new Date(w.createdAt).toLocaleDateString():'';
+    return`<div class="bcard" onclick="openWorksheetInStudio('${escAttr(w.id)}')">
+      <div class="bcard-cover" style="background:var(--tl)">🗒️</div>
+      <span class="bcard-type" style="color:var(--teal-deep,#0B8DAE)">워크시트</span>
+      ${w.gradeLevel?`<span class="bcard-lvl">${escAttr(w.gradeLevel)}</span>`:''}
+      <div class="bcard-body">
+        <div class="bcard-title">${escAttr(w.title||'제목 없음')}</div>
+        <div class="bcard-meta">${typeKo(w.passageType)}${w.guidelineLanguage?' · '+escAttr(w.guidelineLanguage):''}</div>
+        <div class="bcard-stats"><span>섹션 <b>${secs}</b></span>${date?`<span>${date}</span>`:''}</div>
+      </div>
+      <div class="bcard-actions" onclick="event.stopPropagation()">
+        <button onclick="openWorksheetInStudio('${escAttr(w.id)}')">📂 열기</button>
+        <button onclick="deleteWsDB('${escAttr(w.id)}')" style="color:var(--coral,#dc2626)">🗑 삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+// 자료 DB 카드 → 스튜디오 iframe에서 해당 워크시트 바로 열기 (#open=id 해시)
+// src를 항상 해시 포함으로 설정: 미로드→해시 포함 로드, 로드됨→같은 문서라 hashchange만 발생 (재로드 없음)
+function openWorksheetInStudio(id){
+  const f=document.getElementById('ws-frame');
+  if(f)f.setAttribute('src','studio/index.html#open='+encodeURIComponent(id));
+  swTab('t-worksheet');
+}
+async function deleteWsDB(id){
+  askConfirm('워크시트 삭제','이 워크시트를 삭제할까요? 되돌릴 수 없어요.','삭제','bd',async()=>{
+    await supaDelete('worksheets',id);
+    _cache.worksheets=(_cache.worksheets||[]).filter(w=>w.id!==id);
+    renderWsDB();toast('삭제되었습니다');
+  });
 }
 
 // ── 책 DB (마스터: 교재+원서 통합) ──

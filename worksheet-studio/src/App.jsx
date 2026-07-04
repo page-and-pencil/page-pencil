@@ -33,6 +33,21 @@ export default function App() {
     api.bootstrap().then(setBoot).catch(console.error);
   }, []);
 
+  // P&P 자료 DB에서 특정 워크시트 바로 열기: studio/index.html#open=<id>
+  useEffect(() => {
+    const openFromHash = () => {
+      const m = window.location.hash.match(/open=([^&]+)/);
+      if (m) {
+        window.location.hash = "";
+        openSaved(decodeURIComponent(m[1]));
+      }
+    };
+    openFromHash();
+    window.addEventListener("hashchange", openFromHash);
+    return () => window.removeEventListener("hashchange", openFromHash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const notify = useCallback((msg, kind = "info") => {
     setToast({ msg, kind });
     setTimeout(() => setToast(null), 4000);
