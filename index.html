@@ -9,7 +9,7 @@
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260704r">
+<link rel="stylesheet" href="css/style.css?v=20260704s">
 </head>
 <body>
 
@@ -1518,6 +1518,21 @@
   </div>
 </div>
 
+<!-- 원서 AI 듣기 (학생) -->
+<div id="m-book-listen" class="mo">
+  <div class="mdl mdl-xl" style="display:flex;flex-direction:column;max-height:90vh">
+    <div class="mh" style="flex-shrink:0">
+      <div style="min-width:0">
+        <div class="mt" id="bl-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">원서 듣기</div>
+        <div style="font-size:11px;color:var(--slate);margin-top:1px" id="bl-sub"></div>
+      </div>
+      <button class="bx" onclick="closeM('m-book-listen');stopSpeak()">×</button>
+    </div>
+    <div id="bl-body" style="flex:1;overflow-y:auto;min-height:0"></div>
+    <div id="bl-footer" style="flex-shrink:0;padding:12px 16px;border-top:1px solid var(--border)"></div>
+  </div>
+</div>
+
 <!-- 학습 미션 플레이어 (학생) -->
 <div id="m-mission" class="mo" data-protect>
   <div class="mdl mdl-xl" style="display:flex;flex-direction:column;max-height:92vh">
@@ -1890,11 +1905,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260704r"></script>
-<script src="vocab_ref_data.js?v=20260704r"></script>
-<script src="js/db.js?v=20260704r"></script>
-<script src="js/teacher.js?v=20260704r"></script>
-<script src="js/student.js?v=20260704r"></script>
-<script src="js/parent.js?v=20260704r"></script>
+<script src="js/utils.js?v=20260704s"></script>
+<script src="vocab_ref_data.js?v=20260704s"></script>
+<script src="js/db.js?v=20260704s"></script>
+<script src="js/teacher.js?v=20260704s"></script>
+<script src="js/student.js?v=20260704s"></script>
+<script src="js/parent.js?v=20260704s"></script>
 </body>
 </html>

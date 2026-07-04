@@ -98,35 +98,34 @@ export default function ReviewStep({ worksheet, setWorksheet, savedId, onSave, o
     <div className="review">
       <div className="review-toolbar no-print">
         <div className="review-toolbar-left">
-          <p className="step-eyebrow">Step 3 of 3 — Review &amp; Download</p>
+          <p className="step-eyebrow">STEP 3 — 검토 &amp; 다운로드</p>
           <h2>{worksheet.title}</h2>
         </div>
         <div className="review-toolbar-actions">
           <label className="switch">
             <input type="checkbox" checked={showAnswers} onChange={(e) => setShowAnswers(e.target.checked)} />
-            <span>{showAnswers ? "Hide Answers" : "Show Answers"}</span>
+            <span>{showAnswers ? "답안 숨기기" : "답안 보기"}</span>
           </label>
           <button className="btn btn-ghost" onClick={() => download(false)}>
-            Download PDF
+            문제지 PDF
           </button>
           <button className="btn btn-ghost" onClick={() => download(true)}>
-            Answer Key PDF
+            답안지 PDF
           </button>
           <button className="btn btn-ghost" onClick={exportExcel}>
             Excel
           </button>
           <button className="btn btn-primary" disabled={!!savedId} onClick={() => onSave(worksheet)}>
-            {savedId ? "Saved ✓" : "Save Worksheet"}
+            {savedId ? "저장됨 ✓" : "저장"}
           </button>
           <button className="btn btn-ghost" onClick={onNew}>
-            New Worksheet
+            새로 만들기
           </button>
         </div>
       </div>
 
       <p className="muted small no-print edit-hint">
-        Everything is editable inline — click any text in the preview to change it. Use ▲▼ on section bars to
-        reorder. “Download PDF” → choose “Save as PDF” in the print dialog.
+        미리보기의 모든 텍스트는 클릭해서 바로 수정할 수 있어요. 섹션 순서는 ▲▼로 변경 · PDF는 인쇄 대화상자에서 "PDF로 저장"을 선택하세요.
       </p>
 
       <div className="studio">
@@ -142,15 +141,15 @@ export default function ReviewStep({ worksheet, setWorksheet, savedId, onSave, o
 
         <aside className="design-panel no-print">
           <div className="design-panel-head">
-            <h3>Worksheet Design</h3>
+            <h3>워크시트 디자인</h3>
             <button className="btn-link" onClick={saveDesignDefaults} title="Use these design settings for every new worksheet">
-              Save as default
+              기본값 저장
             </button>
           </div>
 
           <div className="design-body">
             <div className="design-group">
-              <p className="design-group-title">Colors</p>
+              <p className="design-group-title">색상</p>
               <div className="theme-row">
                 {THEMES.map((t) => (
                   <button
@@ -163,28 +162,28 @@ export default function ReviewStep({ worksheet, setWorksheet, savedId, onSave, o
                 ))}
               </div>
               <div className="color-pick-row">
-                <span>Primary</span>
+                <span>포인트 색</span>
                 <input type="color" value={colors.primary} onChange={(e) => setColor("primary", e.target.value)} />
               </div>
               <div className="color-pick-row">
-                <span>Section Header BG</span>
+                <span>섹션 헤더 배경</span>
                 <input type="color" value={colors.header} onChange={(e) => setColor("header", e.target.value)} />
               </div>
               <div className="color-pick-row">
-                <span>Text</span>
+                <span>본문 글자색</span>
                 <input type="color" value={colors.text} onChange={(e) => setColor("text", e.target.value)} />
               </div>
               {design.colors && (
                 <button className="btn-link" onClick={() => setDesign({ colors: null })}>
-                  Reset Colors
+                  색상 초기화
                 </button>
               )}
             </div>
 
             <div className="design-group">
-              <p className="design-group-title">Typography</p>
+              <p className="design-group-title">글꼴</p>
               <div className="design-row">
-                <p className="design-row-label">Font</p>
+                <p className="design-row-label">서체</p>
                 <select
                   className="design-select"
                   value={design.fontId}
@@ -198,23 +197,23 @@ export default function ReviewStep({ worksheet, setWorksheet, savedId, onSave, o
                 </select>
               </div>
               <div className="design-row">
-                <p className="design-row-label">Title Weight</p>
+                <p className="design-row-label">제목 굵기</p>
                 <Seg options={TITLE_WEIGHTS} value={design.titleWeight} onChange={(v) => setDesign({ titleWeight: v })} />
               </div>
             </div>
 
             <div className="design-group">
-              <p className="design-group-title">Page Layout</p>
+              <p className="design-group-title">페이지 레이아웃</p>
               <div className="design-row">
-                <p className="design-row-label">Margins</p>
+                <p className="design-row-label">여백</p>
                 <Seg options={MARGIN_OPTIONS} value={design.margins} onChange={(v) => setDesign({ margins: v })} />
               </div>
               <div className="design-row">
-                <p className="design-row-label">Row Height</p>
+                <p className="design-row-label">행 높이</p>
                 <Seg options={ROW_HEIGHT_OPTIONS} value={design.rowHeight} onChange={(v) => setDesign({ rowHeight: v })} />
               </div>
               <div className="design-row">
-                <p className="design-row-label">Text Alignment</p>
+                <p className="design-row-label">본문 정렬</p>
                 <Seg
                   options={[
                     { id: "left", label: "Left" },
@@ -225,29 +224,29 @@ export default function ReviewStep({ worksheet, setWorksheet, savedId, onSave, o
                 />
               </div>
               <div className="design-row">
-                <p className="design-row-label">Number Style</p>
+                <p className="design-row-label">번호 스타일</p>
                 <Seg options={NUMBER_STYLES} value={design.numberStyle} onChange={(v) => setDesign({ numberStyle: v })} />
               </div>
               <div className="design-row">
-                <p className="design-row-label">English Column Width</p>
+                <p className="design-row-label">영어 칸 너비</p>
                 <Seg options={COL_WIDTH_OPTIONS} value={design.colWidth} onChange={(v) => setDesign({ colWidth: v })} />
               </div>
             </div>
 
             <div className="design-group">
-              <p className="design-group-title">Options</p>
-              <Toggle label="Original passage" checked={design.showPassage} onChange={(v) => setDesign({ showPassage: v })} />
+              <p className="design-group-title">표시 옵션</p>
+              <Toggle label="원문 지문" checked={design.showPassage} onChange={(v) => setDesign({ showPassage: v })} />
               <Toggle
-                label="Line numbers"
+                label="줄 번호"
                 checked={design.showLineNumbers}
                 onChange={(v) => setDesign({ showLineNumbers: v })}
               />
               <Toggle
-                label="Native language column"
+                label="모국어 칸"
                 checked={design.showNative}
                 onChange={(v) => setDesign({ showNative: v })}
               />
-              <Toggle label="Section emojis" checked={design.showEmojis} onChange={(v) => setDesign({ showEmojis: v })} />
+              <Toggle label="섹션 이모지" checked={design.showEmojis} onChange={(v) => setDesign({ showEmojis: v })} />
             </div>
           </div>
         </aside>

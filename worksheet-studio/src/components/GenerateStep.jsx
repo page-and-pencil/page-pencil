@@ -47,8 +47,8 @@ export default function GenerateStep({ jobId, sections = [], onDone, onError, on
     <div className="generate">
       <div className="card generate-card">
         <div className="spinner" />
-        <h2>Generating your worksheet…</h2>
-        <p className="muted small">AI is writing every selected section. This usually takes 1–3 minutes.</p>
+        <h2>워크시트를 만들고 있어요…</h2>
+        <p className="muted small">AI가 선택한 섹션을 하나씩 작성 중이에요. 보통 1~3분 걸려요.</p>
 
         {chips.length > 0 && (
           <div className="gen-chips">
@@ -66,10 +66,10 @@ export default function GenerateStep({ jobId, sections = [], onDone, onError, on
               <span className="log-time">{new Date(l.t).toLocaleTimeString()}</span> {l.msg}
             </div>
           ))}
-          {logs.length === 0 && <div className="log-line muted">Waiting for the job to start…</div>}
+          {logs.length === 0 && <div className="log-line muted">생성 시작을 기다리는 중…</div>}
         </div>
         <button className="btn btn-ghost" onClick={onCancel}>
-          Cancel
+          취소
         </button>
       </div>
     </div>

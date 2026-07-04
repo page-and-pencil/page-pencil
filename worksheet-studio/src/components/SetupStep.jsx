@@ -90,20 +90,19 @@ export default function SetupStep({ initial, onSubmit, onLoadSample, aiConfigure
   return (
     <div className="setup">
       <div className="step-header">
-        <p className="step-eyebrow">Step 1 of 3 — Paste your reading passage</p>
-        <h1>Generate, Review, and Download</h1>
+        <p className="step-eyebrow">STEP 1 — 지문 입력</p>
+        <h1>AI 리딩 워크시트 만들기</h1>
         <p className="step-sub">
-          Paste the original reading text, choose grade &amp; sections, and AI generates everything —
-          answer-ready layout for review and printing.
+          지문을 붙여넣고 학년과 섹션만 고르면, AI가 인쇄용 워크시트와 답안지를 한 번에 만들어 드려요.
         </p>
       </div>
 
       <div className="setup-grid">
         <section className="card">
           <div className="card-title-row">
-            <h2>Paste Original Reading Text</h2>
+            <h2>원문 지문</h2>
             <button className="btn-link" onClick={onLoadSample}>
-              Load sample passage
+              샘플 지문 불러오기
             </button>
           </div>
 
@@ -117,27 +116,27 @@ export default function SetupStep({ initial, onSubmit, onLoadSample, aiConfigure
               onChange={(e) => importFiles(e.target.files)}
             />
             <button className="btn btn-ghost" disabled={importing} onClick={() => fileRef.current?.click()}>
-              {importing ? "Extracting text…" : "📎 Import from photo / PDF"}
+              {importing ? "지문 추출 중…" : "📎 사진 / PDF에서 가져오기"}
             </button>
-            <span className="import-hint">Textbook photos or PDF → AI extracts the passage (up to 4 files)</span>
+            <span className="import-hint">교재 사진이나 PDF를 올리면 AI가 지문만 추출해요 (최대 4개)</span>
           </div>
 
           <input
             className="input"
-            placeholder="Worksheet title (auto-set from passage topic if blank)"
+            placeholder="워크시트 제목 (비우면 지문 주제로 자동 설정)"
             value={state.title}
             onChange={(e) => set({ title: e.target.value })}
           />
           <textarea
             className="textarea"
             rows={13}
-            placeholder="Paste your reading passage here…"
+            placeholder="영어 지문을 여기에 붙여넣으세요…"
             value={state.passage}
             onChange={(e) => set({ passage: e.target.value })}
           />
-          <div className="char-count">{state.passage.length.toLocaleString()} characters</div>
+          <div className="char-count">{state.passage.length.toLocaleString()}자</div>
 
-          <label className="field-label">Passage Type</label>
+          <label className="field-label">지문 유형</label>
           <div className="type-row">
             {PASSAGE_TYPES.map((t) => (
               <button
@@ -152,7 +151,7 @@ export default function SetupStep({ initial, onSubmit, onLoadSample, aiConfigure
           </div>
 
           <label className="field-label">
-            School / Teacher Name <span className="muted">(optional — printed on the worksheet)</span>
+            학교 / 교사명 <span className="muted">(선택 — 워크시트에 인쇄)</span>
           </label>
           <input
             className="input"
@@ -163,9 +162,9 @@ export default function SetupStep({ initial, onSubmit, onLoadSample, aiConfigure
         </section>
 
         <section className="card">
-          <h2>Choose grade &amp; sections</h2>
+          <h2>학년 &amp; 섹션 선택</h2>
 
-          <label className="field-label">Grade Level (US Standard)</label>
+          <label className="field-label">학년 (미국 기준)</label>
           <select className="input" value={state.gradeLevel} onChange={(e) => set({ gradeLevel: e.target.value })}>
             {GRADES.map((g) => (
               <option key={g.id} value={g.id}>
@@ -174,7 +173,7 @@ export default function SetupStep({ initial, onSubmit, onLoadSample, aiConfigure
             ))}
           </select>
 
-          <label className="field-label">Guideline Language (translations &amp; support)</label>
+          <label className="field-label">모국어 지원 언어 (번역·해설)</label>
           <select
             className="input"
             value={state.guidelineLanguage}
@@ -188,7 +187,7 @@ export default function SetupStep({ initial, onSubmit, onLoadSample, aiConfigure
           </select>
 
           <label className="field-label">
-            Active Sections <span className="muted">({state.sections.length} selected)</span>
+            워크시트 섹션 <span className="muted">({state.sections.length}개 선택)</span>
           </label>
           <div className="section-list">
             {visibleSections.map((s) => (
@@ -207,12 +206,12 @@ export default function SetupStep({ initial, onSubmit, onLoadSample, aiConfigure
           </div>
 
           <button className="btn btn-primary btn-lg" disabled={!canSubmit} onClick={submit}>
-            Confirm &amp; Generate
+            ✨ 워크시트 생성
           </button>
           <div className="setup-footer-row">
-            <span className="muted small">Grade, language &amp; sections</span>
+            <span className="muted small">학년·언어·섹션 구성</span>
             <button className="btn-link" onClick={saveSetupDefaults}>
-              Save as default settings
+              기본 설정으로 저장
             </button>
           </div>
         </section>

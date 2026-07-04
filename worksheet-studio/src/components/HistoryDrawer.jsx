@@ -41,23 +41,23 @@ export default function HistoryDrawer({ onClose, onOpen, notify }) {
     <div className="drawer-overlay no-print" onClick={onClose}>
       <aside className="drawer" onClick={(e) => e.stopPropagation()}>
         <div className="drawer-head">
-          <h2>Worksheet History</h2>
+          <h2>워크시트 기록</h2>
           <button className="btn btn-ghost" onClick={onClose} aria-label="Close worksheet drawer">
             ✕
           </button>
         </div>
-        <p className="muted small">Open saved work and export PDFs again.</p>
+        <p className="muted small">저장한 워크시트를 다시 열고 PDF로 내보낼 수 있어요.</p>
 
         <input
           className="input history-search"
-          placeholder="Search worksheets…"
+          placeholder="워크시트 검색…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
 
-        {filtered === null && <p className="muted">Loading saved worksheets…</p>}
+        {filtered === null && <p className="muted">불러오는 중…</p>}
         {filtered?.length === 0 && (
-          <p className="muted">{query ? "No worksheets match your search." : "No saved worksheets yet."}</p>
+          <p className="muted">{query ? "검색 결과가 없어요." : "아직 저장한 워크시트가 없어요."}</p>
         )}
 
         <ul className="history-list">
@@ -74,7 +74,7 @@ export default function HistoryDrawer({ onClose, onOpen, notify }) {
                 </span>
               </button>
               <button className="btn btn-ghost btn-danger" onClick={() => remove(w.id)} title="Delete worksheet">
-                Delete
+                삭제
               </button>
             </li>
           ))}

@@ -93,23 +93,25 @@ export default function App() {
     setStep("setup");
   }
 
+  const embedded = import.meta.env.MODE === "pp" && window.self !== window.top; // P&P 내장(iframe) 모드
+
   return (
     <div className="app-shell">
-      <header className="topbar no-print">
-        <button className="brand" onClick={newWorksheet}>
-          <span className="brand-mark">WS</span>
-          <span className="brand-name">
-            Worksheet <em>Studio</em>
+      <header className="topbar no-print" style={embedded ? { padding: "8px 20px" } : undefined}>
+        <button className="brand" onClick={newWorksheet} title="처음 화면으로">
+          {!embedded && <span className="brand-mark">WS</span>}
+          <span className="brand-name" style={embedded ? { fontSize: 15 } : undefined}>
+            {embedded ? <>📝 워크시트 스튜디오</> : <>Worksheet <em>Studio</em></>}
           </span>
         </button>
         <nav className="topbar-actions">
           {boot && !boot.aiConfigured && (
             <span className="badge badge-warn" title="Claude API 키가 설정되어야 실제 AI 생성이 가능합니다">
-              Demo mode
+              데모 모드
             </span>
           )}
           <button className="btn btn-ghost" onClick={() => setHistoryOpen(true)}>
-            History
+            📂 기록
           </button>
           {import.meta.env.MODE === "pp" && window.self === window.top && (
             <a className="btn btn-ghost" href="../index.html" style={{ textDecoration: "none" }}>
@@ -156,10 +158,12 @@ export default function App() {
       {historyOpen && <HistoryDrawer onClose={() => setHistoryOpen(false)} onOpen={openSaved} notify={notify} />}
       {toast && <div className={`toast toast-${toast.kind} no-print`}>{toast.msg}</div>}
 
-      <footer className="footer no-print">
-        <span>Worksheet Studio — generate, review, and download print-ready reading worksheets.</span>
-        <span className="footer-sections">{SECTIONS.length} worksheet sections · 8 native languages · personal edition</span>
-      </footer>
+      {!embedded && (
+        <footer className="footer no-print">
+          <span>Worksheet Studio — AI 리딩 워크시트 생성 · 검토 · 인쇄</span>
+          <span className="footer-sections">{SECTIONS.length}개 섹션 · 8개 모국어 · Page &amp; Pencil</span>
+        </footer>
+      )}
     </div>
   );
 }

@@ -253,9 +253,20 @@ function toggleBookAudio(safeId){
   audioEl.style.display=hidden?'':'none';
   if(btn)btn.textContent=hidden?'⏸ 숨기기':'🎧 다시 듣기';
 }
+// 원서 본문 텍스트 (bookText 또는 챕터 텍스트)
+function bookTextOf(b){
+  if(!b)return'';
+  const ch=(Array.isArray(b.chapters)?b.chapters:[]).map(c=>(c&&c.text)||'').filter(Boolean).join('\n');
+  return ((b.bookText||'')+(ch?'\n'+ch:'')).trim();
+}
+// 들을 수 있는 원서 = 실제 오디오가 있거나, 본문이 있어 AI로 읽어줄 수 있는 책
+function bookListenable(b){return !!getAudioObj(b)||!!bookTextOf(b);}
 function renderStuAudio(b){
   const ao=getAudioObj(b);
-  if(!ao) return `<div class="stu-no-audio">🎵 오디오가 아직 준비되지 않았어요</div>`;
+  if(!ao){
+    if(bookTextOf(b))return `<button class="btn bt bsm" style="border-radius:50px;width:100%" onclick="openBookListen('${escAttr(b.id)}')">🎧 AI 원어민 듣기 — 문장 하이라이트</button>`;
+    return `<div class="stu-no-audio">🎵 오디오가 아직 준비되지 않았어요</div>`;
+  }
   if(ao.type==='chapters'&&ao.chapters&&ao.chapters.length){
     return `<div class="stu-audio-wrap">
       <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:6px">챕터별 오디오</div>
@@ -309,10 +320,11 @@ function renderStudentLibrary(sid){
   const myBooks=allBooks.filter(b=>myBookIds.has(b.id));
   const tbRds=(_cache.textbooks||[]).filter(t=>t.sid===sid&&t.type==='원서').sort((a,b)=>(b.completedDate||'').localeCompare(a.completedDate||''));
 
-  // 현재 읽는 중 / 이미 읽은 원서 / 미읽은 오디오 원서 구분
+  // 현재 읽는 중 / 이미 읽은 원서 / 미읽은 듣기 가능 원서 구분
+  // (실제 오디오뿐 아니라 본문이 있어 AI로 읽어줄 수 있는 책도 포함)
   const currentBook=lastReadBookId?allBooks.find(b=>b.id===lastReadBookId):null;
-  const readBooksWithAudio=myBooks.filter(b=>b.audioUrl&&b.id!==lastReadBookId);
-  const otherWithAudio=allBooks.filter(b=>b.audioUrl&&!myBookIds.has(b.id));
+  const readBooksWithAudio=myBooks.filter(b=>bookListenable(b)&&b.id!==lastReadBookId);
+  const otherWithAudio=allBooks.filter(b=>bookListenable(b)&&!myBookIds.has(b.id));
 
   function bookCardHtml(b,isCurrent,isRead){
     const rdDate=myRds.find(r=>r.bookId===b.id)?.date||'';
@@ -1773,14 +1785,6 @@ function renderUrText(tb,body,footer){
   footer.innerHTML=`<button class="btn bt" style="width:100%" onclick="renderUrStep(${hasPatterns?3:1})">${hasPatterns?'다음: 패턴 드릴 →':'← 처음으로'}</button>`;
 }
 
-async function startUrTTS(){
-  const body=document.getElementById('ur-text-body');if(!body)return;
-  const text=body.innerText||'';if(!text.trim())return;
-  stopSpeak();
-  const btn=document.getElementById('ur-tts-btn');if(btn)btn.textContent='▶ 재생 중...';
-  await speakSmart(text,0.85);
-  if(btn)btn.textContent='▶ 듣기';
-}
 
 // Step 3: 패턴 드릴
 function renderUrPatterns(tb,body,footer){
@@ -1955,6 +1959,8 @@ function closeMissionPlayer(){
   try{if(typeof msStopSR==='function')msStopSR();}catch(e){}
   try{if(_brRecorder&&_brRecorder.state==='recording')_brRecorder.stop();}catch(e){}
   clearInterval(_msTimerInt);_msTimerInt=null;
+  // 미니게임/연습 상태 리셋 (다음 미션에 잔여 상태가 새지 않도록)
+  _msCloze=null;_msScr=null;_msGame=null;_vocR=null;_vocS=null;_msRead=null;
   if(_msState)renderStudentHome(_msState.sid);
 }
 function msProgressPct(){
@@ -2183,14 +2189,6 @@ function renderMsListen(body,footer){
     +'<div id="ms-text-body" style="font-size:15px;line-height:1.9;color:var(--navy);letter-spacing:.01em">'+sentHtml+'</div>'
     +'</div>';
   footer.innerHTML=msDoneBtn('listen','✓ 다 듣고 읽었어요');
-}
-async function msStartTTS(){
-  const body=document.getElementById('ms-text-body');if(!body)return;
-  const text=body.innerText||'';if(!text.trim())return;
-  stopSpeak();
-  const btn=document.getElementById('ms-tts-btn');if(btn)btn.textContent='▶ 재생 중...';
-  await speakSmart(text,0.85);
-  if(btn)btn.textContent='▶ 듣기';
 }
 function msStopTTS(){
   stopSpeak();
@@ -2862,4 +2860,48 @@ async function urListenPlay(){
   const btn=document.getElementById('ur-tts-btn');if(btn)btn.textContent='▶ 재생 중...';
   await playPassage(text,_urState.ttsLevel||'intermediate','ur-ls-');
   const b2=document.getElementById('ur-tts-btn');if(b2)b2.textContent='▶ 듣기';
+}
+
+// ── 원서 AI 듣기 리더 (본문 → ElevenLabs 통짜 재생 + 문장 하이라이트) ──
+let _blState=null;
+function bookTtsLevel(b){
+  const ar=parseFloat(b?.arLevel||b?.ar||'0')||0;
+  if(ar&&ar<2)return 'beginner';
+  if(ar>=4)return 'advanced';
+  return ar?'intermediate':'beginner'; // AR 정보 없으면 초급(안전)
+}
+function openBookListen(bookId){
+  const b=[...(_cache.library||[])].find(x=>x.id===bookId);
+  const text=bookTextOf(b);
+  if(!b||!text){toast('이 책의 본문이 아직 등록되지 않았어요');return;}
+  _blState={b,text,level:bookTtsLevel(b)};
+  document.getElementById('bl-title').textContent='🎧 '+(b.title||'원서 듣기');
+  document.getElementById('bl-sub').textContent=[(b.series||''),(b.arLevel||b.ar)?'AR '+(b.arLevel||b.ar):''].filter(Boolean).join(' · ');
+  stopSpeak();
+  blDraw();
+  openM('m-book-listen');
+}
+function blSetLevel(l){if(_blState){_blState.level=l;stopSpeak();blDraw();}}
+function blDraw(){
+  const S=_blState;if(!S)return;
+  const body=document.getElementById('bl-body'),footer=document.getElementById('bl-footer');
+  if(!body||!footer)return;
+  const sentHtml=ttsSentHtml(S.text,[],'bl-ls-',S.level);
+  body.innerHTML='<div style="padding:12px 16px">'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
+    +'<button id="bl-play" class="btn bt bsm" style="border-radius:50px;padding:7px 16px" onclick="blPlay()">▶ 듣기</button>'
+    +'<button class="btn ba bsm" style="border-radius:50px;padding:7px 14px" onclick="blStop()">■ 정지</button>'
+    +ttsLevelSeg(S.level,'blSetLevel')
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--slate);margin-bottom:10px">하이라이트되는 문장을 눈으로 따라 읽으세요 · 속도는 책 수준(<b>'+(TTS_LEVELS[S.level]?.short||'초급')+'</b>) 자동</div>'
+    +'<div style="font-size:15.5px;line-height:1.95;color:var(--navy)">'+sentHtml+'</div>'
+    +'</div>';
+  footer.innerHTML='<button class="btn bo" style="width:100%;border-radius:50px;padding:12px" onclick="closeM(\'m-book-listen\');stopSpeak()">닫기</button>';
+}
+function blStop(){stopSpeak();const b=document.getElementById('bl-play');if(b)b.textContent='▶ 듣기';}
+async function blPlay(){
+  const S=_blState;if(!S)return;
+  const btn=document.getElementById('bl-play');if(btn)btn.textContent='▶ 재생 중...';
+  await playPassage(S.text,S.level,'bl-ls-');
+  const b2=document.getElementById('bl-play');if(b2)b2.textContent='▶ 듣기';
 }
