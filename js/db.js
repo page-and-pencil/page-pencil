@@ -426,19 +426,23 @@ function stopSmartAudio(){
 }
 async function sha256Hex(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 function elevenCfg(){const c=_cache.settings.elevenlabs||DB.g('elevenlabs')||null;return(c&&c.key)?c:null;}
-async function elevenGetAudioUrl(text,cfg){
-  const voice=cfg.voiceId||'cgSgspJ2msm6clMCkdW9';
-  const id='tts_'+await sha256Hex(voice+'|'+text);
+async function elevenGetAudioUrl(text,cfg,wordMode){
+  const voice=cfg.voiceId||'EXAVITQu4vr4xnSDxMaL';
+  // 단어 모드는 별도 캐시 키 (모델·발화 설정이 다르므로)
+  const id='tts_'+await sha256Hex(voice+'|'+(wordMode?'w|':'')+text);
   // 1) 캐시 조회 — 같은 문장은 다시 생성하지 않음 (크레딧 절약)
   try{
     const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
     if(r.ok){const row=await r.json();if(row?.data?.url)return row.data.url;}
   }catch(e){}
-  // 2) 생성
+  // 2) 생성 — 단어는 고품질 모델 + 안정된 발화 설정으로 또렷하게
+  const body=wordMode
+    ?{text,model_id:'eleven_multilingual_v2',voice_settings:{stability:0.85,similarity_boost:0.8,style:0,use_speaker_boost:true}}
+    :{text,model_id:'eleven_turbo_v2_5'};
   const gen=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_64`,{
     method:'POST',
     headers:{'xi-api-key':cfg.key,'Content-Type':'application/json'},
-    body:JSON.stringify({text,model_id:'eleven_turbo_v2_5'}),
+    body:JSON.stringify(body),
   });
   if(!gen.ok)throw new Error('ElevenLabs HTTP '+gen.status);
   const blob=await gen.blob();
@@ -493,24 +497,31 @@ async function legacySpeak(text,rate){
     window.speechSynthesis.speak(u);
   });
 }
-// rate: 숫자(레거시, 브라우저 TTS rate) 또는 {el, tts} 레벨 객체
+// rate: 숫자(레거시, 브라우저 TTS rate) 또는 {el, tts, word} 옵션 객체
 async function speakSmart(text,rate=0.85){
   text=(text||'').trim();if(!text)return;
   stopSmartAudio();
   const isObj=typeof rate==='object'&&rate;
+  const wordMode=isObj&&!!rate.word;
   const elRate=isObj?(rate.el||1):(rate>=1?1:Math.max(0.7,rate+0.1));
   const ttsRate=isObj?(rate.tts||0.85):rate;
   const cfg=elevenCfg();
   if(cfg&&text.length<=2500){
     try{
-      const url=await elevenGetAudioUrl(text,cfg);
+      const url=await elevenGetAudioUrl(text,cfg,wordMode);
       await _playUrl(url,elRate);
       return;
     }catch(e){console.warn('ElevenLabs 실패 → 폴백:',e.message);}
   }
   await legacySpeak(text,ttsRate);
 }
-async function speakWord(text,rate=0.85){return speakSmart(text,rate);}
+// 단어 발음: 고품질 모델 + 안정 발화 + 느린 재생(0.85×)으로 또박또박
+async function speakWord(text,rate){
+  const t=(text||'').trim();
+  const isWord=/^[A-Za-z''-]+$/.test(t);
+  if(isWord)return speakSmart(t,{word:true,el:0.85,tts:0.7});
+  return speakSmart(t,rate??0.85);
+}
 
 async function getMeaningKo(word){
   const apiKey=DB.api();
