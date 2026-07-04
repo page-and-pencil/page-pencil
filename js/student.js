@@ -672,7 +672,7 @@ function showParentNoticeBanner(){
 // ── STUDENT TABS (updated) ──
 // 재생 중인 오디오/TTS 전부 정지 (탭 이동·모달 닫기 시 끊김 방지)
 function stopAllStudentMedia(){
-  try{if(window.speechSynthesis)window.speechSynthesis.cancel();}catch(e){}
+  stopSpeak(); // 통합 정지: TTS + ElevenLabs 오디오 + WebAudio 구간 재생 + 진행 중 생성 취소
   document.querySelectorAll('audio').forEach(a=>{try{a.pause();}catch(e){}});
 }
 function swStuTab(id){
@@ -2416,55 +2416,77 @@ function ttsSentHtml(text,words,prefix,levelId){
 }
 function msSetTtsLevel(l){if(_msState){_msState.ttsLevel=l;stopSpeak();renderMsStep(_msState.idx);}}
 function urSetTtsLevel(l){if(_urState){_urState.ttsLevel=l;stopSpeak();renderUrStep(_urState.step);}}
-// 본문 통짜 재생: 자연스러운 흐름의 단일 오디오 + 타임스탬프 기반 문장 하이라이트
-// + 레벨별 추가 쉼(문장 끝에서 잠시 일시정지). EL 불가 시 문장별 재생으로 폴백.
-let _ppGapTimer=null;
+// 본문 통짜 재생 — 자연스러운 단일 오디오를 Web Audio로 "문장 구간+자연 여운"까지
+// 그대로 이어 재생하고, 레벨별 쉼은 구간 사이에만 삽입 (오디오 절단/일시정지 없음).
+// 닫기(X)·다른 재생 시 세대 토큰으로 즉시 정지, 생성 대기 중 취소도 차단.
+let _waCtx=null,_waSrc=null;
+window._waStop=function(){
+  try{if(_waSrc){_waSrc.onended=null;_waSrc.stop();}}catch(e){}
+  _waSrc=null;
+};
 async function playPassage(text,levelId,hiPrefix){
   const L=TTS_LEVELS[levelId]||TTS_LEVELS.intermediate;
   const cfg=(typeof elevenCfg==='function')?elevenCfg():null;
   if(!cfg||text.length>2500)return speakSentences(text,levelId,hiPrefix);
+  stopSpeak();
+  const tok=_seqTok;                 // ← 생성 "전"에 캡처: 대기 중 X를 누르면 아래에서 중단
   let pa;
   try{pa=await elevenGetPassageAudio(text,cfg);}
-  catch(e){console.warn('통짜 생성 실패 → 문장별 폴백:',e.message);return speakSentences(text,levelId,hiPrefix);}
-  stopSpeak();
-  const tok=_seqTok;
-  const extraGap=({beginner:650,intermediate:250,advanced:0})[levelId]??250;
+  catch(e){console.warn('통짜 생성 실패 → 문장별 폴백:',e.message);return tok===_seqTok?speakSentences(text,levelId,hiPrefix):false;}
+  if(tok!==_seqTok)return false;     // 생성 중 닫힘/다른 재생 → 소리 내지 않음
+  const gapMs=({beginner:700,intermediate:280,advanced:0})[levelId]??280;
   const clearHi=()=>document.querySelectorAll('[id^="'+hiPrefix+'"]').forEach(e=>e.style.background='');
-  return await new Promise(res=>{
-    const a=new Audio(pa.url);a._res=res;_elAudio=a;
-    a.playbackRate=Math.min(1.3,Math.max(0.7,L.el||1));
-    let idx=-1,lastGapIdx=-1;
-    a.ontimeupdate=()=>{
-      if(tok!==_seqTok)return;
-      const t=a.currentTime;
-      let ni=idx;
-      for(let i=0;i<(pa.times||[]).length;i++){
-        const tm=pa.times[i];
-        if(tm&&t>=tm.s-0.05&&t<=tm.e+0.2){ni=i;break;}
-      }
-      if(ni!==idx){
-        idx=ni;clearHi();
-        const el=document.getElementById(hiPrefix+idx);
-        if(el){el.style.background='var(--tl)';el.scrollIntoView({behavior:'smooth',block:'center'});}
-      }
-      // 문장 끝에서 레벨별 추가 쉼 (자연 흐름은 유지하고 쉼만 연장)
-      if(extraGap&&idx>=0&&idx<pa.times.length-1&&lastGapIdx!==idx){
-        const tm=pa.times[idx];
-        if(tm&&t>=tm.e-0.02){
-          lastGapIdx=idx;
-          a.pause();
-          clearTimeout(_ppGapTimer);
-          _ppGapTimer=setTimeout(()=>{if(tok===_seqTok&&_elAudio===a)a.play().catch(()=>{});},extraGap);
-        }
-      }
-    };
-    a.onended=a.onerror=()=>{
-      clearTimeout(_ppGapTimer);clearHi();
-      if(_elAudio===a)_elAudio=null;
-      res(true);
-    };
-    a.play().catch(()=>res(false));
-  });
+  const times=(pa.times||[]).filter(Boolean);
+  // Web Audio 디코드 (실패 시: 통짜 오디오를 끊김 없이 그대로 재생하는 폴백)
+  let buf=null;
+  try{
+    if(!_waCtx)_waCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(_waCtx.state==='suspended')await _waCtx.resume();
+    const ab=await (await fetch(pa.url)).arrayBuffer();
+    if(tok!==_seqTok)return false;
+    buf=await _waCtx.decodeAudioData(ab);
+  }catch(e){console.warn('WebAudio 불가 → 연속 재생 폴백:',e.message);buf=null;}
+  if(tok!==_seqTok)return false;
+  if(!buf||!times.length){
+    // 폴백: 쉼 삽입 없이 자연 흐름 그대로 (하이라이트만 동기화)
+    return await new Promise(res=>{
+      const a=new Audio(pa.url);a._res=res;_elAudio=a;
+      a.playbackRate=Math.min(1.3,Math.max(0.7,L.el||1));
+      let idx=-1;
+      a.ontimeupdate=()=>{
+        if(tok!==_seqTok)return;
+        const t=a.currentTime;
+        for(let i=0;i<times.length;i++){const tm=times[i];if(t>=tm.s-0.05&&t<=tm.e+0.25){if(i!==idx){idx=i;clearHi();const el=document.getElementById(hiPrefix+i);if(el){el.style.background='var(--tl)';el.scrollIntoView({behavior:'smooth',block:'center'});}}break;}}
+      };
+      a.onended=a.onerror=()=>{clearHi();if(_elAudio===a)_elAudio=null;res(true);};
+      a.play().catch(()=>res(false));
+    });
+  }
+  // 구간 스케줄 재생: 각 문장은 다음 문장 시작 직전(자연 여운 포함)까지 통째로
+  const rate=Math.min(1.3,Math.max(0.7,L.el||1));
+  for(let i=0;i<times.length;i++){
+    if(tok!==_seqTok)break;
+    clearHi();
+    const el=document.getElementById(hiPrefix+i);
+    if(el){el.style.background='var(--tl)';el.scrollIntoView({behavior:'smooth',block:'center'});}
+    const start=Math.max(0,times[i].s-0.05);
+    const endBound=(i<times.length-1)?Math.max(times[i].e,times[i+1].s):buf.duration;
+    const dur=Math.max(0.05,Math.min(endBound,buf.duration)-start);
+    const ok=await new Promise(res=>{
+      try{
+        const src=_waCtx.createBufferSource();
+        src.buffer=buf;src.playbackRate.value=rate;
+        src.connect(_waCtx.destination);
+        src.onended=()=>{if(_waSrc===src)_waSrc=null;res(true);};
+        _waSrc=src;
+        src.start(0,start,dur);
+      }catch(e){res(false);}
+    });
+    if(!ok||tok!==_seqTok)break;
+    if(gapMs&&i<times.length-1)await new Promise(r=>setTimeout(r,gapMs)); // 문장 사이 쉼 (절단 없음)
+  }
+  clearHi();
+  return tok===_seqTok;
 }
 async function msListenPlay(){
   const{tb,unitKey}=_msState||{};if(!tb)return;

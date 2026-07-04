@@ -413,8 +413,9 @@ if('speechSynthesis' in window){
 // ── 통합 음성 엔진 ─────────────────────────────────────────────
 // 우선순위: ElevenLabs(설정 시, tts_cache로 1회 생성 후 재사용) → 사전 오디오(단어) → 브라우저 TTS
 // 재생이 "끝나면" resolve → 순차 재생 루프에서 await 가능
-let _elAudio=null;
+let _elAudio=null,_speakGen=0;
 function stopSmartAudio(){
+  _speakGen++; // 진행 중이던 생성→재생 체인 무효화 (닫기 후 늦게 도착한 오디오 차단)
   try{
     if(_elAudio){
       const r=_elAudio._res;
@@ -422,6 +423,7 @@ function stopSmartAudio(){
       if(r)r(); // 정지 시 대기 중인 재생 프라미스도 즉시 해제
     }
   }catch(e){}
+  try{if(window._waStop)window._waStop();}catch(e){} // WebAudio 구간 재생 정지
   try{window.speechSynthesis?.cancel();}catch(e){}
 }
 async function sha256Hex(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
@@ -553,13 +555,16 @@ async function speakSmart(text,rate=0.85){
   const elRate=isObj?(rate.el||1):(rate>=1?1:Math.max(0.7,rate+0.1));
   const ttsRate=isObj?(rate.tts||0.85):rate;
   const cfg=elevenCfg();
+  const gen=_speakGen; // 생성 대기 중 정지되면 늦게 도착한 오디오는 재생하지 않음
   if(cfg&&text.length<=2500){
     try{
       const url=await elevenGetAudioUrl(text,cfg,wordMode);
+      if(gen!==_speakGen)return;
       await _playUrl(url,elRate);
       return;
     }catch(e){console.warn('ElevenLabs 실패 → 폴백:',e.message);}
   }
+  if(gen!==_speakGen)return;
   await legacySpeak(text,ttsRate);
 }
 // 단어 발음: 고품질 모델 + 안정 발화 + 느린 재생(0.85×)으로 또박또박
