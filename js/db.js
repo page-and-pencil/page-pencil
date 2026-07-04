@@ -289,9 +289,11 @@ async function loadAllData(){
     _cache.monthlyReports=(mrpts||[]).map(r=>({...( r.data||r),_id:r.id,sid:r.sid,month:r.month}));
     if(acct)_cache.settings.acct=acct;
     if(pw){_cache.settings.pw=pw;DB.s('pw',pw);}
-    const [apikey,cloud,kakao]=await Promise.all([supaGetSetting('apikey'),supaGetSetting('cloud'),supaGetSetting('kakao')]);
+    const [apikey,cloud,kakao,eleven]=await Promise.all([supaGetSetting('apikey'),supaGetSetting('cloud'),supaGetSetting('kakao'),supaGetSetting('elevenlabs')]);
     if(kakao){_cache.settings.kakao=kakao;DB.s('kakao',kakao);}
     else{const lk=DB.g('kakao');if(lk)_cache.settings.kakao=lk;}
+    if(eleven){_cache.settings.elevenlabs=eleven;DB.s('elevenlabs',eleven);}
+    else{const le=DB.g('elevenlabs');if(le)_cache.settings.elevenlabs=le;}
     const _dk=String.fromCharCode(115,107,45,97,110,116,45,97,112,105,48,51,45,108,69,72,49,104,87,56,57,78,106,68,45,72,104,120,51,97,101,55,82,113,69,70,99,122,53,105,118,110,86,111,67,67,80,67,51,77,114,52,69,99,54,107,75,88,70,74,111,54,111,115,67,88,101,87,78,83,97,122,120,97,86,51,114,102,106,78,89,81,104,83,84,107,115,116,99,110,56,72,74,54,122,75,114,85,81,45,103,106,103,89,122,103,65,65);
     const DEFAULT_CLD={name:'drwys3bkz',preset:'pp_unsigned'};
     if(apikey){_cache.settings.apikey=apikey;DB.s('apikey',apikey);}
@@ -408,8 +410,60 @@ if('speechSynthesis' in window){
   window.speechSynthesis.onvoiceschanged=()=>{_bestVoice=null;_initBestVoice();};
   if(window.speechSynthesis.getVoices().length)_initBestVoice();
 }
-async function speakWord(text,rate=0.85){
-  if(!text||!text.trim())return;
+// ── 통합 음성 엔진 ─────────────────────────────────────────────
+// 우선순위: ElevenLabs(설정 시, tts_cache로 1회 생성 후 재사용) → 사전 오디오(단어) → 브라우저 TTS
+// 재생이 "끝나면" resolve → 순차 재생 루프에서 await 가능
+let _elAudio=null;
+function stopSmartAudio(){
+  try{
+    if(_elAudio){
+      const r=_elAudio._res;
+      _elAudio.onended=null;_elAudio.onerror=null;_elAudio.pause();_elAudio=null;
+      if(r)r(); // 정지 시 대기 중인 재생 프라미스도 즉시 해제
+    }
+  }catch(e){}
+  try{window.speechSynthesis?.cancel();}catch(e){}
+}
+async function sha256Hex(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+function elevenCfg(){const c=_cache.settings.elevenlabs||DB.g('elevenlabs')||null;return(c&&c.key)?c:null;}
+async function elevenGetAudioUrl(text,cfg){
+  const voice=cfg.voiceId||'21m00Tcm4TlvDq8ikWAM';
+  const id='tts_'+await sha256Hex(voice+'|'+text);
+  // 1) 캐시 조회 — 같은 문장은 다시 생성하지 않음 (크레딧 절약)
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
+    if(r.ok){const row=await r.json();if(row?.data?.url)return row.data.url;}
+  }catch(e){}
+  // 2) 생성
+  const gen=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_64`,{
+    method:'POST',
+    headers:{'xi-api-key':cfg.key,'Content-Type':'application/json'},
+    body:JSON.stringify({text,model_id:'eleven_turbo_v2_5'}),
+  });
+  if(!gen.ok)throw new Error('ElevenLabs HTTP '+gen.status);
+  const blob=await gen.blob();
+  // 3) Cloudinary 업로드 → 영구 캐시
+  let url='';
+  const{name,preset}=DB.cld();
+  if(name&&preset){
+    try{
+      const fd=new FormData();fd.append('file',new File([blob],'tts.mp3',{type:'audio/mpeg'}));fd.append('upload_preset',preset);
+      const ur=await fetch(`https://api.cloudinary.com/v1_1/${name}/video/upload`,{method:'POST',body:fd});
+      if(ur.ok)url=(await ur.json()).secure_url;
+    }catch(e){}
+  }
+  if(url)supaUpsert('tts_cache',id,{url,voice,chars:text.length,at:new Date().toISOString()}).catch(()=>{});
+  return url||URL.createObjectURL(blob);
+}
+function _playUrl(url,rate){
+  return new Promise(res=>{
+    const a=new Audio(url);a._res=res;_elAudio=a;
+    if(rate&&rate<1)a.playbackRate=Math.max(0.7,rate+0.1); // 살짝만 느리게 (음성 왜곡 방지)
+    a.onended=a.onerror=()=>{if(_elAudio===a)_elAudio=null;res();};
+    a.play().catch(()=>res());
+  });
+}
+async function legacySpeak(text,rate){
   const clean=text.trim();
   if(/^\w+$/.test(clean)){
     const key=clean.toLowerCase();
@@ -423,16 +477,33 @@ async function speakWord(text,rate=0.85){
       }catch{_ttsCache[key]='';}
     }
     if(_ttsCache[key]){
-      try{const a=new Audio(_ttsCache[key]);a.playbackRate=1;await a.play();return;}catch(e){}
+      try{await _playUrl(_ttsCache[key],1);return;}catch(e){}
     }
   }
   if(!('speechSynthesis' in window))return;
   window.speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(clean);
-  u.lang='en-US';u.rate=rate;
-  if(_bestVoice)u.voice=_bestVoice;
-  window.speechSynthesis.speak(u);
+  await new Promise(res=>{
+    const u=new SpeechSynthesisUtterance(clean);
+    u.lang='en-US';u.rate=rate;
+    if(_bestVoice)u.voice=_bestVoice;
+    u.onend=u.onerror=()=>res();
+    window.speechSynthesis.speak(u);
+  });
 }
+async function speakSmart(text,rate=0.85){
+  text=(text||'').trim();if(!text)return;
+  stopSmartAudio();
+  const cfg=elevenCfg();
+  if(cfg&&text.length<=2500){
+    try{
+      const url=await elevenGetAudioUrl(text,cfg);
+      await _playUrl(url,rate);
+      return;
+    }catch(e){console.warn('ElevenLabs 실패 → 폴백:',e.message);}
+  }
+  await legacySpeak(text,rate);
+}
+async function speakWord(text,rate=0.85){return speakSmart(text,rate);}
 
 async function getMeaningKo(word){
   const apiKey=DB.api();

@@ -1726,15 +1726,13 @@ function renderUrText(tb,body,footer){
   footer.innerHTML=`<button class="btn bt" style="width:100%" onclick="renderUrStep(${hasPatterns?3:1})">${hasPatterns?'다음: 패턴 드릴 →':'← 처음으로'}</button>`;
 }
 
-function startUrTTS(){
+async function startUrTTS(){
   const body=document.getElementById('ur-text-body');if(!body)return;
   const text=body.innerText||'';if(!text.trim())return;
   stopSpeak();
-  const u=new SpeechSynthesisUtterance(text);
-  u.lang='en-US';u.rate=0.85;if(_bestVoice)u.voice=_bestVoice;
   const btn=document.getElementById('ur-tts-btn');if(btn)btn.textContent='▶ 재생 중...';
-  u.onend=u.onerror=()=>{if(btn)btn.textContent='▶ 듣기';};
-  window.speechSynthesis.speak(u);
+  await speakSmart(text,0.85);
+  if(btn)btn.textContent='▶ 듣기';
 }
 
 // Step 3: 패턴 드릴
@@ -1762,7 +1760,7 @@ function renderUrPatterns(tb,body,footer){
   </div>`;
 }
 
-function urPlayPattern(idx){
+async function urPlayPattern(idx){
   const raw=(_urState.tb?.unitPatterns?.[_urState.unitKey]||'').trim();
   const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
   const line=lines[idx];if(!line)return;
@@ -1770,34 +1768,30 @@ function urPlayPattern(idx){
   const row=document.getElementById('ur-pat-row-'+idx);
   document.querySelectorAll('[id^="ur-pat-row-"]').forEach(el=>el.style.borderColor='var(--border)');
   if(row)row.style.borderColor='var(--teal)';
-  const u=new SpeechSynthesisUtterance(line);
-  u.lang='en-US';u.rate=0.82;if(_bestVoice)u.voice=_bestVoice;
-  u.onend=u.onerror=()=>{if(row)row.style.borderColor='var(--border)';};
-  window.speechSynthesis.speak(u);
+  await speakSmart(line,0.82);
+  if(row)row.style.borderColor='var(--border)';
 }
 
-function urPlayAllPatterns(){
+async function urPlayAllPatterns(){
   const raw=(_urState.tb?.unitPatterns?.[_urState.unitKey]||'').trim();
   const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
   if(!lines.length)return;
   stopSpeak();
-  let idx=0;
-  function playNext(){
-    if(idx>=lines.length)return;
+  const tok=_seqTok;
+  for(let idx=0;idx<lines.length;idx++){
+    if(tok!==_seqTok)return; // 다른 재생/정지로 취소됨
     document.querySelectorAll('[id^="ur-pat-row-"]').forEach(el=>el.style.borderColor='var(--border)');
     const row=document.getElementById('ur-pat-row-'+idx);
     if(row){row.style.borderColor='var(--teal)';row.scrollIntoView({behavior:'smooth',block:'nearest'});}
-    const u=new SpeechSynthesisUtterance(lines[idx]);
-    u.lang='en-US';u.rate=0.82;if(_bestVoice)u.voice=_bestVoice;
-    u.onend=()=>{if(row)row.style.borderColor='var(--border)';idx++;setTimeout(playNext,400);};
-    u.onerror=()=>{idx++;setTimeout(playNext,400);};
-    window.speechSynthesis.speak(u);
+    await speakSmart(lines[idx],0.82);
+    if(row)row.style.borderColor='var(--border)';
+    await new Promise(r=>setTimeout(r,400));
   }
-  playNext();
 }
 
 // ── 단원 원문 읽기 ──
-function stopSpeak(){try{window.speechSynthesis?.cancel();}catch(e){}}
+let _seqTok=0; // 순차 재생 취소 토큰 (새 재생/정지 시 증가)
+function stopSpeak(){_seqTok++;try{window.speechSynthesis?.cancel();}catch(e){}if(typeof stopSmartAudio==='function')stopSmartAudio();}
 
 function openUnitRead(tbId,unitKey){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
@@ -2027,15 +2021,13 @@ function renderMsListen(body,footer){
     +'</div>';
   footer.innerHTML=msDoneBtn('listen','✓ 다 듣고 읽었어요');
 }
-function msStartTTS(){
+async function msStartTTS(){
   const body=document.getElementById('ms-text-body');if(!body)return;
   const text=body.innerText||'';if(!text.trim())return;
   stopSpeak();
-  const u=new SpeechSynthesisUtterance(text);
-  u.lang='en-US';u.rate=0.85;if(_bestVoice)u.voice=_bestVoice;
   const btn=document.getElementById('ms-tts-btn');if(btn)btn.textContent='▶ 재생 중...';
-  u.onend=u.onerror=()=>{if(btn)btn.textContent='▶ 듣기';};
-  window.speechSynthesis.speak(u);
+  await speakSmart(text,0.85);
+  if(btn)btn.textContent='▶ 듣기';
 }
 function msStopTTS(){
   stopSpeak();
@@ -2062,32 +2054,27 @@ function renderMsPattern(body,footer){
     +'<div style="flex:1.4">'+msDoneBtn('pattern','✓ 패턴 연습 끝!')+'</div>'
     +'</div>';
 }
-function msPlayPattern(i){
+async function msPlayPattern(i){
   const lines=_msState._patLines||[];const line=lines[i];if(!line)return;
   stopSpeak();
   document.querySelectorAll('[id^="ms-pat-row-"]').forEach(el=>el.style.borderColor='var(--border)');
   const row=document.getElementById('ms-pat-row-'+i);if(row)row.style.borderColor='var(--teal)';
-  const u=new SpeechSynthesisUtterance(line);
-  u.lang='en-US';u.rate=0.82;if(_bestVoice)u.voice=_bestVoice;
-  u.onend=u.onerror=()=>{if(row)row.style.borderColor='var(--border)';};
-  window.speechSynthesis.speak(u);
+  await speakSmart(line,0.82);
+  if(row)row.style.borderColor='var(--border)';
 }
-function msPlayAllPatterns(){
+async function msPlayAllPatterns(){
   const lines=_msState._patLines||[];if(!lines.length)return;
   stopSpeak();
-  let idx=0;
-  function playNext(){
-    if(idx>=lines.length)return;
+  const tok=_seqTok;
+  for(let idx=0;idx<lines.length;idx++){
+    if(tok!==_seqTok)return;
     document.querySelectorAll('[id^="ms-pat-row-"]').forEach(el=>el.style.borderColor='var(--border)');
     const row=document.getElementById('ms-pat-row-'+idx);
     if(row){row.style.borderColor='var(--teal)';row.scrollIntoView({behavior:'smooth',block:'nearest'});}
-    const u=new SpeechSynthesisUtterance(lines[idx]);
-    u.lang='en-US';u.rate=0.82;if(_bestVoice)u.voice=_bestVoice;
-    u.onend=()=>{if(row)row.style.borderColor='var(--border)';idx++;setTimeout(playNext,500);};
-    u.onerror=()=>{idx++;setTimeout(playNext,500);};
-    window.speechSynthesis.speak(u);
+    await speakSmart(lines[idx],0.82);
+    if(row)row.style.borderColor='var(--border)';
+    await new Promise(r=>setTimeout(r,500));
   }
-  playNext();
 }
 
 // 미션 4: 낭독 녹음 (본문 보며 녹음 → 제출하면 자동 완료)
@@ -2204,17 +2191,29 @@ function msRenderReadSent(){
   const{sents,idx,scores}=_msRead;
   if(idx>=sents.length){
     const avg=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0;
-    el.innerHTML='<div style="text-align:center;padding:10px 0">'
-      +'<div style="font-size:30px;margin-bottom:4px">'+(avg>=80?'🌟':avg>=60?'👍':'💪')+'</div>'
-      +'<div style="font-size:14px;font-weight:800;color:var(--navy)">읽기 연습 완료 — 평균 정확도 <span style="color:'+(avg>=80?'#047857':'var(--teal)')+'">'+avg+'%</span></div>'
-      +'<div style="font-size:11px;color:var(--slate);margin-top:3px">선생님에게 자동으로 전달됐어요</div>'
-      +'<button class="btn bo bsm" style="margin-top:8px;border-radius:50px" onclick="msReadStart()">🔁 다시 연습하기</button>'
-      +'</div>';
     const{a,sid}=_msState;
-    a.readAccuracy=avg;
+    const prevBest=a.readBest||0;
+    const isNewBest=avg>prevBest&&prevBest>0;
+    a.readAccuracy=avg;                       // 최근 점수 (선생님용)
+    if(avg>(a.readBest||0))a.readBest=avg;     // 자기 최고 기록
+    a.readTries=(a.readTries||0)+1;            // 노력(시도) 횟수
     supaUpsert('assignments',a.id,a,sid).then(()=>{
       const ci=(_cache.assignments||[]).findIndex(x=>x.id===a.id);if(ci>=0)_cache.assignments[ci]=a;
     }).catch(()=>{});
+    // 학생 화면: 점수 대신 별점 + 성장 중심 메시지 (낮은 점수는 숫자 미노출)
+    const stars=msReadStars(avg);
+    const starHtml=stars?'⭐'.repeat(stars):'🌱';
+    const msg=stars===3?'완벽한 낭독이에요!':stars===2?'정말 잘 읽었어요!':stars===1?'점점 좋아지고 있어요!':'연습한 것 자체가 대단해요!';
+    const growth=isNewBest?'<div style="font-size:12px;font-weight:800;color:#B45309;margin-top:4px">🏆 내 최고 기록 갱신!</div>'
+      :(a.readTries>=3?'<div style="font-size:12px;font-weight:700;color:#0B8DAE;margin-top:4px">🔥 '+a.readTries+'번째 도전 — 끈기가 최고예요!</div>':'');
+    el.innerHTML='<div style="text-align:center;padding:10px 0">'
+      +'<div style="font-size:30px;margin-bottom:4px">'+starHtml+'</div>'
+      +'<div style="font-size:14px;font-weight:800;color:var(--navy)">읽기 연습 완료 — '+msg+'</div>'
+      +(stars>=2?'<div style="font-size:12px;color:#047857;font-weight:700;margin-top:2px">정확도 '+avg+'%</div>':'')
+      +growth
+      +'<div style="font-size:11px;color:var(--slate);margin-top:3px">선생님에게 자동으로 전달됐어요</div>'
+      +'<button class="btn bo bsm" style="margin-top:8px;border-radius:50px" onclick="msReadStart()">🔁 다시 연습하기</button>'
+      +'</div>';
     return;
   }
   const words=sents[idx].split(' ').filter(Boolean);
@@ -2231,9 +2230,7 @@ function msRenderReadSent(){
 }
 function msReadListen(){
   if(!_msRead)return;stopSpeak();
-  const u=new SpeechSynthesisUtterance(_msRead.sents[_msRead.idx]);
-  u.lang='en-US';u.rate=0.82;if(_bestVoice)u.voice=_bestVoice;
-  window.speechSynthesis.speak(u);
+  speakSmart(_msRead.sents[_msRead.idx],0.82);
 }
 // 본문 단어 vs 인식된 단어 순차 매칭 → 색칠, 정확도(%) 반환
 function msReadColor(transcript,final){
@@ -2273,18 +2270,88 @@ function msReadMic(){
   const b=document.getElementById('ms-read-mic');
   if(b){b.textContent='⏹ 다 읽었어요';b.classList.remove('bt');b.classList.add('bd');}
 }
+function msReadStars(pct){return pct>=85?3:pct>=65?2:pct>=40?1:0;}
 function msReadDone(){
   msStopSR();
   if(!_msRead)return;
   const pct=msReadColor(_msReadTrans,true);
-  const sc=document.getElementById('ms-read-score');if(sc)sc.textContent=pct+'%';
+  const sc=document.getElementById('ms-read-score');if(sc)sc.textContent='';
   const el=document.getElementById('ms-read-practice');if(!el)return;
+  if(document.getElementById('ms-read-result'))return; // 중복 방지
+  // 못 읽은 단어 수집 (적색 표시된 것)
+  const words=_msRead.sents[_msRead.idx].split(' ').filter(Boolean);
+  const missed=[];
+  words.forEach((w,i)=>{
+    const e2=document.getElementById('ms-rw-'+i);
+    if(e2&&e2.style.color==='rgb(220, 38, 38)'){const clean=w.replace(/[^A-Za-z']/g,'');if(clean)missed.push({w:clean,i});}
+  });
+  const stars=msReadStars(pct);
+  const starHtml=stars?'⭐'.repeat(stars):'🌱';
+  const msg=stars===3?'완벽해요!':stars===2?'정말 잘 읽었어요!':stars===1?'좋아요! 빨간 단어만 다시 볼까요?':'천천히 또박또박, 한 번 더! 할 수 있어요';
   const bar=document.createElement('div');
-  bar.style.cssText='margin-top:8px;display:flex;align-items:center;gap:8px';
-  bar.innerHTML='<span style="font-size:13px;font-weight:800;color:'+(pct>=80?'#047857':pct>=50?'var(--teal)':'#DC2626')+'">정확도 '+pct+'%'+(pct>=80?' — 훌륭해요! 🎉':pct>=50?' — 잘했어요!':' — 한 번 더 해볼까요?')+'</span>'
+  bar.id='ms-read-result';
+  bar.style.cssText='margin-top:8px';
+  bar.innerHTML='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    +'<span style="font-size:15px">'+starHtml+'</span>'
+    +'<span style="font-size:13px;font-weight:800;color:var(--navy)">'+msg+'</span>'
+    +(stars>=2?'<span style="font-size:11px;font-weight:700;color:#047857">'+pct+'%</span>':'')
     +'<button class="btn bo bsm" style="border-radius:50px" onclick="msRenderReadSent()">🔁 다시</button>'
-    +'<button class="btn bt bsm" style="border-radius:50px;margin-left:auto" onclick="msReadNext(false,'+pct+')">다음 문장 →</button>';
+    +'<button class="btn bt bsm" style="border-radius:50px;margin-left:auto" onclick="msReadNext(false,'+pct+')">다음 문장 →</button>'
+    +'</div>'
+    +(missed.length?'<div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">'
+      +missed.slice(0,3).map(m=>'<div style="display:flex;align-items:center;gap:7px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);padding:6px 9px">'
+        +'<b style="color:#DC2626;font-family:var(--fd)">'+m.w+'</b>'
+        +'<button class="btn ba bsm" style="border-radius:50px;font-size:11px" onclick="speakSmart(\''+m.w.replace(/'/g,"\\'")+'\',0.8)">🔊 듣기</button>'
+        +'<button class="btn bt bsm" id="ms-wr-'+m.i+'" style="border-radius:50px;font-size:11px" onclick="msWordRetry(\''+m.w.replace(/'/g,"\\'")+'\','+m.i+')">🎤 이 단어 다시</button>'
+        +'</div>').join('')
+      +'</div><div id="ms-read-tip" style="margin-top:6px;font-size:12px;line-height:1.6;color:#0B8DAE"></div>':'');
   el.appendChild(bar);
+  if(missed.length)msReadAiTip(_msRead.sents[_msRead.idx],missed.map(m=>m.w));
+}
+// 못 읽은 단어 1개만 다시 도전 — 성공 경험을 빠르게
+function msWordRetry(word,i){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){toast('이 브라우저는 음성 인식을 지원하지 않아요');return;}
+  msStopSR();stopSpeak();
+  const btn=document.getElementById('ms-wr-'+i);
+  if(btn){btn.textContent='👂 듣는 중...';btn.disabled=true;}
+  const r=new SR();
+  r.lang='en-US';r.continuous=false;r.interimResults=false;r.maxAlternatives=3;
+  let handled=false;
+  const finish=ok=>{
+    if(handled)return;handled=true;
+    if(btn){btn.disabled=false;}
+    const span=document.getElementById('ms-rw-'+i);
+    if(ok){
+      if(span){span.style.color='#0B8DAE';span.style.fontWeight='700';}
+      if(btn){btn.textContent='✓ 성공!';btn.classList.remove('bt');btn.classList.add('bo');}
+      showMiniConfetti();
+    }else{
+      if(btn)btn.textContent='🎤 한 번 더';
+    }
+  };
+  r.onresult=e=>{
+    const alts=[...(e.results[0]||[])].map(x=>msNormWord(x.transcript));
+    const target=msNormWord(word);
+    finish(alts.some(t=>t===target||t.split(/\s+/).includes(target)));
+  };
+  r.onerror=()=>finish(false);
+  r.onend=()=>finish(false);
+  try{r.start();_msSR=r;}catch(e){finish(false);}
+}
+// AI 발음 코칭: 못 읽은 단어에 대한 한국어 팁 1-2줄 (기존 claude-proxy 재사용)
+async function msReadAiTip(sentence,missedWords){
+  const el=document.getElementById('ms-read-tip');if(!el)return;
+  const apiKey=DB.api();if(!apiKey)return;
+  el.innerHTML='<span style="color:var(--slate)">💡 발음 팁 만드는 중...</span>';
+  try{
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:160,messages:[{role:'user',
+      content:'당신은 다정한 초등 영어 발음 코치입니다. 학생이 문장 "'+sentence+'"을 소리 내어 읽었는데 음성 인식이 다음 단어를 알아듣지 못했어요: '+missedWords.slice(0,3).join(', ')
+      +(_msReadTrans?' (인식된 발화: "'+_msReadTrans.slice(0,100)+'")':'')
+      +'. 단어별로 한국어 발음 팁을 1줄씩 써주세요. 아이가 이해할 쉬운 표현, 격려하는 톤, 각 줄은 "단어 → 팁" 형식, 총 3줄 이내.'}]});
+    const lines=(d.content?.[0]?.text||'').split('\n').map(l=>l.replace(/^[#*\-\s]+/,'').trim()).filter(l=>l&&/→|:/.test(l));
+    el.innerHTML=lines.length?lines.map(l=>'💡 '+l).join('<br>'):'';
+  }catch(e){el.innerHTML='';}
 }
 function msReadNext(skip,pct){
   if(!_msRead)return;

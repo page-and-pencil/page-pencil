@@ -109,6 +109,40 @@ function updateApiKeyStatusDot(){
   if(!k){dot.style.color='var(--slate)';dot.textContent='● 미설정';}
   else{dot.style.color='#b8860b';dot.textContent='● 저장됨';}
 }
+// ── ElevenLabs 음성 설정 ──
+function updateElevenDot(){
+  const dot=document.getElementById('eleven-status-dot');if(!dot)return;
+  const c=_cache.settings.elevenlabs||DB.g('elevenlabs');
+  if(c&&c.key){dot.style.color='#0B8DAE';dot.textContent='● 사용 중';}
+  else{dot.style.color='var(--slate)';dot.textContent='● 미설정';}
+}
+async function saveElevenCfg(silent){
+  const keyIn=(document.getElementById('cfg-eleven-key')?.value||'').trim();
+  const voiceIn=(document.getElementById('cfg-eleven-voice')?.value||'').trim();
+  const prev=_cache.settings.elevenlabs||DB.g('elevenlabs')||{};
+  const key=(keyIn&&keyIn!=='••••••')?keyIn:(prev.key||'');
+  if(!key){if(!silent)toast('ElevenLabs API Key를 입력해 주세요');return false;}
+  const cfg={key,voiceId:voiceIn||prev.voiceId||''};
+  _cache.settings.elevenlabs=cfg;DB.s('elevenlabs',cfg);
+  try{await supaSetSetting('elevenlabs',cfg);}catch(e){console.warn('elevenlabs 저장 실패:',e);}
+  const ki=document.getElementById('cfg-eleven-key');if(ki)ki.value='••••••';
+  updateElevenDot();
+  if(!silent)toast('ElevenLabs 설정이 저장되었습니다');
+  return true;
+}
+async function testElevenTts(){
+  const el=document.getElementById('eleven-test-result');
+  const ok=await saveElevenCfg(true);
+  if(!ok){if(el)el.innerHTML='<span style="color:var(--coral)">API Key를 먼저 입력해 주세요</span>';return;}
+  if(el)el.innerHTML='<span style="color:var(--slate)">생성·재생 중... (첫 재생은 1~2초 걸려요)</span>';
+  try{
+    await speakSmart('Hello! Welcome to Page and Pencil. Reading is fun!');
+    if(el)el.innerHTML='<span style="color:#0B8DAE">✅ 재생 완료 — 이 목소리로 앱 전체 음성이 나갑니다 (문장은 1회 생성 후 캐시)</span>';
+  }catch(e){
+    if(el)el.innerHTML='<span style="color:var(--coral)">❌ 실패: '+(e.message||'')+' — 키/크레딧을 확인해 주세요</span>';
+  }
+  updateElevenDot();
+}
 async function saveApiKey(){
   const k=document.getElementById('cfg-apikey').value.trim();
   if(!k){document.getElementById('cfg-apikey-err').textContent='API Key를 입력해 주세요';return;}
@@ -203,6 +237,10 @@ function swTab(id){
   if(id==='t-cfg'){
     const c=DB.cld();document.getElementById('cfg-cld-name').value=c.name||'';document.getElementById('cfg-cld-preset').value=c.preset||'';
     document.getElementById('cfg-apikey').value=DB.api()?'••••••':'';
+    const ec=_cache.settings.elevenlabs||DB.g('elevenlabs')||{};
+    const ek=document.getElementById('cfg-eleven-key');if(ek)ek.value=ec.key?'••••••':'';
+    const ev=document.getElementById('cfg-eleven-voice');if(ev)ev.value=ec.voiceId||'';
+    updateElevenDot();
     const a=DB.acct();document.getElementById('cfg-bank').value=a.bank||'';document.getElementById('cfg-acct').value=a.number||'';document.getElementById('cfg-acct-name').value=a.name||'';document.getElementById('cfg-pay-msg').value=a.msg||'';
     updateApiKeyStatusDot();
     renderCmtChipSettings();
@@ -7151,7 +7189,7 @@ function _assignItemHtml(a,hws){
     return`<div style="margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
       <span>${chips}</span>
       <span style="font-size:10px;font-weight:700;color:${doneCnt===ms.length?'#047857':'var(--teal)'}">${doneCnt}/${ms.length}</span>
-      ${a.readAccuracy!=null?`<span title="AI 따라 읽기 정확도" style="font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:10px;background:${a.readAccuracy>=80?'#D9F6E9':'var(--tl)'};color:${a.readAccuracy>=80?'#047857':'#0B8DAE'}">🗣 ${a.readAccuracy}%</span>`:''}
+      ${a.readAccuracy!=null?`<span title="AI 따라 읽기 — 최근 ${a.readAccuracy}% / 최고 ${a.readBest||a.readAccuracy}% / 연습 ${a.readTries||1}회" style="font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:10px;background:${a.readAccuracy>=80?'#D9F6E9':'var(--tl)'};color:${a.readAccuracy>=80?'#047857':'#0B8DAE'}">🗣 ${a.readAccuracy}%${(a.readTries||0)>1?' ·'+a.readTries+'회':''}</span>`:''}
       ${a.recUrl?`<audio controls src="${a.recUrl}" style="height:22px;max-width:170px" preload="none"></audio>`:''}
     </div>`;
   })();
