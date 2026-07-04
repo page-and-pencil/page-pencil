@@ -259,7 +259,8 @@ async function loadAllData(){
   showLoading(true);
   try{
     // 테이블별 독립 로드: 한 테이블이 404(미생성)여도 나머지는 정상 로드
-    const tables=['students','lessons','tests','readings','logs','library','notices','homeworks','assignments','textbooks','messages','global_textbooks','classes','monthly_reports'];
+    // 'library' 테이블은 레거시(원서는 global_textbooks의 type='library'로 통합) — 더 이상 로드하지 않음
+    const tables=['students','lessons','tests','readings','logs','notices','homeworks','assignments','textbooks','messages','global_textbooks','classes','monthly_reports'];
     const res=await Promise.allSettled([
       ...tables.map(t=>t==='global_textbooks'?supaFetchAll(t,true):supaFetch(t,'',true)),
       supaGetSetting('acct'),supaGetSetting('pw'),
@@ -269,8 +270,9 @@ async function loadAllData(){
     // 모든 테이블 fetch가 실패하면(네트워크 단절/프로젝트 중단) 재시도 UI 노출
     if(tables.every((t,i)=>res[i].status==='rejected'))throw new Error('all table fetches failed');
     const val=i=>res[i].status==='fulfilled'?res[i].value:null;
-    const [stus,les,tsts,rds,logs,libs,notices,hws,assigns,tbs,msgs,gtbs,clss,mrpts]=tables.map((t,i)=>val(i));
-    const acct=val(13),pw=val(14);
+    const [stus,les,tsts,rds,logs,notices,hws,assigns,tbs,msgs,gtbs,clss,mrpts]=tables.map((t,i)=>val(i));
+    // 설정 2건은 테이블 목록 뒤에 이어짐 (과거 고정 인덱스(13,14)는 오프바이원으로 acct/pw가 어긋나던 버그)
+    const acct=val(tables.length),pw=val(tables.length+1);
     _cache.students=(stus||[]).map(r=>(r.data||r));
     _cache.lessons=(les||[]).map(r=>(r.data||r));
     _cache.tests=(tsts||[]).map(r=>(r.data||r));

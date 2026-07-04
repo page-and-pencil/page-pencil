@@ -198,6 +198,7 @@
         <div class="dash-col-main">
           <div id="dash-today" style="margin-bottom:12px"></div>
           <div id="dash-monthly" style="margin-bottom:12px"></div>
+          <div id="dash-weekheat" style="margin-bottom:12px"></div>
         </div>
         <div class="dash-col-side">
           <div id="dash-actions" style="margin-bottom:12px"></div>
@@ -1532,6 +1533,21 @@
   </div>
 </div>
 
+<!-- 워크시트 열람 (학생) -->
+<div id="m-ws-view" class="mo">
+  <div class="mdl mdl-xl" style="display:flex;flex-direction:column;max-height:92vh">
+    <div class="mh" style="flex-shrink:0">
+      <div style="min-width:0">
+        <div class="mt" id="wsv-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">워크시트</div>
+        <div style="font-size:11px;color:var(--slate);margin-top:1px" id="wsv-sub"></div>
+      </div>
+      <button class="bx" onclick="closeM('m-ws-view')">×</button>
+    </div>
+    <div id="wsv-body" style="flex:1;overflow-y:auto;min-height:0"></div>
+    <div id="wsv-footer" style="flex-shrink:0;padding:12px 16px;border-top:1px solid var(--border)"></div>
+  </div>
+</div>
+
 <!-- 원서 AI 듣기 (학생) -->
 <div id="m-book-listen" class="mo">
   <div class="mdl mdl-xl" style="display:flex;flex-direction:column;max-height:90vh">
@@ -1773,6 +1789,7 @@
         <select id="modal-assign-cat" onchange="modalAssignCatChange()">
           <option value="">— 구분 없음 (자유 입력) —</option>
           <option value="mission">🎯 학습 미션 (교재 유닛)</option>
+          <option value="worksheet">🗒️ 워크시트 (인쇄 학습지)</option>
           <option value="phonics">파닉스</option>
           <option value="vocab">어휘</option>
           <option value="grammar">어법</option>

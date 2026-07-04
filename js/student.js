@@ -1543,8 +1543,12 @@ function renderStudentHome(sid){
     } else if(a.type==='vocab'){
       body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">단어 암기</div><div class="wl" style="margin-top:4px">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
       if(!isDone)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:12px" onclick="openVocabForAssignment('${sid}','${a.id}')">📚 단어장 열기 →</button>`;
+    } else if(a.type==='worksheet'){
+      body=`<div style="font-size:13px;font-weight:700;color:var(--navy)">🗒️ ${a.bookTitle||'워크시트'}</div>
+        <div style="font-size:12px;color:var(--slate);margin-top:2px">인쇄 학습지${a.gradeLevel?' · '+a.gradeLevel:''}</div>
+        <button class="btn ${isDone?'bo':'bt'}" style="width:100%;margin-top:10px;border-radius:50px;padding:12px;font-weight:700" onclick="openWsView('${escAttr(a.wsId||'')}','${a.id}','${sid}')">📄 워크시트 보기</button>`;
     } else if(a.type==='mission'){
-      const tb=(_cache.globalTextbooks||[]).find(b=>b.id===a.tbId);
+      const tb=missionFindTb(a.tbId);
       const ms=missionList(a,tb);
       const prog=a.progress||{};
       const doneCnt=ms.filter(m=>prog[m]).length;
@@ -1942,7 +1946,7 @@ let _msState=null,_msRecBlob=null,_msTimerInt=null;
 function openMissionPlayer(sid,asgnId){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);
   if(!a)return toast('과제 정보가 없습니다');
-  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===a.tbId);
+  const tb=missionFindTb(a.tbId);
   if(!tb)return toast('교재 정보가 없습니다');
   const missions=missionList(a,tb);
   _msState={a,tb,sid,missions,unitKey:a.unitKey,idx:0,ttsLevel:ttsLevelForTb(tb)};
@@ -2904,4 +2908,55 @@ async function blPlay(){
   const btn=document.getElementById('bl-play');if(btn)btn.textContent='▶ 재생 중...';
   await playPassage(S.text,S.level,'bl-ls-');
   const b2=document.getElementById('bl-play');if(b2)b2.textContent='▶ 듣기';
+}
+
+// ── 워크시트 열람 (학생용 라이트 뷰어 — 문제만, 답 숨김) ──
+async function openWsView(wsId,asgnId,sid){
+  const body=document.getElementById('wsv-body'),footer=document.getElementById('wsv-footer');
+  if(!body)return;
+  document.getElementById('wsv-title').textContent='🗒️ 워크시트';
+  document.getElementById('wsv-sub').textContent='';
+  body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">불러오는 중…</div>';
+  footer.innerHTML='';
+  openM('m-ws-view');
+  let w=null;
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/worksheets?id=eq.${encodeURIComponent(wsId)}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
+    if(r.ok)w=(await r.json())?.data;
+  }catch(e){}
+  if(!w){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">워크시트를 불러오지 못했어요.<br>선생님께 말씀드려 주세요.</div>';return;}
+  document.getElementById('wsv-title').textContent='🗒️ '+(w.title||'워크시트');
+  document.getElementById('wsv-sub').textContent=[w.gradeLevel,(w.passageType==='literature'?'문학':'정보글'),w.guidelineLanguage].filter(Boolean).join(' · ');
+  const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const secTitle={summary:'📌 요약 인포그래픽',literal:'🌐 문장 해석',vocab:'📖 단어',comp:'❓ 이해 질문',thinking:'💭 생각해 보기',discussion:'💬 토론 질문',writing:'✍️ 글쓰기',grammar:'🔍 문법',textstructure:'🧱 글의 구조',literary:'🎭 문학 장치',character:'👤 인물 분석',plot:'📈 플롯',theme:'🗝️ 주제와 상징'};
+  const h=[];
+  if(w.passage)h.push('<div class="wsv-sec"><div class="wsv-sec-t">📄 지문</div>'+w.passage.split(/\n\n+/).map(p=>'<p style="margin:0 0 8px;line-height:1.8">'+esc(p)+'</p>').join('')+'</div>');
+  const order=(w.sectionIds||Object.keys(w.sections||{})).filter(id=>w.sections?.[id]);
+  const numQ=(arr,f)=>'<ol style="margin:0;padding-left:20px">'+arr.map(x=>'<li style="margin-bottom:8px;line-height:1.7">'+f(x)+'</li>').join('')+'</ol>';
+  for(const id of order){
+    const d=w.sections[id];if(!d)continue;
+    let inner='';
+    if(id==='comp'||id==='discussion')inner=numQ(d.questions||[],q=>esc(q.question)+(q.followUp?'<div style="font-size:12px;color:var(--slate)">↳ '+esc(q.followUp)+'</div>':''));
+    else if(id==='thinking')inner=numQ(d.prompts||[],p=>esc(p.prompt));
+    else if(id==='literal')inner=numQ(d.sentences||[],x=>esc(x.original));
+    else if(id==='vocab')inner=numQ(d.words||[],x=>'<b>'+esc(x.word)+'</b>'+(x.fillBlankSentence?'<div style="font-size:12.5px;color:var(--slate)">'+esc(x.fillBlankSentence)+'</div>':''));
+    else if(id==='summary')inner='<p style="margin:0 0 6px"><b>핵심 질문:</b> '+esc(d.essentialQuestion||'')+'</p><p style="margin:0;line-height:1.7">'+esc(d.overview||'')+'</p>';
+    else if(id==='writing')inner='<p style="margin:0 0 6px"><b>주제:</b> '+esc(d.topic||'')+'</p>'+numQ(d.brainstorm||[],b=>esc(b.question));
+    else if(id==='grammar')inner=numQ(d.points||[],g=>'<b>'+esc(g.point)+'</b><div style="font-size:12.5px;color:var(--slate)">'+esc(g.practice||'')+'</div>');
+    else if(Array.isArray(d.elements))inner=numQ(d.elements,e2=>'<b>'+esc(e2.label||e2.stage||'')+'</b> '+esc(e2.content||''));
+    else if(Array.isArray(d.devices))inner=numQ(d.devices,x=>'<b>'+esc(x.device)+'</b> — <i>'+esc(x.quote||'')+'</i>');
+    else if(Array.isArray(d.characters))inner=numQ(d.characters,c=>'<b>'+esc(c.name)+'</b>');
+    else if(Array.isArray(d.themes))inner=numQ(d.themes,t=>'<b>'+esc(t.theme)+'</b>');
+    else continue;
+    h.push('<div class="wsv-sec"><div class="wsv-sec-t">'+(secTitle[id]||id)+'</div>'+inner+'</div>');
+  }
+  body.innerHTML='<div style="padding:12px 16px;font-size:14px;color:var(--navy)">'
+    +'<style>.wsv-sec{margin-bottom:16px}.wsv-sec-t{font-size:12px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:.03em;background:var(--tl);border-radius:7px;padding:5px 10px;margin-bottom:8px}</style>'
+    +h.join('')
+    +'<div style="font-size:11px;color:var(--slate);text-align:center;padding:8px 0">종이 워크시트는 선생님이 인쇄해서 나눠줘요 ✏️</div>'
+    +'</div>';
+  const a=(_cache.assignments||[]).find(x=>x.id===asgnId);
+  footer.innerHTML=(a&&!a.completedAt)
+    ?'<button class="btn bt" style="width:100%;border-radius:50px;padding:13px;font-weight:700" onclick="completeAssignment(\''+sid+'\',\''+asgnId+'\');closeM(\'m-ws-view\')">✓ 다 풀었어요!</button>'
+    :'<button class="btn bo" style="width:100%;border-radius:50px;padding:12px" onclick="closeM(\'m-ws-view\')">닫기</button>';
 }

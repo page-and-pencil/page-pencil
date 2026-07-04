@@ -246,3 +246,33 @@ function ttsLevelForTb(tb){
 function ttsSplitSents(text){
   return (text||'').split(/\n+/).flatMap(p=>p.replace(/\s+/g,' ').trim().split(/(?<=[.!?…])\s+/)).map(s=>s.trim()).filter(Boolean);
 }
+
+// ── 원서 → 가상 교재 뷰 (챕터=유닛, 챕터 없으면 본문 전체=1유닛) ──
+// 미션 시스템이 교재와 동일한 인터페이스(units/unitTexts/...)로 원서를 다루게 한다.
+function missionTbView(b){
+  if(!b||b.type!=='library')return b;
+  if(b._msView)return b._msView;
+  const units={},unitTexts={},unitTitles={};
+  const vocab=Array.isArray(b.vocab)?b.vocab:[];
+  const chapters=(Array.isArray(b.chapters)?b.chapters:[]).filter(c=>c&&(c.text||'').trim());
+  if(chapters.length){
+    chapters.forEach((c,i)=>{
+      const key=(c.name||'').trim()||('Chapter '+(i+1));
+      unitTexts[key]=c.text.trim();
+      units[key]=vocab.filter(w=>((w.chapter||w.unit||'')+'').trim()===(c.name||'').trim());
+    });
+  }else{
+    const text=(b.bookText||'').trim();
+    if(text){unitTexts['전체']=text;units['전체']=vocab;}
+  }
+  const v={...b,units,unitTexts,unitTitles,unitPatterns:{},unitAudio:{}};
+  try{Object.defineProperty(b,'_msView',{value:v,enumerable:false,configurable:true});}catch(e){}
+  return v;
+}
+// 미션용 교재/원서 통합 조회
+function missionFindTb(id){
+  const g=(_cache.globalTextbooks||[]).find(b=>b.id===id);
+  if(g)return g;
+  const l=(_cache.library||[]).find(b=>b.id===id);
+  return l?missionTbView(l):null;
+}
