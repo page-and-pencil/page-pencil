@@ -174,9 +174,20 @@ const MISSION_DEFS={
   listen:{icon:'👂',label:'듣기 & 읽기'},
   cloze:{icon:'📝',label:'빈칸 채우기'},
   pattern:{icon:'🔁',label:'패턴 드릴'},
+  scramble:{icon:'🧩',label:'어순 배열'},
   record:{icon:'🎙',label:'낭독 녹음'},
 };
-const MISSION_ORDER=['vocab','listen','cloze','pattern','record'];
+const MISSION_ORDER=['vocab','listen','cloze','pattern','scramble','record'];
+// 어순배열용 문장 목록 (패턴 우선, 없으면 본문 문장) — 3단어 이상만
+function scrambleLines(tb,unitKey){
+  const raw=(tb?.unitPatterns?.[unitKey]||'').trim();
+  let lines=raw?raw.split('\n').map(l=>l.trim()).filter(Boolean):[];
+  if(!lines.length){
+    const text=(tb?.unitTexts?.[unitKey]||'').replace(/\s+/g,' ').trim();
+    lines=text.split(/(?<=[.!?])\s+/).map(s=>s.trim()).filter(Boolean);
+  }
+  return lines.filter(l=>l.split(/\s+/).filter(Boolean).length>=3).slice(0,6);
+}
 // 본문에서 실제로 등장하는 유닛 단어 (빈칸 후보)
 function clozeTargets(tb,unitKey){
   const text=(tb?.unitTexts?.[unitKey]||'');
@@ -200,6 +211,7 @@ function missionAvail(tb,unitKey){
     listen:!!text,
     cloze:!!text&&clozeTargets(tb,unitKey).length>=2,
     pattern:!!((tb?.unitPatterns?.[unitKey]||'').trim()),
+    scramble:scrambleLines(tb,unitKey).length>0,
     record:!!text,
   };
 }

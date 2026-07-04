@@ -1984,6 +1984,7 @@ function renderMsStep(i){
   else if(m==='listen')renderMsListen(body,footer);
   else if(m==='cloze')renderMsCloze(body,footer);
   else if(m==='pattern')renderMsPattern(body,footer);
+  else if(m==='scramble')renderMsScramble(body,footer);
   else if(m==='record')renderMsRecord(body,footer);
 }
 function msDoneBtn(m,label){
@@ -2212,6 +2213,71 @@ async function msPlayAllPatterns(){
     await speakSmart(lines[idx],{el:L.el,tts:L.tts});
     if(row)row.style.borderColor='var(--border)';
     await new Promise(r=>setTimeout(r,L.gap)); // 문장 사이 쉼 (레벨별)
+  }
+}
+
+// 미션: 어순 배열 (문장의 단어를 순서대로 배열)
+let _msScr=null;
+function renderMsScramble(body,footer){
+  const{tb,unitKey}=_msState;
+  const lines=scrambleLines(tb,unitKey);
+  if(!lines.length){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">배열할 문장이 없어요</div>';footer.innerHTML=msDoneBtn('scramble','✓ 완료');return;}
+  _msScr={lines,idx:0,done:0};
+  msScrLoad();
+}
+function msScrLoad(){
+  const S=_msScr;if(!S)return;
+  const sentence=S.lines[S.idx];
+  const toks=sentence.split(/\s+/).filter(Boolean);
+  // 원문과 다르게 섞기 (2단어 초과면 반복 시도)
+  let order=toks.map((_,i)=>i);
+  for(let t=0;t<8;t++){order=_shuffle(toks.map((_,i)=>i));if(toks.length<=2||order.some((v,i)=>v!==i))break;}
+  S.toks=toks;S.bankOrder=order;S.answer=[];S.checked=null;
+  msScrDraw();
+}
+function msScrDraw(){
+  const S=_msScr;if(!S)return;
+  const body=document.getElementById('ms-body'),footer=document.getElementById('ms-footer');
+  const placed=new Set(S.answer);
+  const bank=S.bankOrder.filter(id=>!placed.has(id)).map(id=>
+    '<button onclick="msScrPick('+id+')" style="padding:9px 15px;border:1.5px solid var(--border);border-radius:12px;background:#fff;font-weight:700;color:var(--navy);font-family:var(--fb);font-size:15px;cursor:pointer">'+S.toks[id]+'</button>').join('');
+  const ansBorder=S.checked==='ok'?'#059669':S.checked==='no'?'#dc2626':'var(--teal)';
+  const ansBg=S.checked==='ok'?'#D9F6E9':S.checked==='no'?'#fdecec':'var(--tl)';
+  const answer=S.answer.length
+    ? S.answer.map((id,pos)=>'<button onclick="msScrUnpick('+pos+')" style="padding:9px 14px;border:none;border-radius:12px;background:#fff;font-weight:700;color:var(--navy);font-family:var(--fb);font-size:15px;cursor:pointer;box-shadow:var(--sh)">'+S.toks[id]+'</button>').join('')
+    : '<span style="font-size:12px;color:var(--slate);align-self:center">단어를 순서대로 눌러 문장을 만들어요</span>';
+  body.innerHTML='<div style="padding:12px 16px">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:11px;font-weight:700;color:var(--slate)">문장 '+(S.idx+1)+' / '+S.lines.length+'</span>'
+    +'<button class="btn ba bsm" style="border-radius:50px" onclick="speakSmart(_msScr.lines[_msScr.idx],{el:0.9,tts:0.85})">🔊 듣기</button></div>'
+    +'<div style="min-height:52px;display:flex;flex-wrap:wrap;gap:7px;padding:11px;border:2px solid '+ansBorder+';border-radius:13px;background:'+ansBg+';margin-bottom:14px">'+answer+'</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">'+(bank||'<span style="font-size:12px;color:var(--slate)">아래 확인을 눌러요</span>')+'</div>'
+    +'</div>';
+  const full=S.answer.length===S.toks.length;
+  footer.innerHTML='<div style="display:flex;gap:8px">'
+    +'<button class="btn bo bsm" style="border-radius:50px" onclick="msScrReset()">↺ 다시</button>'
+    +'<button class="btn bt" style="flex:1;border-radius:50px;padding:12px;font-weight:700" '+(full?'':'disabled')+' onclick="msScrCheck()">'+(full?'정답 확인':'단어를 배열해요')+'</button>'
+    +'</div>';
+}
+function msScrPick(id){const S=_msScr;if(!S)return;if(S.answer.includes(id))return;S.answer.push(id);S.checked=null;msScrDraw();}
+function msScrUnpick(pos){const S=_msScr;if(!S||S.checked==='ok')return;S.answer.splice(pos,1);S.checked=null;msScrDraw();}
+function msScrReset(){const S=_msScr;if(!S)return;S.answer=[];S.checked=null;msScrDraw();}
+function _scrNorm(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+function msScrCheck(){
+  const S=_msScr;if(!S)return;
+  const built=S.answer.map(id=>S.toks[id]).join(' ');
+  const ok=_scrNorm(built)===_scrNorm(S.lines[S.idx]);
+  S.checked=ok?'ok':'no';
+  msScrDraw();
+  if(ok){
+    speakSmart(S.lines[S.idx],{el:0.9,tts:0.85});
+    showMiniConfetti();
+    setTimeout(()=>{
+      if(_msScr!==S)return;
+      if(S.idx<S.lines.length-1){S.idx++;msScrLoad();}
+      else{msCompleteMission('scramble');} // 마지막 문장 → 스텝 완료
+    },1100);
+  }else{
+    setTimeout(()=>{if(_msScr!==S)return;S.answer=[];S.checked=null;msScrDraw();toast('순서를 다시 맞춰볼까요?');},1000);
   }
 }
 
