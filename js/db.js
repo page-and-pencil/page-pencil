@@ -430,17 +430,18 @@ async function sha256Hex(s){const b=await crypto.subtle.digest('SHA-256',new Tex
 function elevenCfg(){const c=_cache.settings.elevenlabs||DB.g('elevenlabs')||null;return(c&&c.key)?c:null;}
 async function elevenGetAudioUrl(text,cfg,wordMode){
   const voice=cfg.voiceId||'EXAVITQu4vr4xnSDxMaL';
-  // 모드별 캐시 키 (w=단어 또렷 모드 / s2=문장 생동감 모드 — 설정 바뀌면 버전 올려 재생성)
-  const id='tts_'+await sha256Hex(voice+'|'+(wordMode?'w|':'s2|')+text);
+  // 모드별 캐시 키 (w=단어 또렷 모드 / s3=문장 균형 모드 — 설정 바뀌면 버전 올려 재생성)
+  const id='tts_'+await sha256Hex(voice+'|'+(wordMode?'w|':'s3|')+text);
   // 1) 캐시 조회 — 같은 문장은 다시 생성하지 않음 (크레딧 절약)
   try{
     const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
     if(r.ok){const row=await r.json();if(row?.data?.url)return row.data.url;}
   }catch(e){}
-  // 2) 생성 — 단어: 고품질+안정(또박또박) / 문장: 억양 살아있는 생동감 설정
+  // 2) 생성 — 단어: 고품질+안정(또박또박) / 문장: 균형 설정(일관된 톤 + 은은한 생기)
+  //    stability 낮으면 문장마다 피치가 널뜀, 높으면 밋밋 → 0.6/0.15가 낭독용 균형점
   const body=wordMode
     ?{text,model_id:'eleven_multilingual_v2',voice_settings:{stability:0.85,similarity_boost:0.8,style:0,use_speaker_boost:true}}
-    :{text,model_id:'eleven_turbo_v2_5',voice_settings:{stability:0.4,similarity_boost:0.75,style:0.4,use_speaker_boost:true}};
+    :{text,model_id:'eleven_turbo_v2_5',voice_settings:{stability:0.6,similarity_boost:0.8,style:0.15,use_speaker_boost:true}};
   const gen=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_64`,{
     method:'POST',
     headers:{'xi-api-key':cfg.key,'Content-Type':'application/json'},
@@ -466,15 +467,16 @@ async function elevenGetAudioUrl(text,cfg,wordMode){
 // 재생 중 하이라이트·레벨별 쉼은 프로그램으로 처리한다. 캐시 키: p2.
 async function elevenGetPassageAudio(text,cfg){
   const voice=cfg.voiceId||'EXAVITQu4vr4xnSDxMaL';
-  const id='tts_'+await sha256Hex(voice+'|p2|'+text);
+  const id='tts_'+await sha256Hex(voice+'|p3|'+text);
   try{
     const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
     if(r.ok){const row=await r.json();if(row?.data?.url&&row?.data?.times)return row.data;}
   }catch(e){}
+  // 본문은 고품질 모델 + 균형 설정 — 내레이션 프로소디가 안정적 (유닛당 1회 생성이라 비용 미미)
   const gen=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps?output_format=mp3_44100_64`,{
     method:'POST',
     headers:{'xi-api-key':cfg.key,'Content-Type':'application/json'},
-    body:JSON.stringify({text,model_id:'eleven_turbo_v2_5',voice_settings:{stability:0.4,similarity_boost:0.75,style:0.4,use_speaker_boost:true}}),
+    body:JSON.stringify({text,model_id:'eleven_multilingual_v2',voice_settings:{stability:0.6,similarity_boost:0.8,style:0.15,use_speaker_boost:true}}),
   });
   if(!gen.ok)throw new Error('ElevenLabs HTTP '+gen.status);
   const d=await gen.json();
