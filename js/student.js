@@ -1381,10 +1381,25 @@ function renderVocabReview(sid){
     </div>
   </div>`;
 }
+// ── 주간 요일 스트립 (class5식 요일별 학습) ──
+let _stuWeekSel=null;
+function stuSelectDay(d){_stuWeekSel=d;renderStudentHome(currentStudentSid);}
+function _stuWeekDates(today){
+  const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const t=new Date(today+'T00:00:00');
+  const dow=(t.getDay()+6)%7;           // 월=0
+  const mon=new Date(t);mon.setDate(t.getDate()-dow);
+  const labels=['월','화','수','목','금','토','일'];
+  return labels.map((label,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return {date:ymd(d),label,dnum:d.getDate(),isToday:ymd(d)===today,i};});
+}
+const _asgnDay=a=>(a.due||a.date||'').slice(0,10);
+
 function renderStudentHome(sid){
   const el=document.getElementById('st-home');if(!el)return;
   const stu=DB.stus().find(s=>s.id===sid);
   const today=new Date().toISOString().split('T')[0];
+  const _wk=_stuWeekDates(today);
+  const _weekStart=_wk[0].date,_weekEnd=_wk[6].date;
   const allAssigns=(_cache.assignments||[]).filter(a=>a.sid===sid);
   const done=allAssigns.filter(a=>a.completedAt).sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
   // 긴급도 정렬: 늦은 것 → 오늘 마감 → 내일 → 가까운 순 → 마감 없음(날짜 오름차순)
@@ -1561,10 +1576,38 @@ function renderStudentHome(sid){
 
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
     ${noHwHtml}
-    ${pending.length?`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:15px;font-weight:800;color:var(--navy)">오늘의 미션</span><span style="font-size:12px;color:var(--slate);font-weight:600">${done.length} / ${totalMission} 완료</span></div>${pending.map(asgnCard).join('')}`:''}
+    ${(()=>{
+      if(!allAssigns.length)return '';
+      let sel=(_stuWeekSel&&_wk.some(d=>d.date===_stuWeekSel))?_stuWeekSel:today;
+      if(!_wk.some(d=>d.date===sel))sel=_wk[0].date;
+      const overdue=allAssigns.filter(a=>!a.completedAt&&_asgnDay(a)&&_asgnDay(a)<today);
+      const strip=_wk.map(d=>{
+        const dayAll=allAssigns.filter(a=>_asgnDay(a)===d.date);
+        const dp=dayAll.filter(a=>!a.completedAt).length,dd=dayAll.filter(a=>a.completedAt).length;
+        const od=d.isToday&&overdue.length?overdue.length:0;
+        let dot='<span class="wk-day-dot"></span>';
+        if(od)dot='<span class="wk-day-dot overdue">!'+od+'</span>';
+        else if(dayAll.length&&dp===0)dot='<span class="wk-day-dot done">✓</span>';
+        else if(dp)dot='<span class="wk-day-dot">'+dp+'</span>';
+        const wend=d.i===5?'wk-day-sat':d.i===6?'wk-day-sun':'';
+        return '<button class="wk-day '+wend+(d.isToday?' today':'')+(d.date===sel?' sel':'')+'" onclick="stuSelectDay(\''+d.date+'\')"><span class="wk-day-lbl">'+d.label+'</span><span class="wk-day-num">'+d.dnum+'</span>'+dot+'</button>';
+      }).join('');
+      const dayList=(ds,arr)=>arr.filter(a=>_asgnDay(a)===ds);
+      let selPending=dayList(sel,pending);
+      if(sel===today)selPending=[...overdue.filter(a=>!selPending.includes(a)),...selPending];
+      const selDone=dayList(sel,done);
+      const sl=_wk.find(d=>d.date===sel);
+      const head='<div class="wk-sec-head"><span class="t">'+(sl&&sl.isToday?'오늘':(sl?sl.label+'요일':''))+' 학습</span><span class="s">'+selDone.length+' / '+(selPending.length+selDone.length)+' 완료</span></div>';
+      const body=(selPending.length||selDone.length)
+        ? selPending.map(asgnCard).join('')+(selDone.length?'<div style="opacity:.72">'+selDone.map(asgnCard).join('')+'</div>':'')
+        : '<div class="wk-empty-day">이 날은 배정된 학습이 없어요 😊<br><span style="font-size:11px">단어 복습으로 예습해볼까요?</span></div>';
+      const etc=allAssigns.filter(a=>{const d=_asgnDay(a);return !d||d>_weekEnd;});
+      const etcHtml=etc.length?'<details style="margin-top:12px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;list-style:none">📌 기타 과제 ('+etc.length+'건)</summary><div style="margin-top:8px">'+etc.map(asgnCard).join('')+'</div></details>':'';
+      return '<div class="wk-strip">'+strip+'</div>'+head+body+etcHtml;
+    })()}
     ${vocabCtaHtml}
     ${weekCard}
-    ${done.length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 완료된 숙제 (${done.length}건)</summary><div style="margin-top:8px">${done.map(asgnCard).join('')}</div></details>`:''}
+    ${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 지난 완료 기록 (${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length}건)</summary><div style="margin-top:8px">${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).map(asgnCard).join('')}</div></details>`:''}
     ${renderVocabReview(sid)}
     <details open style="margin-top:14px">
       <summary style="font-size:12px;font-weight:600;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">📊 지난 수업 &amp; 학습 현황 <span style="font-size:10px;color:var(--teal)">▾</span></summary>

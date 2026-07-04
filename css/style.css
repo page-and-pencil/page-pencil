@@ -939,3 +939,21 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
 .bcard-actions button:hover{background:var(--tl);color:var(--teal-deep);}
 .bcard-actions button+button{border-left:1px solid var(--border);}
 @media(max-width:760px){.book-card-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:9px;}.bcard-cover{height:78px;font-size:30px;}}
+
+/* ── 학생 주간 요일 스트립 (class5 스타일 요일별 학습) ── */
+.wk-strip{display:flex;gap:5px;margin-bottom:14px}
+.wk-day{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px 7px;border:1.5px solid var(--border);border-radius:13px;background:#fff;cursor:pointer;font-family:var(--fb);transition:all .12s}
+.wk-day:hover{border-color:var(--teal)}
+.wk-day.sel{border-color:var(--teal);background:var(--tl);box-shadow:0 2px 8px rgba(12,164,201,.15)}
+.wk-day-lbl{font-size:10px;font-weight:700;color:var(--slate)}
+.wk-day-sat .wk-day-lbl{color:#2563eb}
+.wk-day-sun .wk-day-lbl{color:#dc2626}
+.wk-day-num{font-size:13px;font-weight:800;color:var(--navy);width:23px;height:23px;border-radius:50%;display:flex;align-items:center;justify-content:center;line-height:1}
+.wk-day.today .wk-day-num{background:var(--teal);color:#fff}
+.wk-day-dot{font-size:10px;font-weight:800;min-height:13px;line-height:1;color:var(--teal)}
+.wk-day-dot.done{color:#059669}
+.wk-day-dot.overdue{color:#dc2626}
+.wk-sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.wk-sec-head .t{font-size:15px;font-weight:800;color:var(--navy)}
+.wk-sec-head .s{font-size:12px;color:var(--slate);font-weight:600}
+.wk-empty-day{text-align:center;padding:1.5rem 1rem;color:var(--slate);font-size:13px;background:var(--cream2);border-radius:12px}

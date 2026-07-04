@@ -7483,13 +7483,15 @@ function modalAssignCatChange(){
           </div>
           <div id="ms-multi-units" style="max-height:150px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--rs);padding:6px 8px;background:#fff;font-size:12px">교재를 먼저 선택하세요</div>
         </div>
-        <div class="f" style="margin-bottom:0"><label>마감 간격</label>
+        <div class="f" style="margin-bottom:0"><label>요일 배치 (마감일 기준)</label>
           <select id="ms-multi-interval" style="width:100%">
+            <option value="weekday" selected>📅 평일 배치 (월~금, 주말 건너뜀)</option>
+            <option value="daily">매일 (주말 포함)</option>
             <option value="0">모두 같은 마감일</option>
-            <option value="1" selected>유닛마다 하루씩</option>
-            <option value="2">유닛마다 이틀씩</option>
-            <option value="7">유닛마다 일주일씩</option>
+            <option value="2">이틀 간격</option>
+            <option value="7">일주일 간격</option>
           </select>
+          <div style="font-size:11px;color:var(--slate);margin-top:5px">첫 유닛은 마감일부터 시작 → 유닛들이 요일별로 순서대로 배정됩니다. 학생 홈에 요일별로 나타나요.</div>
         </div>
       </div>
       <div class="f" style="margin-bottom:0;margin-top:8px"><label>미션 구성</label>
@@ -7679,8 +7681,19 @@ async function saveModalAssignment(){
       if(!u){toast('유닛을 선택해 주세요');return;}
       units=[u];
     }
-    const interval=_missionMode==='multi'?parseInt(document.getElementById('ms-multi-interval')?.value||'1'):0;
-    const baseDue=due?new Date(due):null;
+    const intervalMode=_missionMode==='multi'?(document.getElementById('ms-multi-interval')?.value||'weekday'):'0';
+    const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const baseDue=due?new Date(due+'T00:00:00'):null;
+    // i번째 유닛의 마감일 계산 (평일 배치는 주말 건너뜀)
+    const dueFor=i=>{
+      if(!baseDue||intervalMode==='0')return due;
+      const d=new Date(baseDue);
+      if(intervalMode==='weekday'){
+        while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1); // 시작을 평일로 보정
+        let added=0;while(added<i){d.setDate(d.getDate()+1);const dow=d.getDay();if(dow!==0&&dow!==6)added++;}
+      }else{const step=intervalMode==='daily'?1:parseInt(intervalMode)||1;d.setDate(d.getDate()+i*step);}
+      return ymd(d);
+    };
     let created=0;
     for(let i=0;i<units.length;i++){
       const unitKey=units[i];
@@ -7688,8 +7701,7 @@ async function saveModalAssignment(){
       const av=missionAvail(tb,unitKey);
       const unitMissions=missions.filter(m=>av[m]);
       if(!unitMissions.length)continue;
-      let unitDue=due;
-      if(baseDue&&interval){const d=new Date(baseDue);d.setDate(d.getDate()+i*interval);unitDue=d.toISOString().split('T')[0];}
+      const unitDue=dueFor(i);
       const a={id:uid(),sid,type:'mission',category:'mission',date,due:unitDue,note,
         tbId,unitKey,bookTitle:tb.title||'',unitTitle:tb.unitTitles?.[unitKey]||'',
         missions:unitMissions,progress:{}};
