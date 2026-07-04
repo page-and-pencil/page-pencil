@@ -1708,8 +1708,7 @@ function renderUrText(tb,body,footer){
   }
 
   if(!_urState.ttsLevel)_urState.ttsLevel=ttsLevelForTb(tb);
-  const sents=ttsSplitSents(text);
-  const sentHtml=sents.map((s,i)=>`<span id="ur-ls-${i}" style="transition:background .2s;border-radius:4px">${_renderHighlightedText(s,words)}</span>`).join(' ');
+  const sentHtml=ttsSentHtml(text,words,'ur-ls-',_urState.ttsLevel);
   let audioHtml='';
   if(audioUrl){
     audioHtml=`<audio controls src="${audioUrl}" style="width:100%;height:32px;margin-bottom:8px"></audio>`;
@@ -2018,8 +2017,7 @@ function renderMsListen(body,footer){
   const words=tuNormWords(tb.units?.[unitKey]||[]);
   if(!text){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">이 단원에 등록된 본문이 없습니다</div>';footer.innerHTML=msDoneBtn('listen','✓ 완료');return;}
   if(!_msState.ttsLevel)_msState.ttsLevel=ttsLevelForTb(tb);
-  const sents=ttsSplitSents(text);
-  const sentHtml=sents.map((s,i)=>'<span id="ms-ls-'+i+'" style="transition:background .2s;border-radius:4px">'+_renderHighlightedText(s,words)+'</span>').join(' ');
+  const sentHtml=ttsSentHtml(text,words,'ms-ls-',_msState.ttsLevel);
   const audioHtml=audioUrl
     ?'<audio controls src="'+audioUrl+'" style="width:100%;height:34px;margin-bottom:10px"></audio>'
     :'<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
@@ -2401,6 +2399,20 @@ async function speakSentences(text,levelId,hiPrefix){
   }
   if(hiPrefix)document.querySelectorAll('[id^="'+hiPrefix+'"]').forEach(e=>e.style.background='');
   return true;
+}
+// 레벨 연동 본문 레이아웃: 초급=한 줄에 한 문장 / 중·고급=문단 단위 줄바꿈
+// (문장 id 순서는 speakSentences의 ttsSplitSents 순서와 동일하게 유지)
+function ttsSentHtml(text,words,prefix,levelId){
+  const paras=(text||'').split(/\n+/).map(p=>p.trim()).filter(Boolean);
+  let gi=0;
+  if(levelId==='beginner'){
+    return paras.map(p=>
+      ttsSplitSents(p).map(s=>`<div id="${prefix}${gi++}" style="transition:background .2s;border-radius:4px;padding:2px 4px;margin:0 0 6px">${_renderHighlightedText(s,words)}</div>`).join('')
+    ).join('<div style="height:10px"></div>');
+  }
+  return paras.map(p=>
+    '<p style="margin:0 0 12px">'+ttsSplitSents(p).map(s=>`<span id="${prefix}${gi++}" style="transition:background .2s;border-radius:4px">${_renderHighlightedText(s,words)}</span>`).join(' ')+'</p>'
+  ).join('');
 }
 function msSetTtsLevel(l){if(_msState){_msState.ttsLevel=l;stopSpeak();renderMsStep(_msState.idx);}}
 function urSetTtsLevel(l){if(_urState){_urState.ttsLevel=l;stopSpeak();renderUrStep(_urState.step);}}

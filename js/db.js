@@ -428,17 +428,17 @@ async function sha256Hex(s){const b=await crypto.subtle.digest('SHA-256',new Tex
 function elevenCfg(){const c=_cache.settings.elevenlabs||DB.g('elevenlabs')||null;return(c&&c.key)?c:null;}
 async function elevenGetAudioUrl(text,cfg,wordMode){
   const voice=cfg.voiceId||'EXAVITQu4vr4xnSDxMaL';
-  // 단어 모드는 별도 캐시 키 (모델·발화 설정이 다르므로)
-  const id='tts_'+await sha256Hex(voice+'|'+(wordMode?'w|':'')+text);
+  // 모드별 캐시 키 (w=단어 또렷 모드 / s2=문장 생동감 모드 — 설정 바뀌면 버전 올려 재생성)
+  const id='tts_'+await sha256Hex(voice+'|'+(wordMode?'w|':'s2|')+text);
   // 1) 캐시 조회 — 같은 문장은 다시 생성하지 않음 (크레딧 절약)
   try{
     const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
     if(r.ok){const row=await r.json();if(row?.data?.url)return row.data.url;}
   }catch(e){}
-  // 2) 생성 — 단어는 고품질 모델 + 안정된 발화 설정으로 또렷하게
+  // 2) 생성 — 단어: 고품질+안정(또박또박) / 문장: 억양 살아있는 생동감 설정
   const body=wordMode
     ?{text,model_id:'eleven_multilingual_v2',voice_settings:{stability:0.85,similarity_boost:0.8,style:0,use_speaker_boost:true}}
-    :{text,model_id:'eleven_turbo_v2_5'};
+    :{text,model_id:'eleven_turbo_v2_5',voice_settings:{stability:0.4,similarity_boost:0.75,style:0.4,use_speaker_boost:true}};
   const gen=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_64`,{
     method:'POST',
     headers:{'xi-api-key':cfg.key,'Content-Type':'application/json'},
