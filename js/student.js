@@ -2019,11 +2019,26 @@ async function msCompleteMission(m){
 }
 
 // 미션 1: 단어 확인 (뜻 보고 → 탭해서 영어 확인 + 발음)
+// 단어 스텝 = 3단계 덱: 암기 → 리콜(뜻→단어) → 스펠(듣고/보고 타이핑)
+function _vocPhaseBar(cur){
+  const ph=[['암기','📖'],['리콜','🧠'],['스펠','⌨️']];
+  return '<div class="seg" style="margin:0 16px 10px">'+ph.map((p,i)=>
+    '<button class="'+(i===cur?'seg-on':'')+'" style="font-size:11px;padding:6px 4px" '+(i<cur?'':'disabled')+' onclick="'+(i<cur?'msVocGo('+i+')':'')+'">'+(i<cur?'✓ ':'')+p[1]+' '+p[0]+'</button>').join('')+'</div>';
+}
+function msVocGo(n){_msState.vocabPhase=n;renderMsVocab(document.getElementById('ms-body'),document.getElementById('ms-footer'));}
 function renderMsVocab(body,footer){
   const{tb,unitKey}=_msState;
-  const words=tuNormWords(tb.units?.[unitKey]||[]);
+  const words=tuNormWords(tb.units?.[unitKey]||[]).filter(w=>w.word);
   if(!words.length){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">단어 목록이 없습니다</div>';footer.innerHTML=msDoneBtn('vocab','✓ 단어 확인 완료');return;}
-  body.innerHTML='<div style="padding:12px 16px">'
+  _msState._vocabWords=words;
+  const phase=_msState.vocabPhase||0;
+  if(phase===0)_vocMemorize(words,body,footer);
+  else if(phase===1)_vocRecall(words,body,footer);
+  else _vocSpell(words,body,footer);
+}
+// 1단계 암기: 뜻 보고 탭 → 영어+발음 확인
+function _vocMemorize(words,body,footer){
+  body.innerHTML=_vocPhaseBar(0)+'<div style="padding:2px 16px 12px">'
     +'<div style="font-size:12px;color:var(--slate);margin-bottom:10px">한국어 뜻을 보고 <b>영어 단어를 떠올린 뒤</b> 카드를 눌러 확인하세요 🔊</div>'
     +'<div style="display:flex;flex-direction:column;gap:8px">'
     +words.map((w,i)=>'<div id="msw-row-'+i+'" onclick="msRevealWord('+i+')" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;transition:border-color .15s">'
@@ -2031,11 +2046,103 @@ function renderMsVocab(body,footer){
       +'<div style="text-align:right"><span id="msw-en-'+i+'" style="font-size:14px;font-weight:700;color:var(--teal);opacity:0;transition:opacity .2s">'+(w.word||'')+'</span><span id="msw-ck-'+i+'" style="font-size:15px;margin-left:6px;opacity:0;color:var(--teal)">✓</span></div>'
       +'</div>').join('')
     +'</div></div>';
-  _msState._vocabWords=words;
   footer.innerHTML='<div style="display:flex;gap:8px">'
     +'<button class="btn ba" onclick="msRevealAllWords()" style="flex:1">전체 보기</button>'
-    +'<div style="flex:1.4">'+msDoneBtn('vocab','✓ 단어 다 확인했어요')+'</div>'
+    +'<button class="btn bt" style="flex:1.4;border-radius:50px;padding:12px;font-weight:700" onclick="msVocGo(1)">다음: 뜻 맞히기 →</button>'
     +'</div>';
+}
+function msRevealWord(i){
+  const w=(_msState._vocabWords||[])[i];if(!w)return;
+  const en=document.getElementById('msw-en-'+i);
+  if(en&&en.style.opacity!=='1'){en.style.opacity='1';const ck=document.getElementById('msw-ck-'+i);if(ck)ck.style.opacity='1';const row=document.getElementById('msw-row-'+i);if(row)row.style.borderColor='var(--teal)';}
+  speakWord(w.word);
+}
+function msRevealAllWords(){(_msState._vocabWords||[]).forEach((w,i)=>{const en=document.getElementById('msw-en-'+i);if(en)en.style.opacity='1';const ck=document.getElementById('msw-ck-'+i);if(ck)ck.style.opacity='1';const row=document.getElementById('msw-row-'+i);if(row)row.style.borderColor='var(--teal)';});}
+
+// 2단계 리콜: 뜻 → 4지선다로 영어 단어 고르기
+let _vocR=null;
+function _vocRecall(words,body,footer){
+  const withKo=words.filter(w=>w.ko);
+  const targets=withKo.length?withKo:words;
+  const pool=[...new Set(words.map(w=>w.word))];
+  const rounds=_shuffle(targets).map(t=>({ans:t.word,ko:t.ko||t.word,options:_shuffle([t.word,..._shuffle(pool.filter(w=>w.toLowerCase()!==t.word.toLowerCase())).slice(0,3)])}));
+  _vocR={rounds,idx:0,locked:false,picked:null,ok:0};
+  _vocRDraw(body,footer);
+}
+function _vocRDraw(body,footer){
+  body=body||document.getElementById('ms-body');footer=footer||document.getElementById('ms-footer');
+  const R=_vocR;if(!R)return;
+  if(R.idx>=R.rounds.length){
+    body.innerHTML=_vocPhaseBar(1)+'<div style="text-align:center;padding:1.5rem 1rem"><div style="font-size:34px">🧠</div><div style="font-size:15px;font-weight:800;color:var(--navy);margin-top:4px">뜻 맞히기 완료! '+R.ok+'/'+R.rounds.length+'</div></div>';
+    footer.innerHTML='<button class="btn bt" style="width:100%;border-radius:50px;padding:13px;font-weight:700" onclick="msVocGo(2)">다음: 스펠링 →</button>';
+    return;
+  }
+  const r=R.rounds[R.idx];
+  const opts=r.options.map(w=>{
+    let st='border:1.5px solid var(--border);background:#fff;color:var(--navy)';
+    if(R.locked){if(w===r.ans)st='border:1.5px solid #059669;background:#D9F6E9;color:#047857';else if(w===R.picked)st='border:1.5px solid #dc2626;background:#fdecec;color:#dc2626';else st+=';opacity:.55';}
+    return '<button onclick="_vocRPick(\''+w.replace(/'/g,"\\'")+'\')" '+(R.locked?'disabled':'')+' style="'+st+';padding:14px 10px;border-radius:14px;font-weight:800;font-size:16px;font-family:var(--fb);cursor:pointer">'+w+'</button>';
+  }).join('');
+  body.innerHTML=_vocPhaseBar(1)+'<div style="padding:2px 16px 12px">'
+    +'<div style="text-align:right;font-size:11px;color:var(--slate);margin-bottom:6px">'+(R.idx+1)+' / '+R.rounds.length+'</div>'
+    +'<div style="text-align:center;padding:20px 12px;background:var(--tl);border-radius:16px;margin-bottom:14px"><div style="font-size:11px;color:var(--slate);margin-bottom:4px">이 뜻의 단어는?</div><div style="font-size:20px;font-weight:800;color:var(--navy)">'+r.ko+'</div></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+opts+'</div></div>';
+  footer.innerHTML='<div style="font-size:11px;color:var(--slate);text-align:center">알맞은 단어를 골라요</div>';
+}
+function _vocRPick(w){
+  const R=_vocR;if(!R||R.locked)return;
+  const r=R.rounds[R.idx];R.locked=true;R.picked=w;
+  const ok=w.toLowerCase()===r.ans.toLowerCase();
+  if(ok){R.ok++;speakWord(r.ans);}
+  _vocRDraw();
+  setTimeout(()=>{if(_vocR!==R)return;R.idx++;R.locked=false;R.picked=null;_vocRDraw();},ok?650:1150);
+}
+
+// 3단계 스펠: 뜻+발음 듣고 영어 타이핑
+let _vocS=null;
+function _vocSpell(words,body,footer){
+  _vocS={list:_shuffle(words),idx:0,tries:0,ok:0};
+  _vocSDraw(body,footer);
+}
+function _vocSDraw(body,footer){
+  body=body||document.getElementById('ms-body');footer=footer||document.getElementById('ms-footer');
+  const S=_vocS;if(!S)return;
+  if(S.idx>=S.list.length){msCompleteMission('vocab');return;}
+  const w=S.list[S.idx];
+  body.innerHTML=_vocPhaseBar(2)+'<div style="padding:2px 16px 12px">'
+    +'<div style="text-align:right;font-size:11px;color:var(--slate);margin-bottom:6px">'+(S.idx+1)+' / '+S.list.length+'</div>'
+    +'<div style="text-align:center;padding:18px 12px;background:var(--tl);border-radius:16px;margin-bottom:12px">'
+    +'<div style="font-size:18px;font-weight:800;color:var(--navy);margin-bottom:8px">'+(w.ko||'🔊 듣고 써보기')+'</div>'
+    +'<button class="btn ba bsm" style="border-radius:50px" onclick="speakWord(\''+(w.word||'').replace(/'/g,"\\'")+'\')">🔊 발음 듣기</button></div>'
+    +'<input id="voc-spell-in" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="영어로 입력..." style="width:100%;box-sizing:border-box;padding:13px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:17px;font-family:var(--fb);color:var(--navy);text-align:center;outline:none" onkeydown="if(event.key===\'Enter\')_vocSCheck()">'
+    +'<div id="voc-spell-fb" style="text-align:center;font-size:13px;margin-top:8px;min-height:18px"></div></div>';
+  footer.innerHTML='<div style="display:flex;gap:8px"><button class="btn bo bsm" style="border-radius:50px" onclick="_vocSReveal()">모르겠어요</button><button class="btn bt" style="flex:1;border-radius:50px;padding:12px;font-weight:700" onclick="_vocSCheck()">확인</button></div>';
+  setTimeout(()=>{const el=document.getElementById('voc-spell-in');if(el)el.focus();},50);
+}
+function _vocSCheck(){
+  const S=_vocS;if(!S)return;
+  const w=S.list[S.idx];const inp=document.getElementById('voc-spell-in');const fb=document.getElementById('voc-spell-fb');
+  const val=(inp?.value||'').trim().toLowerCase();
+  if(!val)return;
+  if(val===(w.word||'').toLowerCase()){
+    if(fb)fb.innerHTML='<span style="color:#059669;font-weight:800">✓ 정답! '+w.word+'</span>';
+    if(inp){inp.style.borderColor='#059669';inp.disabled=true;}
+    S.ok++;speakWord(w.word);showMiniConfetti();
+    setTimeout(()=>{if(_vocS!==S)return;S.idx++;S.tries=0;_vocSDraw();},800);
+  }else{
+    S.tries++;
+    if(S.tries>=2){_vocSReveal();return;}
+    if(fb)fb.innerHTML='<span style="color:#dc2626">다시 한 번! 힌트: <b>'+(w.word||'')[0]+'___</b> ('+(w.word||'').length+'글자)</span>';
+    if(inp){inp.style.borderColor='#dc2626';inp.select();}
+  }
+}
+function _vocSReveal(){
+  const S=_vocS;if(!S)return;
+  const w=S.list[S.idx];const fb=document.getElementById('voc-spell-fb');const inp=document.getElementById('voc-spell-in');
+  if(fb)fb.innerHTML='<span style="color:var(--slate)">정답: <b style="color:var(--navy)">'+w.word+'</b></span>';
+  if(inp){inp.value=w.word;inp.disabled=true;}
+  speakWord(w.word);
+  setTimeout(()=>{if(_vocS!==S)return;S.idx++;S.tries=0;_vocSDraw();},1100);
 }
 function msRevealWord(i){
   const w=(_msState._vocabWords||[])[i];if(!w)return;
