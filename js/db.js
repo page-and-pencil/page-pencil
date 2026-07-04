@@ -427,7 +427,7 @@ function stopSmartAudio(){
 async function sha256Hex(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 function elevenCfg(){const c=_cache.settings.elevenlabs||DB.g('elevenlabs')||null;return(c&&c.key)?c:null;}
 async function elevenGetAudioUrl(text,cfg){
-  const voice=cfg.voiceId||'Xb7hH8MSUJpSbSDYk0k2';
+  const voice=cfg.voiceId||'cgSgspJ2msm6clMCkdW9';
   const id='tts_'+await sha256Hex(voice+'|'+text);
   // 1) 캐시 조회 — 같은 문장은 다시 생성하지 않음 (크레딧 절약)
   try{
