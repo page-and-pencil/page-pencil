@@ -172,16 +172,33 @@ function toast(msg){const el=document.getElementById('toast');el.textContent=msg
 const MISSION_DEFS={
   vocab:{icon:'📚',label:'단어 확인'},
   listen:{icon:'👂',label:'듣기 & 읽기'},
+  cloze:{icon:'📝',label:'빈칸 채우기'},
   pattern:{icon:'🔁',label:'패턴 드릴'},
   record:{icon:'🎙',label:'낭독 녹음'},
 };
-const MISSION_ORDER=['vocab','listen','pattern','record'];
+const MISSION_ORDER=['vocab','listen','cloze','pattern','record'];
+// 본문에서 실제로 등장하는 유닛 단어 (빈칸 후보)
+function clozeTargets(tb,unitKey){
+  const text=(tb?.unitTexts?.[unitKey]||'');
+  const words=(tb?.units?.[unitKey])||[];
+  const seen=new Set(),out=[];
+  for(const w of words){
+    const word=(typeof w==='string'?w:w.word||'').trim();
+    if(!/^[A-Za-z][A-Za-z'-]*$/.test(word))continue; // 단일 영단어만
+    const key=word.toLowerCase();if(seen.has(key))continue;
+    const re=new RegExp('(?<![A-Za-z])'+word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![A-Za-z])','i');
+    if(re.test(text)){seen.add(key);out.push(word);}
+    if(out.length>=8)break;
+  }
+  return out;
+}
 // 해당 유닛에 각 미션을 수행할 콘텐츠가 있는지
 function missionAvail(tb,unitKey){
   const text=(tb?.unitTexts?.[unitKey]||'').trim();
   return{
     vocab:((tb?.units?.[unitKey])||[]).length>0,
     listen:!!text,
+    cloze:!!text&&clozeTargets(tb,unitKey).length>=2,
     pattern:!!((tb?.unitPatterns?.[unitKey]||'').trim()),
     record:!!text,
   };

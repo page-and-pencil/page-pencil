@@ -1982,6 +1982,7 @@ function renderMsStep(i){
   const m=missions[i];
   if(m==='vocab')renderMsVocab(body,footer);
   else if(m==='listen')renderMsListen(body,footer);
+  else if(m==='cloze')renderMsCloze(body,footer);
   else if(m==='pattern')renderMsPattern(body,footer);
   else if(m==='record')renderMsRecord(body,footer);
 }
@@ -2085,6 +2086,87 @@ async function msStartTTS(){
 function msStopTTS(){
   stopSpeak();
   const b=document.getElementById('ms-tts-btn');if(b)b.textContent='▶ 듣기';
+}
+
+// 미션: 빈칸 채우기 (본문에서 단어를 빼고 단어 은행에서 골라 채우기)
+let _msCloze=null;
+function _shuffle(a){const r=a.slice();for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
+function renderMsCloze(body,footer){
+  const{tb,unitKey}=_msState;
+  const text=tb.unitTexts?.[unitKey]||'';
+  const targets=clozeTargets(tb,unitKey);
+  if(!text||targets.length<2){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">빈칸으로 낼 단어가 부족해요</div>';footer.innerHTML=msDoneBtn('cloze','✓ 완료');return;}
+  // 본문 등장 순서대로 빈칸 만들기
+  const esc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const sorted=targets.map(w=>({w,idx:text.search(new RegExp('(?<![A-Za-z])'+esc(w)+'(?![A-Za-z])','i'))})).filter(x=>x.idx>=0).sort((a,b)=>a.idx-b.idx).map(x=>x.w);
+  let parts=[{t:'text',v:text}];
+  const answers=[];
+  for(const w of sorted){
+    for(let pi=0;pi<parts.length;pi++){
+      if(parts[pi].t!=='text')continue;
+      const m=parts[pi].v.match(new RegExp('(?<![A-Za-z])('+esc(w)+')(?![A-Za-z])','i'));
+      if(m){
+        const before=parts[pi].v.slice(0,m.index),after=parts[pi].v.slice(m.index+m[0].length);
+        const si=answers.length;answers.push(m[0]);
+        parts.splice(pi,1,{t:'text',v:before},{t:'blank',i:si},{t:'text',v:after});
+        break;
+      }
+    }
+  }
+  _msCloze={parts,answers,filled:new Array(answers.length).fill(null),order:_shuffle(answers.map((_,i)=>i)),sel:null,res:new Array(answers.length).fill(null)};
+  msClozeDraw();
+}
+function msClozeDraw(){
+  const body=document.getElementById('ms-body'),footer=document.getElementById('ms-footer');
+  if(!body||!_msCloze)return;
+  const C=_msCloze;
+  const allCorrect=C.res.every(r=>r==='ok')&&C.filled.every(x=>x!=null);
+  // 본문 (텍스트 + 빈칸)
+  const passage=C.parts.map(p=>{
+    if(p.t==='text')return p.v.replace(/\n/g,'<br>');
+    const i=p.i,fid=C.filled[i];
+    const res=C.res[i];
+    const border=res==='ok'?'#059669':res==='no'?'#dc2626':'var(--teal)';
+    const bg=res==='ok'?'#D9F6E9':'#fff';
+    if(fid!=null)return '<button onclick="msClozeClear('+i+')" style="display:inline-block;min-width:56px;padding:2px 10px;margin:0 2px;border:1.5px solid '+border+';border-radius:8px;background:'+bg+';font-weight:700;color:var(--navy);font-family:var(--fb);font-size:14px;cursor:pointer">'+C.answers[fid]+(res==='ok'?' ✓':'')+'</button>';
+    return '<button onclick="msClozePlace('+i+')" style="display:inline-block;min-width:56px;padding:2px 10px;margin:0 2px;border:1.5px dashed var(--slate);border-radius:8px;background:var(--cream2);color:var(--slate);font-family:var(--fb);font-size:13px;cursor:pointer">____</button>';
+  }).join('');
+  // 단어 은행 (아직 안 채운 것)
+  const placed=new Set(C.filled.filter(x=>x!=null));
+  const bank=C.order.filter(id=>!placed.has(id)).map(id=>
+    '<button onclick="msClozePick('+id+')" style="padding:8px 14px;border:1.5px solid '+(C.sel===id?'var(--teal)':'var(--border)')+';border-radius:50px;background:'+(C.sel===id?'var(--tl)':'#fff')+';font-weight:700;color:var(--navy);font-family:var(--fb);font-size:14px;cursor:pointer">'+C.answers[id]+'</button>').join('');
+  body.innerHTML='<div style="padding:12px 16px">'
+    +'<div style="font-size:12px;color:var(--slate);margin-bottom:10px">아래 <b>단어를 골라</b> 본문의 빈칸을 채워보세요 📝</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:7px;padding:10px;background:var(--cream2);border-radius:12px;margin-bottom:12px;min-height:20px">'+(bank||'<span style="font-size:12px;color:var(--slate)">단어를 모두 채웠어요! 정답 확인을 눌러요</span>')+'</div>'
+    +'<div style="font-size:15px;line-height:2.1;color:var(--navy)">'+passage+'</div>'
+    +'</div>';
+  if(allCorrect){footer.innerHTML=msDoneBtn('cloze','✓ 빈칸 완성! 잘했어요');}
+  else{
+    const filledCnt=C.filled.filter(x=>x!=null).length;
+    footer.innerHTML='<button class="btn bt" style="width:100%;border-radius:50px;padding:13px;font-weight:700" '+(filledCnt<C.answers.length?'disabled':'')+' onclick="msClozeCheck()">'+(filledCnt<C.answers.length?'빈칸을 모두 채워요 ('+filledCnt+'/'+C.answers.length+')':'정답 확인')+'</button>';
+  }
+}
+function msClozePick(id){if(!_msCloze)return;_msCloze.sel=(_msCloze.sel===id?null:id);msClozeDraw();}
+function msClozePlace(i){
+  const C=_msCloze;if(!C)return;
+  if(C.sel==null){toast('아래에서 단어를 먼저 골라요');return;}
+  C.filled[i]=C.sel;C.res[i]=null;C.sel=null;msClozeDraw();
+}
+function msClozeClear(i){const C=_msCloze;if(!C)return;if(C.res[i]==='ok')return;C.filled[i]=null;C.res[i]=null;msClozeDraw();}
+function msClozeCheck(){
+  const C=_msCloze;if(!C)return;
+  let wrong=0;
+  C.filled.forEach((fid,i)=>{
+    if(fid==null){C.res[i]='no';wrong++;return;}
+    C.res[i]=(C.answers[fid].toLowerCase()===C.answers[i].toLowerCase())?'ok':'no';
+    if(C.res[i]==='no')wrong++;
+  });
+  msClozeDraw();
+  if(wrong===0){showMiniConfetti();}
+  else{
+    // 틀린 칸은 잠시 빨강 표시 후 은행으로 되돌림
+    setTimeout(()=>{if(_msCloze!==C)return;C.filled.forEach((fid,i)=>{if(C.res[i]==='no'){C.filled[i]=null;C.res[i]=null;}});msClozeDraw();toast('빨간 칸을 다시 채워볼까요?');},1100);
+  }
 }
 
 // 미션 3: 패턴 드릴 (문장 듣고 따라 말하기)
