@@ -196,11 +196,12 @@ function missionList(a,tb){
 }
 
 // ── TTS 속도 레벨 (초급/중급/고급) ──
-// el: ElevenLabs 캐시 오디오 재생 배속 / tts: 브라우저 TTS rate / gap: 문장 사이 쉼(ms)
+// el: 오디오 요소 재생 배속(피치 보존) / tts: 브라우저 TTS rate / gap: 문장 사이 쉼(ms)
+// gen: ElevenLabs 네이티브 생성 속도 — 본문 통짜 생성에 사용 (피치 그대로, 자연스럽게 천천히)
 const TTS_LEVELS={
-  beginner:{label:'🐢 천천히',short:'초급',el:0.8,tts:0.7,gap:900},
-  intermediate:{label:'보통',short:'중급',el:0.9,tts:0.85,gap:550},
-  advanced:{label:'🐇 빠르게',short:'고급',el:1.0,tts:1.0,gap:300},
+  beginner:{label:'🐢 천천히',short:'초급',el:0.85,tts:0.7,gap:900,gen:0.85},
+  intermediate:{label:'보통',short:'중급',el:0.95,tts:0.85,gap:550,gen:0.95},
+  advanced:{label:'🐇 빠르게',short:'고급',el:1.0,tts:1.0,gap:300,gen:1.0},
 };
 // 교재 메타(레벨·제목·카테고리·시리즈)로 초/중/고급 자동 판단
 function ttsLevelForTb(tb){

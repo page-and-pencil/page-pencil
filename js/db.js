@@ -465,18 +465,20 @@ async function elevenGetAudioUrl(text,cfg,wordMode){
 // 본문 전체를 한 번에 생성 — 문장별 짜깁기 없이 자연스러운 억양 흐름.
 // with-timestamps 응답의 글자별 타임스탬프로 문장 경계 시간(times)을 계산해
 // 재생 중 하이라이트·레벨별 쉼은 프로그램으로 처리한다. 캐시 키: p2.
-async function elevenGetPassageAudio(text,cfg){
+async function elevenGetPassageAudio(text,cfg,genSpeed){
   const voice=cfg.voiceId||'EXAVITQu4vr4xnSDxMaL';
-  const id='tts_'+await sha256Hex(voice+'|p3|'+text);
+  const speed=Math.min(1.2,Math.max(0.7,genSpeed||1));
+  // 속도는 생성 단계(네이티브 speed)에서 — 재생단 감속은 피치가 떨어져 목소리가 변함
+  const id='tts_'+await sha256Hex(voice+'|p4|'+speed+'|'+text);
   try{
     const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
     if(r.ok){const row=await r.json();if(row?.data?.url&&row?.data?.times)return row.data;}
   }catch(e){}
-  // 본문은 고품질 모델 + 균형 설정 — 내레이션 프로소디가 안정적 (유닛당 1회 생성이라 비용 미미)
+  // 본문은 고품질 모델 + 균형 설정 — 내레이션 프로소디가 안정적 (유닛·레벨당 1회 생성)
   const gen=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps?output_format=mp3_44100_64`,{
     method:'POST',
     headers:{'xi-api-key':cfg.key,'Content-Type':'application/json'},
-    body:JSON.stringify({text,model_id:'eleven_multilingual_v2',voice_settings:{stability:0.6,similarity_boost:0.8,style:0.15,use_speaker_boost:true}}),
+    body:JSON.stringify({text,model_id:'eleven_multilingual_v2',voice_settings:{stability:0.6,similarity_boost:0.8,style:0.15,use_speaker_boost:true,speed}}),
   });
   if(!gen.ok)throw new Error('ElevenLabs HTTP '+gen.status);
   const d=await gen.json();
@@ -514,7 +516,10 @@ function _playUrl(url,elRate){
   return new Promise(res=>{
     const a=new Audio(url);a._res=res;_elAudio=a;
     const r=Math.min(1.3,Math.max(0.7,elRate||1));
-    if(r!==1)a.playbackRate=r; // 캐시는 1배속 원본 하나, 재생 배속만 조절 (재생성 없음)
+    if(r!==1){
+      try{a.preservesPitch=true;a.mozPreservesPitch=true;a.webkitPreservesPitch=true;}catch(e){} // 감속해도 음높이 유지
+      a.playbackRate=r; // 캐시는 1배속 원본 하나, 재생 배속만 조절 (재생성 없음)
+    }
     a.onended=a.onerror=()=>{if(_elAudio===a)_elAudio=null;res();};
     a.play().catch(()=>res());
   });

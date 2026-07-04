@@ -2431,7 +2431,8 @@ async function playPassage(text,levelId,hiPrefix){
   stopSpeak();
   const tok=_seqTok;                 // ← 생성 "전"에 캡처: 대기 중 X를 누르면 아래에서 중단
   let pa;
-  try{pa=await elevenGetPassageAudio(text,cfg);}
+  // 속도는 생성 단계에서 네이티브로 (재생단 감속은 피치가 내려가 목소리가 변조됨)
+  try{pa=await elevenGetPassageAudio(text,cfg,L.gen||1);}
   catch(e){console.warn('통짜 생성 실패 → 문장별 폴백:',e.message);return tok===_seqTok?speakSentences(text,levelId,hiPrefix):false;}
   if(tok!==_seqTok)return false;     // 생성 중 닫힘/다른 재생 → 소리 내지 않음
   const gapMs=({beginner:700,intermediate:280,advanced:0})[levelId]??280;
@@ -2451,7 +2452,7 @@ async function playPassage(text,levelId,hiPrefix){
     // 폴백: 쉼 삽입 없이 자연 흐름 그대로 (하이라이트만 동기화)
     return await new Promise(res=>{
       const a=new Audio(pa.url);a._res=res;_elAudio=a;
-      a.playbackRate=Math.min(1.3,Math.max(0.7,L.el||1));
+      // 속도는 이미 생성에 반영됨 → 1배속 재생 (피치 변형 없음)
       let idx=-1;
       a.ontimeupdate=()=>{
         if(tok!==_seqTok)return;
@@ -2463,7 +2464,7 @@ async function playPassage(text,levelId,hiPrefix){
     });
   }
   // 구간 스케줄 재생: 각 문장은 다음 문장 시작 직전(자연 여운 포함)까지 통째로
-  const rate=Math.min(1.3,Math.max(0.7,L.el||1));
+  // 속도는 생성에 이미 반영 → WebAudio는 항상 1배속 (playbackRate 감속은 피치가 떨어짐)
   for(let i=0;i<times.length;i++){
     if(tok!==_seqTok)break;
     clearHi();
@@ -2475,7 +2476,7 @@ async function playPassage(text,levelId,hiPrefix){
     const ok=await new Promise(res=>{
       try{
         const src=_waCtx.createBufferSource();
-        src.buffer=buf;src.playbackRate.value=rate;
+        src.buffer=buf; // 1배속 고정 (감속은 생성 단계 speed로 처리됨)
         src.connect(_waCtx.destination);
         src.onended=()=>{if(_waSrc===src)_waSrc=null;res(true);};
         _waSrc=src;
