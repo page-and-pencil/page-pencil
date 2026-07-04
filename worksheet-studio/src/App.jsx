@@ -111,7 +111,7 @@ export default function App() {
           <button className="btn btn-ghost" onClick={() => setHistoryOpen(true)}>
             History
           </button>
-          {import.meta.env.MODE === "pp" && (
+          {import.meta.env.MODE === "pp" && window.self === window.top && (
             <a className="btn btn-ghost" href="../index.html" style={{ textDecoration: "none" }}>
               ← Page &amp; Pencil
             </a>

@@ -94,7 +94,15 @@ export const SECTION_DEFS = {
       additionalProperties: false,
     },
     prompt:
-      "6-10 key vocabulary words leveled to the grade: each with its part of speech, a native-language translation, an English learner definition, the example sentence taken from the passage, and a fill-in-the-blank practice sentence where the word is replaced by ____. " +
+      "6-10 key vocabulary words leveled to the grade. " +
+      "CRITICAL — the `word` field MUST be the DICTIONARY BASE FORM (lemma / headword), never the inflected form as it appears in the passage: " +
+      "3rd-person '-s' → base (makes→make, goes→go), gerund/participle → base (running→run, studying→study, hidden→hide), " +
+      "past tense → base (ran→run, bought→buy), plural noun → singular (cities→city, leaves→leaf), comparative/superlative → base (bigger→big, happiest→happy). " +
+      "Prefer single-word headwords; only keep multi-word entries for real phrasal verbs or idioms. Do not list the same lemma twice. " +
+      "`partOfSpeech` is the part of speech of the base word. " +
+      "`translation` (native language) and `definition` (English learner definition) both describe the BASE word. " +
+      "`exampleFromPassage` is the sentence copied from the passage EXACTLY as written (it may contain the inflected form). " +
+      "`fillBlankSentence` is a short practice sentence with the target word replaced by ____ (the answer is the base word). " +
       "Then a 3-4 item vocabulary quiz mixing Multiple Choice (4 options each) and Fill in Blank items (options = [] for non-multiple-choice), each with the answer.",
   },
   comp: {
