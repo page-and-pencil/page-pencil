@@ -459,6 +459,53 @@ async function elevenGetAudioUrl(text,cfg,wordMode){
   if(url)supaUpsert('tts_cache',id,{url,voice,chars:text.length,at:new Date().toISOString()}).catch(()=>{});
   return url||URL.createObjectURL(blob);
 }
+// 본문 전체를 한 번에 생성 — 문장별 짜깁기 없이 자연스러운 억양 흐름.
+// with-timestamps 응답의 글자별 타임스탬프로 문장 경계 시간(times)을 계산해
+// 재생 중 하이라이트·레벨별 쉼은 프로그램으로 처리한다. 캐시 키: p2.
+async function elevenGetPassageAudio(text,cfg){
+  const voice=cfg.voiceId||'EXAVITQu4vr4xnSDxMaL';
+  const id='tts_'+await sha256Hex(voice+'|p2|'+text);
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
+    if(r.ok){const row=await r.json();if(row?.data?.url&&row?.data?.times)return row.data;}
+  }catch(e){}
+  const gen=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps?output_format=mp3_44100_64`,{
+    method:'POST',
+    headers:{'xi-api-key':cfg.key,'Content-Type':'application/json'},
+    body:JSON.stringify({text,model_id:'eleven_turbo_v2_5',voice_settings:{stability:0.4,similarity_boost:0.75,style:0.4,use_speaker_boost:true}}),
+  });
+  if(!gen.ok)throw new Error('ElevenLabs HTTP '+gen.status);
+  const d=await gen.json();
+  const al=d.alignment;
+  if(!d.audio_base64||!al)throw new Error('타임스탬프 응답 형식 오류');
+  const bin=atob(d.audio_base64);const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  const blob=new Blob([bytes],{type:'audio/mpeg'});
+  // 문장별 시작/끝 시간 계산 (ttsSplitSents 순서와 동일)
+  const gened=(al.characters||[]).join('');
+  const st=al.character_start_times_seconds||[];
+  const et=al.character_end_times_seconds||[];
+  const sents=ttsSplitSents(text);
+  const times=[];let cur=0;
+  for(const s of sents){
+    const idx=gened.indexOf(s,cur);
+    if(idx<0){times.push(null);continue;}
+    times.push({s:st[idx]??0,e:et[Math.min(idx+s.length-1,et.length-1)]??0});
+    cur=idx+s.length;
+  }
+  let url='';
+  const{name,preset}=DB.cld();
+  if(name&&preset){
+    try{
+      const fd=new FormData();fd.append('file',new File([blob],'tts.mp3',{type:'audio/mpeg'}));fd.append('upload_preset',preset);
+      const ur=await fetch(`https://api.cloudinary.com/v1_1/${name}/video/upload`,{method:'POST',body:fd});
+      if(ur.ok)url=(await ur.json()).secure_url;
+    }catch(e){}
+  }
+  const data={url:url||URL.createObjectURL(blob),times,voice,chars:text.length,at:new Date().toISOString()};
+  if(url)supaUpsert('tts_cache',id,data).catch(()=>{});
+  return data;
+}
 function _playUrl(url,elRate){
   return new Promise(res=>{
     const a=new Audio(url);a._res=res;_elAudio=a;
