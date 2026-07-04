@@ -1908,6 +1908,7 @@ function openMissionPlayer(sid,asgnId){
 }
 function closeMissionPlayer(){
   closeM('m-mission');stopSpeak();
+  try{if(typeof msStopSR==='function')msStopSR();}catch(e){}
   try{if(_brRecorder&&_brRecorder.state==='recording')_brRecorder.stop();}catch(e){}
   clearInterval(_msTimerInt);_msTimerInt=null;
   if(_msState)renderStudentHome(_msState.sid);
@@ -2094,8 +2095,19 @@ function renderMsRecord(body,footer){
   const{tb,unitKey,a}=_msState;
   const text=tb.unitTexts?.[unitKey]||'';
   const done=!!(a.progress||{}).record;
+  const readPractice=(msReadSupported()&&text)
+    ?'<div style="margin-bottom:12px;padding:10px 12px;border:1.5px solid var(--teal);border-radius:var(--rs);background:var(--tl)">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">'
+      +'<span style="font-size:12.5px;font-weight:800;color:var(--navy)">🗣 따라 읽기 연습 <span style="font-weight:400;color:var(--slate)">— AI가 발음 정확도를 채점해요</span></span>'
+      +(a.readAccuracy!=null?'<span style="font-size:11px;font-weight:700;color:#047857">최근 '+a.readAccuracy+'%</span>':'')
+      +'</div>'
+      +'<div id="ms-read-practice"><button class="btn bt bsm" style="border-radius:50px" onclick="msReadStart()">▶ 문장별 연습 시작</button>'
+      +'<span style="font-size:11px;color:var(--slate);margin-left:8px">맞게 읽은 단어는 파란색, 놓친 단어는 빨간색!</span></div>'
+      +'</div>'
+    :'';
   body.innerHTML='<div style="padding:12px 16px">'
     +'<div style="font-size:12px;color:var(--slate);margin-bottom:10px">본문을 <b>소리 내어 읽으면서 녹음</b>해 주세요. 제출하면 선생님이 들어보실 거예요 🎧</div>'
+    +readPractice
     +(done&&a.recUrl?'<div style="margin-bottom:10px;padding:10px;background:#D9F6E9;border-radius:var(--rs);font-size:12px;color:#047857">✅ 낭독을 제출했어요! 다시 녹음해서 또 제출할 수도 있어요.<audio controls src="'+a.recUrl+'" style="width:100%;height:32px;margin-top:6px"></audio></div>':'')
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
     +'<button id="ms-rec-start" class="btn bt" style="border-radius:50px;padding:11px 20px;font-weight:700" onclick="msStartRec()">🎙 녹음 시작</button>'
@@ -2165,4 +2177,119 @@ async function msSubmitRec(){
   _msRecBlob=null;
   if(st)st.innerHTML='<span style="color:var(--teal)">제출 완료! 🎉</span>';
   await msCompleteMission('record');
+}
+
+// ── 따라 읽기 정확도 평가 (Web Speech API 음성 인식) ──
+// 학생이 문장을 소리 내어 읽으면 단어별로 맞춘 단어는 청록, 못 읽은 단어는 적색 표시.
+// 문장별 정확도 → 평균을 assignment.readAccuracy 에 저장해 선생님이 확인.
+let _msRead=null,_msSR=null,_msReadTrans='';
+
+function msReadSupported(){return !!(window.SpeechRecognition||window.webkitSpeechRecognition);}
+function msNormWord(w){return (w||'').toLowerCase().replace(/[^a-z']/g,'');}
+function msSplitSents(text){
+  return (text||'').replace(/\s+/g,' ').split(/(?<=[.!?])\s+/).map(s=>s.trim()).filter(s=>s&&s.split(' ').filter(Boolean).length>=2);
+}
+function msReadStart(){
+  const{tb,unitKey}=_msState||{};if(!tb)return;
+  const sents=msSplitSents(tb.unitTexts?.[unitKey]||'');
+  if(!sents.length){toast('연습할 본문이 없어요');return;}
+  _msRead={sents,idx:0,scores:[]};
+  msRenderReadSent();
+}
+function msStopSR(){try{if(_msSR){_msSR.onend=null;_msSR.stop();}}catch(e){}_msSR=null;
+  const b=document.getElementById('ms-read-mic');if(b){b.textContent='🎤 읽기 시작';b.classList.remove('bd');b.classList.add('bt');}}
+function msRenderReadSent(){
+  const el=document.getElementById('ms-read-practice');if(!el||!_msRead)return;
+  msStopSR();_msReadTrans='';
+  const{sents,idx,scores}=_msRead;
+  if(idx>=sents.length){
+    const avg=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0;
+    el.innerHTML='<div style="text-align:center;padding:10px 0">'
+      +'<div style="font-size:30px;margin-bottom:4px">'+(avg>=80?'🌟':avg>=60?'👍':'💪')+'</div>'
+      +'<div style="font-size:14px;font-weight:800;color:var(--navy)">읽기 연습 완료 — 평균 정확도 <span style="color:'+(avg>=80?'#047857':'var(--teal)')+'">'+avg+'%</span></div>'
+      +'<div style="font-size:11px;color:var(--slate);margin-top:3px">선생님에게 자동으로 전달됐어요</div>'
+      +'<button class="btn bo bsm" style="margin-top:8px;border-radius:50px" onclick="msReadStart()">🔁 다시 연습하기</button>'
+      +'</div>';
+    const{a,sid}=_msState;
+    a.readAccuracy=avg;
+    supaUpsert('assignments',a.id,a,sid).then(()=>{
+      const ci=(_cache.assignments||[]).findIndex(x=>x.id===a.id);if(ci>=0)_cache.assignments[ci]=a;
+    }).catch(()=>{});
+    return;
+  }
+  const words=sents[idx].split(' ').filter(Boolean);
+  el.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+    +'<span style="font-size:11px;font-weight:700;color:var(--slate)">문장 '+(idx+1)+' / '+sents.length+'</span>'
+    +'<span id="ms-read-score" style="font-size:11px;font-weight:700;color:var(--teal)"></span></div>'
+    +'<div id="ms-read-sent" style="font-size:17px;line-height:1.8;color:var(--navy);padding:10px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);margin-bottom:8px">'
+    +words.map((w,i)=>'<span id="ms-rw-'+i+'">'+w+'</span>').join(' ')+'</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    +'<button class="btn ba bsm" style="border-radius:50px" onclick="msReadListen()">▶ 듣기</button>'
+    +'<button id="ms-read-mic" class="btn bt bsm" style="border-radius:50px" onclick="msReadMic()">🎤 읽기 시작</button>'
+    +'<button class="btn bo bsm" style="border-radius:50px;margin-left:auto" onclick="msReadNext(true)">건너뛰기 →</button>'
+    +'</div>';
+}
+function msReadListen(){
+  if(!_msRead)return;stopSpeak();
+  const u=new SpeechSynthesisUtterance(_msRead.sents[_msRead.idx]);
+  u.lang='en-US';u.rate=0.82;if(_bestVoice)u.voice=_bestVoice;
+  window.speechSynthesis.speak(u);
+}
+// 본문 단어 vs 인식된 단어 순차 매칭 → 색칠, 정확도(%) 반환
+function msReadColor(transcript,final){
+  if(!_msRead)return 0;
+  const words=_msRead.sents[_msRead.idx].split(' ').filter(Boolean);
+  const heard=(transcript||'').split(/\s+/).map(msNormWord).filter(Boolean);
+  let hi=0,matched=0,targetCnt=0;
+  words.forEach((w,i)=>{
+    const nw=msNormWord(w);const el=document.getElementById('ms-rw-'+i);
+    if(!nw){return;}
+    targetCnt++;
+    let found=-1;
+    for(let j=hi;j<heard.length;j++){if(heard[j]===nw){found=j;break;}}
+    if(found>=0){hi=found+1;matched++;if(el){el.style.color='#0B8DAE';el.style.fontWeight='700';}}
+    else if(final&&el){el.style.color='#DC2626';el.style.fontWeight='600';}
+  });
+  return Math.round(matched/Math.max(1,targetCnt)*100);
+}
+function msReadMic(){
+  if(_msSR){ // 진행 중 → 종료(평가 확정)
+    msReadDone();return;
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){toast('이 브라우저는 음성 인식을 지원하지 않아요 — 크롬/엣지에서 사용해 주세요');return;}
+  stopSpeak();_msReadTrans='';
+  const r=new SR();
+  r.lang='en-US';r.continuous=true;r.interimResults=true;r.maxAlternatives=1;
+  r.onresult=e=>{
+    _msReadTrans=[...e.results].map(x=>x[0].transcript).join(' ');
+    const pct=msReadColor(_msReadTrans,false);
+    const sc=document.getElementById('ms-read-score');if(sc)sc.textContent=pct+'%';
+  };
+  r.onerror=e=>{if(e.error==='not-allowed')toast('마이크 권한을 허용해 주세요');msStopSR();};
+  r.onend=()=>{_msSR=null;msReadDone();};
+  try{r.start();}catch(e){toast('음성 인식을 시작할 수 없어요');return;}
+  _msSR=r;
+  const b=document.getElementById('ms-read-mic');
+  if(b){b.textContent='⏹ 다 읽었어요';b.classList.remove('bt');b.classList.add('bd');}
+}
+function msReadDone(){
+  msStopSR();
+  if(!_msRead)return;
+  const pct=msReadColor(_msReadTrans,true);
+  const sc=document.getElementById('ms-read-score');if(sc)sc.textContent=pct+'%';
+  const el=document.getElementById('ms-read-practice');if(!el)return;
+  const bar=document.createElement('div');
+  bar.style.cssText='margin-top:8px;display:flex;align-items:center;gap:8px';
+  bar.innerHTML='<span style="font-size:13px;font-weight:800;color:'+(pct>=80?'#047857':pct>=50?'var(--teal)':'#DC2626')+'">정확도 '+pct+'%'+(pct>=80?' — 훌륭해요! 🎉':pct>=50?' — 잘했어요!':' — 한 번 더 해볼까요?')+'</span>'
+    +'<button class="btn bo bsm" style="border-radius:50px" onclick="msRenderReadSent()">🔁 다시</button>'
+    +'<button class="btn bt bsm" style="border-radius:50px;margin-left:auto" onclick="msReadNext(false,'+pct+')">다음 문장 →</button>';
+  el.appendChild(bar);
+}
+function msReadNext(skip,pct){
+  if(!_msRead)return;
+  msStopSR();
+  if(!skip)_msRead.scores.push(pct||0);
+  _msRead.idx++;
+  msRenderReadSent();
 }

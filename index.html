@@ -9,7 +9,7 @@
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260704b">
+<link rel="stylesheet" href="css/style.css?v=20260704c">
 </head>
 <body>
 
@@ -1026,7 +1026,7 @@
           <option value="중3">중학교 3학년</option>
         </select>
       </div>
-      <div class="f"><label>학교</label><input type="text" id="ns-school" placeholder="예) 한강초등학교"></div>
+      <div class="f"><label>학교</label><input type="text" id="ns-school" placeholder="예) 한강초등학교" list="dl-schools"><datalist id="dl-schools"></datalist></div>
       <div class="f"><label>PIN (생년월일 4자리)</label><input type="text" id="ns-pin" maxlength="4" placeholder="0312" inputmode="numeric"></div>
       <div class="f"><label>입회일</label><input type="date" id="ns-enroll"></div>
       <div class="f"><label>수업료 (월)</label><input type="number" id="ns-fee" placeholder="150000"></div>
@@ -1062,7 +1062,7 @@
           <option value="초5">초등 5학년</option><option value="초6">초등 6학년</option>
           <option value="중1">중학교 1학년</option><option value="중2">중학교 2학년</option>
           <option value="중3">중학교 3학년</option></select></div>
-      <div class="f"><label>학교</label><input type="text" id="es-school"></div>
+      <div class="f"><label>학교</label><input type="text" id="es-school" list="dl-schools"></div>
       <div class="f"><label>PIN (생년월일 4자리)</label><input type="text" id="es-pin" maxlength="4" inputmode="numeric"></div>
       <div class="f"><label>입회일</label><input type="date" id="es-enroll"></div>
       <div class="f"><label>수업료 (월)</label><input type="number" id="es-fee"></div>
@@ -1741,7 +1741,8 @@
         </select>
       </div>
       <div class="f s2" id="modal-assign-book-wrap"><label>교재/원서</label>
-        <input type="text" id="modal-assign-book" placeholder="제목 검색 또는 직접 입력" autocomplete="off" oninput="modalAssignBookSearch()" style="width:100%;box-sizing:border-box">
+        <input type="text" id="modal-assign-book" placeholder="제목 검색 또는 직접 입력" autocomplete="off" oninput="modalAssignBookSearch()" list="dl-modal-assign-books" style="width:100%;box-sizing:border-box">
+        <datalist id="dl-modal-assign-books"></datalist>
         <div id="modal-assign-book-dd" style="display:none;position:relative;z-index:20;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);max-height:140px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1);font-size:12px;margin-top:2px"></div>
         <input type="hidden" id="modal-assign-book-id">
       </div>
@@ -1873,11 +1874,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260704b"></script>
-<script src="vocab_ref_data.js?v=20260704b"></script>
-<script src="js/db.js?v=20260704b"></script>
-<script src="js/teacher.js?v=20260704b"></script>
-<script src="js/student.js?v=20260704b"></script>
-<script src="js/parent.js?v=20260704b"></script>
+<script src="js/utils.js?v=20260704c"></script>
+<script src="vocab_ref_data.js?v=20260704c"></script>
+<script src="js/db.js?v=20260704c"></script>
+<script src="js/teacher.js?v=20260704c"></script>
+<script src="js/student.js?v=20260704c"></script>
+<script src="js/parent.js?v=20260704c"></script>
 </body>
 </html>

@@ -14,23 +14,28 @@ function handlePwKey(e){
   }
 }
 async function hashPw(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+const _isPwHash=s=>/^[0-9a-f]{64}$/.test(s||'');
 async function checkPw(inputId='pw-in',errId='pw-err'){
   const inEl=document.getElementById(inputId);
   const errEl=document.getElementById(errId);
   const v=(inEl?.value||'').trim();
   const vHash=await hashPw(v);
+  // 저장값이 해시면 해시 비교만 허용 (해시 문자열 자체를 비밀번호처럼 입력해도 로그인 불가 —
+  // 과거 '문자 그대로 일치 → 재해시 저장' 로직이 비밀번호를 이중 해시로 망가뜨리던 버그의 원인)
+  const match=stored=>_isPwHash(stored)?(vHash===stored):(v===stored||vHash===stored);
   let stored=DB.pw();
-  let ok=(v===stored||vHash===stored);
+  let ok=match(stored);
   // 캐시/로컬 비밀번호로 실패하면 서버에서 최신 비밀번호를 다시 받아 재검증
   // (첫 로드 시 비밀번호가 아직 동기화되지 않아 기본값으로 실패하던 문제 해결)
   if(!ok){
     try{
       const sp=await supaGetSetting('pw');
-      if(sp){_cache.settings.pw=sp;DB.s('pw',sp);stored=sp;ok=(v===stored||vHash===stored);}
+      if(sp){_cache.settings.pw=sp;DB.s('pw',sp);stored=sp;ok=match(stored);}
     }catch(e){}
   }
   if(ok){
-    if(v===stored){const h=await hashPw(v);_cache.settings.pw=h;DB.s('pw',h);supaSetSetting('pw',h).catch(e=>console.warn('비밀번호 저장 실패:',e));}
+    // 평문으로 저장돼 있던 경우에만 1회 해시 마이그레이션 (이미 해시면 절대 재저장 금지)
+    if(!_isPwHash(stored)&&v===stored){_cache.settings.pw=vHash;DB.s('pw',vHash);supaSetSetting('pw',vHash).catch(e=>console.warn('비밀번호 저장 실패:',e));}
     if(inEl)inEl.value='';if(errEl)errEl.textContent='';
     saveSession({role:'teacher'});show('s-teacher');await initApp();
   } else if(errEl)errEl.textContent='비밀번호가 맞지 않습니다';
@@ -1158,13 +1163,15 @@ function renderStus(){
   if(filterStatus==='active') stus=stus.filter(s=>!s.inactive);
   else if(filterStatus==='inactive') stus=stus.filter(s=>s.inactive);
 
-  // 학교 필터 드롭다운 채우기
+  // 학교 필터 드롭다운 + 학생 추가/수정용 학교 datalist 채우기 (DB 재사용)
+  const allSchools=[...new Set(DB.stus().filter(s=>s.school).map(s=>s.school))].sort();
   const schoolSel=document.getElementById('stu-filter-school');
   if(schoolSel){
-    const allSchools=[...new Set(DB.stus().filter(s=>s.school).map(s=>s.school))].sort();
     const curSchool=schoolSel.value;
     schoolSel.innerHTML='<option value="">전체 학교</option>'+allSchools.map(sc=>`<option value="${sc}"${sc===curSchool?' selected':''}>${sc}</option>`).join('');
   }
+  const schoolDl=document.getElementById('dl-schools');
+  if(schoolDl)schoolDl.innerHTML=allSchools.map(sc=>`<option value="${escAttr(sc)}">`).join('');
 
   // 학년/학교/검색 필터
   if(filterGrade) stus=stus.filter(s=>(s.grade||s.lv||'')=== filterGrade);
@@ -3852,6 +3859,34 @@ function renderLib(){
 
 
 
+// ── 열별 필터 (자료 DB 공통) ──
+const _colF={master:{},book:{},wdb:{}};
+const _cfMatch=(v,f)=>!f||String(v??'').toLowerCase().includes(f);
+function setColF(key,col,val){
+  _colF[key][col]=(val||'').trim().toLowerCase();
+  if(key==='master'){masterPage=0;renderMasterDB();}
+  else if(key==='book'){bookPage=0;renderBookDB();}
+  else if(key==='wdb'){wdbPage=0;renderWordDB();}
+}
+function colFilterCell(key,col,ph,type){
+  const s='width:100%;font-size:10px;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-family:var(--fb);color:var(--navy);outline:none;box-sizing:border-box;background:#fff';
+  if(type==='typeSel')return `<th style="padding:2px 4px"><select onchange="setColF('${key}','${col}',this.value)" style="${s};cursor:pointer"><option value="">전체</option><option value="textbook">교재</option><option value="library">원서</option></select></th>`;
+  return `<th style="padding:2px 4px"><input placeholder="${ph||'필터'}" oninput="setColF('${key}','${col}',this.value)" style="${s}"></th>`;
+}
+// 필터 행은 한 번만 생성 (재렌더 시 입력 포커스/값 유지)
+function ensureColFilterRow(tbodyId,key,cellsHtml){
+  const thead=document.getElementById(tbodyId)?.closest('table')?.querySelector('thead');
+  if(!thead||document.getElementById(key+'-colf-row'))return;
+  const tr=document.createElement('tr');
+  tr.id=key+'-colf-row';
+  tr.innerHTML=cellsHtml;
+  thead.appendChild(tr);
+}
+function clearColF(key){
+  _colF[key]={};
+  document.querySelectorAll(`#${key}-colf-row input, #${key}-colf-row select`).forEach(el=>el.value='');
+}
+
 // ── 자료 DB 통합 탭 ──
 let _dataTab='master';
 function switchDataTab(tab){
@@ -3893,6 +3928,18 @@ function renderBookDB(){
     (b.category||'').toLowerCase().includes(q)||
     (b.publisher||'').toLowerCase().includes(q)
   );
+  // 열별 필터
+  ensureColFilterRow('book-tbody','book',
+    `<th></th>${colFilterCell('book','_bt','','typeSel')}${colFilterCell('book','title','제목')}${colFilterCell('book','meta','시리즈/카테고리')}${colFilterCell('book','level','레벨')}${colFilterCell('book','unitCnt','유닛수')}${colFilterCell('book','wordCnt','단어수')}<th></th>`);
+  const cfB=_colF.book;
+  if(Object.values(cfB).some(Boolean))all=all.filter(b=>{
+    const isTb=b._bt==='textbook';
+    const unitCnt=isTb?Object.keys(b.units||{}).length:(b.chapters||[]).length;
+    const wordCnt=isTb?Object.values(b.units||{}).reduce((s,a)=>s+(Array.isArray(a)?a.length:0),0):(b.vocab?.length||0);
+    const meta=isTb?(b.category||b.series||''):(b.series||'');
+    const level=isTb?(b.level||''):String(b.arLevel||b.ar||'');
+    return (!cfB._bt||b._bt===cfB._bt)&&_cfMatch(b.title,cfB.title)&&_cfMatch(meta,cfB.meta)&&_cfMatch(level,cfB.level)&&_cfMatch(unitCnt,cfB.unitCnt)&&_cfMatch(wordCnt,cfB.wordCnt);
+  });
   const totalEl=document.getElementById('book-total');
   if(totalEl)totalEl.textContent=`${all.length}개`;
   const pageSize2=parseInt(document.getElementById('book-per-page')?.value||'50');
@@ -4089,6 +4136,14 @@ function renderMasterDB(){
   }
   let filtered=rows;
   if(q)filtered=rows.filter(r=>r.title.toLowerCase().includes(q)||r.word.toLowerCase().includes(q)||(r.ko||'').toLowerCase().includes(q)||(r.sc||'').toLowerCase().includes(q));
+  // 열별 필터
+  const cfM=_colF.master;
+  if(Object.values(cfM).some(Boolean))filtered=filtered.filter(r=>
+    (!cfM.type||r.type===cfM.type)&&
+    _cfMatch(r.title,cfM.title)&&_cfMatch(r.sc,cfM.sc)&&_cfMatch(r.level,cfM.level)&&
+    _cfMatch(r.unit,cfM.unit)&&_cfMatch(r.word,cfM.word)&&_cfMatch(r.ko,cfM.ko)&&
+    (!cfM.pos||String(r.pos||'').toLowerCase().includes(cfM.pos)||String(POS_KO[r.pos]||'').toLowerCase().includes(cfM.pos))
+  );
   const _md=masterSortDir==='asc'?1:-1;
   filtered.sort((a,b)=>{
     switch(masterSortField){
@@ -4113,6 +4168,8 @@ function renderMasterDB(){
     const mth=(f,l)=>{const act=masterSortField===f;const ic=act?(masterSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="masterSetSort('${f}')">${l} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};
     theadTrM.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="master-check-all" onchange="masterCheckAll(this.checked)" title="현재 페이지 전체 선택"></th>${mth('type','타입')}${mth('title','책제목')}${mth('sc','시리즈/분류')}${mth('level','AR/레벨')}${mth('unit','유닛/챕터')}${mth('word','영어')}${mth('ko','한국어')}${mth('pos','품사')}<th style="width:40px"></th>`;
   }
+  ensureColFilterRow('master-tbody','master',
+    `<th></th>${colFilterCell('master','type','','typeSel')}${colFilterCell('master','title','제목')}${colFilterCell('master','sc','시리즈/분류')}${colFilterCell('master','level','레벨')}${colFilterCell('master','unit','유닛')}${colFilterCell('master','word','영어')}${colFilterCell('master','ko','한국어')}${colFilterCell('master','pos','품사')}<th></th>`);
   if(!paged.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--slate)">결과 없음</td></tr>';return;}
   // 현재 페이지 책 ID 목록(중복 제거)
   const pageBookIds=new Set(paged.map(r=>r._id));
@@ -4160,6 +4217,7 @@ function masterDBFilter(type){
 function masterDBResetFilters(){
   _masterFilter='';masterPage=0;
   _masterSelected.clear();updateMasterDelBtn();
+  clearColF('master');
   const q=document.getElementById('master-q');if(q)q.value='';
   const pp=document.getElementById('master-per-page');if(pp)pp.value='100';
   masterDBFilter('');
@@ -4175,6 +4233,7 @@ function bookDBFilter(type){
 }
 function bookDBResetFilters(){
   _bookDBFilter='';bookPage=0;
+  clearColF('book');
   const q=document.getElementById('book-q');if(q)q.value='';
   const pp=document.getElementById('book-per-page');if(pp)pp.value='50';
   bookDBFilter('');
@@ -4302,6 +4361,14 @@ function renderWordDB(){
   if(srcIdF)words=words.filter(w=>w.srcId===srcIdF);
   if(srcUnitF)words=words.filter(w=>w.srcUnit===srcUnitF);
   if(noKoF)words=words.filter(w=>!w.ko);
+  // 열별 필터
+  const cfW=_colF.wdb;
+  if(Object.values(cfW).some(Boolean))words=words.filter(w=>
+    _cfMatch(w.word,cfW.word)&&_cfMatch(w.ko,cfW.ko)&&_cfMatch(w.en_def,cfW.en_def)&&
+    (!cfW.pos||String(w.pos||'').toLowerCase().includes(cfW.pos)||String(POS_KO[w.pos]||'').toLowerCase().includes(cfW.pos))&&
+    _cfMatch(w.example,cfW.example)&&
+    _cfMatch(`${w.srcTitle||''} ${w.srcUnit||''} ${w.srcLevel||''}`,cfW.src)
+  );
   const _wd=wdbSortDir==='asc'?1:-1;
   words.sort((a,b)=>{
     switch(wdbSortField){
@@ -4317,6 +4384,8 @@ function renderWordDB(){
   const totalEl=document.getElementById('wdb-total');if(totalEl)totalEl.textContent=`총 ${total.toLocaleString()}개`;
   const theadTrW=document.querySelector('#wdb-tbody')?.closest('table')?.querySelector('thead tr');
   if(theadTrW){const wth=(f,l)=>{const act=wdbSortField===f;const ic=act?(wdbSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="wdbSetSort('${f}')">${l} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};theadTrW.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="wdb-chk-all" onchange="wdbToggleAll(this)" style="cursor:pointer"></th>${wth('word','영어')}${wth('ko','한국어')}${wth('en_def','영영의미')}${wth('pos','품사')}${wth('example','예문')}${wth('src','출처')}<th></th>`;}
+  ensureColFilterRow('wdb-tbody','wdb',
+    `<th></th>${colFilterCell('wdb','word','영어')}${colFilterCell('wdb','ko','한국어')}${colFilterCell('wdb','en_def','영영의미')}${colFilterCell('wdb','pos','품사')}${colFilterCell('wdb','example','예문')}${colFilterCell('wdb','src','출처')}<th></th>`);
   const maxPage=Math.max(0,Math.ceil(total/WDB_PAGE_SIZE)-1);
   if(wdbPage>maxPage)wdbPage=maxPage;
   const paged=words.slice(wdbPage*WDB_PAGE_SIZE,(wdbPage+1)*WDB_PAGE_SIZE);
@@ -7082,6 +7151,7 @@ function _assignItemHtml(a,hws){
     return`<div style="margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
       <span>${chips}</span>
       <span style="font-size:10px;font-weight:700;color:${doneCnt===ms.length?'#047857':'var(--teal)'}">${doneCnt}/${ms.length}</span>
+      ${a.readAccuracy!=null?`<span title="AI 따라 읽기 정확도" style="font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:10px;background:${a.readAccuracy>=80?'#D9F6E9':'var(--tl)'};color:${a.readAccuracy>=80?'#047857':'#0B8DAE'}">🗣 ${a.readAccuracy}%</span>`:''}
       ${a.recUrl?`<audio controls src="${a.recUrl}" style="height:22px;max-width:170px" preload="none"></audio>`:''}
     </div>`;
   })();
