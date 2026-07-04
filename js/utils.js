@@ -176,8 +176,9 @@ const MISSION_DEFS={
   pattern:{icon:'🔁',label:'패턴 드릴'},
   scramble:{icon:'🧩',label:'어순 배열'},
   record:{icon:'🎙',label:'낭독 녹음'},
+  game:{icon:'🎮',label:'마무리 게임'},
 };
-const MISSION_ORDER=['vocab','listen','cloze','pattern','scramble','record'];
+const MISSION_ORDER=['vocab','listen','cloze','pattern','scramble','record','game'];
 // 어순배열용 문장 목록 (패턴 우선, 없으면 본문 문장) — 3단어 이상만
 function scrambleLines(tb,unitKey){
   const raw=(tb?.unitPatterns?.[unitKey]||'').trim();
@@ -213,6 +214,7 @@ function missionAvail(tb,unitKey){
     pattern:!!((tb?.unitPatterns?.[unitKey]||'').trim()),
     scramble:scrambleLines(tb,unitKey).length>0,
     record:!!text,
+    game:(tb?.units?.[unitKey]||[]).length>=4&&(tb?.units?.[unitKey]||[]).map(w=>typeof w==='string'?'':(w.ko||'')).filter(Boolean).length>=3,
   };
 }
 // 과제의 유효 미션 목록 (교재 콘텐츠가 있는 것만)

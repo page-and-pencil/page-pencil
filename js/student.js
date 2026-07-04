@@ -1986,6 +1986,7 @@ function renderMsStep(i){
   else if(m==='pattern')renderMsPattern(body,footer);
   else if(m==='scramble')renderMsScramble(body,footer);
   else if(m==='record')renderMsRecord(body,footer);
+  else if(m==='game')renderMsGame(body,footer);
 }
 function msDoneBtn(m,label){
   const done=!!(_msState.a.progress||{})[m];
@@ -2279,6 +2280,67 @@ function msScrCheck(){
   }else{
     setTimeout(()=>{if(_msScr!==S)return;S.answer=[];S.checked=null;msScrDraw();toast('순서를 다시 맞춰볼까요?');},1000);
   }
+}
+
+// 미션: 마무리 게임 (뜻 보고 알맞은 단어 빠르게 고르기)
+let _msGame=null;
+function renderMsGame(body,footer){
+  const{tb,unitKey}=_msState;
+  const words=tuNormWords(tb.units?.[unitKey]||[]).filter(w=>w.word);
+  const targets=words.filter(w=>w.ko);
+  if(targets.length<3||words.length<4){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">게임에 쓸 단어가 부족해요</div>';footer.innerHTML=msDoneBtn('game','✓ 완료');return;}
+  const pool=[...new Set(words.map(w=>w.word))];
+  const rounds=_shuffle(targets).slice(0,8).map(t=>{
+    const distract=_shuffle(pool.filter(w=>w.toLowerCase()!==t.word.toLowerCase())).slice(0,3);
+    return {ans:t.word,ko:t.ko,options:_shuffle([t.word,...distract])};
+  });
+  _msGame={rounds,idx:0,score:0,streak:0,best:0,locked:false};
+  msGameDraw();
+}
+function msGameDraw(){
+  const G=_msGame;if(!G)return;
+  const body=document.getElementById('ms-body'),footer=document.getElementById('ms-footer');
+  if(G.idx>=G.rounds.length){
+    const pct=Math.round(G.score/G.rounds.length*100);
+    body.innerHTML='<div style="padding:2rem 1rem;text-align:center">'
+      +'<div style="font-size:44px;margin-bottom:6px">'+(pct>=80?'🏆':pct>=50?'🎉':'💪')+'</div>'
+      +'<div style="font-size:16px;font-weight:800;color:var(--navy)">게임 끝! '+G.score+' / '+G.rounds.length+' 정답</div>'
+      +'<div style="font-size:12px;color:var(--slate);margin-top:3px">최고 연속 '+G.best+'개 🔥</div>'
+      +'<button class="btn bo bsm" style="margin-top:10px;border-radius:50px" onclick="renderMsGame(document.getElementById(\'ms-body\'),document.getElementById(\'ms-footer\'))">↺ 다시 하기</button>'
+      +'</div>';
+    footer.innerHTML=msDoneBtn('game','✓ 게임 완료!');
+    return;
+  }
+  const r=G.rounds[G.idx];
+  const opts=r.options.map(w=>{
+    let st='border:1.5px solid var(--border);background:#fff;color:var(--navy)';
+    if(G.locked){
+      if(w===r.ans)st='border:1.5px solid #059669;background:#D9F6E9;color:#047857';
+      else if(w===G.picked)st='border:1.5px solid #dc2626;background:#fdecec;color:#dc2626';
+      else st='border:1.5px solid var(--border);background:#fff;color:var(--slate);opacity:.6';
+    }
+    return '<button onclick="msGamePick(\''+w.replace(/'/g,"\\'")+'\')" '+(G.locked?'disabled':'')+' style="'+st+';padding:15px 10px;border-radius:14px;font-weight:800;font-size:16px;font-family:var(--fb);cursor:pointer">'+w+'</button>';
+  }).join('');
+  body.innerHTML='<div style="padding:14px 16px">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+    +'<span style="font-size:11px;font-weight:700;color:var(--slate)">'+(G.idx+1)+' / '+G.rounds.length+'</span>'
+    +'<span style="font-size:12px;font-weight:800;color:var(--teal)">점수 '+G.score+(G.streak>1?' · 🔥'+G.streak+'연속':'')+'</span></div>'
+    +'<div style="text-align:center;padding:22px 12px;background:var(--tl);border-radius:16px;margin-bottom:14px">'
+    +'<div style="font-size:11px;color:var(--slate);margin-bottom:4px">이 뜻의 영어 단어는?</div>'
+    +'<div style="font-size:22px;font-weight:800;color:var(--navy)">'+r.ko+'</div></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+opts+'</div>'
+    +'</div>';
+  footer.innerHTML='<div style="font-size:11px;color:var(--slate);text-align:center">알맞은 단어를 눌러요 · 틀려도 괜찮아요!</div>';
+}
+function msGamePick(w){
+  const G=_msGame;if(!G||G.locked)return;
+  const r=G.rounds[G.idx];
+  G.locked=true;G.picked=w;
+  const correct=w.toLowerCase()===r.ans.toLowerCase();
+  if(correct){G.score++;G.streak++;if(G.streak>G.best)G.best=G.streak;speakWord(r.ans);showMiniConfetti();}
+  else{G.streak=0;}
+  msGameDraw();
+  setTimeout(()=>{if(_msGame!==G)return;G.idx++;G.locked=false;G.picked=null;msGameDraw();},correct?750:1250);
 }
 
 // 미션 4: 낭독 녹음 (본문 보며 녹음 → 제출하면 자동 완료)
