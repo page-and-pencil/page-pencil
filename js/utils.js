@@ -167,3 +167,30 @@ document.addEventListener('keydown',e=>{
 });
 let toastT;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2500);}
+
+// ── 학습 미션 (class5 스타일 유닛 과제) — teacher/student 공용 ──
+const MISSION_DEFS={
+  vocab:{icon:'📚',label:'단어 확인'},
+  listen:{icon:'👂',label:'듣기 & 읽기'},
+  pattern:{icon:'🔁',label:'패턴 드릴'},
+  record:{icon:'🎙',label:'낭독 녹음'},
+};
+const MISSION_ORDER=['vocab','listen','pattern','record'];
+// 해당 유닛에 각 미션을 수행할 콘텐츠가 있는지
+function missionAvail(tb,unitKey){
+  const text=(tb?.unitTexts?.[unitKey]||'').trim();
+  return{
+    vocab:((tb?.units?.[unitKey])||[]).length>0,
+    listen:!!text,
+    pattern:!!((tb?.unitPatterns?.[unitKey]||'').trim()),
+    record:!!text,
+  };
+}
+// 과제의 유효 미션 목록 (교재 콘텐츠가 있는 것만)
+function missionList(a,tb){
+  const sel=(a.missions&&a.missions.length)?a.missions:MISSION_ORDER;
+  if(!tb)return sel;
+  const av=missionAvail(tb,a.unitKey);
+  const filtered=sel.filter(m=>av[m]);
+  return filtered.length?filtered:sel;
+}

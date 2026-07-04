@@ -1516,16 +1516,30 @@ function renderStudentHome(sid){
     } else if(a.type==='vocab'){
       body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">단어 암기</div><div class="wl" style="margin-top:4px">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
       if(!isDone)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:12px" onclick="openVocabForAssignment('${sid}','${a.id}')">📚 단어장 열기 →</button>`;
+    } else if(a.type==='mission'){
+      const tb=(_cache.globalTextbooks||[]).find(b=>b.id===a.tbId);
+      const ms=missionList(a,tb);
+      const prog=a.progress||{};
+      const doneCnt=ms.filter(m=>prog[m]).length;
+      const pct=ms.length?Math.round(doneCnt/ms.length*100):0;
+      body=`<div style="font-size:13px;font-weight:700;color:var(--navy)">🎯 ${a.bookTitle||'학습 미션'}</div>
+        <div style="font-size:12px;color:var(--slate);margin-top:2px">${a.unitKey||''}${a.unitTitle?' — '+a.unitTitle:''}</div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          ${ms.map(m=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:4px 9px;border-radius:50px;${prog[m]?'background:#D9F6E9;color:#047857':'background:var(--cream2);color:var(--slate)'}">${MISSION_DEFS[m]?.icon||''} ${MISSION_DEFS[m]?.label||m}${prog[m]?' ✓':''}</span>`).join('')}
+        </div>
+        <div style="margin-top:8px;height:6px;background:var(--cream2);border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${pct===100?'#10B981':'var(--teal)'};border-radius:99px"></div></div>`;
+      if(!isDone&&tb)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:13px;font-size:14px;font-weight:700" onclick="openMissionPlayer('${sid}','${a.id}')">${doneCnt?'▶ 이어서 하기':'▶ 미션 시작하기'}</button>`;
+      else if(!isDone&&!tb)body+=`<div style="font-size:11px;color:var(--slate);margin-top:6px">교재 정보를 불러오지 못했습니다</div>`;
     } else {
       const catIcon={phonics:'📘',vocab:'📝',grammar:'✏️',reading:'📖',listening:'🎧',writing:'✍️',naesin:'📋',book:'📗',class5:'🎮'};
       const icon=catIcon[a.category]||'📋';
       body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">${icon} ${a.bookTitle||a.text||''}</div>`;
       if(a.range)body+=`<div style="font-size:12px;color:var(--slate);margin-top:3px">${a.range}</div>`;
     }
-    const canCheck=(!(a.type==='reading'&&a.requireRecording)||!!hw);
+    const canCheck=a.type==='mission'?false:(!(a.type==='reading'&&a.requireRecording)||!!hw);
     return `<div class="hw-check-card${isDone?' done':''}" id="hw-card-${a.id}">
       <div style="display:flex;gap:12px;align-items:flex-start">
-        <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone||!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')'}" title="${!canCheck?'녹음 제출 후 완료 가능':'완료 처리'}">${isDone?'✓':''}</div>
+        <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone||!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')'}" title="${!canCheck?(a.type==='mission'?'미션을 모두 완료하면 자동으로 체크됩니다':'녹음 제출 후 완료 가능'):'완료 처리'}">${isDone?'✓':''}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
             <span style="font-size:10px;color:var(--slate);font-family:var(--fm)">${a.date||''}</span>
@@ -1873,3 +1887,282 @@ function startUnitTTS(){
   window.speechSynthesis.speak(u);
 }
 
+
+// ── 학습 미션 플레이어 (class5 스타일 유닛 과제) ──
+let _msState=null,_msRecBlob=null,_msTimerInt=null;
+
+function openMissionPlayer(sid,asgnId){
+  const a=(_cache.assignments||[]).find(x=>x.id===asgnId);
+  if(!a)return toast('과제 정보가 없습니다');
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===a.tbId);
+  if(!tb)return toast('교재 정보가 없습니다');
+  const missions=missionList(a,tb);
+  _msState={a,tb,sid,missions,unitKey:a.unitKey,idx:0};
+  _msRecBlob=null;
+  document.getElementById('ms-title').textContent='🎯 '+(a.bookTitle||tb.title||'학습 미션');
+  document.getElementById('ms-sub').textContent=(a.unitKey||'')+(a.unitTitle?' — '+a.unitTitle:'');
+  stopSpeak();
+  const first=missions.findIndex(m=>!(a.progress||{})[m]);
+  renderMsStep(first<0?0:first);
+  openM('m-mission');
+}
+function closeMissionPlayer(){
+  closeM('m-mission');stopSpeak();
+  try{if(_brRecorder&&_brRecorder.state==='recording')_brRecorder.stop();}catch(e){}
+  clearInterval(_msTimerInt);_msTimerInt=null;
+  if(_msState)renderStudentHome(_msState.sid);
+}
+function msProgressPct(){
+  const{a,missions}=_msState;const prog=a.progress||{};
+  const d=missions.filter(m=>prog[m]).length;
+  return missions.length?Math.round(d/missions.length*100):0;
+}
+function renderMsStep(i){
+  const{a,missions}=_msState;
+  if(i<0)i=0;if(i>=missions.length)i=missions.length-1;
+  _msState.idx=i;
+  stopSpeak();
+  const prog=a.progress||{};
+  const tabs=document.getElementById('ms-tabs');
+  if(tabs)tabs.innerHTML=missions.map((m,n)=>{
+    const d=MISSION_DEFS[m]||{icon:'',label:m};
+    const done=!!prog[m];const active=n===i;
+    return`<button onclick="renderMsStep(${n})" style="flex:1;padding:9px 2px;font-size:11.5px;font-weight:${active?'700':'600'};color:${active?'var(--teal)':done?'#047857':'var(--slate)'};border:none;background:none;cursor:pointer;border-bottom:2px solid ${active?'var(--teal)':'transparent'};margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">${done?'✓ ':''}${d.icon} ${d.label}</button>`;
+  }).join('');
+  const bar=document.getElementById('ms-progress-bar');
+  if(bar)bar.style.width=msProgressPct()+'%';
+  const body=document.getElementById('ms-body');
+  const footer=document.getElementById('ms-footer');
+  if(!body||!footer)return;
+  const m=missions[i];
+  if(m==='vocab')renderMsVocab(body,footer);
+  else if(m==='listen')renderMsListen(body,footer);
+  else if(m==='pattern')renderMsPattern(body,footer);
+  else if(m==='record')renderMsRecord(body,footer);
+}
+function msDoneBtn(m,label){
+  const done=!!(_msState.a.progress||{})[m];
+  if(done)return'<button class="btn bo" style="width:100%;border-radius:50px;padding:13px" disabled>✓ 완료한 미션이에요</button>';
+  return'<button class="btn bt" style="width:100%;border-radius:50px;padding:13px;font-weight:700" onclick="msCompleteMission(\''+m+'\')">'+label+'</button>';
+}
+async function msCompleteMission(m){
+  const{a,sid,missions}=_msState;
+  a.progress=a.progress||{};
+  const today=new Date().toISOString().split('T')[0];
+  if(!a.progress[m])a.progress[m]=today;
+  const allDone=missions.every(x=>a.progress[x]);
+  if(allDone&&!a.completedAt)a.completedAt=new Date().toISOString();
+  try{
+    await supaUpsert('assignments',a.id,a,sid);
+    const ci=(_cache.assignments||[]).findIndex(x=>x.id===a.id);if(ci>=0)_cache.assignments[ci]=a;
+  }catch(e){toast('저장에 실패했어요. 인터넷 연결을 확인해 주세요');return;}
+  if(allDone){
+    closeM('m-mission');stopSpeak();
+    updateStreak(sid);
+    if(typeof checkNewBadges==='function')checkNewBadges(sid);
+    launchConfetti();
+    toast('🎉 오늘의 미션 완료! 정말 잘했어요');
+    renderStudentHome(sid);
+  }else{
+    showMiniConfetti();
+    const nx=missions.findIndex(x=>!a.progress[x]);
+    renderMsStep(nx<0?0:nx);
+  }
+}
+
+// 미션 1: 단어 확인 (뜻 보고 → 탭해서 영어 확인 + 발음)
+function renderMsVocab(body,footer){
+  const{tb,unitKey}=_msState;
+  const words=tuNormWords(tb.units?.[unitKey]||[]);
+  if(!words.length){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">단어 목록이 없습니다</div>';footer.innerHTML=msDoneBtn('vocab','✓ 단어 확인 완료');return;}
+  body.innerHTML='<div style="padding:12px 16px">'
+    +'<div style="font-size:12px;color:var(--slate);margin-bottom:10px">한국어 뜻을 보고 <b>영어 단어를 떠올린 뒤</b> 카드를 눌러 확인하세요 🔊</div>'
+    +'<div style="display:flex;flex-direction:column;gap:8px">'
+    +words.map((w,i)=>'<div id="msw-row-'+i+'" onclick="msRevealWord('+i+')" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;transition:border-color .15s">'
+      +'<div style="flex:1"><span style="font-size:14px;font-weight:600;color:var(--navy)">'+(w.ko||'—')+'</span>'+(w.pos?'<span style="font-size:10px;color:var(--slate);margin-left:5px">['+((typeof POS_KO!=='undefined'&&POS_KO[w.pos])||w.pos)+']</span>':'')+'</div>'
+      +'<div style="text-align:right"><span id="msw-en-'+i+'" style="font-size:14px;font-weight:700;color:var(--teal);opacity:0;transition:opacity .2s">'+(w.word||'')+'</span><span id="msw-ck-'+i+'" style="font-size:15px;margin-left:6px;opacity:0;color:var(--teal)">✓</span></div>'
+      +'</div>').join('')
+    +'</div></div>';
+  _msState._vocabWords=words;
+  footer.innerHTML='<div style="display:flex;gap:8px">'
+    +'<button class="btn ba" onclick="msRevealAllWords()" style="flex:1">전체 보기</button>'
+    +'<div style="flex:1.4">'+msDoneBtn('vocab','✓ 단어 다 확인했어요')+'</div>'
+    +'</div>';
+}
+function msRevealWord(i){
+  const w=(_msState._vocabWords||[])[i];if(!w)return;
+  const en=document.getElementById('msw-en-'+i);
+  if(en&&en.style.opacity!=='1'){
+    en.style.opacity='1';
+    const ck=document.getElementById('msw-ck-'+i);if(ck)ck.style.opacity='1';
+    const row=document.getElementById('msw-row-'+i);if(row)row.style.borderColor='var(--teal)';
+  }
+  speakWord(w.word);
+}
+function msRevealAllWords(){
+  (_msState._vocabWords||[]).forEach((w,i)=>{
+    const en=document.getElementById('msw-en-'+i);if(en)en.style.opacity='1';
+    const ck=document.getElementById('msw-ck-'+i);if(ck)ck.style.opacity='1';
+    const row=document.getElementById('msw-row-'+i);if(row)row.style.borderColor='var(--teal)';
+  });
+}
+
+// 미션 2: 듣기 & 읽기 (오디오/TTS + 단어 하이라이트 본문)
+function renderMsListen(body,footer){
+  const{tb,unitKey}=_msState;
+  const text=tb.unitTexts?.[unitKey]||'';
+  const audioUrl=tb.unitAudio?.[unitKey]||'';
+  const words=tuNormWords(tb.units?.[unitKey]||[]);
+  if(!text){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">이 단원에 등록된 본문이 없습니다</div>';footer.innerHTML=msDoneBtn('listen','✓ 완료');return;}
+  const audioHtml=audioUrl
+    ?'<audio controls src="'+audioUrl+'" style="width:100%;height:34px;margin-bottom:10px"></audio>'
+    :'<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">'
+      +'<button id="ms-tts-btn" class="btn bt bsm" onclick="msStartTTS()" style="border-radius:50px;padding:7px 16px">▶ 듣기</button>'
+      +'<button class="btn ba bsm" onclick="msStopTTS()" style="border-radius:50px;padding:7px 14px">■ 정지</button>'
+      +'<span style="font-size:11px;color:var(--slate)">들으면서 눈으로 따라 읽으세요</span>'
+      +'</div>';
+  body.innerHTML='<div style="padding:12px 16px">'+audioHtml
+    +'<div id="ms-text-body" style="font-size:15px;line-height:1.9;color:var(--navy);letter-spacing:.01em">'+_renderHighlightedText(text,words)+'</div>'
+    +'</div>';
+  footer.innerHTML=msDoneBtn('listen','✓ 다 듣고 읽었어요');
+}
+function msStartTTS(){
+  const body=document.getElementById('ms-text-body');if(!body)return;
+  const text=body.innerText||'';if(!text.trim())return;
+  stopSpeak();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='en-US';u.rate=0.85;if(_bestVoice)u.voice=_bestVoice;
+  const btn=document.getElementById('ms-tts-btn');if(btn)btn.textContent='▶ 재생 중...';
+  u.onend=u.onerror=()=>{if(btn)btn.textContent='▶ 듣기';};
+  window.speechSynthesis.speak(u);
+}
+function msStopTTS(){
+  stopSpeak();
+  const b=document.getElementById('ms-tts-btn');if(b)b.textContent='▶ 듣기';
+}
+
+// 미션 3: 패턴 드릴 (문장 듣고 따라 말하기)
+function renderMsPattern(body,footer){
+  const{tb,unitKey}=_msState;
+  const raw=(tb.unitPatterns?.[unitKey]||'').trim();
+  const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(!lines.length){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">이 단원에 등록된 패턴이 없습니다</div>';footer.innerHTML=msDoneBtn('pattern','✓ 완료');return;}
+  _msState._patLines=lines;
+  body.innerHTML='<div style="padding:12px 16px">'
+    +'<div style="font-size:12px;color:var(--slate);margin-bottom:10px">▶ 를 눌러 듣고, <b>소리 내어 따라 말해</b> 보세요 (문장마다 2번씩!)</div>'
+    +'<div style="display:flex;flex-direction:column;gap:8px">'
+    +lines.map((ln,i)=>'<div id="ms-pat-row-'+i+'" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs)">'
+      +'<button onclick="msPlayPattern('+i+')" style="width:34px;height:34px;border-radius:50%;border:none;background:var(--tl);color:var(--teal);font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">▶</button>'
+      +'<span style="font-size:14px;color:var(--navy);line-height:1.5">'+ln+'</span>'
+      +'</div>').join('')
+    +'</div></div>';
+  footer.innerHTML='<div style="display:flex;gap:8px">'
+    +'<button class="btn ba" onclick="msPlayAllPatterns()" style="flex:1">🔊 전체 재생</button>'
+    +'<div style="flex:1.4">'+msDoneBtn('pattern','✓ 패턴 연습 끝!')+'</div>'
+    +'</div>';
+}
+function msPlayPattern(i){
+  const lines=_msState._patLines||[];const line=lines[i];if(!line)return;
+  stopSpeak();
+  document.querySelectorAll('[id^="ms-pat-row-"]').forEach(el=>el.style.borderColor='var(--border)');
+  const row=document.getElementById('ms-pat-row-'+i);if(row)row.style.borderColor='var(--teal)';
+  const u=new SpeechSynthesisUtterance(line);
+  u.lang='en-US';u.rate=0.82;if(_bestVoice)u.voice=_bestVoice;
+  u.onend=u.onerror=()=>{if(row)row.style.borderColor='var(--border)';};
+  window.speechSynthesis.speak(u);
+}
+function msPlayAllPatterns(){
+  const lines=_msState._patLines||[];if(!lines.length)return;
+  stopSpeak();
+  let idx=0;
+  function playNext(){
+    if(idx>=lines.length)return;
+    document.querySelectorAll('[id^="ms-pat-row-"]').forEach(el=>el.style.borderColor='var(--border)');
+    const row=document.getElementById('ms-pat-row-'+idx);
+    if(row){row.style.borderColor='var(--teal)';row.scrollIntoView({behavior:'smooth',block:'nearest'});}
+    const u=new SpeechSynthesisUtterance(lines[idx]);
+    u.lang='en-US';u.rate=0.82;if(_bestVoice)u.voice=_bestVoice;
+    u.onend=()=>{if(row)row.style.borderColor='var(--border)';idx++;setTimeout(playNext,500);};
+    u.onerror=()=>{idx++;setTimeout(playNext,500);};
+    window.speechSynthesis.speak(u);
+  }
+  playNext();
+}
+
+// 미션 4: 낭독 녹음 (본문 보며 녹음 → 제출하면 자동 완료)
+function renderMsRecord(body,footer){
+  const{tb,unitKey,a}=_msState;
+  const text=tb.unitTexts?.[unitKey]||'';
+  const done=!!(a.progress||{}).record;
+  body.innerHTML='<div style="padding:12px 16px">'
+    +'<div style="font-size:12px;color:var(--slate);margin-bottom:10px">본문을 <b>소리 내어 읽으면서 녹음</b>해 주세요. 제출하면 선생님이 들어보실 거예요 🎧</div>'
+    +(done&&a.recUrl?'<div style="margin-bottom:10px;padding:10px;background:#D9F6E9;border-radius:var(--rs);font-size:12px;color:#047857">✅ 낭독을 제출했어요! 다시 녹음해서 또 제출할 수도 있어요.<audio controls src="'+a.recUrl+'" style="width:100%;height:32px;margin-top:6px"></audio></div>':'')
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
+    +'<button id="ms-rec-start" class="btn bt" style="border-radius:50px;padding:11px 20px;font-weight:700" onclick="msStartRec()">🎙 녹음 시작</button>'
+    +'<button id="ms-rec-stop" class="btn bd" style="display:none;border-radius:50px;padding:11px 20px" onclick="msStopRec()">⏹ 녹음 끝내기</button>'
+    +'<span id="ms-rec-timer" style="display:none;font-size:13px;color:var(--coral);font-weight:700">⏺ <span id="ms-rec-time">0:00</span></span>'
+    +'</div>'
+    +'<div id="ms-rec-preview" style="display:none;margin-bottom:10px">'
+    +'<audio id="ms-rec-player" controls style="width:100%;height:34px"></audio>'
+    +'<button id="ms-rec-submit" class="btn bt" style="width:100%;margin-top:6px;border-radius:50px;padding:12px;font-weight:700" onclick="msSubmitRec()">📤 낭독 제출하기</button>'
+    +'<div id="ms-rec-status" style="margin-top:6px;font-size:12px;line-height:1.6"></div>'
+    +'</div>'
+    +(text?'<div style="font-size:15px;line-height:1.9;color:var(--navy);border-top:1px solid var(--border);padding-top:10px">'+text.split(/\n+/).map(p=>'<p style="margin:0 0 8px">'+p+'</p>').join('')+'</div>':'')
+    +'</div>';
+  footer.innerHTML=done
+    ?'<button class="btn bo" style="width:100%;border-radius:50px;padding:13px" disabled>✓ 낭독 제출 완료</button>'
+    :'<div style="font-size:11px;color:var(--slate);text-align:center">녹음을 제출하면 자동으로 완료 처리돼요</div>';
+}
+async function msStartRec(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const rec=new MediaRecorder(stream);const chunks=[];
+    rec.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+    rec.onstop=()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      _msRecBlob=new Blob(chunks,{type:'audio/webm'});
+      const player=document.getElementById('ms-rec-player');if(player)player.src=URL.createObjectURL(_msRecBlob);
+      const prev=document.getElementById('ms-rec-preview');if(prev)prev.style.display='block';
+      clearInterval(_msTimerInt);_msTimerInt=null;
+      document.getElementById('ms-rec-start')?.style.setProperty('display','');
+      document.getElementById('ms-rec-stop')?.style.setProperty('display','none');
+      document.getElementById('ms-rec-timer')?.style.setProperty('display','none');
+    };
+    rec.start();
+    _brStream=stream;_brRecorder=rec;
+    document.getElementById('ms-rec-start')?.style.setProperty('display','none');
+    document.getElementById('ms-rec-stop')?.style.setProperty('display','');
+    document.getElementById('ms-rec-timer')?.style.setProperty('display','');
+    let secs=0;clearInterval(_msTimerInt);
+    _msTimerInt=setInterval(()=>{secs++;const m=Math.floor(secs/60),s=secs%60;const el=document.getElementById('ms-rec-time');if(el)el.textContent=m+':'+(s<10?'0':'')+s;},1000);
+  }catch(e){toast('마이크 접근이 필요합니다');}
+}
+function msStopRec(){if(_brRecorder&&_brRecorder.state==='recording')_brRecorder.stop();}
+async function msSubmitRec(){
+  if(!_msRecBlob){toast('녹음이 없습니다');return;}
+  const{a,sid,tb,unitKey}=_msState;
+  const st=document.getElementById('ms-rec-status');
+  const btn=document.getElementById('ms-rec-submit');
+  if(st)st.innerHTML='<span style="color:var(--slate)">업로드 중...</span>';
+  if(btn)btn.disabled=true;
+  const{name,preset}=DB.cld();
+  let audioUrl='';
+  try{
+    if(name&&preset){
+      const fd=new FormData();fd.append('file',new File([_msRecBlob],'mission.webm',{type:'audio/webm'}));
+      fd.append('upload_preset',preset);fd.append('resource_type','video');
+      const res=await fetch('https://api.cloudinary.com/v1_1/'+name+'/video/upload',{method:'POST',body:fd});
+      if(res.ok)audioUrl=(await res.json()).secure_url;
+    }
+  }catch(e){console.error(e);}
+  if(!audioUrl){if(st)st.innerHTML='<span style="color:red">업로드에 실패했어요. 다시 시도해 주세요</span>';if(btn)btn.disabled=false;return;}
+  a.recUrl=audioUrl;a.recAt=new Date().toISOString();
+  const today=new Date().toISOString().split('T')[0];
+  const logId=uid();
+  const title=((a.bookTitle||tb.title||'')+' '+(unitKey||'')).trim();
+  const logEntry={id:logId,sid,date:today,audioUrl,bookTitle:title,bookId:'',type:'recording',read:false};
+  try{await supaUpsert('logs',logId,logEntry,sid);if(!_cache.logs)_cache.logs=[];_cache.logs.unshift(logEntry);}catch(e){console.error(e);}
+  _msRecBlob=null;
+  if(st)st.innerHTML='<span style="color:var(--teal)">제출 완료! 🎉</span>';
+  await msCompleteMission('record');
+}

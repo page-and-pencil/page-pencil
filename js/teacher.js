@@ -7006,21 +7006,34 @@ function openBulkAssign(){openM('m-add-assign');}
 
 // ── TEACHER ASSIGN TAB ──
 function _assignItemHtml(a,hws){
-  const CAT_LABELS={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','other':'기타'};
+  const CAT_LABELS={'mission':'미션','phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','other':'기타'};
   const hw=hws.find(h=>h.assignmentId===a.id);
   const catLabel=CAT_LABELS[a.category||'']||'';
   const statusCls=a.completedAt?'bgreen':hw?'bamber':'';
   const statusTxt=a.completedAt?'완료':hw?'제출':'';
+  const missionDetail=(()=>{
+    if(a.type!=='mission')return'';
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.id===a.tbId);
+    const ms=missionList(a,tb);
+    const prog=a.progress||{};
+    const doneCnt=ms.filter(m=>prog[m]).length;
+    const chips=ms.map(m=>`<span title="${MISSION_DEFS[m]?.label||m}${prog[m]?' ✓ '+prog[m]:' (미완료)'}" style="font-size:12px;${prog[m]?'':'opacity:.3;filter:grayscale(1)'}">${MISSION_DEFS[m]?.icon||''}</span>`).join(' ');
+    return`<div style="margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span>${chips}</span>
+      <span style="font-size:10px;font-weight:700;color:${doneCnt===ms.length?'#047857':'var(--teal)'}">${doneCnt}/${ms.length}</span>
+      ${a.recUrl?`<audio controls src="${a.recUrl}" style="height:22px;max-width:170px" preload="none"></audio>`:''}
+    </div>`;
+  })();
   const c5Detail=(()=>{
     const sc=a.schedule||[];
     if(a.category!=='class5')return'';
     if(sc.length)return`<div style="margin-top:2px">${sc.slice(0,3).map(s=>`<div style="font-size:10px;color:var(--slate);line-height:1.5">${s.date||''} ${[s.book,s.unit].filter(Boolean).join(' · ')}</div>`).join('')}${sc.length>3?`<div style="font-size:10px;color:var(--slate)">외 ${sc.length-3}일...</div>`:''}</div>`;
     return(a.bookTitle&&a.bookTitle!=='클래스5'?` · ${a.bookTitle}`:'')+(a.range?' · '+a.range:'');
   })();
-  const bookLabel=a.category==='class5'?'🎮 클래스5':a.bookTitle||(a.text||'');
+  const bookLabel=a.type==='mission'?`🎯 ${a.bookTitle||''} · ${a.unitKey||''}${a.unitTitle?' — '+a.unitTitle:''}`:a.category==='class5'?'🎮 클래스5':a.bookTitle||(a.text||'');
   return `<div class="assign-item" style="align-items:flex-start">
     <div style="flex:1;min-width:0">
-      <div style="font-size:11px;font-weight:600;color:var(--navy);${a.category!=='class5'?'white-space:nowrap;overflow:hidden;text-overflow:ellipsis':''}">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.category!=='class5'&&a.range?' '+a.range:''}${c5Detail}</div>
+      <div style="font-size:11px;font-weight:600;color:var(--navy);${a.category!=='class5'&&a.type!=='mission'?'white-space:nowrap;overflow:hidden;text-overflow:ellipsis':''}">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.category!=='class5'&&a.range?' '+a.range:''}${c5Detail}${missionDetail}</div>
       ${a.note?`<div style="font-size:10px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">💬 ${a.note}</div>`:''}
       <div style="font-size:10px;color:var(--slate)">${a.due?'~'+a.due:a.date||''}</div>
     </div>
@@ -7133,6 +7146,74 @@ async function deleteAssign(aid){
     renderAssignTab();toast('삭제되었습니다');
   });
 }
+// ── 학습 미션 할당 (class5 스타일) ──
+function toggleAssignCal(){
+  const cal=document.getElementById('assign-cal');
+  const arrow=document.getElementById('assign-cal-arrow');
+  if(!cal)return;
+  const open=cal.style.display!=='none';
+  cal.style.display=open?'none':'';
+  if(arrow)arrow.textContent=open?'▸ 펼치기':'▾ 접기';
+}
+function _missionBooks(){
+  // 유닛 콘텐츠(본문 또는 단어)가 하나라도 있는 교재만
+  return (_cache.globalTextbooks||[]).filter(tb=>{
+    const hasText=tb.unitTexts&&Object.keys(tb.unitTexts).some(u=>(tb.unitTexts[u]||'').trim());
+    const hasWords=tb.units&&Object.keys(tb.units).some(u=>(tb.units[u]||[]).length);
+    return hasText||hasWords;
+  });
+}
+function _missionUnitKeys(tb){
+  const keys=new Set([
+    ...Object.keys(tb.units||{}).filter(u=>(tb.units[u]||[]).length),
+    ...Object.keys(tb.unitTexts||{}).filter(u=>(tb.unitTexts[u]||'').trim()),
+    ...Object.keys(tb.unitPatterns||{}).filter(u=>(tb.unitPatterns[u]||'').trim()),
+  ]);
+  return [...keys].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+}
+function missionBookSearch(){
+  const q=(document.getElementById('ms-book-search')?.value||'').trim().toLowerCase();
+  const dd=document.getElementById('ms-book-dd');if(!dd)return;
+  document.getElementById('ms-book-id').value='';
+  if(!q){dd.style.display='none';return;}
+  const hits=_missionBooks().filter(b=>(b.title||'').toLowerCase().includes(q)).slice(0,10);
+  if(!hits.length){dd.style.display='none';return;}
+  dd.innerHTML=hits.map(b=>`<div onclick="missionSelectBook('${escAttr(b.id)}')" style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background=''">${b.title}${b.level?` <span style="font-size:10px;color:var(--slate)">(${b.level})</span>`:''} <span style="font-size:10px;color:var(--teal)">유닛 ${_missionUnitKeys(b).length}개</span></div>`).join('');
+  dd.style.display='block';
+}
+function missionSelectBook(id){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===id);if(!tb)return;
+  const si=document.getElementById('ms-book-search');if(si)si.value=tb.title||'';
+  document.getElementById('ms-book-id').value=id;
+  const dd=document.getElementById('ms-book-dd');if(dd)dd.style.display='none';
+  const sel=document.getElementById('ms-unit-sel');if(!sel)return;
+  const keys=_missionUnitKeys(tb);
+  sel.innerHTML='<option value="">-- 유닛 선택 --</option>'+keys.map(u=>`<option value="${escAttr(u)}">${u}${tb.unitTitles?.[u]?' — '+tb.unitTitles[u]:''}</option>`).join('');
+  sel.disabled=false;
+  missionUnitChange();
+}
+function missionUnitChange(){
+  const id=document.getElementById('ms-book-id')?.value||'';
+  const u=document.getElementById('ms-unit-sel')?.value||'';
+  const box=document.getElementById('ms-mission-checks');
+  const prev=document.getElementById('ms-preview');
+  if(!box)return;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===id);
+  if(!tb||!u){box.innerHTML='<span style="font-size:12px;color:var(--slate)">유닛을 선택하면 가능한 미션이 표시됩니다</span>';if(prev)prev.innerHTML='';return;}
+  const av=missionAvail(tb,u);
+  box.innerHTML=MISSION_ORDER.map(m=>{
+    const d=MISSION_DEFS[m];
+    if(!av[m])return`<label style="display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border:1.5px solid var(--border);border-radius:50px;font-size:12px;color:var(--slate);opacity:.45;cursor:not-allowed;white-space:nowrap" title="이 유닛에 해당 콘텐츠가 없습니다"><input type="checkbox" disabled> ${d.icon} ${d.label}</label>`;
+    return`<label style="display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border:1.5px solid var(--teal);border-radius:50px;font-size:12px;color:var(--navy);background:#fff;cursor:pointer;font-weight:600;white-space:nowrap"><input type="checkbox" class="ms-mission-check" value="${m}" checked style="accent-color:var(--teal)"> ${d.icon} ${d.label}</label>`;
+  }).join('');
+  if(prev){
+    const wCnt=(tb.units?.[u]||[]).length;
+    const tLen=(tb.unitTexts?.[u]||'').trim().length;
+    const pCnt=(tb.unitPatterns?.[u]||'').trim()?(tb.unitPatterns[u].trim().split('\n').filter(l=>l.trim()).length):0;
+    prev.innerHTML=`이 유닛: 단어 ${wCnt}개 · 본문 ${tLen?Math.round(tLen/5)+'단어 분량':'없음'} · 패턴 ${pCnt}줄${tb.unitAudio?.[u]?' · 오디오 있음':''}`;
+  }
+}
+
 function modalAssignCatChange(){
   const cat=document.getElementById('modal-assign-cat').value;
   const sid=document.getElementById('modal-assign-stu').value;
@@ -7141,9 +7222,10 @@ function modalAssignCatChange(){
   const bookF=bookEl?.closest('.f');
   const rangeF=document.getElementById('modal-assign-range')?.closest('.f');
   const isC5=cat==='class5';
-  if(bookF)bookF.style.display=isC5?'none':'';
-  if(rangeF)rangeF.style.display=isC5?'none':'';
-  if(cat&&cat!=='other'&&!isC5&&sid&&bookEl&&!bookEl.value){
+  const isMission=cat==='mission';
+  if(bookF)bookF.style.display=(isC5||isMission)?'none':'';
+  if(rangeF)rangeF.style.display=(isC5||isMission)?'none':'';
+  if(cat&&cat!=='other'&&!isC5&&!isMission&&sid&&bookEl&&!bookEl.value){
     const stClasses=DB.classes().filter(c=>(c.studentIds||[]).includes(sid));
     for(const c of stClasses){
       const matched=Object.entries(c.commonMaterials||{}).find(([k])=>k===cat||k.startsWith(cat+'_'));
@@ -7160,6 +7242,22 @@ function modalAssignCatChange(){
         ${recentCards.length?recentCards.map(c=>`<label style="display:flex;align-items:center;gap:8px;padding:2px 0;cursor:pointer"><input type="checkbox" class="modal-vocab-check" value="${c.word}"> <span style="font-family:var(--fd);font-weight:700">${c.word}</span><span style="font-size:11px;color:var(--slate)">${c.meaning||''}</span></label>`).join(''):'<span style="font-size:12px;color:var(--slate)">단어 카드 없음</span>'}
       </div></div>
       <div class="f"><label>단어 직접 입력 (쉼표 구분)</label><input type="text" id="modal-vocab-extra" placeholder="apple, enormous..."></div>`;
+  } else if(isMission){
+    extra.innerHTML=`<div style="margin-top:10px;border:1.5px solid var(--teal);border-radius:var(--rs);padding:12px;background:var(--tl)">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">🎯 학습 미션 — 교재 유닛을 고르면 학생 앱에 단계별 학습이 열립니다</div>
+      <div class="f" style="margin-bottom:8px"><label>교재 검색</label>
+        <input type="text" id="ms-book-search" placeholder="본문·단어가 등록된 교재 검색..." autocomplete="off" oninput="missionBookSearch()" style="width:100%;box-sizing:border-box">
+        <div id="ms-book-dd" style="display:none;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);max-height:150px;overflow-y:auto;font-size:12px;margin-top:2px"></div>
+        <input type="hidden" id="ms-book-id">
+      </div>
+      <div class="f" style="margin-bottom:8px"><label>유닛</label>
+        <select id="ms-unit-sel" onchange="missionUnitChange()" disabled><option value="">교재를 먼저 선택하세요</option></select>
+      </div>
+      <div class="f" style="margin-bottom:0"><label>미션 구성</label>
+        <div id="ms-mission-checks" style="display:flex;gap:6px;flex-wrap:wrap;padding:2px 0"><span style="font-size:12px;color:var(--slate)">유닛을 선택하면 가능한 미션이 표시됩니다</span></div>
+      </div>
+      <div id="ms-preview" style="font-size:11px;color:var(--slate);margin-top:6px"></div>
+    </div>`;
   } else if(isC5){
     extra.innerHTML=`<div style="margin-top:10px;border:1.5px solid var(--border);border-radius:var(--rs);padding:10px 12px">
       <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📅 일별 진도 스케줄</div>
@@ -7310,8 +7408,13 @@ async function saveModalAssignment(){
   if(_editAssignId){
     const existing=(_cache.assignments||[]).find(x=>x.id===_editAssignId);
     if(existing){
-      existing.category=cat;existing.date=date;existing.due=due;
-      existing.bookTitle=book;existing.range=range;existing.note=note;
+      if(existing.type==='mission'){
+        // 미션 과제는 날짜/마감/메모만 수정 (교재·유닛·진행률 보호)
+        existing.date=date;existing.due=due;existing.note=note;
+      }else{
+        existing.category=cat;existing.date=date;existing.due=due;
+        existing.bookTitle=book;existing.range=range;existing.note=note;
+      }
       await supaUpsert('assignments',_editAssignId,existing,sid);
       const idx=(_cache.assignments||[]).findIndex(x=>x.id===_editAssignId);
       if(idx>=0)_cache.assignments[idx]=existing;
@@ -7320,6 +7423,27 @@ async function saveModalAssignment(){
     const mt=document.querySelector('#m-add-assign .mt');
     if(mt)mt.textContent='📋 과제 할당';
     closeM('m-add-assign');renderAssignTab();toast('수정되었습니다');return;
+  }
+  if(cat==='mission'){
+    const tbId=document.getElementById('ms-book-id')?.value||'';
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+    const unitKey=document.getElementById('ms-unit-sel')?.value||'';
+    if(!tb||!unitKey){toast('교재와 유닛을 선택해 주세요');return;}
+    const missions=[...document.querySelectorAll('.ms-mission-check:checked')].map(c=>c.value);
+    if(!missions.length){toast('미션을 1개 이상 선택해 주세요');return;}
+    const a={id:uid(),sid,type:'mission',category:'mission',date,due,note,
+      tbId,unitKey,bookTitle:tb.title||'',unitTitle:tb.unitTitles?.[unitKey]||'',
+      missions,progress:{}};
+    // 단어 미션이면 단어카드 자동 동기화 → 단어장 3단계 학습과 연동
+    if(missions.includes('vocab')){
+      const ws=tuNormWords(tb.units?.[unitKey]||[]).filter(w=>w.word);
+      const words=ws.map(w=>({word:w.word,ko:w.ko||'',pos:w.pos||'',example:w.example||'',srcId:tbId,srcType:'textbook',srcUnit:unitKey}));
+      if(words.length)await syncVocabCards(sid,words,[],date,'미션');
+    }
+    await supaUpsert('assignments',a.id,a,sid);
+    if(!_cache.assignments)_cache.assignments=[];
+    _cache.assignments.unshift(a);
+    closeM('m-add-assign');renderAssignTab();toast('학습 미션이 할당되었습니다 🎯');return;
   }
   if(cat==='class5'){
     const schedRows=document.querySelectorAll('#c5-rows .c5-row');

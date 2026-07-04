@@ -797,10 +797,10 @@
       <div id="assign-stats" class="dash-stats" style="margin-bottom:14px"></div>
       <div class="card" style="margin-bottom:1rem">
         <div class="ch">
-          <span class="ct">과제 달력</span>
+          <span class="ct" style="cursor:pointer" onclick="toggleAssignCal()">과제 달력 <span id="assign-cal-arrow" style="font-size:10px;color:var(--teal)">▸ 펼치기</span></span>
           <button class="btn ba bsm" onclick="openBulkAssign()">일괄 할당</button>
         </div>
-        <div class="cb" id="assign-cal"></div>
+        <div class="cb" id="assign-cal" style="display:none"></div>
       </div>
       <div class="filter-bar">
         <input type="date" class="filter-sel" id="assign-filter-date">
@@ -1492,6 +1492,25 @@
   </div>
 </div>
 
+<!-- 학습 미션 플레이어 (학생) -->
+<div id="m-mission" class="mo" data-protect>
+  <div class="mdl mdl-xl" style="display:flex;flex-direction:column;max-height:92vh">
+    <div class="mh" style="flex-shrink:0">
+      <div style="min-width:0">
+        <div class="mt" id="ms-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">학습 미션</div>
+        <div style="font-size:11px;color:var(--slate);margin-top:1px" id="ms-sub"></div>
+      </div>
+      <button class="bx" onclick="closeMissionPlayer()">×</button>
+    </div>
+    <div id="ms-progress-wrap" style="flex-shrink:0;padding:0 16px 8px">
+      <div style="height:6px;background:var(--cream2);border-radius:99px;overflow:hidden"><div id="ms-progress-bar" style="height:100%;width:0%;background:var(--teal);border-radius:99px;transition:width .35s"></div></div>
+    </div>
+    <div id="ms-tabs" style="flex-shrink:0;display:flex;border-bottom:2px solid var(--border)"></div>
+    <div id="ms-body" style="flex:1;overflow-y:auto;min-height:0"></div>
+    <div id="ms-footer" style="flex-shrink:0;padding:12px 16px;border-top:1px solid var(--border)"></div>
+  </div>
+</div>
+
 <!-- 단원 원문 읽기 (학생) -->
 <div id="m-unit-read" class="mo">
   <div class="mdl mdl-xl" style="display:flex;flex-direction:column;max-height:90vh">
@@ -1698,6 +1717,7 @@
       <div class="f"><label>구분</label>
         <select id="modal-assign-cat" onchange="modalAssignCatChange()">
           <option value="">— 구분 없음 (자유 입력) —</option>
+          <option value="mission">🎯 학습 미션 (교재 유닛)</option>
           <option value="phonics">파닉스</option>
           <option value="vocab">어휘</option>
           <option value="grammar">어법</option>
@@ -1843,11 +1863,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260622e"></script>
-<script src="vocab_ref_data.js?v=20260622e"></script>
-<script src="js/db.js?v=20260622e"></script>
-<script src="js/teacher.js?v=20260622e"></script>
-<script src="js/student.js?v=20260622e"></script>
-<script src="js/parent.js?v=20260622e"></script>
+<script src="js/utils.js?v=20260704a"></script>
+<script src="vocab_ref_data.js?v=20260704a"></script>
+<script src="js/db.js?v=20260704a"></script>
+<script src="js/teacher.js?v=20260704a"></script>
+<script src="js/student.js?v=20260704a"></script>
+<script src="js/parent.js?v=20260704a"></script>
 </body>
 </html>
