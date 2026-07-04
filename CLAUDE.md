@@ -13,10 +13,14 @@
 - js/student.js: 학생 앱 로직
 - js/parent.js: 학부모 앱 로직
 - js/utils.js: 공통 유틸 (show, toast, uid 등)
+- worksheet-studio/: 워크시트 스튜디오 소스 (React+Vite, AI 리딩 워크시트 생성기)
+- studio/: 워크시트 스튜디오 빌드 결과물 (직접 수정 금지 — 소스 수정 후 아래 명령으로 재빌드)
+  - 빌드: `cd worksheet-studio && npm install && npx vite build --mode pp --base=./ --outDir ../studio --emptyOutDir`
+  - pp 모드: AI 호출은 claude-proxy 엣지 함수, 저장은 worksheets 테이블, API 키는 settings의 apikey 재사용
 
 ## Supabase
 - URL: https://pznpcewwdsbxwibpnapn.supabase.co
-- 테이블: students, lessons, tests, readings, logs, library, notices, homeworks, assignments, textbooks, messages, vocab_cards, global_textbooks, settings
+- 테이블: students, lessons, tests, readings, logs, library, notices, homeworks, assignments, textbooks, messages, vocab_cards, global_textbooks, settings, worksheets(워크시트 스튜디오)
 
 ## 외부 서비스
 - Cloudinary: name=drwys3bkz, preset=pp_unsigned (오디오/이미지 업로드)
