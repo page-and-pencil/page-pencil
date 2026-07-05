@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased;color:#14304A;}
+  svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
+  .mono{font-family:'Montserrat',sans-serif;font-variant-numeric:tabular-nums;}
+  .pscroll::-webkit-scrollbar{width:0;display:none;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#E7EBEF;display:flex;align-items:center;justify-content:center;padding:40px 24px;gap:48px;flex-wrap:wrap;">
+
+  <!-- intro -->
+  <div style="width:300px;flex-shrink:0;">
+    <div class="mono" style="font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#0B8DAE;margin-bottom:10px;">Parent · Mobile</div>
+    <h1 style="font-size:25px;font-weight:800;letter-spacing:-.02em;margin-bottom:10px;">학부모 — 수업 기록 조회</h1>
+    <p style="font-size:13.5px;line-height:1.75;color:#5A6B7B;text-wrap:pretty;">선생님 코멘트가 따뜻하게 전달되는 화면. 탭 4개(수업·점수·메시지·결제)는 실제 앱 그대로, 헤더에 나가기를 두고 탭 타깃을 44px로 키웠습니다. 강점 그린·보완 앰버 칩은 항상 강점 먼저.</p>
+    <div style="margin-top:18px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:#46586B;">
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#0CA4C9;flex-shrink:0;"></span>스티키 탭 · 스크롤 시 하단 경계선</div>
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#10B981;flex-shrink:0;"></span>월간 요약 히어로 + 수업 카드</div>
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#F59E0B;flex-shrink:0;"></span>수업 유형 칩은 헤더, 평가 칩은 푸터로 분리</div>
+    </div>
+  </div>
+
+  <!-- phone -->
+  <div data-screen-label="학부모 수업 기록" style="width:392px;height:830px;background:#0E1622;border-radius:46px;padding:11px;box-shadow:0 30px 70px rgba(15,48,74,.3);flex-shrink:0;">
+    <div style="width:100%;height:100%;background:#F6FAFB;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;position:relative;">
+
+      <!-- status bar -->
+      <div style="height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:#fff;">
+        <span class="mono" style="font-size:14px;font-weight:700;">9:41</span>
+        <div style="display:flex;align-items:center;gap:6px;color:#14304A;"><i data-lucide="signal" width="15" height="15"></i><i data-lucide="wifi" width="15" height="15"></i><i data-lucide="battery-full" width="17" height="17"></i></div>
+      </div>
+
+      <!-- app header : 아이 전환 · 나가기 (실제 구성) -->
+      <div style="flex-shrink:0;background:#fff;padding:6px 20px 14px;border-bottom:1px solid rgba(15,48,74,.07);">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <span class="mono" style="width:40px;height:40px;border-radius:50%;background:#0CA4C9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;">수</span>
+            <div>
+              <div style="display:flex;align-items:center;gap:5px;font-size:15px;font-weight:800;">김수아 <i data-lucide="chevron-down" width="15" height="15" style="color:#8A95A2;"></i></div>
+              <div style="font-size:11.5px;color:#8A95A2;">초4 · 한빛초</div>
+            </div>
+          </div>
+          <button style="display:flex;align-items:center;gap:5px;padding:9px 13px;border:1px solid rgba(15,48,74,.12);background:#fff;color:#5A6B7B;border-radius:9px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;" style-hover="border-color:rgba(15,48,74,.28);color:#14304A;"><i data-lucide="log-out" width="13" height="13"></i>나가기</button>
+        </div>
+      </div>
+
+      <!-- scroll -->
+      <div class="pscroll" style="flex:1;overflow-y:auto;">
+        <!-- hero summary -->
+        <div style="padding:18px 20px 4px;">
+          <div style="background:#E9F6F9;border:1px solid rgba(12,164,201,.18);border-radius:16px;padding:18px;">
+            <div style="font-size:12.5px;color:#0B8DAE;font-weight:700;margin-bottom:3px;">6월 한 달, 수아는</div>
+            <div style="font-size:15px;font-weight:700;color:#14304A;line-height:1.55;margin-bottom:14px;text-wrap:pretty;">꾸준히 나오며 리딩이 눈에 띄게 늘었어요.</div>
+            <div style="display:flex;gap:10px;">
+              <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center;"><div class="mono" style="font-size:20px;font-weight:700;">8<span style="font-size:12px;color:#B8C0C8;font-weight:600;">회</span></div><div style="font-size:10.5px;color:#8A95A2;margin-top:2px;">수업</div></div>
+              <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center;"><div class="mono" style="font-size:20px;font-weight:700;color:#0B8DAE;">88<span style="font-size:12px;color:#B8C0C8;font-weight:600;">점</span></div><div style="font-size:10.5px;color:#8A95A2;margin-top:2px;">평균 점수</div></div>
+              <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center;"><div class="mono" style="font-size:20px;font-weight:700;color:#047857;">2<span style="font-size:12px;color:#B8C0C8;font-weight:600;">권</span></div><div style="font-size:10.5px;color:#8A95A2;margin-top:2px;">완독 원서</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- tabs : 수업·점수·메시지·결제 (실제 4탭) -->
+        <div style="display:flex;gap:7px;padding:16px 20px 10px;position:sticky;top:0;background:#F6FAFB;z-index:1;box-shadow:0 1px 0 rgba(15,48,74,.05);">
+          <span style="display:flex;align-items:center;height:38px;padding:0 16px;border-radius:20px;font-size:13px;font-weight:700;background:#0CA4C9;color:#fff;box-shadow:0 2px 8px rgba(12,164,201,.3);cursor:pointer;">수업</span>
+          <span style="display:flex;align-items:center;height:38px;padding:0 16px;border-radius:20px;font-size:13px;font-weight:600;background:#fff;border:1px solid rgba(15,48,74,.1);color:#5A6B7B;cursor:pointer;" style-hover="border-color:rgba(12,164,201,.45);color:#0B8DAE;">점수</span>
+          <span style="display:flex;align-items:center;height:38px;padding:0 16px;border-radius:20px;font-size:13px;font-weight:600;background:#fff;border:1px solid rgba(15,48,74,.1);color:#5A6B7B;cursor:pointer;" style-hover="border-color:rgba(12,164,201,.45);color:#0B8DAE;">메시지</span>
+          <span style="display:flex;align-items:center;height:38px;padding:0 16px;border-radius:20px;font-size:13px;font-weight:600;background:#fff;border:1px solid rgba(15,48,74,.1);color:#5A6B7B;cursor:pointer;" style-hover="border-color:rgba(12,164,201,.45);color:#0B8DAE;">결제</span>
+        </div>
+
+        <!-- lesson cards -->
+        <div style="padding:6px 20px 28px;display:flex;flex-direction:column;gap:14px;">
+
+          <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 4px rgba(15,48,74,.05);overflow:hidden;">
+            <div style="padding:14px 16px 10px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+                <span style="font-size:13px;font-weight:800;">6월 19일 <span style="font-size:11.5px;color:#8A95A2;font-weight:500;">금요일</span></span>
+                <div style="display:flex;gap:5px;"><span style="font-size:10.5px;font-weight:700;background:#E3F5FA;color:#0B8DAE;padding:3px 9px;border-radius:10px;">리딩</span><span style="font-size:10.5px;font-weight:700;background:#E3F5FA;color:#0B8DAE;padding:3px 9px;border-radius:10px;">어휘</span></div>
+              </div>
+              <div style="font-size:13.5px;line-height:1.8;color:#14304A;text-wrap:pretty;">오늘 수아는 리딩 지문을 끝까지 스스로 읽어냈습니다. 모르는 단어가 나와도 앞뒤 맥락으로 짐작하려는 모습이 보였어요. 어휘는 한 번 더 짚어주면 좋겠습니다. 집에서 짧은 글 한 단락을 소리 내어 읽어보게 해주세요.</div>
+            </div>
+            <div style="padding:11px 16px;background:#F8FBFC;border-top:1px solid rgba(15,48,74,.06);display:flex;flex-wrap:wrap;gap:6px;">
+              <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;background:#D9F6E9;color:#047857;padding:5px 11px;border-radius:11px;"><i data-lucide="trending-up" width="12" height="12"></i>읽기 유창</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;background:#FEF0D5;color:#B45309;padding:5px 11px;border-radius:11px;"><i data-lucide="triangle-alert" width="11" height="11"></i>어휘 보완</span>
+            </div>
+          </div>
+
+          <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 4px rgba(15,48,74,.05);overflow:hidden;">
+            <div style="padding:14px 16px 10px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+                <span style="font-size:13px;font-weight:800;">6월 17일 <span style="font-size:11.5px;color:#8A95A2;font-weight:500;">수요일</span></span>
+                <div style="display:flex;gap:5px;"><span style="font-size:10.5px;font-weight:700;background:#E3F5FA;color:#0B8DAE;padding:3px 9px;border-radius:10px;">어법</span></div>
+              </div>
+              <div style="font-size:13.5px;line-height:1.8;color:#14304A;text-wrap:pretty;">현재완료 시제를 복습했습니다. 직접 예문을 만들어보는 활동에서 문장 구성이 한결 능숙해졌어요. 자신감이 붙는 게 보입니다.</div>
+            </div>
+            <div style="padding:11px 16px;background:#F8FBFC;border-top:1px solid rgba(15,48,74,.06);display:flex;flex-wrap:wrap;gap:6px;">
+              <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;background:#D9F6E9;color:#047857;padding:5px 11px;border-radius:11px;"><i data-lucide="trending-up" width="12" height="12"></i>이해도 높음</span>
+              <span style="display:inline-flex;align-items:center;font-size:11px;font-weight:600;background:#F0F2F5;color:#46586B;padding:5px 11px;border-radius:11px;">자신감 향상 중</span>
+            </div>
+          </div>
+
+          <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 4px rgba(15,48,74,.05);overflow:hidden;">
+            <div style="padding:14px 16px 10px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+                <span style="font-size:13px;font-weight:800;">6월 12일 <span style="font-size:11.5px;color:#8A95A2;font-weight:500;">금요일</span></span>
+                <div style="display:flex;gap:5px;"><span style="font-size:10.5px;font-weight:700;background:#E3F5FA;color:#0B8DAE;padding:3px 9px;border-radius:10px;">리딩</span><span style="display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;background:#D9F6E9;color:#047857;padding:3px 9px;border-radius:10px;"><i data-lucide="book-check" width="11" height="11"></i>원서 완독</span></div>
+              </div>
+              <div style="font-size:13.5px;line-height:1.8;color:#14304A;text-wrap:pretty;">Magic Tree House를 완독했습니다. 챕터가 길어져도 끝까지 읽어내는 끈기가 좋아졌어요.</div>
+            </div>
+            <div style="padding:11px 16px;background:#F8FBFC;border-top:1px solid rgba(15,48,74,.06);display:flex;flex-wrap:wrap;gap:6px;">
+              <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;background:#D9F6E9;color:#047857;padding:5px 11px;border-radius:11px;"><i data-lucide="trending-up" width="12" height="12"></i>끈기 좋음</span>
+              <span style="display:inline-flex;align-items:center;font-size:11px;font-weight:600;background:#F0F2F5;color:#46586B;padding:5px 11px;border-radius:11px;">읽기 속도 향상</span>
+            </div>
+          </div>
+
+          <!-- 지난 달 경계 -->
+          <div style="display:flex;align-items:center;gap:10px;padding:4px 0;"><span style="flex:1;height:1px;background:rgba(15,48,74,.08);"></span><span class="mono" style="font-size:11px;font-weight:700;color:#94A3AE;letter-spacing:.08em;">5월</span><span style="flex:1;height:1px;background:rgba(15,48,74,.08);"></span></div>
+
+          <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 4px rgba(15,48,74,.05);overflow:hidden;">
+            <div style="padding:14px 16px 10px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+                <span style="font-size:13px;font-weight:800;">5월 29일 <span style="font-size:11.5px;color:#8A95A2;font-weight:500;">목요일</span></span>
+                <div style="display:flex;gap:5px;"><span style="font-size:10.5px;font-weight:700;background:#E3F5FA;color:#0B8DAE;padding:3px 9px;border-radius:10px;">리스닝</span></div>
+              </div>
+              <div style="font-size:13.5px;line-height:1.8;color:#14304A;text-wrap:pretty;">챕터 오디오를 들으며 따라 읽었습니다. 처음보다 속도를 한 단계 올렸는데도 잘 따라왔어요.</div>
+            </div>
+            <div style="padding:11px 16px;background:#F8FBFC;border-top:1px solid rgba(15,48,74,.06);display:flex;flex-wrap:wrap;gap:6px;">
+              <span style="display:inline-flex;align-items:center;font-size:11px;font-weight:600;background:#F0F2F5;color:#46586B;padding:5px 11px;border-radius:11px;">속도 향상 중</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- home indicator -->
+      <div style="height:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#F6FAFB;"><span style="width:130px;height:5px;border-radius:3px;background:#14304A;opacity:.25;"></span></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:820,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    const draw = () => { if (window.lucide && window.lucide.createIcons) { try { window.lucide.createIcons(); } catch (e) {} } };
+    let n = 0;
+    const iv = setInterval(() => { draw(); if (window.lucide || ++n > 50) clearInterval(iv); }, 80);
+    [200, 500, 1200].forEach(t => setTimeout(draw, t));
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -30,7 +30,7 @@ function parentAreaGrowth(sid){
   if(areas.length<2)return '';
   const sem=p=>p>=80?{f:'#10B981',t:'#047857',l:'우수'}:p>=60?{f:'#0CA4C9',t:'#0B8DAE',l:'양호'}:{f:'#F59E0B',t:'#B45309',l:'보완 중'};
   return `<div class="card">
-    <div class="ch"><span class="ct">📈 영역별 성장</span></div>
+    <div class="ch"><span class="ct">${luIcon('trending-up',16)}영역별 성장</span></div>
     <div class="cb" style="padding:14px 18px">
       ${areas.map(a=>{const s=sem(a.val);return `<div style="margin-bottom:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -46,8 +46,8 @@ function parentAreaGrowth(sid){
 function lessonChips(rawCmt){
   if(!rawCmt||typeof getCmtChips!=='function')return '';
   const cfg=getCmtChips();
-  const mk=(arr,bg,col)=>(arr||[]).filter(t=>t&&rawCmt.includes(t)).map(t=>`<span style="font-size:11px;font-weight:600;background:${bg};color:${col};padding:4px 11px;border-radius:11px">${t}</span>`);
-  const chips=[...mk(cfg.strength,'#D9F6E9','#047857'),...mk(cfg.progress,'#F0F2F5','#46586B'),...mk(cfg.improve,'#FEF0D5','#B45309')];
+  const mk=(arr,bg,col,ico)=>(arr||[]).filter(t=>t&&rawCmt.includes(t)).map(t=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;background:${bg};color:${col};padding:5px 11px;border-radius:11px">${ico||''}${t}</span>`);
+  const chips=[...mk(cfg.strength,'#D9F6E9','#047857',luIcon('trending-up',12)),...mk(cfg.progress,'#F0F2F5','#46586B',''),...mk(cfg.improve,'#FEF0D5','#B45309',luIcon('triangle-alert',11))];
   if(!chips.length)return '';
   return `<div style="padding:11px 16px;background:#F8FBFC;border-top:1px solid rgba(15,48,74,.06);display:flex;gap:8px;flex-wrap:wrap">${chips.join('')}</div>`;
 }
@@ -56,23 +56,31 @@ function parentLessonList(les){
   const DAYS=['일','월','화','수','목','금','토'];
   const rest=les.slice(1,9); // 최근 수업(블록A) 다음부터
   if(!rest.length)return '';
+  let prevMonth=null;
   const cards=rest.map(l=>{
     const cats=[];const set=new Set();
     Object.entries(l.materials||{}).forEach(([k,v])=>{const isBook=k==='_book'||k.startsWith('_book_');const bk=k.replace(/_\d+$/,'');const label=isBook?'원서':(typeof SLBL!=='undefined'?SLBL[bk]||'':'');if(label&&v.book&&!set.has(label)){set.add(label);cats.push(label);}});
     const day=l.date?DAYS[new Date(l.date).getDay()]:'';
     const cmt=l.polishedCmt||l.cmt||'';
-    return `<div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-left:3px solid #0CA4C9;border-radius:14px;box-shadow:0 1px 4px rgba(15,48,74,.05);overflow:hidden;margin-bottom:12px">
+    // 월 경계 구분선 — 긴 목록 스캔 보조
+    const m=(l.date||'').slice(0,7);
+    let divider='';
+    if(m&&prevMonth&&m!==prevMonth){
+      divider=`<div style="display:flex;align-items:center;gap:10px;padding:4px 0;margin-bottom:12px"><span style="flex:1;height:1px;background:rgba(15,48,74,.08)"></span><span class="mono" style="font-size:11px;font-weight:700;color:#94A3AE;letter-spacing:.08em">${parseInt(m.slice(5,7))}월</span><span style="flex:1;height:1px;background:rgba(15,48,74,.08)"></span></div>`;
+    }
+    if(m)prevMonth=m;
+    return `${divider}<div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 4px rgba(15,48,74,.05);overflow:hidden;margin-bottom:12px">
       <div style="padding:14px 16px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:${cmt?'9px':'0'}">
           <span style="font-size:13px;font-weight:800;color:var(--navy)">${l.date||''} <span style="font-size:11.5px;color:#8A95A2;font-weight:500">${day?day+'요일':''}</span></span>
-          <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">${cats.map(c=>`<span style="font-size:10.5px;font-weight:700;background:#E3F5FA;color:#0B8DAE;padding:2px 9px;border-radius:10px">${c}</span>`).join('')}</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">${cats.map(c=>`<span style="font-size:10.5px;font-weight:700;background:#E3F5FA;color:#0B8DAE;padding:3px 9px;border-radius:10px">${c}</span>`).join('')}</div>
         </div>
-        ${cmt?`<div style="font-size:13px;line-height:1.8;color:#14304A">${cmt}</div>`:''}
+        ${cmt?`<div style="font-size:13.5px;line-height:1.8;color:#14304A">${cmt}</div>`:''}
       </div>
       ${lessonChips(l.cmt)}
     </div>`;
   }).join('');
-  return `<div><div style="font-size:14px;font-weight:800;color:var(--navy);margin:6px 2px 11px">📖 이전 수업 기록</div>${cards}</div>`;
+  return `<div><div style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:800;color:var(--navy);margin:6px 2px 11px">${luIcon('book-open',16,'color:#0B8DAE')}이전 수업 기록</div>${cards}</div>`;
 }
 async function loadParent(sid){
   currentParentSid=sid;
@@ -115,7 +123,7 @@ async function loadParent(sid){
   if(newLesCount)notifItems.push(`수업 기록 ${newLesCount}건`);
   if(newTstCount)notifItems.push(`테스트 ${newTstCount}건`);
   if(pendingCount)notifItems.push(`미완료 숙제 ${pendingCount}개`);
-  if(notifItems.length)blocks+=`<div style="background:linear-gradient(135deg,var(--tl),rgba(12,164,201,.15));border:1px solid rgba(12,164,201,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#0B8DAE">✨ 새 업데이트: ${notifItems.join(' · ')}</div>`;
+  if(notifItems.length)blocks+=`<div style="background:linear-gradient(135deg,var(--tl),rgba(12,164,201,.15));border:1px solid rgba(12,164,201,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#0B8DAE">${luIcon('sparkles',14)||'✨'} 새 업데이트: ${notifItems.join(' · ')}</div>`;
   localStorage.setItem(lastVisitKey,todayIso);
 
   // 히어로 요약 카드 (이번 달 + 3종 통계) — 시안
@@ -130,12 +138,12 @@ async function loadParent(sid){
     else if(avgScore!=null&&avgScore>=80)summary='이번 달도 안정적으로 잘 해주고 있어요.';
     else summary='이번 달도 성실하게 함께하고 있어요.';
     blocks+=`<div style="background:#E9F6F9;border:1px solid rgba(12,164,201,.18);border-radius:16px;padding:18px;margin-bottom:14px">
-      <div style="font-size:13px;color:#0B8DAE;font-weight:700;margin-bottom:3px">${today.getMonth()+1}월 한 달, ${givenName}${josa(givenName)}</div>
-      <div style="font-size:14px;color:#14304A;line-height:1.6;margin-bottom:14px">${summary}</div>
+      <div style="font-size:12.5px;color:#0B8DAE;font-weight:700;margin-bottom:3px">${today.getMonth()+1}월 한 달, ${givenName}${josa(givenName)}</div>
+      <div style="font-size:15px;font-weight:700;color:#14304A;line-height:1.55;margin-bottom:14px">${summary}</div>
       <div style="display:flex;gap:10px">
-        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--navy);font-family:var(--fd)">${thisMonthLes.length}</div><div style="font-size:10.5px;color:#8A95A2;margin-top:2px">수업</div></div>
-        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div style="font-size:20px;font-weight:800;color:#0B8DAE;font-family:var(--fd)">${avgScore!=null?avgScore:'—'}</div><div style="font-size:10.5px;color:#8A95A2;margin-top:2px">평균 점수</div></div>
-        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div style="font-size:20px;font-weight:800;color:#047857;font-family:var(--fd)">${doneBooks}</div><div style="font-size:10.5px;color:#8A95A2;margin-top:2px">완독 원서</div></div>
+        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:var(--navy)">${thisMonthLes.length}<span style="font-size:12px;color:#B8C0C8;font-weight:600">회</span></div><div style="font-size:10.5px;color:#8A95A2;margin-top:2px">수업</div></div>
+        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:#0B8DAE">${avgScore!=null?avgScore+'<span style="font-size:12px;color:#B8C0C8;font-weight:600">점</span>':'—'}</div><div style="font-size:10.5px;color:#8A95A2;margin-top:2px">평균 점수</div></div>
+        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:#047857">${doneBooks}<span style="font-size:12px;color:#B8C0C8;font-weight:600">권</span></div><div style="font-size:10.5px;color:#8A95A2;margin-top:2px">완독 원서</div></div>
       </div>
     </div>`;
   }
@@ -147,7 +155,7 @@ async function loadParent(sid){
     const ackKey='parentAck_'+sid+'_'+latLes.id;
     const isAcked=!!localStorage.getItem(ackKey);
     blocks+=`<div class="card">
-      <div class="ch"><span class="ct">📌 최근 수업</span><span style="font-size:11px;color:var(--slate)">${latLes.date||''}</span></div>
+      <div class="ch"><span class="ct">${luIcon('pin',16)}최근 수업</span><span class="mono" style="font-size:11px;color:var(--slate)">${latLes.date||''}</span></div>
       <div class="cb" style="padding:12px 16px">
         ${mats?`<div style="font-size:12px;margin-bottom:8px;line-height:1.8">${mats}</div>`:''}
         ${polished
@@ -166,7 +174,7 @@ async function loadParent(sid){
 
   // 블록 B — 이번 달 현황
   blocks+=`<div class="card">
-    <div class="ch"><span class="ct">📅 이번 달 현황</span></div>
+    <div class="ch"><span class="ct">${luIcon('calendar-days',16)}이번 달 현황</span></div>
     <div class="cb" style="padding:12px 16px">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:15px;font-weight:700">수업 ${thisMonthLes.length}회</span>
@@ -183,7 +191,7 @@ async function loadParent(sid){
   const unlockedBadges=getBadges(sid).filter(b=>b.unlocked);
   if(unlockedBadges.length){
     blocks+=`<div style="padding:10px 14px;background:rgba(12,164,201,.08);border-radius:10px;margin-bottom:10px;font-size:13px">
-      🏅 ${unlockedBadges.map(b=>b.icon+' '+b.name).join(' · ')}
+      ${luIcon('award',14,'color:#0B8DAE;vertical-align:-2px')||'🏅'} ${unlockedBadges.map(b=>b.icon+' '+b.name).join(' · ')}
     </div>`;
   }
 
@@ -212,7 +220,7 @@ async function loadParent(sid){
       <div style="height:7px;background:#EDF2F4;border-radius:4px;overflow:hidden"><div style="width:${p}%;height:100%;background:${s.f};border-radius:4px;transition:width .5s"></div></div>
     </div>`;};
     secScore+=`<div class="card" id="pp-sec-score">
-      <div class="ch"><span class="ct">📝 최근 테스트</span><span style="font-size:11px;color:var(--slate)">${latTst.date||''}</span></div>
+      <div class="ch"><span class="ct">${luIcon('file-text',16)}최근 테스트</span><span class="mono" style="font-size:11px;color:var(--slate)">${latTst.date||''}</span></div>
       <div class="cb" style="padding:14px 18px">
         <div style="background:#E9F6F9;border:1px solid rgba(12,164,201,.18);border-radius:14px;padding:15px 16px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between">
           <div><div style="font-size:12.5px;color:#0B8DAE;font-weight:700">최근 단어 테스트</div><div style="font-size:11px;color:#46586B;margin-top:2px">${latTst.date||''}</div></div>
@@ -252,7 +260,7 @@ async function loadParent(sid){
     const shown=sorted.slice(0,3);
     const rest=sorted.slice(3);
     blocks+=`<div class="card">
-      <div class="ch"><span class="ct">📋 숙제</span><span style="font-size:11px;color:var(--coral);font-weight:700">${assigns.length}개 남음</span></div>
+      <div class="ch"><span class="ct">${luIcon('clipboard-list',16)}숙제</span><span style="font-size:11px;color:var(--coral);font-weight:700">${assigns.length}개 남음</span></div>
       <div class="cb" style="padding:12px 16px">
         ${shown.map(assignRow).join('')}
         ${rest.length?`<div id="pp-assign-more" style="display:none">${rest.map(assignRow).join('')}</div>
@@ -266,7 +274,7 @@ async function loadParent(sid){
     const allBookSrc=[...DB.libs()];
     const recentRds=rds.slice(0,3);
     blocks+=`<div class="card" id="pp-bks-card">
-      <div class="ch"><span class="ct">📗 읽은 책</span><span style="font-size:11px;color:var(--slate)">누적 ${rds.length}권</span></div>
+      <div class="ch"><span class="ct">${luIcon('book',16)}읽은 책</span><span style="font-size:11px;color:var(--slate)">누적 ${rds.length}권</span></div>
       <div class="cb" style="padding:12px 16px">
         <div id="pp-bks-inner">
           ${recentRds.map((rd,ri)=>{
@@ -308,7 +316,7 @@ async function loadParent(sid){
       statsRow=`<div style="display:flex;gap:10px;${showChart?'margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)':''}">${items.join('')}</div>`;
     }
     secScore+=`<div class="card">
-      <div class="ch"><span class="ct">📈 성장 기록</span></div>
+      <div class="ch"><span class="ct">${luIcon('chart-line',16)}성장 기록</span></div>
       <div class="cb" style="padding:12px 16px">
         ${statsRow}
         ${showChart?`<div style="height:140px"><canvas id="p-trend"></canvas></div>`:''}
@@ -320,7 +328,7 @@ async function loadParent(sid){
   // 블록 G — 리딩로그
   if(logs.length){
     blocks+=`<div class="card">
-      <div class="ch"><span class="ct">📷 리딩로그</span><span style="font-size:11px;color:var(--slate)">${logs.length}회</span></div>
+      <div class="ch"><span class="ct">${luIcon('camera',16)}리딩로그</span><span style="font-size:11px;color:var(--slate)">${logs.length}회</span></div>
       <div class="cb" style="padding:12px 16px">
         <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scroll-snap-type:x mandatory">
           ${logs.map(l=>{const imgs=logImgs(l);const first=imgs[0]||'';return `<div style="flex:0 0 150px;scroll-snap-align:start">
@@ -343,7 +351,7 @@ async function loadParent(sid){
   const unlocked=badges.filter(b=>b.unlocked);
   if(unlocked.length>0){
     blocks+=`<div class="card">
-      <div class="ch"><span class="ct">🏅 획득 뱃지</span><span style="font-size:11px;color:var(--slate)">${unlocked.length}개</span></div>
+      <div class="ch"><span class="ct">${luIcon('award',16)}획득 뱃지</span><span style="font-size:11px;color:var(--slate)">${unlocked.length}개</span></div>
       <div class="cb" style="padding:12px 16px">
         <div class="badge-row">${unlocked.map(b=>`<div class="achv-badge" style="padding:6px 8px;min-width:50px"><div class="icon" style="font-size:16px">${b.icon}</div><div class="name" style="font-size:9px">${b.name}</div></div>`).join('')}</div>
       </div>
@@ -360,7 +368,7 @@ async function loadParent(sid){
   const acct=DB.acct();
   if(fee||acct.bank||acct.number||payments.length){
     secPay+=`<div class="card" id="pp-sec-pay">
-      <div class="ch"><span class="ct">💳 결제 안내</span>${fee?(isOverdue?'<span class="badge bcoral" style="margin-left:auto">미납</span>':'<span class="badge bgreen" style="margin-left:auto">완납</span>'):''}</div>
+      <div class="ch"><span class="ct">${luIcon('credit-card',16)}결제 안내</span>${fee?(isOverdue?'<span class="badge bcoral" style="margin-left:auto">미납</span>':'<span class="badge bgreen" style="margin-left:auto">완납</span>'):''}</div>
       <div><div class="cb" style="padding:12px 16px">
         <div>
           <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span class="pay-label">월 수업료</span><span class="pay-value">${fee?fee.toLocaleString()+'원':'미설정'}</span></div>
@@ -397,7 +405,7 @@ async function loadParent(sid){
   const mReports=(DB.reports?DB.reports():[]).filter(r=>r.sid===sid&&r.status==='sent').sort((a,b)=>(b.month||'').localeCompare(a.month||''));
   if(mReports.length){
     blocks+=`<div class="card">
-      <div class="ch"><span class="ct">📋 월별 학습 리포트</span><span style="font-size:11px;color:var(--slate)">${mReports.length}개월</span></div>
+      <div class="ch"><span class="ct">${luIcon('file-text',16)}월별 학습 리포트</span><span style="font-size:11px;color:var(--slate)">${mReports.length}개월</span></div>
       <div class="cb" style="padding:0">
         ${mReports.map((r,i)=>{
           const [yr,mn]=((r.month)||'').split('-');

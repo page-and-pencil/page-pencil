@@ -6452,7 +6452,7 @@ function renderDashWeekHeat(stus,todayStr){
     const fg=pct===1?'#fff':'var(--navy)';
     return'<td style="padding:3px"><div title="완료 '+c.done+' / '+c.total+'" style="height:26px;border-radius:7px;background:'+bg+';color:'+fg+';display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800">'+c.done+'/'+c.total+'</div></td>';
   };
-  el.innerHTML='<div class="card"><div class="ch"><span class="ct">🔥 이번 주 학습 현황</span>'
+  el.innerHTML='<div class="card"><div class="ch"><span class="ct">'+luIcon('flame',16)+'이번 주 학습 현황</span>'
     +'<span style="font-size:10px;color:var(--slate)">과제·미션 완료/배정</span></div>'
     +'<div class="cb" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:420px">'
     +'<thead><tr><th style="text-align:left;font-size:11px;color:var(--slate);padding:3px;width:72px">학생</th>'
@@ -6473,23 +6473,23 @@ function renderDashCal(){
   const lesDates=new Set(monthLes.filter(l=>l.att!=='absent'&&l.att!=='makeup').map(l=>l.date));
   const offDates=new Set(monthLes.filter(l=>l.att==='absent'||l.att==='makeup').map(l=>l.date));
   const DAYS=['일','월','화','수','목','금','토'];
-  let cells=DAYS.map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:#B8C0C8;padding:3px 0">${d}</div>`).join('');
+  let cells=DAYS.map((d,i)=>`<div style="text-align:center;font-size:10px;font-weight:700;color:${i===0?'#E05B4F':i===6?'#94A3AE':'#B8C0C8'};padding:3px 0">${d}</div>`).join('');
   for(let i=0;i<startDow;i++)cells+='<div></div>';
   for(let d=1;d<=daysInMonth;d++){
     const ds=`${y}-${mPad}-${String(d).padStart(2,'0')}`;
-    let st='aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:11px;border-radius:7px;font-family:var(--fm);';
-    if(ds===todayStr)st+='background:#0CA4C9;color:#fff;font-weight:700;';
+    let st='aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:11px;border-radius:7px;font-family:var(--fd);font-variant-numeric:tabular-nums;';
+    if(ds===todayStr)st+='background:#0CA4C9;color:#fff;font-weight:700;box-shadow:0 2px 6px rgba(12,164,201,.35);';
     else if(lesDates.has(ds))st+='background:#E3F5FA;color:#0B8DAE;font-weight:700;';
     else if(offDates.has(ds))st+='background:#FEF0D5;color:#B45309;font-weight:700;';
     else st+='color:#C8D0D8;';
     cells+=`<div style="${st}">${d}</div>`;
   }
   el.innerHTML=`<div class="card" style="padding:16px 18px;margin-bottom:0">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-size:14px">📅</span><span style="font-size:14px;font-weight:800;color:var(--navy)">${y}년 ${m+1}월</span></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">${luIcon('calendar-days',16,'color:#0B8DAE')}<span style="font-size:14px;font-weight:800;color:var(--navy)">${y}년 ${m+1}월</span></div>
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>
     <div style="display:flex;gap:12px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(15,48,74,.06);font-size:10.5px;color:#8A95A2">
-      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#E3F5FA"></span>수업</span>
-      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#FEF0D5"></span>결석/보강</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#E3F5FA;border:1px solid rgba(12,164,201,.35)"></span>수업</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#FEF0D5;border:1px solid rgba(245,158,11,.4)"></span>결석/보강</span>
       <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#0CA4C9"></span>오늘</span>
     </div>
   </div>`;
@@ -6691,7 +6691,7 @@ function renderDashGreet(dateLabel,todayCount){
   const el=document.getElementById('dash-greet');if(!el)return;
   const h=new Date().getHours();
   const hello=h<12?'좋은 아침이에요':h<18?'안녕하세요':'오늘도 수고 많으셨어요';
-  el.innerHTML=`<h1 style="font-size:23px;font-weight:800;letter-spacing:-.02em;color:var(--navy);margin:0">${hello} 👋</h1>
+  el.innerHTML=`<h1 style="font-size:23px;font-weight:800;letter-spacing:-.02em;color:var(--navy);margin:0">${hello}</h1>
     <div style="font-size:13px;color:var(--slate);margin-top:3px">${dateLabel} · 오늘 수업 ${todayCount}개</div>`;
 }
 function renderDashStats(recordedToday,totalToday,uncheckedTotal,unpaidCount,studentCount){
@@ -6703,13 +6703,13 @@ function renderDashStats(recordedToday,totalToday,uncheckedTotal,unpaidCount,stu
     ${sub||''}
   </div>`;
   el.innerHTML=
-    card('오늘 수업','📅','',recordedToday,`/ ${totalToday} 기록`,
+    card('오늘 수업',luIcon('calendar-check',16),'',recordedToday,`/ ${totalToday} 기록`,
       `<div class="dash-stat-sub"><div class="dash-bar-bg" style="margin-top:2px"><div class="dash-bar-fill" style="width:${pctToday}%"></div></div></div>`)
-    +card('미확인 과제','📤',uncheckedTotal?'st-amber':'',uncheckedTotal,'건',
+    +card('미확인 과제',luIcon('inbox',16),uncheckedTotal?'st-amber':'',uncheckedTotal,'건',
       `<div class="dash-stat-sub" style="color:${uncheckedTotal?'#B45309':'var(--slate)'}">${uncheckedTotal?'제출 확인이 필요해요':'모두 확인됨'}</div>`)
-    +card('이번 달 미납','💰',unpaidCount?'st-amber':'',unpaidCount,'명',
+    +card('이번 달 미납',luIcon('wallet',16),unpaidCount?'st-amber':'',unpaidCount,'명',
       `<div class="dash-stat-sub" style="color:${unpaidCount?'#B45309':'var(--slate)'}">${unpaidCount?'납입 안내가 필요해요':'모두 완납'}</div>`)
-    +card('재원생','🎓','st-green',studentCount,'명','');
+    +card('재원생',luIcon('graduation-cap',16),'st-green',studentCount,'명','<div class="dash-stat-sub"></div>');
 }
 function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
   const el=document.getElementById('dash-today');if(!el)return;
@@ -6718,28 +6718,33 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
     body=`<div style="color:var(--slate);font-size:13px">오늘 수업 없음 — <span style="color:var(--teal);cursor:pointer;text-decoration:underline" onclick="swTab('t-class')">클래스 만들기</span></div>`;
   } else {
     const todayLessonSids=new Set(DB.less().filter(l=>l.date===todayStr).map(l=>l.sid));
+    const nowHM=new Date().toTimeString().slice(0,5);
     body=todayClasses.map(c=>{
       const classRecorded=DB.less().some(l=>l.date===todayStr&&l.classId===c.id);
       const students=(allStus||[]).filter(s=>(c.studentIds||[]).includes(s.id));
-      const timeLabel=(c.timeStart||c.time)?`<span style="font-size:12px;color:var(--slate);font-weight:400;margin-left:6px">${c.timeStart?(c.timeStart+(c.timeEnd?'~'+c.timeEnd:'')):c.time}</span>`:'';
+      // '지금' 진행 중인 수업 강조 (시작~종료 시각 사이, 미기록일 때)
+      const tStart=c.timeStart||'';
+      const tEnd=c.timeEnd||(tStart?tStart.slice(0,2)+':59':'');
+      const isNow=!classRecorded&&tStart&&nowHM>=tStart&&nowHM<=tEnd;
+      const timeLabel=(c.timeStart||c.time)?`<span class="mono" style="font-size:12px;color:${isNow?'#0B8DAE':'var(--slate)'};font-weight:${isNow?'700':'400'};margin-left:6px">${c.timeStart?(c.timeStart+(c.timeEnd?'~'+c.timeEnd:'')):c.time}</span>`:'';
       const stuRows=students.map(s=>{
         const done=todayLessonSids.has(s.id);
         return `<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0">
           <span style="font-size:12px;cursor:pointer;color:${done?'var(--slate)':'var(--navy)'}" onclick="loadStuPanel('${s.id}')">${s.name}</span>
-          ${done?`<span style="font-size:11px;color:#047857;font-weight:700">✓</span>`:`<button class="btn bt bsm" style="font-size:10px;padding:1px 8px" onclick="goAddLesson('${s.id}')">+ 기록</button>`}
+          ${done?`<span style="color:#047857">${luIcon('check',13)||'✓'}</span>`:`<button class="btn bt bsm" style="font-size:10px;padding:1px 8px" onclick="goAddLesson('${s.id}')">+ 기록</button>`}
         </div>`;
       }).join('');
       const statusIco=classRecorded
-        ?`<span class="dash-status-ico dsi-done">✓</span>`
-        :`<span class="dash-status-ico dsi-now">✎</span>`;
-      return `<div class="dash-class-row">
+        ?`<span class="dash-status-ico dsi-done">${luIcon('check',17)||'✓'}</span>`
+        :`<span class="dash-status-ico dsi-now">${luIcon('pencil',16)||'✎'}</span>`;
+      return `<div class="dash-class-row${isNow?' dcr-now':''}" style="padding:8px 10px;margin:0 -10px">
         ${statusIco}
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:${students.length?'6px':'0'}">
-            <div><span style="font-weight:700;font-size:14px">${c.name}</span>${timeLabel}</div>
+            <div><span style="font-weight:700;font-size:14px">${c.name}</span>${isNow?'<span style="font-size:11px;color:#0B8DAE;font-weight:700;margin-left:4px">· 지금</span>':''}${timeLabel}</div>
             ${classRecorded
-              ?`<button class="btn bo bsm" style="font-size:11px;flex-shrink:0" onclick="openClassLessonEdit('${c.id}','${todayStr}')">수정</button>`
-              :`<button class="btn bt bsm" style="font-size:11px;flex-shrink:0" onclick="openClassLesson('${c.id}','${todayStr}')">클래스 기록</button>`}
+              ?`<button class="btn bo bsm w84" style="font-size:11px;flex-shrink:0" onclick="openClassLessonEdit('${c.id}','${todayStr}')">수정</button>`
+              :`<button class="btn bt bsm w84" style="font-size:11px;flex-shrink:0" onclick="openClassLesson('${c.id}','${todayStr}')">기록하기</button>`}
           </div>
           ${stuRows||`<span style="font-size:12px;color:var(--slate)">학생 없음</span>`}
         </div>
@@ -6747,8 +6752,8 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
     }).join('');
   }
   el.innerHTML=`<div class="card">
-    <div class="ch"><span class="ct">📅 오늘 · ${dateLabel}</span></div>
-    <div class="cb" style="padding-top:4px;display:flex;flex-direction:column;gap:10px">${body}</div>
+    <div class="ch"><span class="ct">${luIcon('clock',17)}오늘의 수업 · ${dateLabel}</span></div>
+    <div class="cb" style="padding-top:4px;display:flex;flex-direction:column;gap:4px">${body}</div>
   </div>`;
 }
 
@@ -6758,32 +6763,32 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
   // 우선순위 1: 미확인 숙제
   Object.entries(uncheckedHwByStu).forEach(([sid,cnt])=>{
     const s=stus.find(x=>x.id===sid);if(!s)return;
-    items.push({icon:'📤',chip:'',text:`${s.name} — 과제 제출 ${cnt}건 미확인`,label:'확인',action:`openStuPanelTab('${sid}','sp-hw')`});
+    items.push({icon:luIcon('inbox',15),chip:'',text:`${s.name} — 과제 제출 ${cnt}건 미확인`,label:'확인',action:`openStuPanelTab('${sid}','sp-hw')`});
   });
   // 우선순위 2: 이번 달 미납
-  unpaidStus.forEach(s=>{items.push({icon:'💰',chip:'da-amber',text:`${s.name} — 이번 달 미납`,label:'납입 안내',action:`openPayMsg('${s.id}')`});});
+  unpaidStus.forEach(s=>{items.push({icon:luIcon('wallet',15),chip:'da-amber',text:`${s.name} — 이번 달 미납`,label:'납입 안내',action:`openPayMsg('${s.id}')`});});
   // 우선순위 3: 점수 하락
-  scoreDrops.forEach(({s,cur,prev})=>{items.push({icon:'📉',chip:'da-amber',text:`${s.name} — 점수 하락 (${prev}% → ${cur}%)`,label:'확인',action:`loadStuPanel('${s.id}')`});});
+  scoreDrops.forEach(({s,cur,prev})=>{items.push({icon:luIcon('trending-down',15),chip:'da-amber',text:`${s.name} — 점수 하락 (${prev}% → ${cur}%)`,label:'확인',action:`loadStuPanel('${s.id}')`});});
   // 우선순위 4: 이번 달 수업 없음
-  noLessonStus.forEach(s=>{items.push({icon:'⚠️',chip:'da-amber',text:`${s.name} — 이번 달 수업 없음`,label:'수업 추가',action:`goAddLesson('${s.id}')`});});
+  noLessonStus.forEach(s=>{items.push({icon:luIcon('triangle-alert',15),chip:'da-amber',text:`${s.name} — 이번 달 수업 없음`,label:'수업 추가',action:`goAddLesson('${s.id}')`});});
   // 우선순위 5: 월별 리포트 미발송 (이달 1~7일은 준비 기간, 8일부터 알림)
   const today=new Date();
   if(today.getDate()>=1&&(reportPendingStus||[]).length>0){
-    items.push({icon:'📋',chip:'',text:`이번 달 학부모 리포트 미발송 — ${(reportPendingStus||[]).length}명`,label:'리포트 보내기',action:`openMonthlyReportManager('${thisMonth||''}')`});
+    items.push({icon:luIcon('file-text',15),chip:'',text:`이번 달 학부모 리포트 미발송 — ${(reportPendingStus||[]).length}명`,label:'리포트 보내기',action:`openMonthlyReportManager('${thisMonth||''}')`});
   }
   if(!items.length){
     el.innerHTML=`<div class="card" style="border-left:4px solid #047857">
-      <div class="ch"><span class="ct" style="color:#047857">✅ 모두 처리됨</span></div>
-      <div class="cb" style="font-size:12px;color:var(--slate);padding:4px 0">확인할 사항이 없습니다 🎉</div>
+      <div class="ch"><span class="ct" style="color:#047857">${luIcon('circle-check',17,'color:#047857')}모두 처리됨</span></div>
+      <div class="cb" style="font-size:12px;color:var(--slate);padding:4px 0">확인할 사항이 없습니다</div>
     </div>`;
     return;
   }
   el.innerHTML=`<div class="card" style="border-left:4px solid var(--coral)">
-    <div class="ch"><span class="ct">⚡ 바로 할 일</span><span style="font-size:12px;color:var(--slate)">${items.length}건</span></div>
+    <div class="ch"><span class="ct">${luIcon('zap',16)}바로 할 일</span><span style="font-size:12px;color:var(--slate)">${items.length}건</span></div>
     <div class="cb" style="padding:6px 10px">${items.map(it=>`<div class="dash-action-item" onclick="${it.action||`loadStuPanel('${it.sid}')`}">
       <span class="dash-action-icon ${it.chip||''}">${it.icon}</span>
       <span class="dash-action-text">${it.text}</span>
-      ${it.label?`<span class="dash-action-label">${it.label} →</span>`:`<span style="font-size:11px;color:var(--slate)">→</span>`}
+      ${it.label?`<span class="dash-action-label" style="display:inline-flex;align-items:center;gap:2px">${it.label}${luIcon('chevron-right',13)||' →'}</span>`:`<span style="color:#B8C0C8">${luIcon('chevron-right',15)||'→'}</span>`}
     </div>`).join('')}</div>
   </div>`;
 }
@@ -6802,7 +6807,7 @@ function renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,thisRds,totalRds,feeT
         </span>
       </div>`:'';
   el.innerHTML=`<div class="card">
-    <div class="ch"><span class="ct">📊 이번 달 현황</span></div>
+    <div class="ch"><span class="ct">${luIcon('chart-column',16)}이번 달 현황</span></div>
     <div class="cb" style="display:flex;flex-direction:column;gap:14px">
       <div>
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
@@ -6825,7 +6830,7 @@ function renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,thisRds,totalRds,feeT
 function renderDashNotice(){
   const el=document.getElementById('dash-notice-section');if(!el)return;
   el.innerHTML=`<div class="card">
-    <div class="ch"><span class="ct">📢 공지 빠른 등록</span><span style="font-size:11px;color:var(--slate)" id="notice-count-lbl"></span></div>
+    <div class="ch"><span class="ct">${luIcon('megaphone',16)}공지 빠른 등록</span><span style="font-size:11px;color:var(--slate)" id="notice-count-lbl"></span></div>
     <div class="cb">
       <div style="display:flex;gap:8px;margin-bottom:10px">
         <textarea id="dash-notice-input" placeholder="예) 6월 6일 현충일 휴강합니다." style="flex:1;min-height:56px;resize:vertical;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none"></textarea>

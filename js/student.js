@@ -1458,18 +1458,18 @@ function renderStudentHome(sid){
   </div>`;
   const vocabCtaHtml=`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:18px">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-      <span style="width:46px;height:46px;border-radius:13px;background:#E3F5FA;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📚</span>
+      <span style="width:46px;height:46px;border-radius:13px;background:#E3F5FA;display:flex;align-items:center;justify-content:center;color:#0B8DAE;flex-shrink:0">${luIcon('layers',23)||'📚'}</span>
       <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:var(--navy)">오늘의 단어 카드</div><div style="font-size:12px;color:#8A95A2;margin-top:2px">암기 → 뜻 맞히기 → 스펠링</div></div>
     </div>
-    <button class="btn bt" style="width:100%;padding:14px;border-radius:13px;font-size:15px;font-weight:800" onclick="swStuTab('st-vocab')">▷ 이어서 학습하기</button>
+    <button class="btn bt" style="width:100%;height:50px;padding:0;border-radius:13px;font-size:15px;font-weight:800;gap:7px" onclick="swStuTab('st-vocab')">${luIcon('play',18)||'▷'} 이어서 학습하기</button>
   </div></div>`;
   const weekDays=getWeekDays(sid);
   const weekCircles=`<div style="display:flex;justify-content:space-between">${weekDays.map(d=>{
     let c;
-    if(d.done)c=`<span style="width:34px;height:34px;border-radius:50%;background:#10B981;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:15px">✓</span>`;
-    else if(d.isToday)c=`<span style="width:34px;height:34px;border-radius:50%;background:#E3F5FA;color:#0B8DAE;border:2px solid #0CA4C9;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:15px">⭐</span>`;
-    else c=`<span style="width:34px;height:34px;border-radius:50%;background:#F4F6F8;color:#C8D0D8;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:13px">○</span>`;
-    return `<div style="text-align:center">${c}<div style="font-size:10.5px;color:${d.isToday?'#0B8DAE':'#8A95A2'};font-weight:${d.isToday?'700':'400'};margin-top:5px;font-family:var(--fm)">${d.label}</div></div>`;
+    if(d.done)c=`<span style="width:34px;height:34px;border-radius:50%;background:#10B981;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto">${luIcon('check',16)||'✓'}</span>`;
+    else if(d.isToday)c=`<span style="width:34px;height:34px;border-radius:50%;background:#E3F5FA;color:#0B8DAE;border:2px solid #0CA4C9;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:14px">⭐</span>`;
+    else c=`<span style="width:34px;height:34px;border-radius:50%;background:#F4F6F8;display:flex;align-items:center;justify-content:center;margin:0 auto"><span style="width:8px;height:8px;border-radius:50%;background:#DCE3E8"></span></span>`;
+    return `<div style="text-align:center">${c}<div style="font-size:10.5px;color:${d.isToday?'#0B8DAE':'#8A95A2'};font-weight:${d.isToday?'700':'400'};margin-top:5px">${d.label}</div></div>`;
   }).join('')}</div>`;
   const streakHtml=`<div class="streak-bar" style="margin-top:12px;margin-bottom:10px">
     <span style="font-size:18px">${lv.icon}</span>
@@ -1485,7 +1485,10 @@ function renderStudentHome(sid){
     </div>
   </div>`;
   const weekCard=`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px">
-    <div style="font-size:14px;font-weight:800;color:var(--navy);margin-bottom:14px">이번 주 연속 학습 🔥</div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
+      <span style="font-size:14px;font-weight:800;color:var(--navy)">이번 주 연속 학습</span>
+      <span style="font-size:12px;font-weight:700;color:#B45309">🔥 ${streak}일째</span>
+    </div>
     ${weekCircles}
   </div></div>`;
   const lastLessonHtml=renderLastLesson(sid);
@@ -1537,7 +1540,7 @@ function renderStudentHome(sid){
           </div>
         </div>`;
       } else if(hw&&a.requireRecording){
-        body+=`<div style="font-size:11px;color:#0B8DAE;margin-top:4px">✅ 제출 완료 ${hw.date||''}</div>`;
+        body+=`<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#047857;font-weight:600;margin-top:4px">${luIcon('check',12)||'✓'} 제출 완료 ${hw.date||''}</div>`;
         if(hw.aiScore)body+=`<div style="font-size:11px;color:#0B8DAE;background:var(--tl);border-radius:6px;padding:5px 8px;margin-top:4px">🤖 ${hw.aiScore}</div>`;
       }
     } else if(a.type==='vocab'){

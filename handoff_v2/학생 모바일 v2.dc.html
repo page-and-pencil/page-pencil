@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased;color:#14304A;}
+  svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
+  .mono{font-family:'Montserrat',sans-serif;font-variant-numeric:tabular-nums;}
+  .pscroll::-webkit-scrollbar{width:0;display:none;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#E7EBEF;display:flex;align-items:center;justify-content:center;padding:40px 24px;gap:48px;flex-wrap:wrap;">
+
+  <!-- intro -->
+  <div style="width:300px;flex-shrink:0;">
+    <div class="mono" style="font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#0B8DAE;margin-bottom:10px;">Student · Mobile</div>
+    <h1 style="font-size:25px;font-weight:800;letter-spacing:-.02em;margin-bottom:10px;">학생 — 오늘 홈</h1>
+    <p style="font-size:13.5px;line-height:1.75;color:#5A6B7B;text-wrap:pretty;">같은 시스템이지만 더 크고 친근하게. 응원 코멘트 · 미션 체크 · 단어 카드 CTA · 스트릭. 하단 탭은 실제 앱 그대로 5개(오늘·단어·복습·클래스5·오토보카), 외부 링크엔 이탈 표시를 달았습니다.</p>
+    <div style="margin-top:18px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:#46586B;">
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#0CA4C9;flex-shrink:0;"></span>모든 탭·체크 타깃 48px+</div>
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#10B981;flex-shrink:0;"></span>진행 중 미션엔 숫자 진도(12/20) 병기</div>
+      <div style="display:flex;gap:8px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#F59E0B;flex-shrink:0;"></span>이모지는 응원·스트릭에만 최소 사용</div>
+    </div>
+  </div>
+
+  <!-- phone -->
+  <div data-screen-label="학생 오늘 홈" style="width:392px;height:830px;background:#0E1622;border-radius:46px;padding:11px;box-shadow:0 30px 70px rgba(15,48,74,.3);flex-shrink:0;">
+    <div style="width:100%;height:100%;background:#F6FAFB;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;position:relative;">
+
+      <!-- status bar -->
+      <div style="height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:#fff;">
+        <span class="mono" style="font-size:14px;font-weight:700;">9:41</span>
+        <div style="display:flex;align-items:center;gap:6px;color:#14304A;"><i data-lucide="signal" width="15" height="15"></i><i data-lucide="wifi" width="15" height="15"></i><i data-lucide="battery-full" width="17" height="17"></i></div>
+      </div>
+
+      <!-- app header : 로고 · 스트릭 · 이름 · 나가기 (실제 구성) -->
+      <div style="flex-shrink:0;background:#fff;padding:6px 20px 14px;display:flex;align-items:center;justify-content:space-between;">
+        <div class="mono" style="font-size:17px;font-weight:700;">Page <span style="color:#0CA4C9;font-style:italic;">&amp;</span> Pencil</div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;background:#FEF0D5;color:#B45309;padding:5px 10px;border-radius:20px;">🔥 5일</span>
+          <span class="mono" style="width:32px;height:32px;border-radius:50%;background:#0CA4C9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">수</span>
+        </div>
+      </div>
+
+      <!-- scroll -->
+      <div class="pscroll" style="flex:1;overflow-y:auto;">
+
+        <!-- cheer hero -->
+        <div style="padding:14px 20px 4px;">
+          <div style="background:linear-gradient(135deg,#0CA4C9,#0B93BB);border-radius:20px;padding:20px;color:#fff;box-shadow:0 8px 22px rgba(12,164,201,.28);">
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px;">
+              <span style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;"><i data-lucide="sparkles" width="22" height="22"></i></span>
+              <div><div style="font-size:18px;font-weight:800;">수아야, 잘했어! 🎉</div><div style="font-size:12px;color:rgba(255,255,255,.85);margin-top:1px;">선생님이 남긴 응원</div></div>
+            </div>
+            <div style="font-size:13.5px;line-height:1.7;color:rgba(255,255,255,.95);text-wrap:pretty;">오늘 리딩 지문을 끝까지 혼자 읽어낸 거 정말 멋졌어. 다음엔 새 단어 5개만 같이 잡아보자!</div>
+          </div>
+        </div>
+
+        <!-- today mission -->
+        <div style="padding:18px 20px 4px;">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:11px;">
+            <span style="font-size:15px;font-weight:800;">오늘의 미션</span>
+            <span class="mono" style="font-size:12px;color:#8A95A2;font-weight:600;">2 / 3</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <!-- done -->
+            <div style="display:flex;align-items:center;gap:13px;background:#F7FDFA;border:1.5px solid rgba(16,185,129,.35);border-radius:14px;padding:15px 16px;min-height:56px;">
+              <span style="width:32px;height:32px;border-radius:50%;background:#10B981;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i data-lucide="check" width="18" height="18"></i></span>
+              <span style="flex:1;font-size:14px;font-weight:700;color:#047857;text-decoration:line-through;text-decoration-color:rgba(4,120,87,.35);">원서 듣기 1챕터</span>
+            </div>
+            <!-- in progress -->
+            <div style="display:flex;align-items:center;gap:13px;background:#fff;border:1.5px solid rgba(12,164,201,.35);border-radius:14px;padding:15px 16px;min-height:56px;">
+              <span style="width:32px;height:32px;border-radius:50%;border:2.5px solid #0CA4C9;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#0CA4C9;"><i data-lucide="play" width="14" height="14"></i></span>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;"><span style="font-size:14px;font-weight:700;">단어 20개 외우기</span><span class="mono" style="font-size:11px;font-weight:700;color:#0B8DAE;">12/20</span></div>
+                <div style="height:6px;background:#EDF2F4;border-radius:4px;overflow:hidden;"><div style="width:60%;height:100%;background:#0CA4C9;border-radius:4px;"></div></div>
+              </div>
+            </div>
+            <!-- todo -->
+            <div style="display:flex;align-items:center;gap:13px;background:#fff;border:1.5px solid rgba(15,48,74,.1);border-radius:14px;padding:15px 16px;min-height:56px;">
+              <span style="width:32px;height:32px;border-radius:50%;border:2.5px solid #DCE3E8;flex-shrink:0;"></span>
+              <span style="flex:1;font-size:14px;font-weight:700;color:#14304A;">숙제 사진 올리기</span>
+              <i data-lucide="camera" width="20" height="20" style="color:#94A3AE;"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- vocab CTA -->
+        <div style="padding:18px 20px 4px;">
+          <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:16px;padding:18px;box-shadow:0 1px 4px rgba(15,48,74,.05);">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+              <span style="width:46px;height:46px;border-radius:13px;background:#E3F5FA;display:flex;align-items:center;justify-content:center;color:#0B8DAE;"><i data-lucide="layers" width="23" height="23"></i></span>
+              <div style="flex:1;"><div style="font-size:15px;font-weight:800;">오늘의 단어 카드</div><div style="font-size:12px;color:#8A95A2;margin-top:2px;">암기 → 뜻 맞히기 → 스펠링</div></div>
+            </div>
+            <button style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;height:50px;border:none;background:#0CA4C9;color:#fff;border-radius:13px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(12,164,201,.34);" style-hover="background:#0B93BB;"><i data-lucide="play" width="18" height="18"></i>이어서 학습하기</button>
+          </div>
+        </div>
+
+        <!-- weekly streak -->
+        <div style="padding:18px 20px 24px;">
+          <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:16px;padding:16px 18px;">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:13px;"><span style="font-size:13px;font-weight:800;">이번 주 연속 학습</span><span style="font-size:12px;font-weight:700;color:#B45309;">🔥 5일째</span></div>
+            <div style="display:flex;justify-content:space-between;">
+              <div style="text-align:center;"><span style="width:34px;height:34px;border-radius:50%;background:#10B981;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto;"><i data-lucide="check" width="16" height="16"></i></span><div style="font-size:10.5px;color:#8A95A2;margin-top:5px;">월</div></div>
+              <div style="text-align:center;"><span style="width:34px;height:34px;border-radius:50%;background:#10B981;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto;"><i data-lucide="check" width="16" height="16"></i></span><div style="font-size:10.5px;color:#8A95A2;margin-top:5px;">화</div></div>
+              <div style="text-align:center;"><span style="width:34px;height:34px;border-radius:50%;background:#10B981;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto;"><i data-lucide="check" width="16" height="16"></i></span><div style="font-size:10.5px;color:#8A95A2;margin-top:5px;">수</div></div>
+              <div style="text-align:center;"><span style="width:34px;height:34px;border-radius:50%;background:#10B981;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto;"><i data-lucide="check" width="16" height="16"></i></span><div style="font-size:10.5px;color:#8A95A2;margin-top:5px;">목</div></div>
+              <div style="text-align:center;"><span style="width:34px;height:34px;border-radius:50%;background:#E3F5FA;color:#0B8DAE;border:2px solid #0CA4C9;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:14px;">⭐</span><div style="font-size:10.5px;color:#0B8DAE;font-weight:700;margin-top:5px;">금</div></div>
+              <div style="text-align:center;"><span style="width:34px;height:34px;border-radius:50%;background:#F4F6F8;display:flex;align-items:center;justify-content:center;margin:0 auto;"><span style="width:8px;height:8px;border-radius:50%;background:#DCE3E8;"></span></span><div style="font-size:10.5px;color:#C8D0D8;margin-top:5px;">토</div></div>
+              <div style="text-align:center;"><span style="width:34px;height:34px;border-radius:50%;background:#F4F6F8;display:flex;align-items:center;justify-content:center;margin:0 auto;"><span style="width:8px;height:8px;border-radius:50%;background:#DCE3E8;"></span></span><div style="font-size:10.5px;color:#C8D0D8;margin-top:5px;">일</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- bottom nav : 실제 5탭 (오늘·단어·복습·클래스5·오토보카) -->
+      <div style="flex-shrink:0;background:#fff;border-top:1px solid rgba(15,48,74,.07);display:flex;padding:6px 8px 16px;">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#0B8DAE;min-height:52px;border-radius:12px;cursor:pointer;"><i data-lucide="home" width="22" height="22"></i><span style="font-size:10.5px;font-weight:700;">오늘</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#94A3AE;min-height:52px;border-radius:12px;cursor:pointer;" style-hover="color:#5A6B7B;"><i data-lucide="layers" width="22" height="22"></i><span style="font-size:10.5px;font-weight:600;">단어</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#94A3AE;min-height:52px;border-radius:12px;cursor:pointer;" style-hover="color:#5A6B7B;"><i data-lucide="rotate-ccw" width="22" height="22"></i><span style="font-size:10.5px;font-weight:600;">복습</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#94A3AE;min-height:52px;border-radius:12px;cursor:pointer;" style-hover="color:#5A6B7B;"><i data-lucide="gamepad-2" width="22" height="22"></i><span style="display:flex;align-items:center;gap:2px;font-size:10.5px;font-weight:600;">클래스5<i data-lucide="arrow-up-right" width="9" height="9"></i></span></div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#94A3AE;min-height:52px;border-radius:12px;cursor:pointer;" style-hover="color:#5A6B7B;"><i data-lucide="book-open" width="22" height="22"></i><span style="display:flex;align-items:center;gap:2px;font-size:10.5px;font-weight:600;">오토보카<i data-lucide="arrow-up-right" width="9" height="9"></i></span></div>
+      </div>
+      <!-- home indicator -->
+      <div style="height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#fff;"><span style="width:130px;height:5px;border-radius:3px;background:#14304A;opacity:.25;"></span></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:820,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    const draw = () => { if (window.lucide && window.lucide.createIcons) { try { window.lucide.createIcons(); } catch (e) {} } };
+    let n = 0;
+    const iv = setInterval(() => { draw(); if (window.lucide || ++n > 50) clearInterval(iv); }, 80);
+    [200, 500, 1200].forEach(t => setTimeout(draw, t));
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,4 +1,21 @@
-const APP_VERSION='v44';
+const APP_VERSION='v45';
+
+// ── Lucide 아이콘 헬퍼 ──
+// 동적 innerHTML 렌더 안에서 쓰는 인라인 SVG 문자열. CDN 로드 실패 시 빈 문자열(라벨 텍스트는 유지).
+function luIcon(name,size,style){
+  try{
+    const pascal=String(name).split('-').map(s=>s.charAt(0).toUpperCase()+s.slice(1)).join('');
+    const def=window.lucide&&lucide.icons&&lucide.icons[pascal];
+    if(!def)return '';
+    const node=lucide.createElement(def);
+    node.setAttribute('width',size||16);
+    node.setAttribute('height',size||16);
+    if(style)node.setAttribute('style',style);
+    return node.outerHTML;
+  }catch(e){return '';}
+}
+// 정적 마크업(<i data-lucide>)은 최초 1회 스캔으로 변환
+document.addEventListener('DOMContentLoaded',()=>{try{if(window.lucide&&lucide.createIcons)lucide.createIcons();}catch(e){}});
 
 // ── 로딩 표시 ──
 function showLoading(show){
@@ -77,36 +94,36 @@ function landRole(role){
     area.innerHTML=`
       <label class="land-lbl">비밀번호</label>
       <div class="land-field">
-        <span class="land-field-ico">🔒</span>
+        <span class="land-field-ico">${luIcon('lock',17)}</span>
         <input type="password" id="land-tpw" class="land-input" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter')checkPw('land-tpw','land-err')">
-        <button type="button" class="land-eye" onclick="landToggleEye('land-tpw',this)">👁</button>
+        <button type="button" class="land-eye" onclick="landToggleEye('land-tpw',this)">${luIcon('eye',17)||'👁'}</button>
       </div>
       <div class="land-err" id="land-err"></div>
-      <button class="land-submit" onclick="checkPw('land-tpw','land-err')">선생님으로 로그인 →</button>`;
+      <button class="land-submit" onclick="checkPw('land-tpw','land-err')">선생님으로 로그인 ${luIcon('arrow-right',17)||'→'}</button>`;
   }else if(role==='student'){
     area.innerHTML=`
       <label class="land-lbl">PIN <span class="land-lbl-sub">생년월일 4자리 (예: 0312)</span></label>
       <div class="land-field">
-        <span class="land-field-ico">🎓</span>
+        <span class="land-field-ico">${luIcon('graduation-cap',17)}</span>
         <input type="password" id="land-spin" class="land-input" inputmode="numeric" maxlength="4" placeholder="0000" onkeydown="if(event.key==='Enter')landStudentSubmit()">
       </div>
       <select id="land-sname" class="land-input" style="display:none;margin-top:10px" onchange="landStudentByName()"></select>
       <div class="land-err" id="land-err"></div>
-      <button class="land-submit" onclick="landStudentSubmit()">학생 입장 →</button>`;
+      <button class="land-submit" onclick="landStudentSubmit()">학생 입장 ${luIcon('arrow-right',17)||'→'}</button>`;
   }else{
     area.innerHTML=`
       <label class="land-lbl">아이 이름</label>
       <div class="land-field">
-        <span class="land-field-ico">👤</span>
+        <span class="land-field-ico">${luIcon('user',17)}</span>
         <input type="text" id="land-pname" class="land-input" placeholder="이름" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('land-ppin').focus()">
       </div>
       <label class="land-lbl" style="margin-top:12px">PIN <span class="land-lbl-sub">생년월일 4자리</span></label>
       <div class="land-field">
-        <span class="land-field-ico">🔒</span>
+        <span class="land-field-ico">${luIcon('key-round',17)}</span>
         <input type="password" id="land-ppin" class="land-input" inputmode="numeric" maxlength="4" placeholder="0000" onkeydown="if(event.key==='Enter')checkPin('land-pname','land-ppin','land-err')">
       </div>
       <div class="land-err" id="land-err"></div>
-      <button class="land-submit" onclick="checkPin('land-pname','land-ppin','land-err')">학부모 조회 →</button>`;
+      <button class="land-submit" onclick="checkPin('land-pname','land-ppin','land-err')">조회하기 ${luIcon('arrow-right',17)||'→'}</button>`;
   }
 }
 function landToggleEye(id,btn){const el=document.getElementById(id);if(!el)return;const showing=el.type==='password';el.type=showing?'text':'password';btn.style.opacity=showing?'1':'.5';}

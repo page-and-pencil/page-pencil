@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -9,7 +9,8 @@
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260704t">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="css/style.css?v=20260705a">
 </head>
 <body>
 
@@ -19,25 +20,32 @@
     <div class="land2-brand">
       <div class="land2-logo">Page <span>&</span> Pencil</div>
       <div class="land2-mid">
-        <h1 class="land2-h1">기준이 다른<br>전문가의 밀착 영어</h1>
+        <div class="land2-eyebrow">이해로 쌓은 영어</div>
+        <h1 class="land2-h1">시험이 끝나도<br>손에 남는 영어</h1>
+        <p class="land2-sub">선생님, 학생, 학부모가 한 곳에서 만납니다.<br>수업 기록과 성장을 같은 화면으로 나눕니다.</p>
+        <div class="land2-chips">
+          <span class="land2-chip"><i data-lucide="pencil" width="15" height="15" style="color:#7FD4E2"></i>수업 기록</span>
+          <span class="land2-chip"><i data-lucide="layers" width="15" height="15" style="color:#7FD4E2"></i>단어 학습</span>
+          <span class="land2-chip"><i data-lucide="trending-up" width="15" height="15" style="color:#7FD4E2"></i>성장 추이</span>
+        </div>
       </div>
       <div class="land2-foot">초·중등 영어 공부방 · 소수 정예 밀착 지도</div>
     </div>
     <div class="land2-right">
       <div class="land2-form">
-        <h2 class="land2-title">로그인</h2>
-        <p class="land2-desc">역할을 선택하고 들어오세요</p>
+        <h2 class="land2-title">들어가기</h2>
+        <p class="land2-desc">역할을 선택해 주세요</p>
         <div class="land2-roles">
           <button class="role-card role-card-on" id="rc-teacher" onclick="landRole('teacher')">
-            <span class="role-ico">🧑‍🏫</span>
+            <span class="role-ico"><i data-lucide="pencil-line" width="19" height="19"></i></span>
             <span class="role-lbl">선생님</span>
           </button>
           <button class="role-card" id="rc-student" onclick="landRole('student')">
-            <span class="role-ico">🎓</span>
+            <span class="role-ico"><i data-lucide="graduation-cap" width="19" height="19"></i></span>
             <span class="role-lbl">학생</span>
           </button>
           <button class="role-card" id="rc-parent" onclick="landRole('parent')">
-            <span class="role-ico">👨‍👩‍👧</span>
+            <span class="role-ico"><i data-lucide="users" width="19" height="19"></i></span>
             <span class="role-lbl">학부모</span>
           </button>
         </div>
@@ -105,7 +113,7 @@
       <button class="pin-key" onclick="stuPinKey('9')">9</button>
       <div></div>
       <button class="pin-key" onclick="stuPinKey('0')">0</button>
-      <button class="pin-key" onclick="stuPinKey('del')" style="background:var(--cream2)">⌫</button>
+      <button class="pin-key" onclick="stuPinKey('del')" style="background:#F1F6F8"><i data-lucide="delete" width="19" height="19"></i></button>
     </div>
     <span class="back-lnk" onclick="show('s-land');pinInput=[];updatePinDots()">← 돌아가기</span>
   </div>
@@ -159,11 +167,11 @@
     </div>
   </div>
   <nav class="stu-bottomnav">
-    <button class="stutab active" data-tab="st-home" onclick="swStuTab('st-home')"><span class="snav-ico">🏠</span><span class="snav-lbl">오늘</span></button>
-    <button class="stutab" data-tab="st-vocab" onclick="swStuTab('st-vocab')"><span class="snav-ico">📚</span><span class="snav-lbl">단어</span></button>
-    <button class="stutab" data-tab="st-library" onclick="swStuTab('st-library')"><span class="snav-ico">📖</span><span class="snav-lbl">복습</span></button>
-    <button class="stutab" onclick="window.open('https://play.class5.co.kr/','_blank')"><span class="snav-ico">🎮</span><span class="snav-lbl">클래스5</span></button>
-    <button class="stutab" onclick="window.open('https://www.autovoca.co.kr/login','_blank')"><span class="snav-ico">📖</span><span class="snav-lbl">오토보카</span></button>
+    <button class="stutab active" data-tab="st-home" onclick="swStuTab('st-home')"><span class="snav-ico"><i data-lucide="home" width="22" height="22"></i></span><span class="snav-lbl">오늘</span></button>
+    <button class="stutab" data-tab="st-vocab" onclick="swStuTab('st-vocab')"><span class="snav-ico"><i data-lucide="layers" width="22" height="22"></i></span><span class="snav-lbl">단어</span></button>
+    <button class="stutab" data-tab="st-library" onclick="swStuTab('st-library')"><span class="snav-ico"><i data-lucide="rotate-ccw" width="22" height="22"></i></span><span class="snav-lbl">복습</span></button>
+    <button class="stutab" onclick="window.open('https://play.class5.co.kr/','_blank')"><span class="snav-ico"><i data-lucide="gamepad-2" width="22" height="22"></i></span><span class="snav-lbl" style="display:flex;align-items:center;gap:2px">클래스5<i data-lucide="arrow-up-right" width="9" height="9"></i></span></button>
+    <button class="stutab" onclick="window.open('https://www.autovoca.co.kr/login','_blank')"><span class="snav-ico"><i data-lucide="book-open" width="22" height="22"></i></span><span class="snav-lbl" style="display:flex;align-items:center;gap:2px">오토보카<i data-lucide="arrow-up-right" width="9" height="9"></i></span></button>
   </nav>
 </div>
 
@@ -173,20 +181,20 @@
     <div class="ah-logo t-topbar-logo" style="cursor:pointer" onclick="show('s-land')">Page <span>&</span> Pencil</div>
     <div style="display:flex;align-items:center;gap:12px">
       <span class="t-avatar">선생님</span>
-      <button class="btn-lo t-logout" onclick="logout()">로그아웃</button>
+      <button class="btn-lo t-logout" onclick="logout()"><i data-lucide="log-out" width="14" height="14"></i>로그아웃</button>
     </div>
   </div>
   <div class="t-body">
     <nav class="t-sidebar">
-      <button class="ntab" data-tab="t-dash" onclick="swTab('t-dash')"><span class="ntab-ico">📊</span><span class="ntab-lbl">대시보드</span></button>
-      <button class="ntab" data-tab="t-class" onclick="swTab('t-class')"><span class="ntab-ico">🏫</span><span class="ntab-lbl">클래스</span></button>
-      <button class="ntab active" data-tab="t-stu" onclick="swTab('t-stu')"><span class="ntab-ico">👩‍🎓</span><span class="ntab-lbl">학생</span></button>
-      <button class="ntab" data-tab="t-assign" onclick="swTab('t-assign')"><span class="ntab-ico">📋</span><span class="ntab-lbl">과제</span></button>
-      <button class="ntab" data-tab="t-tst" onclick="swTab('t-tst')"><span class="ntab-ico">✏️</span><span class="ntab-lbl">테스트</span></button>
-      <button class="ntab" data-tab="t-data" onclick="swTab('t-data')"><span class="ntab-ico">🗂️</span><span class="ntab-lbl">자료 DB</span></button>
-      <button class="ntab" data-tab="t-worksheet" onclick="swTab('t-worksheet')" title="AI 리딩 워크시트 생성"><span class="ntab-ico">📝</span><span class="ntab-lbl">워크시트</span></button>
+      <button class="ntab" data-tab="t-dash" onclick="swTab('t-dash')"><span class="ntab-ico"><i data-lucide="layout-dashboard" width="18" height="18"></i></span><span class="ntab-lbl">대시보드</span></button>
+      <button class="ntab" data-tab="t-class" onclick="swTab('t-class')"><span class="ntab-ico"><i data-lucide="users" width="18" height="18"></i></span><span class="ntab-lbl">클래스</span></button>
+      <button class="ntab active" data-tab="t-stu" onclick="swTab('t-stu')"><span class="ntab-ico"><i data-lucide="graduation-cap" width="18" height="18"></i></span><span class="ntab-lbl">학생</span></button>
+      <button class="ntab" data-tab="t-assign" onclick="swTab('t-assign')"><span class="ntab-ico"><i data-lucide="clipboard-list" width="18" height="18"></i></span><span class="ntab-lbl">과제</span></button>
+      <button class="ntab" data-tab="t-tst" onclick="swTab('t-tst')"><span class="ntab-ico"><i data-lucide="flask-conical" width="18" height="18"></i></span><span class="ntab-lbl">테스트</span></button>
+      <button class="ntab" data-tab="t-data" onclick="swTab('t-data')"><span class="ntab-ico"><i data-lucide="database" width="18" height="18"></i></span><span class="ntab-lbl">자료 DB</span></button>
+      <button class="ntab" data-tab="t-worksheet" onclick="swTab('t-worksheet')" title="AI 리딩 워크시트 생성"><span class="ntab-ico"><i data-lucide="file-text" width="18" height="18"></i></span><span class="ntab-lbl">워크시트</span></button>
       <div class="t-sidebar-spacer"></div>
-      <button class="ntab" data-tab="t-cfg" onclick="swTab('t-cfg')"><span class="ntab-ico">⚙️</span><span class="ntab-lbl">설정</span></button>
+      <button class="ntab" data-tab="t-cfg" onclick="swTab('t-cfg')"><span class="ntab-ico"><i data-lucide="settings" width="18" height="18"></i></span><span class="ntab-lbl">설정</span></button>
     </nav>
     <div class="ab">
 
@@ -978,7 +986,7 @@
   <div class="ah">
     <button class="btn-lo" onclick="clearSession();show('s-land')">← 나가기</button>
     <div class="ah-logo">Page <span>&</span> Pencil</div>
-    <button onclick="shareParentUpdate()" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;padding:4px 8px;font-size:16px;font-family:var(--fb)">📤</button>
+    <button onclick="shareParentUpdate()" title="공유" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;padding:4px 8px;font-family:var(--fb)"><i data-lucide="share" width="16" height="16"></i></button>
   </div>
   <div class="parent-hero">
     <span class="parent-hero-avatar" id="p-avatar">—</span>
@@ -998,10 +1006,10 @@
   <!-- 본문 스크롤 영역 -->
   <div id="pp-body" style="padding:1.25rem;display:flex;flex-direction:column;gap:12px"></div>
   <nav class="stu-bottomnav">
-    <button class="stutab active" onclick="ppNav(this,'les')"><span class="snav-ico">📚</span><span class="snav-lbl">수업</span></button>
-    <button class="stutab" onclick="ppNav(this,'score')"><span class="snav-ico">📊</span><span class="snav-lbl">점수</span></button>
-    <button class="stutab" onclick="ppNav(this,'msg')"><span class="snav-ico">💬</span><span class="snav-lbl">메시지</span></button>
-    <button class="stutab" onclick="ppNav(this,'pay')"><span class="snav-ico">💳</span><span class="snav-lbl">결제</span></button>
+    <button class="stutab active" onclick="ppNav(this,'les')"><span class="snav-ico"><i data-lucide="book-open" width="22" height="22"></i></span><span class="snav-lbl">수업</span></button>
+    <button class="stutab" onclick="ppNav(this,'score')"><span class="snav-ico"><i data-lucide="trending-up" width="22" height="22"></i></span><span class="snav-lbl">점수</span></button>
+    <button class="stutab" onclick="ppNav(this,'msg')"><span class="snav-ico"><i data-lucide="message-circle" width="22" height="22"></i></span><span class="snav-lbl">메시지</span></button>
+    <button class="stutab" onclick="ppNav(this,'pay')"><span class="snav-ico"><i data-lucide="credit-card" width="22" height="22"></i></span><span class="snav-lbl">결제</span></button>
   </nav>
 </div>
 
@@ -1936,11 +1944,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260704t"></script>
-<script src="vocab_ref_data.js?v=20260704t"></script>
-<script src="js/db.js?v=20260704t"></script>
-<script src="js/teacher.js?v=20260704t"></script>
-<script src="js/student.js?v=20260704t"></script>
-<script src="js/parent.js?v=20260704t"></script>
+<script src="js/utils.js?v=20260705a"></script>
+<script src="vocab_ref_data.js?v=20260705a"></script>
+<script src="js/db.js?v=20260705a"></script>
+<script src="js/teacher.js?v=20260705a"></script>
+<script src="js/student.js?v=20260705a"></script>
+<script src="js/parent.js?v=20260705a"></script>
 </body>
 </html>
