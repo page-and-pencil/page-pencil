@@ -280,7 +280,9 @@ async function loadParent(sid){
           ${recentRds.map((rd,ri)=>{
             const lib=allBookSrc.find(x=>x.title===rd.title);
             const arDisplay=rd.arLevel||(lib&&(lib.ar||lib.arLevel))||'';
-            return `<div style="display:flex;align-items:flex-start;padding:8px 0;${ri<recentRds.length-1?'border-bottom:1px solid var(--border)':''}">
+            const coverHtml=lib&&lib.coverUrl?`<div style="width:34px;height:46px;border-radius:5px;overflow:hidden;background:var(--cream2);flex-shrink:0;margin-right:10px"><img src="${lib.coverUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>`:'';
+            return `<div style="display:flex;align-items:${coverHtml?'center':'flex-start'};padding:8px 0;${ri<recentRds.length-1?'border-bottom:1px solid var(--border)':''}">
+              ${coverHtml}
               <div style="flex:1;min-width:0">
                 <div style="font-weight:600;font-size:13px;line-height:1.4">${rd.title||'—'}</div>
                 <div style="display:flex;gap:5px;margin-top:3px;align-items:center;flex-wrap:wrap">

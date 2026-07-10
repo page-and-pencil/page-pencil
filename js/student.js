@@ -346,7 +346,7 @@ function renderStudentLibrary(sid){
     </div>`;
     return`<div class="stu-book-card">
       <div class="stu-book-top">
-        <div class="stu-book-cover">${b.emoji||'📚'}</div>
+        <div class="stu-book-cover" style="overflow:hidden">${b.coverUrl?`<img src="${b.coverUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.replaceWith(document.createTextNode('📚'))">`:(b.emoji||'📚')}</div>
         <div style="flex:1;min-width:0">
           <div class="stu-book-title">${b.title||'—'}</div>
           <div class="stu-book-series">${b.series||''}${b.level?' · Lv.'+b.level:''}</div>

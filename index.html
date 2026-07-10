@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260710g">
+<link rel="stylesheet" href="css/style.css?v=20260710h">
 </head>
 <body>
 
@@ -631,7 +631,7 @@
             <input type="file" id="bulk-audio-files" accept="audio/*" multiple style="display:none" onchange="previewBulkAudio(event)">
             <button class="btn ba bsm" onclick="openBulkText()">📄 일괄 본문</button>
             <input type="file" id="bulk-text-files" accept=".txt" multiple style="display:none" onchange="previewBulkText(event)">
-            <button class="btn bt bsm" onclick="openM('m-add-lib')">+ 원서 추가</button>
+            <button class="btn bt bsm" onclick="libAddCoverClear();openM('m-add-lib')">+ 원서 추가</button>
           </div>
         </div>
         <div class="lib-search-bar">
@@ -1381,7 +1381,7 @@
     <div class="mh"><div class="mt">무엇을 추가할까요?</div><button class="bx" onclick="closeM('m-book-type-pick')">×</button></div>
     <div style="display:flex;gap:10px;padding:4px 0 8px">
       <button class="btn bt" style="flex:1;padding:16px 8px;font-size:14px" onclick="closeM('m-book-type-pick');openTbookAdd()">📚 교재</button>
-      <button class="btn bt" style="flex:1;padding:16px 8px;font-size:14px" onclick="closeM('m-book-type-pick');openM('m-add-lib')">📖 원서</button>
+      <button class="btn bt" style="flex:1;padding:16px 8px;font-size:14px" onclick="closeM('m-book-type-pick');libAddCoverClear();openM('m-add-lib')">📖 원서</button>
     </div>
   </div>
 </div>
@@ -1611,7 +1611,7 @@
 <!-- 원서 추가 -->
 <div id="m-add-lib" class="mo" data-protect>
   <div class="mdl">
-    <div class="mh"><div class="mt">원서 추가</div><button class="bx" onclick="closeM('m-add-lib')">×</button></div>
+    <div class="mh"><div class="mt">원서 추가</div><button class="bx" onclick="libAddCoverClear();closeM('m-add-lib')">×</button></div>
     <div class="fg">
       <div class="f s2">
         <label>책 제목</label>
@@ -1622,6 +1622,18 @@
       <div class="f"><label>총 페이지</label><input type="text" id="lib-pages" placeholder="86"></div>
       <div class="f"><label>출판사</label><input type="text" id="lib-pub" placeholder="Random House"></div>
       <div class="f s2"><label>설명</label><input type="text" id="lib-desc" placeholder="책 설명 (선택)"></div>
+      <div class="f s2"><label>표지 이미지 <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(선택)</span></label>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div id="lib-cover-prev" style="width:56px;height:76px;border-radius:8px;border:1px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex-shrink:0">📗</div>
+          <div style="flex:1;min-width:0">
+            <div class="uz" style="padding:10px" onclick="document.getElementById('lib-cover-file').click()" ondragover="event.preventDefault()" ondrop="event.preventDefault();libAddCoverFromFile(event.dataTransfer.files[0])">
+              <div class="ut">클릭 · 드래그 · <b>Ctrl+V 붙여넣기</b>로 표지 업로드</div>
+            </div>
+            <button type="button" id="lib-cover-del" class="btn bd bxxs" style="margin-top:6px;display:none" onclick="libAddCoverClear()">표지 제거</button>
+          </div>
+          <input type="file" id="lib-cover-file" accept="image/*" style="display:none" onchange="libAddCoverFile(event)">
+        </div>
+      </div>
     </div>
     <button class="btn bt" style="width:100%;margin-top:8px" onclick="addLib()">추가</button>
   </div>
@@ -1646,6 +1658,18 @@
         <div class="f"><label>총 페이지</label><input type="text" id="elib-pages"></div>
         <div class="f"><label>출판사</label><input type="text" id="elib-pub"></div>
         <div class="f s2"><label>YouTube 링크 (음원 없을 때 표시)</label><input type="text" id="elib-youtube" placeholder="https://youtube.com/watch?v=..."></div>
+        <div class="f s2"><label>표지 이미지 <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(붙여넣기 즉시 저장)</span></label>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div id="elib-cover-prev" style="width:56px;height:76px;border-radius:8px;border:1px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex-shrink:0">📗</div>
+            <div style="flex:1;min-width:0">
+              <div class="uz" style="padding:10px" onclick="document.getElementById('elib-cover-file').click()" ondragover="event.preventDefault()" ondrop="event.preventDefault();elibCoverFromFile(event.dataTransfer.files[0])">
+                <div class="ut">클릭 · 드래그 · <b>Ctrl+V 붙여넣기</b>로 표지 업로드</div>
+              </div>
+              <button type="button" id="elib-cover-del" class="btn bd bxxs" style="margin-top:6px;display:none" onclick="elibSetCover('')">표지 삭제</button>
+            </div>
+            <input type="file" id="elib-cover-file" accept="image/*" style="display:none" onchange="elibCoverFile(event)">
+          </div>
+        </div>
       </div>
       <div style="display:flex;gap:8px;margin-top:4px">
         <button class="btn bt" style="flex:1" onclick="updLib()">저장</button>
@@ -1946,11 +1970,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260710g"></script>
-<script src="vocab_ref_data.js?v=20260710g"></script>
-<script src="js/db.js?v=20260710g"></script>
-<script src="js/teacher.js?v=20260710g"></script>
-<script src="js/student.js?v=20260710g"></script>
-<script src="js/parent.js?v=20260710g"></script>
+<script src="js/utils.js?v=20260710h"></script>
+<script src="vocab_ref_data.js?v=20260710h"></script>
+<script src="js/db.js?v=20260710h"></script>
+<script src="js/teacher.js?v=20260710h"></script>
+<script src="js/student.js?v=20260710h"></script>
+<script src="js/parent.js?v=20260710h"></script>
 </body>
 </html>

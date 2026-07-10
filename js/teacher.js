@@ -2587,10 +2587,11 @@ async function addLib(){
   const title=document.getElementById('lib-title').value.trim();
   if(!title){toast('제목을 입력해 주세요');return;}
   toast('저장 중...');
-  const newLib={id:uid(),type:'library',title,series:document.getElementById('lib-series').value.trim(),arLevel:document.getElementById('lib-ar').value.trim(),pages:document.getElementById('lib-pages').value.trim(),publisher:document.getElementById('lib-pub').value.trim(),description:document.getElementById('lib-desc').value.trim()};
+  const newLib={id:uid(),type:'library',title,series:document.getElementById('lib-series').value.trim(),arLevel:document.getElementById('lib-ar').value.trim(),pages:document.getElementById('lib-pages').value.trim(),publisher:document.getElementById('lib-pub').value.trim(),description:document.getElementById('lib-desc').value.trim(),coverUrl:_libAddCover||''};
   await supaUpsert('global_textbooks',newLib.id,newLib,null);
   _cache.library.push(newLib);
   closeM('m-add-lib');
+  libAddCoverClear();
   ['lib-title','lib-series','lib-ar','lib-genre','lib-pages','lib-pub','lib-desc'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   renderLib();renderBookDB();renderMasterDB();populateLibSel();toast('원서목록에 추가되었습니다');
 }
@@ -2611,6 +2612,7 @@ function openEditLib(id){
   document.getElementById('elib-pages').value=b.pages||'';
   document.getElementById('elib-pub').value=b.publisher||'';
   const ytEl=document.getElementById('elib-youtube');if(ytEl)ytEl.value=b.youtubeUrl||'';
+  elibRenderCover(b);
   _elibCurChapter=null;
   elibTab('info');
   renderLibVocabTable(id);
@@ -4144,10 +4146,104 @@ function renderLib(){
   const libs=DB.libs();const g=document.getElementById('lib-grid');if(!g)return;
   if(!libs.length){g.innerHTML='<div class="empty boxed" style="grid-column:1/-1"><div class="empty-i">📚</div><div class="empty-t">원서목록이 비어있습니다</div></div>';return;}
   g.innerHTML=libs.map(b=>`<div class="book-card" onclick="openEditLib('${b.id}')">
-    <div class="book-cover-wrap">📗</div>
+    <div class="book-cover-wrap">${b.coverUrl?`<img src="${b.coverUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.replaceWith(document.createTextNode('📗'))">`:'📗'}</div>
     <div class="book-info"><div class="book-title">${b.title}</div><div class="book-meta">${[b.arLevel?'AR '+b.arLevel:'',b.genre].filter(Boolean).join(' · ')}</div></div>
   </div>`).join('');
 }
+
+// ── 원서 표지 업로드 (붙여넣기·클릭·드래그 → Cloudinary) ──
+// 표지는 목록 전체와 함께 로드되므로 base64 폴백 없이 Cloudinary 전용 (DB 비대화 방지)
+async function _uploadCoverFile(file){
+  if(!file||!file.type||!file.type.startsWith('image/')){toast('이미지 파일이 아니에요');return null;}
+  const {name,preset}=DB.cld();
+  if(!name||!preset){toast('Cloudinary 설정 후 표지 업로드가 가능합니다 — ⚙️ 설정 탭에서 연결해 주세요');return null;}
+  if(typeof checkFileSize==='function'&&!checkFileSize(file,8))return null;
+  toast('표지 업로드 중...');
+  try{
+    const url=await uploadCld(file);
+    if(!url)throw new Error('업로드 실패');
+    return url;
+  }catch(e){toast('표지 업로드 실패: '+(e.message||''));return null;}
+}
+function _coverPrevHtml(url){
+  return url?`<img src="${url}" style="width:100%;height:100%;object-fit:cover">`:'📗';
+}
+// 원서 편집 모달: 표지 즉시 저장 (업로드 시작 시점의 책 id를 캡처 — 업로드 중 다른 책을 열어도 오염 없음)
+async function elibCoverFromFile(file){
+  const id=document.getElementById('elib-id').value;
+  if(!id){toast('책 정보를 찾을 수 없어요');return;}
+  const url=await _uploadCoverFile(file);if(!url)return;
+  await elibSetCover(url,id);
+}
+function elibCoverFile(e){const f=e.target.files[0];e.target.value='';if(f)elibCoverFromFile(f);}
+async function elibSetCover(url,id){
+  id=id||document.getElementById('elib-id').value;if(!id)return;
+  const idx=_cache.library.findIndex(x=>x.id===id);if(idx<0)return;
+  _cache.library[idx]={..._cache.library[idx],coverUrl:url||''};
+  await supaUpsert('global_textbooks',id,_cache.library[idx],null);
+  if(document.getElementById('elib-id').value===id)elibRenderCover(_cache.library[idx]); // 현재 열린 책일 때만 미리보기 갱신
+  renderLib();renderBookDB();renderLibTable();
+  toast(url?'표지가 저장되었습니다':'표지를 삭제했습니다');
+}
+function elibRenderCover(b){
+  const prev=document.getElementById('elib-cover-prev');
+  if(prev)prev.innerHTML=_coverPrevHtml(b?.coverUrl||'');
+  const del=document.getElementById('elib-cover-del');
+  if(del)del.style.display=(b?.coverUrl)?'':'none';
+}
+// 원서 추가 모달: 추가 시 함께 저장되는 대기 표지
+let _libAddCover='';
+async function libAddCoverFromFile(file){
+  const url=await _uploadCoverFile(file);if(!url)return;
+  // 업로드가 끝났을 때 추가 모달이 닫혀 있으면 적용하지 않음 (다음 책 오염 방지)
+  const m=document.getElementById('m-add-lib');
+  if(!(m&&m.classList.contains('open')&&m.style.display!=='none')){toast('원서 추가 창이 닫혀 표지를 적용하지 않았어요');return;}
+  _libAddCover=url;
+  libAddRenderCover();
+  toast('표지가 준비되었습니다 — 추가 시 함께 저장됩니다');
+}
+function libAddCoverFile(e){const f=e.target.files[0];e.target.value='';if(f)libAddCoverFromFile(f);}
+function libAddRenderCover(){
+  const prev=document.getElementById('lib-cover-prev');
+  if(prev)prev.innerHTML=_coverPrevHtml(_libAddCover);
+  const del=document.getElementById('lib-cover-del');
+  if(del)del.style.display=_libAddCover?'':'none';
+}
+function libAddCoverClear(){_libAddCover='';libAddRenderCover();}
+
+// ── 전역 이미지 붙여넣기 라우터 — 열려 있는 화면에 맞는 업로드 지점으로 전달 ──
+function _pasteToFileInput(inputId,file){
+  const inp=document.getElementById(inputId);if(!inp)return false;
+  const dt=new DataTransfer();dt.items.add(file);
+  inp.files=dt.files;
+  inp.dispatchEvent(new Event('change'));
+  return true;
+}
+document.addEventListener('paste',e=>{
+  try{
+    if(!document.getElementById('s-teacher')?.classList.contains('active'))return; // 선생님 화면 전용
+    const items=e.clipboardData?.items;if(!items)return;
+    // 입력창에 텍스트를 붙여넣는 중이면 기본 동작 유지 — Excel/Word 복사는 텍스트+이미지가 함께 실리므로
+    const ed=e.target&&e.target.closest&&e.target.closest('input,textarea,[contenteditable]');
+    const hasText=!!((e.clipboardData.getData('text/plain')||'').trim());
+    if(ed&&hasText)return;
+    let img=null;
+    for(const it of items){if(it.type&&it.type.startsWith('image/')){img=it.getAsFile();break;}}
+    if(!img)return;
+    const openModal=[...document.querySelectorAll('.mo.open')].find(m=>m.style.display!=='none');
+    if(openModal){
+      // 표지 존이 있는 모달만 처리, 다른 모달에서는 오동작 방지 위해 무시
+      if(openModal.id==='m-edit-lib'){e.preventDefault();elibCoverFromFile(img);}
+      else if(openModal.id==='m-add-lib'){e.preventDefault();libAddCoverFromFile(img);}
+      return;
+    }
+    // 학생 패널 리딩로그 폼이 열려 있으면 우선
+    const spForm=document.getElementById('sp-log-form');
+    if(spForm&&spForm.style.display!=='none'&&spForm.offsetParent!==null){e.preventDefault();_pasteToFileInput('sp-log-file',img);return;}
+    if(document.getElementById('t-log')?.classList.contains('active')){e.preventDefault();_pasteToFileInput('lg-file',img);return;}
+    if(document.getElementById('t-tst')?.classList.contains('active')){e.preventDefault();_pasteToFileInput('tst-file',img);return;}
+  }catch(err){console.warn('paste router:',err);}
+});
 
 
 
@@ -5609,7 +5705,7 @@ function renderLibTable(){
   const theadTr=document.querySelector('#lib-tbody')?.closest('table')?.querySelector('thead tr');
   if(theadTr){
     const lth=(field,label)=>{const act=libSortField===field;const ic=act?(libSortDir==='asc'?'↑':'↓'):'↕';return`<th style="cursor:pointer;white-space:nowrap;user-select:none" onclick="libSetSort('${field}')">${label} <span style="color:${act?'var(--teal)':'var(--border)'};font-size:11px">${ic}</span></th>`;};
-    theadTr.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="lib-chk-all" onchange="libToggleAll(this)" style="cursor:pointer"></th>${lth('title','제목')}${lth('series','시리즈')}${lth('ar','AR')}${lth('lexile','렉사일')}${lth('level','레벨')}${lth('audio','오디오')}${lth('text','원문')}<th></th>`;
+    theadTr.innerHTML=`<th style="width:32px;text-align:center"><input type="checkbox" id="lib-chk-all" onchange="libToggleAll(this)" style="cursor:pointer"></th><th style="width:40px">표지</th>${lth('title','제목')}${lth('series','시리즈')}${lth('ar','AR')}${lth('lexile','렉사일')}${lth('level','레벨')}${lth('audio','오디오')}${lth('text','원문')}<th></th>`;
   }
 
   const total=filtered.length;
@@ -5629,6 +5725,7 @@ function renderLibTable(){
     const hasText=textChaps.some(c=>c.text);
     return `<tr>
       <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="lib-chk" data-id="${b.id}" onchange="libUpdateBulkBar()" style="cursor:pointer"></td>
+      <td style="padding:3px 4px"><div style="width:28px;height:38px;border-radius:4px;background:var(--cream2);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer" onclick="openEditLib('${b.id}')" title="표지 — 클릭해 수정">${b.coverUrl?`<img src="${b.coverUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`:'📗'}</div></td>
       <td style="font-weight:500"><span class="cell-title" title="${escAttr(b.title)}">${b.title}</span></td>
       <td style="font-size:12px;color:var(--slate)"><span class="cell-title" title="${escAttr(b.series||'')}">${b.series||'—'}</span></td>
       <td><span class="badge bnavy" style="white-space:nowrap">${arDisplay!=='—'?'AR '+arDisplay:'—'}</span></td>
