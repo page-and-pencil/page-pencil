@@ -11,7 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260711c">
+<link rel="stylesheet" href="css/style.css?v=20260711d">
 </head>
 <body>
 
@@ -552,7 +552,8 @@
     <div id="t-data" class="panel">
       <!-- Sub-tab 네비게이션 -->
       <div class="dtabs">
-        <button id="dtab-book" onclick="switchDataTab('book')" style="padding:8px 16px;font-size:13px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📚 책 (교재·원서)</button>
+        <button id="dtab-tbook" onclick="switchDataTab('tbook')" style="padding:8px 16px;font-size:13px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📚 교재</button>
+        <button id="dtab-lib" onclick="switchDataTab('lib')" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📖 원서</button>
         <button id="dtab-word" onclick="switchDataTab('word')" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📝 어휘</button>
         <button id="dtab-class5" onclick="switchDataTab('class5')" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">🎮 클래스5</button>
         <button id="dtab-ws" onclick="switchDataTab('ws')" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">🗒️ 워크시트</button>
@@ -616,21 +617,23 @@
       <!-- 교재/원서 DB sub-panel (탭에 따라 전환) -->
       <div id="dp-book" style="display:none">
         <div class="sh">
-          <div><div class="st">책</div><div class="ssub" id="book-total"></div></div>
+          <div><div class="st" id="book-db-title">교재</div><div class="ssub" id="book-total"></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <button class="btn bt bsm" onclick="openTbookAdd()">+ 교재 추가</button>
-            <button class="btn bt bsm" onclick="libAddCoverClear();openM('m-add-lib')">+ 원서 추가</button>
+            <button id="book-add-tbook" class="btn bt bsm" onclick="openTbookAdd()">+ 교재 추가</button>
+            <button id="book-add-lib" class="btn bt bsm" style="display:none" onclick="libAddCoverClear();openM('m-add-lib')">+ 원서 추가</button>
             <div style="position:relative">
               <button class="btn bo bsm" onclick="toggleBookIOMenu(event)">📦 가져오기·내보내기 ▾</button>
               <div id="book-io-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:#fff;border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(15,48,74,.14);padding:6px;z-index:60;min-width:200px">
-                <div style="font-size:10px;font-weight:700;color:var(--slate);padding:4px 10px 2px;letter-spacing:.05em">교재</div>
-                <button class="io-mi" onclick="document.getElementById('tbook-csv-file').click()">📥 교재 CSV 가져오기</button>
-                <button class="io-mi" onclick="exportTbookCSV()">⬇ 교재 CSV 내보내기</button>
-                <div style="font-size:10px;font-weight:700;color:var(--slate);padding:6px 10px 2px;letter-spacing:.05em;border-top:1px solid var(--border);margin-top:4px">원서</div>
-                <button class="io-mi" onclick="document.getElementById('lib-csv-file2').click()">📥 원서 CSV 가져오기</button>
-                <button class="io-mi" onclick="exportLibCSV()">⬇ 원서 CSV 내보내기</button>
-                <button class="io-mi" onclick="openBulkAudio()">🎵 오디오 일괄 업로드</button>
-                <button class="io-mi" onclick="openBulkText()">📄 본문 일괄 업로드</button>
+                <div id="book-io-sec-tbook">
+                  <button class="io-mi" onclick="document.getElementById('tbook-csv-file').click()">📥 교재 CSV 가져오기</button>
+                  <button class="io-mi" onclick="exportTbookCSV()">⬇ 교재 CSV 내보내기</button>
+                </div>
+                <div id="book-io-sec-lib" style="display:none">
+                  <button class="io-mi" onclick="document.getElementById('lib-csv-file2').click()">📥 원서 CSV 가져오기</button>
+                  <button class="io-mi" onclick="exportLibCSV()">⬇ 원서 CSV 내보내기</button>
+                  <button class="io-mi" onclick="openBulkAudio()">🎵 오디오 일괄 업로드</button>
+                  <button class="io-mi" onclick="openBulkText()">📄 본문 일괄 업로드</button>
+                </div>
               </div>
             </div>
             <input type="file" id="tbook-csv-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="importTbookCSV(event)">
@@ -640,11 +643,6 @@
           </div>
         </div>
         <div class="lib-search-bar">
-          <div class="seg" style="flex-shrink:0">
-            <button id="bdb-f-all" class="seg-on" onclick="bookDBFilter('')">전체</button>
-            <button id="bdb-f-tb" onclick="bookDBFilter('textbook')">교재</button>
-            <button id="bdb-f-lib" onclick="bookDBFilter('library')">원서</button>
-          </div>
           <input type="text" class="lib-search-input" id="book-q" placeholder="제목·시리즈·카테고리 검색..." oninput="bookPage=0;renderBookDB()">
           <div class="seg" style="flex-shrink:0">
             <button id="bookview-card" class="seg-on" onclick="setBookView('card')" title="카드 보기">▦ 카드</button>
@@ -2016,11 +2014,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260711c"></script>
-<script src="vocab_ref_data.js?v=20260711c"></script>
-<script src="js/db.js?v=20260711c"></script>
-<script src="js/teacher.js?v=20260711c"></script>
-<script src="js/student.js?v=20260711c"></script>
-<script src="js/parent.js?v=20260711c"></script>
+<script src="js/utils.js?v=20260711d"></script>
+<script src="vocab_ref_data.js?v=20260711d"></script>
+<script src="js/db.js?v=20260711d"></script>
+<script src="js/teacher.js?v=20260711d"></script>
+<script src="js/student.js?v=20260711d"></script>
+<script src="js/parent.js?v=20260711d"></script>
 </body>
 </html>
