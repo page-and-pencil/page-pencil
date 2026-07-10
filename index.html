@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260710m">
+<link rel="stylesheet" href="css/style.css?v=20260710n">
 </head>
 <body>
 
@@ -1416,6 +1416,18 @@
         </div>
         <div class="f" id="tbook-grade-f" style="display:none"><label>대상학년</label><input type="text" id="tbook-grade" placeholder="예: 초3-4, 중1, 고1-2"></div>
         <div class="f"><label>총 유닛 수</label><input type="number" id="tbook-total-units" placeholder="0" min="0" style="width:100%"></div>
+        <div class="f s2"><label>표지 이미지 <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(수정 시 붙여넣기 즉시 저장)</span></label>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div id="tbook-cover-prev" style="width:56px;height:76px;border-radius:8px;border:1px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex-shrink:0">📘</div>
+            <div style="flex:1;min-width:0">
+              <div class="uz" style="padding:10px" onclick="document.getElementById('tbook-cover-file').click()" ondragover="event.preventDefault()" ondrop="event.preventDefault();tbookCoverFromFile(event.dataTransfer.files[0])">
+                <div class="ut">클릭 · 드래그 · <b>Ctrl+V 붙여넣기</b>로 표지 업로드</div>
+              </div>
+              <button type="button" id="tbook-cover-del" class="btn bd bxxs" style="margin-top:6px;display:none" onclick="tbookCoverClear()">표지 삭제</button>
+            </div>
+            <input type="file" id="tbook-cover-file" accept="image/*" style="display:none" onchange="tbookCoverFile(event)">
+          </div>
+        </div>
       </div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn bt" style="flex:1" id="tbook-submit-btn" onclick="saveTbook()">추가</button>
@@ -1433,38 +1445,48 @@
           <button class="btn bd bsm" onclick="tuDeleteSelected()">선택 삭제</button>
         </div>
       </div>
-      <div id="tu-unit-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:8px;background:#fff"></div>
-      <!-- 단원 원문 텍스트 -->
-      <div id="tu-text-section" style="display:none;margin-bottom:10px;background:var(--cream2);border:1px solid var(--border);border-radius:var(--rs);padding:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <div style="font-size:12px;font-weight:700;color:var(--navy)">📖 단원 원문 텍스트</div>
-          <div style="display:flex;gap:6px">
-            <button class="btn ba bsm" onclick="tuSaveUnitText()" style="white-space:nowrap">저장</button>
-            <button class="btn bt bsm" onclick="tuExtractExamples()" style="white-space:nowrap">✨ 원문 예문 추출</button>
-          </div>
+      <div style="border:1px solid var(--border);border-radius:var(--rs);margin-bottom:10px;background:#fff;overflow:hidden">
+        <div id="tu-unit-list" style="max-height:200px;overflow-y:auto"></div>
+        <!-- 단원 바로 추가 — 목록에 붙은 입력 행 -->
+        <div style="display:flex;gap:6px;align-items:center;padding:7px 8px;border-top:1px solid var(--border);background:var(--cream2)">
+          <input type="text" id="tu-new-unit-name" placeholder="+ 단원번호 (Unit 1, Lesson 3 등)" onkeydown="if(event.key==='Enter'&&!event.isComposing)tuCreateUnit()" style="flex:1.2;min-width:100px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:#fff;outline:none">
+          <input type="text" id="tu-new-unit-subtitle" placeholder="소제목 (선택)" onkeydown="if(event.key==='Enter'&&!event.isComposing)tuCreateUnit()" style="flex:1;min-width:80px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:#fff;outline:none">
+          <button class="btn bt bsm" onclick="tuCreateUnit()">+ 단원 생성</button>
         </div>
-        <textarea id="tu-unit-text" placeholder="이 단원의 원문(지문)을 붙여넣으세요. '원문 예문 추출'을 누르면 단어마다 해당 문장이 예문으로 자동 설정됩니다." style="width:100%;height:90px;padding:10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
-        <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">
-          <span style="font-size:11px;color:var(--slate);white-space:nowrap">🔊 오디오</span>
-          <span id="tu-audio-indicator" style="font-size:11px;color:var(--slate);flex:1">없음</span>
-          <button class="btn ba bsm" onclick="document.getElementById('tu-audio-file').click()" style="white-space:nowrap">📤 업로드</button>
-          <input type="file" id="tu-audio-file" accept="audio/*" style="display:none" onchange="tuUploadUnitAudio(event)">
-          <button id="tu-audio-del-btn" class="btn bd bsm" style="display:none;white-space:nowrap" onclick="tuRemoveUnitAudio()">삭제</button>
-        </div>
-        <div style="margin-top:8px">
-          <div style="font-size:11px;color:var(--slate);margin-bottom:3px">🎤 패턴 드릴 문장 (한 줄씩)</div>
-          <textarea id="tu-unit-patterns" placeholder="I have small seeds on my body.&#10;I have yellow skin on my body.&#10;I have white stripes on my body." style="width:100%;height:64px;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fd);font-size:12px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
-          <span style="font-size:11px;color:var(--slate);white-space:nowrap">🔗 외부 링크</span>
-          <input type="url" id="tu-unit-link" placeholder="https://quizlet.com/..." style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream);outline:none">
-        </div>
-        <div style="font-size:11px;color:var(--teal);margin-top:4px" id="tu-text-status"></div>
       </div>
-      <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
-        <input type="text" id="tu-new-unit-name" placeholder="단원번호 (Unit 1, Lesson 3 등)" style="flex:1;min-width:100px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
-        <input type="text" id="tu-new-unit-subtitle" placeholder="소제목 (선택)" style="flex:1;min-width:80px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
-        <button class="btn bt bsm" onclick="tuCreateUnit()">+ 단원 생성</button>
+      <!-- 단원 자료 (원문·오디오·드릴·링크) — 접이식 -->
+      <div id="tu-text-section" style="display:none;margin-bottom:10px;background:var(--cream2);border:1px solid var(--border);border-radius:var(--rs);overflow:hidden">
+        <button type="button" onclick="tuToggleTextSec()" style="width:100%;display:flex;align-items:center;gap:8px;padding:9px 12px;background:none;border:none;cursor:pointer;font-family:var(--fb);text-align:left">
+          <span style="font-size:12px;font-weight:700;color:var(--navy);white-space:nowrap">📖 단원 자료</span>
+          <span id="tu-text-summary" style="font-size:11px;color:var(--slate);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">원문 · 오디오 · 패턴 드릴 · 링크</span>
+          <span id="tu-text-arrow" style="font-size:10px;color:var(--slate)">▼</span>
+        </button>
+        <div id="tu-text-body" style="display:none;padding:0 10px 10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:12px;font-weight:700;color:var(--navy)">원문 텍스트</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn ba bsm" onclick="tuSaveUnitText()" style="white-space:nowrap">저장</button>
+              <button class="btn bt bsm" onclick="tuExtractExamples()" style="white-space:nowrap">✨ 원문 예문 추출</button>
+            </div>
+          </div>
+          <textarea id="tu-unit-text" placeholder="이 단원의 원문(지문)을 붙여넣으세요. '원문 예문 추출'을 누르면 단어마다 해당 문장이 예문으로 자동 설정됩니다." style="width:100%;height:90px;padding:10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">
+            <span style="font-size:11px;color:var(--slate);white-space:nowrap">🔊 오디오</span>
+            <span id="tu-audio-indicator" style="font-size:11px;color:var(--slate);flex:1">없음</span>
+            <button class="btn ba bsm" onclick="document.getElementById('tu-audio-file').click()" style="white-space:nowrap">📤 업로드</button>
+            <input type="file" id="tu-audio-file" accept="audio/*" style="display:none" onchange="tuUploadUnitAudio(event)">
+            <button id="tu-audio-del-btn" class="btn bd bsm" style="display:none;white-space:nowrap" onclick="tuRemoveUnitAudio()">삭제</button>
+          </div>
+          <div style="margin-top:8px">
+            <div style="font-size:11px;color:var(--slate);margin-bottom:3px">🎤 패턴 드릴 문장 (한 줄씩)</div>
+            <textarea id="tu-unit-patterns" placeholder="I have small seeds on my body.&#10;I have yellow skin on my body.&#10;I have white stripes on my body." style="width:100%;height:64px;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fd);font-size:12px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+            <span style="font-size:11px;color:var(--slate);white-space:nowrap">🔗 외부 링크</span>
+            <input type="url" id="tu-unit-link" placeholder="https://quizlet.com/..." style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream);outline:none">
+          </div>
+          <div style="font-size:11px;color:var(--teal);margin-top:4px" id="tu-text-status"></div>
+        </div>
       </div>
       <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:10px">
         <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -1973,11 +1995,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260710m"></script>
-<script src="vocab_ref_data.js?v=20260710m"></script>
-<script src="js/db.js?v=20260710m"></script>
-<script src="js/teacher.js?v=20260710m"></script>
-<script src="js/student.js?v=20260710m"></script>
-<script src="js/parent.js?v=20260710m"></script>
+<script src="js/utils.js?v=20260710n"></script>
+<script src="vocab_ref_data.js?v=20260710n"></script>
+<script src="js/db.js?v=20260710n"></script>
+<script src="js/teacher.js?v=20260710n"></script>
+<script src="js/student.js?v=20260710n"></script>
+<script src="js/parent.js?v=20260710n"></script>
 </body>
 </html>

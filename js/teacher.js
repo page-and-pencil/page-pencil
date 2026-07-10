@@ -3288,6 +3288,7 @@ function openEditTbook(id){
   const delBtn=document.getElementById('tbd-del-btn');if(delBtn)delBtn.style.display='';
   const unitCnt=Object.keys(b.units||{}).length;
   const cntEl=document.getElementById('tbd-unit-cnt');if(cntEl)cntEl.textContent=unitCnt?`(${unitCnt})`:'';
+  _tbAddCover='';tbookRenderCover();
   tbdTab('info');openM('m-tbook-detail');
 }
 async function saveTbook(){
@@ -3310,10 +3311,11 @@ async function saveTbook(){
       toast('수정되었습니다');
     }else{
       // 추가 모드
-      const tb={id:uid(),type:'textbook',title,publisher,level,category,grade,totalUnits};
+      const tb={id:uid(),type:'textbook',title,publisher,level,category,grade,totalUnits,coverUrl:_tbAddCover||''};
       await supaUpsert('global_textbooks',tb.id,tb,null);
       if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
       _cache.globalTextbooks.push(tb);
+      _tbAddCover='';
       toast('교재가 추가되었습니다');
     }
     renderTbookTable();renderBookDB();renderMasterDB();updateTbookDatalist();
@@ -3346,19 +3348,21 @@ function jsq(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,'\\x27');}
 function openTbookUnits(tbId){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   document.getElementById('tu-tb-id').value=tbId;
-  document.getElementById('tu-title').textContent=tb.title;
   document.getElementById('tu-new-unit-name').value='';
-  const tbObj=(_cache.globalTextbooks||[]).find(b=>b.id===tbId)||{};
+  const subEl0=document.getElementById('tu-new-unit-subtitle');if(subEl0)subEl0.value='';
   document.getElementById('tbook-edit-id').value=tbId;
-  document.getElementById('tbook-title').value=tbObj.title||'';
-  document.getElementById('tbook-publisher').value=tbObj.publisher||'';
-  document.getElementById('tbook-level').value=tbObj.level||'';
-  document.getElementById('tbook-category').value=tbObj.category||'';
-  document.getElementById('tbook-grade').value=tbObj.grade||'';
-  document.getElementById('tbook-total-units').value=tbObj.totalUnits||'';
-  document.getElementById('tbook-modal-title').textContent=tbObj.title||'단원 단어 관리';
+  document.getElementById('tbook-title').value=tb.title||'';
+  document.getElementById('tbook-publisher').value=tb.publisher||'';
+  document.getElementById('tbook-level').value=tb.level||'';
+  document.getElementById('tbook-category').value=tb.category||'';
+  document.getElementById('tbook-grade').value=tb.grade||'';
+  document.getElementById('tbook-total-units').value=tb.totalUnits||'';
+  document.getElementById('tbook-modal-title').textContent=tb.title||'단원 단어 관리';
   document.getElementById('tbook-submit-btn').textContent='저장';
   const delBtnU=document.getElementById('tbd-del-btn');if(delBtnU)delBtnU.style.display='';
+  const unitCntU=Object.keys(tb.units||{}).length;
+  const cntElU=document.getElementById('tbd-unit-cnt');if(cntElU)cntElU.textContent=unitCntU?`(${unitCntU})`:'';
+  _tbAddCover='';tbookRenderCover();
   _tuCurUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,null);tbdTab('units');openM('m-tbook-detail');
 }
 function tuPopulateUnitSel(tbId){
@@ -3431,6 +3435,13 @@ async function tuDeleteSelected(){
     toast(`${keys.length}개 단원 삭제됨`);
   });
 }
+// 단원 자료(원문·오디오·드릴·링크) 접이식 패널 토글
+let _tuTextOpen=false;
+function tuToggleTextSec(force){
+  _tuTextOpen=typeof force==='boolean'?force:!_tuTextOpen;
+  const body=document.getElementById('tu-text-body');if(body)body.style.display=_tuTextOpen?'':'none';
+  const ar=document.getElementById('tu-text-arrow');if(ar)ar.textContent=_tuTextOpen?'▲':'▼';
+}
 function tuRenderWords(tbId,unitKey){
   const tbody=document.getElementById('tu-word-tbody');if(!tbody)return;
   const textSec=document.getElementById('tu-text-section');
@@ -3444,6 +3455,13 @@ function tuRenderWords(tbId,unitKey){
     const ind=document.getElementById('tu-audio-indicator');if(ind)ind.textContent=audioUrl?'✓ 업로드됨':'없음';
     const delBtn=document.getElementById('tu-audio-del-btn');if(delBtn)delBtn.style.display=audioUrl?'':'none';
     const st=document.getElementById('tu-text-status');if(st)st.textContent='';
+    // 접힌 상태에서도 어떤 자료가 있는지 헤더 요약으로 표시
+    const sumEl=document.getElementById('tu-text-summary');
+    if(sumEl){
+      const has=[[tb0?.unitTexts?.[unitKey],'원문'],[audioUrl,'오디오'],[tb0?.unitPatterns?.[unitKey],'드릴'],[tb0?.unitLinks?.[unitKey],'링크']]
+        .filter(([v])=>String(v||'').trim()).map(([,l])=>l);
+      sumEl.textContent=`${unitKey} — ${has.length?has.join(' · ')+' 있음':'원문·오디오·드릴·링크 입력'}`;
+    }
   }
   if(!unitKey){tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단원을 선택하거나 새 단원을 생성하세요</td></tr>';return;}
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
@@ -4211,6 +4229,42 @@ function libAddRenderCover(){
 }
 function libAddCoverClear(){_libAddCover='';libAddRenderCover();}
 
+// ── 교재 표지 (원서와 동일: 클릭·드래그·붙여넣기, 수정 모드는 즉시 저장, 추가 모드는 대기 후 함께 저장) ──
+let _tbAddCover='';
+function tbookRenderCover(){
+  const editId=document.getElementById('tbook-edit-id')?.value||'';
+  const b=editId?(_cache.globalTextbooks||[]).find(x=>x.id===editId):null;
+  const url=editId?(b?.coverUrl||''):_tbAddCover;
+  const prev=document.getElementById('tbook-cover-prev');
+  if(prev)prev.innerHTML=url?`<img src="${url}" style="width:100%;height:100%;object-fit:cover">`:'📘';
+  const del=document.getElementById('tbook-cover-del');
+  if(del)del.style.display=url?'':'none';
+}
+async function tbookCoverFromFile(file){
+  if(!file)return;
+  const editId=document.getElementById('tbook-edit-id')?.value||''; // 업로드 시작 시점 캡처 — 업로드 중 다른 교재를 열어도 오염 없음
+  const url=await _uploadCoverFile(file);if(!url)return;
+  if(editId){await tbookSetCover(url,editId);return;}
+  const m=document.getElementById('m-tbook-detail');
+  if(!(m&&m.classList.contains('open')&&m.style.display!=='none')){toast('교재 창이 닫혀 표지를 적용하지 않았어요');return;}
+  _tbAddCover=url;tbookRenderCover();toast('표지가 준비되었습니다 — 추가 시 함께 저장됩니다');
+}
+function tbookCoverFile(e){const f=e.target.files[0];e.target.value='';if(f)tbookCoverFromFile(f);}
+async function tbookSetCover(url,id){
+  id=id||document.getElementById('tbook-edit-id')?.value;if(!id)return;
+  const idx=(_cache.globalTextbooks||[]).findIndex(x=>x.id===id);if(idx<0)return;
+  _cache.globalTextbooks[idx]={..._cache.globalTextbooks[idx],coverUrl:url||''};
+  await supaUpsert('global_textbooks',id,_cache.globalTextbooks[idx],null);
+  if((document.getElementById('tbook-edit-id')?.value||'')===id)tbookRenderCover();
+  renderTbookTable();renderBookDB();
+  toast(url?'표지가 저장되었습니다':'표지를 삭제했습니다');
+}
+function tbookCoverClear(){
+  const editId=document.getElementById('tbook-edit-id')?.value||'';
+  if(editId)tbookSetCover('',editId);
+  else{_tbAddCover='';tbookRenderCover();}
+}
+
 // ── 전역 이미지 붙여넣기 라우터 — 열려 있는 화면에 맞는 업로드 지점으로 전달 ──
 function _pasteToFileInput(inputId,file){
   const inp=document.getElementById(inputId);if(!inp)return false;
@@ -4235,6 +4289,7 @@ document.addEventListener('paste',e=>{
       // 표지 존이 있는 모달만 처리, 다른 모달에서는 오동작 방지 위해 무시
       if(openModal.id==='m-edit-lib'){e.preventDefault();elibCoverFromFile(img);}
       else if(openModal.id==='m-add-lib'){e.preventDefault();libAddCoverFromFile(img);}
+      else if(openModal.id==='m-tbook-detail'){e.preventDefault();tbookCoverFromFile(img);}
       return;
     }
     // 학생 패널 리딩로그 폼이 열려 있으면 우선
@@ -4842,6 +4897,7 @@ function openTbookAdd(){
   const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display='none';
   const delBtn2=document.getElementById('tbd-del-btn');if(delBtn2)delBtn2.style.display='none';
   const cntEl2=document.getElementById('tbd-unit-cnt');if(cntEl2)cntEl2.textContent='';
+  _tbAddCover='';tbookRenderCover();
   tbdTab('info');openM('m-tbook-detail');
 }
 function jumpToBookVocab(id,type){
