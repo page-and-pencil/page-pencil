@@ -227,6 +227,15 @@ async function supaDeleteWhere(table,jsonKey,value){
     return false;
   }
 }
+
+// 휴지통(soft delete): 행을 지우는 대신 _deleted 표식으로 보관.
+// 로드 시 필터로 숨겨지고, 백업·일괄 탭 휴지통에서 복원 가능. 30일 후 자동 영구 삭제.
+async function supaTrash(table,cacheArr,id){
+  const obj=(cacheArr||[]).find(x=>x&&x.id===id);
+  if(!obj)return supaDelete(table,id); // 캐시에 없으면 종전대로 하드 삭제
+  return supaUpsert(table,id,{...obj,_deleted:true,_deletedAt:new Date().toISOString()},obj.sid||null);
+}
+
 async function supaGetSetting(key){
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),15000);
@@ -274,22 +283,22 @@ async function loadAllData(){
     const [stus,les,tsts,rds,logs,notices,hws,assigns,tbs,msgs,gtbs,clss,mrpts]=tables.map((t,i)=>val(i));
     // 설정 2건은 테이블 목록 뒤에 이어짐 (과거 고정 인덱스(13,14)는 오프바이원으로 acct/pw가 어긋나던 버그)
     const acct=val(tables.length),pw=val(tables.length+1);
-    _cache.students=(stus||[]).map(r=>(r.data||r));
-    _cache.lessons=(les||[]).map(r=>(r.data||r));
-    _cache.tests=(tsts||[]).map(r=>(r.data||r));
-    _cache.readings=(rds||[]).map(r=>(r.data||r));
-    _cache.logs=(logs||[]).map(r=>(r.data||r));
+    _cache.students=(stus||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+    _cache.lessons=(les||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+    _cache.tests=(tsts||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+    _cache.readings=(rds||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+    _cache.logs=(logs||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
     // _cache.library는 아래 globalTextbooks 로드 후 type 기반으로 파생됨
-    _cache.notices=(notices||[]).map(r=>(r.data||r));
-    _cache.homeworks=(hws||[]).map(r=>(r.data||r));
-    _cache.assignments=(assigns||[]).map(r=>(r.data||r));
-    _cache.textbooks=(tbs||[]).map(r=>(r.data||r));
-    _cache.messages=(msgs||[]).map(r=>(r.data||r));
-    const _allBooks=(gtbs||[]).map(r=>(r.data||r));
+    _cache.notices=(notices||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+    _cache.homeworks=(hws||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+    _cache.assignments=(assigns||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+    _cache.textbooks=(tbs||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+    _cache.messages=(msgs||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+    const _allBooks=(gtbs||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
     _cache.library=_allBooks.filter(b=>b.type==='library');
     _cache.globalTextbooks=_allBooks.filter(b=>b.type==='textbook'||!b.type);
     _cache.class5Books=_allBooks.filter(b=>b.type==='class5'); // 클래스5 자습 라이브러리 (책+과 목록)
-    _cache.globalClasses=(clss||[]).map(r=>(r.data||r));
+    _cache.globalClasses=(clss||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
     _cache.monthlyReports=(mrpts||[]).map(r=>({...( r.data||r),_id:r.id,sid:r.sid,month:r.month}));
     if(acct)_cache.settings.acct=acct;
     if(pw){_cache.settings.pw=pw;DB.s('pw',pw);}

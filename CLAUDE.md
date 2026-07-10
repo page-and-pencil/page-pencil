@@ -37,6 +37,7 @@
 - 원본은 교재 DB(global_textbooks): 단어·단원·학생 카드가 여기서 파생. 수정은 교재 쪽에서 (연쇄 반영: tuApplyRenames·tuCascadeCardUnits·_mergeCardMeaning)
 - 클래스5 라이브러리(type:class5)는 클래스5 과제의 과 목록 전용, 수업용 책은 교재 DB에 별도 등록
 - 백업: fullBackup()이 전 테이블 JSON 덤프 (대시보드가 월 1회 알림, localStorage pp_lastBackup 기준)
+- 삭제는 휴지통(soft delete): 주요 삭제는 supaTrash(_deleted 표식)로 — loadAllData가 필터, 백업·일괄 탭 휴지통에서 복원, 30일 후 자동 영구 삭제(purgeOldTrash). 새 삭제 기능을 만들 땐 하드 delete 대신 supaTrash 사용
 
 ## 작업 원칙
 - 수정 요청 시 관련 파일만 읽고 수정

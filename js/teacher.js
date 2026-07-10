@@ -570,7 +570,7 @@ function spLogSelectBook(id,title){
 }
 function reqDelSpLog(logId,sid){
   askConfirm('리딩로그 삭제','이 리딩로그를 삭제할까요?','삭제','bd',async()=>{
-    await supaDelete('logs',logId);
+    await supaTrash('logs',_cache.logs,logId);
     _cache.logs=_cache.logs.filter(x=>x.id!==logId);
     renderSpRdlog(sid);renderLog();toast('삭제되었습니다');
   });
@@ -1420,21 +1420,18 @@ function reqWithdrawStu(){
 function reqDelStu(){
   const id=document.getElementById('es-id').value;
   const s=DB.stus().find(x=>x.id===id);
-  askConfirm('완전 삭제',`${s?s.name:'이 학생'}의 모든 수업·테스트·원서 기록이 함께 삭제됩니다. 되돌릴 수 없습니다.`,'완전 삭제','bd',async()=>{
-    await supaDelete('students',id);
-    // 연관 기록 삭제
-    const relIds={lessons:'sid',tests:'sid',readings:'sid',logs:'sid',homeworks:'sid',assignments:'sid'};
-    for(const [tbl] of Object.entries(relIds)){
+  askConfirm('학생 삭제',`${s?s.name:'이 학생'}과 모든 수업·테스트·원서 기록을 휴지통으로 이동합니다. 백업·일괄 탭 휴지통에서 30일 내 통째로 복원할 수 있어요.`,'휴지통으로 이동','bd',async()=>{
+    const ts=new Date().toISOString();
+    await supaTrash('students',_cache.students,id);
+    // 연관 기록도 함께 표식 (_deletedWith=학생 id → 복원/영구 삭제 시 한 묶음으로 처리)
+    for(const tbl of ['lessons','tests','readings','logs','homeworks','assignments']){
       const items=(_cache[tbl]||[]).filter(x=>x.sid===id);
-      for(const it of items) await supaDelete(tbl,it.id);
+      for(const it of items) await supaUpsert(tbl,it.id,{...it,_deleted:true,_deletedAt:ts,_deletedWith:id},id).catch(()=>{});
       _cache[tbl]=(_cache[tbl]||[]).filter(x=>x.sid!==id);
     }
-    // vocab_cards cascade
-    const vcOrphans=(_cache.vocab_cards||[]).filter(c=>c.sid===id);
-    for(const c of vcOrphans) await supaDelete('vocab_cards',c.id).catch(e=>console.warn('vocab_cards 삭제 실패:',e));
-    _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>c.sid!==id);
+    // 단어 카드는 유지 (학생이 목록에서 빠져 접근 불가 — 복원 시 그대로 살아남)
     _cache.students=_cache.students.filter(x=>x.id!==id);
-    closeM('m-edit-stu');renderStus();populateSels();toast('삭제되었습니다');
+    closeM('m-edit-stu');renderStus();populateSels();toast('휴지통으로 이동했습니다');
   });
 }
 
@@ -2366,14 +2363,14 @@ async function updLes(){
 function reqDelLes(){
   const id=document.getElementById('el-id').value;
   askConfirm('수업 기록 삭제','이 수업 기록을 삭제할까요?','삭제','bd',async()=>{
-    await supaDelete('lessons',id);
+    await supaTrash('lessons',_cache.lessons,id);
     _cache.lessons=_cache.lessons.filter(x=>x.id!==id);
     closeM('m-edit-les');clearEditSRows();renderLes();toast('삭제되었습니다');
   });
 }
 function reqDelLesFromPanel(lesId,sid){
   askConfirm('수업 삭제','이 수업 기록을 삭제할까요?','삭제','bd',async()=>{
-    await supaDelete('lessons',lesId);
+    await supaTrash('lessons',_cache.lessons,lesId);
     _cache.lessons=_cache.lessons.filter(l=>l.id!==lesId);
     loadStuPanel(sid);
     renderLes();
@@ -2528,7 +2525,7 @@ async function updTst(){
 function reqDelTst(){
   const id=document.getElementById('et-id').value;
   askConfirm('테스트 기록 삭제','이 테스트 기록을 삭제할까요?','삭제','bd',async()=>{
-    await supaDelete('tests',id);
+    await supaTrash('tests',_cache.tests,id);
     _cache.tests=_cache.tests.filter(x=>x.id!==id);
     closeM('m-edit-tst');renderTst();toast('삭제되었습니다');
   });
@@ -2602,14 +2599,14 @@ async function updRd(){
 function reqDelRd(){
   const id=document.getElementById('er-id').value;
   askConfirm('원서 기록 삭제','이 원서 기록을 삭제할까요?','삭제','bd',async()=>{
-    await supaDelete('readings',id);
+    await supaTrash('readings',_cache.readings,id);
     _cache.readings=_cache.readings.filter(x=>x.id!==id);
     closeM('m-edit-rd');renderRd();toast('삭제되었습니다');
   });
 }
 function reqDelRdInline(id){
   askConfirm('원서 기록 삭제','이 원서 기록을 삭제할까요?','삭제','bd',async()=>{
-    await supaDelete('readings',id);
+    await supaTrash('readings',_cache.readings,id);
     _cache.readings=_cache.readings.filter(x=>x.id!==id);
     renderRd();toast('삭제되었습니다');
   });
@@ -3219,12 +3216,9 @@ function elibExportVocab(){
 function delLib(){
   const id=document.getElementById('elib-id').value;
   askConfirm('원서 삭제','원서목록에서 삭제할까요?','삭제','bd',async()=>{
-    await supaDelete('global_textbooks',id);
-    const vcOrphans=(_cache.vocab_cards||[]).filter(c=>c.srcId===id);
-    for(const c of vcOrphans) await supaDelete('vocab_cards',c.id).catch(e=>console.warn('vocab_cards 삭제 실패:',e));
-    _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>c.srcId!==id);
+    await supaTrash('global_textbooks',_cache.library,id); // 휴지통 — 학생 카드는 유지, 영구 삭제 시 정리
     _cache.library=_cache.library.filter(x=>x.id!==id);
-    closeM('m-edit-lib');renderLib();populateLibSel();toast('삭제되었습니다');
+    closeM('m-edit-lib');renderLib();populateLibSel();toast('휴지통으로 이동했습니다 (백업·일괄 탭에서 복원 가능)');
   });
 }
 // ── 교재 DB ──
@@ -3321,19 +3315,14 @@ function tbookUpdateBulkBar(){
 async function tbookDeleteSelected(){
   const checked=[...document.querySelectorAll('#tbook-tbody .tbook-chk:checked')];if(!checked.length)return;
   const entries=checked.map(el=>_tbookPagedEntries[parseInt(el.dataset.idx)]).filter(Boolean);
-  askConfirm('교재 삭제',`${entries.length}개 교재를 삭제할까요?\n단어장에 저장된 연결 카드도 함께 삭제됩니다.`,'삭제','bd',async()=>{
+  askConfirm('교재 삭제',`${entries.length}개 교재를 휴지통으로 이동할까요? (30일 내 복원 가능)`,'삭제','bd',async()=>{
     try{
-      let cardCount=0;
       for(const b of entries){
-        await supaDelete('global_textbooks',b.id);
-        const affected=(_cache.vocab_cards||[]).filter(c=>c.srcId===b.id).length;
-        cardCount+=affected;
-        await supaDeleteWhere('vocab_cards','srcId',b.id);
-        _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>c.srcId!==b.id);
+        await supaTrash('global_textbooks',_cache.globalTextbooks,b.id);
         _cache.globalTextbooks=(_cache.globalTextbooks||[]).filter(x=>x.id!==b.id);
       }
       renderTbookTable();tbookUpdateBulkBar();updateTbookDatalist();renderWordDB();
-      toast(cardCount?`${entries.length}개 삭제 (학생 단어장 카드 ${cardCount}개도 삭제)`:`${entries.length}개 삭제되었습니다`);
+      toast(`${entries.length}개를 휴지통으로 이동했습니다`);
     }catch(e){toast('삭제 실패: '+e.message);}
   });
 }
@@ -3438,13 +3427,10 @@ async function saveTbook(){
 }
 function addTbook(){saveTbook();}
 async function delGlobalTbook(id){
-  await supaDelete('global_textbooks',id);
-  const affected=(_cache.vocab_cards||[]).filter(c=>c.srcId===id).length;
-  await supaDeleteWhere('vocab_cards','srcId',id);
-  _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>c.srcId!==id);
+  await supaTrash('global_textbooks',_cache.globalTextbooks,id); // 휴지통 — 학생 카드는 유지, 영구 삭제 시 정리
   _cache.globalTextbooks=(_cache.globalTextbooks||[]).filter(b=>b.id!==id);
   renderTbookTable();updateTbookDatalist();
-  toast(affected?`삭제되었습니다 (학생 단어장 카드 ${affected}개도 삭제)`:'삭제되었습니다');
+  toast('휴지통으로 이동했습니다 (백업·일괄 탭에서 복원 가능)');
 }
 // ── TBOOK UNITS ──
 let _tuCurUnit=null,_tuRenamingUnit=null;
@@ -5073,7 +5059,7 @@ function deleteMasterSelected(){
     let failed=0;
     for(const id of ids){
       try{
-        await supaDelete('global_textbooks',id);
+        await supaTrash('global_textbooks',[...(_cache.globalTextbooks||[]),...(_cache.library||[]),...(_cache.class5Books||[])],id);
         _cache.globalTextbooks=(_cache.globalTextbooks||[]).filter(b=>b.id!==id);
         _cache.library=(_cache.library||[]).filter(b=>b.id!==id);
       }catch(e){failed++;console.error('삭제 실패:',id,e);}
@@ -5230,8 +5216,8 @@ function bookDeleteSelected(){
   const tbIds=checked.filter(c=>c.dataset.bt==='textbook').map(c=>c.dataset.id);
   const libIds=checked.filter(c=>c.dataset.bt==='library').map(c=>c.dataset.id);
   askConfirm('책 삭제',`선택한 ${checked.length}권을 삭제할까요?`,'삭제','bd',async()=>{
-    for(const id of tbIds){await supaDelete('global_textbooks',id);_cache.globalTextbooks=(_cache.globalTextbooks||[]).filter(x=>x.id!==id);}
-    for(const id of libIds){await supaDelete('global_textbooks',id);_cache.library=(_cache.library||[]).filter(x=>x.id!==id);}
+    for(const id of tbIds){await supaTrash('global_textbooks',_cache.globalTextbooks,id);_cache.globalTextbooks=(_cache.globalTextbooks||[]).filter(x=>x.id!==id);}
+    for(const id of libIds){await supaTrash('global_textbooks',_cache.library,id);_cache.library=(_cache.library||[]).filter(x=>x.id!==id);}
     bookClearSelection();renderBookDB();toast(`${checked.length}권 삭제됨`);
   });
 }
@@ -6192,11 +6178,8 @@ function switchLibTextChap(idx){
 }
 function reqDelLibItem(id){
   askConfirm('원서 삭제','추가한 원서를 삭제할까요? 기본 DB 항목은 삭제되지 않습니다.','삭제','bd',async()=>{
-    const ok=await supaDelete('global_textbooks',id);
-    if(!ok)return toast('Supabase 삭제 실패 — 새로고침 후 다시 시도해 주세요');
-    const vcOrphans=(_cache.vocab_cards||[]).filter(c=>c.srcId===id);
-    for(const c of vcOrphans) await supaDelete('vocab_cards',c.id).catch(e=>console.warn('vocab_cards 삭제 실패:',e));
-    _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>c.srcId!==id);
+    const ok=await supaTrash('global_textbooks',_cache.library,id).catch(()=>false);
+    if(!ok)return toast('휴지통 이동 실패 — 새로고침 후 다시 시도해 주세요');
     _cache.library=_cache.library.filter(x=>x.id!==id);
     renderLibTable();populateLibSel();toast('삭제되었습니다');
   });
@@ -6215,14 +6198,11 @@ async function libDeleteSelected(){
     try{
       const deletedIds=[];
       for(const id of ids){
-        const ok=await supaDelete('global_textbooks',id);
+        const ok=await supaTrash('global_textbooks',_cache.library,id).catch(()=>false);
         if(ok)deletedIds.push(id);
-        else console.warn('supaDelete failed for id:',id);
+        else console.warn('supaTrash failed for id:',id);
       }
       _cache.library=(_cache.library||[]).filter(b=>!deletedIds.includes(b.id));
-      const vcOrphans=(_cache.vocab_cards||[]).filter(c=>deletedIds.includes(c.srcId));
-      for(const c of vcOrphans) await supaDelete('vocab_cards',c.id).catch(e=>console.warn('vocab_cards 삭제 실패:',e));
-      _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>!deletedIds.includes(c.srcId));
       renderLibTable();populateLibSel();
       const failCount=ids.length-deletedIds.length;
       if(failCount>0)toast(`${deletedIds.length}개 삭제, ${failCount}개 실패`);
@@ -6766,8 +6746,8 @@ async function saveLog(){
   toast('리딩로그가 저장되었습니다');
 }
 function reqDelLog(id){
-  askConfirm('리딩로그 삭제','이 리딩로그를 삭제할까요?','삭제','bd',async()=>{
-    await supaDelete('logs',id);
+  askConfirm('리딩로그 삭제','이 리딩로그를 휴지통으로 이동할까요? (30일 내 복원 가능)','삭제','bd',async()=>{
+    await supaTrash('logs',_cache.logs,id);
     _cache.logs=_cache.logs.filter(x=>x.id!==id);
     renderLog();toast('삭제되었습니다');
   });
@@ -7229,6 +7209,7 @@ async function saveReportDraftOnly(){
 
 // ── DASHBOARD ──
 function renderDash(){
+  purgeOldTrash(); // 30일 지난 휴지통 항목 정리 (세션당 1회, 비동기)
   const stus=DB.stus().filter(s=>!s.inactive);
   const les=DB.less();
   const tsts=DB.tsts();
@@ -10720,6 +10701,115 @@ function openNotifyParents(sids){
     <button class="btn bt bsm" style="flex-shrink:0" onclick="shareParentUpdateByStu('${s.id}');this.textContent='보냄 ✓';this.disabled=true">📣 카카오</button>
   </div>`).join('');
   openM('m-notify-parents');
+}
+
+// ── 휴지통 — _deleted 표식 행 조회·복원·영구 삭제 (30일 자동 정리) ──
+const TRASH_TABLES=[['students','학생'],['lessons','수업 기록'],['tests','테스트'],['readings','원서 기록'],['logs','리딩로그'],['global_textbooks','책']];
+let _trashItems=[];
+async function openTrash(){
+  openM('m-trash');
+  const el=document.getElementById('trash-list');
+  if(el)el.innerHTML='<div style="padding:20px;text-align:center;color:var(--slate);font-size:12px">불러오는 중...</div>';
+  _trashItems=[];
+  for(const [t,label] of TRASH_TABLES){
+    try{
+      const r=await fetch(`${SUPA_URL}/rest/v1/${t}?select=id,data&data-%3E%3E_deleted=eq.true`,{headers:SUPA_HEADERS});
+      if(!r.ok)continue;
+      (await r.json()).forEach(row=>{
+        const d=row.data||{};
+        if(d._deletedWith)return; // 학생 삭제에 딸린 기록은 학생 항목 하나로 묶어 표시
+        _trashItems.push({table:t,label,id:row.id,data:d});
+      });
+    }catch(e){}
+  }
+  _trashItems.sort((a,b)=>String(b.data._deletedAt||'').localeCompare(String(a.data._deletedAt||'')));
+  renderTrash();
+}
+function _trashLabel(e){
+  const d=e.data;
+  const stu=sid=>DB.stus().find(s=>s.id===sid)?.name||'';
+  if(e.table==='students')return `${d.name||'학생'} (수업·테스트·기록 포함)`;
+  if(e.table==='lessons')return `${stu(d.sid)} 수업 ${d.date||''}`.trim();
+  if(e.table==='tests')return `${stu(d.sid)} 테스트 ${d.date||''}`.trim();
+  if(e.table==='readings')return `${stu(d.sid)} 원서 ${d.title||''}`.trim();
+  if(e.table==='logs')return `${stu(d.sid)} 리딩로그 ${d.date||''}`.trim();
+  if(e.table==='global_textbooks')return `${d.type==='library'?'원서':d.type==='class5'?'클래스5':'교재'} — ${d.title||''}`;
+  return e.id;
+}
+function renderTrash(){
+  const el=document.getElementById('trash-list');if(!el)return;
+  if(!_trashItems.length){el.innerHTML='<div style="padding:24px;text-align:center;color:var(--slate);font-size:12px">휴지통이 비어 있습니다</div>';return;}
+  el.innerHTML=_trashItems.map((e,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border)">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(_trashLabel(e))}</div>
+      <div style="font-size:11px;color:var(--slate)">${e.label} · 삭제일 ${String(e.data._deletedAt||'').slice(0,10)}</div>
+    </div>
+    <button class="btn bt bsm" style="flex-shrink:0" onclick="restoreTrash(${i})">복원</button>
+    <button class="btn bd bsm" style="flex-shrink:0" onclick="purgeTrash(${i})">영구 삭제</button>
+  </div>`).join('');
+}
+async function restoreTrash(i){
+  const e=_trashItems[i];if(!e)return;
+  toast('복원 중...');
+  const clean=o=>{const d={...o};delete d._deleted;delete d._deletedAt;delete d._deletedWith;return d;};
+  try{
+    await supaUpsert(e.table,e.id,clean(e.data),e.data.sid||null);
+    if(e.table==='students'){
+      // 함께 묶여 삭제된 연관 기록도 복원
+      for(const [t] of TRASH_TABLES){
+        if(t==='students'||t==='global_textbooks')continue;
+        const r=await fetch(`${SUPA_URL}/rest/v1/${t}?select=id,data&data-%3E%3E_deletedWith=eq.${encodeURIComponent(e.id)}`,{headers:SUPA_HEADERS});
+        if(!r.ok)continue;
+        for(const row of await r.json())await supaUpsert(t,row.id,clean(row.data||{}),e.id).catch(()=>{});
+      }
+    }
+    _trashItems.splice(i,1);renderTrash();
+    await loadAllData(); // 캐시·파생 목록 전체 재정합 (복원은 드문 작업)
+    if(typeof renderDash==='function')renderDash();
+    if(typeof renderStus==='function')renderStus();
+    if(typeof renderLes==='function')renderLes();
+    if(typeof renderBookDB==='function')renderBookDB();
+    toast('복원되었습니다');
+  }catch(err){toast('복원 실패: '+(err.message||''));}
+}
+async function _hardPurge(e){
+  if(e.table==='students'){
+    // 학생 영구 삭제: 함께 묶인 기록 + 단어 카드까지 정리
+    for(const [t] of TRASH_TABLES){
+      if(t==='students'||t==='global_textbooks')continue;
+      try{
+        const r=await fetch(`${SUPA_URL}/rest/v1/${t}?select=id&data-%3E%3E_deletedWith=eq.${encodeURIComponent(e.id)}`,{headers:SUPA_HEADERS});
+        if(r.ok)for(const row of await r.json())await supaDelete(t,row.id).catch(()=>{});
+      }catch(err){}
+    }
+    await supaDeleteWhere('vocab_cards','sid',e.id).catch(()=>{});
+    _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>c.sid!==e.id);
+  }
+  if(e.table==='global_textbooks'){
+    await supaDeleteWhere('vocab_cards','srcId',e.id).catch(()=>{});
+    _cache.vocab_cards=(_cache.vocab_cards||[]).filter(c=>c.srcId!==e.id);
+  }
+  await supaDelete(e.table,e.id);
+}
+function purgeTrash(i){
+  const e=_trashItems[i];if(!e)return;
+  askConfirm('영구 삭제','복원할 수 없게 완전히 삭제할까요?'+(e.table==='global_textbooks'?' 연결된 학생 단어 카드도 함께 삭제됩니다.':e.table==='students'?' 학생의 모든 기록과 단어 카드가 함께 삭제됩니다.':''),'영구 삭제','bd',async()=>{
+    await _hardPurge(e);
+    _trashItems.splice(i,1);renderTrash();toast('영구 삭제되었습니다');
+  });
+}
+// 30일 지난 휴지통 항목 자동 정리 (세션당 1회, 대시보드 진입 시)
+let _trashPurgedOnce=false;
+async function purgeOldTrash(){
+  if(_trashPurgedOnce)return;_trashPurgedOnce=true;
+  const cutoff=new Date(Date.now()-30*864e5).toISOString();
+  for(const [t] of TRASH_TABLES){
+    try{
+      const r=await fetch(`${SUPA_URL}/rest/v1/${t}?select=id,data&data-%3E%3E_deleted=eq.true&data-%3E%3E_deletedAt=lt.${encodeURIComponent(cutoff)}`,{headers:SUPA_HEADERS});
+      if(!r.ok)continue;
+      for(const row of await r.json())await _hardPurge({table:t,id:row.id,data:row.data||{}}).catch(()=>{});
+    }catch(e){}
+  }
 }
 
 // ── 전체 백업 — 모든 테이블을 서버에서 직접 내려받아 JSON 파일로 저장 ──
