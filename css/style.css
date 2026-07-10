@@ -629,6 +629,10 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
 /* 확인 다이얼로그 메시지 — \n 줄바꿈 유지 (목차 미리보기 등 목록형 메시지) */
 #confirm-msg{white-space:pre-line;}
 
+/* 가져오기·내보내기 드롭다운 메뉴 항목 */
+.io-mi{display:block;width:100%;text-align:left;background:none;border:none;border-radius:7px;padding:7px 10px;font-size:12px;font-weight:600;color:var(--navy);cursor:pointer;font-family:var(--fb);white-space:nowrap;}
+.io-mi:hover{background:var(--cream2);}
+
 /* 교재 수정 모달 — 대형 고정 작업 공간. 단원·단어 탭은 좌(단원 목록)/우(단원 자료·단어) 2단 */
 #m-tbook-detail .mdl-xl{max-width:min(96vw,1200px);height:min(94vh,900px);display:flex;flex-direction:column;overflow:hidden;}
 #m-tbook-detail .mh{flex-shrink:0;}
