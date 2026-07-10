@@ -9385,7 +9385,9 @@ function clHwRestoreFromSaved(classId,dateStr){
     dates.forEach(d=>clHwMakeDateGroup(d,common));
     return;
   }
-  const stuTotal=(c?.studentIds||[]).length||1;
+  // 레거시(출처 표식 없는) 과제의 공통 판별 기준: 당시 이 수업에 출석한 구성원(수업 기록 보유·결석 제외) 전원이 가진 과제
+  // — 반원 변동이 있어도 그날 실제 대상 전원 기준이라 공통이 개별로 풀리지 않음
+  const lessonSids=new Set((_cache.lessons||[]).filter(l=>l.classId===classId&&l.date===dateStr&&(l.att||'normal')!=='absent').map(l=>l.sid));
   const knownCats=HW_CATS.map(x=>x.v);
   // 같은 내용(마감·구분·교재·범위·메모)끼리 묶어 공통/개별 판별
   const groups=new Map();
@@ -9408,33 +9410,33 @@ function clHwRestoreFromSaved(classId,dateStr){
     clHwFillRangeDl(nr);
   };
   const dueGroups={};
+  const indBySid={};
   [...groups.values()].forEach(g=>{
     // 저장 시 기록된 출처(common:true/false)를 우선 사용 — 결석·반원 변동에도 공통/개별이 그대로 유지됨.
-    // 출처 표식이 없는 레거시 데이터는 보수적으로 '전원 보유'일 때만 공통 (일부 학생 과제가 전원에게 퍼지는 걸 방지)
-    const isCommon=g.hasCommon?true:(g.hasInd?false:(stuTotal>0&&g.sids.size>=stuTotal));
+    // 레거시 데이터는 '당시 출석 구성원 전원 보유'면 공통으로 판별
+    const legacyCommon=lessonSids.size>0&&[...lessonSids].every(sid=>g.sids.has(sid));
+    const isCommon=g.hasCommon?true:(g.hasInd?false:legacyCommon);
     if(isCommon){
       (dueGroups[g.a.due||dateStr]=dueGroups[g.a.due||dateStr]||[]).push(g.a);
     }else{
-      // 일부 학생에게만 있던 과제 → 학생별 개별 행으로 복원
-      const a=g.a;
-      const cat=knownCats.includes(a.category||'')?(a.category||''):'';
-      [...g.sids].forEach(sid=>{
-        addClHwRow(a.due||dateStr,false,cat,a.bookTitle||'',a.range||'');
-        const nr=ind?ind.lastElementChild:null;
-        if(!nr)return;
-        const sSel=nr.querySelector('.cl-hw-ind-stu');
-        if(sSel){
-          // 반 이탈·비활성 학생도 원 대상 유지 (옵션 주입)
-          if(![...sSel.options].some(o=>o.value===sid)){
-            const s=DB.stus().find(x=>x.id===sid);
-            const o=document.createElement('option');o.value=sid;o.textContent=(s?s.name:'?')+' (반 이탈)';
-            sSel.appendChild(o);
-          }
-          sSel.value=sid;
-        }
-        fillRow(nr,a);
-      });
+      // 일부 학생 과제 → 학생별로 모아 학생 그룹 구조로 복원
+      [...g.sids].forEach(sid=>{(indBySid[sid]=indBySid[sid]||[]).push(g.a);});
     }
+  });
+  // 개별 과제: 학생 그룹 → 요일 그룹으로 복원
+  Object.entries(indBySid).forEach(([sid,list])=>{
+    const wrap=clHwAddStuGroup(sid);if(!wrap)return;
+    const body=wrap.querySelector('.cl-hw-stu-body');if(!body)return;
+    const byDue={};list.forEach(a=>{(byDue[a.due||dateStr]=byDue[a.due||dateStr]||[]).push(a);});
+    Object.keys(byDue).sort().forEach(d=>{
+      let gEl=[...body.children].find(x=>x.classList&&x.classList.contains('cl-hw-date-group')&&x.dataset.date===d);
+      const gBody=gEl?gEl.querySelector('.cl-hw-group-body'):clHwMakeDateGroup(d,body);
+      byDue[d].forEach(a=>{
+        const cat=knownCats.includes(a.category||'')?(a.category||''):'';
+        addClHwRow(d,true,cat,a.bookTitle||'',a.range||'',gBody);
+        fillRow(gBody.lastElementChild,a);
+      });
+    });
   });
   // 저장된 마감일 + 이 수업 주기의 요일을 합쳐 요일별 그룹 UI를 온전히 유지
   const scaffold=c?getClassLessonDates(c,dateStr):[dateStr];
@@ -9486,6 +9488,12 @@ function openClassLesson(classId,dateStr){
   const _clCmt=document.getElementById('cl-common-cmt');if(_clCmt)_clCmt.value='';
   // 과제 초기화 후 날짜별 공통 과제 행 자동 생성 (교재별 1행씩)
   document.getElementById('cl-hw-ind-rows').innerHTML='';
+  // 개별 과제 학생 선택 드롭다운 채우기 (이 클래스 소속 학생)
+  {const stuAddSel=document.getElementById('cl-hw-stu-add');
+   if(stuAddSel){
+     const cstus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
+     stuAddSel.innerHTML='<option value="">학생 선택…</option>'+cstus.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+   }}
   clHwSyncFromSubj();
   // 학생 rows (원서 상세 입력)
   const iStyle='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
@@ -9735,6 +9743,8 @@ function clTogSubj(el){
   }else{clSubjs.add(s);el.classList.add('active');addSRowTo('cl-subj-rows',s);}
 }
 
+// 과제 할당 대상 날짜: 수업 당일(당일에 내주는 과제) ~ 다음 수업 전날.
+// 다음 수업 당일은 수업이 있으므로 과제 대상에서 제외
 function getClassLessonDates(classObj,fromDateStr){
   const DAYS=['일','월','화','수','목','금','토'];
   const classDays=classObj.days||[];
@@ -9742,9 +9752,8 @@ function getClassLessonDates(classObj,fromDateStr){
   const dates=[fromDateStr];
   for(let i=1;i<=7;i++){
     const d=new Date(from);d.setDate(d.getDate()+i);
-    const dateStr=d.toISOString().split('T')[0];
-    dates.push(dateStr);
     if(classDays.includes(DAYS[d.getDay()]))break;
+    dates.push(d.toISOString().split('T')[0]);
   }
   return dates;
 }
@@ -9909,6 +9918,31 @@ function clHwAddCommonRow(){
   if(!g)return;
   clHwAddToGroup(g);
 }
+// 개별 과제: 학생을 먼저 고르고 그 아래 요일별 그룹으로 할당하는 학생 그룹 블록
+function clHwAddStuGroup(sid){
+  sid=sid||document.getElementById('cl-hw-stu-add')?.value||'';
+  if(!sid){toast('학생을 먼저 선택해 주세요');return null;}
+  const ind=document.getElementById('cl-hw-ind-rows');if(!ind)return null;
+  const dup=ind.querySelector(`.cl-hw-stu-group[data-sid="${sid}"]`);
+  if(dup){dup.scrollIntoView({block:'nearest'});toast('이미 추가된 학생이에요');return dup;}
+  const s=DB.stus().find(x=>x.id===sid);
+  const wrap=document.createElement('div');
+  wrap.className='cl-hw-stu-group';wrap.dataset.sid=sid;
+  wrap.style.cssText='margin-bottom:14px;border:1.5px solid rgba(15,48,74,.14);border-radius:12px;padding:10px 10px 4px;background:#fff';
+  wrap.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <span class="badge bteal" style="font-size:12px;padding:4px 12px">${s?s.name:'?'}</span>
+    <span style="font-size:11px;color:var(--slate)">이 학생에게만 배정되는 과제</span>
+    <button type="button" class="btn bd bxxs" style="margin-left:auto" onclick="this.closest('.cl-hw-stu-group').remove()">학생 과제 삭제</button>
+  </div><div class="cl-hw-stu-body"></div>`;
+  ind.appendChild(wrap);
+  // 공통 과제와 같은 요일 스캐폴드
+  const body=wrap.querySelector('.cl-hw-stu-body');
+  const classId=document.getElementById('cl-class-id')?.value;
+  const c=DB.classes().find(x=>x.id===classId);
+  const lessonDate=document.getElementById('cl-date')?.value||new Date().toISOString().split('T')[0];
+  (c?getClassLessonDates(c,lessonDate):[lessonDate]).forEach(d=>clHwMakeDateGroup(d,body));
+  return wrap;
+}
 // 이 요일의 과제 구성을 다른 모든 요일 그룹에 복사 (대상 그룹의 기존 행은 대체)
 function clHwCopyGroupToOthers(groupEl){
   const rows=[...groupEl.querySelectorAll('.cl-hw-row')].map(row=>({
@@ -9919,8 +9953,9 @@ function clHwCopyGroupToOthers(groupEl){
     note:row.querySelector('.cl-hw-note')?.value||''
   })).filter(r=>r.cat||r.book||r.range||r.note);
   if(!rows.length){toast('복사할 과제가 없습니다');return;}
-  // 생략(skip)된 요일은 건드리지 않음 — 숨겨진 행을 몰래 대체하지 않기 위해
-  const others=[...document.querySelectorAll('#cl-hw-common-rows .cl-hw-date-group')].filter(g=>g!==groupEl&&g.dataset.skip!=='true');
+  // 같은 컨테이너 안의 형제 요일 그룹으로만 복사 (공통 영역/학생별 영역 각각 독립), 생략된 요일 제외
+  const others=[...(groupEl.parentElement?groupEl.parentElement.children:[])]
+    .filter(x=>x.classList&&x.classList.contains('cl-hw-date-group')&&x!==groupEl&&x.dataset.skip!=='true');
   if(!others.length){toast('복사할 다른 요일이 없습니다 (생략된 요일 제외)');return;}
   askConfirm('다른 요일에 복사',`이 요일의 과제 ${rows.length}개 구성을 다른 ${others.length}개 요일에 복사할까요? 대상 요일의 기존 과제 행은 대체됩니다.`,'복사','bt',()=>{
     others.forEach(g=>{
@@ -10065,7 +10100,8 @@ async function saveClassLesson(){
       const note=row.querySelector('.cl-hw-note')?.value.trim()||'';
       // 클래스5 행을 비워두면 과제 미생성 (일반 '클래스5' 과제는 더 이상 만들지 않음)
       return{
-        sid:row.querySelector('.cl-hw-ind-stu')?.value||null,
+        // 행 자체의 학생 select → 없으면 학생 그룹(개별 과제 새 구조)의 sid
+        sid:row.querySelector('.cl-hw-ind-stu')?.value||row.closest('.cl-hw-stu-group')?.dataset.sid||null,
         due:row.querySelector('.cl-hw-date')?.value||date,
         cat,book,range,note
       };

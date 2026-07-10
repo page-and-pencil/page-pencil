@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260710j">
+<link rel="stylesheet" href="css/style.css?v=20260710k">
 </head>
 <body>
 
@@ -637,7 +637,7 @@
         <div class="lib-search-bar">
           <input type="text" class="lib-search-input" id="book-q" placeholder="제목·시리즈·카테고리 검색..." oninput="bookPage=0;renderBookDB()">
           <div class="seg" style="flex-shrink:0">
-            <button id="bookview-card" class="seg-on" onclick="setBookView('card')" title="카드 보기">🃏 카드</button>
+            <button id="bookview-card" class="seg-on" onclick="setBookView('card')" title="카드 보기">▦ 카드</button>
             <button id="bookview-table" onclick="setBookView('table')" title="표 보기">☰ 표</button>
           </div>
           <select class="filter-sel" id="book-per-page" onchange="bookPage=0;renderBookDB()">
@@ -808,7 +808,10 @@
                 <button class="btn ba bsm" style="width:100%;margin-bottom:16px" onclick="clHwAddCommonRow()">+ 공통 과제 추가</button>
                 <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;padding-top:10px;border-top:1px solid var(--border)">개별 과제 (학생 지정)</div>
                 <div id="cl-hw-ind-rows"></div>
-                <button class="btn bo bsm" style="width:100%" onclick="addClHwRow(null,false)">+ 개별 과제 추가</button>
+                <div style="display:flex;gap:8px">
+                  <select id="cl-hw-stu-add" class="filter-sel" style="flex:1"><option value="">학생 선택…</option></select>
+                  <button class="btn bo bsm" style="flex-shrink:0;white-space:nowrap" onclick="clHwAddStuGroup()">+ 학생별 과제 추가</button>
+                </div>
               </div>
             </div>
             <button class="btn bt" style="width:100%" id="cl-save-btn" onclick="saveClassLesson()">저장하기</button>
@@ -1970,11 +1973,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260710j"></script>
-<script src="vocab_ref_data.js?v=20260710j"></script>
-<script src="js/db.js?v=20260710j"></script>
-<script src="js/teacher.js?v=20260710j"></script>
-<script src="js/student.js?v=20260710j"></script>
-<script src="js/parent.js?v=20260710j"></script>
+<script src="js/utils.js?v=20260710k"></script>
+<script src="vocab_ref_data.js?v=20260710k"></script>
+<script src="js/db.js?v=20260710k"></script>
+<script src="js/teacher.js?v=20260710k"></script>
+<script src="js/student.js?v=20260710k"></script>
+<script src="js/parent.js?v=20260710k"></script>
 </body>
 </html>

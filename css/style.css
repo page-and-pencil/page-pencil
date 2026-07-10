@@ -617,14 +617,21 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
 .lib-search-input{flex:1;min-width:160px;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream2);outline:none;transition:border-color .2s;}
 .lib-search-input:focus{border-color:var(--teal);}
 .lib-table-container{height:calc(100vh - 280px);min-height:300px;overflow-x:auto;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);}
-/* 자료 DB 탭 외부 스크롤 제거 — 내부 테이블이 남은 높이를 채움 */
+/* 자료 DB 탭 외부 스크롤 제거 — 내부 테이블/카드 그리드가 남은 높이를 채움 */
 #t-data.panel.active{display:flex;flex-direction:column;height:100%;overflow:hidden;box-sizing:border-box;}
-#dp-tbook,#dp-lib,#dp-word{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
-#dp-tbook .sh,#dp-lib .sh,#dp-word .sh,
-#dp-tbook .lib-search-bar,#dp-lib .lib-search-bar,#dp-word .lib-search-bar,
-#tbook-bulk-bar,#lib-bulk-bar,#wdb-bulk-bar,
-#tbook-pager,#lib-pager,#wdb-pager{flex-shrink:0;}
-#dp-tbook .lib-table-container,#dp-lib .lib-table-container,#dp-word .lib-table-container{flex:1;height:auto;min-height:0;}
+#dp-book,#dp-word{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+#dp-book .sh,#dp-word .sh,
+#dp-book .lib-search-bar,#dp-word .lib-search-bar,
+#book-bulk-bar,#wdb-bulk-bar,
+#book-pager,#wdb-pager{flex-shrink:0;}
+#dp-book .lib-table-container,#dp-word .lib-table-container{flex:1;height:auto;min-height:0;}
+/* 카드 뷰도 남은 높이 안에서 자체 스크롤 */
+#book-cards{flex:1;min-height:0;overflow-y:auto;align-content:start;padding:2px 2px 10px;}
+/* 카드/표 뷰 세그먼트 토글 — 검색바 컨트롤과 톤 일치 */
+.seg{display:inline-flex;align-items:center;background:var(--cream2);border:1.5px solid var(--border);border-radius:var(--rs);padding:3px;gap:2px;}
+.seg button{border:none;background:none;font-family:var(--fb);font-size:12px;font-weight:600;color:var(--slate);padding:4px 12px;border-radius:calc(var(--rs) - 3px);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.seg button:hover{color:var(--navy);}
+.seg button.seg-on{background:#fff;color:var(--navy);font-weight:700;box-shadow:0 1px 3px rgba(15,48,74,.12);}
 
 /* pcmt (학부모 코멘트) */
 .pcmt{background:linear-gradient(135deg,#f0f8f9,#e8f4f8);border-left:3px solid var(--teal);border-radius:0 var(--rs) var(--rs) 0;padding:10px 14px;margin-top:8px;}
