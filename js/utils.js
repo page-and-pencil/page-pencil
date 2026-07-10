@@ -37,6 +37,36 @@ const SCLS={phonics:'sph',vocab:'sv',grammar:'sg2',reading:'srd',listening:'sls'
 const ATTLBL={normal:'',absent:'결석',late:'지각',makeup:'보강',sick:'병결',teacher_cancel:'선생님취소',holiday:'휴강'};
 const ATTCLS={absent:'att-abs',late:'att-late',makeup:'att-make',sick:'att-sick',teacher_cancel:'att-tc',holiday:'att-hol'};
 
+// ── 클래스 요일별 시간 헬퍼 ──
+// c.dayTimes = {'월':{start:'16:00',end:'17:00'},...}
+// dayTimes가 존재하면 요일별 값만 사용(비운 요일은 시간 없음) — 대표값 timeStart로 폴백하지 않는다.
+// dayTimes가 없으면(레거시/공통 모드) timeStart/timeEnd 사용.
+function classTimeFor(c,day){
+  const dt=c&&c.dayTimes;
+  if(dt&&Object.keys(dt).length){
+    const o=day?dt[day]:null;
+    return{start:(o&&o.start)||'',end:(o&&o.end)||''};
+  }
+  return{start:(c&&(c.timeStart||c.time))||'',end:(c&&c.timeEnd)||''};
+}
+function classTimeStr(c,day){
+  const t=classTimeFor(c,day);
+  if(t.start)return t.start+(t.end?'~'+t.end:'');
+  return t.end?'~'+t.end:'';
+}
+// 클래스 일정 요약 — 같은 시간의 요일끼리 묶음. 예) "월·수·목 16:00~17:00 / 금 17:00~18:00"
+function classSchedStr(c){
+  const days=(c&&c.days)||[];
+  if(!days.length)return classTimeStr(c);
+  const groups=[];
+  days.forEach(d=>{
+    const str=classTimeStr(c,d);
+    const g=groups.find(x=>x.str===str);
+    if(g)g.days.push(d);else groups.push({str,days:[d]});
+  });
+  return groups.map(g=>g.days.join('·')+(g.str?' '+g.str:'')).join(' / ');
+}
+
 // ── CUSTOM CONFIRM ──
 let _confirmCb=null;
 function askConfirm(title,msg,okLabel,okCls,cb){
