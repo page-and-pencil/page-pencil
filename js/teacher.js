@@ -3676,22 +3676,50 @@ async function tuTocFromFile(file){
     const arr=JSON.parse(raw);
     if(!Array.isArray(arr)||!arr.length)throw new Error('단원을 찾지 못했어요');
     const items=arr.map(x=>({unit:String(x.unit||'').trim(),title:String(x.title||'').trim()})).filter(x=>x.unit);
-    const existing=tb.units||{};
-    const fresh=items.filter(x=>!Object.prototype.hasOwnProperty.call(existing,x.unit));
-    if(!fresh.length){toast('목차의 단원이 모두 이미 있어요');return;}
-    const preview=fresh.slice(0,15).map(x=>'· '+x.unit+(x.title?' — '+x.title:'')).join('\n')+(fresh.length>15?`\n외 ${fresh.length-15}개`:'');
-    askConfirm('단원 일괄 생성',`목차에서 새 단원 ${fresh.length}개를 찾았어요. 생성할까요?\n\n${preview}`,'생성','bt',async()=>{
-      const units={...existing};const unitTitles={...(tb.unitTitles||{})};
-      fresh.forEach(x=>{units[x.unit]=[];if(x.title)unitTitles[x.unit]=x.title;});
-      // 목차의 순서를 그대로 단원 순서로 저장 (기존 단원 순서 뒤에 이어붙임)
-      const unitOrder=[...tbUnitKeys(tb),...fresh.map(x=>x.unit)];
-      const updated={...tb,units,unitTitles,unitOrder};
+    if(!items.length)throw new Error('단원을 찾지 못했어요');
+    // ── 동기화 병합: 기존 단원과 매칭(이름 변경으로 처리, 단어·자료·학생 카드 전부 이전), 삭제는 절대 없음 ──
+    const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
+    const firstNum=s=>{const m2=String(s||'').match(/\d+/);return m2?parseInt(m2[0]):null;};
+    const existKeys=tbUnitKeys(tb);
+    const usedOld=new Set(),renames=[],creates=[];
+    // 1차: 정규화 정확 일치 → 2차: 한쪽이 다른 쪽의 접두(예: 'Unit 1' ↔ 'Unit 1. Short Vowels') → 3차: 첫 숫자 1:1 일치
+    items.forEach(x=>{x._match=existKeys.find(k=>!usedOld.has(k)&&norm(k)===norm(x.unit))||null;if(x._match)usedOld.add(x._match);});
+    items.forEach(x=>{
+      if(x._match)return;
+      const nu=norm(x.unit);
+      const c=existKeys.find(k=>!usedOld.has(k)&&(nu.startsWith(norm(k))||norm(k).startsWith(nu)));
+      if(c){x._match=c;usedOld.add(c);}
+    });
+    items.forEach(x=>{
+      if(x._match)return;
+      const n=firstNum(x.unit);if(n==null)return;
+      const cands=existKeys.filter(k=>!usedOld.has(k)&&firstNum(k)===n);
+      if(cands.length===1){x._match=cands[0];usedOld.add(cands[0]);} // 같은 숫자 후보가 여럿이면 오매칭 방지 위해 건너뜀
+    });
+    items.forEach(x=>{if(x._match){if(x._match!==x.unit)renames.push([x._match,x.unit]);}else creates.push(x);});
+    const kept=existKeys.filter(k=>!usedOld.has(k)); // 목차에 없는 기존 단원 — 그대로 보존
+    const wc=k=>tuNormWords((tb.units||{})[k]||[]).length;
+    const lines=[];
+    if(renames.length)lines.push(`이름 변경 ${renames.length}개 (단어·자료·학생 카드 유지):`,...renames.slice(0,8).map(([o,n])=>`· ${o} → ${n} (단어 ${wc(o)}개)`),...(renames.length>8?[`  외 ${renames.length-8}개`]:[]));
+    const samed=items.filter(x=>x._match===x.unit).length;
+    if(samed)lines.push(`그대로 유지 ${samed}개 (소제목·순서만 갱신)`);
+    if(creates.length)lines.push(`새로 생성 ${creates.length}개:`,...creates.slice(0,8).map(x=>'· '+x.unit+(x.title?' — '+x.title:'')),...(creates.length>8?[`  외 ${creates.length-8}개`]:[]));
+    if(kept.length)lines.push(`목차에 없는 기존 단원 ${kept.length}개는 삭제하지 않고 뒤에 보존: ${kept.slice(0,5).join(', ')}${kept.length>5?' 외':''}`);
+    askConfirm('목차 동기화',`기존 단어는 모두 유지됩니다.\n\n${lines.join('\n')}\n\n적용할까요?`,'적용','bt',async()=>{
       try{
+        // 이름 변경(단어·원문·드릴·링크·오디오 이전) → 신규 생성 → 소제목 → 순서(목차 순 + 보존 단원 뒤)
+        let updated=tuApplyRenames(tb,renames);
+        const units={...(updated.units||{})};const unitTitles={...(updated.unitTitles||{})};
+        creates.forEach(x=>{units[x.unit]=[];});
+        items.forEach(x=>{if(x.title)unitTitles[x.unit]=x.title;});
+        updated={...updated,units,unitTitles,unitOrder:[...items.map(x=>x.unit),...kept]};
         await supaUpsert('global_textbooks',tbId,updated,null);
         const ci=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(ci>=0)_cache.globalTextbooks[ci]=updated;
-        tuPopulateUnitSel(tbId);renderTbookTable();
-        toast(`${fresh.length}개 단원이 생성되었습니다`);
-      }catch(err){toast('단원 저장 실패: '+(err.message||''));}
+        const cardCnt=await tuCascadeCardUnits(tbId,renames);
+        if(usedOld.has(_tuCurUnit)&&!units[_tuCurUnit])_tuCurUnit=(renames.find(([o])=>o===_tuCurUnit)||[])[1]||null;
+        tuPopulateUnitSel(tbId);tuRenderWords(tbId,_tuCurUnit);renderTbookTable();
+        toast(`목차 동기화 완료 — 변경 ${renames.length}·생성 ${creates.length}·보존 ${kept.length}${cardCnt?` · 학생 카드 ${cardCnt}개 연결 이전`:''}`);
+      }catch(err){toast('동기화 저장 실패: '+(err.message||''));}
     });
   }catch(e2){console.warn('tuToc:',e2);toast('목차 분석 실패: '+(e2.message||''));}
 }
@@ -3707,6 +3735,36 @@ function tuDeleteUnit(){
     _tuCurUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,null);renderTbookTable();toast('삭제되었습니다');
   });
 }
+// 단원 키 변경 시 그 키에 매달린 모든 데이터를 함께 이전 — 단어·소제목·원문·드릴·링크·오디오·순서.
+// renames: [[oldKey,newKey],...]. 반환: 갱신된 tb 객체 (저장은 호출부에서)
+function tuApplyRenames(tb,renames){
+  const maps=['units','unitTitles','unitTexts','unitPatterns','unitLinks','unitAudio'];
+  const out={...tb};
+  maps.forEach(mk=>{
+    if(!tb[mk])return;
+    const m={...tb[mk]};
+    renames.forEach(([o,n])=>{if(o!==n&&Object.prototype.hasOwnProperty.call(m,o)){m[n]=m[o];delete m[o];}});
+    out[mk]=m;
+  });
+  if(Array.isArray(tb.unitOrder)){
+    const rm=new Map(renames);
+    out.unitOrder=tb.unitOrder.map(k=>rm.has(k)?rm.get(k):k);
+  }
+  return out;
+}
+// 학생 단어카드의 단원 연결(srcUnit)도 새 이름으로 이전 (끊긴 링크 방지)
+async function tuCascadeCardUnits(tbId,renames){
+  const rm=new Map(renames.filter(([o,n])=>o!==n));
+  if(!rm.size)return 0;
+  let cnt=0;
+  for(const c of (_cache.vocab_cards||[])){
+    if(c.srcId!==tbId||!rm.has(c.srcUnit))continue;
+    c.srcUnit=rm.get(c.srcUnit);
+    await supaUpsert('vocab_cards',c.id,c,c.sid).catch(e=>console.warn('카드 단원 이전 실패:',e));
+    cnt++;
+  }
+  return cnt;
+}
 async function tuRenameUnitSave(tbId,oldKey){
   const newKey=(document.getElementById('tu-rename-inp')?.value||'').trim();
   const newSub=(document.getElementById('tu-rename-sub')?.value||'').trim();
@@ -3715,14 +3773,13 @@ async function tuRenameUnitSave(tbId,oldKey){
   const oldSub=tb.unitTitles?.[oldKey]||'';
   if(newKey===oldKey&&newSub===oldSub){_tuRenamingUnit=null;tuPopulateUnitSel(tbId);return;}
   if(newKey!==oldKey&&tb.units?.[newKey])return toast('이미 있는 단원명입니다');
-  const units={...(tb.units||{})};
-  if(newKey!==oldKey){units[newKey]=units[oldKey];delete units[oldKey];}
-  const unitTitles={...(tb.unitTitles||{})};
-  if(newKey!==oldKey){if(unitTitles[oldKey]!==undefined)unitTitles[newKey]=unitTitles[oldKey];delete unitTitles[oldKey];}
+  // 단어뿐 아니라 원문·드릴·링크·오디오·순서·학생 카드 연결까지 함께 이전
+  const updated=tuApplyRenames(tb,[[oldKey,newKey]]);
+  const unitTitles={...(updated.unitTitles||{})};
   if(newSub)unitTitles[newKey]=newSub;else delete unitTitles[newKey];
-  const updated={...tb,units,unitTitles,
-    ...(Array.isArray(tb.unitOrder)?{unitOrder:tb.unitOrder.map(k=>k===oldKey?newKey:k)}:{})}; // 이름이 바뀌어도 순서 유지
+  updated.unitTitles=unitTitles;
   await supaUpsert('global_textbooks',tbId,updated,null);
+  if(newKey!==oldKey)await tuCascadeCardUnits(tbId,[[oldKey,newKey]]);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
   if(_tuCurUnit===oldKey)_tuCurUnit=newKey;
   _tuRenamingUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,_tuCurUnit);renderTbookTable();toast('단원 저장됨');
