@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260710o">
+<link rel="stylesheet" href="css/style.css?v=20260710p">
 </head>
 <body>
 
@@ -1397,7 +1397,7 @@
       <button class="bx" onclick="if(_tuCurUnit)tuSaveUnitText(true);closeM('m-tbook-detail')">×</button>
     </div>
     <input type="hidden" id="tbook-edit-id">
-    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px">
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px;flex-shrink:0">
       <button id="tbd-tab-info" onclick="tbdTab('info')" style="padding:8px 16px;font-size:12px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb)">기본 정보</button>
       <button id="tbd-tab-units" onclick="tbdTab('units')" style="padding:8px 16px;font-size:12px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb)">&#128218; 단원&#183;단어 <span id="tbd-unit-cnt" style="font-size:10px"></span></button>
     </div>
@@ -1438,24 +1438,31 @@
     <div id="tbd-pane-units" style="display:none">
       <input type="hidden" id="tu-tb-id">
       <select id="tu-unit-sel" style="display:none"></select>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <div style="font-size:12px;font-weight:700;color:var(--navy)">단원 목록 <span id="tu-sub" style="font-weight:400;color:var(--slate)"></span></div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--slate);cursor:pointer;user-select:none"><input type="checkbox" id="tu-sel-all" onchange="tuToggleAllUnits(this)"> 전체 선택</label>
-          <button class="btn bd bsm" onclick="tuDeleteSelected()">선택 삭제</button>
+      <!-- 좌: 단원 목록 (전체 높이) -->
+      <div class="tbu-left">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0;gap:6px;flex-wrap:wrap">
+          <div style="font-size:12px;font-weight:700;color:var(--navy)">단원 목록 <span id="tu-sub" style="font-weight:400;color:var(--slate)"></span></div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--slate);cursor:pointer;user-select:none"><input type="checkbox" id="tu-sel-all" onchange="tuToggleAllUnits(this)"> 전체 선택</label>
+            <button class="btn bd bsm" onclick="tuDeleteSelected()">선택 삭제</button>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:var(--rs);background:#fff;overflow:hidden;flex:1;display:flex;flex-direction:column;min-height:0">
+          <div id="tu-unit-list" style="flex:1;overflow-y:auto;min-height:0"></div>
+          <!-- 단원 바로 추가 — 목록에 붙은 입력 영역 -->
+          <div style="display:flex;flex-direction:column;gap:5px;padding:8px;border-top:1px solid var(--border);background:var(--cream2);flex-shrink:0">
+            <input type="text" id="tu-new-unit-name" placeholder="+ 단원번호 (Unit 1, Lesson 3 등)" onkeydown="if(event.key==='Enter'&&!event.isComposing)tuCreateUnit()" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:#fff;outline:none">
+            <div style="display:flex;gap:5px">
+              <input type="text" id="tu-new-unit-subtitle" placeholder="소제목 (선택)" onkeydown="if(event.key==='Enter'&&!event.isComposing)tuCreateUnit()" style="flex:1;min-width:0;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:#fff;outline:none">
+              <button class="btn bt bsm" onclick="tuCreateUnit()" style="flex-shrink:0;white-space:nowrap">+ 생성</button>
+            </div>
+          </div>
         </div>
       </div>
-      <div style="border:1px solid var(--border);border-radius:var(--rs);margin-bottom:10px;background:#fff;overflow:hidden">
-        <div id="tu-unit-list" style="max-height:200px;overflow-y:auto"></div>
-        <!-- 단원 바로 추가 — 목록에 붙은 입력 행 -->
-        <div style="display:flex;gap:6px;align-items:center;padding:7px 8px;border-top:1px solid var(--border);background:var(--cream2)">
-          <input type="text" id="tu-new-unit-name" placeholder="+ 단원번호 (Unit 1, Lesson 3 등)" onkeydown="if(event.key==='Enter'&&!event.isComposing)tuCreateUnit()" style="flex:1.2;min-width:100px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:#fff;outline:none">
-          <input type="text" id="tu-new-unit-subtitle" placeholder="소제목 (선택)" onkeydown="if(event.key==='Enter'&&!event.isComposing)tuCreateUnit()" style="flex:1;min-width:80px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:#fff;outline:none">
-          <button class="btn bt bsm" onclick="tuCreateUnit()">+ 단원 생성</button>
-        </div>
-      </div>
+      <!-- 우: 단원 자료 + 단어 목록 -->
+      <div class="tbu-right">
       <!-- 단원 자료 (원문·오디오·드릴·링크) — 접이식 -->
-      <div id="tu-text-section" style="display:none;margin-bottom:10px;background:var(--cream2);border:1px solid var(--border);border-radius:var(--rs);overflow:hidden">
+      <div id="tu-text-section" style="display:none;margin-bottom:10px;background:var(--cream2);border:1px solid var(--border);border-radius:var(--rs);overflow:hidden;flex-shrink:0">
         <button type="button" onclick="tuToggleTextSec()" style="width:100%;display:flex;align-items:center;gap:8px;padding:9px 12px;background:none;border:none;cursor:pointer;font-family:var(--fb);text-align:left">
           <span style="font-size:12px;font-weight:700;color:var(--navy);white-space:nowrap">📖 단원 자료</span>
           <span id="tu-text-summary" style="font-size:11px;color:var(--slate);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">원문 · 오디오 · 패턴 드릴 · 링크</span>
@@ -1488,7 +1495,7 @@
           <div style="font-size:11px;color:var(--teal);margin-top:4px" id="tu-text-status"></div>
         </div>
       </div>
-      <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:10px">
+      <div style="flex:1;min-height:120px;overflow:auto;border:1px solid var(--border);border-radius:var(--rs);margin-bottom:10px;background:#fff">
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead><tr style="background:var(--cream2);position:sticky;top:0">
             <th style="padding:7px 8px;text-align:left;font-size:11px;font-weight:700;color:var(--slate);white-space:nowrap">영어</th>
@@ -1501,7 +1508,7 @@
           <tbody id="tu-word-tbody"></tbody>
         </table>
       </div>
-      <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap">
+      <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap;flex-shrink:0">
         <div style="flex:1.2;min-width:80px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">영어 *</label><input type="text" id="tu-en" placeholder="apple" style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fd);color:var(--navy);background:var(--cream);box-sizing:border-box"></div>
         <div style="flex:1;min-width:70px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">한국어</label><input type="text" id="tu-ko" placeholder="사과" style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream);box-sizing:border-box"></div>
         <div style="flex:0.7;min-width:70px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">품사</label>
@@ -1515,7 +1522,7 @@
         <button class="btn ba bsm" onclick="tuAutoFill()" title="AI로 자동 생성" style="white-space:nowrap">✨ AI채우기</button>
         <button class="btn bt bsm" onclick="tuAddWord()" style="white-space:nowrap">+ 추가</button>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
         <button class="btn bt bsm" onclick="document.getElementById('tu-any-file').click()" style="white-space:nowrap">🤖 AI 파일 가져오기</button>
         <input type="file" id="tu-any-file" accept=".txt,.csv,.xlsx,.xls" style="display:none" onchange="tuImportAny(event)">
         <button class="btn bt bsm" onclick="tuAutoFillAll()" style="white-space:nowrap">✨ AI 전체 채우기</button>
@@ -1524,6 +1531,7 @@
         <button class="btn ba bsm" onclick="tuExportAllWords()" style="white-space:nowrap">⬇ 전체 CSV</button>
         <span style="font-size:11px;color:var(--teal)" id="tu-import-status"></span>
       </div>
+      </div><!-- /.tbu-right -->
     </div>
   </div>
 </div>
@@ -1995,11 +2003,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260710o"></script>
-<script src="vocab_ref_data.js?v=20260710o"></script>
-<script src="js/db.js?v=20260710o"></script>
-<script src="js/teacher.js?v=20260710o"></script>
-<script src="js/student.js?v=20260710o"></script>
-<script src="js/parent.js?v=20260710o"></script>
+<script src="js/utils.js?v=20260710p"></script>
+<script src="vocab_ref_data.js?v=20260710p"></script>
+<script src="js/db.js?v=20260710p"></script>
+<script src="js/teacher.js?v=20260710p"></script>
+<script src="js/student.js?v=20260710p"></script>
+<script src="js/parent.js?v=20260710p"></script>
 </body>
 </html>
