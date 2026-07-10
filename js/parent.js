@@ -249,7 +249,7 @@ async function loadParent(sid){
       const ua=urg(a.due),ub=urg(b.due);return ua!==ub?ua-ub:(a.due||a.date||'').localeCompare(b.due||b.date||'');
     });
     const assignRow=a=>{
-      const cat=a.category?CAT_LBL[a.category]:'';
+      const cat=a.category?(CAT_LBL[a.category]||a.category):''; // 직접 입력 구분은 그대로 표시
       const catHtml=cat?`<span style="font-size:10px;font-weight:700;color:var(--teal)">[${cat}]</span> `:'';
       const label=a.category==='vocab'?((a.words||[]).slice(0,3).join(', ')+(a.words?.length>3?` 외 ${a.words.length-3}개`:'')):(a.bookTitle||a.text||'');
       const range=a.range?` <span style="font-size:11px;color:var(--slate)">${a.range}</span>`:'';
