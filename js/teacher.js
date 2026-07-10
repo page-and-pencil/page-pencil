@@ -4435,11 +4435,18 @@ async function addUnitWordsToVocab(sid,materials,date){
     const bookBase=mat.book.replace(/\s*\(.*\)\s*$|^\s*\(.*\)\s*/,'').trim().toLowerCase();
     const tb=(_cache.globalTextbooks||[]).find(b=>b.title.trim().toLowerCase()===bookBase||b.title.trim().toLowerCase()===mat.book.trim().toLowerCase());
     if(!tb?.units)continue;
-    // 유닛명: 정확 → 포함 → 숫자 추출 순으로 매칭
-    const ul=mat.unit.trim().toLowerCase();
+    // 유닛명 매칭: 정확 → 숫자 경계 안전 포함 (Lesson 1이 Lesson 12에 걸리던 오매칭 방지, 앞자리 0 정규화)
+    const zz=s=>s.replace(/\b0+(\d)/g,'$1');
+    const ul=zz(mat.unit.trim().toLowerCase());
+    const numSafeIncl=(hay,needle)=>{
+      const i=hay.indexOf(needle);
+      if(i<0)return false;
+      const nx=hay[i+needle.length];
+      return !(nx&&/[0-9.]/.test(nx)&&/[0-9]$/.test(needle)); // 숫자로 끝나는 키 뒤에 또 숫자면 다른 번호
+    };
     const matchKey=Object.keys(tb.units).find(k=>{
-      const kl=k.trim().toLowerCase();
-      return kl===ul||ul.includes(kl)||kl.includes(ul);
+      const kl=zz(k.trim().toLowerCase());
+      return kl===ul||numSafeIncl(ul,kl)||numSafeIncl(kl,ul);
     });
     if(!matchKey)continue;
     const words=tuNormWords(tb.units[matchKey]).map(w=>({...(w&&typeof w==='object'?w:{word:String(w)}),srcId:tb.id,srcType:'textbook',srcUnit:matchKey}));
@@ -7255,6 +7262,7 @@ function renderDash(){
     return !rpt||rpt.status!=='sent';
   });
   renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus,reportPendingStus,thisMonth);
+  renderDashFill();
 
   // Section 3: 이번 달 현황
   const thisLes=les.filter(l=>l.date&&l.date.startsWith(thisMonth)&&l.att!=='absent').length;
@@ -7612,6 +7620,52 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
   </div>`;
 }
 
+// ── 데이터 채우기 우선순위 — 학생들이 읽고 배운 콘텐츠 중 단어가 빈 것 (최근 학습 순, 채우면 자동으로 다음 항목) ──
+let _dashFillItems=[];
+function renderDashFill(){
+  const el=document.getElementById('dash-fill');if(!el)return;
+  const nrm=s=>String(s||'').trim().toLowerCase();
+  const items=[];
+  // 원서: 읽기 기록이 있는 책
+  const lastRead={};
+  (_cache.readings||[]).forEach(r=>{const t=(r.title||'').trim();if(!t)return;const k=nrm(t);if(!lastRead[k]||String(r.date||'')>lastRead[k].date)lastRead[k]={date:String(r.date||''),title:t};});
+  const libBy={};(_cache.library||[]).forEach(b=>{libBy[nrm(b.title)]=b;});
+  Object.values(lastRead).forEach(e=>{
+    const b=libBy[nrm(e.title)];
+    if(!b)items.push({date:e.date,icon:'📖',text:`${e.title} — 원서 미등록`,label:'등록',run:()=>{libAddCoverClear();openM('m-add-lib');setTimeout(()=>{const i=document.getElementById('lib-title');if(i)i.value=e.title;},80);}});
+    else if(!(b.vocab||[]).length)items.push({date:e.date,icon:'📖',text:`${e.title} — 단어 0개`,label:'단어 채우기',run:()=>openEditLib(b.id)});
+  });
+  // 교재: 수업 기록에 쓰인 책
+  const lastTb={};
+  (_cache.lessons||[]).forEach(l=>Object.entries(l.materials||{}).forEach(([k,v])=>{
+    if(k.startsWith('_book')||!v||!v.book)return;
+    const t=String(v.book).trim();if(t.length<2||t==='클래스5')return;
+    const key=nrm(t);
+    if(!lastTb[key]||String(l.date||'')>lastTb[key].date)lastTb[key]={date:String(l.date||''),title:t};
+  }));
+  const tbBy={};(_cache.globalTextbooks||[]).forEach(b=>{tbBy[nrm(b.title)]=b;});
+  Object.values(lastTb).forEach(e=>{
+    const b=tbBy[nrm(e.title)];
+    if(!b){items.push({date:e.date,icon:'📚',text:`${e.title} — 교재 미등록`,label:'등록',run:()=>{openTbookAdd();setTimeout(()=>{const i=document.getElementById('tbook-title');if(i)i.value=e.title;},80);}});return;}
+    const words=Object.values(b.units||{}).reduce((s,a)=>s+(Array.isArray(a)?a.length:0),0);
+    if(!words)items.push({date:e.date,icon:'📚',text:`${e.title} — ${Object.keys(b.units||{}).length?'단원만 있고 단어 0개':'단원·단어 없음'}`,label:'채우기',run:()=>openTbookUnits(b.id)});
+  });
+  items.sort((a,b)=>b.date.localeCompare(a.date));
+  _dashFillItems=items;
+  const top=items.slice(0,5);
+  el.innerHTML=`<div class="card" style="border-left:4px solid var(--teal)">
+    <div class="ch"><span class="ct">${luIcon('database',16)||'📥'} 데이터 채우기</span><span style="font-size:12px;color:${items.length?'var(--slate)':'#047857'}">${items.length?items.length+'건 남음':'완료 ✨'}</span></div>
+    <div class="cb" style="padding:6px 10px">
+      ${items.length?top.map((it,i)=>`<div class="dash-action-item" onclick="dashFillGo(${i})">
+        <span style="font-size:14px;flex-shrink:0">${it.icon}</span>
+        <span class="dash-action-text">${escAttr(it.text)} <span style="color:var(--slate);font-size:10px">· ${it.date.slice(5)}</span></span>
+        <span class="dash-action-label">${escAttr(it.label)} →</span>
+      </div>`).join('')+(items.length>5?`<div style="font-size:11px;color:var(--slate);padding:5px 0 2px;text-align:center">위 항목을 채우면 다음 ${items.length-5}건이 이어서 떠요</div>`:''):
+      `<div style="font-size:12px;color:#047857;padding:6px 0">학생들이 배운 콘텐츠의 단어가 모두 채워져 있어요</div>`}
+    </div>
+  </div>`;
+}
+function dashFillGo(i){const it=_dashFillItems[i];if(it)it.run();}
 function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus,reportPendingStus,thisMonth){
   const el=document.getElementById('dash-actions');if(!el)return;
   const items=[];
