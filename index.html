@@ -11,7 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260711i">
+<link rel="stylesheet" href="css/style.css?v=20260711j">
 </head>
 <body>
 
@@ -181,6 +181,7 @@
   <div class="t-topbar">
     <div class="ah-logo t-topbar-logo" style="cursor:pointer" onclick="show('s-land')">Page <span>&</span> Pencil</div>
     <div style="display:flex;align-items:center;gap:12px">
+      <button onclick="openGlobalSearch()" title="전역 검색 (Ctrl+K)" style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:1.5px solid var(--border);border-radius:20px;background:var(--cream2);color:var(--slate);font-size:12px;font-family:var(--fb);cursor:pointer">🔍 검색 <kbd style="font-size:10px;background:#fff;border:1px solid var(--border);border-radius:4px;padding:0 5px;font-family:var(--fm)">Ctrl K</kbd></button>
       <span class="t-avatar">선생님</span>
       <button class="btn-lo t-logout" onclick="logout()"><i data-lucide="log-out" width="14" height="14"></i>로그아웃</button>
     </div>
@@ -1651,6 +1652,24 @@
   </div>
 </div>
 
+<!-- 전역 검색 (Ctrl+K) -->
+<div id="m-gsearch" class="mo" style="align-items:flex-start;padding-top:10vh" onclick="if(event.target===this)closeM('m-gsearch')">
+  <div class="mdl" style="max-width:560px;padding:14px 16px">
+    <input id="gs-q" type="text" placeholder="학생 · 클래스 · 교재 · 원서 이름 검색…" autocomplete="off" oninput="gsRender()" onkeydown="gsKey(event)" style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid var(--teal);border-radius:10px;font-size:14px;font-family:var(--fb);color:var(--navy);background:var(--cream);outline:none">
+    <div id="gs-results" style="max-height:52vh;overflow-y:auto;margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- 수업 저장 후 학부모 알림 -->
+<div id="m-notify-parents" class="mo">
+  <div class="mdl" style="max-width:400px">
+    <div class="mh"><div class="mt">📣 학부모 알림 보내기</div><button class="bx" onclick="closeM('m-notify-parents')">×</button></div>
+    <div style="font-size:12px;color:var(--slate);margin-bottom:10px">수업 기록이 저장되었습니다. 학부모에게 카카오톡으로 알려드릴까요? (버튼을 누르면 카카오가 열리고 안내 문구가 복사됩니다)</div>
+    <div id="np-list"></div>
+    <button class="btn bo" style="width:100%;margin-top:10px" onclick="closeM('m-notify-parents')">닫기</button>
+  </div>
+</div>
+
 <!-- 학습 리포트 인쇄 — 기간 선택 -->
 <div id="m-print-report" class="mo">
   <div class="mdl" style="max-width:340px">
@@ -2025,11 +2044,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260711i"></script>
-<script src="vocab_ref_data.js?v=20260711i"></script>
-<script src="js/db.js?v=20260711i"></script>
-<script src="js/teacher.js?v=20260711i"></script>
-<script src="js/student.js?v=20260711i"></script>
-<script src="js/parent.js?v=20260711i"></script>
+<script src="js/utils.js?v=20260711j"></script>
+<script src="vocab_ref_data.js?v=20260711j"></script>
+<script src="js/db.js?v=20260711j"></script>
+<script src="js/teacher.js?v=20260711j"></script>
+<script src="js/student.js?v=20260711j"></script>
+<script src="js/parent.js?v=20260711j"></script>
 </body>
 </html>

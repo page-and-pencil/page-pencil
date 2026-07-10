@@ -10642,11 +10642,92 @@ async function saveClassLesson(){
     closeClsRecord();
     renderLes();renderRd();renderDash();renderClassTab();
     toast(stuData.length+'명 수업 기록 완료');
+    // 저장 직후 학부모 알림 (결석 제외)
+    openNotifyParents(stuData.filter(d=>d.att!=='absent').map(d=>d.sid));
   }catch(e){
     console.error('saveClassLesson:',e);toast('저장 중 오류가 발생했습니다');
   }finally{
     btn.disabled=false;showLoading(false);
   }
+}
+
+// ── 전역 검색 (Ctrl+K) — 학생·클래스·교재·원서를 한 번에 찾아 바로 이동 ──
+let _gsIdx=0,_gsItems=[];
+function openGlobalSearch(){
+  openM('m-gsearch');
+  const q=document.getElementById('gs-q');
+  if(q){q.value='';gsRender();setTimeout(()=>q.focus(),60);}
+}
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&(e.key==='k'||e.key==='K')){
+    if(!document.getElementById('s-teacher')?.classList.contains('active'))return;
+    e.preventDefault();
+    const m=document.getElementById('m-gsearch');
+    if(m&&m.classList.contains('open'))closeM('m-gsearch');else openGlobalSearch();
+  }
+});
+function gsKey(e){
+  if(e.key==='Escape'){closeM('m-gsearch');return;}
+  if(e.key==='ArrowDown'){e.preventDefault();_gsIdx=Math.min(_gsIdx+1,_gsItems.length-1);gsPaint();}
+  else if(e.key==='ArrowUp'){e.preventDefault();_gsIdx=Math.max(_gsIdx-1,0);gsPaint();}
+  else if(e.key==='Enter'){e.preventDefault();gsGo(_gsIdx);}
+}
+function gsRender(){
+  const q=(document.getElementById('gs-q')?.value||'').trim().toLowerCase();
+  _gsItems=[];_gsIdx=0;
+  const N=s=>String(s||'').toLowerCase();
+  const push=(icon,label,sub,run)=>_gsItems.push({icon,label,sub,run});
+  if(q){
+    DB.stus().filter(s=>!s.inactive&&(N(s.name).includes(q)||N(s.school).includes(q))).slice(0,6)
+      .forEach(s=>push('🧑‍🎓',s.name,[s.grade||s.lv,s.school].filter(Boolean).join(' · ')||'학생',()=>openStuPanelTab(s.id,'sp-summary')));
+    DB.classes().filter(c=>c.active!==false&&N(c.name).includes(q)).slice(0,4)
+      .forEach(c=>push('👥',c.name,(typeof classSchedStr==='function'?classSchedStr(c):'')||'클래스',()=>{swTab('t-class');setTimeout(()=>openClsDetail(c.id),200);}));
+    (_cache.globalTextbooks||[]).filter(b=>N(b.title).includes(q)).slice(0,6)
+      .forEach(b=>push('📚',b.title+(b.level?` (${b.level})`:''),b.category||'교재',()=>openTbookUnits(b.id)));
+    (_cache.library||[]).filter(b=>N(b.title).includes(q)||N(b.series).includes(q)).slice(0,6)
+      .forEach(b=>push('📖',b.title,[(b.series||'원서'),(b.arLevel||b.ar)?'AR '+(b.arLevel||b.ar):''].filter(Boolean).join(' · '),()=>openEditLib(b.id)));
+    push('📝',`어휘 DB에서 "${q}" 검색`,'단어·뜻·출처 전체에서 찾기',()=>{
+      swTab('t-data');switchDataTab('word');
+      setTimeout(()=>{const i=document.getElementById('wdb-q');if(i){i.value=q;wdbPage=0;renderWordDB();}},150);
+    });
+  }
+  gsPaint();
+}
+function gsPaint(){
+  const el=document.getElementById('gs-results');if(!el)return;
+  if(!_gsItems.length){
+    el.innerHTML='<div style="padding:20px;text-align:center;color:var(--slate);font-size:12px">학생·클래스·교재·원서 이름을 입력하세요<br><span style="font-size:11px">↑↓ 이동 · Enter 열기 · Esc 닫기</span></div>';
+    return;
+  }
+  el.innerHTML=_gsItems.map((it,i)=>`<div class="gs-item${i===_gsIdx?' on':''}" onmouseenter="if(_gsIdx!==${i}){_gsIdx=${i};gsPaint();}" onclick="gsGo(${i})">
+    <span style="font-size:16px;flex-shrink:0">${it.icon}</span>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(it.label)}</div>
+      <div style="font-size:11px;color:var(--slate);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(it.sub||'')}</div>
+    </div>
+    ${i===_gsIdx?'<span style="font-size:10px;color:var(--teal);flex-shrink:0">Enter ⏎</span>':''}
+  </div>`).join('');
+  el.querySelector('.gs-item.on')?.scrollIntoView({block:'nearest'});
+}
+function gsGo(i){
+  const it=_gsItems[i];if(!it)return;
+  closeM('m-gsearch');
+  try{it.run();}catch(e){console.warn('gsGo:',e);}
+}
+
+// ── 수업 저장 후 학부모 알림 배치 모달 ──
+function openNotifyParents(sids){
+  const list=document.getElementById('np-list');if(!list||!sids?.length)return;
+  const rows=sids.map(sid=>DB.stus().find(s=>s.id===sid)).filter(Boolean);
+  if(!rows.length)return;
+  list.innerHTML=rows.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border)">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600;color:var(--navy)">${escAttr(s.name)}</div>
+      <div style="font-size:11px;color:var(--slate)">${s.parentPhone?'📱 '+escAttr(s.parentPhone):'학부모 연락처 미등록 — 문구만 복사됩니다'}</div>
+    </div>
+    <button class="btn bt bsm" style="flex-shrink:0" onclick="shareParentUpdateByStu('${s.id}');this.textContent='보냄 ✓';this.disabled=true">📣 카카오</button>
+  </div>`).join('');
+  openM('m-notify-parents');
 }
 
 // ── 전체 백업 — 모든 테이블을 서버에서 직접 내려받아 JSON 파일로 저장 ──
