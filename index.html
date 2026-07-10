@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260711a">
+<link rel="stylesheet" href="css/style.css?v=20260711b">
 </head>
 <body>
 
@@ -1456,9 +1456,9 @@
               <input type="text" id="tu-new-unit-subtitle" placeholder="소제목 (선택)" onkeydown="if(event.key==='Enter'&&!event.isComposing)tuCreateUnit()" style="flex:1;min-width:0;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:#fff;outline:none">
               <button class="btn bt bsm" onclick="tuCreateUnit()" style="flex-shrink:0;white-space:nowrap">+ 생성</button>
             </div>
-            <button class="btn ba bsm" style="width:100%;white-space:nowrap" onclick="document.getElementById('tu-toc-file').click()" title="교재 목차 사진을 올리면 단원이 순서대로 자동 생성됩니다">📷 목차 이미지로 단원 일괄 생성</button>
+            <button class="btn ba bsm" style="width:100%;white-space:nowrap" onclick="document.getElementById('tu-toc-file').click()" title="목차 사진은 단원 생성·동기화, 단어 리스트 사진은 단원별 단어 추가 — 자동 판별">📷 목차·단어 리스트 이미지 인식</button>
             <input type="file" id="tu-toc-file" accept="image/*" style="display:none" onchange="tuTocFile(event)">
-            <div style="font-size:10px;color:var(--slate);text-align:center">목차 사진을 Ctrl+V로 붙여넣어도 됩니다</div>
+            <div style="font-size:10px;color:var(--slate);text-align:center">사진을 Ctrl+V로 붙여넣어도 됩니다 (목차/단어 리스트 자동 판별)</div>
           </div>
         </div>
       </div>
@@ -1526,8 +1526,8 @@
         <button class="btn bt bsm" onclick="tuAddWord()" style="white-space:nowrap">+ 추가</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
-        <button class="btn bt bsm" onclick="document.getElementById('tu-any-file').click()" style="white-space:nowrap">🤖 AI 파일 가져오기</button>
-        <input type="file" id="tu-any-file" accept=".txt,.csv,.xlsx,.xls" style="display:none" onchange="tuImportAny(event)">
+        <button class="btn bt bsm" onclick="document.getElementById('tu-any-file').click()" style="white-space:nowrap" title="txt·CSV·Excel·이미지 — 정제 안 된 워드리스트도 단원별로 자동 인식">🤖 AI 파일 가져오기</button>
+        <input type="file" id="tu-any-file" accept=".txt,.csv,.xlsx,.xls,image/*" style="display:none" onchange="tuImportAny(event)">
         <button class="btn bt bsm" onclick="tuAutoFillAll()" style="white-space:nowrap">✨ AI 전체 채우기</button>
         <button class="btn ba bsm" onclick="tuRefreshFromLib()" style="white-space:nowrap">📚 원서 예문 갱신</button>
         <button class="btn ba bsm" onclick="tuExportWords()" style="white-space:nowrap">⬇ 단원 CSV</button>
@@ -2006,11 +2006,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260711a"></script>
-<script src="vocab_ref_data.js?v=20260711a"></script>
-<script src="js/db.js?v=20260711a"></script>
-<script src="js/teacher.js?v=20260711a"></script>
-<script src="js/student.js?v=20260711a"></script>
-<script src="js/parent.js?v=20260711a"></script>
+<script src="js/utils.js?v=20260711b"></script>
+<script src="vocab_ref_data.js?v=20260711b"></script>
+<script src="js/db.js?v=20260711b"></script>
+<script src="js/teacher.js?v=20260711b"></script>
+<script src="js/student.js?v=20260711b"></script>
+<script src="js/parent.js?v=20260711b"></script>
 </body>
 </html>

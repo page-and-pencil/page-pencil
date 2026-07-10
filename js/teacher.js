@@ -3695,6 +3695,27 @@ function tuCreateUnit(){
 }
 // ── 목차 이미지 → 단원 일괄 생성 (Claude 비전으로 목차 추출, 확인 후 생성) ──
 function tuTocFile(e){const f=e.target.files[0];e.target.value='';if(f)tuTocFromFile(f);}
+// ── 단원명 매칭 공용: 정규화 일치 → 접두 일치('Unit 1' ↔ 'Unit 1. Short Vowels') → 첫 숫자 1:1 일치(모호하면 미매칭) ──
+function tuMatchUnitNames(existKeys,names){
+  const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
+  const firstNum=s=>{const m2=String(s||'').match(/\d+/);return m2?parseInt(m2[0]):null;};
+  const used=new Set();const out=new Map();
+  names.forEach(n=>{const k=existKeys.find(k2=>!used.has(k2)&&norm(k2)===norm(n));if(k){out.set(n,k);used.add(k);}});
+  names.forEach(n=>{
+    if(out.has(n))return;
+    const nn=norm(n);
+    const k=existKeys.find(k2=>!used.has(k2)&&(nn.startsWith(norm(k2))||norm(k2).startsWith(nn)));
+    if(k){out.set(n,k);used.add(k);}
+  });
+  names.forEach(n=>{
+    if(out.has(n))return;
+    const num=firstNum(n);if(num==null)return;
+    const cands=existKeys.filter(k2=>!used.has(k2)&&firstNum(k2)===num);
+    if(cands.length===1){out.set(n,cands[0]);used.add(cands[0]);} // 같은 숫자 후보가 여럿이면 건너뜀 (오매칭 방지)
+  });
+  return out; // Map: 새 이름 → 매칭된 기존 단원 키
+}
+// 이미지 임포트: 목차인지 워드리스트인지 AI가 판별해 각각 동기화/병합으로 처리
 async function tuTocFromFile(file){
   if(!file||!file.type||!file.type.startsWith('image/'))return;
   const tbId=document.getElementById('tu-tb-id')?.value||'';
@@ -3702,38 +3723,55 @@ async function tuTocFromFile(file){
   if(!tb){toast('교재를 먼저 열어 주세요');return;}
   if(!DB.api()){toast('설정에서 API 키를 등록해 주세요');return;}
   if(typeof checkFileSize==='function'&&!checkFileSize(file,8))return;
-  toast('목차 이미지 분석 중...');
+  toast('이미지 분석 중... (목차/단어 리스트 자동 판별)');
   try{
     const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(new Error('파일 읽기 실패'));r.readAsDataURL(file);});
     const m=String(dataUrl).match(/^data:(image\/[\w.+-]+);base64,(.+)$/s);
     if(!m)throw new Error('이미지 형식을 읽지 못했어요');
-    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:1500,messages:[{role:'user',content:[
+    const grade=getGradeFromLevel(tb.level||'');
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:8192,messages:[{role:'user',content:[
       {type:'image',source:{type:'base64',media_type:m[1],data:m[2]}},
-      {type:'text',text:'이 이미지는 영어 교재의 목차입니다. 단원 목록을 위에서 아래 순서 그대로 JSON 배열로만 출력하세요.\n형식: [{"unit":"Unit 1","title":"소제목"}]\n규칙:\n- unit: 교재 표기 그대로 (Unit 1, Lesson 3, Chapter 2 등). 번호 표기가 없으면 제목을 unit으로.\n- title: 단원 소제목. 없으면 빈 문자열.\n- 목차가 아닌 항목(머리말, 정답, 부록 안내 등)은 제외.\n- JSON 외 다른 텍스트를 출력하지 마세요.'}]}]});
-    const raw=(d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
-    const arr=JSON.parse(raw);
+      {type:'text',text:`이 이미지는 영어 교재의 '목차' 또는 '단어 리스트(워드리스트)'입니다. 어느 쪽인지 판별해 JSON으로만 출력하세요.
+
+A) 목차(단원 제목만 나열, 단어 없음)면:
+{"type":"toc","items":[{"unit":"Unit 1","title":"소제목"}]}
+- unit: 교재 표기 그대로(Unit/Lesson/Chapter/Day 등), 위→아래 순서 유지. 번호 표기가 없으면 제목을 unit으로.
+- title: 단원 소제목, 없으면 "". 머리말·정답·부록 안내는 제외.
+
+B) 단어 리스트(영어 단어 나열, 뜻·번호 포함 가능, 정제 안 됐어도 됨)면:
+{"type":"wordlist","units":{"Unit 1":[{"word":"apple","ko":"사과","pos":"noun","example":""}]}}
+- 단원 구분(Unit/Lesson/Day/Chapter 등 소제목)이 있으면 단원별로 분류, 없으면 "전체" 키 하나로.
+- word: 소문자 (구동사 포함). ko: 이미지에 있으면 그대로, 없으면 ${grade} 수준 2-4단어로 작성. pos: noun/verb/adj/adv/prep/phrase/conj 추론. example: 이미지에 있을 때만.
+- 고유명사(인명·지명)·기능어(the/a/is 등) 제외.
+
+JSON 외 다른 텍스트 금지.`}]}]});
+    let raw=(d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
+    let json;try{json=JSON.parse(raw);}catch{json=JSON.parse(tryRepairJSON(raw));}
+    if(json.type==='wordlist'&&json.units){
+      // 원서 DB에 더 좋은 예문이 있으면 교체 (텍스트 임포트와 동일 후처리)
+      for(const ws of Object.values(json.units)){
+        if(!Array.isArray(ws))continue;
+        for(const w of ws){const ex=findExampleFromBooks(w.word||'',grade);if(ex)w.example=ex;}
+      }
+      tuWordlistMerge(tbId,json.units);
+      return;
+    }
+    const arr=json.type==='toc'?json.items:(Array.isArray(json)?json:null);
     if(!Array.isArray(arr)||!arr.length)throw new Error('단원을 찾지 못했어요');
     const items=arr.map(x=>({unit:String(x.unit||'').trim(),title:String(x.title||'').trim()})).filter(x=>x.unit);
     if(!items.length)throw new Error('단원을 찾지 못했어요');
-    // ── 동기화 병합: 기존 단원과 매칭(이름 변경으로 처리, 단어·자료·학생 카드 전부 이전), 삭제는 절대 없음 ──
-    const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
-    const firstNum=s=>{const m2=String(s||'').match(/\d+/);return m2?parseInt(m2[0]):null;};
+    tuTocSync(tbId,items);
+  }catch(e2){console.warn('tuToc:',e2);toast('이미지 분석 실패: '+(e2.message||''));}
+}
+// ── 목차 동기화 병합: 기존 단원과 매칭(이름 변경으로 처리, 단어·자료·학생 카드 전부 이전), 삭제는 절대 없음 ──
+function tuTocSync(tbId,items){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  try{
     const existKeys=tbUnitKeys(tb);
-    const usedOld=new Set(),renames=[],creates=[];
-    // 1차: 정규화 정확 일치 → 2차: 한쪽이 다른 쪽의 접두(예: 'Unit 1' ↔ 'Unit 1. Short Vowels') → 3차: 첫 숫자 1:1 일치
-    items.forEach(x=>{x._match=existKeys.find(k=>!usedOld.has(k)&&norm(k)===norm(x.unit))||null;if(x._match)usedOld.add(x._match);});
-    items.forEach(x=>{
-      if(x._match)return;
-      const nu=norm(x.unit);
-      const c=existKeys.find(k=>!usedOld.has(k)&&(nu.startsWith(norm(k))||norm(k).startsWith(nu)));
-      if(c){x._match=c;usedOld.add(c);}
-    });
-    items.forEach(x=>{
-      if(x._match)return;
-      const n=firstNum(x.unit);if(n==null)return;
-      const cands=existKeys.filter(k=>!usedOld.has(k)&&firstNum(k)===n);
-      if(cands.length===1){x._match=cands[0];usedOld.add(cands[0]);} // 같은 숫자 후보가 여럿이면 오매칭 방지 위해 건너뜀
-    });
+    const match=tuMatchUnitNames(existKeys,items.map(x=>x.unit));
+    items.forEach(x=>{x._match=match.get(x.unit)||null;});
+    const usedOld=new Set([...match.values()]);
+    const renames=[],creates=[];
     items.forEach(x=>{if(x._match){if(x._match!==x.unit)renames.push([x._match,x.unit]);}else creates.push(x);});
     const kept=existKeys.filter(k=>!usedOld.has(k)); // 목차에 없는 기존 단원 — 그대로 보존
     const wc=k=>tuNormWords((tb.units||{})[k]||[]).length;
@@ -3759,7 +3797,39 @@ async function tuTocFromFile(file){
         toast(`목차 동기화 완료 — 변경 ${renames.length}·생성 ${creates.length}·보존 ${kept.length}${cardCnt?` · 학생 카드 ${cardCnt}개 연결 이전`:''}`);
       }catch(err){toast('동기화 저장 실패: '+(err.message||''));}
     });
-  }catch(e2){console.warn('tuToc:',e2);toast('목차 분석 실패: '+(e2.message||''));}
+  }catch(e2){console.warn('tuTocSync:',e2);toast('목차 동기화 실패: '+(e2.message||''));}
+}
+// ── 워드리스트 병합: 인식된 단원명을 기존 단원과 매칭해 단어만 추가 (미리보기 확인, 기존 단어·단원 유지) ──
+function tuWordlistMerge(tbId,parsedUnits){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const entries=Object.entries(parsedUnits||{}).filter(([,ws])=>Array.isArray(ws)&&ws.length);
+  if(!entries.length){toast('단어를 찾지 못했어요');return;}
+  const existKeys=tbUnitKeys(tb);
+  const match=tuMatchUnitNames(existKeys,entries.map(([n])=>n));
+  const plan=entries.map(([name,ws])=>{
+    const target=match.get(name)||name; // 매칭되면 기존 단원에 합침, 아니면 새 단원
+    const existing=tuNormWords((tb.units||{})[target]||[]);
+    const existSet=new Set(existing.map(w=>w.word));
+    const add=ws.map(w=>({word:String(w.word||'').toLowerCase().trim(),ko:w.ko||'',pos:w.pos||'',example:w.example||''}))
+      .filter(w=>w.word&&/^[a-z]/.test(w.word)&&!existSet.has(w.word));
+    return{name,target,isNew:!existSet.size&&!match.get(name),add,skip:ws.length-add.length};
+  }).filter(p=>p.add.length);
+  if(!plan.length){toast('추가할 새 단어가 없습니다 (모두 이미 있음)');return;}
+  const total=plan.reduce((s,p)=>s+p.add.length,0);
+  const lines=plan.slice(0,12).map(p=>`· ${p.target}${match.get(p.name)&&p.target!==p.name?` (인식명: ${p.name})`:!match.get(p.name)?' (새 단원)':''}: +${p.add.length}단어${p.skip?` · 중복 ${p.skip} 건너뜀`:''}`);
+  if(plan.length>12)lines.push(`외 ${plan.length-12}개 단원`);
+  askConfirm('워드리스트 가져오기',`${plan.length}개 단원에 단어 ${total}개를 추가합니다. 기존 단어·단원은 그대로 유지됩니다.\n\n${lines.join('\n')}\n\n적용할까요?`,'적용','bt',async()=>{
+    try{
+      const units={...(tb.units||{})};
+      plan.forEach(p=>{units[p.target]=[...tuNormWords(units[p.target]||[]),...p.add];});
+      const newKeys=plan.map(p=>p.target).filter(k=>!existKeys.includes(k));
+      const updated={...tb,units,...(newKeys.length?{unitOrder:[...existKeys,...newKeys]}:{})};
+      await supaUpsert('global_textbooks',tbId,updated,null);
+      const ci=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(ci>=0)_cache.globalTextbooks[ci]=updated;
+      tuPopulateUnitSel(tbId);tuRenderWords(tbId,_tuCurUnit);renderTbookTable();
+      toast(`${plan.length}개 단원에 ${total}개 단어 추가 완료`);
+    }catch(err){toast('저장 실패: '+(err.message||''));}
+  });
 }
 function tuDeleteUnit(){
   const tbId=document.getElementById('tu-tb-id').value;
@@ -3934,7 +4004,8 @@ async function tuImportAny(e){
   e.target.value='';
   const tbId=document.getElementById('tu-tb-id').value;
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
-  if(!tb.units)tb.units={};
+  // 이미지(워드리스트 사진·목차)는 비전 분류 경로로
+  if(file.type&&file.type.startsWith('image/')){tuTocFromFile(file);return;}
   const status=document.getElementById('tu-import-status');
   if(status)status.textContent='파일 읽는 중...';
   try{
@@ -3951,54 +4022,23 @@ async function tuImportAny(e){
       rawText=await file.text();
     }
     rawText=tryFixEncoding(rawText.replace(/\r\n/g,'\n').replace(/\r/g,'\n'));
-    let addedUnits=0,addedWords=0;
+    // 어떤 경로든 결과는 {단원명:[단어]} → 기존 단원 매칭 + 미리보기 병합(tuWordlistMerge)으로 일원화
+    let parsedUnits=null;
     if(DB.api()){
       if(status)status.textContent='AI 분석 중...';
-      const parsedUnits=await aiImportWords(rawText,tbId);
-      for(const[unitName,words]of Object.entries(parsedUnits)){
-        if(!Array.isArray(words)||!words.length)continue;
-        const existing=tuNormWords(tb.units[unitName]||[]);
-        const existSet=new Set(existing.map(w=>w.word));
-        const newWords=words.map(w=>({word:(w.word||'').toLowerCase().trim(),ko:w.ko||'',pos:w.pos||'',example:w.example||''})).filter(w=>w.word&&/^[a-zA-Z]/.test(w.word)&&!existSet.has(w.word));
-        if(!newWords.length)continue;
-        tb.units[unitName]=[...existing,...newWords];
-        if(!existing.length)addedUnits++;
-        addedWords+=newWords.length;
-      }
-    }else{
+      parsedUnits=await aiImportWords(rawText,tbId);
+    }else if(/^(Lesson|Unit|Chapter|DAY)\s*[\d.]+/im.test(rawText)){
       // API 없으면 로컬 파서 폴백
-      if(/^(Lesson|Unit|Chapter|DAY)\s*[\d.]+/im.test(rawText)){
-        const parsed=parseBookWordFormat(rawText);
-        for(const{unit,words}of parsed){
-          const existing=tuNormWords(tb.units[unit]||[]);
-          const existSet=new Set(existing.map(w=>w.word));
-          const newWords=words.filter(w=>w.word&&!existSet.has(w.word));
-          tb.units[unit]=[...existing,...newWords];
-          if(!existing.length)addedUnits++;
-          addedWords+=newWords.length;
-        }
-      }else{
-        const rows=rawText.split('\n').filter(l=>l.trim()).map(l=>parseCSVLine(l));
-        const words=await universalParseWords(rows,rawText);
-        if(words.length){
-          const unitName=_tuCurUnit||'전체';
-          const existing=tuNormWords(tb.units[unitName]||[]);
-          const existSet=new Set(existing.map(w=>w.word));
-          const newWords=words.filter(w=>w.word&&!existSet.has(w.word));
-          tb.units[unitName]=[...existing,...newWords];
-          if(!existing.length)addedUnits++;
-          addedWords+=newWords.length;
-        }
-      }
-    }
-    if(addedWords>0){
-      await supaUpsert('global_textbooks',tbId,tb,null);
-      const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=tb;
-      _tuCurUnit=null;tuPopulateUnitSel(tbId);tuRenderWords(tbId,null);renderTbookTable();
-      toast(`${addedUnits}개 단원, ${addedWords}개 단어 추가 완료`);
+      const parsed=parseBookWordFormat(rawText);
+      parsedUnits={};
+      parsed.forEach(({unit,words})=>{parsedUnits[unit]=[...(parsedUnits[unit]||[]),...words];});
     }else{
-      toast('추가된 단어가 없습니다');
+      const rows=rawText.split('\n').filter(l=>l.trim()).map(l=>parseCSVLine(l));
+      const words=await universalParseWords(rows,rawText);
+      if(words.length)parsedUnits={[_tuCurUnit||'전체']:words};
     }
+    if(parsedUnits&&Object.keys(parsedUnits).length)tuWordlistMerge(tbId,parsedUnits);
+    else toast('추가된 단어가 없습니다');
   }catch(err){toast('가져오기 실패: '+err.message);console.error('tuImportAny',err);}
   finally{if(status)status.textContent='';}
 }
