@@ -8270,6 +8270,9 @@ async function saveModalAssignment(){
         // 미션 과제는 날짜/마감/메모만 수정 (교재·유닛·진행률 보호)
         existing.date=date;existing.due=due;existing.note=note;
       }else{
+        // 개별 수정으로 내용이 공통 배치본과 달라지면 공통 표식 해제 (수정 복원 시 전원 확산 방지)
+        const changed=existing.category!==cat||existing.due!==due||(existing.bookTitle||'')!==book||(existing.range||'')!==range||(existing.note||'')!==note;
+        if(changed&&existing.common===true)existing.common=false;
         existing.category=cat;existing.date=date;existing.due=due;
         existing.bookTitle=book;existing.range=range;existing.note=note;
       }
@@ -9383,8 +9386,11 @@ function clHwRestoreFromSaved(classId,dateStr){
   const groups=new Map();
   saved.forEach(a=>{
     const key=[a.due||dateStr,a.category||'',a.bookTitle||'',a.range||'',a.note||''].join('');
-    if(!groups.has(key))groups.set(key,{a,sids:new Set()});
-    groups.get(key).sids.add(a.sid);
+    if(!groups.has(key))groups.set(key,{a,sids:new Set(),hasCommon:false,hasInd:false});
+    const g=groups.get(key);
+    g.sids.add(a.sid);
+    if(a.common===true)g.hasCommon=true;   // 공통 과제로 저장된 출처 표식
+    if(a.common===false)g.hasInd=true;     // 개별 과제로 저장된 출처 표식
   });
   const fillRow=(nr,a)=>{
     if(!nr)return;
@@ -9398,8 +9404,9 @@ function clHwRestoreFromSaved(classId,dateStr){
   };
   const dueGroups={};
   [...groups.values()].forEach(g=>{
-    // 전원(현재 반 기준)이 받은 과제만 '공통' — 일부 학생만 받은 과제가 재저장 시 전원에게 퍼지지 않게
-    const isCommon=stuTotal>0&&g.sids.size>=stuTotal;
+    // 저장 시 기록된 출처(common:true/false)를 우선 사용 — 결석·반원 변동에도 공통/개별이 그대로 유지됨.
+    // 출처 표식이 없는 레거시 데이터는 보수적으로 '전원 보유'일 때만 공통 (일부 학생 과제가 전원에게 퍼지는 걸 방지)
+    const isCommon=g.hasCommon?true:(g.hasInd?false:(stuTotal>0&&g.sids.size>=stuTotal));
     if(isCommon){
       (dueGroups[g.a.due||dateStr]=dueGroups[g.a.due||dateStr]||[]).push(g.a);
     }else{
@@ -9650,6 +9657,9 @@ async function saveAssignEdit(aid,sid){
   if(!a)return;
   const due=document.getElementById(`ae-due-${aid}`)?.value||'';
   const range=document.getElementById(`ae-range-${aid}`)?.value.trim()||'';
+  // 개별 수정으로 내용이 공통 배치본과 달라지면 공통 표식 해제 (수정 복원 시 전원 확산 방지)
+  const _prevRange=(a.type==='other'&&a.text&&!a.range)?(a.text||''):(a.range||'');
+  if(a.common===true&&((a.due||'')!==due||_prevRange!==range))a.common=false;
   a.due=due;
   // 레거시 'other'(text에만 내용 저장) 과제만 text 갱신 — 커스텀 구분(range 저장)은 range 갱신
   if(a.type==='other'&&a.text&&!a.range)a.text=range; else a.range=range;
@@ -10091,27 +10101,36 @@ async function saveClassLesson(){
       }
       // 클래스 공통 교재 → 학생 개별 교재 동기화
       await syncClassTbsToStudent(d.sid).catch(()=>{});
-      // 공통 과제 → 결석 제외
-      if(d.att!=='absent'){
+      // 공통 과제 → 결석 제외. 수정 모드에서는 원래 이 수업의 구성원(당시 수업 기록 보유)에게만 적용 —
+      // 수업 이후 반에 합류한 학생에게 지난 숙제가 백필되지 않게
+      if(d.att!=='absent'&&(!editMode||existing)){
         for(const hw of commonHws){
-          const isDupA=(_cache.assignments||[]).some(x=>x.sid===d.sid&&_tbBase(x.bookTitle||'')===_tbBase(hw.book||'')&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||'')&&(x.note||'')===(hw.note||''));
-          if(isDupA)continue;
+          const dup=(_cache.assignments||[]).find(x=>x.sid===d.sid&&_tbBase(x.bookTitle||'')===_tbBase(hw.book||'')&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||'')&&(x.note||'')===(hw.note||''));
+          if(dup){
+            // 개별→공통으로 옮겨진 경우 출처 표식 동기화 (완료 상태 보존)
+            if(dup.common!==true){dup.common=true;await supaUpsert('assignments',dup.id,dup,dup.sid).catch(()=>{});}
+            continue;
+          }
           const allLib=[...(_cache.library||[])];
           const isReading=allLib.some(b=>b.title===hw.book);
           const a={id:uid(),sid:d.sid,date,due:hw.due,classId,category:hw.cat,
-            type:isReading?'reading':'textbook',bookTitle:hw.book,range:hw.range,note:hw.note||''};
+            type:isReading?'reading':'textbook',bookTitle:hw.book,range:hw.range,note:hw.note||'',common:true};
           await supaUpsert('assignments',a.id,a,d.sid);_cache.assignments.unshift(a);
         }
       }
     }
     // 개별 과제
     for(const hw of indHws){
-      const isDupA=(_cache.assignments||[]).some(x=>x.sid===hw.sid&&_tbBase(x.bookTitle||'')===_tbBase(hw.book||'')&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||'')&&(x.note||'')===(hw.note||''));
-      if(isDupA)continue;
+      const dup=(_cache.assignments||[]).find(x=>x.sid===hw.sid&&_tbBase(x.bookTitle||'')===_tbBase(hw.book||'')&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||'')&&(x.note||'')===(hw.note||''));
+      if(dup){
+        // 공통→개별로 옮겨진 경우 출처 표식 동기화
+        if(dup.common!==false){dup.common=false;await supaUpsert('assignments',dup.id,dup,dup.sid).catch(()=>{});}
+        continue;
+      }
       const allLib=[...(_cache.library||[])];
       const isReading=allLib.some(b=>b.title===hw.book);
       const a={id:uid(),sid:hw.sid,date,due:hw.due,classId,category:hw.cat,
-        type:isReading?'reading':'textbook',bookTitle:hw.book,range:hw.range,note:hw.note||''};
+        type:isReading?'reading':'textbook',bookTitle:hw.book,range:hw.range,note:hw.note||'',common:false};
       await supaUpsert('assignments',a.id,a,hw.sid);_cache.assignments.unshift(a);
     }
     closeClsRecord();
