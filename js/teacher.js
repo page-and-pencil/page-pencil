@@ -1637,13 +1637,34 @@ function clHwBookOffer(inp){
   const row=inp.closest('.cl-hw-row');if(!row)return;
   if((row.querySelector('.cl-hw-cat')?.value||'')==='book')libOfferAdd(inp);
 }
-// 클래스5 책 선택 시 범위 입력에 과 목록 datalist 제공
+// 구분+책 제목 → 범위 입력용 단원/과/챕터 datalist 옵션 생성 (교재·원서·클래스5 공용)
+function _bookUnitOpts(cat,title){
+  const t=(title||'').trim();
+  if(!t)return '';
+  const same=x=>(x.title||'').trim().toLowerCase()===t.toLowerCase();
+  if(cat==='class5'){
+    const b=(_cache.class5Books||[]).find(same);
+    return (b?(b.units||[]):[]).map(u=>`<option value="${escAttr(u)}">`).join('');
+  }
+  if(cat==='book'||(!cat&&(_cache.library||[]).some(same))){
+    // 원서: 어휘 데이터의 챕터 목록
+    const b=(_cache.library||[]).find(same);
+    const chs=[...new Set((b?.vocab||[]).map(w=>w.chapter||w.unit).filter(Boolean))];
+    return chs.map(c=>`<option value="${escAttr(c)}">`).join('');
+  }
+  // 교재: 단원 키 (+단원 제목 라벨)
+  const tb=(_cache.globalTextbooks||[]).find(same);
+  if(!tb)return '';
+  const titles=tb.unitTitles||{};
+  return Object.keys(tb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))
+    .map(k=>`<option value="${escAttr(k)}">${k}${titles[k]?' — '+titles[k]:''}</option>`).join('');
+}
+// 책 선택 시 범위 입력에 단원/과/챕터 datalist 제공 (전 구분)
 function clHwFillRangeDl(row){
   const dl=row.querySelector('datalist[data-role="range"]');if(!dl)return;
-  if((row.querySelector('.cl-hw-cat')?.value||'')!=='class5'){dl.innerHTML='';return;}
-  const t=(row.querySelector('.cl-hw-book')?.value||'').trim();
-  const b=(_cache.class5Books||[]).find(x=>(x.title||'').trim().toLowerCase()===t.toLowerCase());
-  dl.innerHTML=(b?(b.units||[]):[]).map(u=>`<option value="${escAttr(u)}">`).join('');
+  let cat=row.querySelector('.cl-hw-cat')?.value||'';
+  if(cat==='__custom__')cat='';
+  dl.innerHTML=_bookUnitOpts(cat,row.querySelector('.cl-hw-book')?.value||'');
 }
 function clHwBookChange(inp){
   clHwBookOffer(inp);
@@ -1693,9 +1714,9 @@ function spAsgnBookChange(inp,sid,learn=true){
     }
   }
   const dl=document.getElementById('dl-asgn-r-'+sid);if(!dl)return;
-  if(!isC5){dl.innerHTML='';return;}
-  const b=(_cache.class5Books||[]).find(x=>(x.title||'').trim().toLowerCase()===t.toLowerCase());
-  dl.innerHTML=(b?(b.units||[]):[]).map(u=>`<option value="${escAttr(u)}">`).join('');
+  let cat=document.getElementById('asgn-cat-'+sid)?.value||'';
+  if(cat==='__custom__')cat='';
+  dl.innerHTML=_bookUnitOpts(cat,t); // 교재 단원·원서 챕터·클래스5 과 공용
 }
 // 클래스5: 과 입력 즉시 해당 책에 등록 (학생 패널)
 function spAsgnRangeChange(inp,sid){
@@ -7842,8 +7863,7 @@ function modalAssignCatChange(){
       if(matched){bookEl.value=matched[1].book||'';break;}
     }
   }
-  const rangeHelper=document.getElementById('modal-assign-range-helper');
-  if(rangeHelper){rangeHelper.style.display='none';rangeHelper.innerHTML='';}
+  assignBookChange(); // 구분 변경(자동 채움 포함) 후 단원/챕터/과 칩 재계산
   const extra=document.getElementById('modal-assign-extra');
   if(cat==='vocab'&&sid){
     const recentCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).slice(0,20);
@@ -7952,16 +7972,32 @@ function assignBookChange(){
   const cat=document.getElementById('modal-assign-cat')?.value||'';
   const helper=document.getElementById('modal-assign-range-helper');
   if(!helper)return;
+  const hide=()=>{helper.style.display='none';helper.innerHTML='';};
+  // 범위 필드가 숨겨진 구분(클래스5 스케줄/미션/워크시트)에서는 표시하지 않음
+  const rangeF=document.getElementById('modal-assign-range')?.closest('.f');
+  if(rangeF&&rangeF.style.display==='none'){hide();return;}
   const val=(document.getElementById('modal-assign-book')?.value||'').trim();
-  if(!val||cat!=='book'){helper.style.display='none';helper.innerHTML='';return;}
-  const allLib=[...(_cache.library||[])];
-  const book=allLib.find(b=>(b.title||'').trim().toLowerCase()===val.toLowerCase());
-  if(!book){helper.style.display='none';helper.innerHTML='';return;}
-  const chapters=(elibGetChapters(book.id)||[]).filter(c=>c.name);
-  if(!chapters.length){helper.style.display='none';helper.innerHTML='';return;}
+  if(!val){hide();return;}
+  const same=x=>(x.title||'').trim().toLowerCase()===val.toLowerCase();
+  // 구분에 따라 원서 챕터 / 클래스5 과 / 교재 단원을 칩으로 제안 (클릭 시 범위 자동 입력)
+  let entries=[],label='단원 선택';
+  if(cat==='book'||(!cat&&(_cache.library||[]).some(same))){
+    const book=(_cache.library||[]).find(same);
+    entries=book?(elibGetChapters(book.id)||[]).filter(c=>c.name).map(c=>({v:c.name,l:c.name})):[];
+    label='챕터 선택';
+  }else if(cat==='class5'){
+    const b=(_cache.class5Books||[]).find(same);
+    entries=(b?(b.units||[]):[]).map(u=>({v:u,l:u}));
+    label='과 선택';
+  }else{
+    const tb=(_cache.globalTextbooks||[]).find(same);
+    const titles=tb?.unitTitles||{};
+    entries=tb?Object.keys(tb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(k=>({v:k,l:k+(titles[k]?' — '+titles[k]:'')})):[];
+  }
+  if(!entries.length){hide();return;}
   helper.style.display='block';
-  helper.innerHTML=`<div style="font-size:11px;color:var(--slate);margin-bottom:4px">챕터 선택 (클릭 시 범위 자동 입력)</div>
-    <div style="display:flex;flex-wrap:wrap;gap:4px">${chapters.map(c=>`<button type="button" class="btn bo bsm" style="font-size:11px;padding:2px 8px" onclick="document.getElementById('modal-assign-range').value='${c.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}';">${c.name}</button>`).join('')}</div>`;
+  helper.innerHTML=`<div style="font-size:11px;color:var(--slate);margin-bottom:4px">${label} (클릭 시 범위 자동 입력)</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px">${entries.map(e=>`<button type="button" class="btn bo bsm" style="font-size:11px;padding:2px 8px" onclick="document.getElementById('modal-assign-range').value='${jsq(e.v)}';">${e.l}</button>`).join('')}</div>`;
 }
 function c5RowHtml(date,book,unit){
   const iS='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;min-width:0';
@@ -9269,16 +9305,13 @@ function spHwCatChange(sid){
   // 직접 입력 구분 토글
   const custom=document.getElementById(`asgn-cat-custom-${sid}`);
   if(custom){custom.style.display=cat==='__custom__'?'':'none';if(cat==='__custom__')setTimeout(()=>custom.focus(),0);else custom.value='';}
-  // 범위 datalist 동기화: 클래스5면 채우고 아니면 비움
   if(cat==='class5'&&bookEl){
-    // 타 구분에서 자동 채움된 교재가 클래스5 라이브러리로 흘러들지 않게 비움
+    // 클래스5 기지 항목이 아닌 잔존값은 무조건 비움 — 구분 변경만으로 라이브러리에 등록되는 오발동 방지
     const v=bookEl.value.trim();
     const same=x=>(x.title||'').trim().toLowerCase()===v.toLowerCase();
-    // 클래스5 기지 항목이 아닌 잔존값은 무조건 비움 — 구분 변경만으로 라이브러리에 등록되는 오발동 방지
     const isC5Known=!v||v==='클래스5'||(_cache.class5Books||[]).some(same);
     if(!isC5Known)bookEl.value='';
-    spAsgnBookChange(bookEl,sid,false);
-  }else{const rdl=document.getElementById(`dl-asgn-r-${sid}`);if(rdl)rdl.innerHTML='';}
+  }
   fillAsgnBookDatalist(`dl-asgn-${sid}`,cat);
   if(cat&&cat!=='other'&&cat!=='book'&&cat!=='class5'&&cat!=='__custom__'&&bookEl&&!bookEl.value){
     const stClasses=DB.classes().filter(c=>(c.studentIds||[]).includes(sid));
@@ -9287,6 +9320,7 @@ function spHwCatChange(sid){
       if(matched){bookEl.value=matched[1].book||'';break;}
     }
   }
+  if(bookEl)spAsgnBookChange(bookEl,sid,false); // 자동 채움 이후 단원 datalist 동기화 (라이브러리 등록 없음)
   const extra=document.getElementById(`asgn-extra-${sid}`);
   if(cat==='vocab'&&extra){
     const recentCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).slice(0,20);
@@ -9481,16 +9515,20 @@ function clHwCatChange(sel){
     clHwFillRangeDl(row);
     return;
   }
-  clHwFillRangeDl(row);
-  if(!cat)return;
-  if(!bookInput||bookInput.value)return;
-  // cl-subj-rows에서 당일 수업 내용 먼저 참조
-  const subjRow=document.querySelector(`#cl-subj-rows .sr[data-s="${cat}"]`)||document.querySelector(`#cl-subj-rows .sr[data-s^="${cat}_"]`);
-  if(subjRow){const bookEl=subjRow.querySelector('[data-f="book"]');if(bookEl&&bookEl.value){bookInput.value=bookEl.value;return;}}
-  // fallback: 클래스 기본 교재
-  const c=DB.classes().find(x=>x.id===document.getElementById('cl-class-id').value);if(!c?.commonMaterials)return;
-  const matched=Object.entries(c.commonMaterials).find(([k])=>k===cat||k.startsWith(cat+'_'));
-  if(matched)bookInput.value=matched[1].book||'';
+  if(cat&&bookInput&&!bookInput.value){
+    // cl-subj-rows에서 당일 수업 내용 먼저 참조
+    const subjRow=document.querySelector(`#cl-subj-rows .sr[data-s="${cat}"]`)||document.querySelector(`#cl-subj-rows .sr[data-s^="${cat}_"]`);
+    if(subjRow){const bookEl=subjRow.querySelector('[data-f="book"]');if(bookEl&&bookEl.value)bookInput.value=bookEl.value;}
+    if(!bookInput.value){
+      // fallback: 클래스 기본 교재
+      const c=DB.classes().find(x=>x.id===document.getElementById('cl-class-id').value);
+      if(c?.commonMaterials){
+        const matched=Object.entries(c.commonMaterials).find(([k])=>k===cat||k.startsWith(cat+'_'));
+        if(matched)bookInput.value=matched[1].book||'';
+      }
+    }
+  }
+  clHwFillRangeDl(row); // 자동 채움 이후에 단원 datalist 갱신 (교재/원서/클래스5 공통)
 }
 // 수업에서 다룬 진도 전량을 복습 범위로 계산
 // 직전 진도(prev)와 이번 진도(cur)가 같은 형식의 연속 숫자면 "Day 1-2"처럼 묶어서 반환
@@ -9655,6 +9693,7 @@ function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook='',prefillRange='
     if(prefillCat){const catEl=row.querySelector('.cl-hw-cat');if(catEl){catEl.value=prefillCat;fillClHwRowDl(row);}}
     if(prefillBook){const bookEl=row.querySelector('.cl-hw-book');if(bookEl)bookEl.value=prefillBook;}
     if(prefillRange){const rangeEl=row.querySelector('.cl-hw-range');if(rangeEl)rangeEl.value=prefillRange;}
+    clHwFillRangeDl(row); // 프리필된 책의 단원 datalist 즉시 제공
     targetEl.appendChild(row);
   }else{
     // 기존 2줄 모드 (개별 추가 시)
@@ -9677,6 +9716,7 @@ function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook='',prefillRange='
     if(prefillCat){const catEl=row.querySelector('.cl-hw-cat');if(catEl){catEl.value=prefillCat;fillClHwRowDl(row);}}
     if(prefillBook){const bookEl=row.querySelector('.cl-hw-book');if(bookEl)bookEl.value=prefillBook;}
     if(prefillRange){const rangeEl=row.querySelector('.cl-hw-range');if(rangeEl)rangeEl.value=prefillRange;}
+    clHwFillRangeDl(row); // 프리필된 책의 단원 datalist 즉시 제공
     row.querySelector('.cl-hw-date').addEventListener('change',function(){
       const nd=new Date(this.value);
       row.querySelector('.cl-hw-day-label').textContent=this.value?DAYS[nd.getDay()]+'요일':'';

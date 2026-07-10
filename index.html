@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260710b">
+<link rel="stylesheet" href="css/style.css?v=20260710c">
 </head>
 <body>
 
@@ -1793,7 +1793,7 @@
         </select>
       </div>
       <div class="f s2" id="modal-assign-book-wrap"><label>교재/원서</label>
-        <input type="text" id="modal-assign-book" placeholder="제목 검색 또는 직접 입력" autocomplete="off" oninput="modalAssignBookSearch()" list="dl-modal-assign-books" style="width:100%;box-sizing:border-box">
+        <input type="text" id="modal-assign-book" placeholder="제목 검색 또는 직접 입력" autocomplete="off" oninput="modalAssignBookSearch()" onchange="assignBookChange()" list="dl-modal-assign-books" style="width:100%;box-sizing:border-box">
         <datalist id="dl-modal-assign-books"></datalist>
         <div id="modal-assign-book-dd" style="display:none;position:relative;z-index:20;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);max-height:140px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1);font-size:12px;margin-top:2px"></div>
         <input type="hidden" id="modal-assign-book-id">
@@ -1946,11 +1946,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260710b"></script>
-<script src="vocab_ref_data.js?v=20260710b"></script>
-<script src="js/db.js?v=20260710b"></script>
-<script src="js/teacher.js?v=20260710b"></script>
-<script src="js/student.js?v=20260710b"></script>
-<script src="js/parent.js?v=20260710b"></script>
+<script src="js/utils.js?v=20260710c"></script>
+<script src="vocab_ref_data.js?v=20260710c"></script>
+<script src="js/db.js?v=20260710c"></script>
+<script src="js/teacher.js?v=20260710c"></script>
+<script src="js/student.js?v=20260710c"></script>
+<script src="js/parent.js?v=20260710c"></script>
 </body>
 </html>
