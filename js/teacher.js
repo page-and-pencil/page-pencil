@@ -2907,18 +2907,56 @@ async function extractLibVocab(){
     sids.forEach(sid=>refreshVocabExamples(sid).catch(()=>{}));
   }catch(e){if(status)status.textContent='';toast('추출 실패: '+e.message);}
 }
+// ── 같은 단어의 다른 뜻: 항목을 늘리지 않고 뜻을 합쳐 관리 ──
+// (단어 텍스트가 단원·카드·삭제 연쇄의 식별자라 중복 항목은 학생 카드가 꼬임 — 사전 표기처럼 "뜻1, 뜻2"로 병합)
+function _mergeKo(oldKo,newKo){
+  const parts=String(oldKo||'').split(',').map(s=>s.trim()).filter(Boolean);
+  String(newKo||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(p=>{if(!parts.includes(p))parts.push(p);});
+  return parts.join(', ');
+}
+// 병합된 뜻을 이미 만들어진 학생 카드에도 반영
+async function _mergeCardMeaning(srcId,word,mergedKo){
+  let cnt=0;
+  for(const c of (_cache.vocab_cards||[])){
+    if(c.srcId!==srcId||(c.word||'').toLowerCase()!==word)continue;
+    if((c.meaning||'')===mergedKo)continue;
+    c.meaning=mergedKo;
+    await supaUpsert('vocab_cards',c.id,c,c.sid).catch(()=>{});
+    cnt++;
+  }
+  return cnt;
+}
 async function elibAddWord(){
   const id=document.getElementById('elib-id').value;
   const word=document.getElementById('elib-wrd-en').value.trim().toLowerCase();if(!word)return toast('영어 단어를 입력하세요');
   const b=_cache.library.find(x=>x.id===id);if(!b)return;
   const existing=(b.vocab||[]);
-  if(existing.some(w=>w.word.toLowerCase()===word))return toast('이미 있는 단어입니다');
-  const newEntry={word,ko:document.getElementById('elib-wrd-ko').value.trim(),pos:document.getElementById('elib-wrd-pos').value,example:document.getElementById('elib-wrd-ex').value.trim()};
+  const ko=document.getElementById('elib-wrd-ko').value.trim();
+  const pos=document.getElementById('elib-wrd-pos').value;
+  const example=document.getElementById('elib-wrd-ex').value.trim();
+  const clearInputs=()=>{['elib-wrd-en','elib-wrd-ko','elib-wrd-ex'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});document.getElementById('elib-wrd-pos').value='';};
+  const dupIdx=existing.findIndex(w=>(w.word||'').toLowerCase()===word);
+  if(dupIdx>=0){
+    const dup=existing[dupIdx];
+    const merged=_mergeKo(dup.ko,ko);
+    if(!ko||merged===(dup.ko||'').trim())return toast('이미 있는 단어입니다 (같은 뜻)');
+    askConfirm('이미 있는 단어 — 뜻 합치기',`'${word}'가 이미 있어요.\n현재 뜻: ${dup.ko||'—'}\n추가할 뜻: ${ko}\n\n한 항목으로 합칠까요?\n→ ${merged}`,'뜻 합치기','bt',async()=>{
+      const vocab=[...existing];
+      vocab[dupIdx]={...dup,ko:merged,pos:dup.pos||pos,example:dup.example||example};
+      const updated={...b,vocab};
+      await supaUpsert('global_textbooks',id,updated,null);
+      const i2=_cache.library.findIndex(x=>x.id===id);if(i2>=0)_cache.library[i2]=updated;
+      const cn=await _mergeCardMeaning(id,word,merged);
+      clearInputs();
+      renderLibVocabTable(id);toast(`뜻을 합쳤습니다${cn?` (학생 카드 ${cn}개 갱신)`:''}`);
+    });
+    return;
+  }
+  const newEntry={word,ko,pos,example};
   const updated={...b,vocab:[...existing,newEntry]};
   await supaUpsert('global_textbooks',id,updated,null);
   const idx=_cache.library.findIndex(x=>x.id===id);if(idx>=0)_cache.library[idx]=updated;
-  ['elib-wrd-en','elib-wrd-ko','elib-wrd-ex'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
-  document.getElementById('elib-wrd-pos').value='';
+  clearInputs();
   renderLibVocabTable(id);renderLibTable();toast('추가되었습니다');
 }
 async function delLibVocabWord(id,idx){
@@ -3807,12 +3845,29 @@ async function tuAddWord(){
   const example=document.getElementById('tu-ex').value.trim();
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const existing=tuNormWords(tb.units?.[_tuCurUnit]||[]);
-  if(existing.some(w=>w.word===word))return toast('이미 있는 단어입니다');
+  const clearInputs=()=>{['tu-en','tu-ko','tu-ex'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('tu-pos').value='';};
+  // 같은 단어의 다른 뜻 → 별도 항목 대신 뜻 합치기 (예: short → "(길이가) 짧은, (키가) 작은")
+  const dupIdx=existing.findIndex(w=>w.word===word);
+  if(dupIdx>=0){
+    const dup=existing[dupIdx];
+    const merged=_mergeKo(dup.ko,ko);
+    if(!ko||merged===(dup.ko||'').trim())return toast('이미 있는 단어입니다 (같은 뜻)');
+    askConfirm('이미 있는 단어 — 뜻 합치기',`'${word}'가 이 단원에 이미 있어요.\n현재 뜻: ${dup.ko||'—'}\n추가할 뜻: ${ko}\n\n한 항목으로 합칠까요?\n→ ${merged}`,'뜻 합치기','bt',async()=>{
+      const words=[...existing];
+      words[dupIdx]={...dup,ko:merged,pos:dup.pos||pos,example:dup.example||example};
+      const updated2={...tb,units:{...(tb.units||{}),[_tuCurUnit]:words}};
+      await supaUpsert('global_textbooks',tbId,updated2,null);
+      const i2=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(i2>=0)_cache.globalTextbooks[i2]=updated2;
+      const cn=await _mergeCardMeaning(tbId,word,merged);
+      clearInputs();
+      tuRenderWords(tbId,_tuCurUnit);toast(`뜻을 합쳤습니다${cn?` (학생 카드 ${cn}개 갱신)`:''}`);
+    });
+    return;
+  }
   const updated={...tb,units:{...(tb.units||{}),[_tuCurUnit]:[...existing,{word,ko,pos,example}]}};
   await supaUpsert('global_textbooks',tbId,updated,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
-  ['tu-en','tu-ko','tu-ex'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('tu-pos').value='';
+  clearInputs();
   tuRenderWords(tbId,_tuCurUnit);tuPopulateUnitSel(tbId);toast('추가되었습니다');
 }
 async function tuDelWord(tbId,unitKey,idx){
