@@ -1062,7 +1062,7 @@ async function loadStuPanel(sid){
         <input type="text" id="asgn-cat-custom-${sid}" placeholder="구분 직접 입력 (예: 스피킹, 발표 준비)" style="display:none;margin-top:6px">
       </div>
       <div class="f s2" style="margin-bottom:0"><label>교재/원서</label><input type="text" id="asgn-book-${sid}" list="dl-asgn-${sid}" placeholder="교재 또는 원서 (자동완성)" autocomplete="off" onchange="spAsgnBookChange(this,'${sid}')"><datalist id="dl-asgn-${sid}"></datalist></div>
-      <div class="f s2" style="margin-bottom:0"><label>범위/내용</label><input type="text" id="asgn-range-${sid}" list="dl-asgn-r-${sid}" autocomplete="off" placeholder="예: Unit 3 p.24-28 / Ch.1~3"><datalist id="dl-asgn-r-${sid}"></datalist></div>
+      <div class="f s2" style="margin-bottom:0"><label>범위/내용</label><input type="text" id="asgn-range-${sid}" list="dl-asgn-r-${sid}" autocomplete="off" placeholder="예: Unit 3 p.24-28 / Ch.1~3" onchange="spAsgnRangeChange(this,'${sid}')"><datalist id="dl-asgn-r-${sid}"></datalist></div>
     </div>
     <div id="asgn-extra-${sid}"></div>
     <button class="btn bt bsm" style="width:100%" onclick="saveStudentAssign('${sid}')">할당</button>
@@ -1647,20 +1647,62 @@ function clHwFillRangeDl(row){
 }
 function clHwBookChange(inp){
   clHwBookOffer(inp);
-  const row=inp.closest('.cl-hw-row');if(row)clHwFillRangeDl(row);
+  const row=inp.closest('.cl-hw-row');if(!row)return;
+  // 클래스5: 새 책 이름을 입력 즉시 라이브러리에 자동 등록 (교재/원서 제목은 c5LibLearn이 걸러냄)
+  if((row.querySelector('.cl-hw-cat')?.value||'')==='class5'){
+    const t=inp.value.trim();
+    const known=x=>(x.title||'').trim().toLowerCase()===t.toLowerCase();
+    if(t&&t!=='클래스5'&&!(_cache.class5Books||[]).some(known)){
+      c5LibLearn(t,'').then(()=>{
+        if((_cache.class5Books||[]).some(known)){
+          document.querySelectorAll('#cl-hw-common-rows .cl-hw-row, #cl-hw-ind-rows .cl-hw-row').forEach(r=>fillClHwRowDl(r));
+          toast('클래스5 라이브러리에 추가: '+t);
+        }
+      }).catch(()=>{});
+    }
+  }
+  clHwFillRangeDl(row);
+}
+// 클래스5: 과 이름 입력 즉시 해당 책에 등록
+function clHwRangeChange(inp){
+  const row=inp.closest('.cl-hw-row');if(!row)return;
+  if((row.querySelector('.cl-hw-cat')?.value||'')!=='class5')return;
+  const t=(row.querySelector('.cl-hw-book')?.value||'').trim();
+  const u=inp.value.trim();
+  if(t&&t!=='클래스5'&&u)c5LibLearn(t,u).then(()=>clHwFillRangeDl(row)).catch(()=>{});
 }
 // 학생 패널 과제 폼: 구분이 '원서'일 때만 원서 DB 추가 제안
 function spAsgnBookOffer(inp,sid){
   if((document.getElementById('asgn-cat-'+sid)?.value||'')==='book')libOfferAdd(inp);
 }
-// 책 변경 시: 원서 제안 + 클래스5면 범위 입력에 과 목록 datalist 채움
-function spAsgnBookChange(inp,sid){
+// 책 변경 시: 원서 제안 + 클래스5면 즉시 라이브러리 등록·과 목록 datalist 채움
+// learn=false: 구분 변경 등 프로그램적 호출 — datalist만 갱신하고 등록은 하지 않음
+function spAsgnBookChange(inp,sid,learn=true){
   spAsgnBookOffer(inp,sid);
-  const dl=document.getElementById('dl-asgn-r-'+sid);if(!dl)return;
-  if((document.getElementById('asgn-cat-'+sid)?.value||'')!=='class5'){dl.innerHTML='';return;}
+  const isC5=(document.getElementById('asgn-cat-'+sid)?.value||'')==='class5';
   const t=(inp.value||'').trim();
+  if(isC5&&learn){
+    const known=x=>(x.title||'').trim().toLowerCase()===t.toLowerCase();
+    if(t&&t!=='클래스5'&&!(_cache.class5Books||[]).some(known)){
+      c5LibLearn(t,'').then(()=>{
+        if((_cache.class5Books||[]).some(known)){
+          fillAsgnBookDatalist('dl-asgn-'+sid,'class5');
+          toast('클래스5 라이브러리에 추가: '+t);
+        }
+      }).catch(()=>{});
+    }
+  }
+  const dl=document.getElementById('dl-asgn-r-'+sid);if(!dl)return;
+  if(!isC5){dl.innerHTML='';return;}
   const b=(_cache.class5Books||[]).find(x=>(x.title||'').trim().toLowerCase()===t.toLowerCase());
   dl.innerHTML=(b?(b.units||[]):[]).map(u=>`<option value="${escAttr(u)}">`).join('');
+}
+// 클래스5: 과 입력 즉시 해당 책에 등록 (학생 패널)
+function spAsgnRangeChange(inp,sid){
+  if((document.getElementById('asgn-cat-'+sid)?.value||'')!=='class5')return;
+  const t=(document.getElementById('asgn-book-'+sid)?.value||'').trim();
+  const u=inp.value.trim();
+  if(t&&t!=='클래스5'&&u)c5LibLearn(t,u).then(()=>{const bi=document.getElementById('asgn-book-'+sid);if(bi)spAsgnBookChange(bi,sid);}).catch(()=>{});
 }
 function togglePdSing(btn){
   const row=btn.closest('.sr');
@@ -4083,7 +4125,14 @@ function switchDataTab(tab){
 }
 
 // ── 클래스5 라이브러리 (자습용 교재 + 과 목록, global_textbooks type:'class5') ──
-async function c5Save(b){await supaUpsert('global_textbooks',b.id,b,null);}
+// 저장은 책 id별 프로미스 체인으로 직렬화 — 책/과 연속 입력 시 늦게 도착한 옛 스냅샷이 최신 units를 덮는 lost update 방지
+const _c5SaveQ={};
+function c5Save(b){
+  _c5SaveQ[b.id]=(_c5SaveQ[b.id]||Promise.resolve())
+    .then(()=>supaUpsert('global_textbooks',b.id,b,null))
+    .catch(e=>{console.warn('c5Save:',e);});
+  return _c5SaveQ[b.id];
+}
 function _c5EscHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 // 과제 배정에서 나온 책·과를 라이브러리에 자동 축적
 async function c5LibLearn(bookTitle,unitStr){
@@ -4111,8 +4160,9 @@ function renderClass5DB(){
     ${books.length?books.map(b=>`
       <div class="card" style="max-width:760px"><div class="cb" style="padding:14px 18px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <span style="font-size:14px;font-weight:800;color:var(--navy);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${_c5EscHtml(b.title)}</span>
+          <span id="c5-title-${b.id}" style="font-size:14px;font-weight:800;color:var(--navy);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${_c5EscHtml(b.title)}</span>
           <span style="font-size:11px;color:var(--slate);flex-shrink:0">과 ${(b.units||[]).length}개</span>
+          <button class="btn bo bxxs" title="이름 변경" onclick="c5RenameBook('${b.id}')">✏️</button>
           <button class="btn bd bxxs" onclick="c5DelBook('${b.id}')">삭제</button>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
@@ -4161,6 +4211,26 @@ async function c5DelUnit(id,idx){
   b.units=(b.units||[]).filter((_,i)=>i!==idx);
   renderClass5DB(); // 네트워크 대기 전 즉시 재렌더 — 연속 클릭 시 엉뚱한 과 삭제 방지
   await c5Save(b);
+}
+// 책 이름 변경 (오타 교정용) — 제목을 인라인 입력으로 교체
+function c5RenameBook(id){
+  const b=(_cache.class5Books||[]).find(x=>x.id===id);if(!b)return;
+  const span=document.getElementById('c5-title-'+id);
+  if(!span||span.tagName==='INPUT')return;
+  const IS='padding:5px 9px;border:1.5px solid var(--teal);border-radius:var(--rs);font-family:var(--fb);font-size:13px;font-weight:700;color:var(--navy);background:#fff;outline:none';
+  span.outerHTML=`<input type="text" id="c5-title-${id}" value="${escAttr(b.title)}" style="${IS};flex:1;min-width:0" onkeydown="if(event.key==='Enter'&&!event.isComposing)c5RenameBookGo('${id}')" onblur="c5RenameBookGo('${id}')">`;
+  setTimeout(()=>{const i=document.getElementById('c5-title-'+id);if(i){i.focus();i.select();}},0);
+}
+async function c5RenameBookGo(id){
+  const inp=document.getElementById('c5-title-'+id);
+  if(!inp||inp.tagName!=='INPUT')return;
+  const b=(_cache.class5Books||[]).find(x=>x.id===id);if(!b){renderClass5DB();return;}
+  const t=(inp.value||'').trim();
+  if(t&&t!==b.title){
+    if((_cache.class5Books||[]).some(x=>x.id!==id&&(x.title||'').trim().toLowerCase()===t.toLowerCase())){toast('이미 같은 이름의 교재가 있어요');}
+    else{b.title=t;await c5Save(b);toast('이름을 변경했습니다');}
+  }
+  renderClass5DB();
 }
 
 // ── 워크시트 서브탭 (스튜디오에서 저장한 워크시트) ──
@@ -9204,9 +9274,10 @@ function spHwCatChange(sid){
     // 타 구분에서 자동 채움된 교재가 클래스5 라이브러리로 흘러들지 않게 비움
     const v=bookEl.value.trim();
     const same=x=>(x.title||'').trim().toLowerCase()===v.toLowerCase();
+    // 클래스5 기지 항목이 아닌 잔존값은 무조건 비움 — 구분 변경만으로 라이브러리에 등록되는 오발동 방지
     const isC5Known=!v||v==='클래스5'||(_cache.class5Books||[]).some(same);
-    if(!isC5Known&&((_cache.globalTextbooks||[]).some(same)||(_cache.library||[]).some(same)))bookEl.value='';
-    spAsgnBookChange(bookEl,sid);
+    if(!isC5Known)bookEl.value='';
+    spAsgnBookChange(bookEl,sid,false);
   }else{const rdl=document.getElementById(`dl-asgn-r-${sid}`);if(rdl)rdl.innerHTML='';}
   fillAsgnBookDatalist(`dl-asgn-${sid}`,cat);
   if(cat&&cat!=='other'&&cat!=='book'&&cat!=='class5'&&cat!=='__custom__'&&bookEl&&!bookEl.value){
@@ -9480,7 +9551,7 @@ function clHwMakeDateGroup(dateStr,parentEl){
   group.style.cssText='margin-bottom:12px;border-radius:var(--rs);overflow:hidden;border:1.5px solid var(--navy)';
   const header=document.createElement('div');
   header.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--navy);color:#fff';
-  header.innerHTML=`<span style="font-size:15px;font-weight:700">${dayLabel}요일</span><span style="font-size:12px;opacity:.55;font-family:var(--fm)">${dateStr}</span><button type="button" onclick="clHwAddToGroup(this.closest('.cl-hw-date-group'))" class="cl-hw-add-btn" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:11px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">+ 과제 추가</button><button type="button" onclick="clHwToggleSkip(this.closest('.cl-hw-date-group'))" class="cl-hw-skip-btn" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:20px;color:rgba(255,255,255,.7);font-size:11px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">생략</button>`;
+  header.innerHTML=`<span style="font-size:15px;font-weight:700">${dayLabel}요일</span><span style="font-size:12px;opacity:.55;font-family:var(--fm)">${dateStr}</span><button type="button" onclick="clHwAddToGroup(this.closest('.cl-hw-date-group'))" class="cl-hw-add-btn" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:11px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">+ 과제 추가</button><button type="button" onclick="clHwCopyGroupToOthers(this.closest('.cl-hw-date-group'))" class="cl-hw-copy-btn" title="이 요일의 과제 구성을 다른 모든 요일에 복사" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:11px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">⧉ 다른 요일에 복사</button><button type="button" onclick="clHwToggleSkip(this.closest('.cl-hw-date-group'))" class="cl-hw-skip-btn" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:20px;color:rgba(255,255,255,.7);font-size:11px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">생략</button>`;
   const body=document.createElement('div');
   body.className='cl-hw-group-body';
   body.style.cssText='display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:var(--cream2)';
@@ -9492,6 +9563,38 @@ function clHwAddToGroup(groupEl){
   const dateStr=groupEl.dataset.date||'';
   const body=groupEl.querySelector('.cl-hw-group-body');
   addClHwRow(dateStr,true,'','','',body);
+}
+// 이 요일의 과제 구성을 다른 모든 요일 그룹에 복사 (대상 그룹의 기존 행은 대체)
+function clHwCopyGroupToOthers(groupEl){
+  const rows=[...groupEl.querySelectorAll('.cl-hw-row')].map(row=>({
+    cat:row.querySelector('.cl-hw-cat')?.value||'',
+    catCustom:row.querySelector('.cl-hw-cat-custom')?.value||'',
+    book:row.querySelector('.cl-hw-book')?.value||'',
+    range:row.querySelector('.cl-hw-range')?.value||'',
+    note:row.querySelector('.cl-hw-note')?.value||''
+  })).filter(r=>r.cat||r.book||r.range||r.note);
+  if(!rows.length){toast('복사할 과제가 없습니다');return;}
+  // 생략(skip)된 요일은 건드리지 않음 — 숨겨진 행을 몰래 대체하지 않기 위해
+  const others=[...document.querySelectorAll('#cl-hw-common-rows .cl-hw-date-group')].filter(g=>g!==groupEl&&g.dataset.skip!=='true');
+  if(!others.length){toast('복사할 다른 요일이 없습니다 (생략된 요일 제외)');return;}
+  askConfirm('다른 요일에 복사',`이 요일의 과제 ${rows.length}개 구성을 다른 ${others.length}개 요일에 복사할까요? 대상 요일의 기존 과제 행은 대체됩니다.`,'복사','bt',()=>{
+    others.forEach(g=>{
+      const body=g.querySelector('.cl-hw-group-body');if(!body)return;
+      g.querySelectorAll('.cl-hw-row').forEach(r=>r.remove());
+      const date=g.dataset.date||'';
+      rows.forEach(r=>{
+        addClHwRow(date,true,r.cat,r.book,r.range,body);
+        const newRow=body.lastElementChild;if(!newRow)return;
+        const noteEl=newRow.querySelector('.cl-hw-note');if(noteEl)noteEl.value=r.note;
+        if(r.cat==='__custom__'){
+          const cEl=newRow.querySelector('.cl-hw-cat-custom');
+          if(cEl){cEl.style.display='';cEl.value=r.catCustom;}
+        }
+        clHwFillRangeDl(newRow);
+      });
+    });
+    toast(`${others.length}개 요일에 복사했습니다 — 요일별로 범위만 조정하세요`);
+  });
 }
 function clHwToggleSkip(groupEl){
   const skipped=groupEl.dataset.skip==='true';
@@ -9507,6 +9610,8 @@ function clHwToggleSkip(groupEl){
   skipBtn.textContent=nowSkipped?'↩ 되돌리기':'생략';
   const addBtn=groupEl.querySelector('.cl-hw-add-btn');
   addBtn.style.display=nowSkipped?'none':'';
+  const copyBtn=groupEl.querySelector('.cl-hw-copy-btn');
+  if(copyBtn)copyBtn.style.display=nowSkipped?'none':'';
   // 생략 상태 안내 바 (되돌리기 가능함을 명확히 표시)
   let note=groupEl.querySelector('.cl-hw-skip-note');
   if(nowSkipped){
@@ -9544,7 +9649,7 @@ function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook='',prefillRange='
       <select class="cl-hw-cat filter-sel" style="flex:0 0 100px;${IS}" onchange="clHwCatChange(this)">${HW_CAT_SEL}</select>
       <input type="text" class="cl-hw-cat-custom" placeholder="구분 입력" style="display:none;flex:0 0 90px;${IS}">
       <input type="text" class="cl-hw-book" placeholder="교재" list="${rowDlId}" autocomplete="off" onchange="clHwBookChange(this)" style="flex:2;min-width:80px;${IS}">
-      <input type="text" class="cl-hw-range" placeholder="범위/내용" list="${rowDlId}-r" autocomplete="off" style="flex:2;min-width:80px;${IS}">
+      <input type="text" class="cl-hw-range" placeholder="범위/내용" list="${rowDlId}-r" autocomplete="off" onchange="clHwRangeChange(this)" style="flex:2;min-width:80px;${IS}">
       <input type="text" class="cl-hw-note" placeholder="자유 메모" style="flex:2;min-width:80px;${IS}">
       <button type="button" onclick="this.closest('.cl-hw-row').remove()" style="background:none;border:none;cursor:pointer;font-size:17px;color:var(--slate);padding:0 2px;flex-shrink:0">×</button>`;
     if(prefillCat){const catEl=row.querySelector('.cl-hw-cat');if(catEl){catEl.value=prefillCat;fillClHwRowDl(row);}}
@@ -9566,7 +9671,7 @@ function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook='',prefillRange='
       <datalist id="${rowDlId}"></datalist>
       <datalist id="${rowDlId}-r" data-role="range"></datalist>
       <input type="text" class="cl-hw-book" placeholder="교재 선택 또는 직접 입력" list="${rowDlId}" autocomplete="off" onchange="clHwBookChange(this)" style="${IS};flex:2;min-width:130px">
-      <input type="text" class="cl-hw-range" placeholder="범위/내용" list="${rowDlId}-r" autocomplete="off" style="${IS};flex:2;min-width:120px">
+      <input type="text" class="cl-hw-range" placeholder="범위/내용" list="${rowDlId}-r" autocomplete="off" onchange="clHwRangeChange(this)" style="${IS};flex:2;min-width:120px">
       <input type="text" class="cl-hw-note" placeholder="자유 메모 (선택)" style="${IS};flex:2;min-width:120px">
     </div>`;
     if(prefillCat){const catEl=row.querySelector('.cl-hw-cat');if(catEl){catEl.value=prefillCat;fillClHwRowDl(row);}}
@@ -9647,7 +9752,7 @@ async function saveClassLesson(){
       // 공통 과제 → 결석 제외
       if(d.att!=='absent'){
         for(const hw of commonHws){
-          const isDupA=(_cache.assignments||[]).some(x=>x.sid===d.sid&&x.bookTitle===hw.book&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date);
+          const isDupA=(_cache.assignments||[]).some(x=>x.sid===d.sid&&x.bookTitle===hw.book&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||''));
           if(isDupA)continue;
           const allLib=[...(_cache.library||[])];
           const isReading=allLib.some(b=>b.title===hw.book);
@@ -9659,7 +9764,7 @@ async function saveClassLesson(){
     }
     // 개별 과제
     for(const hw of indHws){
-      const isDupA=(_cache.assignments||[]).some(x=>x.sid===hw.sid&&x.bookTitle===hw.book&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date);
+      const isDupA=(_cache.assignments||[]).some(x=>x.sid===hw.sid&&x.bookTitle===hw.book&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||''));
       if(isDupA)continue;
       const allLib=[...(_cache.library||[])];
       const isReading=allLib.some(b=>b.title===hw.book);
