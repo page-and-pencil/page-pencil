@@ -1637,6 +1637,23 @@ function clHwBookOffer(inp){
   const row=inp.closest('.cl-hw-row');if(!row)return;
   if((row.querySelector('.cl-hw-cat')?.value||'')==='book')libOfferAdd(inp);
 }
+// 제목 매처: "제목" 또는 "제목 (레벨)" 표기 모두 같은 교재로 인식
+function _tbSame(t){
+  const s=(t||'').trim().toLowerCase();
+  return x=>{
+    const bt=(x.title||'').trim();
+    return bt.toLowerCase()===s||((bt+(x.level?' ('+x.level+')':'')).toLowerCase()===s);
+  };
+}
+// 교재 datalist 값: 동명 교재를 구분할 수 있게 레벨을 값에 포함
+function _tbVal(b){return (b.title||'')+(b.level?' ('+b.level+')':'');}
+// "제목 (레벨)" → base 제목 (실제 교재의 레벨 접미일 때만 제거 — 중복 비교용)
+function _tbBase(t){
+  t=(t||'').trim();
+  const m=t.match(/^(.*)\s\(([^()]*)\)$/);
+  if(m&&(_cache.globalTextbooks||[]).some(b=>(b.title||'').trim()===m[1].trim()&&String(b.level||'')===m[2]))return m[1].trim();
+  return t;
+}
 // 구분+책 제목 → 범위 입력용 단원/과/챕터 datalist 옵션 생성 (교재·원서·클래스5 공용)
 function _bookUnitOpts(cat,title){
   const t=(title||'').trim();
@@ -1652,8 +1669,8 @@ function _bookUnitOpts(cat,title){
     const chs=[...new Set((b?.vocab||[]).map(w=>w.chapter||w.unit).filter(Boolean))];
     return chs.map(c=>`<option value="${escAttr(c)}">`).join('');
   }
-  // 교재: 단원 키 (+단원 제목 라벨)
-  const tb=(_cache.globalTextbooks||[]).find(same);
+  // 교재: 단원 키 (+단원 제목 라벨) — "제목 (레벨)" 값도 매칭
+  const tb=(_cache.globalTextbooks||[]).find(_tbSame(t));
   if(!tb)return '';
   const titles=tb.unitTitles||{};
   return Object.keys(tb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))
@@ -4160,9 +4177,9 @@ async function c5LibLearn(bookTitle,unitStr){
   const title=(bookTitle||'').trim();
   if(!title||title==='클래스5')return; // 일반 '클래스5'는 책이 아니므로 제외
   const same=x=>(x.title||'').trim().toLowerCase()===title.toLowerCase();
-  // 교재·원서 DB에 있는 제목은 클래스5 책이 아님 — 구분 전환 잔존값 등으로 인한 라이브러리 오염 방지
+  // 교재·원서 DB에 있는 제목은 클래스5 책이 아님 — 구분 전환 잔존값 등으로 인한 라이브러리 오염 방지 ("제목 (레벨)" 표기 포함)
   let b=(_cache.class5Books||[]).find(same);
-  if(!b&&((_cache.globalTextbooks||[]).some(same)||(_cache.library||[]).some(same)))return;
+  if(!b&&((_cache.globalTextbooks||[]).some(_tbSame(title))||(_cache.library||[]).some(same)))return;
   let changed=false;
   if(!b){b={id:uid(),type:'class5',title,units:[]};if(!_cache.class5Books)_cache.class5Books=[];_cache.class5Books.push(b);changed=true;}
   const u=(unitStr||'').trim();
@@ -7860,7 +7877,11 @@ function modalAssignCatChange(){
     const stClasses=DB.classes().filter(c=>(c.studentIds||[]).includes(sid));
     for(const c of stClasses){
       const matched=Object.entries(c.commonMaterials||{}).find(([k])=>k===cat||k.startsWith(cat+'_'));
-      if(matched){bookEl.value=matched[1].book||'';break;}
+      if(matched){
+        const m=matched[1];
+        const tb=(_cache.globalTextbooks||[]).find(b=>m.bookId?b.id===m.bookId:b.title===m.book);
+        bookEl.value=tb?_tbVal(tb):(m.book||'');break;
+      }
     }
   }
   assignBookChange(); // 구분 변경(자동 채움 포함) 후 단원/챕터/과 칩 재계산
@@ -7990,7 +8011,7 @@ function assignBookChange(){
     entries=(b?(b.units||[]):[]).map(u=>({v:u,l:u}));
     label='과 선택';
   }else{
-    const tb=(_cache.globalTextbooks||[]).find(same);
+    const tb=(_cache.globalTextbooks||[]).find(_tbSame(val)); // "제목 (레벨)" 값도 매칭
     const titles=tb?.unitTitles||{};
     entries=tb?Object.keys(tb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(k=>({v:k,l:k+(titles[k]?' — '+titles[k]:'')})):[];
   }
@@ -9292,9 +9313,9 @@ function fillAsgnBookDatalist(dlId,cat){
     opts=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
   }else if(_CAT_KO[cat]){
     const filtered=tbooks.filter(b=>b.category===_CAT_KO[cat]);
-    opts=filtered.map(b=>`<option value="${escAttr(b.title)}">`).join('');
+    opts=filtered.map(b=>`<option value="${escAttr(_tbVal(b))}">`).join('');
   }else{
-    opts=tbooks.map(b=>`<option value="${escAttr(b.title)}">`).join('')+
+    opts=tbooks.map(b=>`<option value="${escAttr(_tbVal(b))}">`).join('')+
       [...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
   }
   dl.innerHTML=opts;
@@ -9317,7 +9338,11 @@ function spHwCatChange(sid){
     const stClasses=DB.classes().filter(c=>(c.studentIds||[]).includes(sid));
     for(const c of stClasses){
       const matched=Object.entries(c.commonMaterials||{}).find(([k])=>k===cat||k.startsWith(cat+'_'));
-      if(matched){bookEl.value=matched[1].book||'';break;}
+      if(matched){
+        const m=matched[1];
+        const tb=(_cache.globalTextbooks||[]).find(b=>m.bookId?b.id===m.bookId:b.title===m.book);
+        bookEl.value=tb?_tbVal(tb):(m.book||'');break;
+      }
     }
   }
   if(bookEl)spAsgnBookChange(bookEl,sid,false); // 자동 채움 이후 단원 datalist 동기화 (라이브러리 등록 없음)
@@ -9351,7 +9376,7 @@ async function saveStudentAssign(sid){
     if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제');
   }
   if(!book&&!range&&type!=='vocab'){toast('교재/원서 또는 범위를 입력해 주세요');return;}
-  const isDup=(_cache.assignments||[]).some(x=>x.sid===sid&&x.bookTitle===book&&(x.range||'')===range&&x.due===due);
+  const isDup=(_cache.assignments||[]).some(x=>x.sid===sid&&_tbBase(x.bookTitle||'')===_tbBase(book||'')&&(x.range||'')===range&&x.due===due);
   if(isDup){toast('이미 동일한 과제가 있습니다');return;}
   try{
     await supaUpsert('assignments',a.id,a,sid);
@@ -9481,7 +9506,7 @@ function fillClHwRowDl(rowEl){
   const dl=rowEl.querySelector('datalist:not([data-role="range"])');if(!dl)return;
   const tbooks=_cache.globalTextbooks||[];
   const allLib=[...(_cache.library||[])];
-  const tbOpt=b=>`<option value="${escAttr(b.title)}">${b.title}${b.level?' ('+b.level+')':''}</option>`;
+  const tbOpt=b=>`<option value="${escAttr(_tbVal(b))}">`; // 값에 레벨 포함 — 동명 교재 구분
   let opts='';
   if(cat==='class5'){
     // 클래스5 라이브러리의 책 목록 + 일반 항목
@@ -9509,22 +9534,33 @@ function clHwCatChange(sel){
     const v=bookInput.value.trim();
     const same=x=>(x.title||'').trim().toLowerCase()===v.toLowerCase();
     const isC5Known=!v||v==='클래스5'||(_cache.class5Books||[]).some(same);
-    if(!isC5Known&&((_cache.globalTextbooks||[]).some(same)||(_cache.library||[]).some(same)))bookInput.value='';
+    if(!isC5Known&&((_cache.globalTextbooks||[]).some(_tbSame(v))||(_cache.library||[]).some(same)))bookInput.value='';
     // 라이브러리에 책이 없으면 일반 '클래스5'로
     if(!bookInput.value&&!(_cache.class5Books||[]).length)bookInput.value='클래스5';
     clHwFillRangeDl(row);
     return;
   }
   if(cat&&bookInput&&!bookInput.value){
-    // cl-subj-rows에서 당일 수업 내용 먼저 참조
+    // cl-subj-rows에서 당일 수업 내용 먼저 참조 (레벨 포함 표기로 채움)
     const subjRow=document.querySelector(`#cl-subj-rows .sr[data-s="${cat}"]`)||document.querySelector(`#cl-subj-rows .sr[data-s^="${cat}_"]`);
-    if(subjRow){const bookEl=subjRow.querySelector('[data-f="book"]');if(bookEl&&bookEl.value)bookInput.value=bookEl.value;}
+    if(subjRow){
+      const bookEl=subjRow.querySelector('[data-f="book"]');
+      if(bookEl&&bookEl.value){
+        const bkId=bookEl.tagName==='SELECT'?(bookEl.options[bookEl.selectedIndex]?.dataset?.bkId||''):'';
+        const tb=(_cache.globalTextbooks||[]).find(b=>bkId?b.id===bkId:b.title===bookEl.value);
+        bookInput.value=tb?_tbVal(tb):bookEl.value;
+      }
+    }
     if(!bookInput.value){
-      // fallback: 클래스 기본 교재
+      // fallback: 클래스 기본 교재 (bookId 우선 매칭 — 동명 교재 레벨 오표기 방지)
       const c=DB.classes().find(x=>x.id===document.getElementById('cl-class-id').value);
       if(c?.commonMaterials){
         const matched=Object.entries(c.commonMaterials).find(([k])=>k===cat||k.startsWith(cat+'_'));
-        if(matched)bookInput.value=matched[1].book||'';
+        if(matched){
+          const m=matched[1];
+          const tb2=(_cache.globalTextbooks||[]).find(b=>m.bookId?b.id===m.bookId:b.title===m.book);
+          bookInput.value=tb2?_tbVal(tb2):(m.book||'');
+        }
       }
     }
   }
@@ -9558,7 +9594,9 @@ function clHwSyncFromSubj(){
     const bookEl=row.querySelector('[data-f="book"]');
     const unitEl=row.querySelector('[data-f="unit"]');
     const unitTyped=(unitEl?.value||'').trim();
-    const unitHint=(unitEl?.placeholder||'').replace('직전: ','').replace('유닛/진도','').trim();
+    // 진짜 힌트('직전: X')만 사용 — '단원 선택 또는 직접 입력' 같은 일반 placeholder가 범위로 새지 않게
+    const ph=unitEl?.placeholder||'';
+    const unitHint=ph.startsWith('직전: ')?ph.replace('직전: ','').trim():'';
     const unit=unitTyped||unitHint;
     const book=(bookEl?.value||'').trim();
     const bookId=bookEl?.tagName==='SELECT'?(bookEl.options[bookEl.selectedIndex]?.dataset?.bkId||''):'';
@@ -9576,7 +9614,8 @@ function clHwSyncFromSubj(){
     const groupBody=clHwMakeDateGroup(d,container);
     if(mats.length){mats.forEach(m=>addClHwRow(d,true,m.cat,m.book,m.range,groupBody));}
     else{addClHwRow(d,true,'','','',groupBody);}
-    addClHwRow(d,true,'class5','클래스5','',groupBody);
+    // 클래스5 라이브러리에 책이 있으면 비워두고 목록에서 선택하게, 없으면 일반 '클래스5'
+    addClHwRow(d,true,'class5',(_cache.class5Books||[]).length?'':'클래스5','',groupBody);
   });
 }
 function clHwMakeDateGroup(dateStr,parentEl){
@@ -9753,13 +9792,15 @@ async function saveClassLesson(){
     .map(row=>{
       let cat=row.querySelector('.cl-hw-cat')?.value||'';
       if(cat==='__custom__')cat=row.querySelector('.cl-hw-cat-custom')?.value.trim()||''; // 직접 입력 구분
+      let book=row.querySelector('.cl-hw-book')?.value.trim()||'';
+      const range=row.querySelector('.cl-hw-range')?.value.trim()||'';
+      const note=row.querySelector('.cl-hw-note')?.value.trim()||'';
+      // 자동 생성된 클래스5 행을 비워둔 채 저장해도 기존처럼 일반 '클래스5' 과제로 나가게 (무음 탈락 방지)
+      if(cat==='class5'&&!book&&!range&&!note)book='클래스5';
       return{
         sid:row.querySelector('.cl-hw-ind-stu')?.value||null,
         due:row.querySelector('.cl-hw-date')?.value||date,
-        cat,
-        book:row.querySelector('.cl-hw-book')?.value.trim()||'',
-        range:row.querySelector('.cl-hw-range')?.value.trim()||'',
-        note:row.querySelector('.cl-hw-note')?.value.trim()||''
+        cat,book,range,note
       };
     }).filter(r=>r.book||r.range||r.note);
   const commonHws=collectHwRows('#cl-hw-common-rows .cl-hw-row');
@@ -9792,7 +9833,7 @@ async function saveClassLesson(){
       // 공통 과제 → 결석 제외
       if(d.att!=='absent'){
         for(const hw of commonHws){
-          const isDupA=(_cache.assignments||[]).some(x=>x.sid===d.sid&&x.bookTitle===hw.book&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||''));
+          const isDupA=(_cache.assignments||[]).some(x=>x.sid===d.sid&&_tbBase(x.bookTitle||'')===_tbBase(hw.book||'')&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||''));
           if(isDupA)continue;
           const allLib=[...(_cache.library||[])];
           const isReading=allLib.some(b=>b.title===hw.book);
@@ -9804,7 +9845,7 @@ async function saveClassLesson(){
     }
     // 개별 과제
     for(const hw of indHws){
-      const isDupA=(_cache.assignments||[]).some(x=>x.sid===hw.sid&&x.bookTitle===hw.book&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||''));
+      const isDupA=(_cache.assignments||[]).some(x=>x.sid===hw.sid&&_tbBase(x.bookTitle||'')===_tbBase(hw.book||'')&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||''));
       if(isDupA)continue;
       const allLib=[...(_cache.library||[])];
       const isReading=allLib.some(b=>b.title===hw.book);
