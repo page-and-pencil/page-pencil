@@ -333,10 +333,13 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
 .ut{font-size:12px;color:var(--slate);}
 
 /* STATS */
-.strow{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:16px;margin-bottom:1rem;}
-.stc{background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:14px;text-align:center;}
+/* 통계 카드: auto-fit — 카드 수가 적을 때 남는 공간을 채워 숫자가 짜부라지지 않게 */
+.strow{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:12px;margin-bottom:1rem;}
+.stc{background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:14px 8px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:84px;}
 .stnum{font-size:22px;font-weight:700;font-family:var(--fm);color:var(--navy);}
-.stnum-empty{font-size:13px;font-weight:600;color:#94A3B8;}
+/* 숫자/빈 상태 영역 높이 통일 — '데이터 없음'이 두 줄로 꺾여 카드 높이가 어긋나던 문제 */
+.stc .stnum,.stc .stnum-empty{min-height:30px;display:flex;align-items:center;justify-content:center;white-space:nowrap;}
+.stnum-empty{font-size:12px;font-weight:600;color:#94A3B8;white-space:nowrap;}
 .stlbl{font-size:11px;color:#64748B;margin-top:2px;}
 
 /* WORD CHIPS */
