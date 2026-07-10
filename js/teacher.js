@@ -9378,8 +9378,13 @@ function clHwRestoreFromSaved(classId,dateStr){
   common.innerHTML='';
   if(ind)ind.innerHTML='';
   const saved=(_cache.assignments||[]).filter(a=>a.classId===classId&&a.date===dateStr);
-  if(!saved.length)return; // 저장된 과제 없음 — 빈 상태로 (자동 채움과 혼동 방지)
   const c=DB.classes().find(x=>x.id===classId);
+  if(!saved.length){
+    // 저장된 과제 없음 — 내용은 비우되 요일별 그룹 스캐폴드는 유지 (요일 묶음 디스플레이 보존)
+    const dates=c?getClassLessonDates(c,dateStr):[dateStr];
+    dates.forEach(d=>clHwMakeDateGroup(d,common));
+    return;
+  }
   const stuTotal=(c?.studentIds||[]).length||1;
   const knownCats=HW_CATS.map(x=>x.v);
   // 같은 내용(마감·구분·교재·범위·메모)끼리 묶어 공통/개별 판별
@@ -9431,9 +9436,12 @@ function clHwRestoreFromSaved(classId,dateStr){
       });
     }
   });
-  Object.keys(dueGroups).sort().forEach(d=>{
+  // 저장된 마감일 + 이 수업 주기의 요일을 합쳐 요일별 그룹 UI를 온전히 유지
+  const scaffold=c?getClassLessonDates(c,dateStr):[dateStr];
+  const allDates=[...new Set([...Object.keys(dueGroups),...scaffold])].sort();
+  allDates.forEach(d=>{
     const body=clHwMakeDateGroup(d,common);
-    dueGroups[d].forEach(a=>{
+    (dueGroups[d]||[]).forEach(a=>{
       const cat=knownCats.includes(a.category||'')?(a.category||''):'';
       addClHwRow(d,true,cat,a.bookTitle||'',a.range||'',body);
       fillRow(body.lastElementChild,a);
@@ -9885,6 +9893,21 @@ function clHwAddToGroup(groupEl){
   const dateStr=groupEl.dataset.date||'';
   const body=groupEl.querySelector('.cl-hw-group-body');
   addClHwRow(dateStr,true,'','','',body);
+}
+// '+ 공통 과제 추가' — 요일 그룹 구조를 유지한 채 추가 (그룹이 없으면 수업 요일 스캐폴드 생성)
+function clHwAddCommonRow(){
+  const container=document.getElementById('cl-hw-common-rows');if(!container)return;
+  let groups=[...container.querySelectorAll('.cl-hw-date-group')];
+  if(!groups.length){
+    const classId=document.getElementById('cl-class-id')?.value;
+    const c=DB.classes().find(x=>x.id===classId);
+    const lessonDate=document.getElementById('cl-date')?.value||new Date().toISOString().split('T')[0];
+    (c?getClassLessonDates(c,lessonDate):[lessonDate]).forEach(d=>clHwMakeDateGroup(d,container));
+    groups=[...container.querySelectorAll('.cl-hw-date-group')];
+  }
+  const g=groups.find(x=>x.dataset.skip!=='true')||groups[0];
+  if(!g)return;
+  clHwAddToGroup(g);
 }
 // 이 요일의 과제 구성을 다른 모든 요일 그룹에 복사 (대상 그룹의 기존 행은 대체)
 function clHwCopyGroupToOthers(groupEl){
