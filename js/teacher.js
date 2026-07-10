@@ -2789,7 +2789,6 @@ function renderLibVocabTable(id){
     <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic">${w.example||'—'}</td>
     <td style="padding:6px 8px;font-size:11px;color:#6b7280;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.en_def)}">${w.en_def||'<span style="color:var(--slate)">—</span>'}</td>
     <td style="padding:4px;white-space:nowrap">
-      <button onclick="elibEditInline('${id}',${i})" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 5px;cursor:pointer;font-size:13px" title="수정">✏️</button>
       <button onclick="delLibVocabWord('${id}',${i})" style="background:none;border:none;cursor:pointer;color:var(--coral);font-size:15px;padding:0 4px;line-height:1">×</button>
     </td>
   </tr>`).join('');
@@ -3622,7 +3621,6 @@ function tuRenderWords(tbId,unitKey){
     <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic">${w.example||'—'}</td>
     <td style="padding:6px 8px;font-size:11px;color:#6b7280;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.en_def)}">${w.en_def||'<span style="color:var(--slate)">—</span>'}</td>
     <td style="padding:4px;white-space:nowrap">
-      <button onclick="tuEditInline('${tbId}','${escAttr(unitKey)}',${i})" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 5px;cursor:pointer;font-size:13px" title="수정">✏️</button>
       <button onclick="tuDelWord('${tbId}','${escAttr(unitKey)}',${i})" style="background:none;border:none;cursor:pointer;color:var(--coral);font-size:15px;padding:0 4px;line-height:1">×</button>
     </td>
   </tr>`).join('');
@@ -4874,7 +4872,6 @@ async function renderWsDB(refetch){
         <div class="bcard-stats"><span>섹션 <b>${secs}</b></span>${date?`<span>${date}</span>`:''}</div>
       </div>
       <div class="bcard-actions" onclick="event.stopPropagation()">
-        <button onclick="openWorksheetInStudio('${escAttr(w.id)}')">📂 열기</button>
         <button onclick="deleteWsDB('${escAttr(w.id)}')" style="color:var(--coral,#dc2626)">🗑 삭제</button>
       </div>
     </div>`;
@@ -4953,7 +4950,7 @@ function renderBookDB(){
         <td><span class="badge bnavy" style="font-size:10px;white-space:nowrap">${escAttr(level)}</span></td>
         <td style="font-size:12px;text-align:center">${unitCnt?`<span style="cursor:pointer;color:var(--navy)" onclick="${unitsFn}" title="${isTb?'유닛 관리':'챕터 보기'}">${unitCnt}</span>`:'—'}</td>
         <td style="font-size:12px;text-align:center">${wordCnt?`<span style="color:var(--teal);font-weight:600;cursor:pointer" onclick="jumpToBookVocab('${b.id}','${b._bt}')" title="어휘 DB에서 보기">${wordCnt}</span>`:'—'}</td>
-        <td style="text-align:right"><button class="btn bo bsm" style="font-size:11px;padding:2px 8px" onclick="${editFn}">수정</button></td>
+        <td></td>
       </tr>`;
     }).join('');
   }
@@ -5006,10 +5003,6 @@ function renderBookCards(paged){
         <div class="bcard-title">${escAttr(b.title||'제목 없음')}</div>
         <div class="bcard-meta">${meta}</div>
         <div class="bcard-stats">${unitCnt?`<span>${isTb?'유닛':'챕터'} <b>${unitCnt}</b></span>`:''}${wordCnt?`<span>단어 <b>${wordCnt}</b></span>`:''}</div>
-      </div>
-      <div class="bcard-actions" onclick="event.stopPropagation()">
-        ${isTb?`<button onclick="openTbookUnits('${b.id}')">📂 유닛</button>`:''}
-        <button onclick="${editFn}">✏️ 수정</button>
       </div>
     </div>`;
   }).join('');
@@ -5174,7 +5167,7 @@ function renderMasterDB(){
       <td style="font-weight:600;font-family:var(--fd)">${escAttr(r.word)}</td>
       <td style="font-size:12px">${escAttr(r.ko)}</td>
       <td style="font-size:11px"><span style="background:var(--cream2);padding:1px 4px;border-radius:3px">${escAttr(POS_KO[r.pos]||r.pos||'')}</span></td>
-      <td style="text-align:right"><button class="btn bo bsm" style="font-size:11px;padding:2px 8px" onclick="${editFn}">수정</button></td>
+      <td></td>
     </tr>`;
   }).join('');
   // 헤더 체크박스 상태 동기화
@@ -5396,7 +5389,6 @@ function renderWordDB(){
       <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.example)}">${w.example||'—'}</td>
       <td style="padding:6px 8px;font-size:11px;color:${srcColor};max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(srcText)}">${srcIcon} ${srcText}</td>
       <td style="padding:4px">
-        <button onclick="wdbEditInline(${i})" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:13px" title="수정">✏️</button>
       </td>
     </tr>`;
   }).join('');
