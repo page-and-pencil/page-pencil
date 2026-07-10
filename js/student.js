@@ -400,7 +400,7 @@ function renderAsgnForm(sid){
   const el=document.getElementById(`asgn-form-${sid}`);if(!el)return;
   if(type==='reading'){
     el.innerHTML=`
-      <div class="f"><label>원서 선택</label><input type="text" id="asgn-book-${sid}" placeholder="제목으로 검색..." list="dl-library" autocomplete="off"></div>
+      <div class="f"><label>원서 선택</label><input type="text" id="asgn-book-${sid}" placeholder="제목으로 검색..." list="dl-library" autocomplete="off" onchange="if(typeof libOfferAdd==='function')libOfferAdd(this)"></div>
       <div class="f"><label>챕터/페이지 범위</label><input type="text" id="asgn-range-${sid}" placeholder="Ch.1-2 또는 p.1-20"></div>
       <div class="f" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="asgn-rec-${sid}" style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer"><label for="asgn-rec-${sid}" style="font-size:13px;cursor:pointer;margin:0">🎤 녹음 제출 필요</label></div>
       <div class="f" id="asgn-ref-wrap-${sid}" style="display:none"><label>평가용 원문 텍스트 (선택)</label><textarea id="asgn-ref-${sid}" placeholder="해당 구간 영어 원문 붙여넣기..." style="min-height:60px;resize:vertical;width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none"></textarea></div>`;

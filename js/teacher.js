@@ -1059,7 +1059,7 @@ async function loadStuPanel(sid){
           <option value="class5">클래스5</option><option value="other">기타</option>
         </select>
       </div>
-      <div class="f s2" style="margin-bottom:0"><label>교재/원서</label><input type="text" id="asgn-book-${sid}" list="dl-asgn-${sid}" placeholder="교재 또는 원서 (자동완성)" autocomplete="off"><datalist id="dl-asgn-${sid}"></datalist></div>
+      <div class="f s2" style="margin-bottom:0"><label>교재/원서</label><input type="text" id="asgn-book-${sid}" list="dl-asgn-${sid}" placeholder="교재 또는 원서 (자동완성)" autocomplete="off" onchange="spAsgnBookOffer(this,'${sid}')"><datalist id="dl-asgn-${sid}"></datalist></div>
       <div class="f s2" style="margin-bottom:0"><label>범위/내용</label><input type="text" id="asgn-range-${sid}" placeholder="예: Unit 3 p.24-28 / Ch.1~3"></div>
     </div>
     <div id="asgn-extra-${sid}"></div>
@@ -1613,17 +1613,31 @@ function libOfferAdd(inp){
   setTimeout(()=>{
     if(_libOfferDeclined.has(key))return;
     if((_cache.library||[]).some(b=>(b.title||'').trim().toLowerCase()===key))return;
-    _libOfferDeclined.add(key); // confirm을 한 번 보여준 제목은 재확인하지 않음 (추가 성공 시에도 재질문 불필요)
+    // 그 사이 입력값이 바뀌었으면(원서목록 선택으로 덮어쓰기 등) 버려진 값 — 제안하지 않음
+    if(document.contains(inp)){const cur=(inp.value||'').trim().toLowerCase();if(cur&&cur!==key)return;}
+    // 다른 확인창(삭제 확인 등)이 떠 있으면 덮어쓰지 않고 양보 (closeM은 display:none만 걸므로 둘 다 검사)
+    const mc=document.getElementById('m-confirm');
+    if(mc&&mc.classList.contains('open')&&mc.style.display!=='none')return;
+    _libOfferDeclined.add(key); // confirm을 실제로 보여준 제목만 재확인하지 않음
     askConfirm('원서 DB에 추가',`"${title}" — 원서 목록에 없는 책이에요. 자료 DB에 추가할까요? (AR·시리즈·오디오는 나중에 보완 가능)`,'추가','bt',async()=>{
       const newLib={id:uid(),type:'library',title,series:'',arLevel:'',pages:'',publisher:'',description:''};
       try{await supaUpsert('global_textbooks',newLib.id,newLib,null);}
       catch(e){toast('저장 실패: '+e.message);return;}
       if(!_cache.library)_cache.library=[];
       _cache.library.push(newLib);
-      try{renderLib();renderBookDB();renderMasterDB();populateLibSel();populateDataLists();}catch(e){}
+      try{renderLib();renderBookDB();renderMasterDB();populateLibSel();populateDataLists();updateTbookDatalist();}catch(e){}
       toast('원서 목록에 추가되었습니다');
     });
   },250);
+}
+// 클래스 기록 과제 행: 구분이 '원서'일 때만 원서 DB 추가 제안
+function clHwBookOffer(inp){
+  const row=inp.closest('.cl-hw-row');if(!row)return;
+  if((row.querySelector('.cl-hw-cat')?.value||'')==='book')libOfferAdd(inp);
+}
+// 학생 패널 과제 폼: 구분이 '원서'일 때만 원서 DB 추가 제안
+function spAsgnBookOffer(inp,sid){
+  if((document.getElementById('asgn-cat-'+sid)?.value||'')==='book')libOfferAdd(inp);
 }
 function togglePdSing(btn){
   const row=btn.closest('.sr');
@@ -8705,7 +8719,8 @@ function ecTogSubj(el){
 }
 function clFillFromLib(input){
   const title=input.value.trim();if(!title)return;
-  const b=[...DB.libs()].find(x=>x.title===title);if(!b)return;
+  const b=[...DB.libs()].find(x=>x.title===title);
+  if(!b){libOfferAdd(input);return;} // DB에 없는 원서 → 그 자리에서 추가 제안
   const row=input.closest('.cl-book-row');if(!row)return;  // fix: was .cl-stu-row
   const ar=row.querySelector('.cl-rd-ar');const ser=row.querySelector('.cl-rd-series');
   if(ar&&!ar.value&&(b.ar||b.arLevel))ar.value=b.ar||b.arLevel||'';
@@ -8933,7 +8948,7 @@ function openClassLessonEdit(classId,dateStr){
         bookEntries.forEach(([,v])=>{
           const br=document.createElement('div');
           br.className='cl-book-row';br.style.cssText='display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:center';
-          br.innerHTML=`<input type="text" class="cl-rd-title" list="dl-library" autocomplete="off" value="${escAttr(v.book||'')}" style="${IS};flex:2;min-width:120px"><input type="hidden" class="cl-rd-series"><input type="text" class="cl-rd-ar" style="${IS};width:52px"><input type="text" class="cl-rd-prog" value="${escAttr(v.unit||'')}" style="${IS};flex:1;min-width:100px">`;
+          br.innerHTML=`<input type="text" class="cl-rd-title" list="dl-library" autocomplete="off" value="${escAttr(v.book||'')}" onchange="clFillFromLib(this)" style="${IS};flex:2;min-width:120px"><input type="hidden" class="cl-rd-series"><input type="text" class="cl-rd-ar" style="${IS};width:52px"><input type="text" class="cl-rd-prog" value="${escAttr(v.unit||'')}" style="${IS};flex:1;min-width:100px">`;
           booksWrap.appendChild(br);
         });
       }
@@ -9374,7 +9389,7 @@ function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook='',prefillRange='
       ${!isCommon?`<select class="cl-hw-ind-stu filter-sel" style="flex:0 0 auto;${IS}">${stuOpts}</select>`:''}
       <datalist id="${rowDlId}"></datalist>
       <select class="cl-hw-cat filter-sel" style="flex:0 0 100px;${IS}" onchange="clHwCatChange(this)">${HW_CAT_SEL}</select>
-      <input type="text" class="cl-hw-book" placeholder="교재" list="${rowDlId}" autocomplete="off" style="flex:2;min-width:80px;${IS}">
+      <input type="text" class="cl-hw-book" placeholder="교재" list="${rowDlId}" autocomplete="off" onchange="clHwBookOffer(this)" style="flex:2;min-width:80px;${IS}">
       <input type="text" class="cl-hw-range" placeholder="범위/내용" style="flex:2;min-width:80px;${IS}">
       <input type="text" class="cl-hw-note" placeholder="자유 메모" style="flex:2;min-width:80px;${IS}">
       <button type="button" onclick="this.closest('.cl-hw-row').remove()" style="background:none;border:none;cursor:pointer;font-size:17px;color:var(--slate);padding:0 2px;flex-shrink:0">×</button>`;
@@ -9394,7 +9409,7 @@ function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook='',prefillRange='
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <datalist id="${rowDlId}"></datalist>
-      <input type="text" class="cl-hw-book" placeholder="교재 선택 또는 직접 입력" list="${rowDlId}" autocomplete="off" style="${IS};flex:2;min-width:130px">
+      <input type="text" class="cl-hw-book" placeholder="교재 선택 또는 직접 입력" list="${rowDlId}" autocomplete="off" onchange="clHwBookOffer(this)" style="${IS};flex:2;min-width:130px">
       <input type="text" class="cl-hw-range" placeholder="범위/내용" style="${IS};flex:2;min-width:120px">
       <input type="text" class="cl-hw-note" placeholder="자유 메모 (선택)" style="${IS};flex:2;min-width:120px">
     </div>`;

@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260705d">
+<link rel="stylesheet" href="css/style.css?v=20260705e">
 </head>
 <body>
 
@@ -477,7 +477,7 @@
             </select>
           </div>
           <div class="fg">
-            <div class="f s2"><label>책 제목</label><input type="text" id="rd-title" placeholder="Magic Tree House #3"></div>
+            <div class="f s2"><label>책 제목</label><input type="text" id="rd-title" placeholder="Magic Tree House #3" onchange="libOfferAdd(this)"></div>
             <input type="hidden" id="rd-series">
             <div class="f" style="align-self:end"><label>AR 레벨</label><input type="text" id="rd-ar" placeholder="3.3"></div>
             <div class="f">
@@ -515,7 +515,7 @@
           <div class="fg">
             <div class="f"><label>날짜</label><input type="date" id="lg-date"></div>
             <div class="f"><label>학생</label><select id="lg-stu"></select></div>
-            <div class="f s2"><label>읽은 책 제목 (선택)</label><input type="text" id="lg-book" placeholder="예) Nate the Great, In the Trolley..." list="dl-lib-books"><datalist id="dl-lib-books"></datalist></div>
+            <div class="f s2"><label>읽은 책 제목 (선택)</label><input type="text" id="lg-book" placeholder="예) Nate the Great, In the Trolley..." list="dl-lib-books" onchange="libOfferAdd(this)"><datalist id="dl-lib-books"></datalist></div>
           </div>
           <div class="f">
             <label>리딩로그 사진</label>
@@ -1254,7 +1254,7 @@
     <input type="hidden" id="er-id">
     <div class="fg">
       <div class="f"><label>날짜</label><input type="date" id="er-date"></div>
-      <div class="f s2"><label>제목</label><input type="text" id="er-title"></div>
+      <div class="f s2"><label>제목</label><input type="text" id="er-title" onchange="libOfferAdd(this)"></div>
       <div class="f"><label>AR 레벨</label><input type="text" id="er-ar"></div>
       <div class="f"><label>진도</label><input type="text" id="er-prog"></div>
     </div>
@@ -1937,11 +1937,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260705d"></script>
-<script src="vocab_ref_data.js?v=20260705d"></script>
-<script src="js/db.js?v=20260705d"></script>
-<script src="js/teacher.js?v=20260705d"></script>
-<script src="js/student.js?v=20260705d"></script>
-<script src="js/parent.js?v=20260705d"></script>
+<script src="js/utils.js?v=20260705e"></script>
+<script src="vocab_ref_data.js?v=20260705e"></script>
+<script src="js/db.js?v=20260705e"></script>
+<script src="js/teacher.js?v=20260705e"></script>
+<script src="js/student.js?v=20260705e"></script>
+<script src="js/parent.js?v=20260705e"></script>
 </body>
 </html>
