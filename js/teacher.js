@@ -9509,9 +9509,9 @@ function fillClHwRowDl(rowEl){
   const tbOpt=b=>`<option value="${escAttr(_tbVal(b))}">`; // 값에 레벨 포함 — 동명 교재 구분
   let opts='';
   if(cat==='class5'){
-    // 클래스5 라이브러리의 책 목록 + 일반 항목
+    // 클래스5 라이브러리의 책 목록만 (일반 항목 없음 — 새 책은 입력 즉시 자동 등록)
     const c5=[...(_cache.class5Books||[])].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
-    opts='<option value="클래스5">클래스5 (일반)</option>'+c5.map(b=>`<option value="${escAttr(b.title)}">`).join('');
+    opts=c5.map(b=>`<option value="${escAttr(b.title)}">`).join('');
   }else if(cat==='book'){
     opts=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
   }else if(_CAT_KO[cat]){
@@ -9535,8 +9535,6 @@ function clHwCatChange(sel){
     const same=x=>(x.title||'').trim().toLowerCase()===v.toLowerCase();
     const isC5Known=!v||v==='클래스5'||(_cache.class5Books||[]).some(same);
     if(!isC5Known&&((_cache.globalTextbooks||[]).some(_tbSame(v))||(_cache.library||[]).some(same)))bookInput.value='';
-    // 라이브러리에 책이 없으면 일반 '클래스5'로
-    if(!bookInput.value&&!(_cache.class5Books||[]).length)bookInput.value='클래스5';
     clHwFillRangeDl(row);
     return;
   }
@@ -9614,8 +9612,8 @@ function clHwSyncFromSubj(){
     const groupBody=clHwMakeDateGroup(d,container);
     if(mats.length){mats.forEach(m=>addClHwRow(d,true,m.cat,m.book,m.range,groupBody));}
     else{addClHwRow(d,true,'','','',groupBody);}
-    // 클래스5 라이브러리에 책이 있으면 비워두고 목록에서 선택하게, 없으면 일반 '클래스5'
-    addClHwRow(d,true,'class5',(_cache.class5Books||[]).length?'':'클래스5','',groupBody);
+    // 클래스5 행은 비워두고 라이브러리 책 목록에서 선택 (새 책 입력 시 즉시 등록)
+    addClHwRow(d,true,'class5','','',groupBody);
   });
 }
 function clHwMakeDateGroup(dateStr,parentEl){
@@ -9792,11 +9790,10 @@ async function saveClassLesson(){
     .map(row=>{
       let cat=row.querySelector('.cl-hw-cat')?.value||'';
       if(cat==='__custom__')cat=row.querySelector('.cl-hw-cat-custom')?.value.trim()||''; // 직접 입력 구분
-      let book=row.querySelector('.cl-hw-book')?.value.trim()||'';
+      const book=row.querySelector('.cl-hw-book')?.value.trim()||'';
       const range=row.querySelector('.cl-hw-range')?.value.trim()||'';
       const note=row.querySelector('.cl-hw-note')?.value.trim()||'';
-      // 자동 생성된 클래스5 행을 비워둔 채 저장해도 기존처럼 일반 '클래스5' 과제로 나가게 (무음 탈락 방지)
-      if(cat==='class5'&&!book&&!range&&!note)book='클래스5';
+      // 클래스5 행을 비워두면 과제 미생성 (일반 '클래스5' 과제는 더 이상 만들지 않음)
       return{
         sid:row.querySelector('.cl-hw-ind-stu')?.value||null,
         due:row.querySelector('.cl-hw-date')?.value||date,
