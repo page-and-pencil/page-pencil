@@ -660,7 +660,7 @@ async function printReport(sidArg){
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
-        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:`영어학원 선생님이 학부모에게 드리는 종합 코멘트를 작성해주세요. 인쇄용 학습 리포트에 실립니다.\n\n규칙:\n- 톤: 전문적이면서 따뜻한 격식체(합쇼체+요체 혼용). 감탄사·이모지 없음.\n- 구성: 학습 태도 → 전체 진도 요약(교재별로 어디까지 진행했는지) → 주요 학습 내용(무엇을 배우고 연습했는지) → 원서 읽기 → 특기 사항 순\n- 아래 진도·기록 데이터를 바탕으로 통합·재구성하세요. 기록에 없는 내용 추가 금지.\n- 300~500자 분량, 문단은 2~3개로 나누세요.\n\n학생: ${s.name} (${s.grade||''})\n수업 ${les.length}회 | 원서 ${rds.length}권 | 단어 평균 ${avgV!=null?avgV+'%':'미측정'}\n\n전체 교재 진도:\n${progSummary}\n\n읽은 원서: ${rdSummary}\n\n일별 수업 기록(최근):\n${lessSummary}\n\n종합 코멘트만 출력하세요.`}]})
+        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:`영어학원 선생님이 학부모에게 드리는 종합 코멘트를 작성해주세요. 인쇄용 학습 리포트에 실립니다.\n\n규칙:\n- 톤(원장 톤앤매너): 합쇼체 위주의 담백하고 따뜻한 문장. 과장 없이 아이의 구체적인 모습·성장을 짚고, 반복·노출·익숙해짐을 중시하는 교육관이 배어나게. 마무리는 "꾸준히 ~하겠습니다" 같은 지도 다짐으로. 필요 시 "많이 칭찬해 주세요" 같은 부드러운 요청 한 번. 감탄사·이모지 없음.\n- 구성: 학습 태도 → 전체 진도 요약(교재별로 어디까지 진행했는지) → 주요 학습 내용(무엇을 배우고 연습했는지) → 원서 읽기 → 특기 사항 순\n- 아래 진도·기록 데이터를 바탕으로 통합·재구성하세요. 기록에 없는 내용 추가 금지.\n- 300~500자 분량, 문단은 2~3개로 나누세요.\n\n학생: ${s.name} (${s.grade||''})\n수업 ${les.length}회 | 원서 ${rds.length}권 | 단어 평균 ${avgV!=null?avgV+'%':'미측정'}\n\n전체 교재 진도:\n${progSummary}\n\n읽은 원서: ${rdSummary}\n\n일별 수업 기록(최근):\n${lessSummary}\n\n종합 코멘트만 출력하세요.`}]})
       });
       if(res.ok){const d=await res.json();aiComment=d.content?.[0]?.text?.trim()||'';}
     }catch(e){console.warn('printReport AI 실패:',e.message);}
