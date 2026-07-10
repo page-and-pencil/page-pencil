@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260705c">
+<link rel="stylesheet" href="css/style.css?v=20260705d">
 </head>
 <body>
 
@@ -1858,6 +1858,26 @@
 </div>
 
 <!-- 커스텀 확인 다이얼로그 -->
+<!-- 교재 퀵 추가 (교재 select에서 '새 교재 추가' 선택 시 — 자료 DB와 연동) -->
+<div id="m-quick-tbook" class="mo" data-protect>
+  <div class="mdl" style="max-width:380px">
+    <div class="mh"><div class="mt">새 교재 추가</div><button class="bx" onclick="closeM('m-quick-tbook')">×</button></div>
+    <div class="f"><label>교재명</label><input type="text" id="qtb-title" placeholder="교재명을 입력하세요" onkeydown="if(event.key==='Enter'&&!event.isComposing&&event.keyCode!==229)saveQuickTbook()"></div>
+    <div class="fg">
+      <div class="f"><label>분류</label>
+        <select id="qtb-category">
+          <option value="">선택 안 함</option>
+          <option value="파닉스">파닉스</option><option value="어휘">어휘</option><option value="어법">어법</option>
+          <option value="리딩">리딩</option><option value="리스닝">리스닝</option><option value="라이팅">라이팅</option><option value="내신">내신</option>
+        </select>
+      </div>
+      <div class="f"><label>레벨 (선택)</label><input type="text" id="qtb-level" placeholder="예: 초3, Level 2"></div>
+    </div>
+    <div class="ib ibt" style="font-size:11px;margin-bottom:10px">자료 DB에 함께 등록됩니다. 단원·단어 등 상세 정보는 자료 DB 탭에서 보완할 수 있어요.</div>
+    <button class="btn bt" style="width:100%;justify-content:center" onclick="saveQuickTbook()">추가하고 선택</button>
+  </div>
+</div>
+
 <div id="m-confirm" class="mo">
   <div class="mdl" style="max-width:340px">
     <div class="mh"><div class="mt" id="confirm-title">확인</div></div>
@@ -1917,11 +1937,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260705c"></script>
-<script src="vocab_ref_data.js?v=20260705c"></script>
-<script src="js/db.js?v=20260705c"></script>
-<script src="js/teacher.js?v=20260705c"></script>
-<script src="js/student.js?v=20260705c"></script>
-<script src="js/parent.js?v=20260705c"></script>
+<script src="js/utils.js?v=20260705d"></script>
+<script src="vocab_ref_data.js?v=20260705d"></script>
+<script src="js/db.js?v=20260705d"></script>
+<script src="js/teacher.js?v=20260705d"></script>
+<script src="js/student.js?v=20260705d"></script>
+<script src="js/parent.js?v=20260705d"></script>
 </body>
 </html>

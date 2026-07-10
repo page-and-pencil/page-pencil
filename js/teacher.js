@@ -1314,24 +1314,31 @@ function reqRemovePay(stuId, idx, fromPanel=false){
     toast('삭제되었습니다');
   });
 }
-function openAddStu(){
-  const nsClasses=document.getElementById('ns-classes');
-  if(nsClasses){
-    const classes=DB.classes().filter(c=>c.active!==false);
-    if(classes.length){
-      nsClasses.innerHTML=classes.map(c=>`<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;background:var(--cream)">
-        <input type="checkbox" value="${c.id}" style="flex-shrink:0;width:16px;height:16px;cursor:pointer">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--navy)">${c.name}</div>
-          <div style="font-size:11px;color:var(--slate);margin-top:2px">${classSchedStr(c)}</div>
-        </div>
-      </label>`).join('');
-    }else if(_cache.globalClasses!==undefined){
-      nsClasses.innerHTML='<span style="font-size:12px;color:var(--slate)">클래스 없음 — 클래스 탭에서 먼저 만들어 주세요</span>';
-    }else{
-      nsClasses.innerHTML='<span style="font-size:12px;color:var(--slate)">데이터 로딩 중...</span>';
-    }
+// 학생 추가 모달의 클래스 목록 렌더 — checkId를 주면 해당 클래스를 자동 선택 (기존 체크 상태 보존)
+function renderNsClasses(checkId){
+  const nsClasses=document.getElementById('ns-classes');if(!nsClasses)return;
+  const prevChecked=new Set([...nsClasses.querySelectorAll('input:checked')].map(cb=>cb.value));
+  if(checkId)prevChecked.add(checkId);
+  const classes=DB.classes().filter(c=>c.active!==false);
+  const addBtn='<button type="button" class="btn badd bsm" style="align-self:flex-start" onclick="openEditClass()">+ 새 클래스 만들기</button>';
+  if(classes.length){
+    nsClasses.innerHTML=classes.map(c=>`<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;background:var(--cream)">
+      <input type="checkbox" value="${c.id}"${prevChecked.has(c.id)?' checked':''} style="flex-shrink:0;width:16px;height:16px;cursor:pointer">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--navy)">${c.name}</div>
+        <div style="font-size:11px;color:var(--slate);margin-top:2px">${classSchedStr(c)}</div>
+      </div>
+    </label>`).join('')+addBtn;
+  }else if(_cache.globalClasses!==undefined){
+    nsClasses.innerHTML='<span style="font-size:12px;color:var(--slate)">아직 클래스가 없어요 — 여기서 바로 만들 수 있어요</span>'+addBtn;
+  }else{
+    nsClasses.innerHTML='<span style="font-size:12px;color:var(--slate)">데이터 로딩 중...</span>';
   }
+}
+function openAddStu(){
+  // 이전 세션의 체크 잔존 방지 — 매 열기마다 미체크로 시작 (모달 열려 있는 동안의 보존은 renderNsClasses가 담당)
+  document.querySelectorAll('#ns-classes input:checked').forEach(cb=>cb.checked=false);
+  renderNsClasses();
   openM('m-add-stu');
 }
 async function addStu(){
@@ -1463,8 +1470,8 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
     if(noMatch)books=_cache.globalTextbooks||[];
     books=[...books].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
-    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${_selMatch(b)?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
-    bookInput=`<select data-f="book" onchange="clUpdateUnitHint(this)" style="${_bkSelSt}">${opts}</select>`;
+    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${_selMatch(b)?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('')+BK_ADD_OPT;
+    bookInput=`<select data-f="book" data-basekey="${baseKey}" onfocus="this.dataset.prev=this.value" onchange="if(bkSelAddNew(this))return;this.dataset.prev=this.value;clUpdateUnitHint(this)" style="${_bkSelSt}">${opts}</select>`;
     if(!noUnit){
       const initTbCl=books.find(_selMatch)||null;
       const initUnitsCl=initTbCl?Object.keys(initTbCl.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
@@ -1480,8 +1487,8 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
     if(noMatch)books=_cache.globalTextbooks||[];
     books=[...books].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
-    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${_selMatch(b)?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
-    bookInput=`<select data-f="book" onchange="lesUpdateUnitSel(this)" style="${_bkSelSt}">${opts}</select>`;
+    const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${_selMatch(b)?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('')+BK_ADD_OPT;
+    bookInput=`<select data-f="book" data-basekey="${baseKey}" onfocus="this.dataset.prev=this.value" onchange="if(bkSelAddNew(this))return;this.dataset.prev=this.value;lesUpdateUnitSel(this)" style="${_bkSelSt}">${opts}</select>`;
     if(!noUnit){
       const initTb=books.find(_selMatch)||null;
       const initUnits=initTb?Object.keys(initTb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
@@ -1497,7 +1504,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
     const sortedLib=allLibCombined.sort((a,b2)=>(a.title||'').localeCompare(b2.title||''));
     const dlLibId='dl-lib-'+Math.random().toString(36).slice(2,7);
     const dlChId='dl-ch-'+Math.random().toString(36).slice(2,7);
-    bookInput=`<datalist id="${dlLibId}">${sortedLib.map(b=>`<option value="${escAttr(b.title)}">`).join('')}</datalist><input type="text" placeholder="원서 제목" data-f="book" list="${dlLibId}" autocomplete="off" value="${escAttr(bookVal||'')}" oninput="libUpdateChapterHint(this)" style="${_bkSelSt}">`;
+    bookInput=`<datalist id="${dlLibId}">${sortedLib.map(b=>`<option value="${escAttr(b.title)}">`).join('')}</datalist><input type="text" placeholder="원서 제목" data-f="book" list="${dlLibId}" autocomplete="off" value="${escAttr(bookVal||'')}" oninput="libUpdateChapterHint(this)" onchange="libOfferAdd(this)" style="${_bkSelSt}">`;
     if(!noUnit){
       const initLibBk=bookVal?allLibCombined.find(b=>b.title===bookVal):null;
       const initChs=[...new Set((initLibBk?.vocab||[]).map(w=>w.chapter||w.unit).filter(Boolean))];
@@ -1510,8 +1517,8 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
     let filtBooks=catF?(_cache.globalTextbooks||[]).filter(b=>b.category===catF):(_cache.globalTextbooks||[]);
     if(!filtBooks.length)filtBooks=_cache.globalTextbooks||[];
     filtBooks=[...filtBooks].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
-    const opts2=`<option value="">-- 교재 선택 --</option>`+filtBooks.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${_selMatch(b)?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('');
-    bookInput=`<select data-f="book" style="${_bkSelSt}">${opts2}</select>`;
+    const opts2=`<option value="">-- 교재 선택 --</option>`+filtBooks.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${_selMatch(b)?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('')+BK_ADD_OPT;
+    bookInput=`<select data-f="book" data-basekey="${baseKey}" onfocus="this.dataset.prev=this.value" onchange="if(bkSelAddNew(this))return;this.dataset.prev=this.value" style="${_bkSelSt}">${opts2}</select>`;
   }
   d.innerHTML=`<span class="sl ${cls}">${label}</span>${bookInput}${unitInput} ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
   wrap.appendChild(d);
@@ -1533,6 +1540,91 @@ function rmSRowFrom(wrapperId,s,btn){
 }
 function addSRow(s){addSRowTo('subj-rows',s);}
 function rmSRow(s,btn){rmSRowFrom('subj-rows',s,btn);}
+
+// ── 교재 퀵 추가 — select에 원하는 교재가 없을 때 그 자리에서 추가 (자료 DB와 연동) ──
+const BK_ADD_OPT='<option value="__addnew__">➕ 새 교재 추가…</option>';
+let _qtbTargetSel=null,_qtbSaving=false;
+function bkSelAddNew(sel){
+  if(sel.value!=='__addnew__')return false;
+  // 직전 선택값 복원 (onfocus에서 저장) — 퀵 추가를 취소해도 기존 선택이 유실되지 않음
+  sel.value=sel.dataset.prev||'';
+  openQuickTbook(sel);
+  return true;
+}
+function openQuickTbook(sel){
+  _qtbTargetSel=sel||null;
+  document.getElementById('qtb-title').value='';
+  document.getElementById('qtb-level').value='';
+  document.getElementById('qtb-category').value=sel?(_CAT_KO[sel.dataset.basekey]||''):'';
+  openM('m-quick-tbook');
+  setTimeout(()=>document.getElementById('qtb-title')?.focus(),80);
+}
+async function saveQuickTbook(){
+  const title=document.getElementById('qtb-title').value.trim();
+  if(!title){toast('교재명을 입력하세요');return;}
+  if(_qtbSaving)return; // 더블클릭·IME Enter 중복 실행 방지
+  _qtbSaving=true;
+  try{
+    const category=document.getElementById('qtb-category').value||'';
+    const level=document.getElementById('qtb-level').value.trim();
+    let tb=(_cache.globalTextbooks||[]).find(b=>(b.title||'').trim().toLowerCase()===title.toLowerCase());
+    if(tb){
+      toast('이미 등록된 교재예요 — 바로 선택했습니다');
+    }else{
+      tb={id:uid(),type:'textbook',title,publisher:'',level,category,grade:'',totalUnits:0};
+      try{await supaUpsert('global_textbooks',tb.id,tb,null);}
+      catch(e){toast(e.message?.includes('404')?'global_textbooks 테이블이 없습니다. supabase_missing_tables.sql을 실행해 주세요.':'저장 실패: '+e.message);return;}
+      if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
+      _cache.globalTextbooks.push(tb);
+      // 자료 DB 탭 화면도 동기화
+      try{renderTbookTable();renderBookDB();renderMasterDB();updateTbookDatalist();}catch(e){}
+      toast('교재가 추가되었습니다 (자료 DB에도 등록)');
+    }
+    // 열려 있는 교재 select에 새 옵션 반영 — 트리거 select는 항상, 나머지는 분류가 맞을 때만
+    document.querySelectorAll('select[data-f="book"][data-basekey]').forEach(s=>{
+      if([...s.options].some(o=>o.dataset&&o.dataset.bkId===tb.id))return;
+      const isTrigger=s===_qtbTargetSel;
+      const catOk=!tb.category||_CAT_KO[s.dataset.basekey]===tb.category||!_CAT_KO[s.dataset.basekey];
+      if(!isTrigger&&!catOk)return;
+      const opt=document.createElement('option');
+      opt.value=tb.title;opt.dataset.bkId=tb.id;
+      opt.textContent=tb.title+(tb.level?' ('+tb.level+')':'');
+      const addOpt=[...s.options].find(o=>o.value==='__addnew__');
+      s.insertBefore(opt,addOpt||null);
+    });
+    // 트리거한 select에서 새 교재를 곧바로 선택 + 유닛 힌트 갱신
+    if(_qtbTargetSel&&document.contains(_qtbTargetSel)){
+      const opt=[..._qtbTargetSel.options].find(o=>o.dataset&&o.dataset.bkId===tb.id);
+      if(opt){opt.selected=true;_qtbTargetSel.dispatchEvent(new Event('change'));}
+    }
+    closeM('m-quick-tbook');
+    _qtbTargetSel=null;
+  }finally{_qtbSaving=false;}
+}
+// 원서 제목이 원서 DB에 없으면 추가 제안 (입력 확정 시)
+const _libOfferDeclined=new Set(); // 세션 내 '취소'한 제목은 다시 묻지 않음
+function libOfferAdd(inp){
+  const title=(inp.value||'').trim();
+  if(!title)return;
+  const key=title.toLowerCase();
+  if(_libOfferDeclined.has(key))return;
+  if((_cache.library||[]).some(b=>(b.title||'').trim().toLowerCase()===key))return;
+  // blur 직후 버튼 클릭이 confirm 오버레이에 먹히지 않도록 클릭 완료 후에 띄운다
+  setTimeout(()=>{
+    if(_libOfferDeclined.has(key))return;
+    if((_cache.library||[]).some(b=>(b.title||'').trim().toLowerCase()===key))return;
+    _libOfferDeclined.add(key); // confirm을 한 번 보여준 제목은 재확인하지 않음 (추가 성공 시에도 재질문 불필요)
+    askConfirm('원서 DB에 추가',`"${title}" — 원서 목록에 없는 책이에요. 자료 DB에 추가할까요? (AR·시리즈·오디오는 나중에 보완 가능)`,'추가','bt',async()=>{
+      const newLib={id:uid(),type:'library',title,series:'',arLevel:'',pages:'',publisher:'',description:''};
+      try{await supaUpsert('global_textbooks',newLib.id,newLib,null);}
+      catch(e){toast('저장 실패: '+e.message);return;}
+      if(!_cache.library)_cache.library=[];
+      _cache.library.push(newLib);
+      try{renderLib();renderBookDB();renderMasterDB();populateLibSel();populateDataLists();}catch(e){}
+      toast('원서 목록에 추가되었습니다');
+    });
+  },250);
+}
 function togglePdSing(btn){
   const row=btn.closest('.sr');
   const input=row.querySelector('input[data-f="unit"]');
@@ -8799,6 +8891,10 @@ async function saveClass(){
   if(idx>=0)_cache.globalClasses[idx]=c;else _cache.globalClasses.unshift(c);
   closeM('m-edit-class');
   renderClassTab();renderDash();
+  // 학생 추가 모달 위에서 만든 경우: 목록 갱신 + 방금 만든 클래스 자동 선택
+  // (closeM은 'open' 클래스를 남기고 display:none만 걸므로 실제 가시 상태까지 확인)
+  const stuModal=document.getElementById('m-add-stu');
+  if(stuModal&&stuModal.classList.contains('open')&&stuModal.style.display!=='none')renderNsClasses(id);
   toast('저장되었습니다');
 }
 
