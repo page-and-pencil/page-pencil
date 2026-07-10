@@ -11,7 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260711f">
+<link rel="stylesheet" href="css/style.css?v=20260711g">
 </head>
 <body>
 
@@ -1650,6 +1650,18 @@
   </div>
 </div>
 
+<!-- 학습 리포트 인쇄 — 기간 선택 -->
+<div id="m-print-report" class="mo">
+  <div class="mdl" style="max-width:340px">
+    <div class="mh"><div class="mt">학습 리포트 인쇄</div><button class="bx" onclick="closeM('m-print-report')">×</button></div>
+    <div class="f"><label>대상 월</label><input type="month" id="pr-month"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn bt" style="flex:1" onclick="closeM('m-print-report');printReport(_prSid,document.getElementById('pr-month').value||'all')">해당 월 인쇄</button>
+      <button class="btn bo" style="flex:1" onclick="closeM('m-print-report');printReport(_prSid,'all')">전체 기간</button>
+    </div>
+  </div>
+</div>
+
 <!-- 원서 추가 -->
 <div id="m-add-lib" class="mo" data-protect>
   <div class="mdl">
@@ -2012,11 +2024,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260711f"></script>
-<script src="vocab_ref_data.js?v=20260711f"></script>
-<script src="js/db.js?v=20260711f"></script>
-<script src="js/teacher.js?v=20260711f"></script>
-<script src="js/student.js?v=20260711f"></script>
-<script src="js/parent.js?v=20260711f"></script>
+<script src="js/utils.js?v=20260711g"></script>
+<script src="vocab_ref_data.js?v=20260711g"></script>
+<script src="js/db.js?v=20260711g"></script>
+<script src="js/teacher.js?v=20260711g"></script>
+<script src="js/student.js?v=20260711g"></script>
+<script src="js/parent.js?v=20260711g"></script>
 </body>
 </html>

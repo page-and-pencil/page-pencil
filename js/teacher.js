@@ -897,6 +897,73 @@ async function delVocabCard(cardId,sid,word){
     renderSpRdlog(sid);renderSpVocab(sid);toast('삭제되었습니다');
   });
 }
+// ── 학생 상세: 수업 기록 목록 (날짜 정렬 토글 + 월 필터 + 요일 표시) ──
+let _spLesSort='desc',_spLesMonth='',_spLesSid='';
+function spLesSortToggle(sid){_spLesSort=_spLesSort==='desc'?'asc':'desc';renderSpLessons(sid);}
+function spLesMonthChange(sid,v){_spLesMonth=v;renderSpLessons(sid);}
+function renderSpLessons(sid){
+  const el=document.getElementById('sp-lessons');if(!el)return;
+  const DAYS=['일','월','화','수','목','금','토'];
+  const all=DB.less().filter(l=>l.sid===sid).slice()
+    .sort((a,b)=>_spLesSort==='desc'?(b.date||'').localeCompare(a.date||''):(a.date||'').localeCompare(b.date||''));
+  if(!all.length){
+    el.innerHTML=`<div class="empty boxed"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div><div class="empty-s">수업을 기록하면 교재 진도·코멘트가 학부모에게 전달됩니다</div><button class="btn bt bsm" onclick="goAddLesson('${sid}')">+ 첫 수업 기록하기</button></div>`;
+    return;
+  }
+  const months=[...new Set(all.map(l=>(l.date||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  const list=_spLesMonth?all.filter(l=>(l.date||'').startsWith(_spLesMonth)):all;
+  const lesSlice=_spLesMonth?list:list.slice(0,10);
+  const bar=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+    <select class="filter-sel" style="padding:5px 10px;font-size:12px" onchange="spLesMonthChange('${sid}',this.value)">
+      <option value="">전체 기간 (${all.length}건)</option>
+      ${months.map(m=>`<option value="${m}"${_spLesMonth===m?' selected':''}>${parseInt(m.slice(0,4))}년 ${parseInt(m.slice(5))}월 (${all.filter(l=>(l.date||'').startsWith(m)).length}건)</option>`).join('')}
+    </select>
+    <button class="btn bo bsm" style="font-size:12px" onclick="spLesSortToggle('${sid}')" title="날짜 정렬 방향 전환">${_spLesSort==='desc'?'↓ 최신순':'↑ 과거순'}</button>
+    <span style="font-size:11px;color:var(--slate)">${_spLesMonth?`${list.length}건 표시`:(all.length>10?`최근 10건 표시 — 월을 선택하면 해당 월 전체가 보여요`:'')}</span>
+  </div>`;
+  const cards=lesSlice.map(l=>{
+    const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
+    const day=l.date?DAYS[new Date(l.date+'T00:00:00').getDay()]+'요일':'';
+    const tbParts=[],bookParts=[];
+    Object.entries(l.materials||{}).forEach(([k,v])=>{
+      if(!v.book)return;
+      const isBook=k==='_book'||k.startsWith('_book_');
+      const baseKey=k.replace(/_\d+$/,'');
+      const label=isBook?'원서':(SLBL[baseKey]||'');
+      const cls=isBook?'srd':(SCLS[baseKey]||'');
+      if(!label&&!v.book)return;
+      const units=(v.unit||'').split(', ').filter(Boolean);
+      const unitHtml=units.length?`<div class="prog-pills" style="margin-top:4px">${units.map(u=>`<span class="prog-pill">${u}</span>`).join('')}</div>`:'';
+      const html=`<div style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-weight:700;font-size:13px;color:var(--navy)">${v.book||''}</span><span class="spill ${cls}">${label}</span></div>${unitHtml}</div>`;
+      if(isBook)bookParts.push(html);else tbParts.push(html);
+    });
+    return `<div class="cls-les-card">
+      <div class="cls-les-head">
+        <span class="cls-les-date">${l.date||''}${day?` <span style="font-weight:400;color:#94A3B8">(${day.slice(0,1)})</span>`:''}</span>
+        <div style="display:flex;gap:4px;align-items:center">
+          ${attLabel?`<span class="att-chip ${ATTCLS[l.att]}" style="font-size:10px">${attLabel}</span>`:''}
+          <button class="btn bo bxxs" onclick="openEditLes('${l.id}')">✏️</button>
+          <button class="btn bd bxxs" onclick="reqDelLesFromPanel('${l.id}','${sid}')">🗑️</button>
+        </div>
+      </div>
+      ${tbParts.length?`<div>${tbParts.join('')}</div>`:''}
+      ${bookParts.length?`<div>${bookParts.join('')}</div>`:''}
+      ${l.polishedCmt?`<div style="font-size:12px;color:#334155;padding:5px 8px;background:var(--tl);border-radius:6px;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:var(--teal);display:block;margin-bottom:1px">학부모</span>${l.polishedCmt}</div>`:(l.cmt&&!l.stuCmt?`<div style="font-size:12px;color:#334155">${l.cmt}</div>`:'')}
+      ${l.stuCmt?`<div style="font-size:12px;color:#334155;padding:5px 8px;background:var(--cream2);border-radius:6px"><span style="font-size:10px;font-weight:700;color:var(--navy);display:block;margin-bottom:1px">학생</span>${l.stuCmt}</div>`:''}
+    </div>`;
+  }).join('');
+  const footer=!_spLesMonth&&all.length>10
+    ?`<div style="text-align:center;padding:10px 0;font-size:12px;color:var(--teal);cursor:pointer" onclick="swTab('t-les');document.getElementById('les-filter-stu').value='${sid}';lesPage=0;renderLes()">전체 ${all.length}건 수업 기록 보기 →</div>`:'';
+  el.innerHTML=bar+cards+footer;
+}
+// 학습 리포트 인쇄 — 월 선택 모달
+let _prSid='';
+function openPrintReport(sid){
+  _prSid=sid;
+  const inp=document.getElementById('pr-month');
+  if(inp)inp.value=new Date().toISOString().slice(0,7);
+  openM('m-print-report');
+}
 async function loadStuPanel(sid){
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
   if(!(_cache.vocab_cards||[]).some(c=>c.sid===sid)){
@@ -931,42 +998,9 @@ async function loadStuPanel(sid){
   // ── 요약 (기간별) ──
   renderSpSummary(sid,'month');
 
-  // ── 수업 (최근 10개, 더보기 가능) ──
-  const lesSlice=les.slice(0,10);
-  document.getElementById('sp-lessons').innerHTML=!les.length
-    ?`<div class="empty boxed"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div><div class="empty-s">수업을 기록하면 교재 진도·코멘트가 학부모에게 전달됩니다</div><button class="btn bt bsm" onclick="goAddLesson('${sid}')">+ 첫 수업 기록하기</button></div>`
-    :`${lesSlice.map(l=>{
-      const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
-      const tbParts=[],bookParts=[];
-      Object.entries(l.materials||{}).forEach(([k,v])=>{
-        if(!v.book)return;
-        const isBook=k==='_book'||k.startsWith('_book_');
-        const baseKey=k.replace(/_\d+$/,'');
-        const label=isBook?'원서':(SLBL[baseKey]||'');
-        const cls=isBook?'srd':(SCLS[baseKey]||'');
-        if(!label&&!v.book)return;
-        const units=(v.unit||'').split(', ').filter(Boolean);
-        const unitHtml=units.length?`<div class="prog-pills" style="margin-top:4px">${units.map(u=>`<span class="prog-pill">${u}</span>`).join('')}</div>`:'';
-        const html=`<div style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-weight:700;font-size:13px;color:var(--navy)">${v.book||''}</span><span class="spill ${cls}">${label}</span></div>${unitHtml}</div>`;
-        if(isBook)bookParts.push(html);else tbParts.push(html);
-      });
-      return `<div class="cls-les-card">
-        <div class="cls-les-head">
-          <span class="cls-les-date">${l.date||''}</span>
-          <div style="display:flex;gap:4px;align-items:center">
-            ${attLabel?`<span class="att-chip ${ATTCLS[l.att]}" style="font-size:10px">${attLabel}</span>`:''}
-            <button class="btn bo bxxs" onclick="openEditLes('${l.id}')">✏️</button>
-            <button class="btn bd bxxs" onclick="reqDelLesFromPanel('${l.id}','${sid}')">🗑️</button>
-          </div>
-        </div>
-        ${tbParts.length?`<div>${tbParts.join('')}</div>`:''}
-        ${bookParts.length?`<div>${bookParts.join('')}</div>`:''}
-        ${l.polishedCmt?`<div style="font-size:12px;color:#334155;padding:5px 8px;background:var(--tl);border-radius:6px;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:var(--teal);display:block;margin-bottom:1px">학부모</span>${l.polishedCmt}</div>`:(l.cmt&&!l.stuCmt?`<div style="font-size:12px;color:#334155">${l.cmt}</div>`:'')}
-        ${l.stuCmt?`<div style="font-size:12px;color:#334155;padding:5px 8px;background:var(--cream2);border-radius:6px"><span style="font-size:10px;font-weight:700;color:var(--navy);display:block;margin-bottom:1px">학생</span>${l.stuCmt}</div>`:''}
-      </div>`;
-    }).join('')}
-    ${les.length>10?`<div style="text-align:center;padding:10px 0;font-size:12px;color:var(--teal);cursor:pointer" onclick="swTab('t-les');document.getElementById('les-filter-stu').value='${sid}';lesPage=0;renderLes()">전체 ${les.length}건 수업 기록 보기 →</div>`:''}
-    `;
+  // ── 수업 (날짜 정렬·월 필터 지원 — renderSpLessons) ──
+  if(_spLesSid!==sid){_spLesSort='desc';_spLesMonth='';_spLesSid=sid;}
+  renderSpLessons(sid);
 
   // ── 테스트 (최근 5개) ──
   const tstListHtml=!tsts.length
@@ -7507,7 +7541,7 @@ function renderSpSummary(sid,period,from,to){
       ${s.memo?`<div>메모: ${s.memo}</div>`:''}
     </div>
     <div style="margin-top:12px">
-      <button class="btn bo bsm" onclick="printReport('${sid}')" style="width:100%">🖨️ 학습 리포트 인쇄</button>
+      <button class="btn bo bsm" onclick="openPrintReport('${sid}')" style="width:100%">🖨️ 학습 리포트 인쇄</button>
     </div>
    </div>`;
 }
