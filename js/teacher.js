@@ -269,9 +269,6 @@ function populateSels(){
   const stus=DB.stus();
   const opts=stus.filter(s=>!s.inactive).map(s=>`<option value="${s.id}">${s.name}</option>`).join('')||'<option value="">학생 없음</option>';
   ['ls-stu','ts-stu','rd-stu','lg-stu','el-stu','qp-stu'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
-  // 첫번째 학생의 학년으로 ls-grade 초기화
-  const firstActive=stus.find(s=>!s.inactive);
-  if(firstActive){const grEl=document.getElementById('ls-grade');if(grEl&&(firstActive.grade||firstActive.lv))grEl.value=firstActive.grade||firstActive.lv;}
 }
 function populateFilterSels(){
   const stus=DB.stus().filter(s=>!s.inactive);
@@ -919,7 +916,9 @@ async function loadStuPanel(sid){
 
   document.getElementById('sp-name').textContent=s.name+(s.inactive?' (퇴원)':'');
   {const av=document.getElementById('sp-avatar');if(av)av.textContent=(s.name||'').trim().slice(0,1)||'학';}
-  const schedStr=(s.scheduleDays&&s.scheduleDays.length?s.scheduleDays.join('·')+'요일':'')+((s.scheduleDays&&s.scheduleDays.length)&&s.scheduleTime?' '+s.scheduleTime:s.scheduleTime||'');
+  // 일정은 소속 클래스에서 파생 (학생 개별 요일·시간 입력 제거됨)
+  const myClasses=DB.classes().filter(c=>c.active!==false&&(c.studentIds||[]).includes(sid));
+  const schedStr=myClasses.map(c=>`${c.name} ${(c.days||[]).join('·')}${c.timeStart?' '+c.timeStart:''}`).join(' / ');
   const parentStr=s.parentName||s.parentPhone?(s.parentName||'')+(s.parentPhone?(s.parentName?' ':'')+s.parentPhone:''):'';
   document.getElementById('sp-meta').textContent=(s.grade||s.lv||'')+(s.school?' · '+s.school:'')+(s.enrollDate?' · 입회 '+s.enrollDate:'')+(schedStr?' · '+schedStr:'')+(parentStr?' · 📱'+parentStr:'');
 
@@ -1171,12 +1170,6 @@ function checkLesDuplicate(){
 function fillLastLesson(sid){
   const hint=document.getElementById('ls-last-hint');if(!hint)return;
   if(!sid){hint.style.display='none';_lastLessonRef=null;checkLesDuplicate();return;}
-  // 학생 학년 자동 설정
-  const stu=DB.stus().find(s=>s.id===sid);
-  if(stu){
-    const gradeEl=document.getElementById('ls-grade');
-    if(gradeEl&&(stu.grade||stu.lv))gradeEl.value=stu.grade||stu.lv;
-  }
   checkLesDuplicate();
   const les=DB.less().filter(l=>l.sid===sid);
   if(!les.length){hint.style.display='none';_lastLessonRef=null;return;}
@@ -1251,8 +1244,12 @@ function openEditStu(id){
   document.getElementById('es-fee').value=s.fee||'';
   document.getElementById('es-payday').value=s.payday||'';
   document.getElementById('es-memo').value=s.memo||'';
-  document.querySelectorAll('#m-edit-stu input[name="es-day"]').forEach(cb=>{cb.checked=(s.scheduleDays||[]).includes(cb.value);});
-  document.getElementById('es-schedtime').value=s.scheduleTime||'';
+  // 소속 클래스 표시 (요일·시간의 원천 = 클래스, 변경은 클래스 탭에서)
+  {const ec=document.getElementById('es-classes');
+   if(ec){const myCls=DB.classes().filter(c=>c.active!==false&&(c.studentIds||[]).includes(s.id));
+     ec.innerHTML=myCls.length
+       ?myCls.map(c=>`<span class="badge bteal">${c.name} · ${(c.days||[]).join('·')}${c.timeStart?' '+c.timeStart:''}</span>`).join('')
+       :'<span style="font-size:12px;color:var(--slate)">소속 클래스 없음 — 클래스 탭에서 배정해 주세요</span>';}}
   document.getElementById('es-parent-name').value=s.parentName||'';
   document.getElementById('es-parent-phone').value=s.parentPhone||'';
   document.getElementById('es-paid-date').value=new Date().toISOString().split('T')[0];
@@ -1342,7 +1339,7 @@ async function addStu(){
   const pin=document.getElementById('ns-pin').value.trim();
   if(!name){toast('이름을 입력해 주세요');return;}
   if(!pin||pin.length!==4){toast('PIN은 4자리여야 합니다');return;}
-  const newStu={id:uid(),name,grade:document.getElementById('ns-grade').value,school:document.getElementById('ns-school')?.value.trim()||'',pin,enrollDate:document.getElementById('ns-enroll').value,fee:parseInt(document.getElementById('ns-fee').value)||0,payday:parseInt(document.getElementById('ns-payday').value)||0,memo:document.getElementById('ns-memo').value.trim(),scheduleDays:[...document.querySelectorAll('#m-add-stu input[name="ns-day"]:checked')].map(cb=>cb.value),scheduleTime:document.getElementById('ns-schedtime')?.value.trim()||'',parentName:document.getElementById('ns-parent-name')?.value.trim()||'',parentPhone:document.getElementById('ns-parent-phone')?.value.trim()||'',payments:[],inactive:false};
+  const newStu={id:uid(),name,grade:document.getElementById('ns-grade').value,school:document.getElementById('ns-school')?.value.trim()||'',pin,enrollDate:document.getElementById('ns-enroll').value,fee:parseInt(document.getElementById('ns-fee').value)||0,payday:parseInt(document.getElementById('ns-payday').value)||0,memo:document.getElementById('ns-memo').value.trim(),parentName:document.getElementById('ns-parent-name')?.value.trim()||'',parentPhone:document.getElementById('ns-parent-phone')?.value.trim()||'',payments:[],inactive:false};
   await supaUpsert('students',newStu.id,newStu,null);
   _cache.students.unshift(newStu);
   // 선택된 클래스에 학생 추가
@@ -1357,14 +1354,13 @@ async function addStu(){
     }
   }
   closeM('m-add-stu');
-  ['ns-name','ns-pin','ns-enroll','ns-fee','ns-payday','ns-memo','ns-school','ns-schedtime','ns-parent-name','ns-parent-phone'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
-  document.querySelectorAll('#m-add-stu input[name="ns-day"]').forEach(cb=>cb.checked=false);
+  ['ns-name','ns-pin','ns-enroll','ns-fee','ns-payday','ns-memo','ns-school','ns-parent-name','ns-parent-phone'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   renderStus();populateSels();populateFilterSels();renderClassTab();toast(name+' 학생이 추가되었습니다');
 }
 async function updStu(){
   const id=document.getElementById('es-id').value;
   const idx=_cache.students.findIndex(s=>s.id===id);if(idx<0)return;
-  _cache.students[idx]={..._cache.students[idx],name:document.getElementById('es-name').value.trim(),grade:document.getElementById('es-grade').value,school:document.getElementById('es-school').value.trim(),pin:document.getElementById('es-pin').value.trim(),enrollDate:document.getElementById('es-enroll').value,fee:parseInt(document.getElementById('es-fee').value)||0,payday:parseInt(document.getElementById('es-payday').value)||0,memo:document.getElementById('es-memo').value.trim(),scheduleDays:[...document.querySelectorAll('#m-edit-stu input[name="es-day"]:checked')].map(cb=>cb.value),scheduleTime:document.getElementById('es-schedtime').value.trim(),parentName:document.getElementById('es-parent-name').value.trim(),parentPhone:document.getElementById('es-parent-phone').value.trim()};
+  _cache.students[idx]={..._cache.students[idx],name:document.getElementById('es-name').value.trim(),grade:document.getElementById('es-grade').value,school:document.getElementById('es-school').value.trim(),pin:document.getElementById('es-pin').value.trim(),enrollDate:document.getElementById('es-enroll').value,fee:parseInt(document.getElementById('es-fee').value)||0,payday:parseInt(document.getElementById('es-payday').value)||0,memo:document.getElementById('es-memo').value.trim(),parentName:document.getElementById('es-parent-name').value.trim(),parentPhone:document.getElementById('es-parent-phone').value.trim()};
   await supaUpsert('students',id,_cache.students[idx],null);
   closeM('m-edit-stu');renderStus();populateSels();toast('수정되었습니다');
 }
@@ -1714,7 +1710,7 @@ async function saveLes(){
     ?(document.getElementById('stu-cmt-preview-text')?.value?.trim()||''):'';
   const stuCmt=rawCmt?(stuPreviewTxt||_polishedCmtCache.stuCmt||await polishStuCmt_teacher(rawCmt,matsText,_sStu?.name||'')):'';
   if(rawCmt&&polishedCmt)_saveCmtExample(rawCmt,polishedCmt);
-  const _sStuGrade=document.getElementById('ls-grade')?.value||(_sStu&&(_sStu.grade||_sStu.lv))||'';
+  const _sStuGrade=(_sStu&&(_sStu.grade||_sStu.lv))||'';
   const _rubric=getRubricData();
   const newLes={id:uid(),sid,date:document.getElementById('ls-date').value,grade:_sStuGrade,att:document.getElementById('ls-att').value,materials:mats,cmt:rawCmt,polishedCmt,stuCmt,...(_rubric?{rubric:_rubric}:{})};
   await supaUpsert('lessons',newLes.id,newLes,sid);
@@ -2027,7 +2023,6 @@ function openEditLes(id){
   const l=DB.less().find(x=>x.id===id);if(!l)return;
   document.getElementById('el-id').value=l.id;
   document.getElementById('el-date').value=l.date||'';
-  document.getElementById('el-grade').value=l.grade||l.lv||'초3';
   document.getElementById('el-att').value=l.att||'normal';
   document.getElementById('el-cmt').value=l.cmt||'';
   document.getElementById('el-stu').value=l.sid||'';
@@ -2067,7 +2062,8 @@ async function updLes(){
     ?(document.getElementById('el-stu-cmt-preview-text')?.value?.trim()||''):'';
   const stuCmt=rawCmt?(elStuPreviewTxt||_cache.lessons[idx]?.stuCmt||''):'';
   if(rawCmt&&polishedCmt)_saveCmtExample(rawCmt,polishedCmt);
-  _cache.lessons[idx]={..._cache.lessons[idx],date:document.getElementById('el-date').value,sid,grade:document.getElementById('el-grade').value,att:document.getElementById('el-att').value,materials:mats,cmt:rawCmt,polishedCmt,stuCmt};
+  const _elGrade=_cache.lessons[idx].grade||(DB.stus().find(s=>s.id===sid)?.grade)||'';
+  _cache.lessons[idx]={..._cache.lessons[idx],date:document.getElementById('el-date').value,sid,grade:_elGrade,att:document.getElementById('el-att').value,materials:mats,cmt:rawCmt,polishedCmt,stuCmt};
   await supaUpsert('lessons',id,_cache.lessons[idx],sid);
   (async()=>{
     await addUnitWordsToVocab(sid,_cache.lessons[idx].materials,_cache.lessons[idx].date).catch(e=>console.error('vocab sync:',e));

@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260705a">
+<link rel="stylesheet" href="css/style.css?v=20260705b">
 </head>
 <body>
 
@@ -316,14 +316,6 @@
 
             <div class="f"><label>출결</label>
               <select id="ls-att"><option value="normal">정상</option><option value="absent">결석</option><option value="late">지각</option><option value="sick">병결</option><option value="teacher_cancel">선생님 취소</option><option value="holiday">휴강</option><option value="makeup">보강</option></select>
-            </div>
-            <div class="f"><label>학년</label>
-              <select id="ls-grade">
-                <option value="초1">초등 1학년</option><option value="초2">초등 2학년</option>
-                <option value="초3">초등 3학년</option><option value="초4">초등 4학년</option>
-                <option value="초5">초등 5학년</option><option value="초6">초등 6학년</option>
-                <option value="중1">중학교 1학년</option><option value="중2">중학교 2학년</option><option value="중3">중학교 3학년</option>
-              </select>
             </div>
           </div>
           <div id="ls-last-hint" style="display:none;margin-bottom:10px;padding:8px 12px;background:var(--cream2);border-radius:var(--rs);font-size:12px;color:var(--slate);display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
@@ -1070,16 +1062,7 @@
       <div class="f"><label>입회일</label><input type="date" id="ns-enroll"></div>
       <div class="f"><label>수업료 (월)</label><input type="number" id="ns-fee" placeholder="150000"></div>
       <div class="f"><label>결제일 (매월 며칠)</label><input type="number" id="ns-payday" min="1" max="31" placeholder="5"></div>
-      <div class="f s2"><label>메모</label><input type="text" id="ns-memo" placeholder="예) 주 5일, 화~토"></div>
-      <div class="f s2"><label>수업 요일</label><div style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 0">
-        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="ns-day" value="월"> 월</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="ns-day" value="화"> 화</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="ns-day" value="수"> 수</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="ns-day" value="목"> 목</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="ns-day" value="금"> 금</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="ns-day" value="토"> 토</label>
-      </div></div>
-      <div class="f"><label>수업 시간</label><input type="text" id="ns-schedtime" placeholder="예) 16:00"></div>
+      <div class="f s2"><label>메모</label><input type="text" id="ns-memo" placeholder="예) 형제 할인, 특이사항"></div>
       <div class="f"><label>학부모 성함</label><input type="text" id="ns-parent-name" placeholder="예) 김민준 어머니"></div>
       <div class="f"><label>학부모 연락처</label><input type="tel" id="ns-parent-phone" placeholder="01012345678" inputmode="numeric"></div>
       <div class="f s2"><label>클래스 지정 <span style="font-size:11px;color:var(--slate);font-weight:400">(선택)</span></label><div id="ns-classes" style="display:flex;flex-direction:column;gap:8px;padding:2px 0"></div></div>
@@ -1107,17 +1090,9 @@
       <div class="f"><label>수업료 (월)</label><input type="number" id="es-fee"></div>
       <div class="f"><label>결제일 (매월 며칠)</label><input type="number" id="es-payday" min="1" max="31"></div>
       <div class="f s2"><label>메모</label><input type="text" id="es-memo"></div>
-      <div class="f s2"><label>수업 요일</label><div style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 0">
-        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="es-day" value="월"> 월</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="es-day" value="화"> 화</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="es-day" value="수"> 수</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="es-day" value="목"> 목</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="es-day" value="금"> 금</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" name="es-day" value="토"> 토</label>
-      </div></div>
-      <div class="f"><label>수업 시간</label><input type="text" id="es-schedtime" placeholder="예) 16:00"></div>
       <div class="f"><label>학부모 성함</label><input type="text" id="es-parent-name" placeholder="예) 김민준 어머니"></div>
       <div class="f"><label>학부모 연락처</label><input type="tel" id="es-parent-phone" placeholder="01012345678" inputmode="numeric"></div>
+      <div class="f s2"><label>소속 클래스 <span style="font-size:11px;color:var(--slate);font-weight:400;text-transform:none">(요일·시간은 클래스 탭에서 변경)</span></label><div id="es-classes" style="display:flex;flex-wrap:wrap;gap:6px;padding:2px 0"></div></div>
     </div>
     <div class="section-label" style="margin-top:4px">결제 기록 추가</div>
     <div class="fg">
@@ -1166,16 +1141,7 @@
       <div class="f"><label>학생</label><select id="el-stu"></select></div>
     </div>
     <div class="fg" style="margin-bottom:0">
-      <div class="f"><label>학년</label>
-        <select id="el-grade">
-          <option value="초1">초등 1학년</option><option value="초2">초등 2학년</option>
-          <option value="초3">초등 3학년</option><option value="초4">초등 4학년</option>
-          <option value="초5">초등 5학년</option><option value="초6">초등 6학년</option>
-          <option value="중1">중학교 1학년</option><option value="중2">중학교 2학년</option>
-          <option value="중3">중학교 3학년</option>
-        </select>
-      </div>
-      <div class="f"><label>출결</label>
+      <div class="f s2"><label>출결</label>
         <select id="el-att">
           <option value="normal">정상</option><option value="absent">결석</option>
           <option value="late">지각</option><option value="sick">병결</option>
@@ -1944,11 +1910,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260705a"></script>
-<script src="vocab_ref_data.js?v=20260705a"></script>
-<script src="js/db.js?v=20260705a"></script>
-<script src="js/teacher.js?v=20260705a"></script>
-<script src="js/student.js?v=20260705a"></script>
-<script src="js/parent.js?v=20260705a"></script>
+<script src="js/utils.js?v=20260705b"></script>
+<script src="vocab_ref_data.js?v=20260705b"></script>
+<script src="js/db.js?v=20260705b"></script>
+<script src="js/teacher.js?v=20260705b"></script>
+<script src="js/student.js?v=20260705b"></script>
+<script src="js/parent.js?v=20260705b"></script>
 </body>
 </html>
