@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260710p">
+<link rel="stylesheet" href="css/style.css?v=20260710q">
 </head>
 <body>
 
@@ -1456,6 +1456,9 @@
               <input type="text" id="tu-new-unit-subtitle" placeholder="소제목 (선택)" onkeydown="if(event.key==='Enter'&&!event.isComposing)tuCreateUnit()" style="flex:1;min-width:0;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:#fff;outline:none">
               <button class="btn bt bsm" onclick="tuCreateUnit()" style="flex-shrink:0;white-space:nowrap">+ 생성</button>
             </div>
+            <button class="btn ba bsm" style="width:100%;white-space:nowrap" onclick="document.getElementById('tu-toc-file').click()" title="교재 목차 사진을 올리면 단원이 순서대로 자동 생성됩니다">📷 목차 이미지로 단원 일괄 생성</button>
+            <input type="file" id="tu-toc-file" accept="image/*" style="display:none" onchange="tuTocFile(event)">
+            <div style="font-size:10px;color:var(--slate);text-align:center">목차 사진을 Ctrl+V로 붙여넣어도 됩니다</div>
           </div>
         </div>
       </div>
@@ -2003,11 +2006,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260710p"></script>
-<script src="vocab_ref_data.js?v=20260710p"></script>
-<script src="js/db.js?v=20260710p"></script>
-<script src="js/teacher.js?v=20260710p"></script>
-<script src="js/student.js?v=20260710p"></script>
-<script src="js/parent.js?v=20260710p"></script>
+<script src="js/utils.js?v=20260710q"></script>
+<script src="vocab_ref_data.js?v=20260710q"></script>
+<script src="js/db.js?v=20260710q"></script>
+<script src="js/teacher.js?v=20260710q"></script>
+<script src="js/student.js?v=20260710q"></script>
+<script src="js/parent.js?v=20260710q"></script>
 </body>
 </html>

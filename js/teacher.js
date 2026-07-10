@@ -2746,8 +2746,9 @@ function renderLibVocabTable(id){
   const vocab=(b?.vocab||[]);
   const cnt=document.getElementById('elib-vocab-cnt');if(cnt)cnt.textContent=vocab.length?`(${vocab.length}개)`:'';
   const tbody=document.getElementById('elib-vocab-tbody');if(!tbody)return;
+  _elibEditing=null;
   if(!vocab.length){tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단어가 없습니다. AI 추출 또는 직접 추가하세요.</td></tr>';return;}
-  tbody.innerHTML=vocab.map((w,i)=>`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)">
+  tbody.innerHTML=vocab.map((w,i)=>`<tr data-rowidx="${i}" onclick="elibRowClick(event,'${id}',${i})" title="클릭하여 바로 수정" style="border-bottom:1px solid var(--border);cursor:pointer">
     <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}${(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:''}</td>
     <td style="padding:6px 8px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
     <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px">${POS_KO[w.pos]||w.pos||'—'}</span></td>
@@ -2759,7 +2760,40 @@ function renderLibVocabTable(id){
     </td>
   </tr>`).join('');
 }
-function elibEditInline(id,idx){
+// ── 인라인 편집 공통 — 셀을 바로 클릭해 수정 (연필 단계 생략), 다른 행 클릭 시 열려 있던 편집은 자동 저장 ──
+let _tuEditing=null,_wdbEditing=null,_elibEditing=null;
+// 열려 있는 인라인 편집을 저장하고 true 반환. 검증 실패(빈 단어 등)로 편집이 남아 있으면 false — 이동하지 않음
+async function _ieFlush(){
+  if(document.getElementById('tu-ie-word')){
+    if(!_tuEditing)return false;
+    await tuSaveInline(_tuEditing.tbId,_tuEditing.unitKey,_tuEditing.idx);
+    if(document.getElementById('tu-ie-word'))return false;
+  }
+  if(document.getElementById('wdb-ie-word')){
+    if(_wdbEditing==null)return false;
+    await wdbSaveInline(_wdbEditing);
+    if(document.getElementById('wdb-ie-word'))return false;
+  }
+  if(document.getElementById('elib-ie-word')){
+    if(!_elibEditing)return false;
+    await elibSaveInline(_elibEditing.id,_elibEditing.idx);
+    if(document.getElementById('elib-ie-word'))return false;
+  }
+  return true;
+}
+function _ieCellIdx(e){
+  const td=e.target.closest('td');const tr=e.target.closest('tr');
+  return td&&tr?[...tr.children].indexOf(td):-1;
+}
+async function elibRowClick(e,id,idx){
+  if(e.target.closest('button,input,select,a,textarea'))return;
+  const tr=e.target.closest('tr');if(!tr||tr.dataset.editing==='1')return;
+  const cell=_ieCellIdx(e);
+  if(!(await _ieFlush()))return;
+  elibEditInline(id,idx,['elib-ie-word','elib-ie-ko','elib-ie-pos','elib-ie-ex','elib-ie-endef'][cell]);
+}
+async function elibEditInline(id,idx,focusId){
+  if(!(await _ieFlush()))return;
   const b=(_cache.library||[]).find(x=>x.id===id);if(!b)return;
   const w=(b.vocab||[])[idx];if(!w)return;
   const tr=document.querySelector(`#elib-vocab-tbody tr[data-rowidx="${idx}"]`);if(!tr)return;
@@ -2780,7 +2814,8 @@ function elibEditInline(id,idx){
   elV2v3Tr.innerHTML=`<td colspan="6" style="padding:2px 8px 6px;background:var(--cream2)"><div style="display:flex;gap:8px;align-items:center"><span style="font-size:10px;color:var(--slate)">동사 변화</span><label style="font-size:10px;color:var(--slate)">과거형</label><input id="elib-ie-v2" value="${escAttr(w.v2||'')}" placeholder="went (불규칙만)" style="${elISt2}"><label style="font-size:10px;color:var(--slate)">과거분사</label><input id="elib-ie-v3" value="${escAttr(w.v3||'')}" placeholder="gone (불규칙만)" style="${elISt2}"></div></td>`;
   tr.insertAdjacentElement('afterend',elV2v3Tr);
   [...tr.querySelectorAll('input'),...elV2v3Tr.querySelectorAll('input')].forEach(inp=>inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();elibSaveInline(id,idx);}if(e.key==='Escape'){renderLibVocabTable(id);}}));
-  tr.querySelector('#elib-ie-word')?.focus();
+  tr.dataset.editing='1';_elibEditing={id,idx};
+  ((focusId&&tr.querySelector('#'+focusId))||tr.querySelector('#elib-ie-word'))?.focus();
 }
 async function elibSaveInline(id,idx){
   const word=(document.getElementById('elib-ie-word')?.value||'').trim().toLowerCase();
@@ -3484,6 +3519,7 @@ function tuToggleTextSec(force){
 }
 function tuRenderWords(tbId,unitKey){
   const tbody=document.getElementById('tu-word-tbody');if(!tbody)return;
+  _tuEditing=null;
   const textSec=document.getElementById('tu-text-section');
   if(textSec)textSec.style.display=unitKey?'':'none';
   if(unitKey){
@@ -3507,7 +3543,7 @@ function tuRenderWords(tbId,unitKey){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
   const words=tuNormWords(tb?.units?.[unitKey]||[]);
   if(!words.length){tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단어가 없습니다. 아래에서 추가하거나 Excel/CSV 파일을 가져오세요.</td></tr>';return;}
-  tbody.innerHTML=words.map((w,i)=>`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)">
+  tbody.innerHTML=words.map((w,i)=>`<tr data-rowidx="${i}" onclick="tuRowClick(event,'${tbId}','${escAttr(unitKey)}',${i})" title="클릭하여 바로 수정" style="border-bottom:1px solid var(--border);cursor:pointer">
     <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}${(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:''}</td>
     <td style="padding:6px 8px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
     <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px;white-space:nowrap">${POS_KO[w.pos]||w.pos||'—'}</span></td>
@@ -3519,7 +3555,15 @@ function tuRenderWords(tbId,unitKey){
     </td>
   </tr>`).join('');
 }
-function tuEditInline(tbId,unitKey,idx){
+async function tuRowClick(e,tbId,unitKey,idx){
+  if(e.target.closest('button,input,select,a,textarea'))return;
+  const tr=e.target.closest('tr');if(!tr||tr.dataset.editing==='1')return;
+  const cell=_ieCellIdx(e);
+  if(!(await _ieFlush()))return;
+  tuEditInline(tbId,unitKey,idx,['tu-ie-word','tu-ie-ko','tu-ie-pos','tu-ie-ex','tu-ie-endef'][cell]);
+}
+async function tuEditInline(tbId,unitKey,idx,focusId){
+  if(!(await _ieFlush()))return;
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const words=tuNormWords(tb.units?.[unitKey]||[]);
   const w=words[idx];if(!w)return;
@@ -3541,7 +3585,8 @@ function tuEditInline(tbId,unitKey,idx){
   tuV2v3Tr.innerHTML=`<td colspan="6" style="padding:2px 8px 6px;background:var(--cream2)"><div style="display:flex;gap:8px;align-items:center"><span style="font-size:10px;color:var(--slate)">동사 변화</span><label style="font-size:10px;color:var(--slate)">과거형</label><input id="tu-ie-v2" value="${escAttr(w.v2||'')}" placeholder="went (불규칙만)" style="${tuISt2}"><label style="font-size:10px;color:var(--slate)">과거분사</label><input id="tu-ie-v3" value="${escAttr(w.v3||'')}" placeholder="gone (불규칙만)" style="${tuISt2}"></div></td>`;
   tr.insertAdjacentElement('afterend',tuV2v3Tr);
   [...tr.querySelectorAll('input'),...tuV2v3Tr.querySelectorAll('input')].forEach(inp=>inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();tuSaveInline(tbId,unitKey,idx);}if(e.key==='Escape'){tuRenderWords(tbId,unitKey);}}));
-  tr.querySelector('#tu-ie-word')?.focus();
+  tr.dataset.editing='1';_tuEditing={tbId,unitKey,idx};
+  ((focusId&&tr.querySelector('#'+focusId))||tr.querySelector('#tu-ie-word'))?.focus();
 }
 async function tuSaveInline(tbId,unitKey,idx){
   const word=(document.getElementById('tu-ie-word')?.value||'').trim().toLowerCase();
@@ -3609,6 +3654,46 @@ function tuCreateUnit(){
     _tuCurUnit=name;
     tuPopulateUnitSel(tbId);tuRenderWords(tbId,name);renderTbookTable();toast(`'${name}' 단원 생성됨`);
   });
+}
+// ── 목차 이미지 → 단원 일괄 생성 (Claude 비전으로 목차 추출, 확인 후 생성) ──
+function tuTocFile(e){const f=e.target.files[0];e.target.value='';if(f)tuTocFromFile(f);}
+async function tuTocFromFile(file){
+  if(!file||!file.type||!file.type.startsWith('image/'))return;
+  const tbId=document.getElementById('tu-tb-id')?.value||'';
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  if(!tb){toast('교재를 먼저 열어 주세요');return;}
+  if(!DB.api()){toast('설정에서 API 키를 등록해 주세요');return;}
+  if(typeof checkFileSize==='function'&&!checkFileSize(file,8))return;
+  toast('목차 이미지 분석 중...');
+  try{
+    const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(new Error('파일 읽기 실패'));r.readAsDataURL(file);});
+    const m=String(dataUrl).match(/^data:(image\/[\w.+-]+);base64,(.+)$/s);
+    if(!m)throw new Error('이미지 형식을 읽지 못했어요');
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:1500,messages:[{role:'user',content:[
+      {type:'image',source:{type:'base64',media_type:m[1],data:m[2]}},
+      {type:'text',text:'이 이미지는 영어 교재의 목차입니다. 단원 목록을 위에서 아래 순서 그대로 JSON 배열로만 출력하세요.\n형식: [{"unit":"Unit 1","title":"소제목"}]\n규칙:\n- unit: 교재 표기 그대로 (Unit 1, Lesson 3, Chapter 2 등). 번호 표기가 없으면 제목을 unit으로.\n- title: 단원 소제목. 없으면 빈 문자열.\n- 목차가 아닌 항목(머리말, 정답, 부록 안내 등)은 제외.\n- JSON 외 다른 텍스트를 출력하지 마세요.'}]}]});
+    const raw=(d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
+    const arr=JSON.parse(raw);
+    if(!Array.isArray(arr)||!arr.length)throw new Error('단원을 찾지 못했어요');
+    const items=arr.map(x=>({unit:String(x.unit||'').trim(),title:String(x.title||'').trim()})).filter(x=>x.unit);
+    const existing=tb.units||{};
+    const fresh=items.filter(x=>!Object.prototype.hasOwnProperty.call(existing,x.unit));
+    if(!fresh.length){toast('목차의 단원이 모두 이미 있어요');return;}
+    const preview=fresh.slice(0,15).map(x=>'· '+x.unit+(x.title?' — '+x.title:'')).join('\n')+(fresh.length>15?`\n외 ${fresh.length-15}개`:'');
+    askConfirm('단원 일괄 생성',`목차에서 새 단원 ${fresh.length}개를 찾았어요. 생성할까요?\n\n${preview}`,'생성','bt',async()=>{
+      const units={...existing};const unitTitles={...(tb.unitTitles||{})};
+      fresh.forEach(x=>{units[x.unit]=[];if(x.title)unitTitles[x.unit]=x.title;});
+      // 목차의 순서를 그대로 단원 순서로 저장 (기존 단원 순서 뒤에 이어붙임)
+      const unitOrder=[...tbUnitKeys(tb),...fresh.map(x=>x.unit)];
+      const updated={...tb,units,unitTitles,unitOrder};
+      try{
+        await supaUpsert('global_textbooks',tbId,updated,null);
+        const ci=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(ci>=0)_cache.globalTextbooks[ci]=updated;
+        tuPopulateUnitSel(tbId);renderTbookTable();
+        toast(`${fresh.length}개 단원이 생성되었습니다`);
+      }catch(err){toast('단원 저장 실패: '+(err.message||''));}
+    });
+  }catch(e2){console.warn('tuToc:',e2);toast('목차 분석 실패: '+(e2.message||''));}
 }
 function tuDeleteUnit(){
   const tbId=document.getElementById('tu-tb-id').value;
@@ -4332,7 +4417,13 @@ document.addEventListener('paste',e=>{
       // 표지 존이 있는 모달만 처리, 다른 모달에서는 오동작 방지 위해 무시
       if(openModal.id==='m-edit-lib'){e.preventDefault();elibCoverFromFile(img);}
       else if(openModal.id==='m-add-lib'){e.preventDefault();libAddCoverFromFile(img);}
-      else if(openModal.id==='m-tbook-detail'){e.preventDefault();tbookCoverFromFile(img);}
+      else if(openModal.id==='m-tbook-detail'){
+        e.preventDefault();
+        // 단원·단어 탭에서 붙여넣으면 목차로 해석해 단원 일괄 생성(확인 후), 기본 정보 탭은 표지
+        const unitsPane=document.getElementById('tbd-pane-units');
+        if(unitsPane&&unitsPane.style.display!=='none')tuTocFromFile(img);
+        else tbookCoverFromFile(img);
+      }
       return;
     }
     // 학생 패널 리딩로그 폼이 열려 있으면 우선
@@ -5058,6 +5149,7 @@ function renderWordDB(){
   _wdbPagedEntries=paged;
   const tbody=document.getElementById('wdb-tbody');if(!tbody)return;
   let prev='';
+  _wdbEditing=null;
   tbody.innerHTML=paged.map((w,i)=>{
     const groupByWord=wdbSortField==='word';
     const isFirst=groupByWord?w.word!==prev:true;prev=w.word;
@@ -5070,7 +5162,7 @@ function renderWordDB(){
     const srcText=w.srcType==='textbook'
       ?`${w.srcTitle}${w.srcLevel?' ('+w.srcLevel+')':''}${w.srcUnit?' · '+w.srcUnit:''}`
       :`${w.srcTitle}${w.srcLevel?' · AR '+w.srcLevel:''}`;
-    return`<tr data-rowidx="${i}" style="border-bottom:1px solid var(--border)${isFirst&&i>0&&groupByWord?';border-top:1.5px solid var(--cream2)':''}">
+    return`<tr data-rowidx="${i}" onclick="wdbRowClick(event,${i})" title="클릭하여 바로 수정" style="border-bottom:1px solid var(--border);cursor:pointer${isFirst&&i>0&&groupByWord?';border-top:1.5px solid var(--cream2)':''}">
       <td style="padding:4px 8px;text-align:center"><input type="checkbox" class="wdb-chk" data-idx="${i}" onchange="wdbUpdateBulkBar()" style="cursor:pointer"></td>
       ${wordCell}
       <td style="padding:6px 8px;font-size:13px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
@@ -5099,12 +5191,16 @@ function renderWordDB(){
   </div>`;
 }
 
-function wdbEditInline(idx){
+async function wdbRowClick(e,idx){
+  if(e.target.closest('button,input,select,a,textarea'))return;
+  const tr=e.target.closest('tr');if(!tr||tr.dataset.editing==='1')return;
+  const cell=_ieCellIdx(e);
+  if(!(await _ieFlush()))return;
+  wdbEditInline(idx,['','wdb-ie-word','wdb-ie-ko','wdb-ie-endef','wdb-ie-pos','wdb-ie-ex'][cell]);
+}
+async function wdbEditInline(idx,focusId){
   const w=_wdbPagedEntries[idx];if(!w)return;
-  if(document.getElementById('wdb-ie-ko')){
-    askConfirm('편집 취소','저장하지 않은 변경사항이 있습니다. 취소하고 계속할까요?','취소하고 편집','bd',()=>{renderWordDB();wdbEditInline(idx);});
-    return;
-  }
+  if(!(await _ieFlush()))return;
   const tr=document.querySelector(`#wdb-tbody tr[data-rowidx="${idx}"]`);if(!tr)return;
   const srcColor=w.srcType==='textbook'?'var(--teal)':'#b45309';
   const srcText=w.srcType==='textbook'
@@ -5130,7 +5226,8 @@ function wdbEditInline(idx){
   tr.insertAdjacentElement('afterend',v2v3Tr);
   const allInps=[...tr.querySelectorAll('input'),...v2v3Tr.querySelectorAll('input')];
   allInps.forEach(inp=>inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();wdbSaveInline(idx);}if(e.key==='Escape'){renderWordDB();}}));
-  tr.querySelector('#wdb-ie-ko')?.focus();
+  tr.dataset.editing='1';_wdbEditing=idx;
+  ((focusId&&tr.querySelector('#'+focusId))||tr.querySelector('#wdb-ie-ko'))?.focus();
 }
 
 async function wdbSaveInline(idx){
