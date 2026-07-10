@@ -1692,22 +1692,60 @@ function clHwBookChange(inp){
     const known=x=>(x.title||'').trim().toLowerCase()===t.toLowerCase();
     if(t&&t!=='클래스5'&&!(_cache.class5Books||[]).some(known)){
       c5LibLearn(t,'').then(()=>{
-        if((_cache.class5Books||[]).some(known)){
-          document.querySelectorAll('#cl-hw-common-rows .cl-hw-row, #cl-hw-ind-rows .cl-hw-row').forEach(r=>fillClHwRowDl(r));
-          toast('클래스5 라이브러리에 추가: '+t);
+        const nb=(_cache.class5Books||[]).find(known);
+        if(nb){
+          const refresh=()=>document.querySelectorAll('#cl-hw-common-rows .cl-hw-row, #cl-hw-ind-rows .cl-hw-row').forEach(r=>fillClHwRowDl(r));
+          refresh();
+          toastAction('클래스5 라이브러리에 추가: '+t,'실행취소',()=>c5UndoBook(nb.id,refresh));
         }
       }).catch(()=>{});
     }
   }
   clHwFillRangeDl(row);
 }
-// 클래스5: 과 이름 입력 즉시 해당 책에 등록
+// 클래스5: 과 이름 입력 즉시 해당 책에 등록 (실행취소 가능)
 function clHwRangeChange(inp){
   const row=inp.closest('.cl-hw-row');if(!row)return;
   if((row.querySelector('.cl-hw-cat')?.value||'')!=='class5')return;
   const t=(row.querySelector('.cl-hw-book')?.value||'').trim();
   const u=inp.value.trim();
-  if(t&&t!=='클래스5'&&u)c5LibLearn(t,u).then(()=>clHwFillRangeDl(row)).catch(()=>{});
+  if(!t||t==='클래스5'||!u)return;
+  const known=x=>(x.title||'').trim().toLowerCase()===t.toLowerCase();
+  const before=(_cache.class5Books||[]).find(known);
+  const hadUnit=!!(before&&(before.units||[]).includes(u));
+  c5LibLearn(t,u).then(()=>{
+    clHwFillRangeDl(row);
+    if(hadUnit)return;
+    const b=(_cache.class5Books||[]).find(known);
+    if(b&&(b.units||[]).includes(u))toastAction(`'${b.title}'에 '${u}' 과 등록됨`,'실행취소',()=>c5UndoUnit(b.id,u,()=>clHwFillRangeDl(row)));
+  }).catch(()=>{});
+}
+// ── 클래스5 실행취소 (책/과) — 클릭 시점 재조회 + 저장 큐 직렬화로 경합·유령 데이터 방지 ──
+async function c5UndoBook(bookId,refresh){
+  const cur=(_cache.class5Books||[]).find(x=>x.id===bookId);
+  if(!cur){toast('이미 삭제된 교재예요');return;}
+  if((cur.units||[]).length){toast('과가 추가되어 있어 여기서는 취소할 수 없어요 — 자료 DB의 클래스5 탭에서 삭제해 주세요');return;}
+  _cache.class5Books=(_cache.class5Books||[]).filter(x=>x.id!==bookId);
+  // 삭제도 같은 저장 큐로 직렬화 — 비행 중인 upsert가 삭제를 되돌리지 않게
+  _c5SaveQ[bookId]=(_c5SaveQ[bookId]||Promise.resolve()).then(()=>supaDelete('global_textbooks',bookId)).catch(()=>false);
+  const ok=await _c5SaveQ[bookId];
+  if(ok===false){
+    _cache.class5Books.push(cur); // 실패 시 캐시 원복
+    toast('취소 실패 — 잠시 후 다시 시도해 주세요');
+  }else{
+    toast('등록을 취소했습니다');
+  }
+  if(refresh)refresh();
+  if(document.getElementById('class5-db-body'))renderClass5DB();
+}
+async function c5UndoUnit(bookId,u,refresh){
+  const cur=(_cache.class5Books||[]).find(x=>x.id===bookId);
+  if(!cur){toast('교재가 이미 삭제되었어요');return;}
+  cur.units=(cur.units||[]).filter(x=>x!==u);
+  await c5Save(cur);
+  toast('등록을 취소했습니다');
+  if(refresh)refresh();
+  if(document.getElementById('class5-db-body'))renderClass5DB();
 }
 // 학생 패널 과제 폼: 구분이 '원서'일 때만 원서 DB 추가 제안
 function spAsgnBookOffer(inp,sid){
@@ -1723,9 +1761,10 @@ function spAsgnBookChange(inp,sid,learn=true){
     const known=x=>(x.title||'').trim().toLowerCase()===t.toLowerCase();
     if(t&&t!=='클래스5'&&!(_cache.class5Books||[]).some(known)){
       c5LibLearn(t,'').then(()=>{
-        if((_cache.class5Books||[]).some(known)){
+        const nb=(_cache.class5Books||[]).find(known);
+        if(nb){
           fillAsgnBookDatalist('dl-asgn-'+sid,'class5');
-          toast('클래스5 라이브러리에 추가: '+t);
+          toastAction('클래스5 라이브러리에 추가: '+t,'실행취소',()=>c5UndoBook(nb.id,()=>fillAsgnBookDatalist('dl-asgn-'+sid,'class5')));
         }
       }).catch(()=>{});
     }
@@ -1735,12 +1774,22 @@ function spAsgnBookChange(inp,sid,learn=true){
   if(cat==='__custom__')cat='';
   dl.innerHTML=_bookUnitOpts(cat,t); // 교재 단원·원서 챕터·클래스5 과 공용
 }
-// 클래스5: 과 입력 즉시 해당 책에 등록 (학생 패널)
+// 클래스5: 과 입력 즉시 해당 책에 등록 (학생 패널, 실행취소 가능)
 function spAsgnRangeChange(inp,sid){
   if((document.getElementById('asgn-cat-'+sid)?.value||'')!=='class5')return;
   const t=(document.getElementById('asgn-book-'+sid)?.value||'').trim();
   const u=inp.value.trim();
-  if(t&&t!=='클래스5'&&u)c5LibLearn(t,u).then(()=>{const bi=document.getElementById('asgn-book-'+sid);if(bi)spAsgnBookChange(bi,sid);}).catch(()=>{});
+  if(!t||t==='클래스5'||!u)return;
+  const known=x=>(x.title||'').trim().toLowerCase()===t.toLowerCase();
+  const before=(_cache.class5Books||[]).find(known);
+  const hadUnit=!!(before&&(before.units||[]).includes(u));
+  const refresh=()=>{const bi=document.getElementById('asgn-book-'+sid);if(bi)spAsgnBookChange(bi,sid,false);};
+  c5LibLearn(t,u).then(()=>{
+    refresh();
+    if(hadUnit)return;
+    const b=(_cache.class5Books||[]).find(known);
+    if(b&&(b.units||[]).includes(u))toastAction(`'${b.title}'에 '${u}' 과 등록됨`,'실행취소',()=>c5UndoUnit(b.id,u,refresh));
+  }).catch(()=>{});
 }
 function togglePdSing(btn){
   const row=btn.closest('.sr');
@@ -9171,6 +9220,32 @@ function openClassLessonEdit(classId,dateStr){
   // 기존 데이터로 학생 행 채우기
   setTimeout(()=>{
     const allStus=DB.stus();
+    // ① 공통 교재 진도: 클래스 기본값 대신 실제 저장된 수업 자료로 재구성
+    //    (원래 수업에서 X로 뺐던 교재가 수정 때 되살아나지 않게)
+    const first=existingLes[0];
+    if(first){
+      clSubjs.clear();
+      document.querySelectorAll('#cl-subj-chips .chip').forEach(ch=>ch.classList.remove('active'));
+      const srWrap=document.getElementById('cl-subj-rows');if(srWrap)srWrap.innerHTML='';
+      Object.entries(first.materials||{}).forEach(([k,v])=>{
+        if(k==='_book'||k.startsWith('_book_'))return; // 원서는 학생별 행에서 복원
+        const baseKey=k.replace(/_\d+$/,'');
+        clSubjs.add(baseKey);
+        const ch=document.querySelector(`#cl-subj-chips .chip[data-s="${baseKey}"]`);
+        if(ch)ch.classList.add('active');
+        addSRowTo('cl-subj-rows',k,v.book,v.unit,v.bookId||'');
+        // 교재가 그 사이 DB에서 삭제·분류 변경됐어도 저장된 제목이 유실되지 않게 옵션 주입
+        const sel=document.querySelector('#cl-subj-rows .sr:last-child select[data-f="book"]');
+        if(sel&&!sel.value&&v.book){
+          const o=document.createElement('option');
+          o.value=v.book;o.textContent=v.book+' (DB에 없음)';if(v.bookId)o.dataset.bkId=v.bookId;
+          const addOpt=[...sel.options].find(x=>x.value==='__addnew__');
+          sel.insertBefore(o,addOpt||null);sel.value=v.book;
+        }
+      });
+    }
+    // ② 과제: 자동 채움 대신 이 수업에 실제 저장된 과제로 재구성
+    clHwRestoreFromSaved(classId,dateStr);
     existingLes.forEach(les=>{
       const row=document.querySelector(`.cl-stu-row[data-sid="${les.sid}"]`);if(!row)return;
       const attSel=row.querySelector('.cl-att');if(attSel)attSel.value=les.att||'normal';
@@ -9195,6 +9270,71 @@ function openClassLessonEdit(classId,dateStr){
     const firstLes=existingLes[0];
     if(firstLes){const cmtEl=document.getElementById('cl-common-cmt');if(cmtEl)cmtEl.value='';}
   },100);
+}
+// 수정 모드: 자동 채움 대신 이 수업(classId+date)에 저장된 과제로 공통/개별 과제 UI를 재구성
+function clHwRestoreFromSaved(classId,dateStr){
+  const common=document.getElementById('cl-hw-common-rows');if(!common)return;
+  const ind=document.getElementById('cl-hw-ind-rows');
+  common.innerHTML='';
+  if(ind)ind.innerHTML='';
+  const saved=(_cache.assignments||[]).filter(a=>a.classId===classId&&a.date===dateStr);
+  if(!saved.length)return; // 저장된 과제 없음 — 빈 상태로 (자동 채움과 혼동 방지)
+  const c=DB.classes().find(x=>x.id===classId);
+  const stuTotal=(c?.studentIds||[]).length||1;
+  const knownCats=HW_CATS.map(x=>x.v);
+  // 같은 내용(마감·구분·교재·범위·메모)끼리 묶어 공통/개별 판별
+  const groups=new Map();
+  saved.forEach(a=>{
+    const key=[a.due||dateStr,a.category||'',a.bookTitle||'',a.range||'',a.note||''].join('');
+    if(!groups.has(key))groups.set(key,{a,sids:new Set()});
+    groups.get(key).sids.add(a.sid);
+  });
+  const fillRow=(nr,a)=>{
+    if(!nr)return;
+    if(!knownCats.includes(a.category||'')){ // 직접 입력 구분 복원
+      const catSel=nr.querySelector('.cl-hw-cat');if(catSel)catSel.value='__custom__';
+      const cEl=nr.querySelector('.cl-hw-cat-custom');if(cEl){cEl.style.display='';cEl.value=a.category||'';}
+      fillClHwRowDl(nr);
+    }
+    const nEl=nr.querySelector('.cl-hw-note');if(nEl)nEl.value=a.note||'';
+    clHwFillRangeDl(nr);
+  };
+  const dueGroups={};
+  [...groups.values()].forEach(g=>{
+    // 전원(현재 반 기준)이 받은 과제만 '공통' — 일부 학생만 받은 과제가 재저장 시 전원에게 퍼지지 않게
+    const isCommon=stuTotal>0&&g.sids.size>=stuTotal;
+    if(isCommon){
+      (dueGroups[g.a.due||dateStr]=dueGroups[g.a.due||dateStr]||[]).push(g.a);
+    }else{
+      // 일부 학생에게만 있던 과제 → 학생별 개별 행으로 복원
+      const a=g.a;
+      const cat=knownCats.includes(a.category||'')?(a.category||''):'';
+      [...g.sids].forEach(sid=>{
+        addClHwRow(a.due||dateStr,false,cat,a.bookTitle||'',a.range||'');
+        const nr=ind?ind.lastElementChild:null;
+        if(!nr)return;
+        const sSel=nr.querySelector('.cl-hw-ind-stu');
+        if(sSel){
+          // 반 이탈·비활성 학생도 원 대상 유지 (옵션 주입)
+          if(![...sSel.options].some(o=>o.value===sid)){
+            const s=DB.stus().find(x=>x.id===sid);
+            const o=document.createElement('option');o.value=sid;o.textContent=(s?s.name:'?')+' (반 이탈)';
+            sSel.appendChild(o);
+          }
+          sSel.value=sid;
+        }
+        fillRow(nr,a);
+      });
+    }
+  });
+  Object.keys(dueGroups).sort().forEach(d=>{
+    const body=clHwMakeDateGroup(d,common);
+    dueGroups[d].forEach(a=>{
+      const cat=knownCats.includes(a.category||'')?(a.category||''):'';
+      addClHwRow(d,true,cat,a.bookTitle||'',a.range||'',body);
+      fillRow(body.lastElementChild,a);
+    });
+  });
 }
 function setClProgChip(btn,val){
   const inp=btn.closest('.cl-book-row').querySelector('.cl-rd-prog');if(!inp)return;
@@ -9804,20 +9944,47 @@ async function saveClassLesson(){
   const indHws=collectHwRows('#cl-hw-ind-rows .cl-hw-row').filter(r=>r.sid);
   const btn=document.getElementById('cl-save-btn');btn.disabled=true;
   toast('저장 중...');
+  const editMode=document.getElementById('cl-class-id').dataset.editMode==='true';
   try{
     // 클래스5 라이브러리 자동 축적 (책·과) — 학생 수와 무관하게 1회
     for(const hw of [...commonHws,...indHws]){
       if(hw.cat==='class5')await c5LibLearn(hw.book,hw.range).catch(()=>{});
     }
+    // 수정 모드: 화면에서 사라진 기존 과제는 삭제 (내용 동일한 과제는 유지 — 완료 상태 보존)
+    if(editMode){
+      const desired=new Set();
+      const hwKey=(sid,hw)=>[sid,hw.due||date,hw.cat||'',_tbBase(hw.book||''),hw.range||'',hw.note||''].join('');
+      const activeSids=stuData.filter(d=>d.att!=='absent').map(d=>d.sid);
+      commonHws.forEach(hw=>activeSids.forEach(sid=>desired.add(hwKey(sid,hw))));
+      indHws.forEach(hw=>desired.add(hwKey(hw.sid,hw)));
+      const olds=(_cache.assignments||[]).filter(a=>a.classId===classId&&a.date===date);
+      for(const a of olds){
+        const key=[a.sid,a.due||date,a.category||'',_tbBase(a.bookTitle||''),a.range||'',a.note||''].join('');
+        if(!desired.has(key)){
+          await supaDelete('assignments',a.id).catch(()=>{});
+          _cache.assignments=(_cache.assignments||[]).filter(x=>x.id!==a.id);
+        }
+      }
+    }
     for(const d of stuData){
       const mats={...commonMats};
       (d.books||[]).forEach((b,i)=>{mats[`_book_${i}`]={book:b.title,unit:b.prog||''};});
       const cmt=[commonCmt,d.indCmt].filter(Boolean).join(' / ');
-      // 학부모 코멘트에 교재·원서 진도를 함께 전달 (개별 수업 기록과 동일한 품질)
-      const polishedCmt=cmt?await polishCmt(cmt,_getMatsTextFromMaterials(mats)):'';
-      const les={id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:mats,cmt,polishedCmt,classId};
-      await supaUpsert('lessons',les.id,les,d.sid);_cache.lessons.unshift(les);
+      // 수정 모드: 기존 수업 레코드의 id를 재사용해 갱신 (중복 생성 방지)
+      const existing=editMode?(_cache.lessons||[]).find(l=>l.classId===classId&&l.date===date&&l.sid===d.sid):null;
+      // 학부모 코멘트: 원문이 그대로면 기존 변환문 재사용 (AI 재호출·문구 변동 방지)
+      const polishedCmt=cmt?((existing&&existing.cmt===cmt&&existing.polishedCmt)?existing.polishedCmt:await polishCmt(cmt,_getMatsTextFromMaterials(mats))):'';
+      const les={id:existing?existing.id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:mats,cmt,polishedCmt,classId,...(existing&&existing.stuCmt?{stuCmt:existing.stuCmt}:{})};
+      await supaUpsert('lessons',les.id,les,d.sid);
+      if(existing){const li=_cache.lessons.findIndex(l=>l.id===existing.id);if(li>=0)_cache.lessons[li]=les;else _cache.lessons.unshift(les);}
+      else _cache.lessons.unshift(les);
       addUnitWordsToVocab(d.sid,les.materials,date).catch(()=>{});
+      // 수정 모드: 이 수업분 기존 원서 기록을 지우고 현재 행으로 재생성
+      if(editMode){
+        const oldRds=(_cache.readings||[]).filter(r=>r.classId===classId&&r.date===date&&r.sid===d.sid);
+        for(const o of oldRds)await supaDelete('readings',o.id).catch(()=>{});
+        _cache.readings=(_cache.readings||[]).filter(r=>!(r.classId===classId&&r.date===date&&r.sid===d.sid));
+      }
       for(const b of (d.books||[])){
         const rd={id:uid(),sid:d.sid,date,title:b.title,series:b.series,arLevel:b.ar,genre:'',progress:b.prog,classId};
         await supaUpsert('readings',rd.id,rd,d.sid);_cache.readings.unshift(rd);
@@ -9830,7 +9997,7 @@ async function saveClassLesson(){
       // 공통 과제 → 결석 제외
       if(d.att!=='absent'){
         for(const hw of commonHws){
-          const isDupA=(_cache.assignments||[]).some(x=>x.sid===d.sid&&_tbBase(x.bookTitle||'')===_tbBase(hw.book||'')&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||''));
+          const isDupA=(_cache.assignments||[]).some(x=>x.sid===d.sid&&_tbBase(x.bookTitle||'')===_tbBase(hw.book||'')&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||'')&&(x.note||'')===(hw.note||''));
           if(isDupA)continue;
           const allLib=[...(_cache.library||[])];
           const isReading=allLib.some(b=>b.title===hw.book);
@@ -9842,7 +10009,7 @@ async function saveClassLesson(){
     }
     // 개별 과제
     for(const hw of indHws){
-      const isDupA=(_cache.assignments||[]).some(x=>x.sid===hw.sid&&_tbBase(x.bookTitle||'')===_tbBase(hw.book||'')&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||''));
+      const isDupA=(_cache.assignments||[]).some(x=>x.sid===hw.sid&&_tbBase(x.bookTitle||'')===_tbBase(hw.book||'')&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||'')&&(x.note||'')===(hw.note||''));
       if(isDupA)continue;
       const allLib=[...(_cache.library||[])];
       const isReading=allLib.some(b=>b.title===hw.book);

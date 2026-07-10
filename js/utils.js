@@ -214,6 +214,22 @@ document.addEventListener('keydown',e=>{
 });
 let toastT;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2500);}
+// 실행취소 등 액션 버튼이 달린 토스트 — 자동 등록처럼 즉시 일어나는 변경을 한 번에 되돌릴 수 있게
+function toastAction(msg,label,cb,ms=6000){
+  document.querySelectorAll('.toast.pp-action').forEach(x=>x.remove()); // 액션 토스트는 한 번에 하나만
+  const t=document.createElement('div');
+  t.className='toast show pp-action';
+  // 일반 #toast(bottom:24px) 위 칸에 표시 — 저장/오류 토스트를 가리지 않음
+  t.style.cssText='pointer-events:auto;display:flex;gap:12px;align-items:center;bottom:76px;';
+  const s=document.createElement('span');s.textContent=msg;t.appendChild(s);
+  const b=document.createElement('button');
+  b.textContent=label;
+  b.style.cssText='background:none;border:none;color:#7FD4E2;font-weight:800;cursor:pointer;font-family:var(--fb);font-size:13px;padding:0;flex-shrink:0;';
+  b.onclick=()=>{t.remove();try{cb();}catch(e){console.warn('toastAction:',e);}};
+  t.appendChild(b);
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),ms);
+}
 
 // ── 학습 미션 (class5 스타일 유닛 과제) — teacher/student 공용 ──
 const MISSION_DEFS={
