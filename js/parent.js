@@ -627,7 +627,9 @@ async function printReport(sidArg){
   toast('리포트 생성 중...');
   const les=DB.less().filter(l=>l.sid===sid);
   const tsts=DB.tsts().filter(t=>t.sid===sid);
-  const rds=DB.allRds(sid);
+  // 같은 원서를 여러 수업에 걸쳐 읽으면 기록이 중복됨 — 제목별 최신 기록 1건으로 정리 (권수·진도 정확화)
+  const rdSeen=new Set();
+  const rds=DB.allRds(sid).filter(r=>{const t=(r.title||'').trim();if(!t||rdSeen.has(t))return false;rdSeen.add(t);return true;});
   const assigns=(_cache.assignments||[]).filter(a=>a.sid===sid);
   const badges=getBadges(sid).filter(b=>b.unlocked);
   const today=new Date();
@@ -636,25 +638,29 @@ async function printReport(sidArg){
   const avgV=tsts.length?Math.round(tsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/tsts.length):null;
   const latTst=tsts[0];
   const recentLes=les.filter(l=>l.cmt||l.polishedCmt).slice(0,5);
-  // 교재 진도 집계
+  // 교재 진도 집계 — 원서(_book)는 제외, '읽은 원서' 섹션에서 별도 표시
   const matMap={};
   les.forEach(l=>{Object.entries(l.materials||{}).forEach(([k,v])=>{
     if(!v.book)return;
-    const baseK=k==='_book'||k.startsWith('_book_')?'_book':k.replace(/_\d+$/,'');
-    const label=baseK==='_book'?'원서':(typeof SLBL!=='undefined'?SLBL[baseK]||'':'');
+    if(k==='_book'||k.startsWith('_book_'))return;
+    const baseK=k.replace(/_\d+$/,'');
+    const label=typeof SLBL!=='undefined'?SLBL[baseK]||'':'';
     if(!matMap[v.book])matMap[v.book]={label,book:v.book,units:[]};
     if(v.unit&&!matMap[v.book].units.includes(v.unit))matMap[v.book].units.push(v.unit);
   });});
-  // Claude API로 종합 코멘트 생성
+  const flatUnits=m=>[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];
+  // Claude API로 학부모용 선생님 종합 코멘트 생성 — 전체 진도·학습 내용 포함
   let aiComment='';
   const apiKey=DB.api();
   if(apiKey&&les.length){
     try{
+      const progSummary=Object.values(matMap).map(m=>`- ${m.label?'['+m.label+'] ':''}${m.book}: ${flatUnits(m).join(', ')||'진도 기록 없음'}`).join('\n')||'—';
+      const rdSummary=rds.length?rds.slice(0,12).map(r=>r.title+(r.progress?'('+r.progress+')':'')).join(', '):'—';
       const lessSummary=les.slice(0,15).map(l=>`[${l.date}]\n교재: ${Object.entries(l.materials||{}).filter(([,v])=>v.book).map(([,v])=>v.book+(v.unit?' '+v.unit:'')).join(', ')||'—'}${(l.polishedCmt||l.cmt)?'\n코멘트: '+(l.polishedCmt||l.cmt):''}`).join('\n\n');
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
-        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:500,messages:[{role:'user',content:`영어학원 선생님이 학부모에게 드리는 수업 기간 통합 코멘트를 작성해주세요.\n\n규칙:\n- 톤: 전문적이면서 따뜻한 격식체(합쇼체+요체 혼용). 감탄사·이모지 없음.\n- 구성: 학습 태도 → 주요 진도 내용 → 특기 사항 순\n- 아래 일별 기록의 내용을 바탕으로 통합·재구성하세요. 기록에 없는 내용 추가 금지.\n- 200자 이상 출력\n\n학생: ${s.name} (${s.grade||''})\n수업 ${les.length}회 | 원서 ${rds.length}권 | 단어 평균 ${avgV!=null?avgV+'%':'미측정'}\n\n일별 수업 기록:\n${lessSummary}\n\n통합 코멘트만 출력하세요.`}]})
+        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:`영어학원 선생님이 학부모에게 드리는 종합 코멘트를 작성해주세요. 인쇄용 학습 리포트에 실립니다.\n\n규칙:\n- 톤: 전문적이면서 따뜻한 격식체(합쇼체+요체 혼용). 감탄사·이모지 없음.\n- 구성: 학습 태도 → 전체 진도 요약(교재별로 어디까지 진행했는지) → 주요 학습 내용(무엇을 배우고 연습했는지) → 원서 읽기 → 특기 사항 순\n- 아래 진도·기록 데이터를 바탕으로 통합·재구성하세요. 기록에 없는 내용 추가 금지.\n- 300~500자 분량, 문단은 2~3개로 나누세요.\n\n학생: ${s.name} (${s.grade||''})\n수업 ${les.length}회 | 원서 ${rds.length}권 | 단어 평균 ${avgV!=null?avgV+'%':'미측정'}\n\n전체 교재 진도:\n${progSummary}\n\n읽은 원서: ${rdSummary}\n\n일별 수업 기록(최근):\n${lessSummary}\n\n종합 코멘트만 출력하세요.`}]})
       });
       if(res.ok){const d=await res.json();aiComment=d.content?.[0]?.text?.trim()||'';}
     }catch(e){console.warn('printReport AI 실패:',e.message);}
@@ -709,19 +715,19 @@ async function printReport(sidArg){
     ${(latTst.wrongWords||[]).length?`<div style="font-size:12px">다시 볼 단어: <strong>${latTst.wrongWords.slice(0,10).join(', ')}</strong></div>`:''}
   </div>`:''}
   ${aiComment?`<div class="section">
-    <div class="section-title">💬 수업 기간 종합 코멘트</div>
-    <div class="comment-box" style="font-size:13px;line-height:1.8">${aiComment}</div>
+    <div class="section-title">💬 선생님 종합 코멘트</div>
+    <div class="comment-box" style="font-size:13px;line-height:1.8">${aiComment.replace(/\n/g,'<br>')}</div>
   </div>`:''}
   ${Object.keys(matMap).length?`<div class="section">
     <div class="section-title">📚 교재 진도</div>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr style="background:#f0fffe"><th style="text-align:left;padding:5px 8px;border-bottom:1px solid #d0f0f0">구분</th><th style="text-align:left;padding:5px 8px;border-bottom:1px solid #d0f0f0">교재명</th><th style="text-align:left;padding:5px 8px;border-bottom:1px solid #d0f0f0">진도 기록</th></tr></thead>
-      <tbody>${Object.values(matMap).map(m=>{const flatU=[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];return`<tr style="border-bottom:1px solid #eee"><td style="padding:5px 8px;color:#888;vertical-align:top">${m.label}</td><td style="padding:5px 8px;font-weight:600;vertical-align:top">${m.book}</td><td style="padding:5px 8px;color:#666">${flatU.length?flatU.map(u=>`<div style="line-height:1.7">${u}</div>`).join(''):'—'}</td></tr>`;}).join('')}</tbody>
+      <tbody>${Object.values(matMap).map(m=>{const flatU=flatUnits(m);return`<tr style="border-bottom:1px solid #eee"><td style="padding:5px 8px;color:#888;vertical-align:top">${m.label}</td><td style="padding:5px 8px;font-weight:600;vertical-align:top">${m.book}</td><td style="padding:5px 8px;color:#666">${flatU.length?flatU.map(u=>`<div style="line-height:1.7">${u}</div>`).join(''):'—'}</td></tr>`;}).join('')}</tbody>
     </table>
   </div>`:''}
   ${rds.length?`<div class="section">
     <div class="section-title">📗 읽은 원서 (${rds.length}권)</div>
-    <div class="book-list">${rds.slice(0,8).map(r=>`<div class="book-item">📚 ${r.title}${(r.arLevel||r.ar)?` <span style="color:#0CA4C9;font-size:10px">AR ${r.arLevel||r.ar}</span>`:''}${r.progress?`<div style="font-size:10px;color:#888">${r.progress}</div>`:''}</div>`).join('')}</div>
+    <div class="book-list">${rds.slice(0,12).map(r=>`<div class="book-item">📚 ${r.title}${(r.arLevel||r.ar)?` <span style="color:#0CA4C9;font-size:10px">AR ${r.arLevel||r.ar}</span>`:''}${r.progress?`<div style="font-size:10px;color:#888">${r.progress}</div>`:''}</div>`).join('')}${rds.length>12?`<div class="book-item" style="color:#888">외 ${rds.length-12}권</div>`:''}</div>
   </div>`:''}
   ${badges.length?`<div class="section">
     <div class="section-title">🏅 달성 뱃지</div>
