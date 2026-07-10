@@ -11,7 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260711h">
+<link rel="stylesheet" href="css/style.css?v=20260711i">
 </head>
 <body>
 
@@ -566,6 +566,7 @@
           <div><div class="st">백업·일괄 관리</div><div class="ssub" id="master-total"></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <select id="master-csv-filter" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)"><option value="all">전체</option><option value="textbook">교재만</option><option value="library">원서만</option></select>
+            <button class="btn bt bsm" onclick="fullBackup()" title="모든 테이블(학생·수업·과제·카드 포함)을 JSON 파일로 내려받기 — 월 1회 권장">🗄 전체 백업</button>
             <button id="master-csv-btn" class="btn bt bsm" style="background:var(--teal);color:#fff;font-weight:700" onclick="openMasterCSVModal()">📥 마스터 CSV</button>
             <input type="file" id="master-csv-file" accept=".csv" style="display:none" onchange="importMasterCSV(event)">
             <button class="btn bo bsm" onclick="exportMasterCSV()">⬇ 마스터 CSV</button>
@@ -2024,11 +2025,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260711h"></script>
-<script src="vocab_ref_data.js?v=20260711h"></script>
-<script src="js/db.js?v=20260711h"></script>
-<script src="js/teacher.js?v=20260711h"></script>
-<script src="js/student.js?v=20260711h"></script>
-<script src="js/parent.js?v=20260711h"></script>
+<script src="js/utils.js?v=20260711i"></script>
+<script src="vocab_ref_data.js?v=20260711i"></script>
+<script src="js/db.js?v=20260711i"></script>
+<script src="js/teacher.js?v=20260711i"></script>
+<script src="js/student.js?v=20260711i"></script>
+<script src="js/parent.js?v=20260711i"></script>
 </body>
 </html>

@@ -1504,7 +1504,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
     let books=(_cache.globalTextbooks||[]).filter(b=>catFilter?b.category===catFilter:true);
     const noMatch=catFilter&&!books.length;
     if(noMatch)books=_cache.globalTextbooks||[];
-    books=[...books].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+    books=tbSortByUsage(books); // 최근 사용 교재 우선
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
     const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${_selMatch(b)?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('')+BK_ADD_OPT;
     bookInput=`<select data-f="book" data-basekey="${baseKey}" onfocus="this.dataset.prev=this.value" onchange="if(bkSelAddNew(this))return;this.dataset.prev=this.value;clUpdateUnitHint(this)" style="${_bkSelSt}">${opts}</select>`;
@@ -1521,7 +1521,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
     let books=(_cache.globalTextbooks||[]).filter(b=>catFilter?b.category===catFilter:true);
     const noMatch=catFilter&&!books.length;
     if(noMatch)books=_cache.globalTextbooks||[];
-    books=[...books].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+    books=tbSortByUsage(books); // 최근 사용 교재 우선
     const placeholder=noMatch?`-- 교재 선택 (${catFilter} 교재 없음, 전체 표시) --`:'-- 교재 선택 --';
     const opts=`<option value="">${placeholder}</option>`+books.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id||'')}"${_selMatch(b)?' selected':''}>${b.title}${b.level?' ('+b.level+')':''}</option>`).join('')+BK_ADD_OPT;
     bookInput=`<select data-f="book" data-basekey="${baseKey}" onfocus="this.dataset.prev=this.value" onchange="if(bkSelAddNew(this))return;this.dataset.prev=this.value;lesUpdateUnitSel(this)" style="${_bkSelSt}">${opts}</select>`;
@@ -4463,7 +4463,7 @@ async function addUnitWordsToVocab(sid,materials,date){
   }
 }
 function updateTbookDatalist(){
-  const books=[...(_cache.globalTextbooks||[])].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+  const books=tbSortByUsage(_cache.globalTextbooks||[]); // 최근 사용 교재 우선
   ['dl-textbooks','dl-tbooks-les','dl-tbooks-assign'].forEach(id=>{
     const dl=document.getElementById(id);
     if(dl)dl.innerHTML=books.map(b=>`<option value="${escAttr(b.title)}">`).join('');
@@ -5641,7 +5641,7 @@ function wdbSrcTypeChange(){
   if(!type){idSel.style.display='none';idSel.innerHTML='<option value="">전체</option>';return;}
   let opts='<option value="">전체</option>';
   if(type==='textbook'){
-    const books=[...(_cache.globalTextbooks||[])].sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+    const books=tbSortByUsage(_cache.globalTextbooks||[]); // 최근 사용 교재 우선
     opts+=books.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title||b.id)}${b.level?' ('+escAttr(b.level)+')':''}</option>`).join('');
   }else{
     const seen=new Set();
@@ -7657,6 +7657,11 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
   const today=new Date();
   if(today.getDate()>=1&&(reportPendingStus||[]).length>0){
     items.push({icon:luIcon('file-text',15),chip:'',text:`이번 달 학부모 리포트 미발송 — ${(reportPendingStus||[]).length}명`,label:'리포트 보내기',action:`openMonthlyReportManager('${thisMonth||''}')`});
+  }
+  // 우선순위 6: 월 1회 전체 백업 (이 기기 기준)
+  const ymNow=new Date().toISOString().slice(0,7);
+  if(localStorage.getItem('pp_lastBackup')!==ymNow){
+    items.push({icon:luIcon('download',15),chip:'',text:'이번 달 전체 백업이 아직 없어요 — 데이터 유실 대비 월 1회 권장',label:'지금 백업',action:'fullBackup()'});
   }
   if(!items.length){
     el.innerHTML=`<div class="card" style="border-left:4px solid #047857">
@@ -10167,6 +10172,24 @@ function clTogSubj(el){
   }else{clSubjs.add(s);el.classList.add('active');addSRowTo('cl-subj-rows',s);}
 }
 
+// ── 자주 쓰는 교재 우선 정렬 — 수업 기록에서 최근 사용된 교재를 선택 목록 상단으로 ──
+function _tbUsageMap(){
+  const map={};
+  (_cache.lessons||[]).forEach(l=>{Object.values(l.materials||{}).forEach(v=>{
+    if(!v||!v.book)return;
+    const key=_tbBase(v.book).trim().toLowerCase();
+    if(!map[key]||String(l.date||'')>map[key])map[key]=String(l.date||'');
+  });});
+  return map;
+}
+function tbSortByUsage(books){
+  const um=_tbUsageMap();
+  return [...books].sort((a,b)=>{
+    const ua=um[(a.title||'').trim().toLowerCase()]||'',ub=um[(b.title||'').trim().toLowerCase()]||'';
+    if(ua!==ub)return ub.localeCompare(ua); // 최근 사용일이 늦을수록 앞으로
+    return (a.title||'').localeCompare(b.title||'');
+  });
+}
 // 과제 할당 대상 날짜: 수업 당일(당일에 내주는 과제) ~ 다음 수업 전날.
 // 다음 수업 당일은 수업이 있으므로 과제 대상에서 제외
 function getClassLessonDates(classObj,fromDateStr){
@@ -10203,9 +10226,9 @@ function fillClHwRowDl(rowEl){
   }else if(cat==='book'){
     opts=[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
   }else if(_CAT_KO[cat]){
-    opts=tbooks.filter(b=>b.category===_CAT_KO[cat]).map(tbOpt).join('');
+    opts=tbSortByUsage(tbooks.filter(b=>b.category===_CAT_KO[cat])).map(tbOpt).join('');
   }else{
-    opts=tbooks.map(tbOpt).join('')+[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
+    opts=tbSortByUsage(tbooks).map(tbOpt).join('')+[...new Set(allLib.map(b=>b.title).filter(Boolean))].map(t=>`<option value="${escAttr(t)}">`).join('');
   }
   dl.innerHTML=opts;
 }
@@ -10624,6 +10647,44 @@ async function saveClassLesson(){
   }finally{
     btn.disabled=false;showLoading(false);
   }
+}
+
+// ── 전체 백업 — 모든 테이블을 서버에서 직접 내려받아 JSON 파일로 저장 ──
+// (캐시는 vocab_cards 등이 지연 로드라 불완전할 수 있어 REST로 전량 조회. 1000행 단위 페이지네이션)
+async function _dumpTable(t,orderCol){
+  const rows=[];let from=0;const page=1000;
+  while(true){
+    const r=await fetch(`${SUPA_URL}/rest/v1/${t}?select=*&order=${orderCol||'id'}`,{headers:{...SUPA_HEADERS,'Range':`${from}-${from+page-1}`}});
+    if(!r.ok){
+      if(!orderCol&&from===0)return _dumpTable(t,'updated_at'); // id 컬럼이 없는 테이블 폴백
+      return rows; // 미생성 테이블 등은 있는 만큼만
+    }
+    const chunk=await r.json();rows.push(...chunk);
+    if(chunk.length<page)break;
+    from+=page;
+  }
+  return rows;
+}
+async function fullBackup(){
+  toast('백업 수집 중... (수 초 걸릴 수 있어요)');
+  try{
+    const tables=['students','lessons','tests','readings','logs','notices','homeworks','assignments','textbooks','messages','global_textbooks','classes','monthly_reports','vocab_cards','worksheets'];
+    const dump={_meta:{app:'page-pencil',exportedAt:new Date().toISOString()}};
+    for(const t of tables)dump[t]=await _dumpTable(t);
+    dump.settings=await _dumpTable('settings','key');
+    const blob=new Blob([JSON.stringify(dump)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`pagepencil_backup_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    const ym=new Date().toISOString().slice(0,7);
+    localStorage.setItem('pp_lastBackup',ym);
+    supaSetSetting('lastBackup',ym).catch(()=>{});
+    const total=tables.reduce((s,t)=>s+(dump[t]?.length||0),0);
+    toast(`백업 완료 — ${total.toLocaleString()}행이 파일로 저장되었습니다`);
+    if(typeof renderDash==='function')renderDash();
+  }catch(e){console.warn('fullBackup:',e);toast('백업 실패: '+(e.message||''));}
 }
 
 // ── URL PARAM AUTO LOGIN ──

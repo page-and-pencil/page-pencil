@@ -31,6 +31,13 @@
 - 학생: 숙제 확인, 단어장 3단계 학습, 원서 듣기
 - 학부모: 수업 기록 조회, 테스트 점수 추이, 선생님 메시지
 
+## 데이터 규칙
+- 교재 표기: 새 책은 화면 표기 그대로 풀네임 한 줄 (예: "Read It! 30-1"). 레벨 분리형(Easy Link+level)은 레거시 — 중복 비교 시 "title level" 정규화로 매칭
+- 카테고리(파닉스/어휘/어법/리딩/리스닝/라이팅/내신)는 비우지 않음 — 탭 필터·수업기록 자동 채움의 기준
+- 원본은 교재 DB(global_textbooks): 단어·단원·학생 카드가 여기서 파생. 수정은 교재 쪽에서 (연쇄 반영: tuApplyRenames·tuCascadeCardUnits·_mergeCardMeaning)
+- 클래스5 라이브러리(type:class5)는 클래스5 과제의 과 목록 전용, 수업용 책은 교재 DB에 별도 등록
+- 백업: fullBackup()이 전 테이블 JSON 덤프 (대시보드가 월 1회 알림, localStorage pp_lastBackup 기준)
+
 ## 작업 원칙
 - 수정 요청 시 관련 파일만 읽고 수정
 - yes/no 확인 없이 자동 진행
