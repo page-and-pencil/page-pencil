@@ -288,7 +288,7 @@ function renderStudentLibrary(sid){
   const myTbooks=(_cache.globalTextbooks||[]).filter(b=>tbIdSet.has(b.id)&&(b.unitTexts&&Object.keys(b.unitTexts).some(u=>b.unitTexts[u]))).sort((a,b)=>(a.title||'').localeCompare(b.title||''));
 
   const tbookHtml=myTbooks.length?myTbooks.map(tb=>{
-    const myUnits=[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+    const myUnits=tbSortUnitNames(tb,[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))]); // 교재의 단원 순서(unitOrder) 반영
     const unitRows=myUnits.map(u=>{
       const wCnt=myCards.filter(c=>c.srcId===tb.id&&c.srcUnit===u).length;
       const hasText=!!(tb.unitTexts?.[u]);

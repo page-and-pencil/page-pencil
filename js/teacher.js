@@ -1476,7 +1476,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
     bookInput=`<select data-f="book" data-basekey="${baseKey}" onfocus="this.dataset.prev=this.value" onchange="if(bkSelAddNew(this))return;this.dataset.prev=this.value;clUpdateUnitHint(this)" style="${_bkSelSt}">${opts}</select>`;
     if(!noUnit){
       const initTbCl=books.find(_selMatch)||null;
-      const initUnitsCl=initTbCl?Object.keys(initTbCl.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
+      const initUnitsCl=initTbCl?tbUnitKeys(initTbCl):[];
       const initTitlesCl=initTbCl?.unitTitles||{};
       const dlCUId='dl-clu-'+Math.random().toString(36).slice(2,7);
       const dlOptsCl=initUnitsCl.map(k=>`<option value="${escAttr(k)}">${k}${initTitlesCl[k]?' — '+initTitlesCl[k]:''}</option>`).join('');
@@ -1493,7 +1493,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId){
     bookInput=`<select data-f="book" data-basekey="${baseKey}" onfocus="this.dataset.prev=this.value" onchange="if(bkSelAddNew(this))return;this.dataset.prev=this.value;lesUpdateUnitSel(this)" style="${_bkSelSt}">${opts}</select>`;
     if(!noUnit){
       const initTb=books.find(_selMatch)||null;
-      const initUnits=initTb?Object.keys(initTb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
+      const initUnits=initTb?tbUnitKeys(initTb):[];
       const initTitles=initTb?.unitTitles||{};
       const dlUId='dl-u-'+Math.random().toString(36).slice(2,7);
       const dlOptsU=initUnits.map(k=>`<option value="${escAttr(k)}">${k}${initTitles[k]?' — '+initTitles[k]:''}</option>`).join('');
@@ -1673,7 +1673,7 @@ function _bookUnitOpts(cat,title){
   const tb=(_cache.globalTextbooks||[]).find(_tbSame(t));
   if(!tb)return '';
   const titles=tb.unitTitles||{};
-  return Object.keys(tb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))
+  return tbUnitKeys(tb)
     .map(k=>`<option value="${escAttr(k)}">${k}${titles[k]?' — '+titles[k]:''}</option>`).join('');
 }
 // 책 선택 시 범위 입력에 단원/과/챕터 datalist 제공 (전 구분)
@@ -3367,7 +3367,7 @@ function openTbookUnits(tbId){
 }
 function tuPopulateUnitSel(tbId){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
-  const units=tb?.units||{};const keys=Object.keys(units).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  const units=tb?.units||{};const keys=tbUnitKeys(tb);
   const sub=document.getElementById('tu-sub');if(sub)sub.textContent=`(${keys.length}개)`;
   const sel=document.getElementById('tu-unit-sel');
   if(sel)sel.innerHTML='<option value="">-- 단원 선택 --</option>'+keys.map(k=>`<option value="${escAttr(k)}"${_tuCurUnit===k?' selected':''}>${k}${tb?.unitTitles?.[k]?' — '+tb.unitTitles[k]:''}</option>`).join('');
@@ -3393,7 +3393,8 @@ function tuPopulateUnitSel(tbId){
       <button onclick="tuRenameUnitSave('${jsq(tbId)}','${jsq(k)}')" style="background:var(--teal);color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;white-space:nowrap">저장</button>
       <button onclick="_tuRenamingUnit=null;tuPopulateUnitSel('${jsq(tbId)}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 5px;cursor:pointer;font-size:11px;color:var(--slate)">✕</button>
     </div>`;}
-    return`<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);background:${isSel?'var(--tl)':'transparent'}">
+    return`<div class="tu-unit-row" data-key="${escAttr(k)}" ondragover="tuDragOver(event,this)" ondragleave="tuDragClear(this)" ondrop="tuDrop(event,this)" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);background:${isSel?'var(--tl)':'transparent'}">
+      <span draggable="true" ondragstart="tuDragStart(event,'${jsq(k)}')" ondragend="tuDragEnd()" title="끌어서 순서 변경" style="cursor:grab;color:var(--slate);font-size:13px;flex-shrink:0;padding:0 2px;user-select:none;line-height:1">⠿</span>
       <input type="checkbox" class="tu-unit-chk" data-key="${escAttr(k)}" onclick="event.stopPropagation()" style="flex-shrink:0;cursor:pointer">
       <div onclick="tuSelectUnitRow('${jsq(k)}')" style="flex:1;cursor:pointer;overflow:hidden;min-width:0">
         <div style="font-size:13px;font-weight:${isSel?'700':'400'};color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(k)}</div>
@@ -3405,6 +3406,45 @@ function tuPopulateUnitSel(tbId){
     </div>`;
   }).join('');
   if(_tuRenamingUnit)setTimeout(()=>document.getElementById('tu-rename-inp')?.focus(),40);
+}
+// ── 단원 순서 드래그 변경 — unitOrder 배열로 저장, 단원 목록·진도 힌트·과제 범위 등 전체에 반영 ──
+let _tuDragKey=null;
+function tuDragStart(e,key){
+  _tuDragKey=key;
+  e.dataTransfer.effectAllowed='move';
+  try{e.dataTransfer.setData('text/plain',key);}catch(_){}
+}
+function tuDragEnd(){
+  _tuDragKey=null;
+  document.querySelectorAll('#tu-unit-list .tu-unit-row').forEach(r=>r.style.boxShadow='');
+}
+function tuDragOver(e,row){
+  if(!_tuDragKey||row.dataset.key===_tuDragKey)return;
+  e.preventDefault();e.dataTransfer.dropEffect='move';
+  const r=row.getBoundingClientRect();
+  const before=(e.clientY-r.top)<r.height/2;
+  row.style.boxShadow=before?'inset 0 3px 0 var(--teal)':'inset 0 -3px 0 var(--teal)';
+}
+function tuDragClear(row){row.style.boxShadow='';}
+async function tuDrop(e,row){
+  e.preventDefault();
+  const dragKey=_tuDragKey;_tuDragKey=null;
+  const targetKey=row.dataset.key;
+  row.style.boxShadow='';
+  if(!dragKey||!targetKey||dragKey===targetKey)return;
+  const rct=row.getBoundingClientRect();
+  const before=(e.clientY-rct.top)<rct.height/2;
+  const tbId=document.getElementById('tu-tb-id').value;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const keys=tbUnitKeys(tb).filter(k=>k!==dragKey);
+  let idx=keys.indexOf(targetKey);if(idx<0)return;
+  if(!before)idx+=1;
+  keys.splice(idx,0,dragKey);
+  const updated={...tb,unitOrder:keys};
+  const ci=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(ci>=0)_cache.globalTextbooks[ci]=updated;
+  tuPopulateUnitSel(tbId); // 즉시 반영 후 저장
+  try{await supaUpsert('global_textbooks',tbId,updated,null);toast('단원 순서가 저장되었습니다');}
+  catch(err){toast('순서 저장 실패: '+(err.message||''));}
 }
 async function tuSelectUnit(unitKey){await tuSaveUnitText(true);_tuCurUnit=unitKey||null;tuRenderWords(document.getElementById('tu-tb-id').value,_tuCurUnit);}
 async function tuSelectUnitRow(key){
@@ -3559,7 +3599,9 @@ function tuCreateUnit(){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   if(tb.units?.[name])return toast('이미 있는 단원명입니다');
   const unitTitles={...(tb.unitTitles||{})};if(sub)unitTitles[name]=sub;
-  const updated={...tb,units:{...(tb.units||{}),[name]:[]},unitTitles};
+  // 사용자 지정 순서를 쓰는 교재면 새 단원을 맨 뒤에 추가 (삭제 후 재생성 시 옛 위치 잔재 제거)
+  const updated={...tb,units:{...(tb.units||{}),[name]:[]},unitTitles,
+    ...(Array.isArray(tb.unitOrder)?{unitOrder:[...tb.unitOrder.filter(k=>k!==name),name]}:{})};
   supaUpsert('global_textbooks',tbId,updated,null).then(()=>{
     const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
     document.getElementById('tu-new-unit-name').value='';
@@ -3593,7 +3635,8 @@ async function tuRenameUnitSave(tbId,oldKey){
   const unitTitles={...(tb.unitTitles||{})};
   if(newKey!==oldKey){if(unitTitles[oldKey]!==undefined)unitTitles[newKey]=unitTitles[oldKey];delete unitTitles[oldKey];}
   if(newSub)unitTitles[newKey]=newSub;else delete unitTitles[newKey];
-  const updated={...tb,units,unitTitles};
+  const updated={...tb,units,unitTitles,
+    ...(Array.isArray(tb.unitOrder)?{unitOrder:tb.unitOrder.map(k=>k===oldKey?newKey:k)}:{})}; // 이름이 바뀌어도 순서 유지
   await supaUpsert('global_textbooks',tbId,updated,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
   if(_tuCurUnit===oldKey)_tuCurUnit=newKey;
@@ -5295,7 +5338,7 @@ function wdbSrcIdChange(){
   if(type!=='textbook'||!srcId){unitSel.style.display='none';unitSel.innerHTML='<option value="">전체 단원</option>';return;}
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===srcId);
   if(!tb?.units){unitSel.style.display='none';return;}
-  const units=Object.keys(tb.units).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  const units=tbUnitKeys(tb);
   unitSel.innerHTML='<option value="">전체 단원</option>'+units.map(u=>`<option value="${escAttr(u)}">${escAttr(u)}</option>`).join('');
   unitSel.style.display='';
 }
@@ -7972,7 +8015,7 @@ function _missionUnitKeys(tb){
     ...Object.keys(tb.unitTexts||{}).filter(u=>(tb.unitTexts[u]||'').trim()),
     ...Object.keys(tb.unitPatterns||{}).filter(u=>(tb.unitPatterns[u]||'').trim()),
   ]);
-  return [...keys].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  return tbSortUnitNames(tb,[...keys]);
 }
 function missionBookSearch(){
   const q=(document.getElementById('ms-book-search')?.value||'').trim().toLowerCase();
@@ -8215,7 +8258,7 @@ function assignBookChange(){
   }else{
     const tb=(_cache.globalTextbooks||[]).find(_tbSame(val)); // "제목 (레벨)" 값도 매칭
     const titles=tb?.unitTitles||{};
-    entries=tb?Object.keys(tb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(k=>({v:k,l:k+(titles[k]?' — '+titles[k]:'')})):[];
+    entries=tb?tbUnitKeys(tb).map(k=>({v:k,l:k+(titles[k]?' — '+titles[k]:'')})):[];
   }
   if(!entries.length){hide();return;}
   helper.style.display='block';
@@ -9176,7 +9219,7 @@ function clUpdateUnitHint(sel){
   const dl=dlId?document.getElementById(dlId):null;
   if(dl){
     const tb=bkId?(_cache.globalTextbooks||[]).find(b=>b.id===bkId):(_cache.globalTextbooks||[]).find(b=>b.title===bookTitle);
-    const units=tb?Object.keys(tb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
+    const units=tb?tbUnitKeys(tb):[];
     const titlesMap=tb?.unitTitles||{};
     dl.innerHTML=units.map(k=>`<option value="${escAttr(k)}">${k}${titlesMap[k]?' — '+titlesMap[k]:''}</option>`).join('');
   }
@@ -9196,7 +9239,7 @@ function lesUpdateUnitSel(sel){
   const unitInp=sr.querySelector('[data-f="unit"]');if(!unitInp)return;
   const bkId=sel.options[sel.selectedIndex]?.getAttribute('data-bk-id')||'';
   const tb=bkId?(_cache.globalTextbooks||[]).find(b=>b.id===bkId):(_cache.globalTextbooks||[]).find(b=>b.title===sel.value);
-  const units=tb?Object.keys(tb.units||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})):[];
+  const units=tb?tbUnitKeys(tb):[];
   const titlesMap=tb?.unitTitles||{};
   const dlId=unitInp.getAttribute('list');
   const dl=dlId?document.getElementById(dlId):null;

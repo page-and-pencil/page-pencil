@@ -339,3 +339,22 @@ function missionFindTb(id){
   const l=(_cache.library||[]).find(b=>b.id===id);
   return l?missionTbView(l):null;
 }
+
+// 교재 단원 키 목록 — 사용자 지정 순서(unitOrder) 우선, 나머지는 이름 숫자 정렬
+// (단원 목록 드래그로 순서를 바꾸면 unitOrder에 저장됨; 삭제된 단원 키는 걸러냄)
+function tbUnitKeys(tb){
+  const units=tb?.units||{};
+  const keys=Object.keys(units);
+  const order=Array.isArray(tb?.unitOrder)?tb.unitOrder.filter(k=>Object.prototype.hasOwnProperty.call(units,k)):[];
+  const inOrder=new Set(order);
+  const rest=keys.filter(k=>!inOrder.has(k)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  return [...order,...rest];
+}
+// 임의 단원명 배열을 교재의 단원 순서 기준으로 정렬 (목록에 없는 이름은 뒤에 이름순)
+function tbSortUnitNames(tb,names){
+  const idx=new Map(tbUnitKeys(tb).map((k,i)=>[k,i]));
+  return [...names].sort((a,b)=>{
+    const ia=idx.has(a)?idx.get(a):Infinity,ib=idx.has(b)?idx.get(b):Infinity;
+    return ia!==ib?ia-ib:a.localeCompare(b,undefined,{numeric:true});
+  });
+}
