@@ -642,9 +642,8 @@ async function printReport(sidArg,month){
   const today=new Date();
   const avgV=tsts.length?Math.round(tsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/tsts.length):null;
   const latTst=tsts[0];
-  // 수업별 선생님 코멘트 (기간 내, 날짜 오름차순 — 전체 기간이면 최근 10건)
-  let cmtLes=les.filter(l=>(l.polishedCmt||l.cmt||'').trim());
-  if(!scoped)cmtLes=cmtLes.slice(0,10);
+  // 수업별 선생님 코멘트 — 최근 3건만 (전체 나열은 리포트가 길어져 생략)
+  let cmtLes=les.filter(l=>(l.polishedCmt||l.cmt||'').trim()).slice(0,3);
   cmtLes=cmtLes.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   // 교재 진도 집계 (기간 내) — 원서(_book)는 제외, '읽은 원서' 섹션에서 별도 표시
   const matMap={};
@@ -656,12 +655,12 @@ async function printReport(sidArg,month){
     if(!matMap[v.book])matMap[v.book]={label,book:v.book,units:[]};
     if(v.unit&&!matMap[v.book].units.includes(v.unit))matMap[v.book].units.push(v.unit);
   });});
-  const flatUnits=m=>[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];
+  // 진도는 기록된 문자열 그대로 사용 — ', ' 분해는 "Long Vowel o, u" 같은 유닛명을 파편내므로 금지
   // Claude로 학부모용 선생님 종합 코멘트 생성 — 기간 내 진도·학습 내용 기반 (엣지 함수 프록시 경유)
   let aiComment='';
   if(DB.api()&&les.length){
     try{
-      const progSummary=Object.values(matMap).map(m=>`- ${m.label?'['+m.label+'] ':''}${m.book}: ${flatUnits(m).join(', ')||'진도 기록 없음'}`).join('\n')||'—';
+      const progSummary=Object.values(matMap).map(m=>`- ${m.label?'['+m.label+'] ':''}${m.book}: ${m.units.join(' · ')||'진도 기록 없음'}`).join('\n')||'—';
       const rdSummary=rds.length?rds.slice(0,15).map(r=>r.title+(r.progress?'('+r.progress+')':'')).join(', '):'—';
       const lessSummary=les.slice(0,20).map(l=>`[${l.date}]\n교재: ${Object.entries(l.materials||{}).filter(([,v])=>v.book).map(([,v])=>v.book+(v.unit?' '+v.unit:'')).join(', ')||'—'}${(l.polishedCmt||l.cmt)?'\n코멘트: '+(l.polishedCmt||l.cmt):''}`).join('\n\n');
       const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:`영어학원 선생님이 학부모에게 드리는 ${periodLabel} 종합 코멘트를 작성해주세요. 인쇄용 학습 리포트에 실립니다.\n\n규칙:\n- 톤(원장 톤앤매너): 합쇼체 위주의 담백하고 따뜻한 문장. 과장 없이 아이의 구체적인 모습·성장을 짚고, 반복·노출·익숙해짐을 중시하는 교육관이 배어나게. 마무리는 "꾸준히 ~하겠습니다" 같은 지도 다짐으로. 필요 시 "많이 칭찬해 주세요" 같은 부드러운 요청 한 번. 감탄사·이모지 없음.\n- 구성: 학습 태도 → ${periodLabel} 진도 요약(교재별로 어디까지 진행했는지) → 주요 학습 내용(무엇을 배우고 연습했는지) → 원서 읽기 → 특기 사항 순\n- 아래 진도·기록 데이터를 바탕으로 통합·재구성하세요. 기록에 없는 내용 추가 금지.\n- 300~500자 분량, 문단은 2~3개로 나누세요.\n\n학생: ${s.name} (${s.grade||''})\n기간: ${periodLabel} | 수업 ${les.length}회 | 원서 ${rds.length}권 | 단어 평균 ${avgV!=null?avgV+'%':'미측정'}\n\n기간 내 교재 진도:\n${progSummary}\n\n읽은 원서: ${rdSummary}\n\n일별 수업 기록:\n${lessSummary}\n\n종합 코멘트만 출력하세요.`}]});
@@ -729,7 +728,7 @@ async function printReport(sidArg,month){
     <div class="section-title">📚 ${scoped?periodLabel+' ':''}교재 진도</div>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr style="background:#f0fffe"><th style="text-align:left;padding:5px 8px;border-bottom:1px solid #d0f0f0">구분</th><th style="text-align:left;padding:5px 8px;border-bottom:1px solid #d0f0f0">교재명</th><th style="text-align:left;padding:5px 8px;border-bottom:1px solid #d0f0f0">진도 기록</th></tr></thead>
-      <tbody>${Object.values(matMap).map(m=>{const flatU=flatUnits(m);return`<tr style="border-bottom:1px solid #eee"><td style="padding:5px 8px;color:#888;vertical-align:top">${m.label}</td><td style="padding:5px 8px;font-weight:600;vertical-align:top">${m.book}</td><td style="padding:5px 8px;color:#666">${flatU.length?flatU.map(u=>`<div style="line-height:1.7">${u}</div>`).join(''):'—'}</td></tr>`;}).join('')}</tbody>
+      <tbody>${Object.values(matMap).map(m=>`<tr style="border-bottom:1px solid #eee"><td style="padding:5px 8px;color:#888;vertical-align:top;white-space:nowrap">${m.label}</td><td style="padding:5px 8px;font-weight:600;vertical-align:top;white-space:nowrap">${m.book}</td><td style="padding:6px 8px;color:#475569">${m.units.length?m.units.map(u=>`<span style="display:inline-block;background:#f4fafb;border:1px solid #dcedf1;border-radius:10px;padding:1px 8px;margin:2px 4px 2px 0;font-size:11px;line-height:1.6">${u}</span>`).join(''):'—'}</td></tr>`).join('')}</tbody>
     </table>
   </div>`:''}
   ${rds.length?`<div class="section">
