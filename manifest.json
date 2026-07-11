@@ -1,21 +1,21 @@
 {
  "name": "Page & Pencil",
  "short_name": "P&P",
- "description": "페이지앤펜슬 영어학원 — 수업·과제·단어·리딩 관리",
+ "description": "기준이 다른 전문가의 밀착 영어 — 수업·과제·단어·리딩 관리",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",
  "background_color": "#FDFBF7",
- "theme_color": "#0F304A",
+ "theme_color": "#242F3D",
  "lang": "ko",
  "icons": [
   {
-   "src": "icons/icon-192.png",
+   "src": "icons/icon-192.png?v=2",
    "sizes": "192x192",
    "type": "image/png"
   },
   {
-   "src": "icons/icon-512.png",
+   "src": "icons/icon-512.png?v=2",
    "sizes": "512x512",
    "type": "image/png",
    "purpose": "any maskable"
