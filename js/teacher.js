@@ -7179,7 +7179,7 @@ async function polishStuCmt_teacher(raw,matsText,stuName){
   if(!raw||!raw.trim())return '';
   const apiKey=DB.api();if(!apiKey)return '';
   try{
-    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${stuName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 수업 진도에 나온 교재·단원 이름을 1개 이상 자연스럽게 언급(예: "오늘 Day 17 진짜 잘 읽었어!", "EFL Phonics oo 발음 완전 잘했어~"), 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${matsText||'없음'}\n선생님 메모: ${raw}`;
+    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${stuName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 오늘 배운 내용을 구체적으로 1개 이상 언급 — 진도에 [이 단원에서 배운 단어]가 있으면 그중 1~2개를 골라 칭찬에 녹여서(예: "오늘 proud 진짜 잘 읽었어!", "th 발음 완전 좋았어~"). 없는 사실은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${matsText||'없음'}\n선생님 메모: ${raw}`;
     const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content}]});
     return d.content?.[0]?.text?.trim()||'';
   }catch(e){return '';}

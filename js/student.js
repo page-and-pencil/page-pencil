@@ -460,6 +460,51 @@ function renderStudentLibrary(sid){
     ${selOther?panelOf({key:selOther.id,title:selOther.title,b:selOther}):''}
   `:'';
   const hasLib=!!(myShelf.length||otherWithAudio.length);
+  // ── 지난 수업 복습 히어로: 직전 수업에서 다룬 것을 바로 낭독·듣기로 ──
+  let reviewHero='';
+  if(lastLes){
+    const items=[];
+    Object.entries(lastLes.materials||{}).forEach(([k,v])=>{
+      if(!v||!v.book)return;
+      const bk=k.replace(/_\d+$/,'');
+      if(bk==='pencil_down'||bk==='sing_together')return;
+      const isBook=k==='_book'||k.startsWith('_book_');
+      if(isBook){
+        const b=(_cache.library||[]).find(x=>_n(x.title)===_n(v.book));
+        items.push({label:'원서',title:v.book,unit:v.unit||'',btns:(b&&bookListenable(b))?`<button class="btn bt bsm" onclick="openBookListen('${escAttr(b.id)}')">\uD83C\uDFA7 듣기</button>`:''});
+      }else{
+        const _hasRev=x=>(x.unitTexts&&!Array.isArray(x.unitTexts)&&Object.keys(x.unitTexts).length)||(x.unitAudio&&Object.keys(x.unitAudio||{}).length);
+        const g=(_cache.globalTextbooks||[]).find(x=>x.title===v.book&&_hasRev(x))||(_cache.globalTextbooks||[]).find(x=>_n(x.title)===_n(v.book)&&_hasRev(x))||(_cache.globalTextbooks||[]).find(x=>x.title===v.book);
+        let btns='';
+        if(g){
+          const keys=[...new Set([...Object.keys(g.unitTexts||{}),...Object.keys(g.unitAudio||{})])];
+          let uk='';
+          for(const seg of String(v.unit||'').split(',').map(x=>x.trim()).filter(Boolean)){
+            const hit=keys.find(u=>_n(u)===_n(seg));if(hit){uk=hit;break;}
+          }
+          if(uk&&g.unitTexts?.[uk])btns=`<button class="btn bt bsm" onclick="openUnitReview('${g.id}','${uk.replace(/'/g,"\\'")}')">\uD83D\uDCD6 복습</button>`;
+          else if(uk&&g.unitAudio?.[uk])btns=`<button class="btn ba bsm" onclick="openUnitRead('${g.id}','${uk.replace(/'/g,"\\'")}')">\uD83C\uDFA7 듣기</button>`;
+        }
+        items.push({label:(typeof SLBL!=='undefined'?SLBL[bk]:'')||'교재',title:v.book,unit:v.unit||'',btns});
+      }
+    });
+    if(items.length){
+      reviewHero=`<div style="background:var(--tl);border:1.5px solid var(--teal);border-radius:14px;padding:14px 16px;margin-bottom:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+          <span style="font-size:13.5px;font-weight:800;color:var(--navy)">\uD83D\uDD04 지난 수업 복습</span>
+          <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${lastLes.date||''}</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--slate);margin-bottom:6px">지난 시간에 배운 것부터 다시 만나 보세요!</div>
+        ${items.map(it=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(12,164,201,.15)">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;color:var(--navy)"><span style="font-size:10px;font-weight:700;color:#0B8DAE;margin-right:5px">${it.label}</span><b>${it.title}</b></div>
+            ${it.unit?`<div style="font-size:11px;color:var(--slate);margin-top:1px">${it.unit}</div>`:''}
+          </div>
+          <div style="flex-shrink:0">${it.btns||'<span style="font-size:10.5px;color:var(--slate)">자료 준비 중</span>'}</div>
+        </div>`).join('')}
+      </div>`;
+    }
+  }
   const noContent=!myTbooks.length&&!hasLib&&!reviewHero;
   el.innerHTML=noContent?`<div class="empty boxed" style="margin:16px">
     <div style="font-size:36px;margin-bottom:10px">📖</div>
@@ -1531,7 +1576,7 @@ async function polishStudentCmt(givenName){
   const apiKey=DB.api();
   if(!apiKey){el.textContent=raw.slice(0,80)+(raw.length>80?'…':'');return;}
   try{
-    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${givenName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 수업 진도에 나온 교재·단원 이름을 1개 이상 자연스럽게 언급(예: "오늘 Day 17 진짜 잘 읽었어!", "EFL Phonics oo 발음 완전 잘했어~"), 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${mats||'없음'}\n선생님 메모: ${raw}`;
+    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${givenName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 오늘 배운 내용을 구체적으로 1개 이상 언급 — 진도에 [이 단원에서 배운 단어]가 있으면 그중 1~2개를 골라 칭찬에 녹여서(예: "오늘 proud 진짜 잘 읽었어!", "th 발음 완전 좋았어~"). 없는 사실은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${mats||'없음'}\n선생님 메모: ${raw}`;
     const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:150,messages:[{role:'user',content}]});
     const text=d.content?.[0]?.text?.trim();
     if(text&&el)el.textContent=text;

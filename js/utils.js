@@ -358,3 +358,21 @@ function tbSortUnitNames(tb,names){
     return ia!==ib?ia-ib:a.localeCompare(b,undefined,{numeric:true});
   });
 }
+
+
+// ── 홈 화면 설치 안내 (모바일 브라우저에서 1회, 설치된 앱에서는 안 뜸) ──
+window.addEventListener('load',()=>{
+  try{
+    if(window.matchMedia('(display-mode: standalone)').matches||navigator.standalone)return;
+    if(localStorage.getItem('pp_pwa_hint'))return;
+    const ua=navigator.userAgent;
+    if(!/iphone|ipad|android/i.test(ua))return;
+    const isIOS=/iphone|ipad/i.test(ua);
+    const bar=document.createElement('div');
+    bar.style.cssText='position:fixed;left:10px;right:10px;bottom:12px;z-index:9998;background:#0F304A;color:#fff;border-radius:14px;padding:12px 14px;font-size:12.5px;line-height:1.6;box-shadow:0 6px 20px rgba(0,0,0,.25);display:flex;gap:10px;align-items:flex-start;font-family:var(--fb)';
+    bar.innerHTML=`<span style="font-size:20px">\uD83D\uDCF2</span><div style="flex:1">홈 화면에 추가하면 앱처럼 쓸 수 있어요!<br><b>${isIOS?'공유 버튼(&#x2191;) → 홈 화면에 추가':'브라우저 메뉴(⋮) → 앱 설치 / 홈 화면에 추가'}</b></div><button style="border:none;background:none;color:#9FC9D8;font-size:16px;cursor:pointer;padding:0 2px;flex-shrink:0">✕</button>`;
+    bar.querySelector('button').onclick=()=>{localStorage.setItem('pp_pwa_hint','1');bar.remove();};
+    document.body.appendChild(bar);
+    setTimeout(()=>{if(bar.parentNode){localStorage.setItem('pp_pwa_hint','1');bar.remove();}},12000);
+  }catch(e){}
+});
