@@ -275,13 +275,13 @@ let _snapTimer=null;
 function _scheduleSnapSave(){ // 쓰기 후 스냅샷 저장 (2.5초 디바운스)
   clearTimeout(_snapTimer);
   _snapTimer=setTimeout(()=>{
-    try{const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v1',{at:Date.now(),cache:snap});}catch(e){}
+    try{const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v2',{at:Date.now(),cache:snap});}catch(e){}
   },2500);
 }
 async function loadAllDataFast(){
   if(_cache.students.length)return;
   try{
-    const snap=await idbGet('pp_cache_v1');
+    const snap=await idbGet('pp_cache_v2');
     const _snapOk=snap&&snap.cache&&Array.isArray(snap.cache.students)&&snap.cache.students.length
       &&((snap.cache.lessons||[]).length||(snap.cache.globalTextbooks||[]).length); // 학생만 있고 나머지 빈 스냅샷 = 오염 의심 → 전체 로드
     if(_snapOk){
@@ -376,7 +376,7 @@ async function loadAllData(bg){
     // 다음 방문 즉시 부팅용 스냅샷 — 핵심 테이블이 전부 성공한 완전 로드만 저장 (오염 방지)
     try{
       const coreOk=['students','lessons','readings','logs','assignments','textbooks','global_textbooks'].every(t=>res[tables.indexOf(t)].status==='fulfilled');
-      if(coreOk){const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v1',{at:Date.now(),cache:snap});}
+      if(coreOk){const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v2',{at:Date.now(),cache:snap});}
     }catch(e){}
   }catch(e){
     console.error('loadAllData:',e);
