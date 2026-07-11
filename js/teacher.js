@@ -460,6 +460,7 @@ function renderSpRdlog(sid){
         <div id="sp-log-upload-zone" onclick="document.getElementById('sp-log-file').click()" style="border:2px dashed var(--border);border-radius:8px;padding:16px;text-align:center;cursor:pointer;font-size:12px;color:var(--slate)">📷 사진 / PDF 클릭하여 업로드</div>
         <input type="file" id="sp-log-file" accept="image/*,application/pdf" style="display:none" onchange="handleSpLogPhoto(event,'${sid}')">
         <div id="sp-log-preview-wrap" style="display:none;text-align:center;margin-top:6px">
+          <div id="sp-log-pages" style="display:none;text-align:left"></div>
           <img id="sp-log-preview-img" style="max-width:100%;max-height:180px;border-radius:8px;border:1.5px solid var(--border)">
           <div id="sp-log-preview-count" style="font-size:11px;color:var(--teal);font-weight:600;margin-top:3px"></div>
           <button onclick="clearSpLogPhoto()" style="display:block;margin:4px auto 0;font-size:11px;color:var(--slate);background:none;border:none;cursor:pointer;font-family:var(--fb)">× 제거</button>
@@ -506,15 +507,22 @@ async function handleSpLogPhoto(e,sid){
     _spLogB64s=[await fileToB64(f)];
   }
   if(zone)zone.style.display='none';
-  const img=document.getElementById('sp-log-preview-img');if(img)img.src='data:'+_spLogMime+';base64,'+(_spLogB64s[0]||'');
+  const img=document.getElementById('sp-log-preview-img');
   const wrap=document.getElementById('sp-log-preview-wrap');if(wrap)wrap.style.display='block';
-  const cnt=document.getElementById('sp-log-preview-count');
-  if(cnt)cnt.textContent=_spLogB64s.length>1?`📄 ${_spLogB64s.length}페이지 (캐러셀로 표시됩니다)`:'';
+  const cnt=document.getElementById('sp-log-preview-count');if(cnt)cnt.textContent='';
+  if(_spLogB64s.length>1){ // 여러 장: 장별 날짜·책 지정 UI
+    if(img)img.style.display='none';
+    buildLogPages('sp-log-pages',_spLogB64s,document.getElementById('sp-log-date')?.value,_spLogBookTitle||(document.getElementById('sp-log-book')?.value||'').trim());
+  }else{
+    const pg=document.getElementById('sp-log-pages');if(pg){pg.style.display='none';pg.innerHTML='';}
+    if(img){img.style.display='block';img.src='data:'+_spLogMime+';base64,'+(_spLogB64s[0]||'');}
+  }
 }
 function clearSpLogPhoto(){
   _spLogFile=null;_spLogB64s=[];_spLogMime='';
   const fi=document.getElementById('sp-log-file');if(fi)fi.value='';
-  const img=document.getElementById('sp-log-preview-img');if(img)img.src='';
+  const img=document.getElementById('sp-log-preview-img');if(img){img.src='';img.style.display='block';}
+  const pg=document.getElementById('sp-log-pages');if(pg){pg.innerHTML='';pg.style.display='none';}
   const wrap=document.getElementById('sp-log-preview-wrap');if(wrap)wrap.style.display='none';
   const cnt=document.getElementById('sp-log-preview-count');if(cnt)cnt.textContent='';
   const zone=document.getElementById('sp-log-upload-zone');if(zone){zone.style.display='block';zone.textContent='📷 사진 / PDF 클릭하여 업로드';}
@@ -534,6 +542,18 @@ async function uploadLogImages(file,b64s,mime){
 }
 async function saveSpLog(sid){
   if(!sid){toast('학생 정보 오류');return;}
+  const spg=document.getElementById('sp-log-pages');
+  if(_spLogB64s.length>1&&spg&&spg.style.display!=='none'){ // 다중 페이지: 장별 지정값으로 저장
+    const n=await saveLogPages('sp-log-pages',sid,_spLogB64s,_spLogMime);
+    if(n===null)return;
+    clearSpLogPhoto();
+    _spLogBookId='';_spLogBookTitle='';
+    const bookEl=document.getElementById('sp-log-book');if(bookEl)bookEl.value='';
+    const form=document.getElementById('sp-log-form');if(form)form.style.display='none';
+    renderSpRdlog(sid);renderLog();
+    toast(`리딩로그 ${n}건이 저장되었습니다`);
+    return;
+  }
   let photoUrls=[];
   if(_spLogB64s.length){
     toast('저장 중...');
@@ -6700,6 +6720,63 @@ async function uploadB64Cld(b64,mime){
   if(!res.ok){const d=await res.json().catch(()=>({}));throw new Error(d.error?.message||'업로드 실패 ('+res.status+')');}
   return (await res.json()).secure_url;
 }
+// ── 다중 페이지 PDF: 장별 날짜·책 지정 후 묶음 저장 ──
+function buildLogPages(contId,b64s,defDate,defBook){
+  const c=document.getElementById(contId);if(!c)return;
+  const d0=defDate||new Date().toISOString().split('T')[0];
+  c.innerHTML=`<div style="font-size:11px;color:var(--slate);margin-bottom:6px;line-height:1.5;text-align:left">📄 ${b64s.length}장 — 장마다 날짜·책을 지정하세요. 값을 바꾸면 <b>아래 장에도 자동 적용</b>되고, 날짜·책이 같은 연속 장은 <b>한 로그로 묶어</b> 저장합니다.</div>`+b64s.map((b,i)=>`<div class="lgp-row" data-i="${i}" style="display:flex;gap:7px;align-items:center;padding:6px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:6px;background:#fff">
+    <img src="data:image/jpeg;base64,${b}" onclick="lgpZoom(this)" title="크게 보기" style="width:44px;height:58px;object-fit:cover;border-radius:5px;border:1px solid var(--border);cursor:zoom-in;flex-shrink:0">
+    <span style="font-size:11px;font-weight:700;color:var(--slate);width:16px;text-align:center;flex-shrink:0">${i+1}</span>
+    <input type="date" class="lgp-date" value="${d0}" onchange="this.dataset.t='1';lgpCascade('${contId}',${i},'date')" style="flex:0 0 124px;font-size:12px;padding:5px 6px">
+    <input type="text" class="lgp-book" value="${escAttr(defBook||'')}" placeholder="책 제목 (선택)" list="dl-lib-books" autocomplete="off" onchange="this.dataset.t='1';lgpCascade('${contId}',${i},'book')" style="flex:1;min-width:80px;font-size:12px;padding:5px 8px">
+    <button onclick="lgpSkip(this)" title="이 장 제외" style="flex-shrink:0;border:1px solid var(--border);background:none;border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:11px;color:var(--slate)">✕</button>
+  </div>`).join('');
+  c.style.display='block';
+}
+function lgpCascade(contId,i,f){ // i번째 장의 값을, 아직 직접 수정하지 않은 아래 장들에 이어 적용
+  const rows=[...document.querySelectorAll('#'+contId+' .lgp-row')];
+  const sel=f==='date'?'.lgp-date':'.lgp-book';
+  const src=rows[i]&&rows[i].querySelector(sel);if(!src)return;
+  for(let j=i+1;j<rows.length;j++){const inp=rows[j].querySelector(sel);if(inp&&inp.dataset.t!=='1')inp.value=src.value;}
+}
+function lgpSkip(btn){
+  const row=btn.closest('.lgp-row');const off=row.dataset.skip==='1';
+  row.dataset.skip=off?'':'1';row.style.opacity=off?'1':'.38';
+  btn.textContent=off?'✕':'↩';btn.title=off?'이 장 제외':'다시 포함';
+}
+function lgpZoom(img){
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:18px';
+  ov.innerHTML=`<img src="${img.src}" style="max-width:94vw;max-height:94vh;border-radius:8px;background:#fff">`;
+  ov.onclick=()=>ov.remove();document.body.appendChild(ov);
+}
+async function saveLogPages(contId,sid,b64s,mime){ // 반환: 저장 건수 (null=저장할 장 없음)
+  const rows=[...document.querySelectorAll('#'+contId+' .lgp-row')].filter(r=>r.dataset.skip!=='1');
+  if(!rows.length){toast('저장할 장이 없습니다 (모두 제외됨)');return null;}
+  toast(`저장 중... (${rows.length}장)`);
+  const today=new Date().toISOString().split('T')[0];
+  const groups=[];
+  rows.forEach(r=>{
+    const p={i:+r.dataset.i,date:r.querySelector('.lgp-date')?.value||today,book:(r.querySelector('.lgp-book')?.value||'').trim()};
+    const g=groups[groups.length-1];
+    if(g&&g.date===p.date&&g.book.toLowerCase()===p.book.toLowerCase())g.idx.push(p.i);
+    else groups.push({date:p.date,book:p.book,idx:[p.i]});
+  });
+  const saved=[];
+  for(const g of groups){
+    const urls=[];
+    for(const i of g.idx){
+      try{const u=await uploadB64Cld(b64s[i],mime);urls.push(u||('data:'+mime+';base64,'+b64s[i]));}
+      catch(e){urls.push('data:'+mime+';base64,'+b64s[i]);}
+    }
+    const bookId=g.book?((DB.libs()||[]).find(b=>(b.title||'').trim().toLowerCase()===g.book.toLowerCase())?.id||''):'';
+    const log={id:uid(),sid,date:g.date,photoUrl:urls[0]||'',photoUrls:urls,bookTitle:g.book,bookId};
+    await supaUpsert('logs',log.id,log,sid);
+    saved.push(log);
+  }
+  saved.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(l=>_cache.logs.unshift(l));
+  return saved.length;
+}
 async function handleLogPhoto(e){
   const f=e.target.files[0];if(!f)return;
   pendingLogFile=f;
@@ -6713,13 +6790,20 @@ async function handleLogPhoto(e){
       pendingLogB64s=await pdfAllPagesToB64(f);
       pendingLogMime='image/jpeg';
     }catch(err){toast('PDF 변환 실패: '+err.message);return;}
-    if(status)status.innerHTML=pendingLogB64s.length>1?`<div style="font-size:11px;color:var(--teal);font-weight:600">📄 ${pendingLogB64s.length}페이지 (캐러셀로 표시됩니다)</div>`:'';
+    if(status)status.innerHTML='';
     if(previewPdf)previewPdf.style.display='none';
-    if(previewImg){previewImg.style.display='block';previewImg.src='data:image/jpeg;base64,'+(pendingLogB64s[0]||'');}
+    if(pendingLogB64s.length>1){ // 여러 장: 장별 날짜·책 지정 UI
+      if(previewImg)previewImg.style.display='none';
+      buildLogPages('log-pages',pendingLogB64s,document.getElementById('lg-date')?.value,(document.getElementById('lg-book')?.value||'').trim());
+    }else{
+      const pg=document.getElementById('log-pages');if(pg){pg.style.display='none';pg.innerHTML='';}
+      if(previewImg){previewImg.style.display='block';previewImg.src='data:image/jpeg;base64,'+(pendingLogB64s[0]||'');}
+    }
   }else{
     pendingLogMime=f.type;
     pendingLogB64s=[await fileToB64(f)];
     if(previewPdf)previewPdf.style.display='none';
+    const pg=document.getElementById('log-pages');if(pg){pg.style.display='none';pg.innerHTML='';}
     if(previewImg){previewImg.style.display='block';previewImg.src='data:'+f.type+';base64,'+pendingLogB64s[0];}
   }
   document.getElementById('log-upload-zone').style.display='none';
@@ -6728,8 +6812,9 @@ async function handleLogPhoto(e){
 function clearLogPhoto(){
   pendingLogFile=null;pendingLogB64s=[];pendingLogMime='';
   document.getElementById('lg-file').value='';
+  const pg=document.getElementById('log-pages');if(pg){pg.innerHTML='';pg.style.display='none';}
   const previewImg=document.getElementById('log-preview-img');
-  if(previewImg){previewImg.src='';}
+  if(previewImg){previewImg.src='';previewImg.style.display='block';}
   document.getElementById('log-upload-zone').style.display='block';
   document.getElementById('log-preview-wrap').style.display='none';
 }
@@ -6742,6 +6827,16 @@ async function uploadCld(file){
 }
 async function saveLog(){
   const sid=document.getElementById('lg-stu').value;if(!sid){toast('학생을 선택해 주세요');return;}
+  const pgEl=document.getElementById('log-pages');
+  if(pendingLogB64s.length>1&&pgEl&&pgEl.style.display!=='none'){ // 다중 페이지: 장별 지정값으로 저장
+    const n=await saveLogPages('log-pages',sid,pendingLogB64s,pendingLogMime);
+    if(n===null)return;
+    clearLogPhoto();
+    if(document.getElementById('lg-book'))document.getElementById('lg-book').value='';
+    renderLog();
+    toast(`리딩로그 ${n}건이 저장되었습니다`);
+    return;
+  }
   let photoUrls=[];
   if(pendingLogB64s.length){
     toast('저장 중...');
