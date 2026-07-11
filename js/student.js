@@ -425,7 +425,8 @@ function renderStudentLibrary(sid){
         const b=(_cache.library||[]).find(x=>_n(x.title)===_n(v.book));
         items.push({label:'원서',title:v.book,unit:v.unit||'',btns:(b&&bookListenable(b))?`<button class="btn bt bsm" onclick="openBookListen('${escAttr(b.id)}')">🎧 듣기</button>`:''});
       }else{
-        const g=(_cache.globalTextbooks||[]).find(x=>x.title===v.book)||(_cache.globalTextbooks||[]).find(x=>_n(x.title)===_n(v.book));
+        const _hasRev=x=>(x.unitTexts&&!Array.isArray(x.unitTexts)&&Object.keys(x.unitTexts).length)||(x.unitAudio&&Object.keys(x.unitAudio||{}).length);
+        const g=(_cache.globalTextbooks||[]).find(x=>x.title===v.book&&_hasRev(x))||(_cache.globalTextbooks||[]).find(x=>_n(x.title)===_n(v.book)&&_hasRev(x))||(_cache.globalTextbooks||[]).find(x=>x.title===v.book);
         let btns='';
         if(g){
           const keys=[...new Set([...Object.keys(g.unitTexts||{}),...Object.keys(g.unitAudio||{})])];

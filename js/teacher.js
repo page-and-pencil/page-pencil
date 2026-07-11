@@ -7056,7 +7056,7 @@ function _saveCmtExample(raw,confirmed){
 // 단원의 실제 단어(교재 DB 전사 데이터)를 코멘트 프롬프트 힌트로 — 정확 일치만(오매칭 방지)
 function _unitWordsHint(book,unit){
   if(!book||!unit)return '';
-  const g=(_cache.globalTextbooks||[]).find(x=>x.title===book&&x.units);
+  const g=(_cache.globalTextbooks||[]).find(x=>x.title===book&&x.units&&!Array.isArray(x.units));
   if(!g)return '';
   const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]/g,'');
   const keys=Object.keys(g.units);
@@ -9397,7 +9397,7 @@ async function addNextBookFromSuggestion(sid){
 async function markDerivedTbDone(title,type,sid){
   const existing=(_cache.textbooks||[]).find(t=>t.sid===sid&&t.title===title);
   if(existing){markTextbookDone(existing.id,sid);return;}
-  const gTb=(_cache.globalTextbooks||[]).find(g=>g.title===title);
+  const gTb=(_cache.globalTextbooks||[]).find(g=>g.title===title&&g.type!=='class5')||(_cache.globalTextbooks||[]).find(g=>g.title===title);
   const id=uid();
   const entry={id,sid,title,type:type||'교재',bookId:gTb?.id||'',level:gTb?.level||'',currentUnit:'',active:true,completed:false};
   await supaUpsert('textbooks',id,entry,sid);
