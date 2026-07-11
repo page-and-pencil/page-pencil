@@ -579,7 +579,7 @@ function spLogSearch(){
   if(!q){dd.style.display='none';return;}
   const matches=(_cache.library||[]).filter(b=>b.title&&b.title.toLowerCase().includes(q)).slice(0,10);
   if(!matches.length){dd.style.display='none';return;}
-  dd.innerHTML=matches.map(b=>`<div onclick="spLogSelectBook('${escAttr(b.id)}','${escAttr(b.title)}')" style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--border);line-height:1.3" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background=''">${b.title}${b.level?` <span style="font-size:10px;color:var(--slate)">(Lv${b.level})</span>`:''}</div>`).join('');
+  dd.innerHTML=matches.map(b=>`<div onclick="spLogSelectBook('${escAttr(b.id)}','${escJsA(b.title)}')" style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--border);line-height:1.3" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background=''">${b.title}${b.level?` <span style="font-size:10px;color:var(--slate)">(Lv${b.level})</span>`:''}</div>`).join('');
   dd.style.display='block';
 }
 function spLogSelectBook(id,title){
@@ -1135,18 +1135,18 @@ async function loadStuPanel(sid){
           <div style="flex:1">
             <div style="font-size:11px;color:${overdue?'var(--red)':'var(--slate)'};font-family:var(--fm)">${a.date||''}${a.due?' · 마감 '+a.due:''}${completed?' · 완료 '+(a.completedAt||'').slice(0,10):''}</div>
             <div style="font-size:12px;font-weight:700;margin-top:2px">${
-              a.type==='reading'?`📖 ${[a.bookTitle,a.range].filter(Boolean).join(' · ')}`:
-              a.type==='vocab'?`📝 단어: ${(a.words||[]).join(', ')}`:
+              a.type==='reading'?`${_catPill('원서')}${[a.bookTitle,a.range].filter(Boolean).join(' · ')||'원서 읽기'}`:
+              a.type==='vocab'?`${_catPill('어휘')}단어: ${(a.words||[]).join(', ')}`:
               a.category==='class5'?(()=>{
                 const sc=a.schedule||[];
-                if(!sc.length)return`🎮 [클래스5]${a.bookTitle&&a.bookTitle!=='클래스5'?` · ${a.bookTitle}`:''}${a.range?' · '+a.range:''}`;
-                return`🎮 [클래스5]<div style="margin-top:3px">${sc.slice(0,5).map(s=>`<div style="font-size:11px;font-weight:normal;color:var(--slate);line-height:1.7;padding-left:2px">${s.date||''} ${[s.book,s.unit].filter(Boolean).join(' · ')}</div>`).join('')}${sc.length>5?`<div style="font-size:10px;font-weight:normal;color:var(--slate);padding-left:2px">외 ${sc.length-5}일...</div>`:''}</div>`;
+                if(!sc.length)return`${_catPill('클래스5')}${[a.bookTitle&&a.bookTitle!=='클래스5'?a.bookTitle:'',a.range].filter(Boolean).join(' · ')||'클래스5 학습'}`;
+                return`${_catPill('클래스5')}<div style="margin-top:3px">${sc.slice(0,5).map(s=>`<div style="font-size:11px;font-weight:normal;color:var(--slate);line-height:1.7;padding-left:2px">${s.date||''} ${[s.book,s.unit].filter(Boolean).join(' · ')}</div>`).join('')}${sc.length>5?`<div style="font-size:10px;font-weight:normal;color:var(--slate);padding-left:2px">외 ${sc.length-5}일...</div>`:''}</div>`;
               })():
               (()=>{ // 구분(직접 입력 포함)을 필로 표시하고, 빈 교재명일 때 고아 '·'가 남지 않게 join
                 const KC={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신',book:'원서',other:'기타'};
                 const cat=a.category?(KC[a.category]||a.category):'';
                 const main=[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')||'과제';
-                return `${cat?`<span style="display:inline-block;font-size:10px;font-weight:700;color:var(--slate);background:var(--cream2);border:1px solid var(--border);border-radius:8px;padding:1px 7px;margin-right:6px;vertical-align:1px">${cat}</span>`:''}${main}`;
+                return `${_catPill(cat)}${main}`;
               })()
             }</div>
           </div>
@@ -1898,6 +1898,8 @@ function pdSelChange(sel){
 function clearSRows(){aSubjs.clear();document.querySelectorAll('#subj-chips .chip').forEach(c=>c.classList.remove('active'));document.getElementById('subj-rows').innerHTML='';}
 function clearEditSRows(){aEditSubjs.clear();document.querySelectorAll('#el-subj-chips .chip').forEach(c=>c.classList.remove('active'));document.getElementById('el-subj-rows').innerHTML='';}
 function escAttr(s){return(s||'').replace(/"/g,'&quot;');}
+function _catPill(txt){return txt?`<span style="display:inline-block;font-size:10px;font-weight:700;color:var(--slate);background:var(--cream2);border:1px solid var(--border);border-radius:8px;padding:1px 7px;margin-right:6px;vertical-align:1px">${txt}</span>`:'';}
+function escJsA(s){return escAttr(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));} // onclick 속성 안 JS 문자열 인자용 — Kipper's Diary 등 아포스트로피 안전
 function addElCmtChip(text){const ta=document.getElementById('el-cmt');if(!ta)return;ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;ta.focus();}
 function addClCommonCmtChip(text){const ta=document.getElementById('cl-common-cmt');if(!ta)return;ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;ta.focus();}
 async function previewElPolishedCmt(){
@@ -8683,7 +8685,7 @@ function modalAssignBookSearch(){
   if(isLibCat){
     const hits=allBooks.filter(b=>b.title&&b.title.toLowerCase().includes(q)).slice(0,8);
     if(!hits.length){dd.style.display='none';return;}
-    dd.innerHTML=hits.map(b=>`<div onclick="modalAssignSelectBook('${escAttr(b.id)}','${escAttr(b.title)}')" style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background=''">${b.title}</div>`).join('');
+    dd.innerHTML=hits.map(b=>`<div onclick="modalAssignSelectBook('${escAttr(b.id)}','${escJsA(b.title)}')" style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background=''">${b.title}</div>`).join('');
     dd.style.display='block';
   }else{dd.style.display='none';}
 }
@@ -8959,6 +8961,7 @@ async function syncClassTbsToStudent(sid){
 }
 
 // ── SP-BOOKS (교재 탭) ──
+let _spDoneSort='desc'; // 완료 교재·원서 정렬: desc=최신순, asc=오래된순
 function renderSpBooks(sid){
   const el=document.getElementById('sp-books');if(!el)return;
   const tbs=(_cache.textbooks||[]).filter(t=>t.sid===sid&&t.active!==false);
@@ -8987,10 +8990,11 @@ function renderSpBooks(sid){
   });
   const derivedEntries=derivedBooks.map(b=>({id:null,title:b.title,type:b.type,unit:b.unit,manual:false,completed:false,date:b.date||''}));
   const allEntries=[...manualEntries,...derivedEntries];
+  const _dsort=(a,b)=>_spDoneSort==='desc'?(b.completedDate||'').localeCompare(a.completedDate||''):(a.completedDate||'').localeCompare(b.completedDate||'');
   const activeTbs=allEntries.filter(b=>b.type!=='원서'&&!b.completed);
-  const doneTbs=manualEntries.filter(b=>b.type!=='원서'&&b.completed);
+  const doneTbs=manualEntries.filter(b=>b.type!=='원서'&&b.completed).sort(_dsort);
   const activeRds=allEntries.filter(b=>b.type==='원서'&&!b.completed);
-  const doneRds=manualEntries.filter(b=>b.type==='원서'&&b.completed).sort((a,b)=>(b.completedDate||'').localeCompare(a.completedDate||''));
+  const doneRds=manualEntries.filter(b=>b.type==='원서'&&b.completed).sort(_dsort);
   const today=new Date().toISOString().split('T')[0];
   const ddSt='background:#fff;border:1px solid var(--border);border-radius:var(--rs);max-height:160px;overflow-y:auto;display:none;margin-top:2px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.1)';
   const selSt='font-size:12px;color:var(--teal);font-weight:600;padding:4px 8px;background:var(--cream);border-radius:4px;margin-top:4px;display:none';
@@ -9003,7 +9007,7 @@ function renderSpBooks(sid){
         ${t.manual?`<input type="text" value="${t.unit||''}" placeholder="현재 진도 (예: Unit 3)" style="margin-top:4px;width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream2);outline:none" onchange="updateTextbookUnit('${t.id}','${sid}',this.value)">`:''}
       </div>
       <div style="display:flex;gap:4px;flex-shrink:0">
-        ${t.id?`<button class="btn ba bxxs" onclick="markTextbookDone('${t.id}','${sid}')">✓ 완료</button>`:`<button class="btn ba bxxs" onclick="markDerivedTbDone('${escAttr(t.title)}','${t.type||'교재'}','${sid}')">✓ 완료</button>`}
+        ${t.id?`<button class="btn ba bxxs" onclick="markTextbookDone('${t.id}','${sid}')">✓ 완료</button>`:`<button class="btn ba bxxs" onclick="markDerivedTbDone('${escJsA(t.title)}','${t.type||'교재'}','${sid}')">✓ 완료</button>`}
         ${t.manual?`<button class="btn bd bxxs" onclick="removeTextbook('${t.id}','${sid}')">삭제</button>`:''}
       </div>
     </div>
@@ -9032,7 +9036,7 @@ function renderSpBooks(sid){
   </div>
   <div>${activeTbs.length?activeTbs.map(bookRow).join(''):'<div style="font-size:12px;color:var(--slate);padding:8px 0">등록된 교재 없음</div>'}</div>
   ${doneTbs.length?`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-    <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:6px">✅ 완료 교재 (${doneTbs.length}권)</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--slate)">✅ 완료 교재 (${doneTbs.length}권)</span><button class="btn bo bxxs" onclick="_spDoneSort=_spDoneSort==='desc'?'asc':'desc';renderSpBooks('${sid}')">${_spDoneSort==='desc'?'최신순 ↓':'오래된순 ↑'}</button></div>
     ${doneTbs.map(doneRow).join('')}</div>`:''}
   <div id="sp-tb-add" style="${formSt}">
     <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">교재 추가 <span id="sp-tb-queue-hint" style="font-size:11px;font-weight:normal;color:var(--slate)">여러 권 선택 후 한 번에 저장 가능</span></div>
@@ -9058,7 +9062,7 @@ function renderSpBooks(sid){
     </div>
     <div>${activeRds.length?activeRds.map(bookRow).join(''):'<div style="font-size:12px;color:var(--slate);padding:8px 0">등록된 원서 없음</div>'}</div>
     ${doneRds.length?`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-      <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:6px">✅ 완료 원서 (${doneRds.length}권)</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--slate)">✅ 완료 원서 (${doneRds.length}권)</span><button class="btn bo bxxs" onclick="_spDoneSort=_spDoneSort==='desc'?'asc':'desc';renderSpBooks('${sid}')">${_spDoneSort==='desc'?'최신순 ↓':'오래된순 ↑'}</button></div>
       ${doneRds.map(doneRow).join('')}</div>`:''}
     <div id="sp-rd-add" style="${formSt}">
       <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">원서 추가 <span style="font-size:11px;font-weight:normal;color:var(--slate)">여러 권 선택 후 한 번에 저장 가능</span></div>
@@ -9090,7 +9094,7 @@ function spTbSearch(){
     b.title.toLowerCase().includes(q)||(b.level||'').toLowerCase().includes(q)||(b.publisher||'').toLowerCase().includes(q)
   )).slice(0,10);
   if(!books.length){dd.innerHTML='<div style="padding:8px 10px;color:var(--slate);font-size:12px">검색 결과 없음</div>';dd.style.display='block';return;}
-  dd.innerHTML=books.map(b=>`<div onclick="spTbAddToQueue('${escAttr(b.id)}','${escAttr(b.title)}','${escAttr(b.level||'')}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border)" onmouseenter="this.style.background='var(--cream)'" onmouseleave="this.style.background=''">
+  dd.innerHTML=books.map(b=>`<div onclick="spTbAddToQueue('${escAttr(b.id)}','${escJsA(b.title)}','${escJsA(b.level||'')}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border)" onmouseenter="this.style.background='var(--cream)'" onmouseleave="this.style.background=''">
     <span style="font-weight:700;font-size:12px">${b.title}</span>${b.level?` <span style="color:var(--slate);font-size:10px">(${b.level})</span>`:''}${b.publisher?` <span style="color:var(--slate);font-size:10px">· ${b.publisher}</span>`:''}
   </div>`).join('');
   dd.style.display='block';
@@ -9149,7 +9153,7 @@ function spRdSearch(){
     return b.title&&(b.title.toLowerCase().includes(q)||(b.author||'').toLowerCase().includes(q)||(b.series||'').toLowerCase().includes(q));
   }).slice(0,10);
   if(!books.length){dd.innerHTML='<div style="padding:8px 10px;color:var(--slate);font-size:12px">검색 결과 없음</div>';dd.style.display='block';return;}
-  dd.innerHTML=books.map(b=>`<div onclick="spRdAddToQueue('${escAttr(b.id)}','${escAttr(b.title||'')}','${escAttr(String(b.arLevel||b.ar||''))}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border)" onmouseenter="this.style.background='var(--cream)'" onmouseleave="this.style.background=''">
+  dd.innerHTML=books.map(b=>`<div onclick="spRdAddToQueue('${escAttr(b.id)}','${escJsA(b.title||'')}','${escJsA(String(b.arLevel||b.ar||''))}')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border)" onmouseenter="this.style.background='var(--cream)'" onmouseleave="this.style.background=''">
     <span style="font-weight:700;font-size:12px">${b.title}</span>${(b.arLevel||b.ar)?` <span style="color:var(--slate);font-size:10px">AR ${b.arLevel||b.ar}</span>`:''}${b.author?` <span style="color:var(--slate);font-size:10px">· ${b.author}</span>`:''}
   </div>`).join('');
   dd.style.display='block';
