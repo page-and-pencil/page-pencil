@@ -7923,11 +7923,23 @@ function renderDashFill(){
   // 원서: 읽기 기록이 있는 책
   const lastRead={};
   (_cache.readings||[]).forEach(r=>{const t=(r.title||'').trim();if(!t)return;const k=nrm(t);if(!lastRead[k]||String(r.date||'')>lastRead[k].date)lastRead[k]={date:String(r.date||''),title:t};});
+  // 학생 책장에 노출되는 원서(진행·완독 등록, 리딩로그 책)도 채우기 대상
+  (_cache.textbooks||[]).forEach(x=>{if(x.type!=='원서'||!x.title||x._deleted)return;const k=nrm(x.title);const d=String(x.completedDate||'');if(!lastRead[k]||d>lastRead[k].date)lastRead[k]={date:d,title:x.title.trim()};});
+  (_cache.logs||[]).forEach(l=>{const t=(l.bookTitle||'').trim();if(!t)return;const k=nrm(t);if(!lastRead[k]||String(l.date||'')>lastRead[k].date)lastRead[k]={date:String(l.date||''),title:t};});
   const libBy={};(_cache.library||[]).forEach(b=>{libBy[nrm(b.title)]=b;});
   Object.values(lastRead).forEach(e=>{
     const b=libBy[nrm(e.title)];
     if(!b)items.push({date:e.date,icon:'📖',text:`${e.title} — 원서 미등록`,label:'등록',run:()=>{libAddCoverClear();openM('m-add-lib');setTimeout(()=>{const i=document.getElementById('lib-title');if(i)i.value=e.title;},80);}});
-    else if(!(b.vocab||[]).length)items.push({date:e.date,icon:'📖',text:`${e.title} — 단어 0개`,label:'단어 채우기',run:()=>openEditLib(b.id)});
+    else{
+      // 학생 책장·복습에서 바로 쓰이는 자산 순서로: 단어 → 본문 → 음원 → 표지
+      const missing=[];
+      if(!(b.vocab||[]).length)missing.push('단어');
+      const chs=(typeof elibGetChapters==='function')?(elibGetChapters(b.id)||[]):[];
+      if(!chs.some(c=>c&&c.text))missing.push('본문');
+      if(!(b.audioUrl||chs.some(c=>c&&(c.url||c.audioUrl||c.audio))))missing.push('음원');
+      if(!b.coverUrl)missing.push('표지');
+      if(missing.length)items.push({date:e.date,icon:'📗',text:`${e.title} — ${missing.join('·')} 없음`,label:'채우기',run:()=>openEditLib(b.id)});
+    }
   });
   // 교재: 수업 기록에 쓰인 책
   const lastTb={};
@@ -7945,6 +7957,10 @@ function renderDashFill(){
     if(!b){items.push({date:e.date,icon:'📚',text:`${e.title} — 교재 미등록`,label:'등록',run:()=>{openTbookAdd();setTimeout(()=>{const i=document.getElementById('tbook-title');if(i)i.value=e.title;},80);}});return;}
     const words=Object.values(b.units||{}).reduce((s,a)=>s+(Array.isArray(a)?a.length:0),0);
     if(!words)items.push({date:e.date,icon:'📚',text:`${e.title} — ${Object.keys(b.units||{}).length?'단원만 있고 단어 0개':'단원·단어 없음'}`,label:'채우기',run:()=>openTbookUnits(b.id)});
+    else{
+      const texts=(b.unitTexts&&!Array.isArray(b.unitTexts))?Object.values(b.unitTexts).filter(v=>v).length:0;
+      if(!texts)items.push({date:e.date,icon:'📄',text:`${e.title} — 단원 원문 없음 (학생 복습·듣기 비활성)`,label:'원문 채우기',run:()=>openTbookUnits(b.id)});
+    }
   });
   items.sort((a,b)=>b.date.localeCompare(a.date));
   _dashFillItems=items;

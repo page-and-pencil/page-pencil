@@ -288,6 +288,8 @@ function renderStuAudio(b){
 }
 let _stuShelfOpen=null; // null=첫 렌더(최근 수업 책 자동 열기), ''=닫힘
 function stuShelfToggle(id){_stuShelfOpen=(_stuShelfOpen===id)?'':id;renderStudentLibrary(currentStudentSid);}
+let _stuRdShelfOpen=null; // 원서 책장: null=첫 렌더(읽는 중 책 자동), ''=닫힘
+function stuRdShelfToggle(id){_stuRdShelfOpen=(_stuRdShelfOpen===id)?'':id;renderStudentLibrary(currentStudentSid);}
 function renderStudentLibrary(sid){
   const el=document.getElementById('st-library');if(!el)return;
 
@@ -416,72 +418,48 @@ function renderStudentLibrary(sid){
     </div>`;
   }
 
-  const currentHtml=currentBook?bookCardHtml(currentBook,true,false):'';
-  const readHtml=readBooksWithAudio.map(b=>bookCardHtml(b,false,true)).join('');
-  const otherHtml=otherWithAudio.map(b=>bookCardHtml(b,false,false)).join('');
-
-  const hasLib=!!(currentBook||readBooksWithAudio.length||otherWithAudio.length||tbRds.length);
-  const libHtml=(currentHtml?`<div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:6px">📖 현재 읽는 중</div>${currentHtml}`:'')
-    +(readHtml?`<div style="font-size:11px;font-weight:700;color:var(--slate);margin:${currentHtml?10:0}px 0 6px">🔁 이미 읽은 원서 — 다시 듣기</div>${readHtml}`:'')
-    +(otherHtml?`<div style="font-size:11px;font-weight:700;color:var(--slate);margin:${currentHtml||readHtml?10:0}px 0 6px">🎧 다른 오디오 원서</div>${otherHtml}`:'');
-
-  const tbRdHtml=tbRds.length?`<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-    <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:8px">📗 내가 읽은 책</div>
-    ${tbRds.map(t=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
-      <div style="width:34px;height:34px;border-radius:8px;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">📗</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--navy)">${t.title||'—'}</div>
-        <div style="font-size:11px;color:var(--slate)">${t.level?'Lv.'+t.level+' · ':''} ${t.currentUnit||''}</div>
-      </div>
-      ${t.completed?`<span style="font-size:10px;padding:2px 8px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700;flex-shrink:0">✅ 완료</span>`:`<span style="font-size:10px;padding:2px 8px;background:var(--tl);color:#0B8DAE;border-radius:10px;font-weight:700;flex-shrink:0">📖 진행중</span>`}
-    </div>`).join('')}
-  </div>`:'';
-
-  // ── 지난 수업 복습 히어로: 직전 수업에서 다룬 것을 바로 낭독·듣기로 ──
-  let reviewHero='';
-  if(lastLes){
-    const items=[];
-    Object.entries(lastLes.materials||{}).forEach(([k,v])=>{
-      if(!v||!v.book)return;
-      const bk=k.replace(/_\d+$/,'');
-      if(bk==='pencil_down'||bk==='sing_together')return;
-      const isBook=k==='_book'||k.startsWith('_book_');
-      if(isBook){
-        const b=(_cache.library||[]).find(x=>_n(x.title)===_n(v.book));
-        items.push({label:'원서',title:v.book,unit:v.unit||'',btns:(b&&bookListenable(b))?`<button class="btn bt bsm" onclick="openBookListen('${escAttr(b.id)}')">🎧 듣기</button>`:''});
-      }else{
-        const _hasRev=x=>(x.unitTexts&&!Array.isArray(x.unitTexts)&&Object.keys(x.unitTexts).length)||(x.unitAudio&&Object.keys(x.unitAudio||{}).length);
-        const g=(_cache.globalTextbooks||[]).find(x=>x.title===v.book&&_hasRev(x))||(_cache.globalTextbooks||[]).find(x=>_n(x.title)===_n(v.book)&&_hasRev(x))||(_cache.globalTextbooks||[]).find(x=>x.title===v.book);
-        let btns='';
-        if(g){
-          const keys=[...new Set([...Object.keys(g.unitTexts||{}),...Object.keys(g.unitAudio||{})])];
-          let uk='';
-          for(const seg of String(v.unit||'').split(',').map(x=>x.trim()).filter(Boolean)){
-            const hit=keys.find(u=>_n(u)===_n(seg));if(hit){uk=hit;break;}
-          }
-          if(uk&&g.unitTexts?.[uk])btns=`<button class="btn bt bsm" onclick="openUnitReview('${g.id}','${uk.replace(/'/g,"\\'")}')">📖 복습</button>`;
-          else if(uk&&g.unitAudio?.[uk])btns=`<button class="btn ba bsm" onclick="openUnitRead('${g.id}','${uk.replace(/'/g,"\\'")}')">🎧 듣기</button>`;
-        }
-        items.push({label:(typeof SLBL!=='undefined'?SLBL[bk]:'')||'교재',title:v.book,unit:v.unit||'',btns});
-      }
-    });
-    if(items.length){
-      reviewHero=`<div style="background:var(--tl);border:1.5px solid var(--teal);border-radius:14px;padding:14px 16px;margin-bottom:18px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-          <span style="font-size:13.5px;font-weight:800;color:var(--navy)">🔄 지난 수업 복습</span>
-          <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${lastLes.date||''}</span>
-        </div>
-        <div style="font-size:11.5px;color:var(--slate);margin-bottom:6px">지난 시간에 배운 것부터 다시 만나 보세요!</div>
-        ${items.map(it=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(12,164,201,.15)">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;color:var(--navy)"><span style="font-size:10px;font-weight:700;color:#0B8DAE;margin-right:5px">${it.label}</span><b>${it.title}</b></div>
-            ${it.unit?`<div style="font-size:11px;color:var(--slate);margin-top:1px">${it.unit}</div>`:''}
-          </div>
-          <div style="flex-shrink:0">${it.btns||'<span style="font-size:10.5px;color:var(--slate)">자료 준비 중</span>'}</div>
-        </div>`).join('')}
-      </div>`;
-    }
-  }
+  // ── 내 원서 책장: 표지 그리드 + 선택한 책의 학습 자료 패널 ──
+  const _n2=x=>String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+  const shelfMap=new Map();
+  myBooks.forEach(b=>{shelfMap.set(b.id,{key:b.id,title:b.title,b,read:true,cur:b.id===lastReadBookId,date:(myRds.find(r=>r.bookId===b.id)||{}).date||''});});
+  tbRds.forEach(t=>{
+    const lb=allBooks.find(x=>_n2(x.title)===_n2(t.title));
+    const key=lb?lb.id:'tb:'+t.id;
+    if(shelfMap.has(key)){const e=shelfMap.get(key);if(t.completed)e.completed=true;if(!e.date&&t.completedDate)e.date=t.completedDate;}
+    else shelfMap.set(key,{key,title:t.title,b:lb||null,completed:!!t.completed,date:t.completedDate||''});
+  });
+  const myShelf=[...shelfMap.values()].sort((a,b)=>((b.cur?1:0)-(a.cur?1:0))||String(b.date||'').localeCompare(String(a.date||'')));
+  if(_stuRdShelfOpen===null)_stuRdShelfOpen=(currentBook&&shelfMap.has(currentBook.id))?currentBook.id:(myShelf[0]?.key||'');
+  const shelfCardOf=e=>{
+    const cov=(e.b&&e.b.coverUrl)?`<img src="${e.b.coverUrl}" loading="lazy" onerror="this.replaceWith(document.createTextNode('\uD83D\uDCD7'))">`:'\uD83D\uDCD7';
+    const st=e.cur?'읽는 중':(e.completed?'완독':(e.read?'읽음':'진행중'));
+    return `<div class="shelf-card${_stuRdShelfOpen===e.key?' on':''}" onclick="stuRdShelfToggle('${e.key}')">
+      <div class="shelf-cv">${cov}</div>
+      ${e.cur?'<span class="shelf-badge" title="읽는 중">\uD83D\uDCD6</span>':(e.completed?'<span class="shelf-badge" title="완독">✅</span>':'')}
+      <div class="shelf-t">${e.title}</div>
+      <div class="shelf-s">${st}${e.date?' · '+String(e.date).slice(5):''}</div>
+    </div>`;
+  };
+  const selMine=myShelf.find(e=>e.key===_stuRdShelfOpen);
+  const selOther=!selMine?otherWithAudio.find(b=>b.id===_stuRdShelfOpen):null;
+  const panelOf=e=>`<div class="shelf-panel">${e.b
+    ?bookCardHtml(e.b,!!e.cur,!!(e.read||e.completed))
+    :`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:13px;font-weight:800;color:var(--navy)">\uD83D\uDCD7 ${e.title}</span>${e.completed?'<span style="font-size:10px;padding:2px 8px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700">✅ 완독</span>':''}</div>
+       <div style="font-size:12px;color:var(--slate)">듣기·단어 자료가 준비 중이에요. 준비되면 여기에서 바로 들을 수 있어요!</div>`}
+  </div>`;
+  const otherShelfHtml=otherWithAudio.map(b=>`<div class="shelf-card${_stuRdShelfOpen===b.id?' on':''}" onclick="stuRdShelfToggle('${b.id}')">
+      <div class="shelf-cv">${b.coverUrl?`<img src="${b.coverUrl}" loading="lazy" onerror="this.replaceWith(document.createTextNode('\uD83C\uDFA7'))">`:'\uD83C\uDFA7'}</div>
+      <div class="shelf-t">${b.title}</div>
+      <div class="shelf-s">${(b.arLevel||b.ar)?'AR '+(b.arLevel||b.ar):'듣기 가능'}</div>
+    </div>`).join('');
+  const rdShelfHtml=(myShelf.length||otherWithAudio.length)?`
+    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-top:${myTbooks.length?20:0}px;margin-bottom:10px${myTbooks.length?';padding-top:16px;border-top:1px solid var(--border)':''}">\uD83D\uDCD7 내 원서 책장</div>
+    ${myShelf.length?`<div class="shelf-grid">${myShelf.map(shelfCardOf).join('')}</div>`:'<div style="font-size:12px;color:var(--slate);margin-bottom:8px">아직 읽은 원서가 없어요</div>'}
+    ${selMine?panelOf(selMine):''}
+    ${otherWithAudio.length?`<div style="font-size:12px;font-weight:700;color:var(--slate);margin:14px 0 8px">\uD83C\uDFA7 더 들어볼 수 있는 책</div><div class="shelf-grid">${otherShelfHtml}</div>`:''}
+    ${selOther?panelOf({key:selOther.id,title:selOther.title,b:selOther}):''}
+  `:'';
+  const hasLib=!!(myShelf.length||otherWithAudio.length);
   const noContent=!myTbooks.length&&!hasLib&&!reviewHero;
   el.innerHTML=noContent?`<div class="empty boxed" style="margin:16px">
     <div style="font-size:36px;margin-bottom:10px">📖</div>
@@ -490,7 +468,7 @@ function renderStudentLibrary(sid){
   </div>`:`<div style="padding:1.25rem">
     ${reviewHero}
     ${myTbooks.length?`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">📚 교재 원문 복습</div>${tbookHtml}`:''}
-    ${hasLib?`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-top:${myTbooks.length?20:0}px;margin-bottom:10px${myTbooks.length?';padding-top:16px;border-top:1px solid var(--border)':''}">🎧 원서 듣기</div>${libHtml}${tbRdHtml}`:''}
+    ${rdShelfHtml}
   </div>`;
 }
 
