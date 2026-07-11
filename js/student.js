@@ -1210,7 +1210,8 @@ async function renderVocabResult(el){
     <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:4px">
       ${pctScore>=80?'훌륭해요! 🎉':pctScore>=50?'잘하고 있어요 👍':'조금 더 연습해요 💪'}
     </div>
-    <div style="font-size:13px;color:var(--slate);margin-bottom:1.5rem">${total}개 중 ${correct}개 정답</div>
+    <div style="font-size:13px;color:var(--slate);margin-bottom:6px">${total}개 중 ${correct}개 정답</div>
+    ${correct?`<div class="xp-gain">\u26A1 +${correct*2} XP 획득!</div>`:'<div style="margin-bottom:1.5rem"></div>'}
     ${missed.length?`<div style="margin-bottom:1.5rem">
       <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:8px">다시 연습할 단어</div>
       <div class="missed-list">${missed.map(w=>`<span class="missed-chip">${w}</span>`).join('')}</div>
@@ -1224,6 +1225,98 @@ async function renderVocabResult(el){
 }
 
 // ── GAMIFICATION HELPERS ──
+// XP는 실제 학습 데이터에서 파생 (수업 10 · 과제 20 · 단어 정답 2 · 마스터 5 · 완독 15 · 원서 10 · 테스트 10)
+const XP_LEVELS=[
+  {xp:0,icon:'\uD83D\uDC23',name:'병아리 리더'},
+  {xp:80,icon:'\uD83C\uDF31',name:'새싹 리더'},
+  {xp:200,icon:'\uD83D\uDCD6',name:'스토리 탐험가'},
+  {xp:400,icon:'\uD83D\uDD24',name:'워드 헌터'},
+  {xp:700,icon:'\uD83D\uDE80',name:'리딩 로켓'},
+  {xp:1100,icon:'\u2B50',name:'스타 리더'},
+  {xp:1600,icon:'\uD83C\uDFC5',name:'북 마스터'},
+  {xp:2300,icon:'\uD83E\uDDD9',name:'문장 마법사'},
+  {xp:3100,icon:'\uD83D\uDC51',name:'리딩 킹'},
+  {xp:4000,icon:'\uD83D\uDC09',name:'레전드 드래곤'}
+];
+function stuXP(sid){
+  const les=DB.less().filter(l=>l.sid===sid&&l.att!=='absent').length;
+  const asgn=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).length;
+  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const hits=cards.reduce((t,c)=>t+(c.hits||0),0);
+  const mastered=cards.filter(c=>(c.hits||0)>=3).length;
+  const readLogs=(_cache.logs||[]).filter(l=>l.sid===sid&&l.read).length;
+  const rds=DB.allRds(sid).filter(r=>r.date).length;
+  const tests=DB.tsts().filter(t=>t.sid===sid).length;
+  return les*10+asgn*20+hits*2+mastered*5+readLogs*15+rds*10+tests*10;
+}
+function stuLevelOf(xp){
+  let i=0;while(i+1<XP_LEVELS.length&&xp>=XP_LEVELS[i+1].xp)i++;
+  const cur=XP_LEVELS[i],next=XP_LEVELS[i+1]||null;
+  const pct=next?Math.min(100,Math.round((xp-cur.xp)/(next.xp-cur.xp)*100)):100;
+  return{n:i+1,...cur,next,pct};
+}
+function stuXpCard(sid,streak){
+  const xp=stuXP(sid);
+  const lv=stuLevelOf(xp);
+  // 레벨업 감지 → 축하
+  try{
+    const key='pp_xplvl_'+sid;
+    const prev=parseInt(localStorage.getItem(key)||'0');
+    if(prev&&lv.n>prev){setTimeout(()=>{launchConfetti();toast(`\uD83C\uDF89 레벨 업! Lv.${lv.n} ${lv.name} 달성!`);},400);}
+    localStorage.setItem(key,String(lv.n));
+  }catch(e){}
+  return `<div class="xp-card">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="xp-ava">${lv.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap">
+          <span style="font-size:16px;font-weight:800">Lv.${lv.n} ${lv.name}</span>
+          ${streak>0?`<span class="xp-flame">\uD83D\uDD25 ${streak}일 연속</span>`:''}
+        </div>
+        <div class="xp-bar"><div class="xp-bar-fill" style="width:${lv.pct}%"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:10.5px;opacity:.85;margin-top:3px">
+          <span>\u26A1 ${xp.toLocaleString()} XP</span>
+          <span>${lv.next?`다음 레벨까지 ${(lv.next.xp-xp).toLocaleString()} XP`:'최고 레벨!'}</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function dailyQuests(sid){
+  const today=new Date().toISOString().split('T')[0];
+  const q1=(_cache.assignments||[]).some(a=>a.sid===sid&&(a.completedAt||'').slice(0,10)===today);
+  const reviewed=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===today).length;
+  const st=JSON.parse(localStorage.getItem('pp_streak_'+sid)||'{}');
+  return[
+    {icon:'\uD83D\uDCDD',label:'오늘 과제 1개 완료하기',done:q1,go:"swStuTab('st-home')"},
+    {icon:'\uD83C\uDCCF',label:'단어 10개 복습하기',done:reviewed>=10,prog:Math.min(reviewed,10)+'/10',go:"swStuTab('st-vocab')"},
+    {icon:'\uD83D\uDD25',label:'오늘 학습 도장 찍기',done:st.lastDate===today,go:"swStuTab('st-vocab')"}
+  ];
+}
+function stuQuestCard(sid){
+  const qs=dailyQuests(sid);
+  const doneN=qs.filter(q=>q.done).length;
+  const all=doneN===qs.length;
+  // 올클리어 축하: 하루 1회
+  if(all){
+    try{
+      const k='pp_qc_'+sid+'_'+new Date().toISOString().split('T')[0];
+      if(!localStorage.getItem(k)){localStorage.setItem(k,'1');setTimeout(()=>{launchConfetti();toast('\uD83C\uDFC6 오늘 퀘스트 올클리어! 최고예요!');},700);}
+    }catch(e){}
+  }
+  return `<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:15px 18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span style="font-size:14px;font-weight:800;color:var(--navy)">\u2694\uFE0F 오늘의 퀘스트</span>
+      <span class="quest-cnt${all?' all':''}">${doneN}/${qs.length}</span>
+    </div>
+    ${qs.map(q=>`<div class="quest-row${q.done?' done':''}" onclick="${q.done?'':q.go}">
+      <span class="quest-ico">${q.icon}</span>
+      <span style="flex:1;font-size:13px;font-weight:600">${q.label}${q.prog&&!q.done?` <span style="font-size:11px;color:#0B8DAE;font-weight:700">${q.prog}</span>`:''}</span>
+      <span class="quest-chk">${q.done?'\u2713':''}</span>
+    </div>`).join('')}
+    ${all?`<div style="text-align:center;font-size:12px;font-weight:700;color:#B45309;margin-top:8px">\uD83C\uDFC6 올클리어! 내일 또 만나요!</div>`:''}
+  </div></div>`;
+}
 function launchConfetti(){
   const colors=['#0CA4C9','#F59E0B','#ffd700','#7c3aed','#10b981'];
   for(let i=0;i<40;i++){
@@ -1587,7 +1680,7 @@ function renderStudentHome(sid){
         <div style="font-size:19px;font-weight:800;color:var(--navy);margin-bottom:4px">오늘 미션 모두 완료!</div>
         <div style="font-size:13px;color:var(--slate)">정말 잘했어요 👏</div>
       </div>
-      ${vocabCtaHtml}${weekCard}${renderVocabReview(sid)}
+      ${stuXpCard(sid,streak)}${stuQuestCard(sid)}${vocabCtaHtml}${weekCard}${renderVocabReview(sid)}
       <details open style="margin-top:8px"><summary style="font-size:12px;font-weight:600;color:var(--slate);cursor:pointer;list-style:none">📊 지난 수업 &amp; 학습 현황</summary><div style="margin-top:8px">${lastLessonHtml}${streakHtml}${renderHomeStats(sid)}</div></details>
     </div>`;
     polishStudentCmt(givenName);
@@ -1710,6 +1803,8 @@ function renderStudentHome(sid){
       const etcHtml=etc.length?'<details style="margin-top:12px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;list-style:none">📌 기타 과제 ('+etc.length+'건)</summary><div style="margin-top:8px">'+etc.map(asgnCard).join('')+'</div></details>':'';
       return '<div class="wk-strip">'+strip+'</div>'+head+body+etcHtml;
     })()}
+    ${stuXpCard(sid,streak)}
+    ${stuQuestCard(sid)}
     ${vocabCtaHtml}
     ${weekCard}
     ${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 지난 완료 기록 (${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length}건)</summary><div style="margin-top:8px">${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).map(asgnCard).join('')}</div></details>`:''}
