@@ -11,7 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260712c">
+<link rel="stylesheet" href="css/style.css?v=20260712d">
 </head>
 <body>
 
@@ -650,7 +650,8 @@
         <div class="lib-search-bar">
           <input type="text" class="lib-search-input" id="book-q" placeholder="제목·시리즈·카테고리 검색..." oninput="bookPage=0;renderBookDB()">
           <div class="seg" style="flex-shrink:0">
-            <button id="bookview-card" class="seg-on" onclick="setBookView('card')" title="카드 보기">▦ 카드</button>
+            <button id="bookview-series" class="seg-on" onclick="setBookView('series')" title="시리즈 묶음 보기">▤ 시리즈</button>
+            <button id="bookview-card" onclick="setBookView('card')" title="카드 보기">▦ 카드</button>
             <button id="bookview-table" onclick="setBookView('table')" title="표 보기">☰ 표</button>
           </div>
           <select class="filter-sel" id="book-per-page" onchange="bookPage=0;renderBookDB()">
@@ -663,7 +664,8 @@
           <button class="btn bd bsm" onclick="bookDeleteSelected()">선택 삭제</button>
           <button onclick="bookClearSelection()" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate);margin-left:auto">✕ 선택 해제</button>
         </div>
-        <div id="book-cards" class="book-card-grid"></div>
+        <div id="book-series" style="display:none"></div>
+        <div id="book-cards" class="book-card-grid" style="display:none"></div>
         <div id="book-table-wrap" class="lib-table-container" style="display:none">
           <table class="lib-tbl">
             <thead><tr>
@@ -2074,11 +2076,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260712c"></script>
-<script src="vocab_ref_data.js?v=20260712c"></script>
-<script src="js/db.js?v=20260712c"></script>
-<script src="js/teacher.js?v=20260712c"></script>
-<script src="js/student.js?v=20260712c"></script>
-<script src="js/parent.js?v=20260712c"></script>
+<script src="js/utils.js?v=20260712d"></script>
+<script src="vocab_ref_data.js?v=20260712d"></script>
+<script src="js/db.js?v=20260712d"></script>
+<script src="js/teacher.js?v=20260712d"></script>
+<script src="js/student.js?v=20260712d"></script>
+<script src="js/parent.js?v=20260712d"></script>
 </body>
 </html>

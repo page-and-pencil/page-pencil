@@ -4983,23 +4983,74 @@ function renderBookDB(){
     }).join('');
   }
   renderBookCards(paged);
+  renderBookSeries(all,q); // 시리즈 뷰는 페이지 없이 전체를 묶어서
+  setBookView(_bookView);
   const pagerEl=document.getElementById('book-pager');
   if(pagerEl)pagerEl.innerHTML=totalPages<=1?'':[...Array(totalPages)].map((_,i)=>
     `<button class="btn ${i===bookPage?'bt':'bo'} bsm" style="min-width:30px;padding:3px 8px;margin:0 2px" onclick="bookPage=${i};renderBookDB()">${i+1}</button>`
   ).join('');
   if(_dataTab==='master')renderMasterDB();
 }
-// 자료 DB 표/카드 뷰 토글
-let _bookView='card';
+// 자료 DB 시리즈/카드/표 뷰 토글 (선택 기억)
+let _bookView=(function(){try{return localStorage.getItem('pp_book_view')||'series';}catch(e){return 'series';}})();
 function setBookView(mode){
-  _bookView=mode;
-  const cards=document.getElementById('book-cards');
-  const table=document.getElementById('book-table-wrap');
-  if(cards)cards.style.display=mode==='card'?'':'none';
-  if(table)table.style.display=mode==='table'?'':'none';
-  const cb=document.getElementById('bookview-card'),tb=document.getElementById('bookview-table');
-  if(cb)cb.classList.toggle('seg-on',mode==='card');
-  if(tb)tb.classList.toggle('seg-on',mode==='table');
+  _bookView=mode;try{localStorage.setItem('pp_book_view',mode);}catch(e){}
+  const map={series:'book-series',card:'book-cards',table:'book-table-wrap'};
+  Object.entries(map).forEach(([m,id])=>{const el=document.getElementById(id);if(el)el.style.display=m===mode?'':'none';});
+  ['series','card','table'].forEach(m=>{const b=document.getElementById('bookview-'+m);if(b)b.classList.toggle('seg-on',m===mode);});
+  // 시리즈 뷰는 전체를 묶어 보여주므로 페이지네이션 불필요
+  const pg=document.getElementById('book-pager');if(pg)pg.style.display=mode==='series'?'none':'';
+  const pp=document.getElementById('book-per-page');if(pp)pp.style.display=mode==='series'?'none':'';
+}
+// 시리즈 키: 원서는 series 필드, 교재는 제목 끝 레벨 토큰(1, 1.2, 30-1, Level 2, 1권, (2nd)) 제거
+function seriesKeyOf(b){
+  if(b._bt==='library')return (b.series||'').trim()||'단권·기타';
+  let t=String(b.title||'').trim().replace(/\s*\(\d+(?:st|nd|rd|th)\)$/i,'');
+  const m=t.match(/^(.+?)\s+(?:Level|Lv\.?|Grade)?\s*\d+(?:[.\-]\d+)*\s*(?:권|단계)?$/i);
+  return (m&&m[1].trim())?m[1].trim():t;
+}
+function renderBookSeries(all,q){
+  const el=document.getElementById('book-series');if(!el)return;
+  if(!all.length){el.innerHTML='<div style="text-align:center;padding:30px;color:var(--slate)">결과 없음</div>';return;}
+  const groups=new Map();
+  all.forEach(b=>{const k=seriesKeyOf(b);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(b);});
+  // 1권짜리 그룹은 '단권·기타'로 모음
+  const singles=[];
+  [...groups.entries()].forEach(([k,arr])=>{if(arr.length===1&&k!=='단권·기타'){singles.push(arr[0]);groups.delete(k);}});
+  if(singles.length)groups.set('단권·기타',(groups.get('단권·기타')||[]).concat(singles));
+  const keys=[...groups.keys()].sort((a,b)=>{
+    if(a==='단권·기타')return 1;if(b==='단권·기타')return -1;
+    return a.localeCompare(b,'ko');
+  });
+  el.innerHTML=keys.map(k=>{
+    const arr=groups.get(k).sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),undefined,{numeric:true}));
+    const cats=[...new Set(arr.map(b=>b._bt==='textbook'?(b.category||''):'원서').filter(Boolean))];
+    const filled=arr.filter(b=>b._bt==='textbook'
+      ?Object.values(b.units||{}).some(a2=>Array.isArray(a2)&&a2.length)
+      :(b.vocab||[]).length).length;
+    return `<details class="bser"${q?' open':''}>
+      <summary class="bser-h">
+        <span class="bser-name">${escAttr(k)}</span>
+        <span class="bser-cnt">${arr.length}권</span>
+        ${cats.slice(0,3).map(c=>`<span class="bser-cat">${escAttr(c)}</span>`).join('')}
+        <span class="bser-fill" title="단어가 등록된 권수">단어 ${filled}/${arr.length}</span>
+      </summary>
+      <div class="bser-body">
+      ${arr.map(b=>{
+        const isTb=b._bt==='textbook';
+        const unitCnt=isTb?Object.keys(b.units||{}).length:(b.chapters||[]).length;
+        const wordCnt=isTb?Object.values(b.units||{}).reduce((s,a2)=>s+(Array.isArray(a2)?a2.length:0),0):(b.vocab?.length||0);
+        const level=isTb?(b.level||''):((b.arLevel||b.ar)?'AR '+(b.arLevel||b.ar):'');
+        const openFn=isTb?`openTbookUnits('${b.id}')`:`openEditLib('${b.id}')`;
+        return `<div class="bser-row" onclick="${openFn}" title="클릭: ${isTb?'단원·단어 관리':'원서 수정'}">
+          <span class="bser-title">${escAttr(b.title||'')}</span>
+          ${level?`<span class="badge bnavy" style="font-size:9.5px;flex-shrink:0">${escAttr(level)}</span>`:''}
+          <span class="bser-st">${unitCnt?(isTb?'유닛 ':'챕터 ')+unitCnt:''}${wordCnt?' · 단어 '+wordCnt:''}</span>
+        </div>`;
+      }).join('')}
+      </div>
+    </details>`;
+  }).join('');
 }
 function _bookCover(b,isTb){
   // 타입·레벨로 안정적인 표지 색/이모지 (커버 이미지가 있으면 우선)

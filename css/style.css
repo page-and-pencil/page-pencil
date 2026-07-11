@@ -484,6 +484,23 @@ div.ig-like{cursor:default;}
 .quest-row.done .quest-chk{background:#10B981;border-color:#10B981;}
 .xp-gain{display:inline-block;font-size:13px;font-weight:800;color:#B45309;background:#FEF0D5;padding:5px 14px;border-radius:20px;margin-bottom:1.2rem;animation:xpPop .4s ease;}
 @keyframes xpPop{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+/* ── 자료 DB 시리즈 묶음 뷰 ── */
+.bser{background:#fff;border:1.5px solid var(--border);border-radius:12px;margin-bottom:8px;overflow:hidden;}
+.bser-h{display:flex;align-items:center;gap:8px;padding:11px 14px;cursor:pointer;user-select:none;list-style:none;flex-wrap:wrap;}
+.bser-h::-webkit-details-marker{display:none;}
+.bser-h::before{content:'▸';font-size:11px;color:var(--slate);transition:transform .15s;}
+.bser[open] .bser-h::before{transform:rotate(90deg);}
+.bser-h:hover{background:var(--cream2);}
+.bser-name{font-size:13.5px;font-weight:700;color:var(--navy);}
+.bser-cnt{font-size:11px;font-weight:700;color:#0B8DAE;background:var(--tl);padding:1px 8px;border-radius:9px;}
+.bser-cat{font-size:10px;font-weight:700;color:var(--slate);background:var(--cream2);border:1px solid var(--border);border-radius:8px;padding:1px 7px;}
+.bser-fill{margin-left:auto;font-size:10.5px;color:var(--slate);font-family:var(--fm);}
+.bser-body{border-top:1px solid var(--border);padding:2px 14px 6px;}
+.bser-row{display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid rgba(15,48,74,.05);cursor:pointer;}
+.bser-row:last-child{border-bottom:none;}
+.bser-row:hover{background:var(--cream2);}
+.bser-title{font-size:12.5px;font-weight:600;color:var(--navy);min-width:0;word-break:break-word;}
+.bser-st{margin-left:auto;font-size:10.5px;color:var(--slate);white-space:nowrap;flex-shrink:0;}
 
 /* TOAST */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--navy);color:#fff;padding:10px 20px;border-radius:50px;font-size:13px;font-weight:500;z-index:9999;transition:transform .3s;pointer-events:none;white-space:nowrap;}
