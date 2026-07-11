@@ -8975,8 +8975,11 @@ function renderSpBooks(sid){
       const baseKey=k.replace(/_\d+$/,'');
       if(baseKey==='pencil_down'||baseKey==='sing_together')return; // 활동은 교재가 아님
       const label=isBook?'원서':(SLBL[baseKey]||'교재');
-      if(!lessonBookMap.has(v.book)||(v.unit&&!lessonBookMap.get(v.book).unit))
-        lessonBookMap.set(v.book,{title:v.book,type:label,unit:v.unit||'',date:l.date||''});
+      // 최신 수업의 진도 우선 — 단, 진도 없는 최신 기록이 진도 있는 기록을 지우지 않음
+      const prev=lessonBookMap.get(v.book);
+      const cand={title:v.book,type:label,unit:v.unit||'',date:l.date||''};
+      const newer=!prev||(cand.date||'')>(prev.date||'');
+      if(!prev||(cand.unit&&(newer||!prev.unit))||(!prev.unit&&newer))lessonBookMap.set(v.book,cand);
     });
   });
   const tbTitles=new Set(tbs.map(t=>t.title));
