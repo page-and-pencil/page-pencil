@@ -1,11 +1,11 @@
 {
  "name": "Page & Pencil",
- "short_name": "P&P",
+ "short_name": "Page & Pencil",
  "description": "기준이 다른 전문가의 밀착 영어 — 수업·과제·단어·리딩 관리",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",
- "background_color": "#FDFBF7",
+ "background_color": "#242F3D",
  "theme_color": "#242F3D",
  "lang": "ko",
  "icons": [

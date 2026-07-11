@@ -225,7 +225,7 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
   .t-sidebar .ntab{flex-direction:row;padding:8px 13px;font-size:12.5px;border-radius:20px;width:auto;}
   .t-sidebar .ntab.active{box-shadow:none;}
   .t-sidebar-spacer{display:none;}
-  .ab{overflow:visible;}
+  #s-teacher .ab{overflow:visible;} /* 선생님 모바일은 페이지 스크롤 — 학생 화면(.ab 자체 스크롤)에는 적용 금지 */
 }
 
 /* GENERIC */
