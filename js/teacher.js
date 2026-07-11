@@ -471,19 +471,18 @@ function renderSpRdlog(sid){
         </div>
       </div>
     </div>
-    ${logs.length?`<div style="font-size:11px;color:var(--slate);margin-bottom:6px">${logs.length}장</div>
-    <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scroll-snap-type:x mandatory">
-      ${logs.map(l=>{const imgs=logImgs(l);const first=imgs[0]||'';return `<div style="flex-shrink:0;width:172px;scroll-snap-align:start">
-        <div style="width:172px;height:215px;border-radius:10px;overflow:hidden;border:1.5px solid ${l.read?'var(--teal)':'var(--border)'};background:var(--cream2);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative" onclick="openLbLog('${l.id}')">
-          ${first?`<img src="${first}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.style.display='none'">`:`<div style="font-size:28px">📷</div>`}
+    ${logs.length?`<div style="font-size:11px;color:var(--slate);margin-bottom:8px">${logs.length}장</div>
+    <div class="ig-grid">
+      ${logs.map(l=>{const imgs=logImgs(l);const first=imgs[0]||'';return `<div class="ig-card">
+        <div class="ig-ph" onclick="openLbLog('${l.id}')">
+          ${first?`<img src="${first}" loading="lazy" onerror="this.style.display='none'">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:30px">📷</div>`}
           ${imgs.length>1?`<div class="rdlog-multi">📄 1/${imgs.length}</div>`:''}
-          ${l.read?`<div style="position:absolute;top:4px;right:32px;background:var(--teal);color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px">완독</div>`:''}
-          <button onclick="event.stopPropagation();reqDelSpLog('${l.id}','${sid}')" title="삭제" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:5px;width:22px;height:22px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">🗑️</button>
+          <button class="ig-del" onclick="event.stopPropagation();reqDelSpLog('${l.id}','${sid}')" title="삭제">🗑️</button>
         </div>
-        <div style="margin-top:5px;padding:0 2px">
-          <div style="font-size:10px;color:var(--slate);font-family:var(--fm)">${l.date||''}</div>
-          ${l.bookTitle?`<div style="font-size:12px;font-weight:700;color:var(--navy);line-height:1.35;word-break:break-word" title="${escAttr(l.bookTitle)}">📗 ${l.bookTitle}</div>`:''}
-          <button onclick="event.stopPropagation();toggleRdlogRead('${l.id}','${sid}')" style="margin-top:4px;width:100%;font-size:10px;padding:3px 0;border-radius:5px;border:1.5px solid ${l.read?'var(--teal)':'var(--border)'};background:${l.read?'var(--tl)':'#fff'};color:${l.read?'var(--teal)':'var(--slate)'};cursor:pointer;font-family:var(--fb);font-weight:600">${l.read?'✓ 완독':'+ 완독'}</button>
+        <div class="ig-body">
+          <button class="ig-like${l.read?' on':''}" onclick="toggleRdlogRead('${l.id}','${sid}')" title="완독 표시 전환">${l.read?'❤️':'🤍'} 완독</button>
+          <div class="ig-title" title="${escAttr(l.bookTitle||'')}">${l.bookTitle||'<span style="color:var(--slate);font-weight:600">제목 없음</span>'}</div>
+          <div class="ig-date">${l.date||''}</div>
         </div>
       </div>`;}).join('')}
     </div>`:'<div class="empty boxed sm"><div class="empty-i">📸</div><div class="empty-t">리딩로그 없음</div></div>'}`;
