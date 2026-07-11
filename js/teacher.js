@@ -7644,6 +7644,8 @@ function renderDashFill(){
   const lastTb={};
   (_cache.lessons||[]).forEach(l=>Object.entries(l.materials||{}).forEach(([k,v])=>{
     if(k.startsWith('_book')||!v||!v.book)return;
+    const bk=k.replace(/_\d+$/,'');
+    if(bk==='pencil_down'||bk==='sing_together')return; // 활동은 채우기 대상 아님
     const t=String(v.book).trim();if(t.length<2||t==='클래스5')return;
     const key=nrm(t);
     if(!lastTb[key]||String(l.date||'')>lastTb[key].date)lastTb[key]={date:String(l.date||''),title:t};
@@ -8873,6 +8875,7 @@ function renderSpBooks(sid){
       if(!v.book)return;
       const isBook=k==='_book'||k.startsWith('_book_');
       const baseKey=k.replace(/_\d+$/,'');
+      if(baseKey==='pencil_down'||baseKey==='sing_together')return; // 활동은 교재가 아님
       const label=isBook?'원서':(SLBL[baseKey]||'교재');
       if(!lessonBookMap.has(v.book)||(v.unit&&!lessonBookMap.get(v.book).unit))
         lessonBookMap.set(v.book,{title:v.book,type:label,unit:v.unit||'',date:l.date||''});
@@ -8887,7 +8890,7 @@ function renderSpBooks(sid){
         ||(_cache.globalTextbooks||[]).find(g=>g.title===t.title);
     return {id:t.id,title:t.title,type:t.type||'교재',unit:t.currentUnit||'',manual:true,completed:t.completed,completedDate:t.completedDate,bookId:t.bookId||'',level:t.level||globalTb?.level||''};
   });
-  const derivedEntries=derivedBooks.map(b=>({id:null,title:b.title,type:b.type,unit:b.unit,manual:false,completed:false}));
+  const derivedEntries=derivedBooks.map(b=>({id:null,title:b.title,type:b.type,unit:b.unit,manual:false,completed:false,date:b.date||''}));
   const allEntries=[...manualEntries,...derivedEntries];
   const activeTbs=allEntries.filter(b=>b.type!=='원서'&&!b.completed);
   const doneTbs=manualEntries.filter(b=>b.type!=='원서'&&b.completed);
@@ -8901,7 +8904,7 @@ function renderSpBooks(sid){
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
       <div style="flex:1">
         <div style="font-size:13px;font-weight:700">${t.title}${t.level?` <span style="font-size:10px;font-weight:normal;color:var(--slate)">${t.level}</span>`:''}</div>
-        <div style="font-size:11px;color:var(--slate)">${t.unit||''}${!t.manual?` <span style="color:var(--teal)">(수업 기록)</span>`:''}</div>
+        <div style="font-size:11px;color:var(--slate)">${t.unit||''}${!t.manual?` <span style="color:var(--teal)">(수업 기록${t.date?' · '+t.date:''})</span>`:''}</div>
         ${t.manual?`<input type="text" value="${t.unit||''}" placeholder="현재 진도 (예: Unit 3)" style="margin-top:4px;width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream2);outline:none" onchange="updateTextbookUnit('${t.id}','${sid}',this.value)">`:''}
       </div>
       <div style="display:flex;gap:4px;flex-shrink:0">
@@ -9192,6 +9195,18 @@ async function markDerivedTbDone(title,type,sid){
   markTextbookDone(id,sid);
 }
 let _tbDoneId='',_tbDoneSid='',_tbDoneMode='new';
+// 이 학생이 이 책으로 마지막 수업한 날 — 완료 날짜의 정확한 기본값
+function _lastLessonDateForBook(sid,title){
+  const t=String(title||'').trim().toLowerCase();if(!t)return'';
+  let last='';
+  DB.less().forEach(l=>{
+    if(l.sid!==sid)return;
+    Object.values(l.materials||{}).forEach(v=>{
+      if(v&&v.book&&String(v.book).trim().toLowerCase()===t&&(l.date||'')>last)last=l.date;
+    });
+  });
+  return last;
+}
 function markTextbookDone(id,sid){
   _tbDoneId=id;_tbDoneSid=sid;_tbDoneMode='new';
   const tb=(_cache.textbooks||[]).find(t=>t.id===id);
@@ -9199,7 +9214,9 @@ function markTextbookDone(id,sid){
   if(titleEl)titleEl.textContent=(tb?.title||'교재')+' 완료 처리';
   const today=new Date().toISOString().split('T')[0];
   const inp=document.getElementById('tb-done-date-inp');
-  if(inp){inp.max=today;inp.value=today;}
+  // 기본값: 이 책의 마지막 수업일 (없으면 오늘) — '완료했는데 날짜가 오늘로 찍히는' 어긋남 방지
+  const last=_lastLessonDateForBook(sid,tb?.title);
+  if(inp){inp.max=today;inp.value=(last&&last<=today)?last:today;}
   openM('m-tb-done-date');
 }
 function editTbDone(id,sid){
