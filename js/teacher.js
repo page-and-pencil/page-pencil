@@ -6726,12 +6726,16 @@ async function uploadB64Cld(b64,mime){
 function buildLogPages(contId,b64s,defDate,defBook){
   const c=document.getElementById(contId);if(!c)return;
   const d0=defDate||new Date().toISOString().split('T')[0];
-  c.innerHTML=`<div style="font-size:11px;color:var(--slate);margin-bottom:6px;line-height:1.5;text-align:left">📄 ${b64s.length}장 — 장마다 날짜·책을 지정하세요. 값을 바꾸면 <b>아래 장에도 자동 적용</b>되고, 날짜·책이 같은 연속 장은 <b>한 로그로 묶어</b> 저장합니다.</div>`+b64s.map((b,i)=>`<div class="lgp-row" data-i="${i}" style="display:flex;gap:7px;align-items:center;padding:6px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:6px;background:#fff">
-    <img src="data:image/jpeg;base64,${b}" onclick="lgpZoom(this)" title="크게 보기" style="width:44px;height:58px;object-fit:cover;border-radius:5px;border:1px solid var(--border);cursor:zoom-in;flex-shrink:0">
-    <span style="font-size:11px;font-weight:700;color:var(--slate);width:16px;text-align:center;flex-shrink:0">${i+1}</span>
-    <input type="date" class="lgp-date" value="${d0}" onchange="this.dataset.t='1';lgpCascade('${contId}',${i},'date')" style="flex:0 0 124px;font-size:12px;padding:5px 6px">
-    <input type="text" class="lgp-book" value="${escAttr(defBook||'')}" placeholder="책 제목 (선택)" list="dl-lib-books" autocomplete="off" onchange="this.dataset.t='1';lgpCascade('${contId}',${i},'book')" style="flex:1;min-width:80px;font-size:12px;padding:5px 8px">
-    <button onclick="lgpSkip(this)" title="이 장 제외" style="flex-shrink:0;border:1px solid var(--border);background:none;border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:11px;color:var(--slate)">✕</button>
+  c.innerHTML=`<div style="font-size:11px;color:var(--slate);margin-bottom:6px;line-height:1.5;text-align:left">📄 ${b64s.length}장 — 장마다 날짜·책을 지정하세요. 값을 바꾸면 <b>아래 장에도 자동 적용</b>되고, 날짜·책이 같은 연속 장은 <b>한 로그로 묶어</b> 저장합니다.</div>`+b64s.map((b,i)=>`<div class="lgp-row" data-i="${i}" style="display:flex;gap:12px;align-items:stretch;padding:8px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:6px;background:#fff">
+    <img src="data:image/jpeg;base64,${b}" onclick="lgpZoom(this)" title="크게 보기" style="width:112px;height:150px;object-fit:contain;background:var(--cream2);border-radius:6px;border:1px solid var(--border);cursor:zoom-in;flex-shrink:0">
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;justify-content:center">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;font-weight:700;color:var(--slate);flex-shrink:0">${i+1}장</span>
+        <input type="date" class="lgp-date" value="${d0}" onchange="this.dataset.t='1';lgpCascade('${contId}',${i},'date')" style="flex:0 0 132px;font-size:12px;padding:5px 6px">
+      </div>
+      <input type="text" class="lgp-book" value="${escAttr(defBook||'')}" placeholder="책 제목 (선택)" list="dl-lib-books" autocomplete="off" onchange="this.dataset.t='1';lgpCascade('${contId}',${i},'book')" style="width:100%;font-size:12px;padding:5px 8px;box-sizing:border-box">
+    </div>
+    <button onclick="lgpSkip(this)" title="이 장 제외" style="flex-shrink:0;align-self:flex-start;border:1px solid var(--border);background:none;border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:11px;color:var(--slate)">✕</button>
   </div>`).join('');
   c.style.display='block';
 }
