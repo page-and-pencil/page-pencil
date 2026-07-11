@@ -282,7 +282,9 @@ async function loadAllDataFast(){
   if(_cache.students.length)return;
   try{
     const snap=await idbGet('pp_cache_v1');
-    if(snap&&snap.cache&&Array.isArray(snap.cache.students)&&snap.cache.students.length){
+    const _snapOk=snap&&snap.cache&&Array.isArray(snap.cache.students)&&snap.cache.students.length
+      &&((snap.cache.lessons||[]).length||(snap.cache.globalTextbooks||[]).length); // 학생만 있고 나머지 빈 스냅샷 = 오염 의심 → 전체 로드
+    if(_snapOk){
       Object.assign(_cache,snap.cache);
       if(!_bgRefreshing){
         _bgRefreshing=true;
@@ -336,22 +338,26 @@ async function loadAllData(bg){
     const [stus,les,tsts,rds,logs,notices,hws,assigns,tbs,msgs,gtbs,clss,mrpts]=tables.map((t,i)=>val(i));
     // 설정 2건은 테이블 목록 뒤에 이어짐 (과거 고정 인덱스(13,14)는 오프바이원으로 acct/pw가 어긋나던 버그)
     const acct=val(tables.length),pw=val(tables.length+1);
-    _cache.students=(stus||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
-    _cache.lessons=(les||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
-    _cache.tests=(tsts||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
-    _cache.readings=(rds||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
-    _cache.logs=(logs||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+    // 실패(null)한 테이블은 기존 캐시 유지 — 부분 실패가 데이터를 '사라진 것처럼' 비우지 않게
+    const keep=(cur,rows)=>rows===null?(cur||[]):(rows||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+    _cache.students=keep(_cache.students,stus);
+    _cache.lessons=keep(_cache.lessons,les);
+    _cache.tests=keep(_cache.tests,tsts);
+    _cache.readings=keep(_cache.readings,rds);
+    _cache.logs=keep(_cache.logs,logs);
     // _cache.library는 아래 globalTextbooks 로드 후 type 기반으로 파생됨
-    _cache.notices=(notices||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
-    _cache.homeworks=(hws||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
-    _cache.assignments=(assigns||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
-    _cache.textbooks=(tbs||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
-    _cache.messages=(msgs||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
-    const _allBooks=(gtbs||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
-    _cache.library=_allBooks.filter(b=>b.type==='library');
-    _cache.globalTextbooks=_allBooks.filter(b=>b.type==='textbook'||!b.type);
-    _cache.class5Books=_allBooks.filter(b=>b.type==='class5'); // 클래스5 자습 라이브러리 (책+과 목록)
-    _cache.globalClasses=(clss||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+    _cache.notices=keep(_cache.notices,notices);
+    _cache.homeworks=keep(_cache.homeworks,hws);
+    _cache.assignments=keep(_cache.assignments,assigns);
+    _cache.textbooks=keep(_cache.textbooks,tbs);
+    _cache.messages=keep(_cache.messages,msgs);
+    if(gtbs!==null){
+      const _allBooks=(gtbs||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+      _cache.library=_allBooks.filter(b=>b.type==='library');
+      _cache.globalTextbooks=_allBooks.filter(b=>b.type==='textbook'||!b.type);
+      _cache.class5Books=_allBooks.filter(b=>b.type==='class5'); // 클래스5 자습 라이브러리 (책+과 목록)
+    }
+    _cache.globalClasses=keep(_cache.globalClasses,clss);
     _cache.monthlyReports=(mrpts||[]).map(r=>({...( r.data||r),_id:r.id,sid:r.sid,month:r.month}));
     if(acct)_cache.settings.acct=acct;
     if(pw){_cache.settings.pw=pw;DB.s('pw',pw);}
@@ -367,8 +373,11 @@ async function loadAllData(bg){
     if(cloud){_cache.settings.cloud=cloud;DB.s('cloud',cloud);}
     else{const lc=DB.g('cloud');if(lc&&lc.name){_cache.settings.cloud=lc;supaSetSetting('cloud',lc).catch(()=>{});}else{_cache.settings.cloud=DEFAULT_CLD;DB.s('cloud',DEFAULT_CLD);await supaSetSetting('cloud',DEFAULT_CLD);}}
     try{const cc=await supaGetSetting('cmtChips');if(cc){_cache.settings.cmtChips=cc;DB.s('cmtChips',cc);}else{const lcc=DB.g('cmtChips');if(lcc)_cache.settings.cmtChips=lcc;}}catch(e){const lcc=DB.g('cmtChips');if(lcc)_cache.settings.cmtChips=lcc;}
-    // 다음 방문 즉시 부팅용 스냅샷
-    try{const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v1',{at:Date.now(),cache:snap});}catch(e){}
+    // 다음 방문 즉시 부팅용 스냅샷 — 핵심 테이블이 전부 성공한 완전 로드만 저장 (오염 방지)
+    try{
+      const coreOk=['students','lessons','readings','logs','assignments','textbooks','global_textbooks'].every(t=>res[tables.indexOf(t)].status==='fulfilled');
+      if(coreOk){const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v1',{at:Date.now(),cache:snap});}
+    }catch(e){}
   }catch(e){
     console.error('loadAllData:',e);
     if(bg)return; // 백그라운드 갱신 실패는 조용히 (스냅샷 데이터로 계속 사용)
