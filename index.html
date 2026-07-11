@@ -11,7 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20260711q">
+<link rel="stylesheet" href="css/style.css?v=20260711r">
 </head>
 <body>
 
@@ -1963,6 +1963,24 @@
   </div>
 </div>
 
+<!-- 교재 탭: 책별 수업 기록 연결 보기·수정 (진도 칩 클릭) -->
+<div id="m-book-lessons" class="mo">
+  <div class="mdl" style="max-width:540px">
+    <div class="mh"><div class="mt" id="bkle-title">수업 기록</div></div>
+    <div id="bkle-list" style="max-height:46vh;overflow-y:auto;margin-bottom:10px"></div>
+    <div style="border-top:1px solid var(--border);padding-top:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:6px">기록 추가 (누락 보완)</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <input type="date" id="bkle-add-date" style="flex:0 0 140px">
+        <input type="text" id="bkle-add-unit" placeholder="진도 (예: Unit 3)" style="flex:1;min-width:120px">
+        <button class="btn bt bsm" onclick="bkleAdd()">＋ 추가</button>
+      </div>
+      <div style="font-size:10px;color:var(--slate);margin-top:6px;line-height:1.5">해당 날짜에 수업 기록이 있으면 그 기록에 진도가 붙고, 없으면 새 수업 기록이 만들어집니다. 수업 날짜·코멘트 수정은 수업 기록 탭에서 해주세요.</div>
+    </div>
+    <div style="display:flex;margin-top:12px"><button class="btn bo" style="flex:1" onclick="closeM('m-book-lessons')">닫기</button></div>
+  </div>
+</div>
+
 <!-- 마스터 CSV 임포트 모드 선택 -->
 <div id="m-master-csv-mode" class="mo">
   <div class="mdl" style="max-width:320px">
@@ -2056,11 +2074,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20260711q"></script>
-<script src="vocab_ref_data.js?v=20260711q"></script>
-<script src="js/db.js?v=20260711q"></script>
-<script src="js/teacher.js?v=20260711q"></script>
-<script src="js/student.js?v=20260711q"></script>
-<script src="js/parent.js?v=20260711q"></script>
+<script src="js/utils.js?v=20260711r"></script>
+<script src="vocab_ref_data.js?v=20260711r"></script>
+<script src="js/db.js?v=20260711r"></script>
+<script src="js/teacher.js?v=20260711r"></script>
+<script src="js/student.js?v=20260711r"></script>
+<script src="js/parent.js?v=20260711r"></script>
 </body>
 </html>

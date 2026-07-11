@@ -8999,11 +8999,11 @@ function renderSpBooks(sid){
   const ddSt='background:#fff;border:1px solid var(--border);border-radius:var(--rs);max-height:160px;overflow-y:auto;display:none;margin-top:2px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.1)';
   const selSt='font-size:12px;color:var(--teal);font-weight:600;padding:4px 8px;background:var(--cream);border-radius:4px;margin-top:4px;display:none';
   const formSt='display:none;margin-top:10px;padding:12px;background:var(--cream);border-radius:var(--rs);border:1px solid var(--border)';
-  const bookRow=t=>`<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+  const bookRow=t=>{const led=_lastLessonDateForBook(sid,t.title)||t.date||'';return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
       <div style="flex:1">
         <div style="font-size:13px;font-weight:700">${t.title}${t.level?` <span style="font-size:10px;font-weight:normal;color:var(--slate)">${t.level}</span>`:''}</div>
-        <div style="font-size:11px;color:var(--slate)">${t.unit||''}${!t.manual?` <span style="color:var(--teal)">(수업 기록${t.date?' · '+t.date:''})</span>`:''}</div>
+        <div style="font-size:11px;color:var(--slate)">${t.unit||''} <span style="color:var(--teal);cursor:pointer;border-bottom:1px dashed rgba(11,141,174,.45)" title="클릭: 이 책의 수업 기록 보기·수정" onclick="openBookLessonEdit('${escJsA(t.title)}','${escJsA(t.type||'교재')}','${sid}')">(수업 기록${led?' · '+led:' 연결'})</span></div>
         ${t.manual?`<input type="text" value="${t.unit||''}" placeholder="현재 진도 (예: Unit 3)" style="margin-top:4px;width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream2);outline:none" onchange="updateTextbookUnit('${t.id}','${sid}',this.value)">`:''}
       </div>
       <div style="display:flex;gap:4px;flex-shrink:0">
@@ -9011,14 +9011,13 @@ function renderSpBooks(sid){
         ${t.manual?`<button class="btn bd bxxs" onclick="removeTextbook('${t.id}','${sid}')">삭제</button>`:''}
       </div>
     </div>
-  </div>`;
+  </div>`;};
   const doneRow=t=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px">
     <div style="flex:1;min-width:0">
       <span style="font-size:13px;font-weight:600;color:var(--slate)">${t.title}</span>
       ${t.level?`<span style="font-size:10px;color:var(--slate);margin-left:6px;font-weight:normal">${t.level}</span>`:''}
     </div>
-    <span class="badge bteal" style="font-size:10px;white-space:nowrap">✓ ${t.completedDate||'완료'}</span>
-    <button class="btn bo bxxs" onclick="editTbDone('${t.id}','${sid}')">수정</button>
+    <span class="badge bteal" style="font-size:10px;white-space:nowrap;cursor:pointer" title="클릭: 완료 날짜 수정" onclick="editTbDone('${t.id}','${sid}')">✓ ${t.completedDate||'완료'} ✎</span>
     <button class="btn bd bxxs" onclick="removeDoneTb('${t.id}','${sid}')">삭제</button>
   </div>`;
   const nextBanner=_pendingNextBook?`<div style="background:var(--tl);border:1.5px solid var(--teal);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px">
@@ -9376,6 +9375,78 @@ async function confirmTbDone(){
       }else{toast('완료 처리됐습니다 (교재 DB에 단어 미등록)');}
     }else{toast('완료 처리됐습니다');}
   }
+}
+// ── 교재 탭 → 수업 기록 연결 (진도 칩 클릭): 조회·진도 수정·제거·누락 추가, lessons DB 직접 동기화 ──
+let _bkleTitle='',_bkleType='',_bkleSid='';
+function openBookLessonEdit(title,type,sid){
+  _bkleTitle=title;_bkleType=type||'교재';_bkleSid=sid;
+  const tEl=document.getElementById('bkle-title');if(tEl)tEl.textContent=title+' — 수업 기록';
+  const d=document.getElementById('bkle-add-date');if(d)d.value=new Date().toISOString().split('T')[0];
+  const u=document.getElementById('bkle-add-unit');if(u)u.value='';
+  bkleRender();
+  openM('m-book-lessons');
+}
+function _bkleEntries(){
+  const key=_bkleTitle.trim().toLowerCase();
+  const out=[];
+  DB.less().forEach(l=>{
+    if(l.sid!==_bkleSid)return;
+    Object.entries(l.materials||{}).forEach(([k,v])=>{
+      if(v&&v.book&&String(v.book).trim().toLowerCase()===key)out.push({lid:l.id,key:k,date:l.date||'',unit:v.unit||''});
+    });
+  });
+  return out.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+}
+function bkleRender(){
+  const el=document.getElementById('bkle-list');if(!el)return;
+  const es=_bkleEntries();
+  if(!es.length){el.innerHTML='<div style="font-size:12px;color:var(--slate);padding:10px 0">이 책이 기록된 수업이 없습니다. 아래에서 추가하세요.</div>';return;}
+  el.innerHTML=es.map(e=>{
+    const base=e.key.replace(/_\d+$/,'');
+    const lbl=(base==='_book'||e.key.indexOf('_book')===0)?'원서':(SLBL[base]||'교재');
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+    <span style="font-size:12px;font-family:var(--fm);color:var(--slate);flex:0 0 84px">${e.date}</span>
+    <span style="font-size:10px;font-weight:700;color:var(--slate);background:var(--cream2);border:1px solid var(--border);border-radius:8px;padding:1px 7px;flex-shrink:0">${lbl}</span>
+    <input type="text" value="${escAttr(e.unit)}" placeholder="진도" onchange="bkleUpdateUnit('${e.lid}','${escJsA(e.key)}',this.value)" style="flex:1;min-width:80px;font-size:12px;padding:5px 8px">
+    <button onclick="bkleRemove('${e.lid}','${escJsA(e.key)}')" title="이 수업에서 이 책 기록 제거" style="border:none;background:none;color:var(--coral,#dc2626);font-size:15px;cursor:pointer;padding:2px 5px;flex-shrink:0">×</button>
+  </div>`;}).join('');
+}
+async function bkleUpdateUnit(lid,key,val){
+  const l=DB.less().find(x=>x.id===lid);if(!l||!l.materials||!l.materials[key])return;
+  l.materials[key].unit=val.trim();
+  await supaUpsert('lessons',lid,l,_bkleSid);
+  renderSpBooks(_bkleSid);renderSpLessons(_bkleSid);
+  toast('진도가 수정되었습니다');
+}
+function bkleRemove(lid,key){
+  askConfirm('기록 제거','이 수업에서 이 책의 진도 기록을 제거할까요?\n(수업 기록 자체는 남습니다)','제거','bd',async()=>{
+    const l=DB.less().find(x=>x.id===lid);if(!l||!l.materials)return;
+    delete l.materials[key];
+    await supaUpsert('lessons',lid,l,_bkleSid);
+    bkleRender();renderSpBooks(_bkleSid);renderSpLessons(_bkleSid);
+    toast('제거되었습니다');
+  });
+}
+async function bkleAdd(){
+  const date=document.getElementById('bkle-add-date')?.value;
+  const unit=(document.getElementById('bkle-add-unit')?.value||'').trim();
+  if(!date){toast('날짜를 선택해 주세요');return;}
+  const sid=_bkleSid,title=_bkleTitle;
+  let l=DB.less().find(x=>x.sid===sid&&x.date===date);
+  const base=_bkleType==='원서'?'_book':(Object.keys(SLBL).find(k=>SLBL[k]===_bkleType)||'reading');
+  if(!l){l={id:uid(),sid,date,materials:{}};_cache.lessons.unshift(l);}
+  if(!l.materials)l.materials={};
+  const exKey=Object.keys(l.materials).find(k=>l.materials[k]&&l.materials[k].book&&String(l.materials[k].book).trim().toLowerCase()===title.trim().toLowerCase());
+  if(exKey){l.materials[exKey].unit=unit;} // 같은 날 같은 책이 이미 있으면 진도만 갱신
+  else{
+    let key=base,n=2;
+    while(l.materials[key])key=base+'_'+(n++);
+    l.materials[key]={book:title,unit};
+  }
+  await supaUpsert('lessons',l.id,l,sid);
+  const u=document.getElementById('bkle-add-unit');if(u)u.value='';
+  bkleRender();renderSpBooks(sid);renderSpLessons(sid);
+  toast('수업 기록에 추가되었습니다');
 }
 async function updateTextbookUnit(id,sid,val){
   const tb=(_cache.textbooks||[]).find(t=>t.id===id);if(!tb)return;
