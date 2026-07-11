@@ -286,6 +286,8 @@ function renderStuAudio(b){
   const url=ao.url||ao;
   return makeAudioPlayer(url,b.title||'');
 }
+let _stuShelfOpen=null; // null=첫 렌더(최근 수업 책 자동 열기), ''=닫힘
+function stuShelfToggle(id){_stuShelfOpen=(_stuShelfOpen===id)?'':id;renderStudentLibrary(currentStudentSid);}
 function renderStudentLibrary(sid){
   const el=document.getElementById('st-library');if(!el)return;
 
@@ -316,30 +318,53 @@ function renderStudentLibrary(sid){
   const myTbooks=(_cache.globalTextbooks||[]).filter(b=>tbIdSet.has(b.id)&&(b.unitTexts&&Object.keys(b.unitTexts).some(u=>b.unitTexts[u])))
     .sort((a,b)=>((_lastLesForBook[_n(b.title)]||'').localeCompare(_lastLesForBook[_n(a.title)]||''))||(a.title||'').localeCompare(b.title||''));
 
-  const tbookHtml=myTbooks.length?myTbooks.map(tb=>{
-    const myUnits=tbSortUnitNames(tb,[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))]); // 교재의 단원 순서(unitOrder) 반영
-    const unitRows=myUnits.map(u=>{
+  // ── 내 책장: 표지 그리드 + 선택한 책의 단원 패널 ──
+  const _unitRowsOf=tb=>{
+    const myUnits=tbSortUnitNames(tb,[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))]);
+    return myUnits.map(u=>{
       const wCnt=myCards.filter(c=>c.srcId===tb.id&&c.srcUnit===u).length;
       const hasText=!!(tb.unitTexts?.[u]);
       const hasAudio=!!(tb.unitAudio?.[u]);
       const hasLink=!!(tb.unitLinks?.[u]);
       return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:11px;font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_recentSet.has(_n(tb.title)+'|'+_n(u))?` <span style="font-size:9.5px;font-weight:700;background:var(--tl);color:#0B8DAE;padding:2px 7px;border-radius:9px;vertical-align:1px">🔄 지난 수업</span>`:''}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:11px;font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_recentSet.has(_n(tb.title)+'|'+_n(u))?` <span style="font-size:9.5px;font-weight:700;background:var(--tl);color:#0B8DAE;padding:2px 7px;border-radius:9px;vertical-align:1px">\uD83D\uDD04 지난 수업</span>`:''}</div>
           <div style="font-size:11px;color:var(--slate);margin-top:2px">단어 ${wCnt}개</div>
         </div>
         <div style="display:flex;gap:5px;flex-shrink:0">
-          ${hasText?`<button class="btn bt bsm" onclick="openUnitReview('${tb.id}','${u.replace(/'/g,"\\'")}')">📖 복습</button>`:''}
-          ${hasAudio&&!hasText?`<button class="btn ba bsm" onclick="openUnitRead('${tb.id}','${u.replace(/'/g,"\\'")}')">🎧 듣기</button>`:''}
-          ${hasLink?`<a href="${tb.unitLinks[u]}" target="_blank" rel="noopener" class="btn ba bsm">🔗 심화</a>`:''}
+          ${hasText?`<button class="btn bt bsm" onclick="openUnitReview('${tb.id}','${u.replace(/'/g,"\\'")}')">\uD83D\uDCD6 복습</button>`:''}
+          ${hasAudio&&!hasText?`<button class="btn ba bsm" onclick="openUnitRead('${tb.id}','${u.replace(/'/g,"\\'")}')">\uD83C\uDFA7 듣기</button>`:''}
+          ${hasLink?`<a href="${tb.unitLinks[u]}" target="_blank" rel="noopener" class="btn ba bsm">\uD83D\uDD17 심화</a>`:''}
         </div>
       </div>`;
     }).join('');
-    return`<div style="background:#fff;border:1px solid var(--border);border-radius:var(--rs);padding:12px;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">📚 ${tb.title}${tb.level?` <span style="font-size:11px;font-weight:400;color:var(--slate)">(${tb.level})</span>`:''}</div>
-      ${unitRows||'<div style="font-size:12px;color:var(--slate);padding:6px 0">단원 정보 없음</div>'}
-    </div>`;
-  }).join(''):'';
+  };
+  if(_stuShelfOpen===null){
+    const rec=myTbooks.find(tb=>[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))].some(u=>_recentSet.has(_n(tb.title)+'|'+_n(u))));
+    _stuShelfOpen=rec?rec.id:(myTbooks[0]?.id||'');
+  }
+  const tbookHtml=myTbooks.length?(()=>{
+    const shelf=myTbooks.map(tb=>{
+      const wCnt=myCards.filter(c=>c.srcId===tb.id).length;
+      const recent=[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))].some(u=>_recentSet.has(_n(tb.title)+'|'+_n(u)));
+      return `<div class="shelf-card${_stuShelfOpen===tb.id?' on':''}" onclick="stuShelfToggle('${tb.id}')">
+        <div class="shelf-cv">${tb.coverUrl?`<img src="${tb.coverUrl}" loading="lazy" onerror="this.replaceWith(document.createTextNode('\uD83D\uDCDA'))">`:'\uD83D\uDCDA'}</div>
+        ${recent?'<span class="shelf-badge" title="지난 수업에서 배웠어요">\uD83D\uDD04</span>':''}
+        <div class="shelf-t">${tb.title}</div>
+        <div class="shelf-s">단어 ${wCnt}</div>
+      </div>`;
+    }).join('');
+    const opened=myTbooks.find(x=>x.id===_stuShelfOpen);
+    const panel=opened?`<div class="shelf-panel">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:13px;font-weight:800;color:var(--navy)">\uD83D\uDCDA ${opened.title}</span>
+        ${opened.level?`<span style="font-size:11px;color:var(--slate)">(${opened.level})</span>`:''}
+        <button onclick="stuShelfToggle('${opened.id}')" title="닫기" style="margin-left:auto;border:none;background:none;color:var(--slate);font-size:15px;cursor:pointer;padding:2px 6px">✕</button>
+      </div>
+      ${_unitRowsOf(opened)||'<div style="font-size:12px;color:var(--slate);padding:6px 0">단원 정보 없음</div>'}
+    </div>`:'';
+    return `<div class="shelf-grid">${shelf}</div>${panel}`;
+  })():'';
 
   // ── 원서 섹션 ──
   const myRds=DB.allRds(sid);

@@ -5009,46 +5009,78 @@ function seriesKeyOf(b){
   const m=t.match(/^(.+?)\s+(?:Level|Lv\.?|Grade)?\s*\d+(?:[.\-]\d+)*\s*(?:권|단계)?$/i);
   return (m&&m[1].trim())?m[1].trim():t;
 }
+// 대분류(패밀리): 워드 리딩·Link처럼 형제 시리즈를 한 그룹으로
+function seriesFamilyOf(k){
+  if(/^\d+\s*-\s*word reading$/i.test(k))return 'Word READING 시리즈';
+  if(/\blink\b/i.test(k))return 'Link 시리즈';
+  if(/^wonderful world/i.test(k))return 'Wonderful WORLD 시리즈';
+  if(/^reading sketch/i.test(k))return 'Reading Sketch 시리즈';
+  if(/^read it!?$/i.test(k))return 'Read It! 시리즈';
+  if(/^the best reading$/i.test(k))return 'The Best Reading 시리즈';
+  return k;
+}
+// 표지 카드 (표지 없으면 색 배경 + 볼륨 라벨)
+function _bserCard(b){
+  const isTb=b._bt==='textbook';
+  const wordCnt=isTb?Object.values(b.units||{}).reduce((s,a)=>s+(Array.isArray(a)?a.length:0),0):(b.vocab?.length||0);
+  const hasTxt=isTb&&b.unitTexts&&!Array.isArray(b.unitTexts)&&Object.values(b.unitTexts).some(v=>v);
+  const openFn=isTb?`openTbookUnits('${b.id}')`:`openEditLib('${b.id}')`;
+  const sk=seriesKeyOf(b);
+  let short=String(b.title||'');
+  if(sk&&sk!=='단권·기타'&&short.toLowerCase().indexOf(sk.toLowerCase())===0&&short.length>sk.length)short=short.slice(sk.length).trim();
+  const palettes=[['#E3F5FA','#0B8DAE'],['#FEF0D5','#B45309'],['#EAF7EE','#047857'],['#F3EAFB','#7C3AED'],['#FDEEF0','#BE123C'],['#EAF0FB','#3949AB']];
+  const key=(b.title||'');let h=0;for(let i=0;i<key.length;i++)h=(h*31+key.charCodeAt(i))>>>0;
+  const pal=palettes[h%palettes.length];
+  return `<div class="bser-card" onclick="${openFn}" title="${escAttr(b.title||'')} — ${isTb?'단원·단어 관리':'원서 수정'}">
+    <div class="bser-cv">${b.coverUrl
+      ?`<img src="${b.coverUrl}" loading="lazy" onerror="this.style.display='none'">`
+      :`<span class="bser-cv-ph" style="background:${pal[0]};color:${pal[1]}">${escAttr(short&&short.length<=8?short:(isTb?'\uD83D\uDCDA':'\uD83D\uDCD7'))}</span>`}</div>
+    <div class="bser-ct">${escAttr(b.title||'')}</div>
+    <div class="bser-cb">${wordCnt?`단어 ${wordCnt}`:'<span class="mz">단어 —</span>'}${hasTxt?' · 원문✓':''}${!isTb&&b.audioUrl?' · \uD83C\uDFA7':''}</div>
+  </div>`;
+}
 function renderBookSeries(all,q){
   const el=document.getElementById('book-series');if(!el)return;
   if(!all.length){el.innerHTML='<div style="text-align:center;padding:30px;color:var(--slate)">결과 없음</div>';return;}
-  const groups=new Map();
-  all.forEach(b=>{const k=seriesKeyOf(b);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(b);});
-  // 1권짜리 그룹은 '단권·기타'로 모음
+  const byKey=new Map();
+  all.forEach(b=>{const k=seriesKeyOf(b);if(!byKey.has(k))byKey.set(k,[]);byKey.get(k).push(b);});
+  // 패밀리 없는 1권짜리는 '단권·기타'로 (패밀리 소속 단권은 패밀리에 남김)
   const singles=[];
-  [...groups.entries()].forEach(([k,arr])=>{if(arr.length===1&&k!=='단권·기타'){singles.push(arr[0]);groups.delete(k);}});
-  if(singles.length)groups.set('단권·기타',(groups.get('단권·기타')||[]).concat(singles));
-  const keys=[...groups.keys()].sort((a,b)=>{
-    if(a==='단권·기타')return 1;if(b==='단권·기타')return -1;
-    return a.localeCompare(b,'ko');
+  [...byKey.entries()].forEach(([k,arr])=>{if(arr.length===1&&k!=='단권·기타'&&seriesFamilyOf(k)===k){singles.push(arr[0]);byKey.delete(k);}});
+  if(singles.length)byKey.set('단권·기타',(byKey.get('단권·기타')||[]).concat(singles));
+  // 2차 묶음: 워드 리딩·Link 등 대분류(패밀리)
+  const fams=new Map();
+  [...byKey.entries()].forEach(([k,arr])=>{
+    const f=k==='단권·기타'?'단권·기타':seriesFamilyOf(k);
+    if(!fams.has(f))fams.set(f,new Map());
+    fams.get(f).set(k,arr);
   });
-  el.innerHTML=keys.map(k=>{
-    const arr=groups.get(k).sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),undefined,{numeric:true}));
-    const cats=[...new Set(arr.map(b=>b._bt==='textbook'?(b.category||''):'원서').filter(Boolean))];
-    const filled=arr.filter(b=>b._bt==='textbook'
+  const famKeys=[...fams.keys()].sort((a,b)=>{if(a==='단권·기타')return 1;if(b==='단권·기타')return -1;return a.localeCompare(b,'ko');});
+  const brandOf=k=>k.replace(/\b(starter|basic|prime|master)\b/ig,'').replace(/\s+/g,' ').trim().toLowerCase();
+  const wRank=k=>/\bstarter\b/i.test(k)?1:/\bbasic\b/i.test(k)?2:/\bprime\b/i.test(k)?3:/\bmaster\b/i.test(k)?4:2.5;
+  el.innerHTML=famKeys.map(f=>{
+    const sub=fams.get(f);
+    const subKeys=[...sub.keys()].sort((a,b)=>brandOf(a).localeCompare(brandOf(b),undefined,{numeric:true})||wRank(a)-wRank(b)||a.localeCompare(b,undefined,{numeric:true}));
+    const books=subKeys.reduce((acc,k)=>acc.concat(sub.get(k)),[]);
+    const cats=[...new Set(books.map(b=>b._bt==='textbook'?(b.category||''):'원서').filter(Boolean))];
+    const filled=books.filter(b=>b._bt==='textbook'
       ?Object.values(b.units||{}).some(a2=>Array.isArray(a2)&&a2.length)
       :(b.vocab||[]).length).length;
+    const rep=books.find(b=>b.coverUrl);
+    const body=subKeys.map(k=>{
+      const arr=sub.get(k).slice().sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),undefined,{numeric:true}));
+      const lbl=subKeys.length>1&&k!=='단권·기타'?`<div class="bser-sublbl">${escAttr(k)} <span>${arr.length}권</span></div>`:'';
+      return `${lbl}<div class="bser-strip">${arr.map(_bserCard).join('')}</div>`;
+    }).join('');
     return `<details class="bser"${q?' open':''}>
       <summary class="bser-h">
-        <span class="bser-name">${escAttr(k)}</span>
-        <span class="bser-cnt">${arr.length}권</span>
+        ${rep?`<img class="bser-rep" src="${rep.coverUrl}" loading="lazy">`:''}
+        <span class="bser-name">${escAttr(f)}</span>
+        <span class="bser-cnt">${books.length}권</span>
         ${cats.slice(0,3).map(c=>`<span class="bser-cat">${escAttr(c)}</span>`).join('')}
-        <span class="bser-fill" title="단어가 등록된 권수">단어 ${filled}/${arr.length}</span>
+        <span class="bser-fill" title="단어가 등록된 권수">단어 ${filled}/${books.length}</span>
       </summary>
-      <div class="bser-body">
-      ${arr.map(b=>{
-        const isTb=b._bt==='textbook';
-        const unitCnt=isTb?Object.keys(b.units||{}).length:(b.chapters||[]).length;
-        const wordCnt=isTb?Object.values(b.units||{}).reduce((s,a2)=>s+(Array.isArray(a2)?a2.length:0),0):(b.vocab?.length||0);
-        const level=isTb?(b.level||''):((b.arLevel||b.ar)?'AR '+(b.arLevel||b.ar):'');
-        const openFn=isTb?`openTbookUnits('${b.id}')`:`openEditLib('${b.id}')`;
-        return `<div class="bser-row" onclick="${openFn}" title="클릭: ${isTb?'단원·단어 관리':'원서 수정'}">
-          <span class="bser-title">${escAttr(b.title||'')}</span>
-          ${level?`<span class="badge bnavy" style="font-size:9.5px;flex-shrink:0">${escAttr(level)}</span>`:''}
-          <span class="bser-st">${unitCnt?(isTb?'유닛 ':'챕터 ')+unitCnt:''}${wordCnt?' · 단어 '+wordCnt:''}</span>
-        </div>`;
-      }).join('')}
-      </div>
+      <div class="bser-body">${body}</div>
     </details>`;
   }).join('');
 }
