@@ -512,7 +512,7 @@ async function handleSpLogPhoto(e,sid){
   const cnt=document.getElementById('sp-log-preview-count');if(cnt)cnt.textContent='';
   if(_spLogB64s.length>1){ // 여러 장: 장별 날짜·책 지정 UI
     if(img)img.style.display='none';
-    buildLogPages('sp-log-pages',_spLogB64s,document.getElementById('sp-log-date')?.value,_spLogBookTitle||(document.getElementById('sp-log-book')?.value||'').trim());
+    buildLogPages('sp-log-pages',_spLogB64s,document.getElementById('sp-log-date')?.value,_spLogBookTitle||(document.getElementById('sp-log-book')?.value||'').trim(),sid);
   }else{
     const pg=document.getElementById('sp-log-pages');if(pg){pg.style.display='none';pg.innerHTML='';}
     if(img){img.style.display='block';img.src='data:'+_spLogMime+';base64,'+(_spLogB64s[0]||'');}
@@ -6723,21 +6723,104 @@ async function uploadB64Cld(b64,mime){
   return (await res.json()).secure_url;
 }
 // ── 다중 페이지 PDF: 장별 날짜·책 지정 후 묶음 저장 ──
-function buildLogPages(contId,b64s,defDate,defBook){
+const _lgpCtx={}; // contId → {b64s,sid} (AI 인식용)
+function buildLogPages(contId,b64s,defDate,defBook,sid){
   const c=document.getElementById(contId);if(!c)return;
+  _lgpCtx[contId]={b64s,sid:sid||''};
   const d0=defDate||new Date().toISOString().split('T')[0];
-  c.innerHTML=`<div style="font-size:11px;color:var(--slate);margin-bottom:6px;line-height:1.5;text-align:left">📄 ${b64s.length}장 — 장마다 날짜·책을 지정하세요. 값을 바꾸면 <b>아래 장에도 자동 적용</b>되고, 날짜·책이 같은 연속 장은 <b>한 로그로 묶어</b> 저장합니다.</div>`+b64s.map((b,i)=>`<div class="lgp-row" data-i="${i}" style="display:flex;gap:12px;align-items:stretch;padding:8px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:6px;background:#fff">
-    <img src="data:image/jpeg;base64,${b}" onclick="lgpZoom(this)" title="크게 보기" style="width:112px;height:150px;object-fit:contain;background:var(--cream2);border-radius:6px;border:1px solid var(--border);cursor:zoom-in;flex-shrink:0">
-    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;justify-content:center">
+  c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;text-align:left">
+    <span style="font-size:11px;color:var(--slate);line-height:1.5">📄 ${b64s.length}장 — 값을 바꾸면 <b>아래 장에도 자동 적용</b>, 날짜·책이 같은 연속 장은 <b>한 로그로 묶어</b> 저장.</span>
+    ${DB.api()?`<button id="${contId}-ai-btn" class="btn bo bxxs" onclick="lgpAiFill('${contId}')">🤖 날짜·책 다시 인식</button><span id="${contId}-ai-st" style="font-size:11px;color:var(--teal);font-weight:600"></span>`:''}
+  </div>`+b64s.map((b,i)=>`<div class="lgp-row" data-i="${i}" style="display:flex;gap:12px;align-items:stretch;padding:8px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:6px;background:#fff">
+    <img src="data:image/jpeg;base64,${b}" onclick="lgpZoom(this)" title="크게 보기" style="width:200px;height:267px;object-fit:contain;background:var(--cream2);border-radius:6px;border:1px solid var(--border);cursor:zoom-in;flex-shrink:0">
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;justify-content:center">
       <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:11px;font-weight:700;color:var(--slate);flex-shrink:0">${i+1}장</span>
-        <input type="date" class="lgp-date" value="${d0}" onchange="this.dataset.t='1';lgpCascade('${contId}',${i},'date')" style="flex:0 0 132px;font-size:12px;padding:5px 6px">
+        <span style="font-size:12px;font-weight:700;color:var(--slate);flex-shrink:0">${i+1}장</span>
+        <input type="date" class="lgp-date" value="${d0}" onchange="this.dataset.t='1';lgpCascade('${contId}',${i},'date')" style="flex:0 0 140px;font-size:13px;padding:6px 8px">
       </div>
-      <input type="text" class="lgp-book" value="${escAttr(defBook||'')}" placeholder="책 제목 (선택)" list="dl-lib-books" autocomplete="off" onchange="this.dataset.t='1';lgpCascade('${contId}',${i},'book')" style="width:100%;font-size:12px;padding:5px 8px;box-sizing:border-box">
+      <input type="text" class="lgp-book" value="${escAttr(defBook||'')}" placeholder="책 제목 (선택)" list="dl-lib-books" autocomplete="off" onchange="this.dataset.t='1';lgpCascade('${contId}',${i},'book')" style="width:100%;font-size:13px;padding:6px 8px;box-sizing:border-box">
     </div>
     <button onclick="lgpSkip(this)" title="이 장 제외" style="flex-shrink:0;align-self:flex-start;border:1px solid var(--border);background:none;border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:11px;color:var(--slate)">✕</button>
   </div>`).join('');
   c.style.display='block';
+  if(DB.api())setTimeout(()=>lgpAiFill(contId),60); // 업로드 직후 자동 인식
+}
+// 이미지 b64를 AI 전송용으로 축소 (토큰·전송량 절약)
+function _lgpShrink(b64,maxW){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{
+      const sc=Math.min(1,maxW/img.width);
+      if(sc>=1)return res(b64);
+      const cv=document.createElement('canvas');
+      cv.width=Math.round(img.width*sc);cv.height=Math.round(img.height*sc);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      res(cv.toDataURL('image/jpeg',0.82).split(',')[1]);
+    };
+    img.onerror=()=>res(b64);
+    img.src='data:image/jpeg;base64,'+b64;
+  });
+}
+function _lgpNorm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]/g,'');}
+let _lgpAiBusy=false;
+async function lgpAiFill(contId){
+  if(_lgpAiBusy)return;
+  const ctx=_lgpCtx[contId];if(!ctx||!ctx.b64s?.length)return;
+  if(!DB.api()){toast('설정에서 API 키를 등록해 주세요');return;}
+  const st=document.getElementById(contId+'-ai-st');
+  _lgpAiBusy=true;
+  try{
+    const b64s=ctx.b64s,year=new Date().getFullYear(),today=new Date().toISOString().split('T')[0];
+    // 후보 책 힌트: 이 학생의 리딩로그 이력 + 등록 원서 (삐뚤빼뚤한 글씨 판독 정확도용)
+    const hints=[...new Set([
+      ...DB.logs().filter(l=>l.sid===ctx.sid&&l.bookTitle).map(l=>l.bookTitle),
+      ...(_cache.textbooks||[]).filter(x=>x.sid===ctx.sid&&x.type==='원서').map(x=>x.title)
+    ])].slice(0,20);
+    const libTitles=(DB.libs()||[]).map(b=>b.title).filter(Boolean);
+    const results=new Array(b64s.length).fill(null);
+    const BATCH=6;
+    for(let s=0;s<b64s.length;s+=BATCH){
+      const idx=[];for(let i=s;i<Math.min(s+BATCH,b64s.length);i++)idx.push(i);
+      if(st)st.textContent=`🤖 인식 중... (${Math.min(s+BATCH,b64s.length)}/${b64s.length}장)`;
+      const imgs=await Promise.all(idx.map(i=>_lgpShrink(b64s[i],720)));
+      const content=imgs.map(b=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:b}}));
+      content.push({type:'text',text:`위 ${idx.length}장은 아이가 손으로 쓴 영어 리딩로그입니다. 각 장에서 날짜와 책 제목을 읽어주세요.
+- 글씨가 삐뚤빼뚤해도 최대한 추정하고, 정말 읽을 수 없으면 null
+- 날짜: "YYYY-MM-DD" (연도가 안 보이면 ${year} 사용)
+- 책 제목: 영어 표기 그대로${hints.length?`
+- 이 학생이 최근 읽은 책 (비슷하게 읽히면 이 표기를 그대로 사용): ${hints.join(', ')}`:''}
+JSON 배열만 출력, 이미지 순서대로 정확히 ${idx.length}개: [{"date":"2026-07-03","book":"Nate the Great"}]`});
+      try{
+        const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:1200,messages:[{role:'user',content}]});
+        const raw=(d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
+        const arr=JSON.parse(raw);
+        if(Array.isArray(arr))idx.forEach((gi,k)=>{results[gi]=arr[k]||null;});
+      }catch(e){/* 이 배치 실패 — 해당 장은 수동 입력 */}
+    }
+    // 채우기: 결과 있는 장만, 책 제목은 원서 DB 표기로 정규화
+    const rows=[...document.querySelectorAll('#'+contId+' .lgp-row')];
+    let filled=0;
+    rows.forEach(r=>{
+      const res=results[+r.dataset.i];if(!res)return;
+      let ok=false;
+      let dt=String(res.date||'');
+      if(/^\d{4}-\d{2}-\d{2}$/.test(dt)){
+        if(dt>today){const y=+dt.slice(0,4)-1;dt=y+dt.slice(4);} // 미래 날짜면 작년으로 (연도 추정 보정)
+        const di=r.querySelector('.lgp-date');
+        if(di){di.value=dt;di.dataset.t='1';ok=true;}
+      }
+      let bk=(res.book&&res.book!=='null')?String(res.book).trim():'';
+      if(bk){
+        const nb=_lgpNorm(bk);
+        const canon=libTitles.find(x=>_lgpNorm(x)===nb)||hints.find(x=>_lgpNorm(x)===nb)
+          ||libTitles.find(x=>{const nx=_lgpNorm(x);return nx&&nb&&(nx.includes(nb)||nb.includes(nx))&&Math.abs(nx.length-nb.length)<=3;});
+        const bi=r.querySelector('.lgp-book');
+        if(bi){bi.value=canon||bk;bi.dataset.t='1';ok=true;}
+      }
+      if(ok)filled++;
+    });
+    if(st)st.textContent=filled?`🤖 ${filled}장 인식 완료 — 확인 후 저장하세요`:'🤖 인식된 장 없음 — 직접 입력해 주세요';
+  }finally{_lgpAiBusy=false;}
 }
 function lgpCascade(contId,i,f){ // i번째 장의 값을, 아직 직접 수정하지 않은 아래 장들에 이어 적용
   const rows=[...document.querySelectorAll('#'+contId+' .lgp-row')];
@@ -6800,7 +6883,7 @@ async function handleLogPhoto(e){
     if(previewPdf)previewPdf.style.display='none';
     if(pendingLogB64s.length>1){ // 여러 장: 장별 날짜·책 지정 UI
       if(previewImg)previewImg.style.display='none';
-      buildLogPages('log-pages',pendingLogB64s,document.getElementById('lg-date')?.value,(document.getElementById('lg-book')?.value||'').trim());
+      buildLogPages('log-pages',pendingLogB64s,document.getElementById('lg-date')?.value,(document.getElementById('lg-book')?.value||'').trim(),document.getElementById('lg-stu')?.value||'');
     }else{
       const pg=document.getElementById('log-pages');if(pg){pg.style.display='none';pg.innerHTML='';}
       if(previewImg){previewImg.style.display='block';previewImg.src='data:image/jpeg;base64,'+(pendingLogB64s[0]||'');}
