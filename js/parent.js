@@ -51,36 +51,62 @@ function lessonChips(rawCmt){
   if(!chips.length)return '';
   return `<div style="padding:11px 16px;background:#F8FBFC;border-top:1px solid rgba(15,48,74,.06);display:flex;gap:8px;flex-wrap:wrap">${chips.join('')}</div>`;
 }
-// 학부모 수업 탭: 이전 수업 기록 카드 리스트 (날짜+구분 배지+코멘트+칩)
-function parentLessonList(les){
+// 학부모 수업 탭: 이전 수업 기록 — 월별 묶음 컴팩트 타임라인 (모바일 우선)
+function _plRow(l){
   const DAYS=['일','월','화','수','목','금','토'];
-  const rest=les.slice(1,9); // 최근 수업(블록A) 다음부터
+  const day=l.date?DAYS[new Date(l.date).getDay()]:'';
+  const dayNum=l.date?parseInt(l.date.slice(8,10)):'';
+  const att=(typeof ATTLBL!=='undefined'&&l.att&&ATTLBL[l.att])?ATTLBL[l.att]:'';
+  const mats=[];
+  Object.entries(l.materials||{}).forEach(([k,v])=>{
+    if(!v||!v.book)return;
+    const isBook=k==='_book'||k.startsWith('_book_');
+    const bk=k.replace(/_\d+$/,'');
+    const lbl=(bk==='pencil_down'||bk==='sing_together')?'활동':(isBook?'원서':(typeof SLBL!=='undefined'?(SLBL[bk]||'교재'):'교재'));
+    mats.push({lbl,book:v.book,unit:v.unit||''});
+  });
+  const shown=mats.slice(0,4);
+  const matHtml=shown.map(m=>`<div style="font-size:12.5px;color:#14304A;line-height:1.5;display:flex;gap:6px;align-items:baseline;min-width:0"><span style="font-size:10px;font-weight:700;color:#8A95A2;flex-shrink:0;padding-top:1px">${m.lbl}</span><span style="min-width:0;word-break:break-word"><b>${m.book}</b>${m.unit?` <span style="color:#5B6B7B">· ${m.unit}</span>`:''}</span></div>`).join('')
+    +(mats.length>4?`<div style="font-size:10.5px;color:#94A3AE">외 ${mats.length-4}과목</div>`:'');
+  const cmt=l.polishedCmt||l.cmt||'';
+  return `<div class="pl-row">
+    <div style="flex:0 0 40px;text-align:center;padding-top:1px">
+      <div style="font-size:17px;font-weight:800;color:var(--navy);line-height:1.15">${dayNum}</div>
+      <div style="font-size:10px;color:#94A3AE;font-weight:600">${day}</div>
+      ${att?`<div style="font-size:9px;font-weight:700;color:#B45309;margin-top:2px">${att}</div>`:''}
+    </div>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+      ${matHtml||`<div style="font-size:12px;color:#94A3AE;padding-top:2px">기록 없음</div>`}
+      ${cmt?`<div class="pl-cmt" onclick="this.classList.toggle('open')" title="탭하면 전체가 보여요">${cmt}</div>`:''}
+    </div>
+  </div>`;
+}
+function parentLessonList(les,showAll){
+  const rest=showAll?les.slice(1):les.slice(1,9); // 최근 수업(블록A) 다음부터
   if(!rest.length)return '';
-  let prevMonth=null;
-  const cards=rest.map(l=>{
-    const cats=[];const set=new Set();
-    Object.entries(l.materials||{}).forEach(([k,v])=>{const isBook=k==='_book'||k.startsWith('_book_');const bk=k.replace(/_\d+$/,'');const label=isBook?'원서':(typeof SLBL!=='undefined'?SLBL[bk]||'':'');if(label&&v.book&&!set.has(label)){set.add(label);cats.push(label);}});
-    const day=l.date?DAYS[new Date(l.date).getDay()]:'';
-    const cmt=l.polishedCmt||l.cmt||'';
-    // 월 경계 구분선 — 긴 목록 스캔 보조
+  const groups=[];
+  rest.forEach(l=>{
     const m=(l.date||'').slice(0,7);
-    let divider='';
-    if(m&&prevMonth&&m!==prevMonth){
-      divider=`<div style="display:flex;align-items:center;gap:10px;padding:4px 0;margin-bottom:12px"><span style="flex:1;height:1px;background:rgba(15,48,74,.08)"></span><span class="mono" style="font-size:11px;font-weight:700;color:#94A3AE;letter-spacing:.08em">${parseInt(m.slice(5,7))}월</span><span style="flex:1;height:1px;background:rgba(15,48,74,.08)"></span></div>`;
-    }
-    if(m)prevMonth=m;
-    return `${divider}<div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 4px rgba(15,48,74,.05);overflow:hidden;margin-bottom:12px">
-      <div style="padding:14px 16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:${cmt?'9px':'0'}">
-          <span style="font-size:13px;font-weight:800;color:var(--navy)">${l.date||''} <span style="font-size:11.5px;color:#8A95A2;font-weight:500">${day?day+'요일':''}</span></span>
-          <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">${cats.map(c=>`<span style="font-size:10.5px;font-weight:700;background:#E3F5FA;color:#0B8DAE;padding:3px 9px;border-radius:10px">${c}</span>`).join('')}</div>
-        </div>
-        ${cmt?`<div style="font-size:13.5px;line-height:1.8;color:#14304A">${cmt}</div>`:''}
-      </div>
-      ${lessonChips(l.cmt)}
-    </div>`;
-  }).join('');
-  return `<div><div style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:800;color:var(--navy);margin:6px 2px 11px">${luIcon('book-open',16,'color:#0B8DAE')}이전 수업 기록</div>${cards}</div>`;
+    const g=groups[groups.length-1];
+    if(g&&g.m===m)g.items.push(l);else groups.push({m,items:[l]});
+  });
+  const gs=groups.map(g=>`<div style="margin-bottom:14px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 4px;margin-bottom:6px">
+      <span style="font-size:12px;font-weight:800;color:#46586B">${g.m?parseInt(g.m.slice(0,4))+'년 '+parseInt(g.m.slice(5,7))+'월':''}</span>
+      <span style="font-size:10.5px;color:#94A3AE">수업 ${g.items.length}회</span>
+    </div>
+    <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 4px rgba(15,48,74,.05);padding:2px 14px">
+      ${g.items.map(_plRow).join('')}
+    </div>
+  </div>`).join('');
+  const remain=les.length-1-rest.length;
+  return `<div id="pl-wrap"><div style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:800;color:var(--navy);margin:6px 2px 11px">${luIcon('book-open',16,'color:#0B8DAE')}이전 수업 기록</div>${gs}
+  ${remain>0?`<button onclick="plShowAll()" style="width:100%;padding:11px;border:1.5px solid var(--border);border-radius:12px;background:#fff;font-size:12.5px;font-weight:700;color:#46586B;cursor:pointer;font-family:var(--fb)">이전 기록 ${remain}건 더 보기</button>`:''}</div>`;
+}
+function plShowAll(){
+  const wrap=document.getElementById('pl-wrap');if(!wrap)return;
+  const les=DB.less().filter(l=>l.sid===currentParentSid);
+  wrap.outerHTML=parentLessonList(les,true);
 }
 async function loadParent(sid){
   currentParentSid=sid;
