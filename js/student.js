@@ -390,13 +390,13 @@ function renderStudentLibrary(sid){
       :renderStuAudio(b);
     const recSection=`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <button id="lib-rec-start-${safeId}" class="btn bo bsm" style="font-size:11px" onclick="startLibRec('${safeId}','${sid}','${escAttr(b.title)}')">🎙 낭독 녹음</button>
+        <button id="lib-rec-start-${safeId}" class="btn bo bsm" style="font-size:11px" onclick="startLibRec('${safeId}','${sid}','${escJsA(b.title)}')">🎙 낭독 녹음</button>
         <button id="lib-rec-stop-${safeId}" class="btn bd bsm" style="display:none;font-size:11px" onclick="stopLibRec('${safeId}')">⏹ 중지</button>
         <span id="lib-rec-timer-${safeId}" style="display:none;font-size:12px;color:var(--teal);font-family:var(--fm)">⏺ <span id="lib-rec-time-${safeId}">0:00</span></span>
       </div>
       <div id="lib-preview-${safeId}" style="display:none;margin-top:8px">
         <audio id="lib-player-${safeId}" controls style="width:100%;height:34px"></audio>
-        <button id="lib-submit-${safeId}" class="btn bt bsm" style="margin-top:6px;width:100%;font-size:12px" onclick="submitLibRec('${safeId}','${escAttr(b.id)}','${sid}','${escAttr(b.title)}')">📤 낭독 제출</button>
+        <button id="lib-submit-${safeId}" class="btn bt bsm" style="margin-top:6px;width:100%;font-size:12px" onclick="submitLibRec('${safeId}','${escAttr(b.id)}','${sid}','${escJsA(b.title)}')">📤 낭독 제출</button>
         <div id="lib-ai-${safeId}" style="margin-top:6px;font-size:12px;line-height:1.6"></div>
       </div>
     </div>`;

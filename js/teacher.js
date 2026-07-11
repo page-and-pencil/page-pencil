@@ -1909,6 +1909,7 @@ function clearEditSRows(){aEditSubjs.clear();document.querySelectorAll('#el-subj
 function escAttr(s){return(s||'').replace(/"/g,'&quot;');}
 function _catPill(txt){return txt?`<span style="display:inline-block;font-size:10px;font-weight:700;color:var(--slate);background:var(--cream2);border:1px solid var(--border);border-radius:8px;padding:1px 7px;margin-right:6px;vertical-align:1px">${txt}</span>`:'';}
 function escJsA(s){return escAttr(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));} // onclick 속성 안 JS 문자열 인자용 — Kipper's Diary 등 아포스트로피 안전
+let _elCmtDirtyP=false,_elCmtDirtyS=false; // 수정 모달: 원문 변경 후 미리보기 미갱신 여부
 function addElCmtChip(text){const ta=document.getElementById('el-cmt');if(!ta)return;ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;ta.focus();}
 function addClCommonCmtChip(text){const ta=document.getElementById('cl-common-cmt');if(!ta)return;ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;ta.focus();}
 async function previewElPolishedCmt(){
@@ -1924,6 +1925,7 @@ async function previewElPolishedCmt(){
   const txt=document.getElementById('el-cmt-preview-text');
   if(box)box.style.display='block';
   if(txt)txt.value=polished||raw;
+  _elCmtDirtyP=false; // 미리보기가 현재 원문과 일치
 }
 async function previewElStuCmt(){
   const raw=document.getElementById('el-cmt')?.value.trim()||'';
@@ -1933,6 +1935,7 @@ async function previewElStuCmt(){
   const status=document.getElementById('el-cmt-preview-status');
   if(status)status.textContent='학생 코멘트 생성 중...';
   const stuPolished=await polishStuCmt_teacher(raw,matsText,'');
+  _elCmtDirtyS=false; // 학생 미리보기가 현재 원문과 일치
   if(status)status.textContent='';
   const box=document.getElementById('el-stu-cmt-preview-box');
   const txt=document.getElementById('el-stu-cmt-preview-text');
@@ -2350,6 +2353,9 @@ function openEditLes(id){
   document.getElementById('el-date').value=l.date||'';
   document.getElementById('el-att').value=l.att||'normal';
   document.getElementById('el-cmt').value=l.cmt||'';
+  // 원문을 고치면 기존 변환본(미리보기)을 그대로 저장하지 않도록 표시
+  _elCmtDirtyP=false;_elCmtDirtyS=false;
+  document.getElementById('el-cmt').oninput=()=>{_elCmtDirtyP=true;_elCmtDirtyS=true;};
   document.getElementById('el-stu').value=l.sid||'';
   // 기존 확정 코멘트가 있으면 미리보기에 로드
   const _epb=document.getElementById('el-cmt-preview-box');
@@ -2382,10 +2388,11 @@ async function updLes(){
   const matsText=_getMatsTextFromMaterials(mats);
   const elPreviewTxt=(document.getElementById('el-cmt-preview-box')?.style.display!=='none')
     ?(document.getElementById('el-cmt-preview-text')?.value?.trim()||''):'';
-  const polishedCmt=rawCmt?(elPreviewTxt||await polishCmt(rawCmt,matsText)):'';
+  // 원문을 고쳤는데 미리보기를 다시 안 돌렸으면 → 낡은 변환본 대신 재변환
+  const polishedCmt=rawCmt?((!_elCmtDirtyP&&elPreviewTxt)||await polishCmt(rawCmt,matsText)):'';
   const elStuPreviewTxt=(document.getElementById('el-stu-cmt-preview-box')?.style.display!=='none')
     ?(document.getElementById('el-stu-cmt-preview-text')?.value?.trim()||''):'';
-  const stuCmt=rawCmt?(elStuPreviewTxt||_cache.lessons[idx]?.stuCmt||''):'';
+  const stuCmt=rawCmt?((!_elCmtDirtyS&&(elStuPreviewTxt||_cache.lessons[idx]?.stuCmt))||await polishStuCmt_teacher(rawCmt,matsText,'')||''):'';
   if(rawCmt&&polishedCmt)_saveCmtExample(rawCmt,polishedCmt);
   const _elGrade=_cache.lessons[idx].grade||(DB.stus().find(s=>s.id===sid)?.grade)||'';
   _cache.lessons[idx]={..._cache.lessons[idx],date:document.getElementById('el-date').value,sid,grade:_elGrade,att:document.getElementById('el-att').value,materials:mats,cmt:rawCmt,polishedCmt,stuCmt};

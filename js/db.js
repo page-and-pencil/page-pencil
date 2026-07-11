@@ -193,6 +193,7 @@ async function supaUpsert(table,id,dataObj,sid=null,timeoutMs=15000){
     const r=await fetch(SUPA_URL+'/rest/v1/'+table,{method:'POST',headers:h,body:JSON.stringify(row),signal:ctrl.signal});
     clearTimeout(tid);
     if(!r.ok){handleSupaError(r.status);throw new Error('HTTP '+r.status);}
+    if(typeof _scheduleSnapSave==='function')_scheduleSnapSave();
     return true;
   }catch(e){
     clearTimeout(tid);
@@ -270,6 +271,13 @@ function _idbOpen(){return new Promise((res,rej)=>{const rq=indexedDB.open('pp_c
 async function idbGet(k){try{const db=await _idbOpen();return await new Promise((res,rej)=>{const g=db.transaction('kv').objectStore('kv').get(k);g.onsuccess=()=>res(g.result);g.onerror=()=>rej(g.error);});}catch(e){return null;}}
 async function idbSet(k,v){try{const db=await _idbOpen();await new Promise((res,rej)=>{const p=db.transaction('kv','readwrite').objectStore('kv').put(v,k);p.onsuccess=()=>res();p.onerror=()=>rej(p.error);});}catch(e){}}
 let _bgRefreshing=false;
+let _snapTimer=null;
+function _scheduleSnapSave(){ // 쓰기 후 스냅샷 저장 (2.5초 디바운스)
+  clearTimeout(_snapTimer);
+  _snapTimer=setTimeout(()=>{
+    try{const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v1',{at:Date.now(),cache:snap});}catch(e){}
+  },2500);
+}
 async function loadAllDataFast(){
   if(_cache.students.length)return;
   try{
