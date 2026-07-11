@@ -15,6 +15,16 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .screen{display:none;min-height:100vh;flex-direction:column;}
 .screen.active{display:flex;}
 
+/* 전역 입력 기본기(:where=제로 특이성) — 클래스 없는 생성 입력도 앱 톤 유지. 기존 규칙·인라인 스타일이 항상 우선 */
+:where(input[type="text"],input[type="date"],input[type="month"],input[type="number"],input[type="url"],input[type="search"],input[type="password"],select,textarea){
+  font-family:var(--fb);font-size:13px;color:var(--navy);
+  border:1.5px solid var(--border);border-radius:var(--rs);
+  background:var(--cream);padding:7px 10px;outline:none;
+}
+:where(input[type="text"],input[type="date"],input[type="month"],input[type="number"],input[type="url"],input[type="search"],input[type="password"],select,textarea):focus{
+  border-color:var(--teal);box-shadow:0 0 0 3px rgba(12,164,201,.12);
+}
+
 /* LANDING / 로그인 (시안 2단 레이아웃) */
 #s-land{background:#0E2230;align-items:center;justify-content:center;position:relative;overflow:auto;padding:24px;}
 .land2{width:100%;max-width:940px;display:flex;background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.45);z-index:1;}

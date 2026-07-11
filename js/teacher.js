@@ -1115,14 +1115,19 @@ async function loadStuPanel(sid){
           <div style="flex:1">
             <div style="font-size:11px;color:${overdue?'var(--red)':'var(--slate)'};font-family:var(--fm)">${a.date||''}${a.due?' · 마감 '+a.due:''}${completed?' · 완료 '+(a.completedAt||'').slice(0,10):''}</div>
             <div style="font-size:12px;font-weight:700;margin-top:2px">${
-              a.type==='reading'?`📖 ${a.bookTitle||''}${a.range?' · '+a.range:''}`:
+              a.type==='reading'?`📖 ${[a.bookTitle,a.range].filter(Boolean).join(' · ')}`:
               a.type==='vocab'?`📝 단어: ${(a.words||[]).join(', ')}`:
               a.category==='class5'?(()=>{
                 const sc=a.schedule||[];
                 if(!sc.length)return`🎮 [클래스5]${a.bookTitle&&a.bookTitle!=='클래스5'?` · ${a.bookTitle}`:''}${a.range?' · '+a.range:''}`;
                 return`🎮 [클래스5]<div style="margin-top:3px">${sc.slice(0,5).map(s=>`<div style="font-size:11px;font-weight:normal;color:var(--slate);line-height:1.7;padding-left:2px">${s.date||''} ${[s.book,s.unit].filter(Boolean).join(' · ')}</div>`).join('')}${sc.length>5?`<div style="font-size:10px;font-weight:normal;color:var(--slate);padding-left:2px">외 ${sc.length-5}일...</div>`:''}</div>`;
               })():
-              `${a.bookTitle||a.text||''}${a.range?' · '+a.range:''}`
+              (()=>{ // 구분(직접 입력 포함)을 필로 표시하고, 빈 교재명일 때 고아 '·'가 남지 않게 join
+                const KC={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신',book:'원서',other:'기타'};
+                const cat=a.category?(KC[a.category]||a.category):'';
+                const main=[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')||'과제';
+                return `${cat?`<span style="display:inline-block;font-size:10px;font-weight:700;color:var(--slate);background:var(--cream2);border:1px solid var(--border);border-radius:8px;padding:1px 7px;margin-right:6px;vertical-align:1px">${cat}</span>`:''}${main}`;
+              })()
             }</div>
           </div>
           <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
@@ -8168,7 +8173,7 @@ function showAssignDateDetail(dateStr){
     return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;gap:8px;align-items:flex-start">
         <span style="font-weight:700;font-size:13px;min-width:48px">${s?.name||'—'}</span>
-        <div style="flex:1;font-size:12px">${cat?`<span style="color:var(--teal)">[${cat}]</span> `:''}${book}${a.range?' · '+a.range:''}</div>
+        <div style="flex:1;font-size:12px">${cat?`<span style="color:var(--teal)">[${cat}]</span> `:''}${[book,a.range].filter(Boolean).join(' · ')}</div>
       </div>
     </div>`;
   }).join('');
@@ -10114,7 +10119,9 @@ function toggleAssignEdit(aid,sid){
   div.id=`asgn-edit-${aid}`;
   div.style.cssText='padding:8px;background:var(--cream2);border-radius:8px;margin-top:4px';
   const rangeVal=(a.range||a.text||'').replace(/"/g,'&quot;');
+  const bookVal=(a.bookTitle||'').replace(/"/g,'&quot;');
   div.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+    <div style="flex:1;min-width:140px"><label style="font-size:11px;display:block;margin-bottom:2px">교재/원서</label><input type="text" id="ae-book-${aid}" value="${bookVal}" list="dl-hw-books" autocomplete="off" placeholder="예: 공책, Easy Link Starter 2" style="width:100%"></div>
     <div style="flex:1;min-width:120px"><label style="font-size:11px;display:block;margin-bottom:2px">범위/내용</label><input type="text" id="ae-range-${aid}" value="${rangeVal}" style="width:100%"></div>
     <div style="flex:0 0 140px"><label style="font-size:11px;display:block;margin-bottom:2px">마감일</label><input type="date" id="ae-due-${aid}" value="${a.due||''}"></div>
   </div>
@@ -10129,9 +10136,11 @@ async function saveAssignEdit(aid,sid){
   if(!a)return;
   const due=document.getElementById(`ae-due-${aid}`)?.value||'';
   const range=document.getElementById(`ae-range-${aid}`)?.value.trim()||'';
+  const book=document.getElementById(`ae-book-${aid}`)?document.getElementById(`ae-book-${aid}`).value.trim():(a.bookTitle||'');
   // 개별 수정으로 내용이 공통 배치본과 달라지면 공통 표식 해제 (수정 복원 시 전원 확산 방지)
   const _prevRange=(a.type==='other'&&a.text&&!a.range)?(a.text||''):(a.range||'');
-  if(a.common===true&&((a.due||'')!==due||_prevRange!==range))a.common=false;
+  if(a.common===true&&((a.due||'')!==due||_prevRange!==range||(a.bookTitle||'')!==book))a.common=false;
+  a.bookTitle=book;
   a.due=due;
   // 레거시 'other'(text에만 내용 저장) 과제만 text 갱신 — 커스텀 구분(range 저장)은 range 갱신
   if(a.type==='other'&&a.text&&!a.range)a.text=range; else a.range=range;

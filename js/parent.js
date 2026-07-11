@@ -251,7 +251,7 @@ async function loadParent(sid){
     const assignRow=a=>{
       const cat=a.category?(CAT_LBL[a.category]||a.category):''; // 직접 입력 구분은 그대로 표시
       const catHtml=cat?`<span style="font-size:10px;font-weight:700;color:var(--teal)">[${cat}]</span> `:'';
-      const label=a.category==='vocab'?((a.words||[]).slice(0,3).join(', ')+(a.words?.length>3?` 외 ${a.words.length-3}개`:'')):(a.bookTitle||a.text||'');
+      const label=a.category==='vocab'?((a.words||[]).slice(0,3).join(', ')+(a.words?.length>3?` 외 ${a.words.length-3}개`:'')):(a.bookTitle||a.text||((a.category&&!['phonics','vocab','grammar','reading','listening','writing','naesin','book','class5','other'].includes(a.category))?a.category:'')||'과제');
       const range=a.range?` <span style="font-size:11px;color:var(--slate)">${a.range}</span>`:'';
       const dueCol=a.due&&a.due<=todayD?'var(--coral)':'var(--slate)';
       const due=a.due?` <span style="font-size:11px;color:${dueCol}">~${a.due}</span>`:'';

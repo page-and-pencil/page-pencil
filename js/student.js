@@ -1254,7 +1254,7 @@ function showStatDetail(sid,type){
     const items=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
     title=`완료한 숙제 (${items.length}건)`;
     const catIcon={phonics:'📘',vocab:'📝',grammar:'✏️',reading:'📖',listening:'🎧',writing:'✍️',naesin:'📋',book:'📗',class5:'🎮'};
-    rows=items.map(a=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span>${catIcon[a.category]||'📋'} ${a.bookTitle||a.text||''}</span>${a.range?`<span style="color:var(--slate)"> · ${a.range}</span>`:''}</div>`).join('')||'없음';
+    rows=items.map(a=>{const KC=['phonics','vocab','grammar','reading','listening','writing','naesin','book','class5','other'];const label=[a.bookTitle||a.text||((a.category&&!KC.includes(a.category))?a.category:''),a.range].filter(Boolean).join(' · ')||'과제';return `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span>${catIcon[a.category]||'📋'} ${label}</span></div>`;}).join('')||'없음';
   }else if(type==='vocab'){
     const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
     const mastered=allCards.filter(c=>(c.hits||0)>=3).sort((a,b)=>(b.hits||0)-(a.hits||0));
@@ -1567,7 +1567,8 @@ function renderStudentHome(sid){
     } else {
       const catIcon={phonics:'📘',vocab:'📝',grammar:'✏️',reading:'📖',listening:'🎧',writing:'✍️',naesin:'📋',book:'📗',class5:'🎮'};
       const icon=catIcon[a.category]||'📋';
-      body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">${icon} ${a.bookTitle||a.text||''}</div>`;
+      const KCK=['phonics','vocab','grammar','reading','listening','writing','naesin','book','class5','other'];
+      body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">${icon} ${a.bookTitle||a.text||((a.category&&!KCK.includes(a.category))?a.category:'')||'과제'}</div>`;
       if(a.range)body+=`<div style="font-size:12px;color:var(--slate);margin-top:3px">${a.range}</div>`;
     }
     const canCheck=a.type==='mission'?false:(!(a.type==='reading'&&a.requireRecording)||!!hw);
