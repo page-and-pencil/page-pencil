@@ -289,10 +289,32 @@ function renderStuAudio(b){
 function renderStudentLibrary(sid){
   const el=document.getElementById('st-library');if(!el)return;
 
-  // ── 교재 섹션 ──
+  // ── 수업 연동: 책별 마지막 수업일 + 직전 수업(교재·원서 다룬 것) ──
+  const _n=x=>String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+  const _lastLesForBook={};
+  DB.less().forEach(l=>{
+    if(l.sid!==sid)return;
+    Object.values(l.materials||{}).forEach(v=>{
+      if(v&&v.book){const k=_n(v.book);if(!_lastLesForBook[k]||(l.date||'')>_lastLesForBook[k])_lastLesForBook[k]=l.date||'';}
+    });
+  });
+  const lastLes=DB.less().find(l=>{
+    if(l.sid!==sid)return false;
+    return Object.entries(l.materials||{}).some(([k,v])=>{
+      const bk=k.replace(/_\d+$/,'');
+      return v&&v.book&&bk!=='pencil_down'&&bk!=='sing_together';
+    });
+  });
+  const _recentSet=new Set(); // '책|단원' — 직전 수업에서 다룬 단원 배지용
+  if(lastLes)Object.entries(lastLes.materials||{}).forEach(([k,v])=>{
+    if(v&&v.book&&v.unit)String(v.unit).split(',').forEach(seg=>{if(seg.trim())_recentSet.add(_n(v.book)+'|'+_n(seg));});
+  });
+
+  // ── 교재 섹션 (최근 수업에 쓴 책부터) ──
   const myCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.srcType==='textbook'&&c.srcId);
   const tbIdSet=new Set(myCards.map(c=>c.srcId));
-  const myTbooks=(_cache.globalTextbooks||[]).filter(b=>tbIdSet.has(b.id)&&(b.unitTexts&&Object.keys(b.unitTexts).some(u=>b.unitTexts[u]))).sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+  const myTbooks=(_cache.globalTextbooks||[]).filter(b=>tbIdSet.has(b.id)&&(b.unitTexts&&Object.keys(b.unitTexts).some(u=>b.unitTexts[u])))
+    .sort((a,b)=>((_lastLesForBook[_n(b.title)]||'').localeCompare(_lastLesForBook[_n(a.title)]||''))||(a.title||'').localeCompare(b.title||''));
 
   const tbookHtml=myTbooks.length?myTbooks.map(tb=>{
     const myUnits=tbSortUnitNames(tb,[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))]); // 교재의 단원 순서(unitOrder) 반영
@@ -303,7 +325,7 @@ function renderStudentLibrary(sid){
       const hasLink=!!(tb.unitLinks?.[u]);
       return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:11px;font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:11px;font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_recentSet.has(_n(tb.title)+'|'+_n(u))?` <span style="font-size:9.5px;font-weight:700;background:var(--tl);color:#0B8DAE;padding:2px 7px;border-radius:9px;vertical-align:1px">🔄 지난 수업</span>`:''}</div>
           <div style="font-size:11px;color:var(--slate);margin-top:2px">단어 ${wCnt}개</div>
         </div>
         <div style="display:flex;gap:5px;flex-shrink:0">
@@ -390,12 +412,57 @@ function renderStudentLibrary(sid){
     </div>`).join('')}
   </div>`:'';
 
-  const noContent=!myTbooks.length&&!hasLib;
+  // ── 지난 수업 복습 히어로: 직전 수업에서 다룬 것을 바로 낭독·듣기로 ──
+  let reviewHero='';
+  if(lastLes){
+    const items=[];
+    Object.entries(lastLes.materials||{}).forEach(([k,v])=>{
+      if(!v||!v.book)return;
+      const bk=k.replace(/_\d+$/,'');
+      if(bk==='pencil_down'||bk==='sing_together')return;
+      const isBook=k==='_book'||k.startsWith('_book_');
+      if(isBook){
+        const b=(_cache.library||[]).find(x=>_n(x.title)===_n(v.book));
+        items.push({label:'원서',title:v.book,unit:v.unit||'',btns:(b&&bookListenable(b))?`<button class="btn bt bsm" onclick="openBookListen('${escAttr(b.id)}')">🎧 듣기</button>`:''});
+      }else{
+        const g=(_cache.globalTextbooks||[]).find(x=>x.title===v.book)||(_cache.globalTextbooks||[]).find(x=>_n(x.title)===_n(v.book));
+        let btns='';
+        if(g){
+          const keys=[...new Set([...Object.keys(g.unitTexts||{}),...Object.keys(g.unitAudio||{})])];
+          let uk='';
+          for(const seg of String(v.unit||'').split(',').map(x=>x.trim()).filter(Boolean)){
+            const hit=keys.find(u=>_n(u)===_n(seg));if(hit){uk=hit;break;}
+          }
+          if(uk&&g.unitTexts?.[uk])btns=`<button class="btn bt bsm" onclick="openUnitReview('${g.id}','${uk.replace(/'/g,"\\'")}')">📖 복습</button>`;
+          else if(uk&&g.unitAudio?.[uk])btns=`<button class="btn ba bsm" onclick="openUnitRead('${g.id}','${uk.replace(/'/g,"\\'")}')">🎧 듣기</button>`;
+        }
+        items.push({label:(typeof SLBL!=='undefined'?SLBL[bk]:'')||'교재',title:v.book,unit:v.unit||'',btns});
+      }
+    });
+    if(items.length){
+      reviewHero=`<div style="background:var(--tl);border:1.5px solid var(--teal);border-radius:14px;padding:14px 16px;margin-bottom:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+          <span style="font-size:13.5px;font-weight:800;color:var(--navy)">🔄 지난 수업 복습</span>
+          <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${lastLes.date||''}</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--slate);margin-bottom:6px">지난 시간에 배운 것부터 다시 만나 보세요!</div>
+        ${items.map(it=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(12,164,201,.15)">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;color:var(--navy)"><span style="font-size:10px;font-weight:700;color:#0B8DAE;margin-right:5px">${it.label}</span><b>${it.title}</b></div>
+            ${it.unit?`<div style="font-size:11px;color:var(--slate);margin-top:1px">${it.unit}</div>`:''}
+          </div>
+          <div style="flex-shrink:0">${it.btns||'<span style="font-size:10.5px;color:var(--slate)">자료 준비 중</span>'}</div>
+        </div>`).join('')}
+      </div>`;
+    }
+  }
+  const noContent=!myTbooks.length&&!hasLib&&!reviewHero;
   el.innerHTML=noContent?`<div class="empty boxed" style="margin:16px">
     <div style="font-size:36px;margin-bottom:10px">📖</div>
     <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">복습 자료가 없습니다</div>
     <div style="font-size:12px;color:var(--slate)">교재 단원 원문이나 원서가 등록되면 여기에 보입니다</div>
   </div>`:`<div style="padding:1.25rem">
+    ${reviewHero}
     ${myTbooks.length?`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">📚 교재 원문 복습</div>${tbookHtml}`:''}
     ${hasLib?`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-top:${myTbooks.length?20:0}px;margin-bottom:10px${myTbooks.length?';padding-top:16px;border-top:1px solid var(--border)':''}">🎧 원서 듣기</div>${libHtml}${tbRdHtml}`:''}
   </div>`;
