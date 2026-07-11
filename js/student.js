@@ -188,6 +188,13 @@ async function markHwChecked(hwId,sid){
   loadStuPanel(sid);
   toast('확인 완료'+(hw.aiScore?' ✓ AI 평가 완료':''));
 }
+async function unmarkHwChecked(hwId,sid){
+  const hw=(_cache.homeworks||[]).find(h=>h.id===hwId);if(!hw||!hw.checked)return;
+  hw.checked=false;
+  await supaUpsert('homeworks',hwId,hw,sid);
+  loadStuPanel(sid);
+  toast('미확인으로 되돌렸습니다');
+}
 
 // ── COPY LAST LESSON ──
 async function copyLastLesson(){
@@ -1246,6 +1253,16 @@ async function completeAssignment(sid,asgnId){
   }
 }
 
+async function uncompleteAssignment(sid,asgnId){
+  const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a||!a.completedAt)return;
+  askConfirm('완료 취소','이 과제의 완료 표시를 취소할까요?\n(실수로 체크했을 때 되돌리는 기능이에요)','되돌리기','bd',async()=>{
+    delete a.completedAt;
+    await supaUpsert('assignments',asgnId,a,sid);
+    renderStudentHome(sid);
+    toast('완료 표시를 취소했습니다');
+  });
+}
+
 // ── STUDENT HOME TAB ──
 let homeAsgnAudioBlob=null,homeAsgnCurrentId='';
 function showStatDetail(sid,type){
@@ -1574,7 +1591,7 @@ function renderStudentHome(sid){
     const canCheck=a.type==='mission'?false:(!(a.type==='reading'&&a.requireRecording)||!!hw);
     return `<div class="hw-check-card${isDone?' done':''}" id="hw-card-${a.id}">
       <div style="display:flex;gap:12px;align-items:flex-start">
-        <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone||!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')'}" title="${!canCheck?(a.type==='mission'?'미션을 모두 완료하면 자동으로 체크됩니다':'녹음 제출 후 완료 가능'):'완료 처리'}">${isDone?'✓':''}</div>
+        <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone?'uncompleteAssignment(\''+sid+'\',\''+a.id+'\')':(!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')')}" title="${isDone?'클릭: 완료 취소':(!canCheck?(a.type==='mission'?'미션을 모두 완료하면 자동으로 체크됩니다':'녹음 제출 후 완료 가능'):'완료 처리')}">${isDone?'✓':''}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
             <span style="font-size:10px;color:var(--slate);font-family:var(--fm)">${a.date||''}</span>

@@ -983,6 +983,15 @@ function openPrintReport(sid){
   if(inp)inp.value=new Date().toISOString().slice(0,7);
   openM('m-print-report');
 }
+function teacherUncompleteAssign(aid,sid){
+  askConfirm('완료 취소','이 과제의 완료 표시를 취소할까요?\n학생 앱에서도 미완료 상태로 되돌아갑니다.','되돌리기','bd',async()=>{
+    const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
+    delete a.completedAt;
+    await supaUpsert('assignments',aid,a,sid);
+    loadStuPanel(sid);
+    toast('완료 표시를 취소했습니다');
+  });
+}
 async function loadStuPanel(sid){
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
   if(!(_cache.vocab_cards||[]).some(c=>c.sid===sid)){
@@ -1150,7 +1159,7 @@ async function loadStuPanel(sid){
             }</div>
           </div>
           <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-            ${completed?`<span class="hw-status-badge" style="background:#dcfce7;color:#166534">✓ 완료</span>`:''}
+            ${completed?`<span class="hw-status-badge" style="background:#dcfce7;color:#166534;cursor:pointer" title="클릭: 완료 취소" onclick="teacherUncompleteAssign('${a.id}','${sid}')">✓ 완료</span>`:''}
             ${a.requireRecording&&submitted?`<span class="hw-status-badge checked">제출완료</span>`:''}
             <button class="btn bo bsm" style="font-size:10px;padding:2px 6px" onclick="toggleAssignEdit('${a.id}','${sid}')">수정</button>
             <button class="btn bd bsm" style="font-size:10px;padding:2px 6px" onclick="deleteStudentAssign('${a.id}','${sid}')">삭제</button>
@@ -1158,7 +1167,7 @@ async function loadStuPanel(sid){
         </div>
         ${submitted&&hw.audioUrl?`<audio controls src="${hw.audioUrl}" style="width:100%;height:26px;margin-top:6px"></audio>`:''}
         ${submitted&&hw.aiScore?`<div style="font-size:11px;color:#0B8DAE;background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:4px">🤖 AI 평가: ${hw.aiScore}</div>`:''}
-        ${submitted&&!hw.checked?`<button class="btn ba bsm" style="font-size:10px;margin-top:4px" onclick="markHwChecked('${hw.id}','${sid}')">확인 완료</button>`:''}
+        ${submitted?(!hw.checked?`<button class="btn ba bsm" style="font-size:10px;margin-top:4px" onclick="markHwChecked('${hw.id}','${sid}')">확인 완료</button>`:`<span class="hw-status-badge checked" style="cursor:pointer;margin-top:4px;display:inline-block" title="클릭: 미확인으로 되돌리기" onclick="unmarkHwChecked('${hw.id}','${sid}')">✓ 확인됨</span>`):''}
       </div>`;
     }).join('')}
   </div>`:''}
@@ -1169,7 +1178,7 @@ async function loadStuPanel(sid){
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
         <span style="font-size:11px;font-family:var(--fm);color:var(--slate)">${h.date||''}</span>
         <div style="display:flex;gap:4px;align-items:center">
-          <span class="hw-status-badge ${h.checked?'checked':'pending'}">${h.checked?'✓ 확인됨':'미확인'}</span>
+          <span class="hw-status-badge ${h.checked?'checked':'pending'}"${h.checked?` style="cursor:pointer" title="클릭: 미확인으로 되돌리기" onclick="unmarkHwChecked('${h.id}','${sid}')"`:''}>${h.checked?'✓ 확인됨':'미확인'}</span>
           ${!h.checked?`<button class="btn ba bsm" style="font-size:10px;padding:2px 6px" onclick="markHwChecked('${h.id}','${sid}')">확인</button>`:''}
         </div>
       </div>
