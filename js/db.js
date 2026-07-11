@@ -265,9 +265,53 @@ async function supaSetSetting(key,value){
   }
 }
 
-// ── 전체 데이터 로드 (앱 시작 시) ──
-async function loadAllData(){
-  showLoading(true);
+// ── 로컬 스냅샷(IndexedDB): 다음 방문은 즉시 부팅, 뒤에서 최신화 ──
+function _idbOpen(){return new Promise((res,rej)=>{const rq=indexedDB.open('pp_cache',1);rq.onupgradeneeded=()=>rq.result.createObjectStore('kv');rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error);});}
+async function idbGet(k){try{const db=await _idbOpen();return await new Promise((res,rej)=>{const g=db.transaction('kv').objectStore('kv').get(k);g.onsuccess=()=>res(g.result);g.onerror=()=>rej(g.error);});}catch(e){return null;}}
+async function idbSet(k,v){try{const db=await _idbOpen();await new Promise((res,rej)=>{const p=db.transaction('kv','readwrite').objectStore('kv').put(v,k);p.onsuccess=()=>res();p.onerror=()=>rej(p.error);});}catch(e){}}
+let _bgRefreshing=false;
+async function loadAllDataFast(){
+  if(_cache.students.length)return;
+  try{
+    const snap=await idbGet('pp_cache_v1');
+    if(snap&&snap.cache&&Array.isArray(snap.cache.students)&&snap.cache.students.length){
+      Object.assign(_cache,snap.cache);
+      if(!_bgRefreshing){
+        _bgRefreshing=true;
+        loadAllData(true).then(()=>{_bgRefreshing=false;_afterBgRefresh();}).catch(()=>{_bgRefreshing=false;});
+      }
+      return;
+    }
+  }catch(e){}
+  await loadAllData();
+}
+// 백그라운드 최신화 후: 사용 중(모달·입력)이 아니면 현재 화면만 조용히 갱신
+function _afterBgRefresh(){
+  try{
+    const modalOpen=[...document.querySelectorAll('.mo')].some(m=>m.classList.contains('open')&&m.style.display!=='none');
+    const typing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||'');
+    if(modalOpen||typing)return;
+    if(document.getElementById('s-teacher')?.classList.contains('active')){
+      if(typeof renderStus==='function')renderStus();
+      if(typeof populateSels==='function')populateSels();
+      if(typeof renderDash==='function')renderDash();
+      if(typeof renderLes==='function')renderLes();
+      if(typeof renderTst==='function')renderTst();
+      if(typeof renderRd==='function')renderRd();
+      if(typeof renderLog==='function')renderLog();
+    }else if(document.getElementById('s-student')?.classList.contains('active')&&typeof currentStudentSid!=='undefined'&&currentStudentSid){
+      const p=document.querySelector('#s-student .panel.active');
+      if(p&&p.id==='st-home'&&typeof renderStudentHome==='function')renderStudentHome(currentStudentSid);
+      else if(p&&p.id==='st-library'&&typeof renderStudentLibrary==='function')renderStudentLibrary(currentStudentSid);
+    }else if(document.getElementById('s-parent')?.classList.contains('active')&&typeof currentParentSid!=='undefined'&&currentParentSid&&typeof loadParent==='function'){
+      loadParent(currentParentSid);
+    }
+  }catch(e){console.warn('bg refresh render:',e);}
+}
+
+// ── 전체 데이터 로드 (앱 시작 시 / bg=true면 조용히 백그라운드 갱신) ──
+async function loadAllData(bg){
+  if(!bg)showLoading(true);
   try{
     // 테이블별 독립 로드: 한 테이블이 404(미생성)여도 나머지는 정상 로드
     // 'library' 테이블은 레거시(원서는 global_textbooks의 type='library'로 통합) — 더 이상 로드하지 않음
@@ -315,8 +359,11 @@ async function loadAllData(){
     if(cloud){_cache.settings.cloud=cloud;DB.s('cloud',cloud);}
     else{const lc=DB.g('cloud');if(lc&&lc.name){_cache.settings.cloud=lc;supaSetSetting('cloud',lc).catch(()=>{});}else{_cache.settings.cloud=DEFAULT_CLD;DB.s('cloud',DEFAULT_CLD);await supaSetSetting('cloud',DEFAULT_CLD);}}
     try{const cc=await supaGetSetting('cmtChips');if(cc){_cache.settings.cmtChips=cc;DB.s('cmtChips',cc);}else{const lcc=DB.g('cmtChips');if(lcc)_cache.settings.cmtChips=lcc;}}catch(e){const lcc=DB.g('cmtChips');if(lcc)_cache.settings.cmtChips=lcc;}
+    // 다음 방문 즉시 부팅용 스냅샷
+    try{const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v1',{at:Date.now(),cache:snap});}catch(e){}
   }catch(e){
     console.error('loadAllData:',e);
+    if(bg)return; // 백그라운드 갱신 실패는 조용히 (스냅샷 데이터로 계속 사용)
     const currentScreen=document.querySelector('.screen.active')?.id;
     if(['s-land','s-stupin','s-pin'].includes(currentScreen))return;
     const retryDiv=document.createElement('div');
@@ -327,7 +374,7 @@ async function loadAllData(){
       <button class="btn bt" onclick="location.reload()" style="padding:12px 28px;border-radius:50px;width:100%">다시 시도</button>`;
     document.body.appendChild(retryDiv);
   }finally{
-    showLoading(false);
+    if(!bg)showLoading(false);
   }
   populateDataLists();
   updateTbookDatalist();

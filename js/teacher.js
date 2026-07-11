@@ -49,7 +49,7 @@ async function checkPin(nameId='pin-name',codeId='pin-code',errId='pin-err'){
   if(!name){setErr('아이 이름을 입력해 주세요');return;}
   if(!_cache.students.length){
     setErr('');
-    try{await loadAllData();}catch(e){}
+    try{await loadAllDataFast();}catch(e){}
   }
   const s=DB.stus().find(x=>x.name===name);
   if(!s){setErr('등록된 학생을 찾을 수 없습니다');return;}
@@ -253,7 +253,8 @@ function swTab(id){
 
 // ── INIT ──
 async function initApp(){
-  await loadAllData();
+  ensureXLSX().catch(()=>{});ensureJSZip().catch(()=>{}); // 선생님 파서 미리 로드
+  await loadAllDataFast();
   subscribeRealtime();
   renderStus();populateSels();populateFilterSels();
   setTimeout(autoSelectFirstStu,0);
@@ -3057,6 +3058,7 @@ async function elibAutoFill(){
   }catch(e){toast('AI 생성 실패');}
 }
 function elibImportFile(e){
+  if(typeof XLSX==='undefined'){ensureXLSX();toast('파일 파서 준비 중... 잠시 후 다시 시도해 주세요');return;}
   const file=e.target.files[0];if(!file)return;
   const id=document.getElementById('elib-id').value;
   const ext=file.name.split('.').pop().toLowerCase();
@@ -4053,6 +4055,7 @@ ${truncated}`}]});
 }
 // 어떤 파일이든 AI가 단원 구분 + 단어 추출 (로컬 폴백 포함)
 async function tuImportAny(e){
+  try{await ensureXLSX();await ensureJSZip();}catch(err){}
   const file=e.target.files[0];if(!file)return;
   e.target.value='';
   const tbId=document.getElementById('tu-tb-id').value;
@@ -4267,6 +4270,7 @@ async function tuAutoFill(){
   }catch(e){toast('AI 생성 실패');}
 }
 function tuImportFile(e){
+  if(typeof XLSX==='undefined'){ensureXLSX();toast('파일 파서 준비 중... 잠시 후 다시 시도해 주세요');return;}
   const file=e.target.files[0];if(!file)return;
   const tbId=document.getElementById('tu-tb-id').value;
   if(!_tuCurUnit)return toast('단원을 먼저 선택하거나 생성하세요');
@@ -5918,6 +5922,7 @@ function normPos(raw){
 
 // 단어 DB CSV 가져오기 → 교재/원서 자동 연동 (없으면 자동 생성, 있으면 메타 업데이트)
 async function wdbImportCSV(e){
+  try{await ensureXLSX();}catch(err){}
   const file=e.target.files[0];if(!file)return;
   e.target.value='';
   let rows=[];
@@ -6361,6 +6366,7 @@ function exportTbookCSV(){
   toast(`${books.length}권 CSV 다운로드 완료`);
 }
 async function importTbookCSV(e){
+  try{await ensureXLSX();}catch(err){}
   const file=e.target.files[0];if(!file)return;
   const isXlsx=/\.(xlsx|xls)$/i.test(file.name);
   const reader=new FileReader();

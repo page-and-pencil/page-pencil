@@ -96,7 +96,7 @@ let vocabSessionSize=0;
 async function goStudentPin(){
   const sess=loadSession();
   if(sess?.role==='student'){
-    if(!_cache.students.length)await loadAllData();
+    if(!_cache.students.length)await loadAllDataFast();
     const s=_cache.students.find(x=>x.id===sess.sid&&!x.inactive);
     if(s){await loginStudent(s);return;}
     clearSession();
@@ -124,7 +124,7 @@ async function checkStudentPin(){
   const pin=pinInput.join('');
   const err=document.getElementById('stupin-err');
   if(pin.length<4)return;
-  if(!_cache.students.length)await loadAllData();
+  if(!_cache.students.length)await loadAllDataFast();
   const matches=_cache.students.filter(s=>s.pin===pin&&!s.inactive);
   if(!matches.length){
     const dotsEl=document.getElementById('pin-dots');
