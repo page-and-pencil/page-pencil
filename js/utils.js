@@ -360,25 +360,60 @@ function tbSortUnitNames(tb,names){
 }
 
 
-// ── 홈 화면 설치 안내 (모바일 브라우저에서 1회, 설치된 앱에서는 안 뜸) ──
+// ── PWA 설치: 안드로이드 원탭 + iOS 단계 가이드 ──
+let _pwaPrompt=null;
+if('serviceWorker' in navigator){try{navigator.serviceWorker.register('sw.js').catch(()=>{});}catch(e){}}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();_pwaPrompt=e;});
+function _isStandalone(){return window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;}
+function openInstallGuide(){
+  if(_isStandalone()){if(typeof toast==='function')toast('이미 앱으로 실행 중이에요 \uD83C\uDF89');return;}
+  if(_pwaPrompt){ // 안드로이드/크롬: 시스템 설치 창 바로 띄우기 (원탭)
+    _pwaPrompt.prompt();
+    _pwaPrompt.userChoice.finally(()=>{_pwaPrompt=null;});
+    return;
+  }
+  const isIOS=/iphone|ipad/i.test(navigator.userAgent);
+  const old=document.getElementById('pp-install-sheet');if(old)old.remove();
+  const wrap=document.createElement('div');
+  wrap.id='pp-install-sheet';
+  wrap.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(15,48,74,.45);display:flex;align-items:flex-end;justify-content:center';
+  const step=(n,ico,txt)=>`<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid rgba(15,48,74,.07)">
+    <span style="width:26px;height:26px;border-radius:50%;background:#0CA4C9;color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${n}</span>
+    <span style="font-size:22px;flex-shrink:0">${ico}</span>
+    <span style="font-size:13.5px;line-height:1.55;color:#0F304A">${txt}</span></div>`;
+  const steps=isIOS
+    ?step(1,'\u2B06\uFE0F','화면 아래 <b>공유 버튼</b>을 눌러요<br><span style="font-size:11px;color:#5A6B7B">(사파리 하단 가운데, 네모에 화살표)</span>')
+     +step(2,'\u2795','메뉴에서 <b>홈 화면에 추가</b>를 찾아 눌러요')
+     +step(3,'\u2705','오른쪽 위 <b>추가</b>를 누르면 끝!')
+    :step(1,'\u22EE','브라우저 오른쪽 위 <b>메뉴(⋮)</b>를 눌러요')
+     +step(2,'\uD83D\uDCF2','<b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 눌러요')
+     +step(3,'\u2705','<b>설치</b>를 누르면 끝!');
+  wrap.innerHTML=`<div style="background:#fff;border-radius:20px 20px 0 0;padding:20px 20px calc(18px + env(safe-area-inset-bottom));max-width:440px;width:100%;font-family:var(--fb)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <img src="icons/icon-192.png?v=2" style="width:44px;height:44px;border-radius:12px;border:1px solid rgba(15,48,74,.1)">
+      <div><div style="font-size:15px;font-weight:800;color:#0F304A">홈 화면에 앱으로 추가</div>
+      <div style="font-size:11.5px;color:#5A6B7B">한 번만 추가하면 아이콘으로 바로 열려요</div></div>
+    </div>
+    ${steps}
+    <button onclick="document.getElementById('pp-install-sheet').remove()" style="width:100%;margin-top:14px;padding:13px;border:none;border-radius:12px;background:#0F304A;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--fb)">확인했어요</button>
+  </div>`;
+  wrap.addEventListener('click',e=>{if(e.target===wrap)wrap.remove();});
+  document.body.appendChild(wrap);
+}
+// 모바일 브라우저 첫 방문 시 1회 안내 바
 window.addEventListener('load',()=>{
   try{
-    if(window.matchMedia('(display-mode: standalone)').matches||navigator.standalone)return;
+    if(_isStandalone())return;
     if(localStorage.getItem('pp_pwa_hint'))return;
-    const ua=navigator.userAgent;
-    if(!/iphone|ipad|android/i.test(ua))return;
-    const isIOS=/iphone|ipad/i.test(ua);
+    if(!/iphone|ipad|android/i.test(navigator.userAgent))return;
     const bar=document.createElement('div');
-    bar.style.cssText='position:fixed;left:10px;right:10px;bottom:12px;z-index:9998;background:#0F304A;color:#fff;border-radius:14px;padding:12px 14px;font-size:12.5px;line-height:1.6;box-shadow:0 6px 20px rgba(0,0,0,.25);display:flex;gap:10px;align-items:flex-start;font-family:var(--fb)';
-    bar.innerHTML=`<span style="font-size:20px">\uD83D\uDCF2</span><div style="flex:1">홈 화면에 추가하면 앱처럼 쓸 수 있어요!<br><b>${isIOS?'공유 버튼(&#x2191;) → 홈 화면에 추가':'브라우저 메뉴(⋮) → 앱 설치 / 홈 화면에 추가'}</b></div><button style="border:none;background:none;color:#9FC9D8;font-size:16px;cursor:pointer;padding:0 2px;flex-shrink:0">✕</button>`;
-    bar.querySelector('button').onclick=()=>{localStorage.setItem('pp_pwa_hint','1');bar.remove();};
+    bar.style.cssText='position:fixed;left:10px;right:10px;bottom:12px;z-index:9998;background:#0F304A;color:#fff;border-radius:14px;padding:11px 13px;font-size:12.5px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.25);display:flex;gap:10px;align-items:center;font-family:var(--fb)';
+    bar.innerHTML=`<span style="font-size:19px">\uD83D\uDCF2</span><span style="flex:1">홈 화면에 추가하면 앱처럼 쓸 수 있어요</span>
+      <button id="pp-inst-go" style="border:none;border-radius:9px;background:#0CA4C9;color:#fff;font-size:12px;font-weight:700;padding:7px 12px;cursor:pointer;font-family:var(--fb);flex-shrink:0">추가하기</button>
+      <button id="pp-inst-x" style="border:none;background:none;color:#9FC9D8;font-size:15px;cursor:pointer;padding:0 2px;flex-shrink:0">✕</button>`;
+    bar.querySelector('#pp-inst-go').onclick=()=>{localStorage.setItem('pp_pwa_hint','1');bar.remove();openInstallGuide();};
+    bar.querySelector('#pp-inst-x').onclick=()=>{localStorage.setItem('pp_pwa_hint','1');bar.remove();};
     document.body.appendChild(bar);
-    setTimeout(()=>{if(bar.parentNode){localStorage.setItem('pp_pwa_hint','1');bar.remove();}},12000);
+    setTimeout(()=>{if(bar.parentNode){localStorage.setItem('pp_pwa_hint','1');bar.remove();}},15000);
   }catch(e){}
 });
-
-
-// ── 무거운 파서 지연 로드 (선생님 임포트 전용 — 학생·학부모 초기 로드에서 제외) ──
-function loadScriptOnce(src){return new Promise((res,rej)=>{const ex=document.querySelector('script[src="'+src+'"]');if(ex){if(ex.dataset.loaded)return res();ex.addEventListener('load',res);ex.addEventListener('error',rej);return;}const s=document.createElement('script');s.src=src;s.onload=()=>{s.dataset.loaded='1';res();};s.onerror=()=>rej(new Error('로드 실패: '+src));document.head.appendChild(s);});}
-function ensureXLSX(){return typeof XLSX==='undefined'?loadScriptOnce('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'):Promise.resolve();}
-function ensureJSZip(){return typeof JSZip==='undefined'?loadScriptOnce('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'):Promise.resolve();}
