@@ -619,7 +619,7 @@ async function toggleRdlogRead(logId,sid){
     const vocabWords=(libBook?.vocab||[]).filter(w=>w.word).map(w=>({...w,srcId:libBook?.id||'',srcType:'library',srcTitle:tb.title}));
     if(vocabWords.length){
       toast(`완독! 단어 ${vocabWords.length}개를 단어장에 추가 중...`);
-      await syncVocabCards(sid,vocabWords,[],doneDate,'원서완독');
+      await syncVocabCards(sid,vocabWords,[],doneDate,'원서완독','expose');
       renderSpVocab(sid);
       toast(`✓ ${tb.title} 완독 — ${vocabWords.length}개 단어가 단어장에 추가됐습니다`);
     }else{toast('완독 처리됐습니다');}
@@ -794,7 +794,7 @@ async function saveManualVocabCard(sid){
   if(!word){toast('영단어를 입력해 주세요');return;}
   const existing=(_cache.vocab_cards||[]).find(c=>c.sid===sid&&(c.word||'').toLowerCase()===word.toLowerCase());
   if(existing){toast('이미 단어장에 있는 단어입니다');return;}
-  await syncVocabCards(sid,[{word,ko:meaning,example}],[],new Date().toISOString().split('T')[0],'직접추가');
+  await syncVocabCards(sid,[{word,ko:meaning,example}],[],new Date().toISOString().split('T')[0],'직접추가','expose');
   document.getElementById('vadd-word').value='';
   document.getElementById('vadd-meaning').value='';
   document.getElementById('vadd-example').value='';
@@ -2201,7 +2201,7 @@ async function saveFuAssign(sid,date){
     a.range=document.getElementById('fu-arange')?.value.trim()||'';
   } else if(type==='vocab'){
     a.words=(document.getElementById('fu-awords')?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
-    if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제');
+    if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제','expose');
   } else {
     a.text=document.getElementById('fu-atext')?.value.trim()||'';
   }
@@ -4485,7 +4485,7 @@ async function addUnitWordsToVocab(sid,materials,date){
     });
     if(!matchKey)continue;
     const words=tuNormWords(tb.units[matchKey]).map(w=>({...(w&&typeof w==='object'?w:{word:String(w)}),srcId:tb.id,srcType:'textbook',srcUnit:matchKey}));
-    if(words?.length)await syncVocabCards(sid,words,[],date,mat.book||'수업');
+    if(words?.length)await syncVocabCards(sid,words,[],date,mat.book||'수업','expose');
   }
 }
 function updateTbookDatalist(){
@@ -6666,7 +6666,7 @@ async function confirmVocabReview(){
   if(!selected.length){toast('추가할 단어가 없습니다');return;}
   closeM('m-vocab-review');
   const entries=selected.map(e=>({word:e.word,ko:e.ko,pos:e.pos,example:e.example}));
-  await syncVocabCards(sid,entries,[],date,bookTitle||'리딩로그');
+  await syncVocabCards(sid,entries,[],date,bookTitle||'리딩로그','expose');
   _vocabReviewData=null;
   renderSpRdlog(sid);renderSpVocab(sid);
   toast(`${selected.length}개 단어가 단어장에 추가되었습니다`);
@@ -8994,7 +8994,7 @@ async function saveModalAssignment(){
       if(unitMissions.includes('vocab')){
         const ws=tuNormWords(tb.units?.[unitKey]||[]).filter(w=>w.word);
         const words=ws.map(w=>({word:w.word,ko:w.ko||'',pos:w.pos||'',example:w.example||'',srcId:tbId,srcType:'textbook',srcUnit:unitKey}));
-        if(words.length)await syncVocabCards(sid,words,[],date,'미션');
+        if(words.length)await syncVocabCards(sid,words,[],date,'미션','expose');
       }
       await supaUpsert('assignments',a.id,a,sid);
       if(!_cache.assignments)_cache.assignments=[];
@@ -9022,7 +9022,7 @@ async function saveModalAssignment(){
     const checked=[...document.querySelectorAll('.modal-vocab-check:checked')].map(c=>c.value);
     const extra=(document.getElementById('modal-vocab-extra')?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
     a.words=[...new Set([...checked,...extra])];
-    if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제');
+    if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제','expose');
   }
   if(!book&&!range&&!note&&type!=='vocab'){toast('교재/원서, 범위 또는 메모를 입력해 주세요');return;}
   await supaUpsert('assignments',a.id,a,sid);
@@ -9300,7 +9300,7 @@ async function saveRdEntries(sid){
     count++;
   }
   if(allVocab.length){
-    await syncVocabCards(sid,allVocab,[],today,'원서완료');
+    await syncVocabCards(sid,allVocab,[],today,'원서완료','expose');
     renderSpVocab(sid);
   }
   _spRdQueue=[];if(btn){btn.disabled=false;}
@@ -9335,7 +9335,7 @@ async function importRdCsv(e,sid){
         if(!_cache.textbooks)_cache.textbooks=[];_cache.textbooks.push(entry);
         if(book.vocab?.length){
           const words=book.vocab.filter(w=>w.word).map(w=>({...w,srcId:book.id,srcType:'library',srcTitle:book.title}));
-          await syncVocabCards(sid,words,[],date,'원서완료');
+          await syncVocabCards(sid,words,[],date,'원서완료','expose');
         }
         added++;
       }
@@ -9453,7 +9453,7 @@ async function confirmTbDone(){
     const vocabWords=(book?.vocab||[]).filter(w=>w.word).map(w=>({...w,srcId:book?.id||tb.bookId,srcType:'library',srcTitle:tb.title}));
     if(vocabWords.length){
       toast(`원서 완료! 단어 ${vocabWords.length}개를 단어장에 추가 중...`);
-      await syncVocabCards(sid,vocabWords,[],tb.completedDate,'원서완료');
+      await syncVocabCards(sid,vocabWords,[],tb.completedDate,'원서완료','expose');
       renderSpVocab(sid);
       toast(`✓ ${tb.title} 완료 — ${vocabWords.length}개 단어가 단어장에 추가됐습니다`);
     }else{toast('완료 처리됐습니다');}
@@ -9467,7 +9467,7 @@ async function confirmTbDone(){
       );
       if(allWords.length){
         toast(`교재 완료! 단어 ${allWords.length}개를 단어장에 추가 중...`);
-        await syncVocabCards(sid,allWords,[],tb.completedDate,'교재완료');
+        await syncVocabCards(sid,allWords,[],tb.completedDate,'교재완료','expose');
         renderSpVocab(sid);
         toast(`✓ ${tb.title} 완료 — ${allWords.length}개 단어가 단어장에 추가됐습니다`);
       }else{toast('완료 처리됐습니다 (교재 DB에 단어 미등록)');}
@@ -10379,7 +10379,7 @@ async function saveStudentAssign(sid){
     const checked=[...document.querySelectorAll('.asgn-vocab-chk:checked')].map(c=>c.value);
     const extra=(document.getElementById(`asgn-book-${sid}`)?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
     a.words=[...new Set([...checked,...extra])];
-    if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제');
+    if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제','expose');
   }
   if(!book&&!range&&type!=='vocab'){toast('교재/원서 또는 범위를 입력해 주세요');return;}
   const isDup=(_cache.assignments||[]).some(x=>x.sid===sid&&_tbBase(x.bookTitle||'')===_tbBase(book||'')&&(x.range||'')===range&&x.due===due);

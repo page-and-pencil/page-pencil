@@ -1396,7 +1396,7 @@ function renderVocabReview(sid){
       </div>`:''}
       <div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:11px">단어가 단단해지는 중 💪</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:13px">
-        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#F59E0B;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">방금 외움 · 곧 다시</span><span style="font-size:14px;font-weight:700;color:#B45309;font-family:var(--fd)">${fresh}</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#F59E0B;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">복습 대기 · 새 단어</span><span style="font-size:14px;font-weight:700;color:#B45309;font-family:var(--fd)">${fresh}</span></div>
         <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#0CA4C9;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">익숙해지는 중</span><span style="font-size:14px;font-weight:700;color:#0B8DAE;font-family:var(--fd)">${learning}</span></div>
         <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#10B981;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">완전히 내 단어</span><span style="font-size:14px;font-weight:700;color:#047857;font-family:var(--fd)">${mastered}</span></div>
       </div>

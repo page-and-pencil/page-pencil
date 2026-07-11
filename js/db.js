@@ -690,7 +690,8 @@ async function refreshVocabExamples(sid){
   }
   return updated;
 }
-async function syncVocabCards(sid,allWords,wrongWords,date,source=''){
+// mode: 'study'=시험·복습 결과(hits/misses 반영) / 'expose'=등록·노출만(학습 상태 불변, seen만 +1)
+async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study'){
   const stu=(_cache.students||[]).find(s=>s.id===sid);
   const grade=stu?.grade||stu?.lv||'';
   const existing=await supaFetchBySid('vocab_cards',sid);
@@ -701,7 +702,9 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source=''){
     const found=existing.find(c=>(c.word||'').toLowerCase()===wordText);
     const isWrong=wrongSet.has(wordText);
     if(found){
-      const updated={...found,hits:(found.hits||0)+(isWrong?0:1),misses:(found.misses||0)+(isWrong?1:0),lastSeen:date,due:isWrong?date:found.due};
+      const updated=mode==='expose'
+        ?{...found,seen:(found.seen||0)+1}
+        :{...found,hits:(found.hits||0)+(isWrong?0:1),misses:(found.misses||0)+(isWrong?1:0),lastSeen:date,due:isWrong?date:found.due};
       if(meta.ko&&!found.meaning)updated.meaning=meta.ko;
       if(meta.pos&&!found.pos)updated.pos=meta.pos;
       if(meta.example&&!found.example)updated.example=meta.example;
@@ -722,7 +725,7 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source=''){
         }).catch(()=>{});
       }
     }else{
-      const newCard={id:uid(),sid,word:wordText,meaning:meta.ko||'',pos:meta.pos||'',example:meta.example||'',exampleSrc:meta.example?'':'',hits:isWrong?0:1,misses:isWrong?1:0,phase:0,lastSeen:date,due:date,addedDate:date,source,srcId:meta.srcId||'',srcType:meta.srcType||'',srcUnit:meta.srcUnit||'',v2:meta.v2||'',v3:meta.v3||'',wlevel:getWordLevel(wordText).display};
+      const newCard={id:uid(),sid,word:wordText,meaning:meta.ko||'',pos:meta.pos||'',example:meta.example||'',exampleSrc:meta.example?'':'',hits:(mode==='expose'||isWrong)?0:1,misses:isWrong?1:0,phase:0,lastSeen:mode==='expose'?'':date,due:date,addedDate:date,seen:mode==='expose'?1:0,source,srcId:meta.srcId||'',srcType:meta.srcType||'',srcUnit:meta.srcUnit||'',v2:meta.v2||'',v3:meta.v3||'',wlevel:getWordLevel(wordText).display};
       await supaUpsert('vocab_cards',newCard.id,newCard,sid);
       if(!_cache.vocab_cards)_cache.vocab_cards=[];_cache.vocab_cards.push(newCard);
       if(!meta.ko||!newCard.example){
