@@ -419,14 +419,23 @@ window.addEventListener('load',()=>{
 });
 
 
-// ── 치명 오류 안전망: 조용히 빈 화면이 되는 대신 원인을 표시 ──
-window.addEventListener('error',e=>{
+// ── 치명 오류 안전망: 조용히 빈 화면이 되는 대신 원인을 표시 (동기+비동기 모두) ──
+function ppShowFatal(msg){
   try{
-    if(document.getElementById('pp-fatal'))return;
-    const bar=document.createElement('div');
-    bar.id='pp-fatal';
-    bar.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:99999;background:#7F1D1D;color:#fff;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5;font-family:monospace;word-break:break-all';
-    bar.innerHTML='⚠️ 화면 오류: '+String(e.message||'').slice(0,180)+' <span style="opacity:.7">('+String(e.filename||'').split('/').pop()+':'+(e.lineno||'')+')</span> — 이 문구를 캡처해서 보내주세요 <button onclick="this.parentNode.remove()" style="float:right;border:none;background:none;color:#FCA5A5;cursor:pointer">✕</button>';
-    document.body.appendChild(bar);
+    let bar=document.getElementById('pp-fatal');
+    if(!bar){
+      bar=document.createElement('div');
+      bar.id='pp-fatal';
+      bar.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:99999;background:#7F1D1D;color:#fff;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5;font-family:monospace;word-break:break-all';
+      bar.innerHTML='⚠️ 화면 오류 (캡처해서 보내주세요): <span id="pp-fatal-msg"></span> <button onclick="this.parentNode.remove()" style="float:right;border:none;background:none;color:#FCA5A5;cursor:pointer">✕</button>';
+      document.body.appendChild(bar);
+    }
+    const m=document.getElementById('pp-fatal-msg');
+    if(m)m.textContent=(m.textContent?m.textContent+' | ':'')+String(msg||'').slice(0,200);
   }catch(_){}
+}
+window.addEventListener('error',e=>{ppShowFatal((e.message||'')+' ('+String(e.filename||'').split('/').pop()+':'+(e.lineno||'')+')');});
+window.addEventListener('unhandledrejection',e=>{
+  const r=e&&e.reason;
+  ppShowFatal('async: '+String((r&&(r.stack||r.message))||r).split(/\r?\n/).slice(0,2).join(' '));
 });

@@ -255,12 +255,24 @@ function swTab(id){
 async function initApp(){
   ensureXLSX().catch(()=>{});ensureJSZip().catch(()=>{}); // 선생님 파서 미리 로드
   await loadAllDataFast();
-  subscribeRealtime();
-  renderStus();populateSels();populateFilterSels();
+  // 렌더 격리: 한 함수가 죽어도 나머지 화면은 그려지고, 죽은 함수는 배너로 보고
+  const _safe=(name,fn)=>{try{fn();}catch(e){console.error('initApp:'+name,e);if(typeof ppShowFatal==='function')ppShowFatal(name+': '+(e&&e.message||e));}};
+  _safe('subscribeRealtime',()=>subscribeRealtime());
+  _safe('renderStus',()=>renderStus());
+  _safe('populateSels',()=>populateSels());
+  _safe('populateFilterSels',()=>populateFilterSels());
   setTimeout(autoSelectFirstStu,0);
-  setToday();renderLes();renderTst();renderRd();renderLog();
-  populateLibSel();checkCldWarn();renderDash();renderCmtChips();
-  updateApiKeyStatusDot();updateKakaoStatusDot();
+  _safe('setToday',()=>setToday());
+  _safe('renderLes',()=>renderLes());
+  _safe('renderTst',()=>renderTst());
+  _safe('renderRd',()=>renderRd());
+  _safe('renderLog',()=>renderLog());
+  _safe('populateLibSel',()=>populateLibSel());
+  _safe('checkCldWarn',()=>checkCldWarn());
+  _safe('renderDash',()=>renderDash());
+  _safe('renderCmtChips',()=>renderCmtChips());
+  _safe('updateApiKeyStatusDot',()=>updateApiKeyStatusDot());
+  _safe('updateKakaoStatusDot',()=>updateKakaoStatusDot());
   const kk=DB.kakao();
   if(kk.phone){const ph=document.getElementById('cfg-kakao-phone');if(ph)ph.value=kk.phone;}
   if(kk.openchat){const oc=document.getElementById('cfg-kakao-openchat');if(oc)oc.value=kk.openchat;}
