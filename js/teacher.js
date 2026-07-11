@@ -7053,12 +7053,26 @@ function _saveCmtExample(raw,confirmed){
   ex.push({raw:raw.trim(),confirmed:confirmed.trim()});
   localStorage.setItem('pp_cmt_examples',JSON.stringify(ex.slice(-5)));
 }
+// 단원의 실제 단어(교재 DB 전사 데이터)를 코멘트 프롬프트 힌트로 — 정확 일치만(오매칭 방지)
+function _unitWordsHint(book,unit){
+  if(!book||!unit)return '';
+  const g=(_cache.globalTextbooks||[]).find(x=>x.title===book&&x.units);
+  if(!g)return '';
+  const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]/g,'');
+  const keys=Object.keys(g.units);
+  const words=[];
+  String(unit).split(',').map(x=>x.trim()).filter(Boolean).forEach(seg=>{
+    const k=keys.find(u=>norm(u)===norm(seg));
+    if(k)(g.units[k]||[]).forEach(w=>{if(w.word&&words.length<12)words.push(w.word);});
+  });
+  return words.length?` [이 단원에서 배운 단어: ${words.join(', ')}]`:'';
+}
 function _getMatsTextFromMaterials(mats){
   return Object.entries(mats||{}).map(([k,v])=>{
     if(!v.book)return '';
     const baseKey=k.replace(/_\d+$/,'');
     const label=(k==='_book'||k.startsWith('_book_'))?'원서':(SLBL[baseKey]||'');
-    return `${label} ${v.book}${v.unit?' '+v.unit:''}`.trim();
+    return `${label} ${v.book}${v.unit?' '+v.unit:''}${_unitWordsHint(v.book,v.unit)}`.trim();
   }).filter(Boolean).join(' / ');
 }
 async function polishCmt(raw,matsText=''){
@@ -7070,7 +7084,7 @@ async function polishCmt(raw,matsText=''){
     const examples=_getCmtExamples();
     const fewShot=examples.length?'\n\n[이전 승인된 코멘트 예시 — 이 말투와 형식을 참고하세요]\n'+examples.map(e=>`메모: "${e.raw}" → 코멘트: "${e.confirmed}"`).join('\n')+'\n':'\n';
     const matsLine=matsText?`\n오늘 수업에서 다룬 교재·원서 진도: ${matsText}`:'';
-    const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드와 진도 정보를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다. 학부모가 이 코멘트만 읽고도 "오늘 무엇을 얼마나 배웠고, 아이가 어떤 모습이었는지"를 구체적으로 알 수 있어야 합니다.\n\n작성 규칙:\n분량: 150~250자 (한국어 기준)\n어조(원장 톤앤매너): 합쇼체 위주의 담백하고 따뜻한 문장. 과장·호들갑 없이 아이의 구체적인 모습과 반응을 짚어 주세요("~하는 모습이 대견합니다", "기대 반 설렘 반 하는 모습"). 반복·노출·익숙해짐을 중시하는 교육관이 자연스럽게 배어나게 쓰되(암기보다 익숙해짐, 꾸준한 노출), 마무리는 "꾸준히 ~하겠습니다", "~하도록 돕겠습니다" 같은 지도 다짐으로 맺는 경우가 많습니다. 필요할 때만 "많이 칭찬해 주세요!", "지도 부탁드립니다" 같은 부드러운 협조 요청을 한 번 넣으세요. ":)" 같은 절제된 이모티콘은 아주 가끔만 허용.\n구조: 오늘 학습 내용(무엇을 어디까지) → 아이의 반응·태도 관찰 → 지도 방향·다짐, 자연스럽게 이어지는 한 단락\n진도 정보가 있으면 교재명·원서명·단원(진도)을 빠짐없이 자연스럽게 녹여 쓰세요. 원서는 완독/진행 중 등 진행 상태까지 전하고, 완독했다면 그 성취를 짚어 주세요.\n키워드가 짧아도 진도 정보를 활용해 학습 내용을 충실히 서술하세요. 단, 키워드와 진도에 없는 사실을 지어내지 마세요.\n\n[절대 금지]\n첫 단어로 주어(이름, "학생", "아이")를 쓰지 마세요. 반드시 서술어 또는 부사로 시작하세요.\n과장된 칭찬이나 부정적 표현 피하기. 마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.${fewShot}\n키워드: ${r}${matsLine}`;
+    const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드와 진도 정보를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다. 학부모가 이 코멘트만 읽고도 "오늘 무엇을 얼마나 배웠고, 아이가 어떤 모습이었는지"를 구체적으로 알 수 있어야 합니다.\n\n작성 규칙:\n분량: 150~250자 (한국어 기준)\n어조(원장 톤앤매너): 합쇼체 위주의 담백하고 따뜻한 문장. 과장·호들갑 없이 아이의 구체적인 모습과 반응을 짚어 주세요("~하는 모습이 대견합니다", "기대 반 설렘 반 하는 모습"). 반복·노출·익숙해짐을 중시하는 교육관이 자연스럽게 배어나게 쓰되(암기보다 익숙해짐, 꾸준한 노출), 마무리는 "꾸준히 ~하겠습니다", "~하도록 돕겠습니다" 같은 지도 다짐으로 맺는 경우가 많습니다. 필요할 때만 "많이 칭찬해 주세요!", "지도 부탁드립니다" 같은 부드러운 협조 요청을 한 번 넣으세요. ":)" 같은 절제된 이모티콘은 아주 가끔만 허용.\n구조: 오늘 학습 내용(무엇을 어디까지) → 아이의 반응·태도 관찰 → 지도 방향·다짐, 자연스럽게 이어지는 한 단락\n진도 정보가 있으면 교재명·원서명은 자연스럽게 녹여 쓰되, 단원명(Unit/Lesson 번호·제목)은 그대로 나열하지 마세요 — 단원명은 앱에 별도로 표시됩니다. 대신 그 단원에서 무엇을 배웠는지를 구체적으로 서술하세요: '[이 단원에서 배운 단어]'가 주어지면 그중 2~4개를 예로 들고, 파닉스면 다룬 음가, 리딩이면 지문 주제, 어법이면 문법 포인트를 짚으세요. 원서는 완독/진행 중 등 진행 상태까지 전하고, 완독했다면 그 성취를 짚어 주세요.\n키워드가 짧아도 진도 정보를 활용해 학습 내용을 충실히 서술하세요. 단, 키워드와 진도에 없는 사실을 지어내지 마세요.\n\n[절대 금지]\n첫 단어로 주어(이름, "학생", "아이")를 쓰지 마세요. 반드시 서술어 또는 부사로 시작하세요.\n과장된 칭찬이나 부정적 표현 피하기. 마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.${fewShot}\n키워드: ${r}${matsLine}`;
     const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:500,messages:[{role:'user',content:prompt}]});
     return d.content?.[0]?.text?.trim()||polishCmtLocal(r);
   }catch(e){

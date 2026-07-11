@@ -89,9 +89,10 @@ const DB={
 
   // 캐시에서 읽기
   stus(){return _cache.students;},
-  less(){return _cache.lessons;},
-  tsts(){return _cache.tests;},
-  rds(){return _cache.readings;},
+  // 날짜 내림차순 보장 — 로드가 updated_at 순이라 옛 기록을 수정하면 앞으로 튀는 문제 방지
+  less(){return _cache.lessons.sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
+  tsts(){return _cache.tests.sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
+  rds(){return _cache.readings.sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
   allRds(sid){
     const base=_cache.readings.filter(r=>r.sid===sid);
     const tbRds=(_cache.textbooks||[]).filter(t=>t.sid===sid&&t.type==='원서'&&t.completed).map(t=>({...t,date:t.completedDate||''}));
@@ -101,7 +102,7 @@ const DB={
     const seen=new Set(merged.map(r=>r.title).filter(Boolean));
     return [...merged,...tbRds.filter(t=>t.title&&!seen.has(t.title))].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   },
-  logs(){return _cache.logs;},
+  logs(){return _cache.logs.sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
   libs(){return _cache.library;},
   c5books(){return _cache.class5Books||[];},
 
