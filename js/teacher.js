@@ -725,10 +725,20 @@ function renderSpVocab(sid){
       <summary style="font-size:12px;font-weight:600;color:var(--slate);cursor:pointer;padding:10px 0;border-top:1.5px solid var(--border);list-style:none">⚙️ 학습 방식 설정 ▾</summary>
       <div style="margin-top:10px;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border)">
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${[{key:'beginner',lbl:'초급',sub:'암기만 (플립카드)'},{key:'intermediate',lbl:'중급',sub:'암기 → 리콜'},{key:'advanced',lbl:'고급',sub:'암기(영어뜻) → 전체 리콜'}].map(o=>`<button onclick="saveVocabMode('${sid}','${o.key}')" style="padding:8px 14px;border:2px solid ${vocabMode===o.key?'var(--teal)':'var(--border)'};border-radius:10px;background:${vocabMode===o.key?'var(--tl)':'#fff'};cursor:pointer;text-align:left">
-            <div style="font-size:12px;font-weight:700;color:${vocabMode===o.key?'var(--teal)':'var(--navy)'}">${o.lbl}</div>
+          ${[{key:'beginner',lbl:'초급',sub:'암기 → 뜻 고르기 → 짝 맞추기 (타이핑 없음)'},{key:'intermediate',lbl:'중급',sub:'암기 → 단어 고르기 → 철자 조립'},{key:'advanced',lbl:'고급',sub:'암기(영어뜻) → 리콜 → 스펠링'}].map(o=>`<button onclick="saveVocabMode('${sid}','${o.key}')" style="padding:8px 14px;border:2px solid ${vocabMode===o.key&&!(spStu?.vocabStages||[]).length?'var(--teal)':'var(--border)'};border-radius:10px;background:${vocabMode===o.key&&!(spStu?.vocabStages||[]).length?'var(--tl)':'#fff'};cursor:pointer;text-align:left">
+            <div style="font-size:12px;font-weight:700;color:${vocabMode===o.key&&!(spStu?.vocabStages||[]).length?'var(--teal)':'var(--navy)'}">${o.lbl}</div>
             <div style="font-size:10px;color:var(--slate)">${o.sub}</div>
           </button>`).join('')}
+        </div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
+          <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:6px">🎛 직접 조합 ${(spStu?.vocabStages||[]).length?'<span style="color:var(--teal)">— 사용 중</span>':'<span style="color:var(--slate);font-weight:400">(프리셋 대신 단계 3개를 직접 고를 수 있어요)</span>'}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            ${[0,1,2].map(i=>`<select id="vstage-${i}-${sid}" style="${selSt}">
+              ${[['','(없음)'],['mem','암기 카드'],['mc','뜻 고르기'],['mcr','단어 고르기'],['listen','듣고 고르기'],['tiles','철자 조립'],['match','짝 맞추기'],['bingo','빙고'],['recall','리콜'],['spell','스펠링 입력']].map(([v,l])=>`<option value="${v}" ${(spStu?.vocabStages||[])[i]===v?'selected':''}>${i+1}단계: ${l}</option>`).join('')}
+            </select>`).join('')}
+            <button class="btn bt bxs" onclick="saveVocabStages('${sid}')">저장</button>
+            ${(spStu?.vocabStages||[]).length?`<button class="btn bo bxs" onclick="saveVocabStages('${sid}',true)">해제(프리셋으로)</button>`:''}
+          </div>
         </div>
       </div>
     </details>`;
@@ -832,9 +842,24 @@ async function saveVocabMode(sid,mode){
   const stu=(_cache.students||[]).find(s=>s.id===sid);
   if(!stu)return;
   stu.vocabMode=mode;
+  stu.vocabStages=[]; // 프리셋 선택 = 직접 조합 해제
   await supaUpsert('students',sid,stu,null);
   renderSpVocab(sid);
   toast('학습 방식이 저장됐습니다');
+}
+// 직접 조합 저장 (clear=true면 해제하고 프리셋 사용)
+async function saveVocabStages(sid,clear){
+  const stu=(_cache.students||[]).find(s=>s.id===sid);
+  if(!stu)return;
+  if(clear){stu.vocabStages=[];}
+  else{
+    const stages=[0,1,2].map(i=>document.getElementById(`vstage-${i}-${sid}`)?.value||'').filter(Boolean);
+    if(!stages.length){toast('단계를 하나 이상 선택하세요');return;}
+    stu.vocabStages=stages;
+  }
+  await supaUpsert('students',sid,stu,null);
+  renderSpVocab(sid);
+  toast(clear?'프리셋 사용으로 돌아갔습니다':'직접 조합이 저장됐습니다');
 }
 function vocabToggleAll(cb){
   document.querySelectorAll('#sp-vocab .vocab-chk').forEach(el=>el.checked=cb.checked);
