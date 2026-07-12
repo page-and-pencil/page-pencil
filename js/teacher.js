@@ -7960,8 +7960,10 @@ function renderDashFill(){
       const missing=[];
       if(!(b.vocab||[]).length)missing.push('단어');
       const chs=(typeof elibGetChapters==='function')?(elibGetChapters(b.id)||[]):[];
-      if(!chs.some(c=>c&&c.text))missing.push('본문');
-      if(!(b.audioUrl||chs.some(c=>c&&(c.url||c.audioUrl||c.audio))))missing.push('음원');
+      const hasText=chs.some(c=>c&&c.text);
+      if(!hasText)missing.push('본문');
+      // 본문이 있으면 AI 낭독이 자동 생성돼 듣기가 이미 가능 — 음원은 본문까지 없을 때만 할 일
+      if(!hasText&&!(b.audioUrl||chs.some(c=>c&&(c.url||c.audioUrl||c.audio))))missing.push('음원');
       if(!b.coverUrl)missing.push('표지');
       if(missing.length)items.push({date:e.date,icon:'📗',text:`${e.title} — ${missing.join('·')} 없음`,label:'채우기',run:()=>openEditLib(b.id)});
     }
