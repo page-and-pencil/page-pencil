@@ -38,7 +38,7 @@
 - 교재 표기: 풀네임 한 줄 통일 (예: "Read It! 30-1", "Easy Link Starter 1"). 레벨 분리형은 2026-07-11 전량 마이그레이션 완료 — level 필드는 더 이상 쓰지 않음. bookId 없는 옛 수업 기록의 교재 문자열("Easy Link" 등)은 역사 기록이라 그대로 둠
 - 카테고리(파닉스/어휘/어법/리딩/리스닝/라이팅/내신)는 비우지 않음 — 탭 필터·수업기록 자동 채움의 기준
 - 원본은 교재 DB(global_textbooks): 단어·단원·학생 카드가 여기서 파생. 수정은 교재 쪽에서 (연쇄 반영: tuApplyRenames·tuCascadeCardUnits·_mergeCardMeaning)
-- 클래스5 라이브러리(type:class5)는 클래스5 과제의 과 목록 전용, 수업용 책은 교재 DB에 별도 등록
+- 클래스5 과제도 교재 DB(type:textbook)의 책·단원을 그대로 사용 — 별도 클래스5 라이브러리(type:class5)는 2026-07-12 통합·폐기 (행 9개 휴지통 처리, 과 목록은 교재 단원으로 이식). 과거 과제 기록의 책·과 문자열은 역사 기록이라 그대로 둠
 - 백업: fullBackup()이 전 테이블 JSON 덤프 (대시보드가 월 1회 알림, localStorage pp_lastBackup 기준)
 - 삭제는 휴지통(soft delete): 주요 삭제는 supaTrash(_deleted 표식)로 — loadAllData가 필터, 백업·일괄 탭 휴지통에서 복원, 30일 후 자동 영구 삭제(purgeOldTrash). 새 삭제 기능을 만들 땐 하드 delete 대신 supaTrash 사용
 

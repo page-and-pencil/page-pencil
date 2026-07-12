@@ -104,7 +104,6 @@ const DB={
   },
   logs(){return _cache.logs.sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
   libs(){return _cache.library;},
-  c5books(){return _cache.class5Books||[];},
 
   // 설정 (Supabase settings 테이블)
   acct(){return _cache.settings.acct||{bank:'',number:'',name:'',msg:''};},
@@ -355,7 +354,6 @@ async function loadAllData(bg){
       const _allBooks=(gtbs||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
       _cache.library=_allBooks.filter(b=>b.type==='library');
       _cache.globalTextbooks=_allBooks.filter(b=>b.type==='textbook'||!b.type);
-      _cache.class5Books=_allBooks.filter(b=>b.type==='class5'); // 클래스5 자습 라이브러리 (책+과 목록)
     }
     _cache.globalClasses=keep(_cache.globalClasses,clss);
     _cache.monthlyReports=(mrpts||[]).map(r=>({...( r.data||r),_id:r.id,sid:r.sid,month:r.month}));
