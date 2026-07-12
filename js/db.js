@@ -558,7 +558,7 @@ async function elevenGetPassageAudio(text,cfg,genSpeed){
   const voice=cfg.voiceId||'EXAVITQu4vr4xnSDxMaL';
   const speed=Math.min(1.2,Math.max(0.7,genSpeed||1));
   // 속도는 생성 단계(네이티브 speed)에서 — 재생단 감속은 피치가 떨어져 목소리가 변함
-  const id='tts_'+await sha256Hex(voice+'|p4|'+speed+'|'+text);
+  const id='tts_'+await sha256Hex(voice+'|p5|'+speed+'|'+text);
   try{
     const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
     if(r.ok){const row=await r.json();if(row?.data?.url&&row?.data?.times)return row.data;}

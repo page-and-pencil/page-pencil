@@ -3065,13 +3065,20 @@ async function playPassage(text,levelId,hiPrefix){
     const el=document.getElementById(hiPrefix+i);
     if(el){el.style.background='var(--tl)';el.scrollIntoView({behavior:'smooth',block:'center'});}
     const start=Math.max(0,times[i].s-0.05);
-    const endBound=(i<times.length-1)?Math.max(times[i].e,times[i+1].s):buf.duration;
+    // 꼬리 여유: 문장 끝 잔향까지 살리되 다음 문장 시작은 침범하지 않음
+    const endBound=(i<times.length-1)?Math.max(times[i].e+0.12,times[i+1].s):buf.duration;
     const dur=Math.max(0.05,Math.min(endBound,buf.duration)-start);
     const ok=await new Promise(res=>{
       try{
         const src=_waCtx.createBufferSource();
         src.buffer=buf; // 1배속 고정 (감속은 생성 단계 speed로 처리됨)
-        src.connect(_waCtx.destination);
+        const g=_waCtx.createGain(); // 15ms 페이드 인/50ms 페이드 아웃 — 구간 경계 클릭·뚝 끊김 제거
+        src.connect(g);g.connect(_waCtx.destination);
+        const t0=_waCtx.currentTime;
+        g.gain.setValueAtTime(0.0001,t0);
+        g.gain.linearRampToValueAtTime(1,t0+0.015);
+        g.gain.setValueAtTime(1,t0+Math.max(0.015,dur-0.05));
+        g.gain.linearRampToValueAtTime(0.0001,t0+dur);
         src.onended=()=>{if(_waSrc===src)_waSrc=null;res(true);};
         _waSrc=src;
         src.start(0,start,dur);
