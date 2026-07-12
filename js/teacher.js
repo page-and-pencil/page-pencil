@@ -7768,14 +7768,14 @@ function renderDashFill(){
     if(k.startsWith('_book')||!v||!v.book)return;
     const bk=k.replace(/_\d+$/,'');
     if(bk==='pencil_down'||bk==='sing_together')return; // 활동은 채우기 대상 아님
-    const t=String(v.book).trim();if(t.length<2||t==='클래스5')return;
+    const t=String(v.book).trim();if(t.length<2||/^(클래스5|class5)$/i.test(t))return; // 'Class5'는 플랫폼명 자리표시자 — 책 아님
     const key=nrm(t);
     if(!lastTb[key]||String(l.date||'')>lastTb[key].date)lastTb[key]={date:String(l.date||''),title:t};
   }));
   // 수업 기록엔 없어도 과제로 배우는 교재(예: 어휘 교재 단어 암기)도 채우기 대상
   (_cache.assignments||[]).forEach(a=>{
     if(a.type!=='textbook'||!a.bookTitle)return;
-    const t=String(a.bookTitle).trim();if(t.length<2)return;
+    const t=String(a.bookTitle).trim();if(t.length<2||/^(클래스5|class5)$/i.test(t))return;
     const key=nrm(t);
     if(!lastTb[key]||String(a.date||'')>lastTb[key].date)lastTb[key]={date:String(a.date||''),title:t};
   });
