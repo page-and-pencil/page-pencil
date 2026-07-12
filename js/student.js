@@ -92,7 +92,13 @@ async function submitLibRec(safeId,bookId,sid,title){
   }else{if(aiEl)aiEl.innerHTML='<span style="color:var(--teal)">제출 완료! 선생님이 확인할 예정이에요 📝</span>';}
   if(submitBtn)submitBtn.style.display='none';
 }
-let vocabSessionSize=0;
+// 단어 학습 모드: daily=오늘의 20개(복습 도래→헷갈림→오래 안 본 순) | last=지난 수업 단어 전부 | all=전체
+let vocabStudyMode='daily';
+function openVocabStudy(mode){
+  if(vocabStudyMode!==mode){try{sessionStorage.removeItem('deckState_'+currentStudentSid);}catch(e){}}
+  vocabStudyMode=mode;
+  swStuTab('st-vocab');
+}
 async function goStudentPin(){
   const sess=loadSession();
   if(sess?.role==='student'){
@@ -866,13 +872,13 @@ function renderVocabDeck(sid){
     </div>`;
     return;
   }
-  // 저장된 진행 상태 → 즉시 이어서 카드 표시
+  // 저장된 진행 상태 → 같은 모드면 즉시 이어서 카드 표시
   if(!vocabDeckFilter){
     const raw=sessionStorage.getItem('deckState_'+sid);
     if(raw){
       try{
         const saved=JSON.parse(raw);
-        if(saved.cards&&saved.cards.length&&saved.idx<saved.cards.length){
+        if(saved.cards&&saved.cards.length&&saved.idx<saved.cards.length&&(saved.mode||vocabStudyMode)===vocabStudyMode){
           deckState=saved;
           if(deckState.phase===0)renderMemCard(el);
           else if(deckState.phase===1)renderRecallCard(el);
@@ -881,25 +887,41 @@ function renderVocabDeck(sid){
       }catch(e){}
     }
   }
-  // 복습 우선 정렬: 직전 수업 단어 → due 지난 것 → misses 많은 것
+  // 모드별 세션 구성 — daily: 오늘 안 본 것 중 우선순위 20개 / last: 지난 수업 단어 전부 / all: 전체
   const today=new Date().toISOString().split('T')[0];
   const recentLes=DB.less().filter(l=>l.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
   const recentDate=recentLes?.date||'';
-  const sorted=[...cards].sort((a,b)=>{
-    // 직전 수업일에 추가된 단어 최우선
-    const aRecent=a.addedDate===recentDate?1:0;
-    const bRecent=b.addedDate===recentDate?1:0;
-    if(aRecent!==bRecent)return bRecent-aRecent;
-    // due 지난 것 다음 우선
-    const aDue=(a.due||'')<=today?1:0;
-    const bDue=(b.due||'')<=today?1:0;
-    if(aDue!==bDue)return bDue-aDue;
-    return (b.misses||0)-(a.misses||0);
-  });
-  const session=vocabSessionSize?sorted.slice(0,vocabSessionSize):sorted;
+  const prio=(a,b)=>{
+    const aDue=(a.due||'')<=today?1:0,bDue=(b.due||'')<=today?1:0;
+    if(aDue!==bDue)return bDue-aDue;                                    // 복습 도래 우선
+    if((b.misses||0)!==(a.misses||0))return (b.misses||0)-(a.misses||0); // 헷갈린 단어
+    return (a.lastSeen||'').localeCompare(b.lastSeen||'');               // 오래 안 본 순
+  };
+  const mode=vocabDeckFilter?'all':vocabStudyMode;
+  let session;
+  if(mode==='last'){
+    session=cards.filter(c=>c.addedDate===recentDate||c.lastSeen===recentDate||c.due===recentDate).sort(prio);
+  }else if(mode==='daily'){
+    session=cards.filter(c=>c.lastSeen!==today).sort(prio).slice(0,20);
+  }else{
+    session=[...cards].sort((a,b)=>{
+      const aR=a.addedDate===recentDate?1:0,bR=b.addedDate===recentDate?1:0;
+      if(aR!==bR)return bR-aR; // 전체 모드는 직전 수업 단어 최우선 (기존 동작 유지)
+      return prio(a,b);
+    });
+  }
+  if(!session.length){
+    el.innerHTML=filterLabel+`<div class="empty boxed" style="margin:16px">
+      <div style="font-size:40px;margin-bottom:12px">${mode==='daily'?'🎉':'📭'}</div>
+      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">${mode==='daily'?'오늘 예정 단어를 모두 학습했어요!':'지난 수업에서 나온 단어가 없어요'}</div>
+      <div style="font-size:13px;color:var(--slate);line-height:1.8;margin-bottom:12px">${mode==='daily'?'내일 또 새로운 단어가 준비돼요':'수업 후에 다시 확인해 보세요'}</div>
+      <button class="btn bo bsm" onclick="vocabStudyMode='all';renderVocabDeck(currentStudentSid)">전체 단어에서 더 학습하기</button>
+    </div>`;
+    return;
+  }
   const stu=(_cache.students||[]).find(s=>s.id===sid);
   const vocabMode=stu?.vocabMode||'intermediate';
-  deckState={cards:session,idx:0,phase:0,phaseResults:[],sessionResults:[],vocabMode};
+  deckState={cards:session,idx:0,phase:0,phaseResults:[],sessionResults:[],vocabMode,mode};
   renderMemCard(el);
 }
 
@@ -918,9 +940,8 @@ function renderVocabPhaseIntro(el){
     </div>
     <div style="font-size:22px;font-weight:700;color:var(--navy);margin-bottom:6px">${total}개 단어</div>
     <div style="font-size:13px;color:var(--slate);margin-bottom:1.2rem;line-height:1.8">${p.sub}</div>
-    ${deckState.phase===0?`<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:1.4rem;flex-wrap:wrap">
-      <span style="font-size:12px;color:var(--slate)">세션:</span>
-      <div class="sp-seg">${[null,20,10].map(n=>`<button class="${vocabSessionSize===n?'on':''}" onclick="vocabSessionSize=${n};renderVocabDeck(currentStudentSid)">${n?n+'개':'전체'}</button>`).join('')}</div>
+    ${deckState.phase===0&&!vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:1.4rem;flex-wrap:wrap">
+      <div class="sp-seg">${[['daily','오늘의 20개'],['last','지난 수업'],['all','전체']].map(([m,l])=>`<button class="${vocabStudyMode===m?'on':''}" onclick="vocabStudyMode='${m}';sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">${l}</button>`).join('')}</div>
     </div>`:''}
     <button class="btn bt" style="padding:14px 40px;font-size:15px;border-radius:50px" onclick="startVocabPhase()">시작 →</button>
     ${deckState.phase>0?`<div style="margin-top:1rem"><button class="btn bo bsm" onclick="renderVocabDeck(currentStudentSid)">처음부터</button></div>`:''}
@@ -1337,8 +1358,8 @@ function dailyQuests(sid){
   const st=JSON.parse(localStorage.getItem('pp_streak_'+sid)||'{}');
   return[
     {icon:'\uD83D\uDCDD',label:'오늘 과제 1개 완료하기',done:q1,go:"swStuTab('st-home')"},
-    {icon:'\uD83C\uDCCF',label:'단어 10개 복습하기',done:reviewed>=10,prog:Math.min(reviewed,10)+'/10',go:"swStuTab('st-vocab')"},
-    {icon:'\uD83D\uDD25',label:'오늘 학습 도장 찍기',done:st.lastDate===today,go:"swStuTab('st-vocab')"}
+    {icon:'\uD83C\uDCCF',label:'오늘의 단어 20개 학습하기',done:reviewed>=20,prog:Math.min(reviewed,20)+'/20',go:"openVocabStudy('daily')"},
+    {icon:'\uD83D\uDD25',label:'오늘 학습 도장 찍기',done:st.lastDate===today,go:"openVocabStudy('daily')"}
   ];
 }
 function stuQuestCard(sid){
@@ -1564,7 +1585,7 @@ function renderLastLesson(sid){
       <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${last.date||''}</span>
     </div>
     ${matHtml?`<div style="margin-bottom:6px">${matHtml}</div>`:''}
-    <button class="btn bt bsm" style="margin-top:8px;border-radius:50px" onclick="swStuTab('st-vocab')">📚 단어 복습 →</button>
+    <button class="btn bt bsm" style="margin-top:8px;border-radius:50px" onclick="openVocabStudy('last')">📚 지난 수업 단어 복습 →</button>
   </div>`;
 }
 async function polishStudentCmt(givenName){
@@ -1615,7 +1636,7 @@ function renderVocabReview(sid){
         ${mastered?`<span style="width:${pct(mastered)}%;background:#10B981"></span>`:''}
       </div>
       <div style="margin-top:8px;font-size:11.5px;color:var(--slate);text-align:center">전체 ${total}개 중 <b style="color:#047857">${mastered}개</b>가 완전히 내 단어가 됐어요</div>
-      <button class="btn bt" style="width:100%;margin-top:14px;border-radius:50px;padding:12px" onclick="swStuTab('st-vocab')">📚 단어 복습하기 →</button>
+      <button class="btn bt" style="width:100%;margin-top:14px;border-radius:50px;padding:12px" onclick="openVocabStudy('daily')">📚 오늘의 단어 학습하기 →</button>
     </div>
   </div>`;
 }
@@ -1682,12 +1703,13 @@ function renderStudentHome(sid){
       ?`<div class="stu-hero-cmt" id="stu-lesson-cmt" data-raw="${escAttr(heroRaw)}" data-mats="${escAttr(heroMatsText)}" data-stored="${escAttr(heroStored)}">${heroStored||'...'}</div>`
       :`<div class="stu-hero-cmt">${totalMission?`오늘 미션 ${done.length}/${totalMission}개 완료 중! 화이팅 🔥`:'오늘도 즐겁게 공부해요 😊'}</div>`}
   </div>`;
+  const _revToday=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===new Date().toISOString().split('T')[0]).length;
   const vocabCtaHtml=`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:18px">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
       <span style="width:46px;height:46px;border-radius:13px;background:#E3F5FA;display:flex;align-items:center;justify-content:center;color:#0B8DAE;flex-shrink:0">${luIcon('layers',23)||'📚'}</span>
-      <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:var(--navy)">오늘의 단어 카드</div><div style="font-size:12px;color:#8A95A2;margin-top:2px">암기 → 뜻 맞히기 → 스펠링</div></div>
+      <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:var(--navy)">오늘의 단어 20개</div><div style="font-size:12px;color:#8A95A2;margin-top:2px">암기 → 뜻 맞히기 → 스펠링${_revToday?` · 오늘 ${_revToday}개 학습 ✓`:''}</div></div>
     </div>
-    <button class="btn bt" style="width:100%;height:50px;padding:0;border-radius:13px;font-size:15px;font-weight:800;gap:7px" onclick="swStuTab('st-vocab')">${luIcon('play',18)||'▷'} 이어서 학습하기</button>
+    <button class="btn bt" style="width:100%;height:50px;padding:0;border-radius:13px;font-size:15px;font-weight:800;gap:7px" onclick="openVocabStudy('daily')">${luIcon('play',18)||'▷'} ${_revToday?'이어서 학습하기':'오늘의 단어 시작하기'}</button>
   </div></div>`;
   const weekDays=getWeekDays(sid);
   const weekCircles=`<div style="display:flex;justify-content:space-between">${weekDays.map(d=>{
@@ -1817,7 +1839,7 @@ function renderStudentHome(sid){
     <div style="font-size:64px;margin-bottom:12px">🎉</div>
     <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:6px">숙제 없음!</div>
     <div style="font-size:13px;color:var(--slate)">오늘은 자유시간이에요<br>단어 복습은 어때요?</div>
-    <button class="btn bt" style="margin-top:16px;padding:12px 28px;border-radius:50px" onclick="swStuTab('st-vocab')">단어 복습 하기 →</button>
+    <button class="btn bt" style="margin-top:16px;padding:12px 28px;border-radius:50px" onclick="openVocabStudy('daily')">오늘의 단어 학습하기 →</button>
   </div>`:'';
 
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
