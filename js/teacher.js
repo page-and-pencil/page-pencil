@@ -7968,7 +7968,7 @@ function renderDashFill(){
       if(missing.length)items.push({date:e.date,icon:'📗',text:`${e.title} — ${missing.join('·')} 없음`,label:'채우기',run:()=>openEditLib(b.id)});
     }
   });
-  // 교재: 수업 기록에 쓰인 책
+  // 교재: 수업 기록·과제에 쓰인 책
   const lastTb={};
   (_cache.lessons||[]).forEach(l=>Object.entries(l.materials||{}).forEach(([k,v])=>{
     if(k.startsWith('_book')||!v||!v.book)return;
@@ -7978,13 +7978,21 @@ function renderDashFill(){
     const key=nrm(t);
     if(!lastTb[key]||String(l.date||'')>lastTb[key].date)lastTb[key]={date:String(l.date||''),title:t};
   }));
+  // 수업 기록엔 없어도 과제로 배우는 교재(예: 어휘 교재 단어 암기)도 채우기 대상
+  (_cache.assignments||[]).forEach(a=>{
+    if(a.type!=='textbook'||!a.bookTitle)return;
+    const t=String(a.bookTitle).trim();if(t.length<2)return;
+    const key=nrm(t);
+    if(!lastTb[key]||String(a.date||'')>lastTb[key].date)lastTb[key]={date:String(a.date||''),title:t};
+  });
   const tbBy={};(_cache.globalTextbooks||[]).forEach(b=>{tbBy[nrm(b.title)]=b;});
   Object.values(lastTb).forEach(e=>{
     const b=tbBy[nrm(e.title)];
     if(!b){items.push({date:e.date,icon:'📚',text:`${e.title} — 교재 미등록`,label:'등록',run:()=>{openTbookAdd();setTimeout(()=>{const i=document.getElementById('tbook-title');if(i)i.value=e.title;},80);}});return;}
     const words=Object.values(b.units||{}).reduce((s,a)=>s+(Array.isArray(a)?a.length:0),0);
     if(!words)items.push({date:e.date,icon:'📚',text:`${e.title} — ${Object.keys(b.units||{}).length?'단원만 있고 단어 0개':'단원·단어 없음'}`,label:'채우기',run:()=>openTbookUnits(b.id)});
-    else{
+    else if(b.category!=='파닉스'){
+      // 파닉스는 단어가 콘텐츠의 전부라 원문 없어도 완료 — 본문 있는 교재(어휘 '단어가 읽기다' 등)만 대상
       const texts=(b.unitTexts&&!Array.isArray(b.unitTexts))?Object.values(b.unitTexts).filter(v=>v).length:0;
       if(!texts)items.push({date:e.date,icon:'📄',text:`${e.title} — 단원 원문 없음 (학생 복습·듣기 비활성)`,label:'원문 채우기',run:()=>openTbookUnits(b.id)});
     }
