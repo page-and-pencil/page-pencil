@@ -519,18 +519,18 @@ async function sha256Hex(s){const b=await crypto.subtle.digest('SHA-256',new Tex
 function elevenCfg(){const c=_cache.settings.elevenlabs||DB.g('elevenlabs')||null;return(c&&c.key)?c:null;}
 async function elevenGetAudioUrl(text,cfg,wordMode){
   const voice=cfg.voiceId||'EXAVITQu4vr4xnSDxMaL';
-  // 모드별 캐시 키 (w=단어 또렷 모드 / s3=문장 균형 모드 — 설정 바뀌면 버전 올려 재생성)
-  const id='tts_'+await sha256Hex(voice+'|'+(wordMode?'w|':'s3|')+text);
+  // 모드별 캐시 키 (w=단어 또렷 모드 / s4=문장 균형 모드 — 설정 바뀌면 버전 올려 재생성)
+  const id='tts_'+await sha256Hex(voice+'|'+(wordMode?'w|':'s4|')+text);
   // 1) 캐시 조회 — 같은 문장은 다시 생성하지 않음 (크레딧 절약)
   try{
     const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
     if(r.ok){const row=await r.json();if(row?.data?.url)return row.data.url;}
   }catch(e){}
   // 2) 생성 — 단어: 고품질+안정(또박또박) / 문장: 균형 설정(일관된 톤 + 은은한 생기)
-  //    stability 낮으면 문장마다 피치가 널뜀, 높으면 밋밋 → 0.6/0.15가 낭독용 균형점
+  //    0.5/0.35는 원장이 고른 Matilda 샘플 톤과 동일 값 — 바꾸면 들었던 느낌과 달라짐
   const body=wordMode
     ?{text,model_id:'eleven_multilingual_v2',voice_settings:{stability:0.85,similarity_boost:0.8,style:0,use_speaker_boost:true}}
-    :{text,model_id:'eleven_turbo_v2_5',voice_settings:{stability:0.6,similarity_boost:0.8,style:0.15,use_speaker_boost:true}};
+    :{text,model_id:'eleven_turbo_v2_5',voice_settings:{stability:0.5,similarity_boost:0.8,style:0.35,use_speaker_boost:true}};
   const gen=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_64`,{
     method:'POST',
     headers:{'xi-api-key':cfg.key,'Content-Type':'application/json'},
@@ -553,12 +553,12 @@ async function elevenGetAudioUrl(text,cfg,wordMode){
 }
 // 본문 전체를 한 번에 생성 — 문장별 짜깁기 없이 자연스러운 억양 흐름.
 // with-timestamps 응답의 글자별 타임스탬프로 문장 경계 시간(times)을 계산해
-// 재생 중 하이라이트·레벨별 쉼은 프로그램으로 처리한다. 캐시 키: p2.
+// 재생 중 하이라이트·레벨별 쉼은 프로그램으로 처리한다. 캐시 키: p6.
 async function elevenGetPassageAudio(text,cfg,genSpeed){
   const voice=cfg.voiceId||'EXAVITQu4vr4xnSDxMaL';
   const speed=Math.min(1.2,Math.max(0.7,genSpeed||1));
   // 속도는 생성 단계(네이티브 speed)에서 — 재생단 감속은 피치가 떨어져 목소리가 변함
-  const id='tts_'+await sha256Hex(voice+'|p5|'+speed+'|'+text);
+  const id='tts_'+await sha256Hex(voice+'|p6|'+speed+'|'+text);
   try{
     const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
     if(r.ok){const row=await r.json();if(row?.data?.url&&row?.data?.times)return row.data;}
@@ -567,7 +567,7 @@ async function elevenGetPassageAudio(text,cfg,genSpeed){
   const gen=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps?output_format=mp3_44100_64`,{
     method:'POST',
     headers:{'xi-api-key':cfg.key,'Content-Type':'application/json'},
-    body:JSON.stringify({text,model_id:'eleven_multilingual_v2',voice_settings:{stability:0.6,similarity_boost:0.8,style:0.15,use_speaker_boost:true,speed}}),
+    body:JSON.stringify({text,model_id:'eleven_multilingual_v2',voice_settings:{stability:0.5,similarity_boost:0.8,style:0.35,use_speaker_boost:true,speed}}),
   });
   if(!gen.ok)throw new Error('ElevenLabs HTTP '+gen.status);
   const d=await gen.json();
