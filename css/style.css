@@ -716,7 +716,7 @@ div.ig-like{cursor:default;}
 #book-pager,#wdb-pager,#master-pager{flex-shrink:0;}
 #dp-book .lib-table-container,#dp-word .lib-table-container,#dp-master .lib-table-container{flex:1;height:auto;min-height:0;}
 /* 카드 그리드·목록: 남은 높이 안에서 자체 스크롤 */
-#book-cards,#ws-cards,#class5-db-body{flex:1;min-height:0;overflow-y:auto;padding:2px 2px 10px;}
+#book-cards,#book-series,#ws-cards,#class5-db-body{flex:1;min-height:0;overflow-y:auto;padding:2px 2px 10px;} /* 자료 DB 서브패널의 새 목록 컨테이너는 반드시 여기 등록 (부모가 overflow:hidden) */
 /* 확인 다이얼로그 메시지 — \n 줄바꿈 유지 (목차 미리보기 등 목록형 메시지) */
 #confirm-msg{white-space:pre-line;}
 
