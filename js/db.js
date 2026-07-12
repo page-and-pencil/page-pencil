@@ -477,6 +477,8 @@ async function getMeaningKoFast(word){
     if(d.responseStatus!==200)return null;
     let ko=(d.responseData?.translatedText||'').trim();
     if(!ko||/^[A-Za-z]/.test(ko)||ko.length>25||ko===word)return null;
+    // 한 글자 동음이의어(배·밤·눈 등)는 구분어 없이 쓰면 헷갈림 — AI 조회(구분어 포함)로 넘김
+    if(/^(배|밤|눈|말|풀|분|김|차|벌|다리|상|병|이|굴|씨|반|절|턱)$/.test(ko))return null;
     return ko;
   }catch{return null;}
 }
@@ -735,7 +737,7 @@ async function getWordMetaFull(word,grade){
     try{
       const lvHint=grade?`학생 학년: ${grade}.`:'';
       const prompt=(!bookEx&&!example)
-        ?`영어 단어/표현 "${word}"의 정보. ${lvHint} 한국어 뜻 2-4단어, example은 반드시 자연스러운 영어 문장.\nJSON만: {"ko":"뜻","pos":"noun|verb|adj|adv|phrase","example":"Short English example sentence"}`
+        ?`영어 단어/표현 "${word}"의 정보. ${lvHint} 한국어 뜻 2-4단어, 뜻이 동음이의어면 괄호로 구분(예: 배(과일), 눈(날씨), 풀(붙이는 풀)). example은 반드시 자연스러운 영어 문장.\nJSON만: {"ko":"뜻","pos":"noun|verb|adj|adv|phrase","example":"Short English example sentence"}`
         :`영어 단어/표현 "${word}"의 품사만. JSON만: {"pos":"noun|verb|adj|adv|phrase"}`;
       const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:80,messages:[{role:'user',content:prompt}]});
       const txt=d.content?.[0]?.text?.trim()||'';
