@@ -10004,7 +10004,7 @@ function _pgCalHtml(classId){
     const placed=_pgProjection(classId,c,b.tb,b.mat,monthEnd);
     Object.entries(placed).forEach(([d,u])=>{
       if(!d.startsWith(ym))return;
-      (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title});
+      (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
     });
   });
   // 달력 그리드
@@ -10022,7 +10022,7 @@ function _pgCalHtml(classId){
     }).join('');
     if(!chips&&lessonDates.has(ds))chips=`<span class="pg-chip rec" style="--pgc:#94A3B8" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">수업</span>`;
     chips+=(ghostBy[ds]||[]).map(g=>
-      `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 끌어서 옮기기)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escAttr(g.unit)}')" onclick="event.stopPropagation();pgChipTap(this,'${classId}','${g.tbId}','${escAttr(g.unit)}')">${g.unit}</span>`
+      `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 끌어서 옮기기, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escAttr(g.unit)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escAttr(g.unit)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${ds}','${escAttr(g.s)}')">${g.unit}</span>`
     ).join('');
     cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onclick="pgCellClick('${classId}','${ds}')"><div class="pg-dnum">${dd}</div>${chips}</div>`);
   }
@@ -10038,7 +10038,7 @@ function _pgCalHtml(classId){
       <span style="flex:1"></span>${legend}
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
-    <div class="pg-cal-hint">진한 칩=기록(누르면 수정) · 점선 칩=예정 — 끌어다 다른 날에 놓으면 이후 진도가 자동으로 밀려요 (칩을 누른 뒤 날짜를 눌러도 돼요) · 빈 날을 누르면 그 날짜 수업 기록</div>
+    <div class="pg-cal-hint">진한 칩=기록(누르면 수정) · 점선 칩=예정 — 끌어다 다른 날에 놓으면 이후 진도가 자동으로 밀려요 (칩을 누른 뒤 날짜를 눌러도 돼요) · <b>오늘 점선 칩 더블클릭=그대로 수업 기록 확정</b> · 빈 날을 누르면 그 날짜 수업 기록</div>
   </div>`;
 }
 function pgDragStart(ev,classId,tbId,unit){
@@ -10055,6 +10055,63 @@ function pgCellDrop(ev,classId,date){
   ev.preventDefault();ev.stopPropagation();
   const d=_pgDrag;_pgDrag=null;
   pgSetAnchor(classId,d.tbId,d.unit,date);
+}
+// 싱글 클릭(이동 선택)은 살짝 지연 — 더블클릭(기록 확정)과 충돌하지 않게
+let _pgTapTimer=null;
+function pgChipTapDelayed(el,classId,tbId,unit){
+  clearTimeout(_pgTapTimer);
+  _pgTapTimer=setTimeout(()=>pgChipTap(el,classId,tbId,unit),260);
+}
+function pgGhostDbl(ev,classId,tbId,unit,date,subj){
+  ev.stopPropagation();
+  clearTimeout(_pgTapTimer);
+  pgMoveCancel();
+  pgConfirmGhost(classId,tbId,unit,date,subj);
+}
+// 예정 칩 → 실제 수업 기록으로 확정 (전원 정상 출석, 세부는 나중에 '수정'으로)
+function pgConfirmGhost(classId,tbId,unit,date,subj){
+  const todayStr=new Date().toISOString().split('T')[0];
+  if(date>todayStr){toast('아직 안 한 수업이에요 — 수업한 날에 확정해 주세요');return;}
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const stus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
+  if(!stus.length){toast('클래스에 학생이 없어요');return;}
+  askConfirm('진도 확정',`${tb.title} — ${unit}\n학생 ${stus.length}명 전원 '정상 출석'으로 기록할까요?\n(출석·코멘트·과제는 기록 후 '수정'에서 채울 수 있어요)`,'기록','bt',async()=>{
+    showLoading(true);
+    try{
+      for(const s of stus){
+        const existing=(_cache.lessons||[]).find(l=>l.classId===classId&&l.date===date&&l.sid===s.id);
+        const les=existing
+          ?{...existing,materials:_pgMergeMat(existing.materials,subj,tb,unit)}
+          :{id:uid(),sid:s.id,date,grade:s.grade||'',att:'normal',materials:_pgMergeMat(null,subj,tb,unit),cmt:'',polishedCmt:'',classId};
+        await supaUpsert('lessons',les.id,les,s.id);
+        if(existing){const i=_cache.lessons.findIndex(l=>l.id===les.id);if(i>=0)_cache.lessons[i]=les;}
+        else _cache.lessons.unshift(les);
+        addUnitWordsToVocab(s.id,{[subj||'x']:{book:tb.title,unit,bookId:tb.id}},date).catch(()=>{});
+      }
+      renderLes();renderDash();renderClassTab();renderClsLessons(classId);
+      toast(`${unit} 기록 완료 (${stus.length}명) — 단어도 학생 단어장에 반영돼요`);
+    }catch(e){
+      console.error('pgConfirmGhost:',e);toast('기록 중 오류가 발생했습니다');
+    }finally{showLoading(false);}
+  });
+}
+// 기존 기록에 교재·단원 병합 — 같은 교재 항목이 있으면 단원만 합침
+function _pgMergeMat(mats,subj,tb,unit){
+  const r={...(mats||{})};
+  for(const[k,v]of Object.entries(r)){
+    if(v&&v.book&&(v.bookId?v.bookId===tb.id:v.book===tb.title)){
+      const us=(v.unit||'').split(',').map(x=>x.trim()).filter(Boolean);
+      if(!us.includes(unit))us.push(unit);
+      r[k]={...v,unit:us.join(', '),bookId:v.bookId||tb.id};
+      return r;
+    }
+  }
+  const base=subj||'reading';
+  let key=base,n=1;
+  while(r[key]){n++;key=`${base}_${n}`;}
+  r[key]={book:tb.title,unit,bookId:tb.id};
+  return r;
 }
 function pgChipTap(el,classId,tbId,unit){
   if(_pgMoveSel&&_pgMoveSel.tbId===tbId&&_pgMoveSel.unit===unit){pgMoveCancel();return;}
