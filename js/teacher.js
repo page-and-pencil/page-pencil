@@ -5334,7 +5334,7 @@ function renderWordDB(){
     const isFirst=groupByWord?w.word!==prev:true;prev=w.word;
     const v2v3Sub=(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px;font-family:var(--fd)">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:'';
     const wordCell=isFirst
-      ?`<td style="padding:6px 8px;font-weight:700;font-family:var(--fd);color:var(--navy);white-space:nowrap">${w.word}${v2v3Sub}</td>`
+      ?`<td style="padding:6px 8px;font-weight:700;font-family:var(--fd);color:var(--navy);white-space:nowrap"><button onclick="event.stopPropagation();speakWord('${(w.word||'').replace(/'/g,"\\'")}')" title="발음 듣기" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 4px 0 0;vertical-align:1px">🔊</button>${w.word}${v2v3Sub}</td>`
       :`<td style="padding:6px 8px;color:var(--slate);font-size:11px;padding-left:18px">↳</td>`;
     const srcColor=w.srcType==='textbook'?'var(--teal)':'#b45309';
     const srcIcon=w.srcType==='textbook'?'📚':'📖';
