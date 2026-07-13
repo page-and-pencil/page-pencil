@@ -737,17 +737,15 @@ async function getWordMetaFull(word,grade,koHint){
   if(apiKey&&(!ko||!bookEx)){
     try{
       const lvHint=grade?`학생 학년: ${grade}.`:'';
-      // 다의어 오류 방지: 이미 가르치는 뜻이 있으면 예문도 반드시 그 뜻으로 (예: watch=손목시계인데 'I watch TV' 생성 금지)
-      const senseHint=koHint?`이 단어는 '${koHint}' 뜻으로 가르치는 중 — 예문은 반드시 그 뜻·품사의 용례로 쓸 것.`:'';
-      const prompt=(!bookEx&&!example)
-        ?`영어 단어/표현 "${word}"의 정보. ${lvHint} ${senseHint} 한국어 뜻 2-4단어, 뜻이 동음이의어면 괄호로 구분(예: 배(과일), 눈(날씨), 풀(붙이는 풀)). example은 반드시 자연스러운 영어 문장.\nJSON만: {"ko":"뜻","pos":"noun|verb|adj|adv|phrase","example":"Short English example sentence"}`
+      // 예문은 원문(배운 책) 발췌만 사용 — AI 생성 예문 금지 (출처 없으면 비워둠, 데이터 규칙)
+      const prompt=!ko
+        ?`영어 단어/표현 "${word}"의 정보. ${lvHint} 한국어 뜻 2-4단어, 뜻이 동음이의어면 괄호로 구분(예: 배(과일), 눈(날씨), 풀(붙이는 풀)).\nJSON만: {"ko":"뜻","pos":"noun|verb|adj|adv|phrase"}`
         :`영어 단어/표현 "${word}"의 품사만. JSON만: {"pos":"noun|verb|adj|adv|phrase"}`;
       const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:80,messages:[{role:'user',content:prompt}]});
       const txt=d.content?.[0]?.text?.trim()||'';
       const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
       if(json.ko&&!/^[A-Za-z]/.test(json.ko)&&!koFast)ko=json.ko;
       if(json.pos)pos=json.pos;
-      if(json.example&&!bookEx){example=json.example;exampleSrc='ai';}
     }catch(e){}
   }
   return{ko,pos,example,exampleSrc};
