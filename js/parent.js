@@ -68,7 +68,7 @@ function _plRow(l){
   const shown=mats.slice(0,4);
   const matHtml=shown.map(m=>`<div style="font-size:12.5px;color:#14304A;line-height:1.5;display:flex;gap:6px;align-items:baseline;min-width:0"><span style="font-size:10px;font-weight:700;color:#8A95A2;flex-shrink:0;padding-top:1px">${m.lbl}</span><span style="min-width:0;word-break:break-word"><b>${m.book}</b>${m.unit?` <span style="color:#5B6B7B">· ${m.unit}</span>`:''}</span></div>`).join('')
     +(mats.length>4?`<div style="font-size:10.5px;color:#94A3AE">외 ${mats.length-4}과목</div>`:'');
-  const cmt=l.polishedCmt||l.cmt||'';
+  // 코멘트는 최근 수업 카드·코멘트 히스토리에서 이미 보여줌 — 이전 기록 타임라인은 진도만 (중복 제거)
   return `<div class="pl-row">
     <div style="flex:0 0 40px;text-align:center;padding-top:1px">
       <div style="font-size:17px;font-weight:800;color:var(--navy);line-height:1.15">${dayNum}</div>
@@ -77,7 +77,6 @@ function _plRow(l){
     </div>
     <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
       ${matHtml||`<div style="font-size:12px;color:#94A3AE;padding-top:2px">기록 없음</div>`}
-      ${cmt?`<div class="pl-cmt" onclick="this.classList.toggle('open')" title="탭하면 전체가 보여요">${cmt}</div>`:''}
     </div>
   </div>`;
 }
