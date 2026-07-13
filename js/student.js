@@ -464,7 +464,25 @@ function renderStudentLibrary(sid){
       <div class="shelf-t">${b.title}</div>
       <div class="shelf-s">${(b.arLevel||b.ar)?'AR '+(b.arLevel||b.ar):'듣기 가능'}</div>
     </div>`).join('');
+  // ── 완독 스티커북: 다 읽은 책 표지가 스티커로 모임 (수집 동기) ──
+  const _stickers=myShelf.filter(e=>e.completed||e.read);
+  const _readingCnt=myShelf.filter(e=>!e.completed&&!e.read).length;
+  const stickerHtml=_stickers.length?`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:14px 16px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+      <span style="font-size:14px;font-weight:800;color:var(--navy)">🏅 완독 스티커북</span>
+      <span style="font-size:11.5px;font-weight:700;color:#B45309">${_stickers.length}개 모음!</span>
+    </div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      ${_stickers.map(e=>`<div title="${escAttr(e.title)}" style="position:relative;width:52px;height:52px;border-radius:50%;overflow:hidden;border:2.5px solid #F3C13A;box-shadow:0 2px 6px rgba(0,0,0,.15);flex-shrink:0">
+        ${(e.b&&e.b.coverUrl)?`<img src="${e.b.coverUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--tl);font-size:22px">📗</div>`}
+        <span style="position:absolute;right:-1px;bottom:-1px;width:17px;height:17px;border-radius:50%;background:#10B981;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center">✓</span>
+      </div>`).join('')}
+      <div style="width:52px;height:52px;border-radius:50%;border:2.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--border);flex-shrink:0">?</div>
+    </div>
+    <div style="margin-top:9px;font-size:11.5px;color:var(--slate);text-align:center">${_readingCnt?'다음 스티커까지 딱 1권! 지금 읽는 책을 끝까지 📖':'다음 책을 읽으면 새 스티커가 붙어요!'}</div>
+  </div></div>`:'';
   const rdShelfHtml=(myShelf.length||otherWithAudio.length)?`
+    ${stickerHtml}
     <div style="font-size:13px;font-weight:700;color:var(--navy);margin-top:${myTbooks.length?20:0}px;margin-bottom:10px${myTbooks.length?';padding-top:16px;border-top:1px solid var(--border)':''}">\uD83D\uDCD7 내 원서 책장</div>
     ${myShelf.length?`<div class="shelf-grid">${myShelf.map(shelfCardOf).join('')}</div>`:'<div style="font-size:12px;color:var(--slate);margin-bottom:8px">아직 읽은 원서가 없어요</div>'}
     ${selMine?panelOf(selMine):''}
@@ -868,12 +886,21 @@ const VOCAB_PRESETS={
   intermediate:['mem','mcr','tiles'],  // 철자 조립 = 스펠링 준비 단계
   advanced:['mem','recall','spell'],
 };
-function vocabStagePlan(sid){
+// 오늘의 게임 로테이션 — 프리셋 사용 학생은 요일마다 2·3단계 게임이 바뀜 (기대감 + 매너리즘 방지)
+function vocabStagesForDay(sid,dayOffset){
   const stu=(_cache.students||[]).find(s=>s.id===sid);
   const custom=Array.isArray(stu?.vocabStages)?stu.vocabStages.filter(k=>VOCAB_STAGES[k]):null;
   if(custom&&custom.length)return custom;
-  return VOCAB_PRESETS[stu?.vocabMode||'intermediate']||VOCAB_PRESETS.intermediate;
+  const mode=stu?.vocabMode||'intermediate';
+  if(mode==='advanced')return VOCAB_PRESETS.advanced;
+  const pools=mode==='beginner'
+    ?{s2:['mc','listen','mcr'],s3:['match','bingo','tiles']}
+    :{s2:['mcr','mc','listen'],s3:['tiles','match','bingo']};
+  const d=new Date();d.setDate(d.getDate()+(dayOffset||0));
+  const i=d.getDay();
+  return ['mem',pools.s2[i%pools.s2.length],pools.s3[i%pools.s3.length]];
 }
+function vocabStagePlan(sid){return vocabStagesForDay(sid,0);}
 function vocabRenderStage(){
   const el=document.getElementById('st-vocab');
   const key=(deckState.stages||['mem','recall','spell'])[deckState.phase]||'mem';
@@ -1010,7 +1037,7 @@ function renderVocabPhaseIntro(el){
 }
 
 function startVocabPhase(){
-  deckState.idx=0;deckState.phaseResults=[];
+  deckState.idx=0;deckState.phaseResults=[];_vgCombo=0;deckState._spellMiss=0;
   vocabRenderStage();
 }
 
@@ -1161,6 +1188,7 @@ function startNextPhase(phase){
   deckState.phase=phase;
   deckState.idx=0;
   deckState.phaseResults=[];
+  _vgCombo=0;deckState._spellMiss=0;
   deckState.cards=deckState._sessionCards||deckState.cards;
   saveDeckState();
   vocabRenderStage();
@@ -1266,9 +1294,20 @@ function checkSpell(){
   inp.readOnly=true;
   document.getElementById('spell-skip-btn').style.display='none';
   document.getElementById('spell-next-btn').style.display='';
-  if(correct){fb.style.color='#047857';fb.textContent='✓ 정답!';}
-  else{fb.style.color='var(--coral)';fb.innerHTML='✗ 정답: <strong>'+card.word+'</strong>';}
+  if(correct){fb.style.color='#047857';fb.textContent='✓ 정답!';deckState._spellMiss=0;}
+  else{fb.style.color='var(--coral)';fb.innerHTML='✗ 정답: <strong>'+card.word+'</strong>';deckState._spellMiss=(deckState._spellMiss||0)+1;}
   deckState.phaseResults.push({word:card.word,correct});
+  vgMark(correct);
+  _spellEaseOffer(fb);
+}
+// 스펠링 연속 3오답 → 좌절 방지: 철자 조립으로 낮춰서 이어가기 제안
+function _spellEaseOffer(fb){
+  if((deckState._spellMiss||0)<3||!fb)return;
+  if(document.getElementById('spell-ease-offer'))return;
+  fb.insertAdjacentHTML('afterend',`<div id="spell-ease-offer" style="margin-top:10px;padding:9px 12px;background:var(--tl);border-radius:10px;font-size:12px;color:#0B8DAE;text-align:center">
+    조금 어렵죠? 글자 타일로 맞추는 방법도 있어요!<br>
+    <button class="btn bt bsm" style="margin-top:7px;border-radius:50px" onclick="deckState._spellMiss=0;deckState.stages[deckState.phase]='tiles';saveDeckState();vocabRenderStage()">🧩 철자 조립으로 바꾸기</button>
+  </div>`);
 }
 function spellSkip(){
   const card=deckState.cards[deckState.idx];
@@ -1280,6 +1319,9 @@ function spellSkip(){
   document.getElementById('spell-skip-btn').style.display='none';
   document.getElementById('spell-next-btn').style.display='';
   deckState.phaseResults.push({word:card.word,correct:false});
+  deckState._spellMiss=(deckState._spellMiss||0)+1;
+  vgMark(false);
+  _spellEaseOffer(fb);
 }
 function spellNext(){
   deckState.idx++;
@@ -1322,6 +1364,38 @@ function _vgAdvance(){
 }
 let _vgLock=false;
 const _VG_BTN='display:block;width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:12px;background:#fff;font-size:16px;font-weight:700;color:var(--navy);font-family:var(--fb);cursor:pointer;text-align:center;margin-bottom:10px';
+// ── 콤보 + 효과음 (WebAudio 합성 — 에셋 불필요) ──
+let _vgCombo=0;
+function _sfx(kind){
+  try{
+    const ctx=window._sfxCtx||(window._sfxCtx=new (window.AudioContext||window.webkitAudioContext)());
+    if(ctx.state==='suspended')ctx.resume();
+    const t=ctx.currentTime;
+    const notes=kind==='wrong'?[196]:kind==='combo'?[523,659,784,1047]:[523,784];
+    notes.forEach((f,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.type=kind==='wrong'?'triangle':'sine';o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,t+i*0.08);
+      g.gain.exponentialRampToValueAtTime(0.09,t+i*0.08+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+i*0.08+0.22);
+      o.connect(g).connect(ctx.destination);o.start(t+i*0.08);o.stop(t+i*0.08+0.25);
+    });
+  }catch(e){}
+}
+function vgMark(correct){
+  if(correct){
+    _vgCombo++;
+    _sfx(_vgCombo>=3?'combo':'ok');
+    if(_vgCombo>=2)showCombo(_vgCombo);
+  }else{_vgCombo=0;_sfx('wrong');}
+}
+function showCombo(n){
+  const el=document.createElement('div');
+  el.textContent=n+'연속! '+(n>=5?'🔥🔥':'🔥');
+  el.style.cssText='position:fixed;top:16%;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#FF8A3D,#F59E0B);color:#fff;font-weight:900;font-size:'+Math.min(26,16+n*1.5)+'px;padding:8px 22px;border-radius:50px;z-index:3000;box-shadow:0 6px 20px rgba(245,158,11,.4);pointer-events:none;animation:comboPop .85s ease forwards;font-family:var(--fb)';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),880);
+}
 function _vgRenderChoice(el,promptHtml,opts,correctIdx){
   deckState._vg={correctIdx};
   el.innerHTML=`<div style="padding:1.25rem">${_vgHead()}${promptHtml}
@@ -1333,6 +1407,7 @@ function _vgPickIdx(btn,i){
   const correct=i===deckState._vg.correctIdx;
   const card=deckState.cards[deckState.idx];
   deckState.phaseResults.push({word:card.word,correct});
+  vgMark(correct);
   btn.style.borderColor=correct?'#10B981':'var(--coral)';
   btn.style.background=correct?'#ECFDF5':'#FEF2F2';
   if(!correct){const ans=btn.parentElement.querySelector(`[data-vg-i="${deckState._vg.correctIdx}"]`);if(ans){ans.style.borderColor='#10B981';ans.style.background='#ECFDF5';}}
@@ -1403,6 +1478,7 @@ function _vtPick(i){
     const card=deckState.cards[deckState.idx];
     T.finished=true;T.correct=T.picked.map(p=>p.ch).join('')===target;
     deckState.phaseResults.push({word:card.word,correct:T.correct});
+    vgMark(T.correct);
     vocabRenderStage();
     if(T.correct)speakWord(card.word);
     setTimeout(()=>{deckState._vt=null;_vgAdvance();},T.correct?900:1900);
@@ -1449,6 +1525,7 @@ function _mgPick(i){
   const first=M.tiles[M.sel];
   if(first.id===t.id&&first.kind!==t.kind){
     M.matched.push(t.id);M.sel=-1;
+    vgMark(true);
     const c=M.group.find(x=>x.id===t.id);if(c)speakWord(c.word);
     if(M.matched.length>=M.group.length){
       M.group.forEach(c2=>deckState.phaseResults.push({word:c2.word,correct:!M.missed.includes(c2.id)}));
@@ -1460,6 +1537,7 @@ function _mgPick(i){
   }else{
     if(!M.missed.includes(first.id))M.missed.push(first.id);
     if(!M.missed.includes(t.id))M.missed.push(t.id);
+    vgMark(false);
     M.lock=true;M.sel=i;
     vocabRenderStage();
     setTimeout(()=>{M.lock=false;M.sel=-1;vocabRenderStage();},600);
@@ -1508,6 +1586,7 @@ function _bgPick(i){
     cell.hit=true;
     if(!(cur.id in B.firstTry))B.firstTry[cur.id]=true;
     deckState.phaseResults.push({word:cur.word,correct:!!B.firstTry[cur.id]});
+    vgMark(!!B.firstTry[cur.id]);
     const nl=_bgLines(B);
     if(nl>B.lines){B.lines=nl;setTimeout(()=>{try{showMiniConfetti();}catch(e){}},100);}
     B.ci++;
@@ -1515,6 +1594,7 @@ function _bgPick(i){
     saveDeckState();vocabRenderStage();
   }else{
     B.firstTry[cur.id]=false;
+    vgMark(false);
     const b=document.querySelector(`#st-vocab [data-bg-i="${i}"]`);
     if(b){b.style.borderColor='var(--coral)';b.style.background='#FEF2F2';setTimeout(()=>{b.style.borderColor='var(--border)';b.style.background='#fff';},420);}
   }
@@ -1556,7 +1636,13 @@ async function renderVocabResult(el){
       return;
     }
   }
+  // 헷갈린 단어 즉시 재도전 + 내일 예고(다음 접속의 이유) + 레벨 마스코트 반응
+  window._vocMissedCards=deckState.cards.filter(c=>missed.includes(c.word));
+  const _tmr=vocabStagesForDay(currentStudentSid,1);
+  const _tmrNames=_tmr.slice(1).map(k=>(VOCAB_STAGES[k]||{}).name).filter(Boolean).join(' · ');
+  const _mv=stuLevelOf(stuXP(currentStudentSid));
   el.innerHTML=`<div style="padding:2rem;text-align:center">
+    <div style="font-size:42px;margin-bottom:4px">${_mv.icon||'🐣'}</div>
     <div class="result-ring ${cls}">${pctScore}%</div>
     <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:4px">
       ${pctScore>=80?'훌륭해요! 🎉':pctScore>=50?'잘하고 있어요 👍':'조금 더 연습해요 💪'}
@@ -1566,13 +1652,25 @@ async function renderVocabResult(el){
     ${missed.length?`<div style="margin-bottom:1.5rem">
       <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:8px">다시 연습할 단어</div>
       <div class="missed-list">${missed.map(w=>`<span class="missed-chip">${w}</span>`).join('')}</div>
+      <button class="btn bt bsm" style="margin-top:10px;border-radius:50px;padding:9px 20px" onclick="vocabRetryMissed()">🔁 이 단어만 바로 다시 (${missed.length}개)</button>
     </div>`:''}
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
       <button class="btn bo" style="padding:10px 22px;border-radius:50px" onclick="renderVocabDeck(currentStudentSid)">다시 하기</button>
       ${vocabDeckFilter?.asgnId?`<button class="btn bt" style="padding:10px 22px;border-radius:50px" onclick="const aid=vocabDeckFilter.asgnId;vocabDeckFilter=null;completeAssignment(currentStudentSid,aid)">✅ 과제 완료</button>`:''}
       <button class="btn bt" style="padding:10px 22px;border-radius:50px" onclick="vocabDeckFilter=null;swStuTab('st-home')">홈으로 →</button>
     </div>
+    <div style="margin-top:18px;font-size:12.5px;color:var(--slate)">내일 또 만나요! 내일의 게임은 <b style="color:#0B8DAE">${_tmrNames}</b> 🎮</div>
   </div>`;
+}
+// 헷갈린 단어만으로 미니 세션 (같은 스테이지 구성) — 틀림 → 바로 만회의 짧은 루프
+function vocabRetryMissed(){
+  const cards=window._vocMissedCards||[];
+  if(!cards.length)return;
+  deckState={cards:[...cards],idx:0,phase:0,phaseResults:[],sessionResults:[],
+    vocabMode:deckState.vocabMode,mode:deckState.mode,stages:deckState.stages||vocabStagePlan(currentStudentSid),_fullCards:[...cards]};
+  _vgCombo=0;
+  saveDeckState();
+  vocabRenderStage();
 }
 
 // ── GAMIFICATION HELPERS ──
@@ -1706,10 +1804,25 @@ function updateStreak(sid){
   const today=new Date().toISOString().split('T')[0];
   const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
   const yStr=yesterday.toISOString().split('T')[0];
+  const y2=new Date();y2.setDate(y2.getDate()-2);
+  const y2Str=y2.toISOString().split('T')[0];
   const key='pp_streak_'+sid;
   const data=JSON.parse(localStorage.getItem(key)||'{"count":0,"lastDate":""}');
+  // 학습 도장 이력 (주간 목표·요일 도장용, 최근 60일)
+  try{
+    const sk='pp_stamps_'+sid;
+    const st=JSON.parse(localStorage.getItem(sk)||'[]');
+    if(!st.includes(today)){st.push(today);localStorage.setItem(sk,JSON.stringify(st.slice(-60)));}
+  }catch(e){}
   if(data.lastDate===today)return;
-  data.count=data.lastDate===yStr?data.count+1:1;
+  const wkStart=(()=>{const t=new Date(today+'T00:00:00');t.setDate(t.getDate()-t.getDay());return t.toISOString().split('T')[0];})();
+  if(data.lastDate===yStr){data.count+=1;}
+  else if(data.lastDate===y2Str&&data.shieldWeek!==wkStart){
+    // 스트릭 보호권: 하루 빠졌어도 주 1회는 불꽃 유지 — 좌절로 이탈하지 않게
+    data.count+=1;data.shieldWeek=wkStart;
+    setTimeout(()=>toast('🛡 스트릭 보호권 사용! 불꽃이 지켜졌어요'),400);
+  }
+  else data.count=1;
   data.lastDate=today;
   localStorage.setItem(key,JSON.stringify(data));
 }
@@ -1734,6 +1847,7 @@ function getWeekDays(sid){
   const todayStr=today.toISOString().split('T')[0];
   const weekStart=new Date(today);weekStart.setDate(today.getDate()-today.getDay());
   const doneDates=new Set((_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).map(a=>(a.completedAt||'').split('T')[0]));
+  try{JSON.parse(localStorage.getItem('pp_stamps_'+sid)||'[]').forEach(d=>doneDates.add(d));}catch(e){} // 단어 학습 도장도 포함
   const DAYS=['일','월','화','수','목','금','토'];
   const out=[];
   for(let i=0;i<7;i++){
@@ -1895,8 +2009,14 @@ function renderVocabReview(sid){
   const total=cards.length;
   const pct=n=>total?Math.round(n/total*100):0;
   const weak=cards.filter(c=>(c.misses||0)>0).sort((a,b)=>(b.misses||0)-(a.misses||0)).slice(0,4);
-  return `<div class="card" style="margin-bottom:12px">
-    <div class="ch"><span class="ct">🧠 단어 복습 현황</span><span style="font-size:11px;color:var(--slate)">전체 ${total}개</span></div>
+  // 초3 눈높이: 큰 누적 숫자는 부담 → 접힌 카드 + 쉬운 말 (자세한 통계는 학부모·선생님 화면에)
+  return `<details style="margin-bottom:12px">
+    <summary style="list-style:none;cursor:pointer"><div class="card" style="margin-bottom:0"><div class="cb" style="padding:13px 16px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:14px;font-weight:800;color:var(--navy);flex:1">🧠 내 단어 모아보기</span>
+      <span style="font-size:11.5px;font-weight:700;color:#047857">완전히 내 단어 ${mastered}개 ⭐</span>
+      <span style="font-size:11px;color:var(--slate)">▾</span>
+    </div></div></summary>
+    <div class="card" style="margin-bottom:12px;margin-top:6px">
     <div class="cb">
       ${weak.length?`<div style="font-size:13px;font-weight:800;color:#B45309;margin-bottom:9px;display:flex;align-items:center;gap:5px">⚠️ 먼저 잡을 단어</div>
       <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px">
@@ -1908,8 +2028,8 @@ function renderVocabReview(sid){
       </div>`:''}
       <div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:11px">단어가 단단해지는 중 💪</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:13px">
-        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#F59E0B;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">복습 대기 · 새 단어</span><span style="font-size:14px;font-weight:700;color:#B45309;font-family:var(--fd)">${fresh}</span></div>
-        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#0CA4C9;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">익숙해지는 중</span><span style="font-size:14px;font-weight:700;color:#0B8DAE;font-family:var(--fd)">${learning}</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#F59E0B;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">아직 새 단어</span><span style="font-size:14px;font-weight:700;color:#B45309;font-family:var(--fd)">${fresh}</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#0CA4C9;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">연습하는 중</span><span style="font-size:14px;font-weight:700;color:#0B8DAE;font-family:var(--fd)">${learning}</span></div>
         <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#10B981;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">완전히 내 단어</span><span style="font-size:14px;font-weight:700;color:#047857;font-family:var(--fd)">${mastered}</span></div>
       </div>
       <div style="height:9px;border-radius:5px;overflow:hidden;display:flex;background:#EDF2F4">
@@ -1917,10 +2037,11 @@ function renderVocabReview(sid){
         ${learning?`<span style="width:${pct(learning)}%;background:#0CA4C9"></span>`:''}
         ${mastered?`<span style="width:${pct(mastered)}%;background:#10B981"></span>`:''}
       </div>
-      <div style="margin-top:8px;font-size:11.5px;color:var(--slate);text-align:center">전체 ${total}개 중 <b style="color:#047857">${mastered}개</b>가 완전히 내 단어가 됐어요</div>
-      <button class="btn bt" style="width:100%;margin-top:14px;border-radius:50px;padding:12px" onclick="openVocabStudy('daily')">📚 오늘의 단어 학습하기 →</button>
+      <div style="margin-top:8px;font-size:11.5px;color:var(--slate);text-align:center"><b style="color:#047857">${mastered}개</b>가 완전히 내 단어가 됐어요! 오늘 20개만 하면 더 늘어나요</div>
+      <button class="btn bt" style="width:100%;margin-top:14px;border-radius:50px;padding:12px" onclick="openVocabStudy('daily')">▶ 시작!</button>
     </div>
-  </div>`;
+    </div>
+  </details>`;
 }
 // ── 주간 요일 스트립 (class5식 요일별 학습) ──
 let _stuWeekSel=null;
@@ -1985,13 +2106,34 @@ function renderStudentHome(sid){
       ?`<div class="stu-hero-cmt" id="stu-lesson-cmt" data-raw="${escAttr(heroRaw)}" data-mats="${escAttr(heroMatsText)}" data-stored="${escAttr(heroStored)}">${heroStored||'...'}</div>`
       :`<div class="stu-hero-cmt">${totalMission?`오늘 미션 ${done.length}/${totalMission}개 완료 중! 화이팅 🔥`:'오늘도 즐겁게 공부해요 😊'}</div>`}
   </div>`;
+  // ── 오늘 할 일 히어로: 도넛 링(오늘 20개) + 큰 버튼 + 오늘의 게임 예고 ──
   const _revToday=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===new Date().toISOString().split('T')[0]).length;
-  const vocabCtaHtml=`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:18px">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-      <span style="width:46px;height:46px;border-radius:13px;background:#E3F5FA;display:flex;align-items:center;justify-content:center;color:#0B8DAE;flex-shrink:0">${luIcon('layers',23)||'📚'}</span>
-      <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:var(--navy)">오늘의 단어 20개</div><div style="font-size:12px;color:#8A95A2;margin-top:2px">암기 → 뜻 맞히기 → 스펠링${_revToday?` · 오늘 ${_revToday}개 학습 ✓`:''}</div></div>
+  const _ringN=Math.min(20,_revToday);
+  const _ringDone=_ringN>=20;
+  const _rR=37,_rC=2*Math.PI*_rR;
+  const _stg=vocabStagesForDay(sid,0);
+  const _gameNames=_stg.slice(1).map(k=>(VOCAB_STAGES[k]||{}).name).filter(Boolean).join(' · ');
+  const vocabCtaHtml=`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="position:relative;width:88px;height:88px;flex-shrink:0">
+        <svg width="88" height="88" viewBox="0 0 88 88" style="transform:rotate(-90deg)">
+          <circle cx="44" cy="44" r="${_rR}" fill="none" stroke="#EDF2F4" stroke-width="9"/>
+          <circle cx="44" cy="44" r="${_rR}" fill="none" stroke="${_ringDone?'#10B981':'#0CA4C9'}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${_rC}" stroke-dashoffset="${(_rC*(1-_ringN/20)).toFixed(1)}" style="transition:stroke-dashoffset .6s"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          ${_ringDone?'<span style="font-size:26px">🎉</span>':`<span style="font-size:19px;font-weight:900;color:var(--navy);font-family:var(--fd)">${_ringN}</span><span style="font-size:10px;color:var(--slate)">/ 20</span>`}
+        </div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:800;color:var(--navy)">${_ringDone?'오늘 목표 완료! 참 잘했어요':'오늘 할 일'}</div>
+        <div style="font-size:11.5px;color:#8A95A2;margin-top:2px">오늘의 게임: ${_gameNames||'뜻 맞히기'} 🎮</div>
+        <button class="btn bt" style="width:100%;height:46px;padding:0;border-radius:12px;font-size:15px;font-weight:800;gap:6px;margin-top:9px" onclick="openVocabStudy('daily')">${luIcon('play',18)||'▷'} ${_ringDone?'더 하기':(_revToday?'이어서!':'시작!')}</button>
+      </div>
     </div>
-    <button class="btn bt" style="width:100%;height:50px;padding:0;border-radius:13px;font-size:15px;font-weight:800;gap:7px" onclick="openVocabStudy('daily')">${luIcon('play',18)||'▷'} ${_revToday?'이어서 학습하기':'오늘의 단어 시작하기'}</button>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn bo bsm" style="flex:1;border-radius:10px;padding:9px 0;font-weight:700" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button>
+      ${pending.length?`<button class="btn bo bsm" style="flex:1;border-radius:10px;padding:9px 0;font-weight:700" onclick="document.querySelector('.wk-strip')?.scrollIntoView({behavior:'smooth'})">📝 숙제 ${pending.length}개</button>`:''}
+    </div>
   </div></div>`;
   const weekDays=getWeekDays(sid);
   const weekCircles=`<div style="display:flex;justify-content:space-between">${weekDays.map(d=>{
@@ -2014,11 +2156,15 @@ function renderStudentHome(sid){
       </div>
     </div>
   </div>`;
+  // 주 단위 목표(4일) — 매일 강요보다 실패 경험이 적어 꾸준함에 유리
+  const _wkDone=weekDays.filter(d=>d.done).length;
+  const _wkGoal=4;
   const weekCard=`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px">
-    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
-      <span style="font-size:14px;font-weight:800;color:var(--navy)">이번 주 연속 학습</span>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:14px;font-weight:800;color:var(--navy)">이번 주 도장</span>
       <span style="font-size:12px;font-weight:700;color:#B45309">🔥 ${streak}일째</span>
     </div>
+    <div style="font-size:11.5px;margin-bottom:12px;${_wkDone>=_wkGoal?'color:#047857;font-weight:800':'color:var(--slate)'}">${_wkDone>=_wkGoal?`🏆 이번 주 목표 달성! (${_wkDone}/${_wkGoal}일)`:`목표: 일주일에 ${_wkGoal}일 · 지금 ${_wkDone}일 ✓`}</div>
     ${weekCircles}
   </div></div>`;
   const lastLessonHtml=renderLastLesson(sid);
@@ -2032,7 +2178,7 @@ function renderStudentHome(sid){
         <div style="font-size:19px;font-weight:800;color:var(--navy);margin-bottom:4px">오늘 미션 모두 완료!</div>
         <div style="font-size:13px;color:var(--slate)">정말 잘했어요 👏</div>
       </div>
-      ${stuXpCard(sid,streak)}${stuQuestCard(sid)}${vocabCtaHtml}${weekCard}${renderVocabReview(sid)}
+      ${vocabCtaHtml}${weekCard}${stuXpCard(sid,streak)}${stuQuestCard(sid)}${renderVocabReview(sid)}
       <details open style="margin-top:8px"><summary style="font-size:12px;font-weight:600;color:var(--slate);cursor:pointer;list-style:none">📊 지난 수업 &amp; 학습 현황</summary><div style="margin-top:8px">${lastLessonHtml}${streakHtml}${renderHomeStats(sid)}</div></details>
     </div>`;
     polishStudentCmt(givenName);
@@ -2125,6 +2271,7 @@ function renderStudentHome(sid){
   </div>`:'';
 
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
+    ${vocabCtaHtml}
     ${noHwHtml}
     ${(()=>{
       if(!allAssigns.length)return '';
@@ -2155,10 +2302,9 @@ function renderStudentHome(sid){
       const etcHtml=etc.length?'<details style="margin-top:12px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;list-style:none">📌 기타 과제 ('+etc.length+'건)</summary><div style="margin-top:8px">'+etc.map(asgnCard).join('')+'</div></details>':'';
       return '<div class="wk-strip">'+strip+'</div>'+head+body+etcHtml;
     })()}
+    ${weekCard}
     ${stuXpCard(sid,streak)}
     ${stuQuestCard(sid)}
-    ${vocabCtaHtml}
-    ${weekCard}
     ${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 지난 완료 기록 (${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length}건)</summary><div style="margin-top:8px">${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).map(asgnCard).join('')}</div></details>`:''}
     ${renderVocabReview(sid)}
     <details open style="margin-top:14px">
