@@ -409,7 +409,7 @@ function renderStudentLibrary(sid){
       </div>
     </div>`;
     return`<div class="stu-book-card">
-      <div class="stu-book-top">
+      <div class="stu-book-top" ${bookTextOf(b)?`onclick="openBookListen('${escAttr(b.id)}')" style="cursor:pointer" title="누르면 본문 보기·듣기·녹음"`:''}>
         <div class="stu-book-cover" style="overflow:hidden">${b.coverUrl?`<img src="${b.coverUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.replaceWith(document.createTextNode('📚'))">`:(b.emoji||'📚')}</div>
         <div style="flex:1;min-width:0">
           <div class="stu-book-title">${b.title||'—'}</div>
@@ -3430,13 +3430,28 @@ function blDraw(){
   const body=document.getElementById('bl-body'),footer=document.getElementById('bl-footer');
   if(!body||!footer)return;
   const sentHtml=ttsSentHtml(S.text,[],'bl-ls-',S.level);
+  // 본문을 보면서 낭독 녹음 — 카드의 녹음 흐름(startLibRec 계열)을 모달 전용 id로 재사용
+  const safe='bl_'+(S.b.id||'').replace(/[^a-z0-9]/gi,'_');
+  const recHtml='<div style="margin:4px 0 10px;padding:9px 12px;background:var(--cream2);border:1px solid var(--border);border-radius:10px">'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    +'<span style="font-size:12px;font-weight:700;color:var(--navy)">🎙 글을 보면서 낭독</span>'
+    +`<button id="lib-rec-start-${safe}" class="btn bo bsm" style="font-size:11px" onclick="startLibRec('${safe}','${currentStudentSid}','${escJsA(S.b.title)}')">🎙 녹음 시작</button>`
+    +`<button id="lib-rec-stop-${safe}" class="btn bd bsm" style="display:none;font-size:11px" onclick="stopLibRec('${safe}')">⏹ 중지</button>`
+    +`<span id="lib-rec-timer-${safe}" style="display:none;font-size:12px;color:var(--teal);font-family:var(--fm)">⏺ <span id="lib-rec-time-${safe}">0:00</span></span>`
+    +'</div>'
+    +`<div id="lib-preview-${safe}" style="display:none;margin-top:8px">`
+    +`<audio id="lib-player-${safe}" controls style="width:100%;height:34px"></audio>`
+    +`<button id="lib-submit-${safe}" class="btn bt bsm" style="margin-top:6px;width:100%;font-size:12px" onclick="submitLibRec('${safe}','${escAttr(S.b.id)}','${currentStudentSid}','${escJsA(S.b.title)}')">📤 낭독 제출</button>`
+    +`<div id="lib-ai-${safe}" style="margin-top:6px;font-size:12px;line-height:1.6"></div>`
+    +'</div></div>';
   body.innerHTML='<div style="padding:12px 16px">'
     +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
     +'<button id="bl-play" class="btn bt bsm" style="border-radius:50px;padding:7px 16px" onclick="blPlay()">▶ 듣기</button>'
     +'<button class="btn ba bsm" style="border-radius:50px;padding:7px 14px" onclick="blStop()">■ 정지</button>'
     +ttsLevelSeg(S.level,'blSetLevel')
     +'</div>'
-    +'<div style="font-size:11px;color:var(--slate);margin-bottom:10px">하이라이트되는 문장을 눈으로 따라 읽으세요 · 속도는 책 수준(<b>'+(TTS_LEVELS[S.level]?.short||'초급')+'</b>) 자동</div>'
+    +'<div style="font-size:11px;color:var(--slate);margin-bottom:8px">하이라이트되는 문장을 눈으로 따라 읽으세요 · 속도는 책 수준(<b>'+(TTS_LEVELS[S.level]?.short||'초급')+'</b>) 자동</div>'
+    +recHtml
     +'<div style="font-size:15.5px;line-height:1.95;color:var(--navy)">'+sentHtml+'</div>'
     +'</div>';
   footer.innerHTML='<button class="btn bo" style="width:100%;border-radius:50px;padding:12px" onclick="closeM(\'m-book-listen\');stopSpeak()">닫기</button>';
