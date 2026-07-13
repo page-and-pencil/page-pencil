@@ -296,6 +296,8 @@ let _stuShelfOpen=null; // null=첫 렌더(최근 수업 책 자동 열기), ''=
 function stuShelfToggle(id){_stuShelfOpen=(_stuShelfOpen===id)?'':id;renderStudentLibrary(currentStudentSid);}
 let _stuRdShelfOpen=null; // 원서 책장: null=첫 렌더(읽는 중 책 자동), ''=닫힘
 function stuRdShelfToggle(id){_stuRdShelfOpen=(_stuRdShelfOpen===id)?'':id;renderStudentLibrary(currentStudentSid);}
+// 표지 클릭용: 토글이 아니라 선택 고정 (본문 모달과 함께 쓰일 때 패널이 닫혀버리지 않게)
+function stuRdShelfSelect(id){if(_stuRdShelfOpen!==id){_stuRdShelfOpen=id;renderStudentLibrary(currentStudentSid);}}
 function renderStudentLibrary(sid){
   const el=document.getElementById('st-library');if(!el)return;
 
@@ -441,7 +443,9 @@ function renderStudentLibrary(sid){
   const shelfCardOf=e=>{
     const cov=(e.b&&e.b.coverUrl)?`<img src="${e.b.coverUrl}" loading="lazy" onerror="this.replaceWith(document.createTextNode('\uD83D\uDCD7'))">`:'\uD83D\uDCD7';
     const st=e.cur?'읽는 중':(e.completed?'완독':(e.read?'읽음':'진행중'));
-    return `<div class="shelf-card${_stuRdShelfOpen===e.key?' on':''}" onclick="stuRdShelfToggle('${e.key}')">
+    // 본문 있는 책은 표지 클릭 즉시 본문 뷰(듣기·녹음), 없으면 기존 자료 패널 토글만
+    const clk=(e.b&&bookTextOf(e.b))?`stuRdShelfSelect('${e.key}');openBookListen('${escAttr(e.b.id)}')`:`stuRdShelfToggle('${e.key}')`;
+    return `<div class="shelf-card${_stuRdShelfOpen===e.key?' on':''}" onclick="${clk}">
       <div class="shelf-cv">${cov}</div>
       ${e.cur?'<span class="shelf-badge" title="읽는 중">\uD83D\uDCD6</span>':(e.completed?'<span class="shelf-badge" title="완독">✅</span>':'')}
       <div class="shelf-t">${e.title}</div>
@@ -455,7 +459,7 @@ function renderStudentLibrary(sid){
     :`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:13px;font-weight:800;color:var(--navy)">\uD83D\uDCD7 ${e.title}</span>${e.completed?'<span style="font-size:10px;padding:2px 8px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700">✅ 완독</span>':''}</div>
        <div style="font-size:12px;color:var(--slate)">듣기·단어 자료가 준비 중이에요. 준비되면 여기에서 바로 들을 수 있어요!</div>`}
   </div>`;
-  const otherShelfHtml=otherWithAudio.map(b=>`<div class="shelf-card${_stuRdShelfOpen===b.id?' on':''}" onclick="stuRdShelfToggle('${b.id}')">
+  const otherShelfHtml=otherWithAudio.map(b=>`<div class="shelf-card${_stuRdShelfOpen===b.id?' on':''}" onclick="${bookTextOf(b)?`stuRdShelfSelect('${b.id}');openBookListen('${escAttr(b.id)}')`:`stuRdShelfToggle('${b.id}')`}">
       <div class="shelf-cv">${b.coverUrl?`<img src="${b.coverUrl}" loading="lazy" onerror="this.replaceWith(document.createTextNode('\uD83C\uDFA7'))">`:'\uD83C\uDFA7'}</div>
       <div class="shelf-t">${b.title}</div>
       <div class="shelf-s">${(b.arLevel||b.ar)?'AR '+(b.arLevel||b.ar):'듣기 가능'}</div>
