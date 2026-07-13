@@ -330,7 +330,8 @@ function renderStudentLibrary(sid){
   const _unitRowsOf=tb=>{
     const myUnits=tbSortUnitNames(tb,[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))]);
     return myUnits.map(u=>{
-      const wCnt=myCards.filter(c=>c.srcId===tb.id&&c.srcUnit===u).length;
+      // 단원에 등록된 단어 수 (교재 DB 기준 — 학생 카드 수로 세면 과제로 노출된 일부만 세어짐)
+      const wCnt=tuNormWords(tb.units?.[u]||[]).filter(w=>w.word).length;
       const hasText=!!(tb.unitTexts?.[u]);
       const hasAudio=!!(tb.unitAudio?.[u]);
       const hasLink=!!(tb.unitLinks?.[u]);
@@ -353,7 +354,8 @@ function renderStudentLibrary(sid){
   }
   const tbookHtml=myTbooks.length?(()=>{
     const shelf=myTbooks.map(tb=>{
-      const wCnt=myCards.filter(c=>c.srcId===tb.id).length;
+      // 교재 전체 등록 단어 수 (단원 합계)
+      const wCnt=Object.values(tb.units||{}).reduce((s,a)=>s+(Array.isArray(a)?tuNormWords(a).filter(w=>w.word).length:0),0);
       const recent=[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))].some(u=>_recentSet.has(_n(tb.title)+'|'+_n(u)));
       return `<div class="shelf-card${_stuShelfOpen===tb.id?' on':''}" onclick="stuShelfToggle('${tb.id}')">
         <div class="shelf-cv">${tb.coverUrl?`<img src="${tb.coverUrl}" loading="lazy" onerror="this.replaceWith(document.createTextNode('\uD83D\uDCDA'))">`:'\uD83D\uDCDA'}</div>
