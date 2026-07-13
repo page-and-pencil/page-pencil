@@ -938,12 +938,28 @@ function renderVocabDeck(sid){
   const mode=vocabDeckFilter?'all':vocabStudyMode;
   let session;
   if(mode==='last'){
-    // 직전 수업에서 실제 다룬 단어만: 그날 만들어진 카드 + 그날 수업 기록·과제에 적힌 단어
-    // (lastSeen은 자율 학습으로도 찍히는 필드라 기준으로 쓰면 옛 단어가 쓸려 들어옴)
-    const recentWords=new Set();
-    (_cache.logs||[]).filter(l=>l.sid===sid&&l.date===recentDate).forEach(l=>(l.words||[]).forEach(w=>recentWords.add(String(w).toLowerCase().trim())));
-    (_cache.assignments||[]).filter(a=>a.sid===sid&&a.date===recentDate).forEach(a=>(a.words||[]).forEach(w=>recentWords.add(String(w).toLowerCase().trim())));
-    session=cards.filter(c=>c.addedDate===recentDate||recentWords.has((c.word||'').toLowerCase())).sort(prio);
+    // 딱 직전 수업 진도(책·단원)에 등록된 단어만 — addedDate·lastSeen 기준은
+    // 일괄 동기화·자율 학습 날짜와 겹치면 옛 단어가 쓸려 들어와서 쓰지 않는다
+    const lessonWords=new Set();
+    Object.values(recentLes?.materials||{}).forEach(v=>{
+      if(!v||typeof v!=='object'||!v.book)return;
+      const title=String(v.book).trim();
+      const same=x=>(x.title||'').trim().toLowerCase()===title.toLowerCase();
+      const lib=(_cache.library||[]).find(same);
+      if(lib){(lib.vocab||[]).forEach(w=>{if(w.word)lessonWords.add(String(w.word).toLowerCase().trim());});return;}
+      const tb=(_cache.globalTextbooks||[]).find(_tbSame(title));
+      if(!tb)return;
+      const parts=String(v.unit||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+      Object.entries(tb.units||{}).forEach(([k,ws])=>{
+        const kl=k.trim().toLowerCase();
+        if(parts.length&&!parts.some(p=>p===kl||p.startsWith(kl)||kl.startsWith(p)))return;
+        if(!parts.length)return; // 단원 미기재면 그 교재 전체를 쓸어담지 않음
+        tuNormWords(ws).forEach(w=>{if(w.word)lessonWords.add(String(w.word).toLowerCase().trim());});
+      });
+    });
+    // 수업 기록에 직접 적은 단어도 포함
+    (_cache.logs||[]).filter(l=>l.sid===sid&&l.date===recentDate).forEach(l=>(l.words||[]).forEach(w=>lessonWords.add(String(w).toLowerCase().trim())));
+    session=cards.filter(c=>lessonWords.has((c.word||'').toLowerCase())).sort(prio);
   }else if(mode==='daily'){
     session=cards.filter(c=>c.lastSeen!==today).sort(prio).slice(0,20);
   }else{
