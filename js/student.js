@@ -92,6 +92,26 @@ async function submitLibRec(safeId,bookId,sid,title){
   }else{if(aiEl)aiEl.innerHTML='<span style="color:var(--teal)">제출 완료! 선생님이 확인할 예정이에요 📝</span>';}
   if(submitBtn)submitBtn.style.display='none';
 }
+// ── 외부 학습 앱 열기 — 폰이면 설치된 앱 실행(미설치 시 웹/스토어), PC면 웹 ──
+const EXT_APPS={
+  class5:{pkg:'classcard.net.movie',ios:'6453687093',web:'https://play.class5.co.kr/'},
+  autovoca:{pkg:'com.classcard.autovoca',ios:'6753331560',web:'https://www.autovoca.co.kr/login'}
+};
+function openExtApp(key){
+  const a=EXT_APPS[key];if(!a)return;
+  const ua=navigator.userAgent||'';
+  if(/android/i.test(ua)){
+    // Chrome intent: 앱 실행, 미설치면 웹으로 폴백
+    location.href=`intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${a.pkg};S.browser_fallback_url=${encodeURIComponent(a.web)};end`;
+    return;
+  }
+  if(/iphone|ipad|ipod/i.test(ua)){
+    // iOS는 웹에서 설치 감지 불가 — 앱스토어로 (설치돼 있으면 '열기' 한 번으로 앱 실행)
+    location.href=`https://apps.apple.com/kr/app/id${a.ios}`;
+    return;
+  }
+  window.open(a.web,'_blank');
+}
 // 단어 학습 모드: daily=오늘의 20개(복습 도래→헷갈림→오래 안 본 순) | last=지난 수업 단어 전부 | all=전체
 let vocabStudyMode='daily';
 function openVocabStudy(mode){

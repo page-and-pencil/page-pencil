@@ -154,7 +154,7 @@
             </div>
           </div>
           <div style="margin-top:10px">
-            <a href="https://play.class5.co.kr/" target="_blank" rel="noopener" class="btn bt" style="text-decoration:none;display:inline-flex">바로가기 →</a>
+            <button class="btn bt" style="display:inline-flex" onclick="openExtApp('class5')">앱 열기 →</button>
           </div>
         </div>
         <div class="stu-book-card">
@@ -166,7 +166,7 @@
             </div>
           </div>
           <div style="margin-top:10px">
-            <a href="https://www.autovoca.co.kr/login" target="_blank" rel="noopener" class="btn bt" style="text-decoration:none;display:inline-flex">바로가기 →</a>
+            <button class="btn bt" style="display:inline-flex" onclick="openExtApp('autovoca')">앱 열기 →</button>
           </div>
         </div>
       </div>
@@ -176,8 +176,8 @@
     <button class="stutab active" data-tab="st-home" onclick="swStuTab('st-home')"><span class="snav-ico"><i data-lucide="home" width="22" height="22"></i></span><span class="snav-lbl">오늘</span></button>
     <button class="stutab" data-tab="st-vocab" onclick="swStuTab('st-vocab')"><span class="snav-ico"><i data-lucide="layers" width="22" height="22"></i></span><span class="snav-lbl">단어</span></button>
     <button class="stutab" data-tab="st-library" onclick="swStuTab('st-library')"><span class="snav-ico"><i data-lucide="rotate-ccw" width="22" height="22"></i></span><span class="snav-lbl">복습</span></button>
-    <button class="stutab" onclick="window.open('https://play.class5.co.kr/','_blank')"><span class="snav-ico"><i data-lucide="gamepad-2" width="22" height="22"></i></span><span class="snav-lbl" style="display:flex;align-items:center;gap:2px">클래스5<i data-lucide="arrow-up-right" width="9" height="9"></i></span></button>
-    <button class="stutab" onclick="window.open('https://www.autovoca.co.kr/login','_blank')"><span class="snav-ico"><i data-lucide="book-open" width="22" height="22"></i></span><span class="snav-lbl" style="display:flex;align-items:center;gap:2px">오토보카<i data-lucide="arrow-up-right" width="9" height="9"></i></span></button>
+    <button class="stutab" onclick="openExtApp('class5')"><span class="snav-ico"><i data-lucide="gamepad-2" width="22" height="22"></i></span><span class="snav-lbl" style="display:flex;align-items:center;gap:2px">클래스5<i data-lucide="arrow-up-right" width="9" height="9"></i></span></button>
+    <button class="stutab" onclick="openExtApp('autovoca')"><span class="snav-ico"><i data-lucide="book-open" width="22" height="22"></i></span><span class="snav-lbl" style="display:flex;align-items:center;gap:2px">오토보카<i data-lucide="arrow-up-right" width="9" height="9"></i></span></button>
   </nav>
 </div>
 
