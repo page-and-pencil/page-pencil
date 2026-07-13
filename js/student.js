@@ -1061,7 +1061,7 @@ function renderMemCard(el){
   if(!card||( (card.meaning||card.ko) && card.example && !/[가-힣]/.test(card.example) ))return;
   const stu=(_cache.students||[]).find(s=>s.id===card.sid);
   const grade=stu?.grade||stu?.lv||'';
-  getWordMetaFull(card.word,grade).then(async m=>{
+  getWordMetaFull(card.word,grade,card.meaning||card.ko||'').then(async m=>{
     if(!m)return;
     let changed=false;
     if(m.ko&&!card.meaning){

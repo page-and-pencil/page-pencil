@@ -723,7 +723,7 @@ function findExampleFromBooks(word,grade){
   candidates.sort((a,b)=>a.dist-b.dist);
   return candidates[0].sentence;
 }
-async function getWordMetaFull(word,grade){
+async function getWordMetaFull(word,grade,koHint){
   const bookEx=findExampleFromBooks(word,grade);
   const apiKey=DB.api();
   let ko='',pos='',example=bookEx||'',exampleSrc=bookEx?'book':'';
@@ -736,8 +736,10 @@ async function getWordMetaFull(word,grade){
   if(apiKey&&(!ko||!bookEx)){
     try{
       const lvHint=grade?`학생 학년: ${grade}.`:'';
+      // 다의어 오류 방지: 이미 가르치는 뜻이 있으면 예문도 반드시 그 뜻으로 (예: watch=손목시계인데 'I watch TV' 생성 금지)
+      const senseHint=koHint?`이 단어는 '${koHint}' 뜻으로 가르치는 중 — 예문은 반드시 그 뜻·품사의 용례로 쓸 것.`:'';
       const prompt=(!bookEx&&!example)
-        ?`영어 단어/표현 "${word}"의 정보. ${lvHint} 한국어 뜻 2-4단어, 뜻이 동음이의어면 괄호로 구분(예: 배(과일), 눈(날씨), 풀(붙이는 풀)). example은 반드시 자연스러운 영어 문장.\nJSON만: {"ko":"뜻","pos":"noun|verb|adj|adv|phrase","example":"Short English example sentence"}`
+        ?`영어 단어/표현 "${word}"의 정보. ${lvHint} ${senseHint} 한국어 뜻 2-4단어, 뜻이 동음이의어면 괄호로 구분(예: 배(과일), 눈(날씨), 풀(붙이는 풀)). example은 반드시 자연스러운 영어 문장.\nJSON만: {"ko":"뜻","pos":"noun|verb|adj|adv|phrase","example":"Short English example sentence"}`
         :`영어 단어/표현 "${word}"의 품사만. JSON만: {"pos":"noun|verb|adj|adv|phrase"}`;
       const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:80,messages:[{role:'user',content:prompt}]});
       const txt=d.content?.[0]?.text?.trim()||'';
@@ -790,7 +792,7 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study
       await supaUpsert('vocab_cards',found.id,updated,sid);
       const ci=_cache.vocab_cards.findIndex(c=>c.id===found.id);if(ci>=0)_cache.vocab_cards[ci]=updated;
       if(!updated.meaning||!updated.example){
-        getWordMetaFull(wordText,grade).then(async m=>{
+        getWordMetaFull(wordText,grade,updated.meaning||meta.ko||'').then(async m=>{
           let changed=false;
           if(m.ko&&!updated.meaning){updated.meaning=m.ko;changed=true;}
           if(m.pos&&!updated.pos){updated.pos=m.pos;changed=true;}
@@ -805,7 +807,7 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study
       await supaUpsert('vocab_cards',newCard.id,newCard,sid);
       if(!_cache.vocab_cards)_cache.vocab_cards=[];_cache.vocab_cards.push(newCard);
       if(!meta.ko||!newCard.example){
-        getWordMetaFull(wordText,grade).then(async m=>{
+        getWordMetaFull(wordText,grade,newCard.meaning||'').then(async m=>{
           let changed=false;
           if(m.ko&&!newCard.meaning){newCard.meaning=m.ko;changed=true;}
           if(m.pos&&!newCard.pos){newCard.pos=m.pos;changed=true;}
