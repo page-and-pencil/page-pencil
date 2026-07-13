@@ -787,7 +787,7 @@
             <input type="hidden" id="cl-class-id">
             <div style="margin-bottom:14px">
               <label style="font-size:12px;color:var(--slate);display:block;margin-bottom:4px">날짜</label>
-              <input type="date" id="cl-date" onchange="clUpdateDaySub()" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none">
+              <input type="date" id="cl-date" onchange="clUpdateDaySub();document.querySelectorAll('#cl-subj-rows .sr').forEach(_pgAutoFillRow)" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none">
             </div>
             <div class="card" style="margin-bottom:12px">
               <div class="ch"><span class="ct">📚 공통 교재 진도</span></div>
