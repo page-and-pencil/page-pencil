@@ -1488,6 +1488,8 @@
             <div style="display:flex;gap:6px">
               <button class="btn ba bsm" onclick="tuSaveUnitText()" style="white-space:nowrap">저장</button>
               <button class="btn bt bsm" onclick="tuExtractExamples()" style="white-space:nowrap">✨ 원문 예문 추출</button>
+              <button class="btn ba bsm" onclick="teacherSpeakText('tu-unit-text')" title="AI 낭독으로 미리듣기" style="white-space:nowrap">🔊 미리듣기</button>
+              <button class="btn bo bsm" onclick="stopSmartAudio()" style="white-space:nowrap">⏹</button>
             </div>
           </div>
           <textarea id="tu-unit-text" placeholder="이 단원의 원문(지문)을 붙여넣으세요. '원문 예문 추출'을 누르면 단어마다 해당 문장이 예문으로 자동 설정됩니다." style="width:100%;height:90px;padding:10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
@@ -1773,6 +1775,8 @@
         <textarea id="elib-booktext" placeholder="챕터를 선택하거나 생성한 뒤 본문을 붙여넣으세요." style="width:100%;height:100px;padding:10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">
           <button class="btn bt bsm" onclick="extractLibVocab()" style="white-space:nowrap">✨ AI 단어 추출 & 저장</button>
+          <button class="btn ba bsm" onclick="teacherSpeakText('elib-booktext')" title="AI 낭독으로 미리듣기" style="white-space:nowrap">🔊 미리듣기</button>
+          <button class="btn bo bsm" onclick="stopSmartAudio()" style="white-space:nowrap">⏹</button>
           <button class="btn ba bsm" onclick="document.getElementById('elib-txt-file').click()" style="white-space:nowrap">📄 .txt 파일 불러오기</button>
           <input type="file" id="elib-txt-file" accept=".txt" style="display:none" onchange="elibLoadTxtFile(event)">
           <button class="btn ba bsm" onclick="document.getElementById('elib-ch-csv-input').click()" style="white-space:nowrap">📊 챕터 CSV 일괄 입력</button>

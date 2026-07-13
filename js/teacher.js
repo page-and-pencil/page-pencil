@@ -772,6 +772,7 @@ function renderVocabList(sid){
         <input type="checkbox" class="vocab-chk" data-id="${c.id}" style="margin-top:6px;flex-shrink:0;cursor:pointer;width:14px;height:14px">
         <div style="flex:1;min-width:0">
           <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:7px">
+            <button onclick="speakWord('${(c.word||'').replace(/'/g,"\\'")}')" title="발음 듣기" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0;flex-shrink:0">🔊</button>
             <input type="text" value="${escAttr(c.word||'')}" placeholder="영단어"
               onblur="saveVocabField('${c.id}','${sid}','word',this.value)"
               style="${inp};font-size:14px;font-weight:700;font-family:var(--fd);width:auto;min-width:90px;max-width:160px">
@@ -2766,7 +2767,7 @@ function renderLibVocabTable(id){
   _elibEditing=null;
   if(!vocab.length){tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단어가 없습니다. AI 추출 또는 직접 추가하세요.</td></tr>';return;}
   tbody.innerHTML=vocab.map((w,i)=>`<tr data-rowidx="${i}" onclick="elibRowClick(event,'${id}',${i})" title="클릭하여 바로 수정" style="border-bottom:1px solid var(--border);cursor:pointer">
-    <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}${(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:''}</td>
+    <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap"><button onclick="speakWord('${(w.word||'').replace(/'/g,"\\'")}')" title="발음 듣기" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 4px 0 0;vertical-align:1px">🔊</button>${w.word}${(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:''}</td>
     <td style="padding:6px 8px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
     <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px">${POS_KO[w.pos]||w.pos||'—'}</span></td>
     <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic">${w.example||'—'}</td>
@@ -3561,6 +3562,13 @@ function tuToggleTextSec(force){
   const body=document.getElementById('tu-text-body');if(body)body.style.display=_tuTextOpen?'':'none';
   const ar=document.getElementById('tu-text-arrow');if(ar)ar.textContent=_tuTextOpen?'▲':'▼';
 }
+// 원문 미리듣기 (선생님용) — 학생이 듣는 것과 같은 AI 낭독 경로(speakWord→speakSmart)
+function teacherSpeakText(taId){
+  const t=(document.getElementById(taId)?.value||'').trim();
+  if(!t)return toast('원문이 비어 있어요');
+  if(t.length>2500)toast('본문이 길어 앞부분 위주로 재생됩니다');
+  speakWord(t.slice(0,2500));
+}
 function tuRenderWords(tbId,unitKey){
   const tbody=document.getElementById('tu-word-tbody');if(!tbody)return;
   _tuEditing=null;
@@ -3588,7 +3596,7 @@ function tuRenderWords(tbId,unitKey){
   const words=tuNormWords(tb?.units?.[unitKey]||[]);
   if(!words.length){tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단어가 없습니다. 아래에서 추가하거나 Excel/CSV 파일을 가져오세요.</td></tr>';return;}
   tbody.innerHTML=words.map((w,i)=>`<tr data-rowidx="${i}" onclick="tuRowClick(event,'${tbId}','${escAttr(unitKey)}',${i})" title="클릭하여 바로 수정" style="border-bottom:1px solid var(--border);cursor:pointer">
-    <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap">${w.word}${(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:''}</td>
+    <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap"><button onclick="speakWord('${(w.word||'').replace(/'/g,"\\'")}')" title="발음 듣기" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 4px 0 0;vertical-align:1px">🔊</button>${w.word}${(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:''}</td>
     <td style="padding:6px 8px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
     <td style="padding:6px 8px"><span style="font-size:10px;background:var(--cream2);padding:1px 5px;border-radius:3px;white-space:nowrap">${POS_KO[w.pos]||w.pos||'—'}</span></td>
     <td style="padding:6px 8px;font-size:11px;color:var(--slate);font-style:italic">${w.example||'—'}</td>

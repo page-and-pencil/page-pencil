@@ -519,8 +519,8 @@ async function sha256Hex(s){const b=await crypto.subtle.digest('SHA-256',new Tex
 function elevenCfg(){const c=_cache.settings.elevenlabs||DB.g('elevenlabs')||null;return(c&&c.key)?c:null;}
 async function elevenGetAudioUrl(text,cfg,wordMode){
   const voice=cfg.voiceId||'EXAVITQu4vr4xnSDxMaL';
-  // 모드별 캐시 키 (w=단어 또렷 모드 / s4=문장 균형 모드 — 설정 바뀌면 버전 올려 재생성)
-  const id='tts_'+await sha256Hex(voice+'|'+(wordMode?'w|':'s4|')+text);
+  // 모드별 캐시 키 (w2=단어 또렷 모드 / s4=문장 균형 모드 — 설정 바뀌면 버전 올려 재생성)
+  const id='tts_'+await sha256Hex(voice+'|'+(wordMode?'w2|':'s4|')+text);
   // 1) 캐시 조회 — 같은 문장은 다시 생성하지 않음 (크레딧 절약)
   try{
     const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
@@ -529,7 +529,8 @@ async function elevenGetAudioUrl(text,cfg,wordMode){
   // 2) 생성 — 단어: 고품질+안정(또박또박) / 문장: 균형 설정(일관된 톤 + 은은한 생기)
   //    0.5/0.35는 원장이 고른 Matilda 샘플 톤과 동일 값 — 바꾸면 들었던 느낌과 달라짐
   const body=wordMode
-    ?{text,model_id:'eleven_multilingual_v2',voice_settings:{stability:0.85,similarity_boost:0.8,style:0,use_speaker_boost:true}}
+    // 단어 하나는 다국어 모델이 언어를 오인함(come→이탈리아어 '코메') → 영어 강제 가능한 turbo v2.5 사용
+    ?{text,model_id:'eleven_turbo_v2_5',language_code:'en',voice_settings:{stability:0.85,similarity_boost:0.8,style:0,use_speaker_boost:true}}
     :{text,model_id:'eleven_turbo_v2_5',voice_settings:{stability:0.5,similarity_boost:0.8,style:0.35,use_speaker_boost:true}};
   const gen=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_64`,{
     method:'POST',
