@@ -774,7 +774,7 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study
   const existing=await supaFetchBySid('vocab_cards',sid);
   const wrongSet=new Set(wrongWords.map(x=>(typeof x==='string'?x:x.word).toLowerCase().trim()));
   for(const entry of allWords){
-    const wordText=(typeof entry==='string'?entry:entry.word||'').toLowerCase().trim();if(!wordText)continue;
+    const wordText=fixWordCase((typeof entry==='string'?entry:entry.word||'').toLowerCase().trim(),(typeof entry==='object'&&entry)?entry.ko:'');if(!wordText)continue;
     const meta=typeof entry==='string'?{}:entry;
     const found=existing.find(c=>(c.word||'').toLowerCase()===wordText);
     const isWrong=wrongSet.has(wordText);

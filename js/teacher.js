@@ -2884,7 +2884,7 @@ async function extractLibVocab(){
   const status=document.getElementById('elib-extract-status');if(status)status.textContent='AI가 단어 추출 중...';
   const truncated=text.split(/\s+/).filter(Boolean).slice(0,2500).join(' ');
   try{
-    const prompt=`다음 영어 원서 본문에서 학습 가치 있는 단어와 표현을 추출하세요.\n\n규칙:\n1. 고유명사(인명·지명) 완전 제외\n2. 단순 기초 단어(the/a/is/it/this/that 등)는 제외하되, 의미 있는 단어는 포함\n3. 구동사·숙어 포함: look at / look out / give up / run away 등 2-3단어 표현도 단어처럼 항목으로 추가\n4. 딕셔너리 폼: 명사는 단수형, 동사는 원형(base form). 문장 첫 단어라도 소문자로 저장\n5. 동사(pos=verb)는 v2(과거형)·v3(과거분사)를 반드시 포함. 규칙동사(-ed형)는 생략 가능, 불규칙은 필수\n6. 한국어 뜻: 한국어만 2-4단어, 영어·화살표·인용부호 없이. 동음이의어는 괄호로 구분(예: 배(과일), 눈(날씨), 풀(붙이는 풀))\n7. 예문: 본문에서 해당 단어/표현이 쓰인 실제 문장만 발췌. 본문에 없으면 빈 문자열 "" (창작 금지)\n8. 예문 따옴표 규칙: 대화 귀속이 있는 직접 인용("One wheel," said Chip.)은 따옴표 그대로 유지. 따옴표만으로 이루어진 예문("One wheel.")은 따옴표 제거 후 One wheel. 로 저장\n9. 품사가 여러 개인 단어: 본문 사용 빈도 높은 품사부터 각각 별도 항목\n10. 품사 값: noun/verb/adj/adv/prep/phrase (구동사·숙어는 phrase)\n11. 최대 50개 항목\n\nJSON만 반환:\n{"words":[{"word":"run","ko":"달리다","pos":"verb","example":"They run to the gate.","v2":"ran","v3":"run"},{"word":"wheel","ko":"바퀴","pos":"noun","example":"\\"One wheel,\\" said Chip."},{"word":"terrific","ko":"훌륭한","pos":"adj","example":"Terrific! Some pig!"}]}\n\n본문:\n${truncated}`;
+    const prompt=`다음 영어 원서 본문에서 학습 가치 있는 단어와 표현을 추출하세요.\n\n규칙:\n1. 고유명사(인명·지명) 완전 제외\n2. 단순 기초 단어(the/a/is/it/this/that 등)는 제외하되, 의미 있는 단어는 포함\n3. 구동사·숙어 포함: look at / look out / give up / run away 등 2-3단어 표현도 단어처럼 항목으로 추가\n4. 딕셔너리 폼: 명사는 단수형, 동사는 원형(base form). 문장 첫 단어라도 소문자로 저장. 단, 항상 대문자인 단어(요일·월·I·Mr./Mrs.·국가/언어명 등)는 대문자 유지\n5. 동사(pos=verb)는 v2(과거형)·v3(과거분사)를 반드시 포함. 규칙동사(-ed형)는 생략 가능, 불규칙은 필수\n6. 한국어 뜻: 한국어만 2-4단어, 영어·화살표·인용부호 없이. 동음이의어는 괄호로 구분(예: 배(과일), 눈(날씨), 풀(붙이는 풀))\n7. 예문: 본문에서 해당 단어/표현이 쓰인 실제 문장만 발췌. 본문에 없으면 빈 문자열 "" (창작 금지)\n8. 예문 따옴표 규칙: 대화 귀속이 있는 직접 인용("One wheel," said Chip.)은 따옴표 그대로 유지. 따옴표만으로 이루어진 예문("One wheel.")은 따옴표 제거 후 One wheel. 로 저장\n9. 품사가 여러 개인 단어: 본문 사용 빈도 높은 품사부터 각각 별도 항목\n10. 품사 값: noun/verb/adj/adv/prep/phrase (구동사·숙어는 phrase)\n11. 최대 50개 항목\n\nJSON만 반환:\n{"words":[{"word":"run","ko":"달리다","pos":"verb","example":"They run to the gate.","v2":"ran","v3":"run"},{"word":"wheel","ko":"바퀴","pos":"noun","example":"\\"One wheel,\\" said Chip."},{"word":"terrific","ko":"훌륭한","pos":"adj","example":"Terrific! Some pig!"}]}\n\n본문:\n${truncated}`;
     const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:3000,messages:[{role:'user',content:prompt}]});
     const txt=d.content?.[0]?.text?.trim()||'';
     const json=JSON.parse(txt.replace(/```json|```/g,'').trim());
@@ -2904,7 +2904,7 @@ async function extractLibVocab(){
     const newWords=json.words
       .filter(w=>w.word)
       .map(w=>{
-        const word=w.word.toLowerCase().trim();
+        const word=fixWordCase(w.word.toLowerCase().trim(),w.ko);
         const v2=(w.v2||'').toLowerCase().trim()||undefined;
         const v3=(w.v3||'').toLowerCase().trim()||undefined;
         // 예문 전체가 따옴표로만 감싸인 경우 제거 ("One wheel." → One wheel.)
@@ -3061,7 +3061,7 @@ function parseWordListRows(rows){
     // 번호 목록: 첫 셀이 숫자면 → 다음 셀이 단어
     if(/^\d+$/.test(word)&&cells[startCol+1]){word=cells[startCol+1];numShift=1;}
     // "1. hello" "1) hello" 형태 정리
-    word=word.replace(/^\d+[\s.）)、\-]+/,'').toLowerCase().trim();
+    word=fixWordCase(word.replace(/^\d+[\s.）)、\-]+/,'').toLowerCase().trim());
     // 영어로 시작해야 함
     if(!word||!/^[a-zA-Z]/.test(word))continue;
     if(/^(day|lesson|unit|chapter|words?|meaning)\s*$/i.test(word))continue;
@@ -3144,7 +3144,7 @@ ${truncated}`}]});
     txt=txt.replace(/```json|```/g,'').trim();
     try{JSON.parse(txt);}catch{txt=tryRepairJSON(txt);}
     const json=JSON.parse(txt);
-    return(json.words||[]).map(w=>({word:(w.word||'').toLowerCase().trim(),ko:(w.ko||'').trim(),pos:(w.pos||'').trim(),example:(w.example||'').trim()})).filter(w=>w.word&&/^[a-zA-Z]/.test(w.word));
+    return(json.words||[]).map(w=>({word:fixWordCase((w.word||'').toLowerCase().trim(),w.ko),ko:(w.ko||'').trim(),pos:(w.pos||'').trim(),example:(w.example||'').trim()})).filter(w=>w.word&&/^[a-zA-Z]/.test(w.word));
   }catch{return null;}
 }
 // 파서 체인: 구조화 CSV → 줄별 패턴 → AI 자동 폴백
@@ -3823,8 +3823,8 @@ function tuWordlistMerge(tbId,parsedUnits){
     const target=match.get(name)||name; // 매칭되면 기존 단원에 합침, 아니면 새 단원
     const existing=tuNormWords((tb.units||{})[target]||[]);
     const existSet=new Set(existing.map(w=>w.word));
-    const add=ws.map(w=>({word:String(w.word||'').toLowerCase().trim(),ko:w.ko||'',pos:w.pos||'',example:w.example||''}))
-      .filter(w=>w.word&&/^[a-z]/.test(w.word)&&!existSet.has(w.word));
+    const add=ws.map(w=>({word:fixWordCase(String(w.word||'').toLowerCase().trim(),w.ko),ko:w.ko||'',pos:w.pos||'',example:w.example||''}))
+      .filter(w=>w.word&&/^[a-zA-Z]/.test(w.word)&&!existSet.has(w.word));
     return{name,target,isNew:!existSet.size&&!match.get(name),add,skip:ws.length-add.length};
   }).filter(p=>p.add.length);
   if(!plan.length){toast('추가할 새 단어가 없습니다 (모두 이미 있음)');return;}

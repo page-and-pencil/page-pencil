@@ -530,7 +530,12 @@ function renderStudentLibrary(sid){
           const keys=[...new Set([...Object.keys(g.unitTexts||{}),...Object.keys(g.unitAudio||{})])];
           let uk='';
           for(const seg of String(v.unit||'').split(',').map(x=>x.trim()).filter(Boolean)){
-            const hit=keys.find(u=>_n(u)===_n(seg));if(hit){uk=hit;break;}
+            const ns=_n(seg);
+            // 수업 기록의 'Unit 1'과 교재 키 'Unit 1 New Friends'처럼 표기가 다른 경우 — 앞부분 일치 허용
+            // (숫자 경계 보호: 'unit1'이 'unit11...'에 붙지 않게 이어지는 글자가 숫자면 제외)
+            const pref=(a,b)=>a.startsWith(b)&&!/^\d/.test(a.slice(b.length));
+            const hit=keys.find(u=>_n(u)===ns)||keys.find(u=>ns&&(pref(_n(u),ns)||pref(ns,_n(u))));
+            if(hit){uk=hit;break;}
           }
           if(uk&&g.unitTexts?.[uk])btns=`<button class="btn bt bsm" onclick="openUnitReview('${g.id}','${uk.replace(/'/g,"\\'")}')">\uD83D\uDCD6 복습</button>`;
           else if(uk&&g.unitAudio?.[uk])btns=`<button class="btn ba bsm" onclick="openUnitRead('${g.id}','${uk.replace(/'/g,"\\'")}')">\uD83C\uDFA7 듣기</button>`;
