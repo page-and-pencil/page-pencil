@@ -313,11 +313,13 @@ function renderStuAudio(b){
   return makeAudioPlayer(url,b.title||'');
 }
 let _stuShelfOpen=null; // null=첫 렌더(최근 수업 책 자동 열기), ''=닫힘
-function stuShelfToggle(id){_stuShelfOpen=(_stuShelfOpen===id)?'':id;renderStudentLibrary(currentStudentSid);}
+function stuShelfToggle(id){_stuShelfOpen=(_stuShelfOpen===id)?'':id;renderStudentLibrary(currentStudentSid);if(_stuShelfOpen)_shelfFocusPanel('tb-shelf-panel');}
 let _stuRdShelfOpen=null; // 원서 책장: null=첫 렌더(읽는 중 책 자동), ''=닫힘
-function stuRdShelfToggle(id){_stuRdShelfOpen=(_stuRdShelfOpen===id)?'':id;renderStudentLibrary(currentStudentSid);}
+function stuRdShelfToggle(id){_stuRdShelfOpen=(_stuRdShelfOpen===id)?'':id;renderStudentLibrary(currentStudentSid);if(_stuRdShelfOpen)_shelfFocusPanel('rd-shelf-panel');}
 // 표지 클릭용: 토글이 아니라 선택 고정 (본문 모달과 함께 쓰일 때 패널이 닫혀버리지 않게)
-function stuRdShelfSelect(id){if(_stuRdShelfOpen!==id){_stuRdShelfOpen=id;renderStudentLibrary(currentStudentSid);}}
+function stuRdShelfSelect(id){if(_stuRdShelfOpen!==id){_stuRdShelfOpen=id;renderStudentLibrary(currentStudentSid);_shelfFocusPanel('rd-shelf-panel');}}
+// 표지 선택 직후 단원 패널이 화면 밖이면 스르륵 이동 — 아래 목록이 바뀐 걸 알 수 있게
+function _shelfFocusPanel(pid){requestAnimationFrame(()=>{const p=document.getElementById(pid);if(!p)return;const r=p.getBoundingClientRect();if(r.top<0||r.bottom>window.innerHeight)p.scrollIntoView({behavior:'smooth',block:'nearest'});});}
 function renderStudentLibrary(sid){
   const el=document.getElementById('st-library');if(!el)return;
 
@@ -337,10 +339,28 @@ function renderStudentLibrary(sid){
       return v&&v.book&&bk!=='pencil_down'&&bk!=='sing_together';
     });
   });
-  const _recentSet=new Set(); // '책|단원' — 직전 수업에서 다룬 단원 배지용
+  const _recentPairs=[]; // {b,u} — 직전 수업에서 다룬 책·단원 (배지·정렬용)
   if(lastLes)Object.entries(lastLes.materials||{}).forEach(([k,v])=>{
-    if(v&&v.book&&v.unit)String(v.unit).split(',').forEach(seg=>{if(seg.trim())_recentSet.add(_n(v.book)+'|'+_n(seg));});
+    if(v&&v.book&&v.unit)String(v.unit).split(',').forEach(seg=>{if(seg.trim())_recentPairs.push({b:_n(v.book),u:_n(seg)});});
   });
+  // 수업 기록 'Unit 1' vs 교재 키 'Unit 1 New Friends' 표기 차이 흡수 (숫자 경계 보호로 Unit 11 오매칭 방지)
+  const _pref=(a,b)=>a.startsWith(b)&&!/^\d/.test(a.slice(b.length));
+  const _uMatch=(a,b)=>a===b||(!!a&&!!b&&(_pref(a,b)||_pref(b,a)));
+  const _isRecent=(title,unit)=>{const tb=_n(title),tu=_n(unit);return _recentPairs.some(p=>p.b===tb&&_uMatch(p.u,tu));};
+  const _unitLesDate={}; // '책|단원'별 마지막 수업일 — 단원 목록 최근 학습 정렬용
+  DB.less().forEach(l=>{
+    if(l.sid!==sid)return;
+    Object.values(l.materials||{}).forEach(v=>{
+      if(v&&v.book&&v.unit)String(v.unit).split(',').forEach(seg=>{
+        if(!seg.trim())return;const k=_n(v.book)+'|'+_n(seg);
+        if(!_unitLesDate[k]||(l.date||'')>_unitLesDate[k])_unitLesDate[k]=l.date||'';
+      });
+    });
+  });
+  const _uLesDate=(title,unit)=>{const tb=_n(title),tu=_n(unit);let best='';
+    for(const k in _unitLesDate){const i=k.indexOf('|');if(k.slice(0,i)!==tb)continue;
+      if(_uMatch(k.slice(i+1),tu)&&_unitLesDate[k]>best)best=_unitLesDate[k];}
+    return best;};
 
   // ── 교재 섹션 (최근 수업에 쓴 책부터) ──
   const myCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.srcType==='textbook'&&c.srcId);
@@ -350,7 +370,16 @@ function renderStudentLibrary(sid){
 
   // ── 내 책장: 표지 그리드 + 선택한 책의 단원 패널 ──
   const _unitRowsOf=tb=>{
-    const myUnits=tbSortUnitNames(tb,[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))]);
+    const unitCards={};
+    myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).forEach(c=>{(unitCards[c.srcUnit]=unitCards[c.srcUnit]||[]).push(c);});
+    const ordered=tbSortUnitNames(tb,Object.keys(unitCards));
+    // 최근 학습이 맨 위: 지난 수업 단원 → 수업일 최신순 → 카드 등록일 최신순 → 목차 순
+    const _uCardDate=u=>(unitCards[u]||[]).reduce((m,c)=>{const d=String(c.lastSeen||c.addedDate||'');return d>m?d:m;},'');
+    const myUnits=[...ordered].sort((a,b)=>
+      ((_isRecent(tb.title,b)?1:0)-(_isRecent(tb.title,a)?1:0))
+      ||_uLesDate(tb.title,b).localeCompare(_uLesDate(tb.title,a))
+      ||_uCardDate(b).localeCompare(_uCardDate(a))
+      ||(ordered.indexOf(a)-ordered.indexOf(b)));
     return myUnits.map(u=>{
       // 단원에 등록된 단어 수 (교재 DB 기준 — 학생 카드 수로 세면 과제로 노출된 일부만 세어짐)
       const wCnt=tuNormWords(tb.units?.[u]||[]).filter(w=>w.word).length;
@@ -359,7 +388,7 @@ function renderStudentLibrary(sid){
       const hasLink=!!(tb.unitLinks?.[u]);
       return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:11px;font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_recentSet.has(_n(tb.title)+'|'+_n(u))?` <span style="font-size:9.5px;font-weight:700;background:var(--tl);color:#0B8DAE;padding:2px 7px;border-radius:9px;vertical-align:1px">\uD83D\uDD04 지난 수업</span>`:''}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:11px;font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_isRecent(tb.title,u)?` <span style="font-size:9.5px;font-weight:700;background:var(--tl);color:#0B8DAE;padding:2px 7px;border-radius:9px;vertical-align:1px">\uD83D\uDD04 지난 수업</span>`:''}</div>
           <div style="font-size:11px;color:var(--slate);margin-top:2px">단어 ${wCnt}개</div>
         </div>
         <div style="display:flex;gap:5px;flex-shrink:0">
@@ -371,14 +400,14 @@ function renderStudentLibrary(sid){
     }).join('');
   };
   if(_stuShelfOpen===null){
-    const rec=myTbooks.find(tb=>[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))].some(u=>_recentSet.has(_n(tb.title)+'|'+_n(u))));
+    const rec=myTbooks.find(tb=>[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))].some(u=>_isRecent(tb.title,u)));
     _stuShelfOpen=rec?rec.id:(myTbooks[0]?.id||'');
   }
   const tbookHtml=myTbooks.length?(()=>{
     const shelf=myTbooks.map(tb=>{
       // 교재 전체 등록 단어 수 (단원 합계)
       const wCnt=Object.values(tb.units||{}).reduce((s,a)=>s+(Array.isArray(a)?tuNormWords(a).filter(w=>w.word).length:0),0);
-      const recent=[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))].some(u=>_recentSet.has(_n(tb.title)+'|'+_n(u)));
+      const recent=[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))].some(u=>_isRecent(tb.title,u));
       return `<div class="shelf-card${_stuShelfOpen===tb.id?' on':''}" onclick="stuShelfToggle('${tb.id}')">
         <div class="shelf-cv">${tb.coverUrl?`<img src="${tb.coverUrl}" loading="lazy" onerror="this.replaceWith(document.createTextNode('\uD83D\uDCDA'))">`:'\uD83D\uDCDA'}</div>
         ${recent?'<span class="shelf-badge" title="지난 수업에서 배웠어요">\uD83D\uDD04</span>':''}
@@ -387,7 +416,7 @@ function renderStudentLibrary(sid){
       </div>`;
     }).join('');
     const opened=myTbooks.find(x=>x.id===_stuShelfOpen);
-    const panel=opened?`<div class="shelf-panel">
+    const panel=opened?`<div class="shelf-panel" id="tb-shelf-panel">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <span style="font-size:13px;font-weight:800;color:var(--navy)">\uD83D\uDCDA ${opened.title}</span>
         ${opened.level?`<span style="font-size:11px;color:var(--slate)">(${opened.level})</span>`:''}
@@ -474,7 +503,7 @@ function renderStudentLibrary(sid){
   };
   const selMine=myShelf.find(e=>e.key===_stuRdShelfOpen);
   const selOther=!selMine?otherWithAudio.find(b=>b.id===_stuRdShelfOpen):null;
-  const panelOf=e=>`<div class="shelf-panel">${e.b
+  const panelOf=e=>`<div class="shelf-panel" id="rd-shelf-panel">${e.b
     ?bookCardHtml(e.b,!!e.cur,!!(e.read||e.completed))
     :`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:13px;font-weight:800;color:var(--navy)">\uD83D\uDCD7 ${e.title}</span>${e.completed?'<span style="font-size:10px;padding:2px 8px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700">✅ 완독</span>':''}</div>
        <div style="font-size:12px;color:var(--slate)">듣기·단어 자료가 준비 중이에요. 준비되면 여기에서 바로 들을 수 있어요!</div>`}
@@ -1008,7 +1037,9 @@ function renderVocabDeck(sid){
       const parts=String(v.unit||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
       Object.entries(tb.units||{}).forEach(([k,ws])=>{
         const kl=k.trim().toLowerCase();
-        if(parts.length&&!parts.some(p=>p===kl||p.startsWith(kl)||kl.startsWith(p)))return;
+        // 앞부분 일치 + 숫자 경계 보호 — 'unit 1'이 'unit 11'에 잘못 붙지 않게
+        const _bp=(a,b)=>a.startsWith(b)&&!/^\d/.test(a.slice(b.length));
+        if(parts.length&&!parts.some(p=>p===kl||_bp(p,kl)||_bp(kl,p)))return;
         if(!parts.length)return; // 단원 미기재면 그 교재 전체를 쓸어담지 않음
         tuNormWords(ws).forEach(w=>{if(w.word)lessonWords.add(String(w.word).toLowerCase().trim());});
       });
