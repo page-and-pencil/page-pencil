@@ -1127,3 +1127,6 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 @media(max-width:760px){
   .land2-eyebrow,.land2-sub,.land2-chips{display:none;}
 }
+
+/* 단어 게임 콤보 팝업 */
+@keyframes comboPop{0%{transform:translateX(-50%) scale(.6);opacity:0}25%{transform:translateX(-50%) scale(1.15);opacity:1}70%{transform:translateX(-50%) scale(1);opacity:1}100%{transform:translateX(-50%) scale(.95);opacity:0}}

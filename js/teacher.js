@@ -7409,6 +7409,7 @@ function renderDash(){
   });
   renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus,reportPendingStus,thisMonth);
   renderDashFill();
+  renderDashVocabToday();
 
   // Section 3: 이번 달 현황
   const thisLes=les.filter(l=>l.date&&l.date.startsWith(thisMonth)&&l.att!=='absent').length;
@@ -7766,6 +7767,22 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
   </div>`;
 }
 
+// ── 오늘 단어 학습 위젯 — 학생별 오늘 학습 단어 수 (20개 달성 🏆 → 다음 수업 때 칭찬으로 연결) ──
+function renderDashVocabToday(){
+  const el=document.getElementById('dash-vocab-today');if(!el)return;
+  const today=new Date().toISOString().split('T')[0];
+  const bySid={};
+  (_cache.vocab_cards||[]).forEach(c=>{if(c.lastSeen===today&&c.sid)bySid[c.sid]=(bySid[c.sid]||0)+1;});
+  const rows=Object.entries(bySid).map(([sid,n])=>({stu:(_cache.students||[]).find(s=>s.id===sid),n}))
+    .filter(r=>r.stu&&!r.stu._deleted).sort((a,b)=>b.n-a.n);
+  if(!rows.length){el.innerHTML='';return;}
+  el.innerHTML=`<div class="card" style="border-left:4px solid #F3C13A;margin-bottom:12px">
+    <div class="ch"><span class="ct">🎉 오늘 단어 학습한 학생</span><span style="font-size:12px;color:var(--slate)">${rows.length}명 · 🏆=20개 달성</span></div>
+    <div class="cb" style="padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px">
+      ${rows.map(r=>`<span style="font-size:12px;padding:4px 11px;border-radius:20px;background:${r.n>=20?'#D9F6E9':'var(--cream2)'};border:1px solid ${r.n>=20?'#10B981':'var(--border)'};color:${r.n>=20?'#047857':'var(--navy)'};font-weight:700">${r.stu.name} ${r.n}개${r.n>=20?' 🏆':''}</span>`).join('')}
+    </div>
+  </div>`;
+}
 // ── 데이터 채우기 우선순위 — 학생들이 읽고 배운 콘텐츠 중 단어가 빈 것 (최근 학습 순, 채우면 자동으로 다음 항목) ──
 let _dashFillItems=[];
 function renderDashFill(){
