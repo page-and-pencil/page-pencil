@@ -578,7 +578,7 @@ div.ig-like{cursor:default;}
 .section-label{font-size:11px;font-weight:700;color:var(--slate);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;}
 
 /* 학생 관리 분할 레이아웃 */
-.ab.stu-mode{overflow:hidden;}
+#s-teacher .ab.stu-mode{overflow:hidden;} /* 선생님 학생 탭 전용 — 학생 앱(.ab)에 새면 스크롤이 잠긴다 */
 #t-stu.panel.active{display:flex;flex-direction:column;padding:0;flex:1;min-height:0;overflow:hidden;}
 .stu-split{display:flex;flex:1;overflow:hidden;min-height:0;}
 .stu-list-col{width:260px;flex-shrink:0;border-right:1.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:#fff;}

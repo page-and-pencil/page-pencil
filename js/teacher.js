@@ -222,7 +222,8 @@ async function postNoticeText(v){
 function swTab(id){
   document.querySelectorAll('.ntab[data-tab]').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
   document.querySelectorAll('#s-teacher .panel').forEach(p=>p.classList.toggle('active',p.id===id));
-  const ab=document.querySelector('.ab');if(ab)ab.classList.toggle('stu-mode',id==='t-stu');
+  // 선생님 화면의 .ab만 — 스코프 없이 querySelector('.ab')를 쓰면 DOM 앞쪽의 학생 화면 .ab가 잡혀 학생 스크롤이 잠긴다
+  const ab=document.querySelector('#s-teacher .ab');if(ab)ab.classList.toggle('stu-mode',id==='t-stu');
   if(id==='t-dash')renderDash();
   if(id==='t-les'){populateFilterSels();renderLes();renderCmtChips();}
   if(id==='t-tst'){populateFilterSels();renderTst();}
@@ -435,7 +436,7 @@ function returnToTeacher(){
   show('s-teacher');
   swTab('t-stu');
   if(currentSpStuId){
-    const ab=document.querySelector('.ab');if(ab)ab.classList.add('stu-mode');
+    const ab=document.querySelector('#s-teacher .ab');if(ab)ab.classList.add('stu-mode');
     const noStu=document.getElementById('sp-no-stu');
     const wrap=document.getElementById('sp-detail-wrap');
     if(noStu)noStu.style.display='none';
