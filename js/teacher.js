@@ -3605,7 +3605,16 @@ function tuRenderWords(tbId,unitKey){
   if(!unitKey){tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단원을 선택하거나 새 단원을 생성하세요</td></tr>';return;}
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
   const words=tuNormWords(tb?.units?.[unitKey]||[]);
-  if(!words.length){tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--slate);font-size:12px">단어가 없습니다. 아래에서 추가하거나 Excel/CSV 파일을 가져오세요.</td></tr>';return;}
+  if(!words.length){
+    // 단어가 없는 게 정상인 단원(예: 사람 이름뿐)은 표식을 달아 대시보드 '데이터 채우기'에서 빼둔다
+    const noVocab=tb?.unitNoVocab?.[unitKey];
+    tbody.innerHTML=`<tr><td colspan="6" style="padding:18px 20px;text-align:center;color:var(--slate);font-size:12px">
+      ${noVocab?`<div style="color:#047857;font-weight:700;margin-bottom:4px">✓ 단어 없음이 정상인 단원</div><div style="font-size:11px;margin-bottom:9px">${escAttr(String(noVocab))}</div>`
+               :'단어가 없습니다. 아래에서 추가하거나 Excel/CSV 파일을 가져오세요.<div style="font-size:11px;margin-top:9px">등록할 단어가 원래 없는 단원인가요? (예: 사람 이름뿐)</div>'}
+      <button class="btn ${noVocab?'bo':'ba'} bsm" style="margin-top:6px" onclick="tuToggleNoVocab('${tbId}','${escAttr(unitKey)}')">${noVocab?'표식 해제':'단어 없음이 정상으로 표시'}</button>
+    </td></tr>`;
+    return;
+  }
   tbody.innerHTML=words.map((w,i)=>`<tr data-rowidx="${i}" onclick="tuRowClick(event,'${tbId}','${escAttr(unitKey)}',${i})" title="클릭하여 바로 수정" style="border-bottom:1px solid var(--border);cursor:pointer">
     <td style="padding:6px 8px;font-weight:600;font-family:var(--fd);white-space:nowrap"><button onclick="speakWord('${(w.word||'').replace(/'/g,"\\'")}')" title="발음 듣기" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 4px 0 0;vertical-align:1px">🔊</button>${w.word}${(w.v2||w.v3)?`<div style="font-size:10px;color:var(--slate);margin-top:1px">${[w.v2,w.v3].filter(Boolean).join(' · ')}</div>`:''}</td>
     <td style="padding:6px 8px">${w.ko||'<span style="color:var(--slate)">—</span>'}</td>
@@ -4134,6 +4143,20 @@ async function tuRefreshFromLib(){
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updTb;
   tuRenderWords(tbId,_tuCurUnit);
   toast(`${updated}개 예문을 원서에서 갱신했습니다`);
+}
+// 단어 없음이 정상인 단원 표식 — 대시보드 '데이터 채우기'에서 이 단원을 빼둔다
+async function tuToggleNoVocab(tbId,unitKey){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const cur={...(tb.unitNoVocab||{})};
+  if(cur[unitKey])delete cur[unitKey];
+  else cur[unitKey]='등록할 단어가 원래 없는 단원 (선생님 확인)';
+  const updated={...tb,unitNoVocab:cur};
+  try{await supaUpsert('global_textbooks',tbId,updated,null);}
+  catch(e){console.error('tuToggleNoVocab:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
+  tuRenderWords(tbId,unitKey);
+  if(typeof renderDash==='function')renderDash();
+  toast(cur[unitKey]?'단어 없음이 정상인 단원으로 표시했어요':'표식을 해제했어요');
 }
 async function tuSaveUnitText(silent=false){
   const tbId=document.getElementById('tu-tb-id').value;
@@ -7868,7 +7891,8 @@ function renderDashFill(){
     Object.entries(plan.ghostBy||{}).forEach(([d,arr])=>(arr||[]).forEach(g=>{
       const tb=(_cache.globalTextbooks||[]).find(x=>x.id===g.tbId);if(!tb)return;
       if(pastKeys.has(nrm(tb.title)))return; // 책 자체가 '배운 내용'에 이미 떠 있으면 거기서 처리
-      if(_noWordUnit(g.unit))return; // 복습·테스트 단원은 건너뜀
+      if(_noWordUnit(g.unit))return;              // 복습·테스트 단원은 건너뜀
+      if(tb.unitNoVocab?.[g.unit])return;         // 단어 없음이 정상인 단원 (예: 사람 이름뿐인 단원)
       const wCnt=tuNormWords(tb.units?.[g.unit]||[]).filter(w=>w.word).length;
       const hasText=!!(tb.unitTexts?.[g.unit]);
       let miss='';
