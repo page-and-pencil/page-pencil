@@ -10000,37 +10000,87 @@ function _pgComposePlan(classId,c,uptoDate){
     .filter(e=>e.tb&&tbUnitKeys(e.tb).length)
     .map(e=>({...e,color:_PG_CAT_COLORS[e.s.replace(/_\d+$/,'')]||'#64748B'}));
   const clsStus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
-  // 리딩 책이 끝나면 다음 수업일에 Pencil Down(Sing Together) — 리딩 자리만 대체, 다른 진도는 그대로 진행
+  // 리딩 계열은 하나의 체인: 책 A 완주 → Sing Together 한 번 → 책 B 시작 (다른 과목 진도는 그대로)
   const singDates=new Set();
-  const _nextFreeClassDay=(after,upto)=>{
-    const cur=new Date(after+'T12:00:00');
-    for(let i=0;i<180;i++){
-      cur.setDate(cur.getDate()+1);
+  const ghostBy={};
+  const readingBooks=books.filter(b=>b.tb.category==='리딩'||b.s.replace(/_\d+$/,'')==='reading'); // commonMaterials 키 순서 = 체인 순서
+  const usedDates=new Set(); // 리딩 계열 슬롯이 이미 기록으로 소비된 날 (리딩 기록·펜슬다운)
+  (_cache.lessons||[]).forEach(l=>{
+    if(l.classId!==classId||!l.date||!l.materials)return;
+    Object.entries(l.materials).forEach(([k,v])=>{
+      const bk=k.replace(/_\d+$/,'');
+      if(bk==='pencil_down'||bk==='sing_together'){usedDates.add(l.date);return;}
+      if(!v||!v.book)return;
+      if(readingBooks.some(b=>v.bookId?v.bookId===b.tb.id:v.book===b.tb.title))usedDates.add(l.date);
+    });
+  });
+  const _addDay=ds=>{const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+1);return _pgYmd(d);};
+  const _slotFrom=(fromInclusive,bDays)=>{ // fromInclusive부터 첫 가용 수업일
+    const cur=new Date(fromInclusive+'T12:00:00');
+    for(let i=0;i<220;i++){
       const ds=_pgYmd(cur);
-      if(ds>upto)return'';
-      if(ds<todayStr)continue;
-      if(!(c.days||[]).includes(_PG_DOW[cur.getDay()]))continue;
-      if(lessonDates.has(ds))continue;
-      return ds;
+      if(ds>uptoDate)return'';
+      if(ds>=todayStr&&bDays.includes(_PG_DOW[cur.getDay()])&&!usedDates.has(ds))return ds;
+      cur.setDate(cur.getDate()+1);
     }
     return'';
   };
-  books.filter(b=>b.tb.category==='리딩'||b.s.replace(/_\d+$/,'')==='reading').forEach(b=>{
-    const keys=tbUnitKeys(b.tb);
-    const lastKey=keys[keys.length-1];
-    const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate);
-    const endEntry=Object.entries(placed).find(([d,u])=>u===lastKey);
-    if(endEntry){const d=_nextFreeClassDay(endEntry[0],uptoDate);if(d)singDates.add(d);return;}
-    // 이미 완주한 책: 완주일 이후 펜슬다운 기록이 아직 없으면 다음 수업일에 예정
-    const rec=_pgLastRec(classId,b.tb);
-    if(rec&&rec.idx>=keys.length-1){
-      const done=(_cache.lessons||[]).some(l=>l.classId===classId&&(l.date||'')>=rec.date&&l.materials
-        &&Object.keys(l.materials).some(k=>{const bk2=k.replace(/_\d+$/,'');return bk2==='pencil_down'||bk2==='sing_together';}));
-      if(!done){const d=_nextFreeClassDay(rec.date,uptoDate);if(d)singDates.add(d);}
+  let chainCursor=todayStr;
+  {
+    const isFin=b=>{const rec=_pgLastRec(classId,b.tb);const keys=tbUnitKeys(b.tb);return !!(rec&&rec.idx>=keys.length-1);};
+    const finished=readingBooks.filter(isFin);
+    const unfinished=readingBooks.filter(b=>!isFin(b));
+    // 직전에 완주한 책의 싱투게더가 아직이면 체인 맨 앞에 배치 (다음 책을 이미 시작했으면 생략)
+    if(finished.length){
+      const lastFin=finished.map(b=>({b,rec:_pgLastRec(classId,b.tb)})).sort((a,b2)=>(b2.rec.date||'').localeCompare(a.rec.date||''))[0];
+      const nextStarted=unfinished.some(b=>_pgLastRec(classId,b.tb));
+      const singDone=(_cache.lessons||[]).some(l=>l.classId===classId&&(l.date||'')>=lastFin.rec.date&&l.materials
+        &&Object.keys(l.materials).some(k=>{const bk=k.replace(/_\d+$/,'');return bk==='pencil_down'||bk==='sing_together';}));
+      if(!singDone&&!nextStarted){
+        const d=_slotFrom(chainCursor,(c.days||[]));
+        if(d){singDates.add(d);chainCursor=_addDay(d);}else chainCursor='9999-12-31';
+      }
     }
-  });
-  const ghostBy={};
-  books.forEach(b=>{
+    // 미완주 리딩 책을 키 순서대로 이어서: 단원들 → (완주하면) 싱투게더 → 다음 책
+    unfinished.forEach(b=>{
+      const keys=tbUnitKeys(b.tb);
+      const rec=_pgLastRec(classId,b.tb);
+      let start;
+      if(rec)start=rec.idx+1;
+      else{const si=_pgUnitIdx(b.tb,b.mat?.unit);start=si>=0?si:0;}
+      let remaining=keys.slice(start);
+      if(!remaining.length)return;
+      const bDays=(b.mat?.days&&b.mat.days.length)?b.mat.days:(c.days||[]);
+      let segCursor=chainCursor;
+      const anc=(c.progressAnchors||{})[b.tb.id];
+      if(anc&&anc.date>=todayStr){
+        const ai=remaining.findIndex(k=>_pgUMatch(_pgNorm(k),_pgNorm(anc.unit)));
+        if(ai>=0){
+          for(const u of remaining.slice(0,ai)){ // 앵커 전까지 이전 단원 채우기 (넘치면 건너뜀)
+            const d=_slotFrom(segCursor,bDays);
+            if(!d||d>=anc.date)break;
+            (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
+            segCursor=_addDay(d);
+          }
+          remaining=remaining.slice(ai);
+          if(anc.date>segCursor)segCursor=anc.date;
+        }
+      }
+      for(const u of remaining){
+        const d=_slotFrom(segCursor,bDays);
+        if(!d){chainCursor='9999-12-31';return;}
+        (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
+        segCursor=_addDay(d);
+      }
+      // 이 책 완주 → 싱투게더 → 다음 책은 그 다음 수업일부터
+      const sd=_slotFrom(segCursor,(c.days||[]));
+      if(!sd){chainCursor='9999-12-31';return;}
+      singDates.add(sd);
+      chainCursor=_addDay(sd);
+    });
+  }
+  // 리딩 외 과목은 기존대로 각자 투영
+  books.filter(b=>!readingBooks.includes(b)).forEach(b=>{
     const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate);
     Object.entries(placed).forEach(([d,u])=>{
       (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
