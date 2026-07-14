@@ -9933,7 +9933,7 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates){
     if(ai>=0){ // 앵커 이전 단원은 앞 슬롯에, 앵커 단원부터는 앵커 날짜부터 쭉
       const pre=remaining.slice(0,ai),post=remaining.slice(ai);
       const preSlots=slots.filter(d=>d<anc.date),postSlots=slots.filter(d=>d>=anc.date);
-      if(!postSlots.includes(anc.date)&&anc.date<=uptoDate)postSlots.unshift(anc.date);
+      if(!postSlots.includes(anc.date)&&anc.date<=uptoDate&&!(skipDates&&skipDates.has(anc.date)))postSlots.unshift(anc.date);
       preSlots.forEach((d,i)=>{if(pre[i])placed[d]=pre[i];});
       postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
       return placed;
@@ -9981,7 +9981,7 @@ function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
     if(ai>=0){
       const pre=remaining.slice(0,ai),post=remaining.slice(ai);
       const preSlots=slots.filter(d=>d<anc.date),postSlots=slots.filter(d=>d>=anc.date);
-      if(!postSlots.includes(anc.date)&&anc.date<=uptoDate)postSlots.unshift(anc.date);
+      if(!postSlots.includes(anc.date)&&anc.date<=uptoDate&&!(skipDates&&skipDates.has(anc.date)))postSlots.unshift(anc.date);
       preSlots.forEach((d,i)=>{if(pre[i])placed[d]=pre[i];});
       postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
       return placed;
@@ -9989,6 +9989,61 @@ function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
   }
   slots.forEach((d,i)=>{if(remaining[i])placed[d]=remaining[i];});
   return placed;
+}
+// 클래스 예정 전체 구성(교재·원서·싱투게더) — 캘린더·예정 편집 모달·폼 자동 채움이 공유하는 단일 계산
+function _pgComposePlan(classId,c,uptoDate){
+  const todayStr=new Date().toISOString().split('T')[0];
+  const lessonDates=new Set();
+  (_cache.lessons||[]).forEach(l=>{if(l.classId===classId&&l.date)lessonDates.add(l.date);});
+  const books=Object.entries(c.commonMaterials||{})
+    .map(([s,mat])=>({s,mat,tb:_pgTbOf(mat)}))
+    .filter(e=>e.tb&&tbUnitKeys(e.tb).length)
+    .map(e=>({...e,color:_PG_CAT_COLORS[e.s.replace(/_\d+$/,'')]||'#64748B'}));
+  const clsStus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
+  // 리딩 책이 끝날 때마다 다음 수업일은 Pencil Down(Sing Together) — 그 날은 모든 진도가 하루 밀림
+  const singDates=new Set();
+  const _nextFreeClassDay=(after,upto)=>{
+    const cur=new Date(after+'T12:00:00');
+    for(let i=0;i<180;i++){
+      cur.setDate(cur.getDate()+1);
+      const ds=_pgYmd(cur);
+      if(ds>upto)return'';
+      if(ds<todayStr)continue;
+      if(!(c.days||[]).includes(_PG_DOW[cur.getDay()]))continue;
+      if(lessonDates.has(ds))continue;
+      return ds;
+    }
+    return'';
+  };
+  books.filter(b=>b.tb.category==='리딩'||b.s.replace(/_\d+$/,'')==='reading').forEach(b=>{
+    const keys=tbUnitKeys(b.tb);
+    const lastKey=keys[keys.length-1];
+    const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate);
+    const endEntry=Object.entries(placed).find(([d,u])=>u===lastKey);
+    if(endEntry){const d=_nextFreeClassDay(endEntry[0],uptoDate);if(d)singDates.add(d);return;}
+    // 이미 완주한 책: 완주일 이후 펜슬다운 기록이 아직 없으면 다음 수업일에 예정
+    const rec=_pgLastRec(classId,b.tb);
+    if(rec&&rec.idx>=keys.length-1){
+      const done=(_cache.lessons||[]).some(l=>l.classId===classId&&(l.date||'')>=rec.date&&l.materials
+        &&Object.keys(l.materials).some(k=>{const bk2=k.replace(/_\d+$/,'');return bk2==='pencil_down'||bk2==='sing_together';}));
+      if(!done){const d=_nextFreeClassDay(rec.date,uptoDate);if(d)singDates.add(d);}
+    }
+  });
+  const ghostBy={};
+  books.forEach(b=>{
+    const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate,singDates);
+    Object.entries(placed).forEach(([d,u])=>{
+      (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
+    });
+  });
+  const ortGhostBy={};
+  clsStus.forEach(s=>{
+    const placed=_pgOrtProjection(classId,c,s.id,uptoDate,singDates);
+    Object.entries(placed).forEach(([d,t])=>{
+      (ortGhostBy[d]=ortGhostBy[d]||[]).push({sid:s.id,name:s.name,title:t});
+    });
+  });
+  return {books,clsStus,singDates,ghostBy,ortGhostBy};
 }
 // 수업 기록 폼: 다음 단원 자동 채움 (손으로 고친 값·수정 모드는 건드리지 않음)
 function _pgAutoFillRow(sr){
@@ -10007,8 +10062,10 @@ function _pgAutoFillRow(sr){
   if(!tb)return; // 교재 DB에 없으면 기존 값 유지
   const mat=(stored&&stored.book===sel.value)?stored:{book:sel.value,bookId:bkId};
   const dateVal=document.getElementById('cl-date')?.value||new Date().toISOString().split('T')[0];
-  // 캘린더에서 옮겨둔 예정이 있으면 그 날짜의 계획 단원을, 없으면 순서상 다음 단원
-  const next=_pgProjection(classId,c,tb,mat,dateVal)[dateVal]||_pgNextUnit(classId,tb,mat.unit||'');
+  // 캘린더와 같은 계산으로 그 날짜의 계획 단원을, 없으면 순서상 다음 단원
+  const _plan=_pgComposePlan(classId,c,dateVal);
+  const _planned=(_plan.ghostBy[dateVal]||[]).find(x=>x.tbId===tb.id);
+  const next=(_planned&&_planned.unit)||_pgNextUnit(classId,tb,mat.unit||'');
   if(!next)return;
   const wrapU=sr.querySelector('.unit-inputs-wrap');
   if(wrapU)[...wrapU.querySelectorAll('.unit-irow')].slice(1).forEach(x=>x.remove());
@@ -10030,10 +10087,9 @@ function _pgCalHtml(classId){
   const todayStr=new Date().toISOString().split('T')[0];
   const ym=_pgCalMonth||todayStr.slice(0,7);
   const[y,m]=ym.split('-').map(Number);
-  const books=Object.entries(c.commonMaterials||{})
-    .map(([s,mat])=>({s,mat,tb:_pgTbOf(mat)}))
-    .filter(e=>e.tb&&tbUnitKeys(e.tb).length)
-    .map(e=>({...e,color:_PG_CAT_COLORS[e.s.replace(/_\d+$/,'')]||'#64748B'}));
+  // 예정 구성은 캘린더·예정 편집 모달·폼 자동 채움이 같은 계산을 공유 (내용 불일치 방지)
+  const monthEnd=`${ym}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
+  const {books,clsStus,singDates,ghostBy,ortGhostBy}=_pgComposePlan(classId,c,monthEnd);
   const colorOf=(tbId,cat)=>_PG_CAT_COLORS[cat]||books.find(b=>b.tb.id===tbId)?.color||'#64748B';
   // 실제 기록 칩: date → {tbKey:{tbId,book,units}} + 원서·펜슬다운 기록
   const recBy={},ortRecBy={},pdRecBy={},lessonDates=new Set();
@@ -10052,61 +10108,10 @@ function _pgCalHtml(classId){
       (v.unit||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(u=>e.units.add(u));
     });
   });
-  // 원서(ORT) 예정: 학생별 다음 읽을 책 투영 — 원서는 보라 한 색, 툴팁에 섹션명만
+  // 원서(ORT) 툴팁용 섹션명
   const ortMeta={};
   (_cache.library||[]).forEach(b=>{if(b.ortSeq!=null)ortMeta[_pgNorm(b.title)]={group:b.ortGroup||''};});
   const ortGroupOf=t=>(ortMeta[_pgNorm(t)]||{}).group||'';
-  const clsStus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
-  // 예정 칩: 오늘~보는 달 끝 투영
-  const monthEnd=`${ym}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
-  // 리딩 책이 끝날 때마다 다음 수업일은 Pencil Down(Sing Together) — 그 날은 다른 진도가 하루 밀림
-  const singDates=new Set();
-  const _nextFreeClassDay=(after,upto)=>{
-    const cur=new Date(after+'T12:00:00');
-    for(let i=0;i<180;i++){
-      cur.setDate(cur.getDate()+1);
-      const ds=_pgYmd(cur);
-      if(ds>upto)return'';
-      if(ds<todayStr)continue;
-      if(!(c.days||[]).includes(_PG_DOW[cur.getDay()]))continue;
-      if(lessonDates.has(ds))continue;
-      return ds;
-    }
-    return'';
-  };
-  const readingBooks=books.filter(b=>b.tb.category==='리딩'||b.s.replace(/_\d+$/,'')==='reading');
-  const placedByBook=new Map();
-  readingBooks.forEach(b=>{
-    const keys=tbUnitKeys(b.tb);
-    const lastKey=keys[keys.length-1];
-    const placed=_pgProjection(classId,c,b.tb,b.mat,monthEnd);
-    placedByBook.set(b.tb.id,placed);
-    const endEntry=Object.entries(placed).find(([d,u])=>u===lastKey);
-    if(endEntry){const d=_nextFreeClassDay(endEntry[0],monthEnd);if(d)singDates.add(d);return;}
-    // 이미 완주한 책: 완주일 이후 펜슬다운 기록이 아직 없으면 다음 수업일에 예정
-    const rec=_pgLastRec(classId,b.tb);
-    if(rec&&rec.idx>=keys.length-1){
-      const done=(_cache.lessons||[]).some(l=>l.classId===classId&&(l.date||'')>=rec.date&&l.materials
-        &&Object.keys(l.materials).some(k=>{const bk2=k.replace(/_\d+$/,'');return bk2==='pencil_down'||bk2==='sing_together';}));
-      if(!done){const d=_nextFreeClassDay(rec.date,monthEnd);if(d)singDates.add(d);}
-    }
-  });
-  const ghostBy={};
-  books.forEach(b=>{
-    const placed=placedByBook.get(b.tb.id)||_pgProjection(classId,c,b.tb,b.mat,monthEnd,singDates);
-    Object.entries(placed).forEach(([d,u])=>{
-      if(!d.startsWith(ym))return;
-      (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
-    });
-  });
-  const ortGhostBy={};
-  clsStus.forEach(s=>{
-    const placed=_pgOrtProjection(classId,c,s.id,monthEnd,singDates);
-    Object.entries(placed).forEach(([d,t])=>{
-      if(!d.startsWith(ym))return;
-      (ortGhostBy[d]=ortGhostBy[d]||[]).push({sid:s.id,name:s.name,title:t});
-    });
-  });
   // 달력 그리드
   const startDow=new Date(y,m-1,1).getDay();
   const dim=new Date(y,m,0).getDate();
@@ -10331,13 +10336,13 @@ function openPgPlan(classId,date){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   _pgPlanCtx={classId,date};
   document.getElementById('pg-plan-title').textContent=`${Number(date.slice(5,7))}/${Number(date.slice(8,10))} 수업 예정`;
-  // 이 날 이미 예정된 것 (투영 결과)
-  const books=Object.entries(c.commonMaterials||{}).map(([s,mat])=>({s,mat,tb:_pgTbOf(mat)})).filter(e=>e.tb&&tbUnitKeys(e.tb).length);
+  // 이 날 예정 — 캘린더와 같은 계산(_pgComposePlan) 공유: 싱투게더·밀림까지 동일하게 반영
+  const plan=_pgComposePlan(classId,c,date);
+  const books=plan.books;
   const cur=[];
-  books.forEach(b=>{const u=_pgProjection(classId,c,b.tb,b.mat,date)[date];if(u)cur.push({title:b.tb.title,unit:u,cat:b.s.replace(/_\d+$/,'')});});
-  DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id)).forEach(s=>{
-    const t=_pgOrtProjection(classId,c,s.id,date)[date];if(t)cur.push({title:'📗 '+t,unit:'',cat:''});
-  });
+  if(plan.singDates.has(date))cur.push({title:'✏️🎵 Sing Together (Pencil Down)',unit:'',cat:''});
+  (plan.ortGhostBy[date]||[]).forEach(g=>cur.push({title:'📗 '+(plan.clsStus.length>1?g.name+' · ':'')+g.title,unit:'',cat:''}));
+  (plan.ghostBy[date]||[]).forEach(g=>cur.push({title:g.title,unit:g.unit,cat:g.s.replace(/_\d+$/,'')}));
   document.getElementById('pg-plan-cur').innerHTML=cur.length
     ?`<div style="font-size:11.5px;font-weight:700;color:var(--slate);margin-bottom:5px">이 날 예정</div>`+cur.map(x=>`<div style="font-size:12px;color:var(--navy);padding:2px 0">• ${x.cat&&SLBL[x.cat]?`<span class="spill ${SCLS[x.cat]}" style="font-size:9.5px">${SLBL[x.cat]}</span> `:''}${x.title}${x.unit?' — '+x.unit:''}</div>`).join('')
     :`<div style="font-size:12px;color:var(--slate)">이 날 예정된 교재가 아직 없어요</div>`;
