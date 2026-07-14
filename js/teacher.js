@@ -10158,6 +10158,14 @@ function ecTogSubj(el){
     ecSubjs.delete(s);el.classList.remove('active');document.querySelectorAll(`#ec-subj-rows .sr[data-s="${s}"]`).forEach(r=>r.remove());
   }else{ecSubjs.add(s);el.classList.add('active');addSRowTo('ec-subj-rows',s);}
 }
+// 다음 원서 제안 칩 → 그 학생 행의 빈 원서 칸에 채움
+function clFillNextBook(btn,title){
+  const row=btn.closest('.cl-stu-row');if(!row)return;
+  const inp=[...row.querySelectorAll('.cl-rd-title')].find(i=>!i.value.trim())||row.querySelector('.cl-rd-title');
+  if(!inp)return;
+  inp.value=title;
+  clFillFromLib(inp); // AR·시리즈 자동 채움
+}
 function clFillFromLib(input){
   const title=input.value.trim();if(!title)return;
   const b=[...DB.libs()].find(x=>x.title===title);
@@ -10559,7 +10567,7 @@ function openClassLesson(classId,dateStr){
   const allStus=DB.stus().filter(s=>!s.inactive);
   const students=allStus.filter(s=>(c.studentIds||[]).includes(s.id));
   document.getElementById('cl-students').innerHTML=students.length
-    ?students.map(s=>`<div class="cl-stu-row" data-sid="${s.id}">
+    ?students.map(s=>{const nb=DB.ortNext(s.id);return`<div class="cl-stu-row" data-sid="${s.id}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-size:14px;font-weight:700;min-width:56px">${s.name}</span>
         <select class="cl-att filter-sel" style="flex:0 0 auto">
@@ -10570,6 +10578,7 @@ function openClassLesson(classId,dateStr){
         </select>
         <span style="font-size:11px;color:var(--slate)">${s.grade||s.lv||''}</span>
       </div>
+      ${nb?`<button type="button" class="cmt-chip" style="margin-bottom:6px" title="ORT 순서상 아직 안 읽은 첫 책 — 누르면 원서 칸에 채워져요" onclick="clFillNextBook(this,'${escJsA(nb.title)}')">📖 다음 원서: ${nb.title}${nb.ortGroup?` · ${nb.ortGroup}`:''}</button>`:''}
       <div class="cl-books-wrap" style="margin-bottom:6px">
         <div class="cl-book-row" style="display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:flex-start">
           <input type="text" class="cl-rd-title" placeholder="원서 제목" list="dl-library" autocomplete="off" onchange="clFillFromLib(this)" style="${iStyle};flex:2;min-width:120px">
@@ -10591,7 +10600,7 @@ function openClassLesson(classId,dateStr){
         <span class="cl-preview-status" style="font-size:11px;color:var(--slate)"></span>
       </div>
       <div class="cl-preview-cmt" style="display:none;margin-top:6px;padding:8px 10px;background:#f0fafb;border-radius:var(--rs);font-size:12px;color:var(--navy);line-height:1.6;border:1px solid var(--teal)"></div>
-    </div>`).join('')
+    </div>`;}).join('')
     :'<div style="color:var(--slate);font-size:13px">소속 학생이 없습니다</div>';
   openClsRecord();
 }

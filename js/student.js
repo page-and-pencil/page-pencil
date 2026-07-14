@@ -488,6 +488,7 @@ function renderStudentLibrary(sid){
     else shelfMap.set(key,{key,title:t.title,b:lb||null,completed:!!t.completed,date:t.completedDate||''});
   });
   const myShelf=[...shelfMap.values()].sort((a,b)=>((b.cur?1:0)-(a.cur?1:0))||String(b.date||'').localeCompare(String(a.date||'')));
+  const nextBk=DB.ortNext(sid); // ORT 순서상 다음 읽을 원서 (읽음 기록에 없는 첫 책)
   if(_stuRdShelfOpen===null)_stuRdShelfOpen=(currentBook&&shelfMap.has(currentBook.id))?currentBook.id:(myShelf[0]?.key||'');
   const shelfCardOf=e=>{
     const cov=(e.b&&e.b.coverUrl)?`<img src="${e.b.coverUrl}" loading="lazy" onerror="this.replaceWith(document.createTextNode('\uD83D\uDCD7'))">`:'\uD83D\uDCD7';
@@ -502,7 +503,7 @@ function renderStudentLibrary(sid){
     </div>`;
   };
   const selMine=myShelf.find(e=>e.key===_stuRdShelfOpen);
-  const selOther=!selMine?otherWithAudio.find(b=>b.id===_stuRdShelfOpen):null;
+  const selOther=!selMine?(otherWithAudio.find(b=>b.id===_stuRdShelfOpen)||((nextBk&&nextBk.id===_stuRdShelfOpen)?nextBk:null)):null;
   const panelOf=e=>`<div class="shelf-panel" id="rd-shelf-panel">${e.b
     ?bookCardHtml(e.b,!!e.cur,!!(e.read||e.completed))
     :`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:13px;font-weight:800;color:var(--navy)">\uD83D\uDCD7 ${e.title}</span>${e.completed?'<span style="font-size:10px;padding:2px 8px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700">✅ 완독</span>':''}</div>
@@ -530,10 +531,16 @@ function renderStudentLibrary(sid){
     </div>
     <div style="margin-top:9px;font-size:11.5px;color:var(--slate);text-align:center">${_readingCnt?'다음 스티커까지 딱 1권! 지금 읽는 책을 끝까지 📖':'다음 책을 읽으면 새 스티커가 붙어요!'}</div>
   </div></div>`:'';
-  const rdShelfHtml=(myShelf.length||otherWithAudio.length)?`
+  const rdShelfHtml=(myShelf.length||otherWithAudio.length||nextBk)?`
     ${stickerHtml}
     <div style="font-size:13px;font-weight:700;color:var(--navy);margin-top:${myTbooks.length?20:0}px;margin-bottom:10px${myTbooks.length?';padding-top:16px;border-top:1px solid var(--border)':''}">\uD83D\uDCD7 내 원서 책장</div>
-    ${myShelf.length?`<div class="shelf-grid">${myShelf.map(shelfCardOf).join('')}</div>`:'<div style="font-size:12px;color:var(--slate);margin-bottom:8px">아직 읽은 원서가 없어요</div>'}
+    ${(()=>{const nextCard=nextBk?`<div class="shelf-card${_stuRdShelfOpen===nextBk.id?' on':''}" onclick="${bookTextOf(nextBk)?`stuRdShelfSelect('${nextBk.id}');openBookListen('${escAttr(nextBk.id)}')`:`stuRdShelfToggle('${nextBk.id}')`}">
+      <div class="shelf-cv" style="border:2px dashed var(--teal)">${nextBk.coverUrl?`<img src="${nextBk.coverUrl}" loading="lazy" onerror="this.replaceWith(document.createTextNode('📗'))">`:'📗'}</div>
+      <span class="shelf-badge" title="다음 읽을 책">✨</span>
+      <div class="shelf-t">${nextBk.title}</div>
+      <div class="shelf-s" style="color:#0B8DAE;font-weight:700">다음 읽을 책</div>
+    </div>`:'';
+    return (myShelf.length||nextCard)?`<div class="shelf-grid">${nextCard}${myShelf.map(shelfCardOf).join('')}</div>`:'<div style="font-size:12px;color:var(--slate);margin-bottom:8px">아직 읽은 원서가 없어요</div>';})()}
     ${selMine?panelOf(selMine):''}
     ${otherWithAudio.length?`<div style="font-size:12px;font-weight:700;color:var(--slate);margin:14px 0 8px">\uD83C\uDFA7 더 들어볼 수 있는 책</div><div class="shelf-grid">${otherShelfHtml}</div>`:''}
     ${selOther?panelOf({key:selOther.id,title:selOther.title,b:selOther}):''}

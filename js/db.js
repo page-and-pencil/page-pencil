@@ -102,6 +102,17 @@ const DB={
     const seen=new Set(merged.map(r=>r.title).filter(Boolean));
     return [...merged,...tbRds.filter(t=>t.title&&!seen.has(t.title))].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   },
+  // ORT 순서 기반 다음 읽을 원서 — 읽음(readings)·원서 기록(textbooks) 어디에도 없는 가장 낮은 ortSeq
+  ortNext(sid){
+    const n=x=>String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+    const readIds=new Set(),readTitles=new Set();
+    (_cache.readings||[]).forEach(r=>{if(r.sid!==sid)return;if(r.bookId)readIds.add(r.bookId);if(r.title)readTitles.add(n(r.title));if(r.bookTitle)readTitles.add(n(r.bookTitle));});
+    (_cache.textbooks||[]).forEach(t=>{if(t.sid===sid&&t.type==='원서'&&t.title)readTitles.add(n(t.title));});
+    readTitles.delete('');
+    return (_cache.library||[]).filter(b=>b.ortSeq!=null)
+      .sort((a,b)=>a.ortSeq-b.ortSeq)
+      .find(b=>!readIds.has(b.id)&&!readTitles.has(n(b.title)))||null;
+  },
   logs(){return _cache.logs.sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
   libs(){return _cache.library;},
 
