@@ -10000,7 +10000,7 @@ function _pgComposePlan(classId,c,uptoDate){
     .filter(e=>e.tb&&tbUnitKeys(e.tb).length)
     .map(e=>({...e,color:_PG_CAT_COLORS[e.s.replace(/_\d+$/,'')]||'#64748B'}));
   const clsStus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
-  // 리딩 책이 끝날 때마다 다음 수업일은 Pencil Down(Sing Together) — 그 날은 모든 진도가 하루 밀림
+  // 리딩 책이 끝나면 다음 수업일에 Pencil Down(Sing Together) — 리딩 자리만 대체, 다른 진도는 그대로 진행
   const singDates=new Set();
   const _nextFreeClassDay=(after,upto)=>{
     const cur=new Date(after+'T12:00:00');
@@ -10031,14 +10031,14 @@ function _pgComposePlan(classId,c,uptoDate){
   });
   const ghostBy={};
   books.forEach(b=>{
-    const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate,singDates);
+    const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate);
     Object.entries(placed).forEach(([d,u])=>{
       (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
     });
   });
   const ortGhostBy={};
   clsStus.forEach(s=>{
-    const placed=_pgOrtProjection(classId,c,s.id,uptoDate,singDates);
+    const placed=_pgOrtProjection(classId,c,s.id,uptoDate);
     Object.entries(placed).forEach(([d,t])=>{
       (ortGhostBy[d]=ortGhostBy[d]||[]).push({sid:s.id,name:s.name,title:t});
     });
