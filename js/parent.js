@@ -303,11 +303,10 @@ async function loadParent(sid){
       <div class="cb" style="padding:12px 16px">
         <div id="pp-bks-inner">
           ${recentRds.map((rd,ri)=>{
-            const lib=allBookSrc.find(x=>x.title===rd.title);
+            const lib=ppFindLib(rd,allBookSrc);
             const arDisplay=rd.arLevel||(lib&&(lib.ar||lib.arLevel))||'';
-            const coverHtml=lib&&lib.coverUrl?`<div style="width:34px;height:46px;border-radius:5px;overflow:hidden;background:var(--cream2);flex-shrink:0;margin-right:10px"><img src="${lib.coverUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>`:'';
-            return `<div style="display:flex;align-items:${coverHtml?'center':'flex-start'};padding:8px 0;${ri<recentRds.length-1?'border-bottom:1px solid var(--border)':''}">
-              ${coverHtml}
+            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${ri<recentRds.length-1?'border-bottom:1px solid var(--border)':''}">
+              ${ppBookCover(lib)}
               <div style="flex:1;min-width:0">
                 <div style="font-weight:600;font-size:13px;line-height:1.4">${rd.title||'—'}</div>
                 <div style="display:flex;gap:5px;margin-top:3px;align-items:center;flex-wrap:wrap">
@@ -506,19 +505,35 @@ async function loadParent(sid){
   show('s-parent');
   showParentNoticeBanner();
 }
+// 읽음 기록 → 원서 DB 매칭. bookId 우선, 없으면 제목(기호·대소문자 무시)
+function ppFindLib(rd,src){
+  if(!rd)return null;
+  const n=x=>String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+  return (rd.bookId&&src.find(x=>x.id===rd.bookId))
+    ||src.find(x=>n(x.title)===n(rd.title))||null;
+}
+// 원서 표지 — 목록 초기 렌더와 '더보기' 렌더가 같은 마크업을 쓰도록 한 곳에서 생성
+// (표지 없거나 이미지가 깨지면 📗로 대체)
+function ppBookCover(lib){
+  const box='width:36px;height:48px;border-radius:5px;overflow:hidden;flex-shrink:0;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:18px';
+  const url=lib&&lib.coverUrl;
+  return `<div style="${box}">${url
+    ?`<img src="${url}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.replaceWith(document.createTextNode('📗'))">`
+    :'📗'}</div>`;
+}
 function toggleAllBooks(){
   const el=document.getElementById('pp-bks-inner');if(!el)return;
   const rds=DB.allRds(currentParentSid);
   const allBookSrc=[...DB.libs()];
   el.innerHTML=rds.map((rd,ri)=>{
-    const lib=allBookSrc.find(x=>x.title===rd.title);
+    const lib=ppFindLib(rd,allBookSrc);
     const arDisplay=rd.arLevel||(lib&&(lib.ar||lib.arLevel))||'';
     const series=rd.series||(lib&&lib.series)||'';
     const pages=rd.pages||rd.pg||(lib&&lib.pages)||'';
     const comment=rd.comment||rd.note||'';
     return `<div style="padding:10px 0;${ri<rds.length-1?'border-bottom:1px solid var(--border)':''}">
       <div style="display:flex;align-items:flex-start;gap:10px">
-        <div style="width:36px;height:48px;background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📗</div>
+        ${ppBookCover(lib)}
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:13px;line-height:1.4;color:var(--navy)">${rd.title||'—'}</div>
           <div style="display:flex;gap:5px;margin-top:4px;align-items:center;flex-wrap:wrap">
