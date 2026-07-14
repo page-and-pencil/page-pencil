@@ -9936,6 +9936,53 @@ function _pgProjection(classId,c,tb,mat,uptoDate){
   slots.forEach((d,i)=>{if(remaining[i])placed[d]=remaining[i];});
   return placed;
 }
+// 학생의 남은 ORT 원서 (순서대로, 읽음 기록 제외) — 시리즈를 시작한 학생만
+function _pgOrtRemaining(sid){
+  const n=x=>String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+  const readIds=new Set(),readTitles=new Set();
+  (_cache.readings||[]).forEach(r=>{if(r.sid!==sid)return;if(r.bookId)readIds.add(r.bookId);if(r.title)readTitles.add(n(r.title));if(r.bookTitle)readTitles.add(n(r.bookTitle));});
+  (_cache.textbooks||[]).forEach(t=>{if(t.sid===sid&&t.type==='원서'&&t.title)readTitles.add(n(t.title));});
+  const ort=(_cache.library||[]).filter(b=>b.ortSeq!=null).sort((a,b)=>a.ortSeq-b.ortSeq);
+  let started=0;const remaining=[];
+  ort.forEach(b=>{if(readIds.has(b.id)||readTitles.has(n(b.title)))started++;else remaining.push(b.title);});
+  return started?remaining:[];
+}
+// 학생별 ORT 원서 예정 {날짜:제목} — 교재 투영과 같은 슬롯·앵커('ort:sid') 규칙
+function _pgOrtProjection(classId,c,sid,uptoDate){
+  const todayStr=new Date().toISOString().split('T')[0];
+  const remaining=_pgOrtRemaining(sid);
+  if(!remaining.length||!(c.days||[]).length)return{};
+  const recDates=new Set(); // 이 학생의 원서가 이미 기록된 날
+  (_cache.lessons||[]).forEach(l=>{
+    if(l.classId!==classId||l.sid!==sid||!l.date||!l.materials)return;
+    if(Object.entries(l.materials).some(([k,v])=>k.replace(/_\d+$/,'')==='_book'&&v&&v.book))recDates.add(l.date);
+  });
+  const slots=[];
+  const cur=new Date();cur.setHours(12,0,0,0);
+  const end=new Date(uptoDate+'T12:00:00');
+  for(;cur<=end;cur.setDate(cur.getDate()+1)){
+    const ds=_pgYmd(cur);
+    if(ds<todayStr)continue;
+    if(!(c.days||[]).includes(_PG_DOW[cur.getDay()]))continue;
+    if(recDates.has(ds))continue;
+    slots.push(ds);
+  }
+  const placed={};
+  const anc=(c.progressAnchors||{})['ort:'+sid];
+  if(anc&&anc.date>=todayStr){
+    const ai=remaining.findIndex(t=>_pgNorm(t)===_pgNorm(anc.unit));
+    if(ai>=0){
+      const pre=remaining.slice(0,ai),post=remaining.slice(ai);
+      const preSlots=slots.filter(d=>d<anc.date),postSlots=slots.filter(d=>d>=anc.date);
+      if(!postSlots.includes(anc.date)&&anc.date<=uptoDate)postSlots.unshift(anc.date);
+      preSlots.forEach((d,i)=>{if(pre[i])placed[d]=pre[i];});
+      postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
+      return placed;
+    }
+  }
+  slots.forEach((d,i)=>{if(remaining[i])placed[d]=remaining[i];});
+  return placed;
+}
 // 수업 기록 폼: 다음 단원 자동 채움 (손으로 고친 값·수정 모드는 건드리지 않음)
 function _pgAutoFillRow(sr){
   const idEl=document.getElementById('cl-class-id');
@@ -9981,15 +10028,16 @@ function _pgCalHtml(classId){
     .filter(e=>e.tb&&tbUnitKeys(e.tb).length)
     .map((e,i)=>({...e,color:_PG_COLORS[i%_PG_COLORS.length]}));
   const colorOf=tbId=>books.find(b=>b.tb.id===tbId)?.color||'#64748B';
-  // 실제 기록 칩: date → {tbKey:{tbId,book,units}}
-  const recBy={},lessonDates=new Set();
+  // 실제 기록 칩: date → {tbKey:{tbId,book,units}} + 원서 기록: date → Set(제목)
+  const recBy={},ortRecBy={},lessonDates=new Set();
   (_cache.lessons||[]).forEach(l=>{
     if(l.classId!==classId||!l.date)return;
     lessonDates.add(l.date);
     Object.entries(l.materials||{}).forEach(([k,v])=>{
       if(!v||!v.book)return;
       const bk=k.replace(/_\d+$/,'');
-      if(bk==='pencil_down'||bk==='sing_together'||bk==='_book')return;
+      if(bk==='pencil_down'||bk==='sing_together')return;
+      if(bk==='_book'){(ortRecBy[l.date]=ortRecBy[l.date]||new Set()).add(v.book);return;}
       const tb=_pgTbOf(v);
       const key=tb?.id||'t:'+v.book;
       recBy[l.date]=recBy[l.date]||{};
@@ -9997,6 +10045,9 @@ function _pgCalHtml(classId){
       (v.unit||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(u=>e.units.add(u));
     });
   });
+  // 원서(ORT) 예정: 학생별 다음 읽을 책 투영
+  const ORTC='#7C3AED';
+  const clsStus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
   // 예정 칩: 오늘~보는 달 끝 투영
   const monthEnd=`${ym}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
   const ghostBy={};
@@ -10005,6 +10056,14 @@ function _pgCalHtml(classId){
     Object.entries(placed).forEach(([d,u])=>{
       if(!d.startsWith(ym))return;
       (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
+    });
+  });
+  const ortGhostBy={};
+  clsStus.forEach(s=>{
+    const placed=_pgOrtProjection(classId,c,s.id,monthEnd);
+    Object.entries(placed).forEach(([d,t])=>{
+      if(!d.startsWith(ym))return;
+      (ortGhostBy[d]=ortGhostBy[d]||[]).push({sid:s.id,name:s.name,title:t});
     });
   });
   // 달력 그리드
@@ -10020,13 +10079,21 @@ function _pgCalHtml(classId){
       const us=[...e.units];
       return`<span class="pg-chip rec" style="--pgc:${colorOf(e.tbId)}" title="${escAttr(e.book+(us.length?' — '+us.join(', '):''))}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">${us.length?us.join(', '):'✓'}</span>`;
     }).join('');
+    chips+=[...(ortRecBy[ds]||[])].map(t=>
+      `<span class="pg-chip rec" style="--pgc:${ORTC}" title="${escAttr('원서 — '+t)}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">📗 ${t}</span>`
+    ).join('');
     if(!chips&&lessonDates.has(ds))chips=`<span class="pg-chip rec" style="--pgc:#94A3B8" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">수업</span>`;
+    chips+=(ortGhostBy[ds]||[]).map(g=>
+      `<span class="pg-chip ghost" draggable="true" style="--pgc:${ORTC}" title="${escAttr((clsStus.length>1?g.name+' — ':'')+g.title+' (원서 예정 — 끌어서 옮기기, 더블클릭=읽음 기록)')}" ondragstart="pgDragStart(event,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" ondblclick="pgOrtDbl(event,'${classId}','${g.sid}','${escJsA(g.title)}','${ds}')">📗 ${clsStus.length>1?g.name+'·':''}${g.title}</span>`
+    ).join('');
     chips+=(ghostBy[ds]||[]).map(g=>
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 끌어서 옮기기, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escAttr(g.unit)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escAttr(g.unit)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${ds}','${escAttr(g.s)}')">${g.unit}</span>`
     ).join('');
     cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onclick="pgCellClick('${classId}','${ds}')"><div class="pg-dnum">${dd}</div>${chips}</div>`);
   }
-  const legend=books.map(b=>`<span class="pg-lg"><i style="background:${b.color}"></i>${b.tb.title}</span>`).join('');
+  const hasOrt=Object.keys(ortGhostBy).length||Object.keys(ortRecBy).length;
+  const legend=books.map(b=>`<span class="pg-lg"><i style="background:${b.color}"></i>${b.tb.title}</span>`).join('')
+    +(hasOrt?`<span class="pg-lg"><i style="background:${ORTC}"></i>원서 (ORT 순서)</span>`:'');
   const hasAnchor=Object.keys(c.progressAnchors||{}).length>0;
   return`<div class="pg-cal-card">
     <div class="pg-cal-head">
@@ -10038,7 +10105,7 @@ function _pgCalHtml(classId){
       <span style="flex:1"></span>${legend}
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
-    <div class="pg-cal-hint">진한 칩=기록(누르면 수정) · 점선 칩=예정 — 끌어다 다른 날에 놓으면 이후 진도가 자동으로 밀려요 (칩을 누른 뒤 날짜를 눌러도 돼요) · <b>오늘 점선 칩 더블클릭=그대로 수업 기록 확정</b> · 빈 날을 누르면 그 날짜 수업 기록</div>
+    <div class="pg-cal-hint">진한 칩=기록(누르면 수정) · 점선 칩=예정 — 끌어다 다른 날에 놓으면 이후 진도가 자동으로 밀려요 (칩을 누른 뒤 날짜를 눌러도 돼요) · <b>오늘 점선 칩 더블클릭=그대로 수업 기록 확정</b> (📗 원서는 그 학생 읽음 기록까지) · 빈 날을 누르면 그 날짜 수업 기록</div>
   </div>`;
 }
 function pgDragStart(ev,classId,tbId,unit){
@@ -10095,6 +10162,47 @@ function pgConfirmGhost(classId,tbId,unit,date,subj){
       console.error('pgConfirmGhost:',e);toast('기록 중 오류가 발생했습니다');
     }finally{showLoading(false);}
   });
+}
+// 원서 예정 칩 더블클릭 → 그 학생의 읽음 기록으로 확정
+function pgOrtDbl(ev,classId,sid,title,date){
+  ev.stopPropagation();
+  clearTimeout(_pgTapTimer);
+  pgMoveCancel();
+  pgConfirmOrtBook(classId,sid,title,date);
+}
+function pgConfirmOrtBook(classId,sid,title,date){
+  const todayStr=new Date().toISOString().split('T')[0];
+  if(date>todayStr){toast('아직 안 한 수업이에요 — 수업한 날에 확정해 주세요');return;}
+  const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+  askConfirm('원서 읽음 기록',`${s.name} · ${title}\n${date} 수업의 원서 읽기로 기록할까요?`,'기록','bt',async()=>{
+    showLoading(true);
+    try{
+      const existing=(_cache.lessons||[]).find(l=>l.classId===classId&&l.date===date&&l.sid===sid);
+      const mats=_pgMergeBook(existing?existing.materials:null,title);
+      if(!mats){toast('이미 기록된 원서예요');return;}
+      const les=existing?{...existing,materials:mats}
+        :{id:uid(),sid,date,grade:s.grade||'',att:'normal',materials:mats,cmt:'',polishedCmt:'',classId};
+      await supaUpsert('lessons',les.id,les,sid);
+      if(existing){const i=_cache.lessons.findIndex(l=>l.id===les.id);if(i>=0)_cache.lessons[i]=les;}
+      else _cache.lessons.unshift(les);
+      await autoSyncBookReads(sid,{_book:{book:title}},date).catch(()=>{});
+      renderLes();renderRd();renderDash();renderClassTab();renderClsLessons(classId);
+      toast(`${s.name} · ${title} 읽음 기록 완료`);
+    }catch(e){
+      console.error('pgConfirmOrtBook:',e);toast('기록 중 오류가 발생했습니다');
+    }finally{showLoading(false);}
+  });
+}
+// 기존 기록에 원서 병합 — 이미 같은 책이 있으면 null(중복 방지)
+function _pgMergeBook(mats,title){
+  const r={...(mats||{})};
+  for(const[k,v]of Object.entries(r)){
+    if(k.replace(/_\d+$/,'')==='_book'&&v&&_pgNorm(v.book)===_pgNorm(title))return null;
+  }
+  let key='_book',i=1;
+  while(r[key]){i++;key='_book_'+i;}
+  r[key]={book:title};
+  return r;
 }
 // 기존 기록에 교재·단원 병합 — 같은 교재 항목이 있으면 단원만 합침
 function _pgMergeMat(mats,subj,tb,unit){
