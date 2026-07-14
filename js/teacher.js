@@ -1552,9 +1552,14 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal){
       {v:'Arts & Crafts',lbl:'🎨 만들기·공예'},
       {v:'Free Talk',lbl:'💬 프리톡'},
     ];
-    const isKnown=!rawVal||PD_ACTS.some(a=>a.v===rawVal);
+    // 자료 DB에 등록된 펜슬다운 자료(노래 등)도 바로 고를 수 있게 — 고르면 그 자료의 단원·본문·음원이 붙는다
+    const pdBooks=(_cache.globalTextbooks||[]).filter(b=>b.category==='펜슬다운'&&b.title);
+    const isKnown=!rawVal||PD_ACTS.some(a=>a.v===rawVal)||pdBooks.some(b=>b.title===rawVal);
     const iS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;box-sizing:border-box';
-    const opts=`<option value="">-- 활동 선택 --</option>`+PD_ACTS.map(a=>`<option value="${escAttr(a.v)}"${rawVal===a.v?' selected':''}>${a.lbl}</option>`).join('')+`<option value="__other__"${!isKnown&&rawVal?' selected':''}>✏️ 기타 (직접 입력)</option>`;
+    const opts=`<option value="">-- 활동 선택 --</option>`
+      +PD_ACTS.map(a=>`<option value="${escAttr(a.v)}"${rawVal===a.v?' selected':''}>${a.lbl}</option>`).join('')
+      +(pdBooks.length?`<optgroup label="🎵 등록된 자료">${pdBooks.map(b=>`<option value="${escAttr(b.title)}" data-bk-id="${escAttr(b.id)}"${rawVal===b.title?' selected':''}>${escAttr(b.title)}</option>`).join('')}</optgroup>`:'')
+      +`<option value="__other__"${!isKnown&&rawVal?' selected':''}>✏️ 기타 (직접 입력)</option>`;
     d.style.gridTemplateColumns='80px 1fr 1fr auto';
     d.innerHTML=`<span class="sl spd" style="line-height:1.4">✏️<br>Pencil Down</span>
       <div style="min-width:0">
@@ -3249,7 +3254,7 @@ function renderTbookTable(){
   _tbookPagedEntries=paged;
   const tbody=document.getElementById('tbook-tbody');if(!tbody)return;
   const _tbkISt='width:100%;box-sizing:border-box;padding:3px 5px;border:1.5px solid var(--teal);border-radius:4px;font-size:12px;font-family:var(--fb);outline:none';
-  const _tbkCatOpts=v=>['','파닉스','어휘','어법','리딩','리스닝','라이팅','내신'].map(c=>`<option value="${c}"${c===v?'selected':''}>${c||'—'}</option>`).join('');
+  const _tbkCatOpts=v=>['','파닉스','어휘','어법','리딩','리스닝','라이팅','내신','펜슬다운'].map(c=>`<option value="${c}"${c===v?'selected':''}>${c||'—'}</option>`).join('');
   const _tbkKD=id=>`onkeydown="if(event.key==='Enter'){event.preventDefault();${id==='add'?'tbookSaveAdd()':'tbookSaveInline(\''+id+'\')'}}else if(event.key==='Escape'){${id==='add'?'_tbookAdding=false;renderTbookTable()':'tbookCancelInline()'}}"`;
   let addRow='';
   if(_tbookAdding){addRow=`<tr style="background:#f0fff8;border-bottom:2px solid var(--teal)">
@@ -3283,7 +3288,7 @@ function renderTbookTable(){
       <td style="font-weight:600"><span class="cell-title" title="${escAttr(b.title)}">${b.title}</span></td>
       <td>${b.level||'—'}</td>
       <td style="font-size:12px">${b.category==='내신'&&b.grade?b.grade:'—'}</td>
-      <td>${['파닉스','어휘','어법','리딩','리스닝','라이팅','내신'].includes(b.category)?b.category:'—'}</td>
+      <td>${['파닉스','어휘','어법','리딩','리스닝','라이팅','내신','펜슬다운'].includes(b.category)?b.category:'—'}</td>
       <td><span class="cell-title" title="${escAttr(b.publisher||'')}">${b.publisher||'—'}</span></td>
       <td><div style="display:flex;gap:4px">
         <button class="btn bo bsm" onclick="tbookEditInline('${b.id}')">수정</button>
@@ -5895,7 +5900,7 @@ async function wdbImportCSV(e){
   // 컬럼 용도 정의:
   //   분류(ci.cat)   = "교재"/"원서" → 교재DB/원서DB 라우팅에 사용
   //   출처타입(ci.type) = "리딩"/"어휘"/"파닉스" 등 → 교재의 실제 subject 분류로 저장
-  const SUBJECT_CATS=new Set(['파닉스','어휘','어법','리딩','리스닝','라이팅','내신']);
+  const SUBJECT_CATS=new Set(['파닉스','어휘','어법','리딩','리스닝','라이팅','내신','펜슬다운']);
   const ROUTING_VALS=new Set(['교재','원서','textbook','library']);
 
   // 데이터 파싱 + 출처별 그룹화 (책 메타도 첫 행 기준)
@@ -11085,7 +11090,7 @@ function startClsResize(e,colId,invert=false){
   document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
 }
 
-const _CAT_KO={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신'};
+const _CAT_KO={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신',pencil_down:'펜슬다운',sing_together:'펜슬다운'};
 function fillAsgnBookDatalist(dlId,cat){
   const dl=document.getElementById(dlId);if(!dl)return;
   const tbooks=_cache.globalTextbooks||[];
