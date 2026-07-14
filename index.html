@@ -2018,6 +2018,23 @@
   </div>
 </div>
 
+<!-- 진도 캘린더: 미래 날짜 예정 편집 — 완료 기록이 아니라 계획(예정)으로 저장 -->
+<div id="m-pg-plan" class="mo" data-protect>
+  <div class="mdl" style="max-width:400px">
+    <div class="mh"><div class="mt" id="pg-plan-title">수업 예정 편집</div><button class="bx" onclick="closeM('m-pg-plan')">×</button></div>
+    <div id="pg-plan-cur" style="margin-bottom:12px"></div>
+    <div class="f"><label>교재 추가</label>
+      <select id="pg-plan-book" onchange="pgPlanBookChange()"></select>
+    </div>
+    <div class="f"><label>이 날 나갈 단원</label>
+      <datalist id="dl-pg-plan-unit"></datalist>
+      <input type="text" id="pg-plan-unit" list="dl-pg-plan-unit" autocomplete="off" placeholder="교재를 먼저 선택하세요">
+    </div>
+    <div class="ib ibt" style="font-size:11px;margin-bottom:10px">완료 기록이 아니라 <b>예정(점선)</b>으로 저장돼요. 이 날 이 단원부터 시작해 다음 수업일마다 자동으로 이어지고, 클래스 공통 교재에 없던 교재면 함께 등록됩니다.</div>
+    <button class="btn bt" style="width:100%;justify-content:center" onclick="pgPlanSave()">예정으로 추가</button>
+  </div>
+</div>
+
 <div id="m-confirm" class="mo">
   <div class="mdl" style="max-width:340px">
     <div class="mh"><div class="mt" id="confirm-title">확인</div></div>

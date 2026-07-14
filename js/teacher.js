@@ -10117,7 +10117,7 @@ function _pgCalHtml(classId){
       <span style="flex:1"></span>${legend}
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
-    <div class="pg-cal-hint">진한 칩=기록(누르면 수정) · 점선 칩=예정 — 끌어다 다른 날에 놓으면 이후 진도가 자동으로 밀려요 (칩을 누른 뒤 날짜를 눌러도 돼요) · <b>오늘 점선 칩 더블클릭=그대로 수업 기록 확정</b> (📗 원서는 그 학생 읽음 기록까지) · 빈 날을 누르면 그 날짜 수업 기록</div>
+    <div class="pg-cal-hint">진한 칩=기록(누르면 수정) · 점선 칩=예정 — 끌어다 다른 날에 놓으면 이후 진도가 자동으로 밀려요 (칩을 누른 뒤 날짜를 눌러도 돼요) · <b>오늘 점선 칩 더블클릭=그대로 수업 기록 확정</b> (📗 원서는 그 학생 읽음 기록까지) · 빈 날 클릭: 오늘·과거=수업 기록, <b>미래=예정 편집(교재 추가)</b></div>
   </div>`;
 }
 function pgDragStart(ev,classId,tbId,unit){
@@ -10250,9 +10250,77 @@ function pgCellClick(classId,date){
   if(_pgMoveSel){const s=_pgMoveSel;pgMoveCancel();pgSetAnchor(classId,s.tbId,s.unit,date);return;}
   const has=(_cache.lessons||[]).some(l=>l.classId===classId&&l.date===date);
   if(has){openClassLessonEdit(classId,date);return;}
-  // 미래는 예정(점선)으로만 — 완료 기록을 미리 만들지 않는다
-  if(date>new Date().toISOString().split('T')[0]){toast('미래 수업은 점선 예정으로 관리돼요 — 칩을 끌어 계획을 조정하고, 기록은 수업 당일에 해주세요');return;}
+  // 미래는 예정(점선)으로만 — 완료 기록 대신 예정 편집 창을 연다
+  if(date>new Date().toISOString().split('T')[0]){openPgPlan(classId,date);return;}
   openClassLesson(classId,date);
+}
+// ── 미래 날짜 예정 편집: 완료 기록 없이 계획(공통 교재 + 앵커)으로 저장 ──
+let _pgPlanCtx=null; // {classId,date}
+function openPgPlan(classId,date){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  _pgPlanCtx={classId,date};
+  document.getElementById('pg-plan-title').textContent=`${Number(date.slice(5,7))}/${Number(date.slice(8,10))} 수업 예정`;
+  // 이 날 이미 예정된 것 (투영 결과)
+  const books=Object.entries(c.commonMaterials||{}).map(([s,mat])=>({s,mat,tb:_pgTbOf(mat)})).filter(e=>e.tb&&tbUnitKeys(e.tb).length);
+  const cur=[];
+  books.forEach(b=>{const u=_pgProjection(classId,c,b.tb,b.mat,date)[date];if(u)cur.push({title:b.tb.title,unit:u,cat:b.s.replace(/_\d+$/,'')});});
+  DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id)).forEach(s=>{
+    const t=_pgOrtProjection(classId,c,s.id,date)[date];if(t)cur.push({title:'📗 '+t,unit:'',cat:''});
+  });
+  document.getElementById('pg-plan-cur').innerHTML=cur.length
+    ?`<div style="font-size:11.5px;font-weight:700;color:var(--slate);margin-bottom:5px">이 날 예정</div>`+cur.map(x=>`<div style="font-size:12px;color:var(--navy);padding:2px 0">• ${x.cat&&SLBL[x.cat]?`<span class="spill ${SCLS[x.cat]}" style="font-size:9.5px">${SLBL[x.cat]}</span> `:''}${x.title}${x.unit?' — '+x.unit:''}</div>`).join('')
+    :`<div style="font-size:12px;color:var(--slate)">이 날 예정된 교재가 아직 없어요</div>`;
+  // 교재 select: 클래스 공통 교재 먼저, 그 외 교재 DB 전체 (단원 있는 교재만)
+  const inCls=new Set(books.map(b=>b.tb.id));
+  const all=tbSortByUsage((_cache.globalTextbooks||[]).filter(b=>tbUnitKeys(b).length));
+  const opt=b=>`<option value="${escAttr(b.id)}">${b.title}${b.level?' ('+b.level+')':''}</option>`;
+  document.getElementById('pg-plan-book').innerHTML=`<option value="">-- 교재 선택 --</option>`
+    +(books.length?`<optgroup label="클래스 공통 교재">${books.map(b=>opt(b.tb)).join('')}</optgroup>`:'')
+    +`<optgroup label="전체 교재">${all.filter(b=>!inCls.has(b.id)).map(opt).join('')}</optgroup>`;
+  document.getElementById('pg-plan-unit').value='';
+  document.getElementById('dl-pg-plan-unit').innerHTML='';
+  document.getElementById('pg-plan-unit').placeholder='교재를 먼저 선택하세요';
+  openM('m-pg-plan');
+}
+function pgPlanBookChange(){
+  const bkId=document.getElementById('pg-plan-book').value;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===bkId);
+  const dl=document.getElementById('dl-pg-plan-unit');
+  const inp=document.getElementById('pg-plan-unit');
+  if(!tb){dl.innerHTML='';inp.value='';inp.placeholder='교재를 먼저 선택하세요';return;}
+  const titles=tb.unitTitles||{};
+  dl.innerHTML=tbUnitKeys(tb).map(k=>`<option value="${escAttr(k)}">${k}${titles[k]?' — '+titles[k]:''}</option>`).join('');
+  inp.value=_pgPlanCtx?_pgNextUnit(_pgPlanCtx.classId,tb,''):'';
+  inp.placeholder='단원 선택 또는 직접 입력';
+}
+async function pgPlanSave(){
+  if(!_pgPlanCtx)return;
+  const {classId,date}=_pgPlanCtx;
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const bkId=document.getElementById('pg-plan-book').value;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===bkId);
+  if(!tb){toast('교재를 선택해 주세요');return;}
+  const typed=document.getElementById('pg-plan-unit').value.trim();
+  const u=tbUnitKeys(tb).find(k=>_pgUMatch(_pgNorm(k),_pgNorm(typed)));
+  if(!u){toast('단원 목록에서 선택해 주세요');return;}
+  c.commonMaterials={...(c.commonMaterials||{})};
+  const exists=Object.values(c.commonMaterials).some(v=>v&&(v.bookId?v.bookId===tb.id:v.book===tb.title));
+  if(!exists){ // 새 교재면 카테고리에 맞는 과목 키로 공통 교재 등록
+    const base=Object.keys(_CAT_KO).find(k=>_CAT_KO[k]===tb.category)||'reading';
+    let key=base,n=1;
+    while(c.commonMaterials[key]){n++;key=`${base}_${n}`;}
+    c.commonMaterials[key]={book:tb.title,unit:'',bookId:tb.id};
+  }
+  if(!_pgLastRec(classId,tb)){ // 기록 없는 교재는 시작 단원 자체를 이 단원으로 (이전 단원 예정이 끼지 않게)
+    for(const k in c.commonMaterials){const v=c.commonMaterials[k];if(v&&(v.bookId?v.bookId===tb.id:v.book===tb.title))c.commonMaterials[k]={...v,unit:u};}
+  }
+  c.progressAnchors={...(c.progressAnchors||{}),[tb.id]:{unit:u,date}}; // 이 날 이 단원부터 시작
+  try{await supaUpsert('classes',classId,c,null);}
+  catch(e){console.error('pgPlanSave:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  const i=(_cache.globalClasses||[]).findIndex(x=>x.id===classId);if(i>=0)_cache.globalClasses[i]=c;
+  closeM('m-pg-plan');
+  renderClsLessons(classId);
+  toast(`${tb.title} — ${u} · ${Number(date.slice(5,7))}/${Number(date.slice(8,10))}부터 예정으로 잡았어요`);
 }
 async function pgSetAnchor(classId,tbId,unit,date){
   const todayStr=new Date().toISOString().split('T')[0];
