@@ -9840,13 +9840,11 @@ function renderClsLessons(classId){
 
 // ═════════ 클래스 진도 자동화: 다음 단원 계산 + 진도 캘린더 + 드래그 이동 ═════════
 let _pgCalMonth='',_pgCalClsId='',_pgDrag=null,_pgMoveSel=null;
-const _PG_COLORS=['#0CA4C9','#8B5CF6','#F59E0B','#10B981','#EF4444','#EC4899','#6366F1','#14B8A6'];
 const _PG_DOW=['일','월','화','수','목','금','토'];
 const _pgYmd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-// 원서(ORT) 섹션별 칩 색 — 교재 팔레트와 겹치지 않게 별도 배열
-const _PG_ORT_GROUPS=['Stories','First Sentences','More Stories A','More Stories B','Patterned Stories','More Patterned Stories','Decode and Develop','More A Decode and Develop',"Floppy's Fiction","Floppy's Fiction A"];
-const _PG_ORT_COLORS=['#7C3AED','#DB2777','#EA580C','#0891B2','#65A30D','#9333EA','#C026D3','#D97706','#0D9488','#4F46E5'];
-function _pgOrtColor(group){const i=_PG_ORT_GROUPS.indexOf(group);return i>=0?_PG_ORT_COLORS[i%_PG_ORT_COLORS.length]:'#7C3AED';}
+// 과목(카테고리)별 칩 색 — 과목 pill(spill) 색 계열과 통일. 원서는 보라 한 색.
+const _PG_CAT_COLORS={phonics:'#0EA5E9',vocab:'#1D4ED8',grammar:'#5B21B6',reading:'#047857',listening:'#D97706',writing:'#DB2777',naesin:'#EA580C'};
+const _PG_ORT_COLOR='#7C3AED';
 function _pgNorm(x){return String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');}
 // 'unit1' vs 'unit1newfriends' 표기 차이 흡수 — 숫자 경계 보호로 unit11 오매칭 방지
 function _pgUMatch(a,b){
@@ -10030,8 +10028,8 @@ function _pgCalHtml(classId){
   const books=Object.entries(c.commonMaterials||{})
     .map(([s,mat])=>({s,mat,tb:_pgTbOf(mat)}))
     .filter(e=>e.tb&&tbUnitKeys(e.tb).length)
-    .map((e,i)=>({...e,color:_PG_COLORS[i%_PG_COLORS.length]}));
-  const colorOf=tbId=>books.find(b=>b.tb.id===tbId)?.color||'#64748B';
+    .map(e=>({...e,color:_PG_CAT_COLORS[e.s.replace(/_\d+$/,'')]||'#64748B'}));
+  const colorOf=(tbId,cat)=>_PG_CAT_COLORS[cat]||books.find(b=>b.tb.id===tbId)?.color||'#64748B';
   // 실제 기록 칩: date → {tbKey:{tbId,book,units}} + 원서 기록: date → Set(제목)
   const recBy={},ortRecBy={},lessonDates=new Set();
   (_cache.lessons||[]).forEach(l=>{
@@ -10045,14 +10043,13 @@ function _pgCalHtml(classId){
       const tb=_pgTbOf(v);
       const key=tb?.id||'t:'+v.book;
       recBy[l.date]=recBy[l.date]||{};
-      const e=recBy[l.date][key]=recBy[l.date][key]||{tbId:tb?.id||'',book:v.book,units:new Set()};
+      const e=recBy[l.date][key]=recBy[l.date][key]||{tbId:tb?.id||'',book:v.book,cat:bk,units:new Set()};
       (v.unit||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(u=>e.units.add(u));
     });
   });
-  // 원서(ORT) 예정: 학생별 다음 읽을 책 투영 — 색은 섹션(ortGroup)별
+  // 원서(ORT) 예정: 학생별 다음 읽을 책 투영 — 원서는 보라 한 색, 툴팁에 섹션명만
   const ortMeta={};
-  (_cache.library||[]).forEach(b=>{if(b.ortSeq!=null)ortMeta[_pgNorm(b.title)]={group:b.ortGroup||'',stage:b.ortStage||''};});
-  const ortColorOf=t=>_pgOrtColor((ortMeta[_pgNorm(t)]||{}).group);
+  (_cache.library||[]).forEach(b=>{if(b.ortSeq!=null)ortMeta[_pgNorm(b.title)]={group:b.ortGroup||''};});
   const ortGroupOf=t=>(ortMeta[_pgNorm(t)]||{}).group||'';
   const clsStus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
   // 예정 칩: 오늘~보는 달 끝 투영
@@ -10084,27 +10081,24 @@ function _pgCalHtml(classId){
     const isClassDay=(c.days||[]).includes(dow);
     let chips=Object.values(recBy[ds]||{}).map(e=>{
       const us=[...e.units];
-      return`<span class="pg-chip rec" style="--pgc:${colorOf(e.tbId)}" title="${escAttr(e.book+(us.length?' — '+us.join(', '):''))}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">${us.length?us.join(', '):'✓'}</span>`;
+      return`<span class="pg-chip rec" style="--pgc:${colorOf(e.tbId,e.cat)}" title="${escAttr((SLBL[e.cat]?SLBL[e.cat]+' · ':'')+e.book+(us.length?' — '+us.join(', '):''))}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">${us.length?us.join(', '):'✓'}</span>`;
     }).join('');
     chips+=[...(ortRecBy[ds]||[])].map(t=>
-      `<span class="pg-chip rec" style="--pgc:${ortColorOf(t)}" title="${escAttr('원서 — '+t+(ortGroupOf(t)?' ('+ortGroupOf(t)+')':''))}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">📗 ${t}</span>`
+      `<span class="pg-chip rec" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr('원서 — '+t+(ortGroupOf(t)?' ('+ortGroupOf(t)+')':''))}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">📗 ${t}</span>`
     ).join('');
     if(!chips&&lessonDates.has(ds))chips=`<span class="pg-chip rec" style="--pgc:#94A3B8" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">수업</span>`;
     chips+=(ortGhostBy[ds]||[]).map(g=>
-      `<span class="pg-chip ghost" draggable="true" style="--pgc:${ortColorOf(g.title)}" title="${escAttr((clsStus.length>1?g.name+' — ':'')+g.title+(ortGroupOf(g.title)?' · '+ortGroupOf(g.title):'')+' (원서 예정 — 끌어서 옮기기, 더블클릭=읽음 기록)')}" ondragstart="pgDragStart(event,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" ondblclick="pgOrtDbl(event,'${classId}','${g.sid}','${escJsA(g.title)}','${ds}')">📗 ${clsStus.length>1?g.name+'·':''}${g.title}</span>`
+      `<span class="pg-chip ghost" draggable="true" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr((clsStus.length>1?g.name+' — ':'')+g.title+(ortGroupOf(g.title)?' · '+ortGroupOf(g.title):'')+' (원서 예정 — 끌어서 옮기기, 더블클릭=읽음 기록)')}" ondragstart="pgDragStart(event,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" ondblclick="pgOrtDbl(event,'${classId}','${g.sid}','${escJsA(g.title)}','${ds}')">📗 ${clsStus.length>1?g.name+'·':''}${g.title}</span>`
     ).join('');
     chips+=(ghostBy[ds]||[]).map(g=>
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 끌어서 옮기기, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escAttr(g.unit)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escAttr(g.unit)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${ds}','${escAttr(g.s)}')">${g.unit}</span>`
     ).join('');
     cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onclick="pgCellClick('${classId}','${ds}')"><div class="pg-dnum">${dd}</div>${chips}</div>`);
   }
-  // 이번 달에 보이는 원서 섹션만 범례에 (색=섹션)
-  const ortGroupsSeen=new Set();
-  Object.values(ortRecBy).forEach(set=>set.forEach(t=>ortGroupsSeen.add(ortGroupOf(t))));
-  Object.values(ortGhostBy).forEach(arr=>arr.forEach(g=>ortGroupsSeen.add(ortGroupOf(g.title))));
-  const legend=books.map(b=>`<span class="pg-lg"><i style="background:${b.color}"></i>${b.tb.title}</span>`).join('')
-    +[...ortGroupsSeen].filter(Boolean).map(g=>`<span class="pg-lg"><i style="background:${_pgOrtColor(g)}"></i>📗 ${g}</span>`).join('')
-    +(ortGroupsSeen.has('')?`<span class="pg-lg"><i style="background:#7C3AED"></i>📗 원서</span>`:'');
+  // 범례: 과목 색 (같은 과목 교재는 같은 색) + 원서 한 색
+  const hasOrt=Object.keys(ortGhostBy).length||Object.keys(ortRecBy).length;
+  const legend=books.map(b=>`<span class="pg-lg"><i style="background:${b.color}"></i>${SLBL[b.s.replace(/_\d+$/,'')]||''} ${b.tb.title}</span>`).join('')
+    +(hasOrt?`<span class="pg-lg"><i style="background:${_PG_ORT_COLOR}"></i>📗 원서</span>`:'');
   const hasAnchor=Object.keys(c.progressAnchors||{}).length>0;
   return`<div class="pg-cal-card">
     <div class="pg-cal-head">
