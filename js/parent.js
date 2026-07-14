@@ -707,10 +707,119 @@ async function printReport(sidArg,month){
   let aiComment='';
   if(DB.api()&&les.length){
     try{
-      const progSummary=Object.values(matMap).map(m=>`- ${m.label?'['+m.label+'] ':''}${m.book}: ${m.units.join(' · ')||'진도 기록 없음'}`).join('\n')||'—';
-      const rdSummary=rds.length?rds.slice(0,15).map(r=>r.title+(r.progress?'('+r.progress+')':'')).join(', '):'—';
-      const lessSummary=les.slice(0,20).map(l=>`[${l.date}]\n교재: ${Object.entries(l.materials||{}).filter(([,v])=>v.book).map(([,v])=>v.book+(v.unit?' '+v.unit:'')).join(', ')||'—'}${(l.polishedCmt||l.cmt)?'\n코멘트: '+(l.polishedCmt||l.cmt):''}`).join('\n\n');
-      const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:`영어학원 선생님이 학부모에게 드리는 ${periodLabel} 종합 코멘트를 작성해주세요. 인쇄용 학습 리포트에 실립니다.\n\n규칙:\n- 톤(원장 톤앤매너): 합쇼체 위주의 담백하고 따뜻한 문장. 과장 없이 아이의 구체적인 모습·성장을 짚고, 반복·노출·익숙해짐을 중시하는 교육관이 배어나게. 마무리는 "꾸준히 ~하겠습니다" 같은 지도 다짐으로. 필요 시 "많이 칭찬해 주세요" 같은 부드러운 요청 한 번. 감탄사·이모지 없음.\n- 구성: 학습 태도 → ${periodLabel} 진도 요약(교재별로 어디까지 진행했는지) → 주요 학습 내용(무엇을 배우고 연습했는지) → 원서 읽기 → 특기 사항 순\n- 아래 진도·기록 데이터를 바탕으로 통합·재구성하세요. 기록에 없는 내용 추가 금지.\n- 단원명(Unit/Lesson 번호)을 그대로 나열하지 말고, 그 단원에서 무엇을 배우고 연습했는지 중심으로 서술하세요. 진도 자체는 리포트에 별도 표기됩니다.\n- 300~500자 분량, 문단은 2~3개로 나누세요.\n\n학생: ${s.name} (${s.grade||''})\n기간: ${periodLabel} | 수업 ${les.length}회 | 원서 ${rds.length}권 | 단어 평균 ${avgV!=null?avgV+'%':'미측정'}\n\n기간 내 교재 진도:\n${progSummary}\n\n읽은 원서: ${rdSummary}\n\n일별 수업 기록:\n${lessSummary}\n\n종합 코멘트만 출력하세요.`}]});
+      // ── 리포트 재료: 단원 '번호'가 아니라 '무엇을 배웠는지'를 모은다 ──
+      const _tbs=_cache.globalTextbooks||[];
+      const _n=x=>String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+      const _pref=(a,b)=>a.startsWith(b)&&!/^\d/.test(a.slice(b.length));
+      const _uMatch=(a,b)=>a===b||(!!a&&!!b&&(_pref(a,b)||_pref(b,a)));
+      // 교재별: 단원 주제(unitTitles) + 그 단원에서 실제 배운 단어 예시 + 본문 학습 여부
+      const progSummary=Object.values(matMap).map(m=>{
+        const tb=_tbs.find(b=>_n(b.title)===_n(m.book));
+        const topics=[],wordEx=[],seenKey=new Set(),seenWord=new Set();let hasText=false,wordCnt=0;
+        (m.units||[]).forEach(u=>{
+          if(!tb)return;
+          const key=tbUnitKeys(tb).find(k=>_uMatch(_n(k),_n(u)));
+          if(!key||seenKey.has(key))return;   // 같은 단원이 여러 표기로 잡혀도 한 번만
+          seenKey.add(key);
+          const t=(tb.unitTitles?.[key]||'').trim();
+          if(t&&!topics.includes(t))topics.push(t);
+          if(tb.unitTexts?.[key])hasText=true;
+          const ws=(tb.units?.[key]||[]).map(w=>typeof w==='string'?{word:w}:w).filter(w=>w.word);
+          wordCnt+=ws.length;
+          ws.slice(0,4).forEach(w=>{
+            const k2=String(w.word).toLowerCase();
+            if(seenWord.has(k2)||wordEx.length>=8)return;
+            seenWord.add(k2);
+            wordEx.push(w.word+(w.ko?`(${w.ko})`:''));
+          });
+        });
+        const bits=[];
+        if(topics.length)bits.push(`다룬 주제: ${topics.slice(0,6).join(', ')}`);
+        if(wordCnt)bits.push(`학습 단어 ${wordCnt}개${wordEx.length?` (예: ${wordEx.join(', ')})`:''}`);
+        if(hasText)bits.push('지문 읽기·듣기 병행');
+        return `- ${m.label?'['+m.label+'] ':''}${m.book} (${m.units.length}개 단원 진행)\n   ${bits.join(' / ')||'세부 자료 미등록'}`;
+      }).join('\n')||'—';
+      // 원서: 제목 + AR 수준 (권수·난이도 흐름 파악용)
+      const _libs=_cache.library||[];
+      const rdSummary=rds.length?rds.slice(0,15).map(r=>{
+        const b=(r.bookId&&_libs.find(x=>x.id===r.bookId))||_libs.find(x=>_n(x.title)===_n(r.title));
+        const ar=r.arLevel||b?.arLevel||b?.ar||'';
+        return r.title+(ar?` [AR ${ar}]`:'')+(r.progress?`(${r.progress})`:'');
+      }).join(', '):'—';
+      // 단어장: 기간 내 학습량·정답률·아직 헷갈리는 단어 (아이의 실제 성취를 보여주는 근거)
+      const _cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+      const _learned=_cards.filter(c=>inScope(c.addedDate)||inScope(c.lastSeen));
+      const _tries=_learned.reduce((a,c)=>a+(c.hits||0)+(c.misses||0),0);
+      const _hits=_learned.reduce((a,c)=>a+(c.hits||0),0);
+      const _rate=_tries?Math.round(100*_hits/_tries):null;
+      const _hard=_learned.filter(c=>(c.misses||0)>=2).sort((a,b)=>(b.misses||0)-(a.misses||0)).slice(0,6)
+        .map(c=>c.word+(c.meaning?`(${c.meaning})`:'')).join(', ');
+      const vocabSummary=_learned.length
+        ? `기간 내 학습 단어 ${_learned.length}개${_rate!=null?` · 누적 정답률 ${_rate}%`:''}${_hard?`\n아직 헷갈리는 단어: ${_hard}`:''}`
+        : '—';
+      // 과제 이행률 — '앱에서 완료 체크한' 기준. 종이로 해오고 체크만 안 한 경우가 있어
+      // 완료 0건이면 데이터를 넘기지 않는다 (아이가 과제를 안 했다는 오해를 리포트에 싣지 않기 위함)
+      const _asg=(_cache.assignments||[]).filter(a=>a.sid===sid&&inScope(a.date));
+      const _done=_asg.filter(a=>a.completedAt).length;
+      const hwSummary=(_asg.length&&_done)
+        ? `과제 ${_asg.length}건 중 ${_done}건 완료 (${Math.round(100*_done/_asg.length)}%) — 학생 앱에서 완료 체크한 기준`
+        : '—';
+      // 출결 (특기 사항 판단용)
+      const _abs=les.filter(l=>l.att==='absent').length,_late=les.filter(l=>l.att==='late').length;
+      const attSummary=`출석 ${les.filter(l=>!l.att||l.att==='normal').length}회${_abs?` · 결석 ${_abs}회`:''}${_late?` · 지각 ${_late}회`:''}`;
+      // 선생님 관찰 기록 — 날짜순 전체(최대 12건). 초반→후반 변화를 읽어내는 핵심 재료
+      const _cmts=les.filter(l=>(l.polishedCmt||l.cmt||'').trim())
+        .slice(0,12).sort((a,b)=>(a.date||'').localeCompare(b.date||''))
+        .map(l=>`[${l.date}] ${(l.polishedCmt||l.cmt).trim()}`).join('\n');
+      const lessSummary=_cmts||'—';
+      const prompt=`영어학원 선생님이 학부모에게 드리는 ${periodLabel} 종합 코멘트를 작성하세요. 인쇄용 학습 리포트에 실립니다.
+
+[가장 중요한 원칙]
+교재명과 단원 번호(Unit 3, Lesson 5 등)는 리포트에 표(진도표)로 이미 들어갑니다. 코멘트에 그것을 다시 나열하면 학부모가 읽을 내용이 없습니다.
+따라서 코멘트는 "무엇을 몇 과까지 나갔다"가 아니라 "아이가 무엇을 할 수 있게 되었고, 어떻게 달라지고 있는가"를 써야 합니다.
+- 교재명은 꼭 필요할 때만 1~2회. 단원 번호는 쓰지 마세요.
+- 대신 그 단원의 '주제'와 '실제 배운 단어·표현'을 근거로, 아이가 다룬 내용을 학부모의 언어로 풀어 쓰세요.
+  (나쁜 예: "Smart Reading 1.3 Unit 4까지 진행했습니다.")
+  (좋은 예: "가족과 계절을 소재로 한 짧은 글을 읽으며, 인물의 기분을 나타내는 표현을 익혔습니다.")
+
+[반드시 담을 것 — 아래 데이터에서 근거를 찾아 씁니다]
+1. 학습 태도·수업 중 모습: 선생님 관찰 기록에서 반복되는 모습을 짚어 주세요.
+2. 발전 흐름: 관찰 기록을 날짜순으로 비교해 기간 초반과 후반이 어떻게 달라졌는지 한 대목은 반드시 쓰세요. 변화가 뚜렷하지 않으면 "꾸준히 유지되고 있다"고 솔직히 쓰세요.
+3. 구체적 성취: 배운 단어의 주제·개수, 단어 정답률, 읽은 원서의 권수와 수준, 과제 이행률 중 데이터가 있는 것을 근거로 제시하세요. 숫자는 자연스럽게 문장에 녹이세요.
+4. 보완할 점: 아직 헷갈리는 단어나 낮은 이행률이 있으면 부드럽게 한 가지만. 없으면 생략하세요.
+5. 가정에서 도울 점: 데이터에 근거해 딱 한 가지만 구체적으로 제안하세요. (예: 읽은 원서를 소리 내어 한 번 더 읽어보기)
+
+[톤 — 원장 톤앤매너]
+합쇼체 위주의 담백하고 따뜻한 문장. 과장·미사여구 없이 아이의 구체적인 모습을 짚습니다. 반복·노출·익숙해짐을 중시하는 교육관이 배어나게. 마무리는 "꾸준히 ~하겠습니다" 같은 지도 다짐으로. 감탄사·이모지 없음.
+
+[금지]
+- 기록에 없는 내용을 지어내지 마세요. 데이터가 '—'인 항목은 언급하지 마세요.
+- 단원 번호 나열, 교재 목록 나열 금지.
+- 제목·머리말을 붙이지 마세요. 마크다운 기호(#, *, -)를 쓰지 말고 완성된 문단만 출력하세요. (리포트에 이미 섹션 제목이 있습니다)
+- 400~600자, 문단 3개.
+
+──────── 데이터 ────────
+학생: ${s.name} (${s.grade||''})
+기간: ${periodLabel} | 수업 ${les.length}회 | ${attSummary}
+
+■ 이 기간에 다룬 내용 (단원 주제와 실제 배운 단어)
+${progSummary}
+
+■ 단어 학습 성취
+${vocabSummary}
+
+■ 읽은 원서 (${rds.length}권)
+${rdSummary}
+
+■ 과제 이행
+${hwSummary}
+
+■ 선생님 관찰 기록 (날짜순 — 초반과 후반의 변화를 여기서 읽어내세요)
+${lessSummary}
+────────────────────
+
+종합 코멘트만 출력하세요.`;
+      const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:1200,messages:[{role:'user',content:prompt}]});
       aiComment=d.content?.[0]?.text?.trim()||'';
     }catch(e){console.warn('printReport AI 실패:',e.message);}
   }
