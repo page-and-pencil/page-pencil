@@ -3587,7 +3587,9 @@ function tuRenderWords(tbId,unitKey){
   if(textSec)textSec.style.display=unitKey?'':'none';
   if(unitKey){
     const tb0=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
-    const ta=document.getElementById('tu-unit-text');if(ta)ta.value=tb0?.unitTexts?.[unitKey]||'';
+    tuRenderScriptBar(tb0,unitKey);
+    const ta=document.getElementById('tu-unit-text');
+    if(ta)ta.value=tuCurScriptText(tb0,unitKey);
     const pa=document.getElementById('tu-unit-patterns');if(pa)pa.value=tb0?.unitPatterns?.[unitKey]||'';
     const li=document.getElementById('tu-unit-link');if(li)li.value=tb0?.unitLinks?.[unitKey]||'';
     const audioUrl=tb0?.unitAudio?.[unitKey]||'';
@@ -4144,6 +4146,47 @@ async function tuRefreshFromLib(){
   tuRenderWords(tbId,_tuCurUnit);
   toast(`${updated}개 예문을 원서에서 갱신했습니다`);
 }
+// ── 다중 스크립트 단원 (리스닝 TR A/B/C…) ──
+// unitScripts[unitKey] = [{label,text}] — 여러 개면 선택 바로 하나씩 편집.
+// unitTexts[unitKey] 는 전체를 이어붙인 문자열(듣기·TTS·복습이 그대로 씀)
+let _tuScriptIdx=0;
+function tuScriptsOf(tb,unitKey){
+  const s=tb?.unitScripts?.[unitKey];
+  return Array.isArray(s)&&s.length?s:null;
+}
+function tuCurScriptText(tb,unitKey){
+  const sc=tuScriptsOf(tb,unitKey);
+  if(!sc)return tb?.unitTexts?.[unitKey]||'';
+  const i=Math.min(_tuScriptIdx,sc.length-1);
+  return sc[i]?.text||'';
+}
+function tuRenderScriptBar(tb,unitKey){
+  const bar=document.getElementById('tu-script-bar');
+  const lbl=document.getElementById('tu-text-label');
+  if(!bar)return;
+  const sc=tuScriptsOf(tb,unitKey);
+  if(!sc||sc.length<2){
+    bar.style.display='none';bar.innerHTML='';
+    if(lbl)lbl.textContent='원문 텍스트';
+    _tuScriptIdx=0;
+    return;
+  }
+  if(_tuScriptIdx>=sc.length)_tuScriptIdx=0;
+  bar.style.display='';
+  bar.innerHTML=`<div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+    <span style="font-size:11px;color:var(--slate);white-space:nowrap">🎧 스크립트 ${sc.length}개</span>
+    ${sc.map((s,i)=>`<button class="btn ${i===_tuScriptIdx?'bt':'ba'} bsm" style="font-size:11px;padding:3px 9px" onclick="tuPickScript('${tb.id}','${escAttr(unitKey)}',${i})">${escAttr(s.label||('스크립트 '+(i+1)))}</button>`).join('')}
+  </div>`;
+  if(lbl)lbl.textContent='원문 텍스트 — '+(sc[_tuScriptIdx]?.label||('스크립트 '+(_tuScriptIdx+1)));
+}
+function tuPickScript(tbId,unitKey,i){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  _tuScriptIdx=i;
+  const ta=document.getElementById('tu-unit-text');
+  if(ta)ta.value=tuCurScriptText(tb,unitKey);
+  tuRenderScriptBar(tb,unitKey);
+  stopSmartAudio();
+}
 // 단어 없음이 정상인 단원 표식 — 대시보드 '데이터 채우기'에서 이 단원을 빼둔다
 async function tuToggleNoVocab(tbId,unitKey){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
@@ -4165,10 +4208,20 @@ async function tuSaveUnitText(silent=false){
   const patterns=(document.getElementById('tu-unit-patterns')?.value||'').trim();
   const link=(document.getElementById('tu-unit-link')?.value||'').trim();
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
-  const unitTexts={...(tb.unitTexts||{}),[_tuCurUnit]:text};
   const unitPatterns={...(tb.unitPatterns||{}),[_tuCurUnit]:patterns};
   const unitLinks={...(tb.unitLinks||{}),[_tuCurUnit]:link};
-  const updated={...tb,unitTexts,unitPatterns,unitLinks};
+  // 스크립트가 여러 개인 단원: 지금 고른 스크립트만 갱신하고, 본문(unitTexts)은 전체를 이어붙여 다시 만든다
+  const sc=tuScriptsOf(tb,_tuCurUnit);
+  let unitTexts,unitScripts=tb.unitScripts;
+  if(sc){
+    const i=Math.min(_tuScriptIdx,sc.length-1);
+    const next=sc.map((s,n)=>n===i?{...s,text}:s);
+    unitScripts={...(tb.unitScripts||{}),[_tuCurUnit]:next};
+    unitTexts={...(tb.unitTexts||{}),[_tuCurUnit]:next.map(s=>s.text).filter(Boolean).join('\n\n')};
+  }else{
+    unitTexts={...(tb.unitTexts||{}),[_tuCurUnit]:text};
+  }
+  const updated={...tb,unitTexts,unitPatterns,unitLinks,...(unitScripts?{unitScripts}:{})};
   await supaUpsert('global_textbooks',tbId,updated,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
   if(!silent)toast('저장되었습니다');

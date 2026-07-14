@@ -2496,10 +2496,23 @@ function urToggleAll(){
   if(btn)btn.textContent=isRevealed?'전체 보기':'전체 숨기기';
 }
 
+// 단원의 스크립트 목록 (리스닝 TR A/B/C…) — 없으면 null
+function urScriptsOf(tb,unitKey){
+  const s=tb?.unitScripts?.[unitKey];
+  return Array.isArray(s)&&s.length?s:null;
+}
+function urPickScript(i){
+  _urState.scriptIdx=i;
+  stopSpeak();
+  renderUrStep(2);
+}
 // Step 2: 본문 읽기
 function renderUrText(tb,body,footer){
   const unitKey=_urState.unitKey;
-  const text=tb.unitTexts?.[unitKey]||'';
+  const scripts=urScriptsOf(tb,unitKey);
+  if(scripts&&(_urState.scriptIdx==null||_urState.scriptIdx>=scripts.length))_urState.scriptIdx=0;
+  // 스크립트가 여러 개면 고른 것만, 없으면 단원 본문 전체
+  const text=scripts?(scripts[_urState.scriptIdx]?.text||''):(tb.unitTexts?.[unitKey]||'');
   const audioUrl=tb.unitAudio?.[unitKey]||'';
   const link=tb.unitLinks?.[unitKey]||'';
   const words=_urState.words;
@@ -2525,7 +2538,14 @@ function renderUrText(tb,body,footer){
     <div style="font-size:11px;color:var(--slate);margin-bottom:8px">속도: 교재 수준에 맞춰 <b>${TTS_LEVELS[_urState.ttsLevel]?.short||'중급'}</b> 자동 선택 · 문장 하이라이트를 따라 읽으세요</div>`;
   }
 
+  // 스크립트가 여러 개인 단원(리스닝 TR A/B/C…): 골라서 하나씩 듣고 따라 읽기
+  const scriptBar=(scripts&&scripts.length>1)?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+    <span style="font-size:11.5px;color:var(--slate);white-space:nowrap">🎧 대화 ${scripts.length}개</span>
+    ${scripts.map((s,i)=>`<button class="btn ${i===_urState.scriptIdx?'bt':'ba'} bsm" style="border-radius:50px;padding:5px 12px;font-size:11.5px" onclick="urPickScript(${i})">${escAttr(s.label||('스크립트 '+(i+1)))}</button>`).join('')}
+  </div>`:'';
+
   body.innerHTML=`<div style="padding:12px 16px">
+    ${scriptBar}
     ${audioHtml}
     ${link?`<a href="${link}" target="_blank" rel="noopener" class="btn ba bsm" style="display:inline-flex;align-items:center;gap:5px;margin-bottom:10px;border-radius:50px;padding:6px 14px">🔗 심화 자료</a>`:''}
     <div id="ur-text-body" style="font-size:15px;line-height:1.85;color:var(--navy);letter-spacing:.01em">${sentHtml}</div>
@@ -3612,7 +3632,10 @@ async function msListenPlay(){
 }
 async function urListenPlay(){
   const tb=_urState?.tb;if(!tb)return;
-  const text=tb.unitTexts?.[_urState.unitKey]||'';if(!text)return;
+  // 스크립트가 여러 개인 단원은 지금 고른 스크립트만 읽는다 (화면에 보이는 문장과 하이라이트를 맞춤)
+  const sc=urScriptsOf(tb,_urState.unitKey);
+  const text=(sc?(sc[_urState.scriptIdx||0]?.text||''):(tb.unitTexts?.[_urState.unitKey]||''));
+  if(!text)return;
   const btn=document.getElementById('ur-tts-btn');if(btn)btn.textContent='▶ 재생 중...';
   await playPassage(text,_urState.ttsLevel||'intermediate','ur-ls-');
   const b2=document.getElementById('ur-tts-btn');if(b2)b2.textContent='▶ 듣기';

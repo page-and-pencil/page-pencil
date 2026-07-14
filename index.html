@@ -1484,8 +1484,10 @@
           <span id="tu-text-arrow" style="font-size:10px;color:var(--slate)">▼</span>
         </button>
         <div id="tu-text-body" style="display:none;padding:0 10px 10px">
+          <!-- 스크립트가 여러 개인 단원(리스닝 TR A/B/C…)에서 선택 바 -->
+          <div id="tu-script-bar" style="display:none;margin-bottom:7px"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-            <div style="font-size:12px;font-weight:700;color:var(--navy)">원문 텍스트</div>
+            <div id="tu-text-label" style="font-size:12px;font-weight:700;color:var(--navy)">원문 텍스트</div>
             <div style="display:flex;gap:6px">
               <button class="btn ba bsm" onclick="tuSaveUnitText()" style="white-space:nowrap">저장</button>
               <button class="btn bt bsm" onclick="tuExtractExamples()" style="white-space:nowrap">✨ 원문 예문 추출</button>
