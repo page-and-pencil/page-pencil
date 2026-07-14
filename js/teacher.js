@@ -9902,8 +9902,8 @@ function _pgNextUnit(classId,tb,storedUnit){
   const si=_pgUnitIdx(tb,storedUnit);
   return si>=0?keys[si]:keys[0];
 }
-// 오늘~uptoDate의 예정 진도 {날짜:단원키} — 앵커(드래그로 옮긴 기준점) 반영
-function _pgProjection(classId,c,tb,mat,uptoDate){
+// 오늘~uptoDate의 예정 진도 {날짜:단원키} — 앵커(드래그로 옮긴 기준점) 반영, skipDates=펜슬다운 등 제외일
+function _pgProjection(classId,c,tb,mat,uptoDate,skipDates){
   const todayStr=new Date().toISOString().split('T')[0];
   const keys=tbUnitKeys(tb);if(!keys.length)return{};
   const rec=_pgLastRec(classId,tb);
@@ -9923,6 +9923,7 @@ function _pgProjection(classId,c,tb,mat,uptoDate){
     if(ds<todayStr)continue;
     if(!bDays.includes(_PG_DOW[cur.getDay()]))continue;
     if(recDates.has(ds))continue;
+    if(skipDates&&skipDates.has(ds))continue;
     slots.push(ds);
   }
   const placed={};
@@ -9953,7 +9954,7 @@ function _pgOrtRemaining(sid){
   return started?remaining:[];
 }
 // 학생별 ORT 원서 예정 {날짜:제목} — 교재 투영과 같은 슬롯·앵커('ort:sid') 규칙
-function _pgOrtProjection(classId,c,sid,uptoDate){
+function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
   const todayStr=new Date().toISOString().split('T')[0];
   const remaining=_pgOrtRemaining(sid);
   if(!remaining.length||!(c.days||[]).length)return{};
@@ -9970,6 +9971,7 @@ function _pgOrtProjection(classId,c,sid,uptoDate){
     if(ds<todayStr)continue;
     if(!(c.days||[]).includes(_PG_DOW[cur.getDay()]))continue;
     if(recDates.has(ds))continue;
+    if(skipDates&&skipDates.has(ds))continue;
     slots.push(ds);
   }
   const placed={};
@@ -10033,15 +10035,15 @@ function _pgCalHtml(classId){
     .filter(e=>e.tb&&tbUnitKeys(e.tb).length)
     .map(e=>({...e,color:_PG_CAT_COLORS[e.s.replace(/_\d+$/,'')]||'#64748B'}));
   const colorOf=(tbId,cat)=>_PG_CAT_COLORS[cat]||books.find(b=>b.tb.id===tbId)?.color||'#64748B';
-  // 실제 기록 칩: date → {tbKey:{tbId,book,units}} + 원서 기록: date → Set(제목)
-  const recBy={},ortRecBy={},lessonDates=new Set();
+  // 실제 기록 칩: date → {tbKey:{tbId,book,units}} + 원서·펜슬다운 기록
+  const recBy={},ortRecBy={},pdRecBy={},lessonDates=new Set();
   (_cache.lessons||[]).forEach(l=>{
     if(l.classId!==classId||!l.date)return;
     lessonDates.add(l.date);
     Object.entries(l.materials||{}).forEach(([k,v])=>{
       if(!v||!v.book)return;
       const bk=k.replace(/_\d+$/,'');
-      if(bk==='pencil_down'||bk==='sing_together')return;
+      if(bk==='pencil_down'||bk==='sing_together'){(pdRecBy[l.date]=pdRecBy[l.date]||new Set()).add(v.book||'Pencil Down');return;}
       if(bk==='_book'){(ortRecBy[l.date]=ortRecBy[l.date]||new Set()).add(v.book);return;}
       const tb=_pgTbOf(v);
       const key=tb?.id||'t:'+v.book;
@@ -10057,9 +10059,41 @@ function _pgCalHtml(classId){
   const clsStus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
   // 예정 칩: 오늘~보는 달 끝 투영
   const monthEnd=`${ym}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
+  // 리딩 책이 끝날 때마다 다음 수업일은 Pencil Down(Sing Together) — 그 날은 다른 진도가 하루 밀림
+  const singDates=new Set();
+  const _nextFreeClassDay=(after,upto)=>{
+    const cur=new Date(after+'T12:00:00');
+    for(let i=0;i<180;i++){
+      cur.setDate(cur.getDate()+1);
+      const ds=_pgYmd(cur);
+      if(ds>upto)return'';
+      if(ds<todayStr)continue;
+      if(!(c.days||[]).includes(_PG_DOW[cur.getDay()]))continue;
+      if(lessonDates.has(ds))continue;
+      return ds;
+    }
+    return'';
+  };
+  const readingBooks=books.filter(b=>b.tb.category==='리딩'||b.s.replace(/_\d+$/,'')==='reading');
+  const placedByBook=new Map();
+  readingBooks.forEach(b=>{
+    const keys=tbUnitKeys(b.tb);
+    const lastKey=keys[keys.length-1];
+    const placed=_pgProjection(classId,c,b.tb,b.mat,monthEnd);
+    placedByBook.set(b.tb.id,placed);
+    const endEntry=Object.entries(placed).find(([d,u])=>u===lastKey);
+    if(endEntry){const d=_nextFreeClassDay(endEntry[0],monthEnd);if(d)singDates.add(d);return;}
+    // 이미 완주한 책: 완주일 이후 펜슬다운 기록이 아직 없으면 다음 수업일에 예정
+    const rec=_pgLastRec(classId,b.tb);
+    if(rec&&rec.idx>=keys.length-1){
+      const done=(_cache.lessons||[]).some(l=>l.classId===classId&&(l.date||'')>=rec.date&&l.materials
+        &&Object.keys(l.materials).some(k=>{const bk2=k.replace(/_\d+$/,'');return bk2==='pencil_down'||bk2==='sing_together';}));
+      if(!done){const d=_nextFreeClassDay(rec.date,monthEnd);if(d)singDates.add(d);}
+    }
+  });
   const ghostBy={};
   books.forEach(b=>{
-    const placed=_pgProjection(classId,c,b.tb,b.mat,monthEnd);
+    const placed=placedByBook.get(b.tb.id)||_pgProjection(classId,c,b.tb,b.mat,monthEnd,singDates);
     Object.entries(placed).forEach(([d,u])=>{
       if(!d.startsWith(ym))return;
       (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
@@ -10067,7 +10101,7 @@ function _pgCalHtml(classId){
   });
   const ortGhostBy={};
   clsStus.forEach(s=>{
-    const placed=_pgOrtProjection(classId,c,s.id,monthEnd);
+    const placed=_pgOrtProjection(classId,c,s.id,monthEnd,singDates);
     Object.entries(placed).forEach(([d,t])=>{
       if(!d.startsWith(ym))return;
       (ortGhostBy[d]=ortGhostBy[d]||[]).push({sid:s.id,name:s.name,title:t});
@@ -10093,7 +10127,11 @@ function _pgCalHtml(classId){
     chips+=[...(ortRecBy[ds]||[])].map(t=>
       `<span class="${recCls}" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr('원서 — '+t+(ortGroupOf(t)?' ('+ortGroupOf(t)+')':'')+futTip)}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">📗 ${t}</span>`
     ).join('');
+    chips+=[...(pdRecBy[ds]||[])].map(t=>
+      `<span class="${recCls}" style="--pgc:#7B1FA2" title="${escAttr('Pencil Down — '+t+futTip)}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">✏️ ${t}</span>`
+    ).join('');
     if(!chips&&lessonDates.has(ds))chips=`<span class="${recCls}" style="--pgc:#94A3B8" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">수업</span>`;
+    if(singDates.has(ds))chips+=`<span class="pg-chip ghost" style="--pgc:#7B1FA2" title="리딩 책 완주 기념 Pencil Down — Sing Together (예정, 더블클릭=기록)" onclick="event.stopPropagation()" ondblclick="pgSingDbl(event,'${classId}','${ds}')">✏️🎵 Sing Together</span>`;
     chips+=(ortGhostBy[ds]||[]).map(g=>
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr((clsStus.length>1?g.name+' — ':'')+g.title+(ortGroupOf(g.title)?' · '+ortGroupOf(g.title):'')+' (원서 예정 — 끌어서 옮기기, 더블클릭=읽음 기록)')}" ondragstart="pgDragStart(event,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" ondblclick="pgOrtDbl(event,'${classId}','${g.sid}','${escJsA(g.title)}','${ds}')">📗 ${clsStus.length>1?g.name+'·':''}${g.title}</span>`
     ).join('');
@@ -10105,7 +10143,8 @@ function _pgCalHtml(classId){
   // 범례: 과목 색 (같은 과목 교재는 같은 색) + 원서 한 색
   const hasOrt=Object.keys(ortGhostBy).length||Object.keys(ortRecBy).length;
   const legend=books.map(b=>`<span class="pg-lg"><i style="background:${b.color}"></i>${SLBL[b.s.replace(/_\d+$/,'')]||''} ${b.tb.title}</span>`).join('')
-    +(hasOrt?`<span class="pg-lg"><i style="background:${_PG_ORT_COLOR}"></i>📗 원서</span>`:'');
+    +(hasOrt?`<span class="pg-lg"><i style="background:${_PG_ORT_COLOR}"></i>📗 원서</span>`:'')
+    +(singDates.size?`<span class="pg-lg"><i style="background:#7B1FA2"></i>✏️ Pencil Down</span>`:'');
   const hasAnchor=Object.keys(c.progressAnchors||{}).length>0;
   return`<div class="pg-cal-card">
     <div class="pg-cal-head">
@@ -10172,6 +10211,38 @@ function pgConfirmGhost(classId,tbId,unit,date,subj){
       toast(`${unit} 기록 완료 (${stus.length}명) — 단어도 학생 단어장에 반영돼요`);
     }catch(e){
       console.error('pgConfirmGhost:',e);toast('기록 중 오류가 발생했습니다');
+    }finally{showLoading(false);}
+  });
+}
+// Sing Together(펜슬 다운) 예정 칩 더블클릭 → 전원 수업 기록으로 확정
+function pgSingDbl(ev,classId,date){
+  ev.stopPropagation();
+  clearTimeout(_pgTapTimer);
+  pgMoveCancel();
+  const todayStr=new Date().toISOString().split('T')[0];
+  if(date>todayStr){toast('아직 안 한 수업이에요 — 수업한 날에 확정해 주세요');return;}
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const stus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
+  if(!stus.length){toast('클래스에 학생이 없어요');return;}
+  askConfirm('Pencil Down 기록',`✏️🎵 Sing Together\n학생 ${stus.length}명 전원 '정상 출석'으로 기록할까요?`,'기록','bt',async()=>{
+    showLoading(true);
+    try{
+      for(const s of stus){
+        const existing=(_cache.lessons||[]).find(l=>l.classId===classId&&l.date===date&&l.sid===s.id);
+        const mats={...(existing?existing.materials:{})};
+        const hasPd=Object.keys(mats).some(k=>{const bk=k.replace(/_\d+$/,'');return bk==='pencil_down'||bk==='sing_together';});
+        if(hasPd)continue;
+        mats.pencil_down={book:'Sing Together',unit:''};
+        const les=existing?{...existing,materials:mats}
+          :{id:uid(),sid:s.id,date,grade:s.grade||'',att:'normal',materials:mats,cmt:'',polishedCmt:'',classId};
+        await supaUpsert('lessons',les.id,les,s.id);
+        if(existing){const i=_cache.lessons.findIndex(l=>l.id===les.id);if(i>=0)_cache.lessons[i]=les;}
+        else _cache.lessons.unshift(les);
+      }
+      renderLes();renderDash();renderClassTab();renderClsLessons(classId);
+      toast(`Sing Together 기록 완료 (${stus.length}명)`);
+    }catch(e){
+      console.error('pgSingDbl:',e);toast('기록 중 오류가 발생했습니다');
     }finally{showLoading(false);}
   });
 }
