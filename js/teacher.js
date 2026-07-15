@@ -8435,61 +8435,59 @@ function showVocabCardStatus(sid,allWords){
 }
 
 // ── ASSIGN CALENDAR ──
-let _assignCalOffset=0;
+let _assignCalOffset=0,_hwCalClsId='';
+// ── 숙제 캘린더 (과제 메뉴) — 반별 칩: 📕 수업연계 · 🎮 클래스5 · 📝 매일반복 ──
+// 진도 캘린더와 같은 과목 색칩(_PG_CAT_COLORS)을 그대로 씀. 클래스별로 봄
 function renderAssignCal(){
   const el=document.getElementById('assign-cal');if(!el)return;
-  const base=new Date();
-  base.setMonth(base.getMonth()+_assignCalOffset);
+  const classes=DB.classes().filter(c=>c.active!==false);
+  if(!classes.length){el.innerHTML='<div style="font-size:12px;color:var(--slate);padding:10px">클래스를 먼저 만들어 주세요</div>';return;}
+  if(!_hwCalClsId||!classes.some(c=>c.id===_hwCalClsId))_hwCalClsId=classes[0].id;
+  const c=classes.find(x=>x.id===_hwCalClsId);
+  const base=new Date();base.setMonth(base.getMonth()+_assignCalOffset);
   const year=base.getFullYear(),month=base.getMonth();
+  const ym=`${year}-${String(month+1).padStart(2,'0')}`;
+  const monthEnd=`${ym}-${String(new Date(year,month+1,0).getDate()).padStart(2,'0')}`;
   const firstDay=new Date(year,month,1).getDay();
   const daysInMonth=new Date(year,month+1,0).getDate();
-  const assigns=_cache.assignments||[];
-  const stus=DB.stus().filter(s=>!s.inactive);
-  const byDate={};
-  assigns.forEach(a=>{
-    const stu=stus.find(s=>s.id===a.sid);if(!stu)return;
-    if(a.category==='class5'&&(a.schedule||[]).length){
-      // 클래스5: 스케줄 날짜별로 표시
-      a.schedule.forEach(sc=>{
-        if(!sc.date)return;
-        const d=sc.date.slice(0,10);
-        if(!byDate[d])byDate[d]=[];
-        byDate[d].push({stu,a});
-      });
-    }else{
-      if(!a.due)return;
-      const d=a.due.slice(0,10);
-      if(!byDate[d])byDate[d]=[];
-      byDate[d].push({stu,a});
-    }
-  });
   const todayStr=new Date().toISOString().slice(0,10);
-  const monthStr=`${year}년 ${month+1}월`;
-  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <button class="btn bo bsm" onclick="assignCalMonth(-1)">←</button>
-    <span style="font-weight:700;font-size:14px">${monthStr}</span>
-    <button class="btn bo bsm" onclick="assignCalMonth(1)">→</button>
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px">
-    ${['일','월','화','수','목','금','토'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:var(--slate);padding:4px">${d}</div>`).join('')}
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">`;
-  for(let i=0;i<firstDay;i++)html+=`<div></div>`;
+  // 세 종류 숙제 계산 (진도 캘린더와 동일 함수 재사용)
+  const hwBy=_pgHomeworkPlan(_hwCalClsId,c);
+  const c5By=_pgClass5Plan(c,monthEnd);
+  const c5Assigned=c.class5?.bookId?_pgClass5Assigned(_hwCalClsId,c.class5.bookId):new Set();
+  const dailyHw=c.dailyHw||[];
+  const c5Pending=Object.keys(c5By).some(d=>!c5Assigned.has(d));
+  const hwPending=Object.values(hwBy).some(arr=>arr.some(h=>!h.assigned));
+  const clsOpts=classes.map(x=>`<option value="${x.id}"${x.id===_hwCalClsId?' selected':''}>${escAttr(x.name)}</option>`).join('');
+  let cells='';
+  for(let i=0;i<firstDay;i++)cells+='<div></div>';
   for(let d=1;d<=daysInMonth;d++){
-    const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const isToday=dateStr===todayStr;
-    const items=byDate[dateStr]||[];
-    const bg=isToday?'rgba(12,164,201,.08)':'#fff';
-    const uniqueStuIds=[...new Set(items.map(x=>x.stu.id))];
-    const firstStu=uniqueStuIds.length?stus.find(s=>s.id===uniqueStuIds[0]):null;
-    const extraStus=uniqueStuIds.length-1;
-    html+=`<div style="min-height:52px;border:1px solid ${isToday?'var(--teal)':'var(--border)'};border-radius:6px;padding:4px;background:${bg}">
-      <div style="font-size:11px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--teal)':'var(--navy)'};margin-bottom:2px">${d}</div>
-      ${firstStu?`<div style="font-size:9px;background:var(--teal);color:#fff;border-radius:3px;padding:1px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="showAssignDateDetail('${dateStr}')">${firstStu.name}${extraStus>0?' 외 '+extraStus+'명':''}</div>`:''}
-    </div>`;
+    const ds=`${ym}-${String(d).padStart(2,'0')}`;
+    const isToday=ds===todayStr;
+    let chips='';
+    // 📕 수업 연계 숙제
+    (hwBy[ds]||[]).forEach(hw=>{
+      const col=_PG_CAT_COLORS[hw.subject]||'#64748B';
+      chips+=`<span class="pg-chip pg-hw ${hw.assigned?'rec':'ghost'}" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제'+(hw.assigned?' (할당됨)':' (더블클릭=반 전체 숙제 할당)'))}" onclick="event.stopPropagation()" ondblclick="pgHwDbl(event,'${_hwCalClsId}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">📕 ${hw.unit}</span>`;
+    });
+    // 🎮 클래스5 (매일)
+    const c5=c5By[ds];
+    if(c5){const done=c5Assigned.has(ds);
+      chips+=`<span class="pg-chip ${done?'rec':'ghost'}" style="--pgc:${_PG_C5_COLOR}" title="${escAttr('클래스5 — '+c5.unit+(c5.title?' '+c5.title:'')+(done?' (할당됨)':' (누르면 반 전체 일괄 할당)'))}" onclick="event.stopPropagation();pgAssignClass5('${_hwCalClsId}')">🎮 ${c5.unit}</span>`;}
+    // 📝 매일 반복 (물리 루틴 표시)
+    dailyHw.forEach(lbl=>{chips+=`<span class="pg-chip rec" style="--pgc:#0891B2" title="${escAttr('매일 숙제 — '+lbl)}">📝 ${escAttr(lbl.length>6?lbl.slice(0,6)+'…':lbl)}</span>`;});
+    cells+=`<div class="pg-cell${isToday?' today':''}${ds<todayStr?' past':''}"><div class="pg-dnum">${d}</div>${chips}</div>`;
   }
-  html+=`</div>`;
-  el.innerHTML=html;
+  el.innerHTML=`<div class="pg-cal-head" style="margin-bottom:8px">
+      <select class="filter-sel" style="font-size:12px;min-width:110px" onchange="_hwCalClsId=this.value;renderAssignCal()">${clsOpts}</select>
+      <button class="btn bo bxxs" onclick="assignCalMonth(-1)">◀</button>
+      <span style="font-size:12.5px;font-weight:700;color:var(--navy)">${year}년 ${month+1}월</span>
+      <button class="btn bo bxxs" onclick="assignCalMonth(1)">▶</button>
+      ${hwPending?`<button class="btn bt bxxs" title="배운 단원 복습 숙제를 반 전체에게 한 번에" onclick="pgAssignAllHomework('${_hwCalClsId}')">📕 숙제 일괄</button>`:''}
+      ${c5Pending?`<button class="btn bt bxxs" title="클래스5를 반 전체 앱 과제로 한 번에" onclick="pgAssignClass5('${_hwCalClsId}')">🎮 클래스5 일괄</button>`:''}
+    </div>
+    <div class="pg-cal-grid">${_PG_DOW.map(x=>`<div class="pg-cal-dow">${x}</div>`).join('')}${cells}</div>
+    <div class="pg-cal-hint">📕 수업 연계 숙제(배운 단원→다음 수업일) · 🎮 클래스5(매일 앱 과제) · 📝 매일 반복 숙제 · 진한 칩=할당됨, 점선=예정. <b>📕·🎮 칩 더블클릭/클릭=반 전체 할당</b>. 매일 반복 숙제는 클래스 수정에서 등록</div>`;
 }
 function assignCalMonth(dir){
   _assignCalOffset+=dir;
@@ -10345,11 +10343,7 @@ function _pgCalHtml(classId){
   const monthEnd=`${ym}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
   const {books,clsStus,singDates,ghostBy,ortGhostBy,skipSet}=_pgComposePlan(classId,c,monthEnd);
   const colorOf=(tbId,cat)=>_PG_CAT_COLORS[cat]||books.find(b=>b.tb.id===tbId)?.color||'#64748B';
-  // 클래스5: 매일 한 유닛 (수업일·휴강 무관). 이미 할당된 날은 진한 칩, 아직이면 점선
-  const c5By=_pgClass5Plan(c,monthEnd);
-  const c5Assigned=c.class5?.bookId?_pgClass5Assigned(classId,c.class5.bookId):new Set();
-  // 수업 내용 연계 숙제 (배운 단원 → 다음 수업일 마감). 할당됨=진한, 예정=점선
-  const hwBy=_pgHomeworkPlan(classId,c);
+  // (숙제·클래스5 칩은 과제 메뉴의 숙제 캘린더로 분리 — 이 캘린더는 '진도'만)
   // 실제 기록 칩: date → {tbKey:{tbId,book,units}} + 원서·펜슬다운 기록
   const recBy={},ortRecBy={},pdRecBy={},lessonDates=new Set();
   (_cache.lessons||[]).forEach(l=>{
@@ -10402,30 +10396,15 @@ function _pgCalHtml(classId){
     chips+=(ghostBy[ds]||[]).map(g=>
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 끌어서 옮기기, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escAttr(g.unit)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escAttr(g.unit)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${ds}','${escAttr(g.s)}')">${g.unit}</span>`
     ).join('');
-    // 수업 내용 연계 숙제 칩 (📕 배운 단원 → 이 날 마감). 예정=점선, 더블클릭=반 전체 숙제 할당
-    (hwBy[ds]||[]).forEach(hw=>{
-      const col=_PG_CAT_COLORS[hw.subject]||'#64748B';
-      chips+=`<span class="pg-chip pg-hw ${hw.assigned?'rec':'ghost'}" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제'+(hw.assigned?' (할당됨)':' (예정 — 더블클릭하면 반 전체 숙제로 할당)'))}" onclick="event.stopPropagation()" ondblclick="pgHwDbl(event,'${classId}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">📕 ${hw.unit}</span>`;
-    });
-    // 클래스5 칩 (매일 앱 과제) — 할당됨=진한, 예정=점선. 클릭=일괄 할당
-    const c5=c5By[ds];
-    if(c5){
-      const done=c5Assigned.has(ds);
-      chips+=`<span class="pg-chip ${done?'rec':'ghost'}" style="--pgc:${_PG_C5_COLOR}" title="${escAttr('클래스5 — '+c5.unit+(c5.title?' '+c5.title:'')+(done?' (할당됨)':' (예정 — 누르면 반 전체 일괄 할당)'))}" onclick="event.stopPropagation();pgAssignClass5('${classId}')">🎮 ${c5.unit}</span>`;
-    }
     const isSkip=skipSet.has(ds);
     const skipMark=isSkip?`<span class="pg-skip-mark" title="수업 안 함 (휴강·결석) — 이후 진도가 하루씩 밀렸어요. 누르면 되돌리기">🚫 수업 안 함</span>`:'';
     cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}${isSkip?' skip':''}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onclick="pgCellClick(event,'${classId}','${ds}')"><div class="pg-dnum">${dd}</div>${skipMark}${chips}</div>`);
   }
   // 범례: 과목 색 (같은 과목 교재는 같은 색) + 원서 한 색
   const hasOrt=Object.keys(ortGhostBy).length||Object.keys(ortRecBy).length;
-  const c5Pending=Object.keys(c5By).some(d=>!c5Assigned.has(d));
-  const hwPending=Object.values(hwBy).some(arr=>arr.some(h=>!h.assigned));
   const legend=books.map(b=>`<span class="pg-lg"><i style="background:${b.color}"></i>${SLBL[b.s.replace(/_\d+$/,'')]||''} ${b.tb.title}</span>`).join('')
     +(hasOrt?`<span class="pg-lg"><i style="background:${_PG_ORT_COLOR}"></i>📗 원서</span>`:'')
-    +(singDates.size?`<span class="pg-lg"><i style="background:#7B1FA2"></i>✏️ Pencil Down</span>`:'')
-    +(Object.keys(c5By).length?`<span class="pg-lg"><i style="background:${_PG_C5_COLOR}"></i>🎮 클래스5</span>`:'')
-    +(Object.keys(hwBy).length?`<span class="pg-lg">📕 숙제</span>`:'');
+    +(singDates.size?`<span class="pg-lg"><i style="background:#7B1FA2"></i>✏️ Pencil Down</span>`:'');
   const hasAnchor=Object.keys(c.progressAnchors||{}).length>0;
   return`<div class="pg-cal-card">
     <div class="pg-cal-head">
@@ -10434,12 +10413,10 @@ function _pgCalHtml(classId){
       <span style="font-size:12.5px;font-weight:700;color:var(--navy)">${y}년 ${m}월</span>
       <button class="btn bo bxxs" onclick="pgCalNav(1)">▶</button>
       ${hasAnchor?`<button class="btn bo bxxs" title="드래그로 옮긴 예정을 원래 순서로 되돌립니다" onclick="pgClearAnchors('${classId}')">예정 초기화</button>`:''}
-      ${c5Pending?`<button class="btn bt bxxs" title="클래스5 예정을 반 전체 학생에게 앱 과제로 한 번에 할당" onclick="pgAssignClass5('${classId}')">🎮 클래스5 일괄 할당</button>`:''}
-      ${hwPending?`<button class="btn bt bxxs" title="배운 단원의 복습 숙제를 반 전체에게 한 번에 할당" onclick="pgAssignAllHomework('${classId}')">📕 숙제 일괄 할당</button>`:''}
       <span style="flex:1"></span>${legend}
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
-    <div class="pg-cal-hint">진한 칩=기록/할당됨 · 점선 칩=예정 — 드래그로 진도 이동, <b>오늘 점선 칩 더블클릭=수업 기록 확정</b> · <b>📕 숙제 칩 더블클릭=반 전체 숙제로 할당</b> (배운 단원 복습, 마감=다음 수업일) · 🎮 클래스5=매일 앱 과제 · 빈 수업일 클릭 → 수업 기록 / 예정 편집 / 🚫 수업 안 함</div>
+    <div class="pg-cal-hint">진한 칩=기록 · 점선 칩=예정 — 드래그로 진도 이동, <b>오늘 점선 칩 더블클릭=수업 기록 확정</b> · 빈 수업일 클릭 → 수업 기록 / 예정 편집 / 🚫 수업 안 함 · <b>숙제·클래스5는 과제 메뉴의 숙제 캘린더에서</b></div>
   </div>`;
 }
 function pgDragStart(ev,classId,tbId,unit){
@@ -11001,6 +10978,7 @@ function openEditClass(id=null){
   ecFillC5Books(c?.class5?.bookId||'');
   const c5s=document.getElementById('ec-c5-start');if(c5s)c5s.value=c?.class5?.startDate||'';
   ecC5BookChange(c?.class5?.startUnit||'');
+  const dhw=document.getElementById('ec-dailyhw');if(dhw)dhw.value=(c?.dailyHw||[]).join('\n');
   _ecStuIds=c?[...(c.studentIds||[])]:[];
   ecRenderTags();
   document.getElementById('ec-stu-search').value='';
@@ -11056,7 +11034,8 @@ async function saveClass(){
     const c5tb=(_cache.globalTextbooks||[]).find(b=>b.id===c5BookId);
     class5={bookId:c5BookId,book:c5tb?.title||'',startUnit:document.getElementById('ec-c5-unit')?.value||'',startDate:document.getElementById('ec-c5-start')?.value||new Date().toISOString().split('T')[0]};
   }
-  const c={...(existing||{}),id,name,days,time,timeStart,timeEnd,dayTimes,studentIds,commonMaterials,class5,active:true};
+  const dailyHw=(document.getElementById('ec-dailyhw')?.value||'').split('\n').map(x=>x.trim()).filter(Boolean);
+  const c={...(existing||{}),id,name,days,time,timeStart,timeEnd,dayTimes,studentIds,commonMaterials,class5,dailyHw,active:true};
   await supaUpsert('classes',id,c,null);
   if(!_cache.globalClasses)_cache.globalClasses=[];
   const idx=_cache.globalClasses.findIndex(x=>x.id===id);
