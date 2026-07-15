@@ -363,6 +363,21 @@ function missionFindTb(id){
   return l?missionTbView(l):null;
 }
 
+// 학생이 속한 클래스의 '수업 안 함(휴강·결석)' 날 중 오늘 이하 최신 — 없으면 ''
+function stuLastSkipDate(sid){
+  const today=new Date().toISOString().split('T')[0];
+  let last='';
+  (typeof DB!=='undefined'?DB.classes():[]).forEach(c=>{
+    if(!(c.studentIds||[]).includes(sid))return;
+    (c.skipDates||[]).forEach(d=>{if(d&&d<=today&&d>last)last=d;});
+  });
+  return last;
+}
+// 가장 최근 수업 사건이 '수업 안 함'이면 그 날짜, 아니면 '' (직전 실제 수업일보다 뒤에 있는 휴강일)
+function stuRecentSkip(sid,lastLesDate){
+  const skip=stuLastSkipDate(sid);
+  return (skip&&(!lastLesDate||skip>lastLesDate))?skip:'';
+}
 // 교재 단원 키 목록 — 사용자 지정 순서(unitOrder) 우선, 나머지는 이름 숫자 정렬
 // (단원 목록 드래그로 순서를 바꾸면 unitOrder에 저장됨; 삭제된 단원 키는 걸러냄)
 function tbUnitKeys(tb){

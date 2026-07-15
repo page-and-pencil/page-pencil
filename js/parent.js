@@ -173,8 +173,17 @@ async function loadParent(sid){
     </div>`;
   }
 
-  // 블록 A — 최근 수업
-  if(latLes){
+  // 블록 A — 최근 수업 (가장 최근이 '수업 안 함'이면 안 한 사실을 안내)
+  const skipDate=stuRecentSkip(sid,latLes?.date||'');
+  if(skipDate){
+    const md=`${Number(skipDate.slice(5,7))}월 ${Number(skipDate.slice(8,10))}일`;
+    blocks+=`<div class="card">
+      <div class="ch"><span class="ct">${luIcon('pin',16)}최근 수업</span><span class="mono" style="font-size:11px;color:var(--slate)">${skipDate}</span></div>
+      <div class="cb" style="padding:12px 16px">
+        <div style="font-size:13px;color:var(--navy);line-height:1.85">${md}은 사정이 있어 <b>수업을 진행하지 못했습니다.</b> 다음 수업에서 뵙겠습니다 😊<br>수업은 못 했지만, 내주신 과제는 잊지 않고 챙겨봐 주시면 감사하겠습니다.</div>
+      </div>
+    </div>`;
+  } else if(latLes){
     const mats=matsToHtml(latLes.materials);
     const polished=latLes.polishedCmt||latLes.cmt||'';
     const ackKey='parentAck_'+sid+'_'+latLes.id;
