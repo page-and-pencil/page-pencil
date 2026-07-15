@@ -10161,6 +10161,38 @@ function _pgClass5Assigned(classId,bookId){
   });
   return s;
 }
+// 어떤 날짜 이후 첫 수업일
+function _nextClassDay(dateStr,days){
+  if(!days||!days.length)return'';
+  const cur=new Date(dateStr+'T12:00:00');
+  for(let i=0;i<30;i++){cur.setDate(cur.getDate()+1);if(days.includes(_PG_DOW[cur.getDay()]))return _pgYmd(cur);}
+  return'';
+}
+// 수업 내용 연계 숙제 예정 {마감일:[{subject,book,bookId,unit,assigned}]}
+// 규칙: 실제로 배운(기록된) 교재 단원 → 복습·워크북 숙제, 마감=다음 수업일. 원서·펜슬다운 제외
+function _pgHomeworkPlan(classId,c){
+  const days=c.days||[];
+  const classSids=new Set(c.studentIds||[]);
+  const asgs=(_cache.assignments||[]).filter(a=>classSids.has(a.sid)&&a.category!=='class5'&&a.bookTitle);
+  const isAssigned=(book,unit)=>asgs.some(a=>_pgNorm(a.bookTitle)===_pgNorm(book)&&(!unit||_pgUMatch(_pgNorm(a.range||''),_pgNorm(unit))));
+  const byDate={},seen=new Set();
+  (_cache.lessons||[]).forEach(l=>{
+    if(l.classId!==classId||!l.date||!l.materials)return;
+    const due=_nextClassDay(l.date,days);
+    if(!due)return;
+    Object.entries(l.materials).forEach(([k,v])=>{
+      const bk=k.replace(/_\d+$/,'');
+      if(bk==='pencil_down'||bk==='sing_together'||bk==='_book')return;
+      if(!v||!v.book||!v.unit)return;
+      String(v.unit).split(',').map(u=>u.trim()).filter(Boolean).forEach(unit=>{
+        const key=due+'|'+_pgNorm(v.book)+'|'+_pgNorm(unit);
+        if(seen.has(key))return;seen.add(key);
+        (byDate[due]=byDate[due]||[]).push({subject:bk,book:v.book,bookId:v.bookId||'',unit,assigned:isAssigned(v.book,unit)});
+      });
+    });
+  });
+  return byDate;
+}
 // 클래스 예정 전체 구성(교재·원서·싱투게더) — 캘린더·예정 편집 모달·폼 자동 채움이 공유하는 단일 계산
 function _pgComposePlan(classId,c,uptoDate){
   const todayStr=new Date().toISOString().split('T')[0];
@@ -10316,6 +10348,8 @@ function _pgCalHtml(classId){
   // 클래스5: 매일 한 유닛 (수업일·휴강 무관). 이미 할당된 날은 진한 칩, 아직이면 점선
   const c5By=_pgClass5Plan(c,monthEnd);
   const c5Assigned=c.class5?.bookId?_pgClass5Assigned(classId,c.class5.bookId):new Set();
+  // 수업 내용 연계 숙제 (배운 단원 → 다음 수업일 마감). 할당됨=진한, 예정=점선
+  const hwBy=_pgHomeworkPlan(classId,c);
   // 실제 기록 칩: date → {tbKey:{tbId,book,units}} + 원서·펜슬다운 기록
   const recBy={},ortRecBy={},pdRecBy={},lessonDates=new Set();
   (_cache.lessons||[]).forEach(l=>{
@@ -10368,6 +10402,11 @@ function _pgCalHtml(classId){
     chips+=(ghostBy[ds]||[]).map(g=>
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 끌어서 옮기기, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escAttr(g.unit)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escAttr(g.unit)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${ds}','${escAttr(g.s)}')">${g.unit}</span>`
     ).join('');
+    // 수업 내용 연계 숙제 칩 (📕 배운 단원 → 이 날 마감). 예정=점선, 더블클릭=반 전체 숙제 할당
+    (hwBy[ds]||[]).forEach(hw=>{
+      const col=_PG_CAT_COLORS[hw.subject]||'#64748B';
+      chips+=`<span class="pg-chip pg-hw ${hw.assigned?'rec':'ghost'}" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제'+(hw.assigned?' (할당됨)':' (예정 — 더블클릭하면 반 전체 숙제로 할당)'))}" onclick="event.stopPropagation()" ondblclick="pgHwDbl(event,'${classId}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">📕 ${hw.unit}</span>`;
+    });
     // 클래스5 칩 (매일 앱 과제) — 할당됨=진한, 예정=점선. 클릭=일괄 할당
     const c5=c5By[ds];
     if(c5){
@@ -10381,10 +10420,12 @@ function _pgCalHtml(classId){
   // 범례: 과목 색 (같은 과목 교재는 같은 색) + 원서 한 색
   const hasOrt=Object.keys(ortGhostBy).length||Object.keys(ortRecBy).length;
   const c5Pending=Object.keys(c5By).some(d=>!c5Assigned.has(d));
+  const hwPending=Object.values(hwBy).some(arr=>arr.some(h=>!h.assigned));
   const legend=books.map(b=>`<span class="pg-lg"><i style="background:${b.color}"></i>${SLBL[b.s.replace(/_\d+$/,'')]||''} ${b.tb.title}</span>`).join('')
     +(hasOrt?`<span class="pg-lg"><i style="background:${_PG_ORT_COLOR}"></i>📗 원서</span>`:'')
     +(singDates.size?`<span class="pg-lg"><i style="background:#7B1FA2"></i>✏️ Pencil Down</span>`:'')
-    +(Object.keys(c5By).length?`<span class="pg-lg"><i style="background:${_PG_C5_COLOR}"></i>🎮 클래스5</span>`:'');
+    +(Object.keys(c5By).length?`<span class="pg-lg"><i style="background:${_PG_C5_COLOR}"></i>🎮 클래스5</span>`:'')
+    +(Object.keys(hwBy).length?`<span class="pg-lg">📕 숙제</span>`:'');
   const hasAnchor=Object.keys(c.progressAnchors||{}).length>0;
   return`<div class="pg-cal-card">
     <div class="pg-cal-head">
@@ -10394,10 +10435,11 @@ function _pgCalHtml(classId){
       <button class="btn bo bxxs" onclick="pgCalNav(1)">▶</button>
       ${hasAnchor?`<button class="btn bo bxxs" title="드래그로 옮긴 예정을 원래 순서로 되돌립니다" onclick="pgClearAnchors('${classId}')">예정 초기화</button>`:''}
       ${c5Pending?`<button class="btn bt bxxs" title="클래스5 예정을 반 전체 학생에게 앱 과제로 한 번에 할당" onclick="pgAssignClass5('${classId}')">🎮 클래스5 일괄 할당</button>`:''}
+      ${hwPending?`<button class="btn bt bxxs" title="배운 단원의 복습 숙제를 반 전체에게 한 번에 할당" onclick="pgAssignAllHomework('${classId}')">📕 숙제 일괄 할당</button>`:''}
       <span style="flex:1"></span>${legend}
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
-    <div class="pg-cal-hint">진한 칩=기록(누르면 수정) · 점선 칩=예정 — 끌어다 다른 날에 놓으면 이후 진도가 자동으로 밀려요 (칩을 누른 뒤 날짜를 눌러도 돼요) · <b>오늘 점선 칩 더블클릭=그대로 수업 기록 확정</b> (📗 원서는 그 학생 읽음 기록까지) · 빈 수업일 클릭 → <b>수업 기록 / 예정 편집 / 🚫 수업 안 함(휴강·결석 → 이후 진도 하루씩 밀기)</b> 선택</div>
+    <div class="pg-cal-hint">진한 칩=기록/할당됨 · 점선 칩=예정 — 드래그로 진도 이동, <b>오늘 점선 칩 더블클릭=수업 기록 확정</b> · <b>📕 숙제 칩 더블클릭=반 전체 숙제로 할당</b> (배운 단원 복습, 마감=다음 수업일) · 🎮 클래스5=매일 앱 과제 · 빈 수업일 클릭 → 수업 기록 / 예정 편집 / 🚫 수업 안 함</div>
   </div>`;
 }
 function pgDragStart(ev,classId,tbId,unit){
@@ -10739,6 +10781,52 @@ async function pgAssignClass5(classId){
     }catch(e){console.error('pgAssignClass5:',e);toast('할당 중 오류가 발생했습니다');}
     finally{showLoading(false);}
   });
+}
+// 숙제 칩 더블클릭 → 그 단원을 반 전체 학생에게 숙제로 할당
+function pgHwDbl(ev,classId,subject,book,bookId,unit,due){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  clearTimeout(_pgTapTimer);pgMoveCancel();
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const stus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
+  if(!stus.length){toast('클래스에 학생이 없어요');return;}
+  askConfirm('숙제 할당',`${book} ${unit} 복습 — 마감 ${due}\n학생 ${stus.length}명에게 숙제로 할당할까요?`,'할당','bt',
+    ()=>_pgDoAssignHw(classId,[{subject,book,bookId,unit,due}],stus));
+}
+// 실제 숙제 assignment 생성 (중복 건너뜀)
+async function _pgDoAssignHw(classId,items,stus){
+  showLoading(true);
+  try{
+    const allLib=[...(_cache.library||[])];
+    const today=new Date().toISOString().split('T')[0];
+    let n=0;
+    for(const it of items){
+      const isReading=allLib.some(b=>_pgNorm(b.title)===_pgNorm(it.book));
+      for(const s of stus){
+        const dup=(_cache.assignments||[]).find(a=>a.sid===s.id&&_pgNorm(a.bookTitle||'')===_pgNorm(it.book)&&_pgUMatch(_pgNorm(a.range||''),_pgNorm(it.unit))&&a.due===it.due);
+        if(dup)continue;
+        const a={id:uid(),sid:s.id,type:isReading?'reading':'textbook',category:it.subject,classId,date:today,due:it.due,bookTitle:it.book,bookId:it.bookId||'',range:it.unit,note:'복습',common:true};
+        await supaUpsert('assignments',a.id,a,s.id);
+        _cache.assignments.unshift(a);n++;
+      }
+    }
+    if(typeof renderAssignTab==='function')renderAssignTab();
+    renderClsLessons(classId);
+    toast(n?`숙제 할당 완료 (${n}건)`:'이미 모두 할당돼 있어요');
+  }catch(e){console.error('_pgDoAssignHw:',e);toast('할당 중 오류가 발생했습니다');}
+  finally{showLoading(false);}
+}
+// 아직 할당 안 된 숙제 칩 전체를 반 전체에게 한 번에
+function pgAssignAllHomework(classId){
+  pgMenuClose();
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const hwBy=_pgHomeworkPlan(classId,c);
+  const items=[];
+  Object.entries(hwBy).forEach(([due,arr])=>arr.forEach(h=>{if(!h.assigned)items.push({subject:h.subject,book:h.book,bookId:h.bookId,unit:h.unit,due});}));
+  if(!items.length){toast('할당할 숙제가 없어요');return;}
+  const stus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
+  if(!stus.length){toast('클래스에 학생이 없어요');return;}
+  askConfirm('숙제 일괄 할당',`배운 단원 복습 숙제 ${items.length}건을 학생 ${stus.length}명에게 한 번에 할당할까요?`,'할당','bt',
+    ()=>_pgDoAssignHw(classId,items,stus));
 }
 
 let _ecStuIds=[];
