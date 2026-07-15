@@ -10137,6 +10137,7 @@ function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
 // 클래스 예정 전체 구성(교재·원서·싱투게더) — 캘린더·예정 편집 모달·폼 자동 채움이 공유하는 단일 계산
 function _pgComposePlan(classId,c,uptoDate){
   const todayStr=new Date().toISOString().split('T')[0];
+  const skipSet=new Set(c.skipDates||[]); // 휴강·결석으로 수업 안 한 날 — 교재·원서 진도는 이 날을 건너뛰어 하루씩 밀림 (클래스5 과제는 제외)
   const lessonDates=new Set();
   (_cache.lessons||[]).forEach(l=>{if(l.classId===classId&&l.date)lessonDates.add(l.date);});
   const books=Object.entries(c.commonMaterials||{})
@@ -10159,12 +10160,12 @@ function _pgComposePlan(classId,c,uptoDate){
     });
   });
   const _addDay=ds=>{const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+1);return _pgYmd(d);};
-  const _slotFrom=(fromInclusive,bDays)=>{ // fromInclusive부터 첫 가용 수업일
+  const _slotFrom=(fromInclusive,bDays)=>{ // fromInclusive부터 첫 가용 수업일 (휴강일 건너뜀)
     const cur=new Date(fromInclusive+'T12:00:00');
     for(let i=0;i<220;i++){
       const ds=_pgYmd(cur);
       if(ds>uptoDate)return'';
-      if(ds>=todayStr&&bDays.includes(_PG_DOW[cur.getDay()])&&!usedDates.has(ds))return ds;
+      if(ds>=todayStr&&bDays.includes(_PG_DOW[cur.getDay()])&&!usedDates.has(ds)&&!skipSet.has(ds))return ds;
       cur.setDate(cur.getDate()+1);
     }
     return'';
@@ -10223,21 +10224,21 @@ function _pgComposePlan(classId,c,uptoDate){
       chainCursor=_addDay(sd);
     });
   }
-  // 리딩 외 과목은 기존대로 각자 투영
+  // 리딩 외 과목은 기존대로 각자 투영 (휴강일 건너뜀)
   books.filter(b=>!readingBooks.includes(b)).forEach(b=>{
-    const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate);
+    const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate,skipSet);
     Object.entries(placed).forEach(([d,u])=>{
       (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
     });
   });
   const ortGhostBy={};
   clsStus.forEach(s=>{
-    const placed=_pgOrtProjection(classId,c,s.id,uptoDate);
+    const placed=_pgOrtProjection(classId,c,s.id,uptoDate,skipSet);
     Object.entries(placed).forEach(([d,t])=>{
       (ortGhostBy[d]=ortGhostBy[d]||[]).push({sid:s.id,name:s.name,title:t});
     });
   });
-  return {books,clsStus,singDates,ghostBy,ortGhostBy};
+  return {books,clsStus,singDates,ghostBy,ortGhostBy,skipSet};
 }
 // 수업 기록 폼: 다음 단원 자동 채움 (손으로 고친 값·수정 모드는 건드리지 않음)
 function _pgAutoFillRow(sr){
@@ -10283,7 +10284,7 @@ function _pgCalHtml(classId){
   const[y,m]=ym.split('-').map(Number);
   // 예정 구성은 캘린더·예정 편집 모달·폼 자동 채움이 같은 계산을 공유 (내용 불일치 방지)
   const monthEnd=`${ym}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
-  const {books,clsStus,singDates,ghostBy,ortGhostBy}=_pgComposePlan(classId,c,monthEnd);
+  const {books,clsStus,singDates,ghostBy,ortGhostBy,skipSet}=_pgComposePlan(classId,c,monthEnd);
   const colorOf=(tbId,cat)=>_PG_CAT_COLORS[cat]||books.find(b=>b.tb.id===tbId)?.color||'#64748B';
   // 실제 기록 칩: date → {tbKey:{tbId,book,units}} + 원서·펜슬다운 기록
   const recBy={},ortRecBy={},pdRecBy={},lessonDates=new Set();
@@ -10337,7 +10338,9 @@ function _pgCalHtml(classId){
     chips+=(ghostBy[ds]||[]).map(g=>
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 끌어서 옮기기, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escAttr(g.unit)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escAttr(g.unit)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${ds}','${escAttr(g.s)}')">${g.unit}</span>`
     ).join('');
-    cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onclick="pgCellClick('${classId}','${ds}')"><div class="pg-dnum">${dd}</div>${chips}</div>`);
+    const isSkip=skipSet.has(ds);
+    const skipMark=isSkip?`<span class="pg-skip-mark" title="수업 안 함 (휴강·결석) — 이후 진도가 하루씩 밀렸어요. 누르면 되돌리기">🚫 수업 안 함</span>`:'';
+    cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}${isSkip?' skip':''}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onclick="pgCellClick(event,'${classId}','${ds}')"><div class="pg-dnum">${dd}</div>${skipMark}${chips}</div>`);
   }
   // 범례: 과목 색 (같은 과목 교재는 같은 색) + 원서 한 색
   const hasOrt=Object.keys(ortGhostBy).length||Object.keys(ortRecBy).length;
@@ -10355,7 +10358,7 @@ function _pgCalHtml(classId){
       <span style="flex:1"></span>${legend}
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
-    <div class="pg-cal-hint">진한 칩=기록(누르면 수정) · 점선 칩=예정 — 끌어다 다른 날에 놓으면 이후 진도가 자동으로 밀려요 (칩을 누른 뒤 날짜를 눌러도 돼요) · <b>오늘 점선 칩 더블클릭=그대로 수업 기록 확정</b> (📗 원서는 그 학생 읽음 기록까지) · 빈 날 클릭: 오늘·과거=수업 기록, <b>미래=예정 편집(교재 추가)</b></div>
+    <div class="pg-cal-hint">진한 칩=기록(누르면 수정) · 점선 칩=예정 — 끌어다 다른 날에 놓으면 이후 진도가 자동으로 밀려요 (칩을 누른 뒤 날짜를 눌러도 돼요) · <b>오늘 점선 칩 더블클릭=그대로 수업 기록 확정</b> (📗 원서는 그 학생 읽음 기록까지) · 빈 수업일 클릭 → <b>수업 기록 / 예정 편집 / 🚫 수업 안 함(휴강·결석 → 이후 진도 하루씩 밀기)</b> 선택</div>
   </div>`;
 }
 function pgDragStart(ev,classId,tbId,unit){
@@ -10516,13 +10519,65 @@ function pgMoveCancel(){
   document.querySelectorAll('.pg-chip.sel').forEach(x=>x.classList.remove('sel'));
   document.querySelectorAll('.pg-cal-card.pg-moving').forEach(x=>x.classList.remove('pg-moving'));
 }
-function pgCellClick(classId,date){
+function pgCellClick(ev,classId,date){
   if(_pgMoveSel){const s=_pgMoveSel;pgMoveCancel();pgSetAnchor(classId,s.tbId,s.unit,date);return;}
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const has=(_cache.lessons||[]).some(l=>l.classId===classId&&l.date===date);
   if(has){openClassLessonEdit(classId,date);return;}
-  // 미래는 예정(점선)으로만 — 완료 기록 대신 예정 편집 창을 연다
-  if(date>new Date().toISOString().split('T')[0]){openPgPlan(classId,date);return;}
-  openClassLesson(classId,date);
+  const dow=_PG_DOW[new Date(date+'T12:00:00').getDay()];
+  const isClassDay=(c.days||[]).includes(dow);
+  const isSkip=(c.skipDates||[]).includes(date);
+  const future=date>new Date().toISOString().split('T')[0];
+  // 이미 휴강 표시된 날 → 되돌리기만
+  if(isSkip){pgCellMenu(ev,classId,date,[{ico:'↩️',label:'수업일로 되돌리기',run:()=>pgToggleSkip(classId,date)}]);return;}
+  // 수업일이 아니면 기존 동작 (미래=예정 편집, 과거=보강 기록)
+  if(!isClassDay){future?openPgPlan(classId,date):openClassLesson(classId,date);return;}
+  // 빈 수업일 → 선택 메뉴
+  const opts=[];
+  if(future){opts.push({ico:'🗓',label:'예정 편집 (교재 추가)',run:()=>openPgPlan(classId,date)});}
+  else{opts.push({ico:'📝',label:'수업 기록',run:()=>openClassLesson(classId,date)});}
+  opts.push({ico:'🚫',label:'수업 안 함 (휴강·결석)',sub:'이후 진도가 하루씩 밀려요',run:()=>pgToggleSkip(classId,date)});
+  pgCellMenu(ev,classId,date,opts);
+}
+// 휴강일 토글 — c.skipDates에 넣거나 뺀다 (교재·원서 진도가 이 날을 건너뜀, 클래스5 과제는 그대로)
+async function pgToggleSkip(classId,date){
+  pgMenuClose();
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const set=new Set(c.skipDates||[]);
+  const adding=!set.has(date);
+  if(adding)set.add(date);else set.delete(date);
+  c.skipDates=[...set].sort();
+  try{await supaUpsert('classes',classId,c,null);}
+  catch(e){console.error('pgToggleSkip:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  const i=(_cache.globalClasses||[]).findIndex(x=>x.id===classId);if(i>=0)_cache.globalClasses[i]=c;
+  renderClsLessons(classId);
+  const md=`${Number(date.slice(5,7))}/${Number(date.slice(8,10))}`;
+  toast(adding?`${md} 수업 안 함 — 이후 진도를 하루씩 미뤘어요`:`${md} 수업일로 되돌렸어요`);
+}
+// 캘린더 셀 미니 메뉴 (클릭 위치 근처에 뜨는 작은 선택창)
+let _pgMenuEl=null;
+function pgMenuClose(){if(_pgMenuEl){_pgMenuEl.remove();_pgMenuEl=null;document.removeEventListener('click',_pgMenuOutside,true);}}
+function _pgMenuOutside(e){if(_pgMenuEl&&!_pgMenuEl.contains(e.target))pgMenuClose();}
+function pgCellMenu(ev,classId,date,opts){
+  pgMenuClose();
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  const m=document.createElement('div');
+  m.className='pg-cell-menu';
+  const md=`${Number(date.slice(5,7))}/${Number(date.slice(8,10))}`;
+  m.innerHTML=`<div class="pg-menu-date">${md}</div>`+opts.map((o,i)=>
+    `<button class="pg-menu-item" data-i="${i}"><span>${o.ico}</span><div><div>${o.label}</div>${o.sub?`<div class="pg-menu-sub">${o.sub}</div>`:''}</div></button>`).join('');
+  document.body.appendChild(m);
+  const r=(ev&&ev.currentTarget&&ev.currentTarget.getBoundingClientRect)?ev.currentTarget.getBoundingClientRect():{left:(ev&&ev.clientX)||100,bottom:(ev&&ev.clientY)||100,right:0};
+  const mw=Math.min(230,window.innerWidth-16);
+  m.style.width=mw+'px';
+  let left=r.left;if(left+mw>window.innerWidth-8)left=window.innerWidth-mw-8;
+  m.style.left=Math.max(8,left)+'px';
+  const mh=m.offsetHeight;
+  let top=r.bottom+4;if(top+mh>window.innerHeight-8)top=Math.max(8,r.top-mh-4);
+  m.style.top=top+'px';
+  m.querySelectorAll('.pg-menu-item').forEach(btn=>btn.onclick=e=>{e.stopPropagation();const o=opts[+btn.dataset.i];pgMenuClose();if(o)o.run();});
+  _pgMenuEl=m;
+  setTimeout(()=>document.addEventListener('click',_pgMenuOutside,true),0);
 }
 // ── 미래 날짜 예정 편집: 완료 기록 없이 계획(공통 교재 + 앵커)으로 저장 ──
 let _pgPlanCtx=null; // {classId,date}
