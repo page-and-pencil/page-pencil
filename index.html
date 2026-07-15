@@ -1331,6 +1331,18 @@
         <div id="ec-subj-rows" class="sr-wrap"></div>
       </div>
       <div class="f s2">
+        <label>🎮 클래스5 (앱 자동 과제) <span style="font-size:11px;color:var(--slate);font-weight:400">책 1권 지정 → 매일 한 유닛씩 자동 할당</span></label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <select id="ec-c5-book" class="filter-sel" style="flex:2;min-width:150px" onchange="ecC5BookChange()"></select>
+          <span style="font-size:11px;color:var(--slate)">시작일</span>
+          <input type="date" id="ec-c5-start" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none">
+        </div>
+        <div id="ec-c5-unit-wrap" style="margin-top:6px;display:none;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--slate);white-space:nowrap">시작 단원</span>
+          <select id="ec-c5-unit" class="filter-sel" style="flex:1"></select>
+        </div>
+      </div>
+      <div class="f s2">
         <label>소속 학생</label>
         <div id="ec-stu-tags" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;margin-bottom:6px"></div>
         <div style="position:relative">

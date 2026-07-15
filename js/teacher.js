@@ -10134,6 +10134,33 @@ function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
   slots.forEach((d,i)=>{if(remaining[i])placed[d]=remaining[i];});
   return placed;
 }
+// 클래스5 앱 과제 예정 {날짜:{unit,title}} — 시작일부터 매일 한 유닛씩 (수업일·휴강과 무관, 매일 나감)
+const _PG_C5_COLOR='#C026D3';
+function _pgClass5Plan(c,uptoDate){
+  const cfg=c&&c.class5;if(!cfg||!cfg.bookId)return{};
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===cfg.bookId);if(!tb)return{};
+  const keys=tbUnitKeys(tb);if(!keys.length)return{};
+  let i=cfg.startUnit?keys.findIndex(k=>_pgUMatch(_pgNorm(k),_pgNorm(cfg.startUnit))):0;
+  if(i<0)i=0;
+  const start=cfg.startDate||new Date().toISOString().split('T')[0];
+  const placed={};
+  const cur=new Date(start+'T12:00:00');
+  const end=new Date(uptoDate+'T12:00:00');
+  while(cur<=end&&i<keys.length){
+    placed[_pgYmd(cur)]={unit:keys[i],title:tb.unitTitles?.[keys[i]]||''};
+    cur.setDate(cur.getDate()+1);i++;
+  }
+  return placed;
+}
+// 클래스5가 이미 과제로 할당된 날짜 집합 (이 클래스5 책 기준)
+function _pgClass5Assigned(classId,bookId){
+  const s=new Set();
+  (_cache.assignments||[]).forEach(a=>{
+    if(a.category!=='class5'||a.classId!==classId||a.c5BookId!==bookId)return;
+    (a.schedule||[]).forEach(sc=>{if(sc.date)s.add(sc.date);});
+  });
+  return s;
+}
 // 클래스 예정 전체 구성(교재·원서·싱투게더) — 캘린더·예정 편집 모달·폼 자동 채움이 공유하는 단일 계산
 function _pgComposePlan(classId,c,uptoDate){
   const todayStr=new Date().toISOString().split('T')[0];
@@ -10286,6 +10313,9 @@ function _pgCalHtml(classId){
   const monthEnd=`${ym}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
   const {books,clsStus,singDates,ghostBy,ortGhostBy,skipSet}=_pgComposePlan(classId,c,monthEnd);
   const colorOf=(tbId,cat)=>_PG_CAT_COLORS[cat]||books.find(b=>b.tb.id===tbId)?.color||'#64748B';
+  // 클래스5: 매일 한 유닛 (수업일·휴강 무관). 이미 할당된 날은 진한 칩, 아직이면 점선
+  const c5By=_pgClass5Plan(c,monthEnd);
+  const c5Assigned=c.class5?.bookId?_pgClass5Assigned(classId,c.class5.bookId):new Set();
   // 실제 기록 칩: date → {tbKey:{tbId,book,units}} + 원서·펜슬다운 기록
   const recBy={},ortRecBy={},pdRecBy={},lessonDates=new Set();
   (_cache.lessons||[]).forEach(l=>{
@@ -10338,15 +10368,23 @@ function _pgCalHtml(classId){
     chips+=(ghostBy[ds]||[]).map(g=>
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 끌어서 옮기기, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escAttr(g.unit)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escAttr(g.unit)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${ds}','${escAttr(g.s)}')">${g.unit}</span>`
     ).join('');
+    // 클래스5 칩 (매일 앱 과제) — 할당됨=진한, 예정=점선. 클릭=일괄 할당
+    const c5=c5By[ds];
+    if(c5){
+      const done=c5Assigned.has(ds);
+      chips+=`<span class="pg-chip ${done?'rec':'ghost'}" style="--pgc:${_PG_C5_COLOR}" title="${escAttr('클래스5 — '+c5.unit+(c5.title?' '+c5.title:'')+(done?' (할당됨)':' (예정 — 누르면 반 전체 일괄 할당)'))}" onclick="event.stopPropagation();pgAssignClass5('${classId}')">🎮 ${c5.unit}</span>`;
+    }
     const isSkip=skipSet.has(ds);
     const skipMark=isSkip?`<span class="pg-skip-mark" title="수업 안 함 (휴강·결석) — 이후 진도가 하루씩 밀렸어요. 누르면 되돌리기">🚫 수업 안 함</span>`:'';
     cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}${isSkip?' skip':''}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onclick="pgCellClick(event,'${classId}','${ds}')"><div class="pg-dnum">${dd}</div>${skipMark}${chips}</div>`);
   }
   // 범례: 과목 색 (같은 과목 교재는 같은 색) + 원서 한 색
   const hasOrt=Object.keys(ortGhostBy).length||Object.keys(ortRecBy).length;
+  const c5Pending=Object.keys(c5By).some(d=>!c5Assigned.has(d));
   const legend=books.map(b=>`<span class="pg-lg"><i style="background:${b.color}"></i>${SLBL[b.s.replace(/_\d+$/,'')]||''} ${b.tb.title}</span>`).join('')
     +(hasOrt?`<span class="pg-lg"><i style="background:${_PG_ORT_COLOR}"></i>📗 원서</span>`:'')
-    +(singDates.size?`<span class="pg-lg"><i style="background:#7B1FA2"></i>✏️ Pencil Down</span>`:'');
+    +(singDates.size?`<span class="pg-lg"><i style="background:#7B1FA2"></i>✏️ Pencil Down</span>`:'')
+    +(Object.keys(c5By).length?`<span class="pg-lg"><i style="background:${_PG_C5_COLOR}"></i>🎮 클래스5</span>`:'');
   const hasAnchor=Object.keys(c.progressAnchors||{}).length>0;
   return`<div class="pg-cal-card">
     <div class="pg-cal-head">
@@ -10355,6 +10393,7 @@ function _pgCalHtml(classId){
       <span style="font-size:12.5px;font-weight:700;color:var(--navy)">${y}년 ${m}월</span>
       <button class="btn bo bxxs" onclick="pgCalNav(1)">▶</button>
       ${hasAnchor?`<button class="btn bo bxxs" title="드래그로 옮긴 예정을 원래 순서로 되돌립니다" onclick="pgClearAnchors('${classId}')">예정 초기화</button>`:''}
+      ${c5Pending?`<button class="btn bt bxxs" title="클래스5 예정을 반 전체 학생에게 앱 과제로 한 번에 할당" onclick="pgAssignClass5('${classId}')">🎮 클래스5 일괄 할당</button>`:''}
       <span style="flex:1"></span>${legend}
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
@@ -10664,6 +10703,43 @@ function pgClearAnchors(classId){
     renderClsLessons(classId);toast('예정 진도를 원래대로 되돌렸어요');
   });
 }
+// 클래스5 일괄 할당 — 시작일부터 책 전체를 매일 한 유닛씩, 반 전체 학생에게 앱 과제로 (멱등: 다시 눌러도 갱신만)
+async function pgAssignClass5(classId){
+  pgMenuClose();
+  const c=DB.classes().find(x=>x.id===classId);
+  if(!c||!c.class5||!c.class5.bookId){toast('클래스 수정에서 클래스5 책을 먼저 지정하세요');return;}
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===c.class5.bookId);
+  if(!tb){toast('클래스5 교재를 찾을 수 없어요');return;}
+  const keys=tbUnitKeys(tb);
+  let si=c.class5.startUnit?keys.findIndex(k=>_pgUMatch(_pgNorm(k),_pgNorm(c.class5.startUnit))):0;
+  if(si<0)si=0;
+  const start=c.class5.startDate||new Date().toISOString().split('T')[0];
+  const schedule=[];const cur=new Date(start+'T12:00:00');
+  for(const u of keys.slice(si)){schedule.push({date:_pgYmd(cur),book:tb.title,unit:u});cur.setDate(cur.getDate()+1);}
+  if(!schedule.length){toast('할당할 단원이 없어요');return;}
+  const stus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
+  if(!stus.length){toast('클래스에 학생이 없어요');return;}
+  askConfirm('클래스5 일괄 할당',`${tb.title} — ${schedule.length}개 단원을 ${schedule[0].date}부터 매일 하나씩\n학생 ${stus.length}명에게 앱 과제로 할당할까요? (이미 있으면 갱신)`,'할당','bt',async()=>{
+    showLoading(true);
+    try{
+      let n=0;
+      for(const s of stus){
+        const exist=(_cache.assignments||[]).find(a=>a.sid===s.id&&a.category==='class5'&&a.classId===classId&&a.c5BookId===c.class5.bookId);
+        const a=exist
+          ?{...exist,schedule,due:schedule[schedule.length-1].date}
+          :{id:uid(),sid:s.id,type:'class5',category:'class5',classId,c5BookId:c.class5.bookId,date:schedule[0].date,due:schedule[schedule.length-1].date,bookTitle:'클래스5',schedule,common:true};
+        await supaUpsert('assignments',a.id,a,s.id);
+        if(exist){const i=_cache.assignments.findIndex(x=>x.id===a.id);if(i>=0)_cache.assignments[i]=a;}
+        else _cache.assignments.unshift(a);
+        n++;
+      }
+      if(typeof renderAssignTab==='function')renderAssignTab();
+      renderClsLessons(classId);
+      toast(`클래스5 ${schedule.length}단원 × ${n}명 할당 완료`);
+    }catch(e){console.error('pgAssignClass5:',e);toast('할당 중 오류가 발생했습니다');}
+    finally{showLoading(false);}
+  });
+}
 
 let _ecStuIds=[];
 const ecSubjs=new Set();
@@ -10833,11 +10909,31 @@ function openEditClass(id=null){
       addSRowTo('ec-subj-rows',s,v.book,v.unit,v.bookId||'',v.days||[]);
     });
   }
+  // 클래스5 책 설정 복원
+  ecFillC5Books(c?.class5?.bookId||'');
+  const c5s=document.getElementById('ec-c5-start');if(c5s)c5s.value=c?.class5?.startDate||'';
+  ecC5BookChange(c?.class5?.startUnit||'');
   _ecStuIds=c?[...(c.studentIds||[])]:[];
   ecRenderTags();
   document.getElementById('ec-stu-search').value='';
   document.getElementById('ec-stu-dropdown').style.display='none';
   openM('m-edit-class');
+}
+// 클래스5 책 드롭다운 채우기 (교재 DB 전체, 단원 있는 교재)
+function ecFillC5Books(selId){
+  const sel=document.getElementById('ec-c5-book');if(!sel)return;
+  const books=tbSortByUsage((_cache.globalTextbooks||[]).filter(b=>tbUnitKeys(b).length));
+  sel.innerHTML=`<option value="">— 사용 안 함 —</option>`+books.map(b=>`<option value="${escAttr(b.id)}"${b.id===selId?' selected':''}>${escAttr(b.title)}${b.category?' ('+b.category+')':''}</option>`).join('');
+}
+// 책 선택 시 시작 단원 목록 채우기
+function ecC5BookChange(preUnit){
+  const sel=document.getElementById('ec-c5-book');const wrap=document.getElementById('ec-c5-unit-wrap');const uSel=document.getElementById('ec-c5-unit');
+  if(!sel||!wrap||!uSel)return;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===sel.value);
+  if(!tb){wrap.style.display='none';uSel.innerHTML='';return;}
+  const keys=tbUnitKeys(tb);
+  wrap.style.display='flex';
+  uSel.innerHTML=keys.map(k=>`<option value="${escAttr(k)}"${(typeof preUnit==='string'&&preUnit===k)?' selected':''}>${escAttr(k)}${tb.unitTitles?.[k]?' — '+tb.unitTitles[k]:''}</option>`).join('');
 }
 
 async function saveClass(){
@@ -10865,7 +10961,14 @@ async function saveClass(){
   const id=existingId||uid();
   const existing=DB.classes().find(x=>x.id===id);
   const commonMaterials=getSMatsFrom('ec-subj-rows');
-  const c={...(existing||{}),id,name,days,time,timeStart,timeEnd,dayTimes,studentIds,commonMaterials,active:true};
+  // 클래스5 책 설정 (매일 한 유닛씩 앱 과제 자동 할당)
+  const c5BookId=document.getElementById('ec-c5-book')?.value||'';
+  let class5=null;
+  if(c5BookId){
+    const c5tb=(_cache.globalTextbooks||[]).find(b=>b.id===c5BookId);
+    class5={bookId:c5BookId,book:c5tb?.title||'',startUnit:document.getElementById('ec-c5-unit')?.value||'',startDate:document.getElementById('ec-c5-start')?.value||new Date().toISOString().split('T')[0]};
+  }
+  const c={...(existing||{}),id,name,days,time,timeStart,timeEnd,dayTimes,studentIds,commonMaterials,class5,active:true};
   await supaUpsert('classes',id,c,null);
   if(!_cache.globalClasses)_cache.globalClasses=[];
   const idx=_cache.globalClasses.findIndex(x=>x.id===id);
