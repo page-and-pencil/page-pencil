@@ -8505,7 +8505,7 @@ function renderAssignCal(){
     // 미할당 수업 연계 숙제 제안 (점선) — 더블클릭=반 전체 할당
     (hwBy[ds]||[]).filter(h=>!h.assigned).forEach(hw=>{
       const col=_PG_CAT_COLORS[hw.subject]||'#64748B';
-      chips+=`<span class="pg-chip pg-hw ghost" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 (더블클릭=반 전체 할당)')}" onclick="event.stopPropagation()" ondblclick="pgHwDbl(event,'${stCls?stCls.id:''}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">📕 ${hw.unit}</span>`;
+      chips+=`<span class="pg-chip pg-hw ghost" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=할당·취소 선택)')}" onclick="hwChipMenu(event,'${stCls?stCls.id:''}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">📕 ${hw.unit}</span>`;
     });
     cells+=`<div class="pg-cell${isToday?' today':''}${ds<todayStr?' past':''}" onclick="showAssignDateDetail('${ds}')"><div class="pg-dnum">${d}</div>${chips}</div>`;
   }
@@ -10322,7 +10322,9 @@ function _nextClassDay(dateStr,days,skipSet){
 // 규칙: 실제로 배운(기록된) 교재 단원 → 복습·워크북 숙제, 마감=다음 수업일. 원서·펜슬다운 제외
 function _pgHomeworkPlan(classId,c){
   const days=c.days||[];
+  const todayStr=new Date().toISOString().split('T')[0];
   const skipSet=new Set(c.skipDates||[]); // 휴강일엔 숙제 마감을 잡지 않음 — 다음 실제 수업일로
+  const dismissed=new Set(c.hwDismissed||[]); // 취소한 제안 ('책|단원' 정규화 키) — 다시 띄우지 않음
   const classSids=new Set(c.studentIds||[]);
   const asgs=(_cache.assignments||[]).filter(a=>classSids.has(a.sid)&&a.category!=='class5'&&a.bookTitle);
   const isAssigned=(book,unit)=>asgs.some(a=>_pgNorm(a.bookTitle)===_pgNorm(book)&&(!unit||_pgUMatch(_pgNorm(a.range||''),_pgNorm(unit))));
@@ -10330,12 +10332,13 @@ function _pgHomeworkPlan(classId,c){
   (_cache.lessons||[]).forEach(l=>{
     if(l.classId!==classId||!l.date||!l.materials)return;
     const due=_nextClassDay(l.date,days,skipSet);
-    if(!due)return;
+    if(!due||due<todayStr)return; // 마감이 이미 지난 제안은 표시하지 않음 (할당 불가한 잔재)
     Object.entries(l.materials).forEach(([k,v])=>{
       const bk=k.replace(/_\d+$/,'');
       if(bk==='pencil_down'||bk==='sing_together'||bk==='_book')return;
       if(!v||!v.book||!v.unit)return;
       String(v.unit).split(',').map(u=>u.trim()).filter(Boolean).forEach(unit=>{
+        if(dismissed.has(_pgNorm(v.book)+'|'+_pgNorm(unit)))return;
         const key=due+'|'+_pgNorm(v.book)+'|'+_pgNorm(unit);
         if(seen.has(key))return;seen.add(key);
         (byDate[due]=byDate[due]||[]).push({subject:bk,book:v.book,bookId:v.bookId||'',unit,assigned:isAssigned(v.book,unit)});
@@ -10343,6 +10346,27 @@ function _pgHomeworkPlan(classId,c){
     });
   });
   return byDate;
+}
+// 숙제 제안 취소 — 그 책·단원 제안을 캘린더에서 제거 (클래스에 저장, 언제든 클래스 데이터에서 복원 가능)
+async function pgDismissHw(classId,book,unit){
+  pgMenuClose();
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const key=_pgNorm(book)+'|'+_pgNorm(unit);
+  const set=new Set(c.hwDismissed||[]);set.add(key);
+  c.hwDismissed=[...set];
+  try{await supaUpsert('classes',classId,c,null);}
+  catch(e){console.error('pgDismissHw:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  const i=(_cache.globalClasses||[]).findIndex(x=>x.id===classId);if(i>=0)_cache.globalClasses[i]=c;
+  renderAssignCal();
+  toast(`${unit} 숙제 제안을 취소했어요`);
+}
+// 점선 숙제 제안 칩 클릭 → 할당/취소 선택 메뉴
+function hwChipMenu(ev,classId,subject,book,bookId,unit,due){
+  if(ev&&ev.stopPropagation)ev.stopPropagation();
+  pgCellMenu(ev,classId,due,[
+    {ico:'📕',label:'반 전체 숙제로 할당',sub:`${book} ${unit} · 마감 ${due}`,run:()=>pgHwDbl(null,classId,subject,book,bookId,unit,due)},
+    {ico:'🚫',label:'제안 취소',sub:'캘린더에서 보이지 않게',run:()=>pgDismissHw(classId,book,unit)},
+  ]);
 }
 // 클래스 예정 전체 구성(교재·원서·싱투게더) — 캘린더·예정 편집 모달·폼 자동 채움이 공유하는 단일 계산
 function _pgComposePlan(classId,c,uptoDate){
