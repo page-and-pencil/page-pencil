@@ -259,6 +259,7 @@ async function initApp(){
   // 렌더 격리: 한 함수가 죽어도 나머지 화면은 그려지고, 죽은 함수는 배너로 보고
   const _safe=(name,fn)=>{try{fn();}catch(e){console.error('initApp:'+name,e);if(typeof ppShowFatal==='function')ppShowFatal(name+': '+(e&&e.message||e));}};
   _safe('subscribeRealtime',()=>subscribeRealtime());
+  _safe('recurAutoMaintain',()=>recurAutoMaintain()); // 자동 진행 숙제 — 못 한 날 단원을 오늘부터로 재배치·저장
   _safe('renderStus',()=>renderStus());
   _safe('populateSels',()=>populateSels());
   _safe('populateFilterSels',()=>populateFilterSels());
@@ -8452,8 +8453,35 @@ function asgSrcLabel(a){
 }
 // ── 숙제 캘린더 (과제 메뉴) — 학생별 보기 ──
 // 실제 할당된 과제(진한 칩: 스케줄형은 날짜별, 일반형은 마감일) + 수업 연계 숙제 제안(점선 📕)
+// 자동 진행 반복 숙제 유지 — 못 한 날(✓ 없음)의 단원을 오늘부터로 자동 재배치하고 저장
+let _recurMaintainBusy=false;
+function recurAutoMaintain(){
+  const dirty=[];
+  for(const a of (_cache.assignments||[])){
+    if(a._deleted)continue;
+    const ns=(typeof recurRebase==='function')?recurRebase(a):null;
+    if(ns){a.schedule=ns;a.due=ns[ns.length-1]?.date||a.due;dirty.push(a);} // 캐시는 즉시 반영 (렌더가 바로 새 날짜 사용)
+  }
+  if(!dirty.length||_recurMaintainBusy)return;
+  _recurMaintainBusy=true;
+  (async()=>{
+    try{for(const a of dirty)await supaUpsert('assignments',a.id,a,a.sid);}
+    catch(e){console.error('recurAutoMaintain:',e);}
+    finally{_recurMaintainBusy=false;}
+  })();
+}
+// '다음 교재 선택' — 자동 진행 교재가 끝났을 때 이어서 새 교재 반복 숙제 등록
+function openRecurNext(sid){
+  openAssignModal(sid);
+  const cSel=document.getElementById('modal-assign-cat');
+  if(cSel){cSel.value='recur';modalAssignCatChange();}
+  const tSel=document.getElementById('rc-type');
+  if(tSel){tSel.value='book';recurTypeChange();recurBookChange();}
+  document.getElementById('modal-assign-due').value=''; // 교재형은 단원 소진 시 자동 종료
+}
 function renderAssignCal(){
   const el=document.getElementById('assign-cal');if(!el)return;
+  recurAutoMaintain(); // 밀린 자동 진행 숙제를 먼저 재배치
   const stus=DB.stus().filter(s=>!s.inactive);
   if(!stus.length){el.innerHTML='<div style="font-size:12px;color:var(--slate);padding:10px">학생을 먼저 등록해 주세요</div>';return;}
   if(!_hwCalStuId||!stus.some(s=>s.id===_hwCalStuId))_hwCalStuId=stus[0].id;
@@ -8492,6 +8520,10 @@ function renderAssignCal(){
   // ② 수업 연계 숙제 제안 (아직 미할당 점선 📕) — 학생의 클래스 기준
   const hwBy=stCls?_pgHomeworkPlan(stCls.id,stCls):{};
   const hwPending=Object.values(hwBy).some(arr=>arr.some(h=>!h.assigned));
+  // ③ 자동 진행 교재를 다 끝냈고 이어지는 교재가 없으면 → 다음 교재 선택 안내
+  const autoRec=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.category==='recur'&&a.auto&&(a.schedule||[]).length);
+  const autoFin=autoRec.length&&!autoRec.some(a=>a.schedule.some(s=>!s.done))
+    ?autoRec.slice().sort((x,y)=>(y.due||'').localeCompare(x.due||''))[0]:null;
   const stuOpts=stus.map(s=>`<option value="${s.id}"${s.id===sid?' selected':''}>${escAttr(s.name)}</option>`).join('');
   let cells='';
   for(let i=0;i<firstDay;i++)cells+='<div></div>';
@@ -8517,6 +8549,7 @@ function renderAssignCal(){
       <button class="btn bo bxxs" onclick="assignCalMonth(1)">▶</button>
       ${hwPending&&stCls?`<button class="btn bt bxxs" title="배운 단원 복습 숙제를 반 전체에게 한 번에" onclick="pgAssignAllHomework('${stCls.id}')">📕 숙제 일괄</button>`:''}
     </div>
+    ${autoFin?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;border:1.5px dashed var(--teal);border-radius:var(--rs);padding:8px 10px;margin-bottom:8px;font-size:12px;color:var(--navy)">📚 <b>${escAttr(autoFin.bookTitle)}</b> 단원을 전부 끝냈어요! 다음 교재를 고르면 같은 방식(못 한 날 자동 밀림)으로 이어서 할당됩니다. <button class="btn bt bxxs" onclick="openRecurNext('${sid}')">다음 교재 선택</button></div>`:''}
     <div class="pg-cal-grid">${_PG_DOW.map(x=>`<div class="pg-cal-dow">${x}</div>`).join('')}${cells}</div>
     <div class="pg-cal-hint">진한 칩=이 학생에게 <b>할당된 과제</b> (🎮 클래스5 · 🔁 반복 숙제 · 📕 일반 — 칩에 마우스를 올리면 <b>어디서 할당됐는지</b> 표시) · 점선 📕=수업 연계 숙제 제안(더블클릭=반 전체 할당) · 날짜 클릭=그 날 과제 상세</div>`;
 }
@@ -8718,6 +8751,7 @@ function renderAssignStats(){
     +card('확인 대기','📥',unchecked?'st-green':'',unchecked,'건',unchecked?'#047857':'');
 }
 function renderAssignTab(){
+  recurAutoMaintain(); // 자동 진행 숙제의 밀린 단원을 먼저 재배치
   renderAssignStats();
   const el=document.getElementById('assign-list');if(!el)return;
   const filterStu=document.getElementById('assign-filter-stu')?.value||'';
@@ -8976,13 +9010,13 @@ function modalAssignCatChange(){
         <div class="f" style="margin-bottom:8px"><label>시작 단원 <span style="font-size:10px;font-weight:400;color:var(--slate)">(여기부터 1과씩)</span></label><select id="rc-unit" style="width:100%"></select></div>
       </div>
       <div class="f" style="margin-bottom:8px"><label>반복 요일</label>
-        <select id="rc-days" style="width:100%">
+        <select id="rc-days" style="width:100%" onchange="this.dataset.touched='1'">
           <option value="daily">매일</option>
           <option value="noclass">수업 없는 날만 (등록된 휴강일 포함)</option>
           <option value="class">수업 있는 날만</option>
         </select>
       </div>
-      <div style="font-size:11px;color:var(--slate);line-height:1.6">시작일 = 위 '날짜' 칸 (비우면 오늘) · 종료 = 위 '마감일' 칸.<br>교재 유형은 마감일을 비워도 단원이 끝나는 날 자동 종료, '매일 같은 내용'은 마감일 비우면 올해 말까지.</div>
+      <div style="font-size:11px;color:var(--slate);line-height:1.6">시작일 = 위 '날짜' 칸 (비우면 오늘) · 종료 = 위 '마감일' 칸.<br>교재 유형은 마감일을 비워도 단원이 끝나는 날 자동 종료, '매일 같은 내용'은 마감일 비우면 올해 말까지.<br><b>교재 유형은 자동 진행</b> — 사정상 못 한 날(✓ 없음)의 단원은 버리지 않고 다음 가능한 날로 자동으로 밀립니다. 교재가 끝나면 숙제 캘린더에서 다음 교재를 이어서 고를 수 있어요.</div>
     </div>`;
     // 교재 목록 채우기 (단원 있는 교재)
     const rcSel=document.getElementById('rc-book');
@@ -9204,6 +9238,9 @@ function recurTypeChange(){
   const f=document.getElementById('rc-fixed-wrap');const b=document.getElementById('rc-book-wrap');
   if(f)f.style.display=t==='fixed'?'':'none';
   if(b)b.style.display=t==='book'?'':'none';
+  // 교재 유형 기본값: 수업 없는 날 (단어 교재 로직 — 못 한 날은 자동으로 밀림)
+  const dSel=document.getElementById('rc-days');
+  if(dSel&&t==='book'&&!dSel.dataset.touched)dSel.value='noclass';
 }
 function recurBookChange(){
   const bkId=document.getElementById('rc-book')?.value||'';
@@ -9373,7 +9410,7 @@ async function saveModalAssignment(){
     }
     if(!schedule.length){toast('해당 조건에 맞는 날이 없어요 — 시작일·반복 요일을 확인해 주세요');return;}
     const a={id:uid(),sid,type:'recur',category:'recur',recurRule:rule,date:schedule[0].date,due:schedule[schedule.length-1].date,
-      bookTitle:title,...(tbId&&{bookId:tbId}),note,schedule};
+      bookTitle:title,...(tbId&&{bookId:tbId,auto:true}),note,schedule}; // 교재형은 자동 진행(못 한 날 자동 밀림)
     await supaUpsert('assignments',a.id,a,sid);
     if(!_cache.assignments)_cache.assignments=[];
     _cache.assignments.unshift(a);

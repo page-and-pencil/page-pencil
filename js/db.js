@@ -323,6 +323,7 @@ function _afterBgRefresh(){
     const typing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||'');
     if(modalOpen||typing)return;
     if(document.getElementById('s-teacher')?.classList.contains('active')){
+      if(typeof recurAutoMaintain==='function')recurAutoMaintain(); // 자동 진행 숙제 재배치 (선생님 앱만 저장)
       if(typeof renderStus==='function')renderStus();
       if(typeof populateSels==='function')populateSels();
       if(typeof renderDash==='function')renderDash();

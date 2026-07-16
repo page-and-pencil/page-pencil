@@ -378,6 +378,39 @@ function stuRecentSkip(sid,lastLesDate){
   const skip=stuLastSkipDate(sid);
   return (skip&&(!lastLesDate||skip>lastLesDate))?skip:'';
 }
+// 자동 진행 반복 숙제(auto)의 스케줄 재배치 — '사정상 못 한 날'의 단원을 버리지 않고 앞으로 민다
+// 완료(✓)한 항목은 그 날짜에 역사로 남고, 안 한 항목들은 오늘부터의 가능한 날에 순서대로 다시 깔림
+// 반환: 바뀐 새 schedule 배열, 바꿀 게 없으면 null
+function recurRebase(a){
+  if(!a||a.category!=='recur'||!a.auto||!(a.schedule||[]).length)return null;
+  const today=new Date().toISOString().split('T')[0];
+  const undone=a.schedule.filter(s=>!s.done);
+  if(!undone.length)return null;
+  if(!undone.some(s=>(s.date||'')<today))return null;   // 밀린 게 없으면 그대로
+  const cls=(typeof DB!=='undefined'?DB.classes():[]).find(c=>c.active!==false&&(c.studentIds||[]).includes(a.sid));
+  const days=cls?.days||[];
+  const skip=new Set(cls?.skipDates||[]);
+  const rule=a.recurRule||'daily';
+  const DOWS=['일','월','화','수','목','금','토'];
+  const ok=(d,ds)=>{
+    const dow=DOWS[d.getDay()];
+    if(rule==='noclass')return !days.includes(dow)||skip.has(ds);
+    if(rule==='class')return days.includes(dow)&&!skip.has(ds);
+    return true;
+  };
+  const done=a.schedule.filter(s=>s.done);
+  const doneDates=new Set(done.map(s=>s.date));
+  const res=[...done];
+  const d=new Date(today+'T12:00:00');
+  let i=0,guard=0;
+  while(i<undone.length&&guard++<730){
+    const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(ok(d,ds)&&!doneDates.has(ds)){res.push({...undone[i],date:ds});i++;}
+    d.setDate(d.getDate()+1);
+  }
+  res.sort((x,y)=>(x.date||'').localeCompare(y.date||''));
+  return res;
+}
 // 교재 단원 키 목록 — 사용자 지정 순서(unitOrder) 우선, 나머지는 이름 숫자 정렬
 // (단원 목록 드래그로 순서를 바꾸면 unitOrder에 저장됨; 삭제된 단원 키는 걸러냄)
 function tbUnitKeys(tb){

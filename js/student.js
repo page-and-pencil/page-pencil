@@ -699,7 +699,8 @@ function renderAssignmentTab(sid){
     } else if((a.schedule||[]).length){
       // 날짜별 스케줄 과제 (클래스5·반복 숙제) — 오늘부터 7일만 보여주고 전체는 접기
       const today=new Date().toISOString().split('T')[0];
-      const sched=a.schedule||[];
+      // 자동 진행 숙제는 못 한 날의 단원을 오늘부터로 밀어서 표시 (저장은 선생님 앱이 담당)
+      const sched=(typeof recurRebase==='function'?recurRebase(a):null)||a.schedule||[];
       const isRecur=a.category==='recur'||a.type==='recur';
       const mkTbl=rows=>`<div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:var(--cream)"><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">날짜</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">${isRecur?'숙제':'교재'}</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">유닛</th></tr></thead><tbody>${rows.map(r=>`<tr style="${r.date===today?'background:#e8f5e9;font-weight:700':''}${r.done?';opacity:.55':''}"><td style="padding:3px 6px;border-bottom:1px solid var(--border);white-space:nowrap">${(r.date||'').slice(5).replace('-','/')}${r.done?' ✅':''}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.book||''}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.unit||''}</td></tr>`).join('')}</tbody></table></div>`;
       const upcoming=sched.filter(r=>(r.date||'')>=today);
