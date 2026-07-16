@@ -2038,7 +2038,7 @@ function renderLastLesson(sid){
   if(up.length){
     upHtml=`<div style="background:#FEF9C3;border:1px solid #FDE047;border-radius:var(--rs);padding:10px 12px;margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:#A16207;margin-bottom:4px">📣 휴강 안내</div>
-      <div style="font-size:12.5px;color:var(--navy);line-height:1.7"><b>${up.map(skipDateLbl).join(', ')}</b>은 수업이 없어요. 숙제는 평소처럼 하기 💪</div>
+      <div style="font-size:12.5px;color:var(--navy);line-height:1.7"><b>${skipDatesLbl(up)}</b>은 수업이 없어요. 숙제는 평소처럼 하기 💪</div>
     </div>`;
   }
   // 가장 최근이 '수업 안 함'이면 안 한 사실을 보여줌 (실제 수업일보다 뒤에 휴강일이 있을 때)

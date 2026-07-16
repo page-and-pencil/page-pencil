@@ -179,7 +179,7 @@ async function loadParent(sid){
     blocks+=`<div class="card">
       <div class="ch"><span class="ct">${luIcon('megaphone',16)}휴강 안내</span></div>
       <div class="cb" style="padding:12px 16px">
-        <div style="font-size:13px;color:var(--navy);line-height:1.85"><b>${upSkips.map(skipDateLbl).join(', ')}</b>은 수업이 없습니다. 과제는 평소처럼 챙겨봐 주시면 감사하겠습니다 🙏</div>
+        <div style="font-size:13px;color:var(--navy);line-height:1.85"><b>${skipDatesLbl(upSkips)}</b>은 수업이 없습니다. 과제는 평소처럼 챙겨봐 주시면 감사하겠습니다 🙏</div>
       </div>
     </div>`;
   }

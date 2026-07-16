@@ -10700,7 +10700,7 @@ function _pgCalHtml(classId){
     ).join('');
     const isSkip=skipSet.has(ds);
     const skipMark=isSkip?`<span class="pg-skip-mark" title="수업 안 함 (휴강·결석) — 이후 진도가 하루씩 밀렸어요. 누르면 되돌리기">🚫 수업 안 함</span>`:'';
-    cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}${isSkip?' skip':''}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onclick="pgCellClick(event,'${classId}','${ds}')"><div class="pg-dnum">${dd}</div>${skipMark}${chips}</div>`);
+    cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}${isSkip?' skip':''}" data-ds="${ds}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onmousedown="pgRangeDown(event,'${classId}','${ds}')" onmouseover="pgRangeOver('${ds}')" onclick="pgCellClick(event,'${classId}','${ds}')"><div class="pg-dnum">${dd}</div>${skipMark}${chips}</div>`);
   }
   // 범례: 과목 색 (같은 과목 교재는 같은 색) + 원서 한 색
   const hasOrt=Object.keys(ortGhostBy).length||Object.keys(ortRecBy).length;
@@ -10718,7 +10718,7 @@ function _pgCalHtml(classId){
       <span style="flex:1"></span>${legend}
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
-    <div class="pg-cal-hint">진한 칩=기록 · 점선 칩=예정 — 드래그로 진도 이동, <b>오늘 점선 칩 더블클릭=수업 기록 확정</b> · 빈 수업일 클릭 → 수업 기록 / 예정 편집 / 🚫 수업 안 함 · <b>숙제·클래스5는 과제 메뉴의 숙제 캘린더에서</b></div>
+    <div class="pg-cal-hint">진한 칩=기록 · 점선 칩=예정 — 드래그로 진도 이동, <b>오늘 점선 칩 더블클릭=수업 기록 확정</b> · 빈 수업일 클릭 → 수업 기록 / 예정 편집 / 🚫 수업 안 함 · <b>빈 칸을 드래그하면 기간 휴강·방학</b> · <b>숙제·클래스5는 과제 메뉴의 숙제 캘린더에서</b></div>
   </div>`;
 }
 function pgDragStart(ev,classId,tbId,unit){
@@ -10879,7 +10879,82 @@ function pgMoveCancel(){
   document.querySelectorAll('.pg-chip.sel').forEach(x=>x.classList.remove('sel'));
   document.querySelectorAll('.pg-cal-card.pg-moving').forEach(x=>x.classList.remove('pg-moving'));
 }
+// ── 드래그로 기간 휴강·방학 선택 ──
+let _pgRangeSel=null;        // 드래그 중 {classId,start,cur,moved}
+let _pgRangeStart=null;      // 클릭-클릭 모드(모바일) {classId,date}
+let _pgRangeClickGuard=false;// 드래그 직후 따라오는 click 무시
+function pgRangeDown(ev,classId,ds){
+  if(ev.button!==0)return;
+  if(ev.target.closest('.pg-chip'))return; // 칩 드래그(진도 이동)와 충돌 방지
+  _pgRangeSel={classId,start:ds,cur:ds,moved:false};
+  document.addEventListener('mouseup',_pgRangeUp,{once:true});
+  ev.preventDefault(); // 드래그 중 텍스트 선택 방지
+}
+function pgRangeOver(ds){
+  if(!_pgRangeSel||ds===_pgRangeSel.cur)return;
+  _pgRangeSel.cur=ds;_pgRangeSel.moved=true;
+  const [a,b]=[_pgRangeSel.start,_pgRangeSel.cur].sort();
+  document.querySelectorAll('.pg-cell[data-ds]').forEach(c=>c.classList.toggle('rangesel',c.dataset.ds>=a&&c.dataset.ds<=b));
+}
+function _pgRangeUp(){
+  const r=_pgRangeSel;_pgRangeSel=null;
+  document.querySelectorAll('.pg-cell.rangesel').forEach(c=>c.classList.remove('rangesel'));
+  if(!r||!r.moved||r.start===r.cur)return; // 제자리 → 일반 클릭이 처리
+  _pgRangeClickGuard=true;setTimeout(()=>{_pgRangeClickGuard=false;},300);
+  const [a,b]=[r.start,r.cur].sort();
+  pgRangeConfirm(r.classId,a,b);
+}
+// 기간 내 휴강 대상 수업일 (이미 휴강·수업 기록이 있는 날 제외)
+function _pgRangeClassDays(c,a,b){
+  const skip=new Set(c.skipDates||[]);
+  const out=[];
+  const d=new Date(a+'T12:00:00'),end=new Date(b+'T12:00:00');
+  let g=0;
+  while(d<=end&&g++<370){
+    const ds=_pgYmd(d),dow=_PG_DOW[d.getDay()];
+    if((c.days||[]).includes(dow)&&!skip.has(ds)&&!(_cache.lessons||[]).some(l=>l.classId===c.id&&l.date===ds))out.push(ds);
+    d.setDate(d.getDate()+1);
+  }
+  return out;
+}
+function pgRangeConfirm(classId,a,b){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const targets=_pgRangeClassDays(c,a,b);
+  if(!targets.length){toast('선택 기간에 휴강으로 표시할 수업일이 없어요');return;}
+  skipNoticeClose();
+  const overlay=document.createElement('div');
+  overlay.id='skip-notice-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1999';
+  overlay.onclick=skipNoticeClose;
+  const el=document.createElement('div');
+  el.id='skip-notice-modal';
+  el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:var(--rs);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:2000;padding:20px;min-width:280px;max-width:400px;width:90vw';
+  el.innerHTML=`<div style="font-size:14px;font-weight:700;margin-bottom:8px">🏖 기간 휴강·방학 표시</div>
+    <div style="font-size:13px;color:var(--navy);line-height:1.8"><b>${skipDateLbl(a)} ~ ${skipDateLbl(b)}</b> · 수업일 <b>${targets.length}일</b><br><span style="font-size:12px;color:var(--slate)">이 날들은 수업 안 함으로 표시되고 이후 진도가 그만큼 밀려요.</span></div>
+    <div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end">
+      <button class="btn bo bsm" onclick="skipNoticeClose()">취소</button>
+      <button class="btn bt bsm" onclick="skipNoticeClose();pgRangeApply('${classId}','${a}','${b}')">🏖 휴강·방학 표시</button>
+    </div>`;
+  document.body.appendChild(overlay);document.body.appendChild(el);
+}
+async function pgRangeApply(classId,a,b){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const targets=_pgRangeClassDays(c,a,b);if(!targets.length)return;
+  const set=new Set(c.skipDates||[]);targets.forEach(ds=>set.add(ds));
+  c.skipDates=[...set].sort();
+  try{await supaUpsert('classes',classId,c,null);}
+  catch(e){console.error('pgRangeApply:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  const i=(_cache.globalClasses||[]).findIndex(x=>x.id===classId);if(i>=0)_cache.globalClasses[i]=c;
+  renderClsLessons(classId);
+  toast(`수업일 ${targets.length}일 휴강·방학 표시 — 진도를 그만큼 미뤘어요`);
+  if(b>=new Date().toISOString().split('T')[0])openSkipNotice(classId,[a,b]); // 안내 보내기 연결
+}
 function pgCellClick(ev,classId,date){
+  if(_pgRangeClickGuard)return; // 드래그 선택 직후 따라오는 클릭 무시
+  if(_pgRangeStart){ // 기간 선택 모드(모바일): 두 번째 클릭 = 끝 날짜
+    const s=_pgRangeStart;_pgRangeStart=null;
+    if(s.classId===classId){const [a,b]=[s.date,date].sort();pgRangeConfirm(classId,a,b);return;}
+  }
   if(_pgMoveSel){const s=_pgMoveSel;pgMoveCancel();pgSetAnchor(classId,s.tbId,s.unit,date);return;}
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const has=(_cache.lessons||[]).some(l=>l.classId===classId&&l.date===date);
@@ -10897,6 +10972,7 @@ function pgCellClick(ev,classId,date){
   if(future){opts.push({ico:'🗓',label:'예정 편집 (교재 추가)',run:()=>openPgPlan(classId,date)});}
   else{opts.push({ico:'📝',label:'수업 기록',run:()=>openClassLesson(classId,date)});}
   opts.push({ico:'🚫',label:future?'휴강 예정 (수업 안 함)':'수업 안 함 (휴강·결석)',sub:future?'진도 하루씩 밀림 · 안내 보내기로 이어져요':'이후 진도가 하루씩 밀려요',run:()=>pgToggleSkip(classId,date)});
+  opts.push({ico:'🏖',label:'기간 휴강·방학 (여기부터)',sub:'끝나는 날짜를 클릭하면 기간이 표시돼요 (드래그로도 가능)',run:()=>{_pgRangeStart={classId,date};toast(`${skipDateLbl(date)}부터 — 마지막 날짜를 클릭하세요`);}});
   pgCellMenu(ev,classId,date,opts);
 }
 // 휴강일 토글 — c.skipDates에 넣거나 뺀다 (교재·원서 진도가 이 날을 건너뜀, 클래스5 과제는 그대로)
@@ -10921,8 +10997,9 @@ function skipNoticeClose(){document.getElementById('skip-notice-modal')?.remove(
 function openSkipNotice(classId,date){
   skipNoticeClose();
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
-  const lbl=skipDateLbl(date);
-  const def=`📣 ${c.name?c.name+' ':''}휴강 안내\n${lbl} 수업은 사정상 쉬어갑니다.\n과제는 평소처럼 진행해 주세요 💪 보강 일정은 따로 안내드리겠습니다.`;
+  const range=Array.isArray(date); // [시작,끝] = 기간 휴강·방학
+  const lbl=range?`${skipDateLbl(date[0])}~${skipDateLbl(date[1])}`:skipDateLbl(date);
+  const def=`📣 ${c.name?c.name+' ':''}휴강 안내\n${lbl} ${range?'기간은 수업을 쉬어갑니다':'수업은 사정상 쉬어갑니다'}.\n과제는 평소처럼 진행해 주세요 💪`;
   const overlay=document.createElement('div');
   overlay.id='skip-notice-overlay';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1999';

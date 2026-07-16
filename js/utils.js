@@ -395,6 +395,19 @@ function skipDateLbl(d){
   const DOWS=['일','월','화','수','목','금','토'];
   return `${Number(d.slice(5,7))}/${Number(d.slice(8,10))}(${DOWS[new Date(d+'T12:00:00').getDay()]})`;
 }
+// 휴강일 목록을 기간으로 묶어 표기 — 간격 3일 이내(주말·수업 없는 요일)면 한 기간: "7/28(화)~8/8(금), 8/15(토)"
+function skipDatesLbl(dates){
+  if(!dates||!dates.length)return'';
+  const groups=[];
+  let start=dates[0],prev=dates[0];
+  for(let i=1;i<=dates.length;i++){
+    const d=dates[i];
+    const gap=d?(new Date(d+'T12:00:00')-new Date(prev+'T12:00:00'))/86400000:99;
+    if(gap>3){groups.push([start,prev]);start=d;}
+    if(d)prev=d;
+  }
+  return groups.map(([a,b])=>a===b?skipDateLbl(a):`${skipDateLbl(a)}~${skipDateLbl(b)}`).join(', ');
+}
 // 자동 진행 반복 숙제(auto)의 스케줄 재배치 — '사정상 못 한 날'의 단원을 버리지 않고 앞으로 민다
 // 완료(✓)한 항목은 그 날짜에 역사로 남고, 안 한 항목들은 오늘부터의 가능한 날에 순서대로 다시 깔림
 // 반환: 바뀐 새 schedule 배열, 바꿀 게 없으면 null
