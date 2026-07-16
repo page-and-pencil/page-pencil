@@ -173,6 +173,16 @@ async function loadParent(sid){
     </div>`;
   }
 
+  // 휴강 예정 안내 — 선생님이 캘린더에 휴강 표시하면 자동 노출
+  const upSkips=(typeof stuUpcomingSkips==='function')?stuUpcomingSkips(sid):[];
+  if(upSkips.length){
+    blocks+=`<div class="card">
+      <div class="ch"><span class="ct">${luIcon('megaphone',16)}휴강 안내</span></div>
+      <div class="cb" style="padding:12px 16px">
+        <div style="font-size:13px;color:var(--navy);line-height:1.85"><b>${upSkips.map(skipDateLbl).join(', ')}</b>은 수업이 없습니다. 과제는 평소처럼 챙겨봐 주시면 감사하겠습니다 🙏</div>
+      </div>
+    </div>`;
+  }
   // 블록 A — 최근 수업 (가장 최근이 '수업 안 함'이면 안 한 사실을 안내)
   const skipDate=stuRecentSkip(sid,latLes?.date||'');
   if(skipDate){

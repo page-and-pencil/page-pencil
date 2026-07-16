@@ -10896,7 +10896,7 @@ function pgCellClick(ev,classId,date){
   const opts=[];
   if(future){opts.push({ico:'🗓',label:'예정 편집 (교재 추가)',run:()=>openPgPlan(classId,date)});}
   else{opts.push({ico:'📝',label:'수업 기록',run:()=>openClassLesson(classId,date)});}
-  opts.push({ico:'🚫',label:'수업 안 함 (휴강·결석)',sub:'이후 진도가 하루씩 밀려요',run:()=>pgToggleSkip(classId,date)});
+  opts.push({ico:'🚫',label:future?'휴강 예정 (수업 안 함)':'수업 안 함 (휴강·결석)',sub:future?'진도 하루씩 밀림 · 안내 보내기로 이어져요':'이후 진도가 하루씩 밀려요',run:()=>pgToggleSkip(classId,date)});
   pgCellMenu(ev,classId,date,opts);
 }
 // 휴강일 토글 — c.skipDates에 넣거나 뺀다 (교재·원서 진도가 이 날을 건너뜀, 클래스5 과제는 그대로)
@@ -10913,6 +10913,47 @@ async function pgToggleSkip(classId,date){
   renderClsLessons(classId);
   const md=`${Number(date.slice(5,7))}/${Number(date.slice(8,10))}`;
   toast(adding?`${md} 수업 안 함 — 이후 진도를 하루씩 미뤘어요`:`${md} 수업일로 되돌렸어요`);
+  // 오늘·미래 휴강 등록이면 안내 보내기로 연결 (학생·학부모 앱에는 자동 표시)
+  if(adding&&date>=new Date().toISOString().split('T')[0])openSkipNotice(classId,date);
+}
+// ── 휴강 안내 보내기 — 공지 배너 등록 + 카톡용 복사 ──
+function skipNoticeClose(){document.getElementById('skip-notice-modal')?.remove();document.getElementById('skip-notice-overlay')?.remove();}
+function openSkipNotice(classId,date){
+  skipNoticeClose();
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const lbl=skipDateLbl(date);
+  const def=`📣 ${c.name?c.name+' ':''}휴강 안내\n${lbl} 수업은 사정상 쉬어갑니다.\n과제는 평소처럼 진행해 주세요 💪 보강 일정은 따로 안내드리겠습니다.`;
+  const overlay=document.createElement('div');
+  overlay.id='skip-notice-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1999';
+  overlay.onclick=skipNoticeClose;
+  const el=document.createElement('div');
+  el.id='skip-notice-modal';
+  el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:var(--rs);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:2000;padding:20px;min-width:280px;max-width:440px;width:90vw';
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span style="font-size:14px;font-weight:700">📣 휴강 안내 보내기 — ${lbl}${c.name?' · '+escAttr(c.name):''}</span>
+      <button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--slate)" onclick="skipNoticeClose()">×</button>
+    </div>
+    <textarea id="skip-notice-text" style="width:100%;box-sizing:border-box;min-height:110px;font-family:var(--fb);font-size:13px;line-height:1.7;padding:10px;border:1px solid var(--border);border-radius:var(--rs);resize:vertical">${def}</textarea>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn bt bsm" onclick="skipNoticeBanner()">📢 공지 배너 등록</button>
+      <button class="btn bo bsm" onclick="skipNoticeCopy()">📋 복사 (카톡 붙여넣기)</button>
+      <button class="btn bo bsm" style="margin-left:auto" onclick="skipNoticeClose()">닫기</button>
+    </div>
+    <div style="font-size:11px;color:var(--slate);line-height:1.7;margin-top:8px">공지 배너는 학부모 앱 상단에 떠요. 안 보내도 휴강 예정은 학생·학부모 앱 홈에 자동으로 표시됩니다.</div>`;
+  document.body.appendChild(overlay);document.body.appendChild(el);
+}
+async function skipNoticeBanner(){
+  const t=(document.getElementById('skip-notice-text')?.value||'').trim();
+  if(!t){toast('안내문을 입력해 주세요');return;}
+  await postNoticeText(t.replace(/\n/g,' '));
+  skipNoticeClose();
+}
+async function skipNoticeCopy(){
+  const ta=document.getElementById('skip-notice-text');if(!ta)return;
+  try{await navigator.clipboard.writeText(ta.value);}
+  catch(e){ta.select();document.execCommand('copy');}
+  toast('복사 완료 — 카카오톡에 붙여넣어 보내세요');
 }
 // 캘린더 셀 미니 메뉴 (클릭 위치 근처에 뜨는 작은 선택창)
 let _pgMenuEl=null;

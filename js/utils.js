@@ -378,6 +378,23 @@ function stuRecentSkip(sid,lastLesDate){
   const skip=stuLastSkipDate(sid);
   return (skip&&(!lastLesDate||skip>lastLesDate))?skip:'';
 }
+// 다가오는 휴강 예정일 (오늘 이후 30일 내) — 학생·학부모 앱이 자동으로 안내
+function stuUpcomingSkips(sid){
+  const today=new Date().toISOString().split('T')[0];
+  const lim=new Date();lim.setDate(lim.getDate()+30);
+  const limS=lim.toISOString().split('T')[0];
+  const out=[];
+  (typeof DB!=='undefined'?DB.classes():[]).forEach(c=>{
+    if(c.active===false||!(c.studentIds||[]).includes(sid))return;
+    (c.skipDates||[]).forEach(d=>{if(d&&d>today&&d<=limS)out.push(d);});
+  });
+  return [...new Set(out)].sort();
+}
+// 휴강일 짧은 표기: "7/21(화)"
+function skipDateLbl(d){
+  const DOWS=['일','월','화','수','목','금','토'];
+  return `${Number(d.slice(5,7))}/${Number(d.slice(8,10))}(${DOWS[new Date(d+'T12:00:00').getDay()]})`;
+}
 // 자동 진행 반복 숙제(auto)의 스케줄 재배치 — '사정상 못 한 날'의 단원을 버리지 않고 앞으로 민다
 // 완료(✓)한 항목은 그 날짜에 역사로 남고, 안 한 항목들은 오늘부터의 가능한 날에 순서대로 다시 깔림
 // 반환: 바뀐 새 schedule 배열, 바꿀 게 없으면 null

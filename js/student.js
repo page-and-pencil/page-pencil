@@ -2032,11 +2032,20 @@ function dueLabelHtml(dueStr,today){
 }
 function renderLastLesson(sid){
   const les=DB.less().filter(l=>l.sid===sid);
+  // 다가오는 휴강 예정 — 선생님이 캘린더에 휴강 표시하면 자동으로 안내
+  let upHtml='';
+  const up=(typeof stuUpcomingSkips==='function')?stuUpcomingSkips(sid):[];
+  if(up.length){
+    upHtml=`<div style="background:#FEF9C3;border:1px solid #FDE047;border-radius:var(--rs);padding:10px 12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:#A16207;margin-bottom:4px">📣 휴강 안내</div>
+      <div style="font-size:12.5px;color:var(--navy);line-height:1.7"><b>${up.map(skipDateLbl).join(', ')}</b>은 수업이 없어요. 숙제는 평소처럼 하기 💪</div>
+    </div>`;
+  }
   // 가장 최근이 '수업 안 함'이면 안 한 사실을 보여줌 (실제 수업일보다 뒤에 휴강일이 있을 때)
   const skipDate=stuRecentSkip(sid,les[0]?.date||'');
   if(skipDate){
     const md=`${Number(skipDate.slice(5,7))}월 ${Number(skipDate.slice(8,10))}일`;
-    return `<div style="background:#FFF7ED;border:1px solid #FDBA74;border-radius:var(--rs);padding:12px;margin-bottom:12px">
+    return upHtml+`<div style="background:#FFF7ED;border:1px solid #FDBA74;border-radius:var(--rs);padding:12px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="font-size:12px;font-weight:700;color:#B45309">🙂 지난 시간은 수업을 못 했어요</span>
         <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${skipDate}</span>
@@ -2044,7 +2053,7 @@ function renderLastLesson(sid){
       <div style="font-size:12.5px;color:var(--navy);line-height:1.7">${md}은 수업이 없었어요. <b>다음 시간에 만나요!</b> 🙌<br>수업은 못 했지만 <b>과제는 꼭 해오기</b> 약속 💪</div>
     </div>`;
   }
-  if(!les.length)return '';
+  if(!les.length)return upHtml;
   const last=les[0];
   let matHtml=matsToHtml(last.materials),matsTextParts=[];
   Object.entries(last.materials||{}).forEach(([k,v])=>{
@@ -2057,7 +2066,7 @@ function renderLastLesson(sid){
   });
   const matsText=matsTextParts.join(' / ');
   const rawCmt=last.cmt||'';
-  return `<div style="background:var(--cream2);border-radius:var(--rs);border:1px solid var(--border);padding:12px;margin-bottom:12px">
+  return upHtml+`<div style="background:var(--cream2);border-radius:var(--rs);border:1px solid var(--border);padding:12px;margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <span style="font-size:12px;font-weight:700;color:var(--navy)">📝 지난 수업</span>
       <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${last.date||''}</span>
