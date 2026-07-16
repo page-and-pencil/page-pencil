@@ -276,7 +276,7 @@ async function loadParent(sid){
   // 블록 D — 미완료 과제
   const assigns=DB.assigns().filter(a=>a.sid===sid&&!a.completedAt);
   if(assigns.length){
-    const CAT_LBL={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','other':'기타'};
+    const CAT_LBL={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
     const todayD=new Date().toISOString().split('T')[0];
     const sorted=[...assigns].sort((a,b)=>{
       const urg=d=>{if(!d)return 99;const df=Math.round((new Date(d)-new Date(todayD))/86400000);return df<0?0:df===0?1:1+df;};

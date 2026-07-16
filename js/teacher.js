@@ -8530,7 +8530,7 @@ function showAssignDateDetail(dateStr){
     return a.due===dateStr||(!a.due&&a.date===dateStr);
   });
   const stus=DB.stus();
-  const CAT_LABELS={'worksheet':'워크시트','phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','other':'기타'};
+  const CAT_LABELS={'worksheet':'워크시트','phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
   if(!assigns.length){toast(`${dateStr} — 할당된 과제 없음`);return;}
   const rows=assigns.map(a=>{
     const s=stus.find(x=>x.id===a.sid);
@@ -8538,12 +8538,20 @@ function showAssignDateDetail(dateStr){
     // 클래스5: 해당 날짜의 스케줄 항목 표시
     const sc5=(a.schedule||[]).length?(a.schedule||[]).find(sc=>sc.date===dateStr):null;
     const book=sc5?[sc5.book,sc5.unit].filter(Boolean).join(', '):(a.category==='class5'?(c5BookLbl(a)||a.bookTitle||a.text||''):(a.bookTitle||a.text||''));
-    return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+    // 스케줄형(클래스5·반복)은 그 날짜 항목만 수정·삭제·밀기, 일반 과제는 기존 수정/삭제
+    const btns=sc5
+      ?`<button class="btn bo bsm" style="font-size:10px;padding:2px 7px" onclick="hwSchedEditRow('${a.id}','${dateStr}',this)">수정</button>
+         <button class="btn ba bsm" style="font-size:10px;padding:2px 7px" title="이 날부터 남은 스케줄을 하루씩 뒤로" onclick="hwSchedShift('${a.id}','${dateStr}')">⏩ 밀기</button>
+         <button class="btn bd bsm" style="font-size:10px;padding:2px 7px" onclick="hwSchedDelete('${a.id}','${dateStr}')">삭제</button>`
+      :`<button class="btn bo bsm" style="font-size:10px;padding:2px 7px" onclick="hwDetailClose();openEditAssignModal('${a.id}')">수정</button>
+         <button class="btn bd bsm" style="font-size:10px;padding:2px 7px" onclick="hwDetailClose();deleteAssign('${a.id}')">삭제</button>`;
+    return `<div class="hw-detail-row" style="padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;gap:8px;align-items:flex-start">
         <span style="font-weight:700;font-size:13px;min-width:48px">${s?.name||'—'}</span>
         <div style="flex:1;font-size:12px">${cat?`<span style="color:var(--teal)">[${cat}]</span> `:''}${[book,a.range].filter(Boolean).join(' · ')}
           <div style="font-size:10.5px;color:var(--slate);margin-top:2px">출처: ${asgSrcLabel(a)} · ${a.date||''} 할당</div>
         </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">${btns}</div>
       </div>
     </div>`;
   }).join('');
@@ -8561,6 +8569,61 @@ function showAssignDateDetail(dateStr){
   overlay.onclick=closeDetail;
   document.body.appendChild(overlay);document.body.appendChild(el);
 }
+// ── 날짜 상세에서 스케줄 항목 편집 (그 날 한 건만) ──
+function hwDetailClose(){document.getElementById('assign-detail-modal')?.remove();document.getElementById('assign-detail-overlay')?.remove();}
+function _hwRefresh(dateStr){showAssignDateDetail(dateStr);renderAssignCal();renderAssignTab();}
+function hwSchedEditRow(aid,dateStr,btn){
+  const row=btn.closest('.hw-detail-row');
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);
+  const sc=a&&(a.schedule||[]).find(s=>s.date===dateStr);
+  if(!row||!sc)return;
+  const st='padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
+  row.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:4px 0">
+    <input class="hw-e-book" value="${escAttr(sc.book||'')}" placeholder="교재/내용" style="${st};flex:2;min-width:130px">
+    <input class="hw-e-unit" value="${escAttr(sc.unit||'')}" placeholder="유닛/범위" style="${st};flex:2;min-width:110px">
+    <button class="btn bt bsm" style="font-size:11px" onclick="hwSchedEditSave('${aid}','${dateStr}',this)">저장</button>
+    <button class="btn bo bsm" style="font-size:11px" onclick="showAssignDateDetail('${dateStr}')">취소</button>
+  </div>`;
+  row.querySelector('.hw-e-unit')?.focus();
+}
+async function hwSchedEditSave(aid,dateStr,btn){
+  const row=btn.closest('.hw-detail-row');
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);
+  const sc=a&&(a.schedule||[]).find(s=>s.date===dateStr);
+  if(!row||!sc)return;
+  sc.book=(row.querySelector('.hw-e-book')?.value||'').trim();
+  sc.unit=(row.querySelector('.hw-e-unit')?.value||'').trim();
+  try{await supaUpsert('assignments',a.id,a,a.sid);}
+  catch(e){console.error('hwSchedEditSave:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  toast('수정했어요');_hwRefresh(dateStr);
+}
+async function hwSchedDelete(aid,dateStr){
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
+  askConfirm('이 날 항목 삭제',`${dateStr}의 이 항목만 스케줄에서 뺄까요? (다른 날은 그대로)`,'삭제','bd',async()=>{
+    a.schedule=(a.schedule||[]).filter(s=>s.date!==dateStr);
+    if(a.schedule.length){
+      a.due=a.schedule[a.schedule.length-1].date;
+      await supaUpsert('assignments',a.id,a,a.sid);
+    }else{ // 마지막 항목이었으면 과제 자체를 휴지통으로
+      a._deleted=true;a._deletedAt=new Date().toISOString().split('T')[0];
+      await supaUpsert('assignments',a.id,a,a.sid);
+      _cache.assignments=(_cache.assignments||[]).filter(x=>x.id!==a.id);
+    }
+    toast('삭제했어요');_hwRefresh(dateStr);
+  });
+}
+async function hwSchedShift(aid,dateStr){
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
+  const cnt=(a.schedule||[]).filter(s=>s.date>=dateStr).length;
+  askConfirm('하루씩 밀기',`${dateStr}부터 남은 ${cnt}개 항목을 전부 하루씩 뒤로 밀까요?`,'밀기','bt',async()=>{
+    (a.schedule||[]).forEach(s=>{
+      if(s.date>=dateStr){const d=new Date(s.date+'T12:00:00');d.setDate(d.getDate()+1);s.date=_pgYmd(d);}
+    });
+    a.due=(a.schedule[a.schedule.length-1]||{}).date||a.due;
+    await supaUpsert('assignments',a.id,a,a.sid);
+    toast('하루씩 밀었어요');_hwRefresh(dateStr);
+  });
+}
 function openAssignForDate(dateStr){
   openM('m-add-assign');
   const dateEl=document.getElementById('modal-assign-date');
@@ -8572,7 +8635,7 @@ function openBulkAssign(){openM('m-add-assign');}
 
 // ── TEACHER ASSIGN TAB ──
 function _assignItemHtml(a,hws){
-  const CAT_LABELS={'mission':'미션','worksheet':'워크시트','phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','other':'기타'};
+  const CAT_LABELS={'mission':'미션','worksheet':'워크시트','phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
   const hw=hws.find(h=>h.assignmentId===a.id);
   const catLabel=a.category?(CAT_LABELS[a.category]||a.category):''; // 직접 입력 구분은 그대로 표시
   const statusCls=a.completedAt?'bgreen':hw?'bamber':'';
@@ -8638,7 +8701,7 @@ function renderAssignTab(){
   const assigns=DB.assigns().sort((a,b)=>(b.due||b.date||'').localeCompare(a.due||a.date||''));
   if(!showStus.length){el.innerHTML='<div class="empty"><div class="empty-i">📋</div><div class="empty-t">학생 없음</div></div>';return;}
   const hws=_cache.homeworks||[];
-  const CAT_LABELS={'worksheet':'워크시트','phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','other':'기타'};
+  const CAT_LABELS={'worksheet':'워크시트','phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
   const cards=showStus.map(s=>{
     const sa=assigns.filter(a=>a.sid===s.id);
     if(!sa.length&&filterStu)return'';
