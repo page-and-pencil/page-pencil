@@ -280,7 +280,18 @@ async function supaSetSetting(key,value){
 function _idbOpen(){return new Promise((res,rej)=>{const rq=indexedDB.open('pp_cache',1);rq.onupgradeneeded=()=>rq.result.createObjectStore('kv');rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error);});}
 async function idbGet(k){try{const db=await _idbOpen();return await new Promise((res,rej)=>{const g=db.transaction('kv').objectStore('kv').get(k);g.onsuccess=()=>res(g.result);g.onerror=()=>rej(g.error);});}catch(e){return null;}}
 async function idbSet(k,v){try{const db=await _idbOpen();await new Promise((res,rej)=>{const p=db.transaction('kv','readwrite').objectStore('kv').put(v,k);p.onsuccess=()=>res();p.onerror=()=>rej(p.error);});}catch(e){}}
-let _bgRefreshing=false;
+let _bgRefreshing=false,_lastLoadAt=0;
+// 앱이 다시 화면에 돌아오면(폰 PWA 재개·탭 전환 복귀) 2분 이상 지난 데이터는 조용히 최신화
+// — 선생님이 과제·수업을 등록해도, 이미 열려 있던 학생·학부모 화면에 반영되지 않던 문제 해결
+function _refreshIfStale(){
+  if(document.visibilityState!=='visible')return;
+  if(_bgRefreshing||!(_cache.students||[]).length)return;
+  if(Date.now()-_lastLoadAt<120000)return;
+  _bgRefreshing=true;
+  loadAllData(true).then(()=>{_bgRefreshing=false;_afterBgRefresh();}).catch(()=>{_bgRefreshing=false;});
+}
+document.addEventListener('visibilitychange',_refreshIfStale);
+window.addEventListener('focus',_refreshIfStale);
 let _snapTimer=null;
 function _scheduleSnapSave(){ // 쓰기 후 스냅샷 저장 (2.5초 디바운스)
   clearTimeout(_snapTimer);
@@ -323,6 +334,7 @@ function _afterBgRefresh(){
       const p=document.querySelector('#s-student .panel.active');
       if(p&&p.id==='st-home'&&typeof renderStudentHome==='function')renderStudentHome(currentStudentSid);
       else if(p&&p.id==='st-library'&&typeof renderStudentLibrary==='function')renderStudentLibrary(currentStudentSid);
+      else if(p&&p.id==='st-homework'&&typeof renderAssignmentTab==='function')renderAssignmentTab(currentStudentSid);
     }else if(document.getElementById('s-parent')?.classList.contains('active')&&typeof currentParentSid!=='undefined'&&currentParentSid&&typeof loadParent==='function'){
       loadParent(currentParentSid);
     }
@@ -393,6 +405,7 @@ async function loadAllData(bg){
         document.body.appendChild(div);
       }catch(e){}
     }
+    _lastLoadAt=Date.now(); // 화면 복귀 시 최신화 판단 기준
     // 다음 방문 즉시 부팅용 스냅샷 — 핵심 테이블이 전부 성공한 완전 로드만 저장 (오염 방지)
     try{
       const coreOk=['students','lessons','readings','logs','assignments','textbooks','global_textbooks'].every(t=>res[tables.indexOf(t)].status==='fulfilled');
