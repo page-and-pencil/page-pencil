@@ -1185,10 +1185,14 @@ async function loadStuPanel(sid){
             <div style="font-size:12px;font-weight:700;margin-top:2px">${
               a.type==='reading'?`${_catPill('원서')}${[a.bookTitle,a.range].filter(Boolean).join(' · ')||'원서 읽기'}`:
               a.type==='vocab'?`${_catPill('어휘')}단어: ${(a.words||[]).join(', ')}`:
-              a.category==='class5'?(()=>{
+              (a.category==='class5'||a.category==='recur')?(()=>{
+                const pill=a.category==='recur'?'🔁 반복':'클래스5';
                 const sc=a.schedule||[];
-                if(!sc.length)return`${_catPill('클래스5')}${[a.bookTitle&&a.bookTitle!=='클래스5'?a.bookTitle:'',a.range].filter(Boolean).join(' · ')||'클래스5 학습'}`;
-                return`${_catPill('클래스5')}<div style="margin-top:3px">${sc.slice(0,5).map(s=>`<div style="font-size:11px;font-weight:normal;color:var(--slate);line-height:1.7;padding-left:2px">${s.date||''} ${[s.book,s.unit].filter(Boolean).join(' · ')}</div>`).join('')}${sc.length>5?`<div style="font-size:10px;font-weight:normal;color:var(--slate);padding-left:2px">외 ${sc.length-5}일...</div>`:''}</div>`;
+                if(!sc.length)return`${_catPill(pill)}${[a.bookTitle&&a.bookTitle!=='클래스5'?a.bookTitle:'',a.range].filter(Boolean).join(' · ')||'학습'}`;
+                const today=new Date().toISOString().split('T')[0];
+                const upcoming=sc.filter(s=>(s.date||'')>=today);
+                const show=(upcoming.length?upcoming:sc).slice(0,5);
+                return`${_catPill(pill)}${a.category==='recur'?`<span style="font-weight:600">${a.bookTitle||''}</span> <span style="font-size:10px;font-weight:normal;color:var(--slate)">(${sc.length}일)</span>`:''}<div style="margin-top:3px">${show.map(s=>`<div style="font-size:11px;font-weight:normal;color:var(--slate);line-height:1.7;padding-left:2px">${s.date||''} ${[s.book!==a.bookTitle?s.book:'',s.unit].filter(Boolean).join(' · ')}</div>`).join('')}${sc.length>show.length?`<div style="font-size:10px;font-weight:normal;color:var(--slate);padding-left:2px">외 ${sc.length-show.length}일...</div>`:''}</div>`;
               })():
               (()=>{ // 구분(직접 입력 포함)을 필로 표시하고, 빈 교재명일 때 고아 '·'가 남지 않게 join
                 const KC={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신',book:'원서',other:'기타'};
@@ -8496,7 +8500,7 @@ function assignCalMonth(dir){
 function showAssignDateDetail(dateStr){
   const assigns=(_cache.assignments||[]).filter(a=>{
     // 스케줄 있는 클래스5만 스케줄 날짜 매칭, 스케줄 없는 클래스5는 일반 과제처럼 due 매칭
-    if(a.category==='class5'&&(a.schedule||[]).length) return a.schedule.some(sc=>sc.date===dateStr);
+    if((a.schedule||[]).length) return a.schedule.some(sc=>sc.date===dateStr); // 스케줄형(클래스5·반복 숙제)은 날짜별 매칭
     return a.due===dateStr||(!a.due&&a.date===dateStr);
   });
   const stus=DB.stus();
@@ -8506,7 +8510,7 @@ function showAssignDateDetail(dateStr){
     const s=stus.find(x=>x.id===a.sid);
     const cat=a.category?(CAT_LABELS[a.category]||a.category):''; // 직접 입력 구분은 그대로 표시
     // 클래스5: 해당 날짜의 스케줄 항목 표시
-    const sc5=a.category==='class5'?(a.schedule||[]).find(sc=>sc.date===dateStr):null;
+    const sc5=(a.schedule||[]).length?(a.schedule||[]).find(sc=>sc.date===dateStr):null;
     const book=sc5?[sc5.book,sc5.unit].filter(Boolean).join(', '):(a.category==='class5'?(c5BookLbl(a)||a.bookTitle||a.text||''):(a.bookTitle||a.text||''));
     return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;gap:8px;align-items:flex-start">
@@ -8565,7 +8569,7 @@ function _assignItemHtml(a,hws){
     if(sc.length)return`<div style="margin-top:2px">${sc.slice(0,3).map(s=>`<div style="font-size:10px;color:var(--slate);line-height:1.5">${s.date||''} ${[s.book,s.unit].filter(Boolean).join(' · ')}</div>`).join('')}${sc.length>3?`<div style="font-size:10px;color:var(--slate)">외 ${sc.length-3}일...</div>`:''}</div>`;
     return(a.bookTitle&&a.bookTitle!=='클래스5'?` · ${a.bookTitle}`:'')+(a.range?' · '+a.range:'');
   })();
-  const bookLabel=a.type==='mission'?`🎯 ${a.bookTitle||''} · ${a.unitKey||''}${a.unitTitle?' — '+a.unitTitle:''}`:a.type==='worksheet'?`🗒️ ${a.bookTitle||'워크시트'}`:a.category==='class5'?'🎮 클래스5':a.bookTitle||(a.text||'');
+  const bookLabel=a.type==='mission'?`🎯 ${a.bookTitle||''} · ${a.unitKey||''}${a.unitTitle?' — '+a.unitTitle:''}`:a.type==='worksheet'?`🗒️ ${a.bookTitle||'워크시트'}`:a.category==='class5'?'🎮 클래스5':a.category==='recur'?`🔁 ${a.bookTitle||'반복 숙제'} <span style="font-weight:400;color:var(--slate)">(${(a.schedule||[]).length}일)</span>`:a.bookTitle||(a.text||'');
   return `<div class="assign-item" style="align-items:flex-start">
     <div style="flex:1;min-width:0">
       <div style="font-size:11px;font-weight:600;color:var(--navy);${a.category!=='class5'&&a.type!=='mission'?'white-space:nowrap;overflow:hidden;text-overflow:ellipsis':''}">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.category!=='class5'&&a.range?' '+a.range:''}${c5Detail}${missionDetail}</div>
@@ -8816,8 +8820,9 @@ function modalAssignCatChange(){
   const isC5=cat==='class5';
   const isMission=cat==='mission';
   const isWs=cat==='worksheet';
-  if(bookF)bookF.style.display=(isC5||isMission||isWs)?'none':'';
-  if(rangeF)rangeF.style.display=(isC5||isMission||isWs)?'none':'';
+  const isRecur=cat==='recur';
+  if(bookF)bookF.style.display=(isC5||isMission||isWs||isRecur)?'none':'';
+  if(rangeF)rangeF.style.display=(isC5||isMission||isWs||isRecur)?'none':'';
   if(cat&&cat!=='other'&&!isC5&&!isMission&&!isWs&&sid&&bookEl&&!bookEl.value){
     const stClasses=DB.classes().filter(c=>(c.studentIds||[]).includes(sid));
     for(const c of stClasses){
@@ -8838,6 +8843,37 @@ function modalAssignCatChange(){
         ${recentCards.length?recentCards.map(c=>`<label style="display:flex;align-items:center;gap:8px;padding:2px 0;cursor:pointer"><input type="checkbox" class="modal-vocab-check" value="${c.word}"> <span style="font-family:var(--fd);font-weight:700">${c.word}</span><span style="font-size:11px;color:var(--slate)">${c.meaning||''}</span></label>`).join(''):'<span style="font-size:12px;color:var(--slate)">단어 카드 없음</span>'}
       </div></div>
       <div class="f"><label>단어 직접 입력 (쉼표 구분)</label><input type="text" id="modal-vocab-extra" placeholder="apple, enormous..."></div>`;
+  } else if(isRecur){
+    extra.innerHTML=`<div style="margin-top:10px;border:1.5px solid var(--teal);border-radius:var(--rs);padding:12px;background:var(--tl)">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">🔁 반복 숙제 — 정한 요일마다 자동으로 이어지는 숙제 스케줄을 만듭니다</div>
+      <div class="f" style="margin-bottom:8px"><label>유형</label>
+        <select id="rc-type" style="width:100%" onchange="recurTypeChange()">
+          <option value="fixed">매일 같은 내용 (예: 공책 단어 쓰기)</option>
+          <option value="book">교재 1과씩 진행 (단원이 끝나면 자동 종료)</option>
+        </select>
+      </div>
+      <div class="f" id="rc-fixed-wrap" style="margin-bottom:8px"><label>숙제 내용</label>
+        <input type="text" id="rc-text" placeholder="예: 공책에 오늘 배운 단어 쓰기" style="width:100%;box-sizing:border-box">
+      </div>
+      <div id="rc-book-wrap" style="display:none">
+        <div class="f" style="margin-bottom:8px"><label>교재</label><select id="rc-book" style="width:100%" onchange="recurBookChange()"></select></div>
+        <div class="f" style="margin-bottom:8px"><label>시작 단원 <span style="font-size:10px;font-weight:400;color:var(--slate)">(여기부터 1과씩)</span></label><select id="rc-unit" style="width:100%"></select></div>
+      </div>
+      <div class="f" style="margin-bottom:8px"><label>반복 요일</label>
+        <select id="rc-days" style="width:100%">
+          <option value="daily">매일</option>
+          <option value="noclass">수업 없는 날만 (등록된 휴강일 포함)</option>
+          <option value="class">수업 있는 날만</option>
+        </select>
+      </div>
+      <div style="font-size:11px;color:var(--slate);line-height:1.6">시작일 = 위 '날짜' 칸 (비우면 오늘) · 종료 = 위 '마감일' 칸.<br>교재 유형은 마감일을 비워도 단원이 끝나는 날 자동 종료, '매일 같은 내용'은 마감일 비우면 올해 말까지.</div>
+    </div>`;
+    // 교재 목록 채우기 (단원 있는 교재)
+    const rcSel=document.getElementById('rc-book');
+    if(rcSel){
+      const books=tbSortByUsage((_cache.globalTextbooks||[]).filter(b=>tbUnitKeys(b).length));
+      rcSel.innerHTML='<option value="">-- 교재 선택 --</option>'+books.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title)}${b.category?' ('+b.category+')':''}</option>`).join('');
+    }
   } else if(isWs){
     extra.innerHTML=`<div style="margin-top:10px;border:1.5px solid var(--teal);border-radius:var(--rs);padding:12px;background:var(--tl)">
       <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">🗒️ 워크시트 배정 — 학생 홈에 인쇄 학습지가 표시됩니다</div>
@@ -9046,6 +9082,62 @@ function selectModalBook(id,title){
   document.getElementById('modal-book-selected').textContent='✓ 선택됨: '+title;
   document.getElementById('modal-book-dropdown').style.display='none';
 }
+// ── 반복 숙제 헬퍼 ──
+function recurTypeChange(){
+  const t=document.getElementById('rc-type')?.value||'fixed';
+  const f=document.getElementById('rc-fixed-wrap');const b=document.getElementById('rc-book-wrap');
+  if(f)f.style.display=t==='fixed'?'':'none';
+  if(b)b.style.display=t==='book'?'':'none';
+}
+function recurBookChange(){
+  const bkId=document.getElementById('rc-book')?.value||'';
+  const uSel=document.getElementById('rc-unit');if(!uSel)return;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===bkId);
+  if(!tb){uSel.innerHTML='';return;}
+  const keys=tbUnitKeys(tb);
+  // 기본값: 학생 클래스에서 아직 안 배운 다음 단원
+  const sid=document.getElementById('modal-assign-stu')?.value||'';
+  const stCls=DB.classes().find(c=>(c.studentIds||[]).includes(sid));
+  const next=stCls?_pgNextUnit(stCls.id,tb,''):'';
+  uSel.innerHTML=keys.map(k=>`<option value="${escAttr(k)}"${k===next?' selected':''}>${escAttr(k)}${tb.unitTitles?.[k]?' — '+tb.unitTitles[k]:''}</option>`).join('');
+}
+// 반복 숙제 스케줄 생성 — rule: daily(매일) | noclass(수업 없는 날+등록된 휴강일) | class(수업 있는 날, 휴강 제외)
+// 교재 유형은 startUnit부터 1과씩, 단원 소진 시 종료. 고정 내용은 endDate까지(기본 연말)
+function buildRecurSchedule(opts){
+  const {rule,start,end,clsDays,skipDates,text,tb,startUnit}=opts;
+  const skipSet=new Set(skipDates||[]);
+  const days=clsDays||[];
+  const applies=(ds,dow)=>{
+    if(rule==='noclass')return !days.includes(dow)||skipSet.has(ds);
+    if(rule==='class')return days.includes(dow)&&!skipSet.has(ds);
+    return true; // daily
+  };
+  let units=null,ui=0;
+  if(tb){
+    const keys=tbUnitKeys(tb);
+    let si=startUnit?keys.findIndex(k=>_pgUMatch(_pgNorm(k),_pgNorm(startUnit))):0;
+    if(si<0)si=0;
+    units=keys.slice(si);
+    if(!units.length)return[];
+  }
+  const schedule=[];
+  const cur=new Date(start+'T12:00:00');
+  const endD=new Date((end||(start.slice(0,4)+'-12-31'))+'T12:00:00');
+  for(let i=0;i<420&&cur<=endD;i++){
+    const ds=_pgYmd(cur);
+    const dow=_PG_DOW[cur.getDay()];
+    if(applies(ds,dow)){
+      if(units){
+        if(ui>=units.length)break;                 // 단원 소진 → 종료
+        schedule.push({date:ds,book:tb.title,unit:units[ui++]});
+      }else{
+        schedule.push({date:ds,book:text,unit:''});
+      }
+    }
+    cur.setDate(cur.getDate()+1);
+  }
+  return schedule;
+}
 async function saveModalAssignment(){
   try{
   const sid=document.getElementById('modal-assign-stu').value;
@@ -9143,6 +9235,34 @@ async function saveModalAssignment(){
     }
     closeM('m-add-assign');renderAssignTab();
     toast(created>1?`${created}개 유닛 미션이 할당되었습니다 🎯`:'학습 미션이 할당되었습니다 🎯');return;
+  }
+  if(cat==='recur'){
+    const rcType=document.getElementById('rc-type')?.value||'fixed';
+    const rule=document.getElementById('rc-days')?.value||'daily';
+    const start=date||new Date().toISOString().split('T')[0];
+    const stCls=DB.classes().find(c=>(c.studentIds||[]).includes(sid));
+    let schedule,title,tbId='';
+    if(rcType==='book'){
+      const bkId=document.getElementById('rc-book')?.value||'';
+      const tb=(_cache.globalTextbooks||[]).find(b=>b.id===bkId);
+      if(!tb){toast('교재를 선택해 주세요');return;}
+      const startUnit=document.getElementById('rc-unit')?.value||'';
+      schedule=buildRecurSchedule({rule,start,end:due||'',clsDays:stCls?.days,skipDates:stCls?.skipDates,tb,startUnit});
+      title=tb.title;tbId=tb.id;
+    }else{
+      const text=(document.getElementById('rc-text')?.value||'').trim();
+      if(!text){toast('숙제 내용을 입력해 주세요');return;}
+      schedule=buildRecurSchedule({rule,start,end:due||'',clsDays:stCls?.days,skipDates:stCls?.skipDates,text});
+      title=text;
+    }
+    if(!schedule.length){toast('해당 조건에 맞는 날이 없어요 — 시작일·반복 요일을 확인해 주세요');return;}
+    const a={id:uid(),sid,type:'recur',category:'recur',recurRule:rule,date:schedule[0].date,due:schedule[schedule.length-1].date,
+      bookTitle:title,...(tbId&&{bookId:tbId}),note,schedule};
+    await supaUpsert('assignments',a.id,a,sid);
+    if(!_cache.assignments)_cache.assignments=[];
+    _cache.assignments.unshift(a);
+    closeM('m-add-assign');renderAssignTab();
+    toast(`🔁 반복 숙제 ${schedule.length}일치 할당 (${schedule[0].date} ~ ${schedule[schedule.length-1].date})`);return;
   }
   if(cat==='class5'){
     const schedRows=document.querySelectorAll('#c5-rows .c5-row');
