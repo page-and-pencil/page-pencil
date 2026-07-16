@@ -10159,24 +10159,29 @@ function _pgClass5Assigned(classId,bookId){
   });
   return s;
 }
-// 어떤 날짜 이후 첫 수업일
-function _nextClassDay(dateStr,days){
+// 어떤 날짜 이후 첫 '실제 수업일' — 휴강·결석일(skipSet)은 건너뜀 (수업 안 한 날에 숙제 마감이 잡히지 않게)
+function _nextClassDay(dateStr,days,skipSet){
   if(!days||!days.length)return'';
   const cur=new Date(dateStr+'T12:00:00');
-  for(let i=0;i<30;i++){cur.setDate(cur.getDate()+1);if(days.includes(_PG_DOW[cur.getDay()]))return _pgYmd(cur);}
+  for(let i=0;i<60;i++){
+    cur.setDate(cur.getDate()+1);
+    const ds=_pgYmd(cur);
+    if(days.includes(_PG_DOW[cur.getDay()])&&!(skipSet&&skipSet.has(ds)))return ds;
+  }
   return'';
 }
 // 수업 내용 연계 숙제 예정 {마감일:[{subject,book,bookId,unit,assigned}]}
 // 규칙: 실제로 배운(기록된) 교재 단원 → 복습·워크북 숙제, 마감=다음 수업일. 원서·펜슬다운 제외
 function _pgHomeworkPlan(classId,c){
   const days=c.days||[];
+  const skipSet=new Set(c.skipDates||[]); // 휴강일엔 숙제 마감을 잡지 않음 — 다음 실제 수업일로
   const classSids=new Set(c.studentIds||[]);
   const asgs=(_cache.assignments||[]).filter(a=>classSids.has(a.sid)&&a.category!=='class5'&&a.bookTitle);
   const isAssigned=(book,unit)=>asgs.some(a=>_pgNorm(a.bookTitle)===_pgNorm(book)&&(!unit||_pgUMatch(_pgNorm(a.range||''),_pgNorm(unit))));
   const byDate={},seen=new Set();
   (_cache.lessons||[]).forEach(l=>{
     if(l.classId!==classId||!l.date||!l.materials)return;
-    const due=_nextClassDay(l.date,days);
+    const due=_nextClassDay(l.date,days,skipSet);
     if(!due)return;
     Object.entries(l.materials).forEach(([k,v])=>{
       const bk=k.replace(/_\d+$/,'');
