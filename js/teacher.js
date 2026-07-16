@@ -8439,59 +8439,85 @@ function showVocabCardStatus(sid,allWords){
 }
 
 // ── ASSIGN CALENDAR ──
-let _assignCalOffset=0,_hwCalClsId='';
-// ── 숙제 캘린더 (과제 메뉴) — 반별 칩: 📕 수업연계 · 🎮 클래스5 · 📝 매일반복 ──
-// 진도 캘린더와 같은 과목 색칩(_PG_CAT_COLORS)을 그대로 씀. 클래스별로 봄
+let _assignCalOffset=0,_hwCalStuId='';
+// 과제의 출처 라벨 — 어디서 할당됐는지 추적용
+function asgSrcLabel(a){
+  if(a.category==='class5')return '🎮 클래스5 진도 스케줄';
+  if(a.category==='recur')return '🔁 반복 숙제'+(a.recurRule==='noclass'?' (수업 없는 날)':a.recurRule==='class'?' (수업 있는 날)':' (매일)');
+  if(a.type==='mission')return '🎯 학습 미션';
+  if(a.type==='worksheet')return '🗒️ 워크시트';
+  if(a.note==='복습'&&a.classId)return '📕 숙제 캘린더 (수업 연계)';
+  if(a.common)return '📝 수업 기록 폼 (반 공통)';
+  return '✍️ 직접 할당';
+}
+// ── 숙제 캘린더 (과제 메뉴) — 학생별 보기 ──
+// 실제 할당된 과제(진한 칩: 스케줄형은 날짜별, 일반형은 마감일) + 수업 연계 숙제 제안(점선 📕)
 function renderAssignCal(){
   const el=document.getElementById('assign-cal');if(!el)return;
-  const classes=DB.classes().filter(c=>c.active!==false);
-  if(!classes.length){el.innerHTML='<div style="font-size:12px;color:var(--slate);padding:10px">클래스를 먼저 만들어 주세요</div>';return;}
-  if(!_hwCalClsId||!classes.some(c=>c.id===_hwCalClsId))_hwCalClsId=classes[0].id;
-  const c=classes.find(x=>x.id===_hwCalClsId);
+  const stus=DB.stus().filter(s=>!s.inactive);
+  if(!stus.length){el.innerHTML='<div style="font-size:12px;color:var(--slate);padding:10px">학생을 먼저 등록해 주세요</div>';return;}
+  if(!_hwCalStuId||!stus.some(s=>s.id===_hwCalStuId))_hwCalStuId=stus[0].id;
+  const sid=_hwCalStuId;
+  const stCls=DB.classes().find(c=>c.active!==false&&(c.studentIds||[]).includes(sid))||null;
   const base=new Date();base.setMonth(base.getMonth()+_assignCalOffset);
   const year=base.getFullYear(),month=base.getMonth();
   const ym=`${year}-${String(month+1).padStart(2,'0')}`;
-  const monthEnd=`${ym}-${String(new Date(year,month+1,0).getDate()).padStart(2,'0')}`;
   const firstDay=new Date(year,month,1).getDay();
   const daysInMonth=new Date(year,month+1,0).getDate();
   const todayStr=new Date().toISOString().slice(0,10);
-  // 세 종류 숙제 계산 (진도 캘린더와 동일 함수 재사용)
-  const hwBy=_pgHomeworkPlan(_hwCalClsId,c);
-  const c5By=_pgClass5Plan(c,monthEnd);
-  const c5Assigned=c.class5?.bookId?_pgClass5Assigned(_hwCalClsId,c.class5.bookId):new Set();
-  const dailyHw=c.dailyHw||[];
-  const c5Pending=Object.keys(c5By).some(d=>!c5Assigned.has(d));
+  // ① 이 학생의 실제 과제 → 날짜별 칩 (스케줄형은 각 날짜, 일반형은 마감일)
+  const byDate={};
+  (_cache.assignments||[]).forEach(a=>{
+    if(a.sid!==sid)return;
+    if((a.schedule||[]).length){
+      a.schedule.forEach(sc=>{
+        if(!sc.date||!sc.date.startsWith(ym))return;
+        const isRecur=a.category==='recur';
+        (byDate[sc.date]=byDate[sc.date]||[]).push({
+          color:isRecur?'#0891B2':_PG_C5_COLOR,
+          ico:isRecur?'🔁':'🎮',
+          label:sc.unit||sc.book||a.bookTitle||'',
+          tip:`${asgSrcLabel(a)} — ${[sc.book,sc.unit].filter(Boolean).join(' · ')}`});
+      });
+    }else if(a.due&&a.due.startsWith(ym)){
+      (byDate[a.due]=byDate[a.due]||[]).push({
+        color:_PG_CAT_COLORS[a.category]||'#64748B',
+        ico:a.type==='mission'?'🎯':a.type==='worksheet'?'🗒️':'📕',
+        label:[a.bookTitle||a.text||'',a.range].filter(Boolean).join(' ').trim()||'과제',
+        tip:`${asgSrcLabel(a)} — ${[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')} (마감 ${a.due})`,
+        done:!!a.completedAt});
+    }
+  });
+  // ② 수업 연계 숙제 제안 (아직 미할당 점선 📕) — 학생의 클래스 기준
+  const hwBy=stCls?_pgHomeworkPlan(stCls.id,stCls):{};
   const hwPending=Object.values(hwBy).some(arr=>arr.some(h=>!h.assigned));
-  const clsOpts=classes.map(x=>`<option value="${x.id}"${x.id===_hwCalClsId?' selected':''}>${escAttr(x.name)}</option>`).join('');
+  const stuOpts=stus.map(s=>`<option value="${s.id}"${s.id===sid?' selected':''}>${escAttr(s.name)}</option>`).join('');
   let cells='';
   for(let i=0;i<firstDay;i++)cells+='<div></div>';
   for(let d=1;d<=daysInMonth;d++){
     const ds=`${ym}-${String(d).padStart(2,'0')}`;
     const isToday=ds===todayStr;
     let chips='';
-    // 📕 수업 연계 숙제
-    (hwBy[ds]||[]).forEach(hw=>{
-      const col=_PG_CAT_COLORS[hw.subject]||'#64748B';
-      chips+=`<span class="pg-chip pg-hw ${hw.assigned?'rec':'ghost'}" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제'+(hw.assigned?' (할당됨)':' (더블클릭=반 전체 숙제 할당)'))}" onclick="event.stopPropagation()" ondblclick="pgHwDbl(event,'${_hwCalClsId}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">📕 ${hw.unit}</span>`;
+    // 할당된 과제 (진한 칩) — 클릭하면 그 날짜 상세
+    (byDate[ds]||[]).forEach(x=>{
+      chips+=`<span class="pg-chip rec" style="--pgc:${x.color}${x.done?';opacity:.55':''}" title="${escAttr(x.tip+(x.done?' · 제출완료':''))}" onclick="event.stopPropagation();showAssignDateDetail('${ds}')">${x.ico} ${escAttr(String(x.label).length>14?String(x.label).slice(0,14)+'…':x.label)}${x.done?' ✓':''}</span>`;
     });
-    // 🎮 클래스5 (매일)
-    const c5=c5By[ds];
-    if(c5){const done=c5Assigned.has(ds);
-      chips+=`<span class="pg-chip ${done?'rec':'ghost'}" style="--pgc:${_PG_C5_COLOR}" title="${escAttr('클래스5 — '+c5.unit+(c5.title?' '+c5.title:'')+(done?' (할당됨)':' (누르면 반 전체 일괄 할당)'))}" onclick="event.stopPropagation();pgAssignClass5('${_hwCalClsId}')">🎮 ${c5.unit}</span>`;}
-    // 📝 매일 반복 (물리 루틴 표시)
-    dailyHw.forEach(lbl=>{chips+=`<span class="pg-chip rec" style="--pgc:#0891B2" title="${escAttr('매일 숙제 — '+lbl)}">📝 ${escAttr(lbl.length>6?lbl.slice(0,6)+'…':lbl)}</span>`;});
-    cells+=`<div class="pg-cell${isToday?' today':''}${ds<todayStr?' past':''}"><div class="pg-dnum">${d}</div>${chips}</div>`;
+    // 미할당 수업 연계 숙제 제안 (점선) — 더블클릭=반 전체 할당
+    (hwBy[ds]||[]).filter(h=>!h.assigned).forEach(hw=>{
+      const col=_PG_CAT_COLORS[hw.subject]||'#64748B';
+      chips+=`<span class="pg-chip pg-hw ghost" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 (더블클릭=반 전체 할당)')}" onclick="event.stopPropagation()" ondblclick="pgHwDbl(event,'${stCls?stCls.id:''}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">📕 ${hw.unit}</span>`;
+    });
+    cells+=`<div class="pg-cell${isToday?' today':''}${ds<todayStr?' past':''}" onclick="showAssignDateDetail('${ds}')"><div class="pg-dnum">${d}</div>${chips}</div>`;
   }
   el.innerHTML=`<div class="pg-cal-head" style="margin-bottom:8px">
-      <select class="filter-sel" style="font-size:12px;min-width:110px" onchange="_hwCalClsId=this.value;renderAssignCal()">${clsOpts}</select>
+      <select class="filter-sel" style="font-size:12px;min-width:100px" onchange="_hwCalStuId=this.value;renderAssignCal()">${stuOpts}</select>
       <button class="btn bo bxxs" onclick="assignCalMonth(-1)">◀</button>
       <span style="font-size:12.5px;font-weight:700;color:var(--navy)">${year}년 ${month+1}월</span>
       <button class="btn bo bxxs" onclick="assignCalMonth(1)">▶</button>
-      ${hwPending?`<button class="btn bt bxxs" title="배운 단원 복습 숙제를 반 전체에게 한 번에" onclick="pgAssignAllHomework('${_hwCalClsId}')">📕 숙제 일괄</button>`:''}
-      ${c5Pending?`<button class="btn bt bxxs" title="클래스5를 반 전체 앱 과제로 한 번에" onclick="pgAssignClass5('${_hwCalClsId}')">🎮 클래스5 일괄</button>`:''}
+      ${hwPending&&stCls?`<button class="btn bt bxxs" title="배운 단원 복습 숙제를 반 전체에게 한 번에" onclick="pgAssignAllHomework('${stCls.id}')">📕 숙제 일괄</button>`:''}
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(x=>`<div class="pg-cal-dow">${x}</div>`).join('')}${cells}</div>
-    <div class="pg-cal-hint">📕 수업 연계 숙제(배운 단원→다음 수업일) · 🎮 클래스5(매일 앱 과제) · 📝 매일 반복 숙제 · 진한 칩=할당됨, 점선=예정. <b>📕·🎮 칩 더블클릭/클릭=반 전체 할당</b>. 매일 반복 숙제는 클래스 수정에서 등록</div>`;
+    <div class="pg-cal-hint">진한 칩=이 학생에게 <b>할당된 과제</b> (🎮 클래스5 · 🔁 반복 숙제 · 📕 일반 — 칩에 마우스를 올리면 <b>어디서 할당됐는지</b> 표시) · 점선 📕=수업 연계 숙제 제안(더블클릭=반 전체 할당) · 날짜 클릭=그 날 과제 상세</div>`;
 }
 function assignCalMonth(dir){
   _assignCalOffset+=dir;
@@ -8515,7 +8541,9 @@ function showAssignDateDetail(dateStr){
     return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;gap:8px;align-items:flex-start">
         <span style="font-weight:700;font-size:13px;min-width:48px">${s?.name||'—'}</span>
-        <div style="flex:1;font-size:12px">${cat?`<span style="color:var(--teal)">[${cat}]</span> `:''}${[book,a.range].filter(Boolean).join(' · ')}</div>
+        <div style="flex:1;font-size:12px">${cat?`<span style="color:var(--teal)">[${cat}]</span> `:''}${[book,a.range].filter(Boolean).join(' · ')}
+          <div style="font-size:10.5px;color:var(--slate);margin-top:2px">출처: ${asgSrcLabel(a)} · ${a.date||''} 할당</div>
+        </div>
       </div>
     </div>`;
   }).join('');
