@@ -8477,7 +8477,8 @@ function renderAssignCal(){
           color:isRecur?'#0891B2':_PG_C5_COLOR,
           ico:isRecur?'🔁':'🎮',
           label:sc.unit||sc.book||a.bookTitle||'',
-          tip:`${asgSrcLabel(a)} — ${[sc.book,sc.unit].filter(Boolean).join(' · ')}`});
+          tip:`${asgSrcLabel(a)} — ${[sc.book,sc.unit].filter(Boolean).join(' · ')}`,
+          done:!!sc.done});
       });
     }else if(a.due&&a.due.startsWith(ym)){
       (byDate[a.due]=byDate[a.due]||[]).push({
@@ -8539,16 +8540,19 @@ function showAssignDateDetail(dateStr){
     const sc5=(a.schedule||[]).length?(a.schedule||[]).find(sc=>sc.date===dateStr):null;
     const book=sc5?[sc5.book,sc5.unit].filter(Boolean).join(', '):(a.category==='class5'?(c5BookLbl(a)||a.bookTitle||a.text||''):(a.bookTitle||a.text||''));
     // 스케줄형(클래스5·반복)은 그 날짜 항목만 수정·삭제·밀기, 일반 과제는 기존 수정/삭제
+    const doneNow=sc5?!!sc5.done:!!a.completedAt;
     const btns=sc5
-      ?`<button class="btn bo bsm" style="font-size:10px;padding:2px 7px" onclick="hwSchedEditRow('${a.id}','${dateStr}',this)">수정</button>
+      ?`<button class="btn ${sc5.done?'bo':'bt'} bsm" style="font-size:10px;padding:2px 7px" title="${sc5.done?'완료 표시 취소':'학생이 앱 체크를 안 했어도 이 날 완료로'}" onclick="hwSchedToggleDone('${a.id}','${dateStr}')">${sc5.done?'완료 취소':'✓ 완료'}</button>
+         <button class="btn bo bsm" style="font-size:10px;padding:2px 7px" onclick="hwSchedEditRow('${a.id}','${dateStr}',this)">수정</button>
          <button class="btn ba bsm" style="font-size:10px;padding:2px 7px" title="이 날부터 남은 스케줄을 하루씩 뒤로" onclick="hwSchedShift('${a.id}','${dateStr}')">⏩ 밀기</button>
          <button class="btn bd bsm" style="font-size:10px;padding:2px 7px" onclick="hwSchedDelete('${a.id}','${dateStr}')">삭제</button>`
-      :`<button class="btn bo bsm" style="font-size:10px;padding:2px 7px" onclick="hwDetailClose();openEditAssignModal('${a.id}')">수정</button>
+      :`<button class="btn ${a.completedAt?'bo':'bt'} bsm" style="font-size:10px;padding:2px 7px" title="${a.completedAt?'완료 표시 취소':'학생이 앱 체크를 안 했어도 완료로'}" onclick="tAsgnToggleDone('${a.id}');showAssignDateDetail('${dateStr}')">${a.completedAt?'완료 취소':'✓ 완료'}</button>
+         <button class="btn bo bsm" style="font-size:10px;padding:2px 7px" onclick="hwDetailClose();openEditAssignModal('${a.id}')">수정</button>
          <button class="btn bd bsm" style="font-size:10px;padding:2px 7px" onclick="hwDetailClose();deleteAssign('${a.id}')">삭제</button>`;
-    return `<div class="hw-detail-row" style="padding:6px 0;border-bottom:1px solid var(--border)">
+    return `<div class="hw-detail-row" style="padding:6px 0;border-bottom:1px solid var(--border)${doneNow?';opacity:.65':''}">
       <div style="display:flex;gap:8px;align-items:flex-start">
         <span style="font-weight:700;font-size:13px;min-width:48px">${s?.name||'—'}</span>
-        <div style="flex:1;font-size:12px">${cat?`<span style="color:var(--teal)">[${cat}]</span> `:''}${[book,a.range].filter(Boolean).join(' · ')}
+        <div style="flex:1;font-size:12px">${doneNow?'✅ ':''}${cat?`<span style="color:var(--teal)">[${cat}]</span> `:''}${[book,a.range].filter(Boolean).join(' · ')}
           <div style="font-size:10.5px;color:var(--slate);margin-top:2px">출처: ${asgSrcLabel(a)} · ${a.date||''} 할당</div>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0">${btns}</div>
@@ -8624,6 +8628,26 @@ async function hwSchedShift(aid,dateStr){
     toast('하루씩 밀었어요');_hwRefresh(dateStr);
   });
 }
+// 선생님이 대신 완료 체크 — 학생이 숙제는 했는데 앱에서 체크를 안 한 경우
+async function tAsgnToggleDone(aid){
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
+  if(a.completedAt)delete a.completedAt;
+  else a.completedAt=new Date().toISOString();
+  try{await supaUpsert('assignments',a.id,a,a.sid);}
+  catch(e){console.error('tAsgnToggleDone:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  renderAssignTab();renderAssignCal();
+  toast(a.completedAt?'완료로 표시했어요 ✓':'완료 표시를 취소했어요');
+}
+// 스케줄형(클래스5·반복)의 그 날짜 항목 완료 토글
+async function hwSchedToggleDone(aid,dateStr){
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
+  const sc=(a.schedule||[]).find(s=>s.date===dateStr);if(!sc)return;
+  if(sc.done)delete sc.done;else sc.done=true;
+  try{await supaUpsert('assignments',a.id,a,a.sid);}
+  catch(e){console.error('hwSchedToggleDone:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  toast(sc.done?'이 날 완료 ✓':'완료 표시를 취소했어요');
+  _hwRefresh(dateStr);
+}
 function openAssignForDate(dateStr){
   openM('m-add-assign');
   const dateEl=document.getElementById('modal-assign-date');
@@ -8669,6 +8693,7 @@ function _assignItemHtml(a,hws){
     </div>
     <div style="display:flex;gap:3px;flex-shrink:0;align-items:center">
       ${statusTxt?`<span class="badge ${statusCls}" style="font-size:9px">${statusTxt}</span>`:''}
+      ${(a.schedule||[]).length?'':`<button class="btn ${a.completedAt?'bo':'bt'}" style="font-size:9px;padding:1px 5px;min-height:0;line-height:1.2" title="${a.completedAt?'완료 표시를 취소':'학생이 앱 체크를 안 했어도 완료로 표시'}" onclick="tAsgnToggleDone('${a.id}')">${a.completedAt?'완료 취소':'✓ 완료'}</button>`}
       <button class="btn bo" style="font-size:9px;padding:1px 5px;min-height:0;line-height:1.2" onclick="openEditAssignModal('${a.id}')">수정</button>
       <button class="btn bd" style="font-size:9px;padding:1px 5px;min-height:0;line-height:1.2" onclick="deleteAssign('${a.id}')">삭제</button>
     </div>
