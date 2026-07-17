@@ -1927,26 +1927,36 @@ function getWeekDays(sid){
   }
   return out;
 }
+// 홈 숙제 헤더 카운터·요일 점을 제자리에서 갱신 (전체 재렌더 없이 — 리스트가 접히지 않게)
+function _wkBump(delta){
+  const c=window._wkCnt;if(!c)return;
+  c.done=Math.max(0,c.done+delta);
+  const h=document.getElementById('wk-head-cnt');if(h)h.textContent=c.done+' / '+c.total+' 완료';
+  const dot=document.getElementById('wk-dot-'+c.date);
+  if(dot&&!dot.classList.contains('overdue')){
+    const p=Math.max(0,c.total-c.done);
+    dot.textContent=p||'✓';
+    dot.classList.toggle('done',p===0);
+  }
+}
 async function completeAssignment(sid,asgnId){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
   a.completedAt=new Date().toISOString();
-  // 카드 즉시 .done 추가
+  // 카드 즉시 .done — 리스트는 그대로 (접힘·스크롤 이동 없음)
   const card=document.getElementById('hw-card-'+asgnId);
   if(card){
     card.classList.add('done');
     const cb=card.querySelector('.hw-checkbox');
-    if(cb){cb.classList.add('checked');cb.textContent='✓';}
+    if(cb){cb.classList.add('checked');cb.textContent='✓';cb.setAttribute('onclick',`uncompleteAssignment('${sid}','${asgnId}')`);cb.title='클릭: 완료 취소';}
+    _wkBump(1);
   }
   await supaUpsert('assignments',asgnId,a,sid);
   updateStreak(sid);
   checkNewBadges(currentStudentSid);
-  const allPending=(_cache.assignments||[]).filter(x=>x.sid===sid&&!x.completedAt);
-  if(allPending.length){
-    setTimeout(()=>showMiniConfetti(),300);
-    renderStudentHome(sid);
-  } else {
-    setTimeout(()=>{showMiniConfetti();renderStudentHome(sid);},300);
-  }
+  setTimeout(()=>showMiniConfetti(),200);
+  if(!card){renderStudentHome(sid);return;} // 단어장·워크시트 등 홈 밖에서 완료된 경우만 전체 갱신
+  const anyLeft=(_cache.assignments||[]).filter(x=>x.sid===sid&&!x.completedAt);
+  if(!anyLeft.length)setTimeout(()=>renderStudentHome(sid),900); // 전부 끝 → 축하 화면
 }
 
 async function uncompleteAssignment(sid,asgnId){
@@ -1957,6 +1967,87 @@ async function uncompleteAssignment(sid,asgnId){
     renderStudentHome(sid);
     toast('완료 표시를 취소했습니다');
   });
+}
+// 매일 스케줄 숙제(클래스5·반복)의 오늘 몫 체크 — 그 날짜 항목에 done 표시 (선생님 캘린더 ✓와 같은 데이터)
+async function completeSchedDay(sid,asgnId,ds){
+  const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
+  const reb=(typeof recurRebase==='function')?recurRebase(a):null;
+  if(reb)a.schedule=reb; // 자동 진행: 밀린 스케줄 반영 후 체크 (선생님 앱과 같은 규칙)
+  const sc=(a.schedule||[]).find(s=>s.date===ds);if(!sc||sc.done)return;
+  sc.done=true;
+  const card=document.getElementById('sch-card-'+asgnId+'-'+ds);
+  if(card){
+    card.classList.add('done');
+    const cb=card.querySelector('.hw-checkbox');
+    if(cb){cb.classList.add('checked');cb.textContent='✓';cb.setAttribute('onclick',`uncompleteSchedDay('${sid}','${asgnId}','${ds}')`);cb.title='클릭: 완료 취소';}
+    _wkBump(1);
+  }
+  try{await supaUpsert('assignments',asgnId,a,sid);}
+  catch(e){console.error('completeSchedDay:',e);toast('저장 실패 — 네트워크를 확인해 주세요');}
+  // 학습 도장·스트릭에도 반영
+  try{const k='pp_stamps_'+sid;const arr=JSON.parse(localStorage.getItem(k)||'[]');const t=new Date().toISOString().split('T')[0];if(!arr.includes(t)){arr.push(t);localStorage.setItem(k,JSON.stringify(arr));}}catch(e){}
+  updateStreak(sid);
+  setTimeout(()=>showMiniConfetti(),200);
+}
+async function uncompleteSchedDay(sid,asgnId,ds){
+  const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
+  const sc=(a.schedule||[]).find(s=>s.date===ds);if(!sc||!sc.done)return;
+  askConfirm('완료 취소','오늘 몫의 완료 표시를 취소할까요?','되돌리기','bd',async()=>{
+    delete sc.done;
+    await supaUpsert('assignments',asgnId,a,sid);
+    renderStudentHome(sid);
+    toast('완료 표시를 취소했습니다');
+  });
+}
+
+// ── 매일 학습 알림 (로컬 리마인더) ──
+// 브라우저·PWA가 열려 있을 때(또는 지원 기기의 백그라운드) 정해진 시각에 단어 학습을 알려줌.
+// 앱이 완전히 꺼진 상태의 푸시는 별도 서버가 필요 — 지금은 로컬 알림.
+function _stuNotifyKey(sid){return 'pp_notify_'+sid;}
+function stuNotifyState(sid){try{return JSON.parse(localStorage.getItem(_stuNotifyKey(sid))||'{}');}catch(e){return{};}}
+function _stuNotifySave(sid,s){localStorage.setItem(_stuNotifyKey(sid),JSON.stringify(s));}
+async function toggleStuNotify(sid){
+  const s=stuNotifyState(sid);
+  if(s.on){_stuNotifySave(sid,{...s,on:false});toast('학습 알림을 껐어요');renderStudentHome(sid);return;}
+  if(typeof Notification==='undefined'){toast('이 기기는 알림을 지원하지 않아요');return;}
+  let perm=Notification.permission;
+  if(perm!=='granted')perm=await Notification.requestPermission();
+  if(perm!=='granted'){toast('알림이 차단되어 있어요 — 브라우저·기기 설정에서 허용해 주세요');return;}
+  const time=s.time||'17:00';
+  _stuNotifySave(sid,{on:true,time});
+  _stuShowNotify('알림이 켜졌어요! 🔔','매일 '+time+'에 단어 학습을 알려줄게요 🦉');
+  toast('매일 '+time+' 학습 알림을 켰어요');
+  renderStudentHome(sid);ensureStuReminderLoop(sid);
+}
+function setStuNotifyTime(sid,v){if(!v)return;const s=stuNotifyState(sid);_stuNotifySave(sid,{...s,time:v});if(s.on)toast('알림 시간을 '+v+'로 바꿨어요');}
+function _stuShowNotify(title,body){
+  try{
+    if(navigator.serviceWorker&&navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,{body,icon:'icons/icon-192.png?v=2',badge:'icons/icon-192.png?v=2',tag:'pp-daily-study',data:{url:location.origin+location.pathname}})).catch(()=>{try{new Notification(title,{body});}catch(e){}});
+    }else new Notification(title,{body});
+  }catch(e){}
+}
+function _todayVocabDone(sid){
+  const t=new Date().toISOString().split('T')[0];
+  if((_cache.vocab_cards||[]).some(c=>c.sid===sid&&c.lastSeen===t))return true;
+  try{return JSON.parse(localStorage.getItem('pp_stamps_'+sid)||'[]').includes(t);}catch(e){return false;}
+}
+let _stuReminderTimer=null;
+function ensureStuReminderLoop(sid){
+  if(_stuReminderTimer)clearInterval(_stuReminderTimer);
+  _stuReminderTimer=setInterval(()=>_stuReminderTick(sid),60000);
+  _stuReminderTick(sid);
+}
+function _stuReminderTick(sid){
+  const s=stuNotifyState(sid);
+  if(!s.on||typeof Notification==='undefined'||Notification.permission!=='granted')return;
+  const now=new Date();const t=now.toISOString().split('T')[0];
+  const [hh,mm]=(s.time||'17:00').split(':').map(Number);
+  if(now.getHours()*60+now.getMinutes()<hh*60+mm)return;
+  if(s.lastNotified===t)return;
+  _stuNotifySave(sid,{...s,lastNotified:t});
+  if(_todayVocabDone(sid))return; // 이미 오늘 학습했으면 조용히 넘어감
+  _stuShowNotify('오늘의 단어 학습 시간! 🦉','20개만 복습하고 불꽃을 지켜요 🔥');
 }
 
 // ── STUDENT HOME TAB ──
@@ -2172,6 +2263,18 @@ function renderStudentHome(sid){
   const lv=getStuLevel(sid);
   const week=getWeeklyStats(sid);
   const allBooks=[...DB.libs()];
+  // 매일 반복·클래스5 숙제를 요일별 항목으로 펼침 (단어 숙제가 매일 눈에 띄도록)
+  const _schedOf=a=>{const r=(typeof recurRebase==='function')?recurRebase(a):null;return r||a.schedule||[];};
+  const regAssigns=allAssigns.filter(a=>!(a.schedule||[]).length);
+  const schedAssigns=allAssigns.filter(a=>(a.schedule||[]).length);
+  const dayItems=ds=>{
+    const items=[];
+    regAssigns.forEach(a=>{if(_asgnDay(a)===ds)items.push({a,done:!!a.completedAt});});
+    schedAssigns.forEach(a=>{const sc=_schedOf(a).find(s=>s.date===ds);if(sc)items.push({a,sc,done:!!sc.done});});
+    return items;
+  };
+  const overdue=regAssigns.filter(a=>!a.completedAt&&_asgnDay(a)&&_asgnDay(a)<today);
+  const todayPendingN=dayItems(today).filter(it=>!it.done).length+overdue.length;
 
   const givenName=stu&&stu.name&&stu.name.length>1?stu.name.slice(1):stu?.name||'';
   const totalMission=pending.length+done.length;
@@ -2204,6 +2307,10 @@ function renderStudentHome(sid){
   const _rR=37,_rC=2*Math.PI*_rR;
   const _stg=vocabStagesForDay(sid,0);
   const _gameNames=_stg.slice(1).map(k=>(VOCAB_STAGES[k]||{}).name).filter(Boolean).join(' · ');
+  const _ntf=stuNotifyState(sid);
+  const notifyOn=!!_ntf.on&&typeof Notification!=='undefined'&&Notification.permission==='granted';
+  const notifyTime=_ntf.time||'17:00';
+  const notifySupported=typeof Notification!=='undefined';
   const vocabCtaHtml=`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px">
     <div style="display:flex;align-items:center;gap:16px">
       <div style="position:relative;width:88px;height:88px;flex-shrink:0">
@@ -2223,8 +2330,15 @@ function renderStudentHome(sid){
     </div>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn bo bsm" style="flex:1;border-radius:10px;padding:9px 0;font-weight:700" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button>
-      ${pending.length?`<button class="btn bo bsm" style="flex:1;border-radius:10px;padding:9px 0;font-weight:700" onclick="document.querySelector('.wk-strip')?.scrollIntoView({behavior:'smooth'})">📝 숙제 ${pending.length}개</button>`:''}
+      ${todayPendingN?`<button class="btn bo bsm" style="flex:1;border-radius:10px;padding:9px 0;font-weight:700" onclick="document.getElementById('stu-hw-card')?.scrollIntoView({behavior:'smooth',block:'start'})">📝 오늘 숙제 ${todayPendingN}개</button>`:''}
     </div>
+    ${notifySupported?`<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      <span style="font-size:12px;color:var(--slate)">🔔 매일 학습 알림</span>
+      <span style="display:flex;align-items:center;gap:6px">
+        <input type="time" value="${notifyTime}" onchange="setStuNotifyTime('${sid}',this.value)" ${notifyOn?'':'disabled'} style="font-size:12px;border:1px solid var(--border);border-radius:8px;padding:3px 6px;${notifyOn?'':'opacity:.5'}">
+        <button class="btn ${notifyOn?'bt':'bo'} bsm" style="border-radius:50px;padding:5px 13px;font-weight:700" onclick="toggleStuNotify('${sid}')">${notifyOn?'켜짐 ✓':'켜기'}</button>
+      </span>
+    </div>`:''}
   </div></div>`;
   const weekDays=getWeekDays(sid);
   const weekCircles=`<div style="display:flex;justify-content:space-between">${weekDays.map(d=>{
@@ -2261,19 +2375,22 @@ function renderStudentHome(sid){
   const lastLessonHtml=renderLastLesson(sid);
   {const sb=document.getElementById('stu-streak-badge');if(sb){sb.textContent='🔥 '+streak+'일';sb.style.display=streak>0?'':'none';}}
 
-  // 전체 완료 화면
-  if(allAssigns.length&&!pending.length){
-    el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
-      <div style="text-align:center;padding:1.25rem 0 1.5rem">
-        <div style="font-size:52px;margin-bottom:6px">🏆</div>
-        <div style="font-size:19px;font-weight:800;color:var(--navy);margin-bottom:4px">오늘 미션 모두 완료!</div>
-        <div style="font-size:13px;color:var(--slate)">정말 잘했어요 👏</div>
+  // 매일 스케줄 숙제(클래스5·반복)의 하루치 카드 — 체크 한 번으로 오늘 몫 완료
+  function schDayCard(a,sc){
+    const isRecur=a.category==='recur'||a.type==='recur';
+    const done=!!sc.done;
+    const icon=isRecur?'🔁':'🎮';
+    const title=isRecur?(a.bookTitle||sc.book||'반복 숙제'):'클래스5';
+    const detail=isRecur?(sc.unit||(sc.book&&sc.book!==title?sc.book:'')):[sc.book,sc.unit].filter(Boolean).join(' · ');
+    return `<div class="hw-check-card${done?' done':''}" id="sch-card-${a.id}-${sc.date}">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div class="hw-checkbox${done?' checked':''}" onclick="${done?`uncompleteSchedDay('${sid}','${a.id}','${sc.date}')`:`completeSchedDay('${sid}','${a.id}','${sc.date}')`}" title="${done?'클릭: 완료 취소':'완료하면 눌러요'}">${done?'✓':''}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--navy)">${icon} ${title}</div>
+          ${detail?`<div style="font-size:12px;color:var(--slate);margin-top:3px">${detail}</div>`:''}
+        </div>
       </div>
-      ${vocabCtaHtml}${weekCard}${stuXpCard(sid,streak)}${stuQuestCard(sid)}${renderVocabReview(sid)}
-      <details open style="margin-top:8px"><summary style="font-size:12px;font-weight:600;color:var(--slate);cursor:pointer;list-style:none">📊 지난 수업 &amp; 학습 현황</summary><div style="margin-top:8px">${lastLessonHtml}${streakHtml}${renderHomeStats(sid)}</div></details>
     </div>`;
-    polishStudentCmt(givenName);
-    return;
   }
 
   function asgnCard(a){
@@ -2353,46 +2470,50 @@ function renderStudentHome(sid){
     </div>`;
   }
 
-  // 숙제 없음 화면
-  const noHwHtml=!allAssigns.length?`<div style="text-align:center;padding:3rem 1rem">
-    <div style="font-size:64px;margin-bottom:12px">🎉</div>
-    <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:6px">숙제 없음!</div>
-    <div style="font-size:13px;color:var(--slate)">오늘은 자유시간이에요<br>단어 복습은 어때요?</div>
-    <button class="btn bt" style="margin-top:16px;padding:12px 28px;border-radius:50px" onclick="openVocabStudy('daily')">오늘의 단어 학습하기 →</button>
-  </div>`:'';
+  // ── 오늘 할 일 (과제) — 화면 최상단 중점 배치, 요일 스트립 + 체크 리스트 ──
+  const hwSection=(()=>{
+    if(!allAssigns.length)return `<div class="card" id="stu-hw-card" style="margin-bottom:14px"><div class="cb" style="text-align:center;padding:2rem 1rem">
+      <div style="font-size:52px;margin-bottom:10px">🎉</div>
+      <div style="font-size:17px;font-weight:800;color:var(--navy);margin-bottom:4px">숙제 없음!</div>
+      <div style="font-size:12.5px;color:var(--slate)">오늘은 자유시간이에요 · 단어 복습 어때요?</div>
+    </div></div>`;
+    let sel=(_stuWeekSel&&_wk.some(d=>d.date===_stuWeekSel))?_stuWeekSel:today;
+    if(!_wk.some(d=>d.date===sel))sel=_wk[0].date;
+    const strip=_wk.map(d=>{
+      const items=dayItems(d.date);
+      const dp=items.filter(it=>!it.done).length;
+      const od=d.isToday&&overdue.length?overdue.length:0;
+      let inner='';
+      if(od)inner='class="wk-day-dot overdue">!'+od;
+      else if(items.length&&dp===0)inner='class="wk-day-dot done">✓';
+      else if(dp)inner='class="wk-day-dot">'+dp;
+      else inner='class="wk-day-dot">';
+      const dot='<span id="wk-dot-'+d.date+'" '+inner+'</span>';
+      const wend=d.i===5?'wk-day-sat':d.i===6?'wk-day-sun':'';
+      return '<button class="wk-day '+wend+(d.isToday?' today':'')+(d.date===sel?' sel':'')+'" onclick="stuSelectDay(\''+d.date+'\')"><span class="wk-day-lbl">'+d.label+'</span><span class="wk-day-num">'+d.dnum+'</span>'+dot+'</button>';
+    }).join('');
+    let items=dayItems(sel);
+    if(sel===today)items=[...overdue.map(a=>({a,done:false})),...items]; // 늦은 일반 과제를 오늘 위로
+    const selPending=items.filter(it=>!it.done);
+    const selDone=items.filter(it=>it.done);
+    window._wkCnt={date:sel,done:selDone.length,total:items.length};
+    const sl=_wk.find(d=>d.date===sel);
+    const renderItem=it=>it.sc?schDayCard(it.a,it.sc):asgnCard(it.a);
+    const allDoneToday=sel===today&&items.length&&!selPending.length;
+    const head='<div class="wk-sec-head"><span class="t">'+(sl&&sl.isToday?'오늘 할 일':(sl?sl.label+'요일 학습':''))+'</span><span class="s" id="wk-head-cnt">'+selDone.length+' / '+items.length+' 완료</span></div>';
+    let body;
+    if(!items.length)body='<div class="wk-empty-day">이 날은 배정된 학습이 없어요 😊<br><span style="font-size:11px">단어 복습으로 예습해볼까요?</span></div>';
+    else body=(allDoneToday?'<div style="text-align:center;padding:4px 0 12px"><div style="font-size:38px">🏆</div><div style="font-size:15px;font-weight:800;color:#047857">오늘 숙제 다 했어요! 참 잘했어요 👏</div></div>':'')
+      +selPending.map(renderItem).join('')
+      +(selDone.length?'<div style="opacity:.72">'+selDone.map(renderItem).join('')+'</div>':'');
+    const etc=regAssigns.filter(a=>{const d=_asgnDay(a);return !d||d>_weekEnd;});
+    const etcHtml=etc.length?'<details style="margin-top:12px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;list-style:none">📌 기타 과제 ('+etc.length+'건)</summary><div style="margin-top:8px">'+etc.map(asgnCard).join('')+'</div></details>':'';
+    return '<div class="card" id="stu-hw-card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px"><div class="wk-strip">'+strip+'</div>'+head+body+etcHtml+'</div></div>';
+  })();
 
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
+    ${hwSection}
     ${vocabCtaHtml}
-    ${noHwHtml}
-    ${(()=>{
-      if(!allAssigns.length)return '';
-      let sel=(_stuWeekSel&&_wk.some(d=>d.date===_stuWeekSel))?_stuWeekSel:today;
-      if(!_wk.some(d=>d.date===sel))sel=_wk[0].date;
-      const overdue=allAssigns.filter(a=>!a.completedAt&&_asgnDay(a)&&_asgnDay(a)<today);
-      const strip=_wk.map(d=>{
-        const dayAll=allAssigns.filter(a=>_asgnDay(a)===d.date);
-        const dp=dayAll.filter(a=>!a.completedAt).length,dd=dayAll.filter(a=>a.completedAt).length;
-        const od=d.isToday&&overdue.length?overdue.length:0;
-        let dot='<span class="wk-day-dot"></span>';
-        if(od)dot='<span class="wk-day-dot overdue">!'+od+'</span>';
-        else if(dayAll.length&&dp===0)dot='<span class="wk-day-dot done">✓</span>';
-        else if(dp)dot='<span class="wk-day-dot">'+dp+'</span>';
-        const wend=d.i===5?'wk-day-sat':d.i===6?'wk-day-sun':'';
-        return '<button class="wk-day '+wend+(d.isToday?' today':'')+(d.date===sel?' sel':'')+'" onclick="stuSelectDay(\''+d.date+'\')"><span class="wk-day-lbl">'+d.label+'</span><span class="wk-day-num">'+d.dnum+'</span>'+dot+'</button>';
-      }).join('');
-      const dayList=(ds,arr)=>arr.filter(a=>_asgnDay(a)===ds);
-      let selPending=dayList(sel,pending);
-      if(sel===today)selPending=[...overdue.filter(a=>!selPending.includes(a)),...selPending];
-      const selDone=dayList(sel,done);
-      const sl=_wk.find(d=>d.date===sel);
-      const head='<div class="wk-sec-head"><span class="t">'+(sl&&sl.isToday?'오늘':(sl?sl.label+'요일':''))+' 학습</span><span class="s">'+selDone.length+' / '+(selPending.length+selDone.length)+' 완료</span></div>';
-      const body=(selPending.length||selDone.length)
-        ? selPending.map(asgnCard).join('')+(selDone.length?'<div style="opacity:.72">'+selDone.map(asgnCard).join('')+'</div>':'')
-        : '<div class="wk-empty-day">이 날은 배정된 학습이 없어요 😊<br><span style="font-size:11px">단어 복습으로 예습해볼까요?</span></div>';
-      const etc=allAssigns.filter(a=>{const d=_asgnDay(a);return !d||d>_weekEnd;});
-      const etcHtml=etc.length?'<details style="margin-top:12px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;list-style:none">📌 기타 과제 ('+etc.length+'건)</summary><div style="margin-top:8px">'+etc.map(asgnCard).join('')+'</div></details>':'';
-      return '<div class="wk-strip">'+strip+'</div>'+head+body+etcHtml;
-    })()}
     ${weekCard}
     ${stuXpCard(sid,streak)}
     ${stuQuestCard(sid)}
@@ -2411,6 +2532,7 @@ function renderStudentHome(sid){
     })()}
   </div>`;
   polishStudentCmt(givenName);
+  if(stuNotifyState(sid).on)ensureStuReminderLoop(sid); // 알림 켜져 있으면 리마인더 루프 유지
 }
 function handleHomeAsgnAudio(e,asgnId,sid){
   const f=e.target.files[0];if(!f)return;
