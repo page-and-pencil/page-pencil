@@ -408,19 +408,32 @@ function skipDatesLbl(dates){
   }
   return groups.map(([a,b])=>a===b?skipDateLbl(a):`${skipDateLbl(a)}~${skipDateLbl(b)}`).join(', ');
 }
-// 자동 진행 반복 숙제(auto)의 스케줄 재배치 — '사정상 못 한 날'의 단원을 버리지 않고 앞으로 민다
-// 완료(✓)한 항목은 그 날짜에 역사로 남고, 안 한 항목들은 오늘부터의 가능한 날에 순서대로 다시 깔림
+// 자동 진행 반복 숙제(auto)의 스케줄을 **고정 시작일(a.date)** 기준으로 조밀하게 다시 깐다.
+// 시작일부터 반복 규칙(noclass/class/daily)에 맞는 모든 날에 단원을 1개씩 순서대로 배치 —
+// 휴강·수업 없는 날이 새로 생겨도, 지나간 날이어도 그 날짜의 단원이 사라지지 않는다(과거 미완료 = 밀린 숙제로 남음).
+// 완료(done)는 단원 기준으로 따라간다(날짜가 재계산돼도 그 단원은 완료 유지).
 // 반환: 바뀐 새 schedule 배열, 바꿀 게 없으면 null
 function recurRebase(a){
   if(!a||a.category!=='recur'||!a.auto||!(a.schedule||[]).length)return null;
-  const today=new Date().toISOString().split('T')[0];
-  const undone=a.schedule.filter(s=>!s.done);
-  if(!undone.length)return null;
-  if(!undone.some(s=>(s.date||'')<today))return null;   // 밀린 게 없으면 그대로
+  const startDate=a.date||a.schedule[0].date;
+  const startUnit=(a.schedule[0]||{}).unit||'';
+  const tb=(typeof _cache!=='undefined'?(_cache.globalTextbooks||[]):[]).find(b=>b.id===a.bookId);
+  const bookTitle=tb?tb.title:((a.schedule[0]||{}).book||a.bookTitle||'');
+  let units;
+  if(tb&&typeof tbUnitKeys==='function'){
+    const keys=tbUnitKeys(tb);
+    const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,'');
+    let si=keys.findIndex(k=>norm(k)===norm(startUnit));
+    if(si<0)si=0;
+    units=keys.slice(si);
+  }else{
+    units=a.schedule.map(s=>s.unit); // 교재 정보 없으면 기존 단원 순서 유지
+  }
+  if(!units.length)return null;
   const cls=(typeof DB!=='undefined'?DB.classes():[]).find(c=>c.active!==false&&(c.studentIds||[]).includes(a.sid));
   const days=cls?.days||[];
   const skip=new Set(cls?.skipDates||[]);
-  const rule=a.recurRule||'daily';
+  const rule=a.recurRule||'noclass';
   const DOWS=['일','월','화','수','목','금','토'];
   const ok=(d,ds)=>{
     const dow=DOWS[d.getDay()];
@@ -428,18 +441,23 @@ function recurRebase(a){
     if(rule==='class')return days.includes(dow)&&!skip.has(ds);
     return true;
   };
-  const done=a.schedule.filter(s=>s.done);
-  const doneDates=new Set(done.map(s=>s.date));
-  const res=[...done];
-  const d=new Date(today+'T12:00:00');
+  const doneUnits=new Set(a.schedule.filter(s=>s.done).map(s=>String(s.unit||'')));
+  const res=[];
+  const d=new Date(startDate+'T12:00:00');
   let i=0,guard=0;
-  while(i<undone.length&&guard++<730){
+  while(i<units.length&&guard++<800){
     const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    if(ok(d,ds)&&!doneDates.has(ds)){res.push({...undone[i],date:ds});i++;}
+    if(ok(d,ds)){
+      const u=units[i++];
+      const row={date:ds,book:bookTitle,unit:u};
+      if(doneUnits.has(String(u)))row.done=true;
+      res.push(row);
+    }
     d.setDate(d.getDate()+1);
   }
-  res.sort((x,y)=>(x.date||'').localeCompare(y.date||''));
-  return res;
+  // 기존과 동일하면 저장 불필요
+  const same=res.length===a.schedule.length&&res.every((s,idx)=>{const o=a.schedule[idx];return o&&o.date===s.date&&o.unit===s.unit&&!!o.done===!!s.done;});
+  return same?null:res;
 }
 // 교재 단원 키 목록 — 사용자 지정 순서(unitOrder) 우선, 나머지는 이름 숫자 정렬
 // (단원 목록 드래그로 순서를 바꾸면 unitOrder에 저장됨; 삭제된 단원 키는 걸러냄)
