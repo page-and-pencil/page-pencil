@@ -490,6 +490,18 @@ function schedCoversHw(sid,ds,book,unit){
     return bookOk&&unitOk;
   });
 }
+// 이 학생에게 그 책이 반복(recur)·클래스5 숙제로 이미 배정돼 있는가.
+// 자체 진행 숙제 책(예: 단어가 읽기다 — 매일 1과씩 나감)은 수업 복습 제안 대상이 아님 (이미 진도로 나가는 걸 또 제안하던 문제).
+function bookIsRecurHw(sid,book){
+  const b=_hwKeyNorm(book);
+  if(!b)return false;
+  return (typeof _cache!=='undefined'?(_cache.assignments||[]):[]).some(a=>{
+    if(a._deleted||a.sid!==sid)return false;
+    if(a.category!=='recur'&&a.category!=='class5')return false;
+    if(_hwKeyNorm(a.bookTitle)===b)return true;           // recur는 bookTitle에 실제 책
+    return (a.schedule||[]).some(s=>_hwKeyNorm(s.book)===b); // class5 등은 스케줄 항목 s.book에 실제 책
+  });
+}
 // 교재 단원 키 목록 — 사용자 지정 순서(unitOrder) 우선, 나머지는 이름 숫자 정렬
 // (단원 목록 드래그로 순서를 바꾸면 unitOrder에 저장됨; 삭제된 단원 키는 걸러냄)
 function tbUnitKeys(tb){

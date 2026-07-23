@@ -10469,6 +10469,8 @@ function _pgHomeworkPlan(classId,c){
       const bk=k.replace(/_\d+$/,'');
       if(bk==='pencil_down'||bk==='sing_together'||bk==='_book')return;
       if(!v||!v.book||!v.unit)return;
+      // 반복·클래스5 숙제로 자체 진행 중인 책(단어가 읽기다 등)은 복습 제안하지 않음 — 이미 진도로 나가는 걸 또 제안하던 문제
+      if([...classSids].some(sid=>bookIsRecurHw(sid,v.book)))return;
       String(v.unit).split(',').map(u=>u.trim()).filter(Boolean).forEach(unit=>{
         if(dismissed.has(_pgNorm(v.book)+'|'+_pgNorm(unit)))return;
         const key=due+'|'+_pgNorm(v.book)+'|'+_pgNorm(unit);
