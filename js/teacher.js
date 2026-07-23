@@ -1557,8 +1557,12 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal){
       {v:'Arts & Crafts',lbl:'🎨 만들기·공예'},
       {v:'Free Talk',lbl:'💬 프리톡'},
     ];
-    // 자료 DB에 등록된 펜슬다운 자료(노래 등)도 바로 고를 수 있게 — 고르면 그 자료의 단원·본문·음원이 붙는다
-    const pdBooks=(_cache.globalTextbooks||[]).filter(b=>b.category==='펜슬다운'&&b.title);
+    // 자료 DB에 등록된 펜슬다운 자료(노래 등). 하드코딩 활동과 제목이 같은 건 제외(중복 방지 — 예: Sing Together).
+    // 그 자료의 단원(곡·주제)은 아래 '세부 내용' 자동완성으로 붙는다.
+    const allPdBooks=(_cache.globalTextbooks||[]).filter(b=>b.category==='펜슬다운'&&b.title);
+    const pdBooks=allPdBooks.filter(b=>!PD_ACTS.some(a=>a.v===b.title));
+    const pdUnits=[...new Set(allPdBooks.flatMap(b=>(typeof tbUnitKeys==='function'?tbUnitKeys(b):Object.keys(b.units||{}))))];
+    const dlId='dl-pdu-'+escAttr(String(s));
     const isKnown=!rawVal||PD_ACTS.some(a=>a.v===rawVal)||pdBooks.some(b=>b.title===rawVal);
     const iS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;box-sizing:border-box';
     const opts=`<option value="">-- 활동 선택 --</option>`
@@ -1571,7 +1575,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal){
         <select ${isKnown?'data-f="book"':''} class="pd-act-sel" onchange="pdSelChange(this)" style="${iS}${isKnown?'':';display:none'}">${opts}</select>
         <input ${!isKnown?'data-f="book"':''} class="pd-cus-inp" type="text" placeholder="활동명 직접 입력" value="${escAttr(!isKnown?rawVal:'')}" style="${iS}${isKnown?';display:none':''}">
       </div>
-      ${noUnit?'':`<input type="text" data-f="unit" placeholder="세부 내용 (곡명·주제)" value="${escAttr(unitVal||'')}" style="${iS}">`}
+      ${noUnit?'':`<input type="text" data-f="unit" list="${dlId}" placeholder="세부 내용 (곡명·주제)" value="${escAttr(unitVal||'')}" style="${iS}"><datalist id="${dlId}">${pdUnits.map(u=>`<option value="${escAttr(u)}"></option>`).join('')}</datalist>`}
       <button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
     wrap.appendChild(d);return;
   }
