@@ -1908,7 +1908,7 @@ async function previewElStuCmt(){
 }
 // 교재 진도 표시 — 앱 전체 공통 스타일
 // [구분 배지] 교재명(굵게) + 진도 줄(들여쓰기, 한 줄씩)
-function matLineHtml(label,cls,book,unitStr){
+function matLineHtml(label,cls,book,unitStr,ar){
   const units=(unitStr||'').split(', ').filter(Boolean);
   const unitHtml=units.length
     ?`<div style="margin-top:3px;padding-left:3px">${units.map(u=>`<div style="font-size:12px;color:var(--slate);line-height:1.7">${u}</div>`).join('')}</div>`
@@ -1917,6 +1917,7 @@ function matLineHtml(label,cls,book,unitStr){
     <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
       ${label?`<span class="spill ${cls}" style="flex-shrink:0">${label}</span>`:''}
       <span style="font-weight:700;color:var(--navy);font-size:14px;font-family:var(--fd)">${book||''}</span>
+      ${ar?`<span style="flex-shrink:0;font-size:10px;font-weight:700;color:#0B8DAE;background:var(--tl);border-radius:6px;padding:1px 6px">AR ${ar}</span>`:''}
     </div>${unitHtml}
   </div>`;
 }
@@ -1928,7 +1929,7 @@ function matsToHtml(materials){
     const label=isBook?'원서':(SLBL[baseKey]||'');
     const cls=isBook?'srd':(SCLS[baseKey]||'');
     if(!label&&!v.book)return '';
-    return matLineHtml(label,cls,v.book,v.unit);
+    return matLineHtml(label,cls,v.book,v.unit,isBook?v.ar:'');
   }).filter(Boolean).join('');
 }
 
@@ -10815,38 +10816,97 @@ function pgOrtDbl(ev,classId,sid,title,date){
   pgMoveCancel();
   pgConfirmOrtBook(classId,sid,title,date);
 }
+// 원서 확정 — AR 자동 채움 + 읽는 중/완독 선택 대화상자 (제목만 넣던 불편 개선)
+let _pgOrtDraft=null;
+function pgOrtModalClose(){document.getElementById('pg-ort-modal')?.remove();document.getElementById('pg-ort-overlay')?.remove();}
+function pgOrtSetDone(done){
+  const dv=document.getElementById('pg-ort-donev');if(dv)dv.value=done?'1':'0';
+  const r=document.getElementById('pg-ort-reading'),d=document.getElementById('pg-ort-done');
+  if(r)r.className='btn '+(done?'bo':'bt')+' bsm';
+  if(d)d.className='btn '+(done?'bt':'bo')+' bsm';
+}
 function pgConfirmOrtBook(classId,sid,title,date){
   const todayStr=ppToday();
   if(date>todayStr){toast('아직 안 한 수업이에요 — 수업한 날에 확정해 주세요');return;}
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
-  askConfirm('원서 읽음 기록',`${s.name} · ${title}\n${date} 수업의 원서 읽기로 기록할까요?`,'기록','bt',async()=>{
-    showLoading(true);
-    try{
-      const existing=(_cache.lessons||[]).find(l=>l.classId===classId&&l.date===date&&l.sid===sid);
-      const mats=_pgMergeBook(existing?existing.materials:null,title);
-      if(!mats){toast('이미 기록된 원서예요');return;}
-      const les=existing?{...existing,materials:mats}
-        :{id:uid(),sid,date,grade:s.grade||'',att:'normal',materials:mats,cmt:'',polishedCmt:'',classId};
-      await supaUpsert('lessons',les.id,les,sid);
-      if(existing){const i=_cache.lessons.findIndex(l=>l.id===les.id);if(i>=0)_cache.lessons[i]=les;}
-      else _cache.lessons.unshift(les);
-      await autoSyncBookReads(sid,{_book:{book:title}},date).catch(()=>{});
-      renderLes();renderRd();renderDash();renderClassTab();renderClsLessons(classId);
-      toast(`${s.name} · ${title} 읽음 기록 완료`);
-    }catch(e){
-      console.error('pgConfirmOrtBook:',e);toast('기록 중 오류가 발생했습니다');
-    }finally{showLoading(false);}
-  });
+  const lb=[...DB.libs()].find(b=>_pgNorm(b.title)===_pgNorm(title));
+  const ar=(lb&&(lb.arLevel||lb.ar))||'';
+  const series=(lb&&lb.series)||'';
+  // 이 수업에 이미 같은 책이 있으면 그 진행 상태를 기본값으로
+  const existing=(_cache.lessons||[]).find(l=>l.classId===classId&&l.date===date&&l.sid===sid);
+  let curProg='';
+  if(existing)for(const[k,v]of Object.entries(existing.materials||{})){
+    if(k.replace(/_\d+$/,'')==='_book'&&v&&_pgNorm(v.book)===_pgNorm(title)){curProg=v.unit||'';break;}
+  }
+  const doneDefault=(curProg||'').trim()==='완독';
+  _pgOrtDraft={classId,sid,title,date,series};
+  pgOrtModalClose();
+  const overlay=document.createElement('div');
+  overlay.id='pg-ort-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1999';
+  overlay.onclick=pgOrtModalClose;
+  const el=document.createElement('div');
+  el.id='pg-ort-modal';
+  el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:var(--rs);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:2000;padding:20px;min-width:280px;max-width:380px;width:90vw';
+  el.innerHTML=`<div style="font-size:14px;font-weight:700;margin-bottom:4px">📗 원서 읽음 기록</div>
+    <div style="font-size:14px;color:var(--navy);font-weight:700;font-family:var(--fd)">${escAttr(title)}</div>
+    <div style="font-size:11px;color:var(--slate);margin-bottom:14px">${escAttr(s.name)}${series?' · '+escAttr(series):''} · ${date}</div>
+    <div class="f" style="margin-bottom:12px"><label style="font-size:12px;font-weight:700;color:var(--slate)">AR 지수 ${ar?'':'<span style="font-weight:400">(자동값 없음 — 직접 입력)</span>'}</label>
+      <input type="text" id="pg-ort-ar" value="${escAttr(ar)}" placeholder="예: 2.5" style="width:100%;box-sizing:border-box;margin-top:4px"></div>
+    <div class="f" style="margin-bottom:2px"><label style="font-size:12px;font-weight:700;color:var(--slate)">진행 상태</label>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button type="button" id="pg-ort-reading" class="btn ${doneDefault?'bo':'bt'} bsm" style="flex:1;border-radius:10px;padding:9px 0" onclick="pgOrtSetDone(false)">📖 읽는 중</button>
+        <button type="button" id="pg-ort-done" class="btn ${doneDefault?'bt':'bo'} bsm" style="flex:1;border-radius:10px;padding:9px 0" onclick="pgOrtSetDone(true)">✅ 완독</button>
+      </div></div>
+    <input type="hidden" id="pg-ort-donev" value="${doneDefault?'1':'0'}">
+    <div style="display:flex;gap:6px;margin-top:16px;justify-content:flex-end">
+      <button class="btn bo bsm" onclick="pgOrtModalClose()">취소</button>
+      <button class="btn bt bsm" style="padding:6px 16px" onclick="pgOrtRecord()">기록</button>
+    </div>`;
+  document.body.appendChild(overlay);document.body.appendChild(el);
 }
-// 기존 기록에 원서 병합 — 이미 같은 책이 있으면 null(중복 방지)
-function _pgMergeBook(mats,title){
+async function pgOrtRecord(){
+  const dr=_pgOrtDraft;if(!dr)return;
+  const ar=(document.getElementById('pg-ort-ar')?.value||'').trim();
+  const done=document.getElementById('pg-ort-donev')?.value==='1';
+  const prog=done?'완독':'';
+  const {classId,sid,title,date,series}=dr;
+  pgOrtModalClose();
+  const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+  showLoading(true);
+  try{
+    const existing=(_cache.lessons||[]).find(l=>l.classId===classId&&l.date===date&&l.sid===sid);
+    const mats=_pgMergeBook(existing?existing.materials:null,title,ar,prog);
+    const les=existing?{...existing,materials:mats}
+      :{id:uid(),sid,date,grade:s.grade||'',att:'normal',materials:mats,cmt:'',polishedCmt:'',classId};
+    await supaUpsert('lessons',les.id,les,sid);
+    if(existing){const i=_cache.lessons.findIndex(l=>l.id===les.id);if(i>=0)_cache.lessons[i]=les;}
+    else _cache.lessons.unshift(les);
+    // 원서 읽기 기록(readings) 생성·갱신 — AR·진행 상태 반영
+    const rd0=(_cache.readings||[]).find(r=>r.sid===sid&&r.date===date&&_pgNorm(r.title)===_pgNorm(title));
+    const rd={id:rd0?rd0.id:uid(),sid,date,title,series:series||rd0?.series||'',arLevel:ar||rd0?.arLevel||'',genre:rd0?.genre||'',progress:prog,classId};
+    await supaUpsert('readings',rd.id,rd,sid);
+    if(rd0){const i=_cache.readings.findIndex(r=>r.id===rd0.id);if(i>=0)_cache.readings[i]=rd;}
+    else{_cache.readings=_cache.readings||[];_cache.readings.unshift(rd);}
+    if(prog==='완독')await syncCompletedReadingToTextbooks(sid,title,date).catch(()=>{});
+    renderLes();renderRd();renderDash();renderClassTab();renderClsLessons(classId);
+    toast(`${s.name} · ${title}${prog==='완독'?' 완독':' 읽는 중'} 기록 완료`);
+  }catch(e){
+    console.error('pgOrtRecord:',e);toast('기록 중 오류가 발생했습니다');
+  }finally{showLoading(false);}
+}
+// 기존 기록에 원서 병합 — 같은 책이 있으면 AR·진행 상태만 갱신, 없으면 새로 추가
+function _pgMergeBook(mats,title,ar,prog){
   const r={...(mats||{})};
   for(const[k,v]of Object.entries(r)){
-    if(k.replace(/_\d+$/,'')==='_book'&&v&&_pgNorm(v.book)===_pgNorm(title))return null;
+    if(k.replace(/_\d+$/,'')==='_book'&&v&&_pgNorm(v.book)===_pgNorm(title)){
+      r[k]={...v,book:v.book,unit:prog||'',...(ar?{ar}:{})};
+      return r;
+    }
   }
   let key='_book',i=1;
   while(r[key]){i++;key='_book_'+i;}
-  r[key]={book:title};
+  r[key]={book:title,unit:prog||'',...(ar?{ar}:{})};
   return r;
 }
 // 기존 기록에 교재·단원 병합 — 같은 교재 항목이 있으면 단원만 합침
