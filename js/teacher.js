@@ -10453,7 +10453,9 @@ function _pgHomeworkPlan(classId,c){
   const dismissed=new Set(c.hwDismissed||[]); // 취소한 제안 ('책|단원' 정규화 키) — 다시 띄우지 않음
   const classSids=new Set(c.studentIds||[]);
   const asgs=(_cache.assignments||[]).filter(a=>classSids.has(a.sid)&&a.category!=='class5'&&a.bookTitle);
-  const isAssigned=(book,unit)=>asgs.some(a=>_pgNorm(a.bookTitle)===_pgNorm(book)&&(!unit||_pgUMatch(_pgNorm(a.range||''),_pgNorm(unit))));
+  const isAssigned=(book,unit,due)=>asgs.some(a=>_pgNorm(a.bookTitle)===_pgNorm(book)&&(!unit||_pgUMatch(_pgNorm(a.range||''),_pgNorm(unit))))
+    // 클래스5·반복 스케줄이 그 마감일에 같은 책·단원을 이미 커버하면 제안하지 않음
+    ||(due&&[...classSids].some(sid=>schedCoversHw(sid,due,book,unit)));
   const byDate={},seen=new Set();
   (_cache.lessons||[]).forEach(l=>{
     if(l.classId!==classId||!l.date||!l.materials)return;
@@ -10467,7 +10469,7 @@ function _pgHomeworkPlan(classId,c){
         if(dismissed.has(_pgNorm(v.book)+'|'+_pgNorm(unit)))return;
         const key=due+'|'+_pgNorm(v.book)+'|'+_pgNorm(unit);
         if(seen.has(key))return;seen.add(key);
-        (byDate[due]=byDate[due]||[]).push({subject:bk,book:v.book,bookId:v.bookId||'',unit,assigned:isAssigned(v.book,unit)});
+        (byDate[due]=byDate[due]||[]).push({subject:bk,book:v.book,bookId:v.bookId||'',unit,assigned:isAssigned(v.book,unit,due)});
       });
     });
   });
@@ -12126,9 +12128,39 @@ function clHwSyncFromSubj(){
     const groupBody=clHwMakeDateGroup(d,container);
     if(mats.length){mats.forEach(m=>addClHwRow(d,true,m.cat,m.book,m.range,groupBody));}
     else{addClHwRow(d,true,'','','',groupBody);}
-    // 클래스5 행은 비워두고 라이브러리 책 목록에서 선택 (새 책 입력 시 즉시 등록)
-    addClHwRow(d,true,'class5','','',groupBody);
+    // 클래스5·반복 자동 할당은 앱에서 매일 자동으로 나가므로, 여기선 '이미 할당됨'을 읽기전용으로만 표시
+    // (선생님이 같은 걸 또 숙제로 입력해 중복되던 문제 해결). 자동 할당이 없으면 기존처럼 빈 클래스5 행 제공.
+    const autos=_clAutoHwFor(classId,d);
+    if(autos.length){
+      autos.forEach(x=>{
+        const div=document.createElement('div');
+        div.style.cssText='font-size:12px;padding:7px 10px;background:#fff;border:1px dashed var(--teal);border-radius:8px;color:var(--navy)';
+        div.innerHTML=`${x.label} <b>${escAttr(x.txt)}</b> <span style="color:var(--teal);font-size:11px">— 앱에 자동 할당됨 (다시 적지 않아도 돼요)</span>`;
+        groupBody.appendChild(div);
+      });
+    }else{
+      addClHwRow(d,true,'class5','','',groupBody);
+    }
   });
+}
+// 이 클래스 학생들에게 그 날짜에 스케줄형(클래스5·반복)이 자동 배정한 항목 (읽기전용 표시용, 중복 라벨 제거)
+function _clAutoHwFor(classId,ds){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return[];
+  const sids=new Set(c.studentIds||[]);
+  const out=[],seen=new Set();
+  (_cache.assignments||[]).forEach(a=>{
+    if(a._deleted||!sids.has(a.sid)||!(a.schedule||[]).length)return;
+    if(a.category!=='class5'&&a.category!=='recur')return;
+    const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+    sch.forEach(s=>{
+      if(s.date!==ds)return;
+      const label=a.category==='class5'?'🎮 클래스5':'🔁 '+(a.bookTitle||'반복 숙제');
+      const txt=[s.book,s.unit].filter(Boolean).join(' · ')||a.bookTitle||'';
+      const k=label+'|'+_hwKeyNorm(txt);
+      if(!seen.has(k)){seen.add(k);out.push({label,txt});}
+    });
+  });
+  return out;
 }
 function clHwMakeDateGroup(dateStr,parentEl){
   const DAYS=['일','월','화','수','목','금','토'];
@@ -12411,6 +12443,8 @@ async function saveClassLesson(){
       // 수업 이후 반에 합류한 학생에게 지난 숙제가 백필되지 않게
       if(d.att!=='absent'&&(!editMode||existing)){
         for(const hw of commonHws){
+          // 클래스5·반복 스케줄이 이 책·단원을 그날 이미 자동 할당했으면 단건으로 또 만들지 않음
+          if(schedCoversHw(d.sid,hw.due||date,hw.book,hw.range))continue;
           const dup=(_cache.assignments||[]).find(x=>x.sid===d.sid&&_tbBase(x.bookTitle||'')===_tbBase(hw.book||'')&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||'')&&(x.note||'')===(hw.note||''));
           if(dup){
             // 개별→공통으로 옮겨진 경우 출처 표식 동기화 (완료 상태 보존)
@@ -12427,6 +12461,7 @@ async function saveClassLesson(){
     }
     // 개별 과제
     for(const hw of indHws){
+      if(schedCoversHw(hw.sid,hw.due||date,hw.book,hw.range))continue; // 스케줄이 이미 커버 → 중복 생성 방지
       const dup=(_cache.assignments||[]).find(x=>x.sid===hw.sid&&_tbBase(x.bookTitle||'')===_tbBase(hw.book||'')&&(x.range||'')===(hw.range||'')&&x.category===hw.cat&&x.date===date&&(x.due||'')===(hw.due||'')&&(x.note||'')===(hw.note||''));
       if(dup){
         // 공통→개별로 옮겨진 경우 출처 표식 동기화

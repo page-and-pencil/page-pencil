@@ -465,6 +465,31 @@ function recurRebase(a){
   const same=res.length===a.schedule.length&&res.every((s,idx)=>{const o=a.schedule[idx];return o&&o.date===s.date&&o.unit===s.unit&&!!o.done===!!s.done;});
   return same?null:res;
 }
+// ── 숙제 중복 방지 헬퍼 ──
+// 스케줄형 과제(클래스5·반복)는 top-level bookTitle이 '클래스5'라 실제 책과 매칭이 안 됨 →
+// 각 날짜 항목의 실제 s.book/s.unit로 비교해야 단건 과제와의 중복을 잡을 수 있다.
+function _hwKeyNorm(s){return String(s||'').toLowerCase().replace(/\s+/g,'');}
+// 특정 학생에게 그 날짜에 스케줄형이 배정한 (책,단원) 목록
+function schedItemsOn(sid,ds){
+  const out=[];
+  (typeof _cache!=='undefined'?(_cache.assignments||[]):[]).forEach(a=>{
+    if(a._deleted||a.sid!==sid||!(a.schedule||[]).length)return;
+    const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+    sch.forEach(s=>{if(s.date===ds)out.push({book:s.book||a.bookTitle||'',unit:s.unit||''});});
+  });
+  return out;
+}
+// (책,단원)이 그 학생·그 날짜에 스케줄형으로 이미 커버되는가 (한쪽이 다른쪽을 포함해도 매칭)
+function schedCoversHw(sid,ds,book,unit){
+  const b=_hwKeyNorm(book),u=_hwKeyNorm(unit);
+  if(!b)return false;
+  return schedItemsOn(sid,ds).some(c=>{
+    const cb=_hwKeyNorm(c.book),cu=_hwKeyNorm(c.unit);
+    const bookOk=cb===b||(!!cb&&(cb.includes(b)||b.includes(cb)));
+    const unitOk=(!u&&!cu)||(!!cu&&!!u&&(cu===u||cu.includes(u)||u.includes(cu)));
+    return bookOk&&unitOk;
+  });
+}
 // 교재 단원 키 목록 — 사용자 지정 순서(unitOrder) 우선, 나머지는 이름 숫자 정렬
 // (단원 목록 드래그로 순서를 바꾸면 unitOrder에 저장됨; 삭제된 단원 키는 걸러냄)
 function tbUnitKeys(tb){

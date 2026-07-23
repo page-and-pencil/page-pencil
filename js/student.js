@@ -665,7 +665,18 @@ async function saveAssignment(sid){
 let asgnHwBlob=null,asgnHwUrl='',asgnCurrentId='';
 function renderAssignmentTab(sid){
   const el=document.getElementById('st-homework');if(!el)return;
-  const assigns=(_cache.assignments||[]).filter(a=>a.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  // 스케줄형(클래스5·반복)이 이미 커버하는 책·단원을 단건 과제로 또 만든 중복은 숨김
+  const _schedCov=new Set();
+  (_cache.assignments||[]).forEach(a=>{
+    if(a._deleted||a.sid!==sid||!(a.schedule||[]).length)return;
+    const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+    sch.forEach(s=>_schedCov.add(_hwKeyNorm((s.book||a.bookTitle||'')+'|'+(s.unit||'')+'|'+(s.date||''))));
+  });
+  const assigns=(_cache.assignments||[]).filter(a=>{
+    if(a.sid!==sid)return false;
+    if((a.schedule||[]).length)return true;
+    return !_schedCov.has(_hwKeyNorm((a.bookTitle||'')+'|'+(a.range||'')+'|'+(a.due||a.date||'')));
+  }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const hws=(_cache.homeworks||[]).filter(h=>h.sid===sid);
   const isSubmitted=a=>hws.some(h=>h.assignmentId===a.id);
   const getHw=a=>hws.find(h=>h.assignmentId===a.id);
@@ -2268,12 +2279,17 @@ function renderStudentHome(sid){
   const regAssigns=allAssigns.filter(a=>!(a.schedule||[]).length);
   const schedAssigns=allAssigns.filter(a=>(a.schedule||[]).length);
   const dayItems=ds=>{
-    const items=[];
-    regAssigns.forEach(a=>{if(_asgnDay(a)===ds)items.push({a,done:!!a.completedAt});});
-    schedAssigns.forEach(a=>{const sc=_schedOf(a).find(s=>s.date===ds);if(sc)items.push({a,sc,done:!!sc.done});});
+    // 스케줄형(클래스5·반복)이 그날 배정한 항목 먼저
+    const sched=[];
+    schedAssigns.forEach(a=>{const sc=_schedOf(a).find(s=>s.date===ds);if(sc)sched.push({a,sc,done:!!sc.done});});
+    const covered=sched.map(x=>({b:_hwKeyNorm(x.sc.book||x.a.bookTitle||''),u:_hwKeyNorm(x.sc.unit||'')}));
+    const isCovered=(book,range)=>{const b=_hwKeyNorm(book),u=_hwKeyNorm(range);return !!b&&covered.some(c=>(c.b===b||c.b.includes(b)||b.includes(c.b))&&((!u&&!c.u)||(!!c.u&&!!u&&(c.u===u||c.u.includes(u)||u.includes(c.u)))));};
+    const items=[...sched];
+    // 단건 과제 — 같은 책·단원을 스케줄이 이미 커버하면 중복이라 숨김
+    regAssigns.forEach(a=>{if(_asgnDay(a)===ds&&!isCovered(a.bookTitle||'',a.range||''))items.push({a,done:!!a.completedAt});});
     return items;
   };
-  const overdue=regAssigns.filter(a=>!a.completedAt&&_asgnDay(a)&&_asgnDay(a)<today);
+  const overdue=regAssigns.filter(a=>!a.completedAt&&_asgnDay(a)&&_asgnDay(a)<today&&!(typeof schedCoversHw==='function'&&schedCoversHw(sid,_asgnDay(a),a.bookTitle||'',a.range||'')));
   const todayPendingN=dayItems(today).filter(it=>!it.done).length+overdue.length;
 
   const givenName=stu&&stu.name&&stu.name.length>1?stu.name.slice(1):stu?.name||'';
