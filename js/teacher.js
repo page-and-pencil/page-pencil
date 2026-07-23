@@ -10686,7 +10686,7 @@ function _pgCalHtml(classId){
       return`<span class="${recCls}" style="--pgc:${colorOf(e.tbId,e.cat)}" title="${escAttr((SLBL[e.cat]?SLBL[e.cat]+' · ':'')+e.book+(us.length?' — '+us.join(', '):'')+futTip)}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">${us.length?us.join(', '):'✓'}</span>`;
     }).join('');
     chips+=[...(ortRecBy[ds]||[])].map(t=>
-      `<span class="${recCls}" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr('원서 — '+t+(ortGroupOf(t)?' ('+ortGroupOf(t)+')':'')+futTip)}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">📗 ${t}</span>`
+      `<span class="${recCls}" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr('원서 — '+t+(ortGroupOf(t)?' ('+ortGroupOf(t)+')':'')+' · 클릭=AR·완독 편집')}" onclick="event.stopPropagation();pgOrtRecEdit('${classId}','${escJsA(t)}','${ds}')">📗 ${t}</span>`
     ).join('');
     chips+=[...(pdRecBy[ds]||[])].map(t=>
       `<span class="${recCls}" style="--pgc:#7B1FA2" title="${escAttr('Pencil Down — '+t+futTip)}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">✏️ ${t}</span>`
@@ -10825,6 +10825,12 @@ function pgOrtSetDone(done){
   if(r)r.className='btn '+(done?'bo':'bt')+' bsm';
   if(d)d.className='btn '+(done?'bt':'bo')+' bsm';
 }
+// 기록된 원서 칩 클릭 → 그 학생을 찾아 편집 대화상자로 (여럿이면 전체 수업 편집)
+function pgOrtRecEdit(classId,title,date){
+  const sids=[...new Set((_cache.lessons||[]).filter(l=>l.classId===classId&&l.date===date&&!l._deleted).filter(l=>Object.entries(l.materials||{}).some(([k,v])=>k.replace(/_\d+$/,'')==='_book'&&v&&_pgNorm(v.book)===_pgNorm(title))).map(l=>l.sid))];
+  if(sids.length===1)pgConfirmOrtBook(classId,sids[0],title,date);
+  else openClassLessonEdit(classId,date); // 학생 여럿이 같은 책 → 상세 편집으로
+}
 function pgConfirmOrtBook(classId,sid,title,date){
   const todayStr=ppToday();
   if(date>todayStr){toast('아직 안 한 수업이에요 — 수업한 날에 확정해 주세요');return;}
@@ -10882,12 +10888,20 @@ async function pgOrtRecord(){
     await supaUpsert('lessons',les.id,les,sid);
     if(existing){const i=_cache.lessons.findIndex(l=>l.id===les.id);if(i>=0)_cache.lessons[i]=les;}
     else _cache.lessons.unshift(les);
-    // 원서 읽기 기록(readings) 생성·갱신 — AR·진행 상태 반영
-    const rd0=(_cache.readings||[]).find(r=>r.sid===sid&&r.date===date&&_pgNorm(r.title)===_pgNorm(title));
-    const rd={id:rd0?rd0.id:uid(),sid,date,title,series:series||rd0?.series||'',arLevel:ar||rd0?.arLevel||'',genre:rd0?.genre||'',progress:prog,classId};
+    // 원서 읽기 기록(readings) 생성·갱신 — AR·진행 상태 반영, 중복 정리
+    const dups=(_cache.readings||[]).filter(r=>!r._deleted&&r.sid===sid&&r.date===date&&_pgNorm(r.title)===_pgNorm(title));
+    const rd0=dups[0]||null;
+    const rd={id:rd0?rd0.id:uid(),sid,date,title,
+      series:series||rd0?.series||dups.find(r=>r.series)?.series||'',
+      arLevel:ar||rd0?.arLevel||dups.find(r=>r.arLevel)?.arLevel||'',
+      genre:rd0?.genre||'',progress:prog,classId};
     await supaUpsert('readings',rd.id,rd,sid);
     if(rd0){const i=_cache.readings.findIndex(r=>r.id===rd0.id);if(i>=0)_cache.readings[i]=rd;}
     else{_cache.readings=_cache.readings||[];_cache.readings.unshift(rd);}
+    for(const extra of dups.slice(1)){ // 중복 읽기 기록 휴지통 처리
+      await supaTrash('readings',_cache.readings,extra.id).catch(()=>{});
+      _cache.readings=(_cache.readings||[]).filter(r=>r.id!==extra.id);
+    }
     if(prog==='완독')await syncCompletedReadingToTextbooks(sid,title,date).catch(()=>{});
     renderLes();renderRd();renderDash();renderClassTab();renderClsLessons(classId);
     toast(`${s.name} · ${title}${prog==='완독'?' 완독':' 읽는 중'} 기록 완료`);
