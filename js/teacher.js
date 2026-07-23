@@ -11601,11 +11601,14 @@ function openClassLessonEdit(classId,dateStr){
       const bookEntries=Object.entries(les.materials||{}).filter(([k])=>k==='_book'||k.startsWith('_book_'));
       if(booksWrap&&bookEntries.length){
         booksWrap.innerHTML='';// 기존 빈 행 제거
-        const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
         bookEntries.forEach(([,v])=>{
+          // AR·시리즈: 저장된 자료값 우선, 없으면 원서 DB(library)에서 채움
+          const lb=[...DB.libs()].find(x=>_pgNorm(x.title)===_pgNorm(v.book||''));
+          const ar=v.ar||lb?.ar||lb?.arLevel||'';
+          const series=v.series||lb?.series||'';
           const br=document.createElement('div');
-          br.className='cl-book-row';br.style.cssText='display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:center';
-          br.innerHTML=`<input type="text" class="cl-rd-title" list="dl-library" autocomplete="off" value="${escAttr(v.book||'')}" onchange="clFillFromLib(this)" style="${IS};flex:2;min-width:120px"><input type="hidden" class="cl-rd-series"><input type="text" class="cl-rd-ar" style="${IS};width:52px"><input type="text" class="cl-rd-prog" value="${escAttr(v.unit||'')}" style="${IS};flex:1;min-width:100px">`;
+          br.className='cl-book-row';br.style.cssText='display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:flex-start';
+          br.innerHTML=clBookRowHtml({book:v.book,ar,series,unit:v.unit},true);
           booksWrap.appendChild(br);
         });
       }
@@ -11760,15 +11763,7 @@ function openClassLesson(classId,dateStr){
       </div>
       ${nb?`<button type="button" class="cmt-chip" style="margin-bottom:6px" title="ORT 순서상 아직 안 읽은 첫 책 — 누르면 원서 칸에 채워져요" onclick="clFillNextBook(this,'${escJsA(nb.title)}')">📖 다음 원서: ${nb.title}${nb.ortGroup?` · ${nb.ortGroup}`:''}</button>`:''}
       <div class="cl-books-wrap" style="margin-bottom:6px">
-        <div class="cl-book-row" style="display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:flex-start">
-          <input type="text" class="cl-rd-title" placeholder="원서 제목" list="dl-library" autocomplete="off" onchange="clFillFromLib(this)" style="${iStyle};flex:2;min-width:120px">
-          <input type="hidden" class="cl-rd-series">
-          <input type="text" class="cl-rd-ar" placeholder="AR" style="${iStyle};width:52px">
-          <div style="flex:1;min-width:100px;display:flex;flex-direction:column;gap:3px">
-            <div style="display:flex;gap:3px;flex-wrap:wrap">${_CL_PROG_CHIPS_HTML}</div>
-            <input type="text" class="cl-rd-prog" placeholder="진도 (예: Ch.1~3)" style="${iStyle};width:100%;box-sizing:border-box">
-          </div>
-        </div>
+        <div class="cl-book-row" style="display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:flex-start">${clBookRowHtml({},false)}</div>
       </div>
       <button class="btn ba" style="font-size:11px;padding:3px 10px;margin-bottom:6px" onclick="addClBookRow(this)">+ 원서 추가</button>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px">
@@ -11963,20 +11958,24 @@ async function clPreviewIndCmt(btn,stuName){
   }catch(e){if(status)status.textContent='변환 실패';}
   finally{btn.disabled=false;}
 }
+// 원서 행 공용 HTML — 새 기록·원서 추가·수정 세 곳이 같은 구조(AR 미리채움 + 완독/진행중 칩)를 쓰도록 통일
+function clBookRowHtml(v,withRemove){
+  const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
+  v=v||{};
+  return `<input type="text" class="cl-rd-title" placeholder="원서 제목" list="dl-library" autocomplete="off" value="${escAttr(v.book||'')}" onchange="clFillFromLib(this)" style="${IS};flex:2;min-width:120px">
+    <input type="hidden" class="cl-rd-series" value="${escAttr(v.series||'')}">
+    <input type="text" class="cl-rd-ar" placeholder="AR" value="${escAttr(v.ar||'')}" style="${IS};width:52px">
+    <div style="flex:1;min-width:100px;display:flex;flex-direction:column;gap:3px">
+      <div style="display:flex;gap:3px;flex-wrap:wrap">${_CL_PROG_CHIPS_HTML}</div>
+      <input type="text" class="cl-rd-prog" placeholder="진도 (예: Ch.1~3)" value="${escAttr(v.unit||'')}" style="${IS};width:100%;box-sizing:border-box">
+    </div>${withRemove?`<button onclick="this.closest('.cl-book-row').remove()" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--slate);padding:0;flex-shrink:0;margin-top:2px">×</button>`:''}`;
+}
 function addClBookRow(btn){
   const wrap=btn.previousElementSibling;if(!wrap||!wrap.classList.contains('cl-books-wrap'))return;
-  const IS='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;color:var(--navy);background:var(--cream);outline:none';
   const row=document.createElement('div');
   row.className='cl-book-row';
   row.style.cssText='display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:flex-start';
-  row.innerHTML=`<input type="text" class="cl-rd-title" placeholder="원서 제목" list="dl-library" autocomplete="off" onchange="clFillFromLib(this)" style="${IS};flex:2;min-width:120px">
-    <input type="hidden" class="cl-rd-series">
-    <input type="text" class="cl-rd-ar" placeholder="AR" style="${IS};width:52px">
-    <div style="flex:1;min-width:100px;display:flex;flex-direction:column;gap:3px">
-      <div style="display:flex;gap:3px;flex-wrap:wrap">${_CL_PROG_CHIPS_HTML}</div>
-      <input type="text" class="cl-rd-prog" placeholder="진도 (예: Ch.1~3)" style="${IS};width:100%;box-sizing:border-box">
-    </div>
-    <button onclick="this.closest('.cl-book-row').remove()" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--slate);padding:0;flex-shrink:0;margin-top:2px">×</button>`;
+  row.innerHTML=clBookRowHtml({},true);
   wrap.appendChild(row);
 }
 function clTogSubj(el){
