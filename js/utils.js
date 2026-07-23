@@ -1,5 +1,11 @@
 const APP_VERSION='v45';
 
+// 오늘 날짜(YYYY-MM-DD)를 **로컬(기기 시간대, 한국=KST) 기준**으로 반환.
+// 주의: new Date().toISOString()은 UTC라 자정~오전 9시(KST)엔 전날이 나와 '미래 날짜' 오판·저장 거부의 원인이 됐음.
+function ppToday(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+// 임의 Date를 로컬 YYYY-MM-DD로 포맷
+function ppYmd(d){d=(d instanceof Date)?d:new Date(d);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+
 // ── Lucide 아이콘 헬퍼 ──
 // 동적 innerHTML 렌더 안에서 쓰는 인라인 SVG 문자열. CDN 로드 실패 시 빈 문자열(라벨 텍스트는 유지).
 function luIcon(name,size,style){
@@ -365,7 +371,7 @@ function missionFindTb(id){
 
 // 학생이 속한 클래스의 '수업 안 함(휴강·결석)' 날 중 오늘 이하 최신 — 없으면 ''
 function stuLastSkipDate(sid){
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   let last='';
   (typeof DB!=='undefined'?DB.classes():[]).forEach(c=>{
     if(!(c.studentIds||[]).includes(sid))return;
@@ -380,7 +386,7 @@ function stuRecentSkip(sid,lastLesDate){
 }
 // 다가오는 휴강 예정일 (오늘 이후 30일 내) — 학생·학부모 앱이 자동으로 안내
 function stuUpcomingSkips(sid){
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const lim=new Date();lim.setDate(lim.getDate()+30);
   const limS=lim.toISOString().split('T')[0];
   const out=[];

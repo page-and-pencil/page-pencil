@@ -140,7 +140,7 @@ async function loadParent(sid){
   // 미확인 항목 알림 배너
   const lastVisitKey='parentLastVisit_'+sid;
   const lastVisit=localStorage.getItem(lastVisitKey)||'';
-  const todayIso=new Date().toISOString().split('T')[0];
+  const todayIso=ppToday();
   const newLesCount=les.filter(l=>l.date&&l.date>lastVisit).length;
   const newTstCount=tsts.filter(t=>t.date&&t.date>lastVisit).length;
   const pendingCount=DB.assigns().filter(a=>a.sid===sid&&!a.completedAt).length;
@@ -287,7 +287,7 @@ async function loadParent(sid){
   const assigns=DB.assigns().filter(a=>a.sid===sid&&!a.completedAt);
   if(assigns.length){
     const CAT_LBL={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
-    const todayD=new Date().toISOString().split('T')[0];
+    const todayD=ppToday();
     const sorted=[...assigns].sort((a,b)=>{
       const urg=d=>{if(!d)return 99;const df=Math.round((new Date(d)-new Date(todayD))/86400000);return df<0?0:df===0?1:1+df;};
       const ua=urg(a.due),ub=urg(b.due);return ua!==ub?ua-ub:(a.due||a.date||'').localeCompare(b.due||b.date||'');
@@ -607,7 +607,7 @@ function renderCalendar(sid){
   les.forEach(l=>{if(l.date)lesMap[l.date]=l.att||'normal';});
   const firstDay=new Date(calYear,calMonth,1).getDay();
   const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=ppToday();
   const heads=['일','월','화','수','목','금','토'];
   let html=heads.map(h=>`<div class="cal-head">${h}</div>`).join('');
   for(let i=0;i<firstDay;i++)html+=`<div class="cal-cell other-month"></div>`;
@@ -930,7 +930,7 @@ async function parentAckLesson(sid,lesId){
   const btn=document.getElementById('p-ack-btn');
   if(btn){btn.style.borderColor='#047857';btn.style.color='#047857';btn.innerHTML='✓ 확인했습니다';}
   try{
-    const msg={id:uid(),sid,from:'parent',text:'수업 내용을 확인했습니다 👍',lesId,date:new Date().toISOString().split('T')[0],type:'ack'};
+    const msg={id:uid(),sid,from:'parent',text:'수업 내용을 확인했습니다 👍',lesId,date:ppToday(),type:'ack'};
     await supaUpsert('messages',msg.id,msg,sid);
     if(!_cache.messages)_cache.messages=[];
     _cache.messages.push(msg);

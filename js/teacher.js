@@ -212,7 +212,7 @@ function openQuickNotice(){
 async function postNoticeText(v){
   const notices=_cache.notices||[];
   const id='n'+Date.now();
-  const notice={id,text:v,date:new Date().toISOString().split('T')[0],active:true};
+  const notice={id,text:v,date:ppToday(),active:true};
   await supaUpsert('notices',id,notice,null);
   notices.unshift(notice);
   _cache.notices=notices;
@@ -228,7 +228,7 @@ function swTab(id){
   if(id==='t-les'){populateFilterSels();renderLes();renderCmtChips();}
   if(id==='t-tst'){populateFilterSels();renderTst();}
   if(id==='t-bks'){populateLibSel();populateFilterSels();renderRd();}
-  if(id==='t-assign'){populateFilterSels();renderAssignTab();renderAssignCal();const el=document.getElementById('assign-filter-date');if(el&&!el.value)el.value=new Date().toISOString().split('T')[0];}
+  if(id==='t-assign'){populateFilterSels();renderAssignTab();renderAssignCal();const el=document.getElementById('assign-filter-date');if(el&&!el.value)el.value=ppToday();}
   if(id==='t-class')renderClassTab();
   if(id==='t-lib'){renderLibTable();populateLibSeriesFilter();}
   if(id==='t-tbooks')renderTbookTable();
@@ -279,7 +279,7 @@ async function initApp(){
   if(kk.phone){const ph=document.getElementById('cfg-kakao-phone');if(ph)ph.value=kk.phone;}
   if(kk.openchat){const oc=document.getElementById('cfg-kakao-openchat');if(oc)oc.value=kk.openchat;}
 }
-function setToday(){const t=new Date().toISOString().split('T')[0];['ls-date','ts-date','rd-date','lg-date','qp-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=t;});}
+function setToday(){const t=ppToday();['ls-date','ts-date','rd-date','lg-date','qp-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=t;});}
 function populateSels(){
   const stus=DB.stus();
   const opts=stus.filter(s=>!s.inactive).map(s=>`<option value="${s.id}">${s.name}</option>`).join('')||'<option value="">학생 없음</option>';
@@ -458,7 +458,7 @@ function renderSpRdlog(sid){
   if(!sid)return;
   const el=document.getElementById('sp-rdlog');if(!el)return;
   const logs=DB.logs().filter(l=>l.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const inp='width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:12px;outline:none;box-sizing:border-box';
   el.innerHTML=`
     <div style="margin-bottom:12px">
@@ -573,7 +573,7 @@ async function saveSpLog(sid){
     toast('저장 중...');
     photoUrls=await uploadLogImages(_spLogFile,_spLogB64s,_spLogMime);
   }
-  const date=document.getElementById('sp-log-date')?.value||new Date().toISOString().split('T')[0];
+  const date=document.getElementById('sp-log-date')?.value||ppToday();
   const bookTitle=_spLogBookTitle||(document.getElementById('sp-log-book')?.value||'').trim();
   const bookId=_spLogBookId||'';
   const newLog={id:uid(),sid,date,photoUrl:photoUrls[0]||'',photoUrls,bookTitle,bookId};
@@ -626,7 +626,7 @@ async function toggleRdlogRead(logId,sid){
     _cache.textbooks.push(tb);
   }
   if(tb&&!tb.completed){
-    const doneDate=log.date||new Date().toISOString().split('T')[0];
+    const doneDate=log.date||ppToday();
     tb.completed=true;tb.completedDate=doneDate;
     await supaUpsert('textbooks',tb.id,tb,sid);
     const tidx=_cache.textbooks.findIndex(t=>t.id===tb.id);if(tidx>=0)_cache.textbooks[tidx]=tb;
@@ -820,7 +820,7 @@ async function saveManualVocabCard(sid){
   if(!word){toast('영단어를 입력해 주세요');return;}
   const existing=(_cache.vocab_cards||[]).find(c=>c.sid===sid&&(c.word||'').toLowerCase()===word.toLowerCase());
   if(existing){toast('이미 단어장에 있는 단어입니다');return;}
-  await syncVocabCards(sid,[{word,ko:meaning,example}],[],new Date().toISOString().split('T')[0],'직접추가','expose');
+  await syncVocabCards(sid,[{word,ko:meaning,example}],[],ppToday(),'직접추가','expose');
   document.getElementById('vadd-word').value='';
   document.getElementById('vadd-meaning').value='';
   document.getElementById('vadd-example').value='';
@@ -1151,7 +1151,7 @@ async function loadStuPanel(sid){
   <div style="margin-bottom:12px">
     <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📋 숙제 할당</div>
     <div class="fg" style="margin-bottom:8px">
-      <div class="f" style="margin-bottom:0"><label>날짜</label><input type="date" id="asgn-date-${sid}" value="${new Date().toISOString().split('T')[0]}"></div>
+      <div class="f" style="margin-bottom:0"><label>날짜</label><input type="date" id="asgn-date-${sid}" value="${ppToday()}"></div>
       <div class="f" style="margin-bottom:0"><label>마감일</label><input type="date" id="asgn-due-${sid}" value="${tomorrowStr}"></div>
       <div class="f s2" style="margin-bottom:0"><label>구분</label>
         <select id="asgn-cat-${sid}" onchange="spHwCatChange('${sid}')">
@@ -1176,7 +1176,7 @@ async function loadStuPanel(sid){
     ${sAssigns.map(a=>{
       const hw=sHws.find(h=>h.assignmentId===a.id);
       const submitted=!!hw;
-      const today2=new Date().toISOString().split('T')[0];
+      const today2=ppToday();
       const completed=!!a.completedAt;
       const overdue=a.due&&a.due<today2&&!completed;
       return `<div id="asgn-row-${a.id}" style="padding:8px 0;border-bottom:1px solid var(--border)${completed?';opacity:.72':''}">
@@ -1190,7 +1190,7 @@ async function loadStuPanel(sid){
                 const pill=a.category==='recur'?'🔁 반복':'클래스5';
                 const sc=a.schedule||[];
                 if(!sc.length)return`${_catPill(pill)}${[a.bookTitle&&a.bookTitle!=='클래스5'?a.bookTitle:'',a.range].filter(Boolean).join(' · ')||'학습'}`;
-                const today=new Date().toISOString().split('T')[0];
+                const today=ppToday();
                 const upcoming=sc.filter(s=>(s.date||'')>=today);
                 const show=(upcoming.length?upcoming:sc).slice(0,5);
                 return`${_catPill(pill)}${a.category==='recur'?`<span style="font-weight:600">${a.bookTitle||''}</span> <span style="font-size:10px;font-weight:normal;color:var(--slate)">(${sc.length}일)</span>`:''}<div style="margin-top:3px">${show.map(s=>`<div style="font-size:11px;font-weight:normal;color:var(--slate);line-height:1.7;padding-left:2px">${s.date||''} ${[s.book!==a.bookTitle?s.book:'',s.unit].filter(Boolean).join(' · ')}</div>`).join('')}${sc.length>show.length?`<div style="font-size:10px;font-weight:normal;color:var(--slate);padding-left:2px">외 ${sc.length-show.length}일...</div>`:''}</div>`;
@@ -1366,7 +1366,7 @@ function openEditStu(id){
        :'<span style="font-size:12px;color:var(--slate)">소속 클래스 없음 — 클래스 탭에서 배정해 주세요</span>';}}
   document.getElementById('es-parent-name').value=s.parentName||'';
   document.getElementById('es-parent-phone').value=s.parentPhone||'';
-  document.getElementById('es-paid-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('es-paid-date').value=ppToday();
   document.getElementById('es-paid-amt').value=s.fee||'';
   document.getElementById('es-paid-method').value='transfer';
   document.getElementById('es-paid-receipt').value='none';
@@ -1490,7 +1490,7 @@ function reqWithdrawStu(){
   const s=DB.stus().find(x=>x.id===id);
   askConfirm('퇴원 처리',`${s?s.name:'이 학생'}을 퇴원 처리할까요? 기록은 유지되며 학생 카드에 퇴원 표시가 됩니다.`,'퇴원 처리','bd',async()=>{
     const idx=_cache.students.findIndex(x=>x.id===id);if(idx<0)return;
-    _cache.students[idx].inactive=true;_cache.students[idx].withdrawDate=new Date().toISOString().split('T')[0];
+    _cache.students[idx].inactive=true;_cache.students[idx].withdrawDate=ppToday();
     await supaUpsert('students',id,_cache.students[idx],null);
     closeM('m-edit-stu');renderStus();populateSels();toast('퇴원 처리되었습니다');
   });
@@ -1982,7 +1982,7 @@ async function saveLes(){
   try{
   const sid=document.getElementById('ls-stu').value;if(!sid){toast('학생을 선택해 주세요');return;}
   const _lesDate=document.getElementById('ls-date').value;
-  if(_lesDate>new Date().toISOString().split('T')[0]){toast('미래 날짜예요 — 수업 계획은 진도 캘린더의 점선(예정)으로 관리하고, 기록은 수업 당일부터 저장해 주세요');return;}
+  if(_lesDate>ppToday()){toast('미래 날짜예요 — 수업 계획은 진도 캘린더의 점선(예정)으로 관리하고, 기록은 수업 당일부터 저장해 주세요');return;}
   const _existingLes=(_cache.lessons||[]).filter(l=>l.sid===sid&&l.date===_lesDate);
   if(_existingLes.length){
     toast('이 날 수업 기록이 이미 있습니다. 기존 기록 수정 창을 엽니다.');
@@ -6101,7 +6101,7 @@ function wdbShowImportLog(summary,skipLog,srcFileName){
   const q=v=>`"${String(v||'').replace(/"/g,'""')}"`;
   const csvLines=['행번호,건너뜀 사유,영어(원본),한국어,출처명,단원',...skipLog.map(l=>[q(l.row),q(l.reason),q(l.word),q(l.ko),q(l.src),q(l.unit)].join(','))];
   _importLogCsv='﻿'+csvLines.join('\r\n');
-  _importLogName=srcFileName.replace(/\.[^.]+$/,'')+`_오류로그_${new Date().toISOString().slice(0,10)}.csv`;
+  _importLogName=srcFileName.replace(/\.[^.]+$/,'')+`_오류로그_${ppToday()}.csv`;
 
   const prev=document.getElementById('m-import-log');if(prev)prev.remove();
   const mo=document.createElement('div');
@@ -6130,7 +6130,7 @@ function wdbExportCSV(){
   const header='영어,한국어,영영의미,품사,과거형,과거분사,예문,출처명,출처단원,출처타입,레벨,시리즈,출판사,분류';
   const rows=words.map(w=>[q(w.word),q(w.ko),q(w.en_def||''),q(POS_KO[w.pos]||w.pos),q(w.v2||''),q(w.v3||''),q(w.example),q(w.srcTitle),q(w.srcUnit),w.srcType==='textbook'?'교재':'원서',q(w.srcLevel),q(w.srcSeries||''),q(w.srcPublisher||''),q(w.srcCategory||'')].join(','));
   const csv='﻿'+[header,...rows].join('\r\n');
-  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='PagePencil_단어DB_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='PagePencil_단어DB_'+ppToday()+'.csv';a.click();
   toast(`${words.length}개 단어 CSV 다운로드 완료`);
 }
 
@@ -6304,7 +6304,7 @@ function exportTbookCSV(){
   const csv='﻿'+[HEADER,...rows].join('\r\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='PagePencil_교재DB_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.download='PagePencil_교재DB_'+ppToday()+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   toast(`${books.length}권 CSV 다운로드 완료`);
 }
@@ -6405,7 +6405,7 @@ function exportLibCSV(){
   const csv='\uFEFF'+[header,...rows].join('\r\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='PagePencil_원서DB_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.download='PagePencil_원서DB_'+ppToday()+'.csv';
   a.click();
   toast(`${allSrc.length}권 CSV 다운로드 완료`);
 }
@@ -6457,7 +6457,7 @@ function exportMasterCSV(){
   }
   const blob=new Blob(['﻿'+rows.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download=`master_db_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download=`master_db_${ppToday()}.csv`;
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   toast(`마스터 CSV 다운로드 완료 (교재 ${(_cache.globalTextbooks||[]).length}권, 원서 ${allLib.length}권)`);
 }
@@ -6767,7 +6767,7 @@ const _lgpCtx={}; // contId → {b64s,sid} (AI 인식용)
 function buildLogPages(contId,b64s,defDate,defBook,sid){
   const c=document.getElementById(contId);if(!c)return;
   _lgpCtx[contId]={b64s,sid:sid||''};
-  const d0=defDate||new Date().toISOString().split('T')[0];
+  const d0=defDate||ppToday();
   c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;text-align:left">
     <span style="font-size:11px;color:var(--slate);line-height:1.5">📄 ${b64s.length}장 — 값을 바꾸면 <b>아래 장에도 자동 적용</b>, 날짜·책이 같은 연속 장은 <b>한 로그로 묶어</b> 저장.</span>
     ${DB.api()?`<button id="${contId}-ai-btn" class="btn bo bxxs" onclick="lgpAiFill('${contId}')">🤖 날짜·책 다시 인식</button><span id="${contId}-ai-st" style="font-size:11px;color:var(--teal);font-weight:600"></span>`:''}
@@ -6810,7 +6810,7 @@ async function lgpAiFill(contId){
   const st=document.getElementById(contId+'-ai-st');
   _lgpAiBusy=true;
   try{
-    const b64s=ctx.b64s,year=new Date().getFullYear(),today=new Date().toISOString().split('T')[0];
+    const b64s=ctx.b64s,year=new Date().getFullYear(),today=ppToday();
     // 후보 책 힌트: 이 학생의 리딩로그 이력 + 등록 원서 (삐뚤빼뚤한 글씨 판독 정확도용)
     const hints=[...new Set([
       ...DB.logs().filter(l=>l.sid===ctx.sid&&l.bookTitle).map(l=>l.bookTitle),
@@ -6883,7 +6883,7 @@ async function saveLogPages(contId,sid,b64s,mime){ // 반환: 저장 건수 (nul
   const rows=[...document.querySelectorAll('#'+contId+' .lgp-row')].filter(r=>r.dataset.skip!=='1');
   if(!rows.length){toast('저장할 장이 없습니다 (모두 제외됨)');return null;}
   toast(`저장 중... (${rows.length}장)`);
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const groups=[];
   rows.forEach(r=>{
     const p={i:+r.dataset.i,date:r.querySelector('.lgp-date')?.value||today,book:(r.querySelector('.lgp-book')?.value||'').trim()};
@@ -6971,7 +6971,7 @@ async function saveLog(){
     toast('저장 중...');
     photoUrls=await uploadLogImages(pendingLogFile,pendingLogB64s,pendingLogMime);
   }
-  const date=document.getElementById('lg-date').value||new Date().toISOString().split('T')[0];
+  const date=document.getElementById('lg-date').value||ppToday();
   const bookTitle=(document.getElementById('lg-book')?.value||'').trim();
   const newLog={id:uid(),sid,date,photoUrl:photoUrls[0]||'',photoUrls,bookTitle};
   await supaUpsert('logs',newLog.id,newLog,sid);
@@ -7602,7 +7602,7 @@ function renderDashCal(){
 function openNeltModal(sid){
   const stu=DB.stus().find(s=>s.id===sid);if(!stu)return;
   document.getElementById('nelt-sid').value=sid;
-  document.getElementById('nelt-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('nelt-date').value=ppToday();
   document.getElementById('nelt-term').value='';
   document.getElementById('nelt-score').value='';
   document.getElementById('nelt-level').value='';
@@ -7867,7 +7867,7 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
 // ── 오늘 단어 학습 위젯 — 학생별 오늘 학습 단어 수 (20개 달성 🏆 → 다음 수업 때 칭찬으로 연결) ──
 function renderDashVocabToday(){
   const el=document.getElementById('dash-vocab-today');if(!el)return;
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const bySid={};
   (_cache.vocab_cards||[]).forEach(c=>{if(c.lastSeen===today&&c.sid)bySid[c.sid]=(bySid[c.sid]||0)+1;});
   const rows=Object.entries(bySid).map(([sid,n])=>({stu:(_cache.students||[]).find(s=>s.id===sid),n}))
@@ -8112,7 +8112,7 @@ async function postNotice(){
   if(!v){toast('내용을 입력해 주세요');return;}
   const notices=_cache.notices||[];
   const id='n'+Date.now();
-  const notice={id,text:v,date:new Date().toISOString().split('T')[0],active:true};
+  const notice={id,text:v,date:ppToday(),active:true};
   await supaUpsert('notices',id,notice,null);
   notices.unshift(notice);
   document.getElementById('dash-notice-input').value='';
@@ -8492,7 +8492,7 @@ function renderAssignCal(){
   const ym=`${year}-${String(month+1).padStart(2,'0')}`;
   const firstDay=new Date(year,month,1).getDay();
   const daysInMonth=new Date(year,month+1,0).getDate();
-  const todayStr=new Date().toISOString().slice(0,10);
+  const todayStr=ppToday();
   // ① 이 학생의 실제 과제 → 날짜별 칩 (스케줄형은 각 날짜, 일반형은 마감일)
   const byDate={};
   (_cache.assignments||[]).forEach(a=>{
@@ -8642,7 +8642,7 @@ async function hwSchedDelete(aid,dateStr){
       a.due=a.schedule[a.schedule.length-1].date;
       await supaUpsert('assignments',a.id,a,a.sid);
     }else{ // 마지막 항목이었으면 과제 자체를 휴지통으로
-      a._deleted=true;a._deletedAt=new Date().toISOString().split('T')[0];
+      a._deleted=true;a._deletedAt=ppToday();
       await supaUpsert('assignments',a.id,a,a.sid);
       _cache.assignments=(_cache.assignments||[]).filter(x=>x.id!==a.id);
     }
@@ -8734,7 +8734,7 @@ function _assignItemHtml(a,hws){
 }
 function renderAssignStats(){
   const el=document.getElementById('assign-stats');if(!el)return;
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const assigns=DB.assigns();
   const pending=assigns.filter(a=>!a.completedAt);
   const dueToday=pending.filter(a=>a.due===today).length;
@@ -8793,7 +8793,7 @@ function openAssignModal(sid){
   const mt=document.querySelector('#m-add-assign .mt');
   if(mt)mt.textContent='📋 과제 할당';
   document.getElementById('modal-assign-stu').value=sid||'';
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   document.getElementById('modal-assign-date').value=today;
   const due=new Date();due.setDate(due.getDate()+1);
   document.getElementById('modal-assign-due').value=due.toISOString().split('T')[0];
@@ -9172,7 +9172,7 @@ function buildC5Schedule(){
 function addC5Row(){
   const rows=document.getElementById('c5-rows');if(!rows)return;
   const last=rows.querySelector('.c5-row:last-child');
-  let next=new Date().toISOString().split('T')[0];
+  let next=ppToday();
   if(last?.dataset.date){const d=new Date(last.dataset.date);d.setDate(d.getDate()+1);next=d.toISOString().split('T')[0];}
   rows.insertAdjacentHTML('beforeend',c5RowHtml(next,'',''));
 }
@@ -9210,7 +9210,7 @@ function loadC5File(e){
   reader.readAsText(f,'UTF-8');
 }
 function downloadC5Template(){
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const d2=new Date();d2.setDate(d2.getDate()+1);const tom=d2.toISOString().split('T')[0];
   const csv=`날짜,교재명,유닛\n${today},The Best Reading 1.2,Unit 03 My Room\n${tom},The Best Reading 1.2,Unit 04 I Brush My Teeth`;
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
@@ -9392,7 +9392,7 @@ async function saveModalAssignment(){
   if(cat==='recur'){
     const rcType=document.getElementById('rc-type')?.value||'fixed';
     const rule=document.getElementById('rc-days')?.value||'daily';
-    const start=date||new Date().toISOString().split('T')[0];
+    const start=date||ppToday();
     const stCls=DB.classes().find(c=>(c.studentIds||[]).includes(sid));
     let schedule,title,tbId='';
     if(rcType==='book'){
@@ -9506,7 +9506,7 @@ function renderSpBooks(sid){
   const doneTbs=manualEntries.filter(b=>b.type!=='원서'&&b.completed).sort(_dsort);
   const activeRds=allEntries.filter(b=>b.type==='원서'&&!b.completed);
   const doneRds=manualEntries.filter(b=>b.type==='원서'&&b.completed).sort(_dsort);
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const ddSt='background:#fff;border:1px solid var(--border);border-radius:var(--rs);max-height:160px;overflow-y:auto;display:none;margin-top:2px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.1)';
   const selSt='font-size:12px;color:var(--teal);font-weight:600;padding:4px 8px;background:var(--cream);border-radius:4px;margin-top:4px;display:none';
   const formSt='display:none;margin-top:10px;padding:12px;background:var(--cream);border-radius:var(--rs);border:1px solid var(--border)';
@@ -9672,7 +9672,7 @@ function spRdSelect(id,title,ar){spRdAddToQueue(id,title,ar);}
 async function saveRdEntry(sid){saveRdEntries(sid);}
 function spRdAddToQueue(id,title,ar){
   if(_spRdQueue.some(b=>b.id===id)){toast('이미 선택된 원서입니다');return;}
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   _spRdQueue.push({id,title,ar:ar||'',done:false,doneDate:today});
   const q=document.getElementById('sp-rd-q');if(q)q.value='';
   const dd=document.getElementById('sp-rd-dd');if(dd)dd.style.display='none';
@@ -9685,7 +9685,7 @@ function spRdRenderQueue(){
   const btn=document.getElementById('sp-rd-save-btn');
   if(btn)btn.textContent=_spRdQueue.length?`저장 (${_spRdQueue.length}권)`:'저장';
   if(!_spRdQueue.length){el.innerHTML='';return;}
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   el.innerHTML=_spRdQueue.map((b,i)=>`<div style="padding:5px 0;border-bottom:1px solid var(--border)">
     <div style="display:flex;align-items:center;gap:6px">
       <div style="flex:1;font-size:12px;font-weight:600">${escAttr(b.title)}${b.ar?` <span style="font-size:10px;font-weight:normal;color:var(--slate)">AR ${escAttr(b.ar)}</span>`:''}
@@ -9700,7 +9700,7 @@ function spRdRenderQueue(){
 async function saveRdEntries(sid){
   if(!_spRdQueue.length){toast('원서를 선택해 주세요');return;}
   const btn=document.getElementById('sp-rd-save-btn');if(btn){btn.disabled=true;btn.textContent='저장 중...';}
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const allVocab=[];let count=0;
   for(const b of _spRdQueue){
     const book=(_cache.library||[]).find(x=>x.id===b.id);
@@ -9736,7 +9736,7 @@ async function importRdCsv(e,sid){
       const iTitle=hdrs.indexOf('제목'),iAr=hdrs.indexOf('ar레벨'),iDate=hdrs.indexOf('완료날짜');
       if(iTitle<0){toast('헤더 오류: "제목" 컬럼이 필요합니다');e.target.value='';return;}
       const get=(r,i)=>i>=0?(r[i]||'').replace(/^"|"$/g,'').trim():'';
-      const today=new Date().toISOString().split('T')[0];
+      const today=ppToday();
       let added=0;const notFound=[];
       for(let i=1;i<rows.length;i++){
         const r=rows[i];const title=get(r,iTitle);if(!title)continue;
@@ -9821,7 +9821,7 @@ function markTextbookDone(id,sid){
   const tb=(_cache.textbooks||[]).find(t=>t.id===id);
   const titleEl=document.getElementById('tb-done-date-title');
   if(titleEl)titleEl.textContent=(tb?.title||'교재')+' 완료 처리';
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const inp=document.getElementById('tb-done-date-inp');
   // 기본값: 이 책의 마지막 수업일 (없으면 오늘) — '완료했는데 날짜가 오늘로 찍히는' 어긋남 방지
   const last=_lastLessonDateForBook(sid,tb?.title);
@@ -9833,7 +9833,7 @@ function editTbDone(id,sid){
   const tb=(_cache.textbooks||[]).find(t=>t.id===id);
   const titleEl=document.getElementById('tb-done-date-title');
   if(titleEl)titleEl.textContent=(tb?.title||'교재')+' 완료 날짜 수정';
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const inp=document.getElementById('tb-done-date-inp');
   if(inp){inp.max=today;inp.value=tb?.completedDate||today;}
   openM('m-tb-done-date');
@@ -9844,7 +9844,7 @@ function removeDoneTb(id,sid){
 }
 async function confirmTbDone(){
   const id=_tbDoneId,sid=_tbDoneSid;
-  const doneDate=document.getElementById('tb-done-date-inp')?.value||new Date().toISOString().split('T')[0];
+  const doneDate=document.getElementById('tb-done-date-inp')?.value||ppToday();
   closeM('m-tb-done-date');
   const tb=(_cache.textbooks||[]).find(t=>t.id===id);if(!tb)return;
   if(_tbDoneMode==='edit'){
@@ -9892,7 +9892,7 @@ let _bkleTitle='',_bkleType='',_bkleSid='';
 function openBookLessonEdit(title,type,sid){
   _bkleTitle=title;_bkleType=type||'교재';_bkleSid=sid;
   const tEl=document.getElementById('bkle-title');if(tEl)tEl.textContent=title+' — 수업 기록';
-  const d=document.getElementById('bkle-add-date');if(d)d.value=new Date().toISOString().split('T')[0];
+  const d=document.getElementById('bkle-add-date');if(d)d.value=ppToday();
   const u=document.getElementById('bkle-add-unit');if(u)u.value='';
   bkleRender();
   openM('m-book-lessons');
@@ -10103,7 +10103,7 @@ function renderClassTab(){
   const allStus=DB.stus().filter(s=>!s.inactive);
   const DAYS=['일','월','화','수','목','금','토'];
   const todayDay=DAYS[new Date().getDay()];
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=ppToday();
 
   // 상단 주간 시간표
   const ttEl=document.getElementById('cls-timetable');
@@ -10161,7 +10161,7 @@ function openClsDetail(classId){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const allStus=DB.stus().filter(s=>!s.inactive);
   const stus=allStus.filter(s=>(c.studentIds||[]).includes(s.id));
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=ppToday();
   const DAYS=['일','월','화','수','목','금','토'];
   const todayDay=DAYS[new Date().getDay()];
   const isToday=(c.days||[]).includes(todayDay);
@@ -10203,7 +10203,7 @@ function renderClsLessons(classId){
   pgMoveCancel();
   const calHtml=_pgCalHtml(classId);
   const allStus=DB.stus().filter(s=>!s.inactive);
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=ppToday();
   // group lessons by date
   const rawLes=(DB.less()||[]).filter(l=>l.classId===classId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const byDate=new Map();
@@ -10286,7 +10286,7 @@ function _pgUnitIdx(tb,unitStr){
 // 클래스에서 이 교재의 마지막 기록 {idx,date} — 최신 수업일 우선 (미래 기록은 진도 계산 제외)
 function _pgLastRec(classId,tb){
   let best=null;
-  const _t=new Date().toISOString().split('T')[0];
+  const _t=ppToday();
   (_cache.lessons||[]).forEach(l=>{
     if(l.classId!==classId||!l.materials)return;
     if((l.date||'')>_t)return;
@@ -10319,7 +10319,7 @@ function _pgNextUnit(classId,tb,storedUnit){
 }
 // 오늘~uptoDate의 예정 진도 {날짜:단원키} — 앵커(드래그로 옮긴 기준점) 반영, skipDates=펜슬다운 등 제외일
 function _pgProjection(classId,c,tb,mat,uptoDate,skipDates){
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=ppToday();
   const keys=tbUnitKeys(tb);if(!keys.length)return{};
   const rec=_pgLastRec(classId,tb);
   let start;
@@ -10370,7 +10370,7 @@ function _pgOrtRemaining(sid){
 }
 // 학생별 ORT 원서 예정 {날짜:제목} — 교재 투영과 같은 슬롯·앵커('ort:sid') 규칙
 function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=ppToday();
   const remaining=_pgOrtRemaining(sid);
   if(!remaining.length||!(c.days||[]).length)return{};
   const recDates=new Set(); // 이 학생의 원서가 이미 기록된 날
@@ -10413,7 +10413,7 @@ function _pgClass5Plan(c,uptoDate){
   const keys=tbUnitKeys(tb);if(!keys.length)return{};
   let i=cfg.startUnit?keys.findIndex(k=>_pgUMatch(_pgNorm(k),_pgNorm(cfg.startUnit))):0;
   if(i<0)i=0;
-  const start=cfg.startDate||new Date().toISOString().split('T')[0];
+  const start=cfg.startDate||ppToday();
   const placed={};
   const cur=new Date(start+'T12:00:00');
   const end=new Date(uptoDate+'T12:00:00');
@@ -10447,7 +10447,7 @@ function _nextClassDay(dateStr,days,skipSet){
 // 규칙: 실제로 배운(기록된) 교재 단원 → 복습·워크북 숙제, 마감=다음 수업일. 원서·펜슬다운 제외
 function _pgHomeworkPlan(classId,c){
   const days=c.days||[];
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=ppToday();
   const skipSet=new Set(c.skipDates||[]); // 휴강일엔 숙제 마감을 잡지 않음 — 다음 실제 수업일로
   const dismissed=new Set(c.hwDismissed||[]); // 취소한 제안 ('책|단원' 정규화 키) — 다시 띄우지 않음
   const classSids=new Set(c.studentIds||[]);
@@ -10495,7 +10495,7 @@ function hwChipMenu(ev,classId,subject,book,bookId,unit,due){
 }
 // 클래스 예정 전체 구성(교재·원서·싱투게더) — 캘린더·예정 편집 모달·폼 자동 채움이 공유하는 단일 계산
 function _pgComposePlan(classId,c,uptoDate){
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=ppToday();
   const skipSet=new Set(c.skipDates||[]); // 휴강·결석으로 수업 안 한 날 — 교재·원서 진도는 이 날을 건너뛰어 하루씩 밀림 (클래스5 과제는 제외)
   const lessonDates=new Set();
   (_cache.lessons||[]).forEach(l=>{if(l.classId===classId&&l.date)lessonDates.add(l.date);});
@@ -10615,7 +10615,7 @@ function _pgAutoFillRow(sr){
   sr.querySelector('.pg-auto-chip')?.remove();
   if(!tb)return; // 교재 DB에 없으면 기존 값 유지
   const mat=(stored&&stored.book===sel.value)?stored:{book:sel.value,bookId:bkId};
-  const dateVal=document.getElementById('cl-date')?.value||new Date().toISOString().split('T')[0];
+  const dateVal=document.getElementById('cl-date')?.value||ppToday();
   // 캘린더와 같은 계산으로 그 날짜의 계획 단원을, 없으면 순서상 다음 단원
   const _plan=_pgComposePlan(classId,c,dateVal);
   const _planned=(_plan.ghostBy[dateVal]||[]).find(x=>x.tbId===tb.id);
@@ -10638,7 +10638,7 @@ function pgCalNav(d){
 }
 function _pgCalHtml(classId){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return'';
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=ppToday();
   const ym=_pgCalMonth||todayStr.slice(0,7);
   const[y,m]=ym.split('-').map(Number);
   // 예정 구성은 캘린더·예정 편집 모달·폼 자동 채움이 같은 계산을 공유 (내용 불일치 방지)
@@ -10727,7 +10727,7 @@ function pgDragStart(ev,classId,tbId,unit){
 }
 function pgCellOver(ev,date){
   if(!_pgDrag)return;
-  if(date<new Date().toISOString().split('T')[0])return;
+  if(date<ppToday())return;
   ev.preventDefault();
 }
 function pgCellDrop(ev,classId,date){
@@ -10750,7 +10750,7 @@ function pgGhostDbl(ev,classId,tbId,unit,date,subj){
 }
 // 예정 칩 → 실제 수업 기록으로 확정 (전원 정상 출석, 세부는 나중에 '수정'으로)
 function pgConfirmGhost(classId,tbId,unit,date,subj){
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=ppToday();
   if(date>todayStr){toast('아직 안 한 수업이에요 — 수업한 날에 확정해 주세요');return;}
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
@@ -10781,7 +10781,7 @@ function pgSingDbl(ev,classId,date){
   ev.stopPropagation();
   clearTimeout(_pgTapTimer);
   pgMoveCancel();
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=ppToday();
   if(date>todayStr){toast('아직 안 한 수업이에요 — 수업한 날에 확정해 주세요');return;}
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const stus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
@@ -10816,7 +10816,7 @@ function pgOrtDbl(ev,classId,sid,title,date){
   pgConfirmOrtBook(classId,sid,title,date);
 }
 function pgConfirmOrtBook(classId,sid,title,date){
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=ppToday();
   if(date>todayStr){toast('아직 안 한 수업이에요 — 수업한 날에 확정해 주세요');return;}
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
   askConfirm('원서 읽음 기록',`${s.name} · ${title}\n${date} 수업의 원서 읽기로 기록할까요?`,'기록','bt',async()=>{
@@ -10947,7 +10947,7 @@ async function pgRangeApply(classId,a,b){
   const i=(_cache.globalClasses||[]).findIndex(x=>x.id===classId);if(i>=0)_cache.globalClasses[i]=c;
   renderClsLessons(classId);
   toast(`수업일 ${targets.length}일 휴강·방학 표시 — 진도를 그만큼 미뤘어요`);
-  if(b>=new Date().toISOString().split('T')[0])openSkipNotice(classId,[a,b]); // 안내 보내기 연결
+  if(b>=ppToday())openSkipNotice(classId,[a,b]); // 안내 보내기 연결
 }
 function pgCellClick(ev,classId,date){
   if(_pgRangeClickGuard)return; // 드래그 선택 직후 따라오는 클릭 무시
@@ -10962,7 +10962,7 @@ function pgCellClick(ev,classId,date){
   const dow=_PG_DOW[new Date(date+'T12:00:00').getDay()];
   const isClassDay=(c.days||[]).includes(dow);
   const isSkip=(c.skipDates||[]).includes(date);
-  const future=date>new Date().toISOString().split('T')[0];
+  const future=date>ppToday();
   // 이미 휴강 표시된 날 → 되돌리기만
   if(isSkip){pgCellMenu(ev,classId,date,[{ico:'↩️',label:'수업일로 되돌리기',run:()=>pgToggleSkip(classId,date)}]);return;}
   // 수업일이 아니면 기존 동작 (미래=예정 편집, 과거=보강 기록)
@@ -10990,7 +10990,7 @@ async function pgToggleSkip(classId,date){
   const md=`${Number(date.slice(5,7))}/${Number(date.slice(8,10))}`;
   toast(adding?`${md} 수업 안 함 — 이후 진도를 하루씩 미뤘어요`:`${md} 수업일로 되돌렸어요`);
   // 오늘·미래 휴강 등록이면 안내 보내기로 연결 (학생·학부모 앱에는 자동 표시)
-  if(adding&&date>=new Date().toISOString().split('T')[0])openSkipNotice(classId,date);
+  if(adding&&date>=ppToday())openSkipNotice(classId,date);
 }
 // ── 휴강 안내 보내기 — 공지 배너 등록 + 카톡용 복사 ──
 function skipNoticeClose(){document.getElementById('skip-notice-modal')?.remove();document.getElementById('skip-notice-overlay')?.remove();}
@@ -11126,7 +11126,7 @@ async function pgPlanSave(){
   toast(`${tb.title} — ${u} · ${Number(date.slice(5,7))}/${Number(date.slice(8,10))}부터 예정으로 잡았어요`);
 }
 async function pgSetAnchor(classId,tbId,unit,date){
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=ppToday();
   if(date<todayStr){toast('지난 날짜로는 옮길 수 없어요');return;}
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   c.progressAnchors={...(c.progressAnchors||{}),[tbId]:{unit,date}};
@@ -11152,7 +11152,7 @@ async function pgAssignClass5(classId){
   const keys=tbUnitKeys(tb);
   let si=c.class5.startUnit?keys.findIndex(k=>_pgUMatch(_pgNorm(k),_pgNorm(c.class5.startUnit))):0;
   if(si<0)si=0;
-  const start=c.class5.startDate||new Date().toISOString().split('T')[0];
+  const start=c.class5.startDate||ppToday();
   const schedule=[];const cur=new Date(start+'T12:00:00');
   for(const u of keys.slice(si)){schedule.push({date:_pgYmd(cur),book:tb.title,unit:u});cur.setDate(cur.getDate()+1);}
   if(!schedule.length){toast('할당할 단원이 없어요');return;}
@@ -11194,7 +11194,7 @@ async function _pgDoAssignHw(classId,items,stus){
   showLoading(true);
   try{
     const allLib=[...(_cache.library||[])];
-    const today=new Date().toISOString().split('T')[0];
+    const today=ppToday();
     let n=0;
     for(const it of items){
       const isReading=allLib.some(b=>_pgNorm(b.title)===_pgNorm(it.book));
@@ -11452,7 +11452,7 @@ async function saveClass(){
   let class5=null;
   if(c5BookId){
     const c5tb=(_cache.globalTextbooks||[]).find(b=>b.id===c5BookId);
-    class5={bookId:c5BookId,book:c5tb?.title||'',startUnit:document.getElementById('ec-c5-unit')?.value||'',startDate:document.getElementById('ec-c5-start')?.value||new Date().toISOString().split('T')[0]};
+    class5={bookId:c5BookId,book:c5tb?.title||'',startUnit:document.getElementById('ec-c5-unit')?.value||'',startDate:document.getElementById('ec-c5-start')?.value||ppToday()};
   }
   const dailyHw=(document.getElementById('ec-dailyhw')?.value||'').split('\n').map(x=>x.trim()).filter(Boolean);
   const c={...(existing||{}),id,name,days,time,timeStart,timeEnd,dayTimes,studentIds,commonMaterials,class5,dailyHw,active:true};
@@ -11632,7 +11632,7 @@ const _CL_PROG_CHIPS_HTML=['완독','진행 중'].map(v=>`<button type="button" 
 // 기록 대상 날짜(cl-date)의 요일 시간을 모달 서브 라벨에 표시 — 날짜 변경 시에도 호출됨
 function clUpdateDaySub(){
   const c=DB.classes().find(x=>x.id===document.getElementById('cl-class-id').value);if(!c)return;
-  const d=document.getElementById('cl-date').value||new Date().toISOString().split('T')[0];
+  const d=document.getElementById('cl-date').value||ppToday();
   const day=['일','월','화','수','목','금','토'][new Date(d+'T00:00:00').getDay()];
   const timeStr=classTimeStr(c,day);
   document.getElementById('cl-modal-sub').textContent=classSchedStr(c)+(timeStr&&(c.dayTimes&&Object.keys(c.dayTimes).length)?` — ${day}요일 ${timeStr}`:'');
@@ -11642,7 +11642,7 @@ function openClassLesson(classId,dateStr){
   document.getElementById('cl-class-id').dataset.editMode='';
   document.getElementById('cl-class-id').value=classId;
   document.getElementById('cl-modal-title').textContent=c.name+' 수업 기록';
-  document.getElementById('cl-date').value=dateStr||new Date().toISOString().split('T')[0];
+  document.getElementById('cl-date').value=dateStr||ppToday();
   clUpdateDaySub();
   // 공통 교재: 클래스에 저장된 기본값으로 초기화
   clSubjs.clear();
@@ -11787,7 +11787,7 @@ async function saveStudentAssign(sid){
   if(cat==='__custom__')cat=document.getElementById(`asgn-cat-custom-${sid}`)?.value.trim()||''; // 직접 입력 구분
   const book=document.getElementById(`asgn-book-${sid}`)?.value.trim()||'';
   const range=document.getElementById(`asgn-range-${sid}`)?.value.trim()||'';
-  const date=document.getElementById(`asgn-date-${sid}`)?.value||new Date().toISOString().split('T')[0];
+  const date=document.getElementById(`asgn-date-${sid}`)?.value||ppToday();
   const due=document.getElementById(`asgn-due-${sid}`)?.value||date;
   if(!cat&&!book&&!range){toast('구분을 고르거나 교재·범위를 입력해 주세요');return;}
   const allLib=[...(_cache.library||[])];
@@ -12024,7 +12024,7 @@ function clHwReviewRange(prev,cur){
 function clHwSyncFromSubj(){
   const classId=document.getElementById('cl-class-id').value;
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
-  const lessonDate=document.getElementById('cl-date')?.value||new Date().toISOString().split('T')[0];
+  const lessonDate=document.getElementById('cl-date')?.value||ppToday();
   const hwDates=getClassLessonDates(c,lessonDate);
   const mats=[];
   document.querySelectorAll('#cl-subj-rows .sr').forEach(row=>{
@@ -12087,7 +12087,7 @@ function clHwAddCommonRow(){
   if(!groups.length){
     const classId=document.getElementById('cl-class-id')?.value;
     const c=DB.classes().find(x=>x.id===classId);
-    const lessonDate=document.getElementById('cl-date')?.value||new Date().toISOString().split('T')[0];
+    const lessonDate=document.getElementById('cl-date')?.value||ppToday();
     (c?getClassLessonDates(c,lessonDate):[lessonDate]).forEach(d=>clHwMakeDateGroup(d,container));
     groups=[...container.querySelectorAll('.cl-hw-date-group')];
   }
@@ -12116,7 +12116,7 @@ function clHwAddStuGroup(sid){
   const body=wrap.querySelector('.cl-hw-stu-body');
   const classId=document.getElementById('cl-class-id')?.value;
   const c=DB.classes().find(x=>x.id===classId);
-  const lessonDate=document.getElementById('cl-date')?.value||new Date().toISOString().split('T')[0];
+  const lessonDate=document.getElementById('cl-date')?.value||ppToday();
   (c?getClassLessonDates(c,lessonDate):[lessonDate]).forEach(d=>clHwMakeDateGroup(d,body));
   return wrap;
 }
@@ -12250,7 +12250,7 @@ async function saveClassLesson(){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const date=document.getElementById('cl-date').value;
   if(!date){toast('날짜를 선택하세요');return;}
-  if(date>new Date().toISOString().split('T')[0]){toast('미래 날짜예요 — 수업 계획은 진도 캘린더의 점선(예정)으로 관리하고, 기록은 수업 당일부터 저장해 주세요');return;}
+  if(date>ppToday()){toast('미래 날짜예요 — 수업 계획은 진도 캘린더의 점선(예정)으로 관리하고, 기록은 수업 당일부터 저장해 주세요');return;}
   const commonMats=getSMatsFrom('cl-subj-rows');
   const commonCmt=document.getElementById('cl-common-cmt')?.value.trim()||'';
   const stuRows=document.querySelectorAll('.cl-stu-row');
@@ -12593,7 +12593,7 @@ async function fullBackup(){
     const blob=new Blob([JSON.stringify(dump)],{type:'application/json'});
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
-    a.download=`pagepencil_backup_${new Date().toISOString().slice(0,10)}.json`;
+    a.download=`pagepencil_backup_${ppToday()}.json`;
     document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),5000);
     const ym=new Date().toISOString().slice(0,7);

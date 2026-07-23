@@ -75,7 +75,7 @@ async function submitLibRec(safeId,bookId,sid,title){
     }
   }catch(e){console.error(e);}
   if(!audioUrl){if(aiEl)aiEl.innerHTML='<span style="color:red">업로드 실패</span>';if(submitBtn)submitBtn.disabled=false;return;}
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const logId=uid();
   const logEntry={id:logId,sid,date:today,audioUrl,bookTitle:title,bookId:bookId||'',type:'recording',read:false};
   await supaUpsert('logs',logId,logEntry,sid);
@@ -630,7 +630,7 @@ async function saveAssignment(sid){
   if(_saving['saveAssignment'])return; _saving['saveAssignment']=true;
   try{
   const type=document.getElementById(`asgn-type-${sid}`)?.value||'reading';
-  const date=document.getElementById(`asgn-date-${sid}`)?.value||new Date().toISOString().split('T')[0];
+  const date=document.getElementById(`asgn-date-${sid}`)?.value||ppToday();
   const a={id:uid(),sid,date,type};
   if(type==='reading'){
     const bookTitle=(document.getElementById(`asgn-book-${sid}`)?.value||'').trim();
@@ -698,7 +698,7 @@ function renderAssignmentTab(sid){
       content=`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">📝 단어 암기</div><div class="wl">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
     } else if((a.schedule||[]).length){
       // 날짜별 스케줄 과제 (클래스5·반복 숙제) — 오늘부터 7일만 보여주고 전체는 접기
-      const today=new Date().toISOString().split('T')[0];
+      const today=ppToday();
       // 자동 진행 숙제는 못 한 날의 단원을 오늘부터로 밀어서 표시 (저장은 선생님 앱이 담당)
       const sched=(typeof recurRebase==='function'?recurRebase(a):null)||a.schedule||[];
       const isRecur=a.category==='recur'||a.type==='recur';
@@ -867,7 +867,7 @@ async function submitHomework(sid, assignmentId=''){
   }
   const memoEl=document.getElementById('hw-memo');
   const memo=memoEl?memoEl.value.trim():'';
-  const hw={id:uid(),sid,date:new Date().toISOString().split('T')[0],audioUrl:hwAudioUrl,memo,checked:false,assignmentId};
+  const hw={id:uid(),sid,date:ppToday(),audioUrl:hwAudioUrl,memo,checked:false,assignmentId};
   await supaUpsert('homeworks',hw.id,hw,sid);
   if(!_cache.homeworks)_cache.homeworks=[];
   _cache.homeworks.unshift(hw);
@@ -1025,7 +1025,7 @@ function renderVocabDeck(sid){
     }
   }
   // 모드별 세션 구성 — daily: 오늘 안 본 것 중 우선순위 20개 / last: 지난 수업 단어 전부 / all: 전체
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const recentLes=DB.less().filter(l=>l.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
   const recentDate=recentLes?.date||'';
   const prio=(a,b)=>{
@@ -1680,7 +1680,7 @@ async function renderVocabResult(el){
   const cls=pctScore>=80?'hi':pctScore>=50?'md':'lo';
   const missed=results.filter(r=>'correct' in r?!r.correct:!r.knew).map(r=>r.word);
   // Supabase 업데이트
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   for(const card of deckState.cards){
     const res=results.find(r=>r.word===card.word);
     const correct=res?('correct' in res?res.correct:res.knew):false;
@@ -1802,7 +1802,7 @@ function stuXpCard(sid,streak){
   </div>`;
 }
 function dailyQuests(sid){
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const q1=(_cache.assignments||[]).some(a=>a.sid===sid&&(a.completedAt||'').slice(0,10)===today);
   const reviewed=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===today).length;
   const st=JSON.parse(localStorage.getItem('pp_streak_'+sid)||'{}');
@@ -1819,7 +1819,7 @@ function stuQuestCard(sid){
   // 올클리어 축하: 하루 1회
   if(all){
     try{
-      const k='pp_qc_'+sid+'_'+new Date().toISOString().split('T')[0];
+      const k='pp_qc_'+sid+'_'+ppToday();
       if(!localStorage.getItem(k)){localStorage.setItem(k,'1');setTimeout(()=>{launchConfetti();toast('\uD83C\uDFC6 오늘 퀘스트 올클리어! 최고예요!');},700);}
     }catch(e){}
   }
@@ -1863,7 +1863,7 @@ function showMiniConfetti(){
   setTimeout(()=>container.remove(),2000);
 }
 function getStreak(sid){
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
   const yStr=yesterday.toISOString().split('T')[0];
   const data=JSON.parse(localStorage.getItem('pp_streak_'+sid)||'{"count":0,"lastDate":""}');
@@ -1871,7 +1871,7 @@ function getStreak(sid){
   return 0;
 }
 function updateStreak(sid){
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
   const yStr=yesterday.toISOString().split('T')[0];
   const y2=new Date();y2.setDate(y2.getDate()-2);
@@ -1985,7 +1985,7 @@ async function completeSchedDay(sid,asgnId,ds){
   try{await supaUpsert('assignments',asgnId,a,sid);}
   catch(e){console.error('completeSchedDay:',e);toast('저장 실패 — 네트워크를 확인해 주세요');}
   // 학습 도장·스트릭에도 반영
-  try{const k='pp_stamps_'+sid;const arr=JSON.parse(localStorage.getItem(k)||'[]');const t=new Date().toISOString().split('T')[0];if(!arr.includes(t)){arr.push(t);localStorage.setItem(k,JSON.stringify(arr));}}catch(e){}
+  try{const k='pp_stamps_'+sid;const arr=JSON.parse(localStorage.getItem(k)||'[]');const t=ppToday();if(!arr.includes(t)){arr.push(t);localStorage.setItem(k,JSON.stringify(arr));}}catch(e){}
   updateStreak(sid);
   setTimeout(()=>showMiniConfetti(),200);
 }
@@ -2028,7 +2028,7 @@ function _stuShowNotify(title,body){
   }catch(e){}
 }
 function _todayVocabDone(sid){
-  const t=new Date().toISOString().split('T')[0];
+  const t=ppToday();
   if((_cache.vocab_cards||[]).some(c=>c.sid===sid&&c.lastSeen===t))return true;
   try{return JSON.parse(localStorage.getItem('pp_stamps_'+sid)||'[]').includes(t);}catch(e){return false;}
 }
@@ -2241,7 +2241,7 @@ const _asgnDay=a=>(a.due||a.date||'').slice(0,10);
 function renderStudentHome(sid){
   const el=document.getElementById('st-home');if(!el)return;
   const stu=DB.stus().find(s=>s.id===sid);
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const _wk=_stuWeekDates(today);
   const _weekStart=_wk[0].date,_weekEnd=_wk[6].date;
   const allAssigns=(_cache.assignments||[]).filter(a=>a.sid===sid);
@@ -2301,7 +2301,7 @@ function renderStudentHome(sid){
       :`<div class="stu-hero-cmt">${totalMission?`오늘 미션 ${done.length}/${totalMission}개 완료 중! 화이팅 🔥`:'오늘도 즐겁게 공부해요 😊'}</div>`}
   </div>`;
   // ── 오늘 할 일 히어로: 도넛 링(오늘 20개) + 큰 버튼 + 오늘의 게임 예고 ──
-  const _revToday=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===new Date().toISOString().split('T')[0]).length;
+  const _revToday=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===ppToday()).length;
   const _ringN=Math.min(20,_revToday);
   const _ringDone=_ringN>=20;
   const _rR=37,_rC=2*Math.PI*_rR;
@@ -2921,7 +2921,7 @@ function msDoneBtn(m,label){
 async function msCompleteMission(m){
   const{a,sid,missions}=_msState;
   a.progress=a.progress||{};
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   if(!a.progress[m])a.progress[m]=today;
   const allDone=missions.every(x=>a.progress[x]);
   if(allDone&&!a.completedAt)a.completedAt=new Date().toISOString();
@@ -3446,7 +3446,7 @@ async function msSubmitRec(){
   }catch(e){console.error(e);}
   if(!audioUrl){if(st)st.innerHTML='<span style="color:red">업로드에 실패했어요. 다시 시도해 주세요</span>';if(btn)btn.disabled=false;return;}
   a.recUrl=audioUrl;a.recAt=new Date().toISOString();
-  const today=new Date().toISOString().split('T')[0];
+  const today=ppToday();
   const logId=uid();
   const title=((a.bookTitle||tb.title||'')+' '+(unitKey||'')).trim();
   const logEntry={id:logId,sid,date:today,audioUrl,bookTitle:title,bookId:'',type:'recording',read:false};
