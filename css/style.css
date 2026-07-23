@@ -652,12 +652,14 @@ div.ig-like{cursor:default;}
 .cls-record-col.open{display:flex;}
 .cls-record-inner{flex:1;overflow-y:auto;padding:14px 18px;}
 @media(max-width:767px){
+  /* 모바일: 목록은 in-flow(페이지 스크롤·상단 탭 유지), 상세·기록은 뷰포트 전체 오버레이.
+     이전엔 셋 다 position:absolute였는데 .ab가 overflow:visible(페이지 스크롤)이고 자식이 전부
+     absolute라 부모 .cls-split 높이가 0으로 접혀 기록 폼이 납작해져 입력 불가였음 → fixed로 해결 */
   .cls-split{position:relative;}
-  .cls-list-col{width:100%;position:absolute;inset:0;background:#fff;transition:transform .25s ease;z-index:2;}
-  .cls-detail-col{width:100%;position:absolute;inset:0;transform:translateX(100%);transition:transform .25s ease;z-index:3;background:#fff;}
-  .cls-record-col{width:100% !important;position:absolute;inset:0;transform:translateX(100%);transition:transform .25s ease;z-index:4;background:#fff;}
+  .cls-list-col{width:100%;position:static;background:#fff;z-index:2;}
+  .cls-detail-col{width:100%;position:fixed;inset:0;transform:translateX(100%);transition:transform .25s ease;z-index:30;background:#fff;}
+  .cls-record-col{width:100% !important;position:fixed;inset:0;transform:translateX(100%);transition:transform .25s ease;z-index:31;background:#fff;}
   .cls-record-col.open{display:flex;transform:translateX(0);}
-  .cls-split.detail-open .cls-list-col{transform:translateX(-100%);}
   .cls-split.detail-open .cls-detail-col{transform:translateX(0);}
   .cls-resizer{display:none;}
   .cls-back-btn{display:inline-block !important;}
