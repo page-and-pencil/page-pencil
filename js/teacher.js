@@ -10639,7 +10639,9 @@ function _pgComposePlan(classId,c,uptoDate){
     if(finished.length){
       const lastFin=finished.map(b=>({b,rec:_pgLastRec(classId,b.tb)})).sort((a,b2)=>(b2.rec.date||'').localeCompare(a.rec.date||''))[0];
       const nextStarted=unfinished.some(b=>_pgLastRec(classId,b.tb));
-      const singDone=(_cache.lessons||[]).some(l=>l.classId===classId&&(l.date||'')>=lastFin.rec.date&&l.materials
+      // 완주일 직전 1주 내의 펜슬다운도 이 책의 씽으로 인정 — 마지막 단원 정리 전에 씽을 먼저 한 경우 8월에 또 잡히지 않게
+      const singFrom=(()=>{const d=new Date(lastFin.rec.date+'T12:00:00');d.setDate(d.getDate()-7);return _pgYmd(d);})();
+      const singDone=(_cache.lessons||[]).some(l=>l.classId===classId&&(l.date||'')>=singFrom&&l.materials
         &&Object.keys(l.materials).some(k=>{const bk=k.replace(/_\d+$/,'');return bk==='pencil_down'||bk==='sing_together';}));
       if(!singDone&&!nextStarted){
         const d=_slotFrom(chainCursor,(c.days||[]));
@@ -10684,8 +10686,32 @@ function _pgComposePlan(classId,c,uptoDate){
       chainCursor=_addDay(sd);
     });
   }
-  // 리딩 외 과목은 기존대로 각자 투영 (휴강일 건너뜀)
+  // 리딩 외 과목 투영. 단, 반복 숙제로 자체 진행하는 교재(어휘집 등)는 매 수업 1과가 아니라
+  // 숙제로 한 단원들을 '다음 수업일에 일괄 진도'로 묶어 표시 (수업 없는 날 과제 → 다음 시간 일괄 기록 흐름)
   books.filter(b=>!readingBooks.includes(b)).forEach(b=>{
+    const isRecurBook=clsStus.some(s=>bookIsRecurHw(s.id,b.tb.title));
+    if(isRecurBook){
+      const sids=clsStus.map(s=>s.id);
+      const a=(_cache.assignments||[]).find(x=>!x._deleted&&sids.includes(x.sid)&&x.category==='recur'&&(x.schedule||[]).length
+        &&(x.bookId===b.tb.id||_pgNorm(x.bookTitle||'')===_pgNorm(b.tb.title)));
+      if(a){
+        const sch=(a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+        const rec=_pgLastRec(classId,b.tb);
+        const keys=tbUnitKeys(b.tb);
+        const remain=new Set(keys.slice(rec?rec.idx+1:0).map(k=>_pgNorm(k))); // 아직 수업 기록 안 된 단원만
+        const byDay={};
+        sch.forEach(s2=>{
+          if(!s2.unit||!remain.has(_pgNorm(s2.unit)))return;
+          const d=_nextClassDay(s2.date,(c.days||[]),skipSet);
+          if(!d||d<todayStr||d>uptoDate)return;
+          (byDay[d]=byDay[d]||[]).push(s2.unit);
+        });
+        Object.entries(byDay).forEach(([d,units])=>{
+          (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:units.join(', '),color:b.color,title:b.tb.title,s:b.s});
+        });
+      }
+      return; // 반복 숙제 교재는 매 수업 1과 투영 안 함
+    }
     const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate,skipSet);
     Object.entries(placed).forEach(([d,u])=>{
       (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
