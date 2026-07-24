@@ -1146,7 +1146,12 @@ async function loadStuPanel(sid){
   const sHws=(_cache.homeworks||[]).filter(h=>h.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const sAssigns=(_cache.assignments||[]).filter(a=>a.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const unread=sHws.filter(h=>!h.checked).length;
-  const tomorrowStr=(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().split('T')[0];})();
+  const tomorrowStr=(()=>{ // 마감 기본값: 다음 실제 수업일(휴강 제외), 클래스 없으면 내일
+    const c0=DB.classes().find(c=>c.active!==false&&(c.studentIds||[]).includes(sid));
+    const n=c0?_nextClassDay(ppToday(),c0.days||[],new Set(c0.skipDates||[])):'';
+    if(n)return n;
+    const d=new Date();d.setDate(d.getDate()+1);return ppYmd(d);
+  })();
   const _hwchBox=(()=>{
     const stu=DB.stus().find(x=>x.id===sid);
     const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu):null;
@@ -7509,7 +7514,7 @@ function renderDash(){
   const dateLabel=`${today.getMonth()+1}월 ${today.getDate()}일 ${todayDay}요일`;
 
   // Section 1: 오늘 클래스 (오늘 요일 시작 시간순 정렬)
-  const todayClasses=DB.classes().filter(c=>c.active!==false&&(c.days||[]).includes(todayDay))
+  const todayClasses=DB.classes().filter(c=>c.active!==false&&(c.days||[]).includes(todayDay)&&!(c.skipDates||[]).includes(todayStr)) // 오늘 휴강인 클래스는 '오늘 수업'에서 제외
     .sort((a,b)=>(classTimeFor(a,todayDay).start||'99').localeCompare(classTimeFor(b,todayDay).start||'99'));
   const recordedToday=todayClasses.filter(c=>DB.less().some(l=>l.date===todayStr&&l.classId===c.id)).length;
   renderDashGreet(dateLabel,todayClasses.length);
@@ -8892,8 +8897,10 @@ function openAssignModal(sid){
   document.getElementById('modal-assign-stu').value=sid||'';
   const today=ppToday();
   document.getElementById('modal-assign-date').value=today;
-  const due=new Date();due.setDate(due.getDate()+1);
-  document.getElementById('modal-assign-due').value=due.toISOString().split('T')[0];
+  // 마감 기본값: 학생 클래스의 다음 실제 수업일(휴강 제외) — 없으면 내일
+  const stCls0=sid?DB.classes().find(c=>c.active!==false&&(c.studentIds||[]).includes(sid)):null;
+  const nextDue=stCls0?_nextClassDay(today,stCls0.days||[],new Set(stCls0.skipDates||[])):'';
+  document.getElementById('modal-assign-due').value=nextDue||(()=>{const d=new Date();d.setDate(d.getDate()+1);return ppYmd(d);})();
   document.querySelectorAll('#modal-assign-cat option[data-custom-cat]').forEach(o=>o.remove());
   document.getElementById('modal-assign-cat').value='';
   const bookEl=document.getElementById('modal-assign-book');
@@ -10263,7 +10270,7 @@ function openClsDetail(classId){
   const todayStr=ppToday();
   const DAYS=['일','월','화','수','목','금','토'];
   const todayDay=DAYS[new Date().getDay()];
-  const isToday=(c.days||[]).includes(todayDay);
+  const isToday=(c.days||[]).includes(todayDay)&&!(c.skipDates||[]).includes(todayStr); // 오늘 휴강이면 오늘 수업 아님
   const done=isToday&&DB.less().some(l=>l.date===todayStr&&l.classId===classId);
   // active card 표시
   document.querySelectorAll('#cls-list-inner .cls-card').forEach(el=>el.classList.toggle('active',el.getAttribute('onclick')===`openClsDetail('${classId}')`));
@@ -12170,15 +12177,20 @@ function tbSortByUsage(books){
 }
 // 과제 할당 대상 날짜: 수업 당일(당일에 내주는 과제) ~ 다음 수업 전날.
 // 다음 수업 당일은 수업이 있으므로 과제 대상에서 제외
+// 수업일부터 '다음 실제 수업일(휴강 제외)' 직전까지의 날짜 목록 — 과제 날짜 그룹의 뼈대.
+// 휴강(skipDates)을 건너뛰므로 방학 중에도 다음 수업 때까지 전 기간 숙제를 낼 수 있다 (최대 30일).
 function getClassLessonDates(classObj,fromDateStr){
   const DAYS=['일','월','화','수','목','금','토'];
   const classDays=classObj.days||[];
-  const from=new Date(fromDateStr);
+  const skip=new Set(classObj.skipDates||[]);
   const dates=[fromDateStr];
-  for(let i=1;i<=7;i++){
-    const d=new Date(from);d.setDate(d.getDate()+i);
-    if(classDays.includes(DAYS[d.getDay()]))break;
-    dates.push(d.toISOString().split('T')[0]);
+  const d=new Date(fromDateStr+'T12:00:00');
+  const max=classDays.length?30:7;
+  for(let i=1;i<=max;i++){
+    d.setDate(d.getDate()+1);
+    const ds=_pgYmd(d);
+    if(classDays.includes(DAYS[d.getDay()])&&!skip.has(ds))break;
+    dates.push(ds);
   }
   return dates;
 }
