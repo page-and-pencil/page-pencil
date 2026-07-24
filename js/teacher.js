@@ -10834,7 +10834,7 @@ function _pgCalHtml(classId){
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr((clsStus.length>1?g.name+' — ':'')+g.title+(ortGroupOf(g.title)?' · '+ortGroupOf(g.title):'')+' (원서 예정 — 끌어서 옮기기, 더블클릭=읽음 기록)')}" ondragstart="pgDragStart(event,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" ondblclick="pgOrtDbl(event,'${classId}','${g.sid}','${escJsA(g.title)}','${ds}')">📗 ${clsStus.length>1?g.name+'·':''}${g.title}</span>`
     ).join('');
     chips+=(ghostBy[ds]||[]).map(g=>
-      `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 끌어서 옮기기, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escAttr(g.unit)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escAttr(g.unit)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${ds}','${escAttr(g.s)}')">${g.unit}</span>`
+      `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 미래 날짜로 끌면 이동, 오늘·지난 날짜에 놓으면 그날 수업으로 기록, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${escAttr(g.s)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escAttr(g.unit)}','${escAttr(g.s)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${ds}','${escAttr(g.s)}')">${g.unit}</span>`
     ).join('');
     const isSkip=skipSet.has(ds);
     const skipMark=isSkip?`<span class="pg-skip-mark" title="수업 안 함 (휴강·결석) — 이후 진도가 하루씩 밀렸어요. 누르면 되돌리기">🚫 수업 안 함</span>`:'';
@@ -10856,29 +10856,37 @@ function _pgCalHtml(classId){
       <span style="flex:1"></span>${legend}
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
-    <div class="pg-cal-hint">진한 칩=기록 · 점선 칩=예정 — 드래그로 진도 이동 <b>(◀▶에 올린 채 머물면 달이 넘어가 다른 달로도 이동)</b>, <b>오늘 점선 칩 더블클릭=수업 기록 확정</b> · 칩을 한 번 탭 → 날짜 탭으로도 이동(달 넘겨도 유지) · 빈 수업일 클릭 → 수업 기록 / 예정 편집 / 🚫 수업 안 함 · <b>빈 칸을 드래그하면 기간 휴강·방학</b> · <b>숙제·클래스5는 과제 메뉴의 숙제 캘린더에서</b></div>
+    <div class="pg-cal-hint">진한 칩=기록 · 점선 칩=예정 — 드래그로 진도 이동 <b>(◀▶에 올린 채 머물면 달이 넘어가 다른 달로도 이동)</b> · <b>예정 칩을 오늘·지난 날짜에 놓으면 그날 수업으로 기록</b> · <b>오늘 점선 칩 더블클릭=수업 기록 확정</b> · 칩을 한 번 탭 → 날짜 탭으로도 이동(달 넘겨도 유지) · 빈 수업일 클릭 → 수업 기록 / 예정 편집 / 🚫 수업 안 함 · <b>빈 칸을 드래그하면 기간 휴강·방학</b> · <b>숙제·클래스5는 과제 메뉴의 숙제 캘린더에서</b></div>
   </div>`;
 }
-function pgDragStart(ev,classId,tbId,unit){
-  _pgDrag={classId,tbId,unit};
+function pgDragStart(ev,classId,tbId,unit,s){
+  _pgDrag={classId,tbId,unit,s:s||''};
   try{ev.dataTransfer.setData('text/plain',unit);ev.dataTransfer.effectAllowed='move';}catch(e){}
 }
 function pgCellOver(ev,date){
   if(!_pgDrag)return;
-  if(date<ppToday())return;
-  ev.preventDefault();
+  ev.preventDefault(); // 미래=예정 이동, 오늘·과거=그날 수업으로 기록 — 모두 허용
 }
 function pgCellDrop(ev,classId,date){
   if(!_pgDrag)return;
   ev.preventDefault();ev.stopPropagation();
   const d=_pgDrag;_pgDrag=null;
+  _pgPlaceChip(classId,d,date);
+}
+// 예정 칩을 날짜에 놓았을 때: 미래=예정 이동(앵커), 오늘·지난 날짜=그날 실제 한 수업으로 기록 확정
+function _pgPlaceChip(classId,d,date){
+  if(date<=ppToday()){
+    if(String(d.tbId).startsWith('ort:'))pgConfirmOrtBook(classId,String(d.tbId).slice(4),d.unit,date);
+    else pgConfirmGhost(classId,d.tbId,d.unit,date,d.s||'');
+    return;
+  }
   pgSetAnchor(classId,d.tbId,d.unit,date);
 }
 // 싱글 클릭(이동 선택)은 살짝 지연 — 더블클릭(기록 확정)과 충돌하지 않게
 let _pgTapTimer=null;
-function pgChipTapDelayed(el,classId,tbId,unit){
+function pgChipTapDelayed(el,classId,tbId,unit,s){
   clearTimeout(_pgTapTimer);
-  _pgTapTimer=setTimeout(()=>pgChipTap(el,classId,tbId,unit),260);
+  _pgTapTimer=setTimeout(()=>pgChipTap(el,classId,tbId,unit,s),260);
 }
 function pgGhostDbl(ev,classId,tbId,unit,date,subj){
   ev.stopPropagation();
@@ -11077,13 +11085,13 @@ function _pgMergeMat(mats,subj,tb,unit){
   r[key]={book:tb.title,unit,bookId:tb.id};
   return r;
 }
-function pgChipTap(el,classId,tbId,unit){
+function pgChipTap(el,classId,tbId,unit,s){
   if(_pgMoveSel&&_pgMoveSel.tbId===tbId&&_pgMoveSel.unit===unit){pgMoveCancel();return;}
   pgMoveCancel();
-  _pgMoveSel={classId,tbId,unit};
+  _pgMoveSel={classId,tbId,unit,s:s||''};
   el.classList.add('sel');
   el.closest('.pg-cal-card')?.classList.add('pg-moving');
-  toast('옮길 날짜를 눌러주세요 (다시 누르면 취소)');
+  toast('옮길 날짜를 눌러주세요 — 오늘·지난 날짜면 그날 수업으로 기록돼요 (다시 누르면 취소)');
 }
 function pgMoveCancel(){
   _pgMoveSel=null;
@@ -11166,7 +11174,7 @@ function pgCellClick(ev,classId,date){
     const s=_pgRangeStart;_pgRangeStart=null;
     if(s.classId===classId){const [a,b]=[s.date,date].sort();pgRangeConfirm(classId,a,b);return;}
   }
-  if(_pgMoveSel){const s=_pgMoveSel;pgMoveCancel();pgSetAnchor(classId,s.tbId,s.unit,date);return;}
+  if(_pgMoveSel){const s=_pgMoveSel;pgMoveCancel();_pgPlaceChip(classId,s,date);return;}
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const has=(_cache.lessons||[]).some(l=>l.classId===classId&&l.date===date);
   if(has){openClassLessonEdit(classId,date);return;}
