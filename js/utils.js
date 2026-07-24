@@ -439,12 +439,14 @@ function recurRebase(a){
   const cls=(typeof DB!=='undefined'?DB.classes():[]).find(c=>c.active!==false&&(c.studentIds||[]).includes(a.sid));
   const days=cls?.days||[];
   const skip=new Set(cls?.skipDates||[]);
+  const extra=new Set(cls?.extraDates||[]); // 추가 수업일 (특강 매일 수업)
   const rule=a.recurRule||'noclass';
   const DOWS=['일','월','화','수','목','금','토'];
   const ok=(d,ds)=>{
     const dow=DOWS[d.getDay()];
-    if(rule==='noclass')return !days.includes(dow)||skip.has(ds);
-    if(rule==='class')return days.includes(dow)&&!skip.has(ds);
+    const isCls=(days.includes(dow)||extra.has(ds))&&!skip.has(ds);
+    if(rule==='noclass')return !isCls;
+    if(rule==='class')return isCls;
     if(rule==='weekday')return dow!=='토'&&dow!=='일';
     return true;
   };

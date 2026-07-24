@@ -1148,7 +1148,7 @@ async function loadStuPanel(sid){
   const unread=sHws.filter(h=>!h.checked).length;
   const tomorrowStr=(()=>{ // 마감 기본값: 다음 실제 수업일(휴강 제외), 클래스 없으면 내일
     const c0=DB.classes().find(c=>c.active!==false&&(c.studentIds||[]).includes(sid));
-    const n=c0?_nextClassDay(ppToday(),c0.days||[],new Set(c0.skipDates||[])):'';
+    const n=c0?_nextClassDay(ppToday(),c0.days||[],new Set(c0.skipDates||[]),new Set(c0.extraDates||[])):'';
     if(n)return n;
     const d=new Date();d.setDate(d.getDate()+1);return ppYmd(d);
   })();
@@ -7514,7 +7514,7 @@ function renderDash(){
   const dateLabel=`${today.getMonth()+1}월 ${today.getDate()}일 ${todayDay}요일`;
 
   // Section 1: 오늘 클래스 (오늘 요일 시작 시간순 정렬)
-  const todayClasses=DB.classes().filter(c=>c.active!==false&&(c.days||[]).includes(todayDay)&&!(c.skipDates||[]).includes(todayStr)) // 오늘 휴강인 클래스는 '오늘 수업'에서 제외
+  const todayClasses=DB.classes().filter(c=>c.active!==false&&((c.days||[]).includes(todayDay)||(c.extraDates||[]).includes(todayStr))&&!(c.skipDates||[]).includes(todayStr)) // 오늘 휴강 제외, 추가 수업일 포함
     .sort((a,b)=>(classTimeFor(a,todayDay).start||'99').localeCompare(classTimeFor(b,todayDay).start||'99'));
   const recordedToday=todayClasses.filter(c=>DB.less().some(l=>l.date===todayStr&&l.classId===c.id)).length;
   renderDashGreet(dateLabel,todayClasses.length);
@@ -8899,7 +8899,7 @@ function openAssignModal(sid){
   document.getElementById('modal-assign-date').value=today;
   // 마감 기본값: 학생 클래스의 다음 실제 수업일(휴강 제외) — 없으면 내일
   const stCls0=sid?DB.classes().find(c=>c.active!==false&&(c.studentIds||[]).includes(sid)):null;
-  const nextDue=stCls0?_nextClassDay(today,stCls0.days||[],new Set(stCls0.skipDates||[])):'';
+  const nextDue=stCls0?_nextClassDay(today,stCls0.days||[],new Set(stCls0.skipDates||[]),new Set(stCls0.extraDates||[])):'';
   document.getElementById('modal-assign-due').value=nextDue||(()=>{const d=new Date();d.setDate(d.getDate()+1);return ppYmd(d);})();
   document.querySelectorAll('#modal-assign-cat option[data-custom-cat]').forEach(o=>o.remove());
   document.getElementById('modal-assign-cat').value='';
@@ -9362,12 +9362,14 @@ function recurBookChange(){
 // 반복 숙제 스케줄 생성 — rule: daily(매일) | noclass(수업 없는 날+등록된 휴강일) | class(수업 있는 날, 휴강 제외)
 // 교재 유형은 startUnit부터 1과씩, 단원 소진 시 종료. 고정 내용은 endDate까지(기본 연말)
 function buildRecurSchedule(opts){
-  const {rule,start,end,clsDays,skipDates,text,tb,startUnit}=opts;
+  const {rule,start,end,clsDays,skipDates,extraDates,text,tb,startUnit}=opts;
   const skipSet=new Set(skipDates||[]);
+  const extraSet=new Set(extraDates||[]);
   const days=clsDays||[];
   const applies=(ds,dow)=>{
-    if(rule==='noclass')return !days.includes(dow)||skipSet.has(ds);
-    if(rule==='class')return days.includes(dow)&&!skipSet.has(ds);
+    const isCls=(days.includes(dow)||extraSet.has(ds))&&!skipSet.has(ds); // 추가 수업일도 수업일
+    if(rule==='noclass')return !isCls;
+    if(rule==='class')return isCls;
     if(rule==='weekday')return dow!=='토'&&dow!=='일';
     return true; // daily
   };
@@ -9506,12 +9508,12 @@ async function saveModalAssignment(){
       const tb=(_cache.globalTextbooks||[]).find(b=>b.id===bkId);
       if(!tb){toast('교재를 선택해 주세요');return;}
       const startUnit=document.getElementById('rc-unit')?.value||'';
-      schedule=buildRecurSchedule({rule,start,end:due||'',clsDays:stCls?.days,skipDates:stCls?.skipDates,tb,startUnit});
+      schedule=buildRecurSchedule({rule,start,end:due||'',clsDays:stCls?.days,skipDates:stCls?.skipDates,extraDates:stCls?.extraDates,tb,startUnit});
       title=tb.title;tbId=tb.id;
     }else{
       const text=(document.getElementById('rc-text')?.value||'').trim();
       if(!text){toast('숙제 내용을 입력해 주세요');return;}
-      schedule=buildRecurSchedule({rule,start,end:due||'',clsDays:stCls?.days,skipDates:stCls?.skipDates,text});
+      schedule=buildRecurSchedule({rule,start,end:due||'',clsDays:stCls?.days,skipDates:stCls?.skipDates,extraDates:stCls?.extraDates,text});
       title=text;
     }
     if(!schedule.length){toast('해당 조건에 맞는 날이 없어요 — 시작일·반복 요일을 확인해 주세요');return;}
@@ -10270,7 +10272,7 @@ function openClsDetail(classId){
   const todayStr=ppToday();
   const DAYS=['일','월','화','수','목','금','토'];
   const todayDay=DAYS[new Date().getDay()];
-  const isToday=(c.days||[]).includes(todayDay)&&!(c.skipDates||[]).includes(todayStr); // 오늘 휴강이면 오늘 수업 아님
+  const isToday=((c.days||[]).includes(todayDay)||(c.extraDates||[]).includes(todayStr))&&!(c.skipDates||[]).includes(todayStr); // 휴강 제외, 추가 수업일 포함
   const done=isToday&&DB.less().some(l=>l.date===todayStr&&l.classId===classId);
   // active card 표시
   document.querySelectorAll('#cls-list-inner .cls-card').forEach(el=>el.classList.toggle('active',el.getAttribute('onclick')===`openClsDetail('${classId}')`));
@@ -10436,13 +10438,14 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates){
   const bDays=(mat?.days&&mat.days.length)?mat.days:(c.days||[]);
   if(!bDays.length)return{};
   const recDates=_pgRecDates(classId,tb);
+  const extraSet=new Set(c.extraDates||[]); // 추가 수업일 (특강 등 — 요일 외 매일 수업)
   const slots=[];
   const cur=new Date();cur.setHours(12,0,0,0);
   const end=new Date(uptoDate+'T12:00:00');
   for(;cur<=end;cur.setDate(cur.getDate()+1)){
     const ds=_pgYmd(cur);
     if(ds<todayStr)continue;
-    if(!bDays.includes(_PG_DOW[cur.getDay()]))continue;
+    if(!bDays.includes(_PG_DOW[cur.getDay()])&&!extraSet.has(ds))continue;
     if(recDates.has(ds))continue;
     if(skipDates&&skipDates.has(ds))continue;
     slots.push(ds);
@@ -10485,12 +10488,13 @@ function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
     if(Object.entries(l.materials).some(([k,v])=>k.replace(/_\d+$/,'')==='_book'&&v&&v.book))recDates.add(l.date);
   });
   const slots=[];
+  const extraSet=new Set(c.extraDates||[]);
   const cur=new Date();cur.setHours(12,0,0,0);
   const end=new Date(uptoDate+'T12:00:00');
   for(;cur<=end;cur.setDate(cur.getDate()+1)){
     const ds=_pgYmd(cur);
     if(ds<todayStr)continue;
-    if(!(c.days||[]).includes(_PG_DOW[cur.getDay()]))continue;
+    if(!(c.days||[]).includes(_PG_DOW[cur.getDay()])&&!extraSet.has(ds))continue;
     if(recDates.has(ds))continue;
     if(skipDates&&skipDates.has(ds))continue;
     slots.push(ds);
@@ -10539,13 +10543,14 @@ function _pgClass5Assigned(classId,bookId){
   return s;
 }
 // 어떤 날짜 이후 첫 '실제 수업일' — 휴강·결석일(skipSet)은 건너뜀 (수업 안 한 날에 숙제 마감이 잡히지 않게)
-function _nextClassDay(dateStr,days,skipSet){
-  if(!days||!days.length)return'';
+function _nextClassDay(dateStr,days,skipSet,extraSet){
+  if((!days||!days.length)&&!(extraSet&&extraSet.size))return'';
   const cur=new Date(dateStr+'T12:00:00');
   for(let i=0;i<60;i++){
     cur.setDate(cur.getDate()+1);
     const ds=_pgYmd(cur);
-    if(days.includes(_PG_DOW[cur.getDay()])&&!(skipSet&&skipSet.has(ds)))return ds;
+    const isCls=((days||[]).includes(_PG_DOW[cur.getDay()])||(extraSet&&extraSet.has(ds)))&&!(skipSet&&skipSet.has(ds));
+    if(isCls)return ds;
   }
   return'';
 }
@@ -10562,9 +10567,10 @@ function _pgHomeworkPlan(classId,c){
     // 클래스5·반복 스케줄이 그 마감일에 같은 책·단원을 이미 커버하면 제안하지 않음
     ||(due&&[...classSids].some(sid=>schedCoversHw(sid,due,book,unit)));
   const byDate={},seen=new Set();
+  const extraSet=new Set(c.extraDates||[]);
   (_cache.lessons||[]).forEach(l=>{
     if(l.classId!==classId||!l.date||!l.materials)return;
-    const due=_nextClassDay(l.date,days,skipSet);
+    const due=_nextClassDay(l.date,days,skipSet,extraSet);
     if(!due||due<todayStr)return; // 마감이 이미 지난 제안은 표시하지 않음 (할당 불가한 잔재)
     Object.entries(l.materials).forEach(([k,v])=>{
       const bk=k.replace(/_\d+$/,'');
@@ -10629,12 +10635,13 @@ function _pgComposePlan(classId,c,uptoDate){
     });
   });
   const _addDay=ds=>{const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+1);return _pgYmd(d);};
-  const _slotFrom=(fromInclusive,bDays)=>{ // fromInclusive부터 첫 가용 수업일 (휴강일 건너뜀)
+  const _extraSet=new Set(c.extraDates||[]); // 추가 수업일 (특강 — 요일 외 매일 수업 기간)
+  const _slotFrom=(fromInclusive,bDays)=>{ // fromInclusive부터 첫 가용 수업일 (휴강일 건너뜀, 추가 수업일 포함)
     const cur=new Date(fromInclusive+'T12:00:00');
     for(let i=0;i<220;i++){
       const ds=_pgYmd(cur);
       if(ds>uptoDate)return'';
-      if(ds>=todayStr&&bDays.includes(_PG_DOW[cur.getDay()])&&!usedDates.has(ds)&&!skipSet.has(ds))return ds;
+      if(ds>=todayStr&&(bDays.includes(_PG_DOW[cur.getDay()])||_extraSet.has(ds))&&!usedDates.has(ds)&&!skipSet.has(ds))return ds;
       cur.setDate(cur.getDate()+1);
     }
     return'';
@@ -10711,7 +10718,7 @@ function _pgComposePlan(classId,c,uptoDate){
         const byDay={};
         sch.forEach(s2=>{
           if(!s2.unit||!remain.has(_pgNorm(s2.unit)))return;
-          const d=_nextClassDay(s2.date,(c.days||[]),skipSet);
+          const d=_nextClassDay(s2.date,(c.days||[]),skipSet,new Set(c.extraDates||[]));
           if(!d||d<todayStr||d>uptoDate)return;
           (byDay[d]=byDay[d]||[]).push(s2.unit);
         });
@@ -10815,6 +10822,7 @@ function _pgCalHtml(classId){
   (_cache.library||[]).forEach(b=>{if(b.ortSeq!=null)ortMeta[_pgNorm(b.title)]={group:b.ortGroup||''};});
   const ortGroupOf=t=>(ortMeta[_pgNorm(t)]||{}).group||'';
   // 달력 그리드
+  const _extraCellSet=new Set(c.extraDates||[]); // 추가 수업일 (특강)
   const startDow=new Date(y,m-1,1).getDay();
   const dim=new Date(y,m,0).getDate();
   const cells=[];
@@ -10822,7 +10830,7 @@ function _pgCalHtml(classId){
   for(let dd=1;dd<=dim;dd++){
     const ds=`${ym}-${String(dd).padStart(2,'0')}`;
     const dow=_PG_DOW[new Date(y,m-1,dd).getDay()];
-    const isClassDay=(c.days||[]).includes(dow);
+    const isClassDay=(c.days||[]).includes(dow)||_extraCellSet.has(ds); // 추가 수업일 포함
     // 미래 날짜에 남은 기록은 완료(진한 칩)가 아니라 예정(점선)으로 표시
     const futRec=ds>todayStr;
     const recCls=futRec?'pg-chip ghost':'pg-chip rec';
@@ -11206,20 +11214,43 @@ function pgCellClick(ev,classId,date){
   const has=(_cache.lessons||[]).some(l=>l.classId===classId&&l.date===date);
   if(has){openClassLessonEdit(classId,date);return;}
   const dow=_PG_DOW[new Date(date+'T12:00:00').getDay()];
-  const isClassDay=(c.days||[]).includes(dow);
+  const isExtra=(c.extraDates||[]).includes(date);
+  const isClassDay=(c.days||[]).includes(dow)||isExtra;
   const isSkip=(c.skipDates||[]).includes(date);
   const future=date>ppToday();
   // 이미 휴강 표시된 날 → 되돌리기만
   if(isSkip){pgCellMenu(ev,classId,date,[{ico:'↩️',label:'수업일로 되돌리기',run:()=>pgToggleSkip(classId,date)}]);return;}
-  // 수업일이 아니면 기존 동작 (미래=예정 편집, 과거=보강 기록)
-  if(!isClassDay){future?openPgPlan(classId,date):openClassLesson(classId,date);return;}
+  // 수업일이 아니면: 예정 편집·보강 기록 + '추가 수업일 지정' (특강 매일 수업 등)
+  if(!isClassDay){
+    pgCellMenu(ev,classId,date,[
+      future?{ico:'🗓',label:'예정 편집 (교재 추가)',run:()=>openPgPlan(classId,date)}:{ico:'📝',label:'보강 수업 기록',run:()=>openClassLesson(classId,date)},
+      {ico:'➕',label:'추가 수업일로 지정',sub:'요일 외 수업 (특강·보강) — 진도가 이 날에도 나가요',run:()=>pgToggleExtra(classId,date)},
+    ]);
+    return;
+  }
   // 빈 수업일 → 선택 메뉴
   const opts=[];
   if(future){opts.push({ico:'🗓',label:'예정 편집 (교재 추가)',run:()=>openPgPlan(classId,date)});}
   else{opts.push({ico:'📝',label:'수업 기록',run:()=>openClassLesson(classId,date)});}
   opts.push({ico:'🚫',label:future?'휴강 예정 (수업 안 함)':'수업 안 함 (휴강·결석)',sub:future?'진도 하루씩 밀림 · 안내 보내기로 이어져요':'이후 진도가 하루씩 밀려요',run:()=>pgToggleSkip(classId,date)});
   opts.push({ico:'🏖',label:'기간 휴강·방학 (여기부터)',sub:'끝나는 날짜를 클릭하면 기간이 표시돼요 (드래그로도 가능)',run:()=>{_pgRangeStart={classId,date};toast(`${skipDateLbl(date)}부터 — 마지막 날짜를 클릭하세요`);}});
+  if(isExtra)opts.push({ico:'↩️',label:'추가 수업일 해제',run:()=>pgToggleExtra(classId,date)});
   pgCellMenu(ev,classId,date,opts);
+}
+// 추가 수업일 토글 — c.extraDates (요일 외 특강·보강일: 진도·숙제 마감·수업일 판정에 수업일로 취급)
+async function pgToggleExtra(classId,date){
+  pgMenuClose();
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const set=new Set(c.extraDates||[]);
+  const adding=!set.has(date);
+  if(adding)set.add(date);else set.delete(date);
+  c.extraDates=[...set].sort();
+  try{await supaUpsert('classes',classId,c,null);}
+  catch(e){console.error('pgToggleExtra:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  const i=(_cache.globalClasses||[]).findIndex(x=>x.id===classId);if(i>=0)_cache.globalClasses[i]=c;
+  renderClsLessons(classId);
+  const md=`${Number(date.slice(5,7))}/${Number(date.slice(8,10))}`;
+  toast(adding?`${md} 추가 수업일 지정 — 진도가 이 날에도 나가요`:`${md} 추가 수업일 해제`);
 }
 // 휴강일 토글 — c.skipDates에 넣거나 뺀다 (교재·원서 진도가 이 날을 건너뜀, 클래스5 과제는 그대로)
 async function pgToggleSkip(classId,date){
@@ -12188,13 +12219,14 @@ function getClassLessonDates(classObj,fromDateStr){
   const DAYS=['일','월','화','수','목','금','토'];
   const classDays=classObj.days||[];
   const skip=new Set(classObj.skipDates||[]);
+  const extra=new Set(classObj.extraDates||[]); // 추가 수업일 (특강 매일 수업 등)
   const dates=[fromDateStr];
   const d=new Date(fromDateStr+'T12:00:00');
   const max=classDays.length?30:7;
   for(let i=1;i<=max;i++){
     d.setDate(d.getDate()+1);
     const ds=_pgYmd(d);
-    if(classDays.includes(DAYS[d.getDay()])&&!skip.has(ds))break;
+    if((classDays.includes(DAYS[d.getDay()])||extra.has(ds))&&!skip.has(ds))break;
     dates.push(ds);
   }
   return dates;
