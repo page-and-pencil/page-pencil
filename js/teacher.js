@@ -10827,7 +10827,9 @@ function _pgCalHtml(classId){
     const futRec=ds>todayStr;
     const recCls=futRec?'pg-chip ghost':'pg-chip rec';
     const futTip=futRec?' — 미래 기록(예정), 누르면 수정':'';
-    let chips=Object.values(recBy[ds]||{}).map(e=>{
+    // 셀 내 표시 순서: 어휘 → (파닉스·어법·리스닝·라이팅·내신) → 리딩 → 원서 → 펜슬다운 (기록·예정 각각 동일 규칙)
+    const _prio=k=>({vocab:10,phonics:20,grammar:30,listening:40,writing:50,naesin:60,reading:70}[String(k||'').replace(/_\d+$/,'')]??65);
+    let chips=Object.values(recBy[ds]||{}).sort((a,b)=>_prio(a.cat)-_prio(b.cat)).map(e=>{
       const us=[...e.units];
       return`<span class="${recCls}" style="--pgc:${colorOf(e.tbId,e.cat)}" title="${escAttr((SLBL[e.cat]?SLBL[e.cat]+' · ':'')+e.book+(us.length?' — '+us.join(', '):'')+futTip)}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">${us.length?us.join(', '):'✓'}</span>`;
     }).join('');
@@ -10838,13 +10840,13 @@ function _pgCalHtml(classId){
       `<span class="${recCls}" style="--pgc:#7B1FA2" title="${escAttr('Pencil Down — '+t+futTip)}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">✏️ ${t}</span>`
     ).join('');
     if(!chips&&lessonDates.has(ds))chips=`<span class="${recCls}" style="--pgc:#94A3B8" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">수업</span>`;
-    if(singDates.has(ds))chips+=`<span class="pg-chip ghost" style="--pgc:#7B1FA2" title="리딩 책 완주 기념 Pencil Down — Sing Together (예정, 더블클릭=기록)" onclick="event.stopPropagation()" ondblclick="pgSingDbl(event,'${classId}','${ds}')">✏️🎵 Sing Together</span>`;
+    chips+=(ghostBy[ds]||[]).slice().sort((a,b)=>_prio(a.s)-_prio(b.s)).map(g=>
+      `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 미래 날짜로 끌면 이동, 오늘·지난 날짜에 놓으면 그날 수업으로 기록, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${escAttr(g.s)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escAttr(g.unit)}','${escAttr(g.s)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${ds}','${escAttr(g.s)}')">${g.unit}</span>`
+    ).join('');
     chips+=(ortGhostBy[ds]||[]).map(g=>
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr((clsStus.length>1?g.name+' — ':'')+g.title+(ortGroupOf(g.title)?' · '+ortGroupOf(g.title):'')+' (원서 예정 — 끌어서 옮기기, 더블클릭=읽음 기록)')}" ondragstart="pgDragStart(event,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" ondblclick="pgOrtDbl(event,'${classId}','${g.sid}','${escJsA(g.title)}','${ds}')">📗 ${clsStus.length>1?g.name+'·':''}${g.title}</span>`
     ).join('');
-    chips+=(ghostBy[ds]||[]).map(g=>
-      `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 미래 날짜로 끌면 이동, 오늘·지난 날짜에 놓으면 그날 수업으로 기록, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${escAttr(g.s)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escAttr(g.unit)}','${escAttr(g.s)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${ds}','${escAttr(g.s)}')">${g.unit}</span>`
-    ).join('');
+    if(singDates.has(ds))chips+=`<span class="pg-chip ghost" style="--pgc:#7B1FA2" title="리딩 책 완주 기념 Pencil Down — Sing Together (예정, 더블클릭=기록)" onclick="event.stopPropagation()" ondblclick="pgSingDbl(event,'${classId}','${ds}')">✏️🎵 Sing Together</span>`;
     const isSkip=skipSet.has(ds);
     const skipMark=isSkip?`<span class="pg-skip-mark" title="수업 안 함 (휴강·결석) — 이후 진도가 하루씩 밀렸어요. 누르면 되돌리기">🚫 수업 안 함</span>`:'';
     cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}${isSkip?' skip':''}" data-ds="${ds}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onmousedown="pgRangeDown(event,'${classId}','${ds}')" onmouseover="pgRangeOver('${ds}')" onclick="pgCellClick(event,'${classId}','${ds}')"><div class="pg-dnum">${dd}</div>${skipMark}${chips}</div>`);
