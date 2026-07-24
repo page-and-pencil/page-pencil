@@ -11793,7 +11793,7 @@ function clHwRestoreFromSaved(classId,dateStr){
   if(!saved.length){
     // 저장된 과제 없음 — 내용은 비우되 요일별 그룹 스캐폴드는 유지 (요일 묶음 디스플레이 보존)
     const dates=c?getClassLessonDates(c,dateStr):[dateStr];
-    dates.forEach(d=>clHwMakeDateGroup(d,common));
+    dates.forEach(d=>{const b=clHwMakeDateGroup(d,common);_clAppendAutoHwRows(b,_clAutoHwFor(classId,d,dateStr));});
     return;
   }
   // 레거시(출처 표식 없는) 과제의 공통 판별 기준: 당시 이 수업에 출석한 구성원(수업 기록 보유·결석 제외) 전원이 가진 과제
@@ -11854,6 +11854,7 @@ function clHwRestoreFromSaved(classId,dateStr){
   const allDates=[...new Set([...Object.keys(dueGroups),...scaffold])].sort();
   allDates.forEach(d=>{
     const body=clHwMakeDateGroup(d,common);
+    _clAppendAutoHwRows(body,_clAutoHwFor(classId,d,dateStr)); // 이미 나가 있는 숙제 표시 (또 내기 방지)
     (dueGroups[d]||[]).forEach(a=>{
       const cat=knownCats.includes(a.category||'')?(a.category||''):'';
       addClHwRow(d,true,cat,a.bookTitle||'',a.range||'',body);
@@ -12287,39 +12288,54 @@ function clHwSyncFromSubj(){
     const groupBody=clHwMakeDateGroup(d,container);
     if(mats.length){mats.forEach(m=>addClHwRow(d,true,m.cat,m.book,m.range,groupBody));}
     else{addClHwRow(d,true,'','','',groupBody);}
-    // 클래스5·반복 자동 할당은 앱에서 매일 자동으로 나가므로, 여기선 '이미 할당됨'을 읽기전용으로만 표시
-    // (선생님이 같은 걸 또 숙제로 입력해 중복되던 문제 해결). 자동 할당이 없으면 기존처럼 빈 클래스5 행 제공.
-    const autos=_clAutoHwFor(classId,d);
-    if(autos.length){
-      autos.forEach(x=>{
-        const div=document.createElement('div');
-        div.style.cssText='font-size:12px;padding:7px 10px;background:#fff;border:1px dashed var(--teal);border-radius:8px;color:var(--navy)';
-        div.innerHTML=`${x.label} <b>${escAttr(x.txt)}</b> <span style="color:var(--teal);font-size:11px">— 앱에 자동 할당됨 (다시 적지 않아도 돼요)</span>`;
-        groupBody.appendChild(div);
-      });
-    }else{
-      addClHwRow(d,true,'class5','','',groupBody);
-    }
+    // 이미 나가 있는 숙제(클래스5·반복 자동 + 단건 기할당)를 읽기전용으로 표시 — 같은 숙제 또 내는 것 방지
+    const autos=_clAutoHwFor(classId,d,lessonDate);
+    _clAppendAutoHwRows(groupBody,autos);
+    if(!autos.sched.length)addClHwRow(d,true,'class5','','',groupBody); // 클래스5 자동이 없으면 기존처럼 빈 행 제공
   });
 }
-// 이 클래스 학생들에게 그 날짜에 스케줄형(클래스5·반복)이 자동 배정한 항목 (읽기전용 표시용, 중복 라벨 제거)
-function _clAutoHwFor(classId,ds){
-  const c=DB.classes().find(x=>x.id===classId);if(!c)return[];
+// 이 클래스 학생들에게 그 날짜에 이미 있는 숙제 (읽기전용 표시용 — 같은 숙제 또 내는 것 방지)
+// sched: 스케줄형(클래스5·반복) 자동 할당 / singles: 숙제 캘린더·직접 할당 등으로 이미 나간 단건 과제(미완료)
+// excludeLessonDate: 이 수업 기록 폼 자신이 만든 과제(classId+date 일치)는 편집 행으로 보이므로 제외
+function _clAutoHwFor(classId,ds,excludeLessonDate){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return{sched:[],singles:[]};
   const sids=new Set(c.studentIds||[]);
-  const out=[],seen=new Set();
+  const sched=[],singles=[],seen=new Set(),seenS=new Set();
   (_cache.assignments||[]).forEach(a=>{
-    if(a._deleted||!sids.has(a.sid)||!(a.schedule||[]).length)return;
-    if(a.category!=='class5'&&a.category!=='recur')return;
-    const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
-    sch.forEach(s=>{
-      if(s.date!==ds)return;
-      const label=a.category==='class5'?'🎮 클래스5':'🔁 '+(a.bookTitle||'반복 숙제');
-      const txt=[s.book,s.unit].filter(Boolean).join(' · ')||a.bookTitle||'';
-      const k=label+'|'+_hwKeyNorm(txt);
-      if(!seen.has(k)){seen.add(k);out.push({label,txt});}
-    });
+    if(a._deleted||!sids.has(a.sid))return;
+    if((a.schedule||[]).length){
+      if(a.category!=='class5'&&a.category!=='recur')return;
+      const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+      sch.forEach(s=>{
+        if(s.date!==ds)return;
+        const label=a.category==='class5'?'🎮 클래스5':'🔁 '+(a.bookTitle||'반복 숙제');
+        const txt=[s.book,s.unit].filter(Boolean).join(' · ')||a.bookTitle||'';
+        const k=label+'|'+_hwKeyNorm(txt);
+        if(!seen.has(k)){seen.add(k);sched.push({label,txt});}
+      });
+    }else{
+      if(a.completedAt)return;
+      if((a.due||a.date)!==ds)return;
+      if(excludeLessonDate&&a.classId===classId&&a.date===excludeLessonDate)return;
+      const KC={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신',book:'원서',mission:'미션',worksheet:'워크시트'};
+      const cat=KC[a.category]||a.category||'';
+      const txt=[a.bookTitle||a.text||'',a.range].filter(Boolean).join(' · ')||'과제';
+      const k=cat+'|'+_hwKeyNorm(txt);
+      if(!seenS.has(k)){seenS.add(k);singles.push({label:'📕'+(cat?' ['+cat+']':''),txt});}
+    }
   });
-  return out;
+  return {sched,singles};
+}
+// 날짜 그룹에 '이미 나가 있는 숙제' 읽기전용 행 추가 (공용)
+function _clAppendAutoHwRows(groupBody,autos){
+  const row=(label,txt,note,color)=>{
+    const div=document.createElement('div');
+    div.style.cssText=`font-size:12px;padding:7px 10px;background:#fff;border:1px dashed ${color};border-radius:8px;color:var(--navy)`;
+    div.innerHTML=`${label} <b>${escAttr(txt)}</b> <span style="color:${color};font-size:11px">— ${note}</span>`;
+    groupBody.appendChild(div);
+  };
+  autos.sched.forEach(x=>row(x.label,x.txt,'앱에 자동 할당됨 (다시 적지 않아도 돼요)','var(--teal)'));
+  autos.singles.forEach(x=>row(x.label,x.txt,'이미 할당된 숙제예요 (또 내지 않아도 돼요)','#B45309'));
 }
 function clHwMakeDateGroup(dateStr,parentEl){
   const DAYS=['일','월','화','수','목','금','토'];
