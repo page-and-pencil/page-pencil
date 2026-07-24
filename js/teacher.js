@@ -10732,10 +10732,21 @@ function _pgAutoFillRow(sr){
   unitInp.addEventListener('input',function h(){unitInp.dataset.auto='';chip.remove();unitInp.removeEventListener('input',h);});
 }
 function pgCalNav(d){
-  const cur=_pgCalMonth||new Date().toISOString().slice(0,7);
+  const cur=_pgCalMonth||ppToday().slice(0,7);
   let[y,m]=cur.split('-').map(Number);m+=d;if(m<1){m=12;y--;}if(m>12){m=1;y++;}
   _pgCalMonth=`${y}-${String(m).padStart(2,'0')}`;
   if(_pgCalClsId)renderClsLessons(_pgCalClsId);
+  if(_pgMoveSel)setTimeout(()=>toast('이동 중 — 옮길 날짜를 눌러주세요 (다른 달도 가능)'),80);
+}
+// 드래그 중 ◀▶ 위에 올리면 달이 넘어감 — 다음·이전 달 날짜로도 진도를 끌어올 수 있게 (월 경계 드래그)
+let _pgNavFlipAt=0;
+function pgNavDragOver(ev,d){
+  if(!_pgDrag)return;
+  ev.preventDefault();
+  const now=Date.now();
+  if(now-_pgNavFlipAt<600)return; // 올려둔 채 머물면 600ms마다 한 달씩
+  _pgNavFlipAt=now;
+  pgCalNav(d);
 }
 function _pgCalHtml(classId){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return'';
@@ -10809,17 +10820,17 @@ function _pgCalHtml(classId){
     +(hasOrt?`<span class="pg-lg"><i style="background:${_PG_ORT_COLOR}"></i>📗 원서</span>`:'')
     +(singDates.size?`<span class="pg-lg"><i style="background:#7B1FA2"></i>✏️ Pencil Down</span>`:'');
   const hasAnchor=Object.keys(c.progressAnchors||{}).length>0;
-  return`<div class="pg-cal-card">
+  return`<div class="pg-cal-card${_pgMoveSel&&_pgMoveSel.classId===classId?' pg-moving':''}">
     <div class="pg-cal-head">
       <span style="font-size:13px;font-weight:800;color:var(--navy)">📅 진도 캘린더</span>
-      <button class="btn bo bxxs" onclick="pgCalNav(-1)">◀</button>
+      <button class="btn bo bxxs" onclick="pgCalNav(-1)" ondragover="pgNavDragOver(event,-1)" title="칩을 드래그한 채 올리면 이전 달로 넘어가요">◀</button>
       <span style="font-size:12.5px;font-weight:700;color:var(--navy)">${y}년 ${m}월</span>
-      <button class="btn bo bxxs" onclick="pgCalNav(1)">▶</button>
+      <button class="btn bo bxxs" onclick="pgCalNav(1)" ondragover="pgNavDragOver(event,1)" title="칩을 드래그한 채 올리면 다음 달로 넘어가요">▶</button>
       ${hasAnchor?`<button class="btn bo bxxs" title="드래그로 옮긴 예정을 원래 순서로 되돌립니다" onclick="pgClearAnchors('${classId}')">예정 초기화</button>`:''}
       <span style="flex:1"></span>${legend}
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
-    <div class="pg-cal-hint">진한 칩=기록 · 점선 칩=예정 — 드래그로 진도 이동, <b>오늘 점선 칩 더블클릭=수업 기록 확정</b> · 빈 수업일 클릭 → 수업 기록 / 예정 편집 / 🚫 수업 안 함 · <b>빈 칸을 드래그하면 기간 휴강·방학</b> · <b>숙제·클래스5는 과제 메뉴의 숙제 캘린더에서</b></div>
+    <div class="pg-cal-hint">진한 칩=기록 · 점선 칩=예정 — 드래그로 진도 이동 <b>(◀▶에 올린 채 머물면 달이 넘어가 다른 달로도 이동)</b>, <b>오늘 점선 칩 더블클릭=수업 기록 확정</b> · 칩을 한 번 탭 → 날짜 탭으로도 이동(달 넘겨도 유지) · 빈 수업일 클릭 → 수업 기록 / 예정 편집 / 🚫 수업 안 함 · <b>빈 칸을 드래그하면 기간 휴강·방학</b> · <b>숙제·클래스5는 과제 메뉴의 숙제 캘린더에서</b></div>
   </div>`;
 }
 function pgDragStart(ev,classId,tbId,unit){
