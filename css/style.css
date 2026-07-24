@@ -589,7 +589,10 @@ div.ig-like{cursor:default;}
 .section-label{font-size:11px;font-weight:700;color:var(--slate);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;}
 
 /* 학생 관리 분할 레이아웃 */
-#s-teacher .ab.stu-mode{overflow:hidden;} /* 선생님 학생 탭 전용 — 학생 앱(.ab)에 새면 스크롤이 잠긴다 */
+/* 선생님 학생 탭 전용 — 학생 앱(.ab)에 새면 스크롤이 잠긴다.
+   display:flex 필수: .ab는 기본 block이라 #t-stu{flex:1}이 무효 → 패널 높이가 붕괴(내부 스크롤러 0px)
+   + overflow:hidden까지 겹쳐 리딩로그 등에서 스크롤이 전혀 안 되던 원인 */
+#s-teacher .ab.stu-mode{overflow:hidden;display:flex;flex-direction:column;}
 #t-stu.panel.active{display:flex;flex-direction:column;padding:0;flex:1;min-height:0;overflow:hidden;}
 .stu-split{display:flex;flex:1;overflow:hidden;min-height:0;}
 .stu-list-col{width:260px;flex-shrink:0;border-right:1.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:#fff;}
