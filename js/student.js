@@ -1706,6 +1706,7 @@ async function renderVocabResult(el){
       await supaUpsert('vocab_cards',card.id,updated,card.sid);
     }
   }
+  _vocabHwAutoCheck(currentStudentSid).catch(()=>{}); // 오늘 20개 채우면 '앱 단어 학습' 숙제 자동 체크
   if(pctScore>=80){
     updateStreak(currentStudentSid);
     setTimeout(()=>showMiniConfetti(),200);
@@ -1937,6 +1938,21 @@ function getWeekDays(sid){
     out.push({label:DAYS[i],done:doneDates.has(ds),isToday:ds===todayStr});
   }
   return out;
+}
+// 앱 단어 학습 연동 숙제(vocabAuto) 자동 체크 — 오늘 단어 20개를 채우면 오늘 몫이 스스로 완료됨
+async function _vocabHwAutoCheck(sid){
+  if(!sid)return;
+  const today=ppToday();
+  const n=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===today).length;
+  if(n<20)return;
+  for(const a of (_cache.assignments||[])){
+    if(a._deleted||a.sid!==sid||!a.vocabAuto)continue;
+    const sc=(a.schedule||[]).find(s=>s.date===today);
+    if(sc&&!sc.done){
+      await completeSchedDay(sid,a.id,today);
+      toast('📚 오늘 단어 20개 완료 — 숙제가 저절로 체크됐어요! ✓');
+    }
+  }
 }
 // ── 숙제 도장 챌린지 카드 (누적 도장 — 하루 빠져도 리셋 없음) ──
 function hwChallengeCardHtml(sid){
@@ -2454,15 +2470,20 @@ function renderStudentHome(sid){
   function schDayCard(a,sc){
     const isRecur=a.category==='recur'||a.type==='recur';
     const done=!!sc.done;
-    const icon=isRecur?'🔁':'🎮';
+    const isVocabAuto=!!a.vocabAuto;
+    const icon=isVocabAuto?'📚':isRecur?'🔁':'🎮';
     const title=isRecur?(a.bookTitle||sc.book||'반복 숙제'):'클래스5';
     const detail=isRecur?(sc.unit||(sc.book&&sc.book!==title?sc.book:'')):[sc.book,sc.unit].filter(Boolean).join(' · ');
+    // 앱 단어 학습 연동 숙제: 손으로 체크 못 함 — 단어 20개를 실제로 끝내면 자동 체크
+    const cbClick=isVocabAuto?'':(done?`uncompleteSchedDay('${sid}','${a.id}','${sc.date}')`:`completeSchedDay('${sid}','${a.id}','${sc.date}')`);
+    const cbTitle=isVocabAuto?'단어 학습 20개를 끝내면 자동으로 체크돼요':(done?'클릭: 완료 취소':'완료하면 눌러요');
     return `<div class="hw-check-card${done?' done':''}" id="sch-card-${a.id}-${sc.date}">
       <div style="display:flex;gap:12px;align-items:flex-start">
-        <div class="hw-checkbox${done?' checked':''}" onclick="${done?`uncompleteSchedDay('${sid}','${a.id}','${sc.date}')`:`completeSchedDay('${sid}','${a.id}','${sc.date}')`}" title="${done?'클릭: 완료 취소':'완료하면 눌러요'}">${done?'✓':''}</div>
+        <div class="hw-checkbox${done?' checked':''}" ${cbClick?`onclick="${cbClick}"`:'style="cursor:default"'} title="${cbTitle}">${done?'✓':''}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600;color:var(--navy)">${icon} ${title}</div>
           ${detail?`<div style="font-size:12px;color:var(--slate);margin-top:3px">${detail}</div>`:''}
+          ${isVocabAuto&&!done?`<button class="btn bt bsm" style="margin-top:8px;border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><div style="font-size:10.5px;color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
         </div>
       </div>
     </div>`;
@@ -2611,6 +2632,7 @@ function renderStudentHome(sid){
   </div>`;
   polishStudentCmt(givenName);
   if(stuNotifyState(sid).on)ensureStuReminderLoop(sid); // 알림 켜져 있으면 리마인더 루프 유지
+  setTimeout(()=>_vocabHwAutoCheck(sid).catch(()=>{}),400); // 이미 20개 채웠는데 미체크면 보정 (다른 기기 학습 등)
 }
 function handleHomeAsgnAudio(e,asgnId,sid){
   const f=e.target.files[0];if(!f)return;
