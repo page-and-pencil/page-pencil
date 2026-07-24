@@ -11797,7 +11797,10 @@ function clHwRestoreFromSaved(classId,dateStr){
   const ind=document.getElementById('cl-hw-ind-rows');
   common.innerHTML='';
   if(ind)ind.innerHTML='';
-  const saved=(_cache.assignments||[]).filter(a=>a.classId===classId&&a.date===dateStr);
+  // '이 수업 폼이 만든 과제'만 복원 대상 — 스케줄형(반복·클래스5)은 date가 수업일과 겹쳐도 이 수업 과제가 아님
+  // (앱 단어 반복 숙제 due=12/31이 마감일 그룹으로 잡혀 뜬금없는 12/31 그룹이 생기던 문제)
+  const saved=(_cache.assignments||[]).filter(a=>a.classId===classId&&a.date===dateStr
+    &&!(a.schedule||[]).length&&['reading','textbook'].includes(a.type||''));
   const c=DB.classes().find(x=>x.id===classId);
   if(!saved.length){
     // 저장된 과제 없음 — 내용은 비우되 요일별 그룹 스캐폴드는 유지 (요일 묶음 디스플레이 보존)
