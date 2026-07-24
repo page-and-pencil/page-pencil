@@ -10895,6 +10895,8 @@ function pgGhostDbl(ev,classId,tbId,unit,date,subj){
   pgConfirmGhost(classId,tbId,unit,date,subj);
 }
 // 예정 칩 → 실제 수업 기록으로 확정 (전원 정상 출석, 세부는 나중에 '수정'으로)
+// 앞 단원이 아직 기록 안 된 채 뒷 단원을 확정하면 그 앞 단원들도 함께 기록 —
+// (Unit 2만 기록하면 Unit 1이 예정에서 조용히 사라지던 문제 방지. 안 한 단원은 기록 후 수정에서 빼면 됨)
 function pgConfirmGhost(classId,tbId,unit,date,subj){
   const todayStr=ppToday();
   if(date>todayStr){toast('아직 안 한 수업이에요 — 수업한 날에 확정해 주세요');return;}
@@ -10902,21 +10904,35 @@ function pgConfirmGhost(classId,tbId,unit,date,subj){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const stus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
   if(!stus.length){toast('클래스에 학생이 없어요');return;}
-  askConfirm('진도 확정',`${tb.title} — ${unit}\n학생 ${stus.length}명 전원 '정상 출석'으로 기록할까요?\n(출석·코멘트·과제는 기록 후 '수정'에서 채울 수 있어요)`,'기록','bt',async()=>{
+  const keys=tbUnitKeys(tb);
+  const ti=keys.findIndex(k=>_pgUMatch(_pgNorm(k),_pgNorm(unit)));
+  let fromIdx=ti;
+  const rec=_pgLastRec(classId,tb);
+  if(rec)fromIdx=rec.idx+1;
+  else{
+    const mat=Object.values(c.commonMaterials||{}).find(m=>m&&(m.bookId?m.bookId===tb.id:m.book===tb.title));
+    const si=(mat&&mat.unit)?_pgUnitIdx(tb,mat.unit):-1;
+    fromIdx=si>=0?si:ti;
+  }
+  const units=(ti>=0&&fromIdx>=0&&ti>fromIdx)?[...keys.slice(fromIdx,ti),unit]:[unit];
+  const gapNote=units.length>1?`\n(아직 기록 안 된 앞 단원 ${units.length-1}개 포함 — 안 했다면 기록 후 '수정'에서 빼주세요)`:'';
+  askConfirm('진도 확정',`${tb.title} — ${units.join(', ')}${gapNote}\n학생 ${stus.length}명 전원 '정상 출석'으로 기록할까요?\n(출석·코멘트·과제는 기록 후 '수정'에서 채울 수 있어요)`,'기록','bt',async()=>{
     showLoading(true);
     try{
       for(const s of stus){
         const existing=(_cache.lessons||[]).find(l=>l.classId===classId&&l.date===date&&l.sid===s.id);
+        let mats=existing?existing.materials:null;
+        units.forEach(u=>{mats=_pgMergeMat(mats,subj,tb,u);});
         const les=existing
-          ?{...existing,materials:_pgMergeMat(existing.materials,subj,tb,unit)}
-          :{id:uid(),sid:s.id,date,grade:s.grade||'',att:'normal',materials:_pgMergeMat(null,subj,tb,unit),cmt:'',polishedCmt:'',classId};
+          ?{...existing,materials:mats}
+          :{id:uid(),sid:s.id,date,grade:s.grade||'',att:'normal',materials:mats,cmt:'',polishedCmt:'',classId};
         await supaUpsert('lessons',les.id,les,s.id);
         if(existing){const i=_cache.lessons.findIndex(l=>l.id===les.id);if(i>=0)_cache.lessons[i]=les;}
         else _cache.lessons.unshift(les);
-        addUnitWordsToVocab(s.id,{[subj||'x']:{book:tb.title,unit,bookId:tb.id}},date).catch(()=>{});
+        for(const u of units)addUnitWordsToVocab(s.id,{[subj||'x']:{book:tb.title,unit:u,bookId:tb.id}},date).catch(()=>{});
       }
       renderLes();renderDash();renderClassTab();renderClsLessons(classId);
-      toast(`${unit} 기록 완료 (${stus.length}명) — 단어도 학생 단어장에 반영돼요`);
+      toast(`${units.join(', ')} 기록 완료 (${stus.length}명) — 단어도 학생 단어장에 반영돼요`);
     }catch(e){
       console.error('pgConfirmGhost:',e);toast('기록 중 오류가 발생했습니다');
     }finally{showLoading(false);}
