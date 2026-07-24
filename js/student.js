@@ -1938,6 +1938,63 @@ function getWeekDays(sid){
   }
   return out;
 }
+// ── 숙제 도장 챌린지 카드 (누적 도장 — 하루 빠져도 리셋 없음) ──
+function hwChallengeCardHtml(sid){
+  const stu=DB.stus().find(s=>s.id===sid);
+  const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu):null;
+  if(!p)return '';
+  const cells=[];
+  for(let i=1;i<=p.goal;i++){
+    const filled=i<=p.count;
+    const isGift=i===p.goal;
+    cells.push(`<div style="aspect-ratio:1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${filled?'20px':'12px'};${filled?'background:#FEF3C7;border:1.5px solid #F59E0B;animation:none':'background:var(--cream2);border:1.5px dashed var(--border);color:#B8C0C8;font-weight:700'}">${filled?(isGift?'🎁':'🏅'):(isGift?'🎁':i)}</div>`);
+  }
+  const today=ppToday();
+  const ts=hwDayStatus(sid,today);
+  let statusHtml;
+  if(p.completedDate){
+    statusHtml=`<div style="font-size:13px;font-weight:800;color:#047857">🎁 선물 받았어요! 정말 대단해요 👏</div>`;
+  }else if(p.achieved){
+    statusHtml=`<div style="font-size:14px;font-weight:800;color:#B45309">🎉 ${p.goal}일 챌린지 성공!! 선생님이 선물을 준비하고 있어요 🎁</div>`;
+  }else if(p.todayStamp){
+    statusHtml=`<div style="font-size:12.5px;font-weight:700;color:#047857">오늘 도장 획득! 🏅 ${p.goal-p.count}일 남았어요 — 내일도 화이팅!</div>`;
+  }else if(ts.total>0){
+    const left=ts.total-ts.done;
+    statusHtml=`<div style="font-size:12.5px;font-weight:700;color:#B45309">오늘 숙제 ${left}개만 더 하면 도장 쾅! 🏅 (${ts.done}/${ts.total})</div>`;
+  }else{
+    statusHtml=`<div style="font-size:12px;color:var(--slate)">오늘은 배정된 숙제가 없어요 😊</div>`;
+  }
+  return `<div class="card" id="stu-hwch-card" style="margin-bottom:14px;border:2px solid #F59E0B"><div class="cb" style="padding:14px 16px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">
+      <span style="font-size:14px;font-weight:800;color:var(--navy)">🎁 도장 챌린지</span>
+      <span style="font-size:15px;font-weight:900;color:#B45309;font-family:var(--fd)">${p.count} <span style="font-size:11px;color:var(--slate);font-weight:600">/ ${p.goal}</span></span>
+    </div>
+    <div style="font-size:11px;color:var(--slate);margin-bottom:10px">숙제를 다 한 날마다 도장 1개! ${p.goal}개를 모으면 <b>${p.reward}</b> 🎁 (하루 빠져도 모은 도장은 그대로예요)</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px">${cells.join('')}</div>
+    ${statusHtml}
+  </div></div>`;
+}
+// 체크 직후 도장 카드 제자리 갱신 + 도장/달성 순간 축하 (전체 재렌더 없이)
+function _hwChRefresh(sid){
+  const card=document.getElementById('stu-hwch-card');if(!card)return;
+  const stu=DB.stus().find(s=>s.id===sid);
+  const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu):null;
+  if(!p)return;
+  const prev=window._hwChPrev??p.count;
+  const wrap=document.createElement('div');wrap.innerHTML=hwChallengeCardHtml(sid);
+  card.replaceWith(wrap.firstElementChild);
+  if(p.count>prev){
+    if(p.achieved&&!p.completedDate){
+      setTimeout(()=>{showMiniConfetti();setTimeout(showMiniConfetti,500);setTimeout(showMiniConfetti,1000);},250);
+      toast(`🎉 ${p.goal}일 챌린지 성공!! 선물이 기다려요 🎁`);
+      if(typeof _stuShowNotify==='function'&&typeof Notification!=='undefined'&&Notification.permission==='granted')
+        _stuShowNotify(`🎉 ${p.goal}일 챌린지 성공!`,`도장 ${p.goal}개를 다 모았어요! 선생님이 ${p.reward}을 준비하고 있어요 🎁`);
+    }else{
+      toast(`🏅 도장 획득! (${p.count}/${p.goal})`);
+    }
+  }
+  window._hwChPrev=p.count;
+}
 // 홈 숙제 헤더 카운터·요일 점을 제자리에서 갱신 (전체 재렌더 없이 — 리스트가 접히지 않게)
 function _wkBump(delta){
   const c=window._wkCnt;if(!c)return;
@@ -1964,6 +2021,7 @@ async function completeAssignment(sid,asgnId){
   await supaUpsert('assignments',asgnId,a,sid);
   updateStreak(sid);
   checkNewBadges(currentStudentSid);
+  _hwChRefresh(sid); // 도장 챌린지 갱신 (도장·달성 축하 포함)
   setTimeout(()=>showMiniConfetti(),200);
   if(!card){renderStudentHome(sid);return;} // 단어장·워크시트 등 홈 밖에서 완료된 경우만 전체 갱신
   const anyLeft=(_cache.assignments||[]).filter(x=>x.sid===sid&&!x.completedAt);
@@ -1998,6 +2056,7 @@ async function completeSchedDay(sid,asgnId,ds){
   // 학습 도장·스트릭에도 반영
   try{const k='pp_stamps_'+sid;const arr=JSON.parse(localStorage.getItem(k)||'[]');const t=ppToday();if(!arr.includes(t)){arr.push(t);localStorage.setItem(k,JSON.stringify(arr));}}catch(e){}
   updateStreak(sid);
+  _hwChRefresh(sid); // 도장 챌린지 갱신 (도장·달성 축하 포함)
   setTimeout(()=>showMiniConfetti(),200);
 }
 async function uncompleteSchedDay(sid,asgnId,ds){
@@ -2527,7 +2586,10 @@ function renderStudentHome(sid){
     return '<div class="card" id="stu-hw-card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px"><div class="wk-strip">'+strip+'</div>'+head+body+etcHtml+'</div></div>';
   })();
 
+  const hwChHtml=hwChallengeCardHtml(sid);
+  {const stu2=DB.stus().find(s=>s.id===sid);const p2=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu2):null;window._hwChPrev=p2?p2.count:0;}
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
+    ${hwChHtml}
     ${hwSection}
     ${vocabCtaHtml}
     ${weekCard}

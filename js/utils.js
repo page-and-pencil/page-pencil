@@ -490,6 +490,43 @@ function schedCoversHw(sid,ds,book,unit){
     return bookOk&&unitOk;
   });
 }
+// ── 숙제 도장 챌린지 (예: 20일 모으면 선물) ──
+// 설계: '연속'이 아니라 '누적' — 하루 빠져도 모은 도장은 그대로. 실패 경험(리셋)이 없도록. (원장 지시: 긍정 동기부여)
+// 도장 1개 = 그날 배정된 숙제(스케줄형 그날 몫 + 단건)를 전부 체크한 날. 지나간 날도 체크를 채우면 도장 인정.
+function hwDayStatus(sid,ds){
+  let total=0,done=0;
+  (typeof _cache!=='undefined'?(_cache.assignments||[]):[]).forEach(a=>{
+    if(a._deleted||a.sid!==sid)return;
+    if((a.schedule||[]).length){
+      const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+      sch.forEach(s=>{if(s.date===ds){total++;if(s.done)done++;}});
+    }else{
+      const d=(a.due||a.date||'').slice(0,10);
+      if(d!==ds)return;
+      if(typeof schedCoversHw==='function'&&schedCoversHw(sid,ds,a.bookTitle||'',a.range||''))return; // 스케줄과 중복 단건 제외
+      total++;if(a.completedAt)done++;
+    }
+  });
+  return {total,done,perfect:total>0&&done>=total};
+}
+function hwChallengeProgress(stu){
+  const c=stu&&stu.hwChallenge;
+  if(!c||!c.goal||c.stopped)return null;
+  const today=ppToday();
+  const start=c.start||today;
+  const stamps=[];
+  const d=new Date(start+'T12:00:00');
+  let guard=0;
+  while(guard++<420){
+    const ds=ppYmd(d);
+    if(ds>today)break;
+    if(hwDayStatus(stu.id,ds).perfect)stamps.push(ds);
+    d.setDate(d.getDate()+1);
+  }
+  const goal=c.goal||20;
+  return {goal,reward:c.reward||'작은 선물',start,stamps,count:Math.min(stamps.length,goal),
+    achieved:stamps.length>=goal,completedDate:c.completedDate||null,todayStamp:stamps.includes(today)};
+}
 // 이 학생에게 그 책이 반복(recur)·클래스5 숙제로 이미 배정돼 있는가.
 // 자체 진행 숙제 책(예: 단어가 읽기다 — 매일 1과씩 나감)은 수업 복습 제안 대상이 아님 (이미 진도로 나가는 걸 또 제안하던 문제).
 function bookIsRecurHw(sid,book){

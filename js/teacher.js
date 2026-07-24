@@ -1147,7 +1147,35 @@ async function loadStuPanel(sid){
   const sAssigns=(_cache.assignments||[]).filter(a=>a.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const unread=sHws.filter(h=>!h.checked).length;
   const tomorrowStr=(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().split('T')[0];})();
+  const _hwchBox=(()=>{
+    const stu=DB.stus().find(x=>x.id===sid);
+    const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu):null;
+    if(p){
+      const st=p.completedDate?`🎁 선물 전달 완료 (${p.completedDate})`:p.achieved?'<b style="color:#B45309">달성! 선물 전달 대기</b>':`도장 <b style="color:#B45309">${p.count}/${p.goal}</b> · 오늘 ${p.todayStamp?'✅':'아직'}`;
+      return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:var(--rs);padding:8px 12px;margin-bottom:12px;font-size:12px">
+        <span>🎁 <b>도장 챌린지</b> (${p.goal}일 · ${escAttr(p.reward)} · 시작 ${p.start})</span><span>${st}</span>
+        <span style="margin-left:auto;display:flex;gap:4px">
+          ${p.completedDate?`<button class="btn bt bsm" style="font-size:10px;padding:2px 8px" onclick="document.getElementById('hwch-setup-${sid}').style.cssText='display:flex;width:100%;margin-top:6px;gap:6px;align-items:center;flex-wrap:wrap';this.style.display='none'">새 라운드</button>`:''}
+          <button class="btn bo bsm" style="font-size:10px;padding:2px 8px" onclick="spChallengeStop('${sid}')">중지</button>
+        </span>
+        <span id="hwch-setup-${sid}" style="display:none">
+          목표 <input type="number" id="hwch-goal-${sid}" value="${p.goal}" style="width:52px">일 ·
+          선물 <input type="text" id="hwch-reward-${sid}" value="${escAttr(p.reward)}" style="width:110px"> ·
+          시작 <input type="date" id="hwch-start-${sid}" value="${ppToday()}">
+          <button class="btn bt bsm" style="font-size:10px;padding:2px 8px" onclick="spChallengeStart('${sid}')">시작</button>
+        </span>
+      </div>`;
+    }
+    return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:var(--cream2);border:1px dashed var(--border);border-radius:var(--rs);padding:8px 12px;margin-bottom:12px;font-size:12px">
+      🎁 <b>숙제 도장 챌린지</b> — 목표 <input type="number" id="hwch-goal-${sid}" value="20" style="width:52px">일 ·
+      선물 <input type="text" id="hwch-reward-${sid}" value="작은 선물" style="width:110px"> ·
+      시작 <input type="date" id="hwch-start-${sid}" value="${ppToday()}">
+      <button class="btn bt bsm" style="font-size:10px;padding:2px 8px" onclick="spChallengeStart('${sid}')">시작</button>
+      <span style="width:100%;font-size:10.5px;color:var(--slate)">숙제를 전부 체크한 날마다 도장 1개 (누적 — 하루 빠져도 리셋 없음). 목표 달성 시 대시보드·학생 앱에 알림</span>
+    </div>`;
+  })();
   document.getElementById('sp-hw').innerHTML=`
+  ${_hwchBox}
   <div style="margin-bottom:12px">
     <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📋 숙제 할당</div>
     <div class="fg" style="margin-bottom:8px">
@@ -7483,6 +7511,7 @@ function renderDash(){
     .sort((a,b)=>(classTimeFor(a,todayDay).start||'99').localeCompare(classTimeFor(b,todayDay).start||'99'));
   const recordedToday=todayClasses.filter(c=>DB.less().some(l=>l.date===todayStr&&l.classId===c.id)).length;
   renderDashGreet(dateLabel,todayClasses.length);
+  renderDashChallenge(stus);
   renderDashToday(dateLabel,todayClasses,todayStr,stus);
   renderDashWeekHeat(stus,todayStr);
 
@@ -7796,6 +7825,66 @@ function openStuPanelTab(sid,tabId){
   setTimeout(()=>swSpTab(tabId),300);
 }
 function openPayMsg(sid){openStuPanelTab(sid,'sp-summary');}
+// ── 숙제 도장 챌린지 — 달성 시 대시보드에 알림 배너, 진행 중이면 작은 진행 표시 ──
+function renderDashChallenge(stus){
+  const host=document.getElementById('dash-greet');if(!host)return;
+  host.querySelector('#dash-hwch')?.remove();
+  const rows=[];
+  stus.forEach(s=>{
+    const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(s):null;
+    if(!p)return;
+    if(p.achieved&&!p.completedDate){
+      rows.push(`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#FEF3C7;border:2px solid #F59E0B;border-radius:var(--rs);padding:12px 14px;margin-top:10px">
+        <span style="font-size:22px">🎉</span>
+        <div style="flex:1;min-width:180px">
+          <div style="font-size:13.5px;font-weight:800;color:#92400E">${escAttr(s.name)} — ${p.goal}일 숙제 챌린지 달성!</div>
+          <div style="font-size:11.5px;color:#B45309;margin-top:2px">${escAttr(p.reward)}을 전달해 주세요 🎁 (학생 앱에도 축하가 표시되고 있어요)</div>
+        </div>
+        <button class="btn bt bsm" onclick="dashChallengeComplete('${s.id}')">🎁 선물 전달 완료</button>
+      </div>`);
+    }else if(!p.completedDate){
+      rows.push(`<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--slate);margin-top:8px;padding:7px 12px;background:var(--cream2);border-radius:var(--rs)">
+        🎁 <b style="color:var(--navy)">${escAttr(s.name)}</b> 도장 챌린지 <b style="color:#B45309">${p.count}/${p.goal}</b>
+        <span style="font-size:11px">(시작 ${p.start} · 오늘 도장 ${p.todayStamp?'✅':'아직'})</span>
+      </div>`);
+    }
+  });
+  if(!rows.length)return;
+  const div=document.createElement('div');div.id='dash-hwch';div.innerHTML=rows.join('');
+  host.appendChild(div);
+}
+async function dashChallengeComplete(sid){
+  const idx=(_cache.students||[]).findIndex(s=>s.id===sid);if(idx<0)return;
+  const stu=_cache.students[idx];
+  stu.hwChallenge={...(stu.hwChallenge||{}),completedDate:ppToday()};
+  try{await supaUpsert('students',sid,stu,null);}
+  catch(e){console.error('dashChallengeComplete:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  toast(`${stu.name} 선물 전달 완료 기록! 🎁 새 라운드는 학생 패널에서 시작할 수 있어요`);
+  renderDash();
+  if(typeof currentSpStuId!=='undefined'&&currentSpStuId===sid)loadStuPanel(sid);
+}
+// 학생 패널: 챌린지 시작/새 라운드/중지
+async function spChallengeStart(sid){
+  const goal=parseInt(document.getElementById('hwch-goal-'+sid)?.value||'20',10)||20;
+  const reward=(document.getElementById('hwch-reward-'+sid)?.value||'').trim()||'작은 선물';
+  const start=document.getElementById('hwch-start-'+sid)?.value||ppToday();
+  const idx=(_cache.students||[]).findIndex(s=>s.id===sid);if(idx<0)return;
+  const stu=_cache.students[idx];
+  stu.hwChallenge={goal,reward,start};
+  try{await supaUpsert('students',sid,stu,null);}
+  catch(e){console.error('spChallengeStart:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  toast(`🎁 ${stu.name} 도장 챌린지 시작 (${goal}일 · ${reward})`);
+  loadStuPanel(sid);renderDash();
+}
+async function spChallengeStop(sid){
+  const idx=(_cache.students||[]).findIndex(s=>s.id===sid);if(idx<0)return;
+  const stu=_cache.students[idx];
+  askConfirm('챌린지 중지',`${stu.name}의 도장 챌린지를 중지할까요?\n(기록은 남고, 다시 시작할 수 있어요)`,'중지','bd',async()=>{
+    stu.hwChallenge={...(stu.hwChallenge||{}),stopped:true};
+    await supaUpsert('students',sid,stu,null);
+    toast('챌린지를 중지했어요');loadStuPanel(sid);renderDash();
+  });
+}
 function renderDashGreet(dateLabel,todayCount){
   const el=document.getElementById('dash-greet');if(!el)return;
   const h=new Date().getHours();
