@@ -8942,10 +8942,10 @@ function openEditAssignModal(aid){
   openM('m-add-assign');
 }
 async function deleteAssign(aid){
-  askConfirm('과제 삭제','이 과제를 삭제할까요?','삭제','bd',async()=>{
-    await supaDelete('assignments',aid);
+  askConfirm('과제 삭제','이 과제를 삭제할까요? (휴지통에서 복원할 수 있어요)','삭제','bd',async()=>{
+    await supaTrash('assignments',_cache.assignments,aid);
     _cache.assignments=(_cache.assignments||[]).filter(a=>a.id!==aid);
-    renderAssignTab();toast('삭제되었습니다');
+    renderAssignTab();renderAssignCal();toast('휴지통으로 보냈어요');
   });
 }
 // ── 학습 미션 할당 (class5 스타일) ──
@@ -12095,10 +12095,10 @@ async function saveAssignEdit(aid,sid){
   await loadStuPanel(sid);swSpTab('sp-hw');toast('수정되었습니다');
 }
 async function deleteStudentAssign(aid,sid){
-  askConfirm('과제 삭제','이 과제를 삭제할까요?','삭제','bd',async()=>{
-    await supaDelete('assignments',aid);
+  askConfirm('과제 삭제','이 과제를 삭제할까요? (휴지통에서 복원할 수 있어요)','삭제','bd',async()=>{
+    await supaTrash('assignments',_cache.assignments,aid);
     _cache.assignments=(_cache.assignments||[]).filter(a=>a.id!==aid);
-    await loadStuPanel(sid);swSpTab('sp-hw');toast('삭제되었습니다');
+    await loadStuPanel(sid);swSpTab('sp-hw');toast('휴지통으로 보냈어요');
   });
 }
 function clAddIndCmt(btn,chip){
@@ -12591,11 +12591,15 @@ async function saveClassLesson(){
       const activeSids=stuData.filter(d=>d.att!=='absent').map(d=>d.sid);
       commonHws.forEach(hw=>activeSids.forEach(sid=>desired.add(hwKey(sid,hw))));
       indHws.forEach(hw=>desired.add(hwKey(hw.sid,hw)));
-      const olds=(_cache.assignments||[]).filter(a=>a.classId===classId&&a.date===date);
+      // 정리 대상은 '이 수업 폼이 만든 과제'만: 단건 reading/textbook.
+      // 스케줄형(반복·클래스5 — date가 우연히 수업일과 같을 수 있음)·미션·워크시트는 절대 건드리지 않음
+      // ('앱으로 단어 20개' 반복 숙제가 date=수업일이라 수정 저장 때 통째로 삭제되던 사고 방지)
+      const olds=(_cache.assignments||[]).filter(a=>a.classId===classId&&a.date===date
+        &&!(a.schedule||[]).length&&['reading','textbook'].includes(a.type||''));
       for(const a of olds){
         const key=[a.sid,a.due||date,a.category||'',_tbBase(a.bookTitle||''),a.range||'',a.note||''].join('');
         if(!desired.has(key)){
-          await supaDelete('assignments',a.id).catch(()=>{});
+          await supaTrash('assignments',_cache.assignments,a.id).catch(()=>{}); // 휴지통 (복원 가능)
           _cache.assignments=(_cache.assignments||[]).filter(x=>x.id!==a.id);
         }
       }
