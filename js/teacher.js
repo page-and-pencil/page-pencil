@@ -9109,6 +9109,7 @@ function modalAssignCatChange(){
       <div class="f" style="margin-bottom:8px"><label>반복 요일</label>
         <select id="rc-days" style="width:100%" onchange="this.dataset.touched='1'">
           <option value="daily">매일</option>
+          <option value="weekday">주중만 (토·일 제외)</option>
           <option value="noclass">수업 없는 날만 (등록된 휴강일 포함)</option>
           <option value="class">수업 있는 날만</option>
         </select>
@@ -9360,6 +9361,7 @@ function buildRecurSchedule(opts){
   const applies=(ds,dow)=>{
     if(rule==='noclass')return !days.includes(dow)||skipSet.has(ds);
     if(rule==='class')return days.includes(dow)&&!skipSet.has(ds);
+    if(rule==='weekday')return dow!=='토'&&dow!=='일';
     return true; // daily
   };
   let units=null,ui=0;
