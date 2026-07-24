@@ -2384,12 +2384,12 @@ function renderStudentHome(sid){
       <span class="stu-hero-ico">✨</span>
       <div style="flex:1;min-width:0">
         <div class="stu-hero-title">${givenName}아, 잘했어!</div>
-        <div class="stu-hero-sub">${hasCheer?'선생님이 남긴 응원':(totalMission?`오늘 미션 ${done.length}/${totalMission}개`:'오늘도 화이팅!')}</div>
+        <div class="stu-hero-sub">${hasCheer?'선생님이 남긴 응원':(todayPendingN?`오늘 할 일 ${todayPendingN}개`:'오늘 할 일 끝! 🎉')}</div>
       </div>
     </div>
     ${hasCheer
       ?`<div class="stu-hero-cmt" id="stu-lesson-cmt" data-raw="${escAttr(heroRaw)}" data-mats="${escAttr(heroMatsText)}" data-stored="${escAttr(heroStored)}">${heroStored||'...'}</div>`
-      :`<div class="stu-hero-cmt">${totalMission?`오늘 미션 ${done.length}/${totalMission}개 완료 중! 화이팅 🔥`:'오늘도 즐겁게 공부해요 😊'}</div>`}
+      :`<div class="stu-hero-cmt">${todayPendingN?`오늘은 딱 ${todayPendingN}개만 하면 끝! 화이팅 🔥`:'오늘 할 일 다 했어요! 참 잘했어요 👏'}</div>`}
   </div>`;
   // ── 오늘 할 일 히어로: 도넛 링(오늘 20개) + 큰 버튼 + 오늘의 게임 예고 ──
   const _revToday=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===ppToday()).length;
@@ -2402,7 +2402,9 @@ function renderStudentHome(sid){
   const notifyOn=!!_ntf.on&&typeof Notification!=='undefined'&&Notification.permission==='granted';
   const notifyTime=_ntf.time||'17:00';
   const notifySupported=typeof Notification!=='undefined';
-  const vocabCtaHtml=`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px">
+  // 단어 학습이 이미 '오늘 할 일'의 숙제 항목(vocabAuto)이면 별도 단어 카드는 숨김 — 액션 창구를 하나로
+  const hasVocabHw=allAssigns.some(a=>a.vocabAuto&&(a.schedule||[]).some(s=>s.date===today));
+  const vocabCtaHtml=hasVocabHw?'':`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px">
     <div style="display:flex;align-items:center;gap:16px">
       <div style="position:relative;width:88px;height:88px;flex-shrink:0">
         <svg width="88" height="88" viewBox="0 0 88 88" style="transform:rotate(-90deg)">
@@ -2414,23 +2416,19 @@ function renderStudentHome(sid){
         </div>
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:15px;font-weight:800;color:var(--navy)">${_ringDone?'오늘 목표 완료! 참 잘했어요':'오늘 할 일'}</div>
+        <div style="font-size:15px;font-weight:800;color:var(--navy)">${_ringDone?'오늘 단어 완료! 참 잘했어요':'📚 오늘의 단어 학습'}</div>
         <div style="font-size:11.5px;color:#8A95A2;margin-top:2px">오늘의 게임: ${_gameNames||'뜻 맞히기'} 🎮</div>
         <button class="btn bt" style="width:100%;height:46px;padding:0;border-radius:12px;font-size:15px;font-weight:800;gap:6px;margin-top:9px" onclick="openVocabStudy('daily')">${luIcon('play',18)||'▷'} ${_ringDone?'더 하기':(_revToday?'이어서!':'시작!')}</button>
       </div>
     </div>
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn bo bsm" style="flex:1;border-radius:10px;padding:9px 0;font-weight:700" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button>
-      ${todayPendingN?`<button class="btn bo bsm" style="flex:1;border-radius:10px;padding:9px 0;font-weight:700" onclick="document.getElementById('stu-hw-card')?.scrollIntoView({behavior:'smooth',block:'start'})">📝 오늘 숙제 ${todayPendingN}개</button>`:''}
-    </div>
-    ${notifySupported?`<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+  </div></div>`;
+  const notifyRowHtml=notifySupported?`<div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:10px 12px;background:var(--cream2);border-radius:var(--rs)">
       <span style="font-size:12px;color:var(--slate)">🔔 매일 학습 알림</span>
       <span style="display:flex;align-items:center;gap:6px">
         <input type="time" value="${notifyTime}" onchange="setStuNotifyTime('${sid}',this.value)" ${notifyOn?'':'disabled'} style="font-size:12px;border:1px solid var(--border);border-radius:8px;padding:3px 6px;${notifyOn?'':'opacity:.5'}">
         <button class="btn ${notifyOn?'bt':'bo'} bsm" style="border-radius:50px;padding:5px 13px;font-weight:700" onclick="toggleStuNotify('${sid}')">${notifyOn?'켜짐 ✓':'켜기'}</button>
       </span>
-    </div>`:''}
-  </div></div>`;
+    </div>`:'';
   const weekDays=getWeekDays(sid);
   const weekCircles=`<div style="display:flex;justify-content:space-between">${weekDays.map(d=>{
     let c;
@@ -2483,7 +2481,7 @@ function renderStudentHome(sid){
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600;color:var(--navy)">${icon} ${title}</div>
           ${detail?`<div style="font-size:12px;color:var(--slate);margin-top:3px">${detail}</div>`:''}
-          ${isVocabAuto&&!done?`<button class="btn bt bsm" style="margin-top:8px;border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><div style="font-size:10.5px;color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
+          ${isVocabAuto&&!done?`<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><button class="btn bo bsm" style="border-radius:50px;padding:8px 14px" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button></div><div style="font-size:10.5px;color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
         </div>
       </div>
     </div>`;
@@ -2596,7 +2594,8 @@ function renderStudentHome(sid){
     const sl=_wk.find(d=>d.date===sel);
     const renderItem=it=>it.sc?schDayCard(it.a,it.sc):asgnCard(it.a);
     const allDoneToday=sel===today&&items.length&&!selPending.length;
-    const head='<div class="wk-sec-head"><span class="t">'+(sl&&sl.isToday?'오늘 할 일':(sl?sl.label+'요일 학습':''))+'</span><span class="s" id="wk-head-cnt">'+selDone.length+' / '+items.length+' 완료</span></div>';
+    const head='<div class="wk-sec-head"><span class="t">'+(sl&&sl.isToday?'오늘 할 일':(sl?sl.label+'요일 학습':''))+'</span><span class="s" id="wk-head-cnt">'+selDone.length+' / '+items.length+' 완료</span></div>'
+      +(sl&&sl.isToday&&selPending.length?'<div style="font-size:11.5px;color:var(--slate);margin:-4px 0 8px">아래 '+selPending.length+'개만 하면 오늘 끝! ✨</div>':'');
     let body;
     if(!items.length)body='<div class="wk-empty-day">이 날은 배정된 학습이 없어요 😊<br><span style="font-size:11px">단어 복습으로 예습해볼까요?</span></div>';
     else body=(allDoneToday?'<div style="text-align:center;padding:4px 0 12px"><div style="font-size:38px">🏆</div><div style="font-size:15px;font-weight:800;color:#047857">오늘 숙제 다 했어요! 참 잘했어요 👏</div></div>':'')
@@ -2613,14 +2612,14 @@ function renderStudentHome(sid){
     ${hwChHtml}
     ${hwSection}
     ${vocabCtaHtml}
-    ${weekCard}
-    ${stuXpCard(sid,streak)}
-    ${stuQuestCard(sid)}
+    <details style="margin-top:8px;margin-bottom:8px">
+      <summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">🎮 보너스 · 내 기록 <span style="font-size:10px;color:var(--teal)">▾</span></summary>
+      <div style="margin-top:8px">${weekCard}${stuXpCard(sid,streak)}${stuQuestCard(sid)}${renderVocabReview(sid)}</div>
+    </details>
     ${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 지난 완료 기록 (${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length}건)</summary><div style="margin-top:8px">${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).map(asgnCard).join('')}</div></details>`:''}
-    ${renderVocabReview(sid)}
     <details open style="margin-top:14px">
       <summary style="font-size:12px;font-weight:600;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">📊 지난 수업 &amp; 학습 현황 <span style="font-size:10px;color:var(--teal)">▾</span></summary>
-      <div style="margin-top:8px">${lastLessonHtml}${streakHtml}${renderHomeStats(sid)}</div>
+      <div style="margin-top:8px">${lastLessonHtml}${streakHtml}${renderHomeStats(sid)}${notifyRowHtml}</div>
     </details>
     ${(()=>{
       const myLogs=(_cache.logs||[]).filter(l=>l.sid===sid&&(l.photoUrl||(l.photoUrls&&l.photoUrls.length))).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
