@@ -1151,7 +1151,7 @@ async function loadStuPanel(sid){
     const stu=DB.stus().find(x=>x.id===sid);
     const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu):null;
     if(p){
-      const st=p.completedDate?`🎁 선물 전달 완료 (${p.completedDate})`:p.achieved?'<b style="color:#B45309">달성! 선물 전달 대기</b>':`도장 <b style="color:#B45309">${p.count}/${p.goal}</b> · 오늘 ${p.todayStamp?'✅':'아직'}`;
+      const st=p.completedDate?`🎁 선물 전달 완료 (${p.completedDate})`:p.achieved?'<b style="color:#B45309">달성! 선물 전달 대기</b>':`도장 <b style="color:#B45309">${p.count}/${p.goal}</b>${p.carry?` <span style="font-size:10px;color:var(--slate)">(이월 ${p.carry} 포함)</span>`:''} · 오늘 ${p.todayStamp?'✅':'아직'}`;
       return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:var(--rs);padding:8px 12px;margin-bottom:12px;font-size:12px">
         <span>🎁 <b>도장 챌린지</b> (${p.goal}일 · ${escAttr(p.reward)} · 시작 ${p.start})</span><span>${st}</span>
         <span style="margin-left:auto;display:flex;gap:4px">
@@ -1161,7 +1161,8 @@ async function loadStuPanel(sid){
         <span id="hwch-setup-${sid}" style="display:none">
           목표 <input type="number" id="hwch-goal-${sid}" value="${p.goal}" style="width:52px">일 ·
           선물 <input type="text" id="hwch-reward-${sid}" value="${escAttr(p.reward)}" style="width:110px"> ·
-          시작 <input type="date" id="hwch-start-${sid}" value="${ppToday()}">
+          시작 <input type="date" id="hwch-start-${sid}" value="${ppToday()}"> ·
+          이월 <input type="number" id="hwch-carry-${sid}" value="0" title="시작 전 이미 모은 도장 수" style="width:44px">개
           <button class="btn bt bsm" style="font-size:10px;padding:2px 8px" onclick="spChallengeStart('${sid}')">시작</button>
         </span>
       </div>`;
@@ -1169,7 +1170,8 @@ async function loadStuPanel(sid){
     return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:var(--cream2);border:1px dashed var(--border);border-radius:var(--rs);padding:8px 12px;margin-bottom:12px;font-size:12px">
       🎁 <b>숙제 도장 챌린지</b> — 목표 <input type="number" id="hwch-goal-${sid}" value="20" style="width:52px">일 ·
       선물 <input type="text" id="hwch-reward-${sid}" value="작은 선물" style="width:110px"> ·
-      시작 <input type="date" id="hwch-start-${sid}" value="${ppToday()}">
+      시작 <input type="date" id="hwch-start-${sid}" value="${ppToday()}"> ·
+      이월 <input type="number" id="hwch-carry-${sid}" value="0" title="시작 전 이미 모은 도장 수 (종이로 세던 몫)" style="width:44px">개
       <button class="btn bt bsm" style="font-size:10px;padding:2px 8px" onclick="spChallengeStart('${sid}')">시작</button>
       <span style="width:100%;font-size:10.5px;color:var(--slate)">숙제를 전부 체크한 날마다 도장 1개 (누적 — 하루 빠져도 리셋 없음). 목표 달성 시 대시보드·학생 앱에 알림</span>
     </div>`;
@@ -7868,9 +7870,10 @@ async function spChallengeStart(sid){
   const goal=parseInt(document.getElementById('hwch-goal-'+sid)?.value||'20',10)||20;
   const reward=(document.getElementById('hwch-reward-'+sid)?.value||'').trim()||'작은 선물';
   const start=document.getElementById('hwch-start-'+sid)?.value||ppToday();
+  const carry=parseInt(document.getElementById('hwch-carry-'+sid)?.value||'0',10)||0; // 시작 전 이미 모은 도장
   const idx=(_cache.students||[]).findIndex(s=>s.id===sid);if(idx<0)return;
   const stu=_cache.students[idx];
-  stu.hwChallenge={goal,reward,start};
+  stu.hwChallenge={goal,reward,start,...(carry&&{carry})};
   try{await supaUpsert('students',sid,stu,null);}
   catch(e){console.error('spChallengeStart:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
   toast(`🎁 ${stu.name} 도장 챌린지 시작 (${goal}일 · ${reward})`);

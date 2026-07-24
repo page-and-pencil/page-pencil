@@ -524,8 +524,9 @@ function hwChallengeProgress(stu){
     d.setDate(d.getDate()+1);
   }
   const goal=c.goal||20;
-  return {goal,reward:c.reward||'작은 선물',start,stamps,count:Math.min(stamps.length,goal),
-    achieved:stamps.length>=goal,completedDate:c.completedDate||null,todayStamp:stamps.includes(today)};
+  const carry=c.carry||0; // 이월 도장 — 앱 기록 시작 전(종이 시절) 모은 몫
+  return {goal,reward:c.reward||'작은 선물',start,stamps,carry,count:Math.min(carry+stamps.length,goal),
+    achieved:carry+stamps.length>=goal,completedDate:c.completedDate||null,todayStamp:stamps.includes(today)};
 }
 // 이 학생에게 그 책이 반복(recur)·클래스5 숙제로 이미 배정돼 있는가.
 // 자체 진행 숙제 책(예: 단어가 읽기다 — 매일 1과씩 나감)은 수업 복습 제안 대상이 아님 (이미 진도로 나가는 걸 또 제안하던 문제).
