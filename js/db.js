@@ -292,6 +292,8 @@ function _refreshIfStale(){
 }
 document.addEventListener('visibilitychange',_refreshIfStale);
 window.addEventListener('focus',_refreshIfStale);
+// 화면을 켜둔 채로도 자동 최신화 — 학생의 완료 체크가 선생님 화면에 몇 분 내 반영 (가드: 보이는 탭 + 2분 신선도 + 중복 방지)
+setInterval(_refreshIfStale,60000);
 let _snapTimer=null;
 function _scheduleSnapSave(){ // 쓰기 후 스냅샷 저장 (2.5초 디바운스)
   clearTimeout(_snapTimer);
@@ -331,6 +333,9 @@ function _afterBgRefresh(){
       if(typeof renderTst==='function')renderTst();
       if(typeof renderRd==='function')renderRd();
       if(typeof renderLog==='function')renderLog();
+      // 과제 탭 — 학생이 앱에서 완료 체크한 것이 자동 반영되도록 (2026-07-26)
+      if(typeof renderAssignTab==='function')renderAssignTab();
+      if(typeof renderAssignCal==='function')renderAssignCal();
     }else if(document.getElementById('s-student')?.classList.contains('active')&&typeof currentStudentSid!=='undefined'&&currentStudentSid){
       const p=document.querySelector('#s-student .panel.active');
       if(p&&p.id==='st-home'&&typeof renderStudentHome==='function')renderStudentHome(currentStudentSid);
