@@ -5060,12 +5060,13 @@ function seriesKeyOf(b){
 }
 // 대분류(패밀리): 워드 리딩·Link처럼 형제 시리즈를 한 그룹으로
 function seriesFamilyOf(k){
-  if(/^\d+\s*-\s*word reading$/i.test(k))return 'Word READING 시리즈';
-  if(/\blink\b/i.test(k))return 'Link 시리즈';
-  if(/^wonderful world/i.test(k))return 'Wonderful WORLD 시리즈';
-  if(/^reading sketch/i.test(k))return 'Reading Sketch 시리즈';
-  if(/^read it!?$/i.test(k))return 'Read It! 시리즈';
-  if(/^the best reading$/i.test(k))return 'The Best Reading 시리즈';
+  // 교재 구분 라벨에 '시리즈' 표기는 일관 생략 (2026-07-26 원장 지시)
+  if(/^\d+\s*-\s*word reading$/i.test(k))return 'Word READING';
+  if(/\blink\b/i.test(k))return 'Link';
+  if(/^wonderful world/i.test(k))return 'Wonderful WORLD';
+  if(/^reading sketch/i.test(k))return 'Reading Sketch';
+  if(/^read it!?$/i.test(k))return 'Read It!';
+  if(/^the best reading$/i.test(k))return 'The Best Reading';
   return k;
 }
 // 표지 카드 (표지 없으면 색 배경 + 볼륨 라벨)
