@@ -1554,14 +1554,14 @@ function togSubj(el){
   const s=el.dataset.s;
   if(aSubjs.has(s)){
     if(s==='naesin'){addSRowTo('subj-rows',s);return;}
-    aSubjs.delete(s);el.classList.remove('active');document.querySelectorAll(`#subj-rows .sr[data-s="${s}"]`).forEach(r=>r.remove());
+    aSubjs.delete(s);el.classList.remove('active');document.querySelectorAll('#subj-rows .sr').forEach(r=>{if((r.dataset.s||'').replace(/_\d+$/,'')===s)r.remove();});
   }else{aSubjs.add(s);el.classList.add('active');addSRowTo('subj-rows',s);}
 }
 // 수업 수정용 별도 Set
 const aEditSubjs=new Set();
 function togEditSubj(el){
   const s=el.dataset.s;
-  if(aEditSubjs.has(s)){aEditSubjs.delete(s);el.classList.remove('active');document.querySelector(`#el-subj-rows .sr[data-s="${s}"]`)?.remove();}
+  if(aEditSubjs.has(s)){aEditSubjs.delete(s);el.classList.remove('active');document.querySelectorAll('#el-subj-rows .sr').forEach(r=>{if((r.dataset.s||'').replace(/_\d+$/,'')===s)r.remove();});}
   else{aEditSubjs.add(s);el.classList.add('active');addSRowTo('el-subj-rows',s);}
 }
 function _mkUnitInputsHtml(unitVal,dlId,dlOptsHtml,placeholder){
@@ -1579,7 +1579,9 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal){
   const baseKey=isBook?'_book':s.replace(/_\d+$/,'');
   const label=isBook?'원서':(SLBL[baseKey]||'');
   const cls=isBook?'srd':(SCLS[baseKey]||'');
-  const addBtn=baseKey==='naesin'?`<button class="btn-xadd" title="내신 교재 추가" onclick="addSRowTo('${wrapperId}','naesin')">+</button>`:'';
+  // 내신은 어디서나, 클래스 수정(ec-subj-rows)에선 모든 과목에 '+' — 같은 과목 교재 여러 권 = 커리큘럼 체인 (앞 책 끝나면 다음 책)
+  const canAdd=baseKey==='naesin'||(wrapperId==='ec-subj-rows'&&!isBook&&baseKey!=='pencil_down'&&baseKey!=='sing_together');
+  const addBtn=canAdd?`<button class="btn-xadd" title="${baseKey==='naesin'?'내신 교재 추가':'다음 교재 추가 — 이 교재가 끝나면 이어서 나갈 책 (교재 흐름 미리 등록)'}" onclick="addSRowTo('${wrapperId}','${baseKey}')">+</button>`:'';
   const noUnit=wrapperId==='ec-subj-rows';
   let unitInput=noUnit?'':_mkUnitInputsHtml(unitVal,'','','유닛/진도');
   if(baseKey==='pencil_down'||baseKey==='sing_together'){
@@ -10426,7 +10428,7 @@ function _pgNextUnit(classId,tb,storedUnit){
   return si>=0?keys[si]:keys[0];
 }
 // 오늘~uptoDate의 예정 진도 {날짜:단원키} — 앵커(드래그로 옮긴 기준점) 반영, skipDates=펜슬다운 등 제외일
-function _pgProjection(classId,c,tb,mat,uptoDate,skipDates){
+function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate){
   const todayStr=ppToday();
   const keys=tbUnitKeys(tb);if(!keys.length)return{};
   const rec=_pgLastRec(classId,tb);
@@ -10445,6 +10447,7 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates){
   for(;cur<=end;cur.setDate(cur.getDate()+1)){
     const ds=_pgYmd(cur);
     if(ds<todayStr)continue;
+    if(fromDate&&ds<fromDate)continue; // 체인: 앞 교재가 끝난 뒤부터 시작
     if(!bDays.includes(_PG_DOW[cur.getDay()])&&!extraSet.has(ds))continue;
     if(recDates.has(ds))continue;
     if(skipDates&&skipDates.has(ds))continue;
@@ -10702,36 +10705,54 @@ function _pgComposePlan(classId,c,uptoDate){
       chainCursor=_addDay(sd);
     });
   }
-  // 리딩 외 과목 투영. 단, 반복 숙제로 자체 진행하는 교재(어휘집 등)는 매 수업 1과가 아니라
-  // 숙제로 한 단원들을 '다음 수업일에 일괄 진도'로 묶어 표시 (수업 없는 날 과제 → 다음 시간 일괄 기록 흐름)
+  // 리딩 외 과목 투영. 같은 과목의 교재들(listening, listening_2, …)은 커리큘럼 체인 —
+  // 앞 교재가 끝나는 시점 이후에 다음 교재가 이어서 시작 (교재 흐름을 미리 등록해 예정 캘린더를 끝까지 채움).
+  // 반복 숙제로 자체 진행하는 교재(어휘집 등)는 숙제 단원을 '다음 수업일 일괄 진도'로 묶어 표시.
+  const _subjGroups={};
   books.filter(b=>!readingBooks.includes(b)).forEach(b=>{
-    const isRecurBook=clsStus.some(s=>bookIsRecurHw(s.id,b.tb.title));
-    if(isRecurBook){
-      const sids=clsStus.map(s=>s.id);
-      const a=(_cache.assignments||[]).find(x=>!x._deleted&&sids.includes(x.sid)&&x.category==='recur'&&(x.schedule||[]).length
-        &&(x.bookId===b.tb.id||_pgNorm(x.bookTitle||'')===_pgNorm(b.tb.title)));
-      if(a){
-        const sch=(a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
-        const rec=_pgLastRec(classId,b.tb);
-        const keys=tbUnitKeys(b.tb);
-        const remain=new Set(keys.slice(rec?rec.idx+1:0).map(k=>_pgNorm(k))); // 아직 수업 기록 안 된 단원만
-        const byDay={};
-        sch.forEach(s2=>{
-          if(!s2.unit||!remain.has(_pgNorm(s2.unit)))return;
-          const d=_nextClassDay(s2.date,(c.days||[]),skipSet,new Set(c.extraDates||[]));
-          if(!d||d<todayStr||d>uptoDate)return;
-          (byDay[d]=byDay[d]||[]).push(s2.unit);
-        });
-        Object.entries(byDay).forEach(([d,units])=>{
-          (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:units.join(', '),color:b.color,title:b.tb.title,s:b.s});
-        });
+    const base=b.s.replace(/_\d+$/,'');
+    (_subjGroups[base]=_subjGroups[base]||[]).push(b); // commonMaterials 키 순서 = 체인 순서
+  });
+  Object.values(_subjGroups).forEach(group=>{
+    let cursor=todayStr; // 이 과목 체인에서 다음 교재가 시작 가능한 날
+    for(const b of group){
+      const isRecurBook=clsStus.some(s=>bookIsRecurHw(s.id,b.tb.title));
+      if(isRecurBook){
+        const sids=clsStus.map(s=>s.id);
+        const a=(_cache.assignments||[]).find(x=>!x._deleted&&sids.includes(x.sid)&&x.category==='recur'&&(x.schedule||[]).length
+          &&(x.bookId===b.tb.id||_pgNorm(x.bookTitle||'')===_pgNorm(b.tb.title)));
+        if(a){
+          const sch=(a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+          const rec=_pgLastRec(classId,b.tb);
+          const keys=tbUnitKeys(b.tb);
+          const remain=new Set(keys.slice(rec?rec.idx+1:0).map(k=>_pgNorm(k))); // 아직 수업 기록 안 된 단원만
+          const byDay={};
+          sch.forEach(s2=>{
+            if(!s2.unit||!remain.has(_pgNorm(s2.unit)))return;
+            const d=_nextClassDay(s2.date,(c.days||[]),skipSet,_extraSet);
+            if(!d||d<todayStr||d>uptoDate)return;
+            (byDay[d]=byDay[d]||[]).push(s2.unit);
+          });
+          Object.entries(byDay).forEach(([d,units])=>{
+            (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:units.join(', '),color:b.color,title:b.tb.title,s:b.s});
+          });
+          // 다음 교재는 이 반복 숙제가 끝난 다음 날부터 (남은 단원이 있을 때만)
+          if(remain.size){const last=(sch[sch.length-1]||{}).date||'';if(last&&_addDay(last)>cursor)cursor=_addDay(last);}
+        }
+        continue; // 반복 숙제 교재는 매 수업 1과 투영 안 함
       }
-      return; // 반복 숙제 교재는 매 수업 1과 투영 안 함
+      const keys=tbUnitKeys(b.tb);
+      const rec=_pgLastRec(classId,b.tb);
+      if(rec&&rec.idx>=keys.length-1)continue; // 완강한 책 — 다음 교재가 이어서
+      const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate,skipSet,cursor);
+      let maxD='';
+      Object.entries(placed).forEach(([d,u])=>{
+        (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
+        if(d>maxD)maxD=d;
+      });
+      if(maxD)cursor=_addDay(maxD);
+      else{cursor='9999-12-31';} // 표시 범위 밖 — 뒤 교재는 이 화면에선 안 그림
     }
-    const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate,skipSet);
-    Object.entries(placed).forEach(([d,u])=>{
-      (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
-    });
   });
   const ortGhostBy={};
   clsStus.forEach(s=>{
@@ -11509,7 +11530,7 @@ function ecTogSubj(el){
   const s=el.dataset.s;
   if(ecSubjs.has(s)){
     if(s==='naesin'){addSRowTo('ec-subj-rows',s);return;}
-    ecSubjs.delete(s);el.classList.remove('active');document.querySelectorAll(`#ec-subj-rows .sr[data-s="${s}"]`).forEach(r=>r.remove());
+    ecSubjs.delete(s);el.classList.remove('active');document.querySelectorAll('#ec-subj-rows .sr').forEach(r=>{if((r.dataset.s||'').replace(/_\d+$/,'')===s)r.remove();});
   }else{ecSubjs.add(s);el.classList.add('active');addSRowTo('ec-subj-rows',s);}
 }
 // 다음 원서 제안 칩 → 그 학생 행의 빈 원서 칸에 채움
@@ -12189,7 +12210,7 @@ function clTogSubj(el){
   const s=el.dataset.s;
   if(clSubjs.has(s)){
     if(s==='naesin'){addSRowTo('cl-subj-rows',s);return;}
-    clSubjs.delete(s);el.classList.remove('active');document.querySelectorAll(`#cl-subj-rows .sr[data-s="${s}"]`).forEach(r=>r.remove());
+    clSubjs.delete(s);el.classList.remove('active');document.querySelectorAll('#cl-subj-rows .sr').forEach(r=>{if((r.dataset.s||'').replace(/_\d+$/,'')===s)r.remove();});
   }else{clSubjs.add(s);el.classList.add('active');addSRowTo('cl-subj-rows',s);}
 }
 
