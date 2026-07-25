@@ -4511,7 +4511,7 @@ function tryFixEncoding(text){
 // Lesson/Unit 헤더 + 영어|한국어뜻|품사 연결 포맷 파서
 function parseBookWordFormat(text){
   const posMap=[
-    {ko:'조동사',pos:'verb'},{ko:'감탄사',pos:'verb'},
+    {ko:'조동사',pos:'verb'},{ko:'감탄사',pos:'int'},{ko:'한정사',pos:'det'},{ko:'관사',pos:'det'},
     {ko:'전치사구',pos:'phrase'},{ko:'동사구',pos:'phrase'},{ko:'명사구',pos:'phrase'},{ko:'형용사구',pos:'phrase'},
     {ko:'대명사',pos:'pron'},{ko:'형용사',pos:'adj'},{ko:'명사',pos:'noun'},
     {ko:'동사',pos:'verb'},{ko:'부사',pos:'adv'},{ko:'전치사',pos:'prep'},
@@ -5451,9 +5451,9 @@ function tbdTab(tab){
 // ── 단어 DB (교재+원서 통합) ──
 let _wdbPagedEntries=[],wdbPage=0,wdbSortDir='asc',wdbSortField='word';
 const WDB_PAGE_SIZE=50;
-const POS_KO={noun:'명사',verb:'동사',adj:'형용사',adv:'부사',prep:'전치사',phrase:'구동사/숙어',conj:'접속사',pron:'대명사'};
+const POS_KO={noun:'명사',verb:'동사',adj:'형용사',adv:'부사',prep:'전치사',phrase:'구동사/숙어',conj:'접속사',pron:'대명사',det:'한정사',int:'감탄사'};
 function posOptionsHtml(sel){
-  return [['','—'],['noun','명사'],['verb','동사'],['adj','형용사'],['adv','부사'],['prep','전치사'],['phrase','구동사/숙어'],['conj','접속사'],['pron','대명사']]
+  return [['','—'],['noun','명사'],['verb','동사'],['adj','형용사'],['adv','부사'],['prep','전치사'],['phrase','구동사/숙어'],['conj','접속사'],['pron','대명사'],['det','한정사'],['int','감탄사']]
     .map(([v,l])=>`<option value="${v}"${sel===v?' selected':''}>${l}</option>`).join('');
 }
 
@@ -5962,8 +5962,8 @@ async function wdbDeleteEntry(idx){
 function normPos(raw){
   const m={'명사':'noun','동사':'verb','형용사':'adj','형용':'adj','부사':'adv','전치사':'prep',
     '전치사구':'phrase','동사구':'phrase','구/숙어':'phrase','구동사':'phrase','숙어':'phrase','구':'phrase',
-    '접속사':'conj','대명사':'noun','조동사':'verb','감탄사':'verb',
-    'noun':'noun','verb':'verb','adj':'adj','adv':'adv','prep':'prep','phrase':'phrase','conj':'conj'};
+    '접속사':'conj','대명사':'pron','조동사':'verb','감탄사':'int','한정사':'det','관사':'det',
+    'noun':'noun','verb':'verb','adj':'adj','adv':'adv','prep':'prep','phrase':'phrase','conj':'conj','pron':'pron','det':'det','int':'int'};
   return m[(raw||'').trim().toLowerCase()]||raw||'';
 }
 
