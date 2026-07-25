@@ -1678,11 +1678,24 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal){
     bookInput=`<select data-f="book" data-basekey="${baseKey}" onfocus="this.dataset.prev=this.value" onchange="if(bkSelAddNew(this))return;this.dataset.prev=this.value" style="${_bkSelSt}">${opts2}</select>`;
   }
   if(wrapperId==='ec-subj-rows'){
-    // 클래스 편집: 교재별 진행 요일 (비우면 수업일 전부 — 진도 캘린더·자동 단원 계산에 사용)
+    // 클래스 편집: 같은 과목 교재 여러 권 = 커리큘럼 체인 (행 순서 = 진행 순서).
+    // 첫 행만 과목 라벨+요일을 갖고, 이후 행은 '↳ N번째'로 들여써서 앞 책이 끝나면 이어짐을 표시.
+    const prevSame=[...wrap.querySelectorAll('.sr')].filter(r=>(r.dataset.s||'').replace(/_\d+$/,'')===baseKey);
+    const isNext=prevSame.length>0;
     const dv=Array.isArray(daysVal)?daysVal:[];
-    const dayChips=`<div class="pg-days" title="이 교재를 나가는 요일 — 비우면 수업일마다 진행">${['월','화','수','목','금','토','일'].map(dd=>`<span class="pg-day-chip${dv.includes(dd)?' on':''}" data-d="${dd}" onclick="this.classList.toggle('on')">${dd}</span>`).join('')}</div>`;
-    d.innerHTML=`<span class="sl ${cls}">${label}</span>${bookInput}${dayChips}<div style="display:flex;gap:4px;align-items:center">${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button></div>`;
-    wrap.appendChild(d);return;
+    const dayChips=isNext
+      ?`<span style="font-size:10.5px;color:var(--slate);align-self:center">앞 교재가 끝나면 자동으로 이어서</span>`
+      :`<div class="pg-days" title="이 교재를 나가는 요일 — 비우면 수업일마다 진행">${['월','화','수','목','금','토','일'].map(dd=>`<span class="pg-day-chip${dv.includes(dd)?' on':''}" data-d="${dd}" onclick="this.classList.toggle('on')">${dd}</span>`).join('')}</div>`;
+    const ecAdd=`<button class="btn bo bxxs" style="white-space:nowrap" title="이 교재가 끝나면 이어서 나갈 다음 교재 추가 — 커리큘럼을 쭉 등록해두면 예정 캘린더가 끝까지 채워져요" onclick="addSRowTo('${wrapperId}','${baseKey}')">+ 다음 교재</button>`;
+    const lbl=isNext
+      ?`<span class="sl" style="background:var(--cream2);color:var(--slate)">↳ ${prevSame.length+1}번째</span>`
+      :`<span class="sl ${cls}">${label}</span>`;
+    d.innerHTML=`${lbl}${bookInput}${dayChips}<div style="display:flex;gap:4px;align-items:center">${ecAdd}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button></div>`;
+    if(isNext){
+      d.style.marginLeft='14px';
+      prevSame[prevSame.length-1].insertAdjacentElement('afterend',d); // 같은 과목 그룹 바로 아래에 (체인이 뭉쳐 보이게)
+    }else wrap.appendChild(d);
+    return;
   }
   d.innerHTML=`<span class="sl ${cls}">${label}</span>${bookInput}${unitInput} ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
   wrap.appendChild(d);
@@ -11745,6 +11758,11 @@ async function saveClass(){
   const id=existingId||uid();
   const existing=DB.classes().find(x=>x.id===id);
   const commonMaterials=getSMatsFrom('ec-subj-rows');
+  // 체인 후속 교재(listening_2 등)는 첫 교재의 진행 요일 상속 (후속 행엔 요일 UI가 없음)
+  Object.keys(commonMaterials).forEach(k=>{
+    const m2=/^(.*)_\d+$/.exec(k);
+    if(m2&&!commonMaterials[k].days&&commonMaterials[m2[1]]&&commonMaterials[m2[1]].days)commonMaterials[k].days=commonMaterials[m2[1]].days;
+  });
   // 클래스5 책 설정 (매일 한 유닛씩 앱 과제 자동 할당)
   const c5BookId=document.getElementById('ec-c5-book')?.value||'';
   let class5=null;
