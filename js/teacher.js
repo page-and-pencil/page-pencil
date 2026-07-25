@@ -5054,6 +5054,7 @@ function setBookView(mode){
 // 시리즈 키: 원서는 series 필드, 교재는 제목 끝 레벨 토큰(1, 1.2, 30-1, Level 2, 1권, (2nd)) 제거
 function seriesKeyOf(b){
   if(b._bt==='library')return (b.series||'').trim()||'단권·기타';
+  if((b.series||'').trim())return b.series.trim(); // 교재도 series 필드 우선 — 제목이 숫자로 안 끝나는 책(능률VOCA 고난도 등)이 단권 처리되던 문제
   let t=String(b.title||'').trim().replace(/\s*\(\d+(?:st|nd|rd|th)\)$/i,'');
   const m=t.match(/^(.+?)\s+(?:Level|Lv\.?|Grade)?\s*\d+(?:[.\-]\d+)*\s*(?:권|단계)?$/i);
   return (m&&m[1].trim())?m[1].trim():t;
