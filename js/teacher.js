@@ -1687,10 +1687,12 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal){
       ?`<span style="font-size:10.5px;color:var(--slate);align-self:center">앞 교재가 끝나면 자동으로 이어서</span>`
       :`<div class="pg-days" title="이 교재를 나가는 요일 — 비우면 수업일마다 진행">${['월','화','수','목','금','토','일'].map(dd=>`<span class="pg-day-chip${dv.includes(dd)?' on':''}" data-d="${dd}" onclick="this.classList.toggle('on')">${dd}</span>`).join('')}</div>`;
     const ecAdd=`<button class="btn bo bxxs" style="white-space:nowrap" title="이 교재가 끝나면 이어서 나갈 다음 교재 추가 — 커리큘럼을 쭉 등록해두면 예정 캘린더가 끝까지 채워져요" onclick="addSRowTo('${wrapperId}','${baseKey}')">+ 다음 교재</button>`;
+    const _obSt='background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:10px;color:var(--slate);padding:2px 5px;line-height:1';
+    const orderBtns=`<span style="display:flex;flex-direction:column;gap:2px"><button type="button" style="${_obSt}" title="순서 위로" onclick="ecMoveChainRow(this,-1)">▲</button><button type="button" style="${_obSt}" title="순서 아래로" onclick="ecMoveChainRow(this,1)">▼</button></span>`;
     const lbl=isNext
       ?`<span class="sl" style="background:var(--cream2);color:var(--slate)">↳ ${prevSame.length+1}번째</span>`
       :`<span class="sl ${cls}">${label}</span>`;
-    d.innerHTML=`${lbl}${bookInput}${dayChips}<div style="display:flex;gap:4px;align-items:center">${ecAdd}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button></div>`;
+    d.innerHTML=`${lbl}${bookInput}${dayChips}<div style="display:flex;gap:4px;align-items:center">${orderBtns}${ecAdd}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button></div>`;
     if(isNext){
       d.style.marginLeft='14px';
       prevSame[prevSame.length-1].insertAdjacentElement('afterend',d); // 같은 과목 그룹 바로 아래에 (체인이 뭉쳐 보이게)
@@ -1699,6 +1701,20 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal){
   }
   d.innerHTML=`<span class="sl ${cls}">${label}</span>${bookInput}${unitInput} ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
   wrap.appendChild(d);
+}
+// 커리큘럼 체인 순서 바꾸기 — 같은 과목 안에서 위/아래 행과 교재 선택값을 맞바꿈
+// (행 구조·라벨·요일 칩은 그대로 두고 값만 교환 → 첫 행=현재 책 규칙 유지, 저장 시 새 순서로 반영)
+function ecMoveChainRow(btn,dir){
+  const row=btn.closest('.sr');if(!row)return;
+  const base=(row.dataset.s||'').replace(/_\d+$/,'');
+  const rows=[...document.querySelectorAll('#ec-subj-rows .sr')].filter(r=>(r.dataset.s||'').replace(/_\d+$/,'')===base);
+  const i=rows.indexOf(row),j=i+dir;
+  if(j<0||j>=rows.length){toast(dir<0?'이미 첫 번째 교재예요':'이미 마지막 교재예요');return;}
+  const selA=row.querySelector('select[data-f="book"]'),selB=rows[j].querySelector('select[data-f="book"]');
+  if(!selA||!selB)return;
+  const tmp=selA.value;selA.value=selB.value;selB.value=tmp;
+  [selA,selB].forEach(el=>{el.style.transition='background .15s';el.style.background='#FEF3C7';setTimeout(()=>{el.style.background='';},450);});
+  toast('순서를 바꿨어요 — 저장하면 반영됩니다');
 }
 function rmSRowFrom(wrapperId,s,btn){
   btn.closest('.sr').remove();
