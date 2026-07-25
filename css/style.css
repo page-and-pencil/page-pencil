@@ -549,6 +549,7 @@ div.ig-like{cursor:default;}
 .pg-dnum{font-size:10px;font-weight:700;color:var(--slate);}
 .pg-cell.today .pg-dnum{color:var(--teal);}
 .pg-chip{font-size:9.5px;font-weight:700;border-radius:5px;padding:1.5px 4px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pg-chip.hw-done{align-self:flex-start;padding:1.5px 5px;font-size:8.5px;border-radius:8px;}
 .pg-chip.rec{background:var(--pgc);color:#fff;}
 .pg-chip.ghost{border:1.5px dashed var(--pgc);color:var(--pgc);background:#fff;cursor:grab;}
 .pg-chip.ghost.sel{outline:2px solid var(--pgc);outline-offset:1px;}

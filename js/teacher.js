@@ -8665,6 +8665,7 @@ function renderAssignCal(){
   const daysInMonth=new Date(year,month+1,0).getDate();
   const todayStr=ppToday();
   // ① 이 학생의 실제 과제 → 날짜별 칩 (스케줄형은 각 날짜, 일반형은 마감일)
+  // 진도 캘린더와 같은 시각 언어: 아이콘 없이 과목색+단원 라벨, 완료된 반복분은 ✓ 한 글자로 압축
   const byDate={};
   (_cache.assignments||[]).forEach(a=>{
     if(a.sid!==sid)return;
@@ -8673,21 +8674,23 @@ function renderAssignCal(){
         if(!sc.date||!sc.date.startsWith(ym))return;
         const isRecur=a.category==='recur';
         (byDate[sc.date]=byDate[sc.date]||[]).push({
+          ord:isRecur?10:20,
           color:isRecur?'#0891B2':_PG_C5_COLOR,
-          ico:isRecur?'🔁':'🎮',
           label:sc.unit||sc.book||a.bookTitle||'',
-          tip:`${asgSrcLabel(a)} — ${[sc.book,sc.unit].filter(Boolean).join(' · ')}`,
+          tip:`${asgSrcLabel(a)} — ${[a.bookTitle&&a.bookTitle!==sc.book?a.bookTitle:'',sc.book,sc.unit].filter(Boolean).join(' · ')}`,
           done:!!sc.done});
       });
     }else if(a.due&&a.due.startsWith(ym)){
       (byDate[a.due]=byDate[a.due]||[]).push({
+        ord:30,
         color:_PG_CAT_COLORS[a.category]||'#64748B',
-        ico:a.type==='mission'?'🎯':a.type==='worksheet'?'🗒️':'📕',
         label:[a.bookTitle||a.text||'',a.range].filter(Boolean).join(' ').trim()||'과제',
         tip:`${asgSrcLabel(a)} — ${[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')} (마감 ${a.due})`,
         done:!!a.completedAt});
     }
   });
+  // 수업일 음영(진도 캘린더와 동일한 판정: 요일+추가 수업일−휴강)
+  const _hcExtra=new Set(stCls?.extraDates||[]),_hcSkip=new Set(stCls?.skipDates||[]);
   // ② 수업 연계 숙제 제안 (아직 미할당 점선 📕) — 학생의 클래스 기준
   const hwBy=stCls?_pgHomeworkPlan(stCls.id,stCls):{};
   const hwPending=Object.values(hwBy).some(arr=>arr.some(h=>!h.assigned));
@@ -8701,17 +8704,21 @@ function renderAssignCal(){
   for(let d=1;d<=daysInMonth;d++){
     const ds=`${ym}-${String(d).padStart(2,'0')}`;
     const isToday=ds===todayStr;
+    const dow=_PG_DOW[new Date(year,month,d).getDay()];
+    const isClassDay=!!stCls&&(((stCls.days||[]).includes(dow))||_hcExtra.has(ds))&&!_hcSkip.has(ds);
     let chips='';
-    // 할당된 과제 (진한 칩) — 클릭하면 그 날짜 상세
-    (byDate[ds]||[]).forEach(x=>{
-      chips+=`<span class="pg-chip rec" style="--pgc:${x.color}${x.done?';opacity:.55':''}" title="${escAttr(x.tip+(x.done?' · 제출완료':''))}" onclick="event.stopPropagation();showAssignDateDetail('${ds}')">${x.ico} ${escAttr(String(x.label).length>14?String(x.label).slice(0,14)+'…':x.label)}${x.done?' ✓':''}</span>`;
+    // 할당된 과제 — 과목 우선순위 정렬(반복→클래스5→단건), 완료된 반복·자동분은 ✓만 (과거가 조용해지고 앞으로 할 것이 잘 보임)
+    (byDate[ds]||[]).slice().sort((a,b)=>a.ord-b.ord).forEach(x=>{
+      const compact=x.done&&x.ord<30; // 완료된 스케줄형(반복·클래스5)
+      const lbl=compact?'✓':escAttr(String(x.label).length>12?String(x.label).slice(0,12)+'…':x.label)+(x.done?' ✓':'');
+      chips+=`<span class="pg-chip rec${compact?' hw-done':''}" style="--pgc:${x.color}${x.done?';opacity:.55':''}" title="${escAttr(x.tip+(x.done?' · 제출완료':''))}" onclick="event.stopPropagation();showAssignDateDetail('${ds}')">${lbl}</span>`;
     });
-    // 미할당 수업 연계 숙제 제안 (점선) — 더블클릭=반 전체 할당
+    // 미할당 수업 연계 숙제 제안 (점선=예정, 진도 캘린더와 동일)
     (hwBy[ds]||[]).filter(h=>!h.assigned).forEach(hw=>{
       const col=_PG_CAT_COLORS[hw.subject]||'#64748B';
-      chips+=`<span class="pg-chip pg-hw ghost" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=할당·취소 선택)')}" onclick="hwChipMenu(event,'${stCls?stCls.id:''}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">📕 ${hw.unit}</span>`;
+      chips+=`<span class="pg-chip pg-hw ghost" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=할당·취소 선택)')}" onclick="hwChipMenu(event,'${stCls?stCls.id:''}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">${hw.unit}</span>`;
     });
-    cells+=`<div class="pg-cell${isToday?' today':''}${ds<todayStr?' past':''}" onclick="showAssignDateDetail('${ds}')"><div class="pg-dnum">${d}</div>${chips}</div>`;
+    cells+=`<div class="pg-cell${isClassDay?' cd':''}${isToday?' today':''}${ds<todayStr?' past':''}" onclick="showAssignDateDetail('${ds}')"><div class="pg-dnum">${d}</div>${chips}</div>`;
   }
   el.innerHTML=`<div class="pg-cal-head" style="margin-bottom:8px">
       <select class="filter-sel" style="font-size:12px;min-width:100px" onchange="_hwCalStuId=this.value;renderAssignCal()">${stuOpts}</select>
@@ -8719,10 +8726,15 @@ function renderAssignCal(){
       <span style="font-size:12.5px;font-weight:700;color:var(--navy)">${year}년 ${month+1}월</span>
       <button class="btn bo bxxs" onclick="assignCalMonth(1)">▶</button>
       ${hwPending&&stCls?`<button class="btn bt bxxs" title="배운 단원 복습 숙제를 반 전체에게 한 번에" onclick="pgAssignAllHomework('${stCls.id}')">📕 숙제 일괄</button>`:''}
+      <span style="flex:1"></span>
+      <span class="pg-lg"><i style="background:#0891B2"></i>반복·자동</span>
+      <span class="pg-lg"><i style="background:${_PG_C5_COLOR}"></i>클래스5</span>
+      <span class="pg-lg"><i style="background:#64748B"></i>마감 과제</span>
+      <span class="pg-lg" title="점선=아직 할당 전 제안"><i style="background:#fff;border:1.5px dashed #94A3B8"></i>제안</span>
     </div>
     ${autoFin?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;border:1.5px dashed var(--teal);border-radius:var(--rs);padding:8px 10px;margin-bottom:8px;font-size:12px;color:var(--navy)">📚 <b>${escAttr(autoFin.bookTitle)}</b> 단원을 전부 끝냈어요! 다음 교재를 고르면 같은 방식(못 한 날 자동 밀림)으로 이어서 할당됩니다. <button class="btn bt bxxs" onclick="openRecurNext('${sid}')">다음 교재 선택</button></div>`:''}
     <div class="pg-cal-grid">${_PG_DOW.map(x=>`<div class="pg-cal-dow">${x}</div>`).join('')}${cells}</div>
-    <div class="pg-cal-hint">진한 칩=이 학생에게 <b>할당된 과제</b> (🎮 클래스5 · 🔁 반복 숙제 · 📕 일반 — 칩에 마우스를 올리면 <b>어디서 할당됐는지</b> 표시) · 점선 📕=수업 연계 숙제 제안(더블클릭=반 전체 할당) · 날짜 클릭=그 날 과제 상세</div>`;
+    <div class="pg-cal-hint">진한 칩=할당된 과제 · <b>✓ 점=이미 제출한 반복 숙제</b>(마우스를 올리면 내용·출처) · 점선=수업 연계 제안(클릭=할당) · 흰 칸=수업일 · 날짜 클릭=그 날 상세</div>`;
 }
 function assignCalMonth(dir){
   _assignCalOffset+=dir;
