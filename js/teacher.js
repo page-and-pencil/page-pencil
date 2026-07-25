@@ -8944,12 +8944,36 @@ function renderAssignTab(){
   const assigns=DB.assigns().sort((a,b)=>(b.due||b.date||'').localeCompare(a.due||a.date||''));
   if(!showStus.length){el.innerHTML='<div class="empty"><div class="empty-i">📋</div><div class="empty-t">학생 없음</div></div>';return;}
   const hws=_cache.homeworks||[];
-  const CAT_LABELS={'worksheet':'워크시트','phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
+  // 선택 날짜의 숙제만 표시 — 전체 기간·반복 스케줄 관리는 아래 숙제 캘린더에서 (2026-07-26)
+  const ds=document.getElementById('assign-filter-date')?.value||ppToday();
   const cards=showStus.map(s=>{
     const sa=assigns.filter(a=>a.sid===s.id);
     if(!sa.length&&filterStu)return'';
-    const pending=sa.filter(a=>!a.completedAt).length;
-    const recent=sa.slice(0,4);const extra=sa.slice(4);
+    const dayItems=[];
+    sa.forEach(a=>{
+      if((a.schedule||[]).length){
+        const sc=a.schedule.find(x=>x.date===ds);
+        if(sc)dayItems.push({a,sc});
+      }else if((a.due||a.date)===ds)dayItems.push({a});
+    });
+    const pending=dayItems.filter(x=>x.sc?!x.sc.done:!x.a.completedAt).length;
+    const rows=dayItems.map(x=>{
+      if(!x.sc)return _assignItemHtml(x.a,hws);
+      const a=x.a,sc=x.sc;
+      const isRecur=a.category==='recur';
+      const lbl=isRecur?`🔁 ${a.bookTitle||'반복 숙제'}${sc.unit?' — '+sc.unit:''}`:`🎮 ${[sc.book,sc.unit].filter(Boolean).join(' · ')}`;
+      return `<div class="assign-item" style="align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:var(--teal)">[${isRecur?'반복':'클래스5'}]</span> ${lbl}</div>
+          <div style="font-size:10px;color:var(--slate)">${ds} 분량 · 전체 일정은 숙제 캘린더</div>
+        </div>
+        <div style="display:flex;gap:3px;flex-shrink:0;align-items:center">
+          ${sc.done?`<span class="badge bgreen" style="font-size:9px">완료</span>`:''}
+          <button class="btn ${sc.done?'bo':'bt'}" style="font-size:9px;padding:1px 5px;min-height:0;line-height:1.2" title="${sc.done?'이 날 완료 표시를 취소':'이 날 분량을 완료로 표시'}" onclick="hwSchedToggleDone('${a.id}','${ds}')">${sc.done?'완료 취소':'✓ 완료'}</button>
+          <button class="btn bo" style="font-size:9px;padding:1px 5px;min-height:0;line-height:1.2" onclick="openEditAssignModal('${a.id}')">수정</button>
+        </div>
+      </div>`;
+    });
     return `<div class="assign-card">
       <div class="assign-card-head">
         <div>
@@ -8962,9 +8986,7 @@ function renderAssignTab(){
         </div>
       </div>
       <div class="assign-card-body">
-        ${recent.length?recent.map(a=>_assignItemHtml(a,hws)).join(''):`<div style="font-size:12px;color:var(--slate);padding:8px 0">할당된 과제 없음</div>`}
-        ${extra.length?`<div id="assign-extra-${s.id}" style="display:none">${extra.map(a=>_assignItemHtml(a,hws)).join('')}</div>
-        <div style="font-size:10px;color:var(--teal);text-align:center;padding-top:4px;cursor:pointer;font-weight:600" onclick="const el=document.getElementById('assign-extra-${s.id}');el.style.display=el.style.display==='none'?'block':'none';this.textContent=el.style.display==='none'?'+${extra.length}건 더보기':'접기'">+${extra.length}건 더보기</div>`:''}
+        ${rows.length?rows.join(''):`<div style="font-size:12px;color:var(--slate);padding:8px 0">${ds} 숙제 없음</div>`}
       </div>
     </div>`;
   }).filter(Boolean).join('');
