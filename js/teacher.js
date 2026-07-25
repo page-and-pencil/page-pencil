@@ -1686,8 +1686,8 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal){
     const dayChips=isNext
       ?`<span style="font-size:10.5px;color:var(--slate);align-self:center">앞 교재가 끝나면 자동으로 이어서</span>`
       :`<div class="pg-days" title="이 교재를 나가는 요일 — 비우면 수업일마다 진행">${['월','화','수','목','금','토','일'].map(dd=>`<span class="pg-day-chip${dv.includes(dd)?' on':''}" data-d="${dd}" onclick="this.classList.toggle('on')">${dd}</span>`).join('')}</div>`;
-    const ecAdd=`<button class="btn bo bxxs" style="white-space:nowrap" title="이 교재가 끝나면 이어서 나갈 다음 교재 추가 — 커리큘럼을 쭉 등록해두면 예정 캘린더가 끝까지 채워져요" onclick="addSRowTo('${wrapperId}','${baseKey}')">+ 다음 교재</button>`;
-    const _obSt='background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:10px;color:var(--slate);padding:2px 5px;line-height:1';
+    const ecAdd=`<button class="btn bo bxxs" style="white-space:nowrap;font-size:12px;padding:6px 11px" title="이 교재가 끝나면 이어서 나갈 다음 교재 추가 — 커리큘럼을 쭉 등록해두면 예정 캘린더가 끝까지 채워져요" onclick="addSRowTo('${wrapperId}','${baseKey}')">+ 다음 교재</button>`;
+    const _obSt='background:#fff;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;color:var(--slate);padding:4px 8px;line-height:1';
     const orderBtns=`<span style="display:flex;flex-direction:column;gap:2px"><button type="button" style="${_obSt}" title="순서 위로" onclick="ecMoveChainRow(this,-1)">▲</button><button type="button" style="${_obSt}" title="순서 아래로" onclick="ecMoveChainRow(this,1)">▼</button></span>`;
     const lbl=isNext
       ?`<span class="sl" style="background:var(--cream2);color:var(--slate)">↳ ${prevSame.length+1}번째</span>`

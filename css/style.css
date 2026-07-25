@@ -562,6 +562,22 @@ div.ig-like{cursor:default;}
 .pg-days{display:flex;gap:3px;flex-wrap:wrap;align-items:center;}
 .pg-day-chip{font-size:10px;font-weight:600;color:var(--slate);border:1px solid var(--border);border-radius:8px;padding:2px 6px;cursor:pointer;user-select:none;}
 .pg-day-chip.on{background:var(--teal);color:#fff;border-color:var(--teal);}
+/* ── 클래스 수정 모달: 넓고 시원하게 (커리큘럼 행이 480px 모달에서 겹치던 문제) ── */
+#m-edit-class .mdl{max-width:min(96vw,900px);max-height:94vh;padding:1.5rem 1.75rem;}
+#m-edit-class .mt{font-size:17px;}
+#m-edit-class .fg{gap:16px 20px;}
+#m-edit-class .f label{font-size:13px;}
+#m-edit-class input[type="text"],#m-edit-class input[type="time"],#m-edit-class select,#m-edit-class textarea{font-size:13.5px;}
+#m-edit-class .sr-wrap{gap:10px;}
+#m-edit-class .sr{grid-template-columns:88px minmax(200px,1fr) auto auto;gap:10px 12px;background:var(--cream2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;align-items:center;}
+#m-edit-class .sr select{padding:9px 12px;font-size:13.5px;background:#fff;min-width:0;}
+#m-edit-class .sl{font-size:11.5px;padding:7px 8px;border-radius:9px;}
+#m-edit-class .pg-days{gap:5px;}
+#m-edit-class .pg-day-chip{font-size:11px;padding:4px 9px;border-radius:9px;}
+@media(max-width:640px){
+  #m-edit-class .sr{grid-template-columns:74px 1fr;}
+  #m-edit-class .sr>*:nth-child(3),#m-edit-class .sr>*:nth-child(4){grid-column:2;justify-self:start;}
+}
 
 /* TOAST */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--navy);color:#fff;padding:10px 20px;border-radius:50px;font-size:13px;font-weight:500;z-index:9999;transition:transform .3s;pointer-events:none;white-space:nowrap;}
