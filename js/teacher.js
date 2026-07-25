@@ -10755,6 +10755,7 @@ function _pgComposePlan(classId,c,uptoDate){
   });
   Object.values(_subjGroups).forEach(group=>{
     let cursor=todayStr; // 이 과목 체인에서 다음 교재가 시작 가능한 날
+    const base0=(group[0]?.s||'').replace(/_\d+$/,''); // 어휘 과목은 전체가 '수업 없는 날 숙제' 방식
     for(const b of group){
       const isRecurBook=clsStus.some(s=>bookIsRecurHw(s.id,b.tb.title));
       if(isRecurBook){
@@ -10784,6 +10785,34 @@ function _pgComposePlan(classId,c,uptoDate){
       const keys=tbUnitKeys(b.tb);
       const rec=_pgLastRec(classId,b.tb);
       if(rec&&rec.idx>=keys.length-1)continue; // 완강한 책 — 다음 교재가 이어서
+      if(base0==='vocab'){
+        // 어휘 교재는 수업 없는 날마다 1과씩 '숙제'로 진행 → 다음 수업일에 일괄 진도로 표시
+        // (아직 반복 숙제로 할당 전인 다음 교재도 같은 방식으로 미리 계산 — 매일 수업 나가는 것처럼 깔리지 않게)
+        const start=rec?rec.idx+1:(()=>{const si=_pgUnitIdx(b.tb,b.mat?.unit);return si>=0?si:0;})();
+        const remaining=keys.slice(start);
+        if(!remaining.length)continue;
+        const byDay={};
+        const d=new Date((cursor>todayStr?cursor:todayStr)+'T12:00:00');
+        let ui=0,guard=0,lastHw='',overflow=false;
+        while(ui<remaining.length&&guard++<450){
+          const ds=_pgYmd(d);
+          if(ds>uptoDate){overflow=true;break;}
+          const dow=_PG_DOW[d.getDay()];
+          const isCls=((c.days||[]).includes(dow)||_extraSet.has(ds))&&!skipSet.has(ds);
+          if(!isCls){ // 수업 없는 날 = 숙제일
+            const showD=_nextClassDay(ds,(c.days||[]),skipSet,_extraSet);
+            if(showD&&showD<=uptoDate)(byDay[showD]=byDay[showD]||[]).push(remaining[ui]);
+            lastHw=ds;ui++;
+          }
+          d.setDate(d.getDate()+1);
+        }
+        Object.entries(byDay).forEach(([dd,units])=>{
+          (ghostBy[dd]=ghostBy[dd]||[]).push({tbId:b.tb.id,unit:units.join(', '),color:b.color,title:b.tb.title,s:b.s});
+        });
+        if(!overflow&&ui>=remaining.length&&lastHw)cursor=_addDay(lastHw);
+        else cursor='9999-12-31'; // 범위 밖까지 이어짐 — 뒤 교재는 이 화면에선 안 그림
+        continue;
+      }
       const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate,skipSet,cursor);
       let maxD='';
       Object.entries(placed).forEach(([d,u])=>{
