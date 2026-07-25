@@ -1686,7 +1686,8 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal){
     const dayChips=isNext
       ?`<span style="font-size:10.5px;color:var(--slate);align-self:center">앞 교재가 끝나면 자동으로 이어서</span>`
       :`<div class="pg-days" title="이 교재를 나가는 요일 — 비우면 수업일마다 진행">${['월','화','수','목','금','토','일'].map(dd=>`<span class="pg-day-chip${dv.includes(dd)?' on':''}" data-d="${dd}" onclick="this.classList.toggle('on')">${dd}</span>`).join('')}</div>`;
-    const ecAdd=`<button class="btn bo bxxs" style="white-space:nowrap;font-size:12px;padding:6px 11px" title="이 교재가 끝나면 이어서 나갈 다음 교재 추가 — 커리큘럼을 쭉 등록해두면 예정 캘린더가 끝까지 채워져요" onclick="addSRowTo('${wrapperId}','${baseKey}')">+ 다음 교재</button>`;
+    const ecAdd=`<button class="btn bo bxxs" style="white-space:nowrap;font-size:12px;padding:6px 11px" title="이 교재가 끝나면 이어서 나갈 다음 교재 추가 — 커리큘럼을 쭉 등록해두면 예정 캘린더가 끝까지 채워져요" onclick="addSRowTo('${wrapperId}','${baseKey}')">+ 다음 교재</button>`
+      +`<button class="btn bo bxxs" style="white-space:nowrap;font-size:12px;padding:6px 9px" title="이 교재 뒤로 같은 시리즈의 다음 권들을 순서대로 자동 등록 (이미 있는 권은 건너뜀)" onclick="ecChainSeries(this)">📚 시리즈</button>`;
     const _obSt='background:#fff;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;color:var(--slate);padding:4px 8px;line-height:1';
     const orderBtns=`<span style="display:flex;flex-direction:column;gap:2px"><button type="button" style="${_obSt}" title="순서 위로" onclick="ecMoveChainRow(this,-1)">▲</button><button type="button" style="${_obSt}" title="순서 아래로" onclick="ecMoveChainRow(this,1)">▼</button></span>`;
     const lbl=isNext
@@ -1701,6 +1702,36 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal){
   }
   d.innerHTML=`<span class="sl ${cls}">${label}</span>${bookInput}${unitInput} ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
   wrap.appendChild(d);
+}
+// 시리즈 내 자연 순서 — YLE 레벨 단어(Pre-Starters→Starters→Movers→Flyers) 우선, 그 외엔 숫자 자연 정렬
+function _seriesSortBooks(list){
+  // Pre-Starters < Starters < (무표기 숫자권) < Movers < Flyers — Easy Link(Starter 1~3 → 1~6), 1200 Words(Starters → Movers) 모두 커버
+  const rank=t=>{const s=String(t).toLowerCase();if(/pre[- ]?starter/.test(s))return 0;if(/starter/.test(s))return 1;if(/mover/.test(s))return 3;if(/flyer/.test(s))return 4;return 2;};
+  return [...list].sort((a,b)=>rank(a.title)-rank(b.title)||String(a.title).localeCompare(String(b.title),undefined,{numeric:true}));
+}
+// 시리즈 이어서 등록 — 이 행의 교재 뒤로 같은 시리즈의 다음 권들을 순서대로 체인에 자동 추가
+// (이미 체인에 있는 권은 건너뜀. 사이에 다른 교재 끼우기는 '+ 다음 교재'와 ▲▼로 커스터마이징)
+function ecChainSeries(btn){
+  const row=btn.closest('.sr');if(!row)return;
+  const sel=row.querySelector('select[data-f="book"]');
+  const title=sel?.value||'';
+  const bkId=sel?.options[sel.selectedIndex]?.dataset?.bkId||'';
+  const tb=(_cache.globalTextbooks||[]).find(b=>bkId?b.id===bkId:b.title===title);
+  if(!tb){toast('교재를 먼저 선택해 주세요');return;}
+  if(!tb.series){toast(`'${tb.title}'에 시리즈 정보가 없어요 — 자료 DB에서 시리즈를 지정해 주세요`);return;}
+  const base=(row.dataset.s||'').replace(/_\d+$/,'');
+  const existing=new Set([...document.querySelectorAll('#ec-subj-rows .sr')]
+    .filter(r=>(r.dataset.s||'').replace(/_\d+$/,'')===base)
+    .map(r=>r.querySelector('select[data-f="book"]')?.value).filter(Boolean));
+  // 현재 책을 포함해 정렬 → 정렬상 뒤에 오는 권들만 (현재 책이 단원 미등록이어도 위치 기준으로 동작)
+  const sers=_seriesSortBooks([tb,...(_cache.globalTextbooks||[]).filter(b=>!b._deleted&&b.id!==tb.id&&b.series===tb.series&&tbUnitKeys(b).length)]);
+  const idx=sers.findIndex(b=>b.id===tb.id);
+  const nexts=sers.slice(idx+1).filter(b=>!existing.has(b.title));
+  if(!nexts.length){toast('이어 붙일 다음 권이 없어요 (이미 등록됐거나 시리즈 마지막 권)');return;}
+  askConfirm('📚 시리즈 이어서 등록',`'${tb.series}' 시리즈의 다음 권 ${nexts.length}권을 순서대로 이어 붙일까요?\n\n${nexts.map((b,i)=>`${i+1}. ${b.title}`).join('\n')}\n\n(사이에 다른 교재를 끼우려면 등록 후 ▲▼로 조정하세요)`,'이어 붙이기','bt',()=>{
+    nexts.forEach(b=>addSRowTo('ec-subj-rows',base,b.title,'',b.id));
+    toast(`${nexts.length}권을 이어 붙였어요 — 저장하면 반영됩니다`);
+  });
 }
 // 커리큘럼 체인 순서 바꾸기 — 같은 과목 안에서 위/아래 행과 교재 선택값을 맞바꿈
 // (행 구조·라벨·요일 칩은 그대로 두고 값만 교환 → 첫 행=현재 책 규칙 유지, 저장 시 새 순서로 반영)
