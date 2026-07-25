@@ -697,7 +697,7 @@
           <select class="filter-sel" id="wdb-pos" onchange="wdbPage=0;renderWordDB()">
             <option value="">전체 품사</option>
             <option value="noun">명사</option><option value="verb">동사</option><option value="adj">형용사</option>
-            <option value="adv">부사</option><option value="prep">전치사</option><option value="conj">접속사</option><option value="pron">대명사</option><option value="phrase">구동사/숙어</option>
+            <option value="adv">부사</option><option value="prep">전치사</option><option value="conj">접속사</option><option value="pron">대명사</option><option value="phrase">구동사/숙어</option><option value="det">한정사</option><option value="int">감탄사</option>
           </select>
           <select class="filter-sel" id="wdb-src" onchange="wdbSrcTypeChange();wdbPage=0;renderWordDB()">
             <option value="">전체 출처</option>
@@ -1380,7 +1380,7 @@
         <select id="wdb-new-pos">
           <option value="">—</option><option value="noun">명사</option><option value="verb">동사</option>
           <option value="adj">형용사</option><option value="adv">부사</option><option value="prep">전치사</option>
-          <option value="conj">접속사</option><option value="pron">대명사</option><option value="phrase">구동사/숙어</option>
+          <option value="conj">접속사</option><option value="pron">대명사</option><option value="phrase">구동사/숙어</option><option value="det">한정사</option><option value="int">감탄사</option>
         </select>
       </div>
       <div class="f s2"><label>예문</label><input type="text" id="wdb-new-ex" placeholder="예문 (선택)"></div>
@@ -1552,7 +1552,7 @@
           <select id="tu-pos" style="width:100%;padding:7px 6px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
             <option value="">—</option><option value="noun">명사</option><option value="verb">동사</option>
             <option value="adj">형용사</option><option value="adv">부사</option><option value="prep">전치사</option>
-            <option value="conj">접속사</option><option value="pron">대명사</option><option value="phrase">구동사/숙어</option>
+            <option value="conj">접속사</option><option value="pron">대명사</option><option value="phrase">구동사/숙어</option><option value="det">한정사</option><option value="int">감탄사</option>
           </select>
         </div>
         <div style="flex:2;min-width:120px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">예문</label><input type="text" id="tu-ex" placeholder="I eat an apple every day." style="width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream);box-sizing:border-box"></div>
@@ -1827,7 +1827,7 @@
           <select id="elib-wrd-pos" style="width:100%;padding:6px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:var(--fb);color:var(--navy);background:var(--cream)">
             <option value="">—</option><option value="noun">명사</option><option value="verb">동사</option>
             <option value="adj">형용사</option><option value="adv">부사</option><option value="prep">전치사</option>
-            <option value="conj">접속사</option><option value="pron">대명사</option><option value="phrase">구동사/숙어</option>
+            <option value="conj">접속사</option><option value="pron">대명사</option><option value="phrase">구동사/숙어</option><option value="det">한정사</option><option value="int">감탄사</option>
           </select>
         </div>
         <div style="flex:2;min-width:100px"><label style="font-size:11px;color:var(--slate);display:block;margin-bottom:2px">예문</label><input type="text" id="elib-wrd-ex" placeholder="Some pig! Terrific!" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream);box-sizing:border-box"></div>
@@ -2119,7 +2119,7 @@
 <script src="js/utils.js?v=20260725g"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20260726d"></script>
-<script src="js/teacher.js?v=20260726f"></script>
+<script src="js/teacher.js?v=20260726g"></script>
 <script src="js/student.js?v=20260725g"></script>
 <script src="js/parent.js?v=20260725g"></script>
 </body>
