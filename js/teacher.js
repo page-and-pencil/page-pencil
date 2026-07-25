@@ -9095,7 +9095,7 @@ function modalAssignCatChange(){
   if(cat&&cat!=='other'&&!isC5&&!isMission&&!isWs&&sid&&bookEl&&!bookEl.value){
     const stClasses=DB.classes().filter(c=>(c.studentIds||[]).includes(sid));
     for(const c of stClasses){
-      const matched=Object.entries(c.commonMaterials||{}).find(([k])=>k===cat||k.startsWith(cat+'_'));
+      const matched=Object.entries(_pgActiveMats(c.id,c)).find(([k])=>k===cat||k.startsWith(cat+'_')); // 체인 중 현재 책
       if(matched){
         const m=matched[1];
         const tb=(_cache.globalTextbooks||[]).find(b=>m.bookId?b.id===m.bookId:b.title===m.book);
@@ -9577,7 +9577,8 @@ async function syncClassTbsToStudent(sid){
   if(!studentClasses.length)return;
   const studentTbTitles=new Set((_cache.textbooks||[]).filter(t=>t.sid===sid&&t.active!==false).map(t=>t.title));
   for(const cls of studentClasses){
-    const commonMats=cls.commonMaterials||{};
+    // 체인 중 진행 중인 교재만 학생 교재로 동기화 (미래 커리큘럼 책이 학생 목록에 미리 깔리지 않게)
+    const commonMats=_pgActiveMats(cls.id,cls);
     const tbEntries=Object.entries(commonMats).filter(([k,v])=>!k.startsWith('_book')&&v.book);
     for(const [,v] of tbEntries){
       if(studentTbTitles.has(v.book))continue;
@@ -10440,6 +10441,31 @@ function _pgNextUnit(classId,tb,storedUnit){
   const si=_pgUnitIdx(tb,storedUnit);
   return si>=0?keys[si]:keys[0];
 }
+// 과목 체인(commonMaterials 키 순서)에서 '지금 진행 중인' 교재만 — 완강한 앞 책은 건너뛰고 다음 책.
+// 내신은 여러 교재 병행이라 전부 반환. 범례·수업 폼·학생 교재 동기화·과제 자동 채움이 공유 (체인 전 권 나열 방지)
+function _pgActiveMats(classId,c){
+  const out={},groups={};
+  Object.entries(c.commonMaterials||{}).forEach(([k,v])=>{
+    if(!v)return;
+    const base=k.replace(/_\d+$/,'');
+    if(base==='naesin'){out[k]=v;return;}
+    (groups[base]=groups[base]||[]).push([k,v]);
+  });
+  Object.values(groups).forEach(list=>{
+    let pick=null;
+    for(const [k,v] of list){
+      const tb=_pgTbOf(v);
+      if(!tb){if(!pick)pick=[k,v];continue;} // DB에 없는 교재는 완강 판단 불가 — 우선 유지
+      const keys=tbUnitKeys(tb);
+      const rec=_pgLastRec(classId,tb);
+      if(rec&&keys.length&&rec.idx>=keys.length-1)continue; // 완강 → 다음 책이 현재
+      pick=[k,v];break;
+    }
+    if(!pick&&list.length)pick=list[list.length-1]; // 전부 완강 — 마지막 책 표시
+    if(pick)out[pick[0]]=pick[1];
+  });
+  return out;
+}
 // 오늘~uptoDate의 예정 진도 {날짜:단원키} — 앵커(드래그로 옮긴 기준점) 반영, skipDates=펜슬다운 등 제외일
 function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate){
   const todayStr=ppToday();
@@ -10724,7 +10750,8 @@ function _pgComposePlan(classId,c,uptoDate){
   const _subjGroups={};
   books.filter(b=>!readingBooks.includes(b)).forEach(b=>{
     const base=b.s.replace(/_\d+$/,'');
-    (_subjGroups[base]=_subjGroups[base]||[]).push(b); // commonMaterials 키 순서 = 체인 순서
+    const gk=base==='naesin'?b.s:base; // 내신은 여러 교재 병행 — 체인 아님, 각자 투영
+    (_subjGroups[gk]=_subjGroups[gk]||[]).push(b); // commonMaterials 키 순서 = 체인 순서
   });
   Object.values(_subjGroups).forEach(group=>{
     let cursor=todayStr; // 이 과목 체인에서 다음 교재가 시작 가능한 날
@@ -10895,7 +10922,17 @@ function _pgCalHtml(classId){
   }
   // 범례: 과목 색 (같은 과목 교재는 같은 색) + 원서 한 색
   const hasOrt=Object.keys(ortGhostBy).length||Object.keys(ortRecBy).length;
-  const legend=books.map(b=>`<span class="pg-lg"><i style="background:${b.color}"></i>${SLBL[b.s.replace(/_\d+$/,'')]||''} ${b.tb.title}</span>`).join('')
+  // 범례: 과목당 1개 — 현재 진행 중인 책 + '외 N권' (체인 전 권 나열 방지, 마우스 올리면 전체 커리큘럼)
+  const _lgAm=_pgActiveMats(classId,c);
+  const _lgGroups={};
+  books.forEach(b=>{const base=b.s.replace(/_\d+$/,'');const gk=base==='naesin'?b.s:base;(_lgGroups[gk]=_lgGroups[gk]||[]).push(b);});
+  const legend=Object.entries(_lgGroups).map(([gk,list])=>{
+    const base=gk.replace(/_\d+$/,'');
+    const actKey=Object.keys(_lgAm).find(k=>k===gk||k.replace(/_\d+$/,'')===gk);
+    const act=(actKey&&list.find(b=>b.s===actKey))||list[0];
+    const chain=list.map(x=>x.tb.title).join(' → ');
+    return `<span class="pg-lg" title="${escAttr(list.length>1?'커리큘럼: '+chain:chain)}"><i style="background:${act.color}"></i>${SLBL[base]||''} ${act.tb.title}${list.length>1?` <span style="opacity:.55">외 ${list.length-1}권</span>`:''}</span>`;
+  }).join('')
     +(hasOrt?`<span class="pg-lg"><i style="background:${_PG_ORT_COLOR}"></i>📗 원서</span>`:'')
     +(singDates.size?`<span class="pg-lg"><i style="background:#7B1FA2"></i>✏️ Pencil Down</span>`:'');
   const hasAnchor=Object.keys(c.progressAnchors||{}).length>0;
@@ -11972,9 +12009,10 @@ function openClassLesson(classId,dateStr){
   document.querySelectorAll('#cl-subj-chips .chip').forEach(ch=>ch.classList.remove('active'));
   document.getElementById('cl-subj-rows').innerHTML='';
   if(c.commonMaterials){
-    Object.entries(c.commonMaterials).forEach(([s,v])=>{
-      clSubjs.add(s);
-      const ch=document.querySelector(`#cl-subj-chips .chip[data-s="${s}"]`);
+    // 체인 중 '지금 진행 중인' 교재만 (완강한 앞 책·미래 책 제외 — 커리큘럼 전 권이 행으로 깔리지 않게)
+    Object.entries(_pgActiveMats(classId,c)).forEach(([s,v])=>{
+      clSubjs.add(s.replace(/_\d+$/,''));
+      const ch=document.querySelector(`#cl-subj-chips .chip[data-s="${s.replace(/_\d+$/,'')}"]`);
       if(ch)ch.classList.add('active');
       addSRowTo('cl-subj-rows',s,v.book,v.unit,v.bookId||'');
     });
@@ -12079,7 +12117,7 @@ function spHwCatChange(sid){
   if(cat&&cat!=='other'&&cat!=='book'&&cat!=='class5'&&cat!=='__custom__'&&bookEl&&!bookEl.value){
     const stClasses=DB.classes().filter(c=>(c.studentIds||[]).includes(sid));
     for(const c of stClasses){
-      const matched=Object.entries(c.commonMaterials||{}).find(([k])=>k===cat||k.startsWith(cat+'_'));
+      const matched=Object.entries(_pgActiveMats(c.id,c)).find(([k])=>k===cat||k.startsWith(cat+'_')); // 체인 중 현재 책
       if(matched){
         const m=matched[1];
         const tb=(_cache.globalTextbooks||[]).find(b=>m.bookId?b.id===m.bookId:b.title===m.book);
