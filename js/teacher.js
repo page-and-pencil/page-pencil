@@ -8097,8 +8097,8 @@ function renderDashFill(){
     if(!b){items.push({date:e.date,icon:'📚',text:`${e.title} — 교재 미등록`,label:'등록',run:()=>{openTbookAdd();setTimeout(()=>{const i=document.getElementById('tbook-title');if(i)i.value=e.title;},80);}});pastKeys.add(nrm(e.title));return;}
     const words=Object.values(b.units||{}).reduce((s,a)=>s+(Array.isArray(a)?a.length:0),0);
     if(!words){items.push({date:e.date,icon:'📚',text:`${e.title} — ${Object.keys(b.units||{}).length?'단원만 있고 단어 0개':'단원·단어 없음'}`,label:'채우기',run:()=>openTbookUnits(b.id)});pastKeys.add(nrm(e.title));}
-    else if(b.category!=='파닉스'){
-      // 파닉스는 단어가 콘텐츠의 전부라 원문 없어도 완료 — 본문 있는 교재(어휘 '단어가 읽기다' 등)만 대상
+    else if(b.category==='리딩'){
+      // 원문(본문) 넛지는 리딩 교재만 — 어휘·어법·리스닝 워드리스트 교재는 원본에 본문이 없는 게 정상(잘못된 채우기 넛지 방지)
       const texts=(b.unitTexts&&!Array.isArray(b.unitTexts))?Object.values(b.unitTexts).filter(v=>v).length:0;
       if(!texts){items.push({date:e.date,icon:'📄',text:`${e.title} — 단원 원문 없음 (학생 복습·듣기 비활성)`,label:'원문 채우기',run:()=>openTbookUnits(b.id)});pastKeys.add(nrm(e.title));}
     }
@@ -8118,17 +8118,23 @@ function renderDashFill(){
     Object.entries(plan.ghostBy||{}).forEach(([d,arr])=>(arr||[]).forEach(g=>{
       const tb=(_cache.globalTextbooks||[]).find(x=>x.id===g.tbId);if(!tb)return;
       if(pastKeys.has(nrm(tb.title)))return; // 책 자체가 '배운 내용'에 이미 떠 있으면 거기서 처리
-      if(_noWordUnit(g.unit))return;              // 복습·테스트 단원은 건너뜀
-      if(tb.unitNoVocab?.[g.unit])return;         // 단어 없음이 정상인 단원 (예: 사람 이름뿐인 단원)
-      const wCnt=tuNormWords(tb.units?.[g.unit]||[]).filter(w=>w.word).length;
-      const hasText=!!(tb.unitTexts?.[g.unit]);
-      let miss='';
-      if(!wCnt)miss='단어 없음';
-      else if(tb.category!=='파닉스'&&!hasText)miss='원문 없음';
-      if(!miss)return;
-      const key='tb|'+tb.id+'|'+nrm(g.unit);
-      if(futKeys.has(key))return;futKeys.add(key);
-      fut.push({date:d,fut:1,icon:'📚',text:`${tb.title} ${g.unit} — ${miss}`,label:'채우기',run:()=>openTbookUnits(tb.id)});
+      // 어휘 일괄 고스트는 unit이 'Unit 1, Unit 2, …'로 합쳐진 문자열 — 그대로 조회하면 늘 '단어 없음'으로 오판.
+      // 단, 단원 제목에 쉼표가 든 경우가 있어 실제 units 키로 존재하면 단일 단원으로 취급.
+      const uKeys=(tb.units&&tb.units[g.unit]!==undefined)?[g.unit]
+        :String(g.unit||'').split(',').map(s=>s.trim()).filter(Boolean);
+      uKeys.forEach(u1=>{
+        if(_noWordUnit(u1))return;              // 복습·테스트 단원은 건너뜀
+        if(tb.unitNoVocab?.[u1])return;         // 단어 없음이 정상인 단원 (예: 사람 이름뿐인 단원)
+        const wCnt=tuNormWords(tb.units?.[u1]||[]).filter(w=>w.word).length;
+        const hasText=!!(tb.unitTexts?.[u1]);
+        let miss='';
+        if(!wCnt)miss='단어 없음';
+        else if(tb.category==='리딩'&&!hasText)miss='원문 없음'; // 어휘·어법·리스닝 워드리스트 교재는 원문 없는 게 정상
+        if(!miss)return;
+        const key='tb|'+tb.id+'|'+nrm(u1);
+        if(futKeys.has(key))return;futKeys.add(key);
+        fut.push({date:d,fut:1,icon:'📚',text:`${tb.title} ${u1} — ${miss}`,label:'채우기',run:()=>openTbookUnits(tb.id)});
+      });
     }));
     // 예정 원서(ORT 다음 읽을 책)
     Object.entries(plan.ortGhostBy||{}).forEach(([d,arr])=>(arr||[]).forEach(g=>{
