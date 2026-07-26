@@ -268,7 +268,7 @@ function makeAudioPlayer(url,bookTitle){
     if(loopBtn)loopBtn.onclick=()=>{audio.loop=!audio.loop;loopBtn.classList.toggle('on',audio.loop);};
   },80);
   return `<div class="stu-audio-player2">
-    ${bookTitle?`<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">🎧 ${bookTitle}</div>`:''}
+    ${bookTitle?`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">🎧 ${bookTitle}</div>`:''}
     <audio id="audio_${pid}" src="${url}" controls preload="metadata" style="width:100%;height:40px"></audio>
     <div style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:10px">
       <button id="spd_${pid}" class="sap-ctrl2" title="재생 속도">1×</button>
@@ -302,9 +302,9 @@ function renderStuAudio(b){
   }
   if(ao.type==='chapters'&&ao.chapters&&ao.chapters.length){
     return `<div class="stu-audio-wrap">
-      <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:6px">챕터별 오디오</div>
+      <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:6px">챕터별 오디오</div>
       ${ao.chapters.map(c=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <span style="font-size:11px;color:var(--navy);min-width:44px;font-weight:600">챕터 ${c.num}</span>
+        <span style="font-size:12px;color:var(--navy);min-width:44px;font-weight:600">챕터 ${c.num}</span>
         <audio controls src="${c.url}" style="flex:1;height:28px"></audio>
       </div>`).join('')}
     </div>`;
@@ -388,8 +388,8 @@ function renderStudentLibrary(sid){
       const hasLink=!!(tb.unitLinks?.[u]);
       return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:11px;font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_isRecent(tb.title,u)?` <span style="font-size:9.5px;font-weight:700;background:var(--tl);color:#0B8DAE;padding:2px 7px;border-radius:9px;vertical-align:1px">\uD83D\uDD04 지난 수업</span>`:''}</div>
-          <div style="font-size:11px;color:var(--slate);margin-top:2px">단어 ${wCnt}개</div>
+          <div style="font-size:14px;font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:12px;font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_isRecent(tb.title,u)?` <span style="font-size:10px;font-weight:700;background:var(--tl);color:#0B8DAE;padding:2px 7px;border-radius:9px;vertical-align:1px">\uD83D\uDD04 지난 수업</span>`:''}</div>
+          <div style="font-size:12px;color:var(--slate);margin-top:2px">단어 ${wCnt}개</div>
         </div>
         <div style="display:flex;gap:5px;flex-shrink:0">
           ${hasText?`<button class="btn bt bsm" onclick="openUnitReview('${tb.id}','${u.replace(/'/g,"\\'")}')">\uD83D\uDCD6 복습</button>`:''}
@@ -418,11 +418,11 @@ function renderStudentLibrary(sid){
     const opened=myTbooks.find(x=>x.id===_stuShelfOpen);
     const panel=opened?`<div class="shelf-panel" id="tb-shelf-panel">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <span style="font-size:13px;font-weight:800;color:var(--navy)">\uD83D\uDCDA ${opened.title}</span>
-        ${opened.level?`<span style="font-size:11px;color:var(--slate)">(${opened.level})</span>`:''}
-        <button onclick="stuShelfToggle('${opened.id}')" title="닫기" style="margin-left:auto;border:none;background:none;color:var(--slate);font-size:15px;cursor:pointer;padding:2px 6px">✕</button>
+        <span style="font-size:14px;font-weight:800;color:var(--navy)">\uD83D\uDCDA ${opened.title}</span>
+        ${opened.level?`<span style="font-size:12px;color:var(--slate)">(${opened.level})</span>`:''}
+        <button onclick="stuShelfToggle('${opened.id}')" title="닫기" style="margin-left:auto;border:none;background:none;color:var(--slate);font-size:16px;cursor:pointer;padding:2px 6px">✕</button>
       </div>
-      ${_unitRowsOf(opened)||'<div style="font-size:12px;color:var(--slate);padding:6px 0">단원 정보 없음</div>'}
+      ${_unitRowsOf(opened)||'<div style="font-size:13px;color:var(--slate);padding:6px 0">단원 정보 없음</div>'}
     </div>`:'';
     return `<div class="shelf-grid">${shelf}</div>${panel}`;
   })():'';
@@ -449,14 +449,14 @@ function renderStudentLibrary(sid){
       :renderStuAudio(b);
     const recSection=`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <button id="lib-rec-start-${safeId}" class="btn bo bsm" style="font-size:11px" onclick="startLibRec('${safeId}','${sid}','${escJsA(b.title)}')">🎙 낭독 녹음</button>
-        <button id="lib-rec-stop-${safeId}" class="btn bd bsm" style="display:none;font-size:11px" onclick="stopLibRec('${safeId}')">⏹ 중지</button>
-        <span id="lib-rec-timer-${safeId}" style="display:none;font-size:12px;color:var(--teal);font-family:var(--fm)">⏺ <span id="lib-rec-time-${safeId}">0:00</span></span>
+        <button id="lib-rec-start-${safeId}" class="btn bo bsm" style="font-size:12px" onclick="startLibRec('${safeId}','${sid}','${escJsA(b.title)}')">🎙 낭독 녹음</button>
+        <button id="lib-rec-stop-${safeId}" class="btn bd bsm" style="display:none;font-size:12px" onclick="stopLibRec('${safeId}')">⏹ 중지</button>
+        <span id="lib-rec-timer-${safeId}" style="display:none;font-size:13px;color:var(--teal);font-family:var(--fm)">⏺ <span id="lib-rec-time-${safeId}">0:00</span></span>
       </div>
       <div id="lib-preview-${safeId}" style="display:none;margin-top:8px">
         <audio id="lib-player-${safeId}" controls style="width:100%;height:34px"></audio>
-        <button id="lib-submit-${safeId}" class="btn bt bsm" style="margin-top:6px;width:100%;font-size:12px" onclick="submitLibRec('${safeId}','${escAttr(b.id)}','${sid}','${escJsA(b.title)}')">📤 낭독 제출</button>
-        <div id="lib-ai-${safeId}" style="margin-top:6px;font-size:12px;line-height:1.6"></div>
+        <button id="lib-submit-${safeId}" class="btn bt bsm" style="margin-top:6px;width:100%;font-size:13px" onclick="submitLibRec('${safeId}','${escAttr(b.id)}','${sid}','${escJsA(b.title)}')">📤 낭독 제출</button>
+        <div id="lib-ai-${safeId}" style="margin-top:6px;font-size:13px;line-height:1.6"></div>
       </div>
     </div>`;
     return`<div class="stu-book-card">
@@ -467,8 +467,8 @@ function renderStudentLibrary(sid){
           <div class="stu-book-series">${b.series||''}${b.level?' · Lv.'+b.level:''}</div>
           <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
             ${isCurrent?`<span class="badge badge-xs badge-reading">현재 읽는 중 📖</span>`:''}
-            ${isRead&&!isCurrent?`<span style="font-size:10px;padding:2px 7px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700">✓ 읽음</span>`:''}
-            ${rdDate?`<span style="font-size:10px;color:var(--slate)">${rdDate}</span>`:''}
+            ${isRead&&!isCurrent?`<span style="font-size:10.5px;padding:2px 7px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700">✓ 읽음</span>`:''}
+            ${rdDate?`<span style="font-size:10.5px;color:var(--slate)">${rdDate}</span>`:''}
           </div>
         </div>
       </div>
@@ -506,8 +506,8 @@ function renderStudentLibrary(sid){
   const selOther=!selMine?(otherWithAudio.find(b=>b.id===_stuRdShelfOpen)||((nextBk&&nextBk.id===_stuRdShelfOpen)?nextBk:null)):null;
   const panelOf=e=>`<div class="shelf-panel" id="rd-shelf-panel">${e.b
     ?bookCardHtml(e.b,!!e.cur,!!(e.read||e.completed))
-    :`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:13px;font-weight:800;color:var(--navy)">\uD83D\uDCD7 ${e.title}</span>${e.completed?'<span style="font-size:10px;padding:2px 8px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700">✅ 완독</span>':''}</div>
-       <div style="font-size:12px;color:var(--slate)">듣기·단어 자료가 준비 중이에요. 준비되면 여기에서 바로 들을 수 있어요!</div>`}
+    :`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:14px;font-weight:800;color:var(--navy)">\uD83D\uDCD7 ${e.title}</span>${e.completed?'<span style="font-size:10.5px;padding:2px 8px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700">✅ 완독</span>':''}</div>
+       <div style="font-size:13px;color:var(--slate)">듣기·단어 자료가 준비 중이에요. 준비되면 여기에서 바로 들을 수 있어요!</div>`}
   </div>`;
   const otherShelfHtml=otherWithAudio.map(b=>`<div class="shelf-card${_stuRdShelfOpen===b.id?' on':''}" onclick="${bookTextOf(b)?`stuRdShelfSelect('${b.id}');openBookListen('${escAttr(b.id)}')`:`stuRdShelfToggle('${b.id}')`}">
       <div class="shelf-cv">${b.coverUrl?`<img src="${b.coverUrl}" loading="lazy" onerror="this.replaceWith(document.createTextNode('\uD83C\uDFA7'))">`:'\uD83C\uDFA7'}</div>
@@ -519,30 +519,30 @@ function renderStudentLibrary(sid){
   const _readingCnt=myShelf.filter(e=>!e.completed&&!e.read).length;
   const stickerHtml=_stickers.length?`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:14px 16px">
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
-      <span style="font-size:14px;font-weight:800;color:var(--navy)">🏅 완독 스티커북</span>
-      <span style="font-size:11.5px;font-weight:700;color:#B45309">${_stickers.length}개 모음!</span>
+      <span style="font-size:15px;font-weight:800;color:var(--navy)">🏅 완독 스티커북</span>
+      <span style="font-size:12.5px;font-weight:700;color:#B45309">${_stickers.length}개 모음!</span>
     </div>
     <div style="display:flex;gap:9px;flex-wrap:wrap">
       ${_stickers.map(e=>`<div title="${escAttr(e.title)}" style="position:relative;width:52px;height:52px;border-radius:50%;overflow:hidden;border:2.5px solid #F3C13A;box-shadow:0 2px 6px rgba(0,0,0,.15);flex-shrink:0">
         ${(e.b&&e.b.coverUrl)?`<img src="${e.b.coverUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--tl);font-size:22px">📗</div>`}
-        <span style="position:absolute;right:-1px;bottom:-1px;width:17px;height:17px;border-radius:50%;background:#10B981;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center">✓</span>
+        <span style="position:absolute;right:-1px;bottom:-1px;width:17px;height:17px;border-radius:50%;background:#10B981;color:#fff;font-size:10.5px;display:flex;align-items:center;justify-content:center">✓</span>
       </div>`).join('')}
       <div style="width:52px;height:52px;border-radius:50%;border:2.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--border);flex-shrink:0">?</div>
     </div>
-    <div style="margin-top:9px;font-size:11.5px;color:var(--slate);text-align:center">${_readingCnt?'다음 스티커까지 딱 1권! 지금 읽는 책을 끝까지 📖':'다음 책을 읽으면 새 스티커가 붙어요!'}</div>
+    <div style="margin-top:9px;font-size:12.5px;color:var(--slate);text-align:center">${_readingCnt?'다음 스티커까지 딱 1권! 지금 읽는 책을 끝까지 📖':'다음 책을 읽으면 새 스티커가 붙어요!'}</div>
   </div></div>`:'';
   const rdShelfHtml=(myShelf.length||otherWithAudio.length||nextBk)?`
     ${stickerHtml}
-    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-top:${myTbooks.length?20:0}px;margin-bottom:10px${myTbooks.length?';padding-top:16px;border-top:1px solid var(--border)':''}">\uD83D\uDCD7 내 원서 책장</div>
+    <div style="font-size:14px;font-weight:700;color:var(--navy);margin-top:${myTbooks.length?20:0}px;margin-bottom:10px${myTbooks.length?';padding-top:16px;border-top:1px solid var(--border)':''}">\uD83D\uDCD7 내 원서 책장</div>
     ${(()=>{const nextCard=nextBk?`<div class="shelf-card${_stuRdShelfOpen===nextBk.id?' on':''}" onclick="${bookTextOf(nextBk)?`stuRdShelfSelect('${nextBk.id}');openBookListen('${escAttr(nextBk.id)}')`:`stuRdShelfToggle('${nextBk.id}')`}">
       <div class="shelf-cv" style="border:2px dashed var(--teal)">${nextBk.coverUrl?`<img src="${nextBk.coverUrl}" loading="lazy" onerror="this.replaceWith(document.createTextNode('📗'))">`:'📗'}</div>
       <span class="shelf-badge" title="다음 읽을 책">✨</span>
       <div class="shelf-t">${nextBk.title}</div>
       <div class="shelf-s" style="color:#0B8DAE;font-weight:700">다음 읽을 책</div>
     </div>`:'';
-    return (myShelf.length||nextCard)?`<div class="shelf-grid">${nextCard}${myShelf.map(shelfCardOf).join('')}</div>`:'<div style="font-size:12px;color:var(--slate);margin-bottom:8px">아직 읽은 원서가 없어요</div>';})()}
+    return (myShelf.length||nextCard)?`<div class="shelf-grid">${nextCard}${myShelf.map(shelfCardOf).join('')}</div>`:'<div style="font-size:13px;color:var(--slate);margin-bottom:8px">아직 읽은 원서가 없어요</div>';})()}
     ${selMine?panelOf(selMine):''}
-    ${otherWithAudio.length?`<div style="font-size:12px;font-weight:700;color:var(--slate);margin:14px 0 8px">\uD83C\uDFA7 더 들어볼 수 있는 책</div><div class="shelf-grid">${otherShelfHtml}</div>`:''}
+    ${otherWithAudio.length?`<div style="font-size:13px;font-weight:700;color:var(--slate);margin:14px 0 8px">\uD83C\uDFA7 더 들어볼 수 있는 책</div><div class="shelf-grid">${otherShelfHtml}</div>`:''}
     ${selOther?panelOf({key:selOther.id,title:selOther.title,b:selOther}):''}
   `:'';
   const hasLib=!!(myShelf.length||otherWithAudio.length);
@@ -582,16 +582,16 @@ function renderStudentLibrary(sid){
     if(items.length){
       reviewHero=`<div style="background:var(--tl);border:1.5px solid var(--teal);border-radius:14px;padding:14px 16px;margin-bottom:18px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-          <span style="font-size:13.5px;font-weight:800;color:var(--navy)">\uD83D\uDD04 지난 수업 복습</span>
-          <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${lastLes.date||''}</span>
+          <span style="font-size:14.5px;font-weight:800;color:var(--navy)">\uD83D\uDD04 지난 수업 복습</span>
+          <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${lastLes.date||''}</span>
         </div>
-        <div style="font-size:11.5px;color:var(--slate);margin-bottom:6px">지난 시간에 배운 것부터 다시 만나 보세요!</div>
+        <div style="font-size:12.5px;color:var(--slate);margin-bottom:6px">지난 시간에 배운 것부터 다시 만나 보세요!</div>
         ${items.map(it=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(12,164,201,.15)">
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;color:var(--navy)"><span style="font-size:10px;font-weight:700;color:#0B8DAE;margin-right:5px">${it.label}</span><b>${it.title}</b></div>
-            ${it.unit?`<div style="font-size:11px;color:var(--slate);margin-top:1px">${it.unit}</div>`:''}
+            <div style="font-size:14px;color:var(--navy)"><span style="font-size:10.5px;font-weight:700;color:#0B8DAE;margin-right:5px">${it.label}</span><b>${it.title}</b></div>
+            ${it.unit?`<div style="font-size:12px;color:var(--slate);margin-top:1px">${it.unit}</div>`:''}
           </div>
-          <div style="flex-shrink:0">${it.btns||'<span style="font-size:10.5px;color:var(--slate)">자료 준비 중</span>'}</div>
+          <div style="flex-shrink:0">${it.btns||'<span style="font-size:11px;color:var(--slate)">자료 준비 중</span>'}</div>
         </div>`).join('')}
       </div>`;
     }
@@ -599,11 +599,11 @@ function renderStudentLibrary(sid){
   const noContent=!myTbooks.length&&!hasLib&&!reviewHero;
   el.innerHTML=noContent?`<div class="empty boxed" style="margin:16px">
     <div style="font-size:36px;margin-bottom:10px">📖</div>
-    <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">복습 자료가 없습니다</div>
-    <div style="font-size:12px;color:var(--slate)">교재 단원 원문이나 원서가 등록되면 여기에 보입니다</div>
+    <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px">복습 자료가 없습니다</div>
+    <div style="font-size:13px;color:var(--slate)">교재 단원 원문이나 원서가 등록되면 여기에 보입니다</div>
   </div>`:`<div style="padding:1.25rem">
     ${reviewHero}
-    ${myTbooks.length?`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">📚 교재 원문 복습</div>${tbookHtml}`:''}
+    ${myTbooks.length?`<div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:10px">📚 교재 원문 복습</div>${tbookHtml}`:''}
     ${rdShelfHtml}
   </div>`;
 }
@@ -616,8 +616,8 @@ function renderAsgnForm(sid){
     el.innerHTML=`
       <div class="f"><label>원서 선택</label><input type="text" id="asgn-book-${sid}" placeholder="제목으로 검색..." list="dl-library" autocomplete="off" onchange="if(typeof libOfferAdd==='function')libOfferAdd(this)"></div>
       <div class="f"><label>챕터/페이지 범위</label><input type="text" id="asgn-range-${sid}" placeholder="Ch.1-2 또는 p.1-20"></div>
-      <div class="f" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="asgn-rec-${sid}" style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer"><label for="asgn-rec-${sid}" style="font-size:13px;cursor:pointer;margin:0">🎤 녹음 제출 필요</label></div>
-      <div class="f" id="asgn-ref-wrap-${sid}" style="display:none"><label>평가용 원문 텍스트 (선택)</label><textarea id="asgn-ref-${sid}" placeholder="해당 구간 영어 원문 붙여넣기..." style="min-height:60px;resize:vertical;width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none"></textarea></div>`;
+      <div class="f" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="asgn-rec-${sid}" style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer"><label for="asgn-rec-${sid}" style="font-size:14px;cursor:pointer;margin:0">🎤 녹음 제출 필요</label></div>
+      <div class="f" id="asgn-ref-wrap-${sid}" style="display:none"><label>평가용 원문 텍스트 (선택)</label><textarea id="asgn-ref-${sid}" placeholder="해당 구간 영어 원문 붙여넣기..." style="min-height:60px;resize:vertical;width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:14px;color:var(--navy);background:var(--cream);outline:none"></textarea></div>`;
     setTimeout(()=>{const cb=document.getElementById(`asgn-rec-${sid}`);if(cb)cb.addEventListener('change',()=>{const w=document.getElementById(`asgn-ref-wrap-${sid}`);if(w)w.style.display=cb.checked?'':'none';});},0);
   } else if(type==='vocab'){
     el.innerHTML=`<div class="f"><label>단어 목록 (쉼표 구분)</label><input type="text" id="asgn-words-${sid}" placeholder="apple, enormous, quickly..."></div>`;
@@ -686,7 +686,7 @@ function renderAssignmentTab(sid){
   const done=assigns.filter(a=>isSubmitted(a));
 
   if(!assigns.length){
-    el.innerHTML=`<div class="empty boxed" style="margin:16px"><div style="font-size:36px;margin-bottom:10px">📋</div><div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">아직 숙제가 없어요</div><div style="font-size:12px;color:var(--slate)">선생님이 숙제를 할당하면 여기에 표시됩니다</div></div>`;
+    el.innerHTML=`<div class="empty boxed" style="margin:16px"><div style="font-size:36px;margin-bottom:10px">📋</div><div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px">아직 숙제가 없어요</div><div style="font-size:13px;color:var(--slate)">선생님이 숙제를 할당하면 여기에 표시됩니다</div></div>`;
     return;
   }
 
@@ -696,60 +696,60 @@ function renderAssignmentTab(sid){
     const ao=book?getAudioObj(book):null;
     let content='';
     if(a.type==='reading'){
-      content=`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">📖 ${a.bookTitle||'원서 읽기'}${a.range?' — '+a.range:''}</div>${a.note?`<div style="font-size:12px;color:var(--navy);margin-bottom:4px;padding:5px 8px;background:var(--cream2);border-radius:6px">💬 ${a.note}</div>`:''}`;
+      content=`<div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">📖 ${a.bookTitle||'원서 읽기'}${a.range?' — '+a.range:''}</div>${a.note?`<div style="font-size:13px;color:var(--navy);margin-bottom:4px;padding:5px 8px;background:var(--cream2);border-radius:6px">💬 ${a.note}</div>`:''}`;
       if(ao&&!submitted){
         if(ao.type==='chapters'&&ao.chapters?.length){
-          content+=`<div style="font-size:11px;color:var(--slate);margin-bottom:6px">오디오:</div>
-            ${ao.chapters.map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:11px;min-width:44px">챕터 ${c.num}</span><audio controls src="${c.url}" style="flex:1;height:26px"></audio></div>`).join('')}`;
+          content+=`<div style="font-size:12px;color:var(--slate);margin-bottom:6px">오디오:</div>
+            ${ao.chapters.map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:12px;min-width:44px">챕터 ${c.num}</span><audio controls src="${c.url}" style="flex:1;height:26px"></audio></div>`).join('')}`;
         } else if(ao.url||typeof ao==='string'){
           content+=`<audio controls src="${ao.url||ao}" style="width:100%;height:28px;margin-bottom:6px"></audio>`;
         }
       }
     } else if(a.type==='vocab'){
-      content=`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">📝 단어 암기</div><div class="wl">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
+      content=`<div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">📝 단어 암기</div><div class="wl">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
     } else if((a.schedule||[]).length){
       // 날짜별 스케줄 과제 (클래스5·반복 숙제) — 오늘부터 7일만 보여주고 전체는 접기
       const today=ppToday();
       // 자동 진행 숙제는 못 한 날의 단원을 오늘부터로 밀어서 표시 (저장은 선생님 앱이 담당)
       const sched=(typeof recurRebase==='function'?recurRebase(a):null)||a.schedule||[];
       const isRecur=a.category==='recur'||a.type==='recur';
-      const mkTbl=rows=>`<div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:var(--cream)"><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">날짜</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">${isRecur?'숙제':'교재'}</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">유닛</th></tr></thead><tbody>${rows.map(r=>`<tr style="${r.date===today?'background:#e8f5e9;font-weight:700':''}${r.done?';opacity:.55':''}"><td style="padding:3px 6px;border-bottom:1px solid var(--border);white-space:nowrap">${(r.date||'').slice(5).replace('-','/')}${r.done?' ✅':''}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.book||''}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.unit||''}</td></tr>`).join('')}</tbody></table></div>`;
+      const mkTbl=rows=>`<div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--cream)"><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">날짜</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">${isRecur?'숙제':'교재'}</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">유닛</th></tr></thead><tbody>${rows.map(r=>`<tr style="${r.date===today?'background:#e8f5e9;font-weight:700':''}${r.done?';opacity:.55':''}"><td style="padding:3px 6px;border-bottom:1px solid var(--border);white-space:nowrap">${(r.date||'').slice(5).replace('-','/')}${r.done?' ✅':''}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.book||''}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.unit||''}</td></tr>`).join('')}</tbody></table></div>`;
       const upcoming=sched.filter(r=>(r.date||'')>=today);
       const shown=upcoming.length?upcoming.slice(0,7):sched.slice(-3);
       const tbl=mkTbl(shown)
-        +(sched.length>shown.length?`<details style="margin-top:5px"><summary style="font-size:11px;color:var(--teal);cursor:pointer;font-weight:600">전체 ${sched.length}일 보기</summary>${mkTbl(sched)}</details>`:'');
-      content=`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">${isRecur?'🔁 '+(a.bookTitle||'반복 숙제'):'🎮 클래스5 진도 스케줄'}</div>${tbl}`;
+        +(sched.length>shown.length?`<details style="margin-top:5px"><summary style="font-size:12px;color:var(--teal);cursor:pointer;font-weight:600">전체 ${sched.length}일 보기</summary>${mkTbl(sched)}</details>`:'');
+      content=`<div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">${isRecur?'🔁 '+(a.bookTitle||'반복 숙제'):'🎮 클래스5 진도 스케줄'}</div>${tbl}`;
     } else {
       const _ci={phonics:'📘',grammar:'✏️',listening:'🎧',writing:'✍️',naesin:'📋',other:'💬',class5:'🎮',book:'📗',vocab:'📝',reading:'📖'};
       const _cl={phonics:'파닉스',grammar:'어법',listening:'리스닝',writing:'라이팅',naesin:'내신',other:'기타',class5:'클래스5',book:'원서',vocab:'어휘',reading:'리딩'};
       const icon=_ci[a.category]||'📋';
       const label=_cl[a.category]||a.category||'과제';
-      content=`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">${icon} ${label}${a.bookTitle?' — '+a.bookTitle:''}</div>${a.range?`<div style="font-size:12px;color:var(--slate);margin-top:2px">${a.range}</div>`:''}${!a.bookTitle&&!a.range&&a.text?`<div style="font-size:12px;color:var(--slate)">${a.text}</div>`:''}${a.note?`<div style="font-size:12px;color:var(--navy);margin-top:4px;padding:5px 8px;background:var(--cream2);border-radius:6px">💬 ${a.note}</div>`:''}`;
+      content=`<div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">${icon} ${label}${a.bookTitle?' — '+a.bookTitle:''}</div>${a.range?`<div style="font-size:13px;color:var(--slate);margin-top:2px">${a.range}</div>`:''}${!a.bookTitle&&!a.range&&a.text?`<div style="font-size:13px;color:var(--slate)">${a.text}</div>`:''}${a.note?`<div style="font-size:13px;color:var(--navy);margin-top:4px;padding:5px 8px;background:var(--cream2);border-radius:6px">💬 ${a.note}</div>`:''}`;
     }
 
     if(submitted){
       return `<div class="stu-book-card" style="border-color:rgba(12,164,201,.3)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-          <span style="font-size:10px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
-          <span style="font-size:11px;font-weight:700;color:#0B8DAE;background:var(--tl);padding:2px 8px;border-radius:10px">제출완료 ✓</span>
+          <span style="font-size:10.5px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
+          <span style="font-size:12px;font-weight:700;color:#0B8DAE;background:var(--tl);padding:2px 8px;border-radius:10px">제출완료 ✓</span>
         </div>
         ${content}
         ${hw?.audioUrl?`<audio controls src="${hw.audioUrl}" style="width:100%;height:26px;margin-top:4px"></audio>`:''}
-        ${hw?.aiScore?`<div style="font-size:11px;color:#0B8DAE;background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:6px">🤖 AI 피드백: ${hw.aiScore}</div>`:''}
+        ${hw?.aiScore?`<div style="font-size:12px;color:#0B8DAE;background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:6px">🤖 AI 피드백: ${hw.aiScore}</div>`:''}
       </div>`;
     }
 
     const isRecording=asgnCurrentId===a.id;
     return `<div class="stu-book-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-        <span style="font-size:10px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
+        <span style="font-size:10.5px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
       </div>
       ${content}
       ${a.type==='reading'&&a.requireRecording?`
       <div style="margin-top:8px">
         <div class="hw-upload-zone" style="padding:12px" onclick="document.getElementById('asgn-audio-${a.id}').click()">
-          <div style="font-size:13px;font-weight:700;color:var(--navy)">🎤 녹음 제출</div>
-          <div style="font-size:11px;color:var(--slate)">MP3, M4A, WAV</div>
+          <div style="font-size:14px;font-weight:700;color:var(--navy)">🎤 녹음 제출</div>
+          <div style="font-size:12px;color:var(--slate)">MP3, M4A, WAV</div>
         </div>
         <input type="file" id="asgn-audio-${a.id}" accept="audio/*" style="display:none" onchange="handleAsgnAudio(event,'${a.id}','${sid}')">
         <div id="asgn-preview-${a.id}" style="display:none;margin-top:8px">
@@ -764,8 +764,8 @@ function renderAssignmentTab(sid){
   }
 
   el.innerHTML=`<div style="padding:1.25rem">
-    ${pending.length?`<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📌 할 것 (${pending.length}건)</div>${pending.map(a=>asgnCard(a,false)).join('')}`:''}
-    ${done.length?`<div style="font-size:12px;font-weight:700;color:var(--slate);margin:12px 0 8px">✅ 완료된 숙제 (${done.length}건)</div>${done.map(a=>asgnCard(a,true)).join('')}`:''}
+    ${pending.length?`<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">📌 할 것 (${pending.length}건)</div>${pending.map(a=>asgnCard(a,false)).join('')}`:''}
+    ${done.length?`<div style="font-size:13px;font-weight:700;color:var(--slate);margin:12px 0 8px">✅ 완료된 숙제 (${done.length}건)</div>${done.map(a=>asgnCard(a,true)).join('')}`:''}
   </div>`;
 }
 function handleAsgnAudio(e,asgnId,sid){
@@ -806,14 +806,14 @@ function renderHomeworkTab(sid){
     <div class="card" style="margin-bottom:12px">
       <div class="ch"><span class="ct">📤 낭독 과제 제출</span></div>
       <div class="cb">
-        <div style="font-size:12px;color:var(--slate);margin-bottom:12px;line-height:1.8">
+        <div style="font-size:13px;color:var(--slate);margin-bottom:12px;line-height:1.8">
           <span style="font-weight:700;color:var(--navy)">범위:</span> ${rangeText}<br>
           해당 구간을 소리 내어 읽고 녹음해서 제출하세요
         </div>
         <div class="hw-upload-zone" onclick="document.getElementById('hw-audio-input').click()">
           <div style="font-size:28px;margin-bottom:6px">🎤</div>
-          <div style="font-size:13px;font-weight:700;color:var(--navy)">녹음 파일 업로드</div>
-          <div style="font-size:11px;color:var(--slate);margin-top:3px">MP3, M4A, WAV 지원</div>
+          <div style="font-size:14px;font-weight:700;color:var(--navy)">녹음 파일 업로드</div>
+          <div style="font-size:12px;color:var(--slate);margin-top:3px">MP3, M4A, WAV 지원</div>
         </div>
         <input type="file" id="hw-audio-input" accept="audio/*" style="display:none" onchange="handleHwAudio(event)">
         <div id="hw-audio-preview" style="display:none;margin-top:10px">
@@ -833,8 +833,8 @@ function renderHomeworkTab(sid){
       <div class="cb" style="padding:0">
         ${homeworks.map(h=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
           <div>
-            <div style="font-size:12px;font-weight:700">${h.date||''}</div>
-            ${h.memo?`<div style="font-size:11px;color:var(--slate)">${h.memo}</div>`:''}
+            <div style="font-size:13px;font-weight:700">${h.date||''}</div>
+            ${h.memo?`<div style="font-size:12px;color:var(--slate)">${h.memo}</div>`:''}
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             ${h.audioUrl?`<audio controls src="${h.audioUrl}" style="height:24px;width:120px"></audio>`:''}
@@ -999,8 +999,8 @@ function vcStageBar(){
   let h='<div style="display:flex;align-items:center;gap:7px;margin-bottom:16px">';
   stages.forEach((s,i)=>{
     const n=i+1,on=n<=active;
-    h+=`<span style="width:24px;height:24px;border-radius:50%;background:${on?'#0CA4C9':'#F0F2F5'};color:${on?'#fff':'#94A3AE'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--fd);flex-shrink:0">${n}</span>`;
-    h+=`<span style="font-size:11.5px;font-weight:${n===active?'700':'600'};color:${on?'#0B8DAE':'#94A3AE'};white-space:nowrap">${s.name}</span>`;
+    h+=`<span style="width:24px;height:24px;border-radius:50%;background:${on?'#0CA4C9':'#F0F2F5'};color:${on?'#fff':'#94A3AE'};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:var(--fd);flex-shrink:0">${n}</span>`;
+    h+=`<span style="font-size:12.5px;font-weight:${n===active?'700':'600'};color:${on?'#0B8DAE':'#94A3AE'};white-space:nowrap">${s.name}</span>`;
     if(i<stages.length-1)h+='<span style="flex:1;height:2px;background:#DCE3E8;border-radius:2px;min-width:8px"></span>';
   });
   return h+'</div>';
@@ -1010,13 +1010,13 @@ function renderVocabDeck(sid){
   const missingCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&(!c.meaning||!c.example));
   if(missingCards.length) fillMissingMeanings(missingCards);
   let cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
-  const filterLabel=vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 1.25rem;background:var(--tl);font-size:12px;color:#0B8DAE"><span>📌 숙제 단어 ${vocabDeckFilter.words.length}개</span><button onclick="vocabDeckFilter=null;renderVocabDeck('${sid}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate)">전체 보기</button></div>`:'';
+  const filterLabel=vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 1.25rem;background:var(--tl);font-size:13px;color:#0B8DAE"><span>📌 숙제 단어 ${vocabDeckFilter.words.length}개</span><button onclick="vocabDeckFilter=null;renderVocabDeck('${sid}')" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--slate)">전체 보기</button></div>`:'';
   if(vocabDeckFilter)cards=cards.filter(c=>vocabDeckFilter.words.map(w=>w.toLowerCase()).includes((c.word||'').toLowerCase()));
   if(!cards.length){
     el.innerHTML=filterLabel+`<div class="empty boxed" style="margin:16px">
       <div style="font-size:40px;margin-bottom:12px">📭</div>
-      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">${vocabDeckFilter?'이 숙제에 단어 카드가 없어요':'아직 단어 카드가 없어요'}</div>
-      <div style="font-size:13px;color:var(--slate);line-height:1.8">${vocabDeckFilter?'<button class="btn bo bsm" onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)">전체 단어장 보기</button>':'선생님이 테스트 결과를 입력하면<br>단어 카드가 자동으로 만들어집니다'}</div>
+      <div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px">${vocabDeckFilter?'이 숙제에 단어 카드가 없어요':'아직 단어 카드가 없어요'}</div>
+      <div style="font-size:14px;color:var(--slate);line-height:1.8">${vocabDeckFilter?'<button class="btn bo bsm" onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)">전체 단어장 보기</button>':'선생님이 테스트 결과를 입력하면<br>단어 카드가 자동으로 만들어집니다'}</div>
     </div>`;
     return;
   }
@@ -1084,8 +1084,8 @@ function renderVocabDeck(sid){
   if(!session.length){
     el.innerHTML=filterLabel+`<div class="empty boxed" style="margin:16px">
       <div style="font-size:40px;margin-bottom:12px">${mode==='daily'?'🎉':'📭'}</div>
-      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">${mode==='daily'?'오늘 예정 단어를 모두 학습했어요!':'지난 수업에서 나온 단어가 없어요'}</div>
-      <div style="font-size:13px;color:var(--slate);line-height:1.8;margin-bottom:12px">${mode==='daily'?'내일 또 새로운 단어가 준비돼요':'수업 후에 다시 확인해 보세요'}</div>
+      <div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px">${mode==='daily'?'오늘 예정 단어를 모두 학습했어요!':'지난 수업에서 나온 단어가 없어요'}</div>
+      <div style="font-size:14px;color:var(--slate);line-height:1.8;margin-bottom:12px">${mode==='daily'?'내일 또 새로운 단어가 준비돼요':'수업 후에 다시 확인해 보세요'}</div>
       <button class="btn bo bsm" onclick="vocabStudyMode='all';renderVocabDeck(currentStudentSid)">전체 단어에서 더 학습하기</button>
     </div>`;
     return;
@@ -1102,17 +1102,17 @@ function renderVocabPhaseIntro(el){
   const st=VOCAB_STAGES[stageKeys[deckState.phase]]||VOCAB_STAGES.mem;
   const p={id:deckState.phase,name:st.name,sub:st.sub,icon:st.icon,cls:clsMap[deckState.phase]||'phase-mem'};
   const total=deckState.cards.length;
-  const fb=vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 1.25rem;background:var(--tl);font-size:12px;color:#0B8DAE"><span>📌 숙제 단어 ${vocabDeckFilter.words.length}개</span><button onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate)">전체 보기</button></div>`:'';
+  const fb=vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 1.25rem;background:var(--tl);font-size:13px;color:#0B8DAE"><span>📌 숙제 단어 ${vocabDeckFilter.words.length}개</span><button onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--slate)">전체 보기</button></div>`:'';
   el.innerHTML=fb+`<div style="padding:1.5rem;text-align:center">
     <div style="margin-bottom:1.5rem">
-      <span class="vc-phase ${p.cls}" style="font-size:13px;padding:6px 16px">${p.icon} 단계 ${p.id+1}: ${p.name}</span>
+      <span class="vc-phase ${p.cls}" style="font-size:14px;padding:6px 16px">${p.icon} 단계 ${p.id+1}: ${p.name}</span>
     </div>
     <div style="font-size:22px;font-weight:700;color:var(--navy);margin-bottom:6px">${total}개 단어</div>
-    <div style="font-size:13px;color:var(--slate);margin-bottom:1.2rem;line-height:1.8">${p.sub}</div>
+    <div style="font-size:14px;color:var(--slate);margin-bottom:1.2rem;line-height:1.8">${p.sub}</div>
     ${deckState.phase===0&&!vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:1.4rem;flex-wrap:wrap">
       <div class="sp-seg">${[['daily','오늘의 20개'],['last','지난 수업'],['all','전체']].map(([m,l])=>`<button class="${vocabStudyMode===m?'on':''}" onclick="vocabStudyMode='${m}';sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">${l}</button>`).join('')}</div>
     </div>`:''}
-    <button class="btn bt" style="padding:14px 40px;font-size:15px;border-radius:50px" onclick="startVocabPhase()">시작 →</button>
+    <button class="btn bt" style="padding:14px 40px;font-size:16px;border-radius:50px" onclick="startVocabPhase()">시작 →</button>
     ${deckState.phase>0?`<div style="margin-top:1rem"><button class="btn bo bsm" onclick="renderVocabDeck(currentStudentSid)">처음부터</button></div>`:''}
   </div>`;
 }
@@ -1125,8 +1125,8 @@ function startVocabPhase(){
 function vocabHwBanner(){
   if(!vocabDeckFilter)return '';
   return `<div style="background:var(--tl);border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:11px;color:#0B8DAE;font-weight:600">📌 숙제 단어 ${vocabDeckFilter.words.length}개 · 완료 후 과제 자동 처리</span>
-    <button onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--slate)">전체 보기</button>
+    <span style="font-size:12px;color:#0B8DAE;font-weight:600">📌 숙제 단어 ${vocabDeckFilter.words.length}개 · 완료 후 과제 자동 처리</span>
+    <button onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate)">전체 보기</button>
   </div>`;
 }
 // ── 단계 0: 암기 (플립 카드) ──
@@ -1151,7 +1151,7 @@ function renderMemCard(el){
   ).join('');
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
-      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>
     ${vcStageBar()}
@@ -1166,10 +1166,10 @@ function renderMemCard(el){
         </div>
         <div class="vc-face vc-back">
           ${(()=>{const enEx=card.example&&/[a-zA-Z]/.test(card.example)&&!/[가-힣]/.test(card.example);
-            if(deckState.vocabMode==='advanced')return`${card.en_def?`<div style="font-size:15px;font-weight:600;color:var(--navy);margin-bottom:8px;line-height:1.4">${card.en_def}</div>`:''}
+            if(deckState.vocabMode==='advanced')return`${card.en_def?`<div style="font-size:16px;font-weight:600;color:var(--navy);margin-bottom:8px;line-height:1.4">${card.en_def}</div>`:''}
                ${enEx?`<div class="vc-ex" id="vc-ex-${card.id}">${card.example}</div>`:`<div class="vc-ex" id="vc-ex-${card.id}" style="display:none"></div>`}
                ${!card.en_def&&!enEx?`<div class="vc-meaning">${card.meaning||'...'}</div>`:''}`;
-            return`<div class="vc-meaning" id="vc-meaning-${card.id}">${card.meaning?card.meaning:'<span style="font-size:13px;color:var(--slate)">뜻 불러오는 중...</span>'}</div>
+            return`<div class="vc-meaning" id="vc-meaning-${card.id}">${card.meaning?card.meaning:'<span style="font-size:14px;color:var(--slate)">뜻 불러오는 중...</span>'}</div>
                ${enEx?`<div class="vc-ex" id="vc-ex-${card.id}">${card.example}</div>`:`<div class="vc-ex" id="vc-ex-${card.id}" style="display:none"></div>`}`;
           })()}
         </div>
@@ -1251,7 +1251,7 @@ function renderPhaseTransition(el,nextPhase){
     const lc=active?'var(--navy)':'var(--slate)';
     return '<div style="display:flex;flex-direction:column;align-items:center;gap:5px">'
       +'<div style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:'+(done?'20':'18')+'px;background:'+bg+';color:'+fg+';font-weight:700">'+(done?'✓':p.icon)+'</div>'
-      +'<span style="font-size:11px;font-weight:'+lw+';color:'+lc+'">'+p.name+'</span></div>';
+      +'<span style="font-size:12px;font-weight:'+lw+';color:'+lc+'">'+p.name+'</span></div>';
   });
   const sep='<div style="flex:1;height:2px;background:var(--border);align-self:center;margin-bottom:18px;min-width:16px"></div>';
   const bar=circles.join(sep);
@@ -1259,8 +1259,8 @@ function renderPhaseTransition(el,nextPhase){
     +'<div style="font-size:48px;margin-bottom:12px">✅</div>'
     +'<div style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px">'+doneName+' 완료!</div>'
     +'<div style="display:flex;align-items:center;justify-content:center;padding:20px 16px">'+bar+'</div>'
-    +'<div style="font-size:13px;color:var(--slate);margin-bottom:24px;line-height:1.7">'+nextSub+'</div>'
-    +'<button class="btn bt" style="padding:14px 40px;font-size:15px;border-radius:50px" onclick="startNextPhase('+nextPhase+')">다음: '+nextName+' 시작 →</button>'
+    +'<div style="font-size:14px;color:var(--slate);margin-bottom:24px;line-height:1.7">'+nextSub+'</div>'
+    +'<button class="btn bt" style="padding:14px 40px;font-size:16px;border-radius:50px" onclick="startNextPhase('+nextPhase+')">다음: '+nextName+' 시작 →</button>'
     +'<div style="margin-top:12px"><button class="btn bo bsm" onclick="sessionStorage.removeItem(\'deckState_\'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button></div>'
     +'</div>';
 }
@@ -1283,23 +1283,23 @@ function renderRecallCard(el){
     `<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`
   ).join('');
   const exHtml=card.example&&/[a-zA-Z]/.test(card.example)&&!/[가-힣]/.test(card.example)
-    ?`<div style="font-size:12px;color:var(--slate);margin-top:8px;font-style:italic;line-height:1.5">${card.example}</div>`:'';
+    ?`<div style="font-size:13px;color:var(--slate);margin-top:8px;font-style:italic;line-height:1.5">${card.example}</div>`:'';
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
-      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>
     ${vcStageBar()}
     <div class="vc-prog">${prog}</div>
     <div class="recall-wrap">
-      <div style="font-size:12px;color:var(--slate);text-align:center;margin-bottom:8px">뜻을 보고 영어 단어를 속으로 떠올리세요</div>
+      <div style="font-size:13px;color:var(--slate);text-align:center;margin-bottom:8px">뜻을 보고 영어 단어를 속으로 떠올리세요</div>
       <div style="background:var(--tl);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px">
         <div style="font-size:22px;font-weight:700;color:var(--navy)">${card.meaning||'(뜻 미입력)'}</div>
-        ${card.pos?`<div style="font-size:11px;color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
-        ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:12px;color:#0B8DAE;margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
+        ${card.pos?`<div style="font-size:12px;color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
+        ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:13px;color:#0B8DAE;margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
       </div>
       <div id="recall-reveal-box" style="background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px;cursor:pointer" onclick="recallReveal()">
-        <div id="recall-tap-hint" style="font-size:13px;color:var(--slate)">탭해서 정답 확인 →</div>
+        <div id="recall-tap-hint" style="font-size:14px;color:var(--slate)">탭해서 정답 확인 →</div>
         <div id="recall-answer" style="display:none">
           <div style="font-size:22px;font-weight:700;color:var(--teal);font-family:var(--fd)">${card.word}</div>
           ${exHtml}
@@ -1339,17 +1339,17 @@ function renderSpellCard(el){
   ).join('');
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
-      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>
     ${vcStageBar()}
     <div class="vc-prog">${prog}</div>
     <div class="recall-wrap">
-      <div style="font-size:12px;color:var(--slate);text-align:center;margin-bottom:8px">뜻을 보고 영어 스펠링을 입력하세요</div>
+      <div style="font-size:13px;color:var(--slate);text-align:center;margin-bottom:8px">뜻을 보고 영어 스펠링을 입력하세요</div>
       <div style="background:var(--tl);border-radius:10px;padding:16px;text-align:center;margin-bottom:16px">
         <div style="font-size:20px;font-weight:700;color:var(--navy)">${card.meaning||'(뜻 미입력)'}</div>
-        ${card.pos?`<div style="font-size:11px;color:var(--slate);margin-top:4px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
-        ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:12px;color:#0B8DAE;margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
+        ${card.pos?`<div style="font-size:12px;color:var(--slate);margin-top:4px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
+        ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:13px;color:#0B8DAE;margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
       </div>
       <input class="recall-input" id="spell-in" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
         placeholder="영어로 입력..." onkeydown="if(event.key==='Enter')checkSpell()">
@@ -1385,7 +1385,7 @@ function checkSpell(){
 function _spellEaseOffer(fb){
   if((deckState._spellMiss||0)<3||!fb)return;
   if(document.getElementById('spell-ease-offer'))return;
-  fb.insertAdjacentHTML('afterend',`<div id="spell-ease-offer" style="margin-top:10px;padding:9px 12px;background:var(--tl);border-radius:10px;font-size:12px;color:#0B8DAE;text-align:center">
+  fb.insertAdjacentHTML('afterend',`<div id="spell-ease-offer" style="margin-top:10px;padding:9px 12px;background:var(--tl);border-radius:10px;font-size:13px;color:#0B8DAE;text-align:center">
     조금 어렵죠? 글자 타일로 맞추는 방법도 있어요!<br>
     <button class="btn bt bsm" style="margin-top:7px;border-radius:50px" onclick="deckState._spellMiss=0;deckState.stages[deckState.phase]='tiles';saveDeckState();vocabRenderStage()">🧩 철자 조립으로 바꾸기</button>
   </div>`);
@@ -1434,7 +1434,7 @@ function _vgHead(){
   const prog=deckState.cards.map((_,i)=>`<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`).join('');
   return `${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
-      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>${vcStageBar()}<div class="vc-prog">${prog}</div>`;
 }
@@ -1501,7 +1501,7 @@ function renderMcCard(el){
   const opts=_vgOpts(card,'meaning');
   const prompt=`<div style="background:var(--tl);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px">
       <div style="font-size:26px;font-weight:800;color:var(--navy);font-family:var(--fd);cursor:pointer" onclick="speakWord('${card.word.replace(/'/g,"\\'")}')">${_vgEsc(card.word)} 🔊</div>
-      ${card.pos?`<div style="font-size:11px;color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
+      ${card.pos?`<div style="font-size:12px;color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
     </div>`;
   _vgRenderChoice(el,prompt,opts,opts.indexOf(String(card.meaning||'').trim()));
   setTimeout(()=>speakWord(card.word),120);
@@ -1512,7 +1512,7 @@ function renderMcrCard(el){
   const opts=_vgOpts(card,'word');
   const prompt=`<div style="background:var(--tl);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px">
       <div style="font-size:22px;font-weight:700;color:var(--navy)">${_vgEsc(card.meaning||'(뜻 미입력)')}</div>
-      ${card.pos?`<div style="font-size:11px;color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
+      ${card.pos?`<div style="font-size:12px;color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
     </div>`;
   _vgRenderChoice(el,prompt,opts,opts.indexOf(String(card.word||'').trim()));
 }
@@ -1522,7 +1522,7 @@ function renderListenCard(el){
   const opts=_vgOpts(card,'word');
   const prompt=`<div style="background:var(--tl);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px">
       <button onclick="speakWord('${card.word.replace(/'/g,"\\'")}')" style="width:74px;height:74px;border-radius:50%;border:none;background:var(--teal);color:#fff;font-size:30px;cursor:pointer;box-shadow:var(--sh)">🔊</button>
-      <div style="font-size:12px;color:var(--slate);margin-top:8px">잘 듣고 맞는 단어를 고르세요 (버튼을 누르면 다시 들려요)</div>
+      <div style="font-size:13px;color:var(--slate);margin-top:8px">잘 듣고 맞는 단어를 고르세요 (버튼을 누르면 다시 들려요)</div>
     </div>`;
   _vgRenderChoice(el,prompt,opts,opts.indexOf(String(card.word||'').trim()));
   setTimeout(()=>speakWord(card.word),150);
@@ -1538,15 +1538,15 @@ function renderTilesCard(el){
   el.innerHTML=`<div style="padding:1.25rem">${_vgHead()}
     <div style="background:var(--tl);border-radius:10px;padding:16px;text-align:center;margin-bottom:14px">
       <div style="font-size:20px;font-weight:700;color:var(--navy)">${_vgEsc(card.meaning||'(뜻 미입력)')}</div>
-      ${card.pos?`<div style="font-size:11px;color:var(--slate);margin-top:4px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
+      ${card.pos?`<div style="font-size:12px;color:var(--slate);margin-top:4px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
     </div>
     <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:46px;margin-bottom:16px">
-      ${T.picked.map((p,i)=>`<button onclick="_vtUndo(${i})" style="width:38px;height:46px;border:none;border-radius:10px;background:var(--teal);color:#fff;font-size:19px;font-weight:800;font-family:var(--fd);cursor:pointer">${p.ch}</button>`).join('')||'<span style="font-size:12px;color:var(--slate);align-self:center">아래 글자를 순서대로 눌러 보세요 (누른 글자는 다시 눌러 취소)</span>'}
+      ${T.picked.map((p,i)=>`<button onclick="_vtUndo(${i})" style="width:38px;height:46px;border:none;border-radius:10px;background:var(--teal);color:#fff;font-size:19px;font-weight:800;font-family:var(--fd);cursor:pointer">${p.ch}</button>`).join('')||'<span style="font-size:13px;color:var(--slate);align-self:center">아래 글자를 순서대로 눌러 보세요 (누른 글자는 다시 눌러 취소)</span>'}
     </div>
     <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
       ${T.tiles.map((t,i)=>`<button ${t.used||T.finished?'disabled':''} onclick="_vtPick(${i})" style="width:44px;height:52px;border:2px solid var(--border);border-radius:12px;background:${t.used?'#F0F2F5':'#fff'};color:${t.used?'#C3CBD3':'var(--navy)'};font-size:20px;font-weight:800;font-family:var(--fd);cursor:pointer;box-shadow:var(--sh)">${t.ch}</button>`).join('')}
     </div>
-    <div style="text-align:center;margin-top:14px;font-size:14px;font-weight:700;min-height:20px">
+    <div style="text-align:center;margin-top:14px;font-size:15px;font-weight:700;min-height:20px">
       ${T.finished?(T.correct?'<span style="color:#047857">✓ 정답!</span>':'<span style="color:var(--coral)">✗ 정답: <strong>'+_vgEsc(card.word)+'</strong></span>'):''}
     </div>
   </div>`;
@@ -1584,10 +1584,10 @@ function renderMatchGame(el){
   const total=deckState.cards.length;
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
-      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${Math.min(deckState.idx+M.group.length,total)} / ${total}</span>
+      <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${Math.min(deckState.idx+M.group.length,total)} / ${total}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>${vcStageBar()}
-    <div style="font-size:12px;color:var(--slate);text-align:center;margin-bottom:12px">영어 단어와 뜻의 짝을 찾아 누르세요</div>
+    <div style="font-size:13px;color:var(--slate);text-align:center;margin-bottom:12px">영어 단어와 뜻의 짝을 찾아 누르세요</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       ${M.tiles.map((t,i)=>{
         const m=M.matched.includes(t.id);
@@ -1638,15 +1638,15 @@ function renderBingoGame(el){
   const curWord=cur?String(cur.word||''):'';
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
-      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${B.ci+1} / ${B.calls.length}${B.lines?` · 빙고 ${B.lines}줄 🎉`:''}</span>
+      <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${B.ci+1} / ${B.calls.length}${B.lines?` · 빙고 ${B.lines}줄 🎉`:''}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>${vcStageBar()}
     <div style="background:var(--tl);border-radius:10px;padding:14px;text-align:center;margin-bottom:12px">
-      <div style="font-size:11px;color:var(--slate);margin-bottom:4px">이 단어의 뜻을 빙고판에서 찾아 누르세요</div>
+      <div style="font-size:12px;color:var(--slate);margin-bottom:4px">이 단어의 뜻을 빙고판에서 찾아 누르세요</div>
       <div style="font-size:24px;font-weight:800;color:var(--navy);font-family:var(--fd);cursor:pointer" onclick="speakWord('${curWord.replace(/'/g,"\\'")}')">${_vgEsc(curWord)} 🔊</div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(${B.size},1fr);gap:6px">
-      ${B.cells.map((c,i)=>`<button data-bg-i="${i}" onclick="_bgPick(${i})" style="min-height:56px;padding:6px 4px;border:2px solid ${c.hit?'#10B981':'var(--border)'};border-radius:10px;background:${c.hit?'#ECFDF5':'#fff'};color:${c.hit?'#047857':'var(--navy)'};font-size:12px;font-weight:700;font-family:var(--fb);cursor:pointer;line-height:1.3">${c.hit?'✓ ':''}${_vgEsc(c.text)}</button>`).join('')}
+      ${B.cells.map((c,i)=>`<button data-bg-i="${i}" onclick="_bgPick(${i})" style="min-height:56px;padding:6px 4px;border:2px solid ${c.hit?'#10B981':'var(--border)'};border-radius:10px;background:${c.hit?'#ECFDF5':'#fff'};color:${c.hit?'#047857':'var(--navy)'};font-size:13px;font-weight:700;font-family:var(--fb);cursor:pointer;line-height:1.3">${c.hit?'✓ ':''}${_vgEsc(c.text)}</button>`).join('')}
     </div>
   </div>`;
   if(cur)setTimeout(()=>speakWord(cur.word),150);
@@ -1729,10 +1729,10 @@ async function renderVocabResult(el){
     <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:4px">
       ${pctScore>=80?'훌륭해요! 🎉':pctScore>=50?'잘하고 있어요 👍':'조금 더 연습해요 💪'}
     </div>
-    <div style="font-size:13px;color:var(--slate);margin-bottom:6px">${total}개 중 ${correct}개 정답</div>
+    <div style="font-size:14px;color:var(--slate);margin-bottom:6px">${total}개 중 ${correct}개 정답</div>
     ${correct?`<div class="xp-gain">\u26A1 +${correct*2} XP 획득!</div>`:'<div style="margin-bottom:1.5rem"></div>'}
     ${missed.length?`<div style="margin-bottom:1.5rem">
-      <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:8px">다시 연습할 단어</div>
+      <div style="font-size:13px;font-weight:700;color:var(--slate);margin-bottom:8px">다시 연습할 단어</div>
       <div class="missed-list">${missed.map(w=>`<span class="missed-chip">${w}</span>`).join('')}</div>
       <button class="btn bt bsm" style="margin-top:10px;border-radius:50px;padding:9px 20px" onclick="vocabRetryMissed()">🔁 이 단어만 바로 다시 (${missed.length}개)</button>
     </div>`:''}
@@ -1741,7 +1741,7 @@ async function renderVocabResult(el){
       ${vocabDeckFilter?.asgnId?`<button class="btn bt" style="padding:10px 22px;border-radius:50px" onclick="const aid=vocabDeckFilter.asgnId;vocabDeckFilter=null;completeAssignment(currentStudentSid,aid)">✅ 과제 완료</button>`:''}
       <button class="btn bt" style="padding:10px 22px;border-radius:50px" onclick="vocabDeckFilter=null;swStuTab('st-home')">홈으로 →</button>
     </div>
-    <div style="margin-top:18px;font-size:12.5px;color:var(--slate)">내일 또 만나요! 내일의 게임은 <b style="color:#0B8DAE">${_tmrNames}</b> 🎮</div>
+    <div style="margin-top:18px;font-size:13.5px;color:var(--slate)">내일 또 만나요! 내일의 게임은 <b style="color:#0B8DAE">${_tmrNames}</b> 🎮</div>
   </div>`;
 }
 // 헷갈린 단어만으로 미니 세션 (같은 스테이지 구성) — 틀림 → 바로 만회의 짧은 루프
@@ -1805,7 +1805,7 @@ function stuXpCard(sid,streak){
           ${streak>0?`<span class="xp-flame">\uD83D\uDD25 ${streak}일 연속</span>`:''}
         </div>
         <div class="xp-bar"><div class="xp-bar-fill" style="width:${lv.pct}%"></div></div>
-        <div style="display:flex;justify-content:space-between;font-size:10.5px;opacity:.85;margin-top:3px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;opacity:.85;margin-top:3px">
           <span>\u26A1 ${xp.toLocaleString()} XP</span>
           <span>${lv.next?`다음 레벨까지 ${(lv.next.xp-xp).toLocaleString()} XP`:'최고 레벨!'}</span>
         </div>
@@ -1837,15 +1837,15 @@ function stuQuestCard(sid){
   }
   return `<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:15px 18px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <span style="font-size:14px;font-weight:800;color:var(--navy)">\u2694\uFE0F 오늘의 퀘스트</span>
+      <span style="font-size:15px;font-weight:800;color:var(--navy)">\u2694\uFE0F 오늘의 퀘스트</span>
       <span class="quest-cnt${all?' all':''}">${doneN}/${qs.length}</span>
     </div>
     ${qs.map(q=>`<div class="quest-row${q.done?' done':''}" onclick="${q.done?'':q.go}">
       <span class="quest-ico">${q.icon}</span>
-      <span style="flex:1;font-size:13px;font-weight:600">${q.label}${q.prog&&!q.done?` <span style="font-size:11px;color:#0B8DAE;font-weight:700">${q.prog}</span>`:''}</span>
+      <span style="flex:1;font-size:14px;font-weight:600">${q.label}${q.prog&&!q.done?` <span style="font-size:12px;color:#0B8DAE;font-weight:700">${q.prog}</span>`:''}</span>
       <span class="quest-chk">${q.done?'\u2713':''}</span>
     </div>`).join('')}
-    ${all?`<div style="text-align:center;font-size:12px;font-weight:700;color:#B45309;margin-top:8px">\uD83C\uDFC6 올클리어! 내일 또 만나요!</div>`:''}
+    ${all?`<div style="text-align:center;font-size:13px;font-weight:700;color:#B45309;margin-top:8px">\uD83C\uDFC6 올클리어! 내일 또 만나요!</div>`:''}
   </div></div>`;
 }
 function launchConfetti(){
@@ -1969,23 +1969,23 @@ function hwChallengeCardHtml(sid){
   const ts=hwDayStatus(sid,today);
   let statusHtml;
   if(p.completedDate){
-    statusHtml=`<div style="font-size:13px;font-weight:800;color:#047857">🎁 선물 받았어요! 정말 대단해요 👏</div>`;
+    statusHtml=`<div style="font-size:14px;font-weight:800;color:#047857">🎁 선물 받았어요! 정말 대단해요 👏</div>`;
   }else if(p.achieved){
-    statusHtml=`<div style="font-size:14px;font-weight:800;color:#B45309">🎉 ${p.goal}일 챌린지 성공!! 선생님이 선물을 준비하고 있어요 🎁</div>`;
+    statusHtml=`<div style="font-size:15px;font-weight:800;color:#B45309">🎉 ${p.goal}일 챌린지 성공!! 선생님이 선물을 준비하고 있어요 🎁</div>`;
   }else if(p.todayStamp){
-    statusHtml=`<div style="font-size:12.5px;font-weight:700;color:#047857">오늘 도장 획득! 🏅 ${p.goal-p.count}일 남았어요 — 내일도 화이팅!</div>`;
+    statusHtml=`<div style="font-size:13.5px;font-weight:700;color:#047857">오늘 도장 획득! 🏅 ${p.goal-p.count}일 남았어요 — 내일도 화이팅!</div>`;
   }else if(ts.total>0){
     const left=ts.total-ts.done;
-    statusHtml=`<div style="font-size:12.5px;font-weight:700;color:#B45309">오늘 숙제 ${left}개만 더 하면 도장 쾅! 🏅 (${ts.done}/${ts.total})</div>`;
+    statusHtml=`<div style="font-size:13.5px;font-weight:700;color:#B45309">오늘 숙제 ${left}개만 더 하면 도장 쾅! 🏅 (${ts.done}/${ts.total})</div>`;
   }else{
-    statusHtml=`<div style="font-size:12px;color:var(--slate)">오늘은 배정된 숙제가 없어요 😊</div>`;
+    statusHtml=`<div style="font-size:13px;color:var(--slate)">오늘은 배정된 숙제가 없어요 😊</div>`;
   }
   return `<div class="card" id="stu-hwch-card" style="margin-bottom:14px;border:2px solid #F59E0B"><div class="cb" style="padding:14px 16px">
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">
-      <span style="font-size:14px;font-weight:800;color:var(--navy)">🎁 도장 챌린지</span>
-      <span style="font-size:15px;font-weight:900;color:#B45309;font-family:var(--fd)">${p.count} <span style="font-size:11px;color:var(--slate);font-weight:600">/ ${p.goal}</span></span>
+      <span style="font-size:15px;font-weight:800;color:var(--navy)">🎁 도장 챌린지</span>
+      <span style="font-size:16px;font-weight:900;color:#B45309;font-family:var(--fd)">${p.count} <span style="font-size:12px;color:var(--slate);font-weight:600">/ ${p.goal}</span></span>
     </div>
-    <div style="font-size:11px;color:var(--slate);margin-bottom:10px">숙제를 다 한 날마다 도장 1개! ${p.goal}개를 모으면 <b>${p.reward}</b> 🎁 (하루 빠져도 모은 도장은 그대로예요)</div>
+    <div style="font-size:12px;color:var(--slate);margin-bottom:10px">숙제를 다 한 날마다 도장 1개! ${p.goal}개를 모으면 <b>${p.reward}</b> 🎁 (하루 빠져도 모은 도장은 그대로예요)</div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px">${cells.join('')}</div>
     ${statusHtml}
   </div></div>`;
@@ -2144,22 +2144,22 @@ function showStatDetail(sid,type){
     const items=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
     title=`완료한 숙제 (${items.length}건)`;
     const catIcon={phonics:'📘',vocab:'📝',grammar:'✏️',reading:'📖',listening:'🎧',writing:'✍️',naesin:'📋',book:'📗',class5:'🎮'};
-    rows=items.map(a=>{const KC=['phonics','vocab','grammar','reading','listening','writing','naesin','book','class5','other'];const label=[a.bookTitle||a.text||((a.category&&!KC.includes(a.category))?a.category:''),a.range].filter(Boolean).join(' · ')||'과제';return `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span>${catIcon[a.category]||'📋'} ${label}</span></div>`;}).join('')||'없음';
+    rows=items.map(a=>{const KC=['phonics','vocab','grammar','reading','listening','writing','naesin','book','class5','other'];const label=[a.bookTitle||a.text||((a.category&&!KC.includes(a.category))?a.category:''),a.range].filter(Boolean).join(' · ')||'과제';return `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span>${catIcon[a.category]||'📋'} ${label}</span></div>`;}).join('')||'없음';
   }else if(type==='vocab'){
     const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
     const mastered=allCards.filter(c=>(c.hits||0)>=3).sort((a,b)=>(b.hits||0)-(a.hits||0));
     const learning=allCards.filter(c=>(c.hits||0)>0&&(c.hits||0)<3).sort((a,b)=>(b.hits||0)-(a.hits||0));
     const unseen=allCards.filter(c=>!(c.hits||0));
     title=`단어 현황 (전체 ${allCards.length}개)`;
-    const wordRow=c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+    const wordRow=c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
       <span style="font-weight:600;font-family:var(--fd)">${c.word}</span>
       <div style="display:flex;align-items:center;gap:8px">
-        ${c.meaning?`<span style="font-size:10px;color:var(--slate)">${c.meaning}</span>`:''}
-        <span style="color:var(--teal);font-size:11px;min-width:24px;text-align:right">×${c.hits||0}</span>
+        ${c.meaning?`<span style="font-size:10.5px;color:var(--slate)">${c.meaning}</span>`:''}
+        <span style="color:var(--teal);font-size:12px;min-width:24px;text-align:right">×${c.hits||0}</span>
       </div>
     </div>`;
     const section=(lbl,cls,color,items)=>items.length?`<div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:${color};margin:8px 0 4px;letter-spacing:.03em">${lbl} (${items.length}개)</div>
+      <div style="font-size:12px;font-weight:700;color:${color};margin:8px 0 4px;letter-spacing:.03em">${lbl} (${items.length}개)</div>
       ${items.map(wordRow).join('')}
     </div>`:'';
     rows=section('✅ 마스터 (3회 이상 정답)','mastered','#047857',mastered)
@@ -2169,12 +2169,12 @@ function showStatDetail(sid,type){
   }else{
     const rds=DB.allRds(sid);
     title=`읽은 책 (${rds.length}권)`;
-    rows=rds.map(r=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="font-weight:600">${r.title||'—'}</span>${r.progress?`<span style="color:var(--slate)"> · ${r.progress}</span>`:''} <span style="font-size:10px;color:var(--slate)">${r.date||''}</span></div>`).join('')||'없음';
+    rows=rds.map(r=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="font-weight:600">${r.title||'—'}</span>${r.progress?`<span style="color:var(--slate)"> · ${r.progress}</span>`:''} <span style="font-size:10.5px;color:var(--slate)">${r.date||''}</span></div>`).join('')||'없음';
   }
   const box=document.createElement('div');
   box.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:var(--rs);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:2000;min-width:260px;max-width:400px;width:88vw;max-height:65vh;display:flex;flex-direction:column;overflow:hidden';
   const closeBox=()=>{box.remove();const o=document.getElementById('stat-overlay');if(o)o.remove();};
-  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0"><span style="font-size:13px;font-weight:700">${title}</span><button id="stat-close-btn" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--slate);line-height:1;padding:0 2px">×</button></div><div style="padding:8px 20px 16px;overflow-y:auto;flex:1">${rows}</div>`;
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0"><span style="font-size:14px;font-weight:700">${title}</span><button id="stat-close-btn" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--slate);line-height:1;padding:0 2px">×</button></div><div style="padding:8px 20px 16px;overflow-y:auto;flex:1">${rows}</div>`;
   box.querySelector('#stat-close-btn').onclick=closeBox;
   const ov=document.createElement('div');ov.id='stat-overlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1999';
   ov.onclick=closeBox;
@@ -2187,10 +2187,10 @@ function renderHomeStats(sid){
   if(!completedCount&&!vocabLearned&&!rdsCount)return '';
   const statBox=(val,color,label,type)=>`<div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center;cursor:pointer;transition:.15s" onclick="showStatDetail('${sid}','${type}')" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background='#fff'">
     <div style="font-size:24px;font-weight:700;color:${color};font-family:var(--fm)">${val}</div>
-    <div style="font-size:10px;color:var(--slate);margin-top:2px">${label}</div>
+    <div style="font-size:10.5px;color:var(--slate);margin-top:2px">${label}</div>
   </div>`;
   return `<div style="margin-top:16px">
-    <div style="font-size:11px;font-weight:700;color:var(--slate);margin-bottom:8px;letter-spacing:.04em">📊 내 기록 <span style="font-weight:400;font-size:10px">(숫자 클릭 시 상세)</span></div>
+    <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:8px;letter-spacing:.04em">📊 내 기록 <span style="font-weight:400;font-size:10.5px">(숫자 클릭 시 상세)</span></div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
       ${statBox(completedCount,'var(--navy)','완료 숙제','assign')}
       ${statBox(vocabLearned,'var(--teal)','공부한 단어','vocab')}
@@ -2201,11 +2201,11 @@ function renderHomeStats(sid){
 function dueLabelHtml(dueStr,today){
   if(!dueStr)return '';
   const diff=Math.round((new Date(dueStr)-new Date(today))/(86400000));
-  if(diff<0)return `<span style="color:var(--coral);font-weight:700;font-size:10px">늦었어요</span>`;
-  if(diff===0)return `<span style="color:var(--coral);font-weight:700;font-size:10px">오늘 마감</span>`;
-  if(diff===1)return `<span style="color:#e07b00;font-weight:700;font-size:10px">내일 마감</span>`;
-  if(diff<=2)return `<span style="color:#e07b00;font-weight:700;font-size:10px">D-${diff}</span>`;
-  return `<span style="color:var(--slate);font-size:10px">D-${diff}</span>`;
+  if(diff<0)return `<span style="color:var(--coral);font-weight:700;font-size:10.5px">늦었어요</span>`;
+  if(diff===0)return `<span style="color:var(--coral);font-weight:700;font-size:10.5px">오늘 마감</span>`;
+  if(diff===1)return `<span style="color:#e07b00;font-weight:700;font-size:10.5px">내일 마감</span>`;
+  if(diff<=2)return `<span style="color:#e07b00;font-weight:700;font-size:10.5px">D-${diff}</span>`;
+  return `<span style="color:var(--slate);font-size:10.5px">D-${diff}</span>`;
 }
 function renderLastLesson(sid){
   const les=DB.less().filter(l=>l.sid===sid);
@@ -2214,8 +2214,8 @@ function renderLastLesson(sid){
   const up=(typeof stuUpcomingSkips==='function')?stuUpcomingSkips(sid):[];
   if(up.length){
     upHtml=`<div style="background:#FEF9C3;border:1px solid #FDE047;border-radius:var(--rs);padding:10px 12px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:#A16207;margin-bottom:4px">📣 휴강 안내</div>
-      <div style="font-size:12.5px;color:var(--navy);line-height:1.7"><b>${skipDatesLbl(up)}</b>은 수업이 없어요. 숙제는 평소처럼 하기 💪</div>
+      <div style="font-size:13px;font-weight:700;color:#A16207;margin-bottom:4px">📣 휴강 안내</div>
+      <div style="font-size:13.5px;color:var(--navy);line-height:1.7"><b>${skipDatesLbl(up)}</b>은 수업이 없어요. 숙제는 평소처럼 하기 💪</div>
     </div>`;
   }
   // 가장 최근이 '수업 안 함'이면 안 한 사실을 보여줌 (실제 수업일보다 뒤에 휴강일이 있을 때)
@@ -2224,10 +2224,10 @@ function renderLastLesson(sid){
     const md=`${Number(skipDate.slice(5,7))}월 ${Number(skipDate.slice(8,10))}일`;
     return upHtml+`<div style="background:#FFF7ED;border:1px solid #FDBA74;border-radius:var(--rs);padding:12px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:12px;font-weight:700;color:#B45309">🙂 지난 시간은 수업을 못 했어요</span>
-        <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${skipDate}</span>
+        <span style="font-size:13px;font-weight:700;color:#B45309">🙂 지난 시간은 수업을 못 했어요</span>
+        <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${skipDate}</span>
       </div>
-      <div style="font-size:12.5px;color:var(--navy);line-height:1.7">${md}은 수업이 없었어요. <b>다음 시간에 만나요!</b> 🙌<br>수업은 못 했지만 <b>과제는 꼭 해오기</b> 약속 💪</div>
+      <div style="font-size:13.5px;color:var(--navy);line-height:1.7">${md}은 수업이 없었어요. <b>다음 시간에 만나요!</b> 🙌<br>수업은 못 했지만 <b>과제는 꼭 해오기</b> 약속 💪</div>
     </div>`;
   }
   if(!les.length)return upHtml;
@@ -2245,8 +2245,8 @@ function renderLastLesson(sid){
   const rawCmt=last.cmt||'';
   return upHtml+`<div style="background:var(--cream2);border-radius:var(--rs);border:1px solid var(--border);padding:12px;margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <span style="font-size:12px;font-weight:700;color:var(--navy)">📝 지난 수업</span>
-      <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${last.date||''}</span>
+      <span style="font-size:13px;font-weight:700;color:var(--navy)">📝 지난 수업</span>
+      <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${last.date||''}</span>
     </div>
     ${matHtml?`<div style="margin-bottom:6px">${matHtml}</div>`:''}
     <button class="btn bt bsm" style="margin-top:8px;border-radius:50px" onclick="openVocabStudy('last')">📚 지난 수업 단어 복습 →</button>
@@ -2280,32 +2280,32 @@ function renderVocabReview(sid){
   // 초3 눈높이: 큰 누적 숫자는 부담 → 접힌 카드 + 쉬운 말 (자세한 통계는 학부모·선생님 화면에)
   return `<details style="margin-bottom:12px">
     <summary style="list-style:none;cursor:pointer"><div class="card" style="margin-bottom:0"><div class="cb" style="padding:13px 16px;display:flex;align-items:center;gap:8px">
-      <span style="font-size:14px;font-weight:800;color:var(--navy);flex:1">🧠 내 단어 모아보기</span>
-      <span style="font-size:11.5px;font-weight:700;color:#047857">완전히 내 단어 ${mastered}개 ⭐</span>
-      <span style="font-size:11px;color:var(--slate)">▾</span>
+      <span style="font-size:15px;font-weight:800;color:var(--navy);flex:1">🧠 내 단어 모아보기</span>
+      <span style="font-size:12.5px;font-weight:700;color:#047857">완전히 내 단어 ${mastered}개 ⭐</span>
+      <span style="font-size:12px;color:var(--slate)">▾</span>
     </div></div></summary>
     <div class="card" style="margin-bottom:12px;margin-top:6px">
     <div class="cb">
-      ${weak.length?`<div style="font-size:13px;font-weight:800;color:#B45309;margin-bottom:9px;display:flex;align-items:center;gap:5px">⚠️ 먼저 잡을 단어</div>
+      ${weak.length?`<div style="font-size:14px;font-weight:800;color:#B45309;margin-bottom:9px;display:flex;align-items:center;gap:5px">⚠️ 먼저 잡을 단어</div>
       <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px">
         ${weak.map(c=>`<div style="display:flex;align-items:center;gap:11px;background:#fff;border:1.5px solid rgba(245,158,11,.35);border-radius:12px;padding:10px 13px">
-          <span style="width:34px;height:34px;border-radius:10px;background:#FEF0D5;color:#B45309;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px">🔁</span>
-          <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--navy);font-family:var(--fd)">${c.word||''}</div><div style="font-size:11px;color:var(--slate)">${c.meaning||''}${c.misses?' · '+c.misses+'번 헷갈림':''}</div></div>
-          <span style="font-size:10px;font-weight:700;background:#FEF0D5;color:#B45309;padding:3px 10px;border-radius:11px;flex-shrink:0">약함</span>
+          <span style="width:34px;height:34px;border-radius:10px;background:#FEF0D5;color:#B45309;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">🔁</span>
+          <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;color:var(--navy);font-family:var(--fd)">${c.word||''}</div><div style="font-size:12px;color:var(--slate)">${c.meaning||''}${c.misses?' · '+c.misses+'번 헷갈림':''}</div></div>
+          <span style="font-size:10.5px;font-weight:700;background:#FEF0D5;color:#B45309;padding:3px 10px;border-radius:11px;flex-shrink:0">약함</span>
         </div>`).join('')}
       </div>`:''}
-      <div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:11px">단어가 단단해지는 중 💪</div>
+      <div style="font-size:14px;font-weight:800;color:var(--navy);margin-bottom:11px">단어가 단단해지는 중 💪</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:13px">
-        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#F59E0B;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">아직 새 단어</span><span style="font-size:14px;font-weight:700;color:#B45309;font-family:var(--fd)">${fresh}</span></div>
-        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#0CA4C9;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">연습하는 중</span><span style="font-size:14px;font-weight:700;color:#0B8DAE;font-family:var(--fd)">${learning}</span></div>
-        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#10B981;flex-shrink:0"></span><span style="flex:1;font-size:12.5px;color:#46586B">완전히 내 단어</span><span style="font-size:14px;font-weight:700;color:#047857;font-family:var(--fd)">${mastered}</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#F59E0B;flex-shrink:0"></span><span style="flex:1;font-size:13.5px;color:#46586B">아직 새 단어</span><span style="font-size:15px;font-weight:700;color:#B45309;font-family:var(--fd)">${fresh}</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#0CA4C9;flex-shrink:0"></span><span style="flex:1;font-size:13.5px;color:#46586B">연습하는 중</span><span style="font-size:15px;font-weight:700;color:#0B8DAE;font-family:var(--fd)">${learning}</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:#10B981;flex-shrink:0"></span><span style="flex:1;font-size:13.5px;color:#46586B">완전히 내 단어</span><span style="font-size:15px;font-weight:700;color:#047857;font-family:var(--fd)">${mastered}</span></div>
       </div>
       <div style="height:9px;border-radius:5px;overflow:hidden;display:flex;background:#EDF2F4">
         ${fresh?`<span style="width:${pct(fresh)}%;background:#F59E0B"></span>`:''}
         ${learning?`<span style="width:${pct(learning)}%;background:#0CA4C9"></span>`:''}
         ${mastered?`<span style="width:${pct(mastered)}%;background:#10B981"></span>`:''}
       </div>
-      <div style="margin-top:8px;font-size:11.5px;color:var(--slate);text-align:center"><b style="color:#047857">${mastered}개</b>가 완전히 내 단어가 됐어요! 오늘 20개만 하면 더 늘어나요</div>
+      <div style="margin-top:8px;font-size:12.5px;color:var(--slate);text-align:center"><b style="color:#047857">${mastered}개</b>가 완전히 내 단어가 됐어요! 오늘 20개만 하면 더 늘어나요</div>
       <button class="btn bt" style="width:100%;margin-top:14px;border-radius:50px;padding:12px" onclick="openVocabStudy('daily')">▶ 시작!</button>
     </div>
     </div>
@@ -2412,20 +2412,20 @@ function renderStudentHome(sid){
           <circle cx="44" cy="44" r="${_rR}" fill="none" stroke="${_ringDone?'#10B981':'#0CA4C9'}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${_rC}" stroke-dashoffset="${(_rC*(1-_ringN/20)).toFixed(1)}" style="transition:stroke-dashoffset .6s"/>
         </svg>
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
-          ${_ringDone?'<span style="font-size:26px">🎉</span>':`<span style="font-size:19px;font-weight:900;color:var(--navy);font-family:var(--fd)">${_ringN}</span><span style="font-size:10px;color:var(--slate)">/ 20</span>`}
+          ${_ringDone?'<span style="font-size:26px">🎉</span>':`<span style="font-size:19px;font-weight:900;color:var(--navy);font-family:var(--fd)">${_ringN}</span><span style="font-size:10.5px;color:var(--slate)">/ 20</span>`}
         </div>
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:15px;font-weight:800;color:var(--navy)">${_ringDone?'오늘 단어 완료! 참 잘했어요':'📚 오늘의 단어 학습'}</div>
-        <div style="font-size:11.5px;color:#8A95A2;margin-top:2px">오늘의 게임: ${_gameNames||'뜻 맞히기'} 🎮</div>
-        <button class="btn bt" style="width:100%;height:46px;padding:0;border-radius:12px;font-size:15px;font-weight:800;gap:6px;margin-top:9px" onclick="openVocabStudy('daily')">${luIcon('play',18)||'▷'} ${_ringDone?'더 하기':(_revToday?'이어서!':'시작!')}</button>
+        <div style="font-size:16px;font-weight:800;color:var(--navy)">${_ringDone?'오늘 단어 완료! 참 잘했어요':'📚 오늘의 단어 학습'}</div>
+        <div style="font-size:12.5px;color:#8A95A2;margin-top:2px">오늘의 게임: ${_gameNames||'뜻 맞히기'} 🎮</div>
+        <button class="btn bt" style="width:100%;height:46px;padding:0;border-radius:12px;font-size:16px;font-weight:800;gap:6px;margin-top:9px" onclick="openVocabStudy('daily')">${luIcon('play',18)||'▷'} ${_ringDone?'더 하기':(_revToday?'이어서!':'시작!')}</button>
       </div>
     </div>
   </div></div>`;
   const notifyRowHtml=notifySupported?`<div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:10px 12px;background:var(--cream2);border-radius:var(--rs)">
-      <span style="font-size:12px;color:var(--slate)">🔔 매일 학습 알림</span>
+      <span style="font-size:13px;color:var(--slate)">🔔 매일 학습 알림</span>
       <span style="display:flex;align-items:center;gap:6px">
-        <input type="time" value="${notifyTime}" onchange="setStuNotifyTime('${sid}',this.value)" ${notifyOn?'':'disabled'} style="font-size:12px;border:1px solid var(--border);border-radius:8px;padding:3px 6px;${notifyOn?'':'opacity:.5'}">
+        <input type="time" value="${notifyTime}" onchange="setStuNotifyTime('${sid}',this.value)" ${notifyOn?'':'disabled'} style="font-size:13px;border:1px solid var(--border);border-radius:8px;padding:3px 6px;${notifyOn?'':'opacity:.5'}">
         <button class="btn ${notifyOn?'bt':'bo'} bsm" style="border-radius:50px;padding:5px 13px;font-weight:700" onclick="toggleStuNotify('${sid}')">${notifyOn?'켜짐 ✓':'켜기'}</button>
       </span>
     </div>`:'';
@@ -2433,20 +2433,20 @@ function renderStudentHome(sid){
   const weekCircles=`<div style="display:flex;justify-content:space-between">${weekDays.map(d=>{
     let c;
     if(d.done)c=`<span style="width:34px;height:34px;border-radius:50%;background:#10B981;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto">${luIcon('check',16)||'✓'}</span>`;
-    else if(d.isToday)c=`<span style="width:34px;height:34px;border-radius:50%;background:#E3F5FA;color:#0B8DAE;border:2px solid #0CA4C9;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:14px">⭐</span>`;
+    else if(d.isToday)c=`<span style="width:34px;height:34px;border-radius:50%;background:#E3F5FA;color:#0B8DAE;border:2px solid #0CA4C9;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:15px">⭐</span>`;
     else c=`<span style="width:34px;height:34px;border-radius:50%;background:#F4F6F8;display:flex;align-items:center;justify-content:center;margin:0 auto"><span style="width:8px;height:8px;border-radius:50%;background:#DCE3E8"></span></span>`;
-    return `<div style="text-align:center">${c}<div style="font-size:10.5px;color:${d.isToday?'#0B8DAE':'#8A95A2'};font-weight:${d.isToday?'700':'400'};margin-top:5px">${d.label}</div></div>`;
+    return `<div style="text-align:center">${c}<div style="font-size:11px;color:${d.isToday?'#0B8DAE':'#8A95A2'};font-weight:${d.isToday?'700':'400'};margin-top:5px">${d.label}</div></div>`;
   }).join('')}</div>`;
   const streakHtml=`<div class="streak-bar" style="margin-top:12px;margin-bottom:10px">
     <span style="font-size:18px">${lv.icon}</span>
     <div style="flex:1">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-        <span style="font-size:12px;font-weight:700;color:var(--navy)">${lv.name} Lv.</span>
-        <span style="font-size:11px;color:var(--slate)">🔥 ${streak}일 연속</span>
+        <span style="font-size:13px;font-weight:700;color:var(--navy)">${lv.name} Lv.</span>
+        <span style="font-size:12px;color:var(--slate)">🔥 ${streak}일 연속</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <div class="week-bar"><div class="week-bar-fill" style="width:${week.pct}%"></div></div>
-        <span style="font-size:10px;color:var(--slate);white-space:nowrap">이번주 ${week.done}/${week.total}</span>
+        <span style="font-size:10.5px;color:var(--slate);white-space:nowrap">이번주 ${week.done}/${week.total}</span>
       </div>
     </div>
   </div>`;
@@ -2455,10 +2455,10 @@ function renderStudentHome(sid){
   const _wkGoal=4;
   const weekCard=`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px">
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
-      <span style="font-size:14px;font-weight:800;color:var(--navy)">이번 주 도장</span>
-      <span style="font-size:12px;font-weight:700;color:#B45309">🔥 ${streak}일째</span>
+      <span style="font-size:15px;font-weight:800;color:var(--navy)">이번 주 도장</span>
+      <span style="font-size:13px;font-weight:700;color:#B45309">🔥 ${streak}일째</span>
     </div>
-    <div style="font-size:11.5px;margin-bottom:12px;${_wkDone>=_wkGoal?'color:#047857;font-weight:800':'color:var(--slate)'}">${_wkDone>=_wkGoal?`🏆 이번 주 목표 달성! (${_wkDone}/${_wkGoal}일)`:`목표: 일주일에 ${_wkGoal}일 · 지금 ${_wkDone}일 ✓`}</div>
+    <div style="font-size:12.5px;margin-bottom:12px;${_wkDone>=_wkGoal?'color:#047857;font-weight:800':'color:var(--slate)'}">${_wkDone>=_wkGoal?`🏆 이번 주 목표 달성! (${_wkDone}/${_wkGoal}일)`:`목표: 일주일에 ${_wkGoal}일 · 지금 ${_wkDone}일 ✓`}</div>
     ${weekCircles}
   </div></div>`;
   const lastLessonHtml=renderLastLesson(sid);
@@ -2479,9 +2479,9 @@ function renderStudentHome(sid){
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div class="hw-checkbox${done?' checked':''}" ${cbClick?`onclick="${cbClick}"`:'style="cursor:default"'} title="${cbTitle}">${done?'✓':''}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--navy)">${icon} ${title}</div>
-          ${detail?`<div style="font-size:12px;color:var(--slate);margin-top:3px">${detail}</div>`:''}
-          ${isVocabAuto&&!done?`<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><button class="btn bo bsm" style="border-radius:50px;padding:8px 14px" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button></div><div style="font-size:10.5px;color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
+          <div style="font-size:14px;font-weight:600;color:var(--navy)">${icon} ${title}</div>
+          ${detail?`<div style="font-size:13px;color:var(--slate);margin-top:3px">${detail}</div>`:''}
+          ${isVocabAuto&&!done?`<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><button class="btn bo bsm" style="border-radius:50px;padding:8px 14px" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button></div><div style="font-size:11px;color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
         </div>
       </div>
     </div>`;
@@ -2495,10 +2495,10 @@ function renderStudentHome(sid){
     const isToday=a.due===today||(!a.due&&a.date===today);
     let body='';
     if(a.type==='reading'){
-      body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">${a.bookTitle||'원서 읽기'}${a.range?' <span style="font-size:11px;color:var(--slate)">'+a.range+'</span>':''}</div>`;
+      body=`<div style="font-size:14px;font-weight:600;color:var(--navy)">${a.bookTitle||'원서 읽기'}${a.range?' <span style="font-size:12px;color:var(--slate)">'+a.range+'</span>':''}</div>`;
       if(!isDone&&ao){
         if(ao.type==='chapters'&&ao.chapters?.length){
-          body+=`<div style="margin-top:6px">${ao.chapters.slice(0,3).map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:10px;min-width:44px;color:var(--slate)">챕터 ${c.num}</span><audio controls src="${c.url}" style="flex:1;height:24px"></audio></div>`).join('')}</div>`;
+          body+=`<div style="margin-top:6px">${ao.chapters.slice(0,3).map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:10.5px;min-width:44px;color:var(--slate)">챕터 ${c.num}</span><audio controls src="${c.url}" style="flex:1;height:24px"></audio></div>`).join('')}</div>`;
         } else if(ao.url||(typeof ao==='string')){
           body+=`<audio controls src="${ao.url||ao}" style="width:100%;height:26px;margin-top:6px"></audio>`;
         }
@@ -2506,10 +2506,10 @@ function renderStudentHome(sid){
       if(!isDone&&!hw&&a.requireRecording){
         body+=`<div style="margin-top:10px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-            <button id="rec-start-${a.id}" class="btn bt" style="border-radius:50px;padding:13px;font-size:13px" onclick="startBrowserRec('${a.id}','${sid}')">🎙 직접 녹음</button>
-            <label class="btn bo" style="border-radius:50px;padding:13px;cursor:pointer;text-align:center;font-size:13px" for="home-asgn-audio-${a.id}">📁 파일 올리기</label>
+            <button id="rec-start-${a.id}" class="btn bt" style="border-radius:50px;padding:13px;font-size:14px" onclick="startBrowserRec('${a.id}','${sid}')">🎙 직접 녹음</button>
+            <label class="btn bo" style="border-radius:50px;padding:13px;cursor:pointer;text-align:center;font-size:14px" for="home-asgn-audio-${a.id}">📁 파일 올리기</label>
           </div>
-          <div id="rec-timer-${a.id}" style="display:none;text-align:center;font-size:13px;color:var(--coral);font-weight:700;margin-bottom:8px;padding:8px;background:rgba(245,158,11,.06);border-radius:8px">🔴 녹음 중... <span id="rec-time-${a.id}">0:00</span></div>
+          <div id="rec-timer-${a.id}" style="display:none;text-align:center;font-size:14px;color:var(--coral);font-weight:700;margin-bottom:8px;padding:8px;background:rgba(245,158,11,.06);border-radius:8px">🔴 녹음 중... <span id="rec-time-${a.id}">0:00</span></div>
           <button id="rec-stop-${a.id}" class="btn bd" style="display:none;width:100%;border-radius:50px;padding:12px" onclick="stopBrowserRec('${a.id}')">⏹ 녹음 완료</button>
           <input type="file" id="home-asgn-audio-${a.id}" accept="audio/*" style="display:none" onchange="handleHomeAsgnAudio(event,'${a.id}','${sid}')">
           <div id="home-asgn-preview-${a.id}" style="display:none;margin-top:8px">
@@ -2518,15 +2518,15 @@ function renderStudentHome(sid){
           </div>
         </div>`;
       } else if(hw&&a.requireRecording){
-        body+=`<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#047857;font-weight:600;margin-top:4px">${luIcon('check',12)||'✓'} 제출 완료 ${hw.date||''}</div>`;
-        if(hw.aiScore)body+=`<div style="font-size:11px;color:#0B8DAE;background:var(--tl);border-radius:6px;padding:5px 8px;margin-top:4px">🤖 ${hw.aiScore}</div>`;
+        body+=`<div style="display:flex;align-items:center;gap:4px;font-size:12px;color:#047857;font-weight:600;margin-top:4px">${luIcon('check',12)||'✓'} 제출 완료 ${hw.date||''}</div>`;
+        if(hw.aiScore)body+=`<div style="font-size:12px;color:#0B8DAE;background:var(--tl);border-radius:6px;padding:5px 8px;margin-top:4px">🤖 ${hw.aiScore}</div>`;
       }
     } else if(a.type==='vocab'){
-      body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">단어 암기</div><div class="wl" style="margin-top:4px">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
+      body=`<div style="font-size:14px;font-weight:600;color:var(--navy)">단어 암기</div><div class="wl" style="margin-top:4px">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
       if(!isDone)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:12px" onclick="openVocabForAssignment('${sid}','${a.id}')">📚 단어장 열기 →</button>`;
     } else if(a.type==='worksheet'){
-      body=`<div style="font-size:13px;font-weight:700;color:var(--navy)">🗒️ ${a.bookTitle||'워크시트'}</div>
-        <div style="font-size:12px;color:var(--slate);margin-top:2px">인쇄 학습지${a.gradeLevel?' · '+a.gradeLevel:''}</div>
+      body=`<div style="font-size:14px;font-weight:700;color:var(--navy)">🗒️ ${a.bookTitle||'워크시트'}</div>
+        <div style="font-size:13px;color:var(--slate);margin-top:2px">인쇄 학습지${a.gradeLevel?' · '+a.gradeLevel:''}</div>
         <button class="btn ${isDone?'bo':'bt'}" style="width:100%;margin-top:10px;border-radius:50px;padding:12px;font-weight:700" onclick="openWsView('${escAttr(a.wsId||'')}','${a.id}','${sid}')">📄 워크시트 보기</button>`;
     } else if(a.type==='mission'){
       const tb=missionFindTb(a.tbId);
@@ -2534,20 +2534,20 @@ function renderStudentHome(sid){
       const prog=a.progress||{};
       const doneCnt=ms.filter(m=>prog[m]).length;
       const pct=ms.length?Math.round(doneCnt/ms.length*100):0;
-      body=`<div style="font-size:13px;font-weight:700;color:var(--navy)">🎯 ${a.bookTitle||'학습 미션'}</div>
-        <div style="font-size:12px;color:var(--slate);margin-top:2px">${a.unitKey||''}${a.unitTitle?' — '+a.unitTitle:''}</div>
+      body=`<div style="font-size:14px;font-weight:700;color:var(--navy)">🎯 ${a.bookTitle||'학습 미션'}</div>
+        <div style="font-size:13px;color:var(--slate);margin-top:2px">${a.unitKey||''}${a.unitTitle?' — '+a.unitTitle:''}</div>
         <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-          ${ms.map(m=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:4px 9px;border-radius:50px;${prog[m]?'background:#D9F6E9;color:#047857':'background:var(--cream2);color:var(--slate)'}">${MISSION_DEFS[m]?.icon||''} ${MISSION_DEFS[m]?.label||m}${prog[m]?' ✓':''}</span>`).join('')}
+          ${ms.map(m=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 9px;border-radius:50px;${prog[m]?'background:#D9F6E9;color:#047857':'background:var(--cream2);color:var(--slate)'}">${MISSION_DEFS[m]?.icon||''} ${MISSION_DEFS[m]?.label||m}${prog[m]?' ✓':''}</span>`).join('')}
         </div>
         <div style="margin-top:8px;height:6px;background:var(--cream2);border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${pct===100?'#10B981':'var(--teal)'};border-radius:99px"></div></div>`;
-      if(!isDone&&tb)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:13px;font-size:14px;font-weight:700" onclick="openMissionPlayer('${sid}','${a.id}')">${doneCnt?'▶ 이어서 하기':'▶ 미션 시작하기'}</button>`;
-      else if(!isDone&&!tb)body+=`<div style="font-size:11px;color:var(--slate);margin-top:6px">교재 정보를 불러오지 못했습니다</div>`;
+      if(!isDone&&tb)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:13px;font-size:15px;font-weight:700" onclick="openMissionPlayer('${sid}','${a.id}')">${doneCnt?'▶ 이어서 하기':'▶ 미션 시작하기'}</button>`;
+      else if(!isDone&&!tb)body+=`<div style="font-size:12px;color:var(--slate);margin-top:6px">교재 정보를 불러오지 못했습니다</div>`;
     } else {
       const catIcon={phonics:'📘',vocab:'📝',grammar:'✏️',reading:'📖',listening:'🎧',writing:'✍️',naesin:'📋',book:'📗',class5:'🎮'};
       const icon=catIcon[a.category]||'📋';
       const KCK=['phonics','vocab','grammar','reading','listening','writing','naesin','book','class5','other'];
-      body=`<div style="font-size:13px;font-weight:600;color:var(--navy)">${icon} ${a.bookTitle||a.text||((a.category&&!KCK.includes(a.category))?a.category:'')||'과제'}</div>`;
-      if(a.range)body+=`<div style="font-size:12px;color:var(--slate);margin-top:3px">${a.range}</div>`;
+      body=`<div style="font-size:14px;font-weight:600;color:var(--navy)">${icon} ${a.bookTitle||a.text||((a.category&&!KCK.includes(a.category))?a.category:'')||'과제'}</div>`;
+      if(a.range)body+=`<div style="font-size:13px;color:var(--slate);margin-top:3px">${a.range}</div>`;
     }
     const canCheck=a.type==='mission'?false:(!(a.type==='reading'&&a.requireRecording)||!!hw);
     return `<div class="hw-check-card${isDone?' done':''}" id="hw-card-${a.id}">
@@ -2555,7 +2555,7 @@ function renderStudentHome(sid){
         <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone?'uncompleteAssignment(\''+sid+'\',\''+a.id+'\')':(!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')')}" title="${isDone?'클릭: 완료 취소':(!canCheck?(a.type==='mission'?'미션을 모두 완료하면 자동으로 체크됩니다':'녹음 제출 후 완료 가능'):'완료 처리')}">${isDone?'✓':''}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span style="font-size:10px;color:var(--slate);font-family:var(--fm)">${a.date||''}</span>
+            <span style="font-size:10.5px;color:var(--slate);font-family:var(--fm)">${a.date||''}</span>
             ${a.due?dueLabelHtml(a.due,today):''}
           </div>
           ${body}
@@ -2569,7 +2569,7 @@ function renderStudentHome(sid){
     if(!allAssigns.length)return `<div class="card" id="stu-hw-card" style="margin-bottom:14px"><div class="cb" style="text-align:center;padding:2rem 1rem">
       <div style="font-size:52px;margin-bottom:10px">🎉</div>
       <div style="font-size:17px;font-weight:800;color:var(--navy);margin-bottom:4px">숙제 없음!</div>
-      <div style="font-size:12.5px;color:var(--slate)">오늘은 자유시간이에요 · 단어 복습 어때요?</div>
+      <div style="font-size:13.5px;color:var(--slate)">오늘은 자유시간이에요 · 단어 복습 어때요?</div>
     </div></div>`;
     let sel=(_stuWeekSel&&_wk.some(d=>d.date===_stuWeekSel))?_stuWeekSel:today;
     if(!_wk.some(d=>d.date===sel))sel=_wk[0].date;
@@ -2595,14 +2595,14 @@ function renderStudentHome(sid){
     const renderItem=it=>it.sc?schDayCard(it.a,it.sc):asgnCard(it.a);
     const allDoneToday=sel===today&&items.length&&!selPending.length;
     const head='<div class="wk-sec-head"><span class="t">'+(sl&&sl.isToday?'오늘 할 일':(sl?sl.label+'요일 학습':''))+'</span><span class="s" id="wk-head-cnt">'+selDone.length+' / '+items.length+' 완료</span></div>'
-      +(sl&&sl.isToday&&selPending.length?'<div style="font-size:11.5px;color:var(--slate);margin:-4px 0 8px">아래 '+selPending.length+'개만 하면 오늘 끝! ✨</div>':'');
+      +(sl&&sl.isToday&&selPending.length?'<div style="font-size:12.5px;color:var(--slate);margin:-4px 0 8px">아래 '+selPending.length+'개만 하면 오늘 끝! ✨</div>':'');
     let body;
-    if(!items.length)body='<div class="wk-empty-day">이 날은 배정된 학습이 없어요 😊<br><span style="font-size:11px">단어 복습으로 예습해볼까요?</span></div>';
-    else body=(allDoneToday?'<div style="text-align:center;padding:4px 0 12px"><div style="font-size:38px">🏆</div><div style="font-size:15px;font-weight:800;color:#047857">오늘 숙제 다 했어요! 참 잘했어요 👏</div></div>':'')
+    if(!items.length)body='<div class="wk-empty-day">이 날은 배정된 학습이 없어요 😊<br><span style="font-size:12px">단어 복습으로 예습해볼까요?</span></div>';
+    else body=(allDoneToday?'<div style="text-align:center;padding:4px 0 12px"><div style="font-size:38px">🏆</div><div style="font-size:16px;font-weight:800;color:#047857">오늘 숙제 다 했어요! 참 잘했어요 👏</div></div>':'')
       +selPending.map(renderItem).join('')
       +(selDone.length?'<div style="opacity:.72">'+selDone.map(renderItem).join('')+'</div>':'');
     const etc=regAssigns.filter(a=>{const d=_asgnDay(a);return !d||d>_weekEnd;});
-    const etcHtml=etc.length?'<details style="margin-top:12px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;list-style:none">📌 기타 과제 ('+etc.length+'건)</summary><div style="margin-top:8px">'+etc.map(asgnCard).join('')+'</div></details>':'';
+    const etcHtml=etc.length?'<details style="margin-top:12px"><summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;list-style:none">📌 기타 과제 ('+etc.length+'건)</summary><div style="margin-top:8px">'+etc.map(asgnCard).join('')+'</div></details>':'';
     return '<div class="card" id="stu-hw-card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px"><div class="wk-strip">'+strip+'</div>'+head+body+etcHtml+'</div></div>';
   })();
 
@@ -2613,18 +2613,18 @@ function renderStudentHome(sid){
     ${hwSection}
     ${vocabCtaHtml}
     <details style="margin-top:8px;margin-bottom:8px">
-      <summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">🎮 보너스 · 내 기록 <span style="font-size:10px;color:var(--teal)">▾</span></summary>
+      <summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">🎮 보너스 · 내 기록 <span style="font-size:10.5px;color:var(--teal)">▾</span></summary>
       <div style="margin-top:8px">${weekCard}${stuXpCard(sid,streak)}${stuQuestCard(sid)}${renderVocabReview(sid)}</div>
     </details>
-    ${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:12px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 지난 완료 기록 (${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length}건)</summary><div style="margin-top:8px">${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).map(asgnCard).join('')}</div></details>`:''}
+    ${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 지난 완료 기록 (${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length}건)</summary><div style="margin-top:8px">${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).map(asgnCard).join('')}</div></details>`:''}
     <details open style="margin-top:14px">
-      <summary style="font-size:12px;font-weight:600;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">📊 지난 수업 &amp; 학습 현황 <span style="font-size:10px;color:var(--teal)">▾</span></summary>
+      <summary style="font-size:13px;font-weight:600;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">📊 지난 수업 &amp; 학습 현황 <span style="font-size:10.5px;color:var(--teal)">▾</span></summary>
       <div style="margin-top:8px">${lastLessonHtml}${streakHtml}${renderHomeStats(sid)}${notifyRowHtml}</div>
     </details>
     ${(()=>{
       const myLogs=(_cache.logs||[]).filter(l=>l.sid===sid&&(l.photoUrl||(l.photoUrls&&l.photoUrls.length))).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
       if(!myLogs.length)return '';
-      return '<div style="margin-top:14px"><div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📸 리딩로그</div><div class="ig-strip">'+
+      return '<div style="margin-top:14px"><div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">📸 리딩로그</div><div class="ig-strip">'+
         myLogs.map(l=>{const imgs=logImgs(l);const first=imgs[0]||'';return '<div class="ig-card"><div class="ig-ph" onclick="openLbLog(\''+l.id+'\')"><img src="'+first+'" loading="lazy">'+(imgs.length>1?'<div class="rdlog-multi">📄 1/'+imgs.length+'</div>':'')+'</div><div class="ig-body">'+(l.read?'<div class="ig-like on">❤️ 완독</div>':'')+(l.bookTitle?'<div class="ig-title">'+l.bookTitle+'</div>':'')+'<div class="ig-date">'+(l.date||'')+'</div></div></div>';}).join('')+
         '</div></div>';
     })()}
@@ -2695,17 +2695,17 @@ function renderUrStep(step){
 function renderUrWords(tb,body,footer){
   const words=_urState.words;
   if(!words.length){
-    body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">단어 목록이 없습니다</div>';
+    body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">단어 목록이 없습니다</div>';
     footer.innerHTML='';return;
   }
   body.innerHTML=`<div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px">
     ${words.map((w,i)=>`<div id="ur-word-row-${i}" onclick="urRevealWord(${i},'${(w.word||'').replace(/'/g,"\\'")}','${(w.ko||'').replace(/'/g,"\\'")}','${(w.pos||'').replace(/'/g,"\\'")}',this)" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;transition:border-color .15s">
       <div style="flex:1">
-        <span id="ur-word-ko-${i}" style="font-size:14px;font-weight:600;color:var(--navy)">${w.ko||'—'}</span>
-        ${w.pos?`<span style="font-size:10px;color:var(--slate);margin-left:5px">[${POS_KO[w.pos]||w.pos}]</span>`:''}
+        <span id="ur-word-ko-${i}" style="font-size:15px;font-weight:600;color:var(--navy)">${w.ko||'—'}</span>
+        ${w.pos?`<span style="font-size:10.5px;color:var(--slate);margin-left:5px">[${POS_KO[w.pos]||w.pos}]</span>`:''}
       </div>
       <div style="text-align:right">
-        <span id="ur-word-en-${i}" style="font-size:14px;font-weight:700;color:var(--teal);opacity:0;transition:opacity .2s">${w.word||''}</span>
+        <span id="ur-word-en-${i}" style="font-size:15px;font-weight:700;color:var(--teal);opacity:0;transition:opacity .2s">${w.word||''}</span>
         <span id="ur-word-ck-${i}" style="font-size:16px;margin-left:6px;opacity:0">✓</span>
       </div>
     </div>`).join('')}
@@ -2768,7 +2768,7 @@ function renderUrText(tb,body,footer){
   const hasPatterns=!!(tb.unitPatterns?.[unitKey]||'').trim();
 
   if(!text){
-    body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">이 단원에 등록된 원문이 없습니다</div>';
+    body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">이 단원에 등록된 원문이 없습니다</div>';
     footer.innerHTML=`<button class="btn bt" style="width:100%" onclick="renderUrStep(${hasPatterns?3:1})">← 돌아가기</button>`;
     return;
   }
@@ -2784,20 +2784,20 @@ function renderUrText(tb,body,footer){
       <button class="btn ba bsm" onclick="stopSpeak();const b=document.getElementById('ur-tts-btn');if(b)b.textContent='▶ 듣기'" style="border-radius:50px;padding:6px 12px">■ 정지</button>
       ${ttsLevelSeg(_urState.ttsLevel,'urSetTtsLevel')}
     </div>
-    <div style="font-size:11px;color:var(--slate);margin-bottom:8px">속도: 교재 수준에 맞춰 <b>${TTS_LEVELS[_urState.ttsLevel]?.short||'중급'}</b> 자동 선택 · 문장 하이라이트를 따라 읽으세요</div>`;
+    <div style="font-size:12px;color:var(--slate);margin-bottom:8px">속도: 교재 수준에 맞춰 <b>${TTS_LEVELS[_urState.ttsLevel]?.short||'중급'}</b> 자동 선택 · 문장 하이라이트를 따라 읽으세요</div>`;
   }
 
   // 스크립트가 여러 개인 단원(리스닝 TR A/B/C…): 골라서 하나씩 듣고 따라 읽기
   const scriptBar=(scripts&&scripts.length>1)?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
-    <span style="font-size:11.5px;color:var(--slate);white-space:nowrap">🎧 대화 ${scripts.length}개</span>
-    ${scripts.map((s,i)=>`<button class="btn ${i===_urState.scriptIdx?'bt':'ba'} bsm" style="border-radius:50px;padding:5px 12px;font-size:11.5px" onclick="urPickScript(${i})">${escAttr(s.label||('스크립트 '+(i+1)))}</button>`).join('')}
+    <span style="font-size:12.5px;color:var(--slate);white-space:nowrap">🎧 대화 ${scripts.length}개</span>
+    ${scripts.map((s,i)=>`<button class="btn ${i===_urState.scriptIdx?'bt':'ba'} bsm" style="border-radius:50px;padding:5px 12px;font-size:12.5px" onclick="urPickScript(${i})">${escAttr(s.label||('스크립트 '+(i+1)))}</button>`).join('')}
   </div>`:'';
 
   body.innerHTML=`<div style="padding:12px 16px">
     ${scriptBar}
     ${audioHtml}
     ${link?`<a href="${link}" target="_blank" rel="noopener" class="btn ba bsm" style="display:inline-flex;align-items:center;gap:5px;margin-bottom:10px;border-radius:50px;padding:6px 14px">🔗 심화 자료</a>`:''}
-    <div id="ur-text-body" style="font-size:15px;line-height:1.85;color:var(--navy);letter-spacing:.01em">${sentHtml}</div>
+    <div id="ur-text-body" style="font-size:16px;line-height:1.85;color:var(--navy);letter-spacing:.01em">${sentHtml}</div>
   </div>`;
 
   footer.innerHTML=`<button class="btn bt" style="width:100%" onclick="renderUrStep(${hasPatterns?3:1})">${hasPatterns?'다음: 패턴 드릴 →':'← 처음으로'}</button>`;
@@ -2811,7 +2811,7 @@ function renderUrPatterns(tb,body,footer){
   const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
 
   if(!lines.length){
-    body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">이 단원에 등록된 패턴 드릴이 없습니다</div>';
+    body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">이 단원에 등록된 패턴 드릴이 없습니다</div>';
     footer.innerHTML=`<button class="btn bt" style="width:100%" onclick="renderUrStep(2)">← 본문으로</button>`;
     return;
   }
@@ -2819,7 +2819,7 @@ function renderUrPatterns(tb,body,footer){
   body.innerHTML=`<div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px">
     ${lines.map((ln,i)=>`<div id="ur-pat-row-${i}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs)">
       <button onclick="urPlayPattern(${i})" style="width:32px;height:32px;border-radius:50%;border:none;background:var(--tl);color:var(--teal);font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">▶</button>
-      <span id="ur-pat-text-${i}" style="font-size:14px;color:var(--navy);line-height:1.5">${ln}</span>
+      <span id="ur-pat-text-${i}" style="font-size:15px;color:var(--navy);line-height:1.5">${ln}</span>
     </div>`).join('')}
   </div>`;
 
@@ -2883,7 +2883,7 @@ function openUnitRead(tbId,unitKey){
     audioEl.innerHTML=`<div style="display:flex;gap:8px;align-items:center">
       <button id="tts-play-btn" class="btn bt bsm" onclick="startUnitTTS()" style="border-radius:50px;padding:6px 14px">▶ 듣기</button>
       <button class="btn ba bsm" onclick="stopSpeak();const b=document.getElementById('tts-play-btn');if(b)b.textContent='▶ 듣기'" style="border-radius:50px;padding:6px 12px">■ 정지</button>
-      <span style="font-size:11px;color:var(--slate)">업로드 오디오 없음</span>
+      <span style="font-size:12px;color:var(--slate)">업로드 오디오 없음</span>
     </div>`;
   }else{
     audioEl.innerHTML='';
@@ -2900,7 +2900,7 @@ function openUnitRead(tbId,unitKey){
 
   const bodyEl=document.getElementById('unit-read-body');
   if(!text){
-    bodyEl.innerHTML='<div style="text-align:center;padding:2rem;color:var(--slate);font-size:13px">이 단원에 등록된 원문이 없습니다.</div>';
+    bodyEl.innerHTML='<div style="text-align:center;padding:2rem;color:var(--slate);font-size:14px">이 단원에 등록된 원문이 없습니다.</div>';
   }else{
     bodyEl.innerHTML=_renderHighlightedText(text,words);
   }
@@ -2996,7 +2996,7 @@ function renderMsStep(i){
   if(tabs)tabs.innerHTML=missions.map((m,n)=>{
     const d=MISSION_DEFS[m]||{icon:'',label:m};
     const done=!!prog[m];const active=n===i;
-    return`<button onclick="renderMsStep(${n})" style="flex:1;padding:9px 2px;font-size:11.5px;font-weight:${active?'700':'600'};color:${active?'var(--teal)':done?'#047857':'var(--slate)'};border:none;background:none;cursor:pointer;border-bottom:2px solid ${active?'var(--teal)':'transparent'};margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">${done?'✓ ':''}${d.icon} ${d.label}</button>`;
+    return`<button onclick="renderMsStep(${n})" style="flex:1;padding:9px 2px;font-size:12.5px;font-weight:${active?'700':'600'};color:${active?'var(--teal)':done?'#047857':'var(--slate)'};border:none;background:none;cursor:pointer;border-bottom:2px solid ${active?'var(--teal)':'transparent'};margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">${done?'✓ ':''}${d.icon} ${d.label}</button>`;
   }).join('');
   const bar=document.getElementById('ms-progress-bar');
   if(bar)bar.style.width=msProgressPct()+'%';
@@ -3047,13 +3047,13 @@ async function msCompleteMission(m){
 function _vocPhaseBar(cur){
   const ph=[['암기','📖'],['리콜','🧠'],['스펠','⌨️']];
   return '<div class="seg" style="margin:0 16px 10px">'+ph.map((p,i)=>
-    '<button class="'+(i===cur?'seg-on':'')+'" style="font-size:11px;padding:6px 4px" '+(i<cur?'':'disabled')+' onclick="'+(i<cur?'msVocGo('+i+')':'')+'">'+(i<cur?'✓ ':'')+p[1]+' '+p[0]+'</button>').join('')+'</div>';
+    '<button class="'+(i===cur?'seg-on':'')+'" style="font-size:12px;padding:6px 4px" '+(i<cur?'':'disabled')+' onclick="'+(i<cur?'msVocGo('+i+')':'')+'">'+(i<cur?'✓ ':'')+p[1]+' '+p[0]+'</button>').join('')+'</div>';
 }
 function msVocGo(n){_msState.vocabPhase=n;renderMsVocab(document.getElementById('ms-body'),document.getElementById('ms-footer'));}
 function renderMsVocab(body,footer){
   const{tb,unitKey}=_msState;
   const words=tuNormWords(tb.units?.[unitKey]||[]).filter(w=>w.word);
-  if(!words.length){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">단어 목록이 없습니다</div>';footer.innerHTML=msDoneBtn('vocab','✓ 단어 확인 완료');return;}
+  if(!words.length){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">단어 목록이 없습니다</div>';footer.innerHTML=msDoneBtn('vocab','✓ 단어 확인 완료');return;}
   _msState._vocabWords=words;
   const phase=_msState.vocabPhase||0;
   if(phase===0)_vocMemorize(words,body,footer);
@@ -3063,11 +3063,11 @@ function renderMsVocab(body,footer){
 // 1단계 암기: 뜻 보고 탭 → 영어+발음 확인
 function _vocMemorize(words,body,footer){
   body.innerHTML=_vocPhaseBar(0)+'<div style="padding:2px 16px 12px">'
-    +'<div style="font-size:12px;color:var(--slate);margin-bottom:10px">한국어 뜻을 보고 <b>영어 단어를 떠올린 뒤</b> 카드를 눌러 확인하세요 🔊</div>'
+    +'<div style="font-size:13px;color:var(--slate);margin-bottom:10px">한국어 뜻을 보고 <b>영어 단어를 떠올린 뒤</b> 카드를 눌러 확인하세요 🔊</div>'
     +'<div style="display:flex;flex-direction:column;gap:8px">'
     +words.map((w,i)=>'<div id="msw-row-'+i+'" onclick="msRevealWord('+i+')" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;transition:border-color .15s">'
-      +'<div style="flex:1"><span style="font-size:14px;font-weight:600;color:var(--navy)">'+(w.ko||'—')+'</span>'+(w.pos?'<span style="font-size:10px;color:var(--slate);margin-left:5px">['+((typeof POS_KO!=='undefined'&&POS_KO[w.pos])||w.pos)+']</span>':'')+'</div>'
-      +'<div style="text-align:right"><span id="msw-en-'+i+'" style="font-size:14px;font-weight:700;color:var(--teal);opacity:0;transition:opacity .2s">'+(w.word||'')+'</span><span id="msw-ck-'+i+'" style="font-size:15px;margin-left:6px;opacity:0;color:var(--teal)">✓</span></div>'
+      +'<div style="flex:1"><span style="font-size:15px;font-weight:600;color:var(--navy)">'+(w.ko||'—')+'</span>'+(w.pos?'<span style="font-size:10.5px;color:var(--slate);margin-left:5px">['+((typeof POS_KO!=='undefined'&&POS_KO[w.pos])||w.pos)+']</span>':'')+'</div>'
+      +'<div style="text-align:right"><span id="msw-en-'+i+'" style="font-size:15px;font-weight:700;color:var(--teal);opacity:0;transition:opacity .2s">'+(w.word||'')+'</span><span id="msw-ck-'+i+'" style="font-size:16px;margin-left:6px;opacity:0;color:var(--teal)">✓</span></div>'
       +'</div>').join('')
     +'</div></div>';
   footer.innerHTML='<div style="display:flex;gap:8px">'
@@ -3097,7 +3097,7 @@ function _vocRDraw(body,footer){
   body=body||document.getElementById('ms-body');footer=footer||document.getElementById('ms-footer');
   const R=_vocR;if(!R)return;
   if(R.idx>=R.rounds.length){
-    body.innerHTML=_vocPhaseBar(1)+'<div style="text-align:center;padding:1.5rem 1rem"><div style="font-size:34px">🧠</div><div style="font-size:15px;font-weight:800;color:var(--navy);margin-top:4px">뜻 맞히기 완료! '+R.ok+'/'+R.rounds.length+'</div></div>';
+    body.innerHTML=_vocPhaseBar(1)+'<div style="text-align:center;padding:1.5rem 1rem"><div style="font-size:34px">🧠</div><div style="font-size:16px;font-weight:800;color:var(--navy);margin-top:4px">뜻 맞히기 완료! '+R.ok+'/'+R.rounds.length+'</div></div>';
     footer.innerHTML='<button class="btn bt" style="width:100%;border-radius:50px;padding:13px;font-weight:700" onclick="msVocGo(2)">다음: 스펠링 →</button>';
     return;
   }
@@ -3108,10 +3108,10 @@ function _vocRDraw(body,footer){
     return '<button onclick="_vocRPick(\''+w.replace(/'/g,"\\'")+'\')" '+(R.locked?'disabled':'')+' style="'+st+';padding:14px 10px;border-radius:14px;font-weight:800;font-size:16px;font-family:var(--fb);cursor:pointer">'+w+'</button>';
   }).join('');
   body.innerHTML=_vocPhaseBar(1)+'<div style="padding:2px 16px 12px">'
-    +'<div style="text-align:right;font-size:11px;color:var(--slate);margin-bottom:6px">'+(R.idx+1)+' / '+R.rounds.length+'</div>'
-    +'<div style="text-align:center;padding:20px 12px;background:var(--tl);border-radius:16px;margin-bottom:14px"><div style="font-size:11px;color:var(--slate);margin-bottom:4px">이 뜻의 단어는?</div><div style="font-size:20px;font-weight:800;color:var(--navy)">'+r.ko+'</div></div>'
+    +'<div style="text-align:right;font-size:12px;color:var(--slate);margin-bottom:6px">'+(R.idx+1)+' / '+R.rounds.length+'</div>'
+    +'<div style="text-align:center;padding:20px 12px;background:var(--tl);border-radius:16px;margin-bottom:14px"><div style="font-size:12px;color:var(--slate);margin-bottom:4px">이 뜻의 단어는?</div><div style="font-size:20px;font-weight:800;color:var(--navy)">'+r.ko+'</div></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+opts+'</div></div>';
-  footer.innerHTML='<div style="font-size:11px;color:var(--slate);text-align:center">알맞은 단어를 골라요</div>';
+  footer.innerHTML='<div style="font-size:12px;color:var(--slate);text-align:center">알맞은 단어를 골라요</div>';
 }
 function _vocRPick(w){
   const R=_vocR;if(!R||R.locked)return;
@@ -3134,12 +3134,12 @@ function _vocSDraw(body,footer){
   if(S.idx>=S.list.length){msCompleteMission('vocab');return;}
   const w=S.list[S.idx];
   body.innerHTML=_vocPhaseBar(2)+'<div style="padding:2px 16px 12px">'
-    +'<div style="text-align:right;font-size:11px;color:var(--slate);margin-bottom:6px">'+(S.idx+1)+' / '+S.list.length+'</div>'
+    +'<div style="text-align:right;font-size:12px;color:var(--slate);margin-bottom:6px">'+(S.idx+1)+' / '+S.list.length+'</div>'
     +'<div style="text-align:center;padding:18px 12px;background:var(--tl);border-radius:16px;margin-bottom:12px">'
     +'<div style="font-size:18px;font-weight:800;color:var(--navy);margin-bottom:8px">'+(w.ko||'🔊 듣고 써보기')+'</div>'
     +'<button class="btn ba bsm" style="border-radius:50px" onclick="speakWord(\''+(w.word||'').replace(/'/g,"\\'")+'\')">🔊 발음 듣기</button></div>'
     +'<input id="voc-spell-in" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="영어로 입력..." style="width:100%;box-sizing:border-box;padding:13px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:17px;font-family:var(--fb);color:var(--navy);text-align:center;outline:none" onkeydown="if(event.key===\'Enter\')_vocSCheck()">'
-    +'<div id="voc-spell-fb" style="text-align:center;font-size:13px;margin-top:8px;min-height:18px"></div></div>';
+    +'<div id="voc-spell-fb" style="text-align:center;font-size:14px;margin-top:8px;min-height:18px"></div></div>';
   footer.innerHTML='<div style="display:flex;gap:8px"><button class="btn bo bsm" style="border-radius:50px" onclick="_vocSReveal()">모르겠어요</button><button class="btn bt" style="flex:1;border-radius:50px;padding:12px;font-weight:700" onclick="_vocSCheck()">확인</button></div>';
   setTimeout(()=>{const el=document.getElementById('voc-spell-in');if(el)el.focus();},50);
 }
@@ -3192,7 +3192,7 @@ function renderMsListen(body,footer){
   const text=tb.unitTexts?.[unitKey]||'';
   const audioUrl=tb.unitAudio?.[unitKey]||'';
   const words=tuNormWords(tb.units?.[unitKey]||[]);
-  if(!text){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">이 단원에 등록된 본문이 없습니다</div>';footer.innerHTML=msDoneBtn('listen','✓ 완료');return;}
+  if(!text){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">이 단원에 등록된 본문이 없습니다</div>';footer.innerHTML=msDoneBtn('listen','✓ 완료');return;}
   if(!_msState.ttsLevel)_msState.ttsLevel=ttsLevelForTb(tb);
   const sentHtml=ttsSentHtml(text,words,'ms-ls-',_msState.ttsLevel);
   const audioHtml=audioUrl
@@ -3202,9 +3202,9 @@ function renderMsListen(body,footer){
       +'<button class="btn ba bsm" onclick="msStopTTS()" style="border-radius:50px;padding:7px 14px">■ 정지</button>'
       +ttsLevelSeg(_msState.ttsLevel,'msSetTtsLevel')
       +'</div>'
-      +'<div style="font-size:11px;color:var(--slate);margin-bottom:8px">속도는 교재 수준에 맞춰 <b>'+(TTS_LEVELS[_msState.ttsLevel]?.short||'중급')+'</b>으로 자동 선택 — 하이라이트되는 문장을 눈으로 따라 읽으세요</div>';
+      +'<div style="font-size:12px;color:var(--slate);margin-bottom:8px">속도는 교재 수준에 맞춰 <b>'+(TTS_LEVELS[_msState.ttsLevel]?.short||'중급')+'</b>으로 자동 선택 — 하이라이트되는 문장을 눈으로 따라 읽으세요</div>';
   body.innerHTML='<div style="padding:12px 16px">'+audioHtml
-    +'<div id="ms-text-body" style="font-size:15px;line-height:1.9;color:var(--navy);letter-spacing:.01em">'+sentHtml+'</div>'
+    +'<div id="ms-text-body" style="font-size:16px;line-height:1.9;color:var(--navy);letter-spacing:.01em">'+sentHtml+'</div>'
     +'</div>';
   footer.innerHTML=msDoneBtn('listen','✓ 다 듣고 읽었어요');
 }
@@ -3220,7 +3220,7 @@ function renderMsCloze(body,footer){
   const{tb,unitKey}=_msState;
   const text=tb.unitTexts?.[unitKey]||'';
   const targets=clozeTargets(tb,unitKey);
-  if(!text||targets.length<2){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">빈칸으로 낼 단어가 부족해요</div>';footer.innerHTML=msDoneBtn('cloze','✓ 완료');return;}
+  if(!text||targets.length<2){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">빈칸으로 낼 단어가 부족해요</div>';footer.innerHTML=msDoneBtn('cloze','✓ 완료');return;}
   // 본문 등장 순서대로 빈칸 만들기
   const esc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   const sorted=targets.map(w=>({w,idx:text.search(new RegExp('(?<![A-Za-z])'+esc(w)+'(?![A-Za-z])','i'))})).filter(x=>x.idx>=0).sort((a,b)=>a.idx-b.idx).map(x=>x.w);
@@ -3253,17 +3253,17 @@ function msClozeDraw(){
     const res=C.res[i];
     const border=res==='ok'?'#059669':res==='no'?'#dc2626':'var(--teal)';
     const bg=res==='ok'?'#D9F6E9':'#fff';
-    if(fid!=null)return '<button onclick="msClozeClear('+i+')" style="display:inline-block;min-width:56px;padding:2px 10px;margin:0 2px;border:1.5px solid '+border+';border-radius:8px;background:'+bg+';font-weight:700;color:var(--navy);font-family:var(--fb);font-size:14px;cursor:pointer">'+C.answers[fid]+(res==='ok'?' ✓':'')+'</button>';
-    return '<button onclick="msClozePlace('+i+')" style="display:inline-block;min-width:56px;padding:2px 10px;margin:0 2px;border:1.5px dashed var(--slate);border-radius:8px;background:var(--cream2);color:var(--slate);font-family:var(--fb);font-size:13px;cursor:pointer">____</button>';
+    if(fid!=null)return '<button onclick="msClozeClear('+i+')" style="display:inline-block;min-width:56px;padding:2px 10px;margin:0 2px;border:1.5px solid '+border+';border-radius:8px;background:'+bg+';font-weight:700;color:var(--navy);font-family:var(--fb);font-size:15px;cursor:pointer">'+C.answers[fid]+(res==='ok'?' ✓':'')+'</button>';
+    return '<button onclick="msClozePlace('+i+')" style="display:inline-block;min-width:56px;padding:2px 10px;margin:0 2px;border:1.5px dashed var(--slate);border-radius:8px;background:var(--cream2);color:var(--slate);font-family:var(--fb);font-size:14px;cursor:pointer">____</button>';
   }).join('');
   // 단어 은행 (아직 안 채운 것)
   const placed=new Set(C.filled.filter(x=>x!=null));
   const bank=C.order.filter(id=>!placed.has(id)).map(id=>
-    '<button onclick="msClozePick('+id+')" style="padding:8px 14px;border:1.5px solid '+(C.sel===id?'var(--teal)':'var(--border)')+';border-radius:50px;background:'+(C.sel===id?'var(--tl)':'#fff')+';font-weight:700;color:var(--navy);font-family:var(--fb);font-size:14px;cursor:pointer">'+C.answers[id]+'</button>').join('');
+    '<button onclick="msClozePick('+id+')" style="padding:8px 14px;border:1.5px solid '+(C.sel===id?'var(--teal)':'var(--border)')+';border-radius:50px;background:'+(C.sel===id?'var(--tl)':'#fff')+';font-weight:700;color:var(--navy);font-family:var(--fb);font-size:15px;cursor:pointer">'+C.answers[id]+'</button>').join('');
   body.innerHTML='<div style="padding:12px 16px">'
-    +'<div style="font-size:12px;color:var(--slate);margin-bottom:10px">아래 <b>단어를 골라</b> 본문의 빈칸을 채워보세요 📝</div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:7px;padding:10px;background:var(--cream2);border-radius:12px;margin-bottom:12px;min-height:20px">'+(bank||'<span style="font-size:12px;color:var(--slate)">단어를 모두 채웠어요! 정답 확인을 눌러요</span>')+'</div>'
-    +'<div style="font-size:15px;line-height:2.1;color:var(--navy)">'+passage+'</div>'
+    +'<div style="font-size:13px;color:var(--slate);margin-bottom:10px">아래 <b>단어를 골라</b> 본문의 빈칸을 채워보세요 📝</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:7px;padding:10px;background:var(--cream2);border-radius:12px;margin-bottom:12px;min-height:20px">'+(bank||'<span style="font-size:13px;color:var(--slate)">단어를 모두 채웠어요! 정답 확인을 눌러요</span>')+'</div>'
+    +'<div style="font-size:16px;line-height:2.1;color:var(--navy)">'+passage+'</div>'
     +'</div>';
   if(allCorrect){footer.innerHTML=msDoneBtn('cloze','✓ 빈칸 완성! 잘했어요');}
   else{
@@ -3299,14 +3299,14 @@ function renderMsPattern(body,footer){
   const{tb,unitKey}=_msState;
   const raw=(tb.unitPatterns?.[unitKey]||'').trim();
   const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
-  if(!lines.length){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">이 단원에 등록된 패턴이 없습니다</div>';footer.innerHTML=msDoneBtn('pattern','✓ 완료');return;}
+  if(!lines.length){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">이 단원에 등록된 패턴이 없습니다</div>';footer.innerHTML=msDoneBtn('pattern','✓ 완료');return;}
   _msState._patLines=lines;
   body.innerHTML='<div style="padding:12px 16px">'
-    +'<div style="font-size:12px;color:var(--slate);margin-bottom:10px">▶ 를 눌러 듣고, <b>소리 내어 따라 말해</b> 보세요 (문장마다 2번씩!)</div>'
+    +'<div style="font-size:13px;color:var(--slate);margin-bottom:10px">▶ 를 눌러 듣고, <b>소리 내어 따라 말해</b> 보세요 (문장마다 2번씩!)</div>'
     +'<div style="display:flex;flex-direction:column;gap:8px">'
     +lines.map((ln,i)=>'<div id="ms-pat-row-'+i+'" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs)">'
       +'<button onclick="msPlayPattern('+i+')" style="width:34px;height:34px;border-radius:50%;border:none;background:var(--tl);color:var(--teal);font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">▶</button>'
-      +'<span style="font-size:14px;color:var(--navy);line-height:1.5">'+ln+'</span>'
+      +'<span style="font-size:15px;color:var(--navy);line-height:1.5">'+ln+'</span>'
       +'</div>').join('')
     +'</div></div>';
   footer.innerHTML='<div style="display:flex;gap:8px">'
@@ -3345,7 +3345,7 @@ let _msScr=null;
 function renderMsScramble(body,footer){
   const{tb,unitKey}=_msState;
   const lines=scrambleLines(tb,unitKey);
-  if(!lines.length){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">배열할 문장이 없어요</div>';footer.innerHTML=msDoneBtn('scramble','✓ 완료');return;}
+  if(!lines.length){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">배열할 문장이 없어요</div>';footer.innerHTML=msDoneBtn('scramble','✓ 완료');return;}
   _msScr={lines,idx:0,done:0};
   msScrLoad();
 }
@@ -3364,17 +3364,17 @@ function msScrDraw(){
   const body=document.getElementById('ms-body'),footer=document.getElementById('ms-footer');
   const placed=new Set(S.answer);
   const bank=S.bankOrder.filter(id=>!placed.has(id)).map(id=>
-    '<button onclick="msScrPick('+id+')" style="padding:9px 15px;border:1.5px solid var(--border);border-radius:12px;background:#fff;font-weight:700;color:var(--navy);font-family:var(--fb);font-size:15px;cursor:pointer">'+S.toks[id]+'</button>').join('');
+    '<button onclick="msScrPick('+id+')" style="padding:9px 15px;border:1.5px solid var(--border);border-radius:12px;background:#fff;font-weight:700;color:var(--navy);font-family:var(--fb);font-size:16px;cursor:pointer">'+S.toks[id]+'</button>').join('');
   const ansBorder=S.checked==='ok'?'#059669':S.checked==='no'?'#dc2626':'var(--teal)';
   const ansBg=S.checked==='ok'?'#D9F6E9':S.checked==='no'?'#fdecec':'var(--tl)';
   const answer=S.answer.length
-    ? S.answer.map((id,pos)=>'<button onclick="msScrUnpick('+pos+')" style="padding:9px 14px;border:none;border-radius:12px;background:#fff;font-weight:700;color:var(--navy);font-family:var(--fb);font-size:15px;cursor:pointer;box-shadow:var(--sh)">'+S.toks[id]+'</button>').join('')
-    : '<span style="font-size:12px;color:var(--slate);align-self:center">단어를 순서대로 눌러 문장을 만들어요</span>';
+    ? S.answer.map((id,pos)=>'<button onclick="msScrUnpick('+pos+')" style="padding:9px 14px;border:none;border-radius:12px;background:#fff;font-weight:700;color:var(--navy);font-family:var(--fb);font-size:16px;cursor:pointer;box-shadow:var(--sh)">'+S.toks[id]+'</button>').join('')
+    : '<span style="font-size:13px;color:var(--slate);align-self:center">단어를 순서대로 눌러 문장을 만들어요</span>';
   body.innerHTML='<div style="padding:12px 16px">'
-    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:11px;font-weight:700;color:var(--slate)">문장 '+(S.idx+1)+' / '+S.lines.length+'</span>'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:700;color:var(--slate)">문장 '+(S.idx+1)+' / '+S.lines.length+'</span>'
     +'<button class="btn ba bsm" style="border-radius:50px" onclick="speakSmart(_msScr.lines[_msScr.idx],{el:0.9,tts:0.85})">🔊 듣기</button></div>'
     +'<div style="min-height:52px;display:flex;flex-wrap:wrap;gap:7px;padding:11px;border:2px solid '+ansBorder+';border-radius:13px;background:'+ansBg+';margin-bottom:14px">'+answer+'</div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">'+(bank||'<span style="font-size:12px;color:var(--slate)">아래 확인을 눌러요</span>')+'</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">'+(bank||'<span style="font-size:13px;color:var(--slate)">아래 확인을 눌러요</span>')+'</div>'
     +'</div>';
   const full=S.answer.length===S.toks.length;
   footer.innerHTML='<div style="display:flex;gap:8px">'
@@ -3411,7 +3411,7 @@ function renderMsGame(body,footer){
   const{tb,unitKey}=_msState;
   const words=tuNormWords(tb.units?.[unitKey]||[]).filter(w=>w.word);
   const targets=words.filter(w=>w.ko);
-  if(targets.length<3||words.length<4){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">게임에 쓸 단어가 부족해요</div>';footer.innerHTML=msDoneBtn('game','✓ 완료');return;}
+  if(targets.length<3||words.length<4){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">게임에 쓸 단어가 부족해요</div>';footer.innerHTML=msDoneBtn('game','✓ 완료');return;}
   const pool=[...new Set(words.map(w=>w.word))];
   const rounds=_shuffle(targets).slice(0,8).map(t=>{
     const distract=_shuffle(pool.filter(w=>w.toLowerCase()!==t.word.toLowerCase())).slice(0,3);
@@ -3428,7 +3428,7 @@ function msGameDraw(){
     body.innerHTML='<div style="padding:2rem 1rem;text-align:center">'
       +'<div style="font-size:44px;margin-bottom:6px">'+(pct>=80?'🏆':pct>=50?'🎉':'💪')+'</div>'
       +'<div style="font-size:16px;font-weight:800;color:var(--navy)">게임 끝! '+G.score+' / '+G.rounds.length+' 정답</div>'
-      +'<div style="font-size:12px;color:var(--slate);margin-top:3px">최고 연속 '+G.best+'개 🔥</div>'
+      +'<div style="font-size:13px;color:var(--slate);margin-top:3px">최고 연속 '+G.best+'개 🔥</div>'
       +'<button class="btn bo bsm" style="margin-top:10px;border-radius:50px" onclick="renderMsGame(document.getElementById(\'ms-body\'),document.getElementById(\'ms-footer\'))">↺ 다시 하기</button>'
       +'</div>';
     footer.innerHTML=msDoneBtn('game','✓ 게임 완료!');
@@ -3446,14 +3446,14 @@ function msGameDraw(){
   }).join('');
   body.innerHTML='<div style="padding:14px 16px">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
-    +'<span style="font-size:11px;font-weight:700;color:var(--slate)">'+(G.idx+1)+' / '+G.rounds.length+'</span>'
-    +'<span style="font-size:12px;font-weight:800;color:var(--teal)">점수 '+G.score+(G.streak>1?' · 🔥'+G.streak+'연속':'')+'</span></div>'
+    +'<span style="font-size:12px;font-weight:700;color:var(--slate)">'+(G.idx+1)+' / '+G.rounds.length+'</span>'
+    +'<span style="font-size:13px;font-weight:800;color:var(--teal)">점수 '+G.score+(G.streak>1?' · 🔥'+G.streak+'연속':'')+'</span></div>'
     +'<div style="text-align:center;padding:22px 12px;background:var(--tl);border-radius:16px;margin-bottom:14px">'
-    +'<div style="font-size:11px;color:var(--slate);margin-bottom:4px">이 뜻의 영어 단어는?</div>'
+    +'<div style="font-size:12px;color:var(--slate);margin-bottom:4px">이 뜻의 영어 단어는?</div>'
     +'<div style="font-size:22px;font-weight:800;color:var(--navy)">'+r.ko+'</div></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+opts+'</div>'
     +'</div>';
-  footer.innerHTML='<div style="font-size:11px;color:var(--slate);text-align:center">알맞은 단어를 눌러요 · 틀려도 괜찮아요!</div>';
+  footer.innerHTML='<div style="font-size:12px;color:var(--slate);text-align:center">알맞은 단어를 눌러요 · 틀려도 괜찮아요!</div>';
 }
 function msGamePick(w){
   const G=_msGame;if(!G||G.locked)return;
@@ -3474,32 +3474,32 @@ function renderMsRecord(body,footer){
   const readPractice=(msReadSupported()&&text)
     ?'<div style="margin-bottom:12px;padding:10px 12px;border:1.5px solid var(--teal);border-radius:var(--rs);background:var(--tl)">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">'
-      +'<span style="font-size:12.5px;font-weight:800;color:var(--navy)">🗣 따라 읽기 연습 <span style="font-weight:400;color:var(--slate)">— AI가 발음 정확도를 채점해요</span></span>'
-      +(a.readAccuracy!=null?'<span style="font-size:11px;font-weight:700;color:#047857">최근 '+a.readAccuracy+'%</span>':'')
+      +'<span style="font-size:13.5px;font-weight:800;color:var(--navy)">🗣 따라 읽기 연습 <span style="font-weight:400;color:var(--slate)">— AI가 발음 정확도를 채점해요</span></span>'
+      +(a.readAccuracy!=null?'<span style="font-size:12px;font-weight:700;color:#047857">최근 '+a.readAccuracy+'%</span>':'')
       +'</div>'
       +'<div id="ms-read-practice"><button class="btn bt bsm" style="border-radius:50px" onclick="msReadStart()">▶ 문장별 연습 시작</button>'
-      +'<span style="font-size:11px;color:var(--slate);margin-left:8px">맞게 읽은 단어는 파란색, 놓친 단어는 빨간색!</span></div>'
+      +'<span style="font-size:12px;color:var(--slate);margin-left:8px">맞게 읽은 단어는 파란색, 놓친 단어는 빨간색!</span></div>'
       +'</div>'
     :'';
   body.innerHTML='<div style="padding:12px 16px">'
-    +'<div style="font-size:12px;color:var(--slate);margin-bottom:10px">본문을 <b>소리 내어 읽으면서 녹음</b>해 주세요. 제출하면 선생님이 들어보실 거예요 🎧</div>'
+    +'<div style="font-size:13px;color:var(--slate);margin-bottom:10px">본문을 <b>소리 내어 읽으면서 녹음</b>해 주세요. 제출하면 선생님이 들어보실 거예요 🎧</div>'
     +readPractice
-    +(done&&a.recUrl?'<div style="margin-bottom:10px;padding:10px;background:#D9F6E9;border-radius:var(--rs);font-size:12px;color:#047857">✅ 낭독을 제출했어요! 다시 녹음해서 또 제출할 수도 있어요.<audio controls src="'+a.recUrl+'" style="width:100%;height:32px;margin-top:6px"></audio></div>':'')
+    +(done&&a.recUrl?'<div style="margin-bottom:10px;padding:10px;background:#D9F6E9;border-radius:var(--rs);font-size:13px;color:#047857">✅ 낭독을 제출했어요! 다시 녹음해서 또 제출할 수도 있어요.<audio controls src="'+a.recUrl+'" style="width:100%;height:32px;margin-top:6px"></audio></div>':'')
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
     +'<button id="ms-rec-start" class="btn bt" style="border-radius:50px;padding:11px 20px;font-weight:700" onclick="msStartRec()">🎙 녹음 시작</button>'
     +'<button id="ms-rec-stop" class="btn bd" style="display:none;border-radius:50px;padding:11px 20px" onclick="msStopRec()">⏹ 녹음 끝내기</button>'
-    +'<span id="ms-rec-timer" style="display:none;font-size:13px;color:var(--coral);font-weight:700">⏺ <span id="ms-rec-time">0:00</span></span>'
+    +'<span id="ms-rec-timer" style="display:none;font-size:14px;color:var(--coral);font-weight:700">⏺ <span id="ms-rec-time">0:00</span></span>'
     +'</div>'
     +'<div id="ms-rec-preview" style="display:none;margin-bottom:10px">'
     +'<audio id="ms-rec-player" controls style="width:100%;height:34px"></audio>'
     +'<button id="ms-rec-submit" class="btn bt" style="width:100%;margin-top:6px;border-radius:50px;padding:12px;font-weight:700" onclick="msSubmitRec()">📤 낭독 제출하기</button>'
-    +'<div id="ms-rec-status" style="margin-top:6px;font-size:12px;line-height:1.6"></div>'
+    +'<div id="ms-rec-status" style="margin-top:6px;font-size:13px;line-height:1.6"></div>'
     +'</div>'
-    +(text?'<div style="font-size:15px;line-height:1.9;color:var(--navy);border-top:1px solid var(--border);padding-top:10px">'+text.split(/\n+/).map(p=>'<p style="margin:0 0 8px">'+p+'</p>').join('')+'</div>':'')
+    +(text?'<div style="font-size:16px;line-height:1.9;color:var(--navy);border-top:1px solid var(--border);padding-top:10px">'+text.split(/\n+/).map(p=>'<p style="margin:0 0 8px">'+p+'</p>').join('')+'</div>':'')
     +'</div>';
   footer.innerHTML=done
     ?'<button class="btn bo" style="width:100%;border-radius:50px;padding:13px" disabled>✓ 낭독 제출 완료</button>'
-    :'<div style="font-size:11px;color:var(--slate);text-align:center">녹음을 제출하면 자동으로 완료 처리돼요</div>';
+    :'<div style="font-size:12px;color:var(--slate);text-align:center">녹음을 제출하면 자동으로 완료 처리돼요</div>';
 }
 async function msStartRec(){
   try{
@@ -3593,22 +3593,22 @@ function msRenderReadSent(){
     const stars=msReadStars(avg);
     const starHtml=stars?'⭐'.repeat(stars):'🌱';
     const msg=stars===3?'완벽한 낭독이에요!':stars===2?'정말 잘 읽었어요!':stars===1?'점점 좋아지고 있어요!':'연습한 것 자체가 대단해요!';
-    const growth=isNewBest?'<div style="font-size:12px;font-weight:800;color:#B45309;margin-top:4px">🏆 내 최고 기록 갱신!</div>'
-      :(a.readTries>=3?'<div style="font-size:12px;font-weight:700;color:#0B8DAE;margin-top:4px">🔥 '+a.readTries+'번째 도전 — 끈기가 최고예요!</div>':'');
+    const growth=isNewBest?'<div style="font-size:13px;font-weight:800;color:#B45309;margin-top:4px">🏆 내 최고 기록 갱신!</div>'
+      :(a.readTries>=3?'<div style="font-size:13px;font-weight:700;color:#0B8DAE;margin-top:4px">🔥 '+a.readTries+'번째 도전 — 끈기가 최고예요!</div>':'');
     el.innerHTML='<div style="text-align:center;padding:10px 0">'
       +'<div style="font-size:30px;margin-bottom:4px">'+starHtml+'</div>'
-      +'<div style="font-size:14px;font-weight:800;color:var(--navy)">읽기 연습 완료 — '+msg+'</div>'
-      +(stars>=2?'<div style="font-size:12px;color:#047857;font-weight:700;margin-top:2px">정확도 '+avg+'%</div>':'')
+      +'<div style="font-size:15px;font-weight:800;color:var(--navy)">읽기 연습 완료 — '+msg+'</div>'
+      +(stars>=2?'<div style="font-size:13px;color:#047857;font-weight:700;margin-top:2px">정확도 '+avg+'%</div>':'')
       +growth
-      +'<div style="font-size:11px;color:var(--slate);margin-top:3px">선생님에게 자동으로 전달됐어요</div>'
+      +'<div style="font-size:12px;color:var(--slate);margin-top:3px">선생님에게 자동으로 전달됐어요</div>'
       +'<button class="btn bo bsm" style="margin-top:8px;border-radius:50px" onclick="msReadStart()">🔁 다시 연습하기</button>'
       +'</div>';
     return;
   }
   const words=sents[idx].split(' ').filter(Boolean);
   el.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
-    +'<span style="font-size:11px;font-weight:700;color:var(--slate)">문장 '+(idx+1)+' / '+sents.length+'</span>'
-    +'<span id="ms-read-score" style="font-size:11px;font-weight:700;color:var(--teal)"></span></div>'
+    +'<span style="font-size:12px;font-weight:700;color:var(--slate)">문장 '+(idx+1)+' / '+sents.length+'</span>'
+    +'<span id="ms-read-score" style="font-size:12px;font-weight:700;color:var(--teal)"></span></div>'
     +'<div id="ms-read-sent" style="font-size:17px;line-height:1.8;color:var(--navy);padding:10px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);margin-bottom:8px">'
     +words.map((w,i)=>'<span id="ms-rw-'+i+'">'+w+'</span>').join(' ')+'</div>'
     +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
@@ -3682,19 +3682,19 @@ function msReadDone(){
   bar.id='ms-read-result';
   bar.style.cssText='margin-top:8px';
   bar.innerHTML='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-    +'<span style="font-size:15px">'+starHtml+'</span>'
-    +'<span style="font-size:13px;font-weight:800;color:var(--navy)">'+msg+'</span>'
-    +(stars>=2?'<span style="font-size:11px;font-weight:700;color:#047857">'+pct+'%</span>':'')
+    +'<span style="font-size:16px">'+starHtml+'</span>'
+    +'<span style="font-size:14px;font-weight:800;color:var(--navy)">'+msg+'</span>'
+    +(stars>=2?'<span style="font-size:12px;font-weight:700;color:#047857">'+pct+'%</span>':'')
     +'<button class="btn bo bsm" style="border-radius:50px" onclick="msRenderReadSent()">🔁 다시</button>'
     +'<button class="btn bt bsm" style="border-radius:50px;margin-left:auto" onclick="msReadNext(false,'+pct+')">다음 문장 →</button>'
     +'</div>'
     +(missed.length?'<div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">'
       +missed.slice(0,3).map(m=>'<div style="display:flex;align-items:center;gap:7px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);padding:6px 9px">'
         +'<b style="color:#DC2626;font-family:var(--fd)">'+m.w+'</b>'
-        +'<button class="btn ba bsm" style="border-radius:50px;font-size:11px" onclick="speakSmart(\''+m.w.replace(/'/g,"\\'")+'\',0.8)">🔊 듣기</button>'
-        +'<button class="btn bt bsm" id="ms-wr-'+m.i+'" style="border-radius:50px;font-size:11px" onclick="msWordRetry(\''+m.w.replace(/'/g,"\\'")+'\','+m.i+')">🎤 이 단어 다시</button>'
+        +'<button class="btn ba bsm" style="border-radius:50px;font-size:12px" onclick="speakSmart(\''+m.w.replace(/'/g,"\\'")+'\',0.8)">🔊 듣기</button>'
+        +'<button class="btn bt bsm" id="ms-wr-'+m.i+'" style="border-radius:50px;font-size:12px" onclick="msWordRetry(\''+m.w.replace(/'/g,"\\'")+'\','+m.i+')">🎤 이 단어 다시</button>'
         +'</div>').join('')
-      +'</div><div id="ms-read-tip" style="margin-top:6px;font-size:12px;line-height:1.6;color:#0B8DAE"></div>':'');
+      +'</div><div id="ms-read-tip" style="margin-top:6px;font-size:13px;line-height:1.6;color:#0B8DAE"></div>':'');
   el.appendChild(bar);
   if(missed.length)msReadAiTip(_msRead.sents[_msRead.idx],missed.map(m=>m.w));
 }
@@ -3754,7 +3754,7 @@ function msReadNext(skip,pct){
 // ── 속도 레벨 UI + 문장별 재생 (레벨별 쉼 + 문장 하이라이트) ──
 function ttsLevelSeg(cur,fnName){
   return '<div class="seg" style="flex:0 0 auto">'+Object.entries(TTS_LEVELS).map(([id,L])=>
-    '<button type="button" class="'+(cur===id?'seg-on':'')+'" onclick="'+fnName+'(\''+id+'\')" style="font-size:11px;padding:5px 9px">'+L.label+'</button>').join('')+'</div>';
+    '<button type="button" class="'+(cur===id?'seg-on':'')+'" onclick="'+fnName+'(\''+id+'\')" style="font-size:12px;padding:5px 9px">'+L.label+'</button>').join('')+'</div>';
 }
 async function speakSentences(text,levelId,hiPrefix){
   const L=TTS_LEVELS[levelId]||TTS_LEVELS.intermediate;
@@ -3919,15 +3919,15 @@ function blDraw(){
   const safe='bl_'+(S.b.id||'').replace(/[^a-z0-9]/gi,'_');
   const recHtml='<div style="margin:4px 0 10px;padding:9px 12px;background:var(--cream2);border:1px solid var(--border);border-radius:10px">'
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-    +'<span style="font-size:12px;font-weight:700;color:var(--navy)">🎙 글을 보면서 낭독</span>'
-    +`<button id="lib-rec-start-${safe}" class="btn bo bsm" style="font-size:11px" onclick="startLibRec('${safe}','${currentStudentSid}','${escJsA(S.b.title)}')">🎙 녹음 시작</button>`
-    +`<button id="lib-rec-stop-${safe}" class="btn bd bsm" style="display:none;font-size:11px" onclick="stopLibRec('${safe}')">⏹ 중지</button>`
-    +`<span id="lib-rec-timer-${safe}" style="display:none;font-size:12px;color:var(--teal);font-family:var(--fm)">⏺ <span id="lib-rec-time-${safe}">0:00</span></span>`
+    +'<span style="font-size:13px;font-weight:700;color:var(--navy)">🎙 글을 보면서 낭독</span>'
+    +`<button id="lib-rec-start-${safe}" class="btn bo bsm" style="font-size:12px" onclick="startLibRec('${safe}','${currentStudentSid}','${escJsA(S.b.title)}')">🎙 녹음 시작</button>`
+    +`<button id="lib-rec-stop-${safe}" class="btn bd bsm" style="display:none;font-size:12px" onclick="stopLibRec('${safe}')">⏹ 중지</button>`
+    +`<span id="lib-rec-timer-${safe}" style="display:none;font-size:13px;color:var(--teal);font-family:var(--fm)">⏺ <span id="lib-rec-time-${safe}">0:00</span></span>`
     +'</div>'
     +`<div id="lib-preview-${safe}" style="display:none;margin-top:8px">`
     +`<audio id="lib-player-${safe}" controls style="width:100%;height:34px"></audio>`
-    +`<button id="lib-submit-${safe}" class="btn bt bsm" style="margin-top:6px;width:100%;font-size:12px" onclick="submitLibRec('${safe}','${escAttr(S.b.id)}','${currentStudentSid}','${escJsA(S.b.title)}')">📤 낭독 제출</button>`
-    +`<div id="lib-ai-${safe}" style="margin-top:6px;font-size:12px;line-height:1.6"></div>`
+    +`<button id="lib-submit-${safe}" class="btn bt bsm" style="margin-top:6px;width:100%;font-size:13px" onclick="submitLibRec('${safe}','${escAttr(S.b.id)}','${currentStudentSid}','${escJsA(S.b.title)}')">📤 낭독 제출</button>`
+    +`<div id="lib-ai-${safe}" style="margin-top:6px;font-size:13px;line-height:1.6"></div>`
     +'</div></div>';
   body.innerHTML='<div style="padding:12px 16px">'
     +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
@@ -3935,7 +3935,7 @@ function blDraw(){
     +'<button class="btn ba bsm" style="border-radius:50px;padding:7px 14px" onclick="blStop()">■ 정지</button>'
     +ttsLevelSeg(S.level,'blSetLevel')
     +'</div>'
-    +'<div style="font-size:11px;color:var(--slate);margin-bottom:8px">하이라이트되는 문장을 눈으로 따라 읽으세요 · 속도는 책 수준(<b>'+(TTS_LEVELS[S.level]?.short||'초급')+'</b>) 자동</div>'
+    +'<div style="font-size:12px;color:var(--slate);margin-bottom:8px">하이라이트되는 문장을 눈으로 따라 읽으세요 · 속도는 책 수준(<b>'+(TTS_LEVELS[S.level]?.short||'초급')+'</b>) 자동</div>'
     +recHtml
     +'<div style="font-size:15.5px;line-height:1.95;color:var(--navy)">'+sentHtml+'</div>'
     +'</div>';
@@ -3955,7 +3955,7 @@ async function openWsView(wsId,asgnId,sid){
   if(!body)return;
   document.getElementById('wsv-title').textContent='🗒️ 워크시트';
   document.getElementById('wsv-sub').textContent='';
-  body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">불러오는 중…</div>';
+  body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">불러오는 중…</div>';
   footer.innerHTML='';
   openM('m-ws-view');
   let w=null;
@@ -3963,7 +3963,7 @@ async function openWsView(wsId,asgnId,sid){
     const r=await fetch(`${SUPA_URL}/rest/v1/worksheets?id=eq.${encodeURIComponent(wsId)}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
     if(r.ok)w=(await r.json())?.data;
   }catch(e){}
-  if(!w){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:13px">워크시트를 불러오지 못했어요.<br>선생님께 말씀드려 주세요.</div>';return;}
+  if(!w){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">워크시트를 불러오지 못했어요.<br>선생님께 말씀드려 주세요.</div>';return;}
   document.getElementById('wsv-title').textContent='🗒️ '+(w.title||'워크시트');
   document.getElementById('wsv-sub').textContent=[w.gradeLevel,(w.passageType==='literature'?'문학':'정보글'),w.guidelineLanguage].filter(Boolean).join(' · ');
   const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -3975,13 +3975,13 @@ async function openWsView(wsId,asgnId,sid){
   for(const id of order){
     const d=w.sections[id];if(!d)continue;
     let inner='';
-    if(id==='comp'||id==='discussion')inner=numQ(d.questions||[],q=>esc(q.question)+(q.followUp?'<div style="font-size:12px;color:var(--slate)">↳ '+esc(q.followUp)+'</div>':''));
+    if(id==='comp'||id==='discussion')inner=numQ(d.questions||[],q=>esc(q.question)+(q.followUp?'<div style="font-size:13px;color:var(--slate)">↳ '+esc(q.followUp)+'</div>':''));
     else if(id==='thinking')inner=numQ(d.prompts||[],p=>esc(p.prompt));
     else if(id==='literal')inner=numQ(d.sentences||[],x=>esc(x.original));
-    else if(id==='vocab')inner=numQ(d.words||[],x=>'<b>'+esc(x.word)+'</b>'+(x.fillBlankSentence?'<div style="font-size:12.5px;color:var(--slate)">'+esc(x.fillBlankSentence)+'</div>':''));
+    else if(id==='vocab')inner=numQ(d.words||[],x=>'<b>'+esc(x.word)+'</b>'+(x.fillBlankSentence?'<div style="font-size:13.5px;color:var(--slate)">'+esc(x.fillBlankSentence)+'</div>':''));
     else if(id==='summary')inner='<p style="margin:0 0 6px"><b>핵심 질문:</b> '+esc(d.essentialQuestion||'')+'</p><p style="margin:0;line-height:1.7">'+esc(d.overview||'')+'</p>';
     else if(id==='writing')inner='<p style="margin:0 0 6px"><b>주제:</b> '+esc(d.topic||'')+'</p>'+numQ(d.brainstorm||[],b=>esc(b.question));
-    else if(id==='grammar')inner=numQ(d.points||[],g=>'<b>'+esc(g.point)+'</b><div style="font-size:12.5px;color:var(--slate)">'+esc(g.practice||'')+'</div>');
+    else if(id==='grammar')inner=numQ(d.points||[],g=>'<b>'+esc(g.point)+'</b><div style="font-size:13.5px;color:var(--slate)">'+esc(g.practice||'')+'</div>');
     else if(Array.isArray(d.elements))inner=numQ(d.elements,e2=>'<b>'+esc(e2.label||e2.stage||'')+'</b> '+esc(e2.content||''));
     else if(Array.isArray(d.devices))inner=numQ(d.devices,x=>'<b>'+esc(x.device)+'</b> — <i>'+esc(x.quote||'')+'</i>');
     else if(Array.isArray(d.characters))inner=numQ(d.characters,c=>'<b>'+esc(c.name)+'</b>');
@@ -3989,10 +3989,10 @@ async function openWsView(wsId,asgnId,sid){
     else continue;
     h.push('<div class="wsv-sec"><div class="wsv-sec-t">'+(secTitle[id]||id)+'</div>'+inner+'</div>');
   }
-  body.innerHTML='<div style="padding:12px 16px;font-size:14px;color:var(--navy)">'
-    +'<style>.wsv-sec{margin-bottom:16px}.wsv-sec-t{font-size:12px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:.03em;background:var(--tl);border-radius:7px;padding:5px 10px;margin-bottom:8px}</style>'
+  body.innerHTML='<div style="padding:12px 16px;font-size:15px;color:var(--navy)">'
+    +'<style>.wsv-sec{margin-bottom:16px}.wsv-sec-t{font-size:13px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:.03em;background:var(--tl);border-radius:7px;padding:5px 10px;margin-bottom:8px}</style>'
     +h.join('')
-    +'<div style="font-size:11px;color:var(--slate);text-align:center;padding:8px 0">종이 워크시트는 선생님이 인쇄해서 나눠줘요 ✏️</div>'
+    +'<div style="font-size:12px;color:var(--slate);text-align:center;padding:8px 0">종이 워크시트는 선생님이 인쇄해서 나눠줘요 ✏️</div>'
     +'</div>';
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);
   footer.innerHTML=(a&&!a.completedAt)
