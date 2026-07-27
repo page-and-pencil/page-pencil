@@ -2100,7 +2100,7 @@ function _wkBump(delta){
 }
 async function completeAssignment(sid,asgnId){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
-  a.completedAt=new Date().toISOString();
+  a.completedAt=new Date().toISOString();a.completedBy='student';
   // 카드 즉시 .done — 리스트는 그대로 (접힘·스크롤 이동 없음)
   const card=document.getElementById('hw-card-'+asgnId);
   if(card){
@@ -2134,7 +2134,7 @@ async function completeSchedDay(sid,asgnId,ds){
   const reb=(typeof recurRebase==='function')?recurRebase(a):null;
   if(reb)a.schedule=reb; // 자동 진행: 밀린 스케줄 반영 후 체크 (선생님 앱과 같은 규칙)
   const sc=(a.schedule||[]).find(s=>s.date===ds);if(!sc||sc.done)return;
-  sc.done=true;
+  sc.done=true;sc.doneBy='student';sc.doneAt=new Date().toISOString();
   const card=document.getElementById('sch-card-'+asgnId+'-'+ds);
   if(card){
     card.classList.add('done');
@@ -2154,7 +2154,7 @@ async function uncompleteSchedDay(sid,asgnId,ds){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
   const sc=(a.schedule||[]).find(s=>s.date===ds);if(!sc||!sc.done)return;
   askConfirm('완료 취소','오늘 몫의 완료 표시를 취소할까요?','되돌리기','bd',async()=>{
-    delete sc.done;
+    delete sc.done;delete sc.doneBy;delete sc.doneAt;
     await supaUpsert('assignments',asgnId,a,sid);
     renderStudentHome(sid);
     toast('완료 표시를 취소했습니다');
