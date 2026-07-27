@@ -8,8 +8,8 @@
   --slate:#5A6B7B;--border:rgba(15,48,74,0.08);
   --sh:0 1px 3px rgba(15,48,74,0.06);--shlg:0 8px 32px rgba(15,48,74,0.12);
   --r:12px;--rs:8px;
-  --fb:'Noto Sans','Noto Sans KR',sans-serif;--fd:var(--fb);--fm:var(--fb);
-  --flogo:'Montserrat','Noto Sans','Noto Sans KR',sans-serif; /* 로고 전용 — Page & Pencil 로고만 Montserrat 유지 (2026-07-27 원장 지시) */
+  --fb:'SUIT Variable','SUIT',sans-serif;--fd:var(--fb);--fm:var(--fb);
+  --flogo:'Montserrat','SUIT Variable',sans-serif; /* 로고 전용 — Page & Pencil 로고만 Montserrat 유지 (2026-07-27 원장 지시) */
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height:100vh;font-size:15px;line-height:1.65;}
