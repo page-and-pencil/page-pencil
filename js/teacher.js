@@ -8859,8 +8859,8 @@ async function hwSchedShift(aid,dateStr){
 // 선생님이 대신 완료 체크 — 학생이 숙제는 했는데 앱에서 체크를 안 한 경우
 async function tAsgnToggleDone(aid){
   const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
-  if(a.completedAt)delete a.completedAt;
-  else a.completedAt=new Date().toISOString();
+  if(a.completedAt){delete a.completedAt;delete a.completedBy;}
+  else{a.completedAt=new Date().toISOString();a.completedBy='teacher';}
   try{await supaUpsert('assignments',a.id,a,a.sid);}
   catch(e){console.error('tAsgnToggleDone:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
   renderAssignTab();renderAssignCal();
@@ -8870,7 +8870,7 @@ async function tAsgnToggleDone(aid){
 async function hwSchedToggleDone(aid,dateStr){
   const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
   const sc=(a.schedule||[]).find(s=>s.date===dateStr);if(!sc)return;
-  if(sc.done)delete sc.done;else sc.done=true;
+  if(sc.done){delete sc.done;delete sc.doneBy;delete sc.doneAt;}else{sc.done=true;sc.doneBy='teacher';sc.doneAt=new Date().toISOString();}
   try{await supaUpsert('assignments',a.id,a,a.sid);}
   catch(e){console.error('hwSchedToggleDone:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
   toast(sc.done?'이 날 완료 ✓':'완료 표시를 취소했어요');
@@ -8979,7 +8979,7 @@ function renderAssignTab(){
           <div style="font-size:10.5px;color:var(--slate)">${ds} 분량 · 전체 일정은 숙제 캘린더</div>
         </div>
         <div style="display:flex;gap:3px;flex-shrink:0;align-items:center">
-          ${sc.done?`<span class="badge bgreen" style="font-size:9.5px">완료</span>`:''}
+          ${sc.done?`<span class="badge bgreen" style="font-size:9.5px" title="${sc.doneBy==='student'?'학생이 앱에서 체크':sc.doneBy==='teacher'?'선생님이 체크':'체크 주체 기록 전(구 데이터)'}${sc.doneAt?' · '+new Date(sc.doneAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}):''}">완료${sc.doneBy==='student'?' · 학생':sc.doneBy==='teacher'?' · 쌤':''}</span>`:''}
           <button class="btn ${sc.done?'bo':'bt'}" style="font-size:9.5px;padding:1px 5px;min-height:0;line-height:1.2" title="${sc.done?'이 날 완료 표시를 취소':'이 날 분량을 완료로 표시'}" onclick="hwSchedToggleDone('${a.id}','${ds}')">${sc.done?'완료 취소':'✓ 완료'}</button>
           <button class="btn bo" style="font-size:9.5px;padding:1px 5px;min-height:0;line-height:1.2" onclick="openEditAssignModal('${a.id}')">수정</button>
         </div>
