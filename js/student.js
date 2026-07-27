@@ -1073,7 +1073,12 @@ function renderVocabDeck(sid){
     (_cache.logs||[]).filter(l=>l.sid===sid&&l.date===recentDate).forEach(l=>(l.words||[]).forEach(w=>lessonWords.add(String(w).toLowerCase().trim())));
     session=cards.filter(c=>lessonWords.has((c.word||'').toLowerCase())).sort(prio);
   }else if(mode==='daily'){
-    session=cards.filter(c=>c.lastSeen!==today).sort(prio).slice(0,20);
+    // 에빙하우스 순서: ①복습 기한이 지난 카드(많이 밀린 순) ②처음 보는 카드 ③기한 전 카드(임박순, 모자랄 때만)
+    const pool=cards.filter(c=>c.lastSeen!==today);
+    const overdue=pool.filter(c=>c.lastSeen&&(!c.due||c.due<=today)).sort((a,b)=>(a.due||'0').localeCompare(b.due||'0')||(a.lastSeen||'').localeCompare(b.lastSeen||''));
+    const fresh=pool.filter(c=>!c.lastSeen);
+    const notYet=pool.filter(c=>c.lastSeen&&c.due&&c.due>today).sort((a,b)=>a.due.localeCompare(b.due));
+    session=[...overdue,...fresh,...notYet].slice(0,20);
   }else{
     session=[...cards].sort((a,b)=>{
       const aR=a.addedDate===recentDate?1:0,bR=b.addedDate===recentDate?1:0;
@@ -1697,10 +1702,15 @@ async function renderVocabResult(el){
     const correct=res?('correct' in res?res.correct:res.knew):false;
     const ci=(_cache.vocab_cards||[]).findIndex(c=>c.id===card.id);
     if(ci>=0){
+      // 에빙하우스 간격 반복: 맞으면 다음 박스(1→2→4→7→15→30→60일 뒤 복습), 틀리면 1일 뒤로 리셋
+      const BOXD=[1,2,4,7,15,30,60];
+      const box0=_cache.vocab_cards[ci].box||0;
+      const nbox=correct?Math.min(box0+1,BOXD.length-1):0;
+      const nd=new Date(today+'T12:00:00');nd.setDate(nd.getDate()+BOXD[nbox]);
       const updated={..._cache.vocab_cards[ci],
         hits:(_cache.vocab_cards[ci].hits||0)+(correct?1:0),
         misses:(_cache.vocab_cards[ci].misses||0)+(correct?0:1),
-        lastSeen:today
+        lastSeen:today,box:nbox,due:ppYmd(nd)
       };
       _cache.vocab_cards[ci]=updated;
       await supaUpsert('vocab_cards',card.id,updated,card.sid);
@@ -1757,18 +1767,12 @@ function vocabRetryMissed(){
 
 // ── GAMIFICATION HELPERS ──
 // XP는 실제 학습 데이터에서 파생 (수업 10 · 과제 20 · 단어 정답 2 · 마스터 5 · 완독 15 · 원서 10 · 테스트 10)
-const XP_LEVELS=[
-  {xp:0,icon:'\uD83D\uDC23',name:'병아리 리더'},
-  {xp:80,icon:'\uD83C\uDF31',name:'새싹 리더'},
-  {xp:200,icon:'\uD83D\uDCD6',name:'스토리 탐험가'},
-  {xp:400,icon:'\uD83D\uDD24',name:'워드 헌터'},
-  {xp:700,icon:'\uD83D\uDE80',name:'리딩 로켓'},
-  {xp:1100,icon:'\u2B50',name:'스타 리더'},
-  {xp:1600,icon:'\uD83C\uDFC5',name:'북 마스터'},
-  {xp:2300,icon:'\uD83E\uDDD9',name:'문장 마법사'},
-  {xp:3100,icon:'\uD83D\uDC51',name:'리딩 킹'},
-  {xp:4000,icon:'\uD83D\uDC09',name:'레전드 드래곤'}
-];
+// 100레벨 커브: xpForLevel(n)=30*(n-1)^1.85 — Lv2=30, Lv13≈2900, Lv100≈147,000 (학습량 대비 과도한 레벨 인플레 방지)
+const XP_TIERS=[
+  {icon:'🐣',name:'병아리 리더'},{icon:'🌱',name:'새싹 리더'},{icon:'📖',name:'스토리 탐험가'},
+  {icon:'🔤',name:'워드 헌터'},{icon:'🚀',name:'리딩 로켓'},{icon:'⭐',name:'스타 리더'},
+  {icon:'🏅',name:'북 마스터'},{icon:'🧙',name:'문장 마법사'},{icon:'👑',name:'리딩 킹'},{icon:'🐉',name:'레전드 드래곤'}];
+function xpForLevel(n){return n<=1?0:Math.round(30*Math.pow(n-1,1.85));}
 function stuXP(sid){
   const les=DB.less().filter(l=>l.sid===sid&&l.att!=='absent').length;
   const asgn=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).length;
@@ -1782,10 +1786,10 @@ function stuXP(sid){
   return les*10+asgn*20+hits*2+mastered*5+readLogs*15+rds*10+tests*10+bossWins*30;
 }
 function stuLevelOf(xp){
-  let i=0;while(i+1<XP_LEVELS.length&&xp>=XP_LEVELS[i+1].xp)i++;
-  const cur=XP_LEVELS[i],next=XP_LEVELS[i+1]||null;
-  const pct=next?Math.min(100,Math.round((xp-cur.xp)/(next.xp-cur.xp)*100)):100;
-  return{n:i+1,...cur,next,pct};
+  let n=1;while(n<100&&xp>=xpForLevel(n+1))n++;
+  const cur=xpForLevel(n),nx=n<100?xpForLevel(n+1):null;
+  const tier=XP_TIERS[Math.min(9,Math.floor((n-1)/10))];
+  return{n,icon:tier.icon,name:tier.name,next:nx!=null?{xp:nx}:null,pct:nx!=null?Math.min(100,Math.round((xp-cur)/(nx-cur)*100)):100};
 }
 function stuLevelUpCheck(sid){
   try{
@@ -1820,11 +1824,8 @@ function stuXpCard(sid,streak){
 // ── 배지 진열장 (기존 8종 + 보스 승수 배지) ──
 function stuBadgeShelf(sid){
   const bs=(typeof getBadges==='function')?getBadges(sid):[];
-  const wins=((DB.stus().find(x=>x.id===sid)||{}).bossWins)||0;
-  const all=[...bs,
-    {id:'boss1',icon:'👑',name:'보스 1승',unlocked:wins>=1},
-    {id:'boss5',icon:'🐲',name:'보스 5승',unlocked:wins>=5},
-    {id:'boss10',icon:'🌟',name:'보스 10승',unlocked:wins>=10}];
+  const all=[...bs];
+  all.sort((a,b)=>(b.unlocked?1:0)-(a.unlocked?1:0));
   const got=all.filter(b=>b.unlocked).length;
   return `<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:15px 18px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
@@ -1839,24 +1840,48 @@ function _bossWeekKey(){
   const mon=new Date(t);mon.setDate(t.getDate()-((t.getDay()+6)%7));
   return ppYmd(mon);
 }
+const BOSS_POOL=(()=>{
+  const mons=[['🐉','드래곤'],['👹','오우거'],['🗿','골렘'],['🟢','슬라임'],['👻','유령'],
+    ['🏴‍☠️','해적'],['🤖','로봇'],['🧙','마법사'],['🦖','티라노'],['🐺','늑대'],
+    ['🦈','상어'],['🐙','크라켄'],['⛄','예티'],['🦇','뱀파이어'],['🕷️','거미'],
+    ['🧟','좀비'],['🦂','전갈'],['🐍','바실리스크'],['🔥','불의 정령'],['❄️','얼음 정령'],
+    ['⚡','번개 정령'],['🌪️','태풍 정령'],['🗡️','기사단장'],['🏰','성주'],['💀','해골왕']];
+  const kinds=[
+    {k:'w',lbl:'워드',targets:[120,150,180,220],desc:t=>'이번 주에 단어 '+t+'개를 만나면 쓰러져요 (숙제 몫 100개보다 더!)'},
+    {k:'d',lbl:'개근',targets:[5,6,7],desc:t=>'이번 주 '+t+'일 학습하면 쓰러져요 (주 목표 4일보다 더!)'},
+    {k:'m',lbl:'마스터',targets:[10,15,20,25],desc:t=>'이번 주에 단어 '+t+'개를 마스터(3번 정답)하면 쓰러져요'},
+    {k:'q',lbl:'퀘스트',targets:[16,18,20,24],desc:t=>'이번 주 퀘스트를 '+t+'개 클리어하면 쓰러져요 (필수보다 더!)'}];
+  const out=[];let i=0;
+  for(const [icon,mon] of mons)for(const kd of kinds){
+    const tg=kd.targets[i%kd.targets.length];
+    out.push({icon,name:kd.lbl+' '+mon,k:kd.k,target:tg,desc:kd.desc(tg)});i++;
+  }
+  return out; // 25종 몬스터 x 4계열 = 100종
+})();
 function weeklyBossInfo(sid){
   const wk=_bossWeekKey();
-  const idx=Math.floor(new Date(wk+'T12:00:00').getTime()/(7*864e5))%3;
+  let h=0;for(const ch of (wk+sid))h=(h*31+ch.charCodeAt(0))>>>0;
+  const def=BOSS_POOL[h%BOSS_POOL.length];
   const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
-  let b;
-  if(idx===0){
-    b={icon:'🐉',name:'워드 드래곤',desc:'이번 주에 단어 150개를 만나면 쓰러져요 (숙제 몫보다 50개 더!)',target:150,prog:cards.filter(c=>(c.lastSeen||'')>=wk).length,go:"openVocabStudy('daily')"};
-  }else if(idx===1){
-    b={icon:'👹',name:'스트릭 오우거',desc:'이번 주 6일 학습하면 쓰러져요 (주 목표 4일보다 2일 더!)',target:6,prog:getWeekDays(sid).filter(d=>d.done).length,go:"swStuTab('st-home')"};
-  }else{
+  let prog=0,go="openVocabStudy('daily')";
+  if(def.k==='w')prog=cards.filter(c=>(c.lastSeen||'')>=wk).length;
+  else if(def.k==='d'){prog=getWeekDays(sid).filter(d=>d.done).length;go="swStuTab('st-home')";}
+  else if(def.k==='m'){
     const mastered=cards.filter(c=>(c.hits||0)>=3).length;
     const bk='pp_bossbase_'+sid+'_'+wk;
     let base=parseInt(localStorage.getItem(bk)||'-1');
     if(base<0){base=mastered;try{localStorage.setItem(bk,String(base));}catch(e){}}
-    b={icon:'🗿',name:'마스터 골렘',desc:'이번 주에 단어 15개를 마스터(3번 정답)하면 쓰러져요',target:15,prog:Math.max(0,mastered-base),go:"openVocabStudy('last')"};
+    prog=Math.max(0,mastered-base);go="openVocabStudy('last')";
+  }else{
+    const asg=(_cache.assignments||[]).filter(a=>a.sid===sid&&!a._deleted);
+    let n=0;
+    for(const a of asg){
+      if((a.completedAt||'').slice(0,10)>=wk)n++;
+      (a.schedule||[]).forEach(sc=>{if(sc.done&&sc.date>=wk)n++;});
+    }
+    prog=n;go="swStuTab('st-home')";
   }
-  b.week=wk;b.done=b.prog>=b.target;
-  return b;
+  return{icon:def.icon,name:def.name,desc:def.desc,target:def.target,prog,go,week:wk,done:prog>=def.target};
 }
 function stuBossCard(sid){
   const b=weeklyBossInfo(sid);

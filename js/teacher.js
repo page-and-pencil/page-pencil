@@ -7245,20 +7245,31 @@ function checkStreak(les){
   return recent.length>=20;
 }
 function getBadges(sid){
-  const rds=DB.allRds(sid);
-  const les=DB.less().filter(l=>l.sid===sid);
+  // 배지 100종 — 전부 실데이터 파생 (원서·수업·테스트·만점·단어·마스터·퀘스트·학습일·보스·레벨)
+  const rds=DB.allRds(sid).filter(r=>r.date).length;
+  const lesN=DB.less().filter(l=>l.sid===sid&&l.att!=='absent').length;
   const tsts=DB.tsts().filter(t=>t.sid===sid);
   const perfect=tsts.filter(t=>pct(t.vocabCorrect,t.vocabTotal)===100).length;
+  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const seen=cards.filter(c=>c.lastSeen).length;
+  const mastered=cards.filter(c=>(c.hits||0)>=3).length;
+  const asgnDone=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).length;
+  const stampDays=new Set((_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).map(a=>(a.completedAt||'').slice(0,10))).size;
+  const wins=(((_cache.students||[]).find(x=>x.id===sid))||{}).bossWins||0;
+  const lvl=(typeof stuLevelOf==='function'&&typeof stuXP==='function')?stuLevelOf(stuXP(sid)).n:1;
+  const mk=(pre,icon,tpl,arr,val)=>arr.map(t=>({id:pre+t,icon,name:tpl.replace('{n}',t),unlocked:val>=t}));
   return [
-    {id:'rd10',icon:'📚',name:'원서 10권',unlocked:rds.length>=10},
-    {id:'rd25',icon:'📖',name:'원서 25권',unlocked:rds.length>=25},
-    {id:'rd50',icon:'🏆',name:'원서 50권',unlocked:rds.length>=50},
-    {id:'les50',icon:'⭐',name:'수업 50회',unlocked:les.filter(l=>l.att!=='absent').length>=50},
-    {id:'les100',icon:'🎖️',name:'수업 100회',unlocked:les.filter(l=>l.att!=='absent').length>=100},
-    {id:'perfect',icon:'💯',name:'만점 1회',unlocked:perfect>=1},
-    {id:'perfect5',icon:'🥇',name:'만점 5회',unlocked:perfect>=5},
-    {id:'streak',icon:'🔥',name:'개근 1개월',unlocked:checkStreak(les)},
-  ];
+    ...mk('rd','📗','원서 {n}권',[1,3,5,10,15,20,25,30,40,50,75,100,150,200],rds),
+    ...mk('les','🏫','수업 {n}회',[1,5,10,25,50,75,100,150,200,300],lesN),
+    ...mk('tst','📝','테스트 {n}회',[1,3,5,10,20,30,50],tsts.length),
+    ...mk('pf','💯','만점 {n}회',[1,2,3,5,10,20,30],perfect),
+    ...mk('wd','🔤','단어 만남 {n}개',[50,100,200,300,500,700,1000,1500,2000,3000],seen),
+    ...mk('ms','🧠','단어 마스터 {n}개',[10,25,50,100,150,200,300,500,750,1000],mastered),
+    ...mk('hw','✅','퀘스트 {n}개 클리어',[1,5,10,25,50,75,100,150,200,300,500],asgnDone),
+    ...mk('day','📅','학습 {n}일째',[3,7,14,21,30,50,75,100,150,200],stampDays),
+    ...mk('boss','👑','보스 {n}승',[1,2,3,5,8,12,16,20,25,30],wins),
+    ...mk('lv','🚀','레벨 {n} 달성',[5,10,20,30,40,50,60,70,80,90,100],lvl),
+  ]; // 14+10+7+7+10+10+11+10+10+11 = 100
 }
 function showBadgeToast(badge){
   const el=document.createElement('div');

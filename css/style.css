@@ -8,8 +8,8 @@
   --slate:#5A6B7B;--border:rgba(15,48,74,0.08);
   --sh:0 1px 3px rgba(15,48,74,0.06);--shlg:0 8px 32px rgba(15,48,74,0.12);
   --r:12px;--rs:8px;
-  --fb:'IBM Plex Sans KR',sans-serif;--fd:var(--fb);--fm:var(--fb);
-  --flogo:'Montserrat','IBM Plex Sans KR',sans-serif; /* 로고 전용 — Page & Pencil 로고만 Montserrat 유지 (2026-07-27 원장 지시) */
+  --fb:'Pretendard Variable','Pretendard',sans-serif;--fd:var(--fb);--fm:var(--fb);
+  --flogo:'Montserrat','Pretendard Variable',sans-serif; /* 로고 전용 — Page & Pencil 로고만 Montserrat 유지 (2026-07-27 원장 지시) */
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height:100vh;font-size:15px;line-height:1.65;}
@@ -1222,3 +1222,5 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 #pp-stamp-pop{flex-direction:column;gap:6px;}
 .pp-stamp-xp{font-size:15px;font-weight:800;color:#B45309;background:#FEF3C7;border-radius:99px;padding:3px 13px;animation:ppXpRise 1s ease forwards;}
 @keyframes ppXpRise{0%{transform:translateY(8px);opacity:0}30%{opacity:1}80%{opacity:1}100%{transform:translateY(-6px);opacity:0}}
+
+.badge-shelf{max-height:320px;overflow-y:auto;}
