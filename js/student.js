@@ -1813,41 +1813,6 @@ function stuXpCard(sid,streak){
     </div>
   </div>`;
 }
-function dailyQuests(sid){
-  const today=ppToday();
-  const q1=(_cache.assignments||[]).some(a=>a.sid===sid&&(a.completedAt||'').slice(0,10)===today);
-  const reviewed=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===today).length;
-  const st=JSON.parse(localStorage.getItem('pp_streak_'+sid)||'{}');
-  return[
-    {icon:'\uD83D\uDCDD',label:'오늘 과제 1개 완료하기',done:q1,go:"swStuTab('st-home')"},
-    {icon:'\uD83C\uDCCF',label:'오늘의 단어 20개 학습하기',done:reviewed>=20,prog:Math.min(reviewed,20)+'/20',go:"openVocabStudy('daily')"},
-    {icon:'\uD83D\uDD25',label:'오늘 학습 도장 찍기',done:st.lastDate===today,go:"openVocabStudy('daily')"}
-  ];
-}
-function stuQuestCard(sid){
-  const qs=dailyQuests(sid);
-  const doneN=qs.filter(q=>q.done).length;
-  const all=doneN===qs.length;
-  // 올클리어 축하: 하루 1회
-  if(all){
-    try{
-      const k='pp_qc_'+sid+'_'+ppToday();
-      if(!localStorage.getItem(k)){localStorage.setItem(k,'1');setTimeout(()=>{launchConfetti();toast('\uD83C\uDFC6 오늘 퀘스트 올클리어! 최고예요!');},700);}
-    }catch(e){}
-  }
-  return `<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:15px 18px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <span style="font-size:15px;font-weight:800;color:var(--navy)">\u2694\uFE0F 오늘의 퀘스트</span>
-      <span class="quest-cnt${all?' all':''}">${doneN}/${qs.length}</span>
-    </div>
-    ${qs.map(q=>`<div class="quest-row${q.done?' done':''}" onclick="${q.done?'':q.go}">
-      <span class="quest-ico">${q.icon}</span>
-      <span style="flex:1;font-size:14px;font-weight:600">${q.label}${q.prog&&!q.done?` <span style="font-size:12px;color:#0B8DAE;font-weight:700">${q.prog}</span>`:''}</span>
-      <span class="quest-chk">${q.done?'\u2713':''}</span>
-    </div>`).join('')}
-    ${all?`<div style="text-align:center;font-size:13px;font-weight:700;color:#B45309;margin-top:8px">\uD83C\uDFC6 올클리어! 내일 또 만나요!</div>`:''}
-  </div></div>`;
-}
 function launchConfetti(){
   const colors=['#0CA4C9','#F59E0B','#ffd700','#7c3aed','#10b981'];
   for(let i=0;i<40;i++){
@@ -2033,7 +1998,8 @@ function _hwChRefresh(sid){
 function _wkBump(delta){
   const c=window._wkCnt;if(!c)return;
   c.done=Math.max(0,c.done+delta);
-  const h=document.getElementById('wk-head-cnt');if(h)h.textContent=c.done+' / '+c.total+' 완료';
+  const h=document.getElementById('wk-head-cnt');if(h)h.textContent=c.done+' / '+c.total+' 클리어';
+  const qb=document.getElementById('quest-bar-fill');if(qb&&c.total)qb.style.width=Math.round(c.done/c.total*100)+'%';
   const dot=document.getElementById('wk-dot-'+c.date);
   if(dot&&!dot.classList.contains('overdue')){
     const p=Math.max(0,c.total-c.done);
@@ -2483,7 +2449,7 @@ function renderStudentHome(sid){
   {const sb=document.getElementById('stu-streak-badge');if(sb){sb.textContent='🔥 '+streak+'일';sb.style.display=streak>0?'':'none';}}
 
   // 매일 스케줄 숙제(클래스5·반복)의 하루치 카드 — 체크 한 번으로 오늘 몫 완료
-  function schDayCard(a,sc){
+  function schDayCard(a,sc,qNo){
     const isRecur=a.category==='recur'||a.type==='recur';
     const done=!!sc.done;
     const isVocabAuto=!!a.vocabAuto;
@@ -2497,7 +2463,8 @@ function renderStudentHome(sid){
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div class="hw-checkbox${done?' checked':''}" ${cbClick?`onclick="${cbClick}"`:'style="cursor:default"'} title="${cbTitle}">${done?'✓':''}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:600;color:var(--navy)">${icon} ${title}</div>
+          ${qNo?`<span class="quest-no">퀘스트 ${qNo}</span>`:''}
+          <div style="font-size:15px;font-weight:600;color:var(--navy)">${icon} ${title}</div>
           ${detail?`<div style="font-size:13px;color:var(--slate);margin-top:3px">${detail}</div>`:''}
           ${isVocabAuto&&!done?`<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><button class="btn bo bsm" style="border-radius:50px;padding:8px 14px" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button></div><div style="font-size:11px;color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
         </div>
@@ -2505,7 +2472,7 @@ function renderStudentHome(sid){
     </div>`;
   }
 
-  function asgnCard(a){
+  function asgnCard(a,qNo){
     const isDone=!!a.completedAt;
     const hw=(_cache.homeworks||[]).find(h=>h.assignmentId===a.id);
     const book=a.bookId?allBooks.find(b=>b.id===a.bookId):null;
@@ -2573,7 +2540,7 @@ function renderStudentHome(sid){
         <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone?'uncompleteAssignment(\''+sid+'\',\''+a.id+'\')':(!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')')}" title="${isDone?'클릭: 완료 취소':(!canCheck?(a.type==='mission'?'미션을 모두 완료하면 자동으로 체크됩니다':'녹음 제출 후 완료 가능'):'완료 처리')}">${isDone?'✓':''}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span style="font-size:10.5px;color:var(--slate);font-family:var(--fm)">${a.date||''}</span>
+            <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${qNo?`<span class="quest-no">퀘스트 ${qNo}</span> `:''}${a.date||''}</span>
             ${a.due?dueLabelHtml(a.due,today):''}
           </div>
           ${body}
@@ -2610,15 +2577,17 @@ function renderStudentHome(sid){
     const selDone=items.filter(it=>it.done);
     window._wkCnt={date:sel,done:selDone.length,total:items.length};
     const sl=_wk.find(d=>d.date===sel);
-    const renderItem=it=>it.sc?schDayCard(it.a,it.sc):asgnCard(it.a);
+    const renderItem=(it,qNo)=>it.sc?schDayCard(it.a,it.sc,qNo):asgnCard(it.a,qNo);
     const allDoneToday=sel===today&&items.length&&!selPending.length;
-    const head='<div class="wk-sec-head"><span class="t">'+(sl&&sl.isToday?'오늘 할 일':(sl?sl.label+'요일 학습':''))+'</span><span class="s" id="wk-head-cnt">'+selDone.length+' / '+items.length+' 완료</span></div>'
-      +(sl&&sl.isToday&&selPending.length?'<div style="font-size:12.5px;color:var(--slate);margin:-4px 0 8px">아래 '+selPending.length+'개만 하면 오늘 끝! ✨</div>':'');
+    const qPct=items.length?Math.round(selDone.length/items.length*100):0;
+    const head='<div class="wk-sec-head"><span class="t">'+(sl&&sl.isToday?'⚔️ 오늘의 퀘스트':(sl?'⚔️ '+sl.label+'요일 퀘스트':''))+'</span><span class="s" id="wk-head-cnt">'+selDone.length+' / '+items.length+' 클리어</span></div>'
+      +(items.length?'<div class="quest-bar"><div class="quest-bar-fill" id="quest-bar-fill" style="width:'+qPct+'%"></div></div>':'')
+      +(sl&&sl.isToday&&selPending.length?'<div style="font-size:13px;color:var(--slate);margin:2px 0 10px">남은 퀘스트 <b style="color:#0B8DAE">'+selPending.length+'개</b> — 다 깨면 오늘 도장을 받아요 🏅</div>':'');
     let body;
     if(!items.length)body='<div class="wk-empty-day">이 날은 배정된 학습이 없어요 😊<br><span style="font-size:12px">단어 복습으로 예습해볼까요?</span></div>';
-    else body=(allDoneToday?'<div style="text-align:center;padding:4px 0 12px"><div style="font-size:38px">🏆</div><div style="font-size:16px;font-weight:800;color:#047857">오늘 숙제 다 했어요! 참 잘했어요 👏</div></div>':'')
-      +selPending.map(renderItem).join('')
-      +(selDone.length?'<div style="opacity:.72">'+selDone.map(renderItem).join('')+'</div>':'');
+    else body=(allDoneToday?'<div style="text-align:center;padding:4px 0 12px"><div style="font-size:38px">🏆</div><div style="font-size:17px;font-weight:800;color:#047857">오늘 퀘스트 올클리어!</div><div style="font-size:13px;color:var(--slate);margin-top:2px">오늘 도장 획득 🏅 내일 퀘스트에서 만나요</div></div>':'')
+      +selPending.map((it,i)=>renderItem(it,i+1)).join('')
+      +(selDone.length?'<div style="opacity:.72">'+selDone.map(it=>renderItem(it,0)).join('')+'</div>':'');
     const etc=regAssigns.filter(a=>{const d=_asgnDay(a);return !d||d>_weekEnd;});
     const etcHtml=etc.length?'<details style="margin-top:12px"><summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;list-style:none">📌 기타 과제 ('+etc.length+'건)</summary><div style="margin-top:8px">'+etc.map(asgnCard).join('')+'</div></details>':'';
     return '<div class="card" id="stu-hw-card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px"><div class="wk-strip">'+strip+'</div>'+head+body+etcHtml+'</div></div>';
@@ -2632,7 +2601,7 @@ function renderStudentHome(sid){
     ${vocabCtaHtml}
     <details style="margin-top:8px;margin-bottom:8px">
       <summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">🎮 보너스 · 내 기록 <span style="font-size:10.5px;color:var(--teal)">▾</span></summary>
-      <div style="margin-top:8px">${weekCard}${stuXpCard(sid,streak)}${stuQuestCard(sid)}${renderVocabReview(sid)}</div>
+      <div style="margin-top:8px">${weekCard}${stuXpCard(sid,streak)}${renderVocabReview(sid)}</div>
     </details>
     ${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 지난 완료 기록 (${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length}건)</summary><div style="margin-top:8px">${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).map(asgnCard).join('')}</div></details>`:''}
     <details open style="margin-top:14px">

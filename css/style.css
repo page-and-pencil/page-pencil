@@ -1199,3 +1199,10 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .pp-confetti span{position:absolute;top:-14px;width:9px;height:14px;border-radius:2px;opacity:.95;animation:ppFall linear forwards;}
 @keyframes ppFall{to{transform:translateY(106vh) rotate(560deg);opacity:.85}}
 #s-student button:active{transform:scale(.96);}
+
+/* ── 퀘스트 보드: 진행 바·퀘스트 번호·CLEAR 도장 (2026-07-27) ── */
+.quest-bar{height:8px;background:var(--cream2);border-radius:99px;overflow:hidden;margin:2px 0 8px;}
+.quest-bar-fill{height:100%;border-radius:99px;background:#F59E0B;transition:width .5s cubic-bezier(.3,1.3,.5,1);}
+.quest-no{display:inline-block;font-size:10.5px;font-weight:800;color:#0B8DAE;background:var(--tl);border-radius:5px;padding:1px 7px;letter-spacing:.03em;margin-bottom:4px;}
+.hw-check-card.done{position:relative;overflow:hidden;}
+.hw-check-card.done::after{content:'CLEAR';position:absolute;top:10px;right:12px;font-size:11px;font-weight:800;letter-spacing:2px;color:#E2544A;border:2px solid rgba(226,84,74,.55);border-radius:6px;padding:1px 7px;transform:rotate(-9deg);opacity:.55;pointer-events:none;}
