@@ -31,7 +31,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .land2{width:100%;max-width:940px;display:flex;background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 18px 44px rgba(14,34,48,.32);z-index:1;}
 /* 좌측 브랜드 패널 */
 .land2-brand{width:46%;flex-shrink:0;background:#0E2230;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:42px 40px;color:#fff;}
-.land2-brand::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(transparent,transparent 27px,rgba(255,255,255,.055) 27px,rgba(255,255,255,.055) 28px);pointer-events:none;}
+.land2-brand::before{content:'';position:absolute;inset:0;background:linear-gradient(to right,transparent 30px,rgba(226,84,74,.35) 30px,rgba(226,84,74,.35) 31.5px,transparent 31.5px),repeating-linear-gradient(transparent,transparent 27px,rgba(255,255,255,.055) 27px,rgba(255,255,255,.055) 28px);pointer-events:none;}
 .land2-brand::after{content:none;}
 .land2-logo{position:relative;font-family:var(--flogo);font-size:21px;font-weight:700;letter-spacing:-.01em;}
 .land2-logo span{color:#0CA4C9;font-style:italic;}
@@ -100,7 +100,8 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
 .stu-name-badge{font-size:13px;color:rgba(255,255,255,.6);background:rgba(255,255,255,.1);padding:3px 10px;border-radius:20px;}
 .stu-streak-badge{font-size:13px;font-weight:700;color:#B45309;background:#FEF0D5;padding:4px 11px;border-radius:20px;white-space:nowrap;}
 /* 학생 홈 응원 hero */
-.stu-hero{background:#0CA4C9 repeating-linear-gradient(transparent,transparent 23px,rgba(255,255,255,.09) 23px,rgba(255,255,255,.09) 24px);border-radius:18px;padding:20px;color:#fff;margin-bottom:16px;box-shadow:0 4px 14px rgba(12,164,201,.22);}
+.stu-hero{position:relative;background:#0CA4C9 linear-gradient(to right,transparent 22px,rgba(255,255,255,.35) 22px,rgba(255,255,255,.35) 23px,transparent 23px),#0CA4C9 repeating-linear-gradient(transparent,transparent 23px,rgba(255,255,255,.09) 23px,rgba(255,255,255,.09) 24px);background-color:#0CA4C9;border-radius:18px;padding:20px 20px 20px 34px;color:#fff;margin-bottom:16px;box-shadow:0 4px 14px rgba(12,164,201,.22);}
+.stu-hero::before{content:'';position:absolute;top:-7px;left:50%;transform:translateX(-50%) rotate(-2.5deg);width:92px;height:22px;background:rgba(255,244,214,.75);border-left:1px dashed rgba(180,150,80,.4);border-right:1px dashed rgba(180,150,80,.4);border-radius:2px;box-shadow:0 1px 3px rgba(15,48,74,.12);}
 .stu-hero-top{display:flex;align-items:center;gap:13px;margin-bottom:13px;}
 .stu-hero-ico{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:23px;flex-shrink:0;}
 .stu-hero-title{font-size:19px;font-weight:800;}
@@ -1224,3 +1225,25 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 @keyframes ppXpRise{0%{transform:translateY(8px);opacity:0}30%{opacity:1}80%{opacity:1}100%{transform:translateY(-6px);opacity:0}}
 
 .badge-shelf{max-height:320px;overflow-y:auto;}
+
+/* ── 문구점 미학: 손그림 밑줄·스티커 아바타·연필선 카드·캔디 버튼 (2026-07-27) ── */
+/* 섹션 제목 물결 밑줄 (손으로 그은 느낌) */
+.wk-sec-head .t{position:relative;display:inline-block;padding-bottom:5px;}
+.wk-sec-head .t::after{content:'';position:absolute;left:0;right:8px;bottom:0;height:5px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='6' viewBox='0 0 40 6'%3E%3Cpath d='M0 4 Q5 1 10 4 T20 4 T30 4 T40 4' fill='none' stroke='%23F59E0B' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") repeat-x;background-size:40px 6px;opacity:.85;}
+/* 숙제 카드: 과목 연필선 + 완료 시 초록 */
+.hw-check-card{border-left:3.5px solid #7FD4E2;}
+.hw-check-card.done{border-left-color:#10B981;}
+/* 스티커 컷 아바타 (흰 테두리 + 살짝 기울임) */
+.boss-ava,.xp-ava{background:#fff;border-radius:50%;width:52px;height:52px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(15,48,74,.18),0 0 0 3px #fff;transform:rotate(-4deg);font-size:28px;}
+.boss-card.win .boss-ava{transform:rotate(4deg) scale(1.06);}
+/* 퀘스트 보드 카드에도 테이프 조각 */
+#stu-hw-card{position:relative;overflow:visible;}
+#stu-hw-card::before{content:'';position:absolute;top:-8px;left:26px;width:74px;height:20px;transform:rotate(-3deg);background:rgba(127,212,226,.5);border-left:1px dashed rgba(11,141,174,.35);border-right:1px dashed rgba(11,141,174,.35);border-radius:2px;box-shadow:0 1px 3px rgba(15,48,74,.1);z-index:2;}
+/* 학생 앱 주요 버튼: 캔디(아랫면 두께) 촉감 */
+#s-student .btn.bt{box-shadow:0 3px 0 #0B8DAE;}
+#s-student .btn.bt:active{transform:translateY(2px) scale(.98);box-shadow:0 1px 0 #0B8DAE;}
+/* 배지 진열장: 획득 배지는 스티커 느낌 */
+.badge-cell:not(.locked){background:#fff;border-color:rgba(12,164,201,.35);box-shadow:0 1px 4px rgba(15,48,74,.08);}
+.badge-cell:not(.locked) .bi{filter:drop-shadow(0 1px 1px rgba(15,48,74,.2));}
+/* 도장 챌린지·보스 카드 라운드 톤 정리 */
+.boss-card{box-shadow:0 1px 4px rgba(15,48,74,.06);}
