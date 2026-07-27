@@ -1858,8 +1858,26 @@ function launchConfetti(){
     setTimeout(()=>el.remove(),3000);
   }
 }
+
+// ── 완료 도장 쾅 + '오늘 몫 전부 완료' 판정 (매 체크=도장, 콘페티=전부 완료의 특별 이벤트) ──
+function ppStampPop(){
+  const old=document.getElementById('pp-stamp-pop');if(old)old.remove();
+  const el=document.createElement('div');el.id='pp-stamp-pop';
+  el.innerHTML='<div class="pp-stamp-ink">참 잘했어요</div>';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1000);
+}
+function ppTodayAllDone(sid){
+  const t=ppToday();let n=0;
+  for(const a of (_cache.assignments||[])){
+    if(a.sid!==sid||a._deleted)continue;
+    if((a.schedule||[]).length){const sc=a.schedule.find(x=>x.date===t);if(sc){n++;if(!sc.done)return false;}}
+    else if((a.due||a.date)===t){n++;if(!a.completedAt)return false;}
+  }
+  return n>0;
+}
 function showMiniConfetti(){
-  const colors=['#0CA4C9','#F59E0B','#5B4FBB','#FFD700','#ff6b6b'];
+  const colors=['#0CA4C9','#F59E0B','#7FD4E2','#FFD700','#14304A'];
   const container=document.createElement('div');
   container.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden';
   for(let i=0;i<30;i++){
@@ -2038,7 +2056,7 @@ async function completeAssignment(sid,asgnId){
   updateStreak(sid);
   checkNewBadges(currentStudentSid);
   _hwChRefresh(sid); // 도장 챌린지 갱신 (도장·달성 축하 포함)
-  setTimeout(()=>showMiniConfetti(),200);
+  ppStampPop();if(ppTodayAllDone(sid))setTimeout(()=>showMiniConfetti(),500);
   if(!card){renderStudentHome(sid);return;} // 단어장·워크시트 등 홈 밖에서 완료된 경우만 전체 갱신
   const anyLeft=(_cache.assignments||[]).filter(x=>x.sid===sid&&!x.completedAt);
   if(!anyLeft.length)setTimeout(()=>renderStudentHome(sid),900); // 전부 끝 → 축하 화면
@@ -2073,7 +2091,7 @@ async function completeSchedDay(sid,asgnId,ds){
   try{const k='pp_stamps_'+sid;const arr=JSON.parse(localStorage.getItem(k)||'[]');const t=ppToday();if(!arr.includes(t)){arr.push(t);localStorage.setItem(k,JSON.stringify(arr));}}catch(e){}
   updateStreak(sid);
   _hwChRefresh(sid); // 도장 챌린지 갱신 (도장·달성 축하 포함)
-  setTimeout(()=>showMiniConfetti(),200);
+  ppStampPop();if(ppTodayAllDone(sid))setTimeout(()=>showMiniConfetti(),500);
 }
 async function uncompleteSchedDay(sid,asgnId,ds){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
