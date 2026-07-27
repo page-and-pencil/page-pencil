@@ -232,12 +232,7 @@ async function loadParent(sid){
   // 이전 수업 기록 카드 리스트 (시안)
   blocks+=parentLessonList(les);
 
-  const unlockedBadges=getBadges(sid).filter(b=>b.unlocked);
-  if(unlockedBadges.length){
-    blocks+=`<div style="padding:10px 14px;background:rgba(12,164,201,.08);border-radius:10px;margin-bottom:10px;font-size:14px">
-      ${luIcon('award',14,'color:#0B8DAE;vertical-align:-2px')||'🏅'} ${unlockedBadges.map(b=>b.icon+' '+b.name).join(' · ')}
-    </div>`;
-  }
+  // 배지는 아래 '획득 뱃지' 카드(블록 H)에서만 표시 — 상단 나열 줄과 이중 표시되던 문제 제거 (2026-07-27)
 
   const timeline=renderGrowthTimeline(sid);
   if(timeline) blocks+=timeline;
