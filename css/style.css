@@ -1206,3 +1206,19 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .quest-no{display:inline-block;font-size:10.5px;font-weight:800;color:#0B8DAE;background:var(--tl);border-radius:5px;padding:1px 7px;letter-spacing:.03em;margin-bottom:4px;}
 .hw-check-card.done{position:relative;overflow:hidden;}
 .hw-check-card.done::after{content:'CLEAR';position:absolute;top:10px;right:12px;font-size:11px;font-weight:800;letter-spacing:2px;color:#E2544A;border:2px solid rgba(226,84,74,.55);border-radius:6px;padding:1px 7px;transform:rotate(-9deg);opacity:.55;pointer-events:none;}
+
+/* ── 배지 진열장·주간 보스·XP 라벨 (2026-07-27) ── */
+.badge-shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px;}
+.badge-cell{display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--cream2);border:1.5px solid var(--border);border-radius:10px;padding:9px 4px;}
+.badge-cell .bi{font-size:23px;line-height:1;}
+.badge-cell .bn{font-size:10.5px;font-weight:700;color:var(--navy);text-align:center;}
+.badge-cell.locked{opacity:.45;}
+.badge-cell.locked .bi{filter:grayscale(1);}
+.boss-card{display:flex;gap:12px;align-items:center;background:#fff;border:1.5px solid var(--border);border-left:4px solid #E2544A;border-radius:12px;padding:12px 14px;margin-bottom:14px;cursor:pointer;}
+.boss-card.win{border-left-color:#047857;cursor:default;}
+.boss-ava{font-size:34px;line-height:1;flex-shrink:0;}
+.boss-hp{height:9px;background:var(--cream2);border-radius:99px;overflow:hidden;margin-top:6px;}
+.boss-hp-fill{height:100%;border-radius:99px;background:#E2544A;transition:width .5s ease;}
+#pp-stamp-pop{flex-direction:column;gap:6px;}
+.pp-stamp-xp{font-size:15px;font-weight:800;color:#B45309;background:#FEF3C7;border-radius:99px;padding:3px 13px;animation:ppXpRise 1s ease forwards;}
+@keyframes ppXpRise{0%{transform:translateY(8px);opacity:0}30%{opacity:1}80%{opacity:1}100%{transform:translateY(-6px);opacity:0}}

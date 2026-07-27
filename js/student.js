@@ -1778,7 +1778,8 @@ function stuXP(sid){
   const readLogs=(_cache.logs||[]).filter(l=>l.sid===sid&&l.read).length;
   const rds=DB.allRds(sid).filter(r=>r.date).length;
   const tests=DB.tsts().filter(t=>t.sid===sid).length;
-  return les*10+asgn*20+hits*2+mastered*5+readLogs*15+rds*10+tests*10;
+  const bossWins=((DB.stus().find(x=>x.id===sid)||{}).bossWins)||0;
+  return les*10+asgn*20+hits*2+mastered*5+readLogs*15+rds*10+tests*10+bossWins*30;
 }
 function stuLevelOf(xp){
   let i=0;while(i+1<XP_LEVELS.length&&xp>=XP_LEVELS[i+1].xp)i++;
@@ -1786,16 +1787,19 @@ function stuLevelOf(xp){
   const pct=next?Math.min(100,Math.round((xp-cur.xp)/(next.xp-cur.xp)*100)):100;
   return{n:i+1,...cur,next,pct};
 }
+function stuLevelUpCheck(sid){
+  try{
+    const lv=stuLevelOf(stuXP(sid));
+    const key='pp_xplvl_'+sid;
+    const prev=parseInt(localStorage.getItem(key)||'0');
+    if(prev&&lv.n>prev){setTimeout(()=>{launchConfetti();toast('🎉 레벨 업! Lv.'+lv.n+' '+lv.name+' 달성!');},600);}
+    localStorage.setItem(key,String(lv.n));
+  }catch(e){}
+}
 function stuXpCard(sid,streak){
   const xp=stuXP(sid);
   const lv=stuLevelOf(xp);
-  // 레벨업 감지 → 축하
-  try{
-    const key='pp_xplvl_'+sid;
-    const prev=parseInt(localStorage.getItem(key)||'0');
-    if(prev&&lv.n>prev){setTimeout(()=>{launchConfetti();toast(`\uD83C\uDF89 레벨 업! Lv.${lv.n} ${lv.name} 달성!`);},400);}
-    localStorage.setItem(key,String(lv.n));
-  }catch(e){}
+  stuLevelUpCheck(sid); // 감지 로직은 공용 함수 — 퀘스트 완료 직후에도 호출됨
   return `<div class="xp-card">
     <div style="display:flex;align-items:center;gap:12px">
       <div class="xp-ava">${lv.icon}</div>
@@ -1810,6 +1814,75 @@ function stuXpCard(sid,streak){
           <span>${lv.next?`다음 레벨까지 ${(lv.next.xp-xp).toLocaleString()} XP`:'최고 레벨!'}</span>
         </div>
       </div>
+    </div>
+  </div>`;
+}
+// ── 배지 진열장 (기존 8종 + 보스 승수 배지) ──
+function stuBadgeShelf(sid){
+  const bs=(typeof getBadges==='function')?getBadges(sid):[];
+  const wins=((DB.stus().find(x=>x.id===sid)||{}).bossWins)||0;
+  const all=[...bs,
+    {id:'boss1',icon:'👑',name:'보스 1승',unlocked:wins>=1},
+    {id:'boss5',icon:'🐲',name:'보스 5승',unlocked:wins>=5},
+    {id:'boss10',icon:'🌟',name:'보스 10승',unlocked:wins>=10}];
+  const got=all.filter(b=>b.unlocked).length;
+  return `<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:15px 18px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+      <span style="font-size:15px;font-weight:800;color:var(--navy)">🏅 내 배지</span>
+      <span style="font-size:12px;color:var(--slate)">${got} / ${all.length}</span></div>
+    <div class="badge-shelf">${all.map(b=>`<div class="badge-cell${b.unlocked?'':' locked'}" title="${b.name}${b.unlocked?' — 획득!':' — 아직 잠겨 있어요'}"><span class="bi">${b.icon}</span><span class="bn">${b.name}</span></div>`).join('')}</div>
+  </div></div>`;
+}
+// ── 주간 보스 (보너스 도전 — 필수 숙제 초과분으로만 잡는 엑스트라 마일) ──
+function _bossWeekKey(){
+  const t=new Date(ppToday()+'T12:00:00');
+  const mon=new Date(t);mon.setDate(t.getDate()-((t.getDay()+6)%7));
+  return ppYmd(mon);
+}
+function weeklyBossInfo(sid){
+  const wk=_bossWeekKey();
+  const idx=Math.floor(new Date(wk+'T12:00:00').getTime()/(7*864e5))%3;
+  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  let b;
+  if(idx===0){
+    b={icon:'🐉',name:'워드 드래곤',desc:'이번 주에 단어 150개를 만나면 쓰러져요 (숙제 몫보다 50개 더!)',target:150,prog:cards.filter(c=>(c.lastSeen||'')>=wk).length,go:"openVocabStudy('daily')"};
+  }else if(idx===1){
+    b={icon:'👹',name:'스트릭 오우거',desc:'이번 주 6일 학습하면 쓰러져요 (주 목표 4일보다 2일 더!)',target:6,prog:getWeekDays(sid).filter(d=>d.done).length,go:"swStuTab('st-home')"};
+  }else{
+    const mastered=cards.filter(c=>(c.hits||0)>=3).length;
+    const bk='pp_bossbase_'+sid+'_'+wk;
+    let base=parseInt(localStorage.getItem(bk)||'-1');
+    if(base<0){base=mastered;try{localStorage.setItem(bk,String(base));}catch(e){}}
+    b={icon:'🗿',name:'마스터 골렘',desc:'이번 주에 단어 15개를 마스터(3번 정답)하면 쓰러져요',target:15,prog:Math.max(0,mastered-base),go:"openVocabStudy('last')"};
+  }
+  b.week=wk;b.done=b.prog>=b.target;
+  return b;
+}
+function stuBossCard(sid){
+  const b=weeklyBossInfo(sid);
+  const hp=Math.max(0,b.target-Math.min(b.prog,b.target));
+  const pct=Math.round(hp/b.target*100);
+  if(b.done){
+    try{
+      const k='pp_bosswin_'+sid+'_'+b.week;
+      if(!localStorage.getItem(k)){
+        localStorage.setItem(k,'1');
+        setTimeout(()=>{launchConfetti();toast('👑 주간 보스 '+b.name+' 클리어! 보너스 XP +30');},900);
+        (async()=>{try{const stu=DB.stus().find(x=>x.id===sid);if(stu){stu.bossWins=(stu.bossWins||0)+1;await supaUpsert('students',sid,stu,null);}}catch(e){}})();
+      }
+    }catch(e){}
+  }
+  return `<div class="boss-card${b.done?' win':''}"${b.done?'':` onclick="${b.go}"`}>
+    <span class="boss-ava">${b.done?'💥':b.icon}</span>
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
+        <span style="font-size:14px;font-weight:800;color:var(--navy)">👑 주간 보스 · ${b.name}</span>
+        <span style="font-size:11px;font-weight:700;color:var(--slate);background:var(--cream2);border-radius:5px;padding:1px 7px;white-space:nowrap">보너스 도전 · 숙제 아님</span>
+      </div>
+      ${b.done?`<div style="font-size:13px;font-weight:800;color:#047857;margin-top:3px">🏆 클리어! 보너스 XP +30 — 다음 주 월요일에 새 보스가 나타나요</div>`
+        :`<div style="font-size:12.5px;color:var(--slate);margin-top:2px">${b.desc}</div>
+      <div class="boss-hp"><div class="boss-hp-fill" style="width:${pct}%"></div></div>
+      <div style="font-size:11.5px;color:var(--slate);margin-top:3px">보스 체력 ${hp} / ${b.target} — 벌써 ${Math.min(b.prog,b.target)}만큼 깎았어요!</div>`}
     </div>
   </div>`;
 }
@@ -1828,7 +1901,7 @@ function launchConfetti(){
 function ppStampPop(){
   const old=document.getElementById('pp-stamp-pop');if(old)old.remove();
   const el=document.createElement('div');el.id='pp-stamp-pop';
-  el.innerHTML='<div class="pp-stamp-ink">참 잘했어요</div>';
+  el.innerHTML='<div class="pp-stamp-ink">참 잘했어요</div><div class="pp-stamp-xp">+20 XP</div>';
   document.body.appendChild(el);
   setTimeout(()=>el.remove(),1000);
 }
@@ -1890,13 +1963,6 @@ function updateStreak(sid){
   else data.count=1;
   data.lastDate=today;
   localStorage.setItem(key,JSON.stringify(data));
-}
-function getStuLevel(sid){
-  const n=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).length;
-  if(n<=10)return{icon:'🌱',name:'씨앗',next:10,count:n};
-  if(n<=30)return{icon:'🌿',name:'새싹',next:30,count:n};
-  if(n<=70)return{icon:'🌳',name:'나무',next:70,count:n};
-  return{icon:'🌲',name:'숲',next:null,count:n};
 }
 function getWeeklyStats(sid){
   const today=new Date();
@@ -2022,7 +2088,7 @@ async function completeAssignment(sid,asgnId){
   updateStreak(sid);
   checkNewBadges(currentStudentSid);
   _hwChRefresh(sid); // 도장 챌린지 갱신 (도장·달성 축하 포함)
-  ppStampPop();if(ppTodayAllDone(sid))setTimeout(()=>showMiniConfetti(),500);
+  ppStampPop();stuLevelUpCheck(sid);if(ppTodayAllDone(sid))setTimeout(()=>showMiniConfetti(),500);
   if(!card){renderStudentHome(sid);return;} // 단어장·워크시트 등 홈 밖에서 완료된 경우만 전체 갱신
   const anyLeft=(_cache.assignments||[]).filter(x=>x.sid===sid&&!x.completedAt);
   if(!anyLeft.length)setTimeout(()=>renderStudentHome(sid),900); // 전부 끝 → 축하 화면
@@ -2057,7 +2123,7 @@ async function completeSchedDay(sid,asgnId,ds){
   try{const k='pp_stamps_'+sid;const arr=JSON.parse(localStorage.getItem(k)||'[]');const t=ppToday();if(!arr.includes(t)){arr.push(t);localStorage.setItem(k,JSON.stringify(arr));}}catch(e){}
   updateStreak(sid);
   _hwChRefresh(sid); // 도장 챌린지 갱신 (도장·달성 축하 포함)
-  ppStampPop();if(ppTodayAllDone(sid))setTimeout(()=>showMiniConfetti(),500);
+  ppStampPop();stuLevelUpCheck(sid);if(ppTodayAllDone(sid))setTimeout(()=>showMiniConfetti(),500);
 }
 async function uncompleteSchedDay(sid,asgnId,ds){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
@@ -2330,7 +2396,7 @@ function renderStudentHome(sid){
     return (a.due||a.date||'').localeCompare(b.due||b.date||'');
   });
   const streak=getStreak(sid);
-  const lv=getStuLevel(sid);
+  const lv=stuLevelOf(stuXP(sid)); // 레벨 트랙 단일화 — XP(병아리~북 마스터~드래곤) 트랙만 사용 (2026-07-27)
   const week=getWeeklyStats(sid);
   const allBooks=[...DB.libs()];
   // 매일 반복·클래스5 숙제를 요일별 항목으로 펼침 (단어 숙제가 매일 눈에 띄도록)
@@ -2425,7 +2491,7 @@ function renderStudentHome(sid){
     <span style="font-size:18px">${lv.icon}</span>
     <div style="flex:1">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-        <span style="font-size:13px;font-weight:700;color:var(--navy)">${lv.name} Lv.</span>
+        <span style="font-size:14px;font-weight:700;color:var(--navy)">Lv.${lv.n} ${lv.name}</span>
         <span style="font-size:12px;color:var(--slate)">🔥 ${streak}일 연속</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
@@ -2598,10 +2664,11 @@ function renderStudentHome(sid){
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
     ${hwChHtml}
     ${hwSection}
+    ${stuBossCard(sid)}
     ${vocabCtaHtml}
     <details style="margin-top:8px;margin-bottom:8px">
       <summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">🎮 보너스 · 내 기록 <span style="font-size:10.5px;color:var(--teal)">▾</span></summary>
-      <div style="margin-top:8px">${weekCard}${stuXpCard(sid,streak)}${renderVocabReview(sid)}</div>
+      <div style="margin-top:8px">${weekCard}${stuXpCard(sid,streak)}${stuBadgeShelf(sid)}${renderVocabReview(sid)}</div>
     </details>
     ${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 지난 완료 기록 (${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length}건)</summary><div style="margin-top:8px">${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).map(asgnCard).join('')}</div></details>`:''}
     <details open style="margin-top:14px">
