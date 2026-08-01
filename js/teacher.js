@@ -148,11 +148,10 @@ async function saveApiKey(){
   if(!k){document.getElementById('cfg-apikey-err').textContent='API Key를 입력해 주세요';return;}
   DB.s('apikey',k);
   _cache.settings.apikey=k;
-  let _apiSaveOk=true;
-  try{await supaSetSetting('apikey',k);}catch(err){console.warn('설정 저장 실패:',err);_apiSaveOk=false;}
+  // 보안(2026-07-27 QA): 서버 settings에는 저장하지 않는다 — 익명 키로 누구나 읽을 수 있음. 이 기기에만 보관.
   document.getElementById('cfg-apikey-err').textContent='';
   updateApiKeyStatusDot();
-  toast(_apiSaveOk?'API Key가 저장되었습니다':'API Key 저장됨 (서버 동기화 실패)');
+  toast('API Key가 이 기기에 저장되었습니다 (서버에는 저장하지 않아요)');
 }
 async function testApiKey(){
   const el=document.getElementById('apikey-test-result');

@@ -393,10 +393,10 @@ async function loadAllData(bg){
     else{const lk=DB.g('kakao');if(lk)_cache.settings.kakao=lk;}
     if(eleven){_cache.settings.elevenlabs=eleven;DB.s('elevenlabs',eleven);}
     else{const le=DB.g('elevenlabs');if(le)_cache.settings.elevenlabs=le;}
-    const _dk=String.fromCharCode(115,107,45,97,110,116,45,97,112,105,48,51,45,108,69,72,49,104,87,56,57,78,106,68,45,72,104,120,51,97,101,55,82,113,69,70,99,122,53,105,118,110,86,111,67,67,80,67,51,77,114,52,69,99,54,107,75,88,70,74,111,54,111,115,67,88,101,87,78,83,97,122,120,97,86,51,114,102,106,78,89,81,104,83,84,107,115,116,99,110,56,72,74,54,122,75,114,85,81,45,103,106,103,89,122,103,65,65);
     const DEFAULT_CLD={name:'drwys3bkz',preset:'pp_unsigned'};
+    // 보안(2026-07-27 QA): API 키는 서버 settings에 두지 않는다(익명 키로 열람 가능) — Supabase Edge 시크릿(ANTHROPIC_API_KEY)이 기본, 로컬 보관 키는 하위 호환
     if(apikey){_cache.settings.apikey=apikey;DB.s('apikey',apikey);}
-    else{const la=DB.g('apikey');if(la){_cache.settings.apikey=la;supaSetSetting('apikey',la).catch(()=>{});}else{_cache.settings.apikey=_dk;DB.s('apikey',_dk);await supaSetSetting('apikey',_dk);}}
+    else{const la=DB.g('apikey');if(la)_cache.settings.apikey=la;}
     if(cloud){_cache.settings.cloud=cloud;DB.s('cloud',cloud);}
     else{const lc=DB.g('cloud');if(lc&&lc.name){_cache.settings.cloud=lc;supaSetSetting('cloud',lc).catch(()=>{});}else{_cache.settings.cloud=DEFAULT_CLD;DB.s('cloud',DEFAULT_CLD);await supaSetSetting('cloud',DEFAULT_CLD);}}
     try{const cc=await supaGetSetting('cmtChips');if(cc){_cache.settings.cmtChips=cc;DB.s('cmtChips',cc);}else{const lcc=DB.g('cmtChips');if(lcc)_cache.settings.cmtChips=lcc;}}catch(e){const lcc=DB.g('cmtChips');if(lcc)_cache.settings.cmtChips=lcc;}
@@ -491,8 +491,9 @@ async function fetchWordMeaning(word){
   }catch{return null;}
 }
 async function callClaudeProxy(body){
-  const apiKey=DB.api();if(!apiKey)throw new Error('API Key 없음');
-  const res=await fetch(SUPA_URL+'/functions/v1/claude-proxy',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify({apiKey,...body})});
+  // 서버 시크릿(ANTHROPIC_API_KEY) 우선 — 로컬에 키가 있으면 하위 호환으로만 동봉
+  const apiKey=DB.api();
+  const res=await fetch(SUPA_URL+'/functions/v1/claude-proxy',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify(apiKey?{apiKey,...body}:body)});
   const d=await res.json().catch(()=>({}));
   if(!res.ok)throw new Error(d.error?.message||'HTTP '+res.status);
   return d;
