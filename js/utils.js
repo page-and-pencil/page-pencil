@@ -167,7 +167,7 @@ async function landStudentSubmit(){
   const pin=(document.getElementById('land-spin')?.value||'').trim();
   const err=document.getElementById('land-err');const setErr=t=>{if(err)err.textContent=t;};
   if(pin.length<4){setErr('생년월일 4자리를 입력해 주세요');return;}
-  if(typeof _cache!=='undefined'&&!_cache.students.length){try{await loadAllData();}catch(e){}}
+  if(typeof _cache!=='undefined'&&!_cache.students.length){setErr('확인하는 중이에요…');try{await loadAllData();}catch(e){setErr('연결이 불안정해요. 잠시 후 다시 시도해 주세요');return;}}
   const matches=(typeof DB!=='undefined'?DB.stus():[]).filter(s=>s.pin===pin&&!s.inactive);
   if(!matches.length){setErr('PIN이 맞지 않습니다');return;}
   if(matches.length===1){setErr('');await loginStudent(matches[0]);return;}
@@ -647,3 +647,16 @@ window.addEventListener('unhandledrejection',e=>{
 function loadScriptOnce(src){return new Promise((res,rej)=>{const ex=document.querySelector('script[src="'+src+'"]');if(ex){if(ex.dataset.loaded)return res();ex.addEventListener('load',res);ex.addEventListener('error',rej);return;}const s=document.createElement('script');s.src=src;s.onload=()=>{s.dataset.loaded='1';res();};s.onerror=()=>rej(new Error('로드 실패: '+src));document.head.appendChild(s);});}
 function ensureXLSX(){return typeof XLSX==='undefined'?loadScriptOnce('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'):Promise.resolve();}
 function ensureJSZip(){return typeof JSZip==='undefined'?loadScriptOnce('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'):Promise.resolve();}
+
+// ── 모바일 뒤로가기: 앱 이탈 방지 — 모달이 열려 있으면 닫고, 아니면 화면 유지 (2026-07-27 QA) ──
+(function(){
+  try{
+    history.replaceState('pp','');
+    history.pushState('pp','');
+    window.addEventListener('popstate',()=>{
+      const om=[...document.querySelectorAll('.mo.open')].pop();
+      if(om&&typeof closeM==='function'){try{closeM(om.id);}catch(e){}}
+      history.pushState('pp','');
+    });
+  }catch(e){}
+})();

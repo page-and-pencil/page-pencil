@@ -1889,11 +1889,14 @@ function stuBossCard(sid){
   const pct=Math.round(hp/b.target*100);
   if(b.done){
     try{
-      const k='pp_bosswin_'+sid+'_'+b.week;
-      if(!localStorage.getItem(k)){
-        localStorage.setItem(k,'1');
+      const stu=DB.stus().find(x=>x.id===sid);
+      const wonWeeks=(stu&&stu.bossWinWeeks)||[];
+      // 승리 기록은 DB(students.bossWinWeeks)가 기준 — 기기·브라우저가 바뀌어도 중복 토스트·중복 카운트 없음 (QA 수정)
+      if(stu&&!wonWeeks.includes(b.week)){
+        stu.bossWinWeeks=[...wonWeeks,b.week];
+        stu.bossWins=(stu.bossWins||0)+1;
         setTimeout(()=>{launchConfetti();toast('👑 주간 보스 '+b.name+' 클리어! 보너스 XP +30');},900);
-        (async()=>{try{const stu=DB.stus().find(x=>x.id===sid);if(stu){stu.bossWins=(stu.bossWins||0)+1;await supaUpsert('students',sid,stu,null);}}catch(e){}})();
+        (async()=>{try{await supaUpsert('students',sid,stu,null);}catch(e){}})();
       }
     }catch(e){}
   }
@@ -2100,6 +2103,7 @@ function _wkBump(delta){
 }
 async function completeAssignment(sid,asgnId){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
+  if(a.completedAt)return; // 더블클릭·중복 호출 가드
   a.completedAt=new Date().toISOString();a.completedBy='student';
   // 카드 즉시 .done — 리스트는 그대로 (접힘·스크롤 이동 없음)
   const card=document.getElementById('hw-card-'+asgnId);
