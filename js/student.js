@@ -2425,8 +2425,6 @@ function renderStudentHome(sid){
     return (a.due||a.date||'').localeCompare(b.due||b.date||'');
   });
   const streak=getStreak(sid);
-  const lv=stuLevelOf(stuXP(sid)); // 레벨 트랙 단일화 — XP(병아리~북 마스터~드래곤) 트랙만 사용 (2026-07-27)
-  const week=getWeeklyStats(sid);
   const allBooks=[...DB.libs()];
   // 매일 반복·클래스5 숙제를 요일별 항목으로 펼침 (단어 숙제가 매일 눈에 띄도록)
   const _schedOf=a=>{const r=(typeof recurRebase==='function')?recurRebase(a):null;return r||a.schedule||[];};
@@ -2508,38 +2506,6 @@ function renderStudentHome(sid){
         <button class="btn ${notifyOn?'bt':'bo'} bsm" style="border-radius:50px;padding:5px 13px;font-weight:700" onclick="toggleStuNotify('${sid}')">${notifyOn?'켜짐 ✓':'켜기'}</button>
       </span>
     </div>`:'';
-  const weekDays=getWeekDays(sid);
-  const weekCircles=`<div style="display:flex;justify-content:space-between">${weekDays.map(d=>{
-    let c;
-    if(d.done)c=`<span style="width:34px;height:34px;border-radius:50%;background:#10B981;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto">${luIcon('check',16)||'✓'}</span>`;
-    else if(d.isToday)c=`<span style="width:34px;height:34px;border-radius:50%;background:#E3F5FA;color:#0B8DAE;border:2px solid #0CA4C9;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:15px">⭐</span>`;
-    else c=`<span style="width:34px;height:34px;border-radius:50%;background:#F4F6F8;display:flex;align-items:center;justify-content:center;margin:0 auto"><span style="width:8px;height:8px;border-radius:50%;background:#DCE3E8"></span></span>`;
-    return `<div style="text-align:center">${c}<div style="font-size:11px;color:${d.isToday?'#0B8DAE':'#8A95A2'};font-weight:${d.isToday?'700':'400'};margin-top:5px">${d.label}</div></div>`;
-  }).join('')}</div>`;
-  const streakHtml=`<div class="streak-bar" style="margin-top:12px;margin-bottom:10px">
-    <span style="font-size:18px">${lv.icon}</span>
-    <div style="flex:1">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-        <span style="font-size:14px;font-weight:700;color:var(--navy)">Lv.${lv.n} ${lv.name}</span>
-        <span style="font-size:12px;color:var(--slate)">🔥 ${streak}일 연속</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <div class="week-bar"><div class="week-bar-fill" style="width:${week.pct}%"></div></div>
-        <span style="font-size:10.5px;color:var(--slate);white-space:nowrap">이번주 ${week.done}/${week.total}</span>
-      </div>
-    </div>
-  </div>`;
-  // 주 단위 목표(4일) — 매일 강요보다 실패 경험이 적어 꾸준함에 유리
-  const _wkDone=weekDays.filter(d=>d.done).length;
-  const _wkGoal=4;
-  const weekCard=`<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px">
-    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
-      <span style="font-size:15px;font-weight:800;color:var(--navy)">이번 주 도장</span>
-      <span style="font-size:13px;font-weight:700;color:#B45309">🔥 ${streak}일째</span>
-    </div>
-    <div style="font-size:12.5px;margin-bottom:12px;${_wkDone>=_wkGoal?'color:#047857;font-weight:800':'color:var(--slate)'}">${_wkDone>=_wkGoal?`🏆 이번 주 목표 달성! (${_wkDone}/${_wkGoal}일)`:`목표: 일주일에 ${_wkGoal}일 · 지금 ${_wkDone}일 ✓`}</div>
-    ${weekCircles}
-  </div></div>`;
   const lastLessonHtml=renderLastLesson(sid);
   {const sb=document.getElementById('stu-streak-badge');if(sb){sb.textContent='🔥 '+streak+'일';sb.style.display=streak>0?'':'none';}}
 
@@ -2697,12 +2663,12 @@ function renderStudentHome(sid){
     ${vocabCtaHtml}
     <details style="margin-top:8px;margin-bottom:8px">
       <summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">🎮 보너스 · 내 기록 <span style="font-size:10.5px;color:var(--teal)">▾</span></summary>
-      <div style="margin-top:8px">${weekCard}${stuXpCard(sid,streak)}${stuBadgeShelf(sid)}${renderVocabReview(sid)}</div>
+      <div style="margin-top:8px">${stuXpCard(sid,streak)}${stuBadgeShelf(sid)}${renderVocabReview(sid)}</div>
     </details>
     ${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 지난 완료 기록 (${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length}건)</summary><div style="margin-top:8px">${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).map(asgnCard).join('')}</div></details>`:''}
     <details open style="margin-top:14px">
       <summary style="font-size:13px;font-weight:600;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">📊 지난 수업 &amp; 학습 현황 <span style="font-size:10.5px;color:var(--teal)">▾</span></summary>
-      <div style="margin-top:8px">${lastLessonHtml}${streakHtml}${renderHomeStats(sid)}${notifyRowHtml}</div>
+      <div style="margin-top:8px">${lastLessonHtml}${renderHomeStats(sid)}${notifyRowHtml}</div>
     </details>
     ${(()=>{
       const myLogs=(_cache.logs||[]).filter(l=>l.sid===sid&&(l.photoUrl||(l.photoUrls&&l.photoUrls.length))).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
