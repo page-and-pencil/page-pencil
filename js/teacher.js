@@ -10600,7 +10600,10 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate){
       const preSlots=slots.filter(d=>d<anc.date),postSlots=slots.filter(d=>d>=anc.date);
       if(!postSlots.includes(anc.date)&&anc.date<=uptoDate&&!(skipDates&&skipDates.has(anc.date)))postSlots.unshift(anc.date);
       preSlots.forEach((d,i)=>{if(pre[i])placed[d]=pre[i];});
-      postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
+      // 앵커 앞 슬롯이 모자라면 남은 이전 항목을 소실시키지 않고 순서 유지한 채 앵커 뒤로 밀어 배치 (2026-07-28)
+      const overflow=pre.slice(preSlots.length);
+      const seq=[...overflow,...post];
+      postSlots.forEach((d,i)=>{if(seq[i])placed[d]=seq[i];});
       return placed;
     } // 앵커 단원이 이미 기록됐으면 무시(자동 소멸)
   }
@@ -10649,7 +10652,10 @@ function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
       const preSlots=slots.filter(d=>d<anc.date),postSlots=slots.filter(d=>d>=anc.date);
       if(!postSlots.includes(anc.date)&&anc.date<=uptoDate&&!(skipDates&&skipDates.has(anc.date)))postSlots.unshift(anc.date);
       preSlots.forEach((d,i)=>{if(pre[i])placed[d]=pre[i];});
-      postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
+      // 앵커 앞 슬롯이 모자라면 남은 이전 항목을 소실시키지 않고 순서 유지한 채 앵커 뒤로 밀어 배치 (2026-07-28)
+      const overflow=pre.slice(preSlots.length);
+      const seq=[...overflow,...post];
+      postSlots.forEach((d,i)=>{if(seq[i])placed[d]=seq[i];});
       return placed;
     }
   }
