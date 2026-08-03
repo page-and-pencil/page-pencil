@@ -962,7 +962,7 @@ const VOCAB_STAGES={
 };
 const VOCAB_PRESETS={
   beginner:['mem','mc','match'],       // 저학년: 타이핑 없이 탭만으로
-  intermediate:['mem','mcr','tiles'],  // 철자 조립 = 스펠링 준비 단계
+  intermediate:['mem','mcr','spell'],  // 철자 단계 = 타자 입력 (2026-07-28 원장 지시 — 3연속 오답 시 타일 조립 낮추기 제안은 유지)
   advanced:['mem','recall','spell'],
 };
 // 오늘의 게임 로테이션 — 프리셋 사용 학생은 요일마다 2·3단계 게임이 바뀜 (기대감 + 매너리즘 방지)
@@ -974,7 +974,7 @@ function vocabStagesForDay(sid,dayOffset){
   if(mode==='advanced')return VOCAB_PRESETS.advanced;
   const pools=mode==='beginner'
     ?{s2:['mc','listen','mcr'],s3:['match','bingo','tiles']}
-    :{s2:['mcr','mc','listen'],s3:['tiles','match','bingo']};
+    :{s2:['mcr','mc','listen'],s3:['spell','match','bingo']};
   const d=new Date();d.setDate(d.getDate()+(dayOffset||0));
   const i=d.getDay();
   return ['mem',pools.s2[i%pools.s2.length],pools.s3[i%pools.s3.length]];
