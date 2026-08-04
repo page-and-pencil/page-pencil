@@ -10619,11 +10619,22 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate){
       const pre=remaining.slice(0,ai),post=remaining.slice(ai);
       const preSlots=slots.filter(d=>d<anc.date),postSlots=slots.filter(d=>d>=anc.date);
       if(!postSlots.includes(anc.date)&&anc.date<=uptoDate&&!(skipDates&&skipDates.has(anc.date)))postSlots.unshift(anc.date);
-      preSlots.forEach((d,i)=>{if(pre[i])placed[d]=pre[i];});
-      // 앵커 앞 슬롯이 모자라면 남은 이전 항목을 소실시키지 않고 순서 유지한 채 앵커 뒤로 밀어 배치 (2026-07-28)
-      const overflow=pre.slice(preSlots.length);
-      const seq=[...overflow,...post];
-      postSlots.forEach((d,i)=>{if(seq[i])placed[d]=seq[i];});
+      // 드래그한 항목은 지정 날짜에 고정하고, 앞 슬롯이 모자라면 이전 항목들을 직전 슬롯(없으면 앵커 날짜)에 몰아 배치
+      // — 소실도, 옮긴 칩이 지정 날짜에서 밀리는 것도 없음 (2026-08-04)
+      if(pre.length<=preSlots.length){
+        preSlots.forEach((d,i)=>{if(pre[i])placed[d]=pre[i];});
+        postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
+      }else if(preSlots.length){
+        preSlots.forEach((d,i)=>{placed[d]=pre[i];});
+        const lastSlot=preSlots[preSlots.length-1];
+        placed[lastSlot]=pre.slice(preSlots.length-1).join(', ');
+        postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
+      }else{
+        postSlots.forEach((d,i)=>{
+          if(i===0)placed[d]=[...pre,post[0]].join(', ');
+          else if(post[i])placed[d]=post[i];
+        });
+      }
       return placed;
     } // 앵커 단원이 이미 기록됐으면 무시(자동 소멸)
   }
@@ -10671,11 +10682,22 @@ function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
       const pre=remaining.slice(0,ai),post=remaining.slice(ai);
       const preSlots=slots.filter(d=>d<anc.date),postSlots=slots.filter(d=>d>=anc.date);
       if(!postSlots.includes(anc.date)&&anc.date<=uptoDate&&!(skipDates&&skipDates.has(anc.date)))postSlots.unshift(anc.date);
-      preSlots.forEach((d,i)=>{if(pre[i])placed[d]=pre[i];});
-      // 앵커 앞 슬롯이 모자라면 남은 이전 항목을 소실시키지 않고 순서 유지한 채 앵커 뒤로 밀어 배치 (2026-07-28)
-      const overflow=pre.slice(preSlots.length);
-      const seq=[...overflow,...post];
-      postSlots.forEach((d,i)=>{if(seq[i])placed[d]=seq[i];});
+      // 드래그한 항목은 지정 날짜에 고정하고, 앞 슬롯이 모자라면 이전 항목들을 직전 슬롯(없으면 앵커 날짜)에 몰아 배치
+      // — 소실도, 옮긴 칩이 지정 날짜에서 밀리는 것도 없음 (2026-08-04)
+      if(pre.length<=preSlots.length){
+        preSlots.forEach((d,i)=>{if(pre[i])placed[d]=pre[i];});
+        postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
+      }else if(preSlots.length){
+        preSlots.forEach((d,i)=>{placed[d]=pre[i];});
+        const lastSlot=preSlots[preSlots.length-1];
+        placed[lastSlot]=pre.slice(preSlots.length-1).join(', ');
+        postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
+      }else{
+        postSlots.forEach((d,i)=>{
+          if(i===0)placed[d]=[...pre,post[0]].join(', ');
+          else if(post[i])placed[d]=post[i];
+        });
+      }
       return placed;
     }
   }
