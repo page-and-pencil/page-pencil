@@ -10597,10 +10597,10 @@ function _pgPlacePinned(remaining,slots,pins,todayStr,normFn,matchFn){
     const list=(parts.length>1&&parts.every(pt=>remaining.some(k=>matchFn(normFn(k),normFn(pt)))))?parts:[pn.unit];
     list.forEach(u=>{const i=remaining.findIndex(k=>matchFn(normFn(k),normFn(u)));if(i>=0&&!(i in pinByIdx))pinByIdx[i]=pn.date;});
   });
-  Object.entries(pinByIdx).forEach(([i,d])=>{placed[d]=placed[d]?placed[d]+', '+remaining[i]:remaining[i];});
+  Object.entries(pinByIdx).forEach(([i,d])=>{(placed[d]=placed[d]||[]).push(remaining[i]);}); // 같은 날 여러 유닛도 개별 항목(칩 하나씩)
   const pinDates=new Set(Object.values(pinByIdx));
   const rest=remaining.filter((_,i)=>!(i in pinByIdx));
-  slots.filter(d=>!pinDates.has(d)).forEach((d,i)=>{if(rest[i])placed[d]=rest[i];});
+  slots.filter(d=>!pinDates.has(d)).forEach((d,i)=>{if(rest[i])placed[d]=[rest[i]];});
   return placed;
 }
 function _pgAncPins(anc){
@@ -10637,7 +10637,7 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate){
   const anc=(c.progressAnchors||{})[tb.id];
   const pins=_pgAncPins(anc);
   if(pins.length)return _pgPlacePinned(remaining,slots,pins,todayStr,_pgNorm,_pgUMatch);
-  slots.forEach((d,i)=>{if(remaining[i])placed[d]=remaining[i];});
+  slots.forEach((d,i)=>{if(remaining[i])placed[d]=[remaining[i]];});
   return placed;
 }
 // 학생의 남은 ORT 원서 (순서대로, 읽음 기록 제외) — 시리즈를 시작한 학생만
@@ -10677,7 +10677,7 @@ function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
   const anc=(c.progressAnchors||{})['ort:'+sid];
   const pins=_pgAncPins(anc);
   if(pins.length)return _pgPlacePinned(remaining,slots,pins,todayStr,_pgNorm,(a,b)=>a===b);
-  slots.forEach((d,i)=>{if(remaining[i])placed[d]=remaining[i];});
+  slots.forEach((d,i)=>{if(remaining[i])placed[d]=[remaining[i]];});
   return placed;
 }
 // 클래스5 앱 과제 예정 {날짜:{unit,title}} — 시작일부터 매일 한 유닛씩 (수업일·휴강과 무관, 매일 나감)
@@ -10941,8 +10941,8 @@ function _pgComposePlan(classId,c,uptoDate){
       }
       const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate,skipSet,cursor);
       let maxD='';
-      Object.entries(placed).forEach(([d,u])=>{
-        (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
+      Object.entries(placed).forEach(([d,us])=>{ // 같은 날 여러 유닛 = 개별 칩 (한 유닛씩 따로 옮길 수 있게)
+        (Array.isArray(us)?us:[us]).forEach(u=>(ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s}));
         if(d>maxD)maxD=d;
       });
       if(maxD)cursor=_addDay(maxD);
@@ -10952,8 +10952,8 @@ function _pgComposePlan(classId,c,uptoDate){
   const ortGhostBy={};
   clsStus.forEach(s=>{
     const placed=_pgOrtProjection(classId,c,s.id,uptoDate,skipSet);
-    Object.entries(placed).forEach(([d,t])=>{
-      (ortGhostBy[d]=ortGhostBy[d]||[]).push({sid:s.id,name:s.name,title:t});
+    Object.entries(placed).forEach(([d,ts])=>{
+      (Array.isArray(ts)?ts:[ts]).forEach(t=>(ortGhostBy[d]=ortGhostBy[d]||[]).push({sid:s.id,name:s.name,title:t}));
     });
   });
   return {books,clsStus,singDates,ghostBy,ortGhostBy,skipSet};
@@ -10977,8 +10977,8 @@ function _pgAutoFillRow(sr){
   const dateVal=document.getElementById('cl-date')?.value||ppToday();
   // 캘린더와 같은 계산으로 그 날짜의 계획 단원을, 없으면 순서상 다음 단원
   const _plan=_pgComposePlan(classId,c,dateVal);
-  const _planned=(_plan.ghostBy[dateVal]||[]).find(x=>x.tbId===tb.id);
-  const next=(_planned&&_planned.unit)||_pgNextUnit(classId,tb,mat.unit||'');
+  const _plannedUs=(_plan.ghostBy[dateVal]||[]).filter(x=>x.tbId===tb.id).map(x=>x.unit); // 개별 칩이어도 폼엔 그날 유닛 전부
+  const next=(_plannedUs.length?_plannedUs.join(', '):'')||_pgNextUnit(classId,tb,mat.unit||'');
   if(!next)return;
   const wrapU=sr.querySelector('.unit-inputs-wrap');
   if(wrapU)[...wrapU.querySelectorAll('.unit-irow')].slice(1).forEach(x=>x.remove());
@@ -11449,14 +11449,14 @@ function pgCellClick(ev,classId,date){
   // 수업일이 아니면: 예정 편집·보강 기록 + '추가 수업일 지정' (특강 매일 수업 등)
   if(!isClassDay){
     pgCellMenu(ev,classId,date,[
-      future?{ico:'🗓',label:'예정 편집 (교재 추가)',run:()=>openPgPlan(classId,date)}:{ico:'📝',label:'보강 수업 기록',run:()=>openClassLesson(classId,date)},
+      future?{ico:'🗓',label:'예정 편집 (교재·유닛 조정)',run:()=>openPgPlan(classId,date)}:{ico:'📝',label:'보강 수업 기록',run:()=>openClassLesson(classId,date)},
       {ico:'➕',label:'추가 수업일로 지정',sub:'요일 외 수업 (특강·보강) — 진도가 이 날에도 나가요',run:()=>pgToggleExtra(classId,date)},
     ]);
     return;
   }
   // 빈 수업일 → 선택 메뉴
   const opts=[];
-  if(future){opts.push({ico:'🗓',label:'예정 편집 (교재 추가)',run:()=>openPgPlan(classId,date)});}
+  if(future){opts.push({ico:'🗓',label:'예정 편집 (교재·유닛 조정)',run:()=>openPgPlan(classId,date)});}
   else{opts.push({ico:'📝',label:'수업 기록',run:()=>openClassLesson(classId,date)});}
   opts.push({ico:'🚫',label:future?'휴강 예정 (수업 안 함)':'수업 안 함 (휴강·결석)',sub:future?'진도 하루씩 밀림 · 안내 보내기로 이어져요':'이후 진도가 하루씩 밀려요',run:()=>pgToggleSkip(classId,date)});
   opts.push({ico:'🏖',label:'기간 휴강·방학 (여기부터)',sub:'끝나는 날짜를 클릭하면 기간이 표시돼요 (드래그로도 가능)',run:()=>{_pgRangeStart={classId,date};toast(`${skipDateLbl(date)}부터 — 마지막 날짜를 클릭하세요`);}});
@@ -11569,12 +11569,36 @@ function openPgPlan(classId,date){
   // 이 날 예정 — 캘린더와 같은 계산(_pgComposePlan) 공유: 싱투게더·밀림까지 동일하게 반영
   const plan=_pgComposePlan(classId,c,date);
   const books=plan.books;
-  const cur=[];
-  if(plan.singDates.has(date))cur.push({title:'✏️🎵 Sing Together (Pencil Down)',unit:'',cat:''});
-  (plan.ortGhostBy[date]||[]).forEach(g=>cur.push({title:'📗 '+(plan.clsStus.length>1?g.name+' · ':'')+g.title,unit:'',cat:''}));
-  (plan.ghostBy[date]||[]).forEach(g=>cur.push({title:g.title,unit:g.unit,cat:g.s.replace(/_\d+$/,'')}));
-  document.getElementById('pg-plan-cur').innerHTML=cur.length
-    ?`<div style="font-size:12.5px;font-weight:700;color:var(--slate);margin-bottom:5px">이 날 예정</div>`+cur.map(x=>`<div style="font-size:13px;color:var(--navy);padding:2px 0">• ${x.cat&&SLBL[x.cat]?`<span class="spill ${SCLS[x.cat]}" style="font-size:10px">${SLBL[x.cat]}</span> `:''}${x.title}${x.unit?' — '+x.unit:''}</div>`).join('')
+  const rows=[];
+  if(plan.singDates.has(date))rows.push(`<div style="font-size:13px;color:var(--navy);padding:2px 0">• ✏️🎵 Sing Together (Pencil Down)</div>`);
+  (plan.ortGhostBy[date]||[]).forEach(g=>rows.push(`<div style="font-size:13px;color:var(--navy);padding:2px 0">• 📗 ${plan.clsStus.length>1?escAttr(g.name)+' · ':''}${escAttr(g.title)} <span style="font-size:11px;color:var(--slate)">(캘린더에서 드래그로 이동)</span></div>`));
+  // 교재 예정: 유닛 select로 그 자리 유닛 교체 + 📌 고정/해제 (즉시 저장)
+  (plan.ghostBy[date]||[]).forEach(g=>{
+    const cat=g.s.replace(/_\d+$/,'');
+    const pill=SLBL[cat]?`<span class="spill ${SCLS[cat]}" style="font-size:10px;flex:none">${SLBL[cat]}</span>`:'';
+    const b=books.find(x=>x.tb.id===g.tbId);
+    let remU=[];
+    if(b){
+      const keys=tbUnitKeys(b.tb);
+      const rec=_pgLastRec(classId,b.tb);
+      const start=rec?rec.idx+1:(()=>{const si=_pgUnitIdx(b.tb,b.mat?.unit);return si>=0?si:0;})();
+      remU=keys.slice(start);
+    }
+    if(!b||!remU.includes(g.unit)){ // 어휘 일괄 칩(합쳐진 표시) 등 — 여기선 조정 대상 아님
+      rows.push(`<div style="font-size:13px;color:var(--navy);padding:2px 0">• ${pill} ${escAttr(g.title)} — ${escAttr(g.unit)}${cat==='vocab'?' <span style="font-size:11px;color:var(--slate)">(숙제 흐름 자동)</span>':''}</div>`);
+      return;
+    }
+    const pinned=_pgAncPins((c.progressAnchors||{})[g.tbId]).some(pn=>pn.date===date&&_pgNorm(pn.unit)===_pgNorm(g.unit));
+    const titles=b.tb.unitTitles||{};
+    rows.push(`<div style="display:flex;align-items:center;gap:6px;padding:3px 0;min-width:0">${pill}
+      <span style="font-size:12.5px;color:var(--navy);flex:none;max-width:104px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(b.tb.title)}">${escAttr(b.tb.title)}</span>
+      <select style="flex:1;min-width:0;font-size:12.5px;padding:4px 6px" onchange="pgPlanUnitSwap('${g.tbId}','${escJsA(g.unit)}',this.value)">${remU.map(k=>`<option value="${escAttr(k)}"${k===g.unit?' selected':''}>${k}${titles[k]?' — '+titles[k]:''}</option>`).join('')}</select>
+      <button class="btn ${pinned?'bt':'bo'} bsm" style="flex:none;padding:3px 7px;font-size:11.5px" title="${pinned?'고정 해제 — 원래 순서 자리로 돌아가요':'이 날에 고정 — 다른 유닛을 옮겨도 안 움직여요'}" onclick="pgPlanPinToggle('${g.tbId}','${escJsA(g.unit)}')">📌${pinned?' 해제':''}</button>
+    </div>`);
+  });
+  document.getElementById('pg-plan-cur').innerHTML=rows.length
+    ?`<div style="font-size:12.5px;font-weight:700;color:var(--slate);margin-bottom:5px">이 날 예정</div>`+rows.join('')
+      +`<div style="font-size:11.5px;color:var(--slate);margin-top:4px">유닛을 바꾸면 그 유닛이 이 날로 오고, 원래 유닛은 빈 수업일에 순서대로 다시 배치돼요.</div>`
     :`<div style="font-size:13px;color:var(--slate)">이 날 예정된 교재가 아직 없어요</div>`;
   // 교재 select: 클래스 공통 교재 먼저, 그 외 교재 DB 전체 (단원 있는 교재만)
   const inCls=new Set(books.map(b=>b.tb.id));
@@ -11628,6 +11652,40 @@ async function pgPlanSave(){
   closeM('m-pg-plan');
   renderClsLessons(classId);
   toast(`${tb.title} — ${u} · ${Number(date.slice(5,7))}/${Number(date.slice(8,10))}부터 예정으로 잡았어요`);
+}
+// 예정 편집 모달: 이 날 이 자리의 유닛을 다른 유닛으로 교체 (새 유닛을 이 날에 핀, 원래 유닛 핀은 해제)
+async function pgPlanUnitSwap(tbId,oldUnit,newUnit){
+  if(!_pgPlanCtx||!newUnit||_pgNorm(oldUnit)===_pgNorm(newUnit))return;
+  const {classId,date}=_pgPlanCtx;
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const todayStr=ppToday();
+  const pins=_pgAncPins((c.progressAnchors||{})[tbId]).filter(pn=>pn.date>=todayStr
+    &&!(pn.date===date&&_pgNorm(pn.unit)===_pgNorm(oldUnit))
+    &&_pgNorm(pn.unit)!==_pgNorm(newUnit));
+  pins.push({unit:newUnit,date});
+  c.progressAnchors={...(c.progressAnchors||{}),[tbId]:{pins}};
+  try{await supaUpsert('classes',classId,c,null);}
+  catch(e){console.error('pgPlanUnitSwap:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  renderClsLessons(classId);
+  openPgPlan(classId,date);
+  toast(`${newUnit} → 이 날로 바꿨어요 — 원래 유닛은 순서대로 다시 배치돼요`);
+}
+// 예정 편집 모달: 이 날의 유닛 📌 고정/해제 토글
+async function pgPlanPinToggle(tbId,unit){
+  if(!_pgPlanCtx)return;
+  const {classId,date}=_pgPlanCtx;
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const todayStr=ppToday();
+  const all=_pgAncPins((c.progressAnchors||{})[tbId]).filter(pn=>pn.date>=todayStr);
+  const was=all.some(pn=>pn.date===date&&_pgNorm(pn.unit)===_pgNorm(unit));
+  const pins=all.filter(pn=>_pgNorm(pn.unit)!==_pgNorm(unit));
+  if(!was)pins.push({unit,date});
+  c.progressAnchors={...(c.progressAnchors||{}),[tbId]:{pins}};
+  try{await supaUpsert('classes',classId,c,null);}
+  catch(e){console.error('pgPlanPinToggle:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  renderClsLessons(classId);
+  openPgPlan(classId,date);
+  toast(was?'고정을 해제했어요 — 원래 순서 자리로 돌아가요':`${unit} — 이 날에 고정했어요`);
 }
 async function pgSetAnchor(classId,tbId,unit,date){
   const todayStr=ppToday();
