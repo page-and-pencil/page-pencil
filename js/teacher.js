@@ -10586,6 +10586,27 @@ function _pgActiveMats(classId,c){
   return out;
 }
 // 오늘~uptoDate의 예정 진도 {날짜:단원키} — 앵커(드래그로 옮긴 기준점) 반영, skipDates=펜슬다운 등 제외일
+// 다중 핀 배치 (2026-08-04): 유닛별 핀은 지정 날짜에 고정(같은 날 여러 개면 합쳐 표시),
+// 핀 없는 유닛은 핀 날짜를 제외한 수업일에 순서대로 — 방향 무관·소실 없음·여러 번 드래그해도 각 핀 유지
+function _pgPlacePinned(remaining,slots,pins,todayStr,normFn,matchFn){
+  const placed={};
+  const pinByIdx={};
+  (pins||[]).forEach(pn=>{
+    if(!pn||!pn.unit||!pn.date||pn.date<todayStr)return;
+    const i=remaining.findIndex(k=>matchFn(normFn(k),normFn(pn.unit)));
+    if(i>=0&&!(i in pinByIdx))pinByIdx[i]=pn.date;
+  });
+  Object.entries(pinByIdx).forEach(([i,d])=>{placed[d]=placed[d]?placed[d]+', '+remaining[i]:remaining[i];});
+  const pinDates=new Set(Object.values(pinByIdx));
+  const rest=remaining.filter((_,i)=>!(i in pinByIdx));
+  slots.filter(d=>!pinDates.has(d)).forEach((d,i)=>{if(rest[i])placed[d]=rest[i];});
+  return placed;
+}
+function _pgAncPins(anc){
+  if(!anc)return[];
+  if(Array.isArray(anc.pins))return anc.pins;
+  return anc.unit?[{unit:anc.unit,date:anc.date}]:[];
+}
 function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate){
   const todayStr=ppToday();
   const keys=tbUnitKeys(tb);if(!keys.length)return{};
@@ -10613,39 +10634,8 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate){
   }
   const placed={};
   const anc=(c.progressAnchors||{})[tb.id];
-  if(anc&&anc.date>=todayStr){
-    const ai=remaining.findIndex(k=>_pgUMatch(_pgNorm(k),_pgNorm(anc.unit)));
-    if(ai>=0){ // 앵커 이전 단원은 앞 슬롯에, 앵커 단원부터는 앵커 날짜부터 쭉
-      const pre=remaining.slice(0,ai),post=remaining.slice(ai);
-      const preSlots=slots.filter(d=>d<anc.date),postSlots=slots.filter(d=>d>=anc.date);
-      if(!postSlots.includes(anc.date)&&anc.date<=uptoDate&&!(skipDates&&skipDates.has(anc.date)))postSlots.unshift(anc.date);
-      // 드래그 방향별 의미 (2026-08-04):
-      // ① 당기기(뒤 유닛을 자연 위치보다 앞 날짜로) = 그 유닛만 이동, 나머지는 제자리(자리를 뺏긴 것만 한 칸씩 뒤로)
-      // ② 밀기(자연 위치보다 뒤로) = 앵커부터 이후 진도가 함께 밀림 (기존 미루기 동작)
-      const naturalDate=slots[ai]||slots[slots.length-1]||anc.date;
-      if(anc.date<=naturalDate){
-        placed[anc.date]=remaining[ai];
-        const rest=remaining.filter((_,i)=>i!==ai);
-        slots.filter(d=>d!==anc.date).forEach((d,i)=>{if(rest[i])placed[d]=rest[i];});
-        return placed;
-      }
-      if(pre.length<=preSlots.length){
-        preSlots.forEach((d,i)=>{if(pre[i])placed[d]=pre[i];});
-        postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
-      }else if(preSlots.length){
-        preSlots.forEach((d,i)=>{placed[d]=pre[i];});
-        const lastSlot=preSlots[preSlots.length-1];
-        placed[lastSlot]=pre.slice(preSlots.length-1).join(', ');
-        postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
-      }else{
-        postSlots.forEach((d,i)=>{
-          if(i===0)placed[d]=[...pre,post[0]].join(', ');
-          else if(post[i])placed[d]=post[i];
-        });
-      }
-      return placed;
-    } // 앵커 단원이 이미 기록됐으면 무시(자동 소멸)
-  }
+  const pins=_pgAncPins(anc);
+  if(pins.length)return _pgPlacePinned(remaining,slots,pins,todayStr,_pgNorm,_pgUMatch);
   slots.forEach((d,i)=>{if(remaining[i])placed[d]=remaining[i];});
   return placed;
 }
@@ -10684,39 +10674,8 @@ function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
   }
   const placed={};
   const anc=(c.progressAnchors||{})['ort:'+sid];
-  if(anc&&anc.date>=todayStr){
-    const ai=remaining.findIndex(t=>_pgNorm(t)===_pgNorm(anc.unit));
-    if(ai>=0){
-      const pre=remaining.slice(0,ai),post=remaining.slice(ai);
-      const preSlots=slots.filter(d=>d<anc.date),postSlots=slots.filter(d=>d>=anc.date);
-      if(!postSlots.includes(anc.date)&&anc.date<=uptoDate&&!(skipDates&&skipDates.has(anc.date)))postSlots.unshift(anc.date);
-      // 드래그 방향별 의미 (2026-08-04):
-      // ① 당기기(뒤 유닛을 자연 위치보다 앞 날짜로) = 그 유닛만 이동, 나머지는 제자리(자리를 뺏긴 것만 한 칸씩 뒤로)
-      // ② 밀기(자연 위치보다 뒤로) = 앵커부터 이후 진도가 함께 밀림 (기존 미루기 동작)
-      const naturalDate=slots[ai]||slots[slots.length-1]||anc.date;
-      if(anc.date<=naturalDate){
-        placed[anc.date]=remaining[ai];
-        const rest=remaining.filter((_,i)=>i!==ai);
-        slots.filter(d=>d!==anc.date).forEach((d,i)=>{if(rest[i])placed[d]=rest[i];});
-        return placed;
-      }
-      if(pre.length<=preSlots.length){
-        preSlots.forEach((d,i)=>{if(pre[i])placed[d]=pre[i];});
-        postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
-      }else if(preSlots.length){
-        preSlots.forEach((d,i)=>{placed[d]=pre[i];});
-        const lastSlot=preSlots[preSlots.length-1];
-        placed[lastSlot]=pre.slice(preSlots.length-1).join(', ');
-        postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
-      }else{
-        postSlots.forEach((d,i)=>{
-          if(i===0)placed[d]=[...pre,post[0]].join(', ');
-          else if(post[i])placed[d]=post[i];
-        });
-      }
-      return placed;
-    }
-  }
+  const pins=_pgAncPins(anc);
+  if(pins.length)return _pgPlacePinned(remaining,slots,pins,todayStr,_pgNorm,(a,b)=>a===b);
   slots.forEach((d,i)=>{if(remaining[i])placed[d]=remaining[i];});
   return placed;
 }
@@ -11657,7 +11616,8 @@ async function pgPlanSave(){
   if(!_pgLastRec(classId,tb)){ // 기록 없는 교재는 시작 단원 자체를 이 단원으로 (이전 단원 예정이 끼지 않게)
     for(const k in c.commonMaterials){const v=c.commonMaterials[k];if(v&&(v.bookId?v.bookId===tb.id:v.book===tb.title))c.commonMaterials[k]={...v,unit:u};}
   }
-  c.progressAnchors={...(c.progressAnchors||{}),[tb.id]:{unit:u,date}}; // 이 날 이 단원부터 시작
+  {const prev=_pgAncPins((c.progressAnchors||{})[tb.id]).filter(pn=>pn.date>=ppToday()&&_pgNorm(pn.unit)!==_pgNorm(u));
+  c.progressAnchors={...(c.progressAnchors||{}),[tb.id]:{pins:[...prev,{unit:u,date}]}};} // 이 날 이 단원 고정(핀)
   try{await supaUpsert('classes',classId,c,null);}
   catch(e){console.error('pgPlanSave:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
   const i=(_cache.globalClasses||[]).findIndex(x=>x.id===classId);if(i>=0)_cache.globalClasses[i]=c;
@@ -11669,10 +11629,11 @@ async function pgSetAnchor(classId,tbId,unit,date){
   const todayStr=ppToday();
   if(date<todayStr){toast('지난 날짜로는 옮길 수 없어요');return;}
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
-  c.progressAnchors={...(c.progressAnchors||{}),[tbId]:{unit,date}};
+  const prev=_pgAncPins((c.progressAnchors||{})[tbId]).filter(pn=>pn.date>=todayStr&&_pgNorm(pn.unit)!==_pgNorm(unit));
+  c.progressAnchors={...(c.progressAnchors||{}),[tbId]:{pins:[...prev,{unit,date}]}}; // 유닛별 핀 누적 — 여러 유닛 자유 배치
   await supaUpsert('classes',classId,c,null).catch(e=>{console.error('pgSetAnchor:',e);toast('저장 실패 — 네트워크를 확인해 주세요');});
   renderClsLessons(classId);
-  toast(`${unit} → ${Number(date.slice(5,7))}/${Number(date.slice(8,10))} 이동 — 이후 진도가 자동으로 밀려요`);
+  toast(`${unit} → ${Number(date.slice(5,7))}/${Number(date.slice(8,10))} 고정 — 나머지 유닛은 빈 수업일에 순서대로 배치돼요`);
 }
 function pgClearAnchors(classId){
   askConfirm('예정 초기화','드래그로 옮긴 예정 진도를 원래 순서로 되돌릴까요? (수업 기록은 그대로예요)','되돌리기','bt',async()=>{
