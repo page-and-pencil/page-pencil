@@ -647,9 +647,11 @@ function renderSpVocab(sid){
   const el=document.getElementById('sp-vocab');if(!el)return;
   if(_vocabSid!==sid){_vocabFilter={search:'',phase:'',src:'',sort:'alpha'};}_vocabSid=sid;
   const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
-  const p0=allCards.filter(c=>(c.phase||0)===0).length;
-  const p1=allCards.filter(c=>(c.phase||0)===1).length;
-  const p2=allCards.filter(c=>(c.phase||0)===2).length;
+  // 실효 단계(학습 기록 자동 반영)로 집계 — renderVocabList의 effPh와 동일 규칙 (2026-08-04)
+  const _eff=c=>Math.max(c.phase||0,(c.hits||0)>=3?2:((c.hits||0)>0||c.lastSeen?1:0));
+  const p0=allCards.filter(c=>_eff(c)===0).length;
+  const p1=allCards.filter(c=>_eff(c)===1).length;
+  const p2=allCards.filter(c=>_eff(c)===2).length;
   const srcSet=new Set(allCards.map(c=>c.source||'').filter(Boolean));
   const srcList=[...srcSet].sort();
   const spStu=(_cache.students||[]).find(s=>s.id===sid);
