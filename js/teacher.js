@@ -750,15 +750,18 @@ function renderVocabList(sid){
   const hdrEl=document.getElementById('vocab-list-hdr');
   if(!listEl)return;
   const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  // 실효 단계: 수동 단계와 앱 학습 기록(정답 3회=숙달, 학습 시작=학습중) 중 높은 쪽 — 학생 학습이 자동 반영되게 (2026-08-04)
+  const effPh=c=>Math.max(c.phase||0,(c.hits||0)>=3?2:((c.hits||0)>0||c.lastSeen?1:0));
   let cards=[...allCards];
   if(_vocabFilter.search){const q=_vocabFilter.search.toLowerCase();cards=cards.filter(c=>(c.word||'').toLowerCase().includes(q)||(c.meaning||'').toLowerCase().includes(q));}
-  if(_vocabFilter.phase!==''){const ph=parseInt(_vocabFilter.phase);cards=cards.filter(c=>(c.phase||0)===ph);}
+  if(_vocabFilter.phase!==''){const ph=parseInt(_vocabFilter.phase);cards=cards.filter(c=>effPh(c)===ph);}
   if(_vocabFilter.src)cards=cards.filter(c=>(c.source||'')===_vocabFilter.src);
   if(_vocabFilter.sort==='alpha')cards.sort((a,b)=>(a.word||'').localeCompare(b.word));
   else if(_vocabFilter.sort==='recent')cards.sort((a,b)=>(b.id||'').localeCompare(a.id||''));
   else if(_vocabFilter.sort==='misses')cards.sort((a,b)=>(b.misses||0)-(a.misses||0)||(a.word||'').localeCompare(b.word));
-  else if(_vocabFilter.sort==='phase')cards.sort((a,b)=>(a.phase||0)-(b.phase||0)||(a.word||'').localeCompare(b.word));
-  if(hdrEl)hdrEl.textContent=cards.length===allCards.length?`전체 ${allCards.length}개`:`${cards.length}개 표시 / 전체 ${allCards.length}개`;
+  else if(_vocabFilter.sort==='phase')cards.sort((a,b)=>effPh(a)-effPh(b)||(a.word||'').localeCompare(b.word));
+  const _todayN=allCards.filter(c=>c.lastSeen===ppToday()).length;
+  if(hdrEl)hdrEl.textContent=(cards.length===allCards.length?`전체 ${allCards.length}개`:`${cards.length}개 표시 / 전체 ${allCards.length}개`)+(_todayN?` · 오늘 학습 ${_todayN}개`:'');
   if(!cards.length){listEl.innerHTML=`<div style="font-size:13px;color:var(--slate);padding:20px 0;text-align:center">${allCards.length?'검색/필터 결과 없음':'단어장이 비어있습니다'}</div>`;return;}
   const PHASE_LBL=['신규','학습중','숙달'];const PHASE_CLS=['bslate','bamber','bteal'];
   const FIXED_SRC={리딩로그:'bamber',테스트:'bcoral',과제:'bnavy',직접추가:'bnavy'};
@@ -766,7 +769,7 @@ function renderVocabList(sid){
   const lvBadge=c=>{const lv=c.wlevel||'';if(!lv)return'';const col=lv.startsWith('Dolch')?'background:#e0f2fe;color:#0369a1':lv.startsWith('A')?'background:#dcfce7;color:#166534':lv.startsWith('B')?'background:#fef9c3;color:#92400e':lv.startsWith('C')?'background:#ffe4e6;color:#9f1239':'background:#f3e8ff;color:#7e22ce';return`<span style="font-size:9.5px;padding:1px 5px;border-radius:8px;${col}">${lv}</span>`;};
   const inp='padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--fb);background:var(--cream2);outline:none;box-sizing:border-box;width:100%';
   listEl.innerHTML=cards.map(c=>{
-    const ph=c.phase||0;
+    const ph=effPh(c);
     const nextPhLbl=PHASE_LBL[(ph+1)%3];
     return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;gap:8px;align-items:flex-start">
@@ -782,6 +785,8 @@ function renderVocabList(sid){
               onclick="cycleVocabPhase('${c.id}','${sid}',${ph})"
               title="→ ${nextPhLbl}">${PHASE_LBL[ph]} ↻</button>
             ${srcBadge(c.source)}${lvBadge(c)}
+            ${c.lastSeen?`<span style="font-size:10.5px;font-weight:600;color:${c.lastSeen===ppToday()?'#047857':'var(--slate)'}">🕐 ${c.lastSeen===ppToday()?'오늘 학습':c.lastSeen.slice(5).replace('-','/')+' 학습'}</span>`:''}
+            ${(c.hits||0)>0?`<span style="font-size:10.5px;color:#0B8DAE;font-weight:700">정답 ${c.hits}회</span>`:''}
             ${(c.misses||0)>0?`<span style="font-size:10.5px;color:var(--coral);font-weight:700">오답 ${c.misses}회</span>`:''}
           </div>
           <input type="text" value="${escAttr(c.meaning||'')}" placeholder="뜻 입력..."
