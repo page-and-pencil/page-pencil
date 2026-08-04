@@ -10840,28 +10840,31 @@ function _pgComposePlan(classId,c,uptoDate){
       if(!remaining.length)return;
       const bDays=(b.mat?.days&&b.mat.days.length)?b.mat.days:(c.days||[]);
       let segCursor=chainCursor;
-      const anc=(c.progressAnchors||{})[b.tb.id];
-      if(anc&&anc.date>=todayStr){
-        const ai=remaining.findIndex(k=>_pgUMatch(_pgNorm(k),_pgNorm(anc.unit)));
-        if(ai>=0){
-          for(const u of remaining.slice(0,ai)){ // 앵커 전까지 이전 단원 채우기 (넘치면 건너뜀)
-            const d=_slotFrom(segCursor,bDays);
-            if(!d||d>=anc.date)break;
-            (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
-            segCursor=_addDay(d);
-          }
-          remaining=remaining.slice(ai);
-          if(anc.date>segCursor)segCursor=anc.date;
+      // 다중 핀 (2026-08-04): 핀 유닛은 지정 날짜 고정, 나머지는 핀 날짜를 제외한 수업일에 순서대로 (_pgPlacePinned와 동일 규칙)
+      const pinOf={};
+      _pgAncPins((c.progressAnchors||{})[b.tb.id]).forEach(pn=>{
+        if(!pn||!pn.unit||!pn.date||pn.date<todayStr)return;
+        const parts=String(pn.unit).split(',').map(x=>x.trim()).filter(Boolean);
+        const list=(parts.length>1&&parts.every(pt=>remaining.some(k=>_pgUMatch(_pgNorm(k),_pgNorm(pt)))))?parts:[pn.unit];
+        list.forEach(u=>{const i=remaining.findIndex(k=>_pgUMatch(_pgNorm(k),_pgNorm(u)));if(i>=0&&!(i in pinOf))pinOf[i]=pn.date;});
+      });
+      const pinDates=new Set(Object.values(pinOf));
+      let segEnd=segCursor,overflow=false;
+      for(let i=0;i<remaining.length;i++){
+        let d;
+        if(i in pinOf)d=pinOf[i];
+        else{
+          d=_slotFrom(segCursor,bDays);
+          while(d&&pinDates.has(d))d=_slotFrom(_addDay(d),bDays); // 핀이 잡은 날은 자동 흐름이 건너뜀
+          if(!d){overflow=true;break;}
+          segCursor=_addDay(d);
         }
+        if(d<=uptoDate)(ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:remaining[i],color:b.color,title:b.tb.title,s:b.s});
+        if(_addDay(d)>segEnd)segEnd=_addDay(d);
       }
-      for(const u of remaining){
-        const d=_slotFrom(segCursor,bDays);
-        if(!d){chainCursor='9999-12-31';return;}
-        (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s});
-        segCursor=_addDay(d);
-      }
+      if(overflow){chainCursor='9999-12-31';return;}
       // 이 책 완주 → 싱투게더 → 다음 책은 그 다음 수업일부터
-      const sd=_slotFrom(segCursor,(c.days||[]));
+      const sd=_slotFrom(segEnd,(c.days||[]));
       if(!sd){chainCursor='9999-12-31';return;}
       singDates.add(sd);
       chainCursor=_addDay(sd);
