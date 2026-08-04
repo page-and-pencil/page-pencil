@@ -7937,10 +7937,23 @@ function renderDashChallenge(stus){
 async function dashChallengeComplete(sid){
   const idx=(_cache.students||[]).findIndex(s=>s.id===sid);if(idx<0)return;
   const stu=_cache.students[idx];
-  stu.hwChallenge={...(stu.hwChallenge||{}),completedDate:ppToday()};
+  // 선물 전달 = 라운드 종료 + 다음 라운드 자동 시작 (2026-08-03 원장 지시)
+  // 새 시작일 = 목표를 채운 도장 날짜 다음 날 — 그 이후 찍힌 도장(오늘 것 포함)이 새 라운드에 자동 승계됨
+  const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu):null;
+  const goal=(stu.hwChallenge&&stu.hwChallenge.goal)||20;
+  const reward=(stu.hwChallenge&&stu.hwChallenge.reward)||'작은 선물';
+  let nextStart=ppToday();
+  if(p&&p.stamps&&p.stamps.length){
+    const gi=Math.max(0,goal-(stu.hwChallenge.carry||0)-1); // goal번째 도장의 stamps 인덱스
+    const lastDate=p.stamps[Math.min(gi,p.stamps.length-1)];
+    const nd=new Date(lastDate+'T12:00:00');nd.setDate(nd.getDate()+1);
+    nextStart=ppYmd(nd);
+  }
+  stu.hwChallengeLog=[...(stu.hwChallengeLog||[]),{goal,reward,start:(stu.hwChallenge||{}).start||'',done:ppToday()}];
+  stu.hwChallenge={goal,reward,start:nextStart};
   try{await supaUpsert('students',sid,stu,null);}
   catch(e){console.error('dashChallengeComplete:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
-  toast(`${stu.name} 선물 전달 완료 기록! 🎁 새 라운드는 학생 패널에서 시작할 수 있어요`);
+  toast(`${stu.name} 선물 전달 완료 🎁 새 라운드가 바로 이어서 시작됐어요 (그 후 모은 도장 자동 인정)`);
   renderDash();
   if(typeof currentSpStuId!=='undefined'&&currentSpStuId===sid)loadStuPanel(sid);
 }
