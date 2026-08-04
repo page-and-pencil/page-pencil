@@ -10593,8 +10593,9 @@ function _pgPlacePinned(remaining,slots,pins,todayStr,normFn,matchFn){
   const pinByIdx={};
   (pins||[]).forEach(pn=>{
     if(!pn||!pn.unit||!pn.date||pn.date<todayStr)return;
-    const i=remaining.findIndex(k=>matchFn(normFn(k),normFn(pn.unit)));
-    if(i>=0&&!(i in pinByIdx))pinByIdx[i]=pn.date;
+    const parts=String(pn.unit).split(',').map(x=>x.trim()).filter(Boolean);
+    const list=(parts.length>1&&parts.every(pt=>remaining.some(k=>matchFn(normFn(k),normFn(pt)))))?parts:[pn.unit];
+    list.forEach(u=>{const i=remaining.findIndex(k=>matchFn(normFn(k),normFn(u)));if(i>=0&&!(i in pinByIdx))pinByIdx[i]=pn.date;});
   });
   Object.entries(pinByIdx).forEach(([i,d])=>{placed[d]=placed[d]?placed[d]+', '+remaining[i]:remaining[i];});
   const pinDates=new Set(Object.values(pinByIdx));
@@ -11061,7 +11062,7 @@ function _pgCalHtml(classId){
     ).join('');
     if(!chips&&lessonDates.has(ds))chips=`<span class="${recCls}" style="--pgc:#94A3B8" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">수업</span>`;
     chips+=(ghostBy[ds]||[]).slice().sort((a,b)=>_prio(a.s)-_prio(b.s)).map(g=>
-      `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 미래 날짜로 끌면 이동, 오늘·지난 날짜에 놓으면 그날 수업으로 기록, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${escAttr(g.s)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escAttr(g.unit)}','${escAttr(g.s)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escAttr(g.unit)}','${ds}','${escAttr(g.s)}')">${g.unit}</span>`
+      `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 미래 날짜로 끌면 이동, 오늘·지난 날짜에 놓으면 그날 수업으로 기록, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escJsA(g.unit)}','${ds}','${escJsA(g.s)}')">${g.unit}</span>`
     ).join('');
     chips+=(ortGhostBy[ds]||[]).map(g=>
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr((clsStus.length>1?g.name+' — ':'')+g.title+(ortGroupOf(g.title)?' · '+ortGroupOf(g.title):'')+' (원서 예정 — 끌어서 옮기기, 더블클릭=읽음 기록)')}" ondragstart="pgDragStart(event,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" ondblclick="pgOrtDbl(event,'${classId}','${g.sid}','${escJsA(g.title)}','${ds}')">📗 ${clsStus.length>1?g.name+'·':''}${g.title}</span>`
@@ -11629,8 +11630,9 @@ async function pgSetAnchor(classId,tbId,unit,date){
   const todayStr=ppToday();
   if(date<todayStr){toast('지난 날짜로는 옮길 수 없어요');return;}
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
-  const prev=_pgAncPins((c.progressAnchors||{})[tbId]).filter(pn=>pn.date>=todayStr&&_pgNorm(pn.unit)!==_pgNorm(unit));
-  c.progressAnchors={...(c.progressAnchors||{}),[tbId]:{pins:[...prev,{unit,date}]}}; // 유닛별 핀 누적 — 여러 유닛 자유 배치
+  const parts=String(tbId).startsWith('ort:')?[unit]:String(unit).split(',').map(x=>x.trim()).filter(Boolean);
+  const prev=_pgAncPins((c.progressAnchors||{})[tbId]).filter(pn=>pn.date>=todayStr&&!parts.some(pt=>_pgNorm(pn.unit)===_pgNorm(pt)));
+  c.progressAnchors={...(c.progressAnchors||{}),[tbId]:{pins:[...prev,...parts.map(pt=>({unit:pt,date}))]}}; // 합쳐진 칩도 유닛별 핀으로 분해 누적
   await supaUpsert('classes',classId,c,null).catch(e=>{console.error('pgSetAnchor:',e);toast('저장 실패 — 네트워크를 확인해 주세요');});
   renderClsLessons(classId);
   toast(`${unit} → ${Number(date.slice(5,7))}/${Number(date.slice(8,10))} 고정 — 나머지 유닛은 빈 수업일에 순서대로 배치돼요`);
