@@ -10619,8 +10619,16 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate){
       const pre=remaining.slice(0,ai),post=remaining.slice(ai);
       const preSlots=slots.filter(d=>d<anc.date),postSlots=slots.filter(d=>d>=anc.date);
       if(!postSlots.includes(anc.date)&&anc.date<=uptoDate&&!(skipDates&&skipDates.has(anc.date)))postSlots.unshift(anc.date);
-      // 드래그한 항목은 지정 날짜에 고정하고, 앞 슬롯이 모자라면 이전 항목들을 직전 슬롯(없으면 앵커 날짜)에 몰아 배치
-      // — 소실도, 옮긴 칩이 지정 날짜에서 밀리는 것도 없음 (2026-08-04)
+      // 드래그 방향별 의미 (2026-08-04):
+      // ① 당기기(뒤 유닛을 자연 위치보다 앞 날짜로) = 그 유닛만 이동, 나머지는 제자리(자리를 뺏긴 것만 한 칸씩 뒤로)
+      // ② 밀기(자연 위치보다 뒤로) = 앵커부터 이후 진도가 함께 밀림 (기존 미루기 동작)
+      const naturalDate=slots[ai]||slots[slots.length-1]||anc.date;
+      if(anc.date<=naturalDate){
+        placed[anc.date]=remaining[ai];
+        const rest=remaining.filter((_,i)=>i!==ai);
+        slots.filter(d=>d!==anc.date).forEach((d,i)=>{if(rest[i])placed[d]=rest[i];});
+        return placed;
+      }
       if(pre.length<=preSlots.length){
         preSlots.forEach((d,i)=>{if(pre[i])placed[d]=pre[i];});
         postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
@@ -10682,8 +10690,16 @@ function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
       const pre=remaining.slice(0,ai),post=remaining.slice(ai);
       const preSlots=slots.filter(d=>d<anc.date),postSlots=slots.filter(d=>d>=anc.date);
       if(!postSlots.includes(anc.date)&&anc.date<=uptoDate&&!(skipDates&&skipDates.has(anc.date)))postSlots.unshift(anc.date);
-      // 드래그한 항목은 지정 날짜에 고정하고, 앞 슬롯이 모자라면 이전 항목들을 직전 슬롯(없으면 앵커 날짜)에 몰아 배치
-      // — 소실도, 옮긴 칩이 지정 날짜에서 밀리는 것도 없음 (2026-08-04)
+      // 드래그 방향별 의미 (2026-08-04):
+      // ① 당기기(뒤 유닛을 자연 위치보다 앞 날짜로) = 그 유닛만 이동, 나머지는 제자리(자리를 뺏긴 것만 한 칸씩 뒤로)
+      // ② 밀기(자연 위치보다 뒤로) = 앵커부터 이후 진도가 함께 밀림 (기존 미루기 동작)
+      const naturalDate=slots[ai]||slots[slots.length-1]||anc.date;
+      if(anc.date<=naturalDate){
+        placed[anc.date]=remaining[ai];
+        const rest=remaining.filter((_,i)=>i!==ai);
+        slots.filter(d=>d!==anc.date).forEach((d,i)=>{if(rest[i])placed[d]=rest[i];});
+        return placed;
+      }
       if(pre.length<=preSlots.length){
         preSlots.forEach((d,i)=>{if(pre[i])placed[d]=pre[i];});
         postSlots.forEach((d,i)=>{if(post[i])placed[d]=post[i];});
