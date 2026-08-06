@@ -6337,7 +6337,7 @@ function renderLibTable(){
   </div>`;
 }
 
-let _libTextChapters=[];
+let _libTextChapters=[],_libTextChapIdx=0;
 function openLibTextViewer(id){
   const b=(_cache.library||[]).find(x=>x.id===id);
   if(!b)return;
@@ -6353,11 +6353,110 @@ function openLibTextViewer(id){
 }
 function switchLibTextChap(idx){
   const c=_libTextChapters[idx];if(!c)return;
+  _libTextChapIdx=idx;
   document.getElementById('lib-text-body').textContent=c.text||'';
   _libTextChapters.forEach((_,i)=>{
     const btn=document.getElementById(`lib-text-ch-${i}`);
     if(btn){btn.style.background=i===idx?'var(--navy)':'#fff';btn.style.color=i===idx?'#fff':'var(--slate)';}
   });
+}
+// ── 문장 분석 워크시트: 등록된 본문(교재 단원·원서 챕터)에서 품사·문장성분·해석 빈칸 시트를 만들어 인쇄 ──
+// 본문은 등록 원문 그대로(창작 없음), 시트는 전부 빈칸. AI는 문장성분 칸 병합 경계만 계산 — 실패하면 통칸.
+function _wsSplitSentences(text){
+  const t=String(text||'').replace(/\s+/g,' ').trim();
+  if(!t)return[];
+  // 종결부호(따옴표 포함) 뒤 + 대문자·따옴표 시작에서만 분리 — "hat!" said Pip. 같은 인용 연결 유지
+  return t.split(/(?<=[.!?]["”']?)\s+(?=["“']?[A-Z])/).map(s=>s.trim()).filter(s=>s.split(' ').length>=2);
+}
+async function _wsChunkSpans(sents){
+  try{
+    const list=sents.map((s,i)=>`${i+1}. ${s}`).join('\n');
+    const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:Math.min(4000,100+sents.length*30),messages:[{role:'user',content:
+`아래 영어 문장들을 문장성분 단위(주어부/동사부/목적어·보어부/부사구·전치사구)로 묶으려 합니다.
+각 문장을 공백 기준 단어 묶음 크기 배열로만 출력하세요. 배열 합은 그 문장의 단어 수와 정확히 같아야 합니다.
+예: "Ella was a big gray elephant." → [1,1,4] / "One day Pip found a red hat." → [2,1,1,3]
+출력: [[..],[..],...] (문장 순서대로, JSON 외 텍스트 금지)
+${list}`}]});
+    const m=(d.content?.[0]?.text||'').match(/\[[\s\S]*\]/);
+    const arr=JSON.parse(m[0]);
+    return sents.map((s,i)=>{
+      const n=s.split(' ').length;
+      const seg=Array.isArray(arr[i])?arr[i].map(x=>Math.max(1,Math.round(Number(x)||1))):null;
+      return (seg&&seg.reduce((a,b)=>a+b,0)===n)?seg:[n];
+    });
+  }catch(e){return sents.map(s=>[s.split(' ').length]);}
+}
+function _wsTableHtml(words,startNo,segs){
+  const MAXC=12; // 한 줄 최대 12단어 — 넘으면 줄바꿈(성분 병합은 줄 경계에서 끊음)
+  const lines=[];
+  for(let i=0;i<words.length;i+=MAXC)lines.push({off:i,ws:words.slice(i,i+MAXC)});
+  const segId=[];let si=0,used=0;
+  words.forEach(()=>{if(used>=segs[si]){si++;used=0;}segId.push(si);used++;});
+  return lines.map((ln,li)=>{
+    const pieces=[];
+    ln.ws.forEach((_,j)=>{
+      const id=segId[ln.off+j];
+      if(pieces.length&&pieces[pieces.length-1].id===id)pieces[pieces.length-1].span++;
+      else pieces.push({id,span:1});
+    });
+    return `<table class="ws-t"><tr class="no"><td class="h">구분</td>${ln.ws.map((_,j)=>`<td>${startNo+ln.off+j}</td>`).join('')}</tr>
+<tr class="wd"><td class="h">단어</td>${ln.ws.map(w=>`<td>${escAttr(w)}</td>`).join('')}</tr>
+<tr class="bl"><td class="h">품사1</td>${'<td></td>'.repeat(ln.ws.length)}</tr>
+<tr class="bl"><td class="h">품사2</td>${'<td></td>'.repeat(ln.ws.length)}</tr>
+<tr class="bl"><td class="h">문장성분</td>${pieces.map(p=>`<td colspan="${p.span}"></td>`).join('')}</tr>
+<tr class="bl"><td class="h">해석1</td>${pieces.map(p=>`<td colspan="${p.span}"></td>`).join('')}</tr>
+${li===lines.length-1?`<tr class="bl"><td class="h">해석2</td><td colspan="${ln.ws.length}"></td></tr>`:''}</table>`;
+  }).join('');
+}
+async function _wsOpenSheet(title,text){
+  const sents=_wsSplitSentences(text);
+  if(!sents.length){toast('본문이 없어요');return;}
+  const w=window.open('','_blank'); // 비동기 전에 열어야 팝업 차단을 피함
+  if(!w){toast('팝업이 차단됐어요 — 허용해 주세요');return;}
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>문장 분석 워크시트</title></head><body style="font-family:sans-serif;padding:30px;color:#64748b">워크시트 만드는 중…</body></html>');
+  const segs=await _wsChunkSpans(sents);
+  let no=1;
+  const tables=sents.map((s,i)=>{
+    const ws=s.split(' ');
+    const html=`<div class="ws-sent">${_wsTableHtml(ws,no,segs[i])}</div>`;
+    no+=ws.length;
+    return html;
+  }).join('');
+  w.document.open();
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escAttr(title)} — 문장 분석</title><style>
+@page{size:A4 landscape;margin:12mm}
+body{font-family:'Pretendard Variable',Pretendard,sans-serif;color:#1e293b;margin:0;padding:16px}
+h1{font-size:15px;margin:0 0 2px}
+.meta{font-size:12px;color:#64748b;margin-bottom:14px}
+.ws-sent{page-break-inside:avoid;margin-bottom:14px}
+table.ws-t{border-collapse:collapse}
+.ws-t td{border:1px solid #94a3b8;padding:3px 8px;font-size:12px;min-width:52px;text-align:center}
+.ws-t td.h{background:#f1f5f9;font-weight:700;font-size:11px;min-width:56px;white-space:nowrap}
+.ws-t tr.no td{font-size:9px;color:#94a3b8;padding:1px 4px}
+.ws-t tr.wd td{font-weight:700;font-size:13px}
+.ws-t tr.bl td{height:26px}
+.noprint{position:fixed;top:10px;right:10px;padding:8px 14px;font-size:13px;cursor:pointer}
+@media print{.noprint{display:none}}
+</style></head><body>
+<h1>${escAttr(title)}</h1>
+<div class="meta">문장 분석 워크시트 &nbsp;·&nbsp; 이름: ______________ &nbsp; 날짜: ______________</div>
+${tables}
+<button class="noprint" onclick="print()">🖨 인쇄</button>
+</body></html>`);
+  w.document.close();
+}
+function wsPrintUnitSheet(){
+  const tbId=document.getElementById('tu-tb-id')?.value;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  if(!tb||!_tuCurUnit){toast('단원을 먼저 선택하세요');return;}
+  const text=(document.getElementById('tu-unit-text')?.value||'').trim()||tb.unitTexts?.[_tuCurUnit]||'';
+  _wsOpenSheet(`${tb.title} — ${_tuCurUnit}${tb.unitTitles?.[_tuCurUnit]?' '+tb.unitTitles[_tuCurUnit]:''}`,text);
+}
+function wsPrintLibSheet(){
+  const c=_libTextChapters[_libTextChapIdx]||_libTextChapters[0];
+  const title=document.getElementById('lib-text-title')?.textContent||'원서';
+  if(!c||!c.text){toast('원문이 없어요');return;}
+  _wsOpenSheet(`${title}${_libTextChapters.length>1?' — '+c.name:''}`,c.text);
 }
 function reqDelLibItem(id){
   askConfirm('원서 삭제','추가한 원서를 삭제할까요? 기본 DB 항목은 삭제되지 않습니다.','삭제','bd',async()=>{
