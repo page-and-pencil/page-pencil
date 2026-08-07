@@ -10933,6 +10933,102 @@ function _pgComposePlan(classId,c,uptoDate){
     return'';
   };
   let chainCursor=todayStr;
+  // ── 리딩 외 과목 그룹 (같은 과목 여러 권 = 커리큘럼 체인) ──
+  const _subjGroups={};
+  books.filter(b=>!readingBooks.includes(b)).forEach(b=>{
+    const base=b.s.replace(/_\d+$/,'');
+    const gk=base==='naesin'?b.s:base; // 내신은 여러 교재 병행 — 체인 아님, 각자 투영
+    (_subjGroups[gk]=_subjGroups[gk]||[]).push(b); // commonMaterials 키 순서 = 체인 순서
+  });
+  const _procGroup=(group,subjSkip)=>{
+    let cursor=todayStr; // 이 과목 체인에서 다음 교재가 시작 가능한 날
+    const base0=(group[0]?.s||'').replace(/_\d+$/,''); // 어휘 과목은 전체가 '수업 없는 날 숙제' 방식
+    for(const b of group){
+      const isRecurBook=clsStus.some(s=>bookIsRecurHw(s.id,b.tb.title));
+      if(isRecurBook){
+        const sids=clsStus.map(s=>s.id);
+        const a=(_cache.assignments||[]).find(x=>!x._deleted&&sids.includes(x.sid)&&x.category==='recur'&&(x.schedule||[]).length
+          &&(x.bookId===b.tb.id||_pgNorm(x.bookTitle||'')===_pgNorm(b.tb.title)));
+        if(a){
+          const sch=(a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+          const rec=_pgLastRec(classId,b.tb);
+          const keys=tbUnitKeys(b.tb);
+          const remain=new Set(keys.slice(rec?rec.idx+1:0).map(k=>_pgNorm(k))); // 아직 수업 기록 안 된 단원만
+          const byDay={};
+          sch.forEach(s2=>{
+            if(!s2.unit||!remain.has(_pgNorm(s2.unit)))return;
+            const d=_nextClassDay(s2.date,(c.days||[]),subjSkip,_extraSet);
+            if(!d||d<todayStr||d>uptoDate)return;
+            (byDay[d]=byDay[d]||[]).push(s2.unit);
+          });
+          Object.entries(byDay).forEach(([d,units])=>{
+            (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:units.join(', '),color:b.color,title:b.tb.title,s:b.s});
+          });
+          // 다음 교재는 이 반복 숙제가 끝난 다음 날부터 (남은 단원이 있을 때만)
+          if(remain.size){const last=(sch[sch.length-1]||{}).date||'';if(last&&_addDay(last)>cursor)cursor=_addDay(last);}
+        }
+        continue; // 반복 숙제 교재는 매 수업 1과 투영 안 함
+      }
+      const keys=tbUnitKeys(b.tb);
+      const rec=_pgLastRec(classId,b.tb);
+      if(rec&&rec.idx>=keys.length-1)continue; // 완강한 책 — 다음 교재가 이어서
+      if(base0==='vocab'){
+        // 어휘 교재는 수업 없는 날마다 1과씩 '숙제'로 진행 → 다음 수업일에 일괄 진도로 표시
+        // (아직 반복 숙제로 할당 전인 다음 교재도 같은 방식으로 미리 계산 — 매일 수업 나가는 것처럼 깔리지 않게)
+        const start=rec?rec.idx+1:(()=>{const si=_pgUnitIdx(b.tb,b.mat?.unit);return si>=0?si:0;})();
+        const remaining=keys.slice(start);
+        if(!remaining.length)continue;
+        const byDay={};
+        const d=new Date((cursor>todayStr?cursor:todayStr)+'T12:00:00');
+        let ui=0,guard=0,lastHw='',overflow=false;
+        while(ui<remaining.length&&guard++<450){
+          const ds=_pgYmd(d);
+          if(ds>uptoDate){overflow=true;break;}
+          const dow=_PG_DOW[d.getDay()];
+          const isCls=((c.days||[]).includes(dow)||_extraSet.has(ds))&&!subjSkip.has(ds);
+          if(!isCls){ // 수업 없는 날 = 숙제일
+            const showD=_nextClassDay(ds,(c.days||[]),subjSkip,_extraSet);
+            if(showD&&showD<=uptoDate)(byDay[showD]=byDay[showD]||[]).push(remaining[ui]);
+            lastHw=ds;ui++;
+          }
+          d.setDate(d.getDate()+1);
+        }
+        Object.entries(byDay).forEach(([dd,units])=>{
+          (ghostBy[dd]=ghostBy[dd]||[]).push({tbId:b.tb.id,unit:units.join(', '),color:b.color,title:b.tb.title,s:b.s});
+        });
+        if(!overflow&&ui>=remaining.length&&lastHw)cursor=_addDay(lastHw);
+        else cursor='9999-12-31'; // 범위 밖까지 이어짐 — 뒤 교재는 이 화면에선 안 그림
+        continue;
+      }
+      const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate,subjSkip,cursor);
+      let maxD='';
+      Object.entries(placed).forEach(([d,us])=>{ // 같은 날 여러 유닛 = 개별 칩 (한 유닛씩 따로 옮길 수 있게)
+        (Array.isArray(us)?us:[us]).forEach(u=>(ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s}));
+        if(d>maxD)maxD=d;
+      });
+      if(maxD)cursor=_addDay(maxD);
+      else{cursor='9999-12-31';} // 표시 범위 밖 — 뒤 교재는 이 화면에선 안 그림
+    }
+  };
+  // 1차: 리스닝 외 과목 먼저 — 단어·어법 수업일이 확정돼야 리딩·리스닝이 그 날을 비켜감 (원장 규칙 2026-08-08)
+  Object.entries(_subjGroups).forEach(([gk,group])=>{if(gk!=='listening')_procGroup(group,skipSet);});
+  // 단어 수업일(일괄 진도 표시일)·어법 수업일 수집 — 예정 고스트 + 오늘 이후 실제 기록
+  const vocabDays=new Set(),grammarDays=new Set();
+  Object.entries(ghostBy).forEach(([d,arr])=>arr.forEach(g=>{
+    const base=String(g.s||'').replace(/_\d+$/,'');
+    if(base==='vocab')vocabDays.add(d);
+    else if(base==='grammar')grammarDays.add(d);
+  }));
+  (_cache.lessons||[]).forEach(l=>{
+    if(l.classId!==classId||!l.date||l.date<todayStr||!l.materials)return;
+    Object.keys(l.materials).forEach(k=>{
+      const bk=k.replace(/_\d+$/,'');
+      if(bk==='vocab')vocabDays.add(l.date);
+      else if(bk==='grammar')grammarDays.add(l.date);
+    });
+  });
+  // 단어 수업 있는 날은 리딩 배제 — 리딩 슬롯 소비 집합에 넣어 자동으로 건너뜀 (핀으로 옮긴 유닛은 수동 우선이라 유지)
+  vocabDays.forEach(d=>usedDates.add(d));
   {
     const isFin=b=>{const rec=_pgLastRec(classId,b.tb);const keys=tbUnitKeys(b.tb);return !!(rec&&rec.idx>=keys.length-1);};
     const finished=readingBooks.filter(isFin);
@@ -10991,85 +11087,8 @@ function _pgComposePlan(classId,c,uptoDate){
       chainCursor=_addDay(sd);
     });
   }
-  // 리딩 외 과목 투영. 같은 과목의 교재들(listening, listening_2, …)은 커리큘럼 체인 —
-  // 앞 교재가 끝나는 시점 이후에 다음 교재가 이어서 시작 (교재 흐름을 미리 등록해 예정 캘린더를 끝까지 채움).
-  // 반복 숙제로 자체 진행하는 교재(어휘집 등)는 숙제 단원을 '다음 수업일 일괄 진도'로 묶어 표시.
-  const _subjGroups={};
-  books.filter(b=>!readingBooks.includes(b)).forEach(b=>{
-    const base=b.s.replace(/_\d+$/,'');
-    const gk=base==='naesin'?b.s:base; // 내신은 여러 교재 병행 — 체인 아님, 각자 투영
-    (_subjGroups[gk]=_subjGroups[gk]||[]).push(b); // commonMaterials 키 순서 = 체인 순서
-  });
-  Object.values(_subjGroups).forEach(group=>{
-    let cursor=todayStr; // 이 과목 체인에서 다음 교재가 시작 가능한 날
-    const base0=(group[0]?.s||'').replace(/_\d+$/,''); // 어휘 과목은 전체가 '수업 없는 날 숙제' 방식
-    for(const b of group){
-      const isRecurBook=clsStus.some(s=>bookIsRecurHw(s.id,b.tb.title));
-      if(isRecurBook){
-        const sids=clsStus.map(s=>s.id);
-        const a=(_cache.assignments||[]).find(x=>!x._deleted&&sids.includes(x.sid)&&x.category==='recur'&&(x.schedule||[]).length
-          &&(x.bookId===b.tb.id||_pgNorm(x.bookTitle||'')===_pgNorm(b.tb.title)));
-        if(a){
-          const sch=(a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
-          const rec=_pgLastRec(classId,b.tb);
-          const keys=tbUnitKeys(b.tb);
-          const remain=new Set(keys.slice(rec?rec.idx+1:0).map(k=>_pgNorm(k))); // 아직 수업 기록 안 된 단원만
-          const byDay={};
-          sch.forEach(s2=>{
-            if(!s2.unit||!remain.has(_pgNorm(s2.unit)))return;
-            const d=_nextClassDay(s2.date,(c.days||[]),skipSet,_extraSet);
-            if(!d||d<todayStr||d>uptoDate)return;
-            (byDay[d]=byDay[d]||[]).push(s2.unit);
-          });
-          Object.entries(byDay).forEach(([d,units])=>{
-            (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:units.join(', '),color:b.color,title:b.tb.title,s:b.s});
-          });
-          // 다음 교재는 이 반복 숙제가 끝난 다음 날부터 (남은 단원이 있을 때만)
-          if(remain.size){const last=(sch[sch.length-1]||{}).date||'';if(last&&_addDay(last)>cursor)cursor=_addDay(last);}
-        }
-        continue; // 반복 숙제 교재는 매 수업 1과 투영 안 함
-      }
-      const keys=tbUnitKeys(b.tb);
-      const rec=_pgLastRec(classId,b.tb);
-      if(rec&&rec.idx>=keys.length-1)continue; // 완강한 책 — 다음 교재가 이어서
-      if(base0==='vocab'){
-        // 어휘 교재는 수업 없는 날마다 1과씩 '숙제'로 진행 → 다음 수업일에 일괄 진도로 표시
-        // (아직 반복 숙제로 할당 전인 다음 교재도 같은 방식으로 미리 계산 — 매일 수업 나가는 것처럼 깔리지 않게)
-        const start=rec?rec.idx+1:(()=>{const si=_pgUnitIdx(b.tb,b.mat?.unit);return si>=0?si:0;})();
-        const remaining=keys.slice(start);
-        if(!remaining.length)continue;
-        const byDay={};
-        const d=new Date((cursor>todayStr?cursor:todayStr)+'T12:00:00');
-        let ui=0,guard=0,lastHw='',overflow=false;
-        while(ui<remaining.length&&guard++<450){
-          const ds=_pgYmd(d);
-          if(ds>uptoDate){overflow=true;break;}
-          const dow=_PG_DOW[d.getDay()];
-          const isCls=((c.days||[]).includes(dow)||_extraSet.has(ds))&&!skipSet.has(ds);
-          if(!isCls){ // 수업 없는 날 = 숙제일
-            const showD=_nextClassDay(ds,(c.days||[]),skipSet,_extraSet);
-            if(showD&&showD<=uptoDate)(byDay[showD]=byDay[showD]||[]).push(remaining[ui]);
-            lastHw=ds;ui++;
-          }
-          d.setDate(d.getDate()+1);
-        }
-        Object.entries(byDay).forEach(([dd,units])=>{
-          (ghostBy[dd]=ghostBy[dd]||[]).push({tbId:b.tb.id,unit:units.join(', '),color:b.color,title:b.tb.title,s:b.s});
-        });
-        if(!overflow&&ui>=remaining.length&&lastHw)cursor=_addDay(lastHw);
-        else cursor='9999-12-31'; // 범위 밖까지 이어짐 — 뒤 교재는 이 화면에선 안 그림
-        continue;
-      }
-      const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate,skipSet,cursor);
-      let maxD='';
-      Object.entries(placed).forEach(([d,us])=>{ // 같은 날 여러 유닛 = 개별 칩 (한 유닛씩 따로 옮길 수 있게)
-        (Array.isArray(us)?us:[us]).forEach(u=>(ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s}));
-        if(d>maxD)maxD=d;
-      });
-      if(maxD)cursor=_addDay(maxD);
-      else{cursor='9999-12-31';} // 표시 범위 밖 — 뒤 교재는 이 화면에선 안 그림
-    }
-  });
+  // 2차: 리스닝 — 어법 수업 있는 날은 리스닝 배제 (확장 스킵으로 그 날을 휴강처럼 건너뜀)
+  if(_subjGroups.listening)_procGroup(_subjGroups.listening,new Set([...skipSet,...grammarDays]));
   const ortGhostBy={};
   clsStus.forEach(s=>{
     const placed=_pgOrtProjection(classId,c,s.id,uptoDate,skipSet);
