@@ -10721,16 +10721,38 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate){
   const recDates=_pgRecDates(classId,tb);
   const extraSet=new Set(c.extraDates||[]); // 추가 수업일 (특강 등 — 요일 외 매일 수업)
   const slots=[];
-  const cur=new Date();cur.setHours(12,0,0,0);
-  const end=new Date(uptoDate+'T12:00:00');
-  for(;cur<=end;cur.setDate(cur.getDate()+1)){
-    const ds=_pgYmd(cur);
-    if(ds<todayStr)continue;
-    if(fromDate&&ds<fromDate)continue; // 체인: 앞 교재가 끝난 뒤부터 시작
-    if(!bDays.includes(_PG_DOW[cur.getDay()])&&!extraSet.has(ds))continue;
-    if(recDates.has(ds))continue;
-    if(skipDates&&skipDates.has(ds))continue;
-    slots.push(ds);
+  const wd=mat?.weekly?_PG_DOW.indexOf(mat.weekly):-1;
+  if(wd>=0){
+    // 주 1회 진도 (mat.weekly='월' 등): 매주 지정 요일에 1과 — 그날이 휴강·기록됨·비수업이면
+    // 그 주 안의 다음 수업일로 밀림, 한 주 전체가 휴강(방학)이면 그 주는 건너뜀
+    const anchor=new Date();anchor.setHours(12,0,0,0);
+    anchor.setDate(anchor.getDate()+((wd-anchor.getDay()+7)%7)); // 오늘 이후 첫 지정 요일부터
+    let stopW=false;
+    for(let wk=0;wk<80&&!stopW;wk++){
+      for(let o=0;o<7;o++){
+        const d2=new Date(anchor);d2.setDate(anchor.getDate()+wk*7+o);
+        const ds=_pgYmd(d2);
+        if(ds>uptoDate){stopW=true;break;}
+        if(ds<todayStr)continue;
+        if(fromDate&&ds<fromDate)continue;
+        if(!bDays.includes(_PG_DOW[d2.getDay()])&&!extraSet.has(ds))continue;
+        if(recDates.has(ds))continue;
+        if(skipDates&&skipDates.has(ds))continue;
+        slots.push(ds);break;
+      }
+    }
+  }else{
+    const cur=new Date();cur.setHours(12,0,0,0);
+    const end=new Date(uptoDate+'T12:00:00');
+    for(;cur<=end;cur.setDate(cur.getDate()+1)){
+      const ds=_pgYmd(cur);
+      if(ds<todayStr)continue;
+      if(fromDate&&ds<fromDate)continue; // 체인: 앞 교재가 끝난 뒤부터 시작
+      if(!bDays.includes(_PG_DOW[cur.getDay()])&&!extraSet.has(ds))continue;
+      if(recDates.has(ds))continue;
+      if(skipDates&&skipDates.has(ds))continue;
+      slots.push(ds);
+    }
   }
   const placed={};
   const anc=(c.progressAnchors||{})[tb.id];
@@ -12115,6 +12137,15 @@ async function saveClass(){
     const m2=/^(.*)_\d+$/.exec(k);
     if(m2&&!commonMaterials[k].days&&commonMaterials[m2[1]]&&commonMaterials[m2[1]].days)commonMaterials[k].days=commonMaterials[m2[1]].days;
   });
+  // 폼에 없는 교재 옵션(weekly=주1회 진도 요일)은 같은 책의 기존 값을 보존 — 클래스 수정이 지우지 않게
+  if(existing&&existing.commonMaterials){
+    const prevByBook={};
+    Object.values(existing.commonMaterials).forEach(v=>{if(v&&(v.bookId||v.book))prevByBook[v.bookId||v.book]=v;});
+    Object.values(commonMaterials).forEach(v=>{
+      const old=prevByBook[v.bookId||v.book];
+      if(old&&old.weekly&&!v.weekly)v.weekly=old.weekly;
+    });
+  }
   // 클래스5 책 설정 (매일 한 유닛씩 앱 과제 자동 할당)
   const c5BookId=document.getElementById('ec-c5-book')?.value||'';
   let class5=null;
