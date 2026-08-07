@@ -10707,7 +10707,7 @@ function _pgAncPins(anc){
   if(Array.isArray(anc.pins))return anc.pins;
   return anc.unit?[{unit:anc.unit,date:anc.date}]:[];
 }
-function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate){
+function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate,occupied){
   const todayStr=ppToday();
   const keys=tbUnitKeys(tb);if(!keys.length)return{};
   const rec=_pgLastRec(classId,tb);
@@ -10738,6 +10738,7 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate){
         if(!bDays.includes(_PG_DOW[d2.getDay()])&&!extraSet.has(ds))continue;
         if(recDates.has(ds))continue;
         if(skipDates&&skipDates.has(ds))continue;
+        if(occupied&&occupied.has(ds))continue; // 같은 과목의 다른 칩이 이미 있는 날 — 겹쳐 쌓이지 않게
         slots.push(ds);break;
       }
     }
@@ -10751,6 +10752,7 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate){
       if(!bDays.includes(_PG_DOW[cur.getDay()])&&!extraSet.has(ds))continue;
       if(recDates.has(ds))continue;
       if(skipDates&&skipDates.has(ds))continue;
+      if(occupied&&occupied.has(ds))continue; // 같은 과목의 다른 칩이 이미 있는 날 — 겹쳐 쌓이지 않게
       slots.push(ds);
     }
   }
@@ -10943,6 +10945,10 @@ function _pgComposePlan(classId,c,uptoDate){
   const _procGroup=(group,subjSkip)=>{
     let cursor=todayStr; // 이 과목 체인에서 다음 교재가 시작 가능한 날
     const base0=(group[0]?.s||'').replace(/_\d+$/,''); // 어휘 과목은 전체가 '수업 없는 날 숙제' 방식
+    // 같은 과목이 이미 차지한 날 선점: 모든 책의 유효 핀 + 배치된 날 누적 — 앞 책의 남은 유닛·만료 핀 유닛이
+    // 다른 책 핀 날짜 위로 겹쳐 쌓이던 문제 방지 (리스닝처럼 짧은 책이 촘촘한 체인에서 발생)
+    const groupOcc=new Set();
+    for(const b of group)_pgAncPins((c.progressAnchors||{})[b.tb.id]).forEach(pn=>{if(pn&&pn.unit&&pn.date&&pn.date>=todayStr)groupOcc.add(pn.date);});
     for(const b of group){
       const isRecurBook=clsStus.some(s=>bookIsRecurHw(s.id,b.tb.title));
       if(isRecurBook){
@@ -11000,10 +11006,11 @@ function _pgComposePlan(classId,c,uptoDate){
         else cursor='9999-12-31'; // 범위 밖까지 이어짐 — 뒤 교재는 이 화면에선 안 그림
         continue;
       }
-      const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate,subjSkip,cursor);
+      const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate,subjSkip,cursor,groupOcc);
       let maxD='';
       Object.entries(placed).forEach(([d,us])=>{ // 같은 날 여러 유닛 = 개별 칩 (한 유닛씩 따로 옮길 수 있게)
         (Array.isArray(us)?us:[us]).forEach(u=>(ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s}));
+        groupOcc.add(d); // 이 날은 이 과목이 차지 — 뒤 책 자동 흐름이 겹치지 않게
         if(d>maxD)maxD=d;
       });
       if(maxD)cursor=_addDay(maxD);
@@ -11033,6 +11040,9 @@ function _pgComposePlan(classId,c,uptoDate){
     const isFin=b=>{const rec=_pgLastRec(classId,b.tb);const keys=tbUnitKeys(b.tb);return !!(rec&&rec.idx>=keys.length-1);};
     const finished=readingBooks.filter(isFin);
     const unfinished=readingBooks.filter(b=>!isFin(b));
+    // 리딩 계열 전체의 유효 핀 날짜 — 다른 책의 자동 흐름 유닛이 그 위로 겹쳐 쌓이지 않게
+    const rdPinned=new Set();
+    readingBooks.forEach(b=>_pgAncPins((c.progressAnchors||{})[b.tb.id]).forEach(pn=>{if(pn&&pn.unit&&pn.date&&pn.date>=todayStr)rdPinned.add(pn.date);}));
     // 직전에 완주한 책의 싱투게더가 아직이면 체인 맨 앞에 배치 (다음 책을 이미 시작했으면 생략)
     if(finished.length){
       const lastFin=finished.map(b=>({b,rec:_pgLastRec(classId,b.tb)})).sort((a,b2)=>(b2.rec.date||'').localeCompare(a.rec.date||''))[0];
@@ -11072,7 +11082,7 @@ function _pgComposePlan(classId,c,uptoDate){
         if(i in pinOf)d=pinOf[i];
         else{
           d=_slotFrom(segCursor,bDays);
-          while(d&&pinDates.has(d))d=_slotFrom(_addDay(d),bDays); // 핀이 잡은 날은 자동 흐름이 건너뜀
+          while(d&&(pinDates.has(d)||rdPinned.has(d)))d=_slotFrom(_addDay(d),bDays); // 이 책·다른 리딩 책의 핀 날은 건너뜀
           if(!d){overflow=true;break;}
           segCursor=_addDay(d);
         }
