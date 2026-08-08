@@ -10733,6 +10733,7 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate,occupied){
         const d2=new Date(anchor);d2.setDate(anchor.getDate()+wk*7+o);
         const ds=_pgYmd(d2);
         if(ds>uptoDate){stopW=true;break;}
+        if(o===0&&fromDate&&ds<fromDate)break; // 이 주의 지정 요일을 앞 교재가 썼으면 통째로 다음 주로 (인수인계 주에 2회 방지)
         if(ds<todayStr)continue;
         if(fromDate&&ds<fromDate)continue;
         if(!bDays.includes(_PG_DOW[d2.getDay()])&&!extraSet.has(ds))continue;
