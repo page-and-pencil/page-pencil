@@ -3485,11 +3485,19 @@ async function tbookSaveAdd(){
     else toast('추가 실패: '+e.message);
   }
 }
+// 시리즈 입력 자동완성 — 기존 시리즈명 목록 (표기 통일용)
+function _tbSeriesDatalist(){
+  const dl=document.getElementById('dl-tbook-series');if(!dl)return;
+  const sers=[...new Set((_cache.globalTextbooks||[]).filter(b=>!b._deleted).map(b=>b.series).filter(Boolean))].sort();
+  dl.innerHTML=sers.map(s=>`<option value="${escAttr(s)}">`).join('');
+}
 function openEditTbook(id){
   const b=(_cache.globalTextbooks||[]).find(x=>x.id===id);if(!b)return;
   document.getElementById('tbook-edit-id').value=id;
   document.getElementById('tbook-title').value=b.title||'';
   document.getElementById('tbook-publisher').value=b.publisher||'';
+  const serEl=document.getElementById('tbook-series');if(serEl)serEl.value=b.series||'';
+  _tbSeriesDatalist();
   document.getElementById('tbook-level').value=b.level||'';
   document.getElementById('tbook-category').value=b.category||'';
   document.getElementById('tbook-grade').value=b.grade||'';
@@ -3507,6 +3515,7 @@ async function saveTbook(){
   const title=document.getElementById('tbook-title')?.value.trim();
   if(!title)return toast('교재명을 입력하세요');
   const publisher=document.getElementById('tbook-publisher')?.value.trim()||'';
+  const series=document.getElementById('tbook-series')?.value.trim()||'';
   const level=document.getElementById('tbook-level')?.value.trim()||'';
   const category=document.getElementById('tbook-category')?.value||'';
   const grade=document.getElementById('tbook-grade')?.value.trim()||'';
@@ -3516,14 +3525,28 @@ async function saveTbook(){
     if(editId){
       // 수정 모드: 기존 units 유지
       const existing=(_cache.globalTextbooks||[]).find(b=>b.id===editId)||{};
-      const tb={...existing,type:'textbook',title,publisher,level,category,grade,totalUnits};
+      const oldSeries=existing.series||'';
+      const tb={...existing,type:'textbook',title,publisher,series,level,category,grade,totalUnits};
       await supaUpsert('global_textbooks',editId,tb,null);
       const idx=_cache.globalTextbooks.findIndex(b=>b.id===editId);
       if(idx>=0)_cache.globalTextbooks[idx]=tb;
       toast('수정되었습니다');
+      // 시리즈명을 바꿨고 같은 이름을 쓰는 다른 권이 있으면 일괄 변경 제안 (반쪽 시리즈 방지)
+      if(oldSeries&&series&&oldSeries!==series){
+        const others=(_cache.globalTextbooks||[]).filter(b=>b.id!==editId&&!b._deleted&&b.series===oldSeries);
+        if(others.length)askConfirm('시리즈명 일괄 변경',`'${oldSeries}' 시리즈의 다른 ${others.length}권도 '${series}'(으)로 함께 바꿀까요?\n\n${others.slice(0,8).map(b=>'· '+b.title).join('\n')}${others.length>8?'\n…':''}`,'전부 변경','bt',async()=>{
+          for(const b of others){
+            const nb={...b,series};
+            await supaUpsert('global_textbooks',b.id,nb,null).catch(()=>{});
+            const i=_cache.globalTextbooks.findIndex(x=>x.id===b.id);if(i>=0)_cache.globalTextbooks[i]=nb;
+          }
+          renderTbookTable();renderBookDB();
+          toast(`${others.length}권 시리즈명 변경 완료`);
+        });
+      }
     }else{
       // 추가 모드
-      const tb={id:uid(),type:'textbook',title,publisher,level,category,grade,totalUnits,coverUrl:_tbAddCover||''};
+      const tb={id:uid(),type:'textbook',title,publisher,series,level,category,grade,totalUnits,coverUrl:_tbAddCover||''};
       await supaUpsert('global_textbooks',tb.id,tb,null);
       if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
       _cache.globalTextbooks.push(tb);
@@ -3532,7 +3555,7 @@ async function saveTbook(){
     }
     renderTbookTable();renderBookDB();renderMasterDB();updateTbookDatalist();
     closeM('m-tbook-detail');
-    ['tbook-title','tbook-publisher','tbook-level','tbook-edit-id','tbook-grade','tbook-total-units'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    ['tbook-title','tbook-publisher','tbook-series','tbook-level','tbook-edit-id','tbook-grade','tbook-total-units'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display='none';
     const catEl=document.getElementById('tbook-category');if(catEl)catEl.value='';
     document.getElementById('tbook-modal-title').textContent='교재 추가';
@@ -3562,6 +3585,8 @@ function openTbookUnits(tbId){
   document.getElementById('tbook-edit-id').value=tbId;
   document.getElementById('tbook-title').value=tb.title||'';
   document.getElementById('tbook-publisher').value=tb.publisher||'';
+  const serEl1=document.getElementById('tbook-series');if(serEl1)serEl1.value=tb.series||'';
+  _tbSeriesDatalist();
   document.getElementById('tbook-level').value=tb.level||'';
   document.getElementById('tbook-category').value=tb.category||'';
   document.getElementById('tbook-grade').value=tb.grade||'';
@@ -4787,7 +4812,7 @@ function tbookCoverClear(){
 const _enterSubmitMap={
   'tu-en':'tuAddWord','tu-ko':'tuAddWord','tu-ex':'tuAddWord',
   'elib-wrd-en':'elibAddWord','elib-wrd-ko':'elibAddWord','elib-wrd-ex':'elibAddWord',
-  'tbook-title':'saveTbook','tbook-publisher':'saveTbook','tbook-level':'saveTbook','tbook-grade':'saveTbook','tbook-total-units':'saveTbook',
+  'tbook-title':'saveTbook','tbook-publisher':'saveTbook','tbook-series':'saveTbook','tbook-level':'saveTbook','tbook-grade':'saveTbook','tbook-total-units':'saveTbook',
   'lib-title':'addLib','lib-series':'addLib','lib-ar':'addLib','lib-pages':'addLib','lib-pub':'addLib','lib-desc':'addLib',
   'elib-title':'updLib','elib-series':'updLib','elib-ar':'updLib','elib-pages':'updLib','elib-pub':'updLib'
 };
@@ -5408,6 +5433,8 @@ function openTbookAdd(){
   document.getElementById('tbook-edit-id').value='';
   document.getElementById('tbook-title').value='';
   document.getElementById('tbook-publisher').value='';
+  const serEl0=document.getElementById('tbook-series');if(serEl0)serEl0.value='';
+  _tbSeriesDatalist();
   document.getElementById('tbook-level').value='';
   document.getElementById('tbook-category').value='';
   document.getElementById('tbook-grade').value='';

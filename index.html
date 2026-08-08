@@ -1432,6 +1432,7 @@
       <div class="fg">
         <div class="f s2"><label>교재명</label><input type="text" id="tbook-title" placeholder="교재명을 입력하세요"></div>
         <div class="f"><label>출판사</label><input type="text" id="tbook-publisher" placeholder="출판사"></div>
+        <div class="f"><label>시리즈</label><input type="text" id="tbook-series" list="dl-tbook-series" autocomplete="off" placeholder="예: Smart Reading — 같은 시리즈끼리 📚 체인 연결"><datalist id="dl-tbook-series"></datalist></div>
         <div class="f"><label>레벨</label><input type="text" id="tbook-level" placeholder="예: 초3, 중1, Level 2"></div>
         <div class="f s2"><label>분류</label>
           <select id="tbook-category" class="filter-sel" style="width:100%" onchange="const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display=this.value==='내신'?'':'none'">
@@ -2120,7 +2121,7 @@
 <script src="js/utils.js?v=20260727k"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20260727l"></script>
-<script src="js/teacher.js?v=20260808c"></script>
+<script src="js/teacher.js?v=20260808d"></script>
 <script src="js/student.js?v=20260728a"></script>
 <script src="js/parent.js?v=20260727i"></script>
 </body>
