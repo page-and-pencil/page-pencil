@@ -11200,8 +11200,11 @@ function _pgCalHtml(classId){
   const ym=_pgCalMonth||todayStr.slice(0,7);
   const[y,m]=ym.split('-').map(Number);
   // 예정 구성은 캘린더·예정 편집 모달·폼 자동 채움이 같은 계산을 공유 (내용 불일치 방지)
-  const monthEnd=`${ym}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
-  const {books,clsStus,singDates,ghostBy,ortGhostBy,skipSet}=_pgComposePlan(classId,c,monthEnd);
+  const dim=new Date(y,m,0).getDate();
+  const endDow=new Date(y,m-1,dim).getDay();
+  // 마지막 주 잔여 칸(다음 달 머리)까지 예정을 계산해야 연속 표시 칩이 그려짐
+  const planEnd=endDow<6?_pgYmd(new Date(y,m,6-endDow)):`${ym}-${String(dim).padStart(2,'0')}`;
+  const {books,clsStus,singDates,ghostBy,ortGhostBy,skipSet}=_pgComposePlan(classId,c,planEnd);
   const colorOf=(tbId,cat)=>_PG_CAT_COLORS[cat]||books.find(b=>b.tb.id===tbId)?.color||'#64748B';
   // (숙제·클래스5 칩은 과제 메뉴의 숙제 캘린더로 분리 — 이 캘린더는 '진도'만)
   // 실제 기록 칩: date → {tbKey:{tbId,book,units}} + 원서·펜슬다운 기록
@@ -11228,12 +11231,13 @@ function _pgCalHtml(classId){
   // 달력 그리드
   const _extraCellSet=new Set(c.extraDates||[]); // 추가 수업일 (특강)
   const startDow=new Date(y,m-1,1).getDay();
-  const dim=new Date(y,m,0).getDate();
   const cells=[];
-  for(let i=0;i<startDow;i++)cells.push('<div></div>');
-  for(let dd=1;dd<=dim;dd++){
-    const ds=`${ym}-${String(dd).padStart(2,'0')}`;
-    const dow=_PG_DOW[new Date(y,m-1,dd).getDay()];
+  // 월 경계 연속 표시(2026-08-09): 첫 주 앞 칸=지난달 꼬리, 마지막 주 뒤 칸=다음 달 머리 —
+  // 빈 칸 대신 실제 날짜 셀(om 흐림)로 렌더해 주 단위가 끊기지 않음. 칩·드래그·클릭 기능 동일.
+  const _dayCell=(dt,inMonth)=>{
+    const ds=_pgYmd(dt);
+    const dd=dt.getDate();
+    const dow=_PG_DOW[dt.getDay()];
     const isClassDay=(c.days||[]).includes(dow)||_extraCellSet.has(ds); // 추가 수업일 포함
     // 미래 날짜에 남은 기록은 완료(진한 칩)가 아니라 예정(점선)으로 표시
     const futRec=ds>todayStr;
@@ -11261,8 +11265,11 @@ function _pgCalHtml(classId){
     if(singDates.has(ds))chips+=`<span class="pg-chip ghost" style="--pgc:#7B1FA2" title="리딩 책 완주 기념 Pencil Down — Sing Together (예정, 더블클릭=기록)" onclick="event.stopPropagation()" ondblclick="pgSingDbl(event,'${classId}','${ds}')">✏️🎵 Sing Together</span>`;
     const isSkip=skipSet.has(ds);
     const skipMark=isSkip?`<span class="pg-skip-mark" title="수업 안 함 (휴강·결석) — 이후 진도가 하루씩 밀렸어요. 누르면 되돌리기">🚫 수업 안 함</span>`:'';
-    cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}${isSkip?' skip':''}" data-ds="${ds}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onmousedown="pgRangeDown(event,'${classId}','${ds}')" onmouseover="pgRangeOver('${ds}')" onclick="pgCellClick(event,'${classId}','${ds}')"><div class="pg-dnum">${dd}</div>${skipMark}${chips}</div>`);
-  }
+    cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}${isSkip?' skip':''}${inMonth?'':' om'}" data-ds="${ds}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onmousedown="pgRangeDown(event,'${classId}','${ds}')" onmouseover="pgRangeOver('${ds}')" onclick="pgCellClick(event,'${classId}','${ds}')"><div class="pg-dnum">${inMonth?dd:(dt.getMonth()+1)+'/'+dd}</div>${skipMark}${chips}</div>`);
+  };
+  for(let i=startDow;i>0;i--)_dayCell(new Date(y,m-1,1-i),false);
+  for(let dd=1;dd<=dim;dd++)_dayCell(new Date(y,m-1,dd),true);
+  for(let i=1;i<=(endDow<6?6-endDow:0);i++)_dayCell(new Date(y,m,i),false);
   // 범례: 과목 색 (같은 과목 교재는 같은 색) + 원서 한 색
   const hasOrt=Object.keys(ortGhostBy).length||Object.keys(ortRecBy).length;
   // 범례: 과목당 1개 — 현재 진행 중인 책 + '외 N권' (체인 전 권 나열 방지, 마우스 올리면 전체 커리큘럼)
@@ -11289,7 +11296,7 @@ function _pgCalHtml(classId){
       <span style="flex:1"></span>${legend}
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
-    <div class="pg-cal-hint">진한 칩=기록 · 점선 칩=예정 — 드래그로 진도 이동 <b>(◀▶에 올린 채 머물면 달이 넘어가 다른 달로도 이동)</b> · <b>예정 칩을 오늘·지난 날짜에 놓으면 그날 수업으로 기록</b> · <b>오늘 점선 칩 더블클릭=수업 기록 확정</b> · 칩을 한 번 탭 → 날짜 탭으로도 이동(달 넘겨도 유지) · 빈 수업일 클릭 → 수업 기록 / 예정 편집 / 🚫 수업 안 함 · <b>빈 칸을 드래그하면 기간 휴강·방학</b> · <b>숙제·클래스5는 과제 메뉴의 숙제 캘린더에서</b></div>
+    <div class="pg-cal-hint">진한 칩=기록 · 점선 칩=예정 — 드래그로 진도 이동 <b>(◀▶에 올린 채 머물면 달이 넘어가 다른 달로도 이동)</b> · 흐린 칸=이어지는 옆 달 날짜(칩 조정 그대로 가능) · <b>예정 칩을 오늘·지난 날짜에 놓으면 그날 수업으로 기록</b> · <b>오늘 점선 칩 더블클릭=수업 기록 확정</b> · 칩을 한 번 탭 → 날짜 탭으로도 이동(달 넘겨도 유지) · 빈 수업일 클릭 → 수업 기록 / 예정 편집 / 🚫 수업 안 함 · <b>빈 칸을 드래그하면 기간 휴강·방학</b> · <b>숙제·클래스5는 과제 메뉴의 숙제 캘린더에서</b></div>
   </div>`;
 }
 function pgDragStart(ev,classId,tbId,unit,s){

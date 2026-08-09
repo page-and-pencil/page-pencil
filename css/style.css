@@ -536,6 +536,8 @@ div.ig-like{cursor:default;}
 .pg-cal-dow{font-size:10.5px;font-weight:700;color:var(--slate);text-align:center;padding:2px 0;}
 .pg-cell{min-height:54px;border:1px solid var(--border);border-radius:6px;padding:3px;background:#fafafa;display:flex;flex-direction:column;gap:2px;cursor:pointer;overflow:hidden;min-width:0;}
 .pg-cell.cd{background:#fff;}
+.pg-cell.om{background:#F6F8FA;} /* 옆 달 연속 칸 — 흐리게, 기능은 동일 */
+.pg-cell.om .pg-dnum{color:#94A3B8;}
 .pg-cell.past{opacity:.72;}
 .pg-cell.today{border:2px solid var(--teal);}
 .pg-cell:hover{border-color:var(--teal);}
