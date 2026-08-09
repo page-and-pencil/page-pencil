@@ -418,6 +418,9 @@ function skipDatesLbl(dates){
 // 시작일부터 반복 규칙(noclass/class/daily)에 맞는 모든 날에 단원을 1개씩 순서대로 배치 —
 // 휴강·수업 없는 날이 새로 생겨도, 지나간 날이어도 그 날짜의 단원이 사라지지 않는다(과거 미완료 = 밀린 숙제로 남음).
 // 완료(done)는 단원 기준으로 따라간다(날짜가 재계산돼도 그 단원은 완료 유지).
+// 수업 진도 동기화: 수업 기록이 이 책을 숙제보다 앞서 나갔으면(최대 진도 단원 기준),
+//  그 이하 단원은 오늘부터의 숙제로 배치하지 않고 건너뛴다(숙제가 수업 진도 다음 단원으로 점프).
+//  과거 날짜에 이미 깔렸던 몫은 done(doneBy:'lesson')으로 표시해 밀린 숙제로 남지 않게 한다.
 // 반환: 바뀐 새 schedule 배열, 바꿀 게 없으면 null
 function recurRebase(a){
   if(!a||a.category!=='recur'||!a.auto||!(a.schedule||[]).length)return null;
@@ -425,10 +428,10 @@ function recurRebase(a){
   const startUnit=(a.schedule[0]||{}).unit||'';
   const tb=(typeof _cache!=='undefined'?(_cache.globalTextbooks||[]):[]).find(b=>b.id===a.bookId);
   const bookTitle=tb?tb.title:((a.schedule[0]||{}).book||a.bookTitle||'');
-  let units;
+  const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,'');
+  let units,keys=null;
   if(tb&&typeof tbUnitKeys==='function'){
-    const keys=tbUnitKeys(tb);
-    const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,'');
+    keys=tbUnitKeys(tb);
     let si=keys.findIndex(k=>norm(k)===norm(startUnit));
     if(si<0)si=0;
     units=keys.slice(si);
@@ -451,15 +454,41 @@ function recurRebase(a){
     return true;
   };
   const doneUnits=new Set(a.schedule.filter(s=>s.done).map(s=>String(s.unit||'')));
+  // 수업 진도 동기화 준비 — 이 학생 클래스의 수업 기록에서 이 책의 최대 진도 단원 인덱스를 찾고,
+  // 그 이하 단원 전체를 '수업에서 이미 나간 단원' 집합으로 만든다 (표기 차이는 문자·숫자만 남겨 비교)
+  const nrm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+  const um=(x,y)=>{if(!x||!y)return false;if(x===y)return true;const p=(q,r)=>q.startsWith(r)&&!/^\d/.test(q.slice(r.length));return p(x,y)||p(y,x);};
+  const _today=(typeof ppToday==='function')?ppToday():'';
+  let covered=null;
+  if(keys&&cls&&_today){
+    let maxIdx=-1;
+    (typeof _cache!=='undefined'?(_cache.lessons||[]):[]).forEach(l=>{
+      if(l._deleted||l.classId!==cls.id||!l.materials||(l.date||'')>_today)return;
+      Object.values(l.materials).forEach(m=>{
+        if(!m||(m.bookId?m.bookId!==a.bookId:nrm(m.book)!==nrm(bookTitle)))return;
+        String(m.unit||'').split(',').forEach(u=>{
+          const un=nrm(u);if(!un)return;
+          const idx=keys.findIndex(k=>um(nrm(k),un));
+          if(idx>maxIdx)maxIdx=idx;
+        });
+      });
+    });
+    if(maxIdx>=0)covered=new Set(keys.slice(0,maxIdx+1).map(nrm));
+  }
   const res=[];
   const d=new Date(startDate+'T12:00:00');
   let i=0,guard=0;
   while(i<units.length&&guard++<800){
     const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     if(ok(d,ds)){
+      if(covered&&ds>=_today){
+        while(i<units.length&&covered.has(nrm(units[i]))&&!doneUnits.has(String(units[i])))i++; // 수업에서 이미 나간 단원은 오늘부터 숙제로 내지 않음
+        if(i>=units.length)break;
+      }
       const u=units[i++];
       const row={date:ds,book:bookTitle,unit:u};
       if(doneUnits.has(String(u)))row.done=true;
+      else if(covered&&covered.has(nrm(u))){row.done=true;row.doneBy='lesson';} // 과거 날짜에 깔렸던 몫 — 수업 처리로 완료
       res.push(row);
     }
     d.setDate(d.getDate()+1);
