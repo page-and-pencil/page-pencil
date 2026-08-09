@@ -10988,15 +10988,19 @@ function _pgComposePlan(classId,c,uptoDate){
           const rec=_pgLastRec(classId,b.tb);
           const keys=tbUnitKeys(b.tb);
           const remain=new Set(keys.slice(rec?rec.idx+1:0).map(k=>_pgNorm(k))); // 아직 수업 기록 안 된 단원만
+          // 유효 핀(오늘 이후·미기록 단원): 핀 유닛은 핀 날짜에 배치, 숙제 흐름 그룹핑에서 제외 (드래그·예정편집 조정 지원)
+          const vPins=_pgAncPins((c.progressAnchors||{})[b.tb.id]).filter(pn=>pn&&pn.unit&&pn.date&&pn.date>=todayStr&&pn.date<=uptoDate&&remain.has(_pgNorm(pn.unit)));
+          const vPinned=new Set(vPins.map(pn=>_pgNorm(pn.unit)));
           const byDay={};
           sch.forEach(s2=>{
-            if(!s2.unit||!remain.has(_pgNorm(s2.unit)))return;
+            if(!s2.unit||!remain.has(_pgNorm(s2.unit))||vPinned.has(_pgNorm(s2.unit)))return;
             const d=_nextClassDay(s2.date,(c.days||[]),subjSkip,_extraSet);
             if(!d||d<todayStr||d>uptoDate)return;
             (byDay[d]=byDay[d]||[]).push(s2.unit);
           });
-          Object.entries(byDay).forEach(([d,units])=>{
-            (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:units.join(', '),color:b.color,title:b.tb.title,s:b.s});
+          vPins.forEach(pn=>(byDay[pn.date]=byDay[pn.date]||[]).push(pn.unit));
+          Object.entries(byDay).forEach(([d,units])=>{ // 같은 날 여러 유닛 = 개별 칩 (한 유닛씩 따로 조정)
+            units.forEach(u=>(ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s}));
           });
           // 다음 교재는 이 반복 숙제가 끝난 다음 날부터 (남은 단원이 있을 때만)
           if(remain.size){const last=(sch[sch.length-1]||{}).date||'';if(last&&_addDay(last)>cursor)cursor=_addDay(last);}
@@ -11012,7 +11016,11 @@ function _pgComposePlan(classId,c,uptoDate){
         const start=rec?rec.idx+1:(()=>{const si=_pgUnitIdx(b.tb,b.mat?.unit);return si>=0?si:0;})();
         const remaining=keys.slice(start);
         if(!remaining.length)continue;
+        // 유효 핀: 핀 유닛은 핀 날짜에 배치, 숙제일 흐름에서 제외 (핀 자리는 다음 유닛이 앞당겨 채움)
+        const vPins=_pgAncPins((c.progressAnchors||{})[b.tb.id]).filter(pn=>pn&&pn.unit&&pn.date&&pn.date>=todayStr&&pn.date<=uptoDate&&remaining.some(k=>_pgNorm(k)===_pgNorm(pn.unit)));
+        const vPinned=new Set(vPins.map(pn=>_pgNorm(pn.unit)));
         const byDay={};
+        vPins.forEach(pn=>(byDay[pn.date]=byDay[pn.date]||[]).push(pn.unit));
         const d=new Date((cursor>todayStr?cursor:todayStr)+'T12:00:00');
         let ui=0,guard=0,lastHw='',overflow=false;
         while(ui<remaining.length&&guard++<450){
@@ -11021,14 +11029,16 @@ function _pgComposePlan(classId,c,uptoDate){
           const dow=_PG_DOW[d.getDay()];
           const isCls=((c.days||[]).includes(dow)||_extraSet.has(ds))&&!subjSkip.has(ds);
           if(!isCls){ // 수업 없는 날 = 숙제일
+            while(ui<remaining.length&&vPinned.has(_pgNorm(remaining[ui])))ui++; // 핀 유닛은 숙제일을 소비하지 않음
+            if(ui>=remaining.length)break;
             const showD=_nextClassDay(ds,(c.days||[]),subjSkip,_extraSet);
             if(showD&&showD<=uptoDate)(byDay[showD]=byDay[showD]||[]).push(remaining[ui]);
             lastHw=ds;ui++;
           }
           d.setDate(d.getDate()+1);
         }
-        Object.entries(byDay).forEach(([dd,units])=>{
-          (ghostBy[dd]=ghostBy[dd]||[]).push({tbId:b.tb.id,unit:units.join(', '),color:b.color,title:b.tb.title,s:b.s});
+        Object.entries(byDay).forEach(([dd,units])=>{ // 같은 날 여러 유닛 = 개별 칩 (한 유닛씩 따로 조정)
+          units.forEach(u=>(ghostBy[dd]=ghostBy[dd]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s}));
         });
         if(!overflow&&ui>=remaining.length&&lastHw)cursor=_addDay(lastHw);
         else cursor='9999-12-31'; // 범위 밖까지 이어짐 — 뒤 교재는 이 화면에선 안 그림
@@ -11762,7 +11772,7 @@ function openPgPlan(classId,date){
       const start=rec?rec.idx+1:(()=>{const si=_pgUnitIdx(b.tb,b.mat?.unit);return si>=0?si:0;})();
       remU=keys.slice(start);
     }
-    if(!b||!remU.includes(g.unit)){ // 어휘 일괄 칩(합쳐진 표시) 등 — 여기선 조정 대상 아님
+    if(!b||!remU.includes(g.unit)){ // 목차에 없는 유닛 표기 등 — 여기선 조정 대상 아님 (어휘도 2026-08-09부터 유닛별 칩 = 편집형)
       rows.push(`<div style="font-size:13px;color:var(--navy);padding:2px 0">• ${pill} ${escAttr(g.title)} — ${escAttr(g.unit)}${cat==='vocab'?' <span style="font-size:11px;color:var(--slate)">(숙제 흐름 자동)</span>':''}</div>`);
       return;
     }
