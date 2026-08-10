@@ -656,8 +656,27 @@ function renderSpVocab(sid){
   const srcList=[...srcSet].sort();
   const spStu=(_cache.students||[]).find(s=>s.id===sid);
   const vocabMode=spStu?.vocabMode||'intermediate';
+  // 오늘의 20개 — 학생 앱 '오늘의 20개'와 같은 계산(utils.dailyVocabPick) 공유: 어떤 단어가 할당되는지 그대로 보임
+  const _pick=(typeof dailyVocabPick==='function')?dailyVocabPick(sid):{cards:[],why:{},doneToday:0,lessonDate:''};
+  const _WHY={lesson:{i:'📖',l:'직전 수업',c:'#047857',bg:'#ECFDF5'},overdue:{i:'⏰',l:'복습 도래',c:'#D97706',bg:'#FFFBEB'},fresh:{i:'✨',l:'새 단어',c:'#1D4ED8',bg:'#EFF6FF'},ahead:{i:'⏳',l:'선행',c:'#64748B',bg:'#F8FAFC'}};
+  const _wCnt={};_pick.cards.forEach(c=>{const w=_pick.why[c.id];_wCnt[w]=(_wCnt[w]||0)+1;});
+  const todaySec=`<div style="padding:10px 12px;background:var(--cream2);border:1.5px solid var(--border);border-radius:10px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <span style="font-size:13px;font-weight:800;color:var(--navy)">📅 오늘의 20개</span>
+        <span style="font-size:11px;color:var(--slate)">학생 앱 '오늘의 20개'와 동일 · 실시간 계산${_pick.lessonDate?` · 직전 수업 ${_pick.lessonDate.slice(5)}`:''}</span>
+        ${Object.entries(_wCnt).map(([k,n])=>`<span style="font-size:10.5px;font-weight:700;color:${_WHY[k].c}">${_WHY[k].i} ${_WHY[k].l} ${n}</span>`).join('')}
+        ${_pick.doneToday?`<span style="font-size:10.5px;color:var(--slate)">· 오늘 이미 학습한 ${_pick.doneToday}개 제외</span>`:''}
+      </div>
+      ${_pick.cards.length?`<div style="display:flex;gap:4px;flex-wrap:wrap">${_pick.cards.map(c=>{
+        const w=_WHY[_pick.why[c.id]]||_WHY.ahead;
+        return `<span title="${escAttr((c.meaning||'뜻 없음')+' — '+w.l+(c.due?' · 복습 예정 '+c.due:''))}" style="font-size:12px;font-weight:700;color:var(--navy);background:${w.bg};border:1px solid ${w.c}33;border-left:3px solid ${w.c};border-radius:6px;padding:2px 7px;font-family:var(--fd)">${escAttr(c.word)}</span>`;
+      }).join('')}</div>
+      <div style="font-size:10.5px;color:var(--slate);margin-top:6px">순서: 📖 직전 수업 단어(최대 10) → ⏰ 복습 기한 지난 단어(에빙하우스 1·2·4·7·15·30·60일 간격) → ✨ 새 단어 → ⏳ 선행 · 단어에 마우스를 올리면 뜻</div>`
+      :`<div style="font-size:12.5px;color:var(--slate)">오늘 학습할 단어가 없습니다${_pick.doneToday?' — 오늘 몫을 모두 마쳤어요':''}</div>`}
+    </div>`;
   const selSt='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;background:var(--cream2);outline:none';
   el.innerHTML=`
+    ${todaySec}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
       <div style="flex:1;min-width:55px;padding:8px 6px;background:var(--cream2);border-radius:10px;text-align:center">
         <div id="vstat-total" style="font-size:18px;font-weight:700;color:var(--navy)">${allCards.length}</div>

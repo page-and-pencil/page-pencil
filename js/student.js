@@ -112,7 +112,7 @@ function openExtApp(key){
   }
   window.open(a.web,'_blank');
 }
-// 단어 학습 모드: daily=오늘의 20개(복습 도래→헷갈림→오래 안 본 순) | last=지난 수업 단어 전부 | all=전체
+// 단어 학습 모드: daily=오늘의 20개(직전 수업 우선→복습 도래→새 단어, utils.dailyVocabPick) | last=지난 수업 단어 전부 | all=전체
 let vocabStudyMode='daily';
 function openVocabStudy(mode){
   if(vocabStudyMode!==mode){try{sessionStorage.removeItem('deckState_'+currentStudentSid);}catch(e){}}
@@ -1048,37 +1048,13 @@ function renderVocabDeck(sid){
   const mode=vocabDeckFilter?'all':vocabStudyMode;
   let session;
   if(mode==='last'){
-    // 딱 직전 수업 진도(책·단원)에 등록된 단어만 — addedDate·lastSeen 기준은
-    // 일괄 동기화·자율 학습 날짜와 겹치면 옛 단어가 쓸려 들어와서 쓰지 않는다
-    const lessonWords=new Set();
-    Object.values(recentLes?.materials||{}).forEach(v=>{
-      if(!v||typeof v!=='object'||!v.book)return;
-      const title=String(v.book).trim();
-      const same=x=>(x.title||'').trim().toLowerCase()===title.toLowerCase();
-      const lib=(_cache.library||[]).find(same);
-      if(lib){(lib.vocab||[]).forEach(w=>{if(w.word)lessonWords.add(String(w.word).toLowerCase().trim());});return;}
-      const tb=(_cache.globalTextbooks||[]).find(_tbSame(title));
-      if(!tb)return;
-      const parts=String(v.unit||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
-      Object.entries(tb.units||{}).forEach(([k,ws])=>{
-        const kl=k.trim().toLowerCase();
-        // 앞부분 일치 + 숫자 경계 보호 — 'unit 1'이 'unit 11'에 잘못 붙지 않게
-        const _bp=(a,b)=>a.startsWith(b)&&!/^\d/.test(a.slice(b.length));
-        if(parts.length&&!parts.some(p=>p===kl||_bp(p,kl)||_bp(kl,p)))return;
-        if(!parts.length)return; // 단원 미기재면 그 교재 전체를 쓸어담지 않음
-        tuNormWords(ws).forEach(w=>{if(w.word)lessonWords.add(String(w.word).toLowerCase().trim());});
-      });
-    });
-    // 수업 기록에 직접 적은 단어도 포함
-    (_cache.logs||[]).filter(l=>l.sid===sid&&l.date===recentDate).forEach(l=>(l.words||[]).forEach(w=>lessonWords.add(String(w).toLowerCase().trim())));
-    session=cards.filter(c=>lessonWords.has((c.word||'').toLowerCase())).sort(prio);
+    // 딱 직전 수업 진도(책·단원)에 등록된 단어만 — lessonWordSet(utils, 선생님 패널과 공유)
+    const lw=lessonWordSet(sid);
+    session=cards.filter(c=>lw.words.has((c.word||'').toLowerCase())).sort(prio);
   }else if(mode==='daily'){
-    // 에빙하우스 순서: ①복습 기한이 지난 카드(많이 밀린 순) ②처음 보는 카드 ③기한 전 카드(임박순, 모자랄 때만)
-    const pool=cards.filter(c=>c.lastSeen!==today);
-    const overdue=pool.filter(c=>c.lastSeen&&(!c.due||c.due<=today)).sort((a,b)=>(a.due||'0').localeCompare(b.due||'0')||(a.lastSeen||'').localeCompare(b.lastSeen||''));
-    const fresh=pool.filter(c=>!c.lastSeen);
-    const notYet=pool.filter(c=>c.lastSeen&&c.due&&c.due>today).sort((a,b)=>a.due.localeCompare(b.due));
-    session=[...overdue,...fresh,...notYet].slice(0,20);
+    // 오늘의 20개 — 선생님 학생 패널과 같은 계산 공유 (utils.dailyVocabPick:
+    // ①직전 수업 단어 우선(최대 10) ②복습 도래(에빙하우스 due) ③새 단어 ④선행)
+    session=dailyVocabPick(sid,today).cards;
   }else{
     session=[...cards].sort((a,b)=>{
       const aR=a.addedDate===recentDate?1:0,bR=b.addedDate===recentDate?1:0;

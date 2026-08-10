@@ -560,6 +560,61 @@ function hwChallengeProgress(stu){
   return {goal,reward:c.reward||'작은 선물',start,stamps,carry,count:Math.min(carry+stamps.length,goal),
     achieved:carry+stamps.length>=goal,completedDate:c.completedDate||null,todayStamp:stamps.includes(today)};
 }
+// ── 직전 수업 단어 집합 — 가장 최근 수업 기록의 책·단원에 등록된 단어 + 수업 로그에 적은 단어 ──
+// (addedDate·lastSeen 기준은 일괄 동기화·자율 학습 날짜와 겹치면 옛 단어가 쓸려 들어와서 쓰지 않음)
+function lessonWordSet(sid){
+  const words=new Set();
+  const les=(typeof DB!=='undefined'?DB.less():[]).filter(l=>l.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
+  if(!les)return {date:'',words};
+  const _nw=typeof tuNormWords==='function'?tuNormWords:(a=>(a||[]).map(w=>typeof w==='string'?{word:w}:w));
+  Object.values(les.materials||{}).forEach(v=>{
+    if(!v||typeof v!=='object'||!v.book)return;
+    const title=String(v.book).trim();
+    const same=x=>(x.title||'').trim().toLowerCase()===title.toLowerCase();
+    const lib=(typeof _cache!=='undefined'?(_cache.library||[]):[]).find(same);
+    if(lib){(lib.vocab||[]).forEach(w=>{if(w.word)words.add(String(w.word).toLowerCase().trim());});return;}
+    const tb=(typeof _cache!=='undefined'?(_cache.globalTextbooks||[]):[]).find(typeof _tbSame==='function'?_tbSame(title):same);
+    if(!tb)return;
+    const parts=String(v.unit||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+    if(!parts.length)return; // 단원 미기재면 그 교재 전체를 쓸어담지 않음
+    Object.entries(tb.units||{}).forEach(([k,ws])=>{
+      const kl=k.trim().toLowerCase();
+      const _bp=(a,b)=>a.startsWith(b)&&!/^\d/.test(a.slice(b.length)); // 숫자 경계 보호 — 'unit 1'≠'unit 11'
+      if(!parts.some(p=>p===kl||_bp(p,kl)||_bp(kl,p)))return;
+      _nw(ws).forEach(w=>{if(w.word)words.add(String(w.word).toLowerCase().trim());});
+    });
+  });
+  (typeof _cache!=='undefined'?(_cache.logs||[]):[]).filter(l=>l.sid===sid&&l.date===les.date)
+    .forEach(l=>(l.words||[]).forEach(w=>words.add(String(w).toLowerCase().trim())));
+  return {date:les.date||'',words};
+}
+// ── 오늘의 단어 20개 선정 — 학생 앱 '오늘의 20개'와 선생님 학생 패널(단어장 탭)이 같은 계산 공유 ──
+// 에빙하우스 간격 반복(box 1·2·4·7·15·30·60일, 학습 결과가 due 갱신) 위에 '직전 수업 우선'을 얹은 규칙:
+//  ① 직전 수업 단어 중 오늘 안 본 것 — 최대 절반(수업 다음 날 첫 복습이 망각 곡선상 효과 최대; 미학습→기한순)
+//  ② 복습 기한(due)이 지난 카드 — 많이 밀린 순  ③ 처음 보는 카드 — 등록 오래된 순  ④ 기한 전 카드 — 임박순(모자랄 때만)
+// 카드 객체는 변형하지 않음(이유는 why 맵으로 반환 — 카드에 붙이면 학습 저장 때 DB로 새어 들어감)
+function dailyVocabPick(sid,today,limit){
+  today=today||ppToday();limit=limit||20;
+  const all=(typeof _cache!=='undefined'?(_cache.vocab_cards||[]):[]).filter(c=>c.sid===sid);
+  const pool=all.filter(c=>c.lastSeen!==today);
+  const lw=lessonWordSet(sid);
+  const inLesson=c=>lw.words.has(String(c.word||'').toLowerCase().trim());
+  const lesson=pool.filter(inLesson).sort((a,b)=>{
+    const aF=a.lastSeen?1:0,bF=b.lastSeen?1:0;
+    if(aF!==bF)return aF-bF; // 미학습 먼저
+    return (a.due||'0').localeCompare(b.due||'0')||(a.lastSeen||'').localeCompare(b.lastSeen||'');
+  }).slice(0,Math.ceil(limit/2));
+  const picked=new Set(lesson.map(c=>c.id));
+  const rest=pool.filter(c=>!picked.has(c.id));
+  const overdue=rest.filter(c=>c.lastSeen&&(!c.due||c.due<=today)).sort((a,b)=>(a.due||'0').localeCompare(b.due||'0')||(a.lastSeen||'').localeCompare(b.lastSeen||''));
+  const fresh=rest.filter(c=>!c.lastSeen).sort((a,b)=>(a.addedDate||'').localeCompare(b.addedDate||''));
+  const notYet=rest.filter(c=>c.lastSeen&&c.due&&c.due>today).sort((a,b)=>a.due.localeCompare(b.due));
+  const why={};
+  lesson.forEach(c=>why[c.id]='lesson');overdue.forEach(c=>why[c.id]='overdue');
+  fresh.forEach(c=>why[c.id]='fresh');notYet.forEach(c=>why[c.id]='ahead');
+  const cards=[...lesson,...overdue,...fresh,...notYet].slice(0,limit);
+  return {cards,why,lessonDate:lw.date,doneToday:all.filter(c=>c.lastSeen===today).length};
+}
 // 이 학생에게 그 책이 반복(recur)·클래스5 숙제로 이미 배정돼 있는가.
 // 자체 진행 숙제 책(예: 단어가 읽기다 — 매일 1과씩 나감)은 수업 복습 제안 대상이 아님 (이미 진도로 나가는 걸 또 제안하던 문제).
 function bookIsRecurHw(sid,book){
