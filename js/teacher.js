@@ -10957,6 +10957,7 @@ function _pgComposePlan(classId,c,uptoDate){
   const clsStus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
   // 리딩 계열은 하나의 체인: 책 A 완주 → Sing Together 한 번 → 책 B 시작 (다른 과목 진도는 그대로)
   const singDates=new Set();
+  const singBy={}; // 날짜 → 그 씽의 주인 책 id (칩 드래그가 어느 책의 씽인지 알아야 핀을 저장할 수 있음)
   const ghostBy={};
   const readingBooks=books.filter(b=>b.tb.category==='리딩'||b.s.replace(/_\d+$/,'')==='reading'); // commonMaterials 키 순서 = 체인 순서
   const usedDates=new Set(); // 리딩 계열 슬롯이 이미 기록으로 소비된 날 (리딩 기록·펜슬다운)
@@ -11100,6 +11101,12 @@ function _pgComposePlan(classId,c,uptoDate){
     // 리딩 계열 전체의 유효 핀 날짜 — 다른 책의 자동 흐름 유닛이 그 위로 겹쳐 쌓이지 않게
     const rdPinned=new Set();
     readingBooks.forEach(b=>_pgAncPins((c.progressAnchors||{})[b.tb.id]).forEach(pn=>{if(pn&&pn.unit&&pn.date&&pn.date>=todayStr)rdPinned.add(pn.date);}));
+    // 씽 투게더 핀 — progressAnchors['sing:'+tbId] (드래그·탭으로 옮긴 날짜). 지난 핀은 자동 만료
+    const _singPin=tbId=>{
+      const p=_pgAncPins((c.progressAnchors||{})['sing:'+tbId]).filter(pn=>pn&&pn.date&&pn.date>=todayStr).sort((a,b2)=>a.date.localeCompare(b2.date))[0];
+      return p?p.date:'';
+    };
+    readingBooks.forEach(b=>{const sp=_singPin(b.tb.id);if(sp)rdPinned.add(sp);}); // 옮긴 씽 날짜 위로 유닛이 겹치지 않게
     // 직전에 완주한 책의 싱투게더가 아직이면 체인 맨 앞에 배치 (다음 책을 이미 시작했으면 생략)
     if(finished.length){
       const lastFin=finished.map(b=>({b,rec:_pgLastRec(classId,b.tb)})).sort((a,b2)=>(b2.rec.date||'').localeCompare(a.rec.date||''))[0];
@@ -11109,8 +11116,12 @@ function _pgComposePlan(classId,c,uptoDate){
       const singDone=(_cache.lessons||[]).some(l=>l.classId===classId&&(l.date||'')>=singFrom&&l.materials
         &&Object.keys(l.materials).some(k=>{const bk=k.replace(/_\d+$/,'');return bk==='pencil_down'||bk==='sing_together';}));
       if(!singDone&&!nextStarted){
-        const d=_slotFrom(chainCursor,(c.days||[]));
-        if(d){singDates.add(d);chainCursor=_addDay(d);}else chainCursor='9999-12-31';
+        const sp=_singPin(lastFin.b.tb.id);
+        // 핀으로 옮겨도 체인은 원래 슬롯(auto)을 그대로 소비 — 씽만 움직이고 뒤 진도·순서는 그대로
+        const auto=_slotFrom(chainCursor,(c.days||[]));
+        const d=sp||auto;
+        if(d){singDates.add(d);singBy[d]=lastFin.b.tb.id;}
+        chainCursor=auto?_addDay(auto):'9999-12-31';
       }
     }
     // 미완주 리딩 책을 키 순서대로 이어서: 단원들 → (완주하면) 싱투게더 → 다음 책
@@ -11148,10 +11159,13 @@ function _pgComposePlan(classId,c,uptoDate){
       }
       if(overflow){chainCursor='9999-12-31';return;}
       // 이 책 완주 → 싱투게더 → 다음 책은 그 다음 수업일부터
-      const sd=_slotFrom(segEnd,(c.days||[]));
+      // 핀으로 옮겨도 체인은 원래 슬롯(auto)을 그대로 소비 — 씽만 움직이고 뒤 진도·순서는 그대로
+      const sp=_singPin(b.tb.id);
+      const auto=_slotFrom(segEnd,(c.days||[]));
+      const sd=sp||auto;
       if(!sd){chainCursor='9999-12-31';return;}
-      singDates.add(sd);
-      chainCursor=_addDay(sd);
+      singDates.add(sd);singBy[sd]=b.tb.id;
+      chainCursor=auto?_addDay(auto):'9999-12-31';
     });
   }
   // 2차: 리스닝 — 어법 수업 있는 날은 리스닝 배제 (확장 스킵으로 그 날을 휴강처럼 건너뜀)
@@ -11163,7 +11177,7 @@ function _pgComposePlan(classId,c,uptoDate){
       (Array.isArray(ts)?ts:[ts]).forEach(t=>(ortGhostBy[d]=ortGhostBy[d]||[]).push({sid:s.id,name:s.name,title:t}));
     });
   });
-  return {books,clsStus,singDates,ghostBy,ortGhostBy,skipSet};
+  return {books,clsStus,singDates,singBy,ghostBy,ortGhostBy,skipSet};
 }
 // 수업 기록 폼: 다음 단원 자동 채움 (손으로 고친 값·수정 모드는 건드리지 않음)
 function _pgAutoFillRow(sr){
@@ -11223,7 +11237,7 @@ function _pgCalHtml(classId){
   const endDow=new Date(y,m-1,dim).getDay();
   // 마지막 주 잔여 칸(다음 달 머리)까지 예정을 계산해야 연속 표시 칩이 그려짐
   const planEnd=endDow<6?_pgYmd(new Date(y,m,6-endDow)):`${ym}-${String(dim).padStart(2,'0')}`;
-  const {books,clsStus,singDates,ghostBy,ortGhostBy,skipSet}=_pgComposePlan(classId,c,planEnd);
+  const {books,clsStus,singDates,singBy,ghostBy,ortGhostBy,skipSet}=_pgComposePlan(classId,c,planEnd);
   const colorOf=(tbId,cat)=>_PG_CAT_COLORS[cat]||books.find(b=>b.tb.id===tbId)?.color||'#64748B';
   // (숙제·클래스5 칩은 과제 메뉴의 숙제 캘린더로 분리 — 이 캘린더는 '진도'만)
   // 실제 기록 칩: date → {tbKey:{tbId,book,units}} + 원서·펜슬다운 기록
@@ -11281,7 +11295,10 @@ function _pgCalHtml(classId){
     chips+=(ortGhostBy[ds]||[]).map(g=>
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr((clsStus.length>1?g.name+' — ':'')+g.title+(ortGroupOf(g.title)?' · '+ortGroupOf(g.title):'')+' (원서 예정 — 끌어서 옮기기, 더블클릭=읽음 기록)')}" ondragstart="pgDragStart(event,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" ondblclick="pgOrtDbl(event,'${classId}','${g.sid}','${escJsA(g.title)}','${ds}')">📗 ${clsStus.length>1?g.name+'·':''}${g.title}</span>`
     ).join('');
-    if(singDates.has(ds))chips+=`<span class="pg-chip ghost" style="--pgc:#7B1FA2" title="리딩 책 완주 기념 Pencil Down — Sing Together (예정, 더블클릭=기록)" onclick="event.stopPropagation()" ondblclick="pgSingDbl(event,'${classId}','${ds}')">✏️🎵 Sing Together</span>`;
+    if(singDates.has(ds)){ // 씽도 유닛 칩과 같은 핀 모델 — 드래그·탭으로 이동 (앵커 키 'sing:'+책id)
+      const _sk='sing:'+(singBy[ds]||'');
+      chips+=`<span class="pg-chip ghost" draggable="true" style="--pgc:#7B1FA2" title="리딩 책 완주 기념 Pencil Down — Sing Together (예정 — 미래 날짜로 끌면 이동, 오늘·지난 날짜에 놓으면 그날 수업으로 기록, 더블클릭=기록 확정)" ondragstart="pgDragStart(event,'${classId}','${_sk}','Sing Together','sing')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${_sk}','Sing Together','sing')" ondblclick="pgSingDbl(event,'${classId}','${ds}')">✏️🎵 Sing Together</span>`;
+    }
     const isSkip=skipSet.has(ds);
     const skipMark=isSkip?`<span class="pg-skip-mark" title="수업 안 함 (휴강·결석) — 이후 진도가 하루씩 밀렸어요. 누르면 되돌리기">🚫 수업 안 함</span>`:'';
     cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}${isSkip?' skip':''}${inMonth?'':' om'}" data-ds="${ds}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onmousedown="pgRangeDown(event,'${classId}','${ds}')" onmouseover="pgRangeOver('${ds}')" onclick="pgCellClick(event,'${classId}','${ds}')"><div class="pg-dnum">${inMonth?dd:(dt.getMonth()+1)+'/'+dd}</div>${skipMark}${chips}</div>`);
@@ -11335,7 +11352,8 @@ function pgCellDrop(ev,classId,date){
 // 예정 칩을 날짜에 놓았을 때: 미래=예정 이동(앵커), 오늘·지난 날짜=그날 실제 한 수업으로 기록 확정
 function _pgPlaceChip(classId,d,date){
   if(date<=ppToday()){
-    if(String(d.tbId).startsWith('ort:'))pgConfirmOrtBook(classId,String(d.tbId).slice(4),d.unit,date);
+    if(String(d.tbId).startsWith('sing:'))pgSingConfirm(classId,date);
+    else if(String(d.tbId).startsWith('ort:'))pgConfirmOrtBook(classId,String(d.tbId).slice(4),d.unit,date);
     else pgConfirmGhost(classId,d.tbId,d.unit,date,d.s||'');
     return;
   }
@@ -11402,6 +11420,10 @@ function pgSingDbl(ev,classId,date){
   ev.stopPropagation();
   clearTimeout(_pgTapTimer);
   pgMoveCancel();
+  pgSingConfirm(classId,date);
+}
+// 씽 기록 확정 본체 — 더블클릭·오늘/지난 날짜로 칩을 옮겼을 때 공유
+function pgSingConfirm(classId,date){
   const todayStr=ppToday();
   if(date>todayStr){toast('아직 안 한 수업이에요 — 수업한 날에 확정해 주세요');return;}
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
@@ -11784,7 +11806,14 @@ function openPgPlan(classId,date){
   const plan=_pgComposePlan(classId,c,date);
   const books=plan.books;
   const rows=[];
-  if(plan.singDates.has(date))rows.push(`<div style="font-size:13px;color:var(--navy);padding:2px 0">• ✏️🎵 Sing Together (Pencil Down)</div>`);
+  if(plan.singDates.has(date)){ // 씽도 드래그로 옮길 수 있음 — 여기선 📌 고정/해제(자동 배치 복귀)만
+    const sTb=(plan.singBy||{})[date]||'';
+    const sPin=sTb&&_pgAncPins((c.progressAnchors||{})['sing:'+sTb]).some(pn=>pn.date===date);
+    rows.push(`<div style="display:flex;align-items:center;gap:6px;padding:3px 0">
+      <span style="font-size:13px;color:var(--navy);flex:1;min-width:0">✏️🎵 Sing Together (Pencil Down)</span>
+      ${sTb?`<button class="btn ${sPin?'bt':'bo'} bsm" style="flex:none;padding:3px 7px;font-size:11.5px" title="${sPin?'옮긴 날짜 해제 — 원래 자동 배치로 돌아가요':'이 날에 고정 — 진도가 밀려도 안 움직여요'}" onclick="pgSingPinToggle('${sTb}')">📌${sPin?' 해제':''}</button>`:''}
+    </div>`);
+  }
   (plan.ortGhostBy[date]||[]).forEach(g=>rows.push(`<div style="font-size:13px;color:var(--navy);padding:2px 0">• 📗 ${plan.clsStus.length>1?escAttr(g.name)+' · ':''}${escAttr(g.title)} <span style="font-size:11px;color:var(--slate)">(캘린더에서 드래그로 이동)</span></div>`));
   // 교재 예정: 유닛 select로 그 자리 유닛 교체 + 📌 고정/해제 (즉시 저장)
   (plan.ghostBy[date]||[]).forEach(g=>{
@@ -11884,6 +11913,22 @@ async function pgPlanUnitSwap(tbId,oldUnit,newUnit){
   openPgPlan(classId,date);
   toast(`${newUnit} → 이 날로 바꿨어요 — 원래 유닛은 순서대로 다시 배치돼요`);
 }
+// 예정 편집 모달: 씽 투게더 📌 고정/해제 (해제하면 완주 다음 수업일 자동 배치로 복귀)
+async function pgSingPinToggle(tbId){
+  if(!_pgPlanCtx)return;
+  const {classId,date}=_pgPlanCtx;
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const key='sing:'+tbId;
+  const was=_pgAncPins((c.progressAnchors||{})[key]).some(pn=>pn.date===date);
+  const anc={...(c.progressAnchors||{})};
+  if(was)delete anc[key];else anc[key]={pins:[{unit:'Sing Together',date}]};
+  c.progressAnchors=anc;
+  try{await supaUpsert('classes',classId,c,null);}
+  catch(e){console.error('pgSingPinToggle:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  renderClsLessons(classId);
+  openPgPlan(classId,date);
+  toast(was?'씽 투게더 고정을 해제했어요 — 자동 배치로 돌아가요':'✏️🎵 Sing Together — 이 날에 고정했어요');
+}
 // 예정 편집 모달: 이 날의 유닛 📌 고정/해제 토글
 async function pgPlanPinToggle(tbId,unit){
   if(!_pgPlanCtx)return;
@@ -11905,12 +11950,16 @@ async function pgSetAnchor(classId,tbId,unit,date){
   const todayStr=ppToday();
   if(date<todayStr){toast('지난 날짜로는 옮길 수 없어요');return;}
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
-  const parts=String(tbId).startsWith('ort:')?[unit]:String(unit).split(',').map(x=>x.trim()).filter(Boolean);
+  const isSpecial=String(tbId).startsWith('ort:')||String(tbId).startsWith('sing:'); // 원서·씽은 제목에 쉼표가 있어도 한 덩어리
+  const parts=isSpecial?[unit]:String(unit).split(',').map(x=>x.trim()).filter(Boolean);
   const prev=_pgAncPins((c.progressAnchors||{})[tbId]).filter(pn=>pn.date>=todayStr&&!parts.some(pt=>_pgNorm(pn.unit)===_pgNorm(pt)));
   c.progressAnchors={...(c.progressAnchors||{}),[tbId]:{pins:[...prev,...parts.map(pt=>({unit:pt,date}))]}}; // 합쳐진 칩도 유닛별 핀으로 분해 누적
   await supaUpsert('classes',classId,c,null).catch(e=>{console.error('pgSetAnchor:',e);toast('저장 실패 — 네트워크를 확인해 주세요');});
   renderClsLessons(classId);
-  toast(`${unit} → ${Number(date.slice(5,7))}/${Number(date.slice(8,10))} 고정 — 나머지 유닛은 빈 수업일에 순서대로 배치돼요`);
+  const md=`${Number(date.slice(5,7))}/${Number(date.slice(8,10))}`;
+  toast(String(tbId).startsWith('sing:')
+    ?`✏️🎵 Sing Together → ${md}로 옮겼어요 (다른 진도는 그대로)`
+    :`${unit} → ${md} 고정 — 나머지 유닛은 빈 수업일에 순서대로 배치돼요`);
 }
 function pgClearAnchors(classId){
   askConfirm('예정 초기화','드래그로 옮긴 예정 진도를 원래 순서로 되돌릴까요? (수업 기록은 그대로예요)','되돌리기','bt',async()=>{
