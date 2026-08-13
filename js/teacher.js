@@ -10760,7 +10760,14 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate,occupied){
   let start;
   if(rec)start=rec.idx+1;
   else{const si=_pgUnitIdx(tb,mat?.unit);start=si>=0?si:0;}
-  const remaining=keys.slice(start);
+  let remaining=keys.slice(start);
+  // 딕테이션 분리(리스닝): 한 유닛을 '본책 날 + 딕테이션 날' 두 칸으로 — 하루에 다 못 하는 날에 씀
+  const dset=_pgDictSet(c,tb.id);
+  if(dset.size){
+    // 본책은 이미 기록됐는데 딕테이션이 아직이면 그것부터 (rec.idx는 본책·딕테이션 구분을 못 하므로 별도 확인)
+    if(rec&&dset.has(_pgNorm(keys[rec.idx]))&&!_pgDictDone(classId,tb,keys[rec.idx]))remaining=[_pgDictLbl(keys[rec.idx]),...remaining];
+    remaining=remaining.flatMap(k=>dset.has(_pgNorm(k))?[k,_pgDictLbl(k)]:[k]);
+  }
   if(!remaining.length)return{};
   const bDays=(mat?.days&&mat.days.length)?mat.days:(c.days||[]);
   if(!bDays.length)return{};
@@ -10806,9 +10813,30 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate,occupied){
   const placed={};
   const anc=(c.progressAnchors||{})[tb.id];
   const pins=_pgAncPins(anc);
-  if(pins.length)return _pgPlacePinned(remaining,slots,pins,todayStr,_pgNorm,_pgUMatch);
+  if(pins.length)return _pgPlacePinned(remaining,slots,pins,todayStr,_pgNorm,_pgDictMatch);
   slots.forEach((d,i)=>{if(remaining[i])placed[d]=[remaining[i]];});
   return placed;
+}
+// ── 딕테이션 분리 (클래스 c.dictSplit={tbId:[유닛,...]}) ──
+// 유닛 하나를 '본책'과 '딕테이션' 두 칸으로 나눠 서로 다른 날에 배치. 리스닝에서 하루에 다 못 할 때 사용.
+const _PG_DICT_SFX=' 딕테이션';
+function _pgDictLbl(unit){return unit+_PG_DICT_SFX;}
+function _pgIsDict(u){return String(u||'').includes(_PG_DICT_SFX.trim());}
+function _pgDictSet(c,tbId){
+  const list=((c&&c.dictSplit)||{})[tbId]||[];
+  return new Set(list.map(u=>_pgNorm(u)));
+}
+// 유닛 매칭 — 딕테이션 항목은 '유닛5'가 '유닛5 딕테이션'에 앞부분 매칭으로 잘못 붙지 않게 정확 비교
+function _pgDictMatch(a,b){
+  if(_pgIsDict(a)||_pgIsDict(b))return a===b;
+  return _pgUMatch(a,b);
+}
+// 이 유닛의 딕테이션이 이미 수업 기록에 있는가
+function _pgDictDone(classId,tb,unit){
+  const want=_pgNorm(_pgDictLbl(unit));
+  return (_cache.lessons||[]).some(l=>l.classId===classId&&l.materials&&Object.values(l.materials).some(m=>
+    m&&m.book&&(m.bookId?m.bookId===tb.id:m.book===tb.title)
+    &&String(m.unit||'').split(',').some(u=>_pgNorm(u)===want)));
 }
 // 학생의 남은 ORT 원서 (순서대로, 읽음 기록 제외) — 시리즈를 시작한 학생만
 function _pgOrtRemaining(sid){
@@ -10846,7 +10874,29 @@ function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
   const placed={};
   const anc=(c.progressAnchors||{})['ort:'+sid];
   const pins=_pgAncPins(anc);
-  if(pins.length)return _pgPlacePinned(remaining,slots,pins,todayStr,_pgNorm,(a,b)=>a===b);
+  // 원서는 순서(ortSeq)가 엄격 — 핀은 '이 책을 이 날부터' 뜻(순연). 교재 유닛 핀처럼 자리를 바꾸면
+  // 못 읽어서 뒤로 뺀 날 뒤 책이 앞으로 튀어나와 순서가 뒤집힘 (2026-08-09 원장 지적)
+  if(pins.length){
+    // 유효 핀 중 가장 이른 날짜 하나만 기준으로 삼음 (드래그할수록 쌓인 옛 핀은 무시)
+    let base=null;
+    pins.forEach(pn=>{
+      if(!pn||!pn.unit||!pn.date||pn.date<todayStr)return;
+      const i=remaining.findIndex(t=>_pgNorm(t)===_pgNorm(pn.unit));
+      if(i<0)return;
+      if(!base||pn.date<base.date||(pn.date===base.date&&i<base.i))base={i,date:pn.date};
+    });
+    if(base){
+      const after=slots.filter(d=>d>=base.date);
+      remaining.slice(base.i).forEach((t,k)=>{if(after[k])placed[after[k]]=[t];}); // 핀 책부터 그 날 이후로 순서대로
+      const before=slots.filter(d=>d<base.date);
+      const head=remaining.slice(0,base.i);
+      head.slice(-before.length||undefined).forEach((t,k)=>{ // 핀 앞 책들은 핀 날 직전에 붙여서
+        const d=before[before.length-Math.min(head.length,before.length)+k];
+        if(d)placed[d]=[t];
+      });
+      return placed;
+    }
+  }
   slots.forEach((d,i)=>{if(remaining[i])placed[d]=[remaining[i]];});
   return placed;
 }
@@ -11826,6 +11876,11 @@ function openPgPlan(classId,date){
       const rec=_pgLastRec(classId,b.tb);
       const start=rec?rec.idx+1:(()=>{const si=_pgUnitIdx(b.tb,b.mat?.unit);return si>=0?si:0;})();
       remU=keys.slice(start);
+      const dset=_pgDictSet(c,b.tb.id); // 딕테이션 분리 유닛은 목록에도 두 항목
+      if(dset.size){
+        if(rec&&dset.has(_pgNorm(keys[rec.idx]))&&!_pgDictDone(classId,b.tb,keys[rec.idx]))remU=[_pgDictLbl(keys[rec.idx]),...remU];
+        remU=remU.flatMap(k=>dset.has(_pgNorm(k))?[k,_pgDictLbl(k)]:[k]);
+      }
     }
     if(!b||!remU.includes(g.unit)){ // 목차에 없는 유닛 표기 등 — 여기선 조정 대상 아님 (어휘도 2026-08-09부터 유닛별 칩 = 편집형)
       rows.push(`<div style="font-size:13px;color:var(--navy);padding:2px 0">• ${pill} ${escAttr(g.title)} — ${escAttr(g.unit)}${cat==='vocab'?' <span style="font-size:11px;color:var(--slate)">(숙제 흐름 자동)</span>':''}</div>`);
@@ -11833,9 +11888,12 @@ function openPgPlan(classId,date){
     }
     const pinned=_pgAncPins((c.progressAnchors||{})[g.tbId]).some(pn=>pn.date===date&&_pgNorm(pn.unit)===_pgNorm(g.unit));
     const titles=b.tb.unitTitles||{};
+    const baseU=_pgIsDict(g.unit)?g.unit.slice(0,-_PG_DICT_SFX.length):g.unit; // 딕테이션 칩도 본책 기준으로 토글
+    const splitOn=_pgDictSet(c,g.tbId).has(_pgNorm(baseU));
     rows.push(`<div style="display:flex;align-items:center;gap:6px;padding:3px 0;min-width:0">${pill}
       <span style="font-size:12.5px;color:var(--navy);flex:none;max-width:104px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(b.tb.title)}">${escAttr(b.tb.title)}</span>
       <select style="flex:1;min-width:0;font-size:12.5px;padding:4px 6px" onchange="pgPlanUnitSwap('${g.tbId}','${escJsA(g.unit)}',this.value)">${remU.map(k=>`<option value="${escAttr(k)}"${k===g.unit?' selected':''}>${k}${titles[k]?' — '+titles[k]:''}</option>`).join('')}</select>
+      ${cat==='listening'?`<button class="btn ${splitOn?'bt':'bo'} bsm" style="flex:none;padding:3px 6px;font-size:11.5px" title="${splitOn?'다시 합치기 — 본책과 딕테이션을 하루에 함께':'딕테이션 분리 — 본책 날과 딕테이션 날을 따로'}" onclick="pgDictToggle('${g.tbId}','${escJsA(baseU)}')">✂️${splitOn?'↩':''}</button>`:''}
       <button class="btn ${pinned?'bt':'bo'} bsm" style="flex:none;padding:3px 7px;font-size:11.5px" title="${pinned?'고정 해제 — 원래 순서 자리로 돌아가요':'이 날에 고정 — 다른 유닛을 옮겨도 안 움직여요'}" onclick="pgPlanPinToggle('${g.tbId}','${escJsA(g.unit)}')">📌${pinned?' 해제':''}</button>
     </div>`);
   });
@@ -11913,6 +11971,24 @@ async function pgPlanUnitSwap(tbId,oldUnit,newUnit){
   openPgPlan(classId,date);
   toast(`${newUnit} → 이 날로 바꿨어요 — 원래 유닛은 순서대로 다시 배치돼요`);
 }
+// 예정 편집 모달: 딕테이션 분리/합치기 — 그 유닛을 '본책 날 + 딕테이션 날' 두 칸으로
+async function pgDictToggle(tbId,unit){
+  if(!_pgPlanCtx)return;
+  const {classId,date}=_pgPlanCtx;
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const map={...(c.dictSplit||{})};
+  const list=(map[tbId]||[]).slice();
+  const i=list.findIndex(u=>_pgNorm(u)===_pgNorm(unit));
+  const on=i<0;
+  if(on)list.push(unit);else list.splice(i,1);
+  if(list.length)map[tbId]=list;else delete map[tbId];
+  c.dictSplit=map;
+  try{await supaUpsert('classes',classId,c,null);}
+  catch(e){console.error('pgDictToggle:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  renderClsLessons(classId);
+  openPgPlan(classId,date);
+  toast(on?`✂️ ${unit} — 본책 날·딕테이션 날로 나눴어요 (뒤 진도는 하루씩 밀려요)`:`${unit} — 다시 하루에 함께 진행해요`);
+}
 // 예정 편집 모달: 씽 투게더 📌 고정/해제 (해제하면 완주 다음 수업일 자동 배치로 복귀)
 async function pgSingPinToggle(tbId){
   if(!_pgPlanCtx)return;
@@ -11950,15 +12026,18 @@ async function pgSetAnchor(classId,tbId,unit,date){
   const todayStr=ppToday();
   if(date<todayStr){toast('지난 날짜로는 옮길 수 없어요');return;}
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
-  const isSpecial=String(tbId).startsWith('ort:')||String(tbId).startsWith('sing:'); // 원서·씽은 제목에 쉼표가 있어도 한 덩어리
+  const isOrt=String(tbId).startsWith('ort:');
+  const isSpecial=isOrt||String(tbId).startsWith('sing:'); // 원서·씽은 제목에 쉼표가 있어도 한 덩어리
   const parts=isSpecial?[unit]:String(unit).split(',').map(x=>x.trim()).filter(Boolean);
-  const prev=_pgAncPins((c.progressAnchors||{})[tbId]).filter(pn=>pn.date>=todayStr&&!parts.some(pt=>_pgNorm(pn.unit)===_pgNorm(pt)));
+  // 원서 핀은 '여기부터 순서대로' 기준점이라 항상 1개만 유지 (옛 핀이 쌓이면 기준이 흐려짐)
+  const prev=isOrt?[]:_pgAncPins((c.progressAnchors||{})[tbId]).filter(pn=>pn.date>=todayStr&&!parts.some(pt=>_pgNorm(pn.unit)===_pgNorm(pt)));
   c.progressAnchors={...(c.progressAnchors||{}),[tbId]:{pins:[...prev,...parts.map(pt=>({unit:pt,date}))]}}; // 합쳐진 칩도 유닛별 핀으로 분해 누적
   await supaUpsert('classes',classId,c,null).catch(e=>{console.error('pgSetAnchor:',e);toast('저장 실패 — 네트워크를 확인해 주세요');});
   renderClsLessons(classId);
   const md=`${Number(date.slice(5,7))}/${Number(date.slice(8,10))}`;
   toast(String(tbId).startsWith('sing:')
     ?`✏️🎵 Sing Together → ${md}로 옮겼어요 (다른 진도는 그대로)`
+    :isOrt?`📗 ${unit} → ${md}부터 — 다음 책들도 순서대로 하루 1권씩 뒤따라요`
     :`${unit} → ${md} 고정 — 나머지 유닛은 빈 수업일에 순서대로 배치돼요`);
 }
 function pgClearAnchors(classId){
