@@ -10753,7 +10753,8 @@ function _pgAncPins(anc){
   if(Array.isArray(anc.pins))return anc.pins;
   return anc.unit?[{unit:anc.unit,date:anc.date}]:[];
 }
-function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate,occupied){
+// slotPick(d,i): 병행(교대) 배치용 — 이 책이 쓸 슬롯만 고르는 필터 (i=과목 공통 슬롯 순번)
+function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate,occupied,slotPick){
   const todayStr=ppToday();
   const keys=tbUnitKeys(tb);if(!keys.length)return{};
   const rec=_pgLastRec(classId,tb);
@@ -10811,10 +10812,11 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate,occupied){
     }
   }
   const placed={};
+  const useSlots=slotPick?slots.filter(slotPick):slots; // 교대 배치면 내 차례 슬롯만
   const anc=(c.progressAnchors||{})[tb.id];
   const pins=_pgAncPins(anc);
-  if(pins.length)return _pgPlacePinned(remaining,slots,pins,todayStr,_pgNorm,_pgDictMatch);
-  slots.forEach((d,i)=>{if(remaining[i])placed[d]=[remaining[i]];});
+  if(pins.length)return _pgPlacePinned(remaining,useSlots,pins,todayStr,_pgNorm,_pgDictMatch);
+  useSlots.forEach((d,i)=>{if(remaining[i])placed[d]=[remaining[i]];});
   return placed;
 }
 // ── 딕테이션 분리 (클래스 c.dictSplit={tbId:[유닛,...]}) ──
@@ -11047,6 +11049,19 @@ function _pgComposePlan(classId,c,uptoDate){
     // 다른 책 핀 날짜 위로 겹쳐 쌓이던 문제 방지 (리스닝처럼 짧은 책이 촘촘한 체인에서 발생)
     const groupOcc=new Set();
     for(const b of group)_pgAncPins((c.progressAnchors||{})[b.tb.id]).forEach(pn=>{if(pn&&pn.unit&&pn.date&&pn.date>=todayStr)groupOcc.add(pn.date);});
+    // 병행(교대) 배치: mat.alt='트랙명'인 책들은 트랙별로 진행 중인 첫 책끼리 같은 과목 슬롯을 번갈아 나눠 씀
+    // (예: 리스닝 두 시리즈를 매일 번갈아 — 한 권이 끝날 때까지 기다리지 않음). 트랙 안에서는 기존처럼 순차 체인
+    const altTracks={};
+    group.forEach(b=>{
+      const t=b.mat&&b.mat.alt;if(!t)return;
+      const rec=_pgLastRec(classId,b.tb);
+      if(rec&&rec.idx>=tbUnitKeys(b.tb).length-1)return; // 완강한 책은 트랙 대표가 아님
+      if(!altTracks[t])altTracks[t]=b; // commonMaterials 키 순서 = 트랙 내 순서
+    });
+    // 트랙 키 순서가 곧 교대 순번 — 'A' 트랙이 첫 슬롯, 'B'가 다음 슬롯
+    const altBooks=Object.keys(altTracks).sort((x,y)=>String(x).localeCompare(String(y),undefined,{numeric:true})).map(k=>altTracks[k]);
+    const altIdx=new Map(altBooks.map((b,i)=>[b,i]));
+    let altEnd='',altFrom=null; // 교대 책들의 공통 시작일 — 책마다 다르면 슬롯 순번이 어긋남
     for(const b of group){
       const isRecurBook=clsStus.some(s=>bookIsRecurHw(s.id,b.tb.title));
       if(isRecurBook){
@@ -11114,13 +11129,25 @@ function _pgComposePlan(classId,c,uptoDate){
         else cursor='9999-12-31'; // 범위 밖까지 이어짐 — 뒤 교재는 이 화면에선 안 그림
         continue;
       }
-      const placed=_pgProjection(classId,c,b.tb,b.mat,uptoDate,subjSkip,cursor,groupOcc);
+      const isAlt=altIdx.has(b)&&altBooks.length>1;
+      if(isAlt&&altFrom===null)altFrom=cursor; // 교대 시작점은 한 번만 확정 (앞 책이 끝난 다음 날)
+      if(!isAlt&&altEnd&&_addDay(altEnd)>cursor)cursor=_addDay(altEnd); // 교대가 끝난 뒤에 트랙 다음 책들이 이어지게
+      const altN=altBooks.length,ai=altIdx.get(b);
+      // 교대 책: 같은 시작점·같은 슬롯 목록에서 altN개마다 하나씩 — 서로 다른 날에 번갈아
+      const placed=isAlt
+        ?_pgProjection(classId,c,b.tb,b.mat,uptoDate,subjSkip,altFrom,groupOcc,(d,i)=>i%altN===ai)
+        :_pgProjection(classId,c,b.tb,b.mat,uptoDate,subjSkip,cursor,groupOcc);
       let maxD='';
       Object.entries(placed).forEach(([d,us])=>{ // 같은 날 여러 유닛 = 개별 칩 (한 유닛씩 따로 옮길 수 있게)
         (Array.isArray(us)?us:[us]).forEach(u=>(ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s}));
-        groupOcc.add(d); // 이 날은 이 과목이 차지 — 뒤 책 자동 흐름이 겹치지 않게
+        if(!isAlt)groupOcc.add(d); // 이 날은 이 과목이 차지 — 뒤 책 자동 흐름이 겹치지 않게
+        //  (교대 책은 서로의 배치일을 슬롯에서 빼면 순번이 어긋나므로 넣지 않음 — 대신 slotPick이 날짜를 나눔)
         if(d>maxD)maxD=d;
       });
+      if(isAlt){ // 교대 중엔 체인 커서를 밀지 않음 (다른 트랙 책도 같은 시작점을 써야 함)
+        if(maxD&&maxD>altEnd)altEnd=maxD;
+        continue;
+      }
       if(maxD)cursor=_addDay(maxD);
       else{cursor='9999-12-31';} // 표시 범위 밖 — 뒤 교재는 이 화면에선 안 그림
     }
