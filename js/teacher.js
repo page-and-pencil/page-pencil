@@ -11061,6 +11061,10 @@ function _pgComposePlan(classId,c,uptoDate){
     // 트랙 키 순서가 곧 교대 순번 — 'A' 트랙이 첫 슬롯, 'B'가 다음 슬롯
     const altBooks=Object.keys(altTracks).sort((x,y)=>String(x).localeCompare(String(y),undefined,{numeric:true})).map(k=>altTracks[k]);
     const altIdx=new Map(altBooks.map((b,i)=>[b,i]));
+    // 교대 패턴 — 딕테이션 분리 책은 슬롯 2칸을 연달아 차지해 '본책 날 → 바로 다음 수업 딕테이션'이 되게
+    // (칸을 1개만 주면 사이에 다른 트랙이 끼어 본책과 딕테이션이 일주일씩 벌어짐)
+    const altPat=[];
+    altBooks.forEach((b,i)=>{const w=_pgDictSet(c,b.tb.id).size?2:1;for(let j=0;j<w;j++)altPat.push(i);});
     let altEnd='',altFrom=null; // 교대 책들의 공통 시작일 — 책마다 다르면 슬롯 순번이 어긋남
     for(const b of group){
       const isRecurBook=clsStus.some(s=>bookIsRecurHw(s.id,b.tb.title));
@@ -11132,10 +11136,10 @@ function _pgComposePlan(classId,c,uptoDate){
       const isAlt=altIdx.has(b)&&altBooks.length>1;
       if(isAlt&&altFrom===null)altFrom=cursor; // 교대 시작점은 한 번만 확정 (앞 책이 끝난 다음 날)
       if(!isAlt&&altEnd&&_addDay(altEnd)>cursor)cursor=_addDay(altEnd); // 교대가 끝난 뒤에 트랙 다음 책들이 이어지게
-      const altN=altBooks.length,ai=altIdx.get(b);
-      // 교대 책: 같은 시작점·같은 슬롯 목록에서 altN개마다 하나씩 — 서로 다른 날에 번갈아
+      const ai=altIdx.get(b);
+      // 교대 책: 같은 시작점·같은 슬롯 목록을 altPat 패턴대로 나눠 가짐 — 서로 다른 날에 번갈아
       const placed=isAlt
-        ?_pgProjection(classId,c,b.tb,b.mat,uptoDate,subjSkip,altFrom,groupOcc,(d,i)=>i%altN===ai)
+        ?_pgProjection(classId,c,b.tb,b.mat,uptoDate,subjSkip,altFrom,groupOcc,(d,i)=>altPat[i%altPat.length]===ai)
         :_pgProjection(classId,c,b.tb,b.mat,uptoDate,subjSkip,cursor,groupOcc);
       let maxD='';
       Object.entries(placed).forEach(([d,us])=>{ // 같은 날 여러 유닛 = 개별 칩 (한 유닛씩 따로 옮길 수 있게)
