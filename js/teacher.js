@@ -12271,6 +12271,8 @@ document.addEventListener('click',e=>{
 
 // ── 요일별 시간 (클래스 모달) ──
 let _ecDayTimesInit={};
+// 완강한 교재는 클래스 수정 폼에서 숨김 (체인이 길어져 지저분해지는 문제) — 저장 시 원래 자리로 복원
+let _ecHiddenMats={};
 function ecToggleDayTimes(){
   const on=document.getElementById('ec-daytime-toggle').checked;
   const s=document.getElementById('ec-common-time-start'),e=document.getElementById('ec-common-time-end');
@@ -12319,13 +12321,28 @@ function openEditClass(id=null){
   ecSubjs.clear();
   document.querySelectorAll('#ec-subj-chips .chip').forEach(ch=>ch.classList.remove('active'));
   document.getElementById('ec-subj-rows').innerHTML='';
+  _ecHiddenMats={};
   if(c?.commonMaterials){
+    const hidden=[];
     Object.entries(c.commonMaterials).forEach(([s,v])=>{
       ecSubjs.add(s);
       const ch=document.querySelector(`#ec-subj-chips .chip[data-s="${s}"]`);
       if(ch)ch.classList.add('active');
+      // 완강(마지막 단원까지 기록)한 교재는 목록에서 숨김 — 데이터는 _ecHiddenMats로 보존
+      const tb=_pgTbOf(v);
+      const keys=tb?tbUnitKeys(tb):[];
+      const rec=(tb&&c.id)?_pgLastRec(c.id,tb):null;
+      if(tb&&keys.length&&rec&&rec.idx>=keys.length-1){_ecHiddenMats[s]=v;hidden.push(v.book||tb.title);return;}
       addSRowTo('ec-subj-rows',s,v.book,v.unit,v.bookId||'',v.days||[]);
     });
+    if(hidden.length){
+      const wrap=document.getElementById('ec-subj-rows');
+      const note=document.createElement('div');
+      note.style.cssText='font-size:11.5px;color:var(--slate);padding:3px 2px 7px;line-height:1.6';
+      note.innerHTML=`✅ 완료한 교재 ${hidden.length}권은 목록에서 숨겼어요 — 저장해도 그대로 유지됩니다`
+        +`<br><span style="opacity:.75">${hidden.slice(0,4).map(escAttr).join(' · ')}${hidden.length>4?` 외 ${hidden.length-4}권`:''}</span>`;
+      wrap.insertBefore(note,wrap.firstChild);
+    }
   }
   // 클래스5 책 설정 복원
   ecFillC5Books(c?.class5?.bookId||'');
@@ -12355,6 +12372,17 @@ function ecC5BookChange(preUnit){
   uSel.innerHTML=keys.map(k=>`<option value="${escAttr(k)}"${(typeof preUnit==='string'&&preUnit===k)?' selected':''}>${escAttr(k)}${tb.unitTitles?.[k]?' — '+tb.unitTitles[k]:''}</option>`).join('');
 }
 
+// 폼에서 숨겼던 완강 교재를 체인 앞쪽(원래 자리)으로 되살려 합침 — 과목별로 완강분 먼저, 그다음 폼 순서
+function _ecRestoreFinished(fromForm){
+  if(!Object.keys(_ecHiddenMats).length)return fromForm;
+  const bySubj={},order=[];
+  const push=(k,v)=>{const b=k.replace(/_\d+$/,'');if(!bySubj[b]){bySubj[b]=[];order.push(b);}bySubj[b].push(v);};
+  Object.entries(_ecHiddenMats).forEach(([k,v])=>push(k,v)); // 완강분이 체인 앞
+  Object.entries(fromForm).forEach(([k,v])=>push(k,v));
+  const out={};
+  order.forEach(b=>bySubj[b].forEach((v,i)=>{out[i===0?b:`${b}_${i+1}`]=v;}));
+  return out;
+}
 async function saveClass(){
   const name=document.getElementById('ec-name').value.trim();
   if(!name){toast('클래스명을 입력하세요');return;}
@@ -12379,7 +12407,7 @@ async function saveClass(){
   const existingId=document.getElementById('ec-id').value;
   const id=existingId||uid();
   const existing=DB.classes().find(x=>x.id===id);
-  const commonMaterials=getSMatsFrom('ec-subj-rows');
+  const commonMaterials=_ecRestoreFinished(getSMatsFrom('ec-subj-rows'));
   // 체인 후속 교재(listening_2 등)는 첫 교재의 진행 요일 상속 (후속 행엔 요일 UI가 없음)
   Object.keys(commonMaterials).forEach(k=>{
     const m2=/^(.*)_\d+$/.exec(k);
