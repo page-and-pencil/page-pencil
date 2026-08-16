@@ -10944,6 +10944,7 @@ function _nextClassDay(dateStr,days,skipSet,extraSet){
 // 수업 내용 연계 숙제 예정 {마감일:[{subject,book,bookId,unit,assigned}]}
 // 규칙: 실제로 배운(기록된) 교재 단원 → 복습·워크북 숙제, 마감=다음 수업일. 원서·펜슬다운 제외
 function _pgHomeworkPlan(classId,c){
+  if(c&&c.autoHw===false)return{}; // 수업 연계 숙제 자동 제안 끔 (반복·클래스5는 그대로)
   const days=c.days||[];
   const todayStr=ppToday();
   const skipSet=new Set(c.skipDates||[]); // 휴강일엔 숙제 마감을 잡지 않음 — 다음 실제 수업일로
@@ -12353,6 +12354,7 @@ function openEditClass(id=null){
   const c5s=document.getElementById('ec-c5-start');if(c5s)c5s.value=c?.class5?.startDate||'';
   ecC5BookChange(c?.class5?.startUnit||'');
   const dhw=document.getElementById('ec-dailyhw');if(dhw)dhw.value=(c?.dailyHw||[]).join('\n');
+  const ahw=document.getElementById('ec-autohw');if(ahw)ahw.checked=!(c&&c.autoHw===false); // 기본 켜짐
   _ecStuIds=c?[...(c.studentIds||[])]:[];
   ecRenderTags();
   document.getElementById('ec-stu-search').value='';
@@ -12434,7 +12436,8 @@ async function saveClass(){
     class5={bookId:c5BookId,book:c5tb?.title||'',startUnit:document.getElementById('ec-c5-unit')?.value||'',startDate:document.getElementById('ec-c5-start')?.value||ppToday()};
   }
   const dailyHw=(document.getElementById('ec-dailyhw')?.value||'').split('\n').map(x=>x.trim()).filter(Boolean);
-  const c={...(existing||{}),id,name,days,time,timeStart,timeEnd,dayTimes,studentIds,commonMaterials,class5,dailyHw,active:true};
+  const autoHw=document.getElementById('ec-autohw')?document.getElementById('ec-autohw').checked:true; // 수업 연계 숙제 자동 제안
+  const c={...(existing||{}),id,name,days,time,timeStart,timeEnd,dayTimes,studentIds,commonMaterials,class5,dailyHw,autoHw,active:true};
   await supaUpsert('classes',id,c,null);
   if(!_cache.globalClasses)_cache.globalClasses=[];
   const idx=_cache.globalClasses.findIndex(x=>x.id===id);
@@ -13016,7 +13019,8 @@ function clHwSyncFromSubj(){
   const lessonDate=document.getElementById('cl-date')?.value||ppToday();
   const hwDates=getClassLessonDates(c,lessonDate);
   const mats=[];
-  document.querySelectorAll('#cl-subj-rows .sr').forEach(row=>{
+  const _autoHwOn=!(c.autoHw===false); // 끔이면 교재 기반 자동 채움 없이 빈 행만 (반복·클래스5 표시는 유지)
+  if(_autoHwOn)document.querySelectorAll('#cl-subj-rows .sr').forEach(row=>{
     const s=row.dataset.s;const baseKey=s.replace(/_\d+$/,'');
     const cat=baseKey==='_book'||baseKey.startsWith('_book')?'book':baseKey;
     const bookEl=row.querySelector('[data-f="book"]');
