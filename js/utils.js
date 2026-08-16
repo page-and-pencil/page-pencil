@@ -482,7 +482,9 @@ function recurRebase(a){
     const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     if(ok(d,ds)){
       if(covered&&ds>=_today){
-        while(i<units.length&&covered.has(nrm(units[i]))&&!doneUnits.has(String(units[i])))i++; // 수업에서 이미 나간 단원은 오늘부터 숙제로 내지 않음
+        // 수업에서 이미 나간 단원은 오늘 이후 숙제로 내지 않음 — 완료 체크 여부와 무관하게 건너뛴다
+        // (학생이 체크했더라도 수업에서 나간 단원이면 다시 낼 이유가 없음. 지난 날짜 몫은 아래에서 done 표시로 유지)
+        while(i<units.length&&covered.has(nrm(units[i])))i++;
         if(i>=units.length)break;
       }
       const u=units[i++];
