@@ -10754,6 +10754,12 @@ function _pgAncPins(anc){
   return anc.unit?[{unit:anc.unit,date:anc.date}]:[];
 }
 // slotPick(d,i): 병행(교대) 배치용 — 이 책이 쓸 슬롯만 고르는 필터 (i=과목 공통 슬롯 순번)
+// 그 날이 이 클래스의 수업일인가 (요일 + 추가 수업일). 교재별 지정 요일(mat.days)과는 별개 조건 —
+// 클래스 요일에서 빠진 날엔 교재 요일이 남아 있어도 예정을 깔지 않는다 (요일 변경이 예정에 반영되게)
+function _pgIsClassDay(c,ds,extraSet){
+  const dow=_PG_DOW[new Date(ds+'T12:00:00').getDay()];
+  return (c&&(c.days||[]).includes(dow))||(extraSet&&extraSet.has(ds));
+}
 function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate,occupied,slotPick){
   const todayStr=ppToday();
   const keys=tbUnitKeys(tb);if(!keys.length)return{};
@@ -10790,6 +10796,7 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate,occupied,slo
         if(o===0&&fromDate&&ds<fromDate)break; // 이 주의 지정 요일을 앞 교재가 썼으면 통째로 다음 주로 (인수인계 주에 2회 방지)
         if(ds<todayStr)continue;
         if(fromDate&&ds<fromDate)continue;
+        if(!_pgIsClassDay(c,ds,extraSet))continue;
         if(!bDays.includes(_PG_DOW[d2.getDay()])&&!extraSet.has(ds))continue;
         if(recDates.has(ds))continue;
         if(skipDates&&skipDates.has(ds))continue;
@@ -10804,6 +10811,8 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate,occupied,slo
       const ds=_pgYmd(cur);
       if(ds<todayStr)continue;
       if(fromDate&&ds<fromDate)continue; // 체인: 앞 교재가 끝난 뒤부터 시작
+      // 클래스 수업일이면서 이 교재의 지정 요일인 날만 — 클래스 요일을 바꾸면 없어진 요일의 예정이 사라지게
+      if(!_pgIsClassDay(c,ds,extraSet))continue;
       if(!bDays.includes(_PG_DOW[cur.getDay()])&&!extraSet.has(ds))continue;
       if(recDates.has(ds))continue;
       if(skipDates&&skipDates.has(ds))continue;
@@ -12431,6 +12440,13 @@ async function saveClass(){
       KEEP.forEach(f=>{if(old[f]!==undefined&&v[f]===undefined)v[f]=old[f];});
     });
   }
+  // 클래스 요일이 바뀌면 교재별 지정 요일도 교집합으로 정리 — 없어진 요일에 예정이 남지 않게
+  // (교집합이 비면 days를 지워 클래스 요일 전체를 쓰게 한다)
+  Object.values(commonMaterials).forEach(v=>{
+    if(!v||!v.days||!v.days.length)return;
+    const f=v.days.filter(d=>days.includes(d));
+    if(f.length)v.days=f;else delete v.days;
+  });
   // 클래스5 책 설정 (매일 한 유닛씩 앱 과제 자동 할당)
   const c5BookId=document.getElementById('ec-c5-book')?.value||'';
   let class5=null;
