@@ -10764,6 +10764,11 @@ function _pgAncPins(anc){
   return anc.unit?[{unit:anc.unit,date:anc.date}]:[];
 }
 // slotPick(d,i): 병행(교대) 배치용 — 이 책이 쓸 슬롯만 고르는 필터 (i=과목 공통 슬롯 순번)
+// 이 교재를 그 날짜에서 빼뒀는가 (예정 편집 모달 ✕ — c.slotSkip={tbId:[날짜,…]})
+function _pgSlotSkipped(c,tbId,ds){
+  const l=((c&&c.slotSkip)||{})[tbId];
+  return !!(l&&l.indexOf(ds)>=0);
+}
 // 그 날이 이 클래스의 수업일인가 (요일 + 추가 수업일). 교재별 지정 요일(mat.days)과는 별개 조건 —
 // 클래스 요일에서 빠진 날엔 교재 요일이 남아 있어도 예정을 깔지 않는다 (요일 변경이 예정에 반영되게)
 function _pgIsClassDay(c,ds,extraSet){
@@ -10808,6 +10813,7 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate,occupied,slo
         if(fromDate&&ds<fromDate)continue;
         if(!_pgIsClassDay(c,ds,extraSet))continue;
         if(!bDays.includes(_PG_DOW[d2.getDay()])&&!extraSet.has(ds))continue;
+        if(_pgSlotSkipped(c,tb.id,ds))continue; // 이 날은 이 교재를 뺌
         if(recDates.has(ds))continue;
         if(skipDates&&skipDates.has(ds))continue;
         if(occupied&&occupied.has(ds))continue; // 같은 과목의 다른 칩이 이미 있는 날 — 겹쳐 쌓이지 않게
@@ -10824,6 +10830,7 @@ function _pgProjection(classId,c,tb,mat,uptoDate,skipDates,fromDate,occupied,slo
       // 클래스 수업일이면서 이 교재의 지정 요일인 날만 — 클래스 요일을 바꾸면 없어진 요일의 예정이 사라지게
       if(!_pgIsClassDay(c,ds,extraSet))continue;
       if(!bDays.includes(_PG_DOW[cur.getDay()])&&!extraSet.has(ds))continue;
+      if(_pgSlotSkipped(c,tb.id,ds))continue; // 이 날은 이 교재를 뺌
       if(recDates.has(ds))continue;
       if(skipDates&&skipDates.has(ds))continue;
       if(occupied&&occupied.has(ds))continue; // 같은 과목의 다른 칩이 이미 있는 날 — 겹쳐 쌓이지 않게
@@ -11105,6 +11112,8 @@ function _pgComposePlan(classId,c,uptoDate){
             let d=_nextClassDay(s2.date,(c.days||[]),subjSkip,_extraSet);
             // 밀린 몫(정리일이 이미 지난 단원)은 사라지지 않게 다음 수업일로 모아서 표시
             if(d&&d<todayStr)d=_nextClassDay(todayStr,(c.days||[]),subjSkip,_extraSet);
+            let _g=0;
+            while(d&&_pgSlotSkipped(c,b.tb.id,d)&&_g++<30)d=_nextClassDay(d,(c.days||[]),subjSkip,_extraSet); // 뺀 날이면 다음 수업일로
             if(!d||d>uptoDate)return;
             (byDay[d]=byDay[d]||[]).push(s2.unit);
           });
@@ -11141,7 +11150,9 @@ function _pgComposePlan(classId,c,uptoDate){
           if(!isCls){ // 수업 없는 날 = 숙제일
             while(ui<remaining.length&&vPinned.has(_pgNorm(remaining[ui])))ui++; // 핀 유닛은 숙제일을 소비하지 않음
             if(ui>=remaining.length)break;
-            const showD=_nextClassDay(ds,(c.days||[]),subjSkip,_extraSet);
+            let showD=_nextClassDay(ds,(c.days||[]),subjSkip,_extraSet);
+            let _g2=0;
+            while(showD&&_pgSlotSkipped(c,b.tb.id,showD)&&_g2++<30)showD=_nextClassDay(showD,(c.days||[]),subjSkip,_extraSet); // 뺀 날이면 다음 수업일로
             if(showD&&showD<=uptoDate)(byDay[showD]=byDay[showD]||[]).push(remaining[ui]);
             lastHw=ds;ui++;
           }
@@ -11935,7 +11946,10 @@ function openPgPlan(classId,date){
       }
     }
     if(!b||!remU.includes(g.unit)){ // 목차에 없는 유닛 표기 등 — 여기선 조정 대상 아님 (어휘도 2026-08-09부터 유닛별 칩 = 편집형)
-      rows.push(`<div style="font-size:13px;color:var(--navy);padding:2px 0">• ${pill} ${escAttr(g.title)} — ${escAttr(g.unit)}${cat==='vocab'?' <span style="font-size:11px;color:var(--slate)">(숙제 흐름 자동)</span>':''}</div>`);
+      rows.push(`<div style="display:flex;align-items:center;gap:6px;padding:2px 0;min-width:0">
+        <span style="font-size:13px;color:var(--navy);flex:1;min-width:0">${pill} ${escAttr(g.title)} — ${escAttr(g.unit)}${cat==='vocab'?' <span style="font-size:11px;color:var(--slate)">(숙제 흐름 자동)</span>':''}</span>
+        <button class="btn bd bsm" style="flex:none;padding:3px 7px;font-size:11.5px" title="이 날은 이 교재를 빼요 — 다음 수업일로 밀려요 (다시 넣으려면 같은 버튼)" onclick="pgSlotSkipToggle('${g.tbId}')">✕</button>
+      </div>`);
       return;
     }
     const pinned=_pgAncPins((c.progressAnchors||{})[g.tbId]).some(pn=>pn.date===date&&_pgNorm(pn.unit)===_pgNorm(g.unit));
@@ -11947,6 +11961,7 @@ function openPgPlan(classId,date){
       <select style="flex:1;min-width:0;font-size:12.5px;padding:4px 6px" onchange="pgPlanUnitSwap('${g.tbId}','${escJsA(g.unit)}',this.value)">${remU.map(k=>`<option value="${escAttr(k)}"${k===g.unit?' selected':''}>${k}${titles[k]?' — '+titles[k]:''}</option>`).join('')}</select>
       ${cat==='listening'?`<button class="btn ${splitOn?'bt':'bo'} bsm" style="flex:none;padding:3px 6px;font-size:11.5px" title="${splitOn?'다시 합치기 — 본책과 딕테이션을 하루에 함께':'딕테이션 분리 — 본책 날과 딕테이션 날을 따로'}" onclick="pgDictToggle('${g.tbId}','${escJsA(baseU)}')">✂️${splitOn?'↩':''}</button>`:''}
       <button class="btn ${pinned?'bt':'bo'} bsm" style="flex:none;padding:3px 7px;font-size:11.5px" title="${pinned?'고정 해제 — 원래 순서 자리로 돌아가요':'이 날에 고정 — 다른 유닛을 옮겨도 안 움직여요'}" onclick="pgPlanPinToggle('${g.tbId}','${escJsA(g.unit)}')">📌${pinned?' 해제':''}</button>
+      <button class="btn bd bsm" style="flex:none;padding:3px 7px;font-size:11.5px" title="이 날은 이 교재를 빼요 — 진도는 다음 수업일로 밀려요 (다시 넣으려면 같은 버튼)" onclick="pgSlotSkipToggle('${g.tbId}')">✕</button>
     </div>`);
   });
   document.getElementById('pg-plan-cur').innerHTML=rows.length
@@ -12022,6 +12037,30 @@ async function pgPlanUnitSwap(tbId,oldUnit,newUnit){
   renderClsLessons(classId);
   openPgPlan(classId,date);
   toast(`${newUnit} → 이 날로 바꿨어요 — 원래 유닛은 순서대로 다시 배치돼요`);
+}
+// 예정 편집 모달: 이 날 이 교재 빼기/되돌리기 — 그 날 걸린 핀도 함께 풀어야 다시 안 나옴
+async function pgSlotSkipToggle(tbId){
+  if(!_pgPlanCtx)return;
+  const {classId,date}=_pgPlanCtx;
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const map={...(c.slotSkip||{})};
+  const list=(map[tbId]||[]).slice();
+  const i=list.indexOf(date);
+  const on=i<0;
+  if(on)list.push(date);else list.splice(i,1);
+  if(list.length)map[tbId]=list;else delete map[tbId];
+  c.slotSkip=map;
+  if(on){ // 뺄 때는 이 날짜 핀도 해제 (핀이 남으면 빼도 그대로 배치됨)
+    const anc={...(c.progressAnchors||{})};
+    const pins=_pgAncPins(anc[tbId]).filter(pn=>pn.date!==date);
+    if(pins.length)anc[tbId]={pins};else delete anc[tbId];
+    c.progressAnchors=anc;
+  }
+  try{await supaUpsert('classes',classId,c,null);}
+  catch(e){console.error('pgSlotSkipToggle:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  renderClsLessons(classId);
+  openPgPlan(classId,date);
+  toast(on?'이 날은 이 교재를 뺐어요 — 진도는 다음 수업일로':'다시 넣었어요');
 }
 // 예정 편집 모달: 딕테이션 분리/합치기 — 그 유닛을 '본책 날 + 딕테이션 날' 두 칸으로
 async function pgDictToggle(tbId,unit){
