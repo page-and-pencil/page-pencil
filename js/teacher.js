@@ -12419,13 +12419,16 @@ async function saveClass(){
     const m2=/^(.*)_\d+$/.exec(k);
     if(m2&&!commonMaterials[k].days&&commonMaterials[m2[1]]&&commonMaterials[m2[1]].days)commonMaterials[k].days=commonMaterials[m2[1]].days;
   });
-  // 폼에 없는 교재 옵션(weekly=주1회 진도 요일)은 같은 책의 기존 값을 보존 — 클래스 수정이 지우지 않게
+  // 폼에 UI가 없는 교재 옵션은 같은 책의 기존 값을 보존 — 클래스 수정이 지우지 않게
+  // weekly=주1회 진도 요일, alt=교대(병행) 트랙명. 새 옵션을 만들면 여기에 추가할 것
   if(existing&&existing.commonMaterials){
+    const KEEP=['weekly','alt'];
     const prevByBook={};
     Object.values(existing.commonMaterials).forEach(v=>{if(v&&(v.bookId||v.book))prevByBook[v.bookId||v.book]=v;});
     Object.values(commonMaterials).forEach(v=>{
       const old=prevByBook[v.bookId||v.book];
-      if(old&&old.weekly&&!v.weekly)v.weekly=old.weekly;
+      if(!old)return;
+      KEEP.forEach(f=>{if(old[f]!==undefined&&v[f]===undefined)v[f]=old[f];});
     });
   }
   // 클래스5 책 설정 (매일 한 유닛씩 앱 과제 자동 할당)
