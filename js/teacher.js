@@ -11071,10 +11071,9 @@ function _pgComposePlan(classId,c,uptoDate){
     // 트랙 키 순서가 곧 교대 순번 — 'A' 트랙이 첫 슬롯, 'B'가 다음 슬롯
     const altBooks=Object.keys(altTracks).sort((x,y)=>String(x).localeCompare(String(y),undefined,{numeric:true})).map(k=>altTracks[k]);
     const altIdx=new Map(altBooks.map((b,i)=>[b,i]));
-    // 교대 패턴 — 딕테이션 분리 책은 슬롯 2칸을 연달아 차지해 '본책 날 → 바로 다음 수업 딕테이션'이 되게
-    // (칸을 1개만 주면 사이에 다른 트랙이 끼어 본책과 딕테이션이 일주일씩 벌어짐)
-    const altPat=[];
-    altBooks.forEach((b,i)=>{const w=_pgDictSet(c,b.tb.id).size?2:1;for(let j=0;j<w;j++)altPat.push(i);});
+    // 교대 패턴 — 트랙당 1칸씩 단순 번갈아 (원장 지시 2026-09: 스마트 리스닝 ↔ 리스닝 스테이지 한 번씩)
+    // 딕테이션 분리 책은 자기 트랙 슬롯에 '본책 → 다음 차례에 딕테이션' 순서로 들어간다
+    const altPat=altBooks.map((b,i)=>i);
     let altEnd='',altFrom=null; // 교대 책들의 공통 시작일 — 책마다 다르면 슬롯 순번이 어긋남
     for(const b of group){
       const isRecurBook=clsStus.some(s=>bookIsRecurHw(s.id,b.tb.title));
@@ -11093,8 +11092,10 @@ function _pgComposePlan(classId,c,uptoDate){
           const byDay={};
           sch.forEach(s2=>{
             if(!s2.unit||!remain.has(_pgNorm(s2.unit))||vPinned.has(_pgNorm(s2.unit)))return;
-            const d=_nextClassDay(s2.date,(c.days||[]),subjSkip,_extraSet);
-            if(!d||d<todayStr||d>uptoDate)return;
+            let d=_nextClassDay(s2.date,(c.days||[]),subjSkip,_extraSet);
+            // 밀린 몫(정리일이 이미 지난 단원)은 사라지지 않게 다음 수업일로 모아서 표시
+            if(d&&d<todayStr)d=_nextClassDay(todayStr,(c.days||[]),subjSkip,_extraSet);
+            if(!d||d>uptoDate)return;
             (byDay[d]=byDay[d]||[]).push(s2.unit);
           });
           vPins.forEach(pn=>(byDay[pn.date]=byDay[pn.date]||[]).push(pn.unit));
