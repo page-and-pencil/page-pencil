@@ -10744,8 +10744,18 @@ function _pgPlacePinned(remaining,slots,pins,todayStr,normFn,matchFn){
   });
   Object.entries(pinByIdx).forEach(([i,d])=>{(placed[d]=placed[d]||[]).push(remaining[i]);}); // 같은 날 여러 유닛도 개별 항목(칩 하나씩)
   const pinDates=new Set(Object.values(pinByIdx));
-  const rest=remaining.filter((_,i)=>!(i in pinByIdx));
-  slots.filter(d=>!pinDates.has(d)).forEach((d,i)=>{if(rest[i])placed[d]=[rest[i]];});
+  const free=slots.filter(d=>!pinDates.has(d));
+  // 핀 안 걸린 유닛을 빈 슬롯에 순서대로 — 단 **순서 역전 금지**: 앞 유닛을 뒤로 밀었으면
+  // 뒤 유닛이 그보다 앞 슬롯을 채우지 않는다 (U4를 다음 주로 밀었는데 U6이 이번 주에 오던 문제)
+  const pinIdxs=Object.keys(pinByIdx).map(Number);
+  let si=0;
+  remaining.forEach((u,idx)=>{
+    if(idx in pinByIdx)return;
+    let after=''; // 이 유닛보다 앞선 핀 유닛들이 잡은 가장 늦은 날짜
+    pinIdxs.forEach(pi=>{if(pi<idx&&pinByIdx[pi]>after)after=pinByIdx[pi];});
+    while(si<free.length&&after&&free[si]<=after)si++;
+    if(si<free.length)placed[free[si++]]=[u];
+  });
   return placed;
 }
 function _pgAncPins(anc){
