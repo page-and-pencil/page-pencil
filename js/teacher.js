@@ -11129,6 +11129,45 @@ function _pgComposePlan(classId,c,uptoDate){
       const keys=tbUnitKeys(b.tb);
       const rec=_pgLastRec(classId,b.tb);
       if(rec&&rec.idx>=keys.length-1)continue; // 완강한 책 — 다음 교재가 이어서
+      // 주간 묶음 배치(mat.perWeek): 매주 첫 수업일에 N과씩 — 어휘를 '한 주치 한 번에' 정리하는 방식
+      // mat.startDate가 있으면 그 날부터 시작. 핀은 우선(그 날짜에 그대로), 나머지가 주 단위로 채워짐
+      if(base0==='vocab'&&b.mat&&+b.mat.perWeek>0){
+        const per=+b.mat.perWeek;
+        const st=rec?rec.idx+1:(()=>{const si=_pgUnitIdx(b.tb,b.mat?.unit);return si>=0?si:0;})();
+        const remaining=keys.slice(st);
+        if(!remaining.length)continue;
+        const vPins=_pgAncPins((c.progressAnchors||{})[b.tb.id]).filter(pn=>pn&&pn.unit&&pn.date&&pn.date>=todayStr&&pn.date<=uptoDate&&remaining.some(k=>_pgNorm(k)===_pgNorm(pn.unit)));
+        const vPinned=new Set(vPins.map(pn=>_pgNorm(pn.unit)));
+        const byDay={};
+        vPins.forEach(pn=>(byDay[pn.date]=byDay[pn.date]||[]).push(pn.unit));
+        let from=b.mat.startDate||cursor;
+        if(from<todayStr)from=todayStr;
+        const d2=new Date(from+'T12:00:00');
+        const wkKey=dt=>{const x=new Date(dt);x.setDate(x.getDate()-((x.getDay()+6)%7));return _pgYmd(x);}; // 그 주 월요일
+        const doneWk=new Set();
+        let ui=0,guard=0,maxD='';
+        while(ui<remaining.length&&guard++<500){
+          const ds=_pgYmd(d2);
+          if(ds>uptoDate)break;
+          const dow=_PG_DOW[d2.getDay()];
+          const isCls=((c.days||[]).includes(dow)||_extraSet.has(ds))&&!subjSkip.has(ds);
+          if(isCls&&!_pgSlotSkipped(c,b.tb.id,ds)&&!doneWk.has(wkKey(d2))){
+            doneWk.add(wkKey(d2));
+            for(let n=0;n<per&&ui<remaining.length;n++){
+              while(ui<remaining.length&&vPinned.has(_pgNorm(remaining[ui])))ui++; // 핀 유닛은 자기 날짜에
+              if(ui>=remaining.length)break;
+              (byDay[ds]=byDay[ds]||[]).push(remaining[ui++]);
+            }
+            if(ds>maxD)maxD=ds;
+          }
+          d2.setDate(d2.getDate()+1);
+        }
+        Object.entries(byDay).forEach(([dd,units])=>{
+          units.forEach(u=>(ghostBy[dd]=ghostBy[dd]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s}));
+        });
+        cursor=(ui>=remaining.length&&maxD)?_addDay(maxD):'9999-12-31';
+        continue;
+      }
       if(base0==='vocab'){
         // 어휘 교재는 수업 없는 날마다 1과씩 '숙제'로 진행 → 다음 수업일에 일괄 진도로 표시
         // (아직 반복 숙제로 할당 전인 다음 교재도 같은 방식으로 미리 계산 — 매일 수업 나가는 것처럼 깔리지 않게)
