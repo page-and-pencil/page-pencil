@@ -559,8 +559,18 @@ function hwChallengeProgress(stu){
   }
   const goal=c.goal||20;
   const carry=c.carry||0; // 이월 도장 — 앱 기록 시작 전(종이 시절) 모은 몫
-  return {goal,reward:c.reward||'작은 선물',start,stamps,carry,count:Math.min(carry+stamps.length,goal),
-    achieved:carry+stamps.length>=goal,completedDate:c.completedDate||null,todayStamp:stamps.includes(today)};
+  // 도장판 자동 넘김(2026-09-18 원장 지시): 목표를 채우면 다음 판이 바로 열리고, 넘친 도장은 새 판에 승계.
+  // 선물은 별도 카운트 — rounds(완성한 판 수) - giftsGiven(전달한 선물 수) = 받을 선물. 시작일은 그대로 둠.
+  const total=carry+stamps.length;
+  const rounds=Math.floor(total/goal);
+  const giftsGiven=c.giftsGiven||0;
+  const pendingGifts=Math.max(0,rounds-giftsGiven);
+  const prevRounds=(stu.hwChallengeLog||[]).filter(l=>l&&l.start&&l.start!==start).length; // 시작일을 새로 잡기 전 완성한 판(옛 방식 기록)
+  return {goal,reward:c.reward||'작은 선물',start,stamps,carry,total,
+    count:total-rounds*goal,          // 현재 판에 찍힌 도장
+    rounds,roundNo:rounds+1+prevRounds, // 이번 시작일 이후 완성한 판 수 · 통산 몇 번째 판
+    pendingGifts,achieved:pendingGifts>0,
+    completedDate:c.completedDate||null,todayStamp:stamps.includes(today)};
 }
 // ── 직전 수업 단어 집합 — 가장 최근 수업 기록의 책·단원에 등록된 단어 + 수업 로그에 적은 단어 ──
 // (addedDate·lastSeen 기준은 일괄 동기화·자율 학습 날짜와 겹치면 옛 단어가 쓸려 들어와서 쓰지 않음)

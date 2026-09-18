@@ -1181,11 +1181,12 @@ async function loadStuPanel(sid){
     const stu=DB.stus().find(x=>x.id===sid);
     const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu):null;
     if(p){
-      const st=p.completedDate?`🎁 선물 전달 완료 (${p.completedDate})`:p.achieved?'<b style="color:#B45309">달성! 선물 전달 대기</b>':`도장 <b style="color:#B45309">${p.count}/${p.goal}</b>${p.carry?` <span style="font-size:10.5px;color:var(--slate)">(이월 ${p.carry} 포함)</span>`:''} · 오늘 ${p.todayStamp?'✅':'아직'}`;
+      const st=`${p.roundNo}번째 판 <b style="color:#B45309">${p.count}/${p.goal}</b>${p.carry?` <span style="font-size:10.5px;color:var(--slate)">(이월 ${p.carry} 포함)</span>`:''} · 오늘 ${p.todayStamp?'✅':'아직'}${p.pendingGifts>0?` · <b style="color:#B45309">🎁 전달할 선물 ${p.pendingGifts}개</b>`:''}${p.rounds?` · 완성 ${p.rounds}판`:''}`;
       return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:var(--rs);padding:8px 12px;margin-bottom:12px;font-size:13px">
         <span>🎁 <b>도장 챌린지</b> (${p.goal}일 · ${escAttr(p.reward)} · 시작 ${p.start})</span><span>${st}</span>
         <span style="margin-left:auto;display:flex;gap:4px">
-          ${p.completedDate?`<button class="btn bt bsm" style="font-size:10.5px;padding:2px 8px" onclick="document.getElementById('hwch-setup-${sid}').style.cssText='display:flex;width:100%;margin-top:6px;gap:6px;align-items:center;flex-wrap:wrap';this.style.display='none'">새 라운드</button>`:''}
+          ${p.pendingGifts>0?`<button class="btn bt bsm" style="font-size:10.5px;padding:2px 8px" onclick="dashChallengeComplete('${sid}')">🎁 선물 전달</button>`:''}
+          <button class="btn bo bsm" style="font-size:10.5px;padding:2px 8px" title="목표·선물·시작일을 새로 설정 (도장 0부터)" onclick="document.getElementById('hwch-setup-${sid}').style.cssText='display:flex;width:100%;margin-top:6px;gap:6px;align-items:center;flex-wrap:wrap';this.style.display='none'">재설정</button>
           <button class="btn bo bsm" style="font-size:10.5px;padding:2px 8px" onclick="spChallengeStop('${sid}')">중지</button>
         </span>
         <span id="hwch-setup-${sid}" style="display:none">
@@ -8066,16 +8067,16 @@ function renderDashChallenge(stus){
   stus.forEach(s=>{
     const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(s):null;
     if(!p)return;
-    if(p.achieved&&!p.completedDate){
+    if(p.pendingGifts>0){
       rows.push(`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#FEF3C7;border:2px solid #F59E0B;border-radius:var(--rs);padding:12px 14px;margin-top:10px">
         <span style="font-size:22px">🎉</span>
         <div style="flex:1;min-width:180px">
-          <div style="font-size:14.5px;font-weight:800;color:#92400E">${escAttr(s.name)} — ${p.goal}일 숙제 챌린지 달성!</div>
-          <div style="font-size:12.5px;color:#B45309;margin-top:2px">${escAttr(p.reward)}을 전달해 주세요 🎁 (학생 앱에도 축하가 표시되고 있어요)</div>
+          <div style="font-size:14.5px;font-weight:800;color:#92400E">${escAttr(s.name)} — 도장판 ${p.rounds}개 완성! (전달할 선물 ${p.pendingGifts}개)</div>
+          <div style="font-size:12.5px;color:#B45309;margin-top:2px">${escAttr(p.reward)}을 전달해 주세요 🎁 · 학생 앱은 이미 ${p.roundNo}번째 판(${p.count}/${p.goal})으로 넘어가 있어요</div>
         </div>
         <button class="btn bt bsm" onclick="dashChallengeComplete('${s.id}')">🎁 선물 전달 완료</button>
       </div>`);
-    }else if(!p.completedDate){
+    }else{
       rows.push(`<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--slate);margin-top:8px;padding:7px 12px;background:var(--cream2);border-radius:var(--rs)">
         🎁 <b style="color:var(--navy)">${escAttr(s.name)}</b> 도장 챌린지 <b style="color:#B45309">${p.count}/${p.goal}</b>
         <span style="font-size:12px">(시작 ${p.start} · 오늘 도장 ${p.todayStamp?'✅':'아직'})</span>
@@ -8089,23 +8090,17 @@ function renderDashChallenge(stus){
 async function dashChallengeComplete(sid){
   const idx=(_cache.students||[]).findIndex(s=>s.id===sid);if(idx<0)return;
   const stu=_cache.students[idx];
-  // 선물 전달 = 라운드 종료 + 다음 라운드 자동 시작 (2026-08-03 원장 지시)
-  // 새 시작일 = 목표를 채운 도장 날짜 다음 날 — 그 이후 찍힌 도장(오늘 것 포함)이 새 라운드에 자동 승계됨
+  // 선물 전달 = 전달 횟수만 +1 (2026-09-18) — 도장판은 목표를 채우는 순간 학생 앱에서 이미 다음 판으로
+  // 넘어가 있으므로 시작일·도장은 건드리지 않음. 남은 선물이 여러 개면 한 번에 하나씩 처리
   const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu):null;
-  const goal=(stu.hwChallenge&&stu.hwChallenge.goal)||20;
-  const reward=(stu.hwChallenge&&stu.hwChallenge.reward)||'작은 선물';
-  let nextStart=ppToday();
-  if(p&&p.stamps&&p.stamps.length){
-    const gi=Math.max(0,goal-(stu.hwChallenge.carry||0)-1); // goal번째 도장의 stamps 인덱스
-    const lastDate=p.stamps[Math.min(gi,p.stamps.length-1)];
-    const nd=new Date(lastDate+'T12:00:00');nd.setDate(nd.getDate()+1);
-    nextStart=ppYmd(nd);
-  }
-  stu.hwChallengeLog=[...(stu.hwChallengeLog||[]),{goal,reward,start:(stu.hwChallenge||{}).start||'',done:ppToday()}];
-  stu.hwChallenge={goal,reward,start:nextStart};
+  if(!p||p.pendingGifts<=0){toast('전달할 선물이 없어요');return;}
+  const goal=p.goal,reward=p.reward;
+  stu.hwChallengeLog=[...(stu.hwChallengeLog||[]),{goal,reward,start:(stu.hwChallenge||{}).start||'',round:(stu.hwChallenge.giftsGiven||0)+1,done:ppToday()}];
+  stu.hwChallenge={...(stu.hwChallenge||{}),giftsGiven:(stu.hwChallenge.giftsGiven||0)+1};
   try{await supaUpsert('students',sid,stu,null);}
   catch(e){console.error('dashChallengeComplete:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
-  toast(`${stu.name} 선물 전달 완료 🎁 새 라운드가 바로 이어서 시작됐어요 (그 후 모은 도장 자동 인정)`);
+  const left=p.pendingGifts-1;
+  toast(`${stu.name} 선물 전달 완료 🎁${left>0?` (아직 ${left}개 더 전달할 게 있어요)`:''}`);
   renderDash();
   if(typeof currentSpStuId!=='undefined'&&currentSpStuId===sid)loadStuPanel(sid);
 }

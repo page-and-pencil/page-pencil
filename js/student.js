@@ -2021,11 +2021,11 @@ function hwChallengeCardHtml(sid){
   const today=ppToday();
   const ts=hwDayStatus(sid,today);
   let statusHtml;
-  if(p.completedDate){
-    statusHtml=`<div style="font-size:14px;font-weight:800;color:#047857">🎁 선물 받았어요! 정말 대단해요 👏</div>`;
-  }else if(p.achieved){
-    statusHtml=`<div style="font-size:15px;font-weight:800;color:#B45309">🎉 ${p.goal}일 챌린지 성공!! 선생님이 선물을 준비하고 있어요 🎁</div>`;
-  }else if(p.todayStamp){
+  // 받을 선물이 있으면 먼저 알림 — 도장판은 이미 다음 판으로 넘어가 있음
+  const giftBanner=p.pendingGifts>0
+    ?`<div style="font-size:14.5px;font-weight:800;color:#B45309;background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:10px;padding:8px 10px;margin-bottom:10px">🎉 도장판 ${p.rounds}개 완성! 선생님께 <b>${p.reward}</b>${p.pendingGifts>1?` ${p.pendingGifts}개`:''} 받으세요 🎁</div>`
+    :'';
+  if(p.todayStamp){
     statusHtml=`<div style="font-size:13.5px;font-weight:700;color:#047857">오늘 도장 획득! 🏅 ${p.goal-p.count}일 남았어요 — 내일도 화이팅!</div>`;
   }else if(ts.total>0){
     const left=ts.total-ts.done;
@@ -2034,11 +2034,12 @@ function hwChallengeCardHtml(sid){
     statusHtml=`<div style="font-size:13px;color:var(--slate)">오늘은 배정된 숙제가 없어요 😊</div>`;
   }
   return `<div class="card" id="stu-hwch-card" style="margin-bottom:14px;border:2px solid #F59E0B"><div class="cb" style="padding:14px 16px">
+    ${giftBanner}
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">
-      <span style="font-size:15px;font-weight:800;color:var(--navy)">🎁 도장 챌린지</span>
+      <span style="font-size:15px;font-weight:800;color:var(--navy)">🎁 도장 챌린지 <span style="font-size:12px;color:var(--slate);font-weight:600">${p.roundNo}번째 판</span></span>
       <span style="font-size:16px;font-weight:900;color:#B45309;font-family:var(--fd)">${p.count} <span style="font-size:12px;color:var(--slate);font-weight:600">/ ${p.goal}</span></span>
     </div>
-    <div style="font-size:12px;color:var(--slate);margin-bottom:10px">숙제를 다 한 날마다 도장 1개! ${p.goal}개를 모으면 <b>${p.reward}</b> 🎁 (하루 빠져도 모은 도장은 그대로예요)</div>
+    <div style="font-size:12px;color:var(--slate);margin-bottom:10px">숙제를 다 한 날마다 도장 1개! ${p.goal}개를 모으면 <b>${p.reward}</b> 🎁 — 다 채우면 다음 판이 바로 열려요 (하루 빠져도 모은 도장은 그대로)</div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px">${cells.join('')}</div>
     ${statusHtml}
   </div></div>`;
@@ -2049,20 +2050,20 @@ function _hwChRefresh(sid){
   const stu=DB.stus().find(s=>s.id===sid);
   const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu):null;
   if(!p)return;
-  const prev=window._hwChPrev??p.count;
+  const prev=window._hwChPrev??p.total;
   const wrap=document.createElement('div');wrap.innerHTML=hwChallengeCardHtml(sid);
   card.replaceWith(wrap.firstElementChild);
-  if(p.count>prev){
-    if(p.achieved&&!p.completedDate){
+  if(p.total>prev){
+    if(p.count===0&&p.rounds>0){ // 방금 찍은 도장으로 판이 꽉 참 → 다음 판 자동 오픈
       setTimeout(()=>{showMiniConfetti();setTimeout(showMiniConfetti,500);setTimeout(showMiniConfetti,1000);},250);
-      toast(`🎉 ${p.goal}일 챌린지 성공!! 선물이 기다려요 🎁`);
+      toast(`🎉 도장판 완성!! ${p.reward} 받으세요 🎁 — ${p.roundNo}번째 판이 열렸어요`);
       if(typeof _stuShowNotify==='function'&&typeof Notification!=='undefined'&&Notification.permission==='granted')
-        _stuShowNotify(`🎉 ${p.goal}일 챌린지 성공!`,`도장 ${p.goal}개를 다 모았어요! 선생님이 ${p.reward}을 준비하고 있어요 🎁`);
+        _stuShowNotify(`🎉 도장판 완성!`,`도장 ${p.goal}개를 다 모았어요! 선생님께 ${p.reward} 받으세요 🎁`);
     }else{
       toast(`🏅 도장 획득! (${p.count}/${p.goal})`);
     }
   }
-  window._hwChPrev=p.count;
+  window._hwChPrev=p.total;
 }
 // 홈 숙제 헤더 카운터·요일 점을 제자리에서 갱신 (전체 재렌더 없이 — 리스트가 접히지 않게)
 function _wkBump(delta){
@@ -2631,7 +2632,7 @@ function renderStudentHome(sid){
   })();
 
   const hwChHtml=hwChallengeCardHtml(sid);
-  {const stu2=DB.stus().find(s=>s.id===sid);const p2=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu2):null;window._hwChPrev=p2?p2.count:0;}
+  {const stu2=DB.stus().find(s=>s.id===sid);const p2=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu2):null;window._hwChPrev=p2?p2.total:0;}
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
     ${hwChHtml}
     ${hwSection}
