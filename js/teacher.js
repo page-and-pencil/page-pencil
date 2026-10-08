@@ -11064,7 +11064,8 @@ function _pgComposePlan(classId,c,uptoDate){
     const gk=base==='naesin'?b.s:base; // 내신은 여러 교재 병행 — 체인 아님, 각자 투영
     (_subjGroups[gk]=_subjGroups[gk]||[]).push(b); // commonMaterials 키 순서 = 체인 순서
   });
-  const _procGroup=(group,subjSkip)=>{
+  const _procGroup=(group0,subjSkip)=>{
+    let group=group0;
     let cursor=todayStr; // 이 과목 체인에서 다음 교재가 시작 가능한 날
     const base0=(group[0]?.s||'').replace(/_\d+$/,''); // 어휘 과목은 전체가 '수업 없는 날 숙제' 방식
     // 같은 과목이 이미 차지한 날 선점: 모든 책의 유효 핀 + 배치된 날 누적 — 앞 책의 남은 유닛·만료 핀 유닛이
@@ -11087,7 +11088,20 @@ function _pgComposePlan(classId,c,uptoDate){
     // 딕테이션 분리 책은 자기 트랙 슬롯에 '본책 → 다음 차례에 딕테이션' 순서로 들어간다
     const altPat=altBooks.map((b,i)=>i);
     let altEnd='',altFrom=null; // 교대 책들의 공통 시작일 — 책마다 다르면 슬롯 순번이 어긋남
+    let pcEnd=''; // 병행(perClass) 어휘책들이 끝나는 가장 늦은 날
+    // ⚠️ 교대 책들은 **슬롯 목록이 완전히 같아야** 순번(i)이 어긋나지 않는다.
+    // _pgProjection은 자기 책의 기록일(recDates)만 슬롯에서 빼므로, 한 책만 기록된 날이 있으면
+    // 두 책의 배열 길이가 달라져 같은 날에 겹친다 → 교대 그룹 전체의 기록일을 서로 빼준다
+    const altRec=new Set();
+    altBooks.forEach(b=>_pgRecDates(classId,b.tb).forEach(d=>{if(d>=todayStr)altRec.add(d);}));
+    // 병행 책을 먼저 처리해야 pcEnd가 확정된 뒤 체인 뒷 책이 그 다음부터 깔린다 (안 그러면 겹쳐 쌓임).
+    // Array.sort는 안정 정렬이라 그룹 내 체인 순서는 그대로 유지된다
+    group=[...group].sort((x,y)=>((x.mat&&x.mat.perClass)?0:1)-((y.mat&&y.mat.perClass)?0:1));
     for(const b of group){
+      const isPerClass=base0==='vocab'&&b.mat&&b.mat.perClass;
+      // 커서 보정은 **모든 분기보다 먼저** — 어휘 숙제흐름·묶음 분기도 cursor를 쓰므로 뒤에 두면 겹쳐 깔림
+      if(!isPerClass&&altEnd&&_addDay(altEnd)>cursor)cursor=_addDay(altEnd); // 교대가 끝난 뒤 트랙 다음 책
+      if(!isPerClass&&pcEnd&&_addDay(pcEnd)>cursor)cursor=_addDay(pcEnd);    // 병행 어휘가 끝난 뒤 다음 어휘책
       const isRecurBook=clsStus.some(s=>bookIsRecurHw(s.id,b.tb.title));
       if(isRecurBook){
         const sids=clsStus.map(s=>s.id);
@@ -11126,7 +11140,8 @@ function _pgComposePlan(classId,c,uptoDate){
       if(rec&&rec.idx>=keys.length-1)continue; // 완강한 책 — 다음 교재가 이어서
       // 주간 묶음 배치(mat.perWeek): 매주 첫 수업일에 N과씩 — 어휘를 '한 주치 한 번에' 정리하는 방식
       // mat.startDate가 있으면 그 날부터 시작. 핀은 우선(그 날짜에 그대로), 나머지가 주 단위로 채워짐
-      if(base0==='vocab'&&b.mat&&+b.mat.perWeek>0){
+      // perClass(위에서 판정): 어휘를 일반 교재처럼 '매 수업 1과'로 — vocab 특수 분기를 건너뛰고 공용 투영 사용
+      if(base0==='vocab'&&!isPerClass&&b.mat&&+b.mat.perWeek>0){
         const per=+b.mat.perWeek;
         const st=rec?rec.idx+1:(()=>{const si=_pgUnitIdx(b.tb,b.mat?.unit);return si>=0?si:0;})();
         const remaining=keys.slice(st);
@@ -11163,7 +11178,7 @@ function _pgComposePlan(classId,c,uptoDate){
         cursor=(ui>=remaining.length&&maxD)?_addDay(maxD):'9999-12-31';
         continue;
       }
-      if(base0==='vocab'){
+      if(base0==='vocab'&&!isPerClass){
         // 어휘 교재는 수업 없는 날마다 1과씩 '숙제'로 진행 → 다음 수업일에 일괄 진도로 표시
         // (아직 반복 숙제로 할당 전인 다음 교재도 같은 방식으로 미리 계산 — 매일 수업 나가는 것처럼 깔리지 않게)
         const start=rec?rec.idx+1:(()=>{const si=_pgUnitIdx(b.tb,b.mat?.unit);return si>=0?si:0;})();
@@ -11201,21 +11216,27 @@ function _pgComposePlan(classId,c,uptoDate){
       }
       const isAlt=altIdx.has(b)&&altBooks.length>1;
       if(isAlt&&altFrom===null)altFrom=cursor; // 교대 시작점은 한 번만 확정 (앞 책이 끝난 다음 날)
-      if(!isAlt&&altEnd&&_addDay(altEnd)>cursor)cursor=_addDay(altEnd); // 교대가 끝난 뒤에 트랙 다음 책들이 이어지게
       const ai=altIdx.get(b);
       // 교대 책: 같은 시작점·같은 슬롯 목록을 altPat 패턴대로 나눠 가짐 — 서로 다른 날에 번갈아
       const placed=isAlt
-        ?_pgProjection(classId,c,b.tb,b.mat,uptoDate,subjSkip,altFrom,groupOcc,(d,i)=>altPat[i%altPat.length]===ai)
+        ?_pgProjection(classId,c,b.tb,b.mat,uptoDate,subjSkip,altFrom,new Set([...groupOcc,...altRec]),(d,i)=>altPat[i%altPat.length]===ai)
+        :isPerClass
+        ?_pgProjection(classId,c,b.tb,b.mat,uptoDate,subjSkip,(b.mat.startDate&&b.mat.startDate>todayStr)?b.mat.startDate:todayStr,null)
         :_pgProjection(classId,c,b.tb,b.mat,uptoDate,subjSkip,cursor,groupOcc);
       let maxD='';
       Object.entries(placed).forEach(([d,us])=>{ // 같은 날 여러 유닛 = 개별 칩 (한 유닛씩 따로 옮길 수 있게)
         (Array.isArray(us)?us:[us]).forEach(u=>(ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s}));
-        if(!isAlt)groupOcc.add(d); // 이 날은 이 과목이 차지 — 뒤 책 자동 흐름이 겹치지 않게
+        if(!isAlt&&!isPerClass)groupOcc.add(d); // 이 날은 이 과목이 차지 — 뒤 책 자동 흐름이 겹치지 않게
+        //  (perClass 어휘는 여러 책을 같은 날 각 1과씩 병행하므로 날짜를 선점하지 않음)
         //  (교대 책은 서로의 배치일을 슬롯에서 빼면 순번이 어긋나므로 넣지 않음 — 대신 slotPick이 날짜를 나눔)
         if(d>maxD)maxD=d;
       });
       if(isAlt){ // 교대 중엔 체인 커서를 밀지 않음 (다른 트랙 책도 같은 시작점을 써야 함)
         if(maxD&&maxD>altEnd)altEnd=maxD;
+        continue;
+      }
+      if(isPerClass){ // 병행 어휘: 커서를 밀지 않고, 다 끝난 뒤부터 체인 뒷 책이 이어지게
+        if(maxD&&maxD>pcEnd)pcEnd=maxD;
         continue;
       }
       if(maxD)cursor=_addDay(maxD);
@@ -11321,7 +11342,8 @@ function _pgComposePlan(classId,c,uptoDate){
   // 2차: 리스닝 — 어법 수업 있는 날은 리스닝 배제 (확장 스킵으로 그 날을 휴강처럼 건너뜀)
   if(_subjGroups.listening)_procGroup(_subjGroups.listening,_cross?new Set([...skipSet,...grammarDays]):skipSet);
   const ortGhostBy={};
-  clsStus.forEach(s=>{
+  // 원서 예정 끔(c.ortPlan===false) — 원서 읽기를 리딩앤 등 외부 프로그램으로 돌린 반. 읽은 책 기록은 그대로 남음
+  if(c.ortPlan!==false)clsStus.forEach(s=>{
     const placed=_pgOrtProjection(classId,c,s.id,uptoDate,skipSet);
     Object.entries(placed).forEach(([d,ts])=>{
       (Array.isArray(ts)?ts:[ts]).forEach(t=>(ortGhostBy[d]=ortGhostBy[d]||[]).push({sid:s.id,name:s.name,title:t}));
