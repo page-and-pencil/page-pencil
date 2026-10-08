@@ -11240,7 +11240,10 @@ function _pgComposePlan(classId,c,uptoDate){
     });
   });
   // 단어 수업 있는 날은 리딩 배제 — 리딩 슬롯 소비 집합에 넣어 자동으로 건너뜀 (핀으로 옮긴 유닛은 수동 우선이라 유지)
-  vocabDays.forEach(d=>usedDates.add(d));
+  // 교차 배제(c.crossSkip!==false): 단어일엔 리딩 배제, 어법일엔 리스닝 배제.
+  // ⚠️ 어법·어휘가 매 수업일에 깔리는 구성에선 리딩·리스닝이 전부 막히므로 클래스 옵션으로 끌 수 있다
+  const _cross=c.crossSkip!==false;
+  if(_cross)vocabDays.forEach(d=>usedDates.add(d));
   {
     const isFin=b=>{const rec=_pgLastRec(classId,b.tb);const keys=tbUnitKeys(b.tb);return !!(rec&&rec.idx>=keys.length-1);};
     const finished=readingBooks.filter(isFin);
@@ -11316,7 +11319,7 @@ function _pgComposePlan(classId,c,uptoDate){
     });
   }
   // 2차: 리스닝 — 어법 수업 있는 날은 리스닝 배제 (확장 스킵으로 그 날을 휴강처럼 건너뜀)
-  if(_subjGroups.listening)_procGroup(_subjGroups.listening,new Set([...skipSet,...grammarDays]));
+  if(_subjGroups.listening)_procGroup(_subjGroups.listening,_cross?new Set([...skipSet,...grammarDays]):skipSet);
   const ortGhostBy={};
   clsStus.forEach(s=>{
     const placed=_pgOrtProjection(classId,c,s.id,uptoDate,skipSet);
