@@ -9391,6 +9391,7 @@ function modalAssignCatChange(){
         <select id="rc-days" style="width:100%" onchange="this.dataset.touched='1'">
           <option value="daily">매일</option>
           <option value="weekday">주중만 (토·일 제외)</option>
+          <option value="weekend">주말만 (토·일)</option>
           <option value="noclass">수업 없는 날만 (등록된 휴강일 포함)</option>
           <option value="class">수업 있는 날만</option>
         </select>
@@ -10935,9 +10936,15 @@ function _pgClass5Plan(c,uptoDate){
   const placed={};
   const cur=new Date(start+'T12:00:00');
   const end=new Date(uptoDate+'T12:00:00');
-  while(cur<=end&&i<keys.length){
-    placed[_pgYmd(cur)]={unit:keys[i],title:tb.unitTitles?.[keys[i]]||''};
-    cur.setDate(cur.getDate()+1);i++;
+  const wkOnly=!!cfg.weekdaysOnly; // 평일만 (주말은 리딩앤 등 다른 숙제로 대체)
+  let guard=0;
+  while(cur<=end&&i<keys.length&&guard++<2000){
+    const dow=cur.getDay();
+    if(!(wkOnly&&(dow===0||dow===6))){
+      placed[_pgYmd(cur)]={unit:keys[i],title:tb.unitTitles?.[keys[i]]||''};
+      i++;
+    }
+    cur.setDate(cur.getDate()+1);
   }
   return placed;
 }
@@ -12210,11 +12217,17 @@ async function pgAssignClass5(classId){
   if(si<0)si=0;
   const start=c.class5.startDate||ppToday();
   const schedule=[];const cur=new Date(start+'T12:00:00');
-  for(const u of keys.slice(si)){schedule.push({date:_pgYmd(cur),book:tb.title,unit:u});cur.setDate(cur.getDate()+1);}
+  const wkOnly=!!c.class5.weekdaysOnly; // 평일만 — 주말은 건너뛰고 다음 평일에 이어짐
+  for(const u of keys.slice(si)){
+    let g=0;
+    while(wkOnly&&(cur.getDay()===0||cur.getDay()===6)&&g++<10)cur.setDate(cur.getDate()+1);
+    schedule.push({date:_pgYmd(cur),book:tb.title,unit:u});
+    cur.setDate(cur.getDate()+1);
+  }
   if(!schedule.length){toast('할당할 단원이 없어요');return;}
   const stus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
   if(!stus.length){toast('클래스에 학생이 없어요');return;}
-  askConfirm('클래스5 일괄 할당',`${tb.title} — ${schedule.length}개 단원을 ${schedule[0].date}부터 매일 하나씩\n학생 ${stus.length}명에게 앱 과제로 할당할까요? (이미 있으면 갱신)`,'할당','bt',async()=>{
+  askConfirm('클래스5 일괄 할당',`${tb.title} — ${schedule.length}개 단원을 ${schedule[0].date}부터 ${c.class5.weekdaysOnly?'평일':'매일'} 하나씩\n학생 ${stus.length}명에게 앱 과제로 할당할까요? (이미 있으면 갱신)`,'할당','bt',async()=>{
     showLoading(true);
     try{
       let n=0;
@@ -12470,6 +12483,7 @@ function openEditClass(id=null){
   // 클래스5 책 설정 복원
   ecFillC5Books(c?.class5?.bookId||'');
   const c5s=document.getElementById('ec-c5-start');if(c5s)c5s.value=c?.class5?.startDate||'';
+  const c5w=document.getElementById('ec-c5-weekday');if(c5w)c5w.checked=!!(c?.class5?.weekdaysOnly);
   ecC5BookChange(c?.class5?.startUnit||'');
   const dhw=document.getElementById('ec-dailyhw');if(dhw)dhw.value=(c?.dailyHw||[]).join('\n');
   const ahw=document.getElementById('ec-autohw');if(ahw)ahw.checked=!(c&&c.autoHw===false); // 기본 켜짐
@@ -12561,7 +12575,8 @@ async function saveClass(){
   let class5=null;
   if(c5BookId){
     const c5tb=(_cache.globalTextbooks||[]).find(b=>b.id===c5BookId);
-    class5={bookId:c5BookId,book:c5tb?.title||'',startUnit:document.getElementById('ec-c5-unit')?.value||'',startDate:document.getElementById('ec-c5-start')?.value||ppToday()};
+    class5={bookId:c5BookId,book:c5tb?.title||'',startUnit:document.getElementById('ec-c5-unit')?.value||'',startDate:document.getElementById('ec-c5-start')?.value||ppToday(),
+      ...(document.getElementById('ec-c5-weekday')?.checked&&{weekdaysOnly:true})};
   }
   const dailyHw=(document.getElementById('ec-dailyhw')?.value||'').split('\n').map(x=>x.trim()).filter(Boolean);
   const autoHw=document.getElementById('ec-autohw')?document.getElementById('ec-autohw').checked:true; // 수업 연계 숙제 자동 제안

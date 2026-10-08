@@ -451,6 +451,7 @@ function recurRebase(a){
     if(rule==='noclass')return !isCls;
     if(rule==='class')return isCls;
     if(rule==='weekday')return dow!=='토'&&dow!=='일';
+    if(rule==='weekend')return dow==='토'||dow==='일';
     return true;
   };
   const doneUnits=new Set(a.schedule.filter(s=>s.done).map(s=>String(s.unit||'')));
