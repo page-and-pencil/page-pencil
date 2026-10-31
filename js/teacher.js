@@ -12614,7 +12614,7 @@ function openClassLessonEdit(classId,dateStr){
   if(!existingLes.length)return;
   // 수정 모드 플래그 저장 (저장 시 upsert)
   document.getElementById('cl-class-id').dataset.editMode='true';
-  document.getElementById('cl-modal-title').textContent+=' (수정)';
+  document.getElementById('cl-modal-title').textContent+=' (수정)';if((_cache.assignments||[]).some(a=>!a._deleted&&a.classId===classId&&a.date===dateStr))clHwSetOpen(true);
   // 기존 데이터로 학생 행 채우기
   setTimeout(()=>{
     const allStus=DB.stus();
@@ -12800,7 +12800,7 @@ function openClassLesson(classId,dateStr){
      const cstus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
      stuAddSel.innerHTML='<option value="">학생 선택…</option>'+cstus.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
    }}
-  clHwSyncFromSubj();
+  clHwSetOpen(false);clHwSyncFromSubj();if(clHwHasPending())clHwSetOpen(true);
   // 학생 rows (원서 상세 입력)
   const iStyle='padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none';
   const allStus=DB.stus().filter(s=>!s.inactive);
@@ -13156,7 +13156,7 @@ function clHwReviewRange(prev,cur){
     return (curPrefix?curPrefix+' ':'')+prevN+'-'+curN;
   return cur;
 }
-function clHwSyncFromSubj(){
+function clHwSetOpen(open){const b=document.getElementById('cl-hw-body'),h=document.getElementById('cl-hw-head'),l=document.getElementById('cl-hw-toggle-lbl');if(!b)return;b.style.display=open?'':'none';if(h)h.setAttribute('aria-expanded',String(open));if(l)l.textContent=open?'접기 ▴':'펼치기 ▾';} function clHwToggle(){const b=document.getElementById('cl-hw-body');if(b)clHwSetOpen(b.style.display==='none');} function clHwHasPending(){return [...document.querySelectorAll('#cl-hw-common-rows .cl-hw-row, #cl-hw-ind-rows .cl-hw-row')].some(row=>row.closest('.cl-hw-date-group')?.dataset.skip!=='true'&&['.cl-hw-book','.cl-hw-range','.cl-hw-note'].some(s=>(row.querySelector(s)?.value||'').trim()));} function clHwSyncFromSubj(){
   const classId=document.getElementById('cl-class-id').value;
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const lessonDate=document.getElementById('cl-date')?.value||ppToday();

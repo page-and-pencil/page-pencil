@@ -806,8 +806,8 @@
               <div id="cl-students"></div>
             </div>
             <div class="card" style="margin-bottom:12px">
-              <div class="ch"><span class="ct">📋 과제 설정 (선택)</span></div>
-              <div class="cb" style="padding-bottom:4px">
+              <div class="ch" id="cl-hw-head" role="button" tabindex="0" aria-expanded="true" aria-controls="cl-hw-body" onclick="clHwToggle()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();clHwToggle()}" style="cursor:pointer"><span class="ct">📋 과제 설정 (선택)</span><span id="cl-hw-toggle-lbl" style="font-size:12px;color:var(--slate)">접기 ▴</span></div>
+              <div class="cb" id="cl-hw-body" style="padding-bottom:4px">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
                   <div style="font-size:13px;font-weight:700;color:var(--navy)">공통 과제 (전체 학생)</div>
                   <button class="btn bo bsm" onclick="clHwSyncFromSubj()" title="위 수업 내용 기준으로 과제 행 재생성">↺ 수업 내용으로 채우기</button>
