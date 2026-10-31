@@ -10409,6 +10409,8 @@ function renderStudentMyInfo(sid){
 let _activeNoticeId=null;
 function closeParentNotice(){
   document.getElementById('parent-notice-banner').style.display='none';
+  // 선생님이 학부모 뷰로 미리 볼 때 닫은 것은 실제 학부모의 '읽음'이 아니다 (미리보기 바 존재로 판별)
+  if(document.getElementById('_teacher-preview-bar')){toast('미리보기예요 — 읽음으로 기록하지 않았어요');return;}
   if(_activeNoticeId&&currentParentSid)markNoticeRead(_activeNoticeId,currentParentSid);
 }
 async function markNoticeRead(noticeId,sid){
