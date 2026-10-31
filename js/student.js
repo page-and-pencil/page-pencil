@@ -2013,11 +2013,15 @@ function hwChallengeCardHtml(sid){
   const stu=DB.stus().find(s=>s.id===sid);
   const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu):null;
   if(!p)return '';
+  // 이번 판에 찍힌 도장을 '전부 한 날(⭐)'과 '절반 이상(🏅)'으로 나눠 보여준다 — 칸 수는 그대로
+  const roundStamps=p.stamps.slice(Math.max(0,p.stamps.length-p.count));
+  const fullSet=new Set(p.fullDays||[]);
   const cells=[];
   for(let i=1;i<=p.goal;i++){
     const filled=i<=p.count;
     const isGift=i===p.goal;
-    cells.push(`<div style="aspect-ratio:1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${filled?'20px':'12px'};${filled?'background:#FEF3C7;border:1.5px solid #F59E0B;animation:none':'background:var(--cream2);border:1.5px dashed var(--border);color:#B8C0C8;font-weight:700'}">${filled?(isGift?'🎁':'🏅'):(isGift?'🎁':i)}</div>`);
+    const isFull=filled&&fullSet.has(roundStamps[i-1]);
+    cells.push(`<div title="${filled?(roundStamps[i-1]||'')+(isFull?' · 숙제 전부 완료':''):''}" style="aspect-ratio:1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${filled?'20px':'12px'};${filled?(isFull?'background:#FDE68A;border:1.5px solid #D97706':'background:#FEF3C7;border:1.5px solid #F59E0B'):'background:var(--cream2);border:1.5px dashed var(--border);color:#B8C0C8;font-weight:700'}">${filled?(isGift?'🎁':(isFull?'⭐':'🏅')):(isGift?'🎁':i)}</div>`);
   }
   const today=ppToday();
   const ts=hwDayStatus(sid,today);
@@ -2027,10 +2031,12 @@ function hwChallengeCardHtml(sid){
     ?`<div style="font-size:14.5px;font-weight:800;color:#B45309;background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:10px;padding:8px 10px;margin-bottom:10px">🎉 도장판 ${p.rounds}개 완성! 선생님께 <b>${p.reward}</b>${p.pendingGifts>1?` ${p.pendingGifts}개`:''} 받으세요 🎁</div>`
     :'';
   if(p.todayStamp){
-    statusHtml=`<div style="font-size:13.5px;font-weight:700;color:#047857">오늘 도장 획득! 🏅 ${p.goal-p.count}일 남았어요 — 내일도 화이팅!</div>`;
+    statusHtml=p.todayFull
+      ?`<div style="font-size:13.5px;font-weight:700;color:#047857">오늘 숙제 전부 완료! ⭐ ${p.goal-p.count}개 남았어요 — 내일도 화이팅!</div>`
+      :`<div style="font-size:13.5px;font-weight:700;color:#047857">오늘 도장 획득! 🏅 남은 숙제 ${ts.total-ts.done}개까지 하면 ⭐로 바뀌어요</div>`;
   }else if(ts.total>0){
-    const left=ts.total-ts.done;
-    statusHtml=`<div style="font-size:13.5px;font-weight:700;color:#B45309">오늘 숙제 ${left}개만 더 하면 도장 쾅! 🏅 (${ts.done}/${ts.total})</div>`;
+    const need=Math.ceil(ts.total/2)-ts.done; // 절반까지 몇 개 더
+    statusHtml=`<div style="font-size:13.5px;font-weight:700;color:#B45309">숙제 ${need}개만 더 하면 도장 쾅! 🏅 (${ts.done}/${ts.total} · 전부 하면 ⭐)</div>`;
   }else{
     statusHtml=`<div style="font-size:13px;color:var(--slate)">오늘은 배정된 숙제가 없어요 😊</div>`;
   }
@@ -2040,7 +2046,7 @@ function hwChallengeCardHtml(sid){
       <span style="font-size:15px;font-weight:800;color:var(--navy)">🎁 도장 챌린지 <span style="font-size:12px;color:var(--slate);font-weight:600">${p.roundNo}번째 판</span></span>
       <span style="font-size:16px;font-weight:900;color:#B45309;font-family:var(--fd)">${p.count} <span style="font-size:12px;color:var(--slate);font-weight:600">/ ${p.goal}</span></span>
     </div>
-    <div style="font-size:12px;color:var(--slate);margin-bottom:10px">숙제를 다 한 날마다 도장 1개! ${p.goal}개를 모으면 <b>${p.reward}</b> 🎁 — 다 채우면 다음 판이 바로 열려요 (하루 빠져도 모은 도장은 그대로)</div>
+    <div style="font-size:12px;color:var(--slate);margin-bottom:10px">숙제를 <b>절반만 해도 도장 1개</b>, 전부 하면 ⭐! ${p.goal}개를 모으면 <b>${p.reward}</b> 🎁 — 다 채우면 다음 판이 바로 열려요 (하루 빠져도 모은 도장은 그대로)</div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px">${cells.join('')}</div>
     ${statusHtml}
   </div></div>`;

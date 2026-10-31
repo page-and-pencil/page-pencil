@@ -10848,7 +10848,7 @@ function renderClsLessons(classId){
   const el=document.getElementById('cls-lessons-body');if(!el)return;
   if(_pgCalClsId!==classId){_pgCalClsId=classId;_pgCalMonth='';}
   pgMoveCancel();
-  const calHtml=_pgTrackBoardHtml(classId)+_pgCalHtml(classId);
+  const calHtml=_pgTrackBoardHtml(classId)+_pgHwPanelHtml(classId)+_pgCalHtml(classId);
   const allStus=DB.stus().filter(s=>!s.inactive);
   const todayStr=ppToday();
   // group lessons by date
@@ -11869,6 +11869,111 @@ async function pgAddMissingBook(classId,bookId,run){
     renderClsLessons(classId);
     toast(tb.title+' — '+lbl+' 줄로 추가했어요');
   });
+}
+// ── 클래스 안 숙제 패널 ──
+// 숙제가 과제 탭에만 있어서 "이 반 아이가 어제 숙제를 했나"를 보려면 탭을 옮겨야 했다.
+// 수업 준비는 클래스 화면에서 하므로, 그 자리에서 보고 체크하고 할당까지 되게 한다.
+// 그 학생 그 날의 숙제 항목 (스케줄형 + 단건) — 체크에 필요한 과제 id까지 함께
+function _pgHwItemsOn(sid,ds){
+  const out=[];
+  (_cache.assignments||[]).forEach(a=>{
+    if(a._deleted||a.sid!==sid)return;
+    if((a.schedule||[]).length){
+      const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+      sch.forEach(sc=>{
+        if(sc.date!==ds)return;
+        out.push({aid:a.id,sched:true,date:ds,cat:a.category,
+          title:[sc.book||a.bookTitle||a.text||'숙제',sc.unit||''].filter(Boolean).join(' '),
+          done:!!sc.done,by:sc.doneBy||''});
+      });
+      return;
+    }
+    const d=(a.due||a.date||'').slice(0,10);
+    if(d!==ds)return;
+    if(typeof schedCoversHw==='function'&&schedCoversHw(sid,ds,a.bookTitle||'',a.range||''))return;
+    out.push({aid:a.id,sched:false,date:ds,cat:a.category,
+      title:[a.bookTitle||a.text||'숙제',a.range||''].filter(Boolean).join(' '),
+      done:!!a.completedAt,by:a.completedBy||''});
+  });
+  return out;
+}
+const _PG_HW_BY={student:'학생',teacher:'선생님',lesson:'수업'};
+function _pgHwPanelHtml(classId){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return'';
+  const stus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
+  if(!stus.length)return'';
+  const today=ppToday();
+  const days=[];
+  for(let i=6;i>=0;i--)days.push(_pgAddDays(today,-i));
+  const rows=stus.map(stu=>{
+    const items=_pgHwItemsOn(stu.id,today);
+    // 최근 7일 점 — 숙제가 있던 날만 (없는 날은 빈 칸)
+    let miss=0,counted=0,hit=0;
+    const dots=days.map(ds=>{
+      const st=hwDayStatus(stu.id,ds);
+      if(!st.total)return `<i class="hwd none" title="${ds} · 숙제 없음"></i>`;
+      counted++;
+      const cls=st.perfect?'full':st.done?'part':'zero';
+      if(st.done)hit++;
+      return `<i class="hwd ${cls}" title="${ds} · ${st.done}/${st.total}"></i>`;
+    }).join('');
+    // 연속 미완료 (오늘 제외 — 아직 할 시간이 남았으므로)
+    for(let i=1;i<=30;i++){
+      const ds=_pgAddDays(today,-i);
+      const st=hwDayStatus(stu.id,ds);
+      if(!st.total)continue;
+      if(st.done>0)break;
+      miss++;
+    }
+    const lines=items.length
+      ?items.map(it=>`<button class="hw-it${it.done?' on':''}" title="${it.done?'완료 '+(_PG_HW_BY[it.by]||'')+' — 눌러서 취소':'눌러서 완료 표시'}"
+          onclick="pgHwToggle('${classId}','${it.aid}','${it.date}',${it.sched})">
+          <span class="hw-ck">${it.done?'✓':''}</span><span class="hw-tt">${escAttr(it.title)}</span>
+          ${it.done&&it.by?`<em>${_PG_HW_BY[it.by]||it.by}</em>`:''}</button>`).join('')
+      :`<span class="hw-empty">오늘 배정된 숙제가 없어요</span>`;
+    return `<div class="hw-row">
+      <span class="hw-stu">${escAttr(stu.name)}${miss>=3?`<b title="숙제가 있던 날 기준 ${miss}일 연속 미완료">${miss}일 밀림</b>`:''}</span>
+      <div class="hw-items">${lines}</div>
+      <span class="hw-dots" title="최근 7일 — 진한 점=전부, 중간=일부, 연한=안 함">${dots}<em>${counted?hit+'/'+counted:''}</em></span>
+    </div>`;
+  }).join('');
+  return `<details class="tb-card hw-card" open>
+    <summary class="tb-head"><span class="tb-t">📕 숙제 <span class="hw-date">${today.slice(5).replace('-','/')}</span></span>
+      <span class="tb-hint">눌러서 완료 체크 · 최근 7일 점으로 흐름 확인</span></summary>
+    <div class="hw-body">${rows}
+      <div class="hw-acts">
+        <button class="btn bo bxxs" onclick="pgHwAdd('${classId}')">+ 숙제 추가</button>
+        <button class="btn bo bxxs" onclick="openBulkAssign()">일괄 할당</button>
+        <button class="btn bo bxxs" onclick="swTab('t-assign')">🗓 숙제 캘린더</button>
+      </div>
+    </div>
+  </details>`;
+}
+// 패널에서 바로 완료 토글 (과제 탭의 토글과 같은 저장, 화면만 이 패널을 다시 그린다)
+async function pgHwToggle(classId,aid,ds,sched){
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
+  let on;
+  if(sched){
+    const sc=(a.schedule||[]).find(x=>x.date===ds);if(!sc)return;
+    if(sc.done){delete sc.done;delete sc.doneBy;delete sc.doneAt;on=false;}
+    else{sc.done=true;sc.doneBy='teacher';sc.doneAt=new Date().toISOString();on=true;}
+  }else{
+    if(a.completedAt){delete a.completedAt;delete a.completedBy;on=false;}
+    else{a.completedAt=new Date().toISOString();a.completedBy='teacher';on=true;}
+  }
+  try{await supaUpsert('assignments',a.id,a,a.sid);}
+  catch(e){console.error('pgHwToggle:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  renderClsLessons(classId);
+  toast(on?'완료로 표시했어요 ✓':'완료 표시를 취소했어요');
+}
+// 이 반 학생을 미리 고른 상태로 과제 추가 모달 열기
+function pgHwAdd(classId){
+  const c=DB.classes().find(x=>x.id===classId);
+  openM('m-add-assign');
+  const dEl=document.getElementById('modal-assign-date'),uEl=document.getElementById('modal-assign-due');
+  const t=ppToday();
+  if(dEl)dEl.value=t;
+  if(uEl)uEl.value=_nextClassDay(t,(c&&c.days)||[],new Set((c&&c.skipDates)||[]),new Set((c&&c.extraDates)||[]))||t;
 }
 const _pgAddDays=(ds,n)=>{const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+n);return _pgYmd(d);};
 // ── 영역별 진도 보드 ──

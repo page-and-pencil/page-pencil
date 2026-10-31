@@ -545,20 +545,25 @@ function hwDayStatus(sid,ds){
       total++;if(a.completedAt)done++;
     }
   });
-  return {total,done,perfect:total>0&&done>=total};
+  // perfect=그 날 숙제를 전부 / half=절반 이상.
+  // 도장을 '전부 체크한 날'만 주면 하루 3개 중 하나만 밀려도 0개가 되어 연속이 끊긴다
+  // (실측: 하루 1개였던 시기엔 체크율 100%, 하루 3개가 된 뒤 3~8%로 붕괴).
+  // 절반 이상이면 도장을 찍고, 전부 한 날은 ⭐로 따로 표시해 판의 속도는 그대로 둔다.
+  return {total,done,perfect:total>0&&done>=total,half:total>0&&done*2>=total};
 }
 function hwChallengeProgress(stu){
   const c=stu&&stu.hwChallenge;
   if(!c||!c.goal||c.stopped)return null;
   const today=ppToday();
   const start=c.start||today;
-  const stamps=[];
+  const stamps=[],fullDays=[]; // stamps=도장 찍힌 날(절반 이상) / fullDays=전부 한 날(⭐)
   const d=new Date(start+'T12:00:00');
   let guard=0;
   while(guard++<420){
     const ds=ppYmd(d);
     if(ds>today)break;
-    if(hwDayStatus(stu.id,ds).perfect)stamps.push(ds);
+    const st=hwDayStatus(stu.id,ds);
+    if(st.half){stamps.push(ds);if(st.perfect)fullDays.push(ds);}
     d.setDate(d.getDate()+1);
   }
   const goal=c.goal||20;
@@ -570,11 +575,11 @@ function hwChallengeProgress(stu){
   const giftsGiven=c.giftsGiven||0;
   const pendingGifts=Math.max(0,rounds-giftsGiven);
   const prevRounds=(stu.hwChallengeLog||[]).filter(l=>l&&l.start&&l.start!==start).length; // 시작일을 새로 잡기 전 완성한 판(옛 방식 기록)
-  return {goal,reward:c.reward||'작은 선물',start,stamps,carry,total,
+  return {goal,reward:c.reward||'작은 선물',start,stamps,fullDays,carry,total,
     count:total-rounds*goal,          // 현재 판에 찍힌 도장
     rounds,roundNo:rounds+1+prevRounds, // 이번 시작일 이후 완성한 판 수 · 통산 몇 번째 판
     pendingGifts,achieved:pendingGifts>0,
-    completedDate:c.completedDate||null,todayStamp:stamps.includes(today)};
+    completedDate:c.completedDate||null,todayStamp:stamps.includes(today),todayFull:fullDays.includes(today)};
 }
 // ── 직전 수업 단어 집합 — 가장 최근 수업 기록의 책·단원에 등록된 단어 + 수업 로그에 적은 단어 ──
 // (addedDate·lastSeen 기준은 일괄 동기화·자율 학습 날짜와 겹치면 옛 단어가 쓸려 들어와서 쓰지 않음)

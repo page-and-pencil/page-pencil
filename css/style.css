@@ -1467,3 +1467,38 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
   .tb-chk-r{grid-template-columns:20px 52px 1fr;gap:5px 8px;}
   .tb-chk-a{grid-column:2/4;}
 }
+
+/* ── 클래스 안 숙제 패널 ── */
+.hw-card{border-color:#CBD5E1;}
+.hw-date{font-size:12px;color:var(--slate);font-weight:600;}
+.hw-body{display:flex;flex-direction:column;gap:6px;margin-top:9px;}
+.hw-row{display:grid;grid-template-columns:96px 1fr 96px;gap:9px;align-items:start;
+  background:var(--cream3);border:1px solid var(--border);border-radius:9px;padding:7px 9px;}
+.hw-stu{font-size:12px;font-weight:700;color:var(--navy);padding-top:4px;}
+.hw-stu b{display:block;font-size:9.5px;font-weight:800;color:#B45309;background:#FEF3C7;border-radius:7px;padding:1px 5px;margin-top:3px;text-align:center;}
+.hw-items{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.hw-it{display:flex;align-items:center;gap:6px;width:100%;text-align:left;background:#fff;
+  border:1.5px solid var(--border);border-radius:8px;padding:5px 8px;cursor:pointer;font-family:var(--fb);
+  font-size:11.5px;color:var(--navy);transition:border-color .12s,background .12s;}
+.hw-it:hover{border-color:var(--teal);}
+.hw-it.on{background:#ECFDF5;border-color:#34D399;}
+.hw-ck{width:15px;height:15px;border-radius:5px;border:1.5px solid var(--border);background:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:11px;color:#047857;font-weight:800;flex-shrink:0;}
+.hw-it.on .hw-ck{background:#34D399;border-color:#34D399;color:#fff;}
+.hw-tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hw-it em{font-style:normal;font-size:9.5px;color:var(--slate);flex-shrink:0;}
+.hw-empty{font-size:11px;color:#A8B3BF;padding:4px 2px;}
+.hw-dots{display:flex;align-items:center;gap:2px;flex-wrap:wrap;padding-top:5px;}
+.hwd{width:9px;height:9px;border-radius:3px;display:inline-block;flex-shrink:0;}
+.hwd.full{background:#047857;}
+.hwd.part{background:#6EE7B7;}
+.hwd.zero{background:#E6EDF2;border:1px solid #CBD5E1;}
+.hwd.none{background:transparent;border:1px dashed #DCE3EA;}
+.hw-dots em{font-style:normal;font-size:9.5px;color:var(--slate);margin-left:3px;}
+.hw-acts{display:flex;gap:5px;flex-wrap:wrap;margin-top:3px;}
+@media(max-width:700px){
+  .hw-row{grid-template-columns:1fr;gap:5px;}
+  .hw-stu{padding-top:0;display:flex;align-items:center;gap:6px;}
+  .hw-stu b{display:inline-block;margin-top:0;}
+  .hw-dots{padding-top:0;}
+}
