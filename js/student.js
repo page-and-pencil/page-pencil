@@ -2634,8 +2634,8 @@ function renderStudentHome(sid){
   const hwChHtml=hwChallengeCardHtml(sid);
   {const stu2=DB.stus().find(s=>s.id===sid);const p2=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu2):null;window._hwChPrev=p2?p2.total:0;}
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
-    ${hwChHtml}
     ${hwSection}
+    ${hwChHtml}
     ${stuBossCard(sid)}
     ${vocabCtaHtml}
     <details style="margin-top:8px;margin-bottom:8px">
