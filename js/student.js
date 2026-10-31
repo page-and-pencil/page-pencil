@@ -904,7 +904,7 @@ async function submitHomework(sid, assignmentId=''){
 
 // ── PARENT NOTICE BANNER ──
 function showParentNoticeBanner(){
-  const active=(_cache.notices||[]).find(n=>n.active);
+  const _nk=n=>{const t=Number(String(n.id||'').replace(/^n/,''));return t>0?t:(Date.parse(n.date||'')||0);};const active=(_cache.notices||[]).filter(n=>n.active&&!(n.readBy||[]).some(r=>r.sid===currentParentSid)).sort((a,b)=>_nk(a)-_nk(b))[0]||null;
   _activeNoticeId=active?active.id:null;
   const banner=document.getElementById('parent-notice-banner');
   const txt=document.getElementById('parent-notice-text');
