@@ -11703,6 +11703,10 @@ async function pgAddMissingBook(classId,bookId,run){
     +(run==='hw'?'수업 없는 날마다 1과씩 진행해 다음 수업일에 진도로 표시됩니다.':'수업일마다 1과씩 진행합니다.')
     +'\n'+'기존 교재를 기다리지 않고 함께 진행돼요.','추가','bt',async()=>{
     const cm={...(c.commonMaterials||{})};
+    // 연속 클릭(재렌더 전)으로 같은 책이 두 번 들어가지 않게
+    if(Object.values(cm).some(v=>v&&(v.bookId?v.bookId===tb.id:v.book===tb.title))){
+      toast('이미 교재 체인에 있어요');renderClsLessons(classId);return;
+    }
     let key=base,n=1;
     while(cm[key]){n++;key=base+'_'+n;}
     const rec=_pgLastRec(classId,tb);
@@ -11759,8 +11763,18 @@ function _pgTrackBoardHtml(classId){
       const keys=tbUnitKeys(cur.tb),rec=_pgLastRec(classId,cur.tb);
       const done=rec?rec.idx+1:0,total=keys.length;
       const pct=total?Math.round(done*100/total):0;
+      // 교대는 이 줄에 '아직 안 끝난 책을 가진 alt 트랙'이 2개 이상일 때만 실제로 작동한다
+      // (_procTrack의 altBooks.length>1 조건과 같은 판정 — 트랙이 하나뿐인 잔재 alt 표식에 속지 않게)
+      const altNames=new Set();
+      t.books.forEach(b=>{
+        const nm=b.mat&&b.mat.alt;if(!nm)return;
+        const r=_pgLastRec(classId,b.tb),kk=tbUnitKeys(b.tb);
+        if(r&&r.idx>=kk.length-1)return;
+        altNames.add(nm);
+      });
+      const altOn=altNames.size>1&&!!(cur.mat&&cur.mat.alt);
       const mode=t.run==='hw'?'과제':t.run==='class'?'수업'
-        :(cur.mat&&cur.mat.alt)?'교대':(cur.mat&&cur.mat.perClass)?'매 수업'
+        :altOn?'교대':(cur.mat&&cur.mat.perClass)?'매 수업'
         :base==='vocab'?'과제':'수업';
       const modeCls=mode==='과제'?'hw':mode==='교대'?'alt':'cls';
       const eta=lastBy[cur.tb.id]||'';
