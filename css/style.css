@@ -1254,3 +1254,16 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .badge-cell:not(.locked) .bi{filter:drop-shadow(0 1px 1px rgba(15,48,74,.2));}
 /* 도장 챌린지·보스 카드 라운드 톤 정리 */
 .boss-card{box-shadow:0 1px 4px rgba(15,48,74,.06);}
+
+
+/* 선생님 모바일 상단: 핵심 조작은 유지하고 좁은 폭의 중복 정보를 줄인다. */
+@media(max-width:600px){
+  .t-topbar{height:54px;padding:0 12px;gap:8px;}
+  .t-topbar-logo{font-size:15px;white-space:nowrap;flex-shrink:0;}
+  .t-topbar>div:last-child{gap:6px!important;min-width:0;}
+  .t-topbar .t-avatar,.t-topbar kbd{display:none;}
+  .t-topbar button[title^="전역 검색"]{padding:7px 9px!important;font-size:12px!important;white-space:nowrap;}
+  .t-topbar .t-logout{padding:7px 9px;font-size:12px;white-space:nowrap;}
+  .t-sidebar{padding:7px 12px;gap:6px;scrollbar-width:none;-webkit-mask-image:linear-gradient(to right,#000 0%,#000 calc(100% - 24px),transparent 100%);mask-image:linear-gradient(to right,#000 0%,#000 calc(100% - 24px),transparent 100%);}
+  .t-sidebar::-webkit-scrollbar{display:none;}
+}
