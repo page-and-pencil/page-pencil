@@ -308,6 +308,10 @@ async function loadParent(sid){
     </div>`;
   }
 
+  // 기록 열람 카드(읽은 책·리딩로그·뱃지)를 한 묶음으로 접는다 — 수업 탭이 길어지던 문제.
+  // 세 카드가 모두 조건부라 '추가된 게 있을 때만' 감싼다(빈 묶음·태그 깨짐 방지)
+  const _archFrom=blocks.length;
+
   // 블록 E — 읽은 원서
   if(rds.length){
     const allBookSrc=[...DB.libs()];
@@ -397,6 +401,12 @@ async function loadParent(sid){
         <div class="badge-row">${unlocked.map(b=>`<div class="achv-badge" style="padding:6px 8px;min-width:50px"><div class="icon" style="font-size:16px">${b.icon}</div><div class="name" style="font-size:9.5px">${b.name}</div></div>`).join('')}</div>
       </div>
     </div>`;
+  }
+  if(blocks.length>_archFrom){
+    blocks=blocks.slice(0,_archFrom)
+      +`<details class="pp-fold"><summary class="pp-fold-sum">📚 학습 기록 모아보기 <span style="font-weight:400;color:var(--slate)">읽은 책 · 리딩로그 · 뱃지</span></summary><div class="pp-fold-body">`
+      +blocks.slice(_archFrom)
+      +`</div></details>`;
   }
 
   // 블록 I — 결제 안내
