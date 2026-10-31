@@ -1267,3 +1267,11 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
   .t-sidebar{padding:7px 12px;gap:6px;scrollbar-width:none;-webkit-mask-image:linear-gradient(to right,#000 0%,#000 calc(100% - 24px),transparent 100%);mask-image:linear-gradient(to right,#000 0%,#000 calc(100% - 24px),transparent 100%);}
   .t-sidebar::-webkit-scrollbar{display:none;}
 }
+/* 대시보드 참고용 접이식 섹션 (데이터 채우기·캘린더) */
+.dash-fold{border:1.5px solid var(--border);border-radius:var(--rs);background:var(--cream2);}
+.dash-fold>.dash-fold-sum{cursor:pointer;list-style:none;padding:10px 12px;font:700 13px var(--fb);color:var(--navy);display:flex;align-items:center;justify-content:space-between;}
+.dash-fold>.dash-fold-sum::-webkit-details-marker{display:none;}
+.dash-fold>.dash-fold-sum::after{content:'▾';color:var(--slate);font-size:12px;}
+.dash-fold[open]>.dash-fold-sum::after{content:'▴';}
+.dash-fold[open]>.dash-fold-sum{border-bottom:1.5px solid var(--border);}
+.dash-fold>div{padding:10px 12px 2px;}

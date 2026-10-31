@@ -214,9 +214,16 @@
         <div class="dash-col-side">
           <div id="dash-actions" style="margin-bottom:12px"></div>
           <div id="dash-vocab-today"></div>
-          <div id="dash-fill" style="margin-bottom:12px"></div>
-          <div id="dash-cal" style="margin-bottom:12px"></div>
           <div id="dash-notice-section"></div>
+          <!-- 참고용 섹션은 기본으로 접음 — 대시보드를 '오늘 할 일' 중심으로 (렌더 대상 id는 그대로) -->
+          <details class="dash-fold" style="margin-bottom:12px">
+            <summary class="dash-fold-sum">🗂 데이터 채우기 목록</summary>
+            <div id="dash-fill"></div>
+          </details>
+          <details class="dash-fold" style="margin-bottom:12px">
+            <summary class="dash-fold-sum">📅 이번 달 캘린더</summary>
+            <div id="dash-cal"></div>
+          </details>
         </div>
       </div>
     </div>
