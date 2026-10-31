@@ -11561,6 +11561,7 @@ function _pgCalHtml(classId){
       <button class="btn bo bxxs" onclick="pgCalNav(-1)" ondragover="pgNavDragOver(event,-1)" title="칩을 드래그한 채 올리면 이전 달로 넘어가요">◀</button>
       <span style="font-size:13.5px;font-weight:700;color:var(--navy)">${y}년 ${m}월</span>
       <button class="btn bo bxxs" onclick="pgCalNav(1)" ondragover="pgNavDragOver(event,1)" title="칩을 드래그한 채 올리면 다음 달로 넘어가요">▶</button>
+      <button class="btn bo bxxs" title="만료된 핀·중복 핀·지난 제외일을 한 번에 정리합니다 (수업 기록은 건드리지 않아요)" onclick="pgTidyProgress('${classId}')">🧹 진도 정돈</button>
       ${hasAnchor?`<button class="btn bo bxxs" title="드래그로 옮긴 예정을 원래 순서로 되돌립니다" onclick="pgClearAnchors('${classId}')">예정 초기화</button>`:''}
       <span style="flex:1"></span>${legend}
     </div>
@@ -12250,6 +12251,73 @@ async function pgSetAnchor(classId,tbId,unit,date){
     ?`✏️🎵 Sing Together → ${md}로 옮겼어요 (다른 진도는 그대로)`
     :isOrt?`📗 ${unit} → ${md}부터 — 다음 책들도 순서대로 하루 1권씩 뒤따라요`
     :`${unit} → ${md} 고정 — 나머지 유닛은 빈 수업일에 순서대로 배치돼요`);
+}
+// ── 진도 정돈 ──
+// 조정을 반복하면 핀·제외일이 쌓여 예정이 뒤엉킨다. 더 이상 효과가 없는 것만 골라 한 번에 치운다.
+// 대상: 지난 날짜 핀 / 이미 진도 나간 단원의 핀 / 목차에 없는 단원의 핀 / 같은 유닛 중복 핀 / 지난 제외일
+// 수업 기록·교재 체인·요일 설정은 건드리지 않는다.
+function _pgTidyPlan(c){
+  const today=ppToday();
+  const anc=JSON.parse(JSON.stringify(c.progressAnchors||{}));
+  const skip=JSON.parse(JSON.stringify(c.slotSkip||{}));
+  const rm=[];
+  Object.keys(anc).forEach(key=>{
+    const pins=_pgAncPins(anc[key]);
+    if(!pins.length){delete anc[key];return;}
+    const isSing=key.indexOf('sing:')===0,isOrt=key.indexOf('ort:')===0;
+    const tb=(isSing||isOrt)?null:(_cache.globalTextbooks||[]).find(b=>b.id===key);
+    const label=tb?tb.title:(isSing?'씽 투게더':isOrt?'원서':key);
+    const keys=tb?tbUnitKeys(tb):null;
+    const rec=tb?_pgLastRec(c.id,tb):null;
+    const lastDate={},keep=[];
+    pins.slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))).forEach(pn=>{
+      const d=String(pn.date||''),u=String(pn.unit||'');
+      if(!d||!u){rm.push(label+': 빈 핀');return;}
+      if(d<today){rm.push(label+' '+d+' '+u+' — 지난 날짜');return;}
+      if(keys){
+        const i=keys.findIndex(k=>_pgDictMatch(_pgNorm(k),_pgNorm(u)));
+        if(i<0&&!_pgIsDict(u)){rm.push(label+' '+d+' '+u+' — 목차에 없는 단원');return;}
+        if(rec&&i>=0&&i<=rec.idx){rm.push(label+' '+d+' '+u+' — 이미 진도 나감');return;}
+        // 딕테이션 핀은 목차에 없으니 진행도 대신 기록 유무로 판정
+        if(_pgIsDict(u)&&_pgDictDone(c.id,tb,String(u).replace(_PG_DICT_SFX,'').trim())){
+          rm.push(label+' '+d+' '+u+' — 이미 진도 나감');return;
+        }
+      }
+      const nk=_pgNorm(u);
+      if(lastDate[nk]!=null){ // 같은 유닛이 여러 날짜에 — 가장 늦은 것만 남긴다
+        rm.push(label+' '+lastDate[nk]+' '+u+' — 중복 핀');
+        const prev=keep.findIndex(x=>x&&_pgNorm(x.unit)===nk);
+        if(prev>=0)keep[prev]=null;
+      }
+      lastDate[nk]=d;
+      keep.push(pn);
+    });
+    const left=keep.filter(Boolean);
+    if(left.length)anc[key]={pins:left};else delete anc[key];
+  });
+  Object.keys(skip).forEach(k=>{
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.id===k);
+    const label=tb?tb.title:k;
+    const left=(skip[k]||[]).filter(d=>{
+      if(String(d)>=today)return true;
+      rm.push(label+' '+d+' — 지난 제외일');return false;
+    });
+    if(left.length)skip[k]=left;else delete skip[k];
+  });
+  return {anc:anc,skip:skip,rm:rm};
+}
+function pgTidyProgress(classId){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const t=_pgTidyPlan(c);
+  if(!t.rm.length){toast('정리할 게 없어요 — 이미 깔끔합니다');return;}
+  const list=t.rm.slice(0,12).map(x=>'· '+x).join('\n')+(t.rm.length>12?'\n'+'… 외 '+(t.rm.length-12)+'건':'');
+  askConfirm('진도 정돈','더 이상 효과가 없는 조정 '+t.rm.length+'건을 정리할까요?'+'\n'+'\n'+list+'\n'+'\n'+'수업 기록·교재 순서·요일 설정은 그대로입니다.','정리','bt',async()=>{
+    c.progressAnchors=t.anc;c.slotSkip=t.skip;
+    try{await supaUpsert('classes',classId,c,null);}
+    catch(e){console.error('pgTidyProgress:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+    renderClsLessons(classId);
+    toast(t.rm.length+'건 정리했어요 — 예정이 순서대로 다시 깔렸습니다');
+  });
 }
 function pgClearAnchors(classId){
   askConfirm('예정 초기화','드래그로 옮긴 예정 진도를 원래 순서로 되돌릴까요? (수업 기록은 그대로예요)','되돌리기','bt',async()=>{
