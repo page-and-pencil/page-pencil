@@ -192,6 +192,7 @@ async function loginStudent(s){
   if(!_cache.assignments)_cache.assignments=[];
   _cache.assignments=_cache.assignments.filter(a=>a.sid!==s.id).concat(asgnRows);
   swStuTab('st-home');
+  setTimeout(checkNotice,500); // 게시 공지 팝업 — 학부모(loadParentWithNotice)와 같은 경로를 학생에게도 연결
 }
 
 async function markHwChecked(hwId,sid){
