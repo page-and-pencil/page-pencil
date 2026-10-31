@@ -1714,8 +1714,8 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal){
       :`<div class="pg-days" title="이 교재를 나가는 요일 — 비우면 수업일마다 진행">${['월','화','수','목','금','토','일'].map(dd=>`<span class="pg-day-chip${dv.includes(dd)?' on':''}" data-d="${dd}" onclick="this.classList.toggle('on')">${dd}</span>`).join('')}</div>`;
     const ecAdd=`<button class="btn bo bxxs" style="white-space:nowrap;font-size:13px;padding:6px 11px" title="이 교재가 끝나면 이어서 나갈 다음 교재 추가 — 커리큘럼을 쭉 등록해두면 예정 캘린더가 끝까지 채워져요" onclick="addSRowTo('${wrapperId}','${baseKey}')">+ 다음 교재</button>`
       +`<button class="btn bo bxxs" style="white-space:nowrap;font-size:13px;padding:6px 9px" title="이 교재 뒤로 같은 시리즈의 다음 권들을 순서대로 자동 등록 (이미 있는 권은 건너뜀)" onclick="ecChainSeries(this)">📚 시리즈</button>`;
-    const _obSt='background:#fff;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:13px;color:var(--slate);padding:4px 8px;line-height:1';
-    const orderBtns=`<span style="display:flex;flex-direction:column;gap:2px"><button type="button" style="${_obSt}" title="순서 위로" onclick="ecMoveChainRow(this,-1)">▲</button><button type="button" style="${_obSt}" title="순서 아래로" onclick="ecMoveChainRow(this,1)">▼</button></span>`;
+    // 순서 변경은 드래그(마우스·터치 공용 pointer 이벤트) — 같은 과목 안에서만 이동
+    const orderBtns=`<span class="sr-grip" title="끌어서 순서 변경" onpointerdown="ecGripDown(event,this)">⠿</span>`;
     const lbl=isNext
       ?`<span class="sl" style="background:var(--cream2);color:var(--slate)">↳ ${prevSame.length+1}번째</span>`
       :`<span class="sl ${cls}">${label}</span>`;
@@ -1736,7 +1736,7 @@ function _seriesSortBooks(list){
   return [...list].sort((a,b)=>rank(a.title)-rank(b.title)||String(a.title).localeCompare(String(b.title),undefined,{numeric:true}));
 }
 // 시리즈 이어서 등록 — 이 행의 교재 뒤로 같은 시리즈의 다음 권들을 순서대로 체인에 자동 추가
-// (이미 체인에 있는 권은 건너뜀. 사이에 다른 교재 끼우기는 '+ 다음 교재'와 ▲▼로 커스터마이징)
+// (이미 체인에 있는 권은 건너뜀. 사이에 다른 교재 끼우기는 '+ 다음 교재'와 ⠿ 드래그로 커스터마이징)
 function ecChainSeries(btn){
   const row=btn.closest('.sr');if(!row)return;
   const sel=row.querySelector('select[data-f="book"]');
@@ -1754,24 +1754,71 @@ function ecChainSeries(btn){
   const idx=sers.findIndex(b=>b.id===tb.id);
   const nexts=sers.slice(idx+1).filter(b=>!existing.has(b.title));
   if(!nexts.length){toast('이어 붙일 다음 권이 없어요 (이미 등록됐거나 시리즈 마지막 권)');return;}
-  askConfirm('📚 시리즈 이어서 등록',`'${tb.series}' 시리즈의 다음 권 ${nexts.length}권을 순서대로 이어 붙일까요?\n\n${nexts.map((b,i)=>`${i+1}. ${b.title}`).join('\n')}\n\n(사이에 다른 교재를 끼우려면 등록 후 ▲▼로 조정하세요)`,'이어 붙이기','bt',()=>{
+  askConfirm('📚 시리즈 이어서 등록',`'${tb.series}' 시리즈의 다음 권 ${nexts.length}권을 순서대로 이어 붙일까요?\n\n${nexts.map((b,i)=>`${i+1}. ${b.title}`).join('\n')}\n\n(사이에 다른 교재를 끼우려면 등록 후 ⠿ 손잡이를 끌어 조정하세요)`,'이어 붙이기','bt',()=>{
     nexts.forEach(b=>addSRowTo('ec-subj-rows',base,b.title,'',b.id));
     toast(`${nexts.length}권을 이어 붙였어요 — 저장하면 반영됩니다`);
   });
 }
 // 커리큘럼 체인 순서 바꾸기 — 같은 과목 안에서 위/아래 행과 교재 선택값을 맞바꿈
 // (행 구조·라벨·요일 칩은 그대로 두고 값만 교환 → 첫 행=현재 책 규칙 유지, 저장 시 새 순서로 반영)
-function ecMoveChainRow(btn,dir){
-  const row=btn.closest('.sr');if(!row)return;
+// 같은 과목(base) 체인 행들 — DOM 순서대로
+function _ecChainRows(base){
+  return [...document.querySelectorAll('#ec-subj-rows .sr')].filter(r=>(r.dataset.s||'').replace(/_\d+$/,'')===base&&r.querySelector('select[data-f="book"]'));
+}
+// 행 자체는 그대로 두고 **교재 선택값만** 재배치한다 — '↳ N번째' 라벨·요일 칩은 자리(첫 행)에 묶여 있어야 하므로
+function _ecApplyOrder(base,from,to){
+  const rows=_ecChainRows(base);
+  if(from===to||from<0||to<0||from>=rows.length||to>=rows.length)return false;
+  const vals=rows.map(r=>r.querySelector('select[data-f="book"]').value);
+  vals.splice(to,0,vals.splice(from,1)[0]);
+  rows.forEach((r,i)=>{
+    const el=r.querySelector('select[data-f="book"]');
+    if(el.value===vals[i])return;
+    el.value=vals[i];
+    el.style.transition='background .15s';el.style.background='#FEF3C7';
+    setTimeout(()=>{el.style.background='';},450);
+  });
+  return true;
+}
+// ── 교재 순서 드래그 (pointer 이벤트 — 마우스·터치 동일 동작) ──
+let _ecDrag=null;
+function _ecClearDropMark(){document.querySelectorAll('#ec-subj-rows .sr').forEach(r=>r.classList.remove('sr-drop-before','sr-drop-after'));}
+function ecGripDown(ev,grip){
+  const row=grip.closest('.sr');if(!row)return;
+  ev.preventDefault();
   const base=(row.dataset.s||'').replace(/_\d+$/,'');
-  const rows=[...document.querySelectorAll('#ec-subj-rows .sr')].filter(r=>(r.dataset.s||'').replace(/_\d+$/,'')===base);
-  const i=rows.indexOf(row),j=i+dir;
-  if(j<0||j>=rows.length){toast(dir<0?'이미 첫 번째 교재예요':'이미 마지막 교재예요');return;}
-  const selA=row.querySelector('select[data-f="book"]'),selB=rows[j].querySelector('select[data-f="book"]');
-  if(!selA||!selB)return;
-  const tmp=selA.value;selA.value=selB.value;selB.value=tmp;
-  [selA,selB].forEach(el=>{el.style.transition='background .15s';el.style.background='#FEF3C7';setTimeout(()=>{el.style.background='';},450);});
-  toast('순서를 바꿨어요 — 저장하면 반영됩니다');
+  if(_ecChainRows(base).length<2){toast('이 과목은 교재가 한 권이에요');return;}
+  _ecDrag={row,base,target:null,after:false};
+  row.classList.add('sr-dragging');
+  document.addEventListener('pointermove',_ecDragMove);
+  document.addEventListener('pointerup',_ecDragUp,{once:true});
+  document.addEventListener('pointercancel',_ecDragUp,{once:true});
+}
+function _ecDragMove(ev){
+  if(!_ecDrag)return;
+  ev.preventDefault();
+  _ecClearDropMark();
+  _ecDrag.target=null;
+  const over=document.elementFromPoint(ev.clientX,ev.clientY)?.closest('.sr');
+  if(!over||over===_ecDrag.row)return;
+  if((over.dataset.s||'').replace(/_\d+$/,'')!==_ecDrag.base)return; // 다른 과목으로는 못 옮김
+  const r=over.getBoundingClientRect();
+  const after=ev.clientY>r.top+r.height/2;
+  over.classList.add(after?'sr-drop-after':'sr-drop-before');
+  _ecDrag.target=over;_ecDrag.after=after;
+}
+function _ecDragUp(){
+  document.removeEventListener('pointermove',_ecDragMove);
+  const d=_ecDrag;_ecDrag=null;
+  _ecClearDropMark();
+  if(!d)return;
+  d.row.classList.remove('sr-dragging');
+  if(!d.target)return;
+  const rows=_ecChainRows(d.base);
+  const from=rows.indexOf(d.row);
+  let to=rows.indexOf(d.target)+(d.after?1:0);
+  if(to>from)to--;
+  if(_ecApplyOrder(d.base,from,to))toast('순서를 바꿨어요 — 저장하면 반영됩니다');
 }
 function rmSRowFrom(wrapperId,s,btn){
   btn.closest('.sr').remove();
