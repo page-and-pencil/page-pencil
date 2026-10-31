@@ -2052,9 +2052,9 @@ function addElCmtChip(text){const ta=document.getElementById('el-cmt');if(!ta)re
 function addClCommonCmtChip(text){const ta=document.getElementById('cl-common-cmt');if(!ta)return;ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;ta.focus();}
 async function previewElPolishedCmt(){
   const raw=document.getElementById('el-cmt')?.value.trim()||'';
-  if(!raw){toast('코멘트를 먼저 입력해 주세요');return;}
   const mats=getSMatsFrom('el-subj-rows');
   const matsText=_getMatsTextFromMaterials(mats);
+  if(!raw&&!matsText){toast('키워드를 입력하거나 교재 진도를 먼저 선택해 주세요');return;}
   const status=document.getElementById('el-cmt-preview-status');
   if(status)status.textContent='변환 중...';
   const polished=await polishCmt(raw,matsText);
@@ -2067,9 +2067,9 @@ async function previewElPolishedCmt(){
 }
 async function previewElStuCmt(){
   const raw=document.getElementById('el-cmt')?.value.trim()||'';
-  if(!raw){toast('코멘트를 먼저 입력해 주세요');return;}
   const mats=getSMatsFrom('el-subj-rows');
   const matsText=_getMatsTextFromMaterials(mats);
+  if(!raw&&!matsText){toast('키워드를 입력하거나 교재 진도를 먼저 선택해 주세요');return;}
   const status=document.getElementById('el-cmt-preview-status');
   if(status)status.textContent='학생 코멘트 생성 중...';
   const stuPolished=await polishStuCmt_teacher(raw,matsText,'');
@@ -2172,11 +2172,11 @@ async function saveLes(){
   // 미리보기에서 편집된 텍스트 우선 사용, 없으면 생성
   const previewTxt=(document.getElementById('cmt-preview-box')?.style.display!=='none')
     ?(document.getElementById('cmt-preview-text')?.value?.trim()||''):'';;
-  const polishedCmt=rawCmt?(previewTxt||(_polishedCmtCache.raw===rawCmt&&_polishedCmtCache.polished?_polishedCmtCache.polished:await polishCmt(rawCmt,matsText))):'';
+  const polishedCmt=(rawCmt||matsText)?(previewTxt||(_polishedCmtCache.raw===rawCmt&&_polishedCmtCache.polished?_polishedCmtCache.polished:await polishCmt(rawCmt,matsText))):'';
   // 학생 응원 코멘트 - 미리보기 편집본 우선, 없으면 생성
   const stuPreviewTxt=(document.getElementById('stu-cmt-preview-box')?.style.display!=='none')
     ?(document.getElementById('stu-cmt-preview-text')?.value?.trim()||''):'';
-  const stuCmt=rawCmt?(stuPreviewTxt||_polishedCmtCache.stuCmt||await polishStuCmt_teacher(rawCmt,matsText,_sStu?.name||'')):'';
+  const stuCmt=(rawCmt||matsText)?(stuPreviewTxt||_polishedCmtCache.stuCmt||await polishStuCmt_teacher(rawCmt,matsText,_sStu?.name||'')):'';
   if(rawCmt&&polishedCmt)_saveCmtExample(rawCmt,polishedCmt);
   const _sStuGrade=(_sStu&&(_sStu.grade||_sStu.lv))||'';
   const _rubric=getRubricData();
@@ -2529,10 +2529,10 @@ async function updLes(){
   const elPreviewTxt=(document.getElementById('el-cmt-preview-box')?.style.display!=='none')
     ?(document.getElementById('el-cmt-preview-text')?.value?.trim()||''):'';
   // 원문을 고쳤는데 미리보기를 다시 안 돌렸으면 → 낡은 변환본 대신 재변환
-  const polishedCmt=rawCmt?((!_elCmtDirtyP&&elPreviewTxt)||await polishCmt(rawCmt,matsText)):'';
+  const polishedCmt=(rawCmt||matsText)?((!_elCmtDirtyP&&elPreviewTxt)||await polishCmt(rawCmt,matsText)):'';
   const elStuPreviewTxt=(document.getElementById('el-stu-cmt-preview-box')?.style.display!=='none')
     ?(document.getElementById('el-stu-cmt-preview-text')?.value?.trim()||''):'';
-  const stuCmt=rawCmt?((!_elCmtDirtyS&&(elStuPreviewTxt||_cache.lessons[idx]?.stuCmt))||await polishStuCmt_teacher(rawCmt,matsText,'')||''):'';
+  const stuCmt=(rawCmt||matsText)?((!_elCmtDirtyS&&(elStuPreviewTxt||_cache.lessons[idx]?.stuCmt))||await polishStuCmt_teacher(rawCmt,matsText,'')||''):'';
   if(rawCmt&&polishedCmt)_saveCmtExample(rawCmt,polishedCmt);
   const _elGrade=_cache.lessons[idx].grade||(DB.stus().find(s=>s.id===sid)?.grade)||'';
   _cache.lessons[idx]={..._cache.lessons[idx],date:document.getElementById('el-date').value,sid,grade:_elGrade,att:document.getElementById('el-att').value,materials:mats,cmt:rawCmt,polishedCmt,stuCmt};
@@ -7411,15 +7411,16 @@ function _getMatsTextFromMaterials(mats){
   }).filter(Boolean).join(' / ');
 }
 async function polishCmt(raw,matsText=''){
-  if(!raw||!raw.trim()) return '';
-  const r=raw.trim();
+  // 키워드가 없어도 진도(matsText)가 있으면 진도만으로 코멘트를 만든다 (원장 요청)
+  if((!raw||!raw.trim())&&!String(matsText||'').trim()) return '';
+  const r=(raw||'').trim();
   const apiKey=DB.api();
-  if(!apiKey) return polishCmtLocal(r);
+  if(!apiKey) return r?polishCmtLocal(r):'';
   try{
     const examples=_getCmtExamples();
     const fewShot=examples.length?'\n\n[이전 승인된 코멘트 예시 — 이 말투와 형식을 참고하세요]\n'+examples.map(e=>`메모: "${e.raw}" → 코멘트: "${e.confirmed}"`).join('\n')+'\n':'\n';
     const matsLine=matsText?`\n오늘 수업에서 다룬 교재·원서 진도: ${matsText}`:'';
-    const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드와 진도 정보를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다. 학부모가 이 코멘트만 읽고도 "오늘 무엇을 얼마나 배웠고, 아이가 어떤 모습이었는지"를 구체적으로 알 수 있어야 합니다.\n\n작성 규칙:\n분량: 150~250자 (한국어 기준)\n어조(원장 톤앤매너): 합쇼체 위주의 담백하고 따뜻한 문장. 과장·호들갑 없이 아이의 구체적인 모습과 반응을 짚어 주세요("~하는 모습이 대견합니다", "기대 반 설렘 반 하는 모습"). 반복·노출·익숙해짐을 중시하는 교육관이 자연스럽게 배어나게 쓰되(암기보다 익숙해짐, 꾸준한 노출), 마무리는 "꾸준히 ~하겠습니다", "~하도록 돕겠습니다" 같은 지도 다짐으로 맺는 경우가 많습니다. 필요할 때만 "많이 칭찬해 주세요!", "지도 부탁드립니다" 같은 부드러운 협조 요청을 한 번 넣으세요. ":)" 같은 절제된 이모티콘은 아주 가끔만 허용.\n구조: 오늘 학습 내용(무엇을 어디까지) → 아이의 반응·태도 관찰 → 지도 방향·다짐, 자연스럽게 이어지는 한 단락\n진도 정보가 있으면 교재명·원서명은 자연스럽게 녹여 쓰되, 단원명(Unit/Lesson 번호·제목)은 그대로 나열하지 마세요 — 단원명은 앱에 별도로 표시됩니다. 대신 그 단원에서 무엇을 배웠는지를 구체적으로 서술하세요: '[이 단원에서 배운 단어]'가 주어지면 그중 2~4개를 예로 들고, 파닉스면 다룬 음가, 리딩이면 지문 주제, 어법이면 문법 포인트를 짚으세요. 원서는 완독/진행 중 등 진행 상태까지 전하고, 완독했다면 그 성취를 짚어 주세요.\n키워드가 짧아도 진도 정보를 활용해 학습 내용을 충실히 서술하세요. 단, 키워드와 진도에 없는 사실을 지어내지 마세요.\n\n[절대 금지]\n첫 단어로 주어(이름, "학생", "아이")를 쓰지 마세요. 반드시 서술어 또는 부사로 시작하세요.\n과장된 칭찬이나 부정적 표현 피하기. 마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.${fewShot}\n키워드: ${r}${matsLine}`;
+    const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드와 진도 정보를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다. 학부모가 이 코멘트만 읽고도 "오늘 무엇을 얼마나 배웠고, 아이가 어떤 모습이었는지"를 구체적으로 알 수 있어야 합니다.\n\n작성 규칙:\n분량: 150~250자 (한국어 기준)\n어조(원장 톤앤매너): 합쇼체 위주의 담백하고 따뜻한 문장. 과장·호들갑 없이 아이의 구체적인 모습과 반응을 짚어 주세요("~하는 모습이 대견합니다", "기대 반 설렘 반 하는 모습"). 반복·노출·익숙해짐을 중시하는 교육관이 자연스럽게 배어나게 쓰되(암기보다 익숙해짐, 꾸준한 노출), 마무리는 "꾸준히 ~하겠습니다", "~하도록 돕겠습니다" 같은 지도 다짐으로 맺는 경우가 많습니다. 필요할 때만 "많이 칭찬해 주세요!", "지도 부탁드립니다" 같은 부드러운 협조 요청을 한 번 넣으세요. ":)" 같은 절제된 이모티콘은 아주 가끔만 허용.\n구조: 오늘 학습 내용(무엇을 어디까지) → 아이의 반응·태도 관찰 → 지도 방향·다짐, 자연스럽게 이어지는 한 단락\n진도 정보가 있으면 교재명·원서명은 자연스럽게 녹여 쓰되, 단원명(Unit/Lesson 번호·제목)은 그대로 나열하지 마세요 — 단원명은 앱에 별도로 표시됩니다. 대신 그 단원에서 무엇을 배웠는지를 구체적으로 서술하세요: '[이 단원에서 배운 단어]'가 주어지면 그중 2~4개를 예로 들고, 파닉스면 다룬 음가, 리딩이면 지문 주제, 어법이면 문법 포인트를 짚으세요. 원서는 완독/진행 중 등 진행 상태까지 전하고, 완독했다면 그 성취를 짚어 주세요.\n키워드가 짧아도, 아예 없어도 진도 정보를 활용해 학습 내용을 충실히 서술하세요. 키워드가 없으면 아이의 태도를 추측하지 말고 무엇을 어디까지 배웠는지와 지도 방향만 담백하게 쓰세요. 단, 키워드와 진도에 없는 사실을 지어내지 마세요.\n\n[절대 금지]\n첫 단어로 주어(이름, "학생", "아이")를 쓰지 마세요. 반드시 서술어 또는 부사로 시작하세요.\n과장된 칭찬이나 부정적 표현 피하기. 마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.${fewShot}\n키워드: ${r||'(입력 없음 — 진도 정보만으로 작성)'}${matsLine}`;
     const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:500,messages:[{role:'user',content:prompt}]});
     return d.content?.[0]?.text?.trim()||polishCmtLocal(r);
   }catch(e){
@@ -7428,10 +7429,10 @@ async function polishCmt(raw,matsText=''){
   }
 }
 async function polishStuCmt_teacher(raw,matsText,stuName){
-  if(!raw||!raw.trim())return '';
+  if((!raw||!raw.trim())&&!String(matsText||'').trim())return '';
   const apiKey=DB.api();if(!apiKey)return '';
   try{
-    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${stuName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 오늘 배운 내용을 구체적으로 1개 이상 언급 — 진도에 [이 단원에서 배운 단어]가 있으면 그중 1~2개를 골라 칭찬에 녹여서(예: "오늘 proud 진짜 잘 읽었어!", "th 발음 완전 좋았어~"). 없는 사실은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${matsText||'없음'}\n선생님 메모: ${raw}`;
+    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${stuName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 오늘 배운 내용을 구체적으로 1개 이상 언급 — 진도에 [이 단원에서 배운 단어]가 있으면 그중 1~2개를 골라 칭찬에 녹여서(예: "오늘 proud 진짜 잘 읽었어!", "th 발음 완전 좋았어~"). 없는 사실은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${matsText||'없음'}\n선생님 메모: ${raw||'(없음 — 진도만 보고 쓰세요)'}`;
     const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content}]});
     return d.content?.[0]?.text?.trim()||'';
   }catch(e){return '';}
@@ -7558,9 +7559,9 @@ function debouncedCmtPreview(){
 }
 async function previewPolishedCmt(){
   const raw=document.getElementById('ls-cmt')?.value.trim()||'';
-  if(!raw){toast('코멘트를 먼저 입력해 주세요');return;}
   const mats=getSMats();
   const matsText=_getMatsTextFromMaterials(mats);
+  if(!raw&&!matsText){toast('키워드를 입력하거나 교재 진도를 먼저 선택해 주세요');return;}
   const status=document.getElementById('cmt-preview-status');
   if(status)status.textContent='변환 중...';
   const polished=await polishCmt(raw,matsText);
@@ -7575,9 +7576,9 @@ async function previewPolishedCmt(){
 }
 async function previewStuCmt(){
   const raw=document.getElementById('ls-cmt')?.value.trim()||'';
-  if(!raw){toast('코멘트를 먼저 입력해 주세요');return;}
   const mats=getSMats();
   const matsText=_getMatsTextFromMaterials(mats);
+  if(!raw&&!matsText){toast('키워드를 입력하거나 교재 진도를 먼저 선택해 주세요');return;}
   const sid=document.querySelector('#subj-rows')?.closest('form,#m-add-les,#t-les')?.dataset?.sid||'';
   const stuName='';
   const status=document.getElementById('cmt-preview-status');
@@ -13551,7 +13552,8 @@ async function saveClassLesson(){
       // 수정 모드: 기존 수업 레코드의 id를 재사용해 갱신 (중복 생성 방지)
       const existing=editMode?(_cache.lessons||[]).find(l=>l.classId===classId&&l.date===date&&l.sid===d.sid):null;
       // 학부모 코멘트: 원문이 그대로면 기존 변환문 재사용 (AI 재호출·문구 변동 방지)
-      const polishedCmt=cmt?((existing&&existing.cmt===cmt&&existing.polishedCmt)?existing.polishedCmt:await polishCmt(cmt,_getMatsTextFromMaterials(mats))):'';
+      const _mt=_getMatsTextFromMaterials(mats);
+      const polishedCmt=(cmt||_mt)?((existing&&existing.cmt===cmt&&existing.polishedCmt)?existing.polishedCmt:await polishCmt(cmt,_mt)):'';
       const les={id:existing?existing.id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:mats,cmt,polishedCmt,classId,...(existing&&existing.stuCmt?{stuCmt:existing.stuCmt}:{})};
       await supaUpsert('lessons',les.id,les,d.sid);
       if(existing){const li=_cache.lessons.findIndex(l=>l.id===existing.id);if(li>=0)_cache.lessons[li]=les;else _cache.lessons.unshift(les);}
