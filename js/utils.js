@@ -122,47 +122,47 @@ function logout(){clearSession();landRole('teacher');show('s-land');}
 
 // ── 랜딩 인라인 로그인 (역할 선택 → 같은 화면에서 입력) ──
 function landRole(role){
-  ['teacher','student','parent'].forEach(r=>{const c=document.getElementById('rc-'+r);if(c)c.classList.toggle('role-card-on',r===role);});
+  ['teacher','student','parent'].forEach(r=>{const c=document.getElementById('rc-'+r);if(c){c.classList.toggle('role-card-on',r===role);c.setAttribute('aria-pressed',String(r===role));}});
   const area=document.getElementById('land-login-area');if(!area)return;
   // 새 기기에서 선생님 비밀번호 사전 로드
   if(role==='teacher'&&typeof _cache!=='undefined'&&!_cache.settings?.pw){supaGetSetting('pw').then(pw=>{if(pw){_cache.settings.pw=pw;DB.s('pw',pw);}}).catch(()=>{});}
   if(role==='teacher'){
     area.innerHTML=`
-      <label class="land-lbl">비밀번호</label>
+      <label class="land-lbl" for="land-tpw">비밀번호</label>
       <div class="land-field">
         <span class="land-field-ico">${luIcon('lock',17)}</span>
-        <input type="password" id="land-tpw" class="land-input" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter')checkPw('land-tpw','land-err')">
-        <button type="button" class="land-eye" onclick="landToggleEye('land-tpw',this)">${luIcon('eye',17)||'👁'}</button>
+        <input type="password" id="land-tpw" class="land-input" placeholder="비밀번호 입력" aria-describedby="land-err" autocomplete="current-password" onkeydown="if(event.key==='Enter')checkPw('land-tpw','land-err')">
+        <button type="button" class="land-eye" aria-label="비밀번호 표시" aria-pressed="false" onclick="landToggleEye('land-tpw',this)">${luIcon('eye',17)||'👁'}</button>
       </div>
-      <div class="land-err" id="land-err"></div>
+      <div class="land-err" id="land-err" role="alert"></div>
       <button class="land-submit" onclick="checkPw('land-tpw','land-err')">선생님으로 로그인 ${luIcon('arrow-right',17)||'→'}</button>`;
   }else if(role==='student'){
     area.innerHTML=`
-      <label class="land-lbl">PIN <span class="land-lbl-sub">생년월일 4자리 (예: 0312)</span></label>
+      <label class="land-lbl" for="land-spin">PIN <span class="land-lbl-sub">생년월일 4자리 (예: 0312)</span></label>
       <div class="land-field">
         <span class="land-field-ico">${luIcon('graduation-cap',17)}</span>
-        <input type="password" id="land-spin" class="land-input" inputmode="numeric" maxlength="4" placeholder="0000" onkeydown="if(event.key==='Enter')landStudentSubmit()">
+        <input type="password" id="land-spin" class="land-input" inputmode="numeric" aria-describedby="land-err" maxlength="4" placeholder="0000" onkeydown="if(event.key==='Enter')landStudentSubmit()">
       </div>
       <select id="land-sname" class="land-input" style="display:none;margin-top:10px" onchange="landStudentByName()"></select>
-      <div class="land-err" id="land-err"></div>
+      <div class="land-err" id="land-err" role="alert"></div>
       <button class="land-submit" onclick="landStudentSubmit()">학생 입장 ${luIcon('arrow-right',17)||'→'}</button>`;
   }else{
     area.innerHTML=`
-      <label class="land-lbl">아이 이름</label>
+      <label class="land-lbl" for="land-pname">아이 이름</label>
       <div class="land-field">
         <span class="land-field-ico">${luIcon('user',17)}</span>
-        <input type="text" id="land-pname" class="land-input" placeholder="이름" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('land-ppin').focus()">
+        <input type="text" id="land-pname" class="land-input" placeholder="이름" aria-describedby="land-err" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('land-ppin').focus()">
       </div>
-      <label class="land-lbl" style="margin-top:12px">PIN <span class="land-lbl-sub">생년월일 4자리</span></label>
+      <label class="land-lbl" for="land-ppin" style="margin-top:12px">PIN <span class="land-lbl-sub">생년월일 4자리</span></label>
       <div class="land-field">
         <span class="land-field-ico">${luIcon('key-round',17)}</span>
-        <input type="password" id="land-ppin" class="land-input" inputmode="numeric" maxlength="4" placeholder="0000" onkeydown="if(event.key==='Enter')checkPin('land-pname','land-ppin','land-err')">
+        <input type="password" id="land-ppin" class="land-input" inputmode="numeric" aria-describedby="land-err" maxlength="4" placeholder="0000" onkeydown="if(event.key==='Enter')checkPin('land-pname','land-ppin','land-err')">
       </div>
-      <div class="land-err" id="land-err"></div>
+      <div class="land-err" id="land-err" role="alert"></div>
       <button class="land-submit" onclick="checkPin('land-pname','land-ppin','land-err')">조회하기 ${luIcon('arrow-right',17)||'→'}</button>`;
   }
 }
-function landToggleEye(id,btn){const el=document.getElementById(id);if(!el)return;const showing=el.type==='password';el.type=showing?'text':'password';btn.style.opacity=showing?'1':'.5';}
+function landToggleEye(id,btn){const el=document.getElementById(id);if(!el)return;const showing=el.type==='password';el.type=showing?'text':'password';btn.style.opacity=showing?'1':'.7';btn.setAttribute('aria-pressed',String(showing));btn.setAttribute('aria-label',showing?'비밀번호 숨기기':'비밀번호 표시');}
 async function landStudentSubmit(){
   const pin=(document.getElementById('land-spin')?.value||'').trim();
   const err=document.getElementById('land-err');const setErr=t=>{if(err)err.textContent=t;};
