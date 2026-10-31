@@ -156,7 +156,7 @@ async function loadParent(sid){
     const givenName=s.name&&s.name.length>1?s.name.slice(1):(s.name||'');
     const josa=(n)=>{if(!n)return '는';const c=n.charCodeAt(n.length-1);if(c<0xAC00||c>0xD7A3)return '는';return (c-0xAC00)%28===0?'는':'은';};
     const avgScore=tsts.length?Math.round(tsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/tsts.length):null;
-    const doneBooks=((_cache.textbooks||[]).filter(t=>t.sid===sid&&t.completed).length)||rds.filter(r=>(r.progress||'').includes('완독')).length;
+    const readBooks=rds.length;
     let summary;
     if(!les.length)summary='곧 첫 수업 기록이 올라올 거예요.';
     else if(lesChange>0)summary='꾸준히 나오며 잘 성장하고 있어요.';
@@ -168,7 +168,7 @@ async function loadParent(sid){
       <div style="display:flex;gap:10px">
         <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:var(--navy)">${thisMonthLes.length}<span style="font-size:13px;color:#B8C0C8;font-weight:600">회</span></div><div style="font-size:11px;color:#8A95A2;margin-top:2px">수업</div></div>
         <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:#0B8DAE">${avgScore!=null?avgScore+'<span style="font-size:13px;color:#B8C0C8;font-weight:600">점</span>':'—'}</div><div style="font-size:11px;color:#8A95A2;margin-top:2px">평균 점수</div></div>
-        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:#047857">${doneBooks}<span style="font-size:13px;color:#B8C0C8;font-weight:600">권</span></div><div style="font-size:11px;color:#8A95A2;margin-top:2px">완독 원서</div></div>
+        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:#047857">${readBooks}<span style="font-size:13px;color:#B8C0C8;font-weight:600">권</span></div><div style="font-size:11px;color:#8A95A2;margin-top:2px">읽은 책 누적</div></div>
       </div>
     </div>`;
   }
@@ -465,8 +465,8 @@ async function loadParent(sid){
   secMsg=`<div class="card"><div class="cb" style="padding:22px 18px;text-align:center">
       <div style="font-size:34px;margin-bottom:10px">💬</div>
       <div style="font-size:16px;font-weight:800;color:var(--navy);margin-bottom:6px">선생님께 문의하기</div>
-      <div style="font-size:13.5px;color:var(--slate);line-height:1.7;margin-bottom:18px">수업·과제·결제 등 궁금한 점이 있으면<br>카카오톡으로 편하게 물어보세요.</div>
-      <button onclick="openParentMsgModal('${sid}')" style="width:100%;padding:13px;background:#FEE500;border:none;border-radius:12px;font-family:var(--fb);font-size:15px;font-weight:800;cursor:pointer;color:#3C1E1E">💬 카카오톡으로 질문하기</button>
+      <div style="font-size:13.5px;color:var(--slate);line-height:1.7;margin-bottom:18px">${(DB.kakao().openchat||DB.kakao().phone)?"수업·과제·결제 등 궁금한 점이 있으면<br>카카오톡으로 편하게 물어보세요.":"카카오톡 문의가 아직 준비되지 않았습니다.<br>선생님에게 연락처를 확인해 주세요."}</div>
+      ${(DB.kakao().openchat||DB.kakao().phone)?`<button onclick="openParentMsgModal('${sid}')" style="width:100%;padding:13px;background:#FEE500;border:none;border-radius:12px;font-family:var(--fb);font-size:15px;font-weight:800;cursor:pointer;color:#3C1E1E">💬 카카오톡으로 질문하기</button>`:""}
     </div></div>`;
 
   // 점수 탭 빈 상태
