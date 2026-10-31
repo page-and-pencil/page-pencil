@@ -38,7 +38,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .land2-mid{position:relative;}
 .land2-eyebrow{font-size:14px;font-weight:700;color:#0CA4C9;letter-spacing:.04em;margin-bottom:16px;}
 .land2-h1{font-size:31px;font-weight:800;line-height:1.34;color:#fff;margin-bottom:16px;}
-.land2-sub{font-size:15px;line-height:1.75;color:rgba(255,255,255,.62);}
+.land2-sub{font-size:15px;line-height:1.75;color:rgba(255,255,255,.72);margin-top:22px;}
 .land2-chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:28px;}
 .land2-chip{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:rgba(255,255,255,.88);background:rgba(255,255,255,.08);border-radius:9px;padding:7px 11px;}
 .land2-foot{position:relative;font-size:13px;color:rgba(255,255,255,.4);}
@@ -46,7 +46,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .land2-right{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 34px;background:#fff;}
 .land2-form{width:100%;max-width:360px;}
 .land2-title{font-size:25px;font-weight:800;letter-spacing:-.02em;color:var(--navy);margin-bottom:6px;}
-.land2-desc{font-size:14.5px;color:#8A95A2;margin-bottom:24px;}
+.land2-desc{font-size:14.5px;color:var(--slate);margin-bottom:24px;}
 .land2-roles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
 .role-card{display:flex;flex-direction:column;align-items:center;gap:9px;border:1.5px solid rgba(15,48,74,.1);background:#fff;border-radius:14px;padding:18px 8px;cursor:pointer;font-family:var(--fb);transition:all .15s;}
 .role-card:hover{border-color:#0CA4C9;background:#F8FBFC;transform:translateY(-2px);box-shadow:0 8px 22px rgba(12,164,201,.18);}
@@ -57,6 +57,9 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .role-card.role-card-on .role-lbl{color:#0B8DAE;font-weight:800;}
 .land2-hint{font-size:13px;color:#8A95A2;text-align:center;line-height:1.6;}
 .land2-link{color:#0B8DAE;font-weight:700;cursor:pointer;}
+.land-install{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;margin-top:18px;padding:10px 12px;border:0;background:transparent;color:#46586B;font:600 13px var(--fb);cursor:pointer;}
+.land-install:hover{color:#0B8DAE;text-decoration:underline;}
+.role-card:focus-visible,.land-submit:focus-visible,.land-install:focus-visible,.land-eye:focus-visible{outline:3px solid #0B8DAE;outline-offset:3px;}
 /* 인라인 로그인 폼 */
 .land-lbl{display:block;font-size:12px;font-weight:700;letter-spacing:.05em;color:#5A6B7B;text-transform:uppercase;margin-bottom:7px;}
 .land-lbl-sub{font-weight:400;text-transform:none;letter-spacing:0;color:#94A3AE;font-size:11px;}
@@ -65,7 +68,7 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 .land-field-ico{font-size:16px;flex-shrink:0;opacity:.7;}
 .land-input{flex:1;border:none;background:none;outline:none;font-family:var(--fb);font-size:15px;color:var(--navy);min-width:0;}
 select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border-radius:11px;background:#F8FBFC;width:100%;cursor:pointer;}
-.land-eye{background:none;border:none;cursor:pointer;font-size:16px;opacity:.5;flex-shrink:0;padding:0;}
+.land-eye{display:flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;background:none;border:none;cursor:pointer;font-size:16px;opacity:.7;flex-shrink:0;padding:0;}
 .land-err{color:var(--coral);font-size:13px;min-height:18px;margin:6px 0 2px;}
 .land-submit{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:14px;border:none;background:#0CA4C9;color:#fff;border-radius:12px;font-size:16px;font-weight:800;font-family:var(--fb);cursor:pointer;box-shadow:0 6px 18px rgba(12,164,201,.32);transition:background .15s;}
 .land-submit:hover{background:#0B93BB;}
@@ -78,10 +81,12 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
   .land2-brand::before,.land2-brand::after{display:none;}
   .land2-logo{color:var(--navy);font-size:25px;}
   .land2-mid{margin:12px 0 0;}
-  .land2-h1{font-size:16px;font-weight:700;color:var(--slate);line-height:1.5;}
+  .land2-h1{font-size:16px;font-weight:700;color:var(--slate);line-height:1.5;margin-bottom:0;}
+  .land2-sub{display:block;margin-top:8px;font-size:13px;line-height:1.55;color:var(--slate);}
+  .land2-sub br{display:none;}
   .land2-foot{display:none;}
   /* 폼 영역 넓게 */
-  .land2-right{padding:18px 26px calc(34px + env(safe-area-inset-bottom));flex:1;align-items:flex-start;}
+  .land2-right{padding:14px 26px calc(24px + env(safe-area-inset-bottom));flex:1;align-items:flex-start;}
   .land2-form{max-width:none;}
   .land2-title{font-size:22px;}
   .land2-roles{gap:9px;}
@@ -1188,7 +1193,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .snav-ico{display:flex;align-items:center;justify-content:center;height:22px;}
 /* 모바일 랜딩: 브랜드 보조 요소 숨김 */
 @media(max-width:760px){
-  .land2-eyebrow,.land2-sub,.land2-chips{display:none;}
+  .land2-eyebrow,.land2-chips{display:none;}
 }
 
 /* 단어 게임 콤보 팝업 */
