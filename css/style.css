@@ -1275,3 +1275,12 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .dash-fold[open]>.dash-fold-sum::after{content:'▴';}
 .dash-fold[open]>.dash-fold-sum{border-bottom:1.5px solid var(--border);}
 .dash-fold>div{padding:10px 12px 2px;}
+/* 학부모 수업 탭 기록 묶음 (읽은 책·리딩로그·뱃지) */
+.pp-fold{border:1.5px solid var(--border);border-radius:var(--rs);background:var(--cream2);margin-bottom:12px;}
+.pp-fold>.pp-fold-sum{cursor:pointer;list-style:none;padding:12px 14px;font:700 14px var(--fb);color:var(--navy);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.pp-fold>.pp-fold-sum::-webkit-details-marker{display:none;}
+.pp-fold>.pp-fold-sum::after{content:'▾';margin-left:auto;color:var(--slate);font-size:12px;}
+.pp-fold[open]>.pp-fold-sum::after{content:'▴';}
+.pp-fold[open]>.pp-fold-sum{border-bottom:1.5px solid var(--border);}
+.pp-fold-body{padding:10px;display:flex;flex-direction:column;gap:12px;}
+.pp-fold-body>.card{margin-bottom:0;}
