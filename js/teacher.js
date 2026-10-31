@@ -10931,6 +10931,11 @@ function _pgUnitIdx(tb,unitStr){
   return best;
 }
 // 클래스에서 이 교재의 마지막 기록 {idx,date} — 최신 수업일 우선 (미래 기록은 진도 계산 제외)
+// 이 교재의 진도 = **가장 멀리 나간 단원**. '마지막 날짜의 단원'으로 잡으면 복습으로 앞 단원을
+// 한 번 더 한 날이 진도를 되감아 이미 나간 단원이 예정에 다시 깔린다
+// (345 Grammar 1: 10/20 Unit 14 → 10/27 Unit 13 기록 → 11월 첫 수업이 Unit 14로 잡히던 문제).
+// 숙제 쪽 recurRebase는 원래부터 maxIdx 기준이라 둘이 어긋나 있었음 — 같은 기준으로 맞춤.
+// c.doneUpto[교재id]='단원' = 선생님이 진도 보드에서 직접 지정한 '여기까지 끝냄' (기록 없는 진도 보정)
 function _pgLastRec(classId,tb){
   let best=null;
   const _t=ppToday();
@@ -10942,9 +10947,15 @@ function _pgLastRec(classId,tb){
       if(m.bookId?m.bookId!==tb.id:m.book!==tb.title)return;
       const idx=_pgUnitIdx(tb,m.unit);
       if(idx<0)return;
-      if(!best||(l.date||'')>best.date||((l.date||'')===best.date&&idx>best.idx))best={idx,date:l.date||''};
+      if(!best||idx>best.idx||(idx===best.idx&&(l.date||'')>best.date))best={idx,date:l.date||''};
     });
   });
+  const _c=DB.classes().find(x=>x.id===classId);
+  const du=((_c&&_c.doneUpto)||{})[tb.id];
+  if(du){
+    const i=_pgUnitIdx(tb,du);
+    if(i>=0&&(!best||i>best.idx))best={idx:i,date:_t,manual:true};
+  }
   return best;
 }
 // 이 교재가 기록된 날짜 집합 (예정 칩이 기록 있는 날을 건너뛰게)
@@ -11692,6 +11703,145 @@ function pgNavDragOver(ev,d){
   _pgNavFlipAt=now;
   pgCalNav(d);
 }
+// ── 진도 손보기 (웹에서 바로) ──
+// 진도가 틀어지는 원인은 대개 둘 — ① 수업 기록에 없는 진도(구두로만 나간 단원),
+// ② 줄이 마르거나 교재가 체인에 없어 예정이 끊김. 둘 다 이 모달에서 바로 고친다.
+let _pgFixCtx=null;
+function _pgFixOpen(ctx){
+  _pgFixCtx=ctx;
+  document.getElementById('pgfix-title').textContent=ctx.title;
+  document.getElementById('pgfix-desc').innerHTML=ctx.desc;
+  document.getElementById('pgfix-label').textContent=ctx.label;
+  document.getElementById('pgfix-hint').innerHTML=ctx.hint||'';
+  document.getElementById('pgfix-sel').innerHTML=ctx.options;
+  openM('m-pg-fix');
+}
+// ① 진도 기준점 수정 — '여기까지 끝냈어요'
+function pgEditProgress(classId,bookId){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===bookId);if(!tb)return;
+  const keys=tbUnitKeys(tb);
+  const rec=_pgLastRec(classId,tb);
+  const du=((c.doneUpto||{})[bookId])||'';
+  const recOnly=(()=>{ // 기록만으로 본 진도 (직접 지정을 뺀 값)
+    let best=-1;
+    (_cache.lessons||[]).forEach(l=>{
+      if(l.classId!==classId||!l.materials||(l.date||'')>ppToday())return;
+      Object.values(l.materials).forEach(m=>{
+        if(!m||!m.book)return;
+        if(m.bookId?m.bookId!==tb.id:m.book!==tb.title)return;
+        const i=_pgUnitIdx(tb,m.unit);if(i>best)best=i;
+      });
+    });
+    return best;
+  })();
+  const cur=du||(recOnly>=0?keys[recOnly]:'');
+  _pgFixOpen({
+    mode:'done',classId,bookId,
+    title:'진도 수정',
+    desc:`<b>${escAttr(tb.title)}</b> — 어디까지 끝냈는지 고르면 그 다음 단원부터 예정이 다시 깔려요`,
+    label:'여기까지 끝냈어요',
+    options:`<option value="">— 수업 기록 그대로 (${recOnly>=0?escAttr(keys[recOnly]):'기록 없음'}) —</option>`
+      +keys.map(k=>`<option value="${escAttr(k)}"${_pgNorm(k)===_pgNorm(cur)&&du?' selected':''}>${escAttr(k)}${tb.unitTitles&&tb.unitTitles[k]?' — '+escAttr(tb.unitTitles[k]):''}</option>`).join(''),
+    hint:'수업 기록은 그대로 두고 진도 기준점만 옮깁니다. 숙제 자동 진행도 같은 기준을 씁니다.'
+      +(du?`<br>지금은 <b>${escAttr(du)}</b>까지로 직접 지정돼 있어요.`:''),
+  });
+}
+// ② 다음 교재 고르기 — 그 줄의 마지막 교재 뒤에 끼워 넣는다
+function pgPickNext(classId,afterKey){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const cm=c.commonMaterials||{};
+  const mat=cm[afterKey];if(!mat)return;
+  const curTb=_pgTbOf(mat);
+  const base=afterKey.replace(/_\d+$/,'');
+  const inChain=new Set(Object.values(cm).map(v=>v&&(v.bookId||v.book)).filter(Boolean));
+  const cat=curTb?curTb.category:_CAT_KO[base];
+  let cand=(_cache.globalTextbooks||[]).filter(b=>!b._deleted&&tbUnitKeys(b).length
+    &&!inChain.has(b.id)&&!inChain.has(b.title)&&(!cat||b.category===cat));
+  // 같은 시리즈의 뒤 권을 맨 앞에 — 선생님이 거의 늘 고르는 값
+  let head=[];
+  if(curTb&&curTb.series){
+    const sers=_seriesSortBooks([curTb,...cand.filter(b=>b.series===curTb.series)]);
+    const i=sers.findIndex(b=>b.id===curTb.id);
+    head=i>=0?sers.slice(i+1):[];
+    const hid=new Set(head.map(b=>b.id));
+    cand=cand.filter(b=>!hid.has(b.id));
+  }
+  cand=[...head,...cand.sort((a,b)=>String(a.title).localeCompare(String(b.title)))];
+  // 같은 영역의 **다른 줄**에 있는 교재 — 이 줄로 옮겨올 수 있게
+  // (예: 요즘 초등 영단어 3이 수업 줄에 있는데 과제 줄로 이어가고 싶을 때)
+  const subjKeys=Object.keys(cm).filter(k=>k.replace(/_\d+$/,'')===base);
+  const subjBooks=subjKeys.map(k=>({s:k,mat:cm[k],tb:_pgTbOf(cm[k])}));
+  const myTrack=_pgTracksOf(subjBooks).find(t=>t.books.some(b=>b.s===afterKey));
+  const mine=new Set((myTrack?myTrack.books:[]).map(b=>b.s));
+  const movable=subjBooks.filter(b=>{
+    if(mine.has(b.s)||!b.tb)return false;
+    const r=_pgLastRec(classId,b.tb),kk=tbUnitKeys(b.tb);
+    return !(r&&r.idx>=kk.length-1);              // 완강한 책은 옮길 이유가 없음
+  });
+  if(!cand.length&&!movable.length){toast('추가할 수 있는 교재가 없어요 — 자료 DB에 먼저 등록해 주세요');return;}
+  const optAdd=cand.map((b,i)=>`<option value="new:${escAttr(b.id)}"${i===0?' selected':''}>${escAttr(b.title)}${b.category?' ('+escAttr(b.category)+')':''}${head.length&&i<head.length?' · 같은 시리즈':''}</option>`).join('');
+  const optMove=movable.map(b=>`<option value="move:${escAttr(b.s)}">${escAttr(b.tb.title)}</option>`).join('');
+  _pgFixOpen({
+    mode:'next',classId,afterKey,
+    title:'다음 교재 고르기',
+    desc:`<b>${escAttr(curTb?curTb.title:mat.book)}</b>가 끝난 뒤 이 줄에서 이어서 나갈 교재예요`,
+    label:'다음 교재',
+    options:(optAdd?`<optgroup label="새로 추가">${optAdd}</optgroup>`:'')
+           +(optMove?`<optgroup label="다른 줄에서 옮겨오기">${optMove}</optgroup>`:''),
+    hint:`${SLBL[base]||base} 영역 · <b>${escAttr(curTb?curTb.title:mat.book)}</b> 바로 뒤에 들어갑니다. 진행 방식(수업/과제)은 그 줄을 그대로 따릅니다.`
+      +(optMove?'<br>옮겨오면 원래 줄에서는 빠집니다.':''),
+  });
+}
+async function pgFixSave(){
+  const ctx=_pgFixCtx;if(!ctx)return;
+  const val=document.getElementById('pgfix-sel').value;
+  const c=DB.classes().find(x=>x.id===ctx.classId);if(!c)return;
+  let msg='';
+  if(ctx.mode==='done'){
+    const du={...(c.doneUpto||{})};
+    if(val)du[ctx.bookId]=val;else delete du[ctx.bookId];
+    if(Object.keys(du).length)c.doneUpto=du;else delete c.doneUpto;
+    msg=val?`진도를 ${val}까지로 맞췄어요`:'수업 기록 기준으로 되돌렸어요';
+  }else if(ctx.mode==='next'){
+    const cm=c.commonMaterials||{};
+    const base=ctx.afterKey.replace(/_\d+$/,'');
+    const isMove=val.indexOf('move:')===0;
+    const arg=val.replace(/^(new|move):/,'');
+    let ins=null,title='';
+    if(isMove){
+      if(!cm[arg]){toast('옮길 교재를 찾지 못했어요');return;}
+      ins={...cm[arg]};
+      delete ins.run;                                   // 이 줄을 이어받으므로 줄 시작 표식은 떼어낸다
+      title=ins.book||'';
+    }else{
+      const tb=(_cache.globalTextbooks||[]).find(b=>b.id===arg);
+      if(!tb){toast('교재를 고르세요');return;}
+      ins={book:tb.title,unit:'',bookId:tb.id};
+      title=tb.title;
+    }
+    // 그 영역의 체인 순서를 유지하면서 afterKey 바로 뒤에 끼우고 연번을 다시 매긴다
+    const list=[],others={};
+    Object.keys(cm).forEach(k=>{
+      if(k.replace(/_\d+$/,'')===base){
+        if(!(isMove&&k===arg))list.push(cm[k]);          // 옮기는 책은 원래 자리에서 뺀다
+        if(k===ctx.afterKey)list.push(ins);
+      }else others[k]=cm[k];
+    });
+    const out={};
+    list.forEach((v,i)=>{out[i===0?base:base+'_'+(i+1)]=v;});
+    Object.keys(others).forEach(k=>{out[k]=others[k];});
+    c.commonMaterials=out;
+    msg=isMove?`${title}을(를) 이 줄로 옮겼어요`:`${title}을(를) 다음 교재로 넣었어요`;
+  }
+  try{await supaUpsert('classes',ctx.classId,c,null);}
+  catch(e){console.error('pgFixSave:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  const i=(_cache.globalClasses||[]).findIndex(x=>x.id===ctx.classId);if(i>=0)_cache.globalClasses[i]=c;
+  closeM('m-pg-fix');
+  _pgFixCtx=null;
+  renderClsLessons(ctx.classId);
+  toast(msg);
+}
 // 미등록 교재를 영역 체인에 '동시 진행 줄'로 추가 — 교재 카테고리로 영역을 정한다
 async function pgAddMissingBook(classId,bookId,run){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
@@ -11720,6 +11870,7 @@ async function pgAddMissingBook(classId,bookId,run){
     toast(tb.title+' — '+lbl+' 줄로 추가했어요');
   });
 }
+const _pgAddDays=(ds,n)=>{const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+n);return _pgYmd(d);};
 // ── 영역별 진도 보드 ──
 // 같은 영역에서 교재가 동시에 돌면(1200은 수업 중, 요즘 초등 영단어는 과제) 캘린더 칩만으로는
 // "지금 뭘 어디까지 하고 있는지"가 안 보인다. 영역 × 줄로 접어 진행률·방식·예상 완료를 한 줄에 둔다.
@@ -11734,6 +11885,32 @@ function _pgTrackBoardHtml(classId){
   const lastBy={};
   Object.entries(ghostBy||{}).forEach(([d,list])=>{
     (list||[]).forEach(g=>{if(!lastBy[g.tbId]||d>lastBy[g.tbId])lastBy[g.tbId]=d;});
+  });
+  const checks=[];   // 점검 목록 — 선생님이 바로 조처할 것들
+  // 되감긴 기록: 앞 단원을 뒤 날짜에 또 기록한 경우. 진도는 '가장 멀리 나간 단원' 기준이라
+  // 복습으로 처리되는데, 왜 그 단원이 예정에 안 나오는지 안 보이면 오류처럼 느껴진다
+  books.forEach(b=>{
+    const recs=[];
+    (_cache.lessons||[]).forEach(l=>{
+      if(l.classId!==classId||!l.materials||!l.date||l.date>today)return;
+      Object.values(l.materials).forEach(m=>{
+        if(!m||!m.book)return;
+        if(m.bookId?m.bookId!==b.tb.id:m.book!==b.tb.title)return;
+        const i=_pgUnitIdx(b.tb,m.unit);
+        if(i>=0)recs.push({date:l.date,idx:i,unit:m.unit});
+      });
+    });
+    recs.sort((x,y)=>x.date.localeCompare(y.date));
+    let mx=-1,back=null;
+    recs.forEach(r=>{if(r.idx<mx&&(!back||r.date>back.date))back={...r,max:mx};else if(r.idx>mx)mx=r.idx;});
+    // 진도를 직접 지정해 둔 책은 선생님이 이미 확인한 것으로 보고 알리지 않는다
+    if(back&&!((c.doneUpto||{})[b.tb.id])){
+      const keys=tbUnitKeys(b.tb);
+      checks.push({ico:'📉',kind:'되감김',title:b.tb.title,
+        msg:`${back.date.slice(5).replace('-','/')} ${back.unit} 기록이 앞선 ${escAttr(keys[back.max]||'')} 뒤에 있어요 — 복습으로 보고 진도는 ${escAttr(keys[back.max]||'')}까지로 셉니다`,
+        act:`<button class="btn bo bxxs" title="그 날 수업 기록의 단원을 고칩니다" onclick="openClassLessonEdit('${classId}','${back.date}')">${back.date.slice(5).replace('-','/')} 기록 수정</button>`
+           +`<button class="btn bo bxxs" title="기록은 두고 진도 기준점만 맞춥니다" onclick="pgEditProgress('${classId}','${b.tb.id}')">진도 수정</button>`});
+    }
   });
   const groups={};
   books.forEach(b=>{
@@ -11779,6 +11956,11 @@ function _pgTrackBoardHtml(classId){
       const modeCls=mode==='과제'?'hw':mode==='교대'?'alt':'cls';
       const eta=lastBy[cur.tb.id]||'';
       const next=t.books[curIdx+1];
+      // 점검: 이 줄이 곧 마른다 (60일 안에 끝나는데 다음 교재가 없음)
+      if(!next&&eta&&eta<=_pgAddDays(today,60))
+        checks.push({ico:'🔚',kind:'마름',title:cur.tb.title,
+          msg:`${eta.slice(5).replace('-','/')} 완료 예정인데 이 줄에 다음 교재가 없어요`,
+          act:`<button class="btn bt bxxs" onclick="pgPickNext('${classId}','${escAttr(cur.s)}')">다음 교재 고르기</button>`});
       tr.push(`<div class="tb-track">
         <span class="tb-mode ${modeCls}">${mode}</span>
         <span class="tb-book" title="${escAttr(cur.tb.title)}">${escAttr(cur.tb.title)}</span>
@@ -11786,6 +11968,7 @@ function _pgTrackBoardHtml(classId){
         <span class="tb-num">${done}<em>/${total}</em></span>
         <span class="tb-eta">${eta?'~'+eta.slice(5).replace('-','/'):'<span style="opacity:.5">1년 내 미완</span>'}</span>
         <span class="tb-next">${next?'다음 '+escAttr(next.tb.title):'<span class="tb-end">다음 교재 없음</span>'}</span>
+        <button class="tb-fix" title="진도 수정 — 어디까지 끝냈는지 직접 맞추기" onclick="pgEditProgress('${classId}','${cur.tb.id}')">✏️</button>
       </div>`);
     });
     if(!tr.length)return;
@@ -11814,29 +11997,27 @@ function _pgTrackBoardHtml(classId){
       m.n++;if(l.date>m.date)m.date=l.date;
     });
   });
-  const missList=Object.values(miss).sort((a,b)=>b.date.localeCompare(a.date));
-  const missHtml=missList.map(m=>{
+  Object.values(miss).sort((a,b)=>b.date.localeCompare(a.date)).forEach(m=>{
     const r=_pgLastRec(classId,m.tb),keys=tbUnitKeys(m.tb);
-    return `<div class="tb-miss">
-      <span class="tb-mode warn">미등록</span>
-      <span class="tb-book" title="${escAttr(m.tb.title)}">${escAttr(m.tb.title)}</span>
-      <span class="tb-num">${r?r.idx+1:0}<em>/${keys.length}</em></span>
-      <span class="tb-eta">${m.n}회 기록 · 최근 ${m.date.slice(5).replace('-','/')}</span>
-      <span class="tb-missact">
-        <button class="btn bo bxxs" title="수업일마다 1과씩 진행하는 줄로 추가" onclick="pgAddMissingBook('${classId}','${m.tb.id}','class')">수업 줄로</button>
-        <button class="btn bo bxxs" title="수업 없는 날 1과씩 진행하는 줄로 추가" onclick="pgAddMissingBook('${classId}','${m.tb.id}','hw')">과제 줄로</button>
-      </span>
-    </div>`;
-  }).join('');
-  if(missHtml)rows.push(`<div class="tb-row tb-row-warn">
-    <span class="tb-subj"><i style="background:#F59E0B"></i>미등록</span>
-    <div class="tb-tracks">${missHtml}
-      <div class="tb-missnote">수업 기록엔 있지만 교재 체인에 없어 <b>예정이 잡히지 않는</b> 교재예요 — 줄을 골라 추가하면 다른 교재와 함께 진행됩니다</div>
-    </div></div>`);
-  if(!rows.length)return'';
-  return `<details class="tb-card" open>
+    checks.push({ico:'⚠️',kind:'미등록',title:m.tb.title,
+      msg:`수업 기록 ${m.n}회(최근 ${m.date.slice(5).replace('-','/')}, ${r?r.idx+1:0}/${keys.length}과)인데 교재 체인에 없어 <b>예정이 잡히지 않아요</b>`,
+      act:`<button class="btn bo bxxs" title="수업일마다 1과씩 진행하는 줄로 추가" onclick="pgAddMissingBook('${classId}','${m.tb.id}','class')">수업 줄로</button>`
+         +`<button class="btn bo bxxs" title="수업 없는 날 1과씩 진행하는 줄로 추가" onclick="pgAddMissingBook('${classId}','${m.tb.id}','hw')">과제 줄로</button>`});
+  });
+  const checksHtml=checks.length?`<details class="tb-card tb-chk" open>
+    <summary class="tb-head"><span class="tb-t">🔧 손봐야 할 진도<span class="tb-cnt">${checks.length}</span></span>
+      <span class="tb-hint">여기서 바로 고칠 수 있어요</span></summary>
+    <div class="tb-chk-body">${checks.map(k=>`<div class="tb-chk-r">
+      <span class="tb-chk-i">${k.ico}</span>
+      <span class="tb-chk-k">${k.kind}</span>
+      <span class="tb-chk-t"><b>${escAttr(k.title)}</b><em>${k.msg}</em></span>
+      <span class="tb-chk-a">${k.act}</span>
+    </div>`).join('')}</div>
+  </details>`:'';
+  if(!rows.length)return checksHtml;
+  return checksHtml+`<details class="tb-card" open>
     <summary class="tb-head"><span class="tb-t">📊 영역별 진도</span>
-      <span class="tb-hint">같은 영역에서 동시에 도는 교재는 줄로 나뉘어 보여요</span></summary>
+      <span class="tb-hint">같은 영역에서 동시에 도는 교재는 줄로 나뉘어 보여요 · ✏️로 진도 수정</span></summary>
     <div class="tb-body">${rows.join('')}</div>
   </details>`;
 }

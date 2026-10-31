@@ -474,6 +474,9 @@ function recurRebase(a){
         });
       });
     });
+    // 선생님이 진도 보드에서 직접 지정한 '여기까지 끝냄'도 같은 기준으로 반영 (teacher.js _pgLastRec와 짝)
+    const _du=((cls.doneUpto||{})[a.bookId]||'');
+    if(_du){const di=keys.findIndex(k=>um(nrm(k),nrm(_du)));if(di>maxIdx)maxIdx=di;}
     if(maxIdx>=0)covered=new Set(keys.slice(0,maxIdx+1).map(nrm));
   }
   const res=[];
