@@ -1724,6 +1724,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal){
       d.style.marginLeft='14px';
       prevSame[prevSame.length-1].insertAdjacentElement('afterend',d); // 같은 과목 그룹 바로 아래에 (체인이 뭉쳐 보이게)
     }else wrap.appendChild(d);
+    _ecBoardRender();
     return;
   }
   d.innerHTML=`<span class="sl ${cls}">${label}</span>${bookInput}${unitInput} ${addBtn}<button class="btn-xr" onclick="rmSRowFrom('${wrapperId}','${s}',this)">×</button>`;
@@ -1778,6 +1779,7 @@ function _ecApplyOrder(base,from,to){
     el.style.transition='background .15s';el.style.background='#FEF3C7';
     setTimeout(()=>{el.style.background='';},450);
   });
+  _ecBoardRender();
   return true;
 }
 // ── 교재 순서 드래그 (pointer 이벤트 — 마우스·터치 동일 동작) ──
@@ -1822,6 +1824,7 @@ function _ecDragUp(){
 }
 function rmSRowFrom(wrapperId,s,btn){
   btn.closest('.sr').remove();
+  if(wrapperId==='ec-subj-rows')_ecBoardRender();
   // 같은 wrapperId에 해당 subject 행이 남아있는지 확인 후 chip 비활성화
   const remaining=document.querySelectorAll(`#${wrapperId} .sr[data-s="${s}"]`).length;
   if(remaining>0)return;
@@ -2002,6 +2005,175 @@ function togglePdSing(btn){
     btn.classList.add('active');
     if(input){input.style.display='';setTimeout(()=>input.focus(),0);}
   }
+}
+// ── 요일 배치판 ──
+// 교재별 요일(mat.days)을 행마다 7개 칩으로 켜고 끄면 "화요일엔 무슨 교재를 나가지?"가 한눈에 안 보인다.
+// 요일을 열로 세우고 교재를 칩으로 올려, 끌어서 옮기는 판으로 바꾼다.
+// 이 판은 행의 .pg-day-chip을 그대로 읽고 쓰는 '보기'일 뿐이라 저장 로직(getSMatsFrom)은 손대지 않는다.
+const _EC_DOW=['월','화','수','목','금','토','일'];
+function _ecClassDays(){
+  return [...document.querySelectorAll('#m-edit-class .day-check input:checked')].map(cb=>cb.value)
+    .sort((a,b)=>_EC_DOW.indexOf(a)-_EC_DOW.indexOf(b));
+}
+// 요일을 가진 행(= 각 과목 체인의 첫 교재)만 판에 올린다
+function _ecHeadRows(){
+  return [...document.querySelectorAll('#ec-subj-rows .sr')].filter(r=>r.querySelector('.pg-days'));
+}
+function _ecRowDays(row){
+  return [...row.querySelectorAll('.pg-day-chip.on')].map(x=>x.dataset.d);
+}
+function _ecSetRowDays(row,days){
+  row.querySelectorAll('.pg-day-chip').forEach(ch=>ch.classList.toggle('on',days.indexOf(ch.dataset.d)>=0));
+}
+function _ecRowInfo(row){
+  const base=(row.dataset.s||'').replace(/_\d+$/,'');
+  const sel=row.querySelector('[data-f="book"]');
+  const title=sel?(sel.value||'').trim():'';
+  const chain=_ecChainRows(base).length;
+  return {row,base,title,chain,days:_ecRowDays(row),
+    label:SLBL[base]||base,color:_PG_CAT_COLORS[base]||'#64748B'};
+}
+function _ecBoardRender(){
+  const wrap=document.getElementById('ec-board');if(!wrap)return;
+  const cds=_ecClassDays();
+  const infos=_ecHeadRows().map(_ecRowInfo).filter(x=>x.title);
+  if(!cds.length||!infos.length){
+    wrap.innerHTML=!infos.length?''
+      :`<div class="ec-board-empty">요일을 먼저 고르면 교재를 요일별로 배치할 수 있어요</div>`;
+    return;
+  }
+  const chip=(x,day)=>`<span class="ec-bchip" data-sub="${escAttr(x.base)}" data-day="${escAttr(day||'')}"
+     style="--bc:${x.color}" title="${escAttr(x.title+(x.chain>1?` (체인 ${x.chain}권)`:''))}"
+     onpointerdown="ecBChipDown(event,this)">
+     <b>${escAttr(x.label)}</b><i>${escAttr(x.title)}</i>${x.chain>1?`<u>+${x.chain-1}</u>`:''}
+     <em onpointerdown="event.stopPropagation()" onclick="ecBChipOff(this)" title="이 요일에서 빼기">×</em></span>`;
+  const everyday=infos.filter(x=>!x.days.length);
+  // 수업 없는 요일에만 지정된 교재 — 어느 열에도 안 떠서 손댈 수 없게 되는 걸 막는다
+  // (저장 시 수업 요일과 교집합을 내므로 그대로 두면 '매 수업'으로 풀려 버린다)
+  const orphan=infos.filter(x=>x.days.length&&!x.days.some(d=>cds.indexOf(d)>=0));
+  const cols=cds.map(d=>{
+    const on=infos.filter(x=>x.days.indexOf(d)>=0);
+    const rest=infos.filter(x=>x.days.length&&x.days.indexOf(d)<0&&orphan.indexOf(x)<0);
+    return `<div class="ec-bcol" data-day="${d}">
+      <div class="ec-bcol-h">${d}<span>${on.length+everyday.length}과목</span></div>
+      <div class="ec-bcol-b">${on.map(x=>chip(x,d)).join('')
+        ||`<span class="ec-bnone">${everyday.length?'매 수업 교재만':'비어 있음'}</span>`}</div>
+      ${rest.length?`<select class="ec-badd" onchange="ecBChipAdd(this,'${d}')" title="이 요일에 교재 추가">
+        <option value="">+ 추가</option>${rest.map(x=>`<option value="${escAttr(x.base)}">${escAttr(x.label)} · ${escAttr(x.title)}</option>`).join('')}</select>`:''}
+    </div>`;
+  }).join('');
+  wrap.innerHTML=`<div class="ec-board-head">
+      <span class="ec-board-t">🗓️ 요일별 배치</span>
+      <span class="ec-board-hint">칩을 끌어 다른 요일로 옮기세요</span>
+      <button type="button" class="btn bo bxxs" onclick="ecBoardAuto()" title="어휘·파닉스는 매 수업, 어법·라이팅·내신은 주 첫 수업, 리딩·리스닝은 나머지 수업일에 배치합니다">✨ 자동 배치</button>
+    </div>
+    <div class="ec-bgrid" style="grid-template-columns:repeat(${cds.length},minmax(78px,1fr))">${cols}</div>
+    <div class="ec-blane" data-day="">
+      <span class="ec-blane-h">매 수업</span>
+      <div class="ec-bcol-b">${everyday.map(x=>chip(x,'')).join('')||`<span class="ec-bnone">여기로 끌어오면 수업마다 진행해요</span>`}</div>
+    </div>
+    ${orphan.length?`<div class="ec-blane ec-blane-warn">
+      <span class="ec-blane-h">⚠️ 수업 없는 요일</span>
+      <div class="ec-bcol-b">${orphan.map(x=>chip(x,x.days[0])).join('')}</div>
+      <span class="ec-blane-note">${orphan.map(x=>escAttr((SLBL[x.base]||x.base)+' → '+x.days.join('·'))).join(' / ')} — 수업 요일로 끌어 옮기거나 '매 수업'으로 보내 주세요</span>
+    </div>`:''}`;
+}
+// from 요일의 칩을 to 요일로 옮긴 결과. to=''면 '매 수업'(요일 지정 없음)
+function _ecMoveDays(days,from,to){
+  if(!to)return [];
+  const out=(days||[]).filter(x=>x!==from);
+  if(out.indexOf(to)<0)out.push(to);
+  return _EC_DOW.filter(d=>out.indexOf(d)>=0);
+}
+// 칩 끌어 옮기기 — 터치 공용(pointer), 드롭 대상은 요일 열 또는 '매 수업' 레인
+let _ecBDrag=null;
+function ecBChipDown(ev,chip){
+  if(ev.button&&ev.button!==0)return;
+  ev.preventDefault();
+  const base=chip.dataset.sub,from=chip.dataset.day;
+  _ecBDrag={base,from,chip,moved:false};
+  chip.classList.add('ec-bchip-drag');
+  chip.setPointerCapture&&chip.setPointerCapture(ev.pointerId);
+  document.addEventListener('pointermove',_ecBMove);
+  document.addEventListener('pointerup',_ecBUp,{once:true});
+}
+function _ecBZone(x,y){
+  const el=document.elementFromPoint(x,y);
+  return el?el.closest('.ec-bcol,.ec-blane'):null;
+}
+function _ecBMove(ev){
+  if(!_ecBDrag)return;
+  _ecBDrag.moved=true;
+  document.querySelectorAll('#ec-board .ec-bover').forEach(z=>z.classList.remove('ec-bover'));
+  const z=_ecBZone(ev.clientX,ev.clientY);
+  if(z)z.classList.add('ec-bover');
+  _ecBDrag.to=z?z.dataset.day:null;
+}
+function _ecBUp(ev){
+  document.removeEventListener('pointermove',_ecBMove);
+  const d=_ecBDrag;_ecBDrag=null;
+  document.querySelectorAll('#ec-board .ec-bover').forEach(z=>z.classList.remove('ec-bover'));
+  if(!d)return;
+  d.chip.classList.remove('ec-bchip-drag');
+  if(!d.moved)return;
+  const z=_ecBZone(ev.clientX,ev.clientY);
+  const to=z?(z.dataset.day||''):null;
+  if(to===null||to===d.from)return;
+  const row=_ecHeadRows().find(r=>(r.dataset.s||'').replace(/_\d+$/,'')===d.base);
+  if(!row)return;
+  const days=_ecMoveDays(_ecRowDays(row),d.from,to);
+  _ecSetRowDays(row,days);
+  _ecBoardRender();
+  toast(to?`${SLBL[d.base]||d.base} → ${to}요일 (저장하면 반영)`:`${SLBL[d.base]||d.base} → 매 수업 (저장하면 반영)`);
+}
+function ecBChipOff(btn){
+  const chip=btn.closest('.ec-bchip');if(!chip)return;
+  const base=chip.dataset.sub,day=chip.dataset.day;
+  const row=_ecHeadRows().find(r=>(r.dataset.s||'').replace(/_\d+$/,'')===base);
+  if(!row)return;
+  if(!day){toast('매 수업 교재예요 — 요일 열로 끌어 옮겨 주세요');return;}
+  const days=_ecRowDays(row).filter(x=>x!==day);
+  _ecSetRowDays(row,days);
+  _ecBoardRender();
+  toast(days.length?`${day}요일에서 뺐어요`:`${SLBL[base]||base}는 매 수업으로 바뀌었어요`);
+}
+function ecBChipAdd(sel,day){
+  const base=sel.value;if(!base)return;
+  const row=_ecHeadRows().find(r=>(r.dataset.s||'').replace(/_\d+$/,'')===base);
+  if(!row){sel.value='';return;}
+  const days=_ecRowDays(row);
+  if(days.indexOf(day)<0)days.push(day);
+  _ecSetRowDays(row,days);
+  _ecBoardRender();
+  toast(`${day}요일에 ${SLBL[base]||base} 추가`);
+}
+// 자동 배치 — 지금까지 쓰던 운영 방식을 기본값으로:
+//   어휘·파닉스 = 매 수업 (수업 없는 날 숙제로도 나감)
+//   어법·라이팅·내신 = 주 첫 수업 (호흡이 긴 과목을 한 날에 모음)
+//   리딩·리스닝 = 나머지 수업일 전부 (같은 날 함께 — 진도량을 줄이지 않는다)
+const _EC_EVERY=['vocab','phonics'];
+const _EC_FIRST=['grammar','writing','naesin'];
+// bases(과목 순서) × cds(수업 요일) → 과목별 요일 배정
+function _ecAutoPlan(bases,cds){
+  const plan={};
+  if(!cds.length)return plan;
+  const rest=cds.length>1?cds.slice(1):cds;
+  bases.forEach(b=>{
+    if(_EC_EVERY.indexOf(b)>=0)plan[b]=[];
+    else if(_EC_FIRST.indexOf(b)>=0)plan[b]=[cds[0]];
+    else plan[b]=rest.slice();
+  });
+  return plan;
+}
+function ecBoardAuto(){
+  const cds=_ecClassDays();
+  if(!cds.length){toast('요일을 먼저 골라 주세요');return;}
+  const infos=_ecHeadRows().map(_ecRowInfo).filter(x=>x.title);
+  if(!infos.length){toast('교재를 먼저 선택해 주세요');return;}
+  const plan=_ecAutoPlan(infos.map(x=>x.base),cds);
+  infos.forEach(x=>_ecSetRowDays(x.row,plan[x.base]||[]));
+  _ecBoardRender();
+  toast('자동 배치했어요 — 칩을 끌어 조정하고 저장하세요');
 }
 function getSMatsFrom(wrapperId){
   const r={};const counts={};
@@ -12425,6 +12597,7 @@ function ecTogSubj(el){
     if(s==='naesin'){addSRowTo('ec-subj-rows',s);return;}
     ecSubjs.delete(s);el.classList.remove('active');document.querySelectorAll('#ec-subj-rows .sr').forEach(r=>{if((r.dataset.s||'').replace(/_\d+$/,'')===s)r.remove();});
   }else{ecSubjs.add(s);el.classList.add('active');addSRowTo('ec-subj-rows',s);}
+  _ecBoardRender();
 }
 // 다음 원서 제안 칩 → 그 학생 행의 빈 원서 칸에 채움
 function clFillNextBook(btn,title){
@@ -12541,6 +12714,7 @@ function ecToggleDayTimes(){
   if(on)ecSyncDayTimes();
 }
 function ecSyncDayTimes(){
+  _ecBoardRender();   // 요일이 바뀌면 배치판의 열도 바뀐다
   const toggle=document.getElementById('ec-daytime-toggle');
   const wrap=document.getElementById('ec-daytimes');
   if(!toggle||!toggle.checked||!wrap)return;
@@ -12613,6 +12787,12 @@ function openEditClass(id=null){
   ecRenderTags();
   document.getElementById('ec-stu-search').value='';
   document.getElementById('ec-stu-dropdown').style.display='none';
+  const _ecRows=document.getElementById('ec-subj-rows');
+  if(_ecRows&&!_ecRows.dataset.boardBound){
+    _ecRows.dataset.boardBound='1';
+    _ecRows.addEventListener('change',e=>{if(e.target.matches('[data-f="book"]'))_ecBoardRender();});
+  }
+  _ecBoardRender();
   openM('m-edit-class');
 }
 // 클래스5 책 드롭다운 채우기 (교재 DB 전체, 단원 있는 교재)
@@ -12667,11 +12847,21 @@ async function saveClass(){
   const existingId=document.getElementById('ec-id').value;
   const id=existingId||uid();
   const existing=DB.classes().find(x=>x.id===id);
-  const commonMaterials=_ecRestoreFinished(getSMatsFrom('ec-subj-rows'));
-  // 체인 후속 교재(listening_2 등)는 첫 교재의 진행 요일 상속 (후속 행엔 요일 UI가 없음)
+  const _ecForm=getSMatsFrom('ec-subj-rows');
+  // 요일은 과목 단위로 통일한다 — 요일 배치판에서 정한 값(비었으면 '매 수업')을 그 과목 체인 전체에 적용.
+  // 교재마다 요일이 따로 붙어 있으면 앞 책이 완강돼 목록에서 숨겨질 때 요일이 끊겨
+  // 다음 책이 슬그머니 '매 수업'으로 풀린다. 체인 전체에 같은 값을 써서 그 틈을 없앤다.
+  const _ecFormDays={};
+  Object.keys(_ecForm).forEach(k=>{
+    const b=k.replace(/_\d+$/,'');
+    if(!(b in _ecFormDays))_ecFormDays[b]=_ecForm[k].days||[];   // 폼 순서상 과목의 첫 행 = 요일 UI를 가진 행
+  });
+  const commonMaterials=_ecRestoreFinished(_ecForm);
   Object.keys(commonMaterials).forEach(k=>{
-    const m2=/^(.*)_\d+$/.exec(k);
-    if(m2&&!commonMaterials[k].days&&commonMaterials[m2[1]]&&commonMaterials[m2[1]].days)commonMaterials[k].days=commonMaterials[m2[1]].days;
+    const b=k.replace(/_\d+$/,'');
+    if(!(b in _ecFormDays))return;                               // 전부 완강돼 폼에 없던 과목은 손대지 않는다
+    const dv=_ecFormDays[b];
+    if(dv.length)commonMaterials[k].days=[...dv];else delete commonMaterials[k].days;
   });
   // 폼에 UI가 없는 교재 옵션은 같은 책의 기존 값을 보존 — 클래스 수정이 지우지 않게
   // weekly=주1회 진도 요일, alt=교대(병행) 트랙명. 새 옵션을 만들면 여기에 추가할 것
