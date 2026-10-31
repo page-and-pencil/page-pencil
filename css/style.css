@@ -1391,3 +1391,58 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
   .pg-cell:hover{transform:none;box-shadow:none;}
   .pg-chip{padding:1.5px 4px;}
 }
+
+/* ── 동시 진행 줄 (같은 영역 안에서 교재가 함께 돌아갈 때) ── */
+.sr-c3{display:flex;align-items:center;gap:6px;min-width:0;}
+#m-edit-class .sr-run{font-size:12.5px;padding:6px 8px;background:#fff;color:var(--slate);border-radius:8px;min-width:0;max-width:150px;}
+#m-edit-class .sr-run.on{border-color:var(--purple);color:var(--purple);font-weight:700;background:var(--pl);}
+#m-edit-class .sr.sr-par{border-left:3px solid var(--purple);background:#F7FBFD;}
+
+/* ── 영역별 진도 보드 ── */
+.tb-card{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:11px 13px;margin-bottom:12px;}
+.tb-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;cursor:pointer;list-style:none;}
+.tb-head::-webkit-details-marker{display:none;}
+.tb-head::after{content:'▾';font-size:10px;color:var(--slate);margin-left:auto;transition:transform .18s;}
+.tb-card[open] .tb-head::after{transform:rotate(180deg);}
+.tb-t{font-size:14px;font-weight:800;color:var(--navy);}
+.tb-hint{font-size:11px;color:var(--slate);}
+.tb-body{display:flex;flex-direction:column;gap:5px;margin-top:9px;}
+.tb-row{display:grid;grid-template-columns:86px 1fr;gap:9px;align-items:start;}
+.tb-subj{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--navy);padding-top:5px;}
+.tb-subj i{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.tb-subj b{font-size:9.5px;font-weight:700;color:var(--purple);background:var(--pl);border-radius:7px;padding:1px 5px;}
+.tb-tracks{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.tb-track{display:grid;grid-template-columns:40px minmax(90px,1.5fr) 1fr 54px 54px 1.2fr;gap:8px;align-items:center;
+  background:var(--cream3);border:1px solid var(--border);border-radius:9px;padding:5px 9px;font-size:11.5px;min-width:0;}
+.tb-mode{font-size:9.5px;font-weight:800;text-align:center;border-radius:7px;padding:2px 0;}
+.tb-mode.cls{background:var(--tl);color:var(--purple);}
+.tb-mode.hw{background:#FEF0D5;color:#B45309;}
+.tb-mode.alt{background:#EDE9FE;color:#5B21B6;}
+.tb-book{font-weight:700;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.tb-bar{height:7px;border-radius:5px;background:#E6EDF2;overflow:hidden;min-width:0;}
+.tb-bar i{display:block;height:100%;border-radius:5px;}
+.tb-num{font-weight:800;color:var(--navy);text-align:right;white-space:nowrap;}
+.tb-num em{font-style:normal;font-weight:600;color:var(--slate);}
+.tb-eta{color:var(--slate);white-space:nowrap;text-align:right;}
+.tb-next{color:var(--slate);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+@media(max-width:700px){
+  .tb-row{grid-template-columns:1fr;gap:3px;}
+  .tb-subj{padding-top:0;}
+  .tb-track{grid-template-columns:40px 1fr 50px;gap:6px 8px;}
+  .tb-bar{grid-column:2/4;}
+  .tb-eta{grid-column:1/3;text-align:left;}
+  .tb-next{grid-column:1/4;}
+  .tb-hint{display:none;}
+}
+.tb-end{color:#B45309;}
+.tb-row-warn .tb-subj{color:#92400E;}
+.tb-mode.warn{background:#FEF3C7;color:#92400E;}
+.tb-miss{display:grid;grid-template-columns:40px minmax(90px,1.4fr) 54px 1fr auto;gap:8px;align-items:center;
+  background:#FFFBEB;border:1px solid #F59E0B;border-radius:9px;padding:5px 9px;font-size:11.5px;min-width:0;}
+.tb-missact{display:flex;gap:4px;flex-shrink:0;}
+.tb-missnote{font-size:10.5px;color:#92400E;line-height:1.55;padding:1px 3px;}
+@media(max-width:700px){
+  .tb-miss{grid-template-columns:40px 1fr 54px;gap:6px 8px;}
+  .tb-miss .tb-eta{grid-column:1/4;text-align:left;}
+  .tb-missact{grid-column:1/4;}
+}
