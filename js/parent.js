@@ -465,8 +465,8 @@ async function loadParent(sid){
   secMsg=`<div class="card"><div class="cb" style="padding:22px 18px;text-align:center">
       <div style="font-size:34px;margin-bottom:10px">💬</div>
       <div style="font-size:16px;font-weight:800;color:var(--navy);margin-bottom:6px">선생님께 문의하기</div>
-      <div style="font-size:13.5px;color:var(--slate);line-height:1.7;margin-bottom:18px">수업·과제·결제 등 궁금한 점이 있으면<br>카카오톡으로 편하게 물어보세요.</div>
-      <button onclick="openParentMsgModal('${sid}')" style="width:100%;padding:13px;background:#FEE500;border:none;border-radius:12px;font-family:var(--fb);font-size:15px;font-weight:800;cursor:pointer;color:#3C1E1E">💬 카카오톡으로 질문하기</button>
+      <div style="font-size:13.5px;color:var(--slate);line-height:1.7;margin-bottom:18px">${(DB.kakao().openchat||DB.kakao().phone)?"수업·과제·결제 등 궁금한 점이 있으면<br>카카오톡으로 편하게 물어보세요.":"카카오톡 문의가 아직 준비되지 않았습니다.<br>선생님에게 연락처를 확인해 주세요."}</div>
+      ${(DB.kakao().openchat||DB.kakao().phone)?`<button onclick="openParentMsgModal('${sid}')" style="width:100%;padding:13px;background:#FEE500;border:none;border-radius:12px;font-family:var(--fb);font-size:15px;font-weight:800;cursor:pointer;color:#3C1E1E">💬 카카오톡으로 질문하기</button>`:""}
     </div></div>`;
 
   // 점수 탭 빈 상태
