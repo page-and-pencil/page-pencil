@@ -10426,7 +10426,8 @@ function renderNoticeBoard(){
   const lbl=document.getElementById('notice-count-lbl');
   if(lbl)lbl.textContent=`총 ${notices.length}건 · 활성 ${notices.filter(n=>n.active).length}건`;
   if(!notices.length){el.innerHTML='<div style="color:var(--slate);font-size:13px;padding:8px 0">등록된 공지가 없습니다</div>';return;}
-  el.innerHTML=notices.map(n=>{
+  // 게시 중 공지만 펼치고 지난 공지는 접어 둔다 — 대시보드가 공지 전체 목록으로 길어지던 문제
+  const _item=n=>{
     const readBy=n.readBy||[];
     const readCount=readBy.length;
     const unreadStus=DB.stus().filter(s=>!s.inactive&&!readBy.some(r=>r.sid===s.id));
@@ -10447,7 +10448,10 @@ function renderNoticeBoard(){
         <button class="btn bd bsm" style="font-size:12px" onclick="deleteNotice('${n.id}')">삭제</button>
       </div>
     </div>`;
-  }).join('');
+  };
+  const _act=notices.filter(n=>n.active),_past=notices.filter(n=>!n.active);
+  el.innerHTML=(_act.length?_act.map(_item).join(''):'<div style="color:var(--slate);font-size:13px;padding:8px 0">게시 중인 공지가 없습니다</div>')
+    +(_past.length?`<details style="margin-top:8px"><summary style="font-size:12.5px;color:var(--slate);cursor:pointer;padding:4px 0">지난 공지 ${_past.length}건 보기 ▾</summary>${_past.map(_item).join('')}</details>`:'');
 }
 
 // ── MESSAGES ──
