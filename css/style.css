@@ -1292,3 +1292,38 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .sr.sr-dragging{opacity:.5;}
 .sr.sr-drop-before{box-shadow:inset 0 3px 0 0 #0B8DAE;}
 .sr.sr-drop-after{box-shadow:inset 0 -3px 0 0 #0B8DAE;}
+
+/* ── 클래스 수정: 요일별 배치판 ── */
+/* 교재별 요일은 이 판에서만 다룬다 — 행의 7칩은 저장 입력값으로만 남겨 숨긴다 */
+#ec-subj-rows .pg-days{display:none;}
+.ec-board{border:1.5px solid var(--border);border-radius:12px;background:var(--cream);padding:9px 10px 10px;margin:2px 0 9px;}
+.ec-board:empty{display:none;}
+.ec-board-empty{font-size:12px;color:var(--slate);padding:2px;}
+.ec-board-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:8px;}
+.ec-board-t{font-size:13px;font-weight:800;color:var(--navy);}
+.ec-board-hint{font-size:11px;color:var(--slate);flex:1;min-width:90px;}
+.ec-bgrid{display:grid;gap:6px;overflow-x:auto;padding-bottom:2px;}
+.ec-bcol{border:1px solid var(--border);border-radius:9px;background:#fff;display:flex;flex-direction:column;min-width:0;}
+.ec-bcol-h{font-size:11.5px;font-weight:800;color:var(--navy);text-align:center;padding:4px 2px 3px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;line-height:1.25;}
+.ec-bcol-h span{font-size:9.5px;font-weight:600;color:var(--slate);}
+.ec-bcol-b{display:flex;flex-direction:column;gap:4px;padding:5px 4px;min-height:46px;}
+.ec-bnone{font-size:10px;color:#A8B3BF;text-align:center;padding:6px 2px;line-height:1.4;}
+.ec-badd{margin:0 4px 5px;font-size:10.5px;padding:3px 4px;border:1px dashed var(--border);border-radius:7px;background:var(--cream);color:var(--slate);font-family:var(--fb);cursor:pointer;min-width:0;}
+.ec-bchip{display:block;position:relative;border-left:3px solid var(--bc);background:#F8FAFC;border-radius:6px;padding:4px 16px 4px 6px;cursor:grab;user-select:none;touch-action:none;line-height:1.3;}
+.ec-bchip b{display:block;font-size:10px;font-weight:800;color:var(--bc);}
+.ec-bchip i{display:block;font-size:10px;font-style:normal;color:var(--navy);font-weight:600;word-break:break-word;}
+.ec-bchip u{font-size:9px;text-decoration:none;color:var(--slate);}
+.ec-bchip em{position:absolute;top:2px;right:3px;font-style:normal;font-size:12px;color:#9AA7B4;cursor:pointer;line-height:1;padding:1px 2px;}
+.ec-bchip em:hover{color:var(--rose,#E11D48);}
+.ec-bchip-drag{opacity:.45;}
+.ec-blane{display:flex;align-items:stretch;gap:6px;margin-top:6px;border:1px dashed var(--border);border-radius:9px;background:#fff;padding:4px 5px;}
+.ec-blane-h{font-size:11px;font-weight:800;color:var(--navy);align-self:center;white-space:nowrap;padding:0 3px;}
+.ec-blane .ec-bcol-b{flex:1;flex-direction:row;flex-wrap:wrap;min-height:34px;padding:2px;}
+.ec-blane .ec-bchip{min-width:96px;}
+.ec-bover{outline:2px solid var(--teal);outline-offset:1px;background:#EFFBF8;}
+@media(max-width:420px){
+  .ec-board-hint{display:none;}
+  .ec-bchip i{font-size:9.5px;}
+}
+.ec-blane-warn{border-color:#F59E0B;background:#FFFBEB;flex-wrap:wrap;}
+.ec-blane-note{font-size:10px;color:#92400E;flex-basis:100%;line-height:1.5;padding:1px 3px 0;}
