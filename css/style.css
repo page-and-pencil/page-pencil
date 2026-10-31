@@ -1327,3 +1327,67 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 }
 .ec-blane-warn{border-color:#F59E0B;background:#FFFBEB;flex-wrap:wrap;}
 .ec-blane-note{font-size:10px;color:#92400E;flex-basis:100%;line-height:1.5;padding:1px 3px 0;}
+
+/* ── 범례 + 접히는 사용법 ── */
+/* 캘린더 밑 한 줄 설명은 색칩 범례만 남기고, 조작법은 접어둔다 */
+.pp-key{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:9px;font-size:11px;color:var(--slate);}
+.pp-key-i{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
+.pp-key-sp{flex:1;min-width:0;}
+.pp-key-d{font-weight:700;color:var(--navy);white-space:nowrap;}
+.pp-sw{width:14px;height:9px;border-radius:3px;display:inline-block;flex-shrink:0;}
+.pp-sw.rec{background:var(--navy);}
+.pp-sw.gho{border:1.5px dashed var(--teal);background:var(--tl);}
+.pp-sw.om{background:#F6F8FA;border:1px solid var(--border);}
+.pp-sw.cd{background:#fff;border:1px solid var(--border);}
+.pp-help{margin-top:6px;}
+.pp-help-s{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--slate);cursor:pointer;list-style:none;padding:3px 9px;border:1px solid var(--border);border-radius:50px;background:var(--cream2);transition:background .14s,color .14s;}
+.pp-help-s::-webkit-details-marker{display:none;}
+.pp-help-s::before{content:'ⓘ';font-weight:400;}
+.pp-help-s::after{content:'▾';font-size:9px;transition:transform .18s;}
+.pp-help[open] .pp-help-s::after{transform:rotate(180deg);}
+.pp-help-s:hover{background:var(--tl);color:var(--purple);}
+.pp-help-b{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:3px 14px;margin-top:7px;padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--cream3);}
+.pp-help-r{display:grid;grid-template-columns:20px auto 1fr;align-items:baseline;gap:6px;font-size:11.5px;line-height:1.65;}
+.pp-help-r i{font-style:normal;text-align:center;}
+.pp-help-r b{font-weight:700;color:var(--navy);white-space:nowrap;}
+.pp-help-r em{font-style:normal;color:var(--slate);}
+@media(max-width:420px){
+  .pp-help-b{grid-template-columns:1fr;}
+  .pp-help-r{grid-template-columns:18px 1fr;}
+  .pp-help-r em{grid-column:2;}
+  .pp-key-d{display:none;}
+}
+/* 순서 설명을 문장 대신 흐름 칩으로 */
+.pp-flow{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:7px;cursor:help;}
+.pp-flow span{font-size:10.5px;font-weight:700;color:var(--slate);background:var(--cream2);border-radius:50px;padding:2px 8px;white-space:nowrap;}
+.pp-flow span+span::before{content:'→';color:#B6C2CC;font-weight:400;margin-right:5px;}
+/* 한 줄 보조 설명 — 자세한 내용은 title로 */
+.pp-note{font-size:12px;color:var(--slate);line-height:1.6;margin:2px 0 7px;cursor:help;border-left:2px solid var(--border);padding-left:8px;}
+
+/* ── 시원시원·인터랙티브 보정 (진도/숙제 캘린더) ── */
+/* 칸이 빽빽해 칩이 뭉개져 보였다 — 여백을 늘리고 손이 닿는 요소마다 반응을 준다 */
+.pg-cal-card{padding:14px;border-radius:14px;}
+.pg-cal-grid{gap:5px;}
+.pg-cell{min-height:62px;padding:4px;gap:3px;border-radius:8px;transition:border-color .14s,box-shadow .14s,transform .14s;}
+.pg-cell:hover{box-shadow:0 2px 9px rgba(15,48,74,.1);transform:translateY(-1px);}
+.pg-cell.om:hover{transform:none;}
+.pg-chip{padding:2.5px 5px;border-radius:6px;transition:transform .12s,box-shadow .12s,filter .12s;}
+.pg-chip.ghost:hover{transform:translateY(-1px);box-shadow:0 2px 7px rgba(15,48,74,.14);}
+.pg-chip.rec:hover{filter:brightness(1.09);}
+.pg-lg{max-width:170px;}
+.chip:hover{transform:translateY(-1px);}
+.ec-bchip:hover{box-shadow:0 2px 8px rgba(15,48,74,.11);}
+.ec-bchip{transition:box-shadow .12s,opacity .12s;}
+/* 모션을 줄이도록 설정한 기기에서는 전환 효과를 끈다 */
+@media(prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important;}
+  .pg-cell:hover,.pg-chip.ghost:hover,.chip:hover{transform:none;}
+}
+/* 좁은 화면에서는 늘린 여백을 되돌려 칸 너비를 지킨다 (320px에서 칸이 얇아지지 않게) */
+@media(max-width:480px){
+  .pg-cal-card{padding:9px;border-radius:12px;}
+  .pg-cal-grid{gap:3px;}
+  .pg-cell{min-height:56px;padding:3px;gap:2px;border-radius:6px;}
+  .pg-cell:hover{transform:none;box-shadow:none;}
+  .pg-chip{padding:1.5px 4px;}
+}

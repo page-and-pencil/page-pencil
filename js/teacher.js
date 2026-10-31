@@ -671,7 +671,9 @@ function renderSpVocab(sid){
         const w=_WHY[_pick.why[c.id]]||_WHY.ahead;
         return `<span title="${escAttr((c.meaning||'뜻 없음')+' — '+w.l+(c.due?' · 복습 예정 '+c.due:''))}" style="font-size:12px;font-weight:700;color:var(--navy);background:${w.bg};border:1px solid ${w.c}33;border-left:3px solid ${w.c};border-radius:6px;padding:2px 7px;font-family:var(--fd)">${escAttr(c.word)}</span>`;
       }).join('')}</div>
-      <div style="font-size:10.5px;color:var(--slate);margin-top:6px">순서: 📖 직전 수업 단어(최대 10) → ⏰ 복습 기한 지난 단어(에빙하우스 1·2·4·7·15·30·60일 간격) → ✨ 새 단어 → ⏳ 선행 · 단어에 마우스를 올리면 뜻</div>`
+      <div class="pp-flow" title="직전 수업 단어 최대 10개 → 복습 기한이 지난 단어(에빙하우스 1·2·4·7·15·30·60일 간격) → 새 단어 → 선행 순으로 채웁니다. 단어에 마우스를 올리면 뜻이 보입니다">
+        <span>📖 직전 수업</span><span>⏰ 복습 기한</span><span>✨ 새 단어</span><span>⏳ 선행</span>
+      </div>`
       :`<div style="font-size:12.5px;color:var(--slate)">오늘 학습할 단어가 없습니다${_pick.doneToday?' — 오늘 몫을 모두 마쳤어요':''}</div>`}
     </div>`;
   const selSt='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;background:var(--cream2);outline:none';
@@ -2006,6 +2008,17 @@ function togglePdSing(btn){
     if(input){input.style.display='';setTimeout(()=>input.focus(),0);}
   }
 }
+// ── 접히는 사용법 ──
+// 캘린더 밑에 한 줄로 늘어놓던 조작 설명(최대 272자)은 읽히지 않고 화면만 눌렀다.
+// 범례는 색칩으로 남기고, 조작법은 접어두되 펼치면 '동작 → 결과' 표로 보이게 한다.
+function _ppHelp(title,rows){
+  return `<details class="pp-help">
+    <summary class="pp-help-s">사용법 ${rows.length}가지</summary>
+    <div class="pp-help-b">${rows.map(r=>`<span class="pp-help-r">
+      <i>${r[0]}</i><b>${escAttr(r[1])}</b><em>${escAttr(r[2])}</em></span>`).join('')}</div>
+  </details>`;
+}
+
 // ── 요일 배치판 ──
 // 교재별 요일(mat.days)을 행마다 7개 칩으로 켜고 끄면 "화요일엔 무슨 교재를 나가지?"가 한눈에 안 보인다.
 // 요일을 열로 세우고 교재를 칩으로 올려, 끌어서 옮기는 판으로 바꾼다.
@@ -9125,7 +9138,12 @@ function renderAssignCal(){
     </div>
     ${autoFin?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;border:1.5px dashed var(--teal);border-radius:var(--rs);padding:8px 10px;margin-bottom:8px;font-size:13px;color:var(--navy)">📚 <b>${escAttr(autoFin.bookTitle)}</b> 단원을 전부 끝냈어요! 다음 교재를 고르면 같은 방식(못 한 날 자동 밀림)으로 이어서 할당됩니다. <button class="btn bt bxxs" onclick="openRecurNext('${sid}')">다음 교재 선택</button></div>`:''}
     <div class="pg-cal-grid">${_PG_DOW.map(x=>`<div class="pg-cal-dow">${x}</div>`).join('')}${cells}</div>
-    <div class="pg-cal-hint">진한 칩=할당된 과제 · <b>✓ 점=이미 제출한 반복 숙제</b>(마우스를 올리면 내용·출처) · 점선=수업 연계 제안(클릭=할당) · 흰 칸=수업일 · 날짜 클릭=그 날 상세</div>`;
+    ${_ppHelp('숙제 캘린더 사용법',[
+      ['🎨','진한 칩 / 점선 칩','할당된 과제 / 아직 할당 전 제안'],
+      ['✓','칩의 ✓ 점','이미 제출한 반복 숙제 (올리면 내용·출처)'],
+      ['👆','점선 칩 클릭','제안을 그대로 할당'],
+      ['🗓','날짜 클릭 / 흰 칸','그 날 과제 상세 / 수업일'],
+    ])}`;
 }
 function assignCalMonth(dir){
   _assignCalOffset+=dir;
@@ -11738,7 +11756,23 @@ function _pgCalHtml(classId){
       <span style="flex:1"></span>${legend}
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
-    <div class="pg-cal-hint">진한 칩=기록 · 점선 칩=예정 — 드래그로 진도 이동 <b>(◀▶에 올린 채 머물면 달이 넘어가 다른 달로도 이동)</b> · 흐린 칸=이어지는 옆 달 날짜(칩 조정 그대로 가능) · <b>예정 칩을 오늘·지난 날짜에 놓으면 그날 수업으로 기록</b> · <b>오늘 점선 칩 더블클릭=수업 기록 확정</b> · 칩을 한 번 탭 → 날짜 탭으로도 이동(달 넘겨도 유지) · 빈 수업일 클릭 → 수업 기록 / 예정 편집 / 🚫 수업 안 함 · <b>빈 칸을 드래그하면 기간 휴강·방학</b> · <b>숙제·클래스5는 과제 메뉴의 숙제 캘린더에서</b></div>
+    <div class="pp-key">
+      <span class="pp-key-i"><i class="pp-sw rec"></i>기록</span>
+      <span class="pp-key-i"><i class="pp-sw gho"></i>예정</span>
+      <span class="pp-key-i"><i class="pp-sw om"></i>옆 달</span>
+      <span class="pp-key-sp"></span>
+      <span class="pp-key-d">칩을 끌어 진도 이동</span>
+    </div>
+    ${_ppHelp('진도 캘린더 사용법',[
+      ['🖐','칩 드래그','진도를 다른 날로 이동'],
+      ['◀▶','드래그 중 올려두기','달을 넘겨 다른 달로도 이동'],
+      ['👆','칩 한 번 탭 → 날짜 탭','달을 넘겨도 유지되는 이동'],
+      ['✅','예정 칩을 오늘·지난 날에','그날 수업으로 기록'],
+      ['⚡','오늘 예정 칩 더블클릭','수업 기록 바로 확정'],
+      ['🗓','빈 수업일 클릭','수업 기록 · 예정 편집 · 수업 안 함'],
+      ['🏖','빈 칸 드래그','기간 휴강·방학 한 번에'],
+      ['📘','숙제·클래스5','과제 메뉴의 숙제 캘린더에서'],
+    ])}
   </div>`;
 }
 function pgDragStart(ev,classId,tbId,unit,s){

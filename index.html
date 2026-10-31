@@ -18,7 +18,7 @@
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20261031c">
+<link rel="stylesheet" href="css/style.css?v=20261031d">
 </head>
 <body>
 
@@ -1322,7 +1322,7 @@
       </div>
       <div class="f s2">
         <label>공통 교재 진도 <span style="font-size:12px;color:var(--slate);font-weight:400">(수업 기록 시 자동 입력됨)</span></label>
-        <div style="font-size:12px;color:var(--slate);line-height:1.6;margin:2px 0 6px">과목마다 <b>+ 다음 교재</b>로 커리큘럼(교재 순서)을 쭉 등록해두면, 앞 책이 끝날 때 다음 책이 자동으로 이어지고 예정 캘린더가 끝까지 채워져요.</div>
+        <div class="pp-note" title="과목마다 '+ 다음 교재'로 커리큘럼(교재 순서)을 쭉 등록해두면, 앞 책이 끝날 때 다음 책이 자동으로 이어지고 예정 캘린더가 끝까지 채워집니다">과목마다 <b>+ 다음 교재</b>로 쭉 등록하면 끝날 때마다 자동으로 이어져요</div>
         <div class="chips" id="ec-subj-chips">
           <button class="chip" data-s="phonics" onclick="ecTogSubj(this)">파닉스</button>
           <button class="chip" data-s="vocab" onclick="ecTogSubj(this)">어휘</button>
@@ -1361,7 +1361,7 @@
           <input type="checkbox" id="ec-autohw" checked style="width:16px;height:16px;cursor:pointer">
           수업 연계 숙제 자동 제안 사용
         </label>
-        <div style="font-size:12px;color:var(--slate);margin-top:3px;line-height:1.6">끄면 수업 기록 폼의 숙제 자동 채움과 숙제 캘린더의 📕 복습 제안이 나오지 않아요 — 반복·클래스5 숙제는 그대로 유지됩니다</div>
+        <div style="font-size:12px;color:var(--slate);margin-top:3px;line-height:1.6">끄면 숙제 자동 채움과 📕 복습 제안이 멈춰요 (반복·클래스5 숙제는 유지)</div>
       </div>
       <div class="f s2">
         <label>소속 학생</label>
@@ -2020,7 +2020,7 @@
         <input type="text" id="bkle-add-unit" placeholder="진도 (예: Unit 3)" style="flex:1;min-width:120px">
         <button class="btn bt bsm" onclick="bkleAdd()">＋ 추가</button>
       </div>
-      <div style="font-size:10.5px;color:var(--slate);margin-top:6px;line-height:1.5">해당 날짜에 수업 기록이 있으면 그 기록에 진도가 붙고, 없으면 새 수업 기록이 만들어집니다. 수업 날짜·코멘트 수정은 수업 기록 탭에서 해주세요.</div>
+      <div class="pp-note" style="font-size:10.5px;margin-top:6px" title="해당 날짜에 수업 기록이 있으면 그 기록에 진도가 붙고, 없으면 새 수업 기록이 만들어집니다. 수업 날짜·코멘트 수정은 수업 기록 탭에서 해주세요">기록이 있으면 거기에 붙고, 없으면 새로 만들어져요 <span style="opacity:.6">(날짜·코멘트는 수업 기록 탭에서)</span></div>
     </div>
     <div style="display:flex;margin-top:12px"><button class="btn bo" style="flex:1" onclick="closeM('m-book-lessons')">닫기</button></div>
   </div>
@@ -2073,7 +2073,7 @@
       <datalist id="dl-pg-plan-unit"></datalist>
       <input type="text" id="pg-plan-unit" list="dl-pg-plan-unit" autocomplete="off" placeholder="교재를 먼저 선택하세요">
     </div>
-    <div class="ib ibt" style="font-size:12px;margin-bottom:10px">완료 기록이 아니라 <b>예정(점선)</b>으로 저장돼요. 이 날 이 단원부터 시작해 다음 수업일마다 자동으로 이어지고, 클래스 공통 교재에 없던 교재면 함께 등록됩니다.</div>
+    <div class="ib ibt" style="font-size:12px;margin-bottom:10px" title="이 날 이 단원부터 시작해 다음 수업일마다 자동으로 이어지고, 클래스 공통 교재에 없던 교재면 함께 등록됩니다">완료가 아니라 <b>예정(점선)</b>으로 저장돼요 — 다음 수업일마다 자동으로 이어집니다</div>
     <button class="btn bt" style="width:100%;justify-content:center" onclick="pgPlanSave()">예정으로 추가</button>
   </div>
 </div>
@@ -2140,7 +2140,7 @@
 <script src="js/utils.js?v=20261031a"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20260727l"></script>
-<script src="js/teacher.js?v=20261031d"></script>
+<script src="js/teacher.js?v=20261031e"></script>
 <script src="js/student.js?v=20261031a"></script>
 <script src="js/parent.js?v=20261031a"></script>
 </body>
