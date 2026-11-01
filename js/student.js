@@ -960,16 +960,35 @@ function stopAllStudentMedia(){
   stopSpeak(); // 통합 정지: TTS + ElevenLabs 오디오 + WebAudio 구간 재생 + 진행 중 생성 취소
   document.querySelectorAll('audio').forEach(a=>{try{a.pause();}catch(e){}});
 }
+const STU_TAB_ORDER=['st-home','st-vocab','st-library'];
 function swStuTab(id){
   stopAllStudentMedia();
-  document.querySelectorAll('.stutab[data-tab]').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
-  document.querySelectorAll('#s-student .panel').forEach(p=>{
-    if(['st-home','st-vocab','st-library'].includes(p.id))p.classList.toggle('active',p.id===id);
-    else p.classList.remove('active');
-  });
-  if(id==='st-home')renderStudentHome(currentStudentSid);
-  if(id==='st-vocab')renderVocabDeck(currentStudentSid);
-  if(id==='st-library')renderStudentLibrary(currentStudentSid);
+  const swap=()=>{
+    document.querySelectorAll('.stutab[data-tab]').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
+    document.querySelectorAll('#s-student .panel').forEach(p=>{
+      if(STU_TAB_ORDER.includes(p.id))p.classList.toggle('active',p.id===id);
+      else p.classList.remove('active');
+    });
+    if(id==='st-home')renderStudentHome(currentStudentSid);
+    if(id==='st-vocab')renderVocabDeck(currentStudentSid);
+    if(id==='st-library')renderStudentLibrary(currentStudentSid);
+    window.scrollTo(0,0);
+  };
+  // 탭 순서에 맞춰 좌우로 미끄러지게 — 어느 쪽으로 움직였는지 몸으로 알 수 있다.
+  // 미지원 브라우저나 모션 최소화 설정에서는 그냥 즉시 바뀐다.
+  const cur=document.querySelector('#s-student .panel.active');
+  const from=STU_TAB_ORDER.indexOf(cur?cur.id:''),to=STU_TAB_ORDER.indexOf(id);
+  const reduce=typeof _ppReduceMotion==='function'&&_ppReduceMotion();
+  if(from>=0&&to>=0&&from!==to&&!reduce&&typeof document.startViewTransition==='function'){
+    const root=document.documentElement;
+    root.dataset.ppDir=to>from?'fwd':'back';
+    try{
+      const t=document.startViewTransition(swap);
+      t.finished.then(()=>{delete root.dataset.ppDir;},()=>{delete root.dataset.ppDir;});
+      return;
+    }catch(e){delete root.dataset.ppDir;}
+  }
+  swap();
 }
 
 // ── VOCAB DECK (레벨별: 초급=암기 / 중급=암기+리콜 / 고급=암기(영어)+리콜) ──
@@ -2792,6 +2811,7 @@ function renderStudentHome(sid){
     });
   }
   setTimeout(()=>_vocabHwAutoCheck(sid).catch(()=>{}),400); // 이미 20개 채웠는데 미체크면 보정 (다른 기기 학습 등)
+  if(typeof ppRevealScan==='function')ppRevealScan('#stu-hw-card .hw-check-card'); // 퀘스트 카드가 차례로 올라오게
 }
 function handleHomeAsgnAudio(e,asgnId,sid){
   const f=e.target.files[0];if(!f)return;

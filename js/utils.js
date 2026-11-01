@@ -121,6 +121,37 @@ function confirmCancel(){closeM('m-confirm');_confirmCb=null;}
 // ── SCREENS ──
 // 화면 전환 — View Transitions 로 부드럽게 교차. 지원 안 하면 그대로 즉시 전환(동작 동일).
 // 라이브러리 없이 브라우저 기능만 쓰므로 추가 용량이 없다.
+// ── 스크롤 등장 ──────────────────────────────────────────────
+// 화면에 들어온 요소를 한 번만 살짝 올리며 나타내 준다.
+// CSS animation-timeline:view()로 먼저 만들었다가 되돌린 이유는 style.css 주석에 적어 두었다
+// (중첩 스크롤 안이나 이미 보이던 요소가 영구히 투명하게 남았다).
+// 안전망 둘: ① .pp-rev 는 JS만 붙인다 → 스크립트가 죽으면 숨지 않는다
+//            ② 관찰이 어떤 이유로든 불발해도 1.4초 뒤 무조건 보이게 한다
+var _ppRevObs=null;
+function _ppReduceMotion(){
+  return !!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+function ppRevealScan(sel,root){
+  if(_ppReduceMotion()||!('IntersectionObserver' in window))return;
+  if(!_ppRevObs)_ppRevObs=new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      if(!e.isIntersecting)return;
+      e.target.classList.add('pp-in');
+      _ppRevObs.unobserve(e.target);
+    });
+  },{rootMargin:'0px 0px -6% 0px',threshold:0.01});
+  var list=(root||document).querySelectorAll(sel),n=0;
+  for(var i=0;i<list.length;i++){
+    var el=list[i];
+    if(el._ppRev)continue;
+    el._ppRev=1;
+    el.style.transitionDelay=Math.min(n,6)*45+'ms';n++;
+    el.classList.add('pp-rev');
+    _ppRevObs.observe(el);
+    (function(t){setTimeout(function(){t.classList.add('pp-in');},1400);})(el);
+  }
+}
+
 function show(id){
   const swap=()=>{
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));

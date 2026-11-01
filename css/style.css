@@ -1634,3 +1634,53 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 #s-student .stu-hero-cmt{font-size:15.5px;}
 #s-student .snav-lbl{font-size:11.5px;}
 #s-parent{font-size:15.5px;}
+
+/* ═══ 스크롤·전환 감각 (Lenis 같은 JS 스크롤 하이재킹 없이 네이티브로) ═══ */
+/* 앵커 이동·scrollIntoView를 부드럽게. 고정 헤더에 가리지 않도록 여백도 같이 준다 */
+@media(prefers-reduced-motion:no-preference){
+  html{scroll-behavior:smooth;}
+}
+html{scroll-padding-top:72px;}
+/* 안쪽 목록을 끝까지 내렸을 때 페이지가 따라 밀리는 현상(스크롤 연쇄) 차단 — 폰에서 특히 거슬린다 */
+.ab,.stu-panel-body,.cls-list-inner,.cls-record-inner,.mdl,.lib-table-container,.badge-shelf,
+#book-cards,#book-series,#ws-cards,#class5-db-body,#tbd-pane-info{overscroll-behavior:contain;}
+
+/* ═══ 학생 탭 전환 — 패널만 좌우로 미끄러진다 (헤더·하단 탭바는 고정) ═══ */
+@media(prefers-reduced-motion:no-preference){
+  #s-student .panel.active{view-transition-name:pp-pane;}
+  /* 탭 전환 중에는 화면 전체 크로스페이드를 끈다 (역할 전환용 효과와 분리) */
+  html[data-pp-dir] ::view-transition-old(root),
+  html[data-pp-dir] ::view-transition-new(root){animation:none;}
+  /* 전환 스냅샷이 찍히는 동안 패널 등장 효과가 겹쳐 두 번 재생되지 않게 */
+  html[data-pp-dir] #s-student .panel.active{animation:none;}
+  /* 높이가 다른 패널끼리 바뀔 때 눌리지 않도록 — 위쪽 기준 원본 크기 유지 */
+  ::view-transition-image-pair(pp-pane){isolation:auto;}
+  ::view-transition-old(pp-pane),::view-transition-new(pp-pane){
+    mix-blend-mode:normal;width:100%;height:auto;object-fit:none;object-position:top left;}
+  html[data-pp-dir="fwd"] ::view-transition-old(pp-pane){animation:pp-slide-out-l .2s cubic-bezier(.4,0,1,1) both;}
+  html[data-pp-dir="fwd"] ::view-transition-new(pp-pane){animation:pp-slide-in-r .26s cubic-bezier(0,0,.2,1) both;}
+  html[data-pp-dir="back"] ::view-transition-old(pp-pane){animation:pp-slide-out-r .2s cubic-bezier(.4,0,1,1) both;}
+  html[data-pp-dir="back"] ::view-transition-new(pp-pane){animation:pp-slide-in-l .26s cubic-bezier(0,0,.2,1) both;}
+}
+@keyframes pp-slide-out-l{to{opacity:0;transform:translateX(-26px);}}
+@keyframes pp-slide-in-r{from{opacity:0;transform:translateX(26px);}}
+@keyframes pp-slide-out-r{to{opacity:0;transform:translateX(26px);}}
+@keyframes pp-slide-in-l{from{opacity:0;transform:translateX(-26px);}}
+
+/* ═══ 스크롤 등장 ═══
+   CSS animation-timeline:view() 로 먼저 만들었다가 되돌렸다 — 중첩 스크롤 컨테이너 안이나
+   이미 화면에 있던 요소가 영구히 투명하게 남았다(학부모 화면 카드 3개 opacity 0 실측).
+   그래서 IntersectionObserver로 바꾸고, 관찰이 실패해도 1.4초 뒤 무조건 보이게 하는 안전망을 둔다.
+   .pp-rev 클래스는 JS만 붙이므로 스크립트가 죽으면 애초에 숨지 않는다. */
+@media(prefers-reduced-motion:no-preference){
+  .pp-rev{opacity:0;transform:translateY(12px);
+    transition:opacity .4s cubic-bezier(.22,1,.36,1),transform .4s cubic-bezier(.22,1,.36,1);}
+  .pp-rev.pp-in{opacity:1;transform:none;}
+}
+
+/* ═══ 누르는 느낌 (폰에서 hover가 없는 대신) ═══ */
+.btn,.chip,.stutab,.cls-card,.card,.hw-card{transition:transform .12s ease,box-shadow .18s ease,
+  background-color .15s ease,border-color .15s ease;}
+@media(hover:none){
+  .btn:active,.chip:active,.stutab:active,.cls-card:active,.hw-card:active{transform:scale(.97);}
+}

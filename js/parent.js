@@ -7,6 +7,8 @@ function ppNav(btn,target){
   document.querySelectorAll('#pp-body .pp-tab').forEach(t=>{t.style.display=(t.dataset.pptab===target)?'':'none';});
   window.scrollTo({top:0,behavior:'auto'});
   if(target==='score'&&pC&&pC.trend){try{pC.trend.resize();}catch(e){}}
+  // 지금 보이는 탭의 카드만 스크롤 등장 (숨은 탭은 관찰해도 안 걸린다)
+  if(typeof ppRevealScan==='function')ppRevealScan('#pp-body .pp-tab[data-pptab="'+target+'"] .card');
 }
 // 영역별 성장: 어휘/어법/리딩/리스닝 — 최근 테스트 평균 우선, 테스트 없으면 과제 완료율로 보완
 function parentAreaGrowth(sid){
@@ -558,6 +560,7 @@ async function loadParent(sid){
     <div class="pp-tab" data-pptab="pay" style="display:none">${secPay}</div>`;
   // 하단 내비 활성 상태를 기본(수업)으로 리셋
   document.querySelectorAll('#s-parent .stu-bottomnav .stutab').forEach((b,i)=>b.classList.toggle('active',i===0));
+  if(typeof ppRevealScan==='function')ppRevealScan('#pp-body .pp-tab[data-pptab="les"] .card');
 
   // 원서 추천
   const recs=getBookRecommendations(sid);
