@@ -1844,3 +1844,15 @@ html{scroll-padding-top:72px;}
 /* 역할마다 이 앱에서 뭘 하는지 한 줄 — 버튼 아래가 그냥 비어 끝나지 않게 */
 .land-note{margin-top:14px;text-align:center;font-size:13px;line-height:1.6;color:var(--slate2);}
 @media(max-width:720px){.land-note{margin-top:18px;font-size:13.5px;}}
+
+/* 단어 카드 뒷면 그림 — 뜻 위에 놓아 '그림 → 뜻' 순서로 읽히게 한다.
+   카드는 aspect-ratio 로 높이가 정해져 있어, 그림이 들어가면 그만큼 키워야 뜻·예문이 안 가린다. */
+.vc-img{width:150px;max-width:72%;margin:0 auto 10px;border-radius:10px;overflow:hidden;
+  background:var(--cream2);border:1.5px solid var(--border);line-height:0;flex-shrink:0;}
+.vc-img img{width:100%;height:92px;object-fit:cover;display:block;}
+.vc-card.has-img{aspect-ratio:16/14;}
+.vc-card.has-img .vc-face{padding:1rem;}
+@media(prefers-reduced-motion:no-preference){
+  @keyframes pp-imgin{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+  .vc-img{animation:pp-imgin .3s cubic-bezier(.22,1,.36,1) both;}
+}

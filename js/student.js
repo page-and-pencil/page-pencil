@@ -1206,6 +1206,7 @@ function renderMemCard(el){
           <div class="vc-hint" style="margin-top:10px">🔊 단어 탭 → 발음 &nbsp;|&nbsp; 카드 탭 → 뒤집기</div>
         </div>
         <div class="vc-face vc-back">
+          <div class="vc-img" id="vc-img-${card.id}" style="display:none"></div>
           ${(()=>{const enEx=card.example&&/[a-zA-Z]/.test(card.example)&&!/[가-힣]/.test(card.example);
             if(deckState.vocabMode==='advanced')return`${card.en_def?`<div style="font-size:16px;font-weight:600;color:var(--navy);margin-bottom:8px;line-height:1.4">${card.en_def}</div>`:''}
                ${enEx?`<div class="vc-ex" id="vc-ex-${card.id}">${card.example}</div>`:`<div class="vc-ex" id="vc-ex-${card.id}" style="display:none"></div>`}
@@ -1225,6 +1226,28 @@ function renderMemCard(el){
     </div>
   </div>`;
   setTimeout(()=>speakWord(card.word),120);
+  _vcFillImage(card);
+}
+// 뜻 쪽에 그림을 채운다. 교재 DB 에 선생님이 정해 둔 그림이 있으면 그것을 쓰고,
+// 없으면 명사에 한해 Wikipedia 대표 사진을 가져온다(ppWordImage 가 캐시·자격을 판단).
+async function _vcFillImage(card){
+  if(!card)return;
+  const box=document.getElementById('vc-img-'+card.id);
+  if(!box)return;
+  let img=card.img||null;
+  if(!img&&typeof ppWordImage==='function'){
+    try{const r=await ppWordImage(card.word,card.pos);if(r)img={url:r.url,desc:r.desc};}catch(e){}
+  }
+  if(!img||!img.url)return;
+  const b=document.getElementById('vc-img-'+card.id);   // 그 사이 카드가 넘어갔을 수 있다
+  if(!b)return;
+  const im=document.createElement('img');
+  im.src=img.url;im.alt=card.word||'';im.loading='lazy';
+  im.onerror=()=>{b.style.display='none';};
+  b.innerHTML='';b.appendChild(im);
+  b.style.display='';
+  const cardEl=document.getElementById('mem-card');   // 그림이 들어간 만큼 카드를 키운다
+  if(cardEl)cardEl.classList.add('has-img');
 }
 // 뜻·예문 없으면 자동 조회 후 DOM 주입
 (function(){
@@ -1268,6 +1291,7 @@ function flipMemCard(deckEl){
   }
 }
 function memResult(knew){
+  const _c=document.getElementById('mem-card');if(_c)_c.classList.remove('has-img');
   deckState.phaseResults.push({word:deckState.cards[deckState.idx].word,knew});
   deckState.idx++;
   const el=document.getElementById('st-vocab');

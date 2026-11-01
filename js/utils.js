@@ -121,6 +121,52 @@ function confirmCancel(){closeM('m-confirm');_confirmCb=null;}
 // ── SCREENS ──
 // 화면 전환 — View Transitions 로 부드럽게 교차. 지원 안 하면 그대로 즉시 전환(동작 동일).
 // 라이브러리 없이 브라우저 기능만 쓰므로 추가 용량이 없다.
+// ── 단어 그림 ────────────────────────────────────────────────
+// 영어 단어의 대표 사진을 Wikipedia 요약 API 에서 가져온다 (키 불필요, CORS 허용, 실측 평균 230ms).
+// Openverse 도 후보였지만 14개 요청이 전부 5초 타임아웃이라 뺐다.
+//
+// ⚠️ 명사에만 쓴다. 실측해 보니 구체 명사(rabbit·umbrella·elephant·apple·bicycle)는 잘 맞지만
+//    동사(run)는 아예 없고, 추상어는 엉뚱하다(math → 중세 그림, light → 프리즘 사진).
+//    다의어도 교재 뜻과 어긋날 수 있어(bank), 최종 판단은 선생님이 교재 DB에서 바꾸도록 한다.
+const PP_IMG_CACHE_KEY='pp_wordimg_v1';
+let _ppImgCache=null;
+function _ppImgCacheLoad(){
+  if(_ppImgCache)return _ppImgCache;
+  try{_ppImgCache=JSON.parse(localStorage.getItem(PP_IMG_CACHE_KEY)||'{}');}catch(e){_ppImgCache={};}
+  return _ppImgCache;
+}
+function _ppImgCacheSave(){
+  try{localStorage.setItem(PP_IMG_CACHE_KEY,JSON.stringify(_ppImgCache||{}));}catch(e){}
+}
+// 그림을 붙여도 되는 단어인가 — 한 낱말 명사만
+function ppWordImageEligible(word,pos){
+  if(!word||typeof word!=='string')return false;
+  if(!/^[A-Za-z][A-Za-z'-]*$/.test(word.trim()))return false;   // 한 낱말 영어만 (구·숙어 제외)
+  return pos==='noun';
+}
+// 반환: {url, desc} 또는 null. 실패도 캐시해 같은 단어를 반복 조회하지 않는다.
+async function ppWordImage(word,pos){
+  if(!ppWordImageEligible(word,pos))return null;
+  const key=word.trim().toLowerCase();
+  const c=_ppImgCacheLoad();
+  if(Object.prototype.hasOwnProperty.call(c,key))return c[key];
+  let out=null;
+  try{
+    const ctrl=new AbortController();
+    const t=setTimeout(()=>ctrl.abort(),4000);
+    const r=await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(key),{signal:ctrl.signal});
+    clearTimeout(t);
+    if(r.ok){
+      const j=await r.json();
+      // 동음이의 안내 문서는 대표 사진이 뜻과 무관하다
+      if(j&&j.thumbnail&&j.thumbnail.source&&j.type==='standard')
+        out={url:j.thumbnail.source,desc:(j.description||'').slice(0,60)};
+    }
+  }catch(e){}
+  c[key]=out;_ppImgCacheSave();
+  return out;
+}
+
 // ── 스크롤 등장 ──────────────────────────────────────────────
 // 화면에 들어온 요소를 한 번만 살짝 올리며 나타내 준다.
 // CSS animation-timeline:view()로 먼저 만들었다가 되돌린 이유는 style.css 주석에 적어 두었다
