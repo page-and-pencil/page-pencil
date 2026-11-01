@@ -8127,6 +8127,7 @@ function renderDash(){
   // Section 4: 공지
   renderDashNotice();
   renderDashCal();
+  renderDashClassPath();
 }
 
 // ── 이번 주 학습 히트맵 (학생 × 요일 과제 완료 현황) ──
@@ -8162,6 +8163,32 @@ function renderDashWeekHeat(stus,todayStr){
     +days.map(d=>'<th style="font-size:11px;padding:3px;color:'+(d.isToday?'var(--teal)':'var(--slate)')+'">'+d.lb+(d.isToday?'·오늘':'')+'</th>').join('')+'</tr></thead>'
     +'<tbody>'+rows.map(r=>'<tr><td style="font-size:13px;font-weight:700;color:var(--navy);padding:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px">'+r.s.name+'</td>'+r.cells.map(cellHtml).join('')+'</tr>').join('')+'</tbody>'
     +'</table></div></div>';
+}
+
+// 반별 진도 — 어느 반이 어느 교재 어디쯤 왔는지 한 장으로.
+// 학생 한 명이 아니라 반 전체의 수업 기록을 합산한다(ppBookPath 가 배열을 받는다).
+function renderDashClassPath(){
+  const el=document.getElementById('dash-clspath');if(!el)return;
+  if(typeof ppBookPathLineHtml!=='function'){el.innerHTML='';return;}
+  const stus=DB.stus().filter(s=>!s.inactive);
+  const live=new Set(stus.map(s=>s.id));
+  const rows=(DB.classes()||[])
+    .filter(c=>c.active!==false)
+    .map(c=>{
+      const sids=(c.studentIds||c.sids||[]).filter(x=>live.has(x));
+      return {c,sids};
+    })
+    .filter(x=>x.sids.length)
+    .map(({c,sids})=>{
+      const line=ppBookPathLineHtml(sids,c.id);
+      if(!line)return '';
+      return '<div class="dash-cls-row"><div class="dash-cls-h">'
+        +'<span class="dash-cls-n">'+String(c.name||'이름 없는 반').replace(/</g,'&lt;')+'</span>'
+        +'<span class="dash-cls-s">'+sids.length+'명</span></div>'+line+'</div>';
+    }).filter(Boolean).join('');
+  el.innerHTML=rows
+    ? '<div class="card" style="margin-bottom:0"><div class="cb" style="padding:4px 14px">'+rows+'</div></div>'
+    : '<div class="card" style="margin-bottom:0"><div class="cb" style="padding:14px;font-size:13px;color:var(--slate)">아직 진도 기록이 없습니다</div></div>';
 }
 
 function renderDashCal(){
@@ -10957,7 +10984,14 @@ function renderClsLessons(classId){
   const el=document.getElementById('cls-lessons-body');if(!el)return;
   if(_pgCalClsId!==classId){_pgCalClsId=classId;_pgCalMonth='';}
   pgMoveCancel();
-  const calHtml=_pgTrackBoardHtml(classId)+_pgHwPanelHtml(classId)+_pgCalHtml(classId);
+  // 이 반이 어느 교재 어디쯤 왔는지 — 진도판 위에 한 장으로 (반 전체 수업 기록 합산)
+  const _c0=(DB.classes()||[]).find(x=>x.id===classId);
+  const _sids=_c0?((_c0.studentIds||_c0.sids||[]).filter(x=>(DB.stus()||[]).some(st=>st.id===x&&!st.inactive))):[];
+  const bpHtml=(typeof ppBookPathHtml==='function'&&_sids.length)
+    ? ppBookPathHtml(_sids,{bare:true,cid:classId}) : '';
+  const bpCard=bpHtml?('<details class="dash-fold" style="margin-bottom:12px"><summary class="dash-fold-sum">🗺️ 교재 여정 — 끝낸 책 · 지금 · 다음</summary>'
+    +'<div style="padding:12px 2px 2px">'+bpHtml+'</div></details>'):'';
+  const calHtml=bpCard+_pgTrackBoardHtml(classId)+_pgHwPanelHtml(classId)+_pgCalHtml(classId);
   const allStus=DB.stus().filter(s=>!s.inactive);
   const todayStr=ppToday();
   // group lessons by date

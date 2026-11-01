@@ -1920,3 +1920,18 @@ html{scroll-padding-top:72px;}
 .bp-past-i{width:15px;text-align:center;color:var(--okt);font-weight:800;flex-shrink:0;}
 .bp-past-t{color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .bp-past-s{margin-left:auto;color:var(--slate2);font-family:var(--fm);font-size:11.5px;flex-shrink:0;}
+
+/* 반별 한 줄 요약 — 어느 반이 어디쯤 왔는지만 훑을 때 */
+.bpl{display:flex;flex-direction:column;gap:6px;}
+.bpl-r{display:flex;align-items:center;gap:8px;font-size:12.5px;}
+.bpl-t{color:var(--navy);font-weight:600;flex:0 1 auto;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46%;}
+.bpl-b{flex:1;min-width:40px;height:6px;background:#EDF2F4;border-radius:var(--rpill);overflow:hidden;}
+.bpl-b span{display:block;height:100%;border-radius:var(--rpill);}
+.bpl-n{font-family:var(--fm);font-size:11.5px;color:var(--slate2);flex-shrink:0;}
+/* 대시보드 반별 진도 */
+.dash-cls-row{padding:11px 0;border-bottom:1px solid var(--border);}
+.dash-cls-row:last-child{border-bottom:none;}
+.dash-cls-h{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.dash-cls-n{font-size:13.5px;font-weight:800;color:var(--navy);}
+.dash-cls-s{font-size:11.5px;color:var(--slate2);margin-left:auto;}

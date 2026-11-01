@@ -16,7 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-<link rel="stylesheet" href="css/style.css?v=20261101t">
+<link rel="stylesheet" href="css/style.css?v=20261101u">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -225,6 +225,10 @@
           <div id="dash-actions" style="margin-bottom:12px"></div>
           <div id="dash-vocab-today"></div>
           <div id="dash-notice-section"></div>
+          <details class="dash-fold" style="margin-bottom:12px" open>
+            <summary class="dash-fold-sum">🗺️ 반별 진도</summary>
+            <div id="dash-clspath"></div>
+          </details>
           <!-- 참고용 섹션은 기본으로 접음 — 대시보드를 '오늘 할 일' 중심으로 (렌더 대상 id는 그대로) -->
           <details class="dash-fold" style="margin-bottom:12px">
             <summary class="dash-fold-sum">🗂 데이터 채우기 목록</summary>
@@ -2180,10 +2184,10 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261101k"></script>
+<script src="js/utils.js?v=20261101l"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261101a"></script>
-<script src="js/teacher.js?v=20261101i"></script>
+<script src="js/teacher.js?v=20261101j"></script>
 <script src="js/student.js?v=20261101m"></script>
 <script src="js/parent.js?v=20261101h"></script>
 </body>

@@ -127,8 +127,12 @@ function confirmCancel(){closeM('m-confirm');_confirmCb=null;}
 // 클래스의 commonMaterials 에 키 순서대로 들어 있다(reading_20 → reading_21 …).
 // 원서는 수업 끝 자율 학습이라 여기서 다루지 않는다(bookId 가 있는 등록 교재만).
 const PP_AREAS=[['reading','리딩'],['listening','리스닝'],['grammar','어법'],['vocab','어휘']];
-function ppBookPath(sid){
+// sid 는 학생 id 하나 또는 id 배열(= 한 클래스의 학생들). 배열이면 그 반이 함께 나간 진도로 합산한다.
+// cid 를 주면 그 클래스의 교재 계획만 앞길로 본다(반마다 계획이 다르므로).
+function ppBookPath(sid,cid){
   if(typeof DB==='undefined')return [];
+  const sids=Array.isArray(sid)?sid:[sid];
+  const sidSet=new Set(sids);
   const tbs=DB.gtbs?DB.gtbs():(_cache.globalTextbooks||[]);
   const byId={};tbs.forEach(b=>{byId[b.id]=b;});
   const totalOf=b=>b?(b.totalUnits||Object.keys(b.units||{}).length||0):0;
@@ -137,7 +141,7 @@ function ppBookPath(sid){
 
   // ① 지나온 길 — 수업 기록에서 교재별 단원 수·기간을 모은다
   const seen={};
-  DB.less().filter(l=>l.sid===sid).forEach(l=>{
+  DB.less().filter(l=>sidSet.has(l.sid)).forEach(l=>{
     Object.entries(l.materials||{}).forEach(([k,v])=>{
       if(!v||!v.bookId||!byId[v.bookId])return;
       const base=k.replace(/_\d+$/,'');
@@ -152,7 +156,7 @@ function ppBookPath(sid){
   const plan=[];
   (DB.classes()||[]).forEach(c=>{
     if(c.active===false)return;
-    if(!((c.studentIds||c.sids||[]).includes(sid)))return;
+    if(cid?c.id!==cid:!((c.studentIds||c.sids||[]).some(x=>sidSet.has(x))))return;
     Object.entries(c.commonMaterials||{}).forEach(([k,m])=>{
       if(!m||!m.book)return;
       plan.push({key:k,area:k.replace(/_\d+$/,''),book:m.book,bookId:m.bookId||null});
@@ -186,7 +190,7 @@ function ppBookPath(sid){
 const PP_AREA_COLOR={reading:'#10876A',listening:'#D08A12',grammar:'#7C4DD6',vocab:'#3B6FD4'};
 function ppBookPathHtml(sid,opts){
   const o=opts||{};
-  const path=(typeof ppBookPath==='function')?ppBookPath(sid):[];
+  const path=(typeof ppBookPath==='function')?ppBookPath(sid,o.cid):[];
   if(!path.length)return '';
   const esc=(t)=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const rows=path.map(a=>{
@@ -223,6 +227,23 @@ function ppBookPathHtml(sid,opts){
   }).join('');
   const title=o.title||'📚 교재 여정';
   return '<div class="bp-wrap">'+(o.bare?'':'<div class="bp-title">'+title+'</div>')+rows+'</div>';
+}
+
+// 반 하나를 한 줄로 — 영역마다 [색 점 + 지금 교재 + 진행바] 만 추려 본다.
+function ppBookPathLineHtml(sid,cid){
+  const path=(typeof ppBookPath==='function')?ppBookPath(sid,cid):[];
+  if(!path.length)return '';
+  const esc=(t)=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return '<div class="bpl">'+path.map(a=>{
+    const col=PP_AREA_COLOR[a.area]||'#5A6B7B';
+    const x=a.now[0];
+    if(!x)return '';
+    const pct=x.pct==null?0:x.pct;
+    return '<div class="bpl-r"><span class="pp-area-dot" style="background:'+col+'"></span>'
+      +'<span class="bpl-t">'+esc(x.title)+'</span>'
+      +'<span class="bpl-b"><span style="width:'+pct+'%;background:'+col+'"></span></span>'
+      +'<span class="bpl-n">'+x.n+'/'+(x.total||'?')+'</span></div>';
+  }).join('')+'</div>';
 }
 
 // ── 단어 그림 ────────────────────────────────────────────────
