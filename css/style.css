@@ -1935,3 +1935,10 @@ html{scroll-padding-top:72px;}
 .dash-cls-h{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
 .dash-cls-n{font-size:13.5px;font-weight:800;color:var(--navy);}
 .dash-cls-s{font-size:11.5px;color:var(--slate2);margin-left:auto;}
+
+/* 대시보드 공지 — 우측 레일에서 851px를 차지하고 있었다. 본문을 두 줄로 줄이고
+   펼치면 전문이 보이게 한다(카드 자체를 없애면 급한 공지를 놓친다). */
+.notice-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;cursor:pointer;}
+.notice-item.open .notice-text{-webkit-line-clamp:unset;}
+.notice-item{padding:10px 0;}

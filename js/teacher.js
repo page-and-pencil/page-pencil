@@ -10833,7 +10833,7 @@ function renderNoticeBoard(){
           <span class="notice-date">${n.date}</span>
           <span style="font-size:10.5px;color:var(--slate)">읽음 ${readCount}/${totalStus}명</span>
         </div>
-        <div class="notice-text">${n.text.replace(/\n/g,'<br>')}</div>
+        <div class="notice-text" title="눌러서 전문 보기" onclick="this.closest('.notice-item').classList.toggle('open')">${n.text.replace(/\n/g,'<br>')}</div>
         ${unreadStus.length?`<details style="margin-top:6px"><summary style="font-size:12px;color:var(--slate);cursor:pointer">미읽음 ${unreadStus.length}명 ▼</summary>
           <div style="font-size:12px;color:var(--slate);padding:4px 0">${unreadStus.map(s=>s.name).join(', ')}</div>
         </details>`:'<div style="font-size:12px;color:#0B8DAE;margin-top:4px">✓ 전원 읽음</div>'}
