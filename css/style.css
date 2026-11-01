@@ -2156,3 +2156,49 @@ body{font-size:14.5px;line-height:1.65;}
 @media(min-width:769px){
   #pp-body{max-width:720px;margin:0 auto;}
 }
+
+/* ═══ 6단계 · 로그인 화면 — 밝고 여유롭게 ═══
+   어두운 네이비 배경은 무거워 보여, 시안 톤(밝은 회색 바탕 + 흰 카드)으로 바꾼다.
+   데이터는 로그인 뒤에 불러오고(로그인 전 DB 호출 0건) 덮는 오버레이도 없다. */
+#s-land{background:var(--bg)!important;padding:32px 24px;}
+.land2{max-width:940px;min-height:min(560px,calc(100dvh - 64px));
+  border:1px solid var(--border);border-radius:12px;
+  box-shadow:0 1px 3px rgba(27,36,48,.06),0 12px 32px rgba(27,36,48,.06)!important;}
+/* 브랜드 칸 — 어두운 면 대신 연한 바탕 */
+.land2-brand{background:var(--bg)!important;color:var(--text);padding:40px 38px;
+  border-right:1px solid var(--border);}
+.land2-brand::before{opacity:.35;}
+.land2-logo{color:var(--text);}
+.land2-h1{color:var(--text);font-size:32px;line-height:1.35;}
+.land2-sub{color:var(--text-muted);font-size:15.5px;}
+.land2-foot{color:var(--neutral);}
+.land2-chip{background:var(--surface);border:1px solid var(--border);color:var(--text-muted);
+  font-weight:500;border-radius:var(--r-chip);}
+.land2-chip i,.land2-chip svg{opacity:.7;}
+/* 폼 칸 */
+.land2-right{padding:40px 36px;}
+.land2-title{font-size:22px;font-weight:600;color:var(--text);}
+.land2-desc{font-size:14px;color:var(--text-muted);}
+/* 역할 카드 — 선택된 것만 강조, 나머지는 중립 */
+.role-card{border:1px solid var(--border);border-radius:var(--r-card);box-shadow:none!important;}
+.role-card .role-ico{border-radius:var(--r-ctl);background:var(--bg)!important;color:var(--text-muted)!important;}
+.role-card .role-lbl{color:var(--text-muted);font-weight:500;}
+.role-card:hover{border-color:#D5D9E0!important;background:var(--bg);box-shadow:none!important;transform:none;}
+.role-card.role-card-on{border-color:var(--primary)!important;background:var(--surface)!important;}
+.role-card.role-card-on .role-ico{background:var(--primary)!important;color:#fff!important;}
+.role-card.role-card-on .role-lbl{color:var(--text)!important;font-weight:600;}
+/* 입력·버튼 */
+.land-field{border-radius:var(--r-ctl);border:1px solid var(--border);background:var(--surface);padding:9px 12px;}
+.land-field:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,91,219,.12);}
+.land-lbl{font-size:12px;letter-spacing:0;text-transform:none;color:var(--text-muted);font-weight:500;}
+.land-submit{background:var(--primary);border-radius:var(--r-ctl);font-size:14px;font-weight:600;
+  padding:12px;box-shadow:none;}
+.land-submit:hover{background:var(--primary-hover);}
+.land-note{color:var(--text-muted);font-size:13px;}
+.land-install{border-radius:var(--r-ctl);}
+/* PIN 키패드 */
+.pin-key{border-radius:var(--r-ctl);border:1px solid var(--border);background:var(--surface);
+  font-size:17px;font-weight:600;color:var(--text);}
+.pin-key:hover{background:var(--bg);}
+.ac{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:none;}
+#s-login,#s-pin,#s-stupin{background:var(--bg);}

@@ -6640,7 +6640,7 @@ function wdbShowImportLog(summary,skipLog,srcFileName){
   mo.id='m-import-log';
   mo.className='mo open';
   mo.innerHTML=`<div class="mdl" style="max-width:520px">
-    <div class="mh"><div class="mt">📋 임포트 결과</div><button class="bx" onclick="document.getElementById('m-import-log').remove()">×</button></div>
+    <div class="mh"><div class="mt">${luIcon('clipboard-list',15)||''} 임포트 결과</div><button class="bx" onclick="document.getElementById('m-import-log').remove()">×</button></div>
     <div style="font-size:14px;color:var(--navy);margin-bottom:14px">${summary}</div>
     <div style="background:var(--cream2);border-radius:var(--rs);padding:10px 14px;margin-bottom:14px;max-height:260px;overflow-y:auto">
       <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:8px;letter-spacing:.05em">건너뛴 행 목록 (${skipLog.length}개)</div>
@@ -8452,7 +8452,7 @@ function renderSpSummary(sid,period,from,to){
     </div>
     <div class="sp-sum-cols">
       <div>
-        <div class="sp-sec-title">📚 교재 진도</div>
+        <div class="sp-sec-title">${luIcon('book-open',15)||''} 교재 진도</div>
         ${tbCards||'<div class="sp-prog-empty" style="margin-bottom:12px">교재 진도 기록 없음</div>'}
       </div>
       <div>

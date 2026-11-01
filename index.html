@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261102a">
-<link rel="stylesheet" href="css/style.css?v=20261102c">
+<link rel="stylesheet" href="css/style.css?v=20261102d">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -154,7 +154,7 @@
         <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:1rem">학습 링크</div>
         <div class="stu-book-card" style="margin-bottom:10px">
           <div class="stu-book-top">
-            <div class="stu-book-cover" style="background:linear-gradient(135deg,#14304A,#1B3B57);font-size:22px">🎮</div>
+            <div class="stu-book-cover" style="background:linear-gradient(135deg,#14304A,#1B3B57);font-size:22px"><i data-lucide="gamepad-2" width="15" height="15" style="vertical-align:-3px"></i></div>
             <div style="flex:1;min-width:0">
               <div class="stu-book-title">클래스5</div>
               <div class="stu-book-series">단어 게임, 퀴즈</div>
@@ -166,7 +166,7 @@
         </div>
         <div class="stu-book-card">
           <div class="stu-book-top">
-            <div class="stu-book-cover" style="background:linear-gradient(135deg,#00796b,#004d40);font-size:22px">📖</div>
+            <div class="stu-book-cover" style="background:linear-gradient(135deg,#00796b,#004d40);font-size:22px"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i></div>
             <div style="flex:1;min-width:0">
               <div class="stu-book-title">오토보카</div>
               <div class="stu-book-series">영어 단어 자동 암기</div>
@@ -222,7 +222,7 @@
           <div id="dash-monthly" style="margin-bottom:12px"></div>
           <div id="dash-weekheat" style="margin-bottom:12px"></div>
           <details class="dash-fold" style="margin-bottom:12px" open>
-            <summary class="dash-fold-sum">🗺️ 반별 진도</summary>
+            <summary class="dash-fold-sum"><i data-lucide="map" width="15" height="15" style="vertical-align:-3px"></i> 반별 진도</summary>
             <div id="dash-clspath"></div>
           </details>
         </div>
@@ -232,11 +232,11 @@
           <div id="dash-notice-section"></div>
           <!-- 참고용 섹션은 기본으로 접음 — 대시보드를 '오늘 할 일' 중심으로 (렌더 대상 id는 그대로) -->
           <details class="dash-fold" style="margin-bottom:12px">
-            <summary class="dash-fold-sum">🗂 데이터 채우기 목록</summary>
+            <summary class="dash-fold-sum"><i data-lucide="folder" width="15" height="15" style="vertical-align:-3px"></i> 데이터 채우기 목록</summary>
             <div id="dash-fill"></div>
           </details>
           <details class="dash-fold" style="margin-bottom:12px">
-            <summary class="dash-fold-sum">📅 이번 달 캘린더</summary>
+            <summary class="dash-fold-sum"><i data-lucide="calendar" width="15" height="15" style="vertical-align:-3px"></i> 이번 달 캘린더</summary>
             <div id="dash-cal"></div>
           </details>
         </div>
@@ -251,7 +251,7 @@
           <div class="stu-list-head">
             <div class="st">학생 관리</div>
             <div style="display:flex;gap:5px">
-              <button class="quick-pay-btn" onclick="openM('m-quick-pay')" style="font-size:12px;padding:5px 8px">💳 결제</button>
+              <button class="quick-pay-btn" onclick="openM('m-quick-pay')" style="font-size:12px;padding:5px 8px"><i data-lucide="credit-card" width="15" height="15" style="vertical-align:-3px"></i> 결제</button>
               <button class="btn bt bsm" onclick="openAddStu()">+ 추가</button>
             </div>
           </div>
@@ -332,7 +332,7 @@
     <!-- 수업 기록 -->
     <div id="t-les" class="panel">
       <div class="sh"><div><div class="st">수업 기록</div></div></div>
-      <div id="api-les-warn" class="ib iba" style="display:none">🤖 API Key 미설정 — 학부모용 코멘트 자동 다듬기가 비활성화됩니다. <button class="btn bo bsm" style="font-size:10.5px;padding:2px 8px;vertical-align:middle" onclick="swTab('t-cfg')">⚙️ 설정에서 입력 →</button></div>
+      <div id="api-les-warn" class="ib iba" style="display:none"><i data-lucide="bot" width="15" height="15" style="vertical-align:-3px"></i> API Key 미설정 — 학부모용 코멘트 자동 다듬기가 비활성화됩니다. <button class="btn bo bsm" style="font-size:10.5px;padding:2px 8px;vertical-align:middle" onclick="swTab('t-cfg')"><i data-lucide="settings" width="15" height="15" style="vertical-align:-3px"></i> 설정에서 입력 →</button></div>
       <div class="card">
         <div class="ch"><span class="ct">새 수업 기록</span></div>
         <div class="cb">
@@ -359,8 +359,8 @@
               <button class="chip" data-s="listening" onclick="togSubj(this)">리스닝</button>
               <button class="chip" data-s="writing" onclick="togSubj(this)">라이팅</button>
               <button class="chip" data-s="naesin" onclick="togSubj(this)">내신</button>
-              <button class="chip" data-s="pencil_down" onclick="togSubj(this)">✏️ Pencil Down</button>
-              <button type="button" class="btn ba bsm" style="font-size:12px;padding:3px 10px" onclick="addSRowTo('subj-rows','_book')">📖 + 원서</button>
+              <button class="chip" data-s="pencil_down" onclick="togSubj(this)"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> Pencil Down</button>
+              <button type="button" class="btn ba bsm" style="font-size:12px;padding:3px 10px" onclick="addSRowTo('subj-rows','_book')"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> + 원서</button>
             </div>
             <div id="subj-rows" class="sr-wrap"></div>
           </div>
@@ -369,22 +369,22 @@
             <textarea id="ls-cmt" placeholder="예) 집중도 좋음. 리딩 속도 향상 중. 어휘 복습 필요" oninput="debouncedCmtPreview()"></textarea></div>
           <div style="display:flex;gap:6px;margin-top:4px;margin-bottom:4px;flex-wrap:wrap">
             <button type="button" class="btn bo bsm" onclick="previewPolishedCmt()" style="font-size:12px">👁 학부모 미리보기</button>
-            <button type="button" class="btn bo bsm" onclick="previewStuCmt()" style="font-size:12px">🙋 학생 응원 미리보기</button>
+            <button type="button" class="btn bo bsm" onclick="previewStuCmt()" style="font-size:12px"><i data-lucide="hand" width="15" height="15" style="vertical-align:-3px"></i> 학생 응원 미리보기</button>
             <span id="cmt-preview-status" style="font-size:12px;color:var(--slate);align-self:center"></span>
           </div>
           <div id="cmt-preview-box" style="display:none;margin-bottom:6px;padding:10px 12px;background:var(--tl);border-radius:8px;border-left:3px solid var(--teal)">
-            <div style="font-size:10.5px;font-weight:700;color:var(--teal);margin-bottom:4px">📨 학부모 코멘트 <span style="font-weight:400;color:var(--slate)">(수정 가능)</span></div>
+            <div style="font-size:10.5px;font-weight:700;color:var(--teal);margin-bottom:4px"><i data-lucide="mail" width="15" height="15" style="vertical-align:-3px"></i> 학부모 코멘트 <span style="font-weight:400;color:var(--slate)">(수정 가능)</span></div>
             <textarea id="cmt-preview-text" style="font-size:13px;color:var(--navy);line-height:1.6;width:100%;border:none;background:transparent;resize:vertical;font-family:var(--fb);min-height:56px;outline:none;box-sizing:border-box"></textarea>
           </div>
           <div id="stu-cmt-preview-box" style="display:none;margin-bottom:6px;padding:10px 12px;background:var(--cream2);border-radius:8px;border-left:3px solid var(--navy)">
-            <div style="font-size:10.5px;font-weight:700;color:var(--navy);margin-bottom:4px">🙋 학생 응원 코멘트 <span style="font-weight:400;color:var(--slate)">(수정 가능)</span></div>
+            <div style="font-size:10.5px;font-weight:700;color:var(--navy);margin-bottom:4px"><i data-lucide="hand" width="15" height="15" style="vertical-align:-3px"></i> 학생 응원 코멘트 <span style="font-weight:400;color:var(--slate)">(수정 가능)</span></div>
             <textarea id="stu-cmt-preview-text" style="font-size:13px;color:var(--navy);line-height:1.6;width:100%;border:none;background:transparent;resize:vertical;font-family:var(--fb);min-height:56px;outline:none;box-sizing:border-box"></textarea>
           </div>
           <div id="polished-ready-hint" style="display:none;font-size:12px;color:#0A5940;background:rgba(10,89,64,.07);border-radius:6px;padding:6px 10px;margin-bottom:6px;line-height:1.5"></div>
           <!-- 루브릭 평가 (선택) -->
           <div style="margin-bottom:8px;border:1px solid var(--border);border-radius:var(--rs)">
             <button type="button" onclick="toggleRubric()" style="width:100%;text-align:left;background:none;border:none;padding:7px 12px;cursor:pointer;font-family:var(--fb);font-size:13px;color:var(--slate);display:flex;justify-content:space-between;align-items:center">
-              <span>📊 루브릭 평가 <span style="font-size:10.5px">(선택)</span></span><span id="rubric-arrow">▼</span>
+              <span><i data-lucide="bar-chart-3" width="15" height="15" style="vertical-align:-3px"></i> 루브릭 평가 <span style="font-size:10.5px">(선택)</span></span><span id="rubric-arrow">▼</span>
             </button>
             <div id="rubric-section" style="display:none;padding:10px 12px 8px;border-top:1px solid var(--border)">
               <div style="display:flex;gap:6px;margin-bottom:8px">
@@ -411,16 +411,16 @@
 
     <!-- 테스트 -->
     <div id="t-tst" class="panel">
-      <div class="sh"><div><div class="st">✏️ 테스트</div><div class="ssub">사진을 올리면 AI가 영역별 점수를 자동 인식합니다</div></div></div>
+      <div class="sh"><div><div class="st"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 테스트</div><div class="ssub">사진을 올리면 AI가 영역별 점수를 자동 인식합니다</div></div></div>
       <div id="tst-stats" class="dash-stats" style="margin-bottom:14px"></div>
       <div class="card">
         <div class="ch"><span class="ct">테스트 결과 입력</span></div>
         <div class="cb">
-          <div id="api-tst-warn" class="ib iba" style="display:none">🤖 API Key 미설정 — 테스트 사진 AI 자동 인식이 비활성화됩니다. <button class="btn bo bsm" style="font-size:10.5px;padding:2px 8px;vertical-align:middle" onclick="swTab('t-cfg')">⚙️ 설정에서 입력 →</button></div>
+          <div id="api-tst-warn" class="ib iba" style="display:none"><i data-lucide="bot" width="15" height="15" style="vertical-align:-3px"></i> API Key 미설정 — 테스트 사진 AI 자동 인식이 비활성화됩니다. <button class="btn bo bsm" style="font-size:10.5px;padding:2px 8px;vertical-align:middle" onclick="swTab('t-cfg')"><i data-lucide="settings" width="15" height="15" style="vertical-align:-3px"></i> 설정에서 입력 →</button></div>
           <div class="f">
             <label>테스트지 사진 (AI 자동 인식)</label>
             <div class="uz" id="tst-uz" onclick="document.getElementById('tst-file').click()" ondragover="dov(event,'tst-uz')" ondrop="ddr(event,'tst-uz','tst')">
-              <div class="ui">📝</div><div class="ut" id="tst-ut">클릭하거나 드래그</div>
+              <div class="ui"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i></div><div class="ut" id="tst-ut">클릭하거나 드래그</div>
             </div>
             <input type="file" id="tst-file" accept="image/*" style="display:none" onchange="handleTstPhoto(event)">
             <div id="tst-preview" style="display:none;margin-top:8px"><img id="tst-preview-img" class="tst-photo-thumb"></div>
@@ -534,8 +534,8 @@
     <!-- 리딩로그 -->
     <div id="t-log" class="panel">
       <div class="sh"><div><div class="st">리딩로그</div><div class="ssub">사진 업로드 → AI 단어 자동 추출</div></div></div>
-      <div id="api-log-warn" class="ib iba" style="display:none">🤖 API Key 미설정 — 리딩로그 단어 AI 자동 추출이 비활성화됩니다. <button class="btn bo bsm" style="font-size:10.5px;padding:2px 8px;vertical-align:middle" onclick="swTab('t-cfg')">⚙️ 설정에서 입력 →</button></div>
-      <div id="cld-log-warn" class="cld-warn" style="display:none">⚠️ Cloudinary 미설정 — 사진이 기기에 임시 저장되며 5MB 초과 시 유실될 수 있습니다. <button class="btn bo bsm" style="font-size:10.5px;padding:2px 8px;vertical-align:middle;color:#B45309;border-color:rgba(160,48,32,.3)" onclick="swTab('t-cfg')">⚙️ 설정에서 연결 →</button></div>
+      <div id="api-log-warn" class="ib iba" style="display:none"><i data-lucide="bot" width="15" height="15" style="vertical-align:-3px"></i> API Key 미설정 — 리딩로그 단어 AI 자동 추출이 비활성화됩니다. <button class="btn bo bsm" style="font-size:10.5px;padding:2px 8px;vertical-align:middle" onclick="swTab('t-cfg')"><i data-lucide="settings" width="15" height="15" style="vertical-align:-3px"></i> 설정에서 입력 →</button></div>
+      <div id="cld-log-warn" class="cld-warn" style="display:none"><i data-lucide="alert-triangle" width="15" height="15" style="vertical-align:-3px"></i> Cloudinary 미설정 — 사진이 기기에 임시 저장되며 5MB 초과 시 유실될 수 있습니다. <button class="btn bo bsm" style="font-size:10.5px;padding:2px 8px;vertical-align:middle;color:#B45309;border-color:rgba(160,48,32,.3)" onclick="swTab('t-cfg')"><i data-lucide="settings" width="15" height="15" style="vertical-align:-3px"></i> 설정에서 연결 →</button></div>
       <div class="card">
         <div class="ch"><span class="ct">새 리딩로그 등록</span></div>
         <div class="cb">
@@ -549,7 +549,7 @@
             <div id="log-content-area" style="display:block">
               <div id="log-upload-zone">
                 <div class="uz" id="log-uz" onclick="document.getElementById('lg-file').click()" ondragover="dov(event,'log-uz')" ondrop="ddr(event,'log-uz','log')">
-                  <div class="ui">📸</div><div class="ut" id="log-ut">클릭하거나 사진/PDF 드래그</div>
+                  <div class="ui"><i data-lucide="camera" width="15" height="15" style="vertical-align:-3px"></i></div><div class="ut" id="log-ut">클릭하거나 사진/PDF 드래그</div>
                 </div>
                 <input type="file" id="lg-file" accept="image/*,application/pdf" style="display:none" onchange="handleLogPhoto(event)">
               </div>
@@ -579,11 +579,11 @@
     <div id="t-data" class="panel">
       <!-- Sub-tab 네비게이션 -->
       <div class="dtabs">
-        <button id="dtab-tbook" onclick="switchDataTab('tbook')" style="padding:8px 16px;font-size:14px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📚 교재</button>
-        <button id="dtab-lib" onclick="switchDataTab('lib')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📖 원서</button>
-        <button id="dtab-word" onclick="switchDataTab('word')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">📝 어휘</button>
-        <button id="dtab-ws" onclick="switchDataTab('ws')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">🗒️ 저장된 워크시트</button>
-        <button id="dtab-master" onclick="switchDataTab('master')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap">🛠 백업·일괄</button>
+        <button id="dtab-tbook" onclick="switchDataTab('tbook')" style="padding:8px 16px;font-size:14px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 교재</button>
+        <button id="dtab-lib" onclick="switchDataTab('lib')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 원서</button>
+        <button id="dtab-word" onclick="switchDataTab('word')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 어휘</button>
+        <button id="dtab-ws" onclick="switchDataTab('ws')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 저장된 워크시트</button>
+        <button id="dtab-master" onclick="switchDataTab('master')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="wrench" width="15" height="15" style="vertical-align:-3px"></i> 백업·일괄</button>
       </div>
 
       <!-- 백업·일괄 관리 sub-panel (교재+원서+어휘 통합 평탄화 뷰, 마스터 CSV) -->
@@ -593,13 +593,13 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <select id="master-csv-filter" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream)"><option value="all">전체</option><option value="textbook">교재만</option><option value="library">원서만</option></select>
             <button class="btn bt bsm" onclick="fullBackup()" title="모든 테이블(학생·수업·과제·카드 포함)을 JSON 파일로 내려받기 — 월 1회 권장">🗄 전체 백업</button>
-            <button class="btn bo bsm" onclick="openTrash()" title="삭제한 항목 복원 (30일 보관)">🗑 휴지통</button>
-            <button id="master-csv-btn" class="btn bt bsm" style="background:var(--teal);color:#fff;font-weight:700" onclick="openMasterCSVModal()">📥 마스터 CSV</button>
+            <button class="btn bo bsm" onclick="openTrash()" title="삭제한 항목 복원 (30일 보관)"><i data-lucide="trash-2" width="15" height="15" style="vertical-align:-3px"></i> 휴지통</button>
+            <button id="master-csv-btn" class="btn bt bsm" style="background:var(--teal);color:#fff;font-weight:700" onclick="openMasterCSVModal()"><i data-lucide="download" width="15" height="15" style="vertical-align:-3px"></i> 마스터 CSV</button>
             <input type="file" id="master-csv-file" accept=".csv" style="display:none" onchange="importMasterCSV(event)">
             <button class="btn bo bsm" onclick="exportMasterCSV()">⬇ 마스터 CSV</button>
-            <button class="btn bo bsm" onclick="downloadMasterCSVTemplate()">📋 템플릿</button>
-            <button id="master-del-btn" class="btn bsm" style="display:none;color:#e53e3e;border:1.5px solid #e53e3e;background:#fff" onclick="deleteMasterSelected()">🗑 선택 삭제 (<span id="master-sel-cnt">0</span>개)</button>
-            <button class="btn bsm" style="color:#e53e3e;border:1.5px solid #e53e3e;background:#fff" onclick="deleteAllMasterDB()">🗑 전체 삭제</button>
+            <button class="btn bo bsm" onclick="downloadMasterCSVTemplate()"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 템플릿</button>
+            <button id="master-del-btn" class="btn bsm" style="display:none;color:#e53e3e;border:1.5px solid #e53e3e;background:#fff" onclick="deleteMasterSelected()"><i data-lucide="trash-2" width="15" height="15" style="vertical-align:-3px"></i> 선택 삭제 (<span id="master-sel-cnt">0</span>개)</button>
+            <button class="btn bsm" style="color:#e53e3e;border:1.5px solid #e53e3e;background:#fff" onclick="deleteAllMasterDB()"><i data-lucide="trash-2" width="15" height="15" style="vertical-align:-3px"></i> 전체 삭제</button>
           </div>
         </div>
         <div class="lib-search-bar">
@@ -645,14 +645,14 @@
               <button class="btn bo bsm" onclick="toggleBookIOMenu(event)">📦 가져오기·내보내기 ▾</button>
               <div id="book-io-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:#fff;border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(15,48,74,.14);padding:6px;z-index:60;min-width:200px">
                 <div id="book-io-sec-tbook">
-                  <button class="io-mi" onclick="document.getElementById('tbook-csv-file').click()">📥 교재 CSV 가져오기</button>
+                  <button class="io-mi" onclick="document.getElementById('tbook-csv-file').click()"><i data-lucide="download" width="15" height="15" style="vertical-align:-3px"></i> 교재 CSV 가져오기</button>
                   <button class="io-mi" onclick="exportTbookCSV()">⬇ 교재 CSV 내보내기</button>
                 </div>
                 <div id="book-io-sec-lib" style="display:none">
-                  <button class="io-mi" onclick="document.getElementById('lib-csv-file2').click()">📥 원서 CSV 가져오기</button>
+                  <button class="io-mi" onclick="document.getElementById('lib-csv-file2').click()"><i data-lucide="download" width="15" height="15" style="vertical-align:-3px"></i> 원서 CSV 가져오기</button>
                   <button class="io-mi" onclick="exportLibCSV()">⬇ 원서 CSV 내보내기</button>
-                  <button class="io-mi" onclick="openBulkAudio()">🎵 오디오 일괄 업로드</button>
-                  <button class="io-mi" onclick="openBulkText()">📄 본문 일괄 업로드</button>
+                  <button class="io-mi" onclick="openBulkAudio()"><i data-lucide="music" width="15" height="15" style="vertical-align:-3px"></i> 오디오 일괄 업로드</button>
+                  <button class="io-mi" onclick="openBulkText()"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 본문 일괄 업로드</button>
                 </div>
               </div>
             </div>
@@ -705,7 +705,7 @@
           <div><div class="st">어휘 DB</div><div class="ssub" id="wdb-total"></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn bt bsm" onclick="openWdbAddWord()">+ 단어 추가</button>
-            <button class="btn bt bsm" onclick="document.getElementById('wdb-csv-file').click()">📥 CSV 가져오기</button>
+            <button class="btn bt bsm" onclick="document.getElementById('wdb-csv-file').click()"><i data-lucide="download" width="15" height="15" style="vertical-align:-3px"></i> CSV 가져오기</button>
             <button class="btn bo bsm" onclick="wdbExportCSV()">⬇ CSV 내보내기</button>
             <input type="file" id="wdb-csv-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="wdbImportCSV(event)">
           </div>
@@ -719,8 +719,8 @@
           </select>
           <select class="filter-sel" id="wdb-src" onchange="wdbSrcTypeChange();wdbPage=0;renderWordDB()">
             <option value="">전체 출처</option>
-            <option value="textbook">📚 교재</option>
-            <option value="library">📖 원서</option>
+            <option value="textbook"><i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 교재</option>
+            <option value="library"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 원서</option>
           </select>
           <select class="filter-sel" id="wdb-src-id" onchange="wdbSrcIdChange();wdbPage=0;renderWordDB()" style="display:none">
             <option value="">전체</option>
@@ -730,7 +730,7 @@
           </select>
           <label style="font-size:13px;color:var(--slate);cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" id="wdb-no-ko" onchange="wdbPage=0;renderWordDB()"> 뜻 없음만</label>
           <button class="btn bo bsm" onclick="wdbResetFilters()">초기화</button>
-          <button class="btn bd bsm" onclick="wdbDeleteAll()" title="현재 필터 조건의 단어 전체 삭제">🗑️ 일괄 삭제</button>
+          <button class="btn bd bsm" onclick="wdbDeleteAll()" title="현재 필터 조건의 단어 전체 삭제"><i data-lucide="trash-2" width="15" height="15" style="vertical-align:-3px"></i> 일괄 삭제</button>
         </div>
         <div id="wdb-bulk-bar" style="display:none;align-items:center;gap:10px;padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin-bottom:8px">
           <span id="wdb-sel-count" style="font-size:14px;color:#dc2626;font-weight:600"></span>
@@ -809,7 +809,7 @@
               <input type="date" id="cl-date" onchange="clUpdateDaySub();document.querySelectorAll('#cl-subj-rows .sr').forEach(_pgAutoFillRow)" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:14px;color:var(--navy);background:var(--cream);outline:none">
             </div>
             <div class="card" style="margin-bottom:12px">
-              <div class="ch"><span class="ct">📚 공통 교재 진도</span></div>
+              <div class="ch"><span class="ct"><i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 공통 교재 진도</span></div>
               <div class="cb">
                 <div class="chips" id="cl-subj-chips">
                   <button class="chip" data-s="phonics" onclick="clTogSubj(this)">파닉스</button>
@@ -819,17 +819,17 @@
                   <button class="chip" data-s="listening" onclick="clTogSubj(this)">리스닝</button>
                   <button class="chip" data-s="writing" onclick="clTogSubj(this)">라이팅</button>
                   <button class="chip" data-s="naesin" onclick="clTogSubj(this)">내신</button>
-                  <button class="chip" data-s="pencil_down" onclick="clTogSubj(this)">✏️ Pencil Down</button>
+                  <button class="chip" data-s="pencil_down" onclick="clTogSubj(this)"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> Pencil Down</button>
                 </div>
                 <div id="cl-subj-rows" class="sr-wrap"></div>
               </div>
             </div>
             <div style="margin-bottom:12px">
-              <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">👤 학생별 기록</div>
+              <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px"><i data-lucide="user" width="15" height="15" style="vertical-align:-3px"></i> 학생별 기록</div>
               <div id="cl-students"></div>
             </div>
             <div class="card" style="margin-bottom:12px">
-              <div class="ch" id="cl-hw-head" role="button" tabindex="0" aria-expanded="true" aria-controls="cl-hw-body" onclick="clHwToggle()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();clHwToggle()}" style="cursor:pointer"><span class="ct">📋 과제 설정 (선택)</span><span id="cl-hw-toggle-lbl" style="font-size:12px;color:var(--slate)">접기 ▴</span></div>
+              <div class="ch" id="cl-hw-head" role="button" tabindex="0" aria-expanded="true" aria-controls="cl-hw-body" onclick="clHwToggle()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();clHwToggle()}" style="cursor:pointer"><span class="ct"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 과제 설정 (선택)</span><span id="cl-hw-toggle-lbl" style="font-size:12px;color:var(--slate)">접기 ▴</span></div>
               <div class="cb" id="cl-hw-body" style="padding-bottom:4px">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
                   <div style="font-size:13px;font-weight:700;color:var(--navy)">공통 과제 (전체 학생)</div>
@@ -854,13 +854,13 @@
     <!-- 과제 관리 -->
     <div id="t-assign" class="panel">
       <div class="sh">
-        <div><div class="st">📋 과제</div><div class="ssub">반·학생에게 과제를 할당하고 제출 현황을 봅니다</div></div>
+        <div><div class="st"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 과제</div><div class="ssub">반·학생에게 과제를 할당하고 제출 현황을 봅니다</div></div>
         <button class="btn bt bsm" onclick="openM('m-add-assign')">+ 과제 할당</button>
       </div>
       <div id="assign-stats" class="dash-stats" style="margin-bottom:14px"></div>
       <div class="card" style="margin-bottom:1rem">
         <div class="ch">
-          <span class="ct" style="cursor:pointer" onclick="toggleAssignCal()">🗓 숙제 캘린더 <span id="assign-cal-arrow" style="font-size:10.5px;color:var(--teal)">▾ 접기</span></span>
+          <span class="ct" style="cursor:pointer" onclick="toggleAssignCal()"><i data-lucide="calendar" width="15" height="15" style="vertical-align:-3px"></i> 숙제 캘린더 <span id="assign-cal-arrow" style="font-size:10.5px;color:var(--teal)">▾ 접기</span></span>
           <button class="btn ba bsm" onclick="openBulkAssign()">일괄 할당</button>
         </div>
         <div class="cb" id="assign-cal"></div>
@@ -881,11 +881,11 @@
 
     <!-- 설정 -->
     <div id="t-cfg" class="panel">
-      <div class="sh"><div><div class="st">⚙️ 설정</div><div class="ssub">앱 동작과 학부모·학생에게 보이는 정보를 관리합니다</div></div></div>
+      <div class="sh"><div><div class="st"><i data-lucide="settings" width="15" height="15" style="vertical-align:-3px"></i> 설정</div><div class="ssub">앱 동작과 학부모·학생에게 보이는 정보를 관리합니다</div></div></div>
 
       <!-- 코멘트 칩 관리 -->
       <div class="card" style="margin-bottom:1rem">
-        <div class="ch"><span class="ct">🏷️ 코멘트 칩 관리</span></div>
+        <div class="ch"><span class="ct"><i data-lucide="tag" width="15" height="15" style="vertical-align:-3px"></i>️ 코멘트 칩 관리</span></div>
         <div class="cb">
           <div style="font-size:13px;color:var(--slate);margin-bottom:14px;line-height:1.6">수업 기록에서 빠르게 누르는 코멘트 칩을 <b>강점 · 진행 중 · 보완</b> 3그룹으로 관리합니다. (× 삭제 / + 추가)</div>
           <div id="cfg-cmt-chips"></div>
@@ -939,7 +939,7 @@
       </div>
       <div class="card" style="margin-bottom:1rem">
         <div class="ch">
-          <span class="ct">🔊 ElevenLabs 음성 (원어민급 TTS)</span>
+          <span class="ct"><i data-lucide="volume-2" width="15" height="15" style="vertical-align:-3px"></i> ElevenLabs 음성 (원어민급 TTS)</span>
           <span id="eleven-status-dot" style="font-size:14px;color:var(--slate)">● 미설정</span>
         </div>
         <div class="cb">
@@ -949,14 +949,14 @@
           <div class="f"><label>Voice ID <span style="font-weight:400;font-size:10.5px;color:var(--slate)">(비우면 기본: Sarah — 미국식·차분하고 또렷한 젊은 여성 보이스)</span></label><input type="text" id="cfg-eleven-voice" placeholder="EXAVITQu4vr4xnSDxMaL"></div>
           <div style="display:flex;gap:8px">
             <button class="btn bp bsm" onclick="saveElevenCfg()">저장</button>
-            <button class="btn ba bsm" onclick="testElevenTts()">🔊 테스트 재생</button>
+            <button class="btn ba bsm" onclick="testElevenTts()"><i data-lucide="volume-2" width="15" height="15" style="vertical-align:-3px"></i> 테스트 재생</button>
           </div>
           <div id="eleven-test-result" style="margin-top:8px;font-size:13px"></div>
         </div>
       </div>
       <div class="card" style="margin-bottom:1rem">
         <div class="ch">
-          <span class="ct">💬 카카오톡 연결 (학부모 질문 수신)</span>
+          <span class="ct"><i data-lucide="message-circle" width="15" height="15" style="vertical-align:-3px"></i> 카카오톡 연결 (학부모 질문 수신)</span>
           <span id="kakao-status-dot" style="font-size:14px;color:var(--slate)">● 미설정</span>
         </div>
         <div class="cb">
@@ -983,8 +983,8 @@
         <div class="ch"><span class="ct">데이터 관리</span></div>
         <div class="cb">
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn bo bsm" onclick="testSupaConn()">🔗 Supabase 연결 확인</button>
-            <button class="btn bo bsm" onclick="forceReload()">🔄 데이터 새로고침</button>
+            <button class="btn bo bsm" onclick="testSupaConn()"><i data-lucide="link" width="15" height="15" style="vertical-align:-3px"></i> Supabase 연결 확인</button>
+            <button class="btn bo bsm" onclick="forceReload()"><i data-lucide="refresh-cw" width="15" height="15" style="vertical-align:-3px"></i> 데이터 새로고침</button>
           </div>
           <div id="supa-conn-result" style="margin-top:8px"></div>
         </div>
@@ -1033,12 +1033,12 @@
   </div>
   <!-- 공지 배너 (활성 공지 있을 때만 표시) -->
   <div id="parent-notice-banner" style="display:none;background:#FFF8E1;border-bottom:2px solid #F9A825;padding:10px 1.25rem;font-size:14px;color:#5D4037;line-height:1.6;cursor:pointer" onclick="closeParentNotice()">
-    <span style="font-weight:700;margin-right:6px">📢 공지</span><span id="parent-notice-text"></span>
+    <span style="font-weight:700;margin-right:6px"><i data-lucide="megaphone" width="15" height="15" style="vertical-align:-3px"></i> 공지</span><span id="parent-notice-text"></span>
     <span style="float:right;opacity:.5;font-size:12px">닫기 ✕</span>
   </div>
   <!-- 숙제 알림 (서버 푸시) — 로컬 타이머와 달리 앱을 닫아도 옵니다 -->
   <div id="pp-push-row" class="stu-push" style="display:none;margin:12px 1.25rem 0">
-    <span class="stu-push-t">🔔 숙제 알림</span>
+    <span class="stu-push-t"><i data-lucide="bell" width="15" height="15" style="vertical-align:-3px"></i> 숙제 알림</span>
     <span class="stu-push-d">확인 중…</span>
     <button class="btn bo bsm stu-push-b" onclick="ppPushToggle()">켜기</button>
   </div>
@@ -1061,7 +1061,7 @@
 <div id="m-monthly-report" class="mo" style="display:none" data-protect>
   <div class="mdl">
     <div class="mh">
-      <div><div class="mt">📋 월별 학부모 리포트</div><div style="font-size:13px;color:var(--slate);margin-top:2px" id="mrpt-month"></div></div>
+      <div><div class="mt"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 월별 학부모 리포트</div><div style="font-size:13px;color:var(--slate);margin-top:2px" id="mrpt-month"></div></div>
       <button class="bx" onclick="document.getElementById('m-monthly-report').classList.remove('open')">×</button>
     </div>
     <input type="hidden" id="mrpt-month-val">
@@ -1079,13 +1079,13 @@
     <input type="hidden" id="re-sid"><input type="hidden" id="re-month">
     <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
       <span style="font-size:14px;font-weight:700" id="re-stu-name"></span>
-      <button id="re-gen-btn" class="btn bt bsm" onclick="generateReportDraft()">🤖 AI 초안 생성</button>
+      <button id="re-gen-btn" class="btn bt bsm" onclick="generateReportDraft()"><i data-lucide="bot" width="15" height="15" style="vertical-align:-3px"></i> AI 초안 생성</button>
     </div>
     <div class="ib iba" style="margin-bottom:10px;font-size:12px">AI 초안을 자유롭게 수정하세요. 어조: 전문적이고 따뜻한 격식체.</div>
     <textarea id="re-text" placeholder="AI 초안 생성 후 여기서 수정할 수 있습니다" style="width:100%;height:220px;border:1.5px solid var(--border);border-radius:var(--rs);padding:12px;font-family:var(--fb);font-size:14px;line-height:1.75;resize:vertical;outline:none;box-sizing:border-box;color:var(--navy)"></textarea>
     <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn bo bsm" onclick="saveReportDraftOnly()" style="flex:1">💾 저장만</button>
-      <button id="re-send-btn" class="btn bt bsm" onclick="saveAndSendReport()" style="flex:2;background:#FEE500;color:#3C1E1E;border:none">📤 카카오톡으로 발송</button>
+      <button class="btn bo bsm" onclick="saveReportDraftOnly()" style="flex:1"><i data-lucide="save" width="15" height="15" style="vertical-align:-3px"></i> 저장만</button>
+      <button id="re-send-btn" class="btn bt bsm" onclick="saveAndSendReport()" style="flex:2;background:#FEE500;color:#3C1E1E;border:none"><i data-lucide="upload" width="15" height="15" style="vertical-align:-3px"></i> 카카오톡으로 발송</button>
     </div>
   </div>
 </div>
@@ -1211,8 +1211,8 @@
         <button class="chip" data-s="listening" onclick="togEditSubj(this)">리스닝</button>
         <button class="chip" data-s="writing" onclick="togEditSubj(this)">라이팅</button>
         <button class="chip" data-s="naesin" onclick="togEditSubj(this)">내신</button>
-        <button class="chip" data-s="pencil_down" onclick="togEditSubj(this)">✏️ Pencil Down</button>
-        <button type="button" class="btn ba bsm" style="font-size:12px;padding:3px 10px" onclick="addSRowTo('el-subj-rows','_book')">📖 + 원서</button>
+        <button class="chip" data-s="pencil_down" onclick="togEditSubj(this)"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> Pencil Down</button>
+        <button type="button" class="btn ba bsm" style="font-size:12px;padding:3px 10px" onclick="addSRowTo('el-subj-rows','_book')"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> + 원서</button>
       </div>
       <div id="el-subj-rows" class="sr-wrap"></div>
     </div>
@@ -1243,15 +1243,15 @@
       <textarea id="el-cmt" style="min-height:90px;margin-bottom:0"></textarea>
       <div style="display:flex;gap:6px;margin-top:6px;margin-bottom:4px;flex-wrap:wrap">
         <button type="button" class="btn bo bsm" onclick="previewElPolishedCmt()" style="font-size:12px">👁 학부모 미리보기</button>
-        <button type="button" class="btn bo bsm" onclick="previewElStuCmt()" style="font-size:12px">🙋 학생 응원 미리보기</button>
+        <button type="button" class="btn bo bsm" onclick="previewElStuCmt()" style="font-size:12px"><i data-lucide="hand" width="15" height="15" style="vertical-align:-3px"></i> 학생 응원 미리보기</button>
         <span id="el-cmt-preview-status" style="font-size:12px;color:var(--slate);align-self:center"></span>
       </div>
       <div id="el-cmt-preview-box" style="display:none;padding:10px 12px;background:var(--tl);border-radius:8px;border-left:3px solid var(--teal);margin-bottom:4px">
-        <div style="font-size:10.5px;font-weight:700;color:var(--teal);margin-bottom:4px">📨 학부모 코멘트 <span style="font-weight:400;color:var(--slate)">(수정 가능)</span></div>
+        <div style="font-size:10.5px;font-weight:700;color:var(--teal);margin-bottom:4px"><i data-lucide="mail" width="15" height="15" style="vertical-align:-3px"></i> 학부모 코멘트 <span style="font-weight:400;color:var(--slate)">(수정 가능)</span></div>
         <textarea id="el-cmt-preview-text" style="font-size:13px;color:var(--navy);line-height:1.6;width:100%;border:none;background:transparent;resize:vertical;font-family:var(--fb);min-height:56px;outline:none;box-sizing:border-box"></textarea>
       </div>
       <div id="el-stu-cmt-preview-box" style="display:none;padding:10px 12px;background:var(--cream2);border-radius:8px;border-left:3px solid var(--navy);margin-bottom:4px">
-        <div style="font-size:10.5px;font-weight:700;color:var(--navy);margin-bottom:4px">🙋 학생 응원 코멘트 <span style="font-weight:400;color:var(--slate)">(수정 가능)</span></div>
+        <div style="font-size:10.5px;font-weight:700;color:var(--navy);margin-bottom:4px"><i data-lucide="hand" width="15" height="15" style="vertical-align:-3px"></i> 학생 응원 코멘트 <span style="font-weight:400;color:var(--slate)">(수정 가능)</span></div>
         <textarea id="el-stu-cmt-preview-text" style="font-size:13px;color:var(--navy);line-height:1.6;width:100%;border:none;background:transparent;resize:vertical;font-family:var(--fb);min-height:56px;outline:none;box-sizing:border-box"></textarea>
       </div>
     </div>
@@ -1317,7 +1317,7 @@
 </div>
 
 <!-- 클래스 추가/수정 -->
-<!-- 진도 손보기 — 진도 보드의 점검 목록·✏️에서 열림 (진도 기준점 수정 / 다음 교재 고르기) -->
+<!-- 진도 손보기 — 진도 보드의 점검 목록·<i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i>에서 열림 (진도 기준점 수정 / 다음 교재 고르기) -->
 <!-- 읽은 책 자동완성 — 원서(library.ortSeq) 목록을 loadAllData 뒤 채움 (fillOrtBookDatalist) -->
 <datalist id="dl-ort-books"></datalist>
 <div id="m-pg-fix" class="mo">
@@ -1371,13 +1371,13 @@
           <button class="chip" data-s="listening" onclick="ecTogSubj(this)">리스닝</button>
           <button class="chip" data-s="writing" onclick="ecTogSubj(this)">라이팅</button>
           <button class="chip" data-s="naesin" onclick="ecTogSubj(this)">내신</button>
-          <button class="chip" data-s="pencil_down" onclick="ecTogSubj(this)">✏️ Pencil Down</button>
+          <button class="chip" data-s="pencil_down" onclick="ecTogSubj(this)"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> Pencil Down</button>
         </div>
         <div id="ec-board" class="ec-board"></div>
         <div id="ec-subj-rows" class="sr-wrap"></div>
       </div>
       <div class="f s2">
-        <label>🎮 클래스5 (앱 자동 과제) <span style="font-size:12px;color:var(--slate);font-weight:400">책 1권 지정 → 매일 한 유닛씩 자동 할당</span></label>
+        <label><i data-lucide="gamepad-2" width="15" height="15" style="vertical-align:-3px"></i> 클래스5 (앱 자동 과제) <span style="font-size:12px;color:var(--slate);font-weight:400">책 1권 지정 → 매일 한 유닛씩 자동 할당</span></label>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           <select id="ec-c5-book" class="filter-sel" style="flex:2;min-width:150px" onchange="ecC5BookChange()"></select>
           <span style="font-size:12px;color:var(--slate)">시작일</span>
@@ -1393,7 +1393,7 @@
         </div>
       </div>
       <div class="f s2">
-        <label>📝 매일 반복 숙제 <span style="font-size:12px;color:var(--slate);font-weight:400">단어 공책 쓰기 등 — 줄바꿈으로 여러 개 (숙제 캘린더에 매일 표시)</span></label>
+        <label><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 매일 반복 숙제 <span style="font-size:12px;color:var(--slate);font-weight:400">단어 공책 쓰기 등 — 줄바꿈으로 여러 개 (숙제 캘린더에 매일 표시)</span></label>
         <textarea id="ec-dailyhw" rows="2" placeholder="예)&#10;단어 공책에 오늘 배운 단어 쓰기&#10;소리 내어 5분 읽기" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
       </div>
       <div class="f s2">
@@ -1401,7 +1401,7 @@
           <input type="checkbox" id="ec-autohw" checked style="width:16px;height:16px;cursor:pointer">
           수업 연계 숙제 자동 제안 사용
         </label>
-        <div style="font-size:12px;color:var(--slate);margin-top:3px;line-height:1.6">끄면 숙제 자동 채움과 📕 복습 제안이 멈춰요 (반복·클래스5 숙제는 유지)</div>
+        <div style="font-size:12px;color:var(--slate);margin-top:3px;line-height:1.6">끄면 숙제 자동 채움과 <i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 복습 제안이 멈춰요 (반복·클래스5 숙제는 유지)</div>
       </div>
       <div class="f s2">
         <label>소속 학생</label>
@@ -1447,8 +1447,8 @@
     <div class="fg">
       <div class="f"><label>유형</label>
         <select id="wdb-new-srctype" onchange="wdbNewSrcTypeChange()">
-          <option value="textbook">📚 교재</option>
-          <option value="library">📖 원서</option>
+          <option value="textbook"><i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 교재</option>
+          <option value="library"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 원서</option>
         </select>
       </div>
       <div class="f s2">
@@ -1468,8 +1468,8 @@
   <div class="mdl" style="max-width:270px">
     <div class="mh"><div class="mt">무엇을 추가할까요?</div><button class="bx" onclick="closeM('m-book-type-pick')">×</button></div>
     <div style="display:flex;gap:10px;padding:4px 0 8px">
-      <button class="btn bt" style="flex:1;padding:16px 8px;font-size:15px" onclick="closeM('m-book-type-pick');openTbookAdd()">📚 교재</button>
-      <button class="btn bt" style="flex:1;padding:16px 8px;font-size:15px" onclick="closeM('m-book-type-pick');libAddCoverClear();openM('m-add-lib')">📖 원서</button>
+      <button class="btn bt" style="flex:1;padding:16px 8px;font-size:15px" onclick="closeM('m-book-type-pick');openTbookAdd()"><i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 교재</button>
+      <button class="btn bt" style="flex:1;padding:16px 8px;font-size:15px" onclick="closeM('m-book-type-pick');libAddCoverClear();openM('m-add-lib')"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 원서</button>
     </div>
   </div>
 </div>
@@ -1491,7 +1491,7 @@
       <div class="fg">
         <div class="f s2"><label>교재명</label><input type="text" id="tbook-title" placeholder="교재명을 입력하세요"></div>
         <div class="f"><label>출판사</label><input type="text" id="tbook-publisher" placeholder="출판사"></div>
-        <div class="f"><label>시리즈</label><input type="text" id="tbook-series" list="dl-tbook-series" autocomplete="off" placeholder="예: Smart Reading — 같은 시리즈끼리 📚 체인 연결"><datalist id="dl-tbook-series"></datalist></div>
+        <div class="f"><label>시리즈</label><input type="text" id="tbook-series" list="dl-tbook-series" autocomplete="off" placeholder="예: Smart Reading — 같은 시리즈끼리 <i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 체인 연결"><datalist id="dl-tbook-series"></datalist></div>
         <div class="f"><label>레벨</label><input type="text" id="tbook-level" placeholder="예: 초3, 중1, Level 2"></div>
         <div class="f s2"><label>분류</label>
           <select id="tbook-category" class="filter-sel" style="width:100%" onchange="const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display=this.value==='내신'?'':'none'">
@@ -1505,7 +1505,7 @@
         <div class="f"><label>총 유닛 수</label><input type="number" id="tbook-total-units" placeholder="0" min="0" style="width:100%"></div>
         <div class="f s2"><label>표지 이미지 <span style="font-size:10.5px;font-weight:400;text-transform:none;letter-spacing:0">(수정 시 붙여넣기 즉시 저장)</span></label>
           <div style="display:flex;gap:10px;align-items:center">
-            <div id="tbook-cover-prev" style="width:56px;height:76px;border-radius:8px;border:1px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex-shrink:0">📘</div>
+            <div id="tbook-cover-prev" style="width:56px;height:76px;border-radius:8px;border:1px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex-shrink:0"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i></div>
             <div style="flex:1;min-width:0">
               <div class="uz" style="padding:10px" onclick="document.getElementById('tbook-cover-file').click()" ondragover="event.preventDefault()" ondrop="event.preventDefault();tbookCoverFromFile(event.dataTransfer.files[0])">
                 <div class="ut">클릭 · 드래그 · <b>Ctrl+V 붙여넣기</b>로 표지 업로드</div>
@@ -1554,7 +1554,7 @@
       <!-- 단원 자료 (원문·오디오·드릴·링크) — 접이식 -->
       <div id="tu-text-section" style="display:none;margin-bottom:10px;background:var(--cream2);border:1px solid var(--border);border-radius:var(--rs);overflow:hidden;flex-shrink:0">
         <button type="button" onclick="tuToggleTextSec()" style="width:100%;display:flex;align-items:center;gap:8px;padding:9px 12px;background:none;border:none;cursor:pointer;font-family:var(--fb);text-align:left">
-          <span style="font-size:13px;font-weight:700;color:var(--navy);white-space:nowrap">📖 단원 자료</span>
+          <span style="font-size:13px;font-weight:700;color:var(--navy);white-space:nowrap"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 단원 자료</span>
           <span id="tu-text-summary" style="font-size:12px;color:var(--slate);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">원문 · 오디오 · 패턴 드릴 · 링크</span>
           <span id="tu-text-arrow" style="font-size:10.5px;color:var(--slate)">▼</span>
         </button>
@@ -1567,15 +1567,15 @@
               <button class="btn ba bsm" onclick="tuSaveUnitText()" style="white-space:nowrap">저장</button>
               <button class="btn bt bsm" onclick="tuExtractExamples()" style="white-space:nowrap">✨ 원문 예문 추출</button>
               <button class="btn bo bsm" onclick="wsPrintUnitSheet()" title="본문 문장별 품사·문장성분·해석 빈칸 워크시트를 만들어 인쇄" style="white-space:nowrap">🖨 문장 분석</button>
-              <button class="btn ba bsm" onclick="teacherSpeakText('tu-unit-text')" title="AI 낭독으로 미리듣기" style="white-space:nowrap">🔊 미리듣기</button>
+              <button class="btn ba bsm" onclick="teacherSpeakText('tu-unit-text')" title="AI 낭독으로 미리듣기" style="white-space:nowrap"><i data-lucide="volume-2" width="15" height="15" style="vertical-align:-3px"></i> 미리듣기</button>
               <button class="btn bo bsm" onclick="stopSmartAudio()" style="white-space:nowrap">⏹</button>
             </div>
           </div>
           <textarea id="tu-unit-text" placeholder="이 단원의 원문(지문)을 붙여넣으세요. '원문 예문 추출'을 누르면 단어마다 해당 문장이 예문으로 자동 설정됩니다." style="width:100%;height:90px;padding:10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
           <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">
-            <span style="font-size:12px;color:var(--slate);white-space:nowrap">🔊 오디오</span>
+            <span style="font-size:12px;color:var(--slate);white-space:nowrap"><i data-lucide="volume-2" width="15" height="15" style="vertical-align:-3px"></i> 오디오</span>
             <span id="tu-audio-indicator" style="font-size:12px;color:var(--slate);flex:1">없음</span>
-            <button class="btn ba bsm" onclick="document.getElementById('tu-audio-file').click()" style="white-space:nowrap">📤 업로드</button>
+            <button class="btn ba bsm" onclick="document.getElementById('tu-audio-file').click()" style="white-space:nowrap"><i data-lucide="upload" width="15" height="15" style="vertical-align:-3px"></i> 업로드</button>
             <input type="file" id="tu-audio-file" accept="audio/*" style="display:none" onchange="tuUploadUnitAudio(event)">
             <button id="tu-audio-del-btn" class="btn bd bsm" style="display:none;white-space:nowrap" onclick="tuRemoveUnitAudio()">삭제</button>
           </div>
@@ -1584,7 +1584,7 @@
             <textarea id="tu-unit-patterns" placeholder="I have small seeds on my body.&#10;I have yellow skin on my body.&#10;I have white stripes on my body." style="width:100%;height:64px;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fd);font-size:13px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
           </div>
           <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
-            <span style="font-size:12px;color:var(--slate);white-space:nowrap">🔗 외부 링크</span>
+            <span style="font-size:12px;color:var(--slate);white-space:nowrap"><i data-lucide="link" width="15" height="15" style="vertical-align:-3px"></i> 외부 링크</span>
             <input type="url" id="tu-unit-link" placeholder="https://quizlet.com/..." style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream);outline:none">
           </div>
           <div style="font-size:12px;color:var(--teal);margin-top:4px" id="tu-text-status"></div>
@@ -1618,10 +1618,10 @@
         <button class="btn bt bsm" onclick="tuAddWord()" style="white-space:nowrap">+ 추가</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
-        <button class="btn bt bsm" onclick="document.getElementById('tu-any-file').click()" style="white-space:nowrap" title="txt·CSV·Excel·Word·이미지 — 정제 안 된 워드리스트도 단원별로 자동 인식">🤖 AI 파일 가져오기</button>
+        <button class="btn bt bsm" onclick="document.getElementById('tu-any-file').click()" style="white-space:nowrap" title="txt·CSV·Excel·Word·이미지 — 정제 안 된 워드리스트도 단원별로 자동 인식"><i data-lucide="bot" width="15" height="15" style="vertical-align:-3px"></i> AI 파일 가져오기</button>
         <input type="file" id="tu-any-file" accept=".txt,.csv,.xlsx,.xls,.docx,image/*" style="display:none" onchange="tuImportAny(event)">
         <button class="btn bt bsm" onclick="tuAutoFillAll()" style="white-space:nowrap">✨ AI 전체 채우기</button>
-        <button class="btn ba bsm" onclick="tuRefreshFromLib()" style="white-space:nowrap">📚 원서 예문 갱신</button>
+        <button class="btn ba bsm" onclick="tuRefreshFromLib()" style="white-space:nowrap"><i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 원서 예문 갱신</button>
         <span style="font-size:12px;color:var(--teal)" id="tu-import-status"></span>
       </div>
       </div><!-- /.tbu-right -->
@@ -1711,7 +1711,7 @@
     <div id="unit-read-audio" style="flex-shrink:0;padding:8px 16px;border-bottom:1px solid var(--border)"></div>
     <div id="unit-read-body" style="flex:1;overflow-y:auto;padding:18px 20px;font-size:16px;line-height:2.4;font-family:var(--fd);color:var(--navy);min-height:0;white-space:pre-wrap"></div>
     <div id="unit-read-link" style="flex-shrink:0;padding:10px 16px;border-top:1px solid var(--border);display:none">
-      <a id="unit-read-link-btn" href="#" target="_blank" rel="noopener" class="btn ba" style="width:100%;text-align:center;display:block;border-radius:50px;padding:11px">🔗 심화 학습 앱 열기</a>
+      <a id="unit-read-link-btn" href="#" target="_blank" rel="noopener" class="btn ba" style="width:100%;text-align:center;display:block;border-radius:50px;padding:11px"><i data-lucide="link" width="15" height="15" style="vertical-align:-3px"></i> 심화 학습 앱 열기</a>
     </div>
   </div>
 </div>
@@ -1740,7 +1740,7 @@
 <!-- 휴지통 -->
 <div id="m-trash" class="mo">
   <div class="mdl" style="max-width:480px">
-    <div class="mh"><div class="mt">🗑 휴지통</div><button class="bx" onclick="closeM('m-trash')">×</button></div>
+    <div class="mh"><div class="mt"><i data-lucide="trash-2" width="15" height="15" style="vertical-align:-3px"></i> 휴지통</div><button class="bx" onclick="closeM('m-trash')">×</button></div>
     <div style="font-size:13px;color:var(--slate);margin-bottom:8px">삭제한 항목은 여기에 30일간 보관된 뒤 자동으로 완전히 삭제됩니다.</div>
     <div id="trash-list" style="max-height:55vh;overflow-y:auto"></div>
   </div>
@@ -1757,7 +1757,7 @@
 <!-- 수업 저장 후 학부모 알림 -->
 <div id="m-notify-parents" class="mo">
   <div class="mdl" style="max-width:400px">
-    <div class="mh"><div class="mt">📣 학부모 알림 보내기</div><button class="bx" onclick="closeM('m-notify-parents')">×</button></div>
+    <div class="mh"><div class="mt"><i data-lucide="megaphone" width="15" height="15" style="vertical-align:-3px"></i> 학부모 알림 보내기</div><button class="bx" onclick="closeM('m-notify-parents')">×</button></div>
     <div style="font-size:13px;color:var(--slate);margin-bottom:10px">수업 기록이 저장되었습니다. 학부모에게 카카오톡으로 알려드릴까요? (버튼을 누르면 카카오가 열리고 안내 문구가 복사됩니다)</div>
     <div id="np-list"></div>
     <button class="btn bo" style="width:100%;margin-top:10px" onclick="closeM('m-notify-parents')">닫기</button>
@@ -1792,7 +1792,7 @@
       <div class="f s2"><label>설명</label><input type="text" id="lib-desc" placeholder="책 설명 (선택)"></div>
       <div class="f s2"><label>표지 이미지 <span style="font-size:10.5px;font-weight:400;text-transform:none;letter-spacing:0">(선택)</span></label>
         <div style="display:flex;gap:10px;align-items:center">
-          <div id="lib-cover-prev" style="width:56px;height:76px;border-radius:8px;border:1px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex-shrink:0">📗</div>
+          <div id="lib-cover-prev" style="width:56px;height:76px;border-radius:8px;border:1px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex-shrink:0"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i></div>
           <div style="flex:1;min-width:0">
             <div class="uz" style="padding:10px" onclick="document.getElementById('lib-cover-file').click()" ondragover="event.preventDefault()" ondrop="event.preventDefault();libAddCoverFromFile(event.dataTransfer.files[0])">
               <div class="ut">클릭 · 드래그 · <b>Ctrl+V 붙여넣기</b>로 표지 업로드</div>
@@ -1815,7 +1815,7 @@
     <!-- 탭 -->
     <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px">
       <button id="elib-tab-info" onclick="elibTab('info')" style="padding:8px 16px;font-size:13px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb)">기본 정보</button>
-      <button id="elib-tab-vocab" onclick="elibTab('vocab')" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb)">📚 본문 & 단어장 <span id="elib-vocab-cnt" style="font-size:10.5px"></span></button>
+      <button id="elib-tab-vocab" onclick="elibTab('vocab')" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb)"><i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 본문 & 단어장 <span id="elib-vocab-cnt" style="font-size:10.5px"></span></button>
     </div>
     <!-- 기본 정보 탭 -->
     <div id="elib-pane-info">
@@ -1828,7 +1828,7 @@
         <div class="f s2"><label>YouTube 링크 (음원 없을 때 표시)</label><input type="text" id="elib-youtube" placeholder="https://youtube.com/watch?v=..."></div>
         <div class="f s2"><label>표지 이미지 <span style="font-size:10.5px;font-weight:400;text-transform:none;letter-spacing:0">(붙여넣기 즉시 저장)</span></label>
           <div style="display:flex;gap:10px;align-items:center">
-            <div id="elib-cover-prev" style="width:56px;height:76px;border-radius:8px;border:1px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex-shrink:0">📗</div>
+            <div id="elib-cover-prev" style="width:56px;height:76px;border-radius:8px;border:1px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex-shrink:0"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i></div>
             <div style="flex:1;min-width:0">
               <div class="uz" style="padding:10px" onclick="document.getElementById('elib-cover-file').click()" ondragover="event.preventDefault()" ondrop="event.preventDefault();elibCoverFromFile(event.dataTransfer.files[0])">
                 <div class="ut">클릭 · 드래그 · <b>Ctrl+V 붙여넣기</b>로 표지 업로드</div>
@@ -1857,11 +1857,11 @@
         <textarea id="elib-booktext" placeholder="챕터를 선택하거나 생성한 뒤 본문을 붙여넣으세요." style="width:100%;height:100px;padding:10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:14px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">
           <button class="btn bt bsm" onclick="extractLibVocab()" style="white-space:nowrap">✨ AI 단어 추출 & 저장</button>
-          <button class="btn ba bsm" onclick="teacherSpeakText('elib-booktext')" title="AI 낭독으로 미리듣기" style="white-space:nowrap">🔊 미리듣기</button>
+          <button class="btn ba bsm" onclick="teacherSpeakText('elib-booktext')" title="AI 낭독으로 미리듣기" style="white-space:nowrap"><i data-lucide="volume-2" width="15" height="15" style="vertical-align:-3px"></i> 미리듣기</button>
           <button class="btn bo bsm" onclick="stopSmartAudio()" style="white-space:nowrap">⏹</button>
-          <button class="btn ba bsm" onclick="document.getElementById('elib-txt-file').click()" style="white-space:nowrap">📄 .txt 파일 불러오기</button>
+          <button class="btn ba bsm" onclick="document.getElementById('elib-txt-file').click()" style="white-space:nowrap"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> .txt 파일 불러오기</button>
           <input type="file" id="elib-txt-file" accept=".txt" style="display:none" onchange="elibLoadTxtFile(event)">
-          <button class="btn ba bsm" onclick="document.getElementById('elib-ch-csv-input').click()" style="white-space:nowrap">📊 챕터 CSV 일괄 입력</button>
+          <button class="btn ba bsm" onclick="document.getElementById('elib-ch-csv-input').click()" style="white-space:nowrap"><i data-lucide="bar-chart-3" width="15" height="15" style="vertical-align:-3px"></i> 챕터 CSV 일괄 입력</button>
           <input type="file" id="elib-ch-csv-input" accept=".csv" style="display:none" onchange="elibImportChapterCSV(event)">
           <span style="font-size:12px;color:var(--teal)" id="elib-extract-status"></span>
         </div>
@@ -1896,8 +1896,8 @@
         <button class="btn bt bsm" onclick="elibAddWord()" style="white-space:nowrap">+ 추가</button>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn ba bsm" onclick="elibSetImportMode('append');document.getElementById('elib-wrd-file').click()">📥 CSV 추가</button>
-        <button class="btn ba bsm" onclick="elibSetImportMode('overwrite');document.getElementById('elib-wrd-file').click()">🔄 CSV 덮어쓰기</button>
+        <button class="btn ba bsm" onclick="elibSetImportMode('append');document.getElementById('elib-wrd-file').click()"><i data-lucide="download" width="15" height="15" style="vertical-align:-3px"></i> CSV 추가</button>
+        <button class="btn ba bsm" onclick="elibSetImportMode('overwrite');document.getElementById('elib-wrd-file').click()"><i data-lucide="refresh-cw" width="15" height="15" style="vertical-align:-3px"></i> CSV 덮어쓰기</button>
         <input type="file" id="elib-wrd-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="elibImportFile(event)">
         <button class="btn ba bsm" onclick="elibExportVocab()">⬇ CSV 내보내기</button>
       </div>
@@ -1908,7 +1908,7 @@
 <!-- 일괄 오디오 업로드 미리보기 모달 -->
 <div id="m-bulk-audio" class="mo" data-protect>
   <div class="mdl" style="max-width:560px">
-    <div class="mh"><div class="mt">🎵 일괄 오디오 업로드</div><button class="bx" onclick="closeM('m-bulk-audio')">×</button></div>
+    <div class="mh"><div class="mt"><i data-lucide="music" width="15" height="15" style="vertical-align:-3px"></i> 일괄 오디오 업로드</div><button class="bx" onclick="closeM('m-bulk-audio')">×</button></div>
     <div class="ib iba" style="margin-bottom:10px">파일명 규칙: <strong>전권</strong>은 "책제목.mp3", <strong>챕터별</strong>은 "책제목 - Ch01.mp3" 형식</div>
     <div id="bulk-audio-preview" style="max-height:360px;overflow-y:auto"></div>
     <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
@@ -1921,7 +1921,7 @@
 <!-- 일괄 본문 업로드 미리보기 모달 -->
 <div id="m-bulk-text" class="mo" data-protect>
   <div class="mdl" style="max-width:560px">
-    <div class="mh"><div class="mt">📄 일괄 본문 업로드</div><button class="bx" onclick="closeM('m-bulk-text')">×</button></div>
+    <div class="mh"><div class="mt"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 일괄 본문 업로드</div><button class="bx" onclick="closeM('m-bulk-text')">×</button></div>
     <div class="ib iba" style="margin-bottom:10px">파일명 규칙: <strong>전체 본문</strong>은 "책제목.txt", <strong>챕터별</strong>은 "책제목 - Ch01.txt" 형식</div>
     <div id="bulk-text-preview" style="max-height:360px;overflow-y:auto"></div>
     <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
@@ -1934,7 +1934,7 @@
 <!-- 리딩로그 단어 검토 모달 -->
 <div id="m-vocab-review" class="mo" data-protect>
   <div class="mdl" style="max-width:520px">
-    <div class="mh"><div class="mt">📝 단어 검토 후 단어장 추가</div><button class="bx" onclick="closeVocabReview()">×</button></div>
+    <div class="mh"><div class="mt"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 단어 검토 후 단어장 추가</div><button class="bx" onclick="closeVocabReview()">×</button></div>
     <div style="font-size:13px;color:var(--slate);margin-bottom:12px">추가할 단어를 확인하고 뜻을 수정할 수 있습니다. 체크 해제 시 해당 단어는 제외됩니다.</div>
     <div id="vocab-review-list" style="max-height:50vh;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs)"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
@@ -1964,7 +1964,7 @@
 <!-- 과제 할당 모달 -->
 <div id="m-add-assign" class="mo" data-protect>
   <div class="mdl" style="max-width:560px">
-    <div class="mh"><div class="mt">📋 과제 할당</div><button class="bx" onclick="closeM('m-add-assign')">×</button></div>
+    <div class="mh"><div class="mt"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 과제 할당</div><button class="bx" onclick="closeM('m-add-assign')">×</button></div>
     <div class="fg">
       <div class="f"><label>학생</label><select id="modal-assign-stu"><option value="">-- 선택 --</option></select></div>
       <div class="f"><label>날짜</label><input type="date" id="modal-assign-date"></div>
@@ -1972,8 +1972,8 @@
       <div class="f"><label>구분</label>
         <select id="modal-assign-cat" onchange="modalAssignCatChange()">
           <option value="">— 구분 없음 (자유 입력) —</option>
-          <option value="mission">🎯 학습 미션 (교재 유닛)</option>
-          <option value="worksheet">🗒️ 워크시트 (인쇄 학습지)</option>
+          <option value="mission"><i data-lucide="target" width="15" height="15" style="vertical-align:-3px"></i> 학습 미션 (교재 유닛)</option>
+          <option value="worksheet"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 워크시트 (인쇄 학습지)</option>
           <option value="phonics">파닉스</option>
           <option value="vocab">어휘</option>
           <option value="grammar">어법</option>
@@ -2009,7 +2009,7 @@
 <!-- 빠른 결제 기록 모달 -->
 <div id="m-quick-pay" class="mo" data-protect>
   <div class="mdl">
-    <div class="mh"><div class="mt">💳 결제 기록 추가</div><button class="bx" onclick="closeM('m-quick-pay')">×</button></div>
+    <div class="mh"><div class="mt"><i data-lucide="credit-card" width="15" height="15" style="vertical-align:-3px"></i> 결제 기록 추가</div><button class="bx" onclick="closeM('m-quick-pay')">×</button></div>
     <div class="fg">
       <div class="f"><label>학생</label><select id="qp-stu"></select></div>
       <div class="f"><label>결제일</label><input type="date" id="qp-date"></div>
@@ -2029,7 +2029,7 @@
 <!-- 공지 팝업 -->
 <div id="notice-overlay" class="notice-overlay" style="display:none" onclick="closeNotice()"></div>
 <div id="notice-popup" class="notice-popup" style="display:none">
-  <div style="font-size:18px;margin-bottom:8px">📢</div>
+  <div style="font-size:18px;margin-bottom:8px"><i data-lucide="megaphone" width="15" height="15" style="vertical-align:-3px"></i></div>
   <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:8px">공지사항</div>
   <div id="notice-text" style="font-size:14px;line-height:1.7;color:var(--slate);margin-bottom:1rem;white-space:pre-wrap"></div>
   <button class="btn bt" style="width:100%;justify-content:center" onclick="closeNotice()">확인</button>
@@ -2139,7 +2139,7 @@
 <!-- NELT 결과 입력 모달 -->
 <div id="m-nelt" class="mo" data-protect>
   <div class="mdl">
-    <div class="mh"><div class="mt">🏆 NELT 결과 입력</div><button class="bx" onclick="closeM('m-nelt')">×</button></div>
+    <div class="mh"><div class="mt"><i data-lucide="trophy" width="15" height="15" style="vertical-align:-3px"></i> NELT 결과 입력</div><button class="bx" onclick="closeM('m-nelt')">×</button></div>
     <input type="hidden" id="nelt-sid">
     <div class="fg">
       <div class="f"><label>검사 날짜</label><input type="date" id="nelt-date" style="width:100%"></div>
@@ -2204,7 +2204,7 @@
 <script src="js/utils.js?v=20261101m"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261101c"></script>
-<script src="js/teacher.js?v=20261102b"></script>
+<script src="js/teacher.js?v=20261102c"></script>
 <script src="js/student.js?v=20261101n"></script>
 <script src="js/parent.js?v=20261101h"></script>
 </body>
