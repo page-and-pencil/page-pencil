@@ -670,10 +670,24 @@ async function ppPushEnable(sid,name,role){
   const row={sid,role:role||'student',name:name||'',endpoint:j.endpoint,
     p256dh:j.keys.p256dh,auth:j.keys.auth,active:true,ua:(navigator.userAgent||'').slice(0,180),
     updatedAt:new Date().toISOString()};
-  try{await supaUpsert('push_subs',_ppEndpointId(j.endpoint),row,sid);}
+  try{await _ppSaveSub(_ppEndpointId(j.endpoint),row,sid);}
   catch(e){console.error('ppPushEnable save:',e);toast('알림 등록을 저장하지 못했어요 — 네트워크를 확인해 주세요');return false;}
   return true;
 }
+// 구독 등록·해지는 **RPC 함수로만** 한다 (supabase/push_setup.sql의 pp_push_subscribe·pp_push_unsubscribe).
+// ⚠️ 테이블에 직접 쓰면 안 된다 — push_subs는 endpoint(알림을 보낼 수 있는 주소)를 감추려고
+// 익명 접근을 막아 뒀고, PostgreSQL은 **WHERE 절이 있는 update·delete에도 select 정책을 요구**해서
+// select를 막은 상태에서는 특정 행을 고치거나 지울 수 없다(조용히 0행 처리된다 — 실측 Content-Range */0).
+// security definer 함수가 그 두 가지를 한 번에 해결한다.
+async function _ppRpc(fn,args){
+  const r=await fetch(SUPA_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:SUPA_HEADERS,body:JSON.stringify(args)});
+  if(!(r.status>=200&&r.status<300)){
+    const t=await r.text().catch(()=>'');
+    throw new Error(fn+' HTTP '+r.status+(t?' '+t.slice(0,120):''));
+  }
+  return true;
+}
+function _ppSaveSub(id,row,sid){return _ppRpc('pp_push_subscribe',{p_id:id,p_sid:sid||null,p_data:row});}
 // endpoint URL을 id로 쓸 수 있게 짧고 안전한 문자열로 (같은 기기 재구독 시 같은 행 갱신)
 function _ppEndpointId(ep){
   let h1=0x811c9dc5,h2=0x01000193;
@@ -686,7 +700,8 @@ async function ppPushDisable(){
   const ep=sub.endpoint;
   try{await sub.unsubscribe();}catch(e){}
   // 구독 행은 지운다 — 끊긴 endpoint를 서버가 계속 두드리지 않게 (학습 데이터가 아니라 기기 등록 정보)
-  try{await supaDelete('push_subs',_ppEndpointId(ep));}catch(e){console.error('ppPushDisable:',e);}
+  try{await _ppRpc('pp_push_unsubscribe',{p_id:_ppEndpointId(ep)});}
+  catch(e){console.error('ppPushDisable:',e);}
   try{const c=await caches.open('pp-push-id');await c.delete('/who');}catch(e){}
   return true;
 }
