@@ -1582,3 +1582,14 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
   border-radius:10px;box-shadow:0 8px 24px rgba(15,48,74,.14);padding:9px 11px;display:flex;flex-direction:column;
   gap:5px;min-width:200px;max-width:min(330px,88vw);}
 @media(max-width:480px){.pg-lgw-b{right:auto;left:0;}}
+
+/* ── 단어 학습 화면 세로 중앙 정렬 ── */
+/* 카드가 위로 쏠려 390px 화면에서 아래가 250px 넘게 비어 있었다 (실제 렌더 확인).
+   min-height 로 남는 공간을 채우고 가운데 정렬 — 내용이 더 길면 그대로 늘어난다(잘리지 않음). */
+#st-vocab.panel.active{
+  display:flex;flex-direction:column;justify-content:center;
+  min-height:calc(100dvh - 118px);
+}
+@supports not (height:100dvh){
+  #st-vocab.panel.active{min-height:calc(100vh - 118px);}
+}
