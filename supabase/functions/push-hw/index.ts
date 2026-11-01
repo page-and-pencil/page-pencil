@@ -79,9 +79,15 @@ function pendingToday(rows: any[], sid: string, today: string): number {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
-    // force=true면 '하루 1회' 제한을 무시한다 (대시보드에서 시험 발송할 때)
-    let force = false;
-    try { const b = await req.json(); force = !!(b && b.force); } catch (_) { /* 본문 없음 */ }
+    // force=true면 '하루 1회' 제한을 무시한다 (시험 발송용).
+    // ⚠️ 아무나 쓰면 알림을 쌓을 수 있으므로 **service_role 키로 호출할 때만** 허용한다.
+    // 스케줄러는 공개 키로 호출하므로 force 없이 평소 경로(기기당 하루 1회)를 탄다.
+    const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    const isAdmin = !!SERVICE_KEY && bearer === SERVICE_KEY;
+    let wanted = false;
+    try { const b = await req.json(); wanted = !!(b && b.force); } catch (_) { /* 본문 없음 */ }
+    const force = wanted && isAdmin;
+    const forceDenied = wanted && !isAdmin;
     const today = todayKST();
     const subs = await sb("push_subs?select=*");
     const asgn = await sb("assignments?select=*&limit=20000");
@@ -145,7 +151,11 @@ serve(async (req) => {
       result.push({ sid: d.sid, name: nameOf(d.sid), role: d.role, pending, status, note });
     }
     const sent = result.filter((r) => r.status && r.status >= 200 && r.status < 300).length;
-    return new Response(JSON.stringify({ today, force, sent, total: subs.length, result }, null, 1), {
+    return new Response(JSON.stringify({
+      today, force, sent, total: subs.length,
+      ...(forceDenied ? { forceDenied: "force는 service_role 키로 호출할 때만 쓸 수 있습니다" } : {}),
+      result,
+    }, null, 1), {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (e) {

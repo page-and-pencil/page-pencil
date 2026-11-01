@@ -87,3 +87,45 @@ AI가 알려준 **함수 목록**과 **시크릿 이름**, 그리고 오류 메�
 - AI가 `push_subs`에 **SELECT 정책을 추가하자고 하면 거절**하세요. 푸시 endpoint가 노출됩니다.
 - AI가 **JWT 검증을 끄자고 하면 거절**하세요. 외부에서 아무나 알림을 보낼 수 있게 됩니다.
 - AI가 코드를 고쳐야 한다고 하면, **바꾼 내용을 먼저 보여달라고** 하세요. 그 내용을 저에게 알려주시면 로컬 파일도 같이 맞추겠습니다.
+
+---
+
+## 2차 요청 — force 우회 차단 반영 (2026-11-01)
+
+1차 배포는 성공했습니다. 다만 AI가 지적한 대로 `{"force":true}` 를 공개 키로도 보낼 수 있어
+하루 1회 제한을 우회할 수 있었습니다. 그 부분을 고쳤으니 **같은 이름으로 재배포**만 하면 됩니다.
+
+--- 복사 시작 ---
+
+Thanks — the deployment worked. You were right about the `force` bypass: with JWT verification on,
+anyone holding the project client key could POST `{"force":true}` and skip the once-per-day guard.
+
+I have fixed it in the code: `force` is now honored only when the caller presents the
+`SUPABASE_SERVICE_ROLE_KEY` as the bearer token. The scheduler calls with the client key, so it
+takes the normal path (one notification per device per day). A refused attempt is reported back as
+`forceDenied` in the JSON response.
+
+Please **redeploy the same function `push-hw`** with the updated code below. Same constraints as before:
+keep JWT verification enabled, do not rename it, and do not touch the database (no new policies, and
+do not grant SELECT on `push_subs` — `data->>'endpoint'` must stay private).
+
+Two follow-up questions:
+
+1. You noted that a modern `sb_publishable_...` key is not a JWT and would fail verification. I checked
+   the key this project hands to the browser: it decodes as a JWT with `role: anon`, `iss: supabase`,
+   issued 2026-05-27 and expiring 2036-05-26. So it is a legacy anon JWT and should pass verification.
+   Can you confirm the `pp-hw-push` cron job is firing without auth errors? Please show
+   `select * from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'pp-hw-push') order by start_time desc limit 5;`
+
+2. You flagged RLS as disabled on `students`, `lessons`, `tests`, `readings`, `logs`, `notices`,
+   `settings`. That is the app's existing design (a static client talks to PostgREST with the anon key),
+   so please do not change it now. I only want to know: is there a `settings` RLS policy already present
+   from a previous migration? Just report what exists — make no changes.
+
+Updated function code:
+
+```ts
+<<< PASTE index.ts HERE >>>
+```
+
+--- 복사 끝 ---

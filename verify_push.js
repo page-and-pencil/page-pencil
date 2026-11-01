@@ -48,7 +48,15 @@ const rpc = (fn, args) => fetch(URL_ + '/rest/v1/rpc/' + fn, { method: 'POST', h
   }
 
   // ⑦ 함수 배포 + 시크릿
-  r = await fetch(URL_ + '/functions/v1/push-hw', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify(SEND ? { force: true } : {}) });
+  // force(하루 1회 무시)는 service_role 키로만 쓸 수 있다 — 있으면 쓰고, 없으면 평소 경로로 호출
+  const SVC = (process.env.SUPA_SERVICE_KEY || '').trim();
+  const callKey = (SEND && SVC) ? SVC : KEY;
+  if (SEND && !SVC) console.log('   ※ --send 에 force를 쓰려면 SUPA_SERVICE_KEY 환경변수가 필요합니다 (없으면 평소 경로로 호출)');
+  r = await fetch(URL_ + '/functions/v1/push-hw', {
+    method: 'POST',
+    headers: { apikey: KEY, Authorization: 'Bearer ' + callKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify((SEND && SVC) ? { force: true } : {}),
+  });
   const txt = await r.text();
   const deployed = r.status !== 404;
   line('⑦', 'push-hw 함수', deployed && ok(r.status), `${r.status}${r.status === 404 ? ' 배포 안 됨' : ''}`);
