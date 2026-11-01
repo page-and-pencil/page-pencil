@@ -2,3 +2,5 @@
 # 웹 푸시 VAPID 비밀 키 (로컬 전용 — 절대 커밋 금지)
 VAPID_KEYS_LOCAL.txt
 SUPABASE_TOKEN_LOCAL.txt
+design_shots/
+node_modules/
