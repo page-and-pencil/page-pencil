@@ -619,6 +619,52 @@ function lessonWordSet(sid){
 // 서버(Supabase Edge Function 'push-hw')가 매일 보내도록 구독 정보를 push_subs에 올린다.
 // 알림 문구는 sw.js가 만들고, 서버는 '남은 숙제가 있을 때만' 본문 없는 푸시를 보낸다.
 const PP_VAPID_PUBLIC='BPr4qossLdd3M25srgcxQmgYItyEkFTariNV4bfc-QmeV58HxFHTOP1FsOhVe_w-Ag7vnFcDWzp3cW_KRGb0z2E';
+// ── 알림이 차단됐을 때 풀는 방법 ──
+// permission이 'denied'면 브라우저가 권한 팝업을 다시 띄우지 않는다. 설정에서 직접 풀어야 하는데
+// "브라우저·기기 설정에서 허용해 주세요"만 띄우면 그 다음에 뭘 할지 알 수 없다 → 기기별 경로를 보여준다.
+function ppDeviceKind(){
+  const ua=(typeof navigator!=='undefined'?navigator.userAgent:'')||'';
+  const ios=/iPhone|iPad|iPod/i.test(ua)||(/Macintosh/.test(ua)&&typeof navigator!=='undefined'&&navigator.maxTouchPoints>1);
+  const android=/Android/i.test(ua);
+  const standalone=(typeof window!=='undefined'&&window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)
+    ||(typeof navigator!=='undefined'&&navigator.standalone===true);
+  if(ios)return{k:'ios',standalone};
+  if(android)return{k:'android',standalone};
+  return{k:'desktop',standalone};
+}
+// 차단 해제 안내 (기기에 맞는 것을 먼저, 나머지는 접어서)
+function ppPushBlockedHtml(){
+  const d=ppDeviceKind();
+  const host=(typeof location!=='undefined'?location.hostname:'');
+  const blocks={
+    ios:['아이폰·아이패드',[
+      '먼저 <b>홈 화면에 추가</b>된 앱인지 확인하세요 — Safari 탭에서는 알림이 안 됩니다.'
+        +(d.standalone?' <span style="color:#047857">(지금은 설치된 앱으로 열려 있어요 ✓)</span>':' <span style="color:#B45309">(지금은 설치 상태가 아닙니다)</span>'),
+      '설치가 아니면: Safari로 열고 아래 <b>공유</b> → <b>홈 화면에 추가</b> → 홈 화면 아이콘으로 다시 열기',
+      '설정 앱 → <b>알림</b> → 목록에서 <b>Page &amp; Pencil</b> → <b>알림 허용</b> 켜기',
+      '목록에 없으면 홈 화면 아이콘을 지우고 다시 추가한 뒤, 앱에서 켜기를 누르고 팝업에서 <b>허용</b>',
+      'iOS 16.4 이상이어야 합니다 (설정 → 일반 → 정보에서 확인)',
+    ]],
+    android:['안드로이드',[
+      '주소창 왼쪽 <b>자물쇠(또는 ⓘ)</b> → <b>권한</b> → <b>알림</b> → 허용으로 바꾸고 새로고침',
+      '안 보이면: Chrome <b>설정 → 사이트 설정 → 알림</b> → 차단 목록에서 <b>'+host+'</b>를 찾아 <b>허용</b>',
+      '홈 화면에 설치한 앱이면: 기기 <b>설정 → 앱 → Page &amp; Pencil → 알림</b> → 허용',
+    ]],
+    desktop:['컴퓨터',[
+      '주소창 왼쪽 <b>자물쇠 아이콘</b> 클릭 → <b>알림</b> → <b>허용</b> → 페이지 새로고침',
+      '안 보이면: Chrome은 주소창에 <b>chrome://settings/content/notifications</b>, Edge는 <b>edge://settings/content/notifications</b> → "차단" 목록에서 <b>'+host+'</b> 삭제',
+    ]],
+  };
+  const li=a=>a.map(x=>'<li>'+x+'</li>').join('');
+  const mine=blocks[d.k];
+  const others=Object.keys(blocks).filter(k=>k!==d.k);
+  return '<div class="pp-blocked">'
+    +'<b>🔔 알림이 차단돼 있어요</b>'
+    +'<p>브라우저가 권한 팝업을 다시 띄우지 않으니, 아래 순서로 직접 풀어 주세요. 풀고 나서 <b>켜기</b>를 다시 누르면 됩니다.</p>'
+    +'<div class="pp-blocked-t">'+mine[0]+'</div><ol>'+li(mine[1])+'</ol>'
+    +others.map(k=>'<details><summary>'+blocks[k][0]+'에서 쓰는 경우</summary><ol>'+li(blocks[k][1])+'</ol></details>').join('')
+    +'</div>';
+}
 function ppPushSupported(){
   return typeof navigator!=='undefined'&&'serviceWorker'in navigator
     &&typeof window!=='undefined'&&'PushManager'in window&&typeof Notification!=='undefined';

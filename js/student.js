@@ -2153,6 +2153,13 @@ async function uncompleteSchedDay(sid,asgnId,ds){
 // 기존 로컬 알림은 앱이 열려 있어야만 떴다. 이쪽은 서버가 보내므로 앱을 닫아도 온다.
 async function stuPushToggle(sid){
   const st=await ppPushState();
+  if(st.perm==='denied'){ // 이 상태에선 requestPermission이 팝업 없이 바로 거절된다 — 해제 방법을 보여준다
+    _stuPushRow(sid);
+    toast('먼저 아래 방법으로 차단을 풀어 주세요');
+    const h=document.getElementById('stu-push-help');
+    if(h&&h.scrollIntoView)h.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
   if(st.on){
     await ppPushDisable();
     toast('숙제 알림을 껐어요');
@@ -2172,6 +2179,9 @@ async function stuPushToggle(sid){
 async function _stuPushRow(sid){
   const row=document.getElementById('stu-push-row');if(!row)return;
   const st=await ppPushState();
+  // 차단 상태면 '그 다음에 뭘 하라는 건지'가 보이게 기기별 해제 방법을 펼쳐 둔다
+  const help=document.getElementById('stu-push-help');
+  if(help)help.innerHTML=(st.perm==='denied'&&typeof ppPushBlockedHtml==='function')?ppPushBlockedHtml():'';
   const d=row.querySelector('.stu-push-d'),b=row.querySelector('.stu-push-b');
   if(!d||!b)return;
   if(st.on){
@@ -2179,8 +2189,8 @@ async function _stuPushRow(sid){
     b.textContent='끄기';b.className='btn bo bsm stu-push-b';
     row.classList.add('on');
   }else if(st.perm==='denied'){
-    d.textContent='기기에서 알림이 차단돼 있어요 (설정에서 허용)';
-    b.textContent='켜기';b.className='btn bo bsm stu-push-b';
+    d.textContent='차단돼 있어요 — 아래 방법으로 풀어 주세요';
+    b.textContent='다시 시도';b.className='btn bo bsm stu-push-b';
     row.classList.remove('on');
   }else{
     d.textContent='앱을 닫아도 숙제를 알려줘요';
@@ -2529,6 +2539,7 @@ function renderStudentHome(sid){
         <span class="stu-push-d">확인 중…</span>
         <button class="btn bo bsm stu-push-b" onclick="stuPushToggle('${sid}')">켜기</button>
       </div>
+      <div id="stu-push-help"></div>
       <details class="stu-push-sub"><summary>앱을 열어둘 때만 쓰는 학습 알림</summary>
         <div class="stu-push-sub-b">
           <span>🦉 매일 단어 학습 알림</span>

@@ -112,6 +112,13 @@ function plShowAll(){
 async function ppPushToggle(){
   const sid=currentParentSid;if(!sid)return;
   const st=await ppPushState();
+  if(st.perm==='denied'){ // requestPermission이 팝업 없이 거절되는 상태 — 해제 방법을 보여준다
+    _ppPushRow();
+    toast('먼저 아래 방법으로 차단을 풀어 주세요');
+    const h=document.getElementById('pp-push-help');
+    if(h&&h.scrollIntoView)h.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
   if(st.on){
     await ppPushDisable();
     toast('숙제 알림을 껐어요');
@@ -132,6 +139,8 @@ async function _ppPushRow(){
   if(typeof ppPushSupported!=='function'||!ppPushSupported()){row.style.display='none';return;}
   row.style.display='';
   const st=await ppPushState();
+  const help=document.getElementById('pp-push-help');
+  if(help)help.innerHTML=(st.perm==='denied'&&typeof ppPushBlockedHtml==='function')?ppPushBlockedHtml():'';
   const d=row.querySelector('.stu-push-d'),b=row.querySelector('.stu-push-b');
   if(!d||!b)return;
   const s=DB.stus().find(x=>x.id===currentParentSid);
@@ -140,8 +149,8 @@ async function _ppPushRow(){
     d.textContent='켜짐 — '+nm+'이(가) 숙제를 안 한 날 알려드려요';
     b.textContent='끄기';b.className='btn bo bsm stu-push-b';row.classList.add('on');
   }else if(st.perm==='denied'){
-    d.textContent='기기에서 알림이 차단돼 있어요 (설정에서 허용)';
-    b.textContent='켜기';b.className='btn bo bsm stu-push-b';row.classList.remove('on');
+    d.textContent='차단돼 있어요 — 아래 방법으로 풀어 주세요';
+    b.textContent='다시 시도';b.className='btn bo bsm stu-push-b';row.classList.remove('on');
   }else{
     d.textContent=nm+'이(가) 숙제를 안 한 날 저녁에 알려드려요';
     b.textContent='켜기';b.className='btn bt bsm stu-push-b';row.classList.remove('on');
