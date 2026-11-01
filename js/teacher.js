@@ -8681,7 +8681,7 @@ function renderDashVocabToday(){
   const rows=Object.entries(bySid).map(([sid,n])=>({stu:(_cache.students||[]).find(s=>s.id===sid),n}))
     .filter(r=>r.stu&&!r.stu._deleted).sort((a,b)=>b.n-a.n);
   if(!rows.length){el.innerHTML='';return;}
-  el.innerHTML=`<div class="card" style="border-left:4px solid #F3C13A;margin-bottom:12px">
+  el.innerHTML=`<div class="card" style="margin-bottom:12px">
     <div class="ch"><span class="ct">🎉 오늘 단어 학습한 학생</span><span style="font-size:13px;color:var(--slate)">${rows.length}명 · 🏆=20개 달성</span></div>
     <div class="cb" style="padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px">
       ${rows.map(r=>`<span style="font-size:13px;padding:4px 11px;border-radius:20px;background:${r.n>=20?'#D9F6E9':'var(--cream2)'};border:1px solid ${r.n>=20?'#10B981':'var(--border)'};color:${r.n>=20?'#047857':'var(--navy)'};font-weight:700">${r.stu.name} ${r.n}개${r.n>=20?' 🏆':''}</span>`).join('')}
