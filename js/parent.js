@@ -111,22 +111,26 @@ function plShowAll(){
 // 아이가 오늘 숙제를 안 했으면 저녁에 알려준다. 앱을 닫아도 오므로 로컬 타이머와 다르다.
 async function ppPushToggle(){
   const sid=currentParentSid;if(!sid)return;
-  const st=await ppPushState();
-  if(st.perm==='denied'){ // requestPermission이 팝업 없이 거절되는 상태 — 해제 방법을 보여준다
+  // ⚠️ await 보다 먼저 — Safari는 권한 요청이 사용자 클릭과 같은 흐름에 있어야 팝업을 띄운다
+  const sync=(typeof ppPushStateSync==='function')?ppPushStateSync():{on:false,perm:'default'};
+  if(sync.perm==='denied'){ // requestPermission이 팝업 없이 거절되는 상태 — 해제 방법을 보여준다
     _ppPushRow();
     toast('먼저 아래 방법으로 차단을 풀어 주세요');
     const h=document.getElementById('pp-push-help');
     if(h&&h.scrollIntoView)h.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
-  if(st.on){
+  const permReq=(!sync.on&&sync.perm!=='granted'&&typeof Notification!=='undefined')
+    ?Notification.requestPermission():null;
+  const st=await ppPushState();
+  if(st.on&&!permReq){
     await ppPushDisable();
     toast('숙제 알림을 껐어요');
     _ppPushRow();
     return;
   }
   const s=DB.stus().find(x=>x.id===sid);
-  const ok=await ppPushEnable(sid,(s&&s.name)||'','parent');
+  const ok=await ppPushEnable(sid,(s&&s.name)||'','parent',permReq);
   if(ok){
     toast('숙제 알림을 켰어요 🔔');
     try{(await navigator.serviceWorker.ready).showNotification('알림이 켜졌어요 🔔',
@@ -136,8 +140,18 @@ async function ppPushToggle(){
 }
 async function _ppPushRow(){
   const row=document.getElementById('pp-push-row');if(!row)return;
-  if(typeof ppPushSupported!=='function'||!ppPushSupported()){row.style.display='none';return;}
+  const help0=document.getElementById('pp-push-help');
+  if(typeof ppPushSupported!=='function'||!ppPushSupported()){
+    // 아이폰 Safari처럼 푸시를 못 쓰는 환경 — 숨기지 말고 '어떻게 하면 되는지'를 보여준다
+    row.style.display='';
+    const d0=row.querySelector('.stu-push-d'),b0=row.querySelector('.stu-push-b');
+    if(d0)d0.textContent='아직 이 기기에서는 받을 수 없어요 — 아래 방법을 보세요';
+    if(b0)b0.style.display='none';
+    if(help0&&typeof ppPushInstallHtml==='function')help0.innerHTML=ppPushInstallHtml();
+    return;
+  }
   row.style.display='';
+  {const b1=row.querySelector('.stu-push-b');if(b1)b1.style.display='';}
   const st=await ppPushState();
   const help=document.getElementById('pp-push-help');
   if(help)help.innerHTML=(st.perm==='denied'&&typeof ppPushBlockedHtml==='function')?ppPushBlockedHtml():'';

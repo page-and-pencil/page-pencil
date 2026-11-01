@@ -2152,22 +2152,28 @@ async function uncompleteSchedDay(sid,asgnId,ds){
 // ── 숙제 알림(서버 푸시) 토글 ──
 // 기존 로컬 알림은 앱이 열려 있어야만 떴다. 이쪽은 서버가 보내므로 앱을 닫아도 온다.
 async function stuPushToggle(sid){
-  const st=await ppPushState();
-  if(st.perm==='denied'){ // 이 상태에선 requestPermission이 팝업 없이 바로 거절된다 — 해제 방법을 보여준다
+  // ⚠️ await 보다 **먼저** 처리한다. Safari(특히 iOS)는 권한 요청이 사용자 클릭과 같은 흐름에
+  // 있어야 팝업을 띄운다 — 상태 조회를 기다린 뒤 요청하면 제스처가 만료돼 조용히 거절된다.
+  const sync=(typeof ppPushStateSync==='function')?ppPushStateSync():{on:false,perm:'default'};
+  if(sync.perm==='denied'){ // 이 상태에선 requestPermission이 팝업 없이 바로 거절된다 — 해제 방법을 보여준다
     _stuPushRow(sid);
     toast('먼저 아래 방법으로 차단을 풀어 주세요');
     const h=document.getElementById('stu-push-help');
     if(h&&h.scrollIntoView)h.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
-  if(st.on){
+  // 아직 안 켜진 상태면 권한 요청을 지금(제스처 안에서) 시작해 둔다
+  const permReq=(!sync.on&&sync.perm!=='granted'&&typeof Notification!=='undefined')
+    ?Notification.requestPermission():null;
+  const st=await ppPushState();
+  if(st.on&&!permReq){
     await ppPushDisable();
     toast('숙제 알림을 껐어요');
     _stuPushRow(sid);
     return;
   }
   const stu=DB.stus().find(x=>x.id===sid);
-  const ok=await ppPushEnable(sid,(stu&&stu.name)||'','student');
+  const ok=await ppPushEnable(sid,(stu&&stu.name)||'','student',permReq);
   if(ok){
     toast('숙제 알림을 켰어요 🔔 남은 숙제가 있는 날 저녁에 알려줄게요');
     try{(await navigator.serviceWorker.ready).showNotification('알림이 켜졌어요! 🔔',
@@ -2550,7 +2556,8 @@ function renderStudentHome(sid){
         </div>
       </details>`
     :`<div class="stu-push"><span class="stu-push-t">🔔 숙제 알림</span>
-        <span class="stu-push-d">홈 화면에 앱을 설치하면 알림을 받을 수 있어요</span></div>`;
+        <span class="stu-push-d">아직 이 기기에서는 받을 수 없어요 — 아래 방법을 보세요</span></div>
+      ${typeof ppPushInstallHtml==='function'?ppPushInstallHtml():''}`;
   const lastLessonHtml=renderLastLesson(sid);
   {const sb=document.getElementById('stu-streak-badge');if(sb){sb.textContent='🔥 '+streak+'일';sb.style.display=streak>0?'':'none';}}
 

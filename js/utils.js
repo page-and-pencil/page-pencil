@@ -665,6 +665,29 @@ function ppPushBlockedHtml(){
     +others.map(k=>'<details><summary>'+blocks[k][0]+'에서 쓰는 경우</summary><ol>'+li(blocks[k][1])+'</ol></details>').join('')
     +'</div>';
 }
+// 푸시를 아예 못 쓰는 기기 안내. iOS Safari는 **홈 화면에 설치해야** Notification·PushManager가 생긴다.
+// "설치하면 쓸 수 있어요"만 띄우면 설치 방법을 알 수 없으므로 단계를 함께 보여준다.
+function ppPushInstallHtml(){
+  const d=ppDeviceKind();
+  if(d.k==='ios')return '<div class="pp-blocked">'
+    +'<b>📲 먼저 홈 화면에 추가해 주세요</b>'
+    +'<p>아이폰은 홈 화면에 설치한 앱에서만 알림을 받을 수 있어요 (Safari 탭에서는 안 됩니다).</p>'
+    +'<div class="pp-blocked-t">설치 순서</div><ol>'
+    +'<li><b>Safari</b>로 이 페이지를 열어 주세요 (크롬·네이버 앱에서는 안 됩니다)</li>'
+    +'<li>화면 아래 <b>공유</b> 버튼 <span style="font-size:14px">⬆️</span> 누르기</li>'
+    +'<li>목록에서 <b>홈 화면에 추가</b> → <b>추가</b></li>'
+    +'<li>홈 화면에 생긴 <b>Page &amp; Pencil</b> 아이콘으로 다시 열기</li>'
+    +'<li>로그인한 뒤 <b>🔔 숙제 알림 → 켜기</b> → 팝업에서 <b>허용</b></li>'
+    +'</ol>'
+    +'<details><summary>그래도 알림 항목이 안 보이면</summary><ol>'
+    +'<li>iOS 16.4 이상이어야 합니다 — 설정 → 일반 → 정보 → 소프트웨어 버전</li>'
+    +'<li>홈 화면 아이콘을 지우고 2~4번을 다시 해 보세요</li>'
+    +'</ol></details></div>';
+  return '<div class="pp-blocked">'
+    +'<b>🔔 이 브라우저에서는 알림을 쓸 수 없어요</b>'
+    +'<p>Chrome·Edge·삼성 인터넷 같은 최신 브라우저에서 열거나, 홈 화면에 앱을 설치한 뒤 다시 시도해 주세요.</p>'
+    +'</div>';
+}
 function ppPushSupported(){
   return typeof navigator!=='undefined'&&'serviceWorker'in navigator
     &&typeof window!=='undefined'&&'PushManager'in window&&typeof Notification!=='undefined';
@@ -676,17 +699,32 @@ function _ppB64ToU8(b64){
   for(let i=0;i<raw.length;i++)u[i]=raw.charCodeAt(i);
   return u;
 }
+// 서비스워커가 활성화되지 않으면 ready가 끝나지 않는다 — 버튼이 조용히 먹통이 되므로 시간 제한을 둔다
+function _ppSwReady(ms){
+  if(!ppPushSupported())return Promise.resolve(null);
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise(r=>setTimeout(()=>r(null),ms||8000)),
+  ]);
+}
 async function ppPushCurrent(){
   if(!ppPushSupported())return null;
   try{
-    const reg=await navigator.serviceWorker.ready;
+    const reg=await _ppSwReady();
+    if(!reg)return null;
     return await reg.pushManager.getSubscription();
   }catch(e){return null;}
 }
+// 마지막으로 확인한 상태 — 버튼 핸들러가 await 없이 읽어야 해서 보관한다 (아래 ppPushStateSync 주석 참고)
+let _ppState={supported:false,on:false,perm:'default'};
+function ppPushStateSync(){
+  return {...(_ppState),perm:(typeof Notification!=='undefined')?Notification.permission:'unsupported'};
+}
 async function ppPushState(){
-  if(!ppPushSupported())return {supported:false,on:false,perm:'unsupported'};
+  if(!ppPushSupported()){_ppState={supported:false,on:false,perm:'unsupported'};return {..._ppState};}
   const sub=await ppPushCurrent();
-  return {supported:true,on:!!sub,perm:Notification.permission};
+  _ppState={supported:true,on:!!sub,perm:Notification.permission};
+  return {..._ppState};
 }
 // 이 기기가 누구 것인지 서비스워커가 읽을 수 있게 Cache API에 적어둔다 (서버 조회 없이 문구 결정)
 async function _ppPushWho(who){
@@ -695,14 +733,18 @@ async function _ppPushWho(who){
     await c.put('/who',new Response(JSON.stringify(who),{headers:{'Content-Type':'application/json'}}));
   }catch(e){}
 }
-async function ppPushEnable(sid,name,role){
+// ⚠️ permReq: 클릭 핸들러가 **다른 await보다 먼저** 시작해 둔 Notification.requestPermission() 프라미스.
+// Safari(특히 iOS)는 권한 요청이 사용자 제스처와 같은 흐름에 있어야 받아들인다. 서비스워커 ready를
+// 먼저 기다린 뒤 요청하면 제스처가 만료돼 조용히 거절된다 — 아이폰에서 '켜기가 안 먹는' 원인.
+async function ppPushEnable(sid,name,role,permReq){
   if(!ppPushSupported()){toast('이 기기는 푸시 알림을 지원하지 않아요 — 홈 화면에 앱을 설치하면 쓸 수 있어요');return false;}
   let perm=Notification.permission;
-  if(perm!=='granted')perm=await Notification.requestPermission();
-  if(perm!=='granted'){toast('알림이 차단돼 있어요 — 브라우저·기기 설정에서 허용해 주세요');return false;}
+  if(perm!=='granted')perm=await (permReq||Notification.requestPermission());
+  if(perm!=='granted'){toast('알림을 허용하지 않으면 켤 수 없어요 — 아래 방법을 확인해 주세요');return false;}
   let reg,sub;
   try{
-    reg=await navigator.serviceWorker.ready;
+    reg=await _ppSwReady();
+    if(!reg){toast('앱 준비가 끝나지 않았어요 — 새로고침한 뒤 다시 눌러 주세요');return false;}
     sub=await reg.pushManager.getSubscription();
     if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_ppB64ToU8(PP_VAPID_PUBLIC)});
   }catch(e){
