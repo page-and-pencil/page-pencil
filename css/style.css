@@ -106,7 +106,7 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
 .stu-streak-badge{font-size:13px;font-weight:700;color:#B45309;background:#FEF0D5;padding:4px 11px;border-radius:20px;white-space:nowrap;}
 /* 학생 홈 응원 hero */
 .stu-hero{position:relative;background:#0CA4C9 linear-gradient(to right,transparent 22px,rgba(255,255,255,.35) 22px,rgba(255,255,255,.35) 23px,transparent 23px),#0CA4C9 repeating-linear-gradient(transparent,transparent 23px,rgba(255,255,255,.09) 23px,rgba(255,255,255,.09) 24px);background-color:#0CA4C9;border-radius:18px;padding:20px 20px 20px 34px;color:#fff;margin-bottom:16px;box-shadow:0 4px 14px rgba(12,164,201,.22);}
-.stu-hero::before{content:'';position:absolute;top:-7px;left:50%;transform:translateX(-50%) rotate(-2.5deg);width:92px;height:22px;background:rgba(255,244,214,.75);border-left:1px dashed rgba(180,150,80,.4);border-right:1px dashed rgba(180,150,80,.4);border-radius:2px;box-shadow:0 1px 3px rgba(15,48,74,.12);}
+.stu-hero::before{content:'';position:absolute;top:-7px;left:50%;transform:translateX(-50%) rotate(-2.5deg);width:92px;height:22px;background:rgba(255,250,232,.93);border-left:1px dashed rgba(150,120,60,.45);border-right:1px dashed rgba(150,120,60,.45);border-radius:2px;box-shadow:0 1px 3px rgba(15,48,74,.12);}
 .stu-hero-top{display:flex;align-items:center;gap:13px;margin-bottom:13px;}
 .stu-hero-ico{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:23px;flex-shrink:0;}
 .stu-hero-title{font-size:19px;font-weight:800;}
@@ -1604,3 +1604,6 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
     .stu-split,#t-stu.panel.active{min-height:calc(100vh - 103px);}
   }
 }
+
+/* 히어로 위 마스킹테이프 — 진한 청록 배경에선 반투명 크림이 때처럼 탁해 보였다.
+   불투명도를 올려 '종이 위에 붙인 테이프'로 읽히게 한다 (흰 카드 위 테이프는 그대로). */

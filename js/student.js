@@ -95,8 +95,48 @@ async function submitLibRec(safeId,bookId,sid,title){
 // ── 외부 학습 앱 열기 — 폰이면 설치된 앱 실행(미설치 시 웹/스토어), PC면 웹 ──
 const EXT_APPS={
   class5:{pkg:'classcard.net.movie',ios:'6453687093',web:'https://play.class5.co.kr/'},
-  autovoca:{pkg:'com.classcard.autovoca',ios:'6753331560',web:'https://www.autovoca.co.kr/login'}
+  autovoca:{pkg:'com.classcard.autovoca',ios:'6753331560',web:'https://www.autovoca.co.kr/login'},
+  // 리딩앤 (iPortfolio) — 주말 원서 읽기 숙제를 여기서 한다
+  readingn:{pkg:'com.spindle.tapas',ios:'1128287708',web:'https://www.readingn.com/'}
 };
+// 숙제 제목에서 '어디서 하는 숙제인지' 알아낸다 (앱으로 바로 보내주려고).
+// 체크만 따로 하는 건 학생에게 추가 노동이라 안 하게 된다 — 가는 길에 체크가 놓이도록.
+const _EXT_HINTS=[
+  {k:'readingn',lbl:'리딩앤',words:['리딩앤','readingn','reading&','원서 읽기']},
+  {k:'class5',lbl:'클래스5',words:['클래스5','class5']},
+  {k:'autovoca',lbl:'오토보카',words:['오토보카','autovoca']},
+];
+function extAppForHw(text){
+  const t=String(text||'').toLowerCase().replace(/\s+/g,'');
+  for(const h of _EXT_HINTS){
+    if(h.words.some(w=>t.includes(String(w).toLowerCase().replace(/\s+/g,''))))return h;
+  }
+  return null;
+}
+// 숙제를 하러 외부 앱으로 보내고, 돌아오면 '다 했어?'를 한 번 묻는다.
+// 체크를 따로 하러 앱에 다시 들어오게 하면 안 하게 된다 — 왕복 경로 위에 체크를 놓는다.
+let _hwBackCtx=null;
+function openHwApp(key,sid,aid,ds){
+  _hwBackCtx={key,sid,aid,ds,at:Date.now()};
+  try{sessionStorage.setItem('pp_hw_back',JSON.stringify(_hwBackCtx));}catch(e){}
+  openExtApp(key);
+}
+function _hwBackAsk(){
+  let c=_hwBackCtx;
+  if(!c){try{c=JSON.parse(sessionStorage.getItem('pp_hw_back')||'null');}catch(e){}}
+  if(!c)return;
+  if(Date.now()-c.at<20000)return;          // 너무 빨리 돌아왔으면 아직 안 한 것으로 본다
+  _hwBackCtx=null;
+  try{sessionStorage.removeItem('pp_hw_back');}catch(e){}
+  const a=(_cache.assignments||[]).find(x=>x.id===c.aid);
+  const sc=a&&(a.schedule||[]).find(x=>x.date===c.ds);
+  if(!a||!sc||sc.done)return;
+  const lbl=(_EXT_HINTS.find(h=>h.k===c.key)||{}).lbl||'숙제';
+  // askConfirm(title,msg,okLabel,okCls,cb) — 취소 문구는 고정이라 본문으로 안내한다
+  askConfirm(lbl+' 다 했어요?','다 했으면 아래 「다 했어요」를 눌러 주세요. 아직이면 그냥 닫으면 돼요.','다 했어요','bt',
+    ()=>completeSchedDay(c.sid,c.aid,c.ds));
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden)setTimeout(_hwBackAsk,600); });
 function openExtApp(key){
   const a=EXT_APPS[key];if(!a)return;
   const ua=navigator.userAgent||'';
@@ -2581,6 +2621,14 @@ function renderStudentHome(sid){
           <div style="font-size:15px;font-weight:600;color:var(--navy)">${icon} ${title}</div>
           ${detail?`<div style="font-size:13px;color:var(--slate);margin-top:3px">${detail}</div>`:''}
           ${isVocabAuto&&!done?`<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><button class="btn bo bsm" style="border-radius:50px;padding:8px 14px" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button></div><div style="font-size:11px;color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
+          ${(()=>{ // 외부 앱에서 하는 숙제(리딩앤·클래스5·오토보카)는 그 앱으로 바로 보낸다
+            if(isVocabAuto||done)return '';
+            const ex=extAppForHw(title+' '+detail);
+            if(!ex)return '';
+            return `<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">`
+              +`<button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openHwApp('${ex.k}','${sid}','${a.id}','${sc.date}')">▶ ${ex.lbl} 열기</button></div>`
+              +`<div style="font-size:11px;color:var(--slate);margin-top:4px">다 하고 돌아오면 물어볼게요 ✓</div>`;
+          })()}
         </div>
       </div>
     </div>`;
