@@ -1254,9 +1254,10 @@ function renderMemCard(el){
 }
 // 뜻 쪽에 그림을 채운다. 교재 DB 에 선생님이 정해 둔 그림이 있으면 그것을 쓰고,
 // 없으면 명사에 한해 Wikipedia 대표 사진을 가져온다(ppWordImage 가 캐시·자격을 판단).
-async function _vcFillImage(card){
+async function _vcFillImage(card,boxId){
   if(!card)return;
-  const box=document.getElementById('vc-img-'+card.id);
+  const id=boxId||('vc-img-'+card.id);
+  const box=document.getElementById(id);
   if(!box)return;
   if(card.img===false)return;            // 선생님이 '이 단어는 그림 쓰지 않기'로 정한 경우
   let img=card.img||null;
@@ -1264,7 +1265,7 @@ async function _vcFillImage(card){
     try{const r=await ppWordImage(card.word,card.pos);if(r)img={url:r.url,desc:r.desc};}catch(e){}
   }
   if(!img||!img.url)return;
-  const b=document.getElementById('vc-img-'+card.id);   // 그 사이 카드가 넘어갔을 수 있다
+  const b=document.getElementById(id);   // 그 사이 카드가 넘어갔을 수 있다
   if(!b)return;
   const im=document.createElement('img');
   im.src=img.url;im.alt=card.word||'';im.loading='lazy';
@@ -1272,7 +1273,7 @@ async function _vcFillImage(card){
   b.innerHTML='';b.appendChild(im);
   b.style.display='';
   const cardEl=document.getElementById('mem-card');   // 그림이 들어간 만큼 카드를 키운다
-  if(cardEl)cardEl.classList.add('has-img');
+  if(cardEl&&!boxId)cardEl.classList.add('has-img');
 }
 // 뜻·예문 없으면 자동 조회 후 DOM 주입
 (function(){
@@ -1391,6 +1392,7 @@ function renderRecallCard(el){
       <div id="recall-reveal-box" style="background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px;cursor:pointer" onclick="recallReveal()">
         <div id="recall-tap-hint" style="font-size:14px;color:var(--slate)">탭해서 정답 확인 →</div>
         <div id="recall-answer" style="display:none">
+          <div class="vc-img vc-img-sm" id="recall-img" style="display:none"></div>
           <div style="font-size:22px;font-weight:700;color:var(--teal);font-family:var(--fd)">${card.word}</div>
           ${exHtml}
         </div>
@@ -1405,6 +1407,7 @@ function renderRecallCard(el){
 function recallReveal(){
   document.getElementById('recall-tap-hint').style.display='none';
   document.getElementById('recall-answer').style.display='block';
+  {const c=deckState.cards[deckState.idx];if(c)_vcFillImage(c,'recall-img');}
   const card=deckState.cards[deckState.idx];
   if(card?.word)speakWord(card.word);
 }

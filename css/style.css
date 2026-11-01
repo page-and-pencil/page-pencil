@@ -1942,3 +1942,6 @@ html{scroll-padding-top:72px;}
   overflow:hidden;cursor:pointer;}
 .notice-item.open .notice-text{-webkit-line-clamp:unset;}
 .notice-item{padding:10px 0;}
+/* 정답 확인용 작은 그림 — 카드 안이 아니라 공개 영역에 들어가므로 더 작게 */
+.vc-img-sm{max-width:132px;margin-bottom:10px;}
+.vc-img-sm img{height:82px;}
