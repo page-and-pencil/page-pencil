@@ -535,7 +535,7 @@ div.ig-like{cursor:default;}
 @keyframes shelfPanelIn{from{opacity:0;transform:translateY(-10px) scaleY(.9);}to{opacity:1;transform:none;}}
 
 /* 진도 캘린더 + 자동 단원 */
-.pg-cal-card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;}
+.pg-cal-card{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px;}
 .pg-cal-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:8px;}
 .pg-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
 .pg-cal-dow{font-size:10.5px;font-weight:700;color:var(--slate);text-align:center;padding:2px 0;}
@@ -703,7 +703,8 @@ div.ig-like{cursor:default;}
 }
 /* 클래스 수업기록 카드 */
 .cls-lessons-wrap{max-width:760px;}
-.cls-les-card{background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:20px 24px;margin-bottom:16px;}
+/* 카드류는 모서리 14px · 테두리 1.5px var(--border) 로 통일 — 같은 화면에 쌓일 때 제각각이면 눈에 띈다 */
+.cls-les-card{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:20px 24px;margin-bottom:16px;}
 .cls-les-card:last-child{margin-bottom:0;}
 .cls-les-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;}
 .cls-les-date{font-size:13px;font-weight:600;color:#64748B;letter-spacing:.01em;font-family:var(--fm);}
@@ -1047,7 +1048,7 @@ div.ig-like{cursor:default;}
 .vocab-card-status{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:10px;font-size:10.5px;font-weight:700;background:var(--tl);color:var(--purple);}
 
 /* GAMIFICATION */
-.hw-check-card{background:#fff;border-radius:14px;border:1.5px solid rgba(15,48,74,.1);padding:15px 16px;margin-bottom:10px;min-height:56px;transition:all .3s;}
+.hw-check-card{background:#fff;border-radius:14px;border:1.5px solid var(--border);padding:15px 16px;margin-bottom:10px;min-height:56px;transition:all .3s;}
 .hw-check-card.done{background:#F7FDFA;border-color:rgba(16,185,129,.35);opacity:.9;}
 .hw-checkbox{width:32px;height:32px;border-radius:50%;border:2.5px solid #DCE3E8;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:16px;}
 .hw-checkbox.checked{background:#10B981;border-color:#10B981;color:#fff;animation:checkPop .3s ease;}
@@ -1303,7 +1304,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 /* ── 클래스 수정: 요일별 배치판 ── */
 /* 교재별 요일은 이 판에서만 다룬다 — 행의 7칩은 저장 입력값으로만 남겨 숨긴다 */
 #ec-subj-rows .pg-days{display:none;}
-.ec-board{border:1.5px solid var(--border);border-radius:12px;background:var(--cream);padding:9px 10px 10px;margin:2px 0 9px;}
+.ec-board{border:1.5px solid var(--border);border-radius:14px;background:var(--cream);padding:9px 10px 10px;margin:2px 0 9px;}
 .ec-board:empty{display:none;}
 .ec-board-empty{font-size:12px;color:var(--slate);padding:2px;}
 .ec-board-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:8px;}
@@ -1392,7 +1393,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 }
 /* 좁은 화면에서는 늘린 여백을 되돌려 칸 너비를 지킨다 (320px에서 칸이 얇아지지 않게) */
 @media(max-width:480px){
-  .pg-cal-card{padding:9px;border-radius:12px;}
+  .pg-cal-card{padding:9px;}   /* 모서리는 카드 공통 14px 유지 */
   .pg-cal-grid{gap:3px;}
   .pg-cell{min-height:56px;padding:3px;gap:2px;border-radius:6px;}
   .pg-cell:hover{transform:none;box-shadow:none;}
@@ -1544,7 +1545,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 }
 
 /* ── 알림 차단 해제 안내 ── */
-.pp-blocked{margin-top:8px;padding:11px 13px;background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:12px;font-size:12.5px;color:#4A3A1A;line-height:1.65;}
+.pp-blocked{margin-top:8px;padding:11px 13px;background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:14px;font-size:12.5px;color:#4A3A1A;line-height:1.65;}
 .pp-blocked>b{font-size:13.5px;color:#92400E;}
 .pp-blocked p{margin:4px 0 8px;color:#6B5424;}
 .pp-blocked-t{font-size:12px;font-weight:800;color:#92400E;background:#FEF3C7;border-radius:7px;padding:2px 8px;display:inline-block;margin-bottom:4px;}
