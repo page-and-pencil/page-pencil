@@ -1234,6 +1234,7 @@ async function _vcFillImage(card){
   if(!card)return;
   const box=document.getElementById('vc-img-'+card.id);
   if(!box)return;
+  if(card.img===false)return;            // 선생님이 '이 단어는 그림 쓰지 않기'로 정한 경우
   let img=card.img||null;
   if(!img&&typeof ppWordImage==='function'){
     try{const r=await ppWordImage(card.word,card.pos);if(r)img={url:r.url,desc:r.desc};}catch(e){}

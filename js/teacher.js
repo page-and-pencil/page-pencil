@@ -4038,10 +4038,89 @@ function tuRenderWords(tbId,unitKey){
     <td style="padding:6px 8px;font-size:12px;color:var(--slate);font-style:italic">${w.example||'—'}</td>
     <td style="padding:6px 8px;font-size:12px;color:#6b7280;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(w.en_def)}">${w.en_def||'<span style="color:var(--slate)">—</span>'}</td>
     <td style="padding:4px;white-space:nowrap">
+      <button onclick="tuWordImg('${tbId}','${escAttr(unitKey)}',${i})" title="${w.img===false?'그림 끔':(w.img&&w.img.url?'그림 있음 — 바꾸기':'그림 넣기')}" style="background:none;border:none;cursor:pointer;font-size:15px;padding:0 3px;opacity:${w.img===false?'.35':(w.img&&w.img.url?'1':'.5')}">${w.img&&w.img.url?`<img src="${w.img.url}" style="width:21px;height:21px;object-fit:cover;border-radius:4px;vertical-align:-5px">`:(w.img===false?'🚫':'🖼')}</button>
       <button onclick="tuDelWord('${tbId}','${escAttr(unitKey)}',${i})" style="background:none;border:none;cursor:pointer;color:var(--coral);font-size:16px;padding:0 4px;line-height:1">×</button>
     </td>
   </tr>`).join('');
 }
+// ── 단어 그림 (선생님) ──────────────────────────────────────
+// 학생 카드의 그림은 명사에 한해 Wikipedia 에서 자동으로 붙는다(utils.js ppWordImage).
+// 다의어는 교재 뜻과 어긋날 수 있어(picture → 사진 찍는 손) 여기서 바꾸거나 끌 수 있게 한다.
+//   w.img = {url}  선생님이 정한 그림        w.img = false  그림 쓰지 않음(자동도 막음)
+//   w.img 없음     자동(명사면 Wikipedia)
+let _tuImgCtx=null;
+function tuWordImg(tbId,unitKey,idx){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  const words=tuNormWords(tb&&tb.units?tb.units[unitKey]||[]:[]);
+  const w=words[idx];if(!w)return;
+  _tuImgCtx={tbId,unitKey,idx,word:w.word||'',pos:w.pos||''};
+  const cur=w.img;
+  const curHtml=cur===false
+    ? '<div style="color:var(--slate);font-size:13px">이 단어는 그림을 쓰지 않습니다.</div>'
+    : (cur&&cur.url)
+      ? '<img src="'+cur.url+'" style="width:150px;height:92px;object-fit:cover;border-radius:10px;border:1.5px solid var(--border)">'
+      : '<div style="color:var(--slate);font-size:13px">정해 둔 그림이 없습니다. 명사면 학생 화면에서 자동으로 붙습니다.</div>';
+  const body=document.getElementById('wimg-body');
+  if(!body)return;
+  document.getElementById('wimg-title').textContent=(w.word||'')+' — 그림';
+  body.innerHTML='<div style="text-align:center;margin-bottom:14px" id="wimg-cur">'+curHtml+'</div>'
+    +'<div id="wimg-auto" style="text-align:center;margin-bottom:12px;font-size:13px;color:var(--slate)">자동 그림 확인 중…</div>'
+    +'<div style="display:flex;flex-direction:column;gap:8px">'
+    +'<label class="btn bo" style="text-align:center;cursor:pointer;margin:0">사진 올리기'
+    +'<input type="file" accept="image/*" style="display:none" onchange="tuWordImgUpload(event)"></label>'
+    +'<button class="btn bo" onclick="tuWordImgSet(false)">이 단어는 그림 쓰지 않기</button>'
+    +'<button class="btn bo" onclick="tuWordImgSet(null)">자동에 맡기기 (정해 둔 그림 지우기)</button>'
+    +'</div>';
+  openM('m-word-img');
+  // 자동으로 붙을 그림을 미리 보여 준다
+  (async()=>{
+    let r=null;
+    try{ if(typeof ppWordImage==='function') r=await ppWordImage(w.word,w.pos); }catch(e){}
+    const el=document.getElementById('wimg-auto');if(!el||!_tuImgCtx)return;
+    if(r&&r.url){
+      el.innerHTML='<div style="font-size:12.5px;margin-bottom:6px">자동으로 붙는 그림</div>'
+        +'<img src="'+r.url+'" style="width:124px;height:76px;object-fit:cover;border-radius:9px;border:1.5px solid var(--border)">'
+        +'<div style="font-size:11.5px;color:var(--slate);margin-top:4px">'+(r.desc||'')+'</div>';
+    }else{
+      el.textContent=(w.pos==='noun')?'자동으로 붙는 그림이 없습니다.':'명사가 아니라 자동 그림은 붙지 않습니다.';
+    }
+  })();
+}
+async function tuWordImgUpload(e){
+  const f=e.target.files&&e.target.files[0];if(!f||!_tuImgCtx)return;
+  const el=document.getElementById('wimg-auto');if(el)el.textContent='올리는 중…';
+  try{
+    const url=await uploadCld(f);
+    if(!url)throw new Error('Cloudinary 설정이 없습니다');
+    await tuWordImgSet({url});
+  }catch(err){
+    toast('업로드 실패 — '+(err.message||''));
+    if(el)el.textContent='';
+  }
+}
+// val: {url} 정한 그림 / false 쓰지 않음 / null 자동에 맡김
+async function tuWordImgSet(val){
+  if(!_tuImgCtx)return;
+  const {tbId,unitKey,idx}=_tuImgCtx;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  if(!tb||!tb.units)return;
+  const arr=tuNormWords(tb.units[unitKey]||[]);
+  const w=arr[idx];if(!w)return;
+  if(val===null)delete w.img; else w.img=val;
+  tb.units[unitKey]=arr;
+  await supaUpsert('global_textbooks',tb.id,tb,null);
+  // 이미 만들어진 학생 카드에도 같은 단어가 있으면 함께 맞춘다 (교재가 원본이라는 규칙)
+  const lower=String(w.word||'').toLowerCase();
+  const cards=(_cache.vocab_cards||[]).filter(c=>String(c.word||'').toLowerCase()===lower&&c.srcId===tb.id);
+  for(const c of cards){
+    if(val===null)delete c.img; else c.img=val;
+    try{await supaUpsert('vocab_cards',c.id,c,c.sid);}catch(e){}
+  }
+  closeM('m-word-img');
+  tuRenderWords(tbId,unitKey);
+  toast(val===false?'그림을 쓰지 않도록 했습니다':val?'그림을 저장했습니다':'자동에 맡깁니다'+(cards.length?' (학생 카드 '+cards.length+'장 반영)':''));
+}
+
 async function tuRowClick(e,tbId,unitKey,idx){
   if(e.target.closest('button,input,select,a,textarea'))return;
   const tr=e.target.closest('tr');if(!tr||tr.dataset.editing==='1')return;
