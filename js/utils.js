@@ -152,6 +152,22 @@ function ppBookPath(sid,cid){
     });
   });
 
+  // ①-2 손으로 등록한 끝낸 책 — 앱을 쓰기 전에 끝낸 교재는 수업 기록이 없다.
+  // students.data.doneBooks = [{id, area, at}] 에 넣고 여기서 합친다.
+  // 수업 기록이 있는 교재라면 기록 쪽을 믿되, 끝냈다는 표식만 덧씌운다.
+  const manual={};
+  DB.stus().filter(st=>sidSet.has(st.id)).forEach(st=>{
+    (st.doneBooks||[]).forEach(d=>{
+      if(!d||!d.id||!byId[d.id])return;
+      manual[d.id]=d.at||manual[d.id]||'';
+      const e=seen[d.id];
+      if(e){e.manual=true;return;}
+      const b2=byId[d.id];
+      seen[d.id]={id:d.id,area:d.area||'',units:new Set(),first:d.at||'',last:d.at||'',manual:true,
+        full:totalOf(b2)};
+    });
+  });
+
   // ② 앞길 — 이 학생이 속한 클래스의 교재 계획 (키 순서가 곧 진행 순서)
   const plan=[];
   (DB.classes()||[]).forEach(c=>{
@@ -165,13 +181,16 @@ function ppBookPath(sid,cid){
 
   const out=[];
   PP_AREAS.forEach(([area,label])=>{
-    const mine=Object.values(seen).filter(e=>e.area===area).map(e=>{
+    const CAT2AREA={'리딩':'reading','리스닝':'listening','어법':'grammar','어휘':'vocab','파닉스':'vocab'};
+    const areaOf=e=>e.area||CAT2AREA[(byId[e.id]||{}).category]||'';
+    const mine=Object.values(seen).filter(e=>areaOf(e)===area).map(e=>{
       const b=byId[e.id],total=totalOf(b);
-      const n=Math.min(e.units.size,total||e.units.size);
-      return {id:e.id,title:(b&&b.title)||'',total,n,
+      // 손으로 끝냈다고 적은 교재는 단원 수와 무관하게 끝난 것으로 본다
+      const n=e.manual?(total||e.units.size):Math.min(e.units.size,total||e.units.size);
+      return {id:e.id,title:(b&&b.title)||'',total,n,manual:!!e.manual,
         pct:total?Math.min(100,Math.round(n/total*100)):null,
         first:e.first,last:e.last,
-        state:(e.last>=cutoff)?'now':((total&&n/total>=0.95)?'done':'past')};
+        state:e.manual?'done':((e.last>=cutoff)?'now':((total&&n/total>=0.95)?'done':'past'))};
     }).sort((a,b)=>(a.last||'').localeCompare(b.last||''));
     // 진행 중인 것이 하나도 없으면 가장 최근 것을 지금으로 본다
     if(mine.length&&!mine.some(x=>x.state==='now'))mine[mine.length-1].state='now';
@@ -214,14 +233,17 @@ function ppBookPathHtml(sid,opts){
         +(doneN?' <span class="bp-done-n">끝낸 책 '+doneN+'권</span>':'')+'</summary>'
         +'<div class="bp-past-b">'+a.past.slice().reverse().map(x=>
           '<div class="bp-past-r"><span class="bp-past-i">'+(x.state==='done'?'✓':'·')+'</span>'
-          +'<span class="bp-past-t">'+esc(x.title)+'</span>'
-          +'<span class="bp-past-s">'+x.n+'/'+(x.total||'?')+'과</span></div>').join('')
+          +'<span class="bp-past-t">'+esc(x.title)+(x.manual?'<span class="bp-manual">손으로 등록</span>':'')+'</span>'
+          +'<span class="bp-past-s">'+x.n+'/'+(x.total||'?')+'과</span>'
+          +(o.edit&&x.manual?'<button class="bp-del" title="등록 취소" onclick="bpDelDone(\''+o.edit+'\',\''+x.id+'\')">×</button>':'')
+          +'</div>').join('')
         +'</div></details>'
       : '';
     return '<div class="bp-area">'
       +'<div class="bp-h"><span class="pp-area-dot" style="background:'+col+'"></span>'
       +'<span class="bp-h-l">'+esc(a.label)+'</span>'
-      +(doneN?'<span class="bp-h-n">끝낸 책 '+doneN+'권</span>':'')+'</div>'
+      +(doneN?'<span class="bp-h-n">끝낸 책 '+doneN+'권</span>':'')
+      +(o.edit?'<button class="bp-add" title="끝낸 책 더하기" onclick="bpAddOpen(\''+o.edit+'\',\''+a.area+'\')">+</button>':'')+'</div>'
       +nowHtml+nextHtml+pastList
     +'</div>';
   }).join('');

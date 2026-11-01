@@ -8184,6 +8184,72 @@ function renderDashWeekHeat(stus,todayStr){
     +'</table></div></div>';
 }
 
+// ── 끝낸 책 손으로 등록 ─────────────────────────────────────
+// 교재 여정의 '끝낸 책'은 수업 기록에서 집계한다. 앱을 쓰기 전에 끝낸 교재는 기록이 없어
+// 비어 보이므로, 선생님이 직접 더할 수 있게 한다. students.data.doneBooks 에 쌓인다.
+let _bpCtx=null;
+function bpAddOpen(sid,area){
+  _bpCtx={sid,area};
+  const st=DB.stus().find(x=>x.id===sid);
+  const t=document.getElementById('bpadd-title');
+  if(t)t.textContent=(st?st.name:'')+' — 끝낸 책 더하기';
+  const q=document.getElementById('bpadd-q');if(q)q.value='';
+  bpAddList();
+  openM('m-bp-add');
+}
+function bpAddList(){
+  const box=document.getElementById('bpadd-list');if(!box||!_bpCtx)return;
+  const CAT={reading:'리딩',listening:'리스닝',grammar:'어법',vocab:'어휘'};
+  const want=CAT[_bpCtx.area]||'';
+  const q=((document.getElementById('bpadd-q')||{}).value||'').trim().toLowerCase();
+  const st=DB.stus().find(x=>x.id===_bpCtx.sid);
+  const already=new Set(((st&&st.doneBooks)||[]).map(d=>d.id));
+  const list=(_cache.globalTextbooks||[])
+    .filter(b=>!b._deleted&&(b.type==='textbook'||!b.type))
+    .filter(b=>!already.has(b.id))
+    .filter(b=>!q||String(b.title||'').toLowerCase().includes(q)||String(b.series||'').toLowerCase().includes(q))
+    .sort((a,b)=>{
+      const ao=(a.category===want)?0:1, bo=(b.category===want)?0:1;
+      if(ao!==bo)return ao-bo;
+      return String(a.title||'').localeCompare(String(b.title||''));
+    }).slice(0,60);
+  box.innerHTML=list.length?list.map(b=>{
+    const tot=b.totalUnits||Object.keys(b.units||{}).length||0;
+    return '<button class="bpadd-r" onclick="bpAddPick(\''+b.id+'\')">'
+      +'<span class="bpadd-c">'+(b.coverUrl?'<img src="'+b.coverUrl+'" loading="lazy">':'📚')+'</span>'
+      +'<span class="bpadd-t">'+String(b.title||'').replace(/</g,'&lt;')
+      +'<span class="bpadd-s">'+(b.category||'-')+(tot?' · '+tot+'과':'')+'</span></span></button>';
+  }).join(''):'<div style="padding:16px;text-align:center;color:var(--slate);font-size:13px">찾는 교재가 없습니다</div>';
+}
+async function bpAddPick(bookId){
+  if(!_bpCtx)return;
+  const st=DB.stus().find(x=>x.id===_bpCtx.sid);if(!st)return;
+  const b=(_cache.globalTextbooks||[]).find(x=>x.id===bookId);if(!b)return;
+  const CAT2={'리딩':'reading','리스닝':'listening','어법':'grammar','어휘':'vocab','파닉스':'vocab'};
+  st.doneBooks=st.doneBooks||[];
+  if(st.doneBooks.some(d=>d.id===bookId)){toast('이미 등록된 교재입니다');return;}
+  st.doneBooks.push({id:bookId,area:CAT2[b.category]||_bpCtx.area||'',at:ppToday()});
+  await supaUpsert('students',st.id,st,st.id);
+  closeM('m-bp-add');
+  toast(String(b.title||'교재')+' — 끝낸 책으로 등록했습니다');
+  bpRefresh(_bpCtx.sid);
+}
+async function bpDelDone(sid,bookId){
+  const st=DB.stus().find(x=>x.id===sid);if(!st||!st.doneBooks)return;
+  const before=st.doneBooks.length;
+  st.doneBooks=st.doneBooks.filter(d=>d.id!==bookId);
+  if(st.doneBooks.length===before)return;
+  await supaUpsert('students',st.id,st,st.id);
+  toast('등록을 취소했습니다');
+  bpRefresh(sid);
+}
+// 지금 열려 있는 화면만 다시 그린다
+function bpRefresh(sid){
+  try{if(document.getElementById('sp-summary')&&currentSpStuId===sid&&typeof renderSpSummary==='function')renderSpSummary(sid);}catch(e){}
+  try{if(typeof renderDashClassPath==='function')renderDashClassPath();}catch(e){}
+  try{if(_pgCalClsId&&typeof renderClsLessons==='function')renderClsLessons(_pgCalClsId);}catch(e){}
+}
+
 // 반별 진도 — 어느 반이 어느 교재 어디쯤 왔는지 한 장으로.
 // 학생 한 명이 아니라 반 전체의 수업 기록을 합산한다(ppBookPath 가 배열을 받는다).
 function renderDashClassPath(){
@@ -8349,7 +8415,7 @@ function renderSpSummary(sid,period,from,to){
       <input type="date" id="sp-sum-to" value="${to||''}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;background:var(--cream);outline:none">
       <button class="btn bt bsm" onclick="renderSpSummary('${sid}','custom',document.getElementById('sp-sum-from').value,document.getElementById('sp-sum-to').value)">적용</button>
     </div>`:''}
-    ${(typeof ppBookPathHtml==='function'&&ppBookPathHtml(sid))?`<div class="card" style="margin-bottom:16px"><div class="ch"><span class="ct">${luIcon('book-open',16)}교재 여정</span><span style="font-size:12px;color:var(--slate)">끝낸 책 · 지금 · 다음</span></div><div class="cb" style="padding:14px 16px">${ppBookPathHtml(sid,{bare:true})}</div></div>`:''}
+    ${(typeof ppBookPathHtml==='function'&&ppBookPathHtml(sid))?`<div class="card" style="margin-bottom:16px"><div class="ch"><span class="ct">${luIcon('book-open',16)}교재 여정</span><span style="font-size:12px;color:var(--slate)">끝낸 책 · 지금 · 다음</span></div><div class="cb" style="padding:14px 16px">${ppBookPathHtml(sid,{bare:true,edit:sid})}</div></div>`:''}
     <div class="strow" style="margin-bottom:16px">
       <div class="stc"><div class="stnum">${attended}</div><div class="stlbl">출석</div></div>
       <div class="stc"><div class="stnum">${total?att+'%':'<span class="stnum-empty">데이터 없음</span>'}</div><div class="stlbl">출석률</div></div>

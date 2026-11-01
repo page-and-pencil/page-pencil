@@ -16,7 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-<link rel="stylesheet" href="css/style.css?v=20261101w">
+<link rel="stylesheet" href="css/style.css?v=20261101x">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -2176,6 +2176,21 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
+<!-- 끝낸 책 더하기 (선생님) -->
+<div id="m-bp-add" class="mo">
+  <div class="mdl" style="max-width:420px">
+    <div class="mh"><span class="mt" id="bpadd-title">끝낸 책 더하기</span>
+      <button class="bx" onclick="closeM('m-bp-add')">&times;</button></div>
+    <div class="f" style="margin-bottom:10px">
+      <input type="text" id="bpadd-q" placeholder="교재 이름으로 찾기" oninput="bpAddList()" autocomplete="off">
+    </div>
+    <div id="bpadd-list" style="max-height:52vh;overflow-y:auto;overscroll-behavior:contain"></div>
+    <div style="font-size:12px;color:var(--slate);margin-top:10px;line-height:1.6">
+      앱을 쓰기 전에 끝낸 교재를 넣어 두면 교재 여정에 함께 보입니다.
+    </div>
+  </div>
+</div>
+
 <!-- 단어 그림 (선생님) -->
 <div id="m-word-img" class="mo">
   <div class="mdl" style="max-width:360px">
@@ -2185,10 +2200,10 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261101l"></script>
+<script src="js/utils.js?v=20261101m"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261101b"></script>
-<script src="js/teacher.js?v=20261101m"></script>
+<script src="js/teacher.js?v=20261101n"></script>
 <script src="js/student.js?v=20261101n"></script>
 <script src="js/parent.js?v=20261101h"></script>
 </body>
