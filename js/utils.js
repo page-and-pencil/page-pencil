@@ -210,7 +210,8 @@ function landRole(role){
         <button type="button" class="land-eye" aria-label="비밀번호 표시" aria-pressed="false" onclick="landToggleEye('land-tpw',this)">${luIcon('eye',17)||'👁'}</button>
       </div>
       <div class="land-err" id="land-err" role="alert"></div>
-      <button class="land-submit" onclick="checkPw('land-tpw','land-err')">선생님으로 로그인 ${luIcon('arrow-right',17)||'→'}</button>`;
+      <button class="land-submit" onclick="checkPw('land-tpw','land-err')">선생님으로 로그인 ${luIcon('arrow-right',17)||'→'}</button>
+      <p class="land-note">수업 기록·진도 캘린더·테스트를 관리합니다.</p>`;
   }else if(role==='student'){
     area.innerHTML=`
       <label class="land-lbl" for="land-spin">PIN <span class="land-lbl-sub">생년월일 4자리 (예: 0312)</span></label>
@@ -220,7 +221,8 @@ function landRole(role){
       </div>
       <select id="land-sname" class="land-input" style="display:none;margin-top:10px" onchange="landStudentByName()"></select>
       <div class="land-err" id="land-err" role="alert"></div>
-      <button class="land-submit" onclick="landStudentSubmit()">학생 입장 ${luIcon('arrow-right',17)||'→'}</button>`;
+      <button class="land-submit" onclick="landStudentSubmit()">학생 입장 ${luIcon('arrow-right',17)||'→'}</button>
+      <p class="land-note">오늘 할 일과 단어 학습을 확인해요.</p>`;
   }else{
     area.innerHTML=`
       <label class="land-lbl" for="land-pname">아이 이름</label>
@@ -234,7 +236,8 @@ function landRole(role){
         <input type="password" id="land-ppin" class="land-input" inputmode="numeric" aria-describedby="land-err" maxlength="4" placeholder="0000" onkeydown="if(event.key==='Enter')checkPin('land-pname','land-ppin','land-err')">
       </div>
       <div class="land-err" id="land-err" role="alert"></div>
-      <button class="land-submit" onclick="checkPin('land-pname','land-ppin','land-err')">조회하기 ${luIcon('arrow-right',17)||'→'}</button>`;
+      <button class="land-submit" onclick="checkPin('land-pname','land-ppin','land-err')">조회하기 ${luIcon('arrow-right',17)||'→'}</button>
+      <p class="land-note">수업 기록과 점수 추이를 볼 수 있습니다.</p>`;
   }
 }
 function landToggleEye(id,btn){const el=document.getElementById(id);if(!el)return;const showing=el.type==='password';el.type=showing?'text':'password';btn.style.opacity=showing?'1':'.7';btn.setAttribute('aria-pressed',String(showing));btn.setAttribute('aria-label',showing?'비밀번호 숨기기':'비밀번호 표시');}

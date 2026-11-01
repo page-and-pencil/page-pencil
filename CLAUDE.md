@@ -43,6 +43,10 @@
 - 백업: fullBackup()이 전 테이블 JSON 덤프 (대시보드가 월 1회 알림, localStorage pp_lastBackup 기준)
 - 삭제는 휴지통(soft delete): 주요 삭제는 supaTrash(_deleted 표식)로 — loadAllData가 필터, 백업·일괄 탭 휴지통에서 복원, 30일 후 자동 영구 삭제(purgeOldTrash). 새 삭제 기능을 만들 땐 하드 delete 대신 supaTrash 사용
 
+## 디자인 규칙
+- 색·아이콘·카드는 `DESIGN_RULES.md` 를 따른다 (색은 토큰만, 카드 모서리 4단계, 아이콘은 선생님/학부모=Lucide·학생=이모지 허용)
+- 브랜드 자산(로고·인쇄물) 기준은 별도 `DESIGN.md` — 앱 색과 다른 것은 의도된 것
+
 ## 작업 원칙
 - 수정 요청 시 관련 파일만 읽고 수정
 - yes/no 확인 없이 자동 진행

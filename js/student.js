@@ -2632,12 +2632,13 @@ function renderStudentHome(sid){
     // 앱 단어 학습 연동 숙제: 손으로 체크 못 함 — 단어 20개를 실제로 끝내면 자동 체크
     const cbClick=isVocabAuto?'':(done?`uncompleteSchedDay('${sid}','${a.id}','${sc.date}')`:`completeSchedDay('${sid}','${a.id}','${sc.date}')`);
     const cbTitle=isVocabAuto?'단어 학습 20개를 끝내면 자동으로 체크돼요':(done?'클릭: 완료 취소':'완료하면 눌러요');
-    return `<div class="hw-check-card${done?' done':''}" id="sch-card-${a.id}-${sc.date}">
+    const kind=isVocabAuto?'vocab':isRecur?'recur':'app';
+    return `<div class="hw-check-card hw-k-${kind}${done?' done':''}" id="sch-card-${a.id}-${sc.date}">
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div class="hw-checkbox${done?' checked':''}" ${cbClick?`onclick="${cbClick}"`:'style="cursor:default"'} title="${cbTitle}">${done?'✓':''}</div>
         <div style="flex:1;min-width:0">
           ${qNo?`<span class="quest-no">퀘스트 ${qNo}</span>`:''}
-          <div style="font-size:15px;font-weight:600;color:var(--navy)">${icon} ${title}</div>
+          <div style="display:flex;align-items:center;font-size:15px;font-weight:700;color:var(--navy)"><span class="hw-ico">${icon}</span>${title}</div>
           ${detail?`<div style="font-size:13px;color:var(--slate);margin-top:3px">${detail}</div>`:''}
           ${isVocabAuto&&!done?`<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><button class="btn bo bsm" style="border-radius:50px;padding:8px 14px" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button></div><div style="font-size:12.5px;color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
           ${(()=>{ // 외부 앱에서 하는 숙제(리딩앤·클래스5·오토보카)는 그 앱으로 바로 보낸다
@@ -2661,7 +2662,7 @@ function renderStudentHome(sid){
     const isToday=a.due===today||(!a.due&&a.date===today);
     let body='';
     if(a.type==='reading'){
-      body=`<div style="font-size:14px;font-weight:600;color:var(--navy)">${a.bookTitle||'원서 읽기'}${a.range?' <span style="font-size:12px;color:var(--slate)">'+a.range+'</span>':''}</div>`;
+      body=`<div style="display:flex;align-items:center;font-size:14.5px;font-weight:700;color:var(--navy)"><span class="hw-ico">📖</span>${a.bookTitle||'원서 읽기'}${a.range?' <span style="font-size:12px;color:var(--slate)">'+a.range+'</span>':''}</div>`;
       if(!isDone&&ao){
         if(ao.type==='chapters'&&ao.chapters?.length){
           body+=`<div style="margin-top:6px">${ao.chapters.slice(0,3).map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:12px;min-width:44px;color:var(--slate)">챕터 ${c.num}</span><audio controls src="${c.url}" style="flex:1;height:24px"></audio></div>`).join('')}</div>`;
@@ -2688,10 +2689,10 @@ function renderStudentHome(sid){
         if(hw.aiScore)body+=`<div style="font-size:12px;color:#0B8DAE;background:var(--tl);border-radius:6px;padding:5px 8px;margin-top:4px">🤖 ${hw.aiScore}</div>`;
       }
     } else if(a.type==='vocab'){
-      body=`<div style="font-size:14px;font-weight:600;color:var(--navy)">단어 암기</div><div class="wl" style="margin-top:4px">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
+      body=`<div style="display:flex;align-items:center;font-size:14.5px;font-weight:700;color:var(--navy)"><span class="hw-ico">📝</span>단어 암기</div><div class="wl" style="margin-top:4px">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
       if(!isDone)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:12px" onclick="openVocabForAssignment('${sid}','${a.id}')">📚 단어장 열기 →</button>`;
     } else if(a.type==='worksheet'){
-      body=`<div style="font-size:14px;font-weight:700;color:var(--navy)">🗒️ ${a.bookTitle||'워크시트'}</div>
+      body=`<div style="display:flex;align-items:center;font-size:14.5px;font-weight:700;color:var(--navy)"><span class="hw-ico">🗒️</span>${a.bookTitle||'워크시트'}</div>
         <div style="font-size:13px;color:var(--slate);margin-top:2px">인쇄 학습지${a.gradeLevel?' · '+a.gradeLevel:''}</div>
         <button class="btn ${isDone?'bo':'bt'}" style="width:100%;margin-top:10px;border-radius:50px;padding:12px;font-weight:700" onclick="openWsView('${escAttr(a.wsId||'')}','${a.id}','${sid}')">📄 워크시트 보기</button>`;
     } else if(a.type==='mission'){
@@ -2700,7 +2701,7 @@ function renderStudentHome(sid){
       const prog=a.progress||{};
       const doneCnt=ms.filter(m=>prog[m]).length;
       const pct=ms.length?Math.round(doneCnt/ms.length*100):0;
-      body=`<div style="font-size:14px;font-weight:700;color:var(--navy)">🎯 ${a.bookTitle||'학습 미션'}</div>
+      body=`<div style="display:flex;align-items:center;font-size:14.5px;font-weight:700;color:var(--navy)"><span class="hw-ico">🎯</span>${a.bookTitle||'학습 미션'}</div>
         <div style="font-size:13px;color:var(--slate);margin-top:2px">${a.unitKey||''}${a.unitTitle?' — '+a.unitTitle:''}</div>
         <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
           ${ms.map(m=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 9px;border-radius:50px;${prog[m]?'background:#D9F6E9;color:#047857':'background:var(--cream2);color:var(--slate)'}">${MISSION_DEFS[m]?.icon||''} ${MISSION_DEFS[m]?.label||m}${prog[m]?' ✓':''}</span>`).join('')}
@@ -2712,11 +2713,15 @@ function renderStudentHome(sid){
       const catIcon={phonics:'📘',vocab:'📝',grammar:'✏️',reading:'📖',listening:'🎧',writing:'✍️',naesin:'📋',book:'📗',class5:'🎮'};
       const icon=catIcon[a.category]||'📋';
       const KCK=['phonics','vocab','grammar','reading','listening','writing','naesin','book','class5','other'];
-      body=`<div style="font-size:14px;font-weight:600;color:var(--navy)">${icon} ${a.bookTitle||a.text||((a.category&&!KCK.includes(a.category))?a.category:'')||'과제'}</div>`;
+      body=`<div style="display:flex;align-items:center;font-size:14.5px;font-weight:700;color:var(--navy)"><span class="hw-ico">${icon}</span>${a.bookTitle||a.text||((a.category&&!KCK.includes(a.category))?a.category:'')||'과제'}</div>`;
       if(a.range)body+=`<div style="font-size:13px;color:var(--slate);margin-top:3px">${a.range}</div>`;
     }
     const canCheck=a.type==='mission'?false:(!(a.type==='reading'&&a.requireRecording)||!!hw);
-    return `<div class="hw-check-card${isDone?' done':''}" id="hw-card-${a.id}">
+    // 퀘스트 종류마다 색을 달리해 목록이 한 덩어리로 보이지 않게 한다
+    const kind=a.type==='reading'?'book':a.type==='vocab'?'vocab':a.type==='worksheet'?'ws'
+      :a.type==='mission'?'mission':({phonics:'book',vocab:'vocab',grammar:'ws',reading:'book',
+        listening:'app',writing:'ws',naesin:'etc',book:'book',class5:'app'}[a.category]||'etc');
+    return `<div class="hw-check-card hw-k-${kind}${isDone?' done':''}" id="hw-card-${a.id}">
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone?'uncompleteAssignment(\''+sid+'\',\''+a.id+'\')':(!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')')}" title="${isDone?'클릭: 완료 취소':(!canCheck?(a.type==='mission'?'미션을 모두 완료하면 자동으로 체크됩니다':'녹음 제출 후 완료 가능'):'완료 처리')}">${isDone?'✓':''}</div>
         <div style="flex:1;min-width:0">
