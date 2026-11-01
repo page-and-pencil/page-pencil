@@ -1756,28 +1756,38 @@ html{scroll-padding-top:72px;}
    종류마다 색을 주고, 손이 닿는 곳에 작은 반응을 넣는다. 움직임은 모두
    prefers-reduced-motion 을 존중하고, 배경에서 계속 도는 것은 느리고 작게만 둔다. */
 
-/* 퀘스트 종류별 색 — 왼쪽 띠·번호 배지·아이콘 자리가 같이 바뀐다 */
-.hw-k-vocab  {border-left-color:var(--teal);}
-.hw-k-book   {border-left-color:var(--warn);}
-.hw-k-app    {border-left-color:#8B5CF6;}
-.hw-k-recur  {border-left-color:var(--ok);}
-.hw-k-ws     {border-left-color:#EC6B5E;}
-.hw-k-mission{border-left-color:#0EA5E9;}
-.hw-k-etc    {border-left-color:var(--slate2);}
-.hw-k-vocab   .quest-no{color:var(--tealt);background:var(--tl);}
-.hw-k-book    .quest-no{color:var(--warnt);background:var(--warnl);}
-.hw-k-app     .quest-no{color:#6D28D9;background:#F1EAFE;}
-.hw-k-recur   .quest-no{color:var(--okt);background:var(--okl);}
-.hw-k-ws      .quest-no{color:#B3362A;background:#FDECEA;}
-.hw-k-mission .quest-no{color:#0369A1;background:#E0F2FE;}
-.hw-k-etc     .quest-no{color:var(--slate);background:var(--cream2);}
-/* 아직 안 한 퀘스트는 아주 옅은 종류색 바탕을 깔아 흰 면이 이어지지 않게 */
-.hw-check-card:not(.done).hw-k-vocab  {background:linear-gradient(100deg,#F4FCFE,#fff 42%);}
-.hw-check-card:not(.done).hw-k-book   {background:linear-gradient(100deg,#FFFBF2,#fff 42%);}
-.hw-check-card:not(.done).hw-k-app    {background:linear-gradient(100deg,#FAF7FF,#fff 42%);}
-.hw-check-card:not(.done).hw-k-recur  {background:linear-gradient(100deg,#F3FDF8,#fff 42%);}
-.hw-check-card:not(.done).hw-k-ws     {background:linear-gradient(100deg,#FFF7F6,#fff 42%);}
-.hw-check-card:not(.done).hw-k-mission{background:linear-gradient(100deg,#F2FAFF,#fff 42%);}
+/* 퀘스트 색은 수업 4영역 배지(.sv/.sg2/.srd/.sls)와 같은 색을 쓴다 —
+   학생이 '파랑=어휘, 보라=어법, 초록=리딩, 앰버=리스닝'을 한 번만 익히면 되도록.
+   원서(book)는 수업 끝 자율 학습으로 바뀌어 메인이 아니라 중립색이다. */
+.hw-k-vocab    {border-left-color:#3B6FD4;}
+.hw-k-grammar  {border-left-color:#7C4DD6;}
+.hw-k-reading  {border-left-color:#10876A;}
+.hw-k-listening{border-left-color:#D08A12;}
+.hw-k-book     {border-left-color:var(--slate2);}
+.hw-k-app      {border-left-color:#8B5CF6;}
+.hw-k-recur    {border-left-color:var(--ok);}
+.hw-k-ws       {border-left-color:#EC6B5E;}
+.hw-k-mission  {border-left-color:#0EA5E9;}
+.hw-k-etc      {border-left-color:var(--slate2);}
+.hw-k-vocab     .quest-no{color:#1E40AF;background:#DBEAFE;}
+.hw-k-grammar   .quest-no{color:#4C1D95;background:#EDE9FE;}
+.hw-k-reading   .quest-no{color:#065F46;background:#D1FAE5;}
+.hw-k-listening .quest-no{color:#92400E;background:#FEF3C7;}
+.hw-k-book      .quest-no{color:var(--slate);background:var(--cream2);}
+.hw-k-app       .quest-no{color:#6D28D9;background:#F1EAFE;}
+.hw-k-recur     .quest-no{color:var(--okt);background:var(--okl);}
+.hw-k-ws        .quest-no{color:#B3362A;background:#FDECEA;}
+.hw-k-mission   .quest-no{color:#0369A1;background:#E0F2FE;}
+.hw-k-etc       .quest-no{color:var(--slate);background:var(--cream2);}
+/* 아직 안 한 퀘스트는 아주 옅은 영역색 바탕을 깔아 흰 면이 이어지지 않게 */
+.hw-check-card:not(.done).hw-k-vocab    {background:linear-gradient(100deg,#F3F7FE,#fff 42%);}
+.hw-check-card:not(.done).hw-k-grammar  {background:linear-gradient(100deg,#F8F5FE,#fff 42%);}
+.hw-check-card:not(.done).hw-k-reading  {background:linear-gradient(100deg,#F2FCF8,#fff 42%);}
+.hw-check-card:not(.done).hw-k-listening{background:linear-gradient(100deg,#FFFBF0,#fff 42%);}
+.hw-check-card:not(.done).hw-k-app      {background:linear-gradient(100deg,#FAF7FF,#fff 42%);}
+.hw-check-card:not(.done).hw-k-recur    {background:linear-gradient(100deg,#F3FDF8,#fff 42%);}
+.hw-check-card:not(.done).hw-k-ws       {background:linear-gradient(100deg,#FFF7F6,#fff 42%);}
+.hw-check-card:not(.done).hw-k-mission  {background:linear-gradient(100deg,#F2FAFF,#fff 42%);}
 
 /* 체크박스 — 빈 동그라미라 눌러도 되는지 몰랐다. 미리 ✓ 를 흐리게 비춰 준다 */
 .hw-checkbox{position:relative;}
@@ -1821,8 +1831,11 @@ html{scroll-padding-top:72px;}
 .hw-ico{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;
   border-radius:10px;font-size:18px;margin-right:9px;flex-shrink:0;
   background:var(--cream2);line-height:1;}
-.hw-k-vocab   .hw-ico{background:var(--tl);}
-.hw-k-book    .hw-ico{background:var(--warnl);}
+.hw-k-vocab     .hw-ico{background:#DBEAFE;}
+.hw-k-grammar   .hw-ico{background:#EDE9FE;}
+.hw-k-reading   .hw-ico{background:#D1FAE5;}
+.hw-k-listening .hw-ico{background:#FEF3C7;}
+.hw-k-book      .hw-ico{background:var(--cream2);}
 .hw-k-app     .hw-ico{background:#F1EAFE;}
 .hw-k-recur   .hw-ico{background:var(--okl);}
 .hw-k-ws      .hw-ico{background:#FDECEA;}
@@ -1856,3 +1869,21 @@ html{scroll-padding-top:72px;}
   @keyframes pp-imgin{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
   .vc-img{animation:pp-imgin .3s cubic-bezier(.22,1,.36,1) both;}
 }
+
+/* ═══ 복습 탭 — 수업 4영역 중심 ═══
+   원서 수업이 수업 끝 리딩앤 자율 학습으로 바뀌어, 본 수업 네 영역(리딩·리스닝·어법·어휘)을
+   앞에 세우고 원서 책장은 접어서 아래로 내린다. */
+.rv-sec-h{font-size:16px;font-weight:800;color:var(--navy);margin:2px 0 12px;}
+.rv-area{margin-bottom:18px;}
+.rv-area-h{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+.rv-area-h .sbadge{font-size:12.5px;font-weight:800;padding:4px 11px;border-radius:var(--rpill);}
+.rv-area-n{font-size:12px;color:var(--slate2);font-weight:600;}
+.rv-fold{margin-top:6px;border:1.5px solid var(--border);border-radius:14px;background:var(--cream3);overflow:hidden;}
+.rv-fold-s{list-style:none;cursor:pointer;padding:14px 16px;display:flex;align-items:center;gap:8px;
+  font-size:14.5px;font-weight:700;color:var(--navy);user-select:none;}
+.rv-fold-s::-webkit-details-marker{display:none;}
+.rv-fold-s::after{content:'▾';margin-left:auto;color:var(--slate2);font-size:13px;transition:transform .2s;}
+.rv-fold[open] .rv-fold-s::after{transform:rotate(180deg);}
+.rv-fold-c{font-size:11.5px;font-weight:600;color:var(--slate2);background:var(--cream2);
+  padding:3px 9px;border-radius:var(--rpill);}
+.rv-fold-b{padding:0 14px 14px;}

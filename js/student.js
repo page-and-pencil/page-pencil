@@ -445,7 +445,7 @@ function renderStudentLibrary(sid){
     _stuShelfOpen=rec?rec.id:(myTbooks[0]?.id||'');
   }
   const tbookHtml=myTbooks.length?(()=>{
-    const shelf=myTbooks.map(tb=>{
+    const cardOf=(tb)=>{
       // 교재 전체 등록 단어 수 (단원 합계)
       const wCnt=Object.values(tb.units||{}).reduce((s,a)=>s+(Array.isArray(a)?tuNormWords(a).filter(w=>w.word).length:0),0);
       const recent=[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))].some(u=>_isRecent(tb.title,u));
@@ -455,7 +455,24 @@ function renderStudentLibrary(sid){
         <div class="shelf-t">${tb.title}</div>
         <div class="shelf-s">단어 ${wCnt}</div>
       </div>`;
+    };
+    // 본 수업은 리딩·리스닝·어법·어휘 네 영역으로 돈다 → 그 차례로 묶어 보여 준다.
+    // 학생이 오늘 배운 영역을 바로 찾게 하려는 것이고, 그 밖의 교재는 맨 뒤에 모은다.
+    const AREAS=[['리딩','srd'],['리스닝','sls'],['어법','sg2'],['어휘','sv']];
+    const used=new Set();
+    const groups=AREAS.map(([label,cls])=>{
+      const list=myTbooks.filter(b=>(b.category||'')===label);
+      list.forEach(b=>used.add(b.id));
+      if(!list.length)return '';
+      return '<div class="rv-area"><div class="rv-area-h"><span class="sbadge '+cls+'">'+label+'</span>'
+        +'<span class="rv-area-n">'+list.length+'권</span></div>'
+        +'<div class="shelf-grid">'+list.map(cardOf).join('')+'</div></div>';
     }).join('');
+    const rest=myTbooks.filter(b=>!used.has(b.id));
+    const restHtml=rest.length?('<div class="rv-area"><div class="rv-area-h">'
+      +'<span class="sbadge" style="background:var(--cream2);color:var(--slate)">그 밖의 교재</span>'
+      +'<span class="rv-area-n">'+rest.length+'권</span></div>'
+      +'<div class="shelf-grid">'+rest.map(cardOf).join('')+'</div></div>'):'';
     const opened=myTbooks.find(x=>x.id===_stuShelfOpen);
     const panel=opened?`<div class="shelf-panel" id="tb-shelf-panel">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -465,7 +482,7 @@ function renderStudentLibrary(sid){
       </div>
       ${_unitRowsOf(opened)||'<div style="font-size:13px;color:var(--slate);padding:6px 0">단원 정보 없음</div>'}
     </div>`:'';
-    return `<div class="shelf-grid">${shelf}</div>${panel}`;
+    return `${groups}${restHtml}${panel}`;
   })():'';
 
   // ── 원서 섹션 ──
@@ -644,8 +661,14 @@ function renderStudentLibrary(sid){
     <div style="font-size:13px;color:var(--slate)">교재 단원 원문이나 원서가 등록되면 여기에 보입니다</div>
   </div>`:`<div style="padding:1.25rem">
     ${reviewHero}
-    ${myTbooks.length?`<div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:10px">📚 교재 원문 복습</div>${tbookHtml}`:''}
-    ${rdShelfHtml}
+    ${myTbooks.length?`<div class="rv-sec-h">📚 수업 교재 복습</div>${tbookHtml}`:''}
+    ${rdShelfHtml?`<details class="rv-fold">
+      <summary class="rv-fold-s">📗 원서 책장 · 완독 스티커북<span class="rv-fold-c">수업 끝 자율 학습</span></summary>
+      <div class="rv-fold-b">
+        <button class="btn bt" style="width:100%;border-radius:12px;padding:13px;font-size:15px;font-weight:700;margin-bottom:14px" onclick="event.preventDefault();openExtApp('readingn')">▶ 리딩앤에서 읽기</button>
+        ${rdShelfHtml}
+      </div>
+    </details>`:''}
   </div>`;
 }
 
@@ -2657,7 +2680,8 @@ function renderStudentHome(sid){
     // 앱 단어 학습 연동 숙제: 손으로 체크 못 함 — 단어 20개를 실제로 끝내면 자동 체크
     const cbClick=isVocabAuto?'':(done?`uncompleteSchedDay('${sid}','${a.id}','${sc.date}')`:`completeSchedDay('${sid}','${a.id}','${sc.date}')`);
     const cbTitle=isVocabAuto?'단어 학습 20개를 끝내면 자동으로 체크돼요':(done?'클릭: 완료 취소':'완료하면 눌러요');
-    const kind=isVocabAuto?'vocab':isRecur?'recur':'app';
+    const kind=isVocabAuto?'vocab':isRecur?({grammar:'grammar',reading:'reading',listening:'listening',
+      vocab:'vocab'}[a.category]||'recur'):'app';
     return `<div class="hw-check-card hw-k-${kind}${done?' done':''}" id="sch-card-${a.id}-${sc.date}">
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div class="hw-checkbox${done?' checked':''}" ${cbClick?`onclick="${cbClick}"`:'style="cursor:default"'} title="${cbTitle}">${done?'✓':''}</div>
@@ -2743,9 +2767,12 @@ function renderStudentHome(sid){
     }
     const canCheck=a.type==='mission'?false:(!(a.type==='reading'&&a.requireRecording)||!!hw);
     // 퀘스트 종류마다 색을 달리해 목록이 한 덩어리로 보이지 않게 한다
-    const kind=a.type==='reading'?'book':a.type==='vocab'?'vocab':a.type==='worksheet'?'ws'
-      :a.type==='mission'?'mission':({phonics:'book',vocab:'vocab',grammar:'ws',reading:'book',
-        listening:'app',writing:'ws',naesin:'etc',book:'book',class5:'app'}[a.category]||'etc');
+    // 본 수업 4영역(리딩·리스닝·어법·어휘)을 색으로 구분한다.
+    // 원서(book)는 수업 끝 자율 학습으로 바뀌어 메인이 아니므로 중립색으로 둔다.
+    const kind=a.type==='vocab'?'vocab':a.type==='worksheet'?'ws':a.type==='mission'?'mission'
+      :({phonics:'vocab',vocab:'vocab',grammar:'grammar',reading:'reading',
+         listening:'listening',writing:'ws',naesin:'etc',book:'book',class5:'app'}[a.category]
+        ||(a.type==='reading'?'book':'etc'));
     return `<div class="hw-check-card hw-k-${kind}${isDone?' done':''}" id="hw-card-${a.id}">
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone?'uncompleteAssignment(\''+sid+'\',\''+a.id+'\')':(!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')')}" title="${isDone?'클릭: 완료 취소':(!canCheck?(a.type==='mission'?'미션을 모두 완료하면 자동으로 체크됩니다':'녹음 제출 후 완료 가능'):'완료 처리')}">${isDone?'✓':''}</div>
