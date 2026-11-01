@@ -107,6 +107,46 @@ function plShowAll(){
   const les=DB.less().filter(l=>l.sid===currentParentSid);
   wrap.outerHTML=parentLessonList(les,true);
 }
+// ── 숙제 알림(서버 푸시) — 학부모 폰 ──
+// 아이가 오늘 숙제를 안 했으면 저녁에 알려준다. 앱을 닫아도 오므로 로컬 타이머와 다르다.
+async function ppPushToggle(){
+  const sid=currentParentSid;if(!sid)return;
+  const st=await ppPushState();
+  if(st.on){
+    await ppPushDisable();
+    toast('숙제 알림을 껐어요');
+    _ppPushRow();
+    return;
+  }
+  const s=DB.stus().find(x=>x.id===sid);
+  const ok=await ppPushEnable(sid,(s&&s.name)||'','parent');
+  if(ok){
+    toast('숙제 알림을 켰어요 🔔');
+    try{(await navigator.serviceWorker.ready).showNotification('알림이 켜졌어요 🔔',
+      {body:((s&&s.name)||'아이')+'이(가) 숙제를 안 한 날 저녁에 알려드릴게요.',icon:'icons/icon-192.png?v=2',tag:'pp-hw'});}catch(e){}
+  }
+  _ppPushRow();
+}
+async function _ppPushRow(){
+  const row=document.getElementById('pp-push-row');if(!row)return;
+  if(typeof ppPushSupported!=='function'||!ppPushSupported()){row.style.display='none';return;}
+  row.style.display='';
+  const st=await ppPushState();
+  const d=row.querySelector('.stu-push-d'),b=row.querySelector('.stu-push-b');
+  if(!d||!b)return;
+  const s=DB.stus().find(x=>x.id===currentParentSid);
+  const nm=(s&&s.name)||'아이';
+  if(st.on){
+    d.textContent='켜짐 — '+nm+'이(가) 숙제를 안 한 날 알려드려요';
+    b.textContent='끄기';b.className='btn bo bsm stu-push-b';row.classList.add('on');
+  }else if(st.perm==='denied'){
+    d.textContent='기기에서 알림이 차단돼 있어요 (설정에서 허용)';
+    b.textContent='켜기';b.className='btn bo bsm stu-push-b';row.classList.remove('on');
+  }else{
+    d.textContent=nm+'이(가) 숙제를 안 한 날 저녁에 알려드려요';
+    b.textContent='켜기';b.className='btn bt bsm stu-push-b';row.classList.remove('on');
+  }
+}
 async function loadParent(sid){
   currentParentSid=sid;
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
@@ -121,6 +161,7 @@ async function loadParent(sid){
   const av=document.getElementById('p-avatar');if(av)av.textContent=(s.name||'').trim().slice(0,1)||'학';
   const heroMeta=[(s.grade||s.lv||''),(s.school||''),(latLes?'마지막 수업: '+latLes.date:'')].filter(Boolean).join(' · ');
   document.getElementById('p-meta').textContent=heroMeta;
+  _ppPushRow();   // 숙제 알림 구독 상태 (비동기)
 
   const today=new Date();
   const thisMonthStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');

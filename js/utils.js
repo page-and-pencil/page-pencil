@@ -614,6 +614,82 @@ function lessonWordSet(sid){
 //  ① 직전 수업 단어 중 오늘 안 본 것 — 최대 절반(수업 다음 날 첫 복습이 망각 곡선상 효과 최대; 미학습→기한순)
 //  ② 복습 기한(due)이 지난 카드 — 많이 밀린 순  ③ 처음 보는 카드 — 등록 오래된 순  ④ 기한 전 카드 — 임박순(모자랄 때만)
 // 카드 객체는 변형하지 않음(이유는 why 맵으로 반환 — 카드에 붙이면 학습 저장 때 DB로 새어 들어감)
+// ── 웹 푸시 구독 (학생·학부모 공용) ──
+// 기존 알림은 setInterval 로컬 타이머라 **앱이 열려 있어야만** 떴다 → 앱을 안 열면 알림도 영구히 안 옴.
+// 서버(Supabase Edge Function 'push-hw')가 매일 보내도록 구독 정보를 push_subs에 올린다.
+// 알림 문구는 sw.js가 만들고, 서버는 '남은 숙제가 있을 때만' 본문 없는 푸시를 보낸다.
+const PP_VAPID_PUBLIC='BPr4qossLdd3M25srgcxQmgYItyEkFTariNV4bfc-QmeV58HxFHTOP1FsOhVe_w-Ag7vnFcDWzp3cW_KRGb0z2E';
+function ppPushSupported(){
+  return typeof navigator!=='undefined'&&'serviceWorker'in navigator
+    &&typeof window!=='undefined'&&'PushManager'in window&&typeof Notification!=='undefined';
+}
+function _ppB64ToU8(b64){
+  const pad='='.repeat((4-b64.length%4)%4);
+  const raw=atob((b64+pad).replace(/-/g,'+').replace(/_/g,'/'));
+  const u=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++)u[i]=raw.charCodeAt(i);
+  return u;
+}
+async function ppPushCurrent(){
+  if(!ppPushSupported())return null;
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    return await reg.pushManager.getSubscription();
+  }catch(e){return null;}
+}
+async function ppPushState(){
+  if(!ppPushSupported())return {supported:false,on:false,perm:'unsupported'};
+  const sub=await ppPushCurrent();
+  return {supported:true,on:!!sub,perm:Notification.permission};
+}
+// 이 기기가 누구 것인지 서비스워커가 읽을 수 있게 Cache API에 적어둔다 (서버 조회 없이 문구 결정)
+async function _ppPushWho(who){
+  try{
+    const c=await caches.open('pp-push-id');
+    await c.put('/who',new Response(JSON.stringify(who),{headers:{'Content-Type':'application/json'}}));
+  }catch(e){}
+}
+async function ppPushEnable(sid,name,role){
+  if(!ppPushSupported()){toast('이 기기는 푸시 알림을 지원하지 않아요 — 홈 화면에 앱을 설치하면 쓸 수 있어요');return false;}
+  let perm=Notification.permission;
+  if(perm!=='granted')perm=await Notification.requestPermission();
+  if(perm!=='granted'){toast('알림이 차단돼 있어요 — 브라우저·기기 설정에서 허용해 주세요');return false;}
+  let reg,sub;
+  try{
+    reg=await navigator.serviceWorker.ready;
+    sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_ppB64ToU8(PP_VAPID_PUBLIC)});
+  }catch(e){
+    console.error('ppPushEnable subscribe:',e);
+    toast('알림 등록에 실패했어요 — 홈 화면에 설치된 앱에서 다시 시도해 주세요');
+    return false;
+  }
+  const j=sub.toJSON();
+  if(!j.keys||!j.keys.p256dh||!j.keys.auth){toast('알림 등록 정보가 불완전해요 — 다시 시도해 주세요');return false;}
+  await _ppPushWho({sid,name:name||'',role:role||'student'});
+  const row={sid,role:role||'student',name:name||'',endpoint:j.endpoint,
+    p256dh:j.keys.p256dh,auth:j.keys.auth,active:true,ua:(navigator.userAgent||'').slice(0,180),
+    updatedAt:new Date().toISOString()};
+  try{await supaUpsert('push_subs',_ppEndpointId(j.endpoint),row,sid);}
+  catch(e){console.error('ppPushEnable save:',e);toast('알림 등록을 저장하지 못했어요 — 네트워크를 확인해 주세요');return false;}
+  return true;
+}
+// endpoint URL을 id로 쓸 수 있게 짧고 안전한 문자열로 (같은 기기 재구독 시 같은 행 갱신)
+function _ppEndpointId(ep){
+  let h1=0x811c9dc5,h2=0x01000193;
+  for(let i=0;i<ep.length;i++){const c=ep.charCodeAt(i);h1=((h1^c)*16777619)>>>0;h2=((h2+c*31)^(h2<<5))>>>0;}
+  return 'ps'+h1.toString(36)+h2.toString(36)+ep.length.toString(36);
+}
+async function ppPushDisable(){
+  const sub=await ppPushCurrent();
+  if(!sub)return true;
+  const ep=sub.endpoint;
+  try{await sub.unsubscribe();}catch(e){}
+  // 구독 행은 지운다 — 끊긴 endpoint를 서버가 계속 두드리지 않게 (학습 데이터가 아니라 기기 등록 정보)
+  try{await supaDelete('push_subs',_ppEndpointId(ep));}catch(e){console.error('ppPushDisable:',e);}
+  try{const c=await caches.open('pp-push-id');await c.delete('/who');}catch(e){}
+  return true;
+}
 function dailyVocabPick(sid,today,limit){
   today=today||ppToday();limit=limit||20;
   const all=(typeof _cache!=='undefined'?(_cache.vocab_cards||[]):[]).filter(c=>c.sid===sid);

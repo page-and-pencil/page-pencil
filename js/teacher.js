@@ -11870,6 +11870,32 @@ async function pgAddMissingBook(classId,bookId,run){
     toast(tb.title+' — '+lbl+' 줄로 추가했어요');
   });
 }
+// ── 알림 구독 현황 (선생님용) ──
+// push_subs는 endpoint가 담겨 있어 익명 읽기를 막아 뒀다. 역할·학생만 담은 push_subs_pub 뷰를 읽는다.
+// 테이블·뷰를 아직 안 만든 환경에서도 조용히 넘어가게 실패는 무시한다.
+let _pgPushSubs=null,_pgPushSubsAt=0;
+async function _pgLoadPushSubs(){
+  if(_pgPushSubs&&Date.now()-_pgPushSubsAt<120000)return _pgPushSubs;
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/push_subs_pub?select=sid,role',{headers:SUPA_HEADERS});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const rows=await r.json();
+    _pgPushSubs={};
+    rows.forEach(x=>{if(!x.sid)return;(_pgPushSubs[x.sid]=_pgPushSubs[x.sid]||new Set()).add(x.role||'student');});
+  }catch(e){_pgPushSubs={};}   // 미설정·권한 없음 — 표시만 생략
+  _pgPushSubsAt=Date.now();
+  return _pgPushSubs;
+}
+// 숙제 패널을 그린 뒤 학생별 🔔 상태만 채워 넣는다 (렌더를 기다리게 하지 않음)
+async function _pgPushBadges(){
+  const map=await _pgLoadPushSubs();
+  document.querySelectorAll('.hw-bell[data-sid]').forEach(el=>{
+    const r=map[el.dataset.sid];
+    if(!r||!r.size){el.textContent='🔕';el.title='숙제 알림이 꺼져 있어요 — 학생·학부모 앱에서 켤 수 있습니다';el.classList.remove('on');return;}
+    const who=[r.has('student')?'학생':'',r.has('parent')?'학부모':''].filter(Boolean).join('·');
+    el.textContent='🔔';el.title='숙제 알림 켜짐 ('+who+')';el.classList.add('on');
+  });
+}
 // ── 클래스 안 숙제 패널 ──
 // 숙제가 과제 탭에만 있어서 "이 반 아이가 어제 숙제를 했나"를 보려면 탭을 옮겨야 했다.
 // 수업 준비는 클래스 화면에서 하므로, 그 자리에서 보고 체크하고 할당까지 되게 한다.
@@ -11932,11 +11958,12 @@ function _pgHwPanelHtml(classId){
           ${it.done&&it.by?`<em>${_PG_HW_BY[it.by]||it.by}</em>`:''}</button>`).join('')
       :`<span class="hw-empty">오늘 배정된 숙제가 없어요</span>`;
     return `<div class="hw-row">
-      <span class="hw-stu">${escAttr(stu.name)}${miss>=3?`<b title="숙제가 있던 날 기준 ${miss}일 연속 미완료">${miss}일 밀림</b>`:''}</span>
+      <span class="hw-stu">${escAttr(stu.name)}<i class="hw-bell" data-sid="${stu.id}" title="알림 상태 확인 중"></i>${miss>=3?`<b title="숙제가 있던 날 기준 ${miss}일 연속 미완료">${miss}일 밀림</b>`:''}</span>
       <div class="hw-items">${lines}</div>
       <span class="hw-dots" title="최근 7일 — 진한 점=전부, 중간=일부, 연한=안 함">${dots}<em>${counted?hit+'/'+counted:''}</em></span>
     </div>`;
   }).join('');
+  setTimeout(_pgPushBadges,0);   // 구독 현황은 네트워크라 렌더 후 채운다
   return `<details class="tb-card hw-card" open>
     <summary class="tb-head"><span class="tb-t">📕 숙제 <span class="hw-date">${today.slice(5).replace('-','/')}</span></span>
       <span class="tb-hint">눌러서 완료 체크 · 최근 7일 점으로 흐름 확인</span></summary>

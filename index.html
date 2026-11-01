@@ -18,7 +18,7 @@
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<link rel="stylesheet" href="css/style.css?v=20261031g">
+<link rel="stylesheet" href="css/style.css?v=20261101a">
 </head>
 <body>
 
@@ -1019,6 +1019,12 @@
   <div id="parent-notice-banner" style="display:none;background:#FFF8E1;border-bottom:2px solid #F9A825;padding:10px 1.25rem;font-size:14px;color:#5D4037;line-height:1.6;cursor:pointer" onclick="closeParentNotice()">
     <span style="font-weight:700;margin-right:6px">📢 공지</span><span id="parent-notice-text"></span>
     <span style="float:right;opacity:.5;font-size:12px">닫기 ✕</span>
+  </div>
+  <!-- 숙제 알림 (서버 푸시) — 로컬 타이머와 달리 앱을 닫아도 옵니다 -->
+  <div id="pp-push-row" class="stu-push" style="display:none;margin:12px 1.25rem 0">
+    <span class="stu-push-t">🔔 숙제 알림</span>
+    <span class="stu-push-d">확인 중…</span>
+    <button class="btn bo bsm stu-push-b" onclick="ppPushToggle()">켜기</button>
   </div>
   <!-- 숨겨진 캘린더 요소 (renderCalendar 함수 호환) -->
   <span id="pp-cal-title" style="display:none"></span>
@@ -2152,11 +2158,11 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
-<script src="js/utils.js?v=20261031c"></script>
+<script src="js/utils.js?v=20261101a"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20260727l"></script>
-<script src="js/teacher.js?v=20261031i"></script>
-<script src="js/student.js?v=20261031b"></script>
-<script src="js/parent.js?v=20261031a"></script>
+<script src="js/teacher.js?v=20261101a"></script>
+<script src="js/student.js?v=20261101a"></script>
+<script src="js/parent.js?v=20261101a"></script>
 </body>
 </html>

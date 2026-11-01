@@ -2149,6 +2149,45 @@ async function uncompleteSchedDay(sid,asgnId,ds){
   });
 }
 
+// ── 숙제 알림(서버 푸시) 토글 ──
+// 기존 로컬 알림은 앱이 열려 있어야만 떴다. 이쪽은 서버가 보내므로 앱을 닫아도 온다.
+async function stuPushToggle(sid){
+  const st=await ppPushState();
+  if(st.on){
+    await ppPushDisable();
+    toast('숙제 알림을 껐어요');
+    _stuPushRow(sid);
+    return;
+  }
+  const stu=DB.stus().find(x=>x.id===sid);
+  const ok=await ppPushEnable(sid,(stu&&stu.name)||'','student');
+  if(ok){
+    toast('숙제 알림을 켰어요 🔔 남은 숙제가 있는 날 저녁에 알려줄게요');
+    try{(await navigator.serviceWorker.ready).showNotification('알림이 켜졌어요! 🔔',
+      {body:'숙제가 남은 날 저녁에 알려줄게요 — 하나씩 체크하면 도장이 쌓여요!',icon:'icons/icon-192.png?v=2',tag:'pp-hw'});}catch(e){}
+  }
+  _stuPushRow(sid);
+}
+// 알림 줄 상태 채우기 (구독 여부는 비동기로만 알 수 있어 렌더 후 갱신)
+async function _stuPushRow(sid){
+  const row=document.getElementById('stu-push-row');if(!row)return;
+  const st=await ppPushState();
+  const d=row.querySelector('.stu-push-d'),b=row.querySelector('.stu-push-b');
+  if(!d||!b)return;
+  if(st.on){
+    d.textContent='켜짐 — 숙제가 남은 날 저녁에 알려줘요';
+    b.textContent='끄기';b.className='btn bo bsm stu-push-b';
+    row.classList.add('on');
+  }else if(st.perm==='denied'){
+    d.textContent='기기에서 알림이 차단돼 있어요 (설정에서 허용)';
+    b.textContent='켜기';b.className='btn bo bsm stu-push-b';
+    row.classList.remove('on');
+  }else{
+    d.textContent='앱을 닫아도 숙제를 알려줘요';
+    b.textContent='켜기';b.className='btn bt bsm stu-push-b';
+    row.classList.remove('on');
+  }
+}
 // ── 매일 학습 알림 (로컬 리마인더) ──
 // 브라우저·PWA가 열려 있을 때(또는 지원 기기의 백그라운드) 정해진 시각에 단어 학습을 알려줌.
 // 앱이 완전히 꺼진 상태의 푸시는 별도 서버가 필요 — 지금은 로컬 알림.
@@ -2483,13 +2522,24 @@ function renderStudentHome(sid){
       </div>
     </div>
   </div></div>`;
-  const notifyRowHtml=notifySupported?`<div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:10px 12px;background:var(--cream2);border-radius:var(--rs)">
-      <span style="font-size:13px;color:var(--slate)">🔔 매일 학습 알림</span>
-      <span style="display:flex;align-items:center;gap:6px">
-        <input type="time" value="${notifyTime}" onchange="setStuNotifyTime('${sid}',this.value)" ${notifyOn?'':'disabled'} style="font-size:13px;border:1px solid var(--border);border-radius:8px;padding:3px 6px;${notifyOn?'':'opacity:.5'}">
-        <button class="btn ${notifyOn?'bt':'bo'} bsm" style="border-radius:50px;padding:5px 13px;font-weight:700" onclick="toggleStuNotify('${sid}')">${notifyOn?'켜짐 ✓':'켜기'}</button>
-      </span>
-    </div>`:'';
+  // 숙제 알림 — 서버에서 보내므로 앱을 닫아도 온다. 상태는 비동기로 채운다(_stuPushRow)
+  const notifyRowHtml=(typeof ppPushSupported==='function'&&ppPushSupported())
+    ?`<div id="stu-push-row" class="stu-push">
+        <span class="stu-push-t">🔔 숙제 알림</span>
+        <span class="stu-push-d">확인 중…</span>
+        <button class="btn bo bsm stu-push-b" onclick="stuPushToggle('${sid}')">켜기</button>
+      </div>
+      <details class="stu-push-sub"><summary>앱을 열어둘 때만 쓰는 학습 알림</summary>
+        <div class="stu-push-sub-b">
+          <span>🦉 매일 단어 학습 알림</span>
+          <span style="display:flex;align-items:center;gap:6px">
+            <input type="time" value="${notifyTime}" onchange="setStuNotifyTime('${sid}',this.value)" ${notifyOn?'':'disabled'} style="font-size:12.5px;border:1px solid var(--border);border-radius:8px;padding:3px 6px;${notifyOn?'':'opacity:.5'}">
+            <button class="btn ${notifyOn?'bt':'bo'} bxxs" onclick="toggleStuNotify('${sid}')">${notifyOn?'켜짐 ✓':'켜기'}</button>
+          </span>
+        </div>
+      </details>`
+    :`<div class="stu-push"><span class="stu-push-t">🔔 숙제 알림</span>
+        <span class="stu-push-d">홈 화면에 앱을 설치하면 알림을 받을 수 있어요</span></div>`;
   const lastLessonHtml=renderLastLesson(sid);
   {const sb=document.getElementById('stu-streak-badge');if(sb){sb.textContent='🔥 '+streak+'일';sb.style.display=streak>0?'':'none';}}
 
@@ -2664,6 +2714,16 @@ function renderStudentHome(sid){
   </div>`;
   polishStudentCmt(givenName);
   if(stuNotifyState(sid).on)ensureStuReminderLoop(sid); // 알림 켜져 있으면 리마인더 루프 유지
+  if(typeof _stuPushRow==='function')_stuPushRow(sid);   // 서버 푸시 구독 상태 표시
+  // 브라우저가 구독을 갱신하면 서비스워커가 알려준다 → 조용히 다시 올린다
+  if(!window._ppPushMsgBound&&navigator.serviceWorker){
+    window._ppPushMsgBound=true;
+    navigator.serviceWorker.addEventListener('message',async e=>{
+      if(!e.data||e.data.type!=='pp-push-resubscribe')return;
+      const stu=DB.stus().find(x=>x.id===currentStudentSid);
+      if(stu)await ppPushEnable(stu.id,stu.name,'student');
+    });
+  }
   setTimeout(()=>_vocabHwAutoCheck(sid).catch(()=>{}),400); // 이미 20개 채웠는데 미체크면 보정 (다른 기기 학습 등)
 }
 function handleHomeAsgnAudio(e,asgnId,sid){
