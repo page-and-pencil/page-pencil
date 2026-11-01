@@ -1552,3 +1552,20 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
   border-radius:50px;padding:3px 9px;cursor:pointer;font-family:var(--fb);white-space:nowrap;transition:all .12s;}
 .pg-ly-b:hover{border-color:var(--teal);}
 .pg-ly-b.on{background:var(--tl);border-color:var(--teal);color:var(--purple);}
+
+/* ── 수업 기록 폼: 이미 나가 있는 숙제 체크 ── */
+.cl-hw-chk{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;padding:7px 10px;
+  background:#fff;border:1px dashed var(--c);border-radius:8px;color:var(--navy);}
+.cl-hw-chk.on{background:#ECFDF5;border-style:solid;border-color:#34D399;}
+.cl-hw-box{width:20px;height:20px;flex-shrink:0;border:1.5px solid var(--border);background:#fff;
+  border-radius:6px;cursor:pointer;font-size:13px;font-weight:800;color:#047857;line-height:1;padding:0;
+  display:flex;align-items:center;justify-content:center;transition:all .12s;}
+.cl-hw-box:hover{border-color:var(--teal);}
+.cl-hw-chk.on .cl-hw-box{background:#34D399;border-color:#34D399;color:#fff;}
+.cl-hw-t{flex:1;min-width:140px;}
+.cl-hw-t u{text-decoration:none;font-weight:700;color:var(--purple);background:var(--pl);border-radius:6px;padding:1px 6px;margin-left:4px;}
+.cl-hw-n{font-size:12px;margin-left:6px;}
+.cl-hw-chk em{font-style:normal;font-size:11px;color:var(--slate);}
+.cl-hw-title{flex-basis:100%;padding:6px 9px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:12.5px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;}
+.cl-hw-title:focus{border-color:var(--teal);background:#fff;}

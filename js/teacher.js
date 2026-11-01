@@ -14244,6 +14244,24 @@ function clHwSetOpen(open){const b=document.getElementById('cl-hw-body'),h=docum
 // 이 클래스 학생들에게 그 날짜에 이미 있는 숙제 (읽기전용 표시용 — 같은 숙제 또 내는 것 방지)
 // sched: 스케줄형(클래스5·반복) 자동 할당 / singles: 숙제 캘린더·직접 할당 등으로 이미 나간 단건 과제(미완료)
 // excludeLessonDate: 이 수업 기록 폼 자신이 만든 과제(classId+date 일치)는 편집 행으로 보이므로 제외
+// 이 숙제는 '무슨 책을 읽었는지'를 적어야 기록이 되는가.
+// 리딩앤 원서 읽기처럼 일정마다 책 제목이 비어 있는 숙제가 대상 — 지금은 24개 일정이 전부
+// {book:'리딩앤', unit:'원서 읽기'}로 똑같아서 체크만 해도 아무 기록이 남지 않는다.
+const _HW_BOOKISH=['리딩앤','원서','독서','reading&','readingand'];
+function _hwAskTitle(a,sc){
+  if(!a||!sc)return false;
+  const hay=_hwKeyNorm([a.bookTitle,a.text,sc.book,sc.unit].filter(Boolean).join(' '));
+  if(!_HW_BOOKISH.some(w=>hay.includes(_hwKeyNorm(w))))return false;
+  // 일정 항목이 실제 책 제목을 담고 있으면 물을 필요가 없다
+  return !sc.title;
+}
+// 읽은 책 입력의 자동완성 — 원서 목록(ortSeq 순)을 채운다. 등록된 216권에서 고르면 오타가 없다
+function fillOrtBookDatalist(){
+  const dl=document.getElementById('dl-ort-books');if(!dl)return;
+  const ort=(_cache.library||[]).filter(b=>b&&b.title&&b.ortSeq!=null).sort((a,b)=>a.ortSeq-b.ortSeq);
+  const rest=(_cache.library||[]).filter(b=>b&&b.title&&b.ortSeq==null).sort((a,b)=>String(a.title).localeCompare(String(b.title)));
+  dl.innerHTML=[...ort,...rest].slice(0,600).map(b=>`<option value="${escAttr(b.title)}">`).join('');
+}
 function _clAutoHwFor(classId,ds,excludeLessonDate){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return{sched:[],singles:[]};
   const sids=new Set(c.studentIds||[]);
@@ -14258,7 +14276,9 @@ function _clAutoHwFor(classId,ds,excludeLessonDate){
         const label=a.category==='class5'?'🎮 클래스5':'🔁 '+(a.bookTitle||'반복 숙제');
         const txt=[s.book,s.unit].filter(Boolean).join(' · ')||a.bookTitle||'';
         const k=label+'|'+_hwKeyNorm(txt);
-        if(!seen.has(k)){seen.add(k);sched.push({label,txt});}
+        // 리딩앤처럼 '무슨 책'이 비어 있는 숙제는 수업에서 물어 적을 수 있게 (s.title에 보관)
+        if(!seen.has(k)){seen.add(k);sched.push({label,txt,aid:a.id,sid:a.sid,date:ds,sched:true,
+          done:!!s.done,by:s.doneBy||'',title:s.title||'',askTitle:_hwAskTitle(a,s)});}
       });
     }else{
       if(a.completedAt)return;
@@ -14268,21 +14288,67 @@ function _clAutoHwFor(classId,ds,excludeLessonDate){
       const cat=KC[a.category]||a.category||'';
       const txt=[a.bookTitle||a.text||'',a.range].filter(Boolean).join(' · ')||'과제';
       const k=cat+'|'+_hwKeyNorm(txt);
-      if(!seenS.has(k)){seenS.add(k);singles.push({label:'📕'+(cat?' ['+cat+']':''),txt});}
+      if(!seenS.has(k)){seenS.add(k);singles.push({label:'📕'+(cat?' ['+cat+']':''),txt,
+        aid:a.id,sid:a.sid,date:ds,sched:false,done:!!a.completedAt,by:a.completedBy||''});}
     }
   });
   return {sched,singles};
 }
 // 날짜 그룹에 '이미 나가 있는 숙제' 읽기전용 행 추가 (공용)
+// 이미 나가 있는 숙제를 '표시'만 하던 자리 — 수업 중에 바로 체크하고, 원서는 읽은 책까지 적는다.
+// 학생이 매일 스스로 체크하길 기대하는 대신, 주 3회 수업에서 선생님이 확인하는 길을 연다
+// (실측: 10월 체크율 클래스5 8% · 앱 단어 3% · 리딩앤 0%).
 function _clAppendAutoHwRows(groupBody,autos){
-  const row=(label,txt,note,color)=>{
+  if(typeof fillOrtBookDatalist==='function')fillOrtBookDatalist();
+  const row=(x,note,color)=>{
     const div=document.createElement('div');
-    div.style.cssText=`font-size:13px;padding:7px 10px;background:#fff;border:1px dashed ${color};border-radius:8px;color:var(--navy)`;
-    div.innerHTML=`${label} <b>${escAttr(txt)}</b> <span style="color:${color};font-size:12px">— ${note}</span>`;
+    div.className='cl-hw-chk'+(x.done?' on':'');
+    div.style.cssText=`--c:${color}`;
+    const by=x.done&&x.by?`<em>${_PG_HW_BY[x.by]||x.by}</em>`:'';
+    div.innerHTML=`<button type="button" class="cl-hw-box" title="${x.done?'완료 취소':'수업에서 확인했으면 체크'}"`
+      +` onclick="clHwCheck(this,'${x.aid}','${x.date}',${!!x.sched})">${x.done?'✓':''}</button>`
+      +`<span class="cl-hw-t">${x.label} <b>${escAttr(x.txt)}</b>`
+      +(x.title?` <u>${escAttr(x.title)}</u>`:'')
+      +`<span class="cl-hw-n" style="color:${color}">${x.done?'확인 완료':note}</span>${by}</span>`
+      +(x.askTitle?`<input type="text" class="cl-hw-title" list="dl-ort-books" placeholder="읽은 책 (예: Floppy the Hero)"`
+        +` value="${escAttr(x.title||'')}" onchange="clHwTitle(this,'${x.aid}','${x.date}')">`:'');
     groupBody.appendChild(div);
   };
-  autos.sched.forEach(x=>row(x.label,x.txt,'앱에 자동 할당됨 (다시 적지 않아도 돼요)','var(--teal)'));
-  autos.singles.forEach(x=>row(x.label,x.txt,'이미 할당된 숙제예요 (또 내지 않아도 돼요)','#B45309'));
+  autos.sched.forEach(x=>row(x,'앱에 자동 할당됨 — 했으면 체크','var(--teal)'));
+  autos.singles.forEach(x=>row(x,'이미 할당된 숙제 — 했으면 체크','#B45309'));
+}
+// 수업 기록 폼에서 바로 완료 토글
+async function clHwCheck(btn,aid,ds,sched){
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
+  let on;
+  if(sched){
+    const sc=(a.schedule||[]).find(x=>x.date===ds);if(!sc)return;
+    if(sc.done){delete sc.done;delete sc.doneBy;delete sc.doneAt;on=false;}
+    else{sc.done=true;sc.doneBy='teacher';sc.doneAt=new Date().toISOString();on=true;}
+  }else{
+    if(a.completedAt){delete a.completedAt;delete a.completedBy;on=false;}
+    else{a.completedAt=new Date().toISOString();a.completedBy='teacher';on=true;}
+  }
+  try{await supaUpsert('assignments',a.id,a,a.sid);}
+  catch(e){console.error('clHwCheck:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  btn.textContent=on?'✓':'';
+  const wrap=btn.closest('.cl-hw-chk');
+  if(wrap){
+    wrap.classList.toggle('on',on);
+    const n=wrap.querySelector('.cl-hw-n');
+    if(n&&on)n.textContent='확인 완료';
+  }
+  toast(on?'확인 완료로 표시했어요 ✓':'완료 표시를 취소했어요');
+}
+// 원서 숙제에 '읽은 책'을 적는다 — 체크만으론 아무 기록이 남지 않으므로
+async function clHwTitle(inp,aid,ds){
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
+  const sc=(a.schedule||[]).find(x=>x.date===ds);if(!sc)return;
+  const t=(inp.value||'').trim();
+  if(t)sc.title=t;else delete sc.title;
+  try{await supaUpsert('assignments',a.id,a,a.sid);}
+  catch(e){console.error('clHwTitle:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  toast(t?`읽은 책: ${t}`:'읽은 책을 비웠어요');
 }
 function clHwMakeDateGroup(dateStr,parentEl){
   const DAYS=['일','월','화','수','목','금','토'];
