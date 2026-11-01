@@ -79,6 +79,9 @@ function pendingToday(rows: any[], sid: string, today: string): number {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
+    // force=true면 '하루 1회' 제한을 무시한다 (대시보드에서 시험 발송할 때)
+    let force = false;
+    try { const b = await req.json(); force = !!(b && b.force); } catch (_) { /* 본문 없음 */ }
     const today = todayKST();
     const subs = await sb("push_subs?select=*");
     const asgn = await sb("assignments?select=*&limit=20000");
@@ -94,6 +97,9 @@ serve(async (req) => {
     for (const row of subs) {
       const d = row.data || {};
       if (d.active === false || !d.endpoint || !d.sid) continue;
+      // 같은 날 두 번 보내지 않는다 — 누가 함수를 여러 번 호출해도 기기마다 하루 한 번뿐.
+      // 이 보장이 있어서 스케줄러가 공개 키(anon)로 호출해도 알림이 쌓이지 않는다.
+      if (!force && d.lastSentDate === today) { result.push({ sid: d.sid, skipped: "오늘 이미 보냄" }); continue; }
       if (!pendingCache.has(d.sid)) pendingCache.set(d.sid, pendingToday(asgn, d.sid, today));
       const pending = pendingCache.get(d.sid)!;
       if (pending <= 0) { result.push({ sid: d.sid, skipped: "남은 숙제 없음" }); continue; }
@@ -120,13 +126,26 @@ serve(async (req) => {
           note = "만료 구독 삭제";
         } else if (status >= 400) {
           note = (await res.text()).slice(0, 200);
+        } else {
+          // 보낸 날짜를 적어 둔다 (하루 1회 보장의 기준)
+          await fetch(`${SUPA_URL}/rest/v1/push_subs?id=eq.${encodeURIComponent(row.id)}`, {
+            method: "PATCH",
+            headers: {
+              apikey: SERVICE_KEY,
+              Authorization: `Bearer ${SERVICE_KEY}`,
+              "Content-Type": "application/json",
+              Prefer: "return=minimal",
+            },
+            body: JSON.stringify({ data: { ...d, lastSentDate: today }, updated_at: new Date().toISOString() }),
+          });
         }
       } catch (e) {
         note = String(e).slice(0, 200);
       }
       result.push({ sid: d.sid, name: nameOf(d.sid), role: d.role, pending, status, note });
     }
-    return new Response(JSON.stringify({ today, sent: result.filter((r) => r.status === 201).length, total: subs.length, result }, null, 1), {
+    const sent = result.filter((r) => r.status && r.status >= 200 && r.status < 300).length;
+    return new Response(JSON.stringify({ today, force, sent, total: subs.length, result }, null, 1), {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (e) {

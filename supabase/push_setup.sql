@@ -47,18 +47,21 @@ grant select on push_subs_pub to anon;
 --   supabase secrets set VAPID_PUBLIC='BPr4qossLdd3M25srgcxQmgYItyEkFTariNV4bfc-QmeV58HxFHTOP1FsOhVe_w-Ag7vnFcDWzp3cW_KRGb0z2E'
 --   supabase secrets set VAPID_SUBJECT='mailto:translator.sam.ahn@gmail.com'
 --   (또는 대시보드: Edge Functions → Deploy a new function → Via Editor)
--- ※ JWT 검증은 **켠 채로 두세요**. 아래 cron이 service_role 키를 Authorization에 실어 보내므로
---    검증을 켜도 통과하고, 끄면 아무나 이 함수를 호출할 수 있습니다.
+-- ※ JWT 검증은 **켠 채로 두세요**. 아래 cron이 프로젝트 공개 키를 Authorization에 실어 보내므로
+--    검증을 켜도 통과하고, 끄면 열쇠 없이도 호출됩니다.
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
--- 아래 pznpcewwdsbxwibpnapn와 <SERVICE_ROLE_KEY>를 채워 주세요.
+-- ★ 채울 곳이 없습니다 — 주소와 호출 키를 미리 넣어 뒀습니다.
+--   호출 키는 **공개 키(anon)** 입니다. 이미 앱 코드(js/db.js)에 있는 값이라 따로 찾을 필요가 없고,
+--   함수가 '기기당 하루 1회'를 보장하므로 함수가 더 호출돼도 알림이 쌓이지 않습니다.
+--   (함수가 데이터를 읽을 때 쓰는 service_role 키는 Supabase가 자동으로 넣어줍니다 — 등록 불필요)
 -- 시각: cron은 UTC 기준입니다. 한국 저녁 7시 = UTC 10:00 (= '0 10 * * *')
 select cron.unschedule('pp-hw-push') where exists (select 1 from cron.job where jobname='pp-hw-push');
 select cron.schedule('pp-hw-push','0 10 * * *', $$
   select net.http_post(
     url     := 'https://pznpcewwdsbxwibpnapn.supabase.co/functions/v1/push-hw',
-    headers := '{"Content-Type":"application/json","Authorization":"Bearer <SERVICE_ROLE_KEY>"}'::jsonb,
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6bnBjZXd3ZHNieHdpYnBuYXBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NjQ4NzUsImV4cCI6MjA5NTQ0MDg3NX0.fzXJKPfcxR-vrgsFbgt6-5sMEjtUH2p_rPsv6XjHe-c"}'::jsonb,
     body    := '{}'::jsonb
   );
 $$);
