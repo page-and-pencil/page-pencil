@@ -140,9 +140,12 @@ async function sbSetSettings(key,value){
 }
 
 // ── REST API 직접 호출 헬퍼 ──
-function handleSupaError(status){
+// kind: 'read' 읽기 / 'write' 저장 — 같은 문구를 쓰면 저장 실패에도
+// '불러오지 못했습니다'가 떠서 선생님이 무슨 일인지 알 수 없었다.
+function handleSupaError(status,kind){
+  const w=kind==='write';
   if(status===401||status===403){
-    toast('인증 오류입니다. Supabase RLS 정책을 확인해 주세요.');
+    toast(w?'저장 권한이 없습니다. 로그인 상태를 확인해 주세요.':'인증 오류입니다. Supabase RLS 정책을 확인해 주세요.');
     return true;
   }
   if(status===429){
@@ -153,7 +156,12 @@ function handleSupaError(status){
     toast('서버 오류입니다. 잠시 후 다시 시도해 주세요.');
     return true;
   }
-  toast('데이터를 불러오지 못했습니다 (HTTP '+status+')');
+  if(status===400||status===404||status===409){
+    toast(w?'저장하지 못했습니다 — 보낸 내용이 서버 형식과 맞지 않습니다 (HTTP '+status+')'
+           :'데이터를 불러오지 못했습니다 (HTTP '+status+')');
+    return false;
+  }
+  toast((w?'저장하지 못했습니다 (HTTP ':'데이터를 불러오지 못했습니다 (HTTP ')+status+')');
   return false;
 }
 async function supaFetch(table,params='',silent=false){
@@ -202,7 +210,7 @@ async function supaUpsert(table,id,dataObj,sid=null,timeoutMs=15000){
     const h={...SUPA_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'};
     const r=await fetch(SUPA_URL+'/rest/v1/'+table,{method:'POST',headers:h,body:JSON.stringify(row),signal:ctrl.signal});
     clearTimeout(tid);
-    if(!r.ok){handleSupaError(r.status);throw new Error('HTTP '+r.status);}
+    if(!r.ok){handleSupaError(r.status,'write');throw new Error('HTTP '+r.status);}
     if(typeof _scheduleSnapSave==='function')_scheduleSnapSave();
     return true;
   }catch(e){

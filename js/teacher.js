@@ -8229,17 +8229,19 @@ async function bpAddPick(bookId){
   st.doneBooks=st.doneBooks||[];
   if(st.doneBooks.some(d=>d.id===bookId)){toast('이미 등록된 교재입니다');return;}
   st.doneBooks.push({id:bookId,area:CAT2[b.category]||_bpCtx.area||'',at:ppToday()});
-  await supaUpsert('students',st.id,st,st.id);
+  try{ await supaUpsert('students',st.id,st,null); }
+  catch(e){ st.doneBooks=st.doneBooks.filter(d=>d.id!==bookId); return; }  // 저장 실패 → 되돌림
   closeM('m-bp-add');
   toast(String(b.title||'교재')+' — 끝낸 책으로 등록했습니다');
   bpRefresh(_bpCtx.sid);
 }
 async function bpDelDone(sid,bookId){
   const st=DB.stus().find(x=>x.id===sid);if(!st||!st.doneBooks)return;
-  const before=st.doneBooks.length;
+  const keep=st.doneBooks.slice();
   st.doneBooks=st.doneBooks.filter(d=>d.id!==bookId);
-  if(st.doneBooks.length===before)return;
-  await supaUpsert('students',st.id,st,st.id);
+  if(st.doneBooks.length===keep.length)return;
+  try{ await supaUpsert('students',st.id,st,null); }
+  catch(e){ st.doneBooks=keep; return; }   // 저장 실패 → 되돌림
   toast('등록을 취소했습니다');
   bpRefresh(sid);
 }
