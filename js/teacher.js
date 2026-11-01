@@ -113,6 +113,22 @@ function updateApiKeyStatusDot(){
 function updateElevenDot(){
   const dot=document.getElementById('eleven-status-dot');if(!dot)return;
   const c=_cache.settings.elevenlabs||DB.g('elevenlabs');
+  const warn=document.getElementById('eleven-key-warn');
+  // 키가 틀리면 조용히 브라우저 음성으로 넘어가 버려서 선생님이 알 수 없었다 → 여기서 드러낸다
+  const badForm=!!(c&&c.key&&!/^sk_/.test(c.key));
+  if(window._elAuthFail||badForm){
+    dot.style.color='var(--bad)';dot.textContent='● 키 오류';
+    if(warn){
+      warn.style.display='';
+      warn.innerHTML='<b>음성이 브라우저 기본음으로 나오고 있습니다.</b><br>'
+        +(window._elAuthMsg||'API 키 자리에 키 ID가 들어간 것으로 보입니다.')
+        +'<br><span style="color:var(--slate)">elevenlabs.io → 오른쪽 위 프로필 → API Keys → '
+        +'Create API Key 를 누르면 <b>sk_</b> 로 시작하는 값이 한 번만 보입니다. 목록에 보이는 짧은 ID가 아니라 그 값을 넣어 주세요.</span>'
+        +'<br><span style="color:var(--slate)">이미 만들어 둔 음원 612개는 그대로 들립니다 — 새로 만드는 것만 영향을 받습니다.</span>';
+    }
+    return;
+  }
+  if(warn)warn.style.display='none';
   if(c&&c.key){dot.style.color='#0B8DAE';dot.textContent='● 사용 중';}
   else{dot.style.color='var(--slate)';dot.textContent='● 미설정';}
 }
@@ -122,6 +138,9 @@ async function saveElevenCfg(silent){
   const prev=_cache.settings.elevenlabs||DB.g('elevenlabs')||{};
   const key=(keyIn&&keyIn!=='••••••')?keyIn:(prev.key||'');
   if(!key){if(!silent)toast('ElevenLabs API Key를 입력해 주세요');return false;}
+  if(!/^sk_/.test(key)){
+    if(!silent)toast('키 형식을 확인해 주세요 — ElevenLabs API 키는 sk_ 로 시작합니다');
+  }else{window._elAuthFail=false;window._elAuthMsg='';}  // 새 키를 넣으면 다시 시도한다
   const cfg={key,voiceId:voiceIn||prev.voiceId||''};
   _cache.settings.elevenlabs=cfg;DB.s('elevenlabs',cfg);
   try{await supaSetSetting('elevenlabs',cfg);}catch(e){console.warn('elevenlabs 저장 실패:',e);}

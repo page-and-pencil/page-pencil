@@ -562,6 +562,9 @@ async function elevenGetAudioUrl(text,cfg,wordMode){
     const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:SUPA_HEADERS});
     if(r.ok){const a=await r.json();const row=Array.isArray(a)?a[0]:a;if(row?.data?.url)return row.data.url;}
   }catch(e){}
+  // 키가 틀린 상태에서 매번 호출하면 발음이 그만큼 늦게 나온다 → 한 번 확인되면 건너뛴다.
+  // 캐시(위)는 계속 쓰므로 이미 만들어 둔 음원은 그대로 원어민 음성으로 들린다.
+  if(window._elAuthFail)throw new Error('ElevenLabs 키 오류 — 생성 건너뜀');
   // 2) 생성 — 단어: 고품질+안정(또박또박) / 문장: 균형 설정(일관된 톤 + 은은한 생기)
   //    0.5/0.35는 원장이 고른 Matilda 샘플 톤과 동일 값 — 바꾸면 들었던 느낌과 달라짐
   const body=wordMode
@@ -573,7 +576,17 @@ async function elevenGetAudioUrl(text,cfg,wordMode){
     headers:{'xi-api-key':cfg.key,'Content-Type':'application/json'},
     body:JSON.stringify(body),
   });
-  if(!gen.ok)throw new Error('ElevenLabs HTTP '+gen.status);
+  if(!gen.ok){
+    const why=await gen.text().catch(()=>'');
+    if(/authentication_error|invalid_api_key|api_key/i.test(why)){
+      window._elAuthFail=true;
+      window._elAuthMsg=/api_key_id_used_as_api_key/.test(why)
+        ? 'API 키 자리에 키 ID가 들어가 있습니다. elevenlabs.io 에서 키를 새로 만들어 sk_ 로 시작하는 값을 넣어 주세요.'
+        : 'API 키가 유효하지 않습니다.';
+      if(typeof updateElevenDot==='function')try{updateElevenDot();}catch(e){}
+    }
+    throw new Error('ElevenLabs HTTP '+gen.status);
+  }
   const blob=await gen.blob();
   // 3) Cloudinary 업로드 → 영구 캐시
   let url='';
