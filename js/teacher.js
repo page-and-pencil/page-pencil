@@ -11993,6 +11993,31 @@ async function pgHwToggle(classId,aid,ds,sched){
   renderClsLessons(classId);
   toast(on?'완료로 표시했어요 ✓':'완료 표시를 취소했어요');
 }
+// 숙제 칩의 ✕ — 스케줄형(반복·클래스5)은 그 날 한 칸만 빼고, 단건 과제는 휴지통으로 보낸다
+async function pgHwDel(ev,classId,aid,ds,sched){
+  if(ev){ev.stopPropagation();ev.preventDefault();}
+  pgMenuClose();
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
+  const name=[a.bookTitle||a.text||'숙제'].filter(Boolean).join(' ');
+  if(sched){
+    const sc=(a.schedule||[]).find(x=>x.date===ds);if(!sc)return;
+    askConfirm('이 날 숙제 빼기',
+      name+(sc.unit?' '+sc.unit:'')+'\n'+ds+' 몫만 빼고 나머지 일정은 그대로 둘까요?','빼기','bd',async()=>{
+      a.schedule=(a.schedule||[]).filter(x=>x.date!==ds);
+      try{await supaUpsert('assignments',a.id,a,a.sid);}
+      catch(e){console.error('pgHwDel:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+      renderClsLessons(classId);
+      toast(ds+' 숙제를 뺐어요');
+    });
+    return;
+  }
+  askConfirm('숙제 지우기',name+'\n'+'이 과제를 휴지통으로 보낼까요? (백업 탭에서 되살릴 수 있어요)','지우기','bd',async()=>{
+    try{await supaTrash('assignments',_cache.assignments,aid);}
+    catch(e){console.error('pgHwDel trash:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+    renderClsLessons(classId);
+    toast('휴지통으로 보냈어요');
+  });
+}
 // 이 반 학생을 미리 고른 상태로 과제 추가 모달 열기
 function pgHwAdd(classId){
   const c=DB.classes().find(x=>x.id===classId);
@@ -12153,6 +12178,60 @@ function _pgTrackBoardHtml(classId){
     <div class="tb-body">${rows.join('')}</div>
   </details>`;
 }
+// ── 숙제 칩 계산 (진도 캘린더·숙제 캘린더 공용) ──
+// 한 학생의 날짜별 숙제 칩을 만든다. 2026-07-15에 숙제를 과제 탭으로 떼어낸 건 진도 칩과 섞여
+// 헷갈렸기 때문인데, 한 화면에서 보려면 '레이어'로 켜고 끌 수 있어야 한다 → 계산을 공용으로 둔다.
+// 반환: {날짜:[{ord,color,label,tip,done,aid,sched,kind}]}  kind: 'recur'|'class5'|'single'
+function _pgHwChips(sid,ym){
+  const out={};
+  (_cache.assignments||[]).forEach(a=>{
+    if(a._deleted||a.sid!==sid)return;
+    const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+    if((sch||[]).length){
+      const isRecur=a.category==='recur';
+      sch.forEach(sc=>{
+        if(!sc.date||(ym&&!sc.date.startsWith(ym)))return;
+        (out[sc.date]=out[sc.date]||[]).push({
+          ord:isRecur?10:20,kind:isRecur?'recur':'class5',aid:a.id,sched:true,
+          color:isRecur?'#0891B2':_PG_C5_COLOR,
+          label:sc.unit||sc.book||a.bookTitle||'',
+          tip:`${asgSrcLabel(a)} — ${[a.bookTitle&&a.bookTitle!==sc.book?a.bookTitle:'',sc.book,sc.unit].filter(Boolean).join(' · ')}`,
+          done:!!sc.done,by:sc.doneBy||''});
+      });
+      return;
+    }
+    const due=a.due||'';
+    if(!due||(ym&&!due.startsWith(ym)))return;
+    (out[due]=out[due]||[]).push({
+      ord:30,kind:'single',aid:a.id,sched:false,
+      color:_PG_CAT_COLORS[a.category]||'#64748B',
+      label:[a.bookTitle||a.text||'',a.range].filter(Boolean).join(' ').trim()||'과제',
+      tip:`${asgSrcLabel(a)} — ${[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')} (마감 ${due})`,
+      done:!!a.completedAt,by:a.completedBy||''});
+  });
+  return out;
+}
+// 진도 캘린더에서 어떤 레이어를 보여줄지 (기기별로 기억)
+const _PG_LAYERS=[
+  {k:'prog',lbl:'진도',ico:'📘'},
+  {k:'hw',lbl:'숙제',ico:'📕'},
+  {k:'c5',lbl:'클래스5·리딩앤',ico:'🎮'},
+];
+function pgLayerOn(k){
+  try{
+    const v=localStorage.getItem('pp_pg_layers');
+    if(v===null)return true;                 // 처음엔 전부 켜짐
+    return JSON.parse(v).indexOf(k)>=0;
+  }catch(e){return true;}
+}
+function pgLayerToggle(k,classId){
+  const on=_PG_LAYERS.map(x=>x.k).filter(x=>x===k?!pgLayerOn(x):pgLayerOn(x));
+  try{localStorage.setItem('pp_pg_layers',JSON.stringify(on));}catch(e){}
+  renderClsLessons(classId);
+}
+// 숙제 레이어를 볼 학생 (여러 명이면 고를 수 있게)
+let _pgHwStuId='';
+function pgHwStuPick(sid,classId){_pgHwStuId=sid;renderClsLessons(classId);}
 function _pgCalHtml(classId){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return'';
   const todayStr=ppToday();
@@ -12164,6 +12243,11 @@ function _pgCalHtml(classId){
   // 마지막 주 잔여 칸(다음 달 머리)까지 예정을 계산해야 연속 표시 칩이 그려짐
   const planEnd=endDow<6?_pgYmd(new Date(y,m,6-endDow)):`${ym}-${String(dim).padStart(2,'0')}`;
   const {books,clsStus,singDates,singBy,ghostBy,ortGhostBy,skipSet}=_pgComposePlan(classId,c,planEnd);
+  // ── 레이어: 진도 / 숙제 / 클래스5·리딩앤 ── (2026-11-01 숙제 캘린더를 이 캘린더로 합침)
+  const LY={prog:pgLayerOn('prog'),hw:pgLayerOn('hw'),c5:pgLayerOn('c5')};
+  const hwStu=(clsStus.find(s=>s.id===_pgHwStuId)||clsStus[0]||null);
+  const hwChips=(LY.hw||LY.c5)&&hwStu?_pgHwChips(hwStu.id,ym):{};
+  const hwPlan=LY.hw?_pgHomeworkPlan(classId,c):{};   // 아직 할당 전 📕 제안 (점선)
   const colorOf=(tbId,cat)=>_PG_CAT_COLORS[cat]||books.find(b=>b.tb.id===tbId)?.color||'#64748B';
   // (숙제·클래스5 칩은 과제 메뉴의 숙제 캘린더로 분리 — 이 캘린더는 '진도'만)
   // 실제 기록 칩: date → {tbKey:{tbId,book,units}} + 원서·펜슬다운 기록
@@ -12225,6 +12309,20 @@ function _pgCalHtml(classId){
       const _sk='sing:'+(singBy[ds]||'');
       chips+=`<span class="pg-chip ghost" draggable="true" style="--pgc:#7B1FA2" title="리딩 책 완주 기념 Pencil Down — Sing Together (예정 — 미래 날짜로 끌면 이동, 오늘·지난 날짜에 놓으면 그날 수업으로 기록, 더블클릭=기록 확정)" ondragstart="pgDragStart(event,'${classId}','${_sk}','Sing Together','sing')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${_sk}','Sing Together','sing')" ondblclick="pgSingDbl(event,'${classId}','${ds}')">✏️🎵 Sing Together</span>`;
     }
+    if(!LY.prog)chips='';   // 진도 레이어를 끄면 진도·원서·씽 칩을 비운다
+    // ── 숙제 칩 ── 반복=청록 / 클래스5·리딩앤=마젠타 / 단건=과목색. 완료된 스케줄형은 ✓만
+    (hwChips[ds]||[]).slice().sort((a,b)=>a.ord-b.ord).forEach(x=>{
+      const isC5=x.kind==='class5';
+      if(isC5?!LY.c5:!LY.hw)return;
+      const compact=x.done&&x.sched;
+      const lbl=compact?'✓':escAttr(String(x.label).length>12?String(x.label).slice(0,12)+'…':x.label)+(x.done?' ✓':'');
+      chips+=`<span class="pg-chip rec pg-hw${compact?' hw-done':''} has-x" style="--pgc:${x.color}${x.done?';opacity:.55':''}" title="${escAttr('📕 숙제 · '+x.tip+(x.done?' · 제출완료'+(x.by?'('+(_PG_HW_BY[x.by]||x.by)+')':''):'')+' · 클릭=완료 토글, ✕=이 숙제 지우기')}" onclick="event.stopPropagation();pgHwToggle('${classId}','${x.aid}','${ds}',${x.sched})">${lbl}<i class="pg-x" title="이 숙제 지우기" onclick="pgHwDel(event,'${classId}','${x.aid}','${ds}',${x.sched})">✕</i></span>`;
+    });
+    // 아직 할당 전 수업 연계 숙제 제안 (점선 📕)
+    if(LY.hw)(hwPlan[ds]||[]).filter(h=>!h.assigned).forEach(hw=>{
+      const col=_PG_CAT_COLORS[hw.subject]||'#64748B';
+      chips+=`<span class="pg-chip pg-hw ghost" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=할당·취소 선택)')}" onclick="hwChipMenu(event,'${classId}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">${hw.unit}</span>`;
+    });
     const isSkip=skipSet.has(ds);
     const skipMark=isSkip?`<span class="pg-skip-mark" title="수업 안 함 (휴강·결석) — 이후 진도가 하루씩 밀렸어요. 누르면 되돌리기">🚫 수업 안 함</span>`:'';
     cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}${isSkip?' skip':''}${inMonth?'':' om'}" data-ds="${ds}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onmousedown="pgRangeDown(event,'${classId}','${ds}')" onmouseover="pgRangeOver('${ds}')" onclick="pgCellClick(event,'${classId}','${ds}')"><div class="pg-dnum">${inMonth?dd:(dt.getMonth()+1)+'/'+dd}</div>${skipMark}${chips}</div>`);
@@ -12254,6 +12352,8 @@ function _pgCalHtml(classId){
       <button class="btn bo bxxs" onclick="pgCalNav(-1)" ondragover="pgNavDragOver(event,-1)" title="칩을 드래그한 채 올리면 이전 달로 넘어가요">◀</button>
       <span style="font-size:13.5px;font-weight:700;color:var(--navy)">${y}년 ${m}월</span>
       <button class="btn bo bxxs" onclick="pgCalNav(1)" ondragover="pgNavDragOver(event,1)" title="칩을 드래그한 채 올리면 다음 달로 넘어가요">▶</button>
+      <span class="pg-ly">${_PG_LAYERS.map(L=>`<button class="pg-ly-b${LY[L.k]?' on':''}" title="${escAttr(L.lbl)} 칩 보이기/숨기기" onclick="pgLayerToggle('${L.k}','${classId}')">${L.ico} ${L.lbl}</button>`).join('')}</span>
+      ${(LY.hw||LY.c5)&&clsStus.length>1?`<select class="filter-sel" style="font-size:12px;padding:3px 6px" title="숙제를 볼 학생" onchange="pgHwStuPick(this.value,'${classId}')">${clsStus.map(s=>`<option value="${s.id}"${hwStu&&s.id===hwStu.id?' selected':''}>${escAttr(s.name)} 숙제</option>`).join('')}</select>`:''}
       <button class="btn bo bxxs" title="만료된 핀·중복 핀·지난 제외일을 한 번에 정리합니다 (수업 기록은 건드리지 않아요)" onclick="pgTidyProgress('${classId}')">🧹 진도 정돈</button>
       ${hasAnchor?`<button class="btn bo bxxs" title="드래그로 옮긴 예정을 원래 순서로 되돌립니다" onclick="pgClearAnchors('${classId}')">예정 초기화</button>`:''}
       <span style="flex:1"></span>${legend}
@@ -12263,6 +12363,8 @@ function _pgCalHtml(classId){
       <span class="pp-key-i"><i class="pp-sw rec"></i>기록</span>
       <span class="pp-key-i"><i class="pp-sw gho"></i>예정</span>
       <span class="pp-key-i"><i class="pp-sw om"></i>옆 달</span>
+      ${LY.hw?`<span class="pp-key-i"><i class="pp-sw" style="background:#0891B2"></i>반복 숙제</span>`:''}
+      ${LY.c5?`<span class="pp-key-i"><i class="pp-sw" style="background:${_PG_C5_COLOR}"></i>클래스5·리딩앤</span>`:''}
       <span class="pp-key-sp"></span>
       <span class="pp-key-d">끌어서 이동 · ✕로 빼기 · 우클릭 메뉴</span>
     </div>
@@ -12275,7 +12377,8 @@ function _pgCalHtml(classId){
       ['👆','칩 한 번 탭 → 날짜 탭','달을 넘겨도 유지되는 이동'],
       ['🗓','빈 수업일 클릭','수업 기록 · 예정 편집 · 수업 안 함'],
       ['🏖','빈 칸 드래그','기간 휴강·방학 한 번에'],
-      ['📘','숙제·클래스5','숙제 패널과 숙제 캘린더에서'],
+      ['📕','숙제 칩 클릭 / ✕','완료 토글 / 그 날 숙제 빼기'],
+      ['🎚','위쪽 레이어 버튼','진도·숙제·클래스5를 켜고 끄기 (기기에 기억됨)'],
     ])}
   </div>`;
 }
