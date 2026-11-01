@@ -655,7 +655,12 @@ div.ig-like{cursor:default;}
 .sp-seg button.on{background:#fff;color:var(--navy);box-shadow:0 1px 2px rgba(15,48,74,.1);}
 .sp-back-btn{display:none;background:none;border:none;cursor:pointer;font-family:var(--fb);font-size:13px;color:var(--teal);padding:0;font-weight:700;margin-bottom:4px;}
 @media(max-width:767px){
-  .stu-split{position:relative;}
+  /* ⚠️ 모바일에서 두 열이 모두 position:absolute 라 .stu-split 이 0으로 접히고,
+     그 0을 기준으로 자식이 다시 크기를 잡아 학생 탭이 통째로 빈 화면이 됐다 (390px 실측 h=0).
+     부모(.ab)가 block 이라 flex:1 도 먹지 않으므로 기준 높이를 직접 준다.
+     103px = 상단 헤더(56) + 가로 탭바(47) */
+  .stu-split{position:relative;min-height:calc(100dvh - 103px);}
+  #t-stu.panel.active{min-height:calc(100dvh - 103px);}
   .stu-list-col{width:100%;position:absolute;inset:0;background:#fff;transition:transform .25s ease;z-index:2;}
   .stu-detail-col{width:100%;position:absolute;inset:0;transform:translateX(100%);transition:transform .25s ease;z-index:3;background:#fff;}
   .stu-split.detail-open .stu-list-col{transform:translateX(-100%);}
@@ -1592,4 +1597,10 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 }
 @supports not (height:100dvh){
   #st-vocab.panel.active{min-height:calc(100vh - 118px);}
+}
+
+@supports not (height:100dvh){
+  @media(max-width:767px){
+    .stu-split,#t-stu.panel.active{min-height:calc(100vh - 103px);}
+  }
 }
