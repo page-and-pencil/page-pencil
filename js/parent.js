@@ -30,13 +30,15 @@ function parentAreaGrowth(sid){
     {label:'어휘',...(vocab||{})}
   ].filter(a=>a.val!=null);
   if(areas.length<2)return '';
+  // 학생 화면 퀘스트 띠와 같은 색 — 보호자와 아이가 같은 색으로 같은 영역을 떠올리게 한다
+  const AREA_COLOR={'리딩':'#10876A','리스닝':'#D08A12','어법':'#7C4DD6','어휘':'#3B6FD4'};
   const sem=p=>p>=80?{f:'#10B981',t:'#047857',l:'우수'}:p>=60?{f:'#0CA4C9',t:'#0B8DAE',l:'양호'}:{f:'#F59E0B',t:'#B45309',l:'보완 중'};
   return `<div class="card">
     <div class="ch"><span class="ct">${luIcon('trending-up',16)}영역별 성장</span></div>
     <div class="cb" style="padding:14px 18px">
       ${areas.map(a=>{const s=sem(a.val);return `<div style="margin-bottom:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <span style="font-size:13.5px;color:#46586B">${a.label} <span style="font-size:12px;color:#B8C0C8">· ${a.basis}</span></span>
+          <span style="font-size:13.5px;color:#46586B;display:flex;align-items:center;gap:6px"><span class="pp-area-dot" style="background:${AREA_COLOR[a.label]||'var(--slate2)'}"></span>${a.label} <span style="font-size:12px;color:var(--slate2)">· ${a.basis}</span></span>
           <span style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:700;color:${s.t}">${s.l}</span><span style="font-size:15px;font-weight:700;color:${s.t};font-family:var(--fd)">${a.val}%</span></span>
         </div>
         <div style="height:7px;background:#EDF2F4;border-radius:4px;overflow:hidden"><div style="width:${a.val}%;height:100%;background:${s.f};border-radius:4px;transition:width .5s"></div></div>
