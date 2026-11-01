@@ -2,6 +2,25 @@ const APP_VERSION='v45';
 
 // 오늘 날짜(YYYY-MM-DD)를 **로컬(기기 시간대, 한국=KST) 기준**으로 반환.
 // 주의: new Date().toISOString()은 UTC라 자정~오전 9시(KST)엔 전날이 나와 '미래 날짜' 오판·저장 거부의 원인이 됐음.
+// ── 아이 부르는 이름 ──
+// 세 글자 이상이면 성을 떼고(김나연→나연), 두 글자면 그대로 쓴다.
+// 두 글자는 성 유무를 코드로 가릴 수 없다(나연=이름 / 최현=성+이름). 그대로 두는 쪽이 안전하다 —
+// '최현아'는 어색할 뿐이지만 '연아'는 다른 이름이 된다.
+// 첫 글자를 무조건 떼면 성이 없는 두 글자 이름이 '나연'→'연'이 된다 (실제 화면에서 '연아, 잘했어!').
+function givenNameOf(name){
+  const n=String(name||'').trim();
+  if(n.length>=3&&/^[가-힣]+$/.test(n))return n.slice(1);
+  return n;
+}
+// 부를 때 붙이는 조사 — 받침 있으면 '아', 없으면 '야' (나연아 / 민수야)
+function vocativeOf(name){
+  const n=givenNameOf(name);
+  if(!n)return '';
+  const last=n.charCodeAt(n.length-1);
+  const hangul=last>=0xAC00&&last<=0xD7A3;
+  if(!hangul)return n;                       // 영문 이름 등은 조사를 붙이지 않는다
+  return n+(((last-0xAC00)%28)!==0?'아':'야');
+}
 function ppToday(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 // 임의 Date를 로컬 YYYY-MM-DD로 포맷
 function ppYmd(d){d=(d instanceof Date)?d:new Date(d);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}

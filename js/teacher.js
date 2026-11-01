@@ -8728,18 +8728,47 @@ function deleteNotice(id){
     toast('삭제되었습니다');
   });
 }
+// 공지 팝업 — 안 읽은 것 중 '날짜가 가장 가까운' 하나만 보여주고, 닫으면 기억한다.
+// 전에는 목록의 첫 공지를 sessionStorage로만 기억해, 석 달 뒤 휴강 공지가 앱을 열 때마다 다시 떴다
+// (실제: 11/1에 2/8~2/9 휴강 공지가 매번 팝업).
+function _noticeWhen(n){
+  // 본문에서 첫 '월/일'을 뽑아 가장 가까운 날짜로 — 없으면 작성일
+  const m=/(\d{1,2})\s*\/\s*(\d{1,2})/.exec(String(n&&n.text||''));
+  if(m){
+    const t=ppToday(), y=+t.slice(0,4), mm=+m[1], dd=+m[2];
+    const pad=x=>String(x).padStart(2,'0');
+    const cur=`${y}-${pad(mm)}-${pad(dd)}`;
+    return cur>=t?cur:`${y+1}-${pad(mm)}-${pad(dd)}`;   // 이미 지난 월/일이면 내년 것으로 본다
+  }
+  return String((n&&(n.date||n.createdAt))||'9999-12-31').slice(0,10);
+}
+function _noticeRead(){try{return JSON.parse(localStorage.getItem('pp_notice_read')||'[]');}catch(e){return [];}}
+function _noticeMarkRead(key){
+  try{
+    const a=_noticeRead();
+    if(a.indexOf(key)<0)a.push(key);
+    localStorage.setItem('pp_notice_read',JSON.stringify(a.slice(-60)));
+  }catch(e){}
+}
+let _noticeKey='';
 function checkNotice(){
-  const active=(_cache.notices||[]).find(n=>n.active);
-  const v=active?active.text:'';
-  if(!v)return;
-  const shown=sessionStorage.getItem('notice_shown');
-  if(shown===v)return;
-  document.getElementById('notice-text').textContent=v;
+  const read=_noticeRead();
+  const key=n=>String(n.id||n.text||'').slice(0,80);
+  const list=(_cache.notices||[]).filter(n=>n&&n.active&&read.indexOf(key(n))<0)
+    .sort((a,b)=>_noticeWhen(a).localeCompare(_noticeWhen(b)));
+  const pick=list[0];
+  if(!pick||!pick.text)return;
+  _noticeKey=key(pick);
+  const more=list.length-1;
+  document.getElementById('notice-text').textContent=pick.text+(more>0?`
+
+(안 읽은 공지 ${more}건 더 있어요)`:'');
   document.getElementById('notice-popup').style.display='block';
   document.getElementById('notice-overlay').style.display='block';
-  sessionStorage.setItem('notice_shown',v);
 }
 function closeNotice(){
+  if(_noticeKey)_noticeMarkRead(_noticeKey);   // 닫으면 기억 — 다시 뜨지 않게
+  _noticeKey='';
   document.getElementById('notice-popup').style.display='none';
   document.getElementById('notice-overlay').style.display='none';
 }

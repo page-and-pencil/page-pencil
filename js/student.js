@@ -2483,7 +2483,8 @@ function renderStudentHome(sid){
   const overdue=regAssigns.filter(a=>!a.completedAt&&_asgnDay(a)&&_asgnDay(a)<today&&!(typeof schedCoversHw==='function'&&schedCoversHw(sid,_asgnDay(a),a.bookTitle||'',a.range||'')));
   const todayPendingN=dayItems(today).filter(it=>!it.done).length+overdue.length;
 
-  const givenName=stu&&stu.name&&stu.name.length>1?stu.name.slice(1):stu?.name||'';
+  const givenName=(typeof givenNameOf==='function')?givenNameOf(stu&&stu.name):(stu?.name||'');
+  const callName=(typeof vocativeOf==='function')?vocativeOf(stu&&stu.name):givenName+'아';
   const totalMission=pending.length+done.length;
   // 응원 hero — 선생님이 남긴 최근 코멘트
   const homeLes=DB.less().filter(l=>l.sid===sid);
@@ -2499,7 +2500,7 @@ function renderStudentHome(sid){
     <div class="stu-hero-top">
       <span class="stu-hero-ico">✨</span>
       <div style="flex:1;min-width:0">
-        <div class="stu-hero-title">${givenName}아, 잘했어!</div>
+        <div class="stu-hero-title">${callName}, 잘했어!</div>
         <div class="stu-hero-sub">${hasCheer?'선생님이 남긴 응원':(todayPendingN?`오늘 할 일 ${todayPendingN}개`:'오늘 할 일 끝! 🎉')}</div>
       </div>
     </div>
