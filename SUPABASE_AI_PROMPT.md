@@ -133,3 +133,45 @@ Updated function code:
 ```
 
 --- 복사 끝 ---
+
+---
+
+## 3차 요청 — 시크릿 읽기 보강 (2026-11-01)
+
+시험 발송에서 `VAPID_PRIVATE_JWK` 를 JSON으로 읽지 못해 실패했습니다
+(`Unexpected non-whitespace character after JSON at position 5`).
+역추적 결과 **여는·닫는 중괄호 `{` `}` 가 빠진 채 저장**된 형태였습니다.
+
+**먼저 해볼 것(재배포 없이 끝날 수 있음):** 대시보드 Edge Functions → Secrets 에서
+`VAPID_PRIVATE_JWK` 를 지우고, `VAPID_KEYS_LOCAL.txt` 의 비밀키 줄을
+**`{` 부터 `}` 까지 전부** 다시 복사해 넣으세요.
+
+그래도 안 되거나, 같은 실수를 코드가 흡수하게 하려면 아래로 재배포하세요.
+
+--- 복사 시작 ---
+
+Please redeploy the Edge Function `push-hw` with the updated code below. Same constraints as before:
+keep JWT verification enabled, do not rename it, and do not change the database.
+
+Why: a test invocation failed with
+`SyntaxError: Unexpected non-whitespace character after JSON at position 5` while building the VAPID
+Authorization header. I traced it to the `VAPID_PRIVATE_JWK` secret having been saved without its
+outer braces (the paste selection missed `{` and `}`).
+
+The updated code reads that secret defensively: it strips a `KEY=` prefix and wrapping quotes, and
+tries the value both as-is and wrapped in braces, accepting the first form that parses and contains
+all of `kty, crv, d, x, y`. If none works it returns a 500 with a message that reports only the
+length, the first character, and which field names were present — never the key material. It also
+validates the secret once at the start of the request instead of failing per subscription.
+
+After redeploying, please invoke it once with body `{}` and show me the raw JSON response.
+There is one subscribed device now, and the student has 2 unfinished items today, so I expect
+`"sent": 1` with `"status": 201` in the result array. If it still fails, show the full note text.
+
+Updated function code:
+
+```ts
+<<< PASTE index.ts HERE >>>
+```
+
+--- 복사 끝 ---

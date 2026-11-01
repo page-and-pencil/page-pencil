@@ -23,9 +23,43 @@ const CORS = {
 const b64u = (buf: ArrayBuffer | Uint8Array) =>
   btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
+// 대시보드에 비밀키를 붙여넣을 때 흔한 실수를 흡수한다.
+// 실제로 겪은 사례: 여는·닫는 중괄호가 선택에서 빠져 저장됨 → JSON.parse가 position 5에서 실패.
+// 값 자체는 절대 로그에 남기지 않고, 어디가 틀렸는지만 알려준다.
+function readVapidJwk(): Record<string, string> {
+  const raw0 = (Deno.env.get("VAPID_PRIVATE_JWK") || "").trim();
+  if (!raw0) throw new Error("VAPID_PRIVATE_JWK 시크릿이 비어 있습니다");
+  const NEED = ["kty", "crv", "d", "x", "y"];
+  // 붙여넣기 실수를 차례로 시도해 본다 — 값을 추측해 고치지 않고, 형태만 바로잡는다.
+  // 순서대로 넣고 처음 성공하는 것을 쓴다 (실제로 겪은 사고: 여는·닫는 중괄호가 선택에서 빠짐)
+  const strip = (t: string) => {
+    for (const q of ["'", '"', "`"]) {
+      if (t.length > 1 && t.startsWith(q) && t.endsWith(q) && t.slice(1, -1).trim().startsWith("{")) {
+        return t.slice(1, -1).trim();
+      }
+    }
+    return t;
+  };
+  const eq = raw0.indexOf("={");
+  const base = strip(eq > 0 ? raw0.slice(eq + 1).trim() : raw0);
+  const tries = [base, "{" + base + "}", "{" + base.replace(/^\{/, "").replace(/\}$/, "") + "}"];
+  for (const t of tries) {
+    try {
+      const j = JSON.parse(t);
+      if (j && typeof j === "object" && NEED.every((k) => typeof j[k] === "string" && j[k])) return j;
+    } catch (_) { /* 다음 후보 */ }
+  }
+  // 어느 형태로도 안 되면 값은 숨기고 어디가 틀렸는지만 알린다
+  const found = NEED.filter((k) => base.includes('"' + k + '"')).join(",") || "없음";
+  throw new Error(
+    `VAPID_PRIVATE_JWK를 읽지 못했습니다 (길이 ${base.length}, 첫 글자 "${base.slice(0, 1)}", 찾은 항목 ${found}). ` +
+      `VAPID_KEYS_LOCAL.txt 의 비밀키 한 줄을 { 부터 } 까지 전부 복사해 다시 넣어 주세요`,
+  );
+}
+
 // ── VAPID: ES256 JWT 서명 ──
 async function vapidAuth(audience: string): Promise<string> {
-  const jwk = JSON.parse(Deno.env.get("VAPID_PRIVATE_JWK")!);
+  const jwk = readVapidJwk();
   const key = await crypto.subtle.importKey(
     "jwk",
     { kty: jwk.kty, crv: jwk.crv, d: jwk.d, x: jwk.x, y: jwk.y, ext: true },
@@ -89,6 +123,16 @@ serve(async (req) => {
     const force = wanted && isAdmin;
     const forceDenied = wanted && !isAdmin;
     const today = todayKST();
+    // 시크릿이 잘못돼 있으면 구독마다 같은 오류를 반복하지 말고 여기서 한 번 분명히 알린다
+    try {
+      readVapidJwk();
+      if (!VAPID_PUBLIC) throw new Error("VAPID_PUBLIC 시크릿이 비어 있습니다");
+    } catch (e) {
+      return new Response(JSON.stringify({ error: "시크릿 설정 문제", detail: String(e instanceof Error ? e.message : e) }, null, 1), {
+        status: 500,
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
     const subs = await sb("push_subs?select=*");
     const asgn = await sb("assignments?select=*&limit=20000");
     const stus = await sb("students?select=*&limit=5000");
