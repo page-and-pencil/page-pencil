@@ -34,7 +34,7 @@ function parentAreaGrowth(sid){
     <div class="cb" style="padding:14px 18px">
       ${areas.map(a=>{const s=sem(a.val);return `<div style="margin-bottom:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <span style="font-size:13.5px;color:#46586B">${a.label} <span style="font-size:10.5px;color:#B8C0C8">· ${a.basis}</span></span>
+          <span style="font-size:13.5px;color:#46586B">${a.label} <span style="font-size:12px;color:#B8C0C8">· ${a.basis}</span></span>
           <span style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:700;color:${s.t}">${s.l}</span><span style="font-size:15px;font-weight:700;color:${s.t};font-family:var(--fd)">${a.val}%</span></span>
         </div>
         <div style="height:7px;background:#EDF2F4;border-radius:4px;overflow:hidden"><div style="width:${a.val}%;height:100%;background:${s.f};border-radius:4px;transition:width .5s"></div></div>
@@ -66,13 +66,13 @@ function _plRow(l){
     mats.push({lbl,book:v.book,unit:v.unit||''});
   });
   const shown=mats.slice(0,4);
-  const matHtml=shown.map(m=>`<div style="font-size:13.5px;color:#14304A;line-height:1.5;display:flex;gap:6px;align-items:baseline;min-width:0"><span style="font-size:10.5px;font-weight:700;color:#8A95A2;flex-shrink:0;padding-top:1px">${m.lbl}</span><span style="min-width:0;word-break:break-word"><b>${m.book}</b>${m.unit?` <span style="color:#5B6B7B">· ${m.unit}</span>`:''}</span></div>`).join('')
-    +(mats.length>4?`<div style="font-size:11px;color:#94A3AE">외 ${mats.length-4}과목</div>`:'');
+  const matHtml=shown.map(m=>`<div style="font-size:13.5px;color:#14304A;line-height:1.5;display:flex;gap:6px;align-items:baseline;min-width:0"><span style="font-size:12px;font-weight:700;color:#8A95A2;flex-shrink:0;padding-top:1px">${m.lbl}</span><span style="min-width:0;word-break:break-word"><b>${m.book}</b>${m.unit?` <span style="color:#5B6B7B">· ${m.unit}</span>`:''}</span></div>`).join('')
+    +(mats.length>4?`<div style="font-size:12.5px;color:#94A3AE">외 ${mats.length-4}과목</div>`:'');
   // 코멘트는 최근 수업 카드·코멘트 히스토리에서 이미 보여줌 — 이전 기록 타임라인은 진도만 (중복 제거)
   return `<div class="pl-row">
     <div style="flex:0 0 40px;text-align:center;padding-top:1px">
       <div style="font-size:17px;font-weight:800;color:var(--navy);line-height:1.15">${dayNum}</div>
-      <div style="font-size:10.5px;color:#94A3AE;font-weight:600">${day}</div>
+      <div style="font-size:12px;color:#94A3AE;font-weight:600">${day}</div>
       ${att?`<div style="font-size:9.5px;font-weight:700;color:#B45309;margin-top:2px">${att}</div>`:''}
     </div>
     <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
@@ -92,7 +92,7 @@ function parentLessonList(les,showAll){
   const gs=groups.map(g=>`<div style="margin-bottom:14px">
     <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 4px;margin-bottom:6px">
       <span style="font-size:13px;font-weight:800;color:#46586B">${g.m?parseInt(g.m.slice(0,4))+'년 '+parseInt(g.m.slice(5,7))+'월':''}</span>
-      <span style="font-size:11px;color:#94A3AE">수업 ${g.items.length}회</span>
+      <span style="font-size:12.5px;color:#94A3AE">수업 ${g.items.length}회</span>
     </div>
     <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 4px rgba(15,48,74,.05);padding:2px 14px">
       ${g.items.map(_plRow).join('')}
@@ -230,9 +230,9 @@ async function loadParent(sid){
       <div style="font-size:13.5px;color:#0B8DAE;font-weight:700;margin-bottom:3px">${today.getMonth()+1}월 한 달, ${givenName}${josa(givenName)}</div>
       <div style="font-size:16px;font-weight:700;color:#14304A;line-height:1.55;margin-bottom:14px">${summary}</div>
       <div style="display:flex;gap:10px">
-        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:var(--navy)">${thisMonthLes.length}<span style="font-size:13px;color:#B8C0C8;font-weight:600">회</span></div><div style="font-size:11px;color:#8A95A2;margin-top:2px">수업</div></div>
-        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:#0B8DAE">${avgScore!=null?avgScore+'<span style="font-size:13px;color:#B8C0C8;font-weight:600">점</span>':'—'}</div><div style="font-size:11px;color:#8A95A2;margin-top:2px">평균 점수</div></div>
-        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:#047857">${readBooks}<span style="font-size:13px;color:#B8C0C8;font-weight:600">권</span></div><div style="font-size:11px;color:#8A95A2;margin-top:2px">읽은 책 누적</div></div>
+        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:var(--navy)">${thisMonthLes.length}<span style="font-size:13px;color:#B8C0C8;font-weight:600">회</span></div><div style="font-size:12.5px;color:#8A95A2;margin-top:2px">수업</div></div>
+        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:#0B8DAE">${avgScore!=null?avgScore+'<span style="font-size:13px;color:#B8C0C8;font-weight:600">점</span>':'—'}</div><div style="font-size:12.5px;color:#8A95A2;margin-top:2px">평균 점수</div></div>
+        <div style="flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:#047857">${readBooks}<span style="font-size:13px;color:#B8C0C8;font-weight:600">권</span></div><div style="font-size:12.5px;color:#8A95A2;margin-top:2px">읽은 책 누적</div></div>
       </div>
     </div>`;
   }
@@ -317,7 +317,7 @@ async function loadParent(sid){
         <span style="display:flex;align-items:center;gap:6px">
           <span style="font-size:12px;font-weight:700;color:${s.t}">${s.l}</span>
           <span style="font-size:16px;font-weight:700;color:${s.t};font-family:var(--fd)">${p}%</span>
-          ${delta!=null?`<span style="font-size:11px;font-weight:700;color:${delta>=0?'#047857':'#B45309'}">${delta>=0?'▲':'▼'}${Math.abs(delta)}</span>`:''}
+          ${delta!=null?`<span style="font-size:12.5px;font-weight:700;color:${delta>=0?'#047857':'#B45309'}">${delta>=0?'▲':'▼'}${Math.abs(delta)}</span>`:''}
         </span>
       </div>
       <div style="height:7px;background:#EDF2F4;border-radius:4px;overflow:hidden"><div style="width:${p}%;height:100%;background:${s.f};border-radius:4px;transition:width .5s"></div></div>
@@ -327,7 +327,7 @@ async function loadParent(sid){
       <div class="cb" style="padding:14px 18px">
         <div style="background:#E9F6F9;border:1px solid rgba(12,164,201,.18);border-radius:14px;padding:15px 16px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between">
           <div><div style="font-size:13.5px;color:#0B8DAE;font-weight:700">최근 단어 테스트</div><div style="font-size:12px;color:#46586B;margin-top:2px">${latTst.date||''}</div></div>
-          <div style="text-align:right"><div style="font-size:30px;font-weight:800;color:#0B8DAE;line-height:1;font-family:var(--fd)">${vp}<span style="font-size:16px">%</span></div>${vChange!=null?`<div style="font-size:11px;font-weight:700;color:${vChange>=0?'#047857':'#B45309'};margin-top:3px">${vChange>=0?'▲':'▼'} ${Math.abs(vChange)}</div>`:''}</div>
+          <div style="text-align:right"><div style="font-size:30px;font-weight:800;color:#0B8DAE;line-height:1;font-family:var(--fd)">${vp}<span style="font-size:16px">%</span></div>${vChange!=null?`<div style="font-size:12.5px;font-weight:700;color:${vChange>=0?'#047857':'#B45309'};margin-top:3px">${vChange>=0?'▲':'▼'} ${Math.abs(vChange)}</div>`:''}</div>
         </div>
         ${scoreBar('단어',vp,vChange)}
         ${scoreBar('어법',gp,null)}
@@ -354,7 +354,7 @@ async function loadParent(sid){
     });
     const assignRow=a=>{
       const cat=a.category?(CAT_LBL[a.category]||a.category):''; // 직접 입력 구분은 그대로 표시
-      const catHtml=cat?`<span style="font-size:10.5px;font-weight:700;color:var(--teal)">[${cat}]</span> `:'';
+      const catHtml=cat?`<span style="font-size:12px;font-weight:700;color:var(--teal)">[${cat}]</span> `:'';
       const label=a.category==='vocab'?((a.words||[]).slice(0,3).join(', ')+(a.words?.length>3?` 외 ${a.words.length-3}개`:'')):(a.bookTitle||a.text||((a.category&&!['phonics','vocab','grammar','reading','listening','writing','naesin','book','class5','other'].includes(a.category))?a.category:'')||'과제');
       const range=a.range?` <span style="font-size:12px;color:var(--slate)">${a.range}</span>`:'';
       const dueCol=a.due&&a.due<=todayD?'var(--coral)':'var(--slate)';
@@ -394,7 +394,7 @@ async function loadParent(sid){
                 <div style="font-weight:600;font-size:14px;line-height:1.4">${rd.title||'—'}</div>
                 <div style="display:flex;gap:5px;margin-top:3px;align-items:center;flex-wrap:wrap">
                   ${arDisplay?`<span class="badge bnavy">AR ${arDisplay}</span>`:''}
-                  <span style="font-size:10.5px;color:var(--slate)">${rd.date||''}</span>
+                  <span style="font-size:12px;color:var(--slate)">${rd.date||''}</span>
                 </div>
               </div>
             </div>`;
@@ -417,7 +417,7 @@ async function loadParent(sid){
     const showStats=totalVocab>0||rds.length>0;
     let statsRow='';
     if(showStats){
-      const statItem=(val,lbl,sub)=>`<div style="flex:1;text-align:center;padding:8px 6px;background:rgba(12,164,201,.06);border-radius:8px"><div style="font-size:20px;font-weight:700;color:var(--teal)">${val}</div><div style="font-size:10.5px;color:var(--slate);margin-top:2px">${lbl}</div>${sub?`<div style="font-size:9.5px;color:rgba(0,0,0,.3)">${sub}</div>`:''}</div>`;
+      const statItem=(val,lbl,sub)=>`<div style="flex:1;text-align:center;padding:8px 6px;background:rgba(12,164,201,.06);border-radius:8px"><div style="font-size:20px;font-weight:700;color:var(--teal)">${val}</div><div style="font-size:12px;color:var(--slate);margin-top:2px">${lbl}</div>${sub?`<div style="font-size:9.5px;color:rgba(0,0,0,.3)">${sub}</div>`:''}</div>`;
       const items=[];
       if(totalVocab>0)items.push(statItem(masteredVocab,'단어 마스터',totalVocab+'개 중'));
       if(rds.length>0)items.push(statItem(booksThisMonth,'이번 달 독서'+(bkChg>0?' ▲'+bkChg:bkChg<0?' ▼'+Math.abs(bkChg):''),''));
@@ -628,8 +628,8 @@ function toggleAllBooks(){
           <div style="display:flex;gap:5px;margin-top:4px;align-items:center;flex-wrap:wrap">
             ${arDisplay?`<span class="badge bnavy">AR ${arDisplay}</span>`:''}
             ${series?`<span class="badge bslate">${series}</span>`:''}
-            ${pages?`<span style="font-size:10.5px;color:var(--slate)">${pages}p</span>`:''}
-            <span style="font-size:10.5px;color:var(--slate)">${rd.date||''}</span>
+            ${pages?`<span style="font-size:12px;color:var(--slate)">${pages}p</span>`:''}
+            <span style="font-size:12px;color:var(--slate)">${rd.date||''}</span>
           </div>
           ${comment?`<div style="font-size:12px;color:var(--slate);margin-top:5px;line-height:1.5;font-style:italic">"${comment}"</div>`:''}
         </div>
@@ -928,16 +928,16 @@ ${lessSummary}
     .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:4px;}
     .stat{text-align:center;padding:10px;background:#f8fffe;border-radius:8px;border:1px solid #e0f7f8;}
     .stat-n{font-size:22px;font-weight:700;color:#0CA4C9;}
-    .stat-l{font-size:10.5px;color:#888;margin-top:2px;}
+    .stat-l{font-size:12px;color:#888;margin-top:2px;}
     .score-bar{height:8px;border-radius:4px;background:#eee;margin-top:4px;}
     .score-fill{height:100%;border-radius:4px;background:#0CA4C9;}
     .comment-box{background:#f0fffe;border-left:3px solid #0CA4C9;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:8px;}
-    .comment-date{font-size:10.5px;color:#888;margin-bottom:4px;}
+    .comment-date{font-size:12px;color:#888;margin-bottom:4px;}
     .badge-list{display:flex;flex-wrap:wrap;gap:6px;}
     .badge{padding:3px 10px;background:#f0fffe;border:1px solid #0CA4C9;border-radius:20px;font-size:12px;}
     .book-list{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;}
     .book-item{padding:6px 10px;background:#f8f8f8;border-radius:6px;font-size:13px;}
-    .footer{text-align:center;margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:10.5px;color:#aaa;}
+    .footer{text-align:center;margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:12px;color:#aaa;}
     @media print{body{padding:20px;}@page{margin:15mm;}}
   </style></head><body>
   <div class="header">
@@ -979,7 +979,7 @@ ${lessSummary}
   </div>`:''}
   ${rds.length?`<div class="section">
     <div class="section-title">📗 ${scoped?periodLabel+' ':''}읽은 원서 (${rds.length}권)</div>
-    <div class="book-list">${rds.slice(0,12).map(r=>`<div class="book-item">📚 ${r.title}${(r.arLevel||r.ar)?` <span style="color:#0CA4C9;font-size:10.5px">AR ${r.arLevel||r.ar}</span>`:''}${r.progress?`<div style="font-size:10.5px;color:#888">${r.progress}</div>`:''}</div>`).join('')}${rds.length>12?`<div class="book-item" style="color:#888">외 ${rds.length-12}권</div>`:''}</div>
+    <div class="book-list">${rds.slice(0,12).map(r=>`<div class="book-item">📚 ${r.title}${(r.arLevel||r.ar)?` <span style="color:#0CA4C9;font-size:12px">AR ${r.arLevel||r.ar}</span>`:''}${r.progress?`<div style="font-size:12px;color:#888">${r.progress}</div>`:''}</div>`).join('')}${rds.length>12?`<div class="book-item" style="color:#888">외 ${rds.length-12}권</div>`:''}</div>
   </div>`:''}
   ${badges.length?`<div class="section">
     <div class="section-title">🏅 달성 뱃지</div>

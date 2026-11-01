@@ -429,7 +429,7 @@ function renderStudentLibrary(sid){
       const hasLink=!!(tb.unitLinks?.[u]);
       return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:12px;font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_isRecent(tb.title,u)?` <span style="font-size:10px;font-weight:700;background:var(--tl);color:#0B8DAE;padding:2px 7px;border-radius:9px;vertical-align:1px">\uD83D\uDD04 지난 수업</span>`:''}</div>
+          <div style="font-size:14px;font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:12px;font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_isRecent(tb.title,u)?` <span style="font-size:11.5px;font-weight:700;background:var(--tl);color:#0B8DAE;padding:2px 7px;border-radius:9px;vertical-align:1px">\uD83D\uDD04 지난 수업</span>`:''}</div>
           <div style="font-size:12px;color:var(--slate);margin-top:2px">단어 ${wCnt}개</div>
         </div>
         <div style="display:flex;gap:5px;flex-shrink:0">
@@ -508,8 +508,8 @@ function renderStudentLibrary(sid){
           <div class="stu-book-series">${b.series||''}${b.level?' · Lv.'+b.level:''}</div>
           <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
             ${isCurrent?`<span class="badge badge-xs badge-reading">현재 읽는 중 📖</span>`:''}
-            ${isRead&&!isCurrent?`<span style="font-size:10.5px;padding:2px 7px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700">✓ 읽음</span>`:''}
-            ${rdDate?`<span style="font-size:10.5px;color:var(--slate)">${rdDate}</span>`:''}
+            ${isRead&&!isCurrent?`<span style="font-size:12px;padding:2px 7px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700">✓ 읽음</span>`:''}
+            ${rdDate?`<span style="font-size:12px;color:var(--slate)">${rdDate}</span>`:''}
           </div>
         </div>
       </div>
@@ -547,7 +547,7 @@ function renderStudentLibrary(sid){
   const selOther=!selMine?(otherWithAudio.find(b=>b.id===_stuRdShelfOpen)||((nextBk&&nextBk.id===_stuRdShelfOpen)?nextBk:null)):null;
   const panelOf=e=>`<div class="shelf-panel" id="rd-shelf-panel">${e.b
     ?bookCardHtml(e.b,!!e.cur,!!(e.read||e.completed))
-    :`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:14px;font-weight:800;color:var(--navy)">\uD83D\uDCD7 ${e.title}</span>${e.completed?'<span style="font-size:10.5px;padding:2px 8px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700">✅ 완독</span>':''}</div>
+    :`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:14px;font-weight:800;color:var(--navy)">\uD83D\uDCD7 ${e.title}</span>${e.completed?'<span style="font-size:12px;padding:2px 8px;background:#D9F6E9;color:#047857;border-radius:10px;font-weight:700">✅ 완독</span>':''}</div>
        <div style="font-size:13px;color:var(--slate)">듣기·단어 자료가 준비 중이에요. 준비되면 여기에서 바로 들을 수 있어요!</div>`}
   </div>`;
   const otherShelfHtml=otherWithAudio.map(b=>`<div class="shelf-card${_stuRdShelfOpen===b.id?' on':''}" onclick="${bookTextOf(b)?`stuRdShelfSelect('${b.id}');openBookListen('${escAttr(b.id)}')`:`stuRdShelfToggle('${b.id}')`}">
@@ -566,7 +566,7 @@ function renderStudentLibrary(sid){
     <div style="display:flex;gap:9px;flex-wrap:wrap">
       ${_stickers.map(e=>`<div title="${escAttr(e.title)}" style="position:relative;width:52px;height:52px;border-radius:50%;overflow:hidden;border:2.5px solid #F3C13A;box-shadow:0 2px 6px rgba(0,0,0,.15);flex-shrink:0">
         ${(e.b&&e.b.coverUrl)?`<img src="${e.b.coverUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--tl);font-size:22px">📗</div>`}
-        <span style="position:absolute;right:-1px;bottom:-1px;width:17px;height:17px;border-radius:50%;background:#10B981;color:#fff;font-size:10.5px;display:flex;align-items:center;justify-content:center">✓</span>
+        <span style="position:absolute;right:-1px;bottom:-1px;width:17px;height:17px;border-radius:50%;background:#10B981;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center">✓</span>
       </div>`).join('')}
       <div style="width:52px;height:52px;border-radius:50%;border:2.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--border);flex-shrink:0">?</div>
     </div>
@@ -629,10 +629,10 @@ function renderStudentLibrary(sid){
         <div style="font-size:12.5px;color:var(--slate);margin-bottom:6px">지난 시간에 배운 것부터 다시 만나 보세요!</div>
         ${items.map(it=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(12,164,201,.15)">
           <div style="flex:1;min-width:0">
-            <div style="font-size:14px;color:var(--navy)"><span style="font-size:10.5px;font-weight:700;color:#0B8DAE;margin-right:5px">${it.label}</span><b>${it.title}</b></div>
+            <div style="font-size:14px;color:var(--navy)"><span style="font-size:12px;font-weight:700;color:#0B8DAE;margin-right:5px">${it.label}</span><b>${it.title}</b></div>
             ${it.unit?`<div style="font-size:12px;color:var(--slate);margin-top:1px">${it.unit}</div>`:''}
           </div>
-          <div style="flex-shrink:0">${it.btns||'<span style="font-size:11px;color:var(--slate)">자료 준비 중</span>'}</div>
+          <div style="flex-shrink:0">${it.btns||'<span style="font-size:12.5px;color:var(--slate)">자료 준비 중</span>'}</div>
         </div>`).join('')}
       </div>`;
     }
@@ -771,7 +771,7 @@ function renderAssignmentTab(sid){
     if(submitted){
       return `<div class="stu-book-card" style="border-color:rgba(12,164,201,.3)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-          <span style="font-size:10.5px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
+          <span style="font-size:12px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
           <span style="font-size:12px;font-weight:700;color:#0B8DAE;background:var(--tl);padding:2px 8px;border-radius:10px">제출완료 ✓</span>
         </div>
         ${content}
@@ -783,7 +783,7 @@ function renderAssignmentTab(sid){
     const isRecording=asgnCurrentId===a.id;
     return `<div class="stu-book-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-        <span style="font-size:10.5px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
+        <span style="font-size:12px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
       </div>
       ${content}
       ${a.type==='reading'&&a.requireRecording?`
@@ -1830,7 +1830,7 @@ function stuXpCard(sid,streak){
           ${streak>0?`<span class="xp-flame">\uD83D\uDD25 ${streak}일 연속</span>`:''}
         </div>
         <div class="xp-bar"><div class="xp-bar-fill" style="width:${lv.pct}%"></div></div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;opacity:.85;margin-top:3px">
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;opacity:.85;margin-top:3px">
           <span>\u26A1 ${xp.toLocaleString()} XP</span>
           <span>${lv.next?`다음 레벨까지 ${(lv.next.xp-xp).toLocaleString()} XP`:'최고 레벨!'}</span>
         </div>
@@ -1922,12 +1922,12 @@ function stuBossCard(sid){
     <div style="flex:1;min-width:0">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
         <span style="font-size:14px;font-weight:800;color:var(--navy)">👑 주간 보스 · ${b.name}</span>
-        <span style="font-size:11px;font-weight:700;color:var(--slate);background:var(--cream2);border-radius:5px;padding:1px 7px;white-space:nowrap">보너스 도전 · 숙제 아님</span>
+        <span style="font-size:12.5px;font-weight:700;color:var(--slate);background:var(--cream2);border-radius:5px;padding:1px 7px;white-space:nowrap">보너스 도전 · 숙제 아님</span>
       </div>
       ${b.done?`<div style="font-size:13px;font-weight:800;color:#047857;margin-top:3px">🏆 클리어! 보너스 XP +30 — 다음 주 월요일에 새 보스가 나타나요</div>`
         :`<div style="font-size:12.5px;color:var(--slate);margin-top:2px">${b.desc}</div>
       <div class="boss-hp"><div class="boss-hp-fill" style="width:${pct}%"></div></div>
-      <div style="font-size:11.5px;color:var(--slate);margin-top:3px">보스 체력 ${hp} / ${b.target} — 벌써 ${Math.min(b.prog,b.target)}만큼 깎았어요!</div>`}
+      <div style="font-size:12.5px;color:var(--slate);margin-top:3px">보스 체력 ${hp} / ${b.target} — 벌써 ${Math.min(b.prog,b.target)}만큼 깎았어요!</div>`}
     </div>
   </div>`;
 }
@@ -2312,7 +2312,7 @@ function showStatDetail(sid,type){
     const wordRow=c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
       <span style="font-weight:600;font-family:var(--fd)">${c.word}</span>
       <div style="display:flex;align-items:center;gap:8px">
-        ${c.meaning?`<span style="font-size:10.5px;color:var(--slate)">${c.meaning}</span>`:''}
+        ${c.meaning?`<span style="font-size:12px;color:var(--slate)">${c.meaning}</span>`:''}
         <span style="color:var(--teal);font-size:12px;min-width:24px;text-align:right">×${c.hits||0}</span>
       </div>
     </div>`;
@@ -2327,7 +2327,7 @@ function showStatDetail(sid,type){
   }else{
     const rds=DB.allRds(sid);
     title=`읽은 책 (${rds.length}권)`;
-    rows=rds.map(r=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="font-weight:600">${r.title||'—'}</span>${r.progress?`<span style="color:var(--slate)"> · ${r.progress}</span>`:''} <span style="font-size:10.5px;color:var(--slate)">${r.date||''}</span></div>`).join('')||'없음';
+    rows=rds.map(r=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="font-weight:600">${r.title||'—'}</span>${r.progress?`<span style="color:var(--slate)"> · ${r.progress}</span>`:''} <span style="font-size:12px;color:var(--slate)">${r.date||''}</span></div>`).join('')||'없음';
   }
   const box=document.createElement('div');
   box.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:var(--rs);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:2000;min-width:260px;max-width:400px;width:88vw;max-height:65vh;display:flex;flex-direction:column;overflow:hidden';
@@ -2345,10 +2345,10 @@ function renderHomeStats(sid){
   if(!completedCount&&!vocabLearned&&!rdsCount)return '';
   const statBox=(val,color,label,type)=>`<div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center;cursor:pointer;transition:.15s" onclick="showStatDetail('${sid}','${type}')" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background='#fff'">
     <div style="font-size:24px;font-weight:700;color:${color};font-family:var(--fm)">${val}</div>
-    <div style="font-size:10.5px;color:var(--slate);margin-top:2px">${label}</div>
+    <div style="font-size:12px;color:var(--slate);margin-top:2px">${label}</div>
   </div>`;
   return `<div style="margin-top:16px">
-    <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:8px;letter-spacing:.04em">📊 내 기록 <span style="font-weight:400;font-size:10.5px">(숫자 클릭 시 상세)</span></div>
+    <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:8px;letter-spacing:.04em">📊 내 기록 <span style="font-weight:400;font-size:12px">(숫자 클릭 시 상세)</span></div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
       ${statBox(completedCount,'var(--navy)','완료 숙제','assign')}
       ${statBox(vocabLearned,'var(--teal)','공부한 단어','vocab')}
@@ -2359,11 +2359,11 @@ function renderHomeStats(sid){
 function dueLabelHtml(dueStr,today){
   if(!dueStr)return '';
   const diff=Math.round((new Date(dueStr)-new Date(today))/(86400000));
-  if(diff<0)return `<span style="color:var(--coral);font-weight:700;font-size:10.5px">늦었어요</span>`;
-  if(diff===0)return `<span style="color:var(--coral);font-weight:700;font-size:10.5px">오늘 마감</span>`;
-  if(diff===1)return `<span style="color:#e07b00;font-weight:700;font-size:10.5px">내일 마감</span>`;
-  if(diff<=2)return `<span style="color:#e07b00;font-weight:700;font-size:10.5px">D-${diff}</span>`;
-  return `<span style="color:var(--slate);font-size:10.5px">D-${diff}</span>`;
+  if(diff<0)return `<span style="color:var(--coral);font-weight:700;font-size:12px">늦었어요</span>`;
+  if(diff===0)return `<span style="color:var(--coral);font-weight:700;font-size:12px">오늘 마감</span>`;
+  if(diff===1)return `<span style="color:#e07b00;font-weight:700;font-size:12px">내일 마감</span>`;
+  if(diff<=2)return `<span style="color:#e07b00;font-weight:700;font-size:12px">D-${diff}</span>`;
+  return `<span style="color:var(--slate);font-size:12px">D-${diff}</span>`;
 }
 function renderLastLesson(sid){
   const les=DB.less().filter(l=>l.sid===sid);
@@ -2449,7 +2449,7 @@ function renderVocabReview(sid){
         ${weak.map(c=>`<div style="display:flex;align-items:center;gap:11px;background:#fff;border:1.5px solid rgba(245,158,11,.35);border-radius:12px;padding:10px 13px">
           <span style="width:34px;height:34px;border-radius:10px;background:#FEF0D5;color:#B45309;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">🔁</span>
           <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;color:var(--navy);font-family:var(--fd)">${c.word||''}</div><div style="font-size:12px;color:var(--slate)">${c.meaning||''}${c.misses?' · '+c.misses+'번 헷갈림':''}</div></div>
-          <span style="font-size:10.5px;font-weight:700;background:#FEF0D5;color:#B45309;padding:3px 10px;border-radius:11px;flex-shrink:0">약함</span>
+          <span style="font-size:12px;font-weight:700;background:#FEF0D5;color:#B45309;padding:3px 10px;border-radius:11px;flex-shrink:0">약함</span>
         </div>`).join('')}
       </div>`:''}
       <div style="font-size:14px;font-weight:800;color:var(--navy);margin-bottom:11px">단어가 단단해지는 중 💪</div>
@@ -2569,7 +2569,7 @@ function renderStudentHome(sid){
           <circle cx="44" cy="44" r="${_rR}" fill="none" stroke="${_ringDone?'#10B981':'#0CA4C9'}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${_rC}" stroke-dashoffset="${(_rC*(1-_ringN/20)).toFixed(1)}" style="transition:stroke-dashoffset .6s"/>
         </svg>
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
-          ${_ringDone?'<span style="font-size:26px">🎉</span>':`<span style="font-size:19px;font-weight:900;color:var(--navy);font-family:var(--fd)">${_ringN}</span><span style="font-size:10.5px;color:var(--slate)">/ 20</span>`}
+          ${_ringDone?'<span style="font-size:26px">🎉</span>':`<span style="font-size:19px;font-weight:900;color:var(--navy);font-family:var(--fd)">${_ringN}</span><span style="font-size:12px;color:var(--slate)">/ 20</span>`}
         </div>
       </div>
       <div style="flex:1;min-width:0">
@@ -2620,14 +2620,14 @@ function renderStudentHome(sid){
           ${qNo?`<span class="quest-no">퀘스트 ${qNo}</span>`:''}
           <div style="font-size:15px;font-weight:600;color:var(--navy)">${icon} ${title}</div>
           ${detail?`<div style="font-size:13px;color:var(--slate);margin-top:3px">${detail}</div>`:''}
-          ${isVocabAuto&&!done?`<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><button class="btn bo bsm" style="border-radius:50px;padding:8px 14px" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button></div><div style="font-size:11px;color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
+          ${isVocabAuto&&!done?`<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><button class="btn bo bsm" style="border-radius:50px;padding:8px 14px" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button></div><div style="font-size:12.5px;color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
           ${(()=>{ // 외부 앱에서 하는 숙제(리딩앤·클래스5·오토보카)는 그 앱으로 바로 보낸다
             if(isVocabAuto||done)return '';
             const ex=extAppForHw(title+' '+detail);
             if(!ex)return '';
             return `<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">`
               +`<button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openHwApp('${ex.k}','${sid}','${a.id}','${sc.date}')">▶ ${ex.lbl} 열기</button></div>`
-              +`<div style="font-size:11px;color:var(--slate);margin-top:4px">다 하고 돌아오면 물어볼게요 ✓</div>`;
+              +`<div style="font-size:12.5px;color:var(--slate);margin-top:4px">다 하고 돌아오면 물어볼게요 ✓</div>`;
           })()}
         </div>
       </div>
@@ -2645,7 +2645,7 @@ function renderStudentHome(sid){
       body=`<div style="font-size:14px;font-weight:600;color:var(--navy)">${a.bookTitle||'원서 읽기'}${a.range?' <span style="font-size:12px;color:var(--slate)">'+a.range+'</span>':''}</div>`;
       if(!isDone&&ao){
         if(ao.type==='chapters'&&ao.chapters?.length){
-          body+=`<div style="margin-top:6px">${ao.chapters.slice(0,3).map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:10.5px;min-width:44px;color:var(--slate)">챕터 ${c.num}</span><audio controls src="${c.url}" style="flex:1;height:24px"></audio></div>`).join('')}</div>`;
+          body+=`<div style="margin-top:6px">${ao.chapters.slice(0,3).map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:12px;min-width:44px;color:var(--slate)">챕터 ${c.num}</span><audio controls src="${c.url}" style="flex:1;height:24px"></audio></div>`).join('')}</div>`;
         } else if(ao.url||(typeof ao==='string')){
           body+=`<audio controls src="${ao.url||ao}" style="width:100%;height:26px;margin-top:6px"></audio>`;
         }
@@ -2702,7 +2702,7 @@ function renderStudentHome(sid){
         <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone?'uncompleteAssignment(\''+sid+'\',\''+a.id+'\')':(!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')')}" title="${isDone?'클릭: 완료 취소':(!canCheck?(a.type==='mission'?'미션을 모두 완료하면 자동으로 체크됩니다':'녹음 제출 후 완료 가능'):'완료 처리')}">${isDone?'✓':''}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span style="font-size:11px;color:var(--slate);font-family:var(--fm)">${qNo?`<span class="quest-no">퀘스트 ${qNo}</span> `:''}${a.date||''}</span>
+            <span style="font-size:12.5px;color:var(--slate);font-family:var(--fm)">${qNo?`<span class="quest-no">퀘스트 ${qNo}</span> `:''}${a.date||''}</span>
             ${a.due?dueLabelHtml(a.due,today):''}
           </div>
           ${body}
@@ -2763,12 +2763,12 @@ function renderStudentHome(sid){
     ${stuBossCard(sid)}
     ${vocabCtaHtml}
     <details style="margin-top:8px;margin-bottom:8px">
-      <summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">🎮 보너스 · 내 기록 <span style="font-size:10.5px;color:var(--teal)">▾</span></summary>
+      <summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">🎮 보너스 · 내 기록 <span style="font-size:12px;color:var(--teal)">▾</span></summary>
       <div style="margin-top:8px">${stuXpCard(sid,streak)}${stuBadgeShelf(sid)}${renderVocabReview(sid)}</div>
     </details>
     ${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 지난 완료 기록 (${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length}건)</summary><div style="margin-top:8px">${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).map(asgnCard).join('')}</div></details>`:''}
     <details open style="margin-top:14px">
-      <summary style="font-size:13px;font-weight:600;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">📊 지난 수업 &amp; 학습 현황 <span style="font-size:10.5px;color:var(--teal)">▾</span></summary>
+      <summary style="font-size:13px;font-weight:600;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">📊 지난 수업 &amp; 학습 현황 <span style="font-size:12px;color:var(--teal)">▾</span></summary>
       <div style="margin-top:8px">${lastLessonHtml}${renderHomeStats(sid)}${notifyRowHtml}</div>
     </details>
     ${(()=>{
@@ -2862,7 +2862,7 @@ function renderUrWords(tb,body,footer){
     ${words.map((w,i)=>`<div id="ur-word-row-${i}" onclick="urRevealWord(${i},'${(w.word||'').replace(/'/g,"\\'")}','${(w.ko||'').replace(/'/g,"\\'")}','${(w.pos||'').replace(/'/g,"\\'")}',this)" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;transition:border-color .15s">
       <div style="flex:1">
         <span id="ur-word-ko-${i}" style="font-size:15px;font-weight:600;color:var(--navy)">${w.ko||'—'}</span>
-        ${w.pos?`<span style="font-size:10.5px;color:var(--slate);margin-left:5px">[${POS_KO[w.pos]||w.pos}]</span>`:''}
+        ${w.pos?`<span style="font-size:12px;color:var(--slate);margin-left:5px">[${POS_KO[w.pos]||w.pos}]</span>`:''}
       </div>
       <div style="text-align:right">
         <span id="ur-word-en-${i}" style="font-size:15px;font-weight:700;color:var(--teal);opacity:0;transition:opacity .2s">${w.word||''}</span>
@@ -3226,7 +3226,7 @@ function _vocMemorize(words,body,footer){
     +'<div style="font-size:13px;color:var(--slate);margin-bottom:10px">한국어 뜻을 보고 <b>영어 단어를 떠올린 뒤</b> 카드를 눌러 확인하세요 🔊</div>'
     +'<div style="display:flex;flex-direction:column;gap:8px">'
     +words.map((w,i)=>'<div id="msw-row-'+i+'" onclick="msRevealWord('+i+')" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);cursor:pointer;transition:border-color .15s">'
-      +'<div style="flex:1"><span style="font-size:15px;font-weight:600;color:var(--navy)">'+(w.ko||'—')+'</span>'+(w.pos?'<span style="font-size:10.5px;color:var(--slate);margin-left:5px">['+((typeof POS_KO!=='undefined'&&POS_KO[w.pos])||w.pos)+']</span>':'')+'</div>'
+      +'<div style="flex:1"><span style="font-size:15px;font-weight:600;color:var(--navy)">'+(w.ko||'—')+'</span>'+(w.pos?'<span style="font-size:12px;color:var(--slate);margin-left:5px">['+((typeof POS_KO!=='undefined'&&POS_KO[w.pos])||w.pos)+']</span>':'')+'</div>'
       +'<div style="text-align:right"><span id="msw-en-'+i+'" style="font-size:15px;font-weight:700;color:var(--teal);opacity:0;transition:opacity .2s">'+(w.word||'')+'</span><span id="msw-ck-'+i+'" style="font-size:16px;margin-left:6px;opacity:0;color:var(--teal)">✓</span></div>'
       +'</div>').join('')
     +'</div></div>';

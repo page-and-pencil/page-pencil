@@ -119,7 +119,21 @@ function confirmOk(){closeM('m-confirm');if(_confirmCb)_confirmCb();_confirmCb=n
 function confirmCancel(){closeM('m-confirm');_confirmCb=null;}
 
 // ── SCREENS ──
-function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
+// 화면 전환 — View Transitions 로 부드럽게 교차. 지원 안 하면 그대로 즉시 전환(동작 동일).
+// 라이브러리 없이 브라우저 기능만 쓰므로 추가 용량이 없다.
+function show(id){
+  const swap=()=>{
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    const el=document.getElementById(id);
+    if(el)el.classList.add('active');
+    window.scrollTo(0,0);
+  };
+  const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!reduce&&typeof document.startViewTransition==='function'){
+    try{document.startViewTransition(swap);return;}catch(e){}
+  }
+  swap();
+}
 async function goTeacherLogin(){
   const sess=loadSession();
   if(sess?.role==='teacher'){
