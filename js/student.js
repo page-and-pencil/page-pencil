@@ -2103,7 +2103,7 @@ async function completeAssignment(sid,asgnId){
   _hwChRefresh(sid); // 도장 챌린지 갱신 (도장·달성 축하 포함)
   ppStampPop();stuLevelUpCheck(sid);if(ppTodayAllDone(sid))setTimeout(()=>showMiniConfetti(),500);
   if(!card){renderStudentHome(sid);return;} // 단어장·워크시트 등 홈 밖에서 완료된 경우만 전체 갱신
-  const anyLeft=(_cache.assignments||[]).filter(x=>x.sid===sid&&!x.completedAt);
+  const anyLeft=(_cache.assignments||[]).filter(x=>x.sid===sid&&!hwFinished(x));
   if(!anyLeft.length)setTimeout(()=>renderStudentHome(sid),900); // 전부 끝 → 축하 화면
 }
 
@@ -2451,7 +2451,7 @@ function renderStudentHome(sid){
   const allAssigns=(_cache.assignments||[]).filter(a=>a.sid===sid);
   const done=allAssigns.filter(a=>a.completedAt).sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
   // 긴급도 정렬: 늦은 것 → 오늘 마감 → 내일 → 가까운 순 → 마감 없음(날짜 오름차순)
-  const pending=allAssigns.filter(a=>!a.completedAt).sort((a,b)=>{
+  const pending=allAssigns.filter(a=>!hwFinished(a)).sort((a,b)=>{
     const urgency=d=>{
       if(!d)return 99;
       const diff=Math.round((new Date(d)-new Date(today))/86400000);

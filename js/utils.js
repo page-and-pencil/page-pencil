@@ -21,6 +21,17 @@ function vocativeOf(name){
   if(!hangul)return n;                       // 영문 이름 등은 조사를 붙이지 않는다
   return n+(((last-0xAC00)%28)!==0?'아':'야');
 }
+// ── 숙제가 끝났는가 ──
+// completedAt 만 보면 '일정이 전부 끝난 반복 숙제'를 놓친다. 실제로 요즘 초등 영단어 1이
+// 24/24 완료인데 completedAt 이 없어 학부모 화면에 '남음'으로 세졌다.
+// 일정형(반복·클래스5)은 남은 일정이 하나도 없으면 끝난 것으로 본다.
+function hwFinished(a){
+  if(!a)return true;
+  if(a.completedAt)return true;
+  const sch=a.schedule;
+  if(Array.isArray(sch)&&sch.length)return sch.every(s=>s&&s.done);
+  return false;
+}
 function ppToday(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 // 임의 Date를 로컬 YYYY-MM-DD로 포맷
 function ppYmd(d){d=(d instanceof Date)?d:new Date(d);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}

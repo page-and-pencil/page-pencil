@@ -207,7 +207,7 @@ async function loadParent(sid){
   const todayIso=ppToday();
   const newLesCount=les.filter(l=>l.date&&l.date>lastVisit).length;
   const newTstCount=tsts.filter(t=>t.date&&t.date>lastVisit).length;
-  const pendingCount=DB.assigns().filter(a=>a.sid===sid&&!a.completedAt).length;
+  const pendingCount=DB.assigns().filter(a=>a.sid===sid&&!hwFinished(a)).length;
   const notifItems=[];
   if(newLesCount)notifItems.push(`수업 기록 ${newLesCount}건`);
   if(newTstCount)notifItems.push(`테스트 ${newTstCount}건`);
@@ -286,7 +286,7 @@ async function loadParent(sid){
     <div class="cb" style="padding:12px 16px">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:16px;font-weight:700">수업 ${thisMonthLes.length}회</span>
-        ${lesChange!==0?`<span style="font-size:13px;color:${lesChange>0?'var(--teal)':'var(--coral)'}">${lesChange>0?'▲':'▼'}${Math.abs(lesChange)} 지난달 대비</span>`:''}
+        ${(lesChange!==0&&Number(ppToday().slice(8,10))>=8)?`<span style="font-size:13px;color:${lesChange>0?'var(--teal)':'var(--coral)'}">${lesChange>0?'▲':'▼'}${Math.abs(lesChange)} 지난달 대비</span>`:''}
       </div>
       <div class="p-prog-bar"><div class="p-prog-fill" style="width:${progPct}%"></div></div>
       ${absentThisMonth.length?`<div style="font-size:12px;color:var(--slate);margin-top:6px">출결 이상 ${absentThisMonth.length}회 (결석/지각)</div>`:''}
@@ -343,7 +343,8 @@ async function loadParent(sid){
   secScore+=parentAreaGrowth(sid);
 
   // 블록 D — 미완료 과제
-  const assigns=DB.assigns().filter(a=>a.sid===sid&&!a.completedAt);
+  // 끝난 숙제는 빼고 센다 — 일정이 전부 done 인 반복 숙제도 '끝남'으로 본다 (hwFinished)
+  const assigns=DB.assigns().filter(a=>a.sid===sid&&!hwFinished(a));
   if(assigns.length){
     const CAT_LBL={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
     const todayD=ppToday();
@@ -751,7 +752,8 @@ function renderArBadge(arData){
 function loadParentWithNotice(sid){
   saveSession({role:'parent',sid});
   loadParent(sid);
-  setTimeout(checkNotice,500);
+  // 공지는 상단 배너(showParentNoticeBanner)가 보여준다 — 읽음 상태를 readBy로 학부모별 추적까지 한다.
+  // 팝업(checkNotice)까지 띄우면 같은 공지가 두 번 나온다 (실제 화면에서 중복 확인).
 }
 
 // ── PRINT ──
