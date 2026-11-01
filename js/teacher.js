@@ -1414,19 +1414,45 @@ function renderStus(){
     g.innerHTML=`<div class="empty boxed"><div class="empty-i">👦</div><div class="empty-t">${noFilter?'등록된 학생이 없습니다':'조건에 맞는 학생이 없습니다'}</div>${noFilter?`<button class="btn bt bsm" onclick="openAddStu()">+ 첫 학생 추가하기</button>`:''}</div>`;
     return;
   }
-  g.innerHTML=stus.map(s=>`<div class="sc${s.inactive?' inactive':''}" onclick="selStu('${s.id}',this)">
-    ${s.inactive?'<span class="inactive-badge">퇴원</span>':''}
-    <div style="display:flex;align-items:center;gap:10px">
-      <span class="sc-avatar">${(s.name||'').trim().slice(0,1)||'학'}</span>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:4px"><div class="sn">${s.name}</div>${hasUnpaid(s)?'<span class="unpaid-dot" title="이번 달 미납"></span>':''}</div>
-        ${s.school?`<div style="font-size:12px;color:#8A95A2;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.school}</div>`:''}
-      </div>
-      <span class="slv lv1" style="flex-shrink:0">${s.grade||s.lv||''}</span>
-    </div>
-    ${s.memo?`<div style="font-size:12px;color:var(--slate);margin-top:6px">${s.memo}</div>`:''}
-    ${!s.inactive?`<button class="btn bt bsm" style="margin-top:8px;width:100%;font-size:11.5px;padding:3px 0" onclick="event.stopPropagation();goAddLesson('${s.id}')">+ 수업 기록</button>`:''}
-  </div>`).join('');
+  // ── 표 형태 목록 (시안) — 학년 그룹 머리글 + 7열.
+  //    행 클래스 .sc 와 onclick="selStu(id,this)" 는 그대로 둔다(selStu 가 .sc 를 찾는다).
+  //    768px 이하에서는 CSS 가 같은 마크업을 카드처럼 쌓아 보여 준다.
+  const _esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const _less=DB.less(), _tsts=(typeof DB.tsts==='function')?DB.tsts():[];
+  const lastLes=sid=>{let d='';_less.forEach(l=>{if(l.sid===sid&&(l.date||'')>d)d=l.date||'';});return d;};
+  const vocabPct=sid=>{
+    const r=_tsts.filter(t=>t.sid===sid&&t.vocabTotal>0)
+      .sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
+    if(!r.length)return null;
+    return Math.round(r.reduce((a,t)=>a+t.vocabCorrect/t.vocabTotal,0)/r.length*100);
+  };
+  const clsOf=sid=>{const c=(DB.classes()||[]).find(x=>x.active!==false&&(x.studentIds||x.sids||[]).includes(sid));return c?c.name:'';};
+  const GRP=g=>/^초/.test(g||'')?'초등':/^중/.test(g||'')?'중등':'기타';
+  const groups={};
+  stus.forEach(s=>{const k=GRP(s.grade||s.lv);(groups[k]=groups[k]||[]).push(s);});
+  const rowOf=s=>{
+    const pct=vocabPct(s.id), ld=lastLes(s.id);
+    const pay=s.inactive?{t:'퇴원',c:'is-neutral'}:(hasUnpaid(s)?{t:'미납',c:'is-warn'}:{t:'완료',c:'is-ok'});
+    return '<tr class="sc'+(s.inactive?' inactive':'')+'" onclick="selStu(\''+s.id+'\',this)" tabindex="0">'
+      +'<td class="sl-name"><span class="sc-avatar">'+(_esc((s.name||'').trim().slice(0,1))||'학')+'</span>'
+        +'<span class="sl-nm">'+_esc(s.name)+'</span></td>'
+      +'<td class="sl-dim" data-h="학년">'+_esc(s.grade||s.lv||'')+'</td>'
+      +'<td class="sl-dim" data-h="학교">'+_esc(s.school||'')+'</td>'
+      +'<td class="sl-dim" data-h="클래스">'+_esc(clsOf(s.id))+'</td>'
+      +'<td class="sl-dim sl-num" data-h="최근 수업">'+(ld?_esc(ld.slice(5).replace('-','/')):'—')+'</td>'
+      +'<td class="sl-bar" data-h="단어 테스트">'+(pct==null?'<span class="sl-dim">—</span>'
+        :'<span class="sl-bar-t"><span style="width:'+pct+'%"></span></span><span class="sl-pct">'+pct+'%</span>')+'</td>'
+      +'<td class="sl-pay" data-h="결제"><span class="pp-dot '+pay.c+'"></span>'+pay.t+'</td>'
+      +'</tr>';
+  };
+  const body=['초등','중등','기타'].filter(k=>groups[k]&&groups[k].length).map(k=>
+    '<tr class="sl-grp"><td colspan="7"><span class="sl-grp-t">'+k+'</span>'
+      +'<span class="sl-grp-n">'+groups[k].length+'</span></td></tr>'
+    +groups[k].map(rowOf).join('')).join('');
+  g.innerHTML='<div class="sl-wrap"><table class="sl-tbl"><thead><tr>'
+    +['이름','학년','학교','클래스','최근 수업','단어 테스트','이번 달 결제']
+      .map((h,i)=>'<th'+(i>=4?' class="sl-num"':'')+'>'+h+'</th>').join('')
+    +'</tr></thead><tbody>'+body+'</tbody></table></div>';
 }
 
 
