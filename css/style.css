@@ -1889,3 +1889,34 @@ html{scroll-padding-top:72px;}
 .rv-fold-b{padding:0 14px 14px;}
 /* 학부모 영역별 성장 — 학생 화면 퀘스트 띠와 같은 색 점으로 영역을 잇는다 */
 .pp-area-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;display:inline-block;}
+
+/* ═══ 교재 여정 — 끝낸 책 / 지금 / 다음을 영역별로 한 줄에 ═══ */
+.bp-wrap{display:flex;flex-direction:column;gap:14px;}
+.bp-title{font-size:16px;font-weight:800;color:var(--navy);}
+.bp-area{border:1.5px solid var(--border);border-radius:14px;padding:13px 14px;background:#fff;}
+.bp-h{display:flex;align-items:center;gap:7px;margin-bottom:9px;}
+.bp-h-l{font-size:14.5px;font-weight:800;color:var(--navy);}
+.bp-h-n{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--okt);
+  background:var(--okl);padding:3px 9px;border-radius:var(--rpill);}
+.bp-now+.bp-now{margin-top:10px;}
+.bp-now-t{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:5px;}
+.bp-bar{height:8px;background:#EDF2F4;border-radius:var(--rpill);overflow:hidden;}
+.bp-bar span{display:block;height:100%;border-radius:var(--rpill);transition:width .6s cubic-bezier(.22,1,.36,1);}
+.bp-now-s{font-size:12px;color:var(--slate);margin-top:4px;font-family:var(--fm);}
+.bp-none{font-size:13px;color:var(--slate2);padding:4px 0;}
+.bp-next{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:13px;color:var(--slate);}
+.bp-next-l{font-size:11px;font-weight:800;color:var(--slate2);background:var(--cream2);
+  padding:2px 8px;border-radius:var(--rpill);flex-shrink:0;}
+.bp-next-n{font-size:11.5px;color:var(--slate2);}
+.bp-past{margin-top:10px;}
+.bp-past summary{list-style:none;cursor:pointer;font-size:12.5px;color:var(--slate);
+  display:flex;align-items:center;gap:6px;user-select:none;}
+.bp-past summary::-webkit-details-marker{display:none;}
+.bp-past summary::after{content:'▾';margin-left:auto;color:var(--slate2);transition:transform .2s;}
+.bp-past[open] summary::after{transform:rotate(180deg);}
+.bp-done-n{font-size:11px;font-weight:700;color:var(--okt);}
+.bp-past-b{margin-top:8px;border-top:1px solid var(--border);padding-top:8px;}
+.bp-past-r{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;}
+.bp-past-i{width:15px;text-align:center;color:var(--okt);font-weight:800;flex-shrink:0;}
+.bp-past-t{color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bp-past-s{margin-left:auto;color:var(--slate2);font-family:var(--fm);font-size:11.5px;flex-shrink:0;}

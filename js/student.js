@@ -661,6 +661,7 @@ function renderStudentLibrary(sid){
     <div style="font-size:13px;color:var(--slate)">교재 단원 원문이나 원서가 등록되면 여기에 보입니다</div>
   </div>`:`<div style="padding:1.25rem">
     ${reviewHero}
+    ${(typeof ppBookPathHtml==='function'&&ppBookPathHtml(sid))?`<div class="rv-sec-h">🗺️ 내 교재 여정</div>${ppBookPathHtml(sid,{bare:true})}<div style="height:18px"></div>`:''}
     ${myTbooks.length?`<div class="rv-sec-h">📚 수업 교재 복습</div>${tbookHtml}`:''}
     ${rdShelfHtml?`<details class="rv-fold">
       <summary class="rv-fold-s">📗 원서 책장 · 완독 스티커북<span class="rv-fold-c">수업 끝 자율 학습</span></summary>

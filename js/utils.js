@@ -121,6 +121,110 @@ function confirmCancel(){closeM('m-confirm');_confirmCb=null;}
 // ── SCREENS ──
 // 화면 전환 — View Transitions 로 부드럽게 교차. 지원 안 하면 그대로 즉시 전환(동작 동일).
 // 라이브러리 없이 브라우저 기능만 쓰므로 추가 용량이 없다.
+// ── 교재 여정 ────────────────────────────────────────────────
+// 끝낸 교재 / 지금 하는 교재 / 앞으로 할 교재를 영역별로 한 줄에 꿴다.
+// 데이터는 이미 다 있다 — 지나온 길은 수업 기록(lessons.materials)에, 앞길은
+// 클래스의 commonMaterials 에 키 순서대로 들어 있다(reading_20 → reading_21 …).
+// 원서는 수업 끝 자율 학습이라 여기서 다루지 않는다(bookId 가 있는 등록 교재만).
+const PP_AREAS=[['reading','리딩'],['listening','리스닝'],['grammar','어법'],['vocab','어휘']];
+function ppBookPath(sid){
+  if(typeof DB==='undefined')return [];
+  const tbs=DB.gtbs?DB.gtbs():(_cache.globalTextbooks||[]);
+  const byId={};tbs.forEach(b=>{byId[b.id]=b;});
+  const totalOf=b=>b?(b.totalUnits||Object.keys(b.units||{}).length||0):0;
+  const today=(typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);
+  const cutoff=new Date(new Date(today+'T00:00:00').getTime()-45*86400000).toISOString().slice(0,10);
+
+  // ① 지나온 길 — 수업 기록에서 교재별 단원 수·기간을 모은다
+  const seen={};
+  DB.less().filter(l=>l.sid===sid).forEach(l=>{
+    Object.entries(l.materials||{}).forEach(([k,v])=>{
+      if(!v||!v.bookId||!byId[v.bookId])return;
+      const base=k.replace(/_\d+$/,'');
+      const e=seen[v.bookId]||(seen[v.bookId]={id:v.bookId,area:base,units:new Set(),first:l.date||'',last:l.date||''});
+      String(v.unit||'').split(/,\s*/).filter(Boolean).forEach(u=>e.units.add(u.trim()));
+      if((l.date||'')<e.first||!e.first)e.first=l.date||'';
+      if((l.date||'')>e.last)e.last=l.date||'';
+    });
+  });
+
+  // ② 앞길 — 이 학생이 속한 클래스의 교재 계획 (키 순서가 곧 진행 순서)
+  const plan=[];
+  (DB.classes()||[]).forEach(c=>{
+    if(c.active===false)return;
+    if(!((c.studentIds||c.sids||[]).includes(sid)))return;
+    Object.entries(c.commonMaterials||{}).forEach(([k,m])=>{
+      if(!m||!m.book)return;
+      plan.push({key:k,area:k.replace(/_\d+$/,''),book:m.book,bookId:m.bookId||null});
+    });
+  });
+
+  const out=[];
+  PP_AREAS.forEach(([area,label])=>{
+    const mine=Object.values(seen).filter(e=>e.area===area).map(e=>{
+      const b=byId[e.id],total=totalOf(b);
+      const n=Math.min(e.units.size,total||e.units.size);
+      return {id:e.id,title:(b&&b.title)||'',total,n,
+        pct:total?Math.min(100,Math.round(n/total*100)):null,
+        first:e.first,last:e.last,
+        state:(e.last>=cutoff)?'now':((total&&n/total>=0.95)?'done':'past')};
+    }).sort((a,b)=>(a.last||'').localeCompare(b.last||''));
+    // 진행 중인 것이 하나도 없으면 가장 최근 것을 지금으로 본다
+    if(mine.length&&!mine.some(x=>x.state==='now'))mine[mine.length-1].state='now';
+    const doneIds=new Set(mine.map(x=>x.id));
+    const doneTitles=new Set(mine.map(x=>x.title));
+    const next=plan.filter(p=>p.area===area)
+      .filter(p=>!(p.bookId&&doneIds.has(p.bookId))&&!doneTitles.has(p.book))
+      .map(p=>({title:p.book,bookId:p.bookId,total:totalOf(byId[p.bookId])}));
+    if(!mine.length&&!next.length)return;
+    out.push({area,label,past:mine.filter(x=>x.state!=='now'),now:mine.filter(x=>x.state==='now'),next});
+  });
+  return out;
+}
+
+// 교재 여정을 한 장으로 — 영역마다 [끝낸 권수] [지금 교재와 진행바] [다음 교재]
+const PP_AREA_COLOR={reading:'#10876A',listening:'#D08A12',grammar:'#7C4DD6',vocab:'#3B6FD4'};
+function ppBookPathHtml(sid,opts){
+  const o=opts||{};
+  const path=(typeof ppBookPath==='function')?ppBookPath(sid):[];
+  if(!path.length)return '';
+  const esc=(t)=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const rows=path.map(a=>{
+    const col=PP_AREA_COLOR[a.area]||'#5A6B7B';
+    const doneN=a.past.filter(x=>x.state==='done').length;
+    const pastN=a.past.length;
+    const nowHtml=a.now.map(x=>{
+      const pct=x.pct==null?0:x.pct;
+      return '<div class="bp-now">'
+        +'<div class="bp-now-t">'+esc(x.title)+'</div>'
+        +'<div class="bp-bar"><span style="width:'+pct+'%;background:'+col+'"></span></div>'
+        +'<div class="bp-now-s">'+x.n+' / '+(x.total||'?')+'과'+(x.pct==null?'':' · '+x.pct+'%')+'</div>'
+      +'</div>';
+    }).join('')||'<div class="bp-none">지금 진행 중인 교재가 없습니다</div>';
+    const nextHtml=a.next.length
+      ? '<div class="bp-next"><span class="bp-next-l">다음</span>'+esc(a.next[0].title)
+        +(a.next.length>1?'<span class="bp-next-n">외 '+(a.next.length-1)+'권</span>':'')+'</div>'
+      : '';
+    const pastList=pastN
+      ? '<details class="bp-past"><summary>지나온 교재 '+pastN+'권'
+        +(doneN?' <span class="bp-done-n">끝낸 책 '+doneN+'권</span>':'')+'</summary>'
+        +'<div class="bp-past-b">'+a.past.slice().reverse().map(x=>
+          '<div class="bp-past-r"><span class="bp-past-i">'+(x.state==='done'?'✓':'·')+'</span>'
+          +'<span class="bp-past-t">'+esc(x.title)+'</span>'
+          +'<span class="bp-past-s">'+x.n+'/'+(x.total||'?')+'과</span></div>').join('')
+        +'</div></details>'
+      : '';
+    return '<div class="bp-area">'
+      +'<div class="bp-h"><span class="pp-area-dot" style="background:'+col+'"></span>'
+      +'<span class="bp-h-l">'+esc(a.label)+'</span>'
+      +(doneN?'<span class="bp-h-n">끝낸 책 '+doneN+'권</span>':'')+'</div>'
+      +nowHtml+nextHtml+pastList
+    +'</div>';
+  }).join('');
+  const title=o.title||'📚 교재 여정';
+  return '<div class="bp-wrap">'+(o.bare?'':'<div class="bp-title">'+title+'</div>')+rows+'</div>';
+}
+
 // ── 단어 그림 ────────────────────────────────────────────────
 // 영어 단어의 대표 사진을 Wikipedia 요약 API 에서 가져온다 (키 불필요, CORS 허용, 실측 평균 230ms).
 // Openverse 도 후보였지만 14개 요청이 전부 5초 타임아웃이라 뺐다.

@@ -8303,6 +8303,7 @@ function renderSpSummary(sid,period,from,to){
       <input type="date" id="sp-sum-to" value="${to||''}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;background:var(--cream);outline:none">
       <button class="btn bt bsm" onclick="renderSpSummary('${sid}','custom',document.getElementById('sp-sum-from').value,document.getElementById('sp-sum-to').value)">적용</button>
     </div>`:''}
+    ${(typeof ppBookPathHtml==='function'&&ppBookPathHtml(sid))?`<div class="card" style="margin-bottom:16px"><div class="ch"><span class="ct">${luIcon('book-open',16)}교재 여정</span><span style="font-size:12px;color:var(--slate)">끝낸 책 · 지금 · 다음</span></div><div class="cb" style="padding:14px 16px">${ppBookPathHtml(sid,{bare:true})}</div></div>`:''}
     <div class="strow" style="margin-bottom:16px">
       <div class="stc"><div class="stnum">${attended}</div><div class="stlbl">출석</div></div>
       <div class="stc"><div class="stnum">${total?att+'%':'<span class="stnum-empty">데이터 없음</span>'}</div><div class="stlbl">출석률</div></div>
