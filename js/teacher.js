@@ -12356,7 +12356,8 @@ function _pgCalHtml(classId){
       ${(LY.hw||LY.c5)&&clsStus.length>1?`<select class="filter-sel" style="font-size:12px;padding:3px 6px" title="숙제를 볼 학생" onchange="pgHwStuPick(this.value,'${classId}')">${clsStus.map(s=>`<option value="${s.id}"${hwStu&&s.id===hwStu.id?' selected':''}>${escAttr(s.name)} 숙제</option>`).join('')}</select>`:''}
       <button class="btn bo bxxs" title="만료된 핀·중복 핀·지난 제외일을 한 번에 정리합니다 (수업 기록은 건드리지 않아요)" onclick="pgTidyProgress('${classId}')">🧹 진도 정돈</button>
       ${hasAnchor?`<button class="btn bo bxxs" title="드래그로 옮긴 예정을 원래 순서로 되돌립니다" onclick="pgClearAnchors('${classId}')">예정 초기화</button>`:''}
-      <span style="flex:1"></span>${legend}
+      <span style="flex:1"></span>
+      <details class="pg-lgw"><summary title="교재 범례 보기">🎨 범례</summary><div class="pg-lgw-b">${legend}</div></details>
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
     <div class="pp-key">

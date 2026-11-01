@@ -90,6 +90,9 @@ async function enter(page, base, role, sid) {
           if (bad.length >= 6) return;
           const r = el.getBoundingClientRect();
           if (r.width === 0 || r.height === 0) return;
+          // 화면 밖에 '완전히' 나가 있는 것은 슬라이드인 패널(translateX(100%))이라 정상.
+          // 진짜 넘침은 왼쪽 끝이 화면 안에 있으면서 오른쪽만 삐져나온 경우다.
+          if (r.left >= window.innerWidth - 1) return;
           if (r.right > window.innerWidth + 2 && !inScroller(el)) {
             bad.push(`${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ')[0] || '-'} right=${Math.round(r.right)}`);
           }

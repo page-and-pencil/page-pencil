@@ -40,8 +40,10 @@ function readVapidJwk(): Record<string, string> {
     }
     return t;
   };
-  const eq = raw0.indexOf("={");
-  const base = strip(eq > 0 ? raw0.slice(eq + 1).trim() : raw0);
+  // 'VAPID_PRIVATE_JWK=...' 처럼 키 이름까지 붙여 넣은 경우를 떼어낸다.
+  // 이전 판은 '={' 만 찾아서 중괄호가 함께 빠진 'NAME="kty":...' 는 못 떼어냈다 (대시보드 AI 지적).
+  const nameEq = /^[A-Za-z_][A-Za-z0-9_]*\s*=\s*/.exec(raw0);
+  const base = strip(nameEq ? raw0.slice(nameEq[0].length).trim() : raw0);
   const tries = [base, "{" + base + "}", "{" + base.replace(/^\{/, "").replace(/\}$/, "") + "}"];
   for (const t of tries) {
     try {

@@ -1474,7 +1474,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .hw-card{border-color:#CBD5E1;}
 .hw-date{font-size:12px;color:var(--slate);font-weight:600;}
 .hw-body{display:flex;flex-direction:column;gap:6px;margin-top:9px;}
-.hw-row{display:grid;grid-template-columns:96px 1fr 96px;gap:9px;align-items:start;
+.hw-row{display:grid;grid-template-columns:96px 1fr 132px;gap:9px;align-items:start;
   background:var(--cream3);border:1px solid var(--border);border-radius:9px;padding:7px 9px;}
 .hw-stu{font-size:12px;font-weight:700;color:var(--navy);padding-top:4px;}
 .hw-stu b{display:block;font-size:9.5px;font-weight:800;color:#B45309;background:#FEF3C7;border-radius:7px;padding:1px 5px;margin-top:3px;text-align:center;}
@@ -1490,13 +1490,14 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .hw-tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .hw-it em{font-style:normal;font-size:9.5px;color:var(--slate);flex-shrink:0;}
 .hw-empty{font-size:11px;color:#A8B3BF;padding:4px 2px;}
-.hw-dots{display:flex;align-items:center;gap:2px;flex-wrap:wrap;padding-top:5px;}
-.hwd{width:9px;height:9px;border-radius:3px;display:inline-block;flex-shrink:0;}
+.hw-dots{display:flex;align-items:center;gap:3px;flex-wrap:nowrap;padding-top:5px;}
+.hwd{width:13px;height:13px;border-radius:4px;display:inline-block;flex-shrink:0;}
 .hwd.full{background:#047857;}
 .hwd.part{background:#6EE7B7;}
 .hwd.zero{background:#E6EDF2;border:1px solid #CBD5E1;}
 .hwd.none{background:transparent;border:1px dashed #DCE3EA;}
-.hw-dots em{font-style:normal;font-size:9.5px;color:var(--slate);margin-left:3px;}
+.hw-dots{gap:3px;}
+.hw-dots em{font-style:normal;font-size:11px;font-weight:700;color:var(--navy);margin-left:5px;}
 .hw-acts{display:flex;gap:5px;flex-wrap:wrap;margin-top:3px;}
 @media(max-width:700px){
   .hw-row{grid-template-columns:1fr;gap:5px;}
@@ -1571,3 +1572,13 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .cl-hw-title{flex-basis:100%;padding:6px 9px;border:1.5px solid var(--border);border-radius:8px;
   font-size:12.5px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;}
 .cl-hw-title:focus{border-color:var(--teal);background:#fff;}
+/* 캘린더 헤더 범례 — 교재가 많으면 두 줄을 차지해 캘린더를 밀어낸다. 기본은 접어둔다 */
+.pg-lgw{position:relative;}
+.pg-lgw>summary{list-style:none;cursor:pointer;font-size:10.5px;font-weight:700;color:var(--slate);
+  border:1px solid var(--border);border-radius:50px;padding:3px 9px;white-space:nowrap;background:#fff;}
+.pg-lgw>summary::-webkit-details-marker{display:none;}
+.pg-lgw>summary:hover{border-color:var(--teal);color:var(--purple);}
+.pg-lgw-b{position:absolute;right:0;top:calc(100% + 5px);z-index:20;background:#fff;border:1px solid var(--border);
+  border-radius:10px;box-shadow:0 8px 24px rgba(15,48,74,.14);padding:9px 11px;display:flex;flex-direction:column;
+  gap:5px;min-width:200px;max-width:min(330px,88vw);}
+@media(max-width:480px){.pg-lgw-b{right:auto;left:0;}}

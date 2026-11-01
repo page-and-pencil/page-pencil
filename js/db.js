@@ -252,10 +252,13 @@ async function supaGetSetting(key){
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),15000);
   try{
-    const r=await fetch(SUPA_URL+'/rest/v1/settings?key=eq.'+encodeURIComponent(key)+'&limit=1',{headers:{...SUPA_HEADERS,'Accept':'application/vnd.pgrst.object+json'},signal:ctrl.signal});
+    // ⚠️ Accept: object+json 을 쓰면 행이 없을 때 406이 떠 콘솔이 빨개진다(값 없음은 정상 상황).
+    // 배열로 받아 첫 항목을 쓰면 0행이어도 200 [] 이라 조용하다.
+    const r=await fetch(SUPA_URL+'/rest/v1/settings?key=eq.'+encodeURIComponent(key)+'&select=value&limit=1',{headers:SUPA_HEADERS,signal:ctrl.signal});
     clearTimeout(tid);
-    if(r.status===406||r.status===404||!r.ok)return null;
-    const d=await r.json();return d?d.value:null;
+    if(!r.ok)return null;
+    const d=await r.json();
+    return (Array.isArray(d)&&d[0])?d[0].value:null;
   }catch(e){
     clearTimeout(tid);
     if(e.name==='AbortError')toast('서버 응답이 느립니다. 잠시 후 다시 시도해 주세요.');
@@ -353,6 +356,8 @@ async function loadAllData(bg){
   try{
     // 테이블별 독립 로드: 한 테이블이 404(미생성)여도 나머지는 정상 로드
     // 'library' 테이블은 레거시(원서는 global_textbooks의 type='library'로 통합) — 더 이상 로드하지 않음
+    // ⚠️ 아직 만들지 않은 테이블은 404가 난다. 기능은 빈 배열로 잘 돌지만 콘솔이 매번 빨개져
+    // 진짜 오류를 가리므로, 한 번 404가 난 테이블은 이 세션 동안 다시 부르지 않는다.
     const tables=['students','lessons','tests','readings','logs','notices','homeworks','assignments','textbooks','messages','global_textbooks','classes','monthly_reports'];
     const res=await Promise.allSettled([
       ...tables.map(t=>t==='global_textbooks'?supaFetchAll(t,true):supaFetch(t,'',true)),
@@ -502,7 +507,7 @@ async function callClaudeProxy(body){
 // MyMemory 무료 번역 API (한국어 뜻, API Key 불필요)
 async function getMeaningKoFast(word){
   try{
-    const r=await fetch(`https://api.mymemory.translated.world/get?q=${encodeURIComponent(word)}&langpair=en|ko`,{signal:AbortSignal.timeout(3000)});
+    const r=await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|ko`,{signal:AbortSignal.timeout(3000)});
     if(!r.ok)return null;
     const d=await r.json();
     if(d.responseStatus!==200)return null;
@@ -554,8 +559,8 @@ async function elevenGetAudioUrl(text,cfg,wordMode){
   const id='tts_'+await sha256Hex(voice+'|'+(wordMode?'w2|':'s4|')+text);
   // 1) 캐시 조회 — 같은 문장은 다시 생성하지 않음 (크레딧 절약)
   try{
-    const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
-    if(r.ok){const row=await r.json();if(row?.data?.url)return row.data.url;}
+    const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:SUPA_HEADERS});
+    if(r.ok){const a=await r.json();const row=Array.isArray(a)?a[0]:a;if(row?.data?.url)return row.data.url;}
   }catch(e){}
   // 2) 생성 — 단어: 고품질+안정(또박또박) / 문장: 균형 설정(일관된 톤 + 은은한 생기)
   //    0.5/0.35는 원장이 고른 Matilda 샘플 톤과 동일 값 — 바꾸면 들었던 느낌과 달라짐
@@ -592,8 +597,8 @@ async function elevenGetPassageAudio(text,cfg,genSpeed){
   // 속도는 생성 단계(네이티브 speed)에서 — 재생단 감속은 피치가 떨어져 목소리가 변함
   const id='tts_'+await sha256Hex(voice+'|p6|'+speed+'|'+text);
   try{
-    const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
-    if(r.ok){const row=await r.json();if(row?.data?.url&&row?.data?.times)return row.data;}
+    const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:SUPA_HEADERS});
+    if(r.ok){const a=await r.json();const row=Array.isArray(a)?a[0]:a;if(row?.data?.url&&row?.data?.times)return row.data;}
   }catch(e){}
   // 본문은 고품질 모델 + 균형 설정 — 내레이션 프로소디가 안정적 (유닛·레벨당 1회 생성)
   const gen=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps?output_format=mp3_44100_64`,{
