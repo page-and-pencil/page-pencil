@@ -257,7 +257,14 @@ function startConsult(){
   if(k&&k.phone){window.open('tel:'+k.phone);return;}
   toast('상담 문의는 선생님께 연락해 주세요 🙂');
 }
-document.addEventListener('DOMContentLoaded',()=>{try{if(document.getElementById('land-login-area'))landRole('teacher');}catch(e){}});
+// 로그인 폼은 가능한 한 빨리 그린다 — DOMContentLoaded 를 기다리면 teacher.js 등 1.5MB 를
+// 파싱한 뒤(실측 349ms)에야 폼이 들어와 아래 요소가 밀렸다(CLS 0.072).
+// utils.js 가 실행되는 시점에 #land-login-area 는 이미 DOM 에 있으므로 그 자리에서 바로 그린다.
+(function(){
+  const draw=()=>{try{if(document.getElementById('land-login-area'))landRole('teacher');}catch(e){}};
+  if(document.getElementById('land-login-area'))draw();
+  else document.addEventListener('DOMContentLoaded',draw);
+})();
 
 // ── UTILS ──
 function escU(u){return(u||'').replace(/'/g,"\\'");}

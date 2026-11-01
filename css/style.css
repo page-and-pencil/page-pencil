@@ -27,26 +27,26 @@ body{font-family:var(--fb);background:var(--cream3);color:var(--navy);min-height
 }
 
 /* LANDING / 로그인 (시안 2단 레이아웃) */
-#s-land{background:#0E2230;align-items:center;justify-content:center;position:relative;overflow:auto;padding:24px;}
-.land2{width:100%;max-width:940px;display:flex;background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 18px 44px rgba(14,34,48,.32);z-index:1;}
+#s-land{background:radial-gradient(900px 620px at 22% 8%,#16384F 0%,#0A1C27 52%,#06121A 100%);align-items:center;justify-content:center;position:relative;overflow:auto;padding:24px;}
+.land2{width:100%;max-width:980px;min-height:min(600px,calc(100dvh - 48px));display:flex;background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 26px 70px rgba(0,0,0,.45),0 2px 0 rgba(255,255,255,.05) inset;z-index:1;}
 /* 좌측 브랜드 패널 */
-.land2-brand{width:46%;flex-shrink:0;background:#0E2230;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:42px 40px;color:#fff;}
-.land2-brand::before{content:'';position:absolute;inset:0;background:linear-gradient(to right,transparent 30px,rgba(226,84,74,.35) 30px,rgba(226,84,74,.35) 31.5px,transparent 31.5px),repeating-linear-gradient(transparent,transparent 27px,rgba(255,255,255,.055) 27px,rgba(255,255,255,.055) 28px);pointer-events:none;}
+.land2-brand{width:46%;flex-shrink:0;background:linear-gradient(165deg,#1A3F58 0%,#102A3C 46%,#0C2130 100%);position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:42px 40px;color:#fff;}
+.land2-brand::before{content:'';position:absolute;inset:0;background:linear-gradient(to right,transparent 30px,rgba(226,84,74,.28) 30px,rgba(226,84,74,.28) 31.5px,transparent 31.5px),repeating-linear-gradient(transparent,transparent 33px,rgba(255,255,255,.032) 33px,rgba(255,255,255,.032) 34px);pointer-events:none;}
 .land2-brand::after{content:none;}
 .land2-logo{position:relative;font-family:var(--flogo);font-size:21px;font-weight:700;letter-spacing:-.01em;}
 .land2-logo span{color:#0CA4C9;font-style:italic;}
 .land2-mid{position:relative;}
 .land2-eyebrow{font-size:14px;font-weight:700;color:#0CA4C9;letter-spacing:.04em;margin-bottom:16px;}
-.land2-h1{font-size:31px;font-weight:800;line-height:1.34;color:#fff;margin-bottom:16px;}
-.land2-sub{font-size:15px;line-height:1.75;color:rgba(255,255,255,.72);margin-top:22px;}
+.land2-h1{font-size:36px;font-weight:800;line-height:1.3;letter-spacing:-.02em;color:#fff;margin-bottom:16px;text-wrap:balance;}
+.land2-sub{font-size:16px;line-height:1.8;color:rgba(255,255,255,.76);margin-top:20px;}
 .land2-chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:28px;}
 .land2-chip{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:rgba(255,255,255,.88);background:rgba(255,255,255,.08);border-radius:9px;padding:7px 11px;}
-.land2-foot{position:relative;font-size:13px;color:rgba(255,255,255,.4);}
+.land2-foot{position:relative;font-size:13px;color:rgba(255,255,255,.45);}
 /* 우측 역할 선택 */
-.land2-right{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 34px;background:#fff;}
+.land2-right{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 34px;background:#fff;}
 .land2-form{width:100%;max-width:360px;}
-.land2-title{font-size:25px;font-weight:800;letter-spacing:-.02em;color:var(--navy);margin-bottom:6px;}
-.land2-desc{font-size:14.5px;color:var(--slate);margin-bottom:24px;}
+.land2-title{font-size:27px;font-weight:800;letter-spacing:-.02em;color:var(--navy);margin-bottom:6px;}
+.land2-desc{font-size:15px;color:var(--slate);margin-bottom:22px;}
 .land2-roles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
 .role-card{display:flex;flex-direction:column;align-items:center;gap:9px;border:1.5px solid rgba(15,48,74,.1);background:#fff;border-radius:14px;padding:18px 8px;cursor:pointer;font-family:var(--fb);transition:all .15s;}
 .role-card:hover{border-color:#0CA4C9;background:#F8FBFC;transform:translateY(-2px);box-shadow:0 8px 22px rgba(12,164,201,.18);}
@@ -1692,4 +1692,53 @@ html{scroll-padding-top:72px;}
   background-color .15s ease,border-color .15s ease;}
 @media(hover:none){
   .btn:active,.chip:active,.stutab:active,.cls-card:active,.hw-card:active{transform:scale(.97);}
+}
+
+/* ═══ 로그인 첫 화면 다듬기 ═══ */
+/* 로그인 폼이 들어오기 전에 자리를 잡아 둔다 — 비어 있다가 채워지며 아래가 밀리던 문제(CLS 0.072) */
+#land-login-area{min-height:162px;}
+
+/* 역할마다 색을 달리해 한눈에 구분되게 — 전에는 셋 다 같은 회색 아이콘이었다 */
+#rc-teacher .role-ico{background:#E3F5FA;color:#0B8DAE;}
+#rc-student .role-ico{background:#FEF0D5;color:#C2740A;}
+#rc-parent  .role-ico{background:#E9EFF4;color:#2C4A63;}
+#rc-teacher:hover{border-color:#0CA4C9;box-shadow:0 8px 22px rgba(12,164,201,.18);}
+#rc-student:hover{border-color:#F59E0B;box-shadow:0 8px 22px rgba(245,158,11,.18);}
+#rc-parent:hover {border-color:#2C4A63;box-shadow:0 8px 22px rgba(44,74,99,.16);}
+#rc-teacher.role-card-on{border-color:#0CA4C9;background:#EDF9FC;}
+#rc-student.role-card-on{border-color:#F59E0B;background:#FEF6E6;}
+#rc-parent.role-card-on {border-color:#2C4A63;background:#EDF2F6;}
+#rc-teacher.role-card-on .role-ico{background:#0CA4C9;color:#fff;}
+#rc-student.role-card-on .role-ico{background:#F59E0B;color:#fff;}
+#rc-parent.role-card-on  .role-ico{background:#2C4A63;color:#fff;}
+#rc-student.role-card-on .role-lbl{color:#B4690E;}
+#rc-parent.role-card-on  .role-lbl{color:#2C4A63;}
+.role-card.role-card-on{box-shadow:0 6px 18px rgba(15,48,74,.1);}
+
+/* 브랜드 칸 하단 기능 칩 — 비어 있던 300px를 '이 앱이 뭘 하는지'로 채운다 */
+.land2-chip i,.land2-chip svg{opacity:.85;flex-shrink:0;}
+
+@media(max-width:720px){
+  /* 폰에서 폼 아래가 230px쯤 비어 있었다. .land2-foot 는 DOM 상 브랜드 칸 안이라 바닥으로
+     보낼 수 없으므로, 폼을 남은 높이의 가운데에 두고 요소를 키워 공간을 쓴다. */
+  /* 가운데 정렬은 이번엔 위쪽에 100px 틈을 만들었다 → 폼은 위에 붙이고,
+     '홈 화면에 앱으로 추가'를 margin-top:auto 로 바닥에 보내 아래를 마무리한다. */
+  .land2-right{justify-content:flex-start;}
+  .land2-form{display:flex;flex-direction:column;flex:1;width:100%;}
+  /* 바닥이 그냥 비어 끝나지 않도록 설치 안내를 카드로 — 다른 화면 카드와 같은 14px/1.5px */
+  .land-install{margin-top:auto;padding:15px 12px;background:var(--cream3);
+    border:1.5px solid var(--border);border-radius:14px;color:var(--navy);}
+  .land-install:hover{background:var(--tl);border-color:var(--teal);text-decoration:none;}
+  .land2-h1{font-size:17px;}
+  .land2-sub{font-size:13.5px;}
+  /* 폰은 세로가 길어 폼 아래가 170px쯤 떴다 → 터치 영역을 키워 공간을 쓴다 */
+  .role-card{padding:22px 6px;gap:11px;}
+  .role-card .role-ico{width:46px;height:46px;}
+  .role-card .role-lbl{font-size:15px;}
+  .land2-roles{margin-bottom:24px;}
+  .land-lbl{font-size:12.5px;margin-bottom:9px;}
+  .land-field{padding:15px 14px;border-radius:12px;}
+  .land-input{font-size:16px;}
+  .land-submit{padding:17px;font-size:17px;border-radius:13px;}
+  .land-install{font-size:13.5px;}
 }
