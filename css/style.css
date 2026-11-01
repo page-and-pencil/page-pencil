@@ -628,7 +628,7 @@ div.ig-like{cursor:default;}
 #sp-detail-wrap{display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;}
 .stu-panel-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;gap:8px;}
 .sp-avatar{width:50px;height:50px;border-radius:14px;background:#0CA4C9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;font-family:var(--fd);flex-shrink:0;}
-.stu-panel-body{flex:1;overflow-y:auto;padding:16px 20px;}
+.stu-panel-body{flex:1;min-height:0;overflow-y:auto;padding:16px 20px;}
 .stu-panel-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.08) transparent;}
 .stu-panel-tabs::-webkit-scrollbar{height:2px;}
 .stu-panel-tabs::-webkit-scrollbar-thumb{background:rgba(0,0,0,.1);border-radius:2px;}
@@ -669,12 +669,18 @@ div.ig-like{cursor:default;}
 }
 
 /* 클래스 split pane */
+/* 클래스 탭은 2단 고정 레이아웃(상단 시간표 고정 + 좌 목록·우 상세 각자 스크롤).
+   그런데 부모 .ab 가 display:block 이라 아래 flex:1 이 무효가 되어, 패널이 내용만큼(9500px)
+   늘어나고 .ab 하나만 스크롤하는 긴 한 덩어리로 동작했다. .ab 는 모든 탭이 쓰는 공용
+   컨테이너라 전역으로 바꾸면 다른 탭이 깨지므로, 클래스 탭이 열렸을 때만 flex 컨테이너로 만든다.
+   :has() 미지원 브라우저에서는 종전처럼 긴 한 덩어리로 스크롤된다(동작은 유지). */
+.ab:has(>#t-class.panel.active){display:flex;flex-direction:column;overflow:hidden;}
 #t-class.panel.active{display:flex;flex-direction:column;padding:0;flex:1;min-height:0;overflow:hidden;}
 .cls-tt{flex-shrink:0;padding:10px 1rem;border-bottom:1px solid var(--border);background:#fff;}
 .cls-split{display:flex;flex:1;overflow:hidden;min-height:0;}
 .cls-list-col{width:220px;flex-shrink:0;border-right:1.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:#fff;}
 .cls-list-head{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
-.cls-list-inner{flex:1;overflow-y:auto;padding:8px;}
+.cls-list-inner{flex:1;min-height:0;overflow-y:auto;padding:8px;}
 .cls-card{padding:10px 12px;border-radius:var(--rs);border:1.5px solid var(--border);margin-bottom:6px;cursor:pointer;transition:all .15s;}
 .cls-card:hover,.cls-card.active{border-color:var(--teal);background:var(--tl);}
 .cls-card.today-cls{border-color:var(--teal);}
@@ -684,7 +690,7 @@ div.ig-like{cursor:default;}
 .cls-resizer:hover,.cls-resizer.dragging{background:var(--teal);}
 .cls-record-col{width:460px;min-width:300px;flex-shrink:0;display:none;flex-direction:column;border-left:1.5px solid var(--border);overflow:hidden;background:#fff;}
 .cls-record-col.open{display:flex;}
-.cls-record-inner{flex:1;overflow-y:auto;padding:14px 18px;}
+.cls-record-inner{flex:1;min-height:0;overflow-y:auto;padding:14px 18px;}
 @media(max-width:767px){
   /* 모바일: 목록은 in-flow(페이지 스크롤·상단 탭 유지), 상세·기록은 뷰포트 전체 오버레이.
      이전엔 셋 다 position:absolute였는데 .ab가 overflow:visible(페이지 스크롤)이고 자식이 전부
@@ -1642,8 +1648,11 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 }
 html{scroll-padding-top:72px;}
 /* 안쪽 목록을 끝까지 내렸을 때 페이지가 따라 밀리는 현상(스크롤 연쇄) 차단 — 폰에서 특히 거슬린다 */
-.ab,.stu-panel-body,.cls-list-inner,.cls-record-inner,.mdl,.lib-table-container,.badge-shelf,
-#book-cards,#book-series,#ws-cards,#class5-db-body,#tbd-pane-info{overscroll-behavior:contain;}
+/* ⚠️ 여기에 overscroll-behavior:contain 을 모든 스크롤 컨테이너에 걸었다가 되돌렸다.
+   스크롤할 내용이 없는 컨테이너는 항상 '스크롤 끝' 상태라, contain 이 조상으로의 휠 전달까지
+   막아 버린다 → 그 영역에 마우스를 올리면 페이지가 아예 안 내려간다(선생님 클래스 탭에서 발생).
+   모달처럼 뒤쪽이 움직이면 안 되는 곳에만 남긴다. */
+.mdl{overscroll-behavior:contain;}
 
 /* ═══ 학생 탭 전환 — 패널만 좌우로 미끄러진다 (헤더·하단 탭바는 고정) ═══ */
 @media(prefers-reduced-motion:no-preference){
