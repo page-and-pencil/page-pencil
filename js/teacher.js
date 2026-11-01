@@ -12206,17 +12206,17 @@ function _pgCalHtml(classId){
     const _prio=k=>({vocab:10,phonics:20,grammar:30,listening:40,writing:50,naesin:60,reading:70}[String(k||'').replace(/_\d+$/,'')]??65);
     let chips=Object.values(recBy[ds]||{}).sort((a,b)=>_prio(a.cat)-_prio(b.cat)).map(e=>{
       const us=[...e.units];
-      return`<span class="${recCls}" style="--pgc:${colorOf(e.tbId,e.cat)}" title="${escAttr((SLBL[e.cat]?SLBL[e.cat]+' · ':'')+e.book+(us.length?' — '+us.join(', '):'')+futTip)}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">${us.length?us.join(', '):'✓'}</span>`;
+      return`<span class="${recCls} has-x" style="--pgc:${colorOf(e.tbId,e.cat)}" title="${escAttr((SLBL[e.cat]?SLBL[e.cat]+' · ':'')+e.book+(us.length?' — '+us.join(', '):'')+futTip+' · 우클릭=메뉴, ✕=이 진도만 지우기')}" oncontextmenu="pgChipMenu(event,'rec','${classId}','${ds}','${escAttr(e.tbId||'')}','','')" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">${us.length?us.join(', '):'✓'}<i class="pg-x" title="이 진도만 지우기" onclick="pgRecMatDel(event,'${classId}','${ds}','${escAttr(e.tbId||'')}','${escJsA(e.book)}')">✕</i></span>`;
     }).join('');
     chips+=[...(ortRecBy[ds]||[])].map(t=>
       `<span class="${recCls}" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr('원서 — '+t+(ortGroupOf(t)?' ('+ortGroupOf(t)+')':'')+' · 클릭=AR·완독 편집')}" onclick="event.stopPropagation();pgOrtRecEdit('${classId}','${escJsA(t)}','${ds}')">📗 ${t}</span>`
     ).join('');
     chips+=[...(pdRecBy[ds]||[])].map(t=>
-      `<span class="${recCls}" style="--pgc:#7B1FA2" title="${escAttr('Pencil Down — '+t+futTip)}" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">✏️ ${t}</span>`
+      `<span class="${recCls} has-x" style="--pgc:#7B1FA2" title="${escAttr('Pencil Down — '+t+futTip+' · 우클릭=메뉴, ✕=이 기록만 지우기')}" oncontextmenu="pgChipMenu(event,'rec','${classId}','${ds}','','${escJsA(t)}')" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">✏️ ${t}<i class="pg-x" title="이 기록만 지우기" onclick="pgRecMatDel(event,'${classId}','${ds}','','${escJsA(t)}')">✕</i></span>`
     ).join('');
     if(!chips&&lessonDates.has(ds))chips=`<span class="${recCls}" style="--pgc:#94A3B8" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">수업</span>`;
     chips+=(ghostBy[ds]||[]).slice().sort((a,b)=>_prio(a.s)-_prio(b.s)).map(g=>
-      `<span class="pg-chip ghost" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (예정 — 미래 날짜로 끌면 이동, 오늘·지난 날짜에 놓으면 그날 수업으로 기록, 더블클릭=기록 확정)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escJsA(g.unit)}','${ds}','${escJsA(g.s)}')">${g.unit}</span>`
+      `<span class="pg-chip ghost has-x" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (끌어서 이동 · 더블클릭=기록 확정 · 우클릭=메뉴 · ✕=이 날에서 빼기)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" oncontextmenu="pgChipMenu(event,'ghost','${classId}','${ds}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escJsA(g.unit)}','${ds}','${escJsA(g.s)}')">${g.unit}<i class="pg-x" title="이 날에서 빼기" onclick="pgChipSkip(event,'${classId}','${g.tbId}','${ds}','${escJsA(g.title)}')">✕</i></span>`
     ).join('');
     chips+=(ortGhostBy[ds]||[]).map(g=>
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr((clsStus.length>1?g.name+' — ':'')+g.title+(ortGroupOf(g.title)?' · '+ortGroupOf(g.title):'')+' (원서 예정 — 끌어서 옮기기, 더블클릭=읽음 기록)')}" ondragstart="pgDragStart(event,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" ondblclick="pgOrtDbl(event,'${classId}','${g.sid}','${escJsA(g.title)}','${ds}')">📗 ${clsStus.length>1?g.name+'·':''}${g.title}</span>`
@@ -12264,17 +12264,18 @@ function _pgCalHtml(classId){
       <span class="pp-key-i"><i class="pp-sw gho"></i>예정</span>
       <span class="pp-key-i"><i class="pp-sw om"></i>옆 달</span>
       <span class="pp-key-sp"></span>
-      <span class="pp-key-d">칩을 끌어 진도 이동</span>
+      <span class="pp-key-d">끌어서 이동 · ✕로 빼기 · 우클릭 메뉴</span>
     </div>
     ${_ppHelp('진도 캘린더 사용법',[
       ['🖐','칩 드래그','진도를 다른 날로 이동'],
+      ['✕','칩 오른쪽 ✕','예정은 이 날에서 빼기 / 기록은 이 진도만 지우기'],
+      ['🖱','칩 우클릭','기록 확정 · 📌 고정 · 빼기 · 예정 편집 메뉴'],
+      ['⚡','예정 칩 더블클릭','그 날 수업으로 기록 확정'],
       ['◀▶','드래그 중 올려두기','달을 넘겨 다른 달로도 이동'],
       ['👆','칩 한 번 탭 → 날짜 탭','달을 넘겨도 유지되는 이동'],
-      ['✅','예정 칩을 오늘·지난 날에','그날 수업으로 기록'],
-      ['⚡','오늘 예정 칩 더블클릭','수업 기록 바로 확정'],
       ['🗓','빈 수업일 클릭','수업 기록 · 예정 편집 · 수업 안 함'],
       ['🏖','빈 칸 드래그','기간 휴강·방학 한 번에'],
-      ['📘','숙제·클래스5','과제 메뉴의 숙제 캘린더에서'],
+      ['📘','숙제·클래스5','숙제 패널과 숙제 캘린더에서'],
     ])}
   </div>`;
 }
@@ -12869,15 +12870,15 @@ async function pgPlanUnitSwap(tbId,oldUnit,newUnit){
   toast(`${newUnit} → 이 날로 바꿨어요 — 원래 유닛은 순서대로 다시 배치돼요`);
 }
 // 예정 편집 모달: 이 날 이 교재 빼기/되돌리기 — 그 날 걸린 핀도 함께 풀어야 다시 안 나옴
-async function pgSlotSkipToggle(tbId){
-  if(!_pgPlanCtx)return;
-  const {classId,date}=_pgPlanCtx;
-  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+// 이 날 이 교재를 예정에서 빼기/되돌리기 — 모달과 칩 ✕가 같은 경로를 쓴다
+// on 생략 시 토글. 성공하면 최종 상태(true=빠짐)를 반환, 실패하면 null
+async function _pgSlotSkipSet(classId,date,tbId,on){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return null;
   const map={...(c.slotSkip||{})};
   const list=(map[tbId]||[]).slice();
   const i=list.indexOf(date);
-  const on=i<0;
-  if(on)list.push(date);else list.splice(i,1);
+  if(on===undefined)on=i<0;
+  if(on){if(i<0)list.push(date);}else if(i>=0)list.splice(i,1);
   if(list.length)map[tbId]=list;else delete map[tbId];
   c.slotSkip=map;
   if(on){ // 뺄 때는 이 날짜 핀도 해제 (핀이 남으면 빼도 그대로 배치됨)
@@ -12887,10 +12888,103 @@ async function pgSlotSkipToggle(tbId){
     c.progressAnchors=anc;
   }
   try{await supaUpsert('classes',classId,c,null);}
-  catch(e){console.error('pgSlotSkipToggle:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  catch(e){console.error('_pgSlotSkipSet:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return null;}
+  return on;
+}
+async function pgSlotSkipToggle(tbId){
+  if(!_pgPlanCtx)return;
+  const {classId,date}=_pgPlanCtx;
+  const on=await _pgSlotSkipSet(classId,date,tbId);
+  if(on===null)return;
   renderClsLessons(classId);
   openPgPlan(classId,date);
   toast(on?'이 날은 이 교재를 뺐어요 — 진도는 다음 수업일로':'다시 넣었어요');
+}
+// ── 칩에서 바로 조작 ──
+// 예정 칩의 ✕ — 이 날 이 교재만 빼기 (진도는 사라지지 않고 다음 수업일로 밀림)
+async function pgChipSkip(ev,classId,tbId,ds,label){
+  if(ev){ev.stopPropagation();ev.preventDefault();}
+  pgMenuClose();
+  const on=await _pgSlotSkipSet(classId,ds,tbId,true);
+  if(on===null)return;
+  renderClsLessons(classId);
+  toast((label||'이 교재')+' — 이 날에서 뺐어요 (진도는 다음 수업일로)');
+}
+// 기록 칩의 ✕ — 그 날 수업 기록에서 이 교재 진도만 지우기 (수업 기록 자체는 남김)
+async function pgRecMatDel(ev,classId,ds,tbId,book){
+  if(ev){ev.stopPropagation();ev.preventDefault();}
+  pgMenuClose();
+  const rows=(_cache.lessons||[]).filter(l=>l.classId===classId&&l.date===ds&&l.materials
+    &&Object.values(l.materials).some(m=>m&&(tbId?(m.bookId===tbId||m.book===book):m.book===book)));
+  if(!rows.length){toast('지울 진도를 찾지 못했어요');return;}
+  const units=[];
+  rows.forEach(l=>Object.values(l.materials).forEach(m=>{
+    if(m&&(tbId?(m.bookId===tbId||m.book===book):m.book===book)&&m.unit&&units.indexOf(m.unit)<0)units.push(m.unit);
+  }));
+  askConfirm('진도 지우기',
+    (book||'이 교재')+(units.length?' '+units.join(', '):'')+'\n'+ds+' 수업 기록에서 이 교재 진도만 지울까요?'+'\n'+'\n'
+    +'수업 기록 자체와 다른 교재 진도는 그대로 남습니다.'+(rows.length>1?' (학생 '+rows.length+'명 기록)':''),
+    '지우기','bd',async()=>{
+    for(const l of rows){
+      const mats={...l.materials};
+      Object.keys(mats).forEach(k=>{
+        const m=mats[k];
+        if(m&&(tbId?(m.bookId===tbId||m.book===book):m.book===book))delete mats[k];
+      });
+      l.materials=mats;
+      try{await supaUpsert('lessons',l.id,l,l.sid);}
+      catch(e){console.error('pgRecMatDel:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+    }
+    renderClsLessons(classId);
+    toast('진도를 지웠어요 — 다음 수업일 예정에 다시 올라옵니다');
+  });
+}
+// 칩 우클릭(또는 길게 누르기) 메뉴 — 옮기기 외의 조작을 한곳에
+function pgChipMenu(ev,kind,classId,ds,tbId,unit,sKey){
+  if(ev){ev.preventDefault();ev.stopPropagation();}
+  const c=DB.classes().find(x=>x.id===classId);
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  const name=(tb?tb.title:'')||unit||'';
+  if(kind==='rec'){
+    const book=tb?tb.title:(unit||'');   // 펜슬다운처럼 교재 id가 없는 기록은 제목으로 찾는다
+    pgCellMenu(ev,classId,ds,[
+      {ico:'✏️',label:'수업 기록 수정',sub:book,run:()=>openClassLessonEdit(classId,ds)},
+      {ico:'🗑',label:'이 기록만 지우기',sub:'수업 기록은 남겨요',run:()=>pgRecMatDel(null,classId,ds,tbId,book)},
+    ]);
+    return;
+  }
+  const pinned=_pgAncPins((c&&c.progressAnchors||{})[tbId]).some(pn=>pn.date===ds&&_pgNorm(pn.unit)===_pgNorm(unit));
+  const items=[
+    {ico:'✅',label:'이 날 수업으로 기록',sub:name+(unit?' '+unit:''),run:()=>pgGhostDbl(null,classId,tbId,unit,ds,sKey)},
+    pinned
+      ?{ico:'📌',label:'고정 해제',sub:'자동 배치로 되돌리기',run:()=>pgChipUnpin(classId,tbId,unit,ds)}
+      :{ico:'📌',label:'이 날로 고정',sub:'다른 진도가 밀려도 이 날 유지',run:()=>pgChipPin(classId,tbId,unit,ds)},
+    {ico:'🚫',label:'이 날에서 빼기',sub:'진도는 다음 수업일로',run:()=>pgChipSkip(null,classId,tbId,ds,name)},
+    {ico:'📝',label:'예정 편집',sub:'이 날 전체 보기',run:()=>openPgPlan(classId,ds)},
+  ];
+  pgCellMenu(ev,classId,ds,items);
+}
+async function pgChipPin(classId,tbId,unit,ds){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const anc={...(c.progressAnchors||{})};
+  const prev=_pgAncPins(anc[tbId]).filter(pn=>_pgNorm(pn.unit)!==_pgNorm(unit));
+  anc[tbId]={pins:[...prev,{unit,date:ds}]};
+  c.progressAnchors=anc;
+  try{await supaUpsert('classes',classId,c,null);}
+  catch(e){console.error('pgChipPin:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  renderClsLessons(classId);
+  toast(unit+' — 이 날로 고정했어요 📌');
+}
+async function pgChipUnpin(classId,tbId,unit,ds){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const anc={...(c.progressAnchors||{})};
+  const pins=_pgAncPins(anc[tbId]).filter(pn=>!(pn.date===ds&&_pgNorm(pn.unit)===_pgNorm(unit)));
+  if(pins.length)anc[tbId]={pins};else delete anc[tbId];
+  c.progressAnchors=anc;
+  try{await supaUpsert('classes',classId,c,null);}
+  catch(e){console.error('pgChipUnpin:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  renderClsLessons(classId);
+  toast('고정을 풀었어요 — 자동 배치로 돌아갑니다');
 }
 // 예정 편집 모달: 딕테이션 분리/합치기 — 그 유닛을 '본책 날 + 딕테이션 날' 두 칸으로
 async function pgDictToggle(tbId,unit){

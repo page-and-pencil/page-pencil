@@ -1518,3 +1518,19 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
   margin-top:5px;padding:9px 11px;background:var(--cream2);border-radius:var(--rs);font-size:12.5px;color:var(--slate);}
 .hw-bell{font-style:normal;font-size:11px;opacity:.45;cursor:help;margin-left:3px;}
 .hw-bell.on{opacity:1;}
+
+/* ── 칩에서 바로 지우기 (✕) ── */
+/* 예정·기록 칩을 모달에 들어가지 않고 그 자리에서 뺄 수 있게. 평소엔 흐리게, 올리면 뚜렷하게 */
+.pg-chip.has-x{position:relative;padding-right:15px;}
+.pg-chip .pg-x{position:absolute;top:0;right:0;bottom:0;width:14px;display:flex;align-items:center;
+  justify-content:center;font-style:normal;font-size:9px;line-height:1;cursor:pointer;opacity:.3;
+  border-radius:0 5px 5px 0;transition:opacity .12s,background .12s;}
+.pg-chip:hover .pg-x{opacity:.65;}
+.pg-chip .pg-x:hover{opacity:1;background:rgba(225,29,72,.16);color:#E11D48;}
+.pg-chip.rec .pg-x{color:#fff;}
+.pg-chip.rec .pg-x:hover{background:rgba(255,255,255,.3);color:#fff;}
+/* 손가락으로는 hover가 없으니 터치 기기에서는 항상 보이게 + 조금 넓게 */
+@media(hover:none){
+  .pg-chip.has-x{padding-right:18px;}
+  .pg-chip .pg-x{width:17px;opacity:.55;}
+}
