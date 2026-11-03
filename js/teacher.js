@@ -681,7 +681,7 @@ function renderSpVocab(sid){
   const _wCnt={};_pick.cards.forEach(c=>{const w=_pick.why[c.id];_wCnt[w]=(_wCnt[w]||0)+1;});
   const todaySec=`<div style="padding:10px 12px;background:var(--cream2);border:1.5px solid var(--border);border-radius:10px;margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-        <span style="font-size:13px;font-weight:800;color:var(--navy)">📅 오늘의 20개</span>
+        <span style="font-size:13px;font-weight:800;color:var(--navy)">${luIcon('calendar',15)||''} 오늘의 20개</span>
         <span style="font-size:12px;color:var(--slate)">학생 앱 '오늘의 20개'와 동일 · 실시간 계산${_pick.lessonDate?` · 직전 수업 ${_pick.lessonDate.slice(5)}`:''}</span>
         ${Object.entries(_wCnt).map(([k,n])=>`<span style="font-size:11.5px;font-weight:700;color:${_WHY[k].c}">${_WHY[k].i} ${_WHY[k].l} ${n}</span>`).join('')}
         ${_pick.doneToday?`<span style="font-size:11.5px;color:var(--slate)">· 오늘 이미 학습한 ${_pick.doneToday}개 제외</span>`:''}
@@ -745,9 +745,9 @@ function renderSpVocab(sid){
     </div>
     <div id="vocab-utils" style="display:none;padding:10px 12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border);margin-bottom:12px">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn bo bsm" onclick="reqRefreshVocabExamples('${sid}')">📚 원서 예문 갱신</button>
+        <button class="btn bo bsm" onclick="reqRefreshVocabExamples('${sid}')">${luIcon('book-open',15)||''} 원서 예문 갱신</button>
         <button class="btn bo bsm" onclick="batchFillEmptyExamples('${sid}')">✏️ 빈 예문 채우기</button>
-        <button class="btn bo bsm" onclick="batchFixKoreanExamples('${sid}')">🔄 한국어 예문 교체</button>
+        <button class="btn bo bsm" onclick="batchFixKoreanExamples('${sid}')">${luIcon('refresh-cw',15)||''} 한국어 예문 교체</button>
       </div>
     </div>
     <div id="vocab-add-form" style="display:none;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--teal);margin-bottom:12px">
@@ -1013,7 +1013,7 @@ function renderSpLessons(sid){
   const all=DB.less().filter(l=>l.sid===sid).slice()
     .sort((a,b)=>_spLesSort==='desc'?(b.date||'').localeCompare(a.date||''):(a.date||'').localeCompare(b.date||''));
   if(!all.length){
-    el.innerHTML=`<div class="empty boxed"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div><div class="empty-s">수업을 기록하면 교재 진도·코멘트가 학부모에게 전달됩니다</div><button class="btn bt bsm" onclick="goAddLesson('${sid}')">+ 첫 수업 기록하기</button></div>`;
+    el.innerHTML=`<div class="empty boxed"><div class="empty-i">${luIcon('book-open',15)||''}</div><div class="empty-t">아직 수업 기록이 없습니다</div><div class="empty-s">수업을 기록하면 교재 진도·코멘트가 학부모에게 전달됩니다</div><button class="btn bt bsm" onclick="goAddLesson('${sid}')">+ 첫 수업 기록하기</button></div>`;
     return;
   }
   const months=[...new Set(all.map(l=>(l.date||'').slice(0,7)).filter(Boolean))].sort().reverse();
@@ -1119,7 +1119,7 @@ async function loadStuPanel(sid){
 
   // ── 테스트 (최근 5개) ──
   const tstListHtml=!tsts.length
-    ?`<div class="empty boxed"><div class="empty-i">📝</div><div class="empty-t">아직 테스트 기록이 없습니다</div><div class="empty-s">회차별 점수를 입력하면 단어·어법 추이 그래프가 표시됩니다</div><button class="btn bt bsm" onclick="closeStuPanel();swTab('t-tst');setTimeout(()=>{const el=document.getElementById('ts-stu');if(el){el.value='${sid}';el.dispatchEvent(new Event('change'));}},200)">+ 테스트 입력하기</button></div>`
+    ?`<div class="empty boxed"><div class="empty-i">${luIcon('pencil',15)||''}</div><div class="empty-t">아직 테스트 기록이 없습니다</div><div class="empty-s">회차별 점수를 입력하면 단어·어법 추이 그래프가 표시됩니다</div><button class="btn bt bsm" onclick="closeStuPanel();swTab('t-tst');setTimeout(()=>{const el=document.getElementById('ts-stu');if(el){el.value='${sid}';el.dispatchEvent(new Event('change'));}},200)">+ 테스트 입력하기</button></div>`
     :tsts.slice(0,5).map(t=>{
       const vp=pct(t.vocabCorrect,t.vocabTotal),gp=pct(t.grammarCorrect,t.grammarTotal);
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
@@ -1135,7 +1135,7 @@ async function loadStuPanel(sid){
   const neltList=(s.neltResults||[]).slice().reverse();
   const neltHtml=`<div class="sp-card" style="margin-top:20px">
     <div class="sp-card-head">
-      <span class="sp-card-title">🏆 NELT 결과</span>
+      <span class="sp-card-title">${luIcon('trophy',15)||''} NELT 결과</span>
       <button class="btn bo bsm" onclick="openNeltModal('${sid}')">+ 결과 입력</button>
     </div>
     ${neltList.length?neltList.map(n=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
@@ -1231,7 +1231,7 @@ async function loadStuPanel(sid){
   document.getElementById('sp-hw').innerHTML=`
   ${_hwchBox}
   <div style="margin-bottom:12px">
-    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">📋 숙제 할당</div>
+    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">${luIcon('clipboard-list',15)||''} 숙제 할당</div>
     <div class="fg" style="margin-bottom:8px">
       <div class="f" style="margin-bottom:0"><label>날짜</label><input type="date" id="asgn-date-${sid}" value="${ppToday()}"></div>
       <div class="f" style="margin-bottom:0"><label>마감일</label><input type="date" id="asgn-due-${sid}" value="${tomorrowStr}"></div>
@@ -1374,7 +1374,7 @@ function fillLastLesson(sid){
   const mats=matsToHtml(last.materials);
   hint.style.display='flex';
   const txtEl=document.getElementById('ls-last-hint-text');
-  if(txtEl)txtEl.innerHTML=`📖 직전 수업 (${last.date||''}): ${mats||'진도 없음'}${last.cmt?` · ${last.cmt}`:''}`;
+  if(txtEl)txtEl.innerHTML=`${luIcon('book',15)||''} 직전 수업 (${last.date||''}): ${mats||'진도 없음'}${last.cmt?` · ${last.cmt}`:''}`;
 }
 
 // ── STUDENTS ──
@@ -1770,7 +1770,7 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal,runVal){
     const cell3=`<div class="sr-c3">${dayChips}${runSel}</div>`;
     if(rv)d.classList.add('sr-par');
     const ecAdd=`<button class="btn bo bxxs" style="white-space:nowrap;font-size:13px;padding:6px 11px" title="이 교재가 끝나면 이어서 나갈 다음 교재 추가 — 커리큘럼을 쭉 등록해두면 예정 캘린더가 끝까지 채워져요" onclick="addSRowTo('${wrapperId}','${baseKey}')">+ 다음 교재</button>`
-      +`<button class="btn bo bxxs" style="white-space:nowrap;font-size:13px;padding:6px 9px" title="이 교재 뒤로 같은 시리즈의 다음 권들을 순서대로 자동 등록 (이미 있는 권은 건너뜀)" onclick="ecChainSeries(this)">📚 시리즈</button>`;
+      +`<button class="btn bo bxxs" style="white-space:nowrap;font-size:13px;padding:6px 9px" title="이 교재 뒤로 같은 시리즈의 다음 권들을 순서대로 자동 등록 (이미 있는 권은 건너뜀)" onclick="ecChainSeries(this)">${luIcon('book-open',15)||''} 시리즈</button>`;
     // 순서 변경은 드래그(마우스·터치 공용 pointer 이벤트) — 같은 과목 안에서만 이동
     const orderBtns=`<span class="sr-grip" title="끌어서 순서 변경" onpointerdown="ecGripDown(event,this)">⠿</span>`;
     const lbl=isNext
@@ -2138,7 +2138,7 @@ function _ecBoardRender(){
     </div>`;
   }).join('');
   wrap.innerHTML=`<div class="ec-board-head">
-      <span class="ec-board-t">🗓️ 요일별 배치</span>
+      <span class="ec-board-t">${luIcon('calendar',15)||''} 요일별 배치</span>
       <span class="ec-board-hint">칩을 끌어 다른 요일로 옮기세요</span>
       <button type="button" class="btn bo bxxs" onclick="ecBoardAuto()" title="어휘·파닉스는 매 수업, 어법·라이팅·내신은 주 첫 수업, 리딩·리스닝은 나머지 수업일에 배치합니다">✨ 자동 배치</button>
     </div>
@@ -2464,7 +2464,7 @@ function showLesFollowup(sid,date,stuName){
     <div style="font-size:14px;font-weight:700;color:var(--tealt);margin-bottom:12px">✅ ${stuName} 수업 기록 저장됨 — 이어서 입력하시겠어요?</div>
     <div id="les-fu-tst">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(12,164,201,.15)">
-        <span style="font-size:14px;font-weight:600">📝 테스트도 있었나요?</span>
+        <span style="font-size:14px;font-weight:600">${luIcon('pencil',15)||''} 테스트도 있었나요?</span>
         <div style="display:flex;gap:6px">
           <button class="btn bt bsm" onclick="showInlineTst('${sid}','${date}')">있음</button>
           <button class="btn bo bsm" onclick="hideLesFollowup()">건너뛰기</button>
@@ -2473,7 +2473,7 @@ function showLesFollowup(sid,date,stuName){
     </div>
     <div id="les-fu-assign">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0">
-        <span style="font-size:14px;font-weight:600">📋 과제 할당할까요?</span>
+        <span style="font-size:14px;font-weight:600">${luIcon('clipboard-list',15)||''} 과제 할당할까요?</span>
         <div style="display:flex;gap:6px">
           <button class="btn bt bsm" onclick="showInlineAssign('${sid}','${date}')">할당</button>
           <button class="btn bo bsm" onclick="hideLesFollowup()">닫기</button>
@@ -2489,7 +2489,7 @@ function hideLesFollowup(){const el=document.getElementById('les-followup');if(e
 function showInlineTst(sid,date){
   const el=document.getElementById('les-fu-tst');if(!el)return;
   el.innerHTML=`<div style="padding:10px 0;border-bottom:1px solid rgba(12,164,201,.15)">
-    <div style="font-size:13px;font-weight:700;margin-bottom:8px">📝 테스트 간편 입력</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:8px">${luIcon('pencil',15)||''} 테스트 간편 입력</div>
     <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px">
       <div class="f" style="margin:0;flex:1;min-width:80px"><label>단어 맞힌 수</label><input type="number" id="fu-vc" min="0" placeholder="8" style="font-family:var(--fm);font-size:16px;text-align:center"></div>
       <div style="font-size:18px;color:var(--slate)">/</div>
@@ -2527,12 +2527,12 @@ function showInlineAssign(sid,date){
   const due=new Date(date);due.setDate(due.getDate()+1);
   const dueStr=due.toISOString().split('T')[0];
   el.innerHTML=`<div style="padding:10px 0">
-    <div style="font-size:13px;font-weight:700;margin-bottom:8px">📋 과제 간편 할당</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:8px">${luIcon('clipboard-list',15)||''} 과제 간편 할당</div>
     <div class="fg" style="margin-bottom:6px">
       <div class="f" style="margin:0"><label>종류</label>
         <select id="fu-atype" onchange="renderFuAssignFields()">
-          <option value="reading">📖 원서</option>
-          <option value="vocab">📝 단어</option>
+          <option value="reading">${luIcon('book',15)||''} 원서</option>
+          <option value="vocab">${luIcon('pencil',15)||''} 단어</option>
           <option value="other">💬 기타</option>
         </select>
       </div>
@@ -3721,7 +3721,7 @@ function renderTbookTable(){
       <td><span class="cell-title" title="${escAttr(b.publisher||'')}">${b.publisher||'—'}</span></td>
       <td><div style="display:flex;gap:4px">
         <button class="btn bo bsm" onclick="tbookEditInline('${b.id}')">수정</button>
-        <button class="btn ba bsm" onclick="openTbookUnits('${b.id}')" title="단원별 단어 관리">📝 단원${uCnt?` (${uCnt})`:''}</button>
+        <button class="btn ba bsm" onclick="openTbookUnits('${b.id}')" title="단원별 단어 관리">${luIcon('pencil',15)||''} 단원${uCnt?` (${uCnt})`:''}</button>
       </div></td>
     </tr>`;}).join(''));
   const pg=document.getElementById('tbook-pager');if(!pg)return;
@@ -7400,7 +7400,7 @@ function buildLogPages(contId,b64s,defDate,defBook,sid){
   _lgpCtx[contId]={b64s,sid:sid||''};
   const d0=defDate||ppToday();
   c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;text-align:left">
-    <span style="font-size:12px;color:var(--slate);line-height:1.5">📄 ${b64s.length}장 — 값을 바꾸면 <b>아래 장에도 자동 적용</b>, 날짜·책이 같은 연속 장은 <b>한 로그로 묶어</b> 저장.</span>
+    <span style="font-size:12px;color:var(--slate);line-height:1.5">${luIcon('file-text',15)||''} ${b64s.length}장 — 값을 바꾸면 <b>아래 장에도 자동 적용</b>, 날짜·책이 같은 연속 장은 <b>한 로그로 묶어</b> 저장.</span>
     ${DB.api()?`<button id="${contId}-ai-btn" class="btn bo bxxs" onclick="lgpAiFill('${contId}')">🤖 날짜·책 다시 인식</button><span id="${contId}-ai-st" style="font-size:12px;color:var(--teal);font-weight:600"></span>`:''}
   </div>`+b64s.map((b,i)=>`<div class="lgp-row" data-i="${i}" style="display:flex;gap:12px;align-items:stretch;padding:8px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:6px;background:#fff">
     <img src="data:image/jpeg;base64,${b}" onclick="lgpZoom(this)" title="크게 보기" style="width:200px;height:267px;object-fit:contain;background:var(--cream2);border-radius:6px;border:1px solid var(--border);cursor:zoom-in;flex-shrink:0">
@@ -8682,7 +8682,7 @@ function renderDashVocabToday(){
     .filter(r=>r.stu&&!r.stu._deleted).sort((a,b)=>b.n-a.n);
   if(!rows.length){el.innerHTML='';return;}
   el.innerHTML=`<div class="card" style="margin-bottom:12px">
-    <div class="ch"><span class="ct">🎉 오늘 단어 학습한 학생</span><span style="font-size:13px;color:var(--slate)">${rows.length}명 · 🏆=20개 달성</span></div>
+    <div class="ch"><span class="ct">🎉 오늘 단어 학습한 학생</span><span style="font-size:13px;color:var(--slate)">${rows.length}명 · ${luIcon('trophy',15)||''}=20개 달성</span></div>
     <div class="cb" style="padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px">
       ${rows.map(r=>`<span style="font-size:13px;padding:4px 11px;border-radius:20px;background:${r.n>=20?'#D9F6E9':'var(--cream2)'};border:1px solid ${r.n>=20?'var(--ok)':'var(--border)'};color:${r.n>=20?'var(--okt)':'var(--navy)'};font-weight:700">${r.stu.name} ${r.n}개${r.n>=20?' 🏆':''}</span>`).join('')}
     </div>
@@ -9577,7 +9577,7 @@ function _assignItemHtml(a,hws){
     if(sc.length)return`<div style="margin-top:2px">${sc.slice(0,3).map(s=>`<div style="font-size:11.5px;color:var(--slate);line-height:1.5">${s.date||''} ${[s.book,s.unit].filter(Boolean).join(' · ')}</div>`).join('')}${sc.length>3?`<div style="font-size:11.5px;color:var(--slate)">외 ${sc.length-3}일...</div>`:''}</div>`;
     return(a.bookTitle&&a.bookTitle!=='클래스5'?` · ${a.bookTitle}`:'')+(a.range?' · '+a.range:'');
   })();
-  const bookLabel=a.type==='mission'?`🎯 ${a.bookTitle||''} · ${a.unitKey||''}${a.unitTitle?' — '+a.unitTitle:''}`:a.type==='worksheet'?`🗒️ ${a.bookTitle||'워크시트'}`:a.category==='class5'?'🎮 클래스5':a.category==='recur'?`🔁 ${a.bookTitle||'반복 숙제'} <span style="font-weight:400;color:var(--slate)">(${(a.schedule||[]).length}일)</span>`:a.bookTitle||(a.text||'');
+  const bookLabel=a.type==='mission'?`${luIcon('target',15)||''} ${a.bookTitle||''} · ${a.unitKey||''}${a.unitTitle?' — '+a.unitTitle:''}`:a.type==='worksheet'?`🗒️ ${a.bookTitle||'워크시트'}`:a.category==='class5'?'🎮 클래스5':a.category==='recur'?`🔁 ${a.bookTitle||'반복 숙제'} <span style="font-weight:400;color:var(--slate)">(${(a.schedule||[]).length}일)</span>`:a.bookTitle||(a.text||'');
   return `<div class="assign-item" style="align-items:flex-start">
     <div style="flex:1;min-width:0">
       <div style="font-size:12px;font-weight:600;color:var(--navy);${a.category!=='class5'&&a.type!=='mission'?'white-space:nowrap;overflow:hidden;text-overflow:ellipsis':''}">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.category!=='class5'&&a.range?' '+a.range:''}${c5Detail}${missionDetail}</div>
@@ -9637,7 +9637,7 @@ function renderAssignTab(){
       if(!x.sc)return _assignItemHtml(x.a,hws);
       const a=x.a,sc=x.sc;
       const isRecur=a.category==='recur';
-      const lbl=isRecur?`🔁 ${a.bookTitle||'반복 숙제'}${sc.unit?' — '+sc.unit:''}`:`🎮 ${[sc.book,sc.unit].filter(Boolean).join(' · ')}`;
+      const lbl=isRecur?`🔁 ${a.bookTitle||'반복 숙제'}${sc.unit?' — '+sc.unit:''}`:`${luIcon('gamepad-2',15)||''} ${[sc.book,sc.unit].filter(Boolean).join(' · ')}`;
       return `<div class="assign-item" style="align-items:flex-start">
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:var(--teal)">[${isRecur?'반복':'클래스5'}]</span> ${lbl}</div>
@@ -9932,7 +9932,7 @@ function modalAssignCatChange(){
   } else if(isMission){
     _missionMode='single';
     extra.innerHTML=`<div style="margin-top:10px;border:1.5px solid var(--teal);border-radius:var(--rs);padding:12px;background:var(--tl)">
-      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">🎯 학습 미션 — 교재 유닛을 고르면 학생 앱에 단계별 학습이 열립니다</div>
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">${luIcon('target',15)||''} 학습 미션 — 교재 유닛을 고르면 학생 앱에 단계별 학습이 열립니다</div>
       <div class="f" style="margin-bottom:8px"><label>교재 검색</label>
         <input type="text" id="ms-book-search" placeholder="본문·단어가 등록된 교재 검색..." autocomplete="off" oninput="missionBookSearch()" style="width:100%;box-sizing:border-box">
         <div id="ms-book-dd" style="display:none;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);max-height:150px;overflow-y:auto;font-size:13px;margin-top:2px"></div>
@@ -9957,7 +9957,7 @@ function modalAssignCatChange(){
         </div>
         <div class="f" style="margin-bottom:0"><label>요일 배치 (마감일 기준)</label>
           <select id="ms-multi-interval" style="width:100%">
-            <option value="weekday" selected>📅 평일 배치 (월~금, 주말 건너뜀)</option>
+            <option value="weekday" selected>${luIcon('calendar',15)||''} 평일 배치 (월~금, 주말 건너뜀)</option>
             <option value="daily">매일 (주말 포함)</option>
             <option value="0">모두 같은 마감일</option>
             <option value="2">이틀 간격</option>
@@ -9973,7 +9973,7 @@ function modalAssignCatChange(){
     </div>`;
   } else if(isC5){
     extra.innerHTML=`<div style="margin-top:10px;border:1.5px solid var(--border);border-radius:var(--rs);padding:10px 12px">
-      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">📅 일별 진도 스케줄</div>
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">${luIcon('calendar',15)||''} 일별 진도 스케줄</div>
       <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap">
         <label for="c5-upload" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream2)">📎 파일 업로드</label>
         <input type="file" id="c5-upload" accept=".csv,.txt" style="display:none" onchange="loadC5File(event)">
@@ -10276,7 +10276,7 @@ async function saveModalAssignment(){
       created++;
     }
     closeM('m-add-assign');renderAssignTab();
-    toast(created>1?`${created}개 유닛 미션이 할당되었습니다 🎯`:'학습 미션이 할당되었습니다 🎯');return;
+    toast(created>1?`${created}개 유닛 미션이 할당되었습니다 ${luIcon('target',15)||''}`:'학습 미션이 할당되었습니다 🎯');return;
   }
   if(cat==='recur'){
     const rcType=document.getElementById('rc-type')?.value||'fixed';
@@ -10431,7 +10431,7 @@ function renderSpBooks(sid){
   </div>`:'';
   el.innerHTML=nextBanner+`
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <span style="font-size:13px;font-weight:700;color:var(--navy)">📚 교재 (${activeTbs.length}권)</span>
+    <span style="font-size:13px;font-weight:700;color:var(--navy)">${luIcon('book-open',15)||''} 교재 (${activeTbs.length}권)</span>
     <button class="btn bt bsm" onclick="openSpTbAdd('${sid}')">+ 교재 추가</button>
   </div>
   <div>${activeTbs.length?activeTbs.map(bookRow).join(''):'<div style="font-size:13px;color:var(--slate);padding:8px 0">등록된 교재 없음</div>'}</div>
@@ -10455,7 +10455,7 @@ function renderSpBooks(sid){
       <span style="font-size:13px;font-weight:700;color:var(--navy)">📗 원서 (${activeRds.length}권)</span>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn bt bsm" onclick="openSpRdAdd('${sid}')">+ 원서 추가</button>
-        <button class="btn bo bsm" style="font-size:12px" onclick="downloadRdCsvTemplate()">📋 완료 원서 템플릿</button>
+        <button class="btn bo bsm" style="font-size:12px" onclick="downloadRdCsvTemplate()">${luIcon('clipboard-list',15)||''} 완료 원서 템플릿</button>
         <input type="file" id="sp-rd-csv-file" accept=".csv" style="display:none" onchange="importRdCsv(event,'${sid}')">
         <button class="btn bo bsm" style="font-size:12px" onclick="document.getElementById('sp-rd-csv-file').click()">📥 완료 원서 CSV</button>
       </div>
@@ -11010,9 +11010,9 @@ function renderClassTab(){
         .sort((a,b)=>(classTimeFor(a,day).start||'99').localeCompare(classTimeFor(b,day).start||'99'));
       const isToday=day===todayDay;
       return`<div style="min-width:0">
-        <div style="font-size:11.5px;font-weight:700;text-align:center;padding:4px 2px;background:${isToday?'var(--teal)':'var(--navy)'};color:#fff;border-radius:4px 4px 0 0">${day}${isToday?' <span style="font-size:8.5px;font-weight:600;opacity:.95">오늘</span>':''}</div>
-        <div style="border:1.5px solid ${isToday?'var(--teal)':'var(--border)'};border-top:none;border-radius:0 0 4px 4px;min-height:44px;padding:2px">
-          ${dayCls.map(c=>`<div style="background:${isToday?'rgba(12,164,201,.1)':'rgba(15,48,74,.035)'};border-radius:3px;padding:2px 4px;margin-bottom:2px;cursor:pointer;line-height:1.3" onclick="openClsDetail('${c.id}')">
+        <div style="font-size:12px;font-weight:600;text-align:center;padding:6px 2px;background:${isToday?'var(--row-selected)':'var(--bg)'};color:${isToday?'var(--avatar-text)':'var(--text-muted)'};border:1px solid ${isToday?'var(--accent)':'var(--border)'};border-bottom:none;border-radius:var(--r-ctl) var(--r-ctl) 0 0">${day}${isToday?' <span style="font-size:8.5px;font-weight:600;opacity:.95">오늘</span>':''}</div>
+        <div style="border:1px solid ${isToday?'var(--accent)':'var(--border)'};border-top:none;border-radius:0 0 var(--r-ctl) var(--r-ctl);min-height:48px;padding:4px;background:var(--surface)">
+          ${dayCls.map(c=>`<div style="background:${isToday?'var(--row-selected)':'var(--bg)'};border-radius:5px;padding:4px 6px;margin-bottom:2px;cursor:pointer;line-height:1.3" onclick="openClsDetail('${c.id}')">
             <div style="font-size:9.5px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</div>
             ${classTimeStr(c,day)?`<div style="font-size:8.5px;color:var(--slate);opacity:.85">${classTimeStr(c,day)}</div>`:''}
           </div>`).join('')}
@@ -11020,7 +11020,7 @@ function renderClassTab(){
       </div>`;
     }).join('');
     ttEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <span style="font-size:12px;font-weight:700;color:var(--navy)">📅 주간 시간표</span>
+      <span style="font-size:12px;font-weight:700;color:var(--navy)">${luIcon('calendar',15)||''} 주간 시간표</span>
       <span style="font-size:11.5px;color:var(--slate)">탭하면 상세 보기</span>
     </div>
     <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px">${ttCols}</div>`;
@@ -11115,7 +11115,7 @@ function renderClsLessons(classId){
     byDate.get(l.date).push(l);
   });
   if(!byDate.size){
-    el.innerHTML=calHtml+`<div class="empty boxed sm"><div class="empty-i">📚</div><div class="empty-t">아직 수업 기록이 없습니다</div></div>`;
+    el.innerHTML=calHtml+`<div class="empty boxed sm"><div class="empty-i">${luIcon('book-open',15)||''}</div><div class="empty-t">아직 수업 기록이 없습니다</div></div>`;
     return;
   }
   const rows=[...byDate.entries()].map(([date,les])=>{
@@ -12227,7 +12227,7 @@ function _pgHwPanelHtml(classId){
       <div class="hw-acts">
         <button class="btn bo bxxs" onclick="pgHwAdd('${classId}')">+ 숙제 추가</button>
         <button class="btn bo bxxs" onclick="openBulkAssign()">일괄 할당</button>
-        <button class="btn bo bxxs" onclick="swTab('t-assign')">🗓 숙제 캘린더</button>
+        <button class="btn bo bxxs" onclick="swTab('t-assign')">${luIcon('calendar',15)||''} 숙제 캘린더</button>
       </div>
     </div>
   </details>`;
@@ -12418,7 +12418,7 @@ function _pgTrackBoardHtml(classId){
          +`<button class="btn bo bxxs" title="수업 없는 날 1과씩 진행하는 줄로 추가" onclick="pgAddMissingBook('${classId}','${m.tb.id}','hw')">과제 줄로</button>`});
   });
   const checksHtml=checks.length?`<details class="tb-card tb-chk" open>
-    <summary class="tb-head"><span class="tb-t">🔧 손봐야 할 진도<span class="tb-cnt">${checks.length}</span></span>
+    <summary class="tb-head"><span class="tb-t">${luIcon('wrench',15)||''} 손봐야 할 진도<span class="tb-cnt">${checks.length}</span></span>
       <span class="tb-hint">여기서 바로 고칠 수 있어요</span></summary>
     <div class="tb-chk-body">${checks.map(k=>`<div class="tb-chk-r">
       <span class="tb-chk-i">${k.ico}</span>
@@ -12429,7 +12429,7 @@ function _pgTrackBoardHtml(classId){
   </details>`:'';
   if(!rows.length)return checksHtml;
   return checksHtml+`<details class="tb-card" open>
-    <summary class="tb-head"><span class="tb-t">📊 영역별 진도</span>
+    <summary class="tb-head"><span class="tb-t">${luIcon('bar-chart-3',15)||''} 영역별 진도</span>
       <span class="tb-hint">같은 영역에서 동시에 도는 교재는 줄로 나뉘어 보여요 · ✏️로 진도 수정</span></summary>
     <div class="tb-body">${rows.join('')}</div>
   </details>`;
@@ -12604,7 +12604,7 @@ function _pgCalHtml(classId){
   const hasAnchor=Object.keys(c.progressAnchors||{}).length>0;
   return`<div class="pg-cal-card${_pgMoveSel&&_pgMoveSel.classId===classId?' pg-moving':''}">
     <div class="pg-cal-head">
-      <span style="font-size:14px;font-weight:800;color:var(--navy)">📅 진도 캘린더</span>
+      <span style="font-size:14px;font-weight:800;color:var(--navy)">${luIcon('calendar',15)||''} 진도 캘린더</span>
       <button class="btn bo bxxs" onclick="pgCalNav(-1)" ondragover="pgNavDragOver(event,-1)" title="칩을 드래그한 채 올리면 이전 달로 넘어가요">◀</button>
       <span style="font-size:13.5px;font-weight:700;color:var(--navy)">${y}년 ${m}월</span>
       <button class="btn bo bxxs" onclick="pgCalNav(1)" ondragover="pgNavDragOver(event,1)" title="칩을 드래그한 채 올리면 다음 달로 넘어가요">▶</button>
@@ -12613,7 +12613,7 @@ function _pgCalHtml(classId){
       <button class="btn bo bxxs" title="만료된 핀·중복 핀·지난 제외일을 한 번에 정리합니다 (수업 기록은 건드리지 않아요)" onclick="pgTidyProgress('${classId}')">🧹 진도 정돈</button>
       ${hasAnchor?`<button class="btn bo bxxs" title="드래그로 옮긴 예정을 원래 순서로 되돌립니다" onclick="pgClearAnchors('${classId}')">예정 초기화</button>`:''}
       <span style="flex:1"></span>
-      <details class="pg-lgw"><summary title="교재 범례 보기">🎨 범례</summary><div class="pg-lgw-b">${legend}</div></details>
+      <details class="pg-lgw"><summary title="교재 범례 보기">${luIcon('palette',15)||''} 범례</summary><div class="pg-lgw-b">${legend}</div></details>
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
     <div class="pp-key">
@@ -12807,7 +12807,7 @@ function pgConfirmOrtBook(classId,sid,title,date){
       <input type="text" id="pg-ort-ar" value="${escAttr(ar)}" placeholder="예: 2.5" style="width:100%;box-sizing:border-box;margin-top:4px"></div>
     <div class="f" style="margin-bottom:2px"><label style="font-size:13px;font-weight:700;color:var(--slate)">진행 상태</label>
       <div style="display:flex;gap:8px;margin-top:4px">
-        <button type="button" id="pg-ort-reading" class="btn ${doneDefault?'bo':'bt'} bsm" style="flex:1;border-radius:10px;padding:9px 0" onclick="pgOrtSetDone(false)">📖 읽는 중</button>
+        <button type="button" id="pg-ort-reading" class="btn ${doneDefault?'bo':'bt'} bsm" style="flex:1;border-radius:10px;padding:9px 0" onclick="pgOrtSetDone(false)">${luIcon('book',15)||''} 읽는 중</button>
         <button type="button" id="pg-ort-done" class="btn ${doneDefault?'bt':'bo'} bsm" style="flex:1;border-radius:10px;padding:9px 0" onclick="pgOrtSetDone(true)">✅ 완독</button>
       </div></div>
     <input type="hidden" id="pg-ort-donev" value="${doneDefault?'1':'0'}">
@@ -13042,7 +13042,7 @@ function openSkipNotice(classId,date){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const range=Array.isArray(date); // [시작,끝] = 기간 휴강·방학
   const lbl=range?`${skipDateLbl(date[0])}~${skipDateLbl(date[1])}`:skipDateLbl(date);
-  const def=`📣 ${c.name?c.name+' ':''}휴강 안내\n${lbl} ${range?'기간은 수업을 쉬어갑니다':'수업은 사정상 쉬어갑니다'}.\n과제는 평소처럼 진행해 주세요 💪`;
+  const def=`${luIcon('megaphone',15)||''} ${c.name?c.name+' ':''}휴강 안내\n${lbl} ${range?'기간은 수업을 쉬어갑니다':'수업은 사정상 쉬어갑니다'}.\n과제는 평소처럼 진행해 주세요 💪`;
   const overlay=document.createElement('div');
   overlay.id='skip-notice-overlay';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1999';
@@ -13051,13 +13051,13 @@ function openSkipNotice(classId,date){
   el.id='skip-notice-modal';
   el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:var(--rs);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:2000;padding:20px;min-width:280px;max-width:440px;width:90vw';
   el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <span style="font-size:15px;font-weight:700">📣 휴강 안내 보내기 — ${lbl}${c.name?' · '+escAttr(c.name):''}</span>
+      <span style="font-size:15px;font-weight:700">${luIcon('megaphone',15)||''} 휴강 안내 보내기 — ${lbl}${c.name?' · '+escAttr(c.name):''}</span>
       <button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--slate)" onclick="skipNoticeClose()">×</button>
     </div>
     <textarea id="skip-notice-text" style="width:100%;box-sizing:border-box;min-height:110px;font-family:var(--fb);font-size:14px;line-height:1.7;padding:10px;border:1px solid var(--border);border-radius:var(--rs);resize:vertical">${def}</textarea>
     <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn bt bsm" onclick="skipNoticeBanner()">📢 공지 배너 등록</button>
-      <button class="btn bo bsm" onclick="skipNoticeCopy()">📋 복사 (카톡 붙여넣기)</button>
+      <button class="btn bt bsm" onclick="skipNoticeBanner()">${luIcon('megaphone',15)||''} 공지 배너 등록</button>
+      <button class="btn bo bsm" onclick="skipNoticeCopy()">${luIcon('clipboard-list',15)||''} 복사 (카톡 붙여넣기)</button>
       <button class="btn bo bsm" style="margin-left:auto" onclick="skipNoticeClose()">닫기</button>
     </div>
     <div style="font-size:12px;color:var(--slate);line-height:1.7;margin-top:8px">공지 배너는 학부모 앱 상단에 떠요. 안 보내도 휴강 예정은 학생·학부모 앱 홈에 자동으로 표시됩니다.</div>`;
@@ -13151,7 +13151,7 @@ function openPgPlan(classId,date){
       <span style="font-size:12.5px;color:var(--navy);flex:none;max-width:104px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(b.tb.title)}">${escAttr(b.tb.title)}</span>
       <select style="flex:1;min-width:0;font-size:12.5px;padding:4px 6px" onchange="pgPlanUnitSwap('${g.tbId}','${escJsA(g.unit)}',this.value)">${remU.map(k=>`<option value="${escAttr(k)}"${k===g.unit?' selected':''}>${k}${titles[k]?' — '+titles[k]:''}</option>`).join('')}</select>
       ${cat==='listening'?`<button class="btn ${splitOn?'bt':'bo'} bsm" style="flex:none;padding:3px 6px;font-size:11.5px" title="${splitOn?'다시 합치기 — 본책과 딕테이션을 하루에 함께':'딕테이션 분리 — 본책 날과 딕테이션 날을 따로'}" onclick="pgDictToggle('${g.tbId}','${escJsA(baseU)}')">✂️${splitOn?'↩':''}</button>`:''}
-      <button class="btn ${pinned?'bt':'bo'} bsm" style="flex:none;padding:3px 7px;font-size:11.5px" title="${pinned?'고정 해제 — 원래 순서 자리로 돌아가요':'이 날에 고정 — 다른 유닛을 옮겨도 안 움직여요'}" onclick="pgPlanPinToggle('${g.tbId}','${escJsA(g.unit)}')">📌${pinned?' 해제':''}</button>
+      <button class="btn ${pinned?'bt':'bo'} bsm" style="flex:none;padding:3px 7px;font-size:11.5px" title="${pinned?'고정 해제 — 원래 순서 자리로 돌아가요':'이 날에 고정 — 다른 유닛을 옮겨도 안 움직여요'}" onclick="pgPlanPinToggle('${g.tbId}','${escJsA(g.unit)}')">${luIcon('pin',15)||''}${pinned?' 해제':''}</button>
       <button class="btn bd bsm" style="flex:none;padding:3px 7px;font-size:11.5px" title="이 날은 이 교재를 빼요 — 진도는 다음 수업일로 밀려요 (다시 넣으려면 같은 버튼)" onclick="pgSlotSkipToggle('${g.tbId}')">✕</button>
     </div>`);
   });
@@ -15011,7 +15011,7 @@ function openNotifyParents(sids){
       <div style="font-size:14px;font-weight:600;color:var(--navy)">${escAttr(s.name)}</div>
       <div style="font-size:12px;color:var(--slate)">${s.parentPhone?'📱 '+escAttr(s.parentPhone):'학부모 연락처 미등록 — 문구만 복사됩니다'}</div>
     </div>
-    <button class="btn bt bsm" style="flex-shrink:0" onclick="shareParentUpdateByStu('${s.id}');this.textContent='보냄 ✓';this.disabled=true">📣 카카오</button>
+    <button class="btn bt bsm" style="flex-shrink:0" onclick="shareParentUpdateByStu('${s.id}');this.textContent='보냄 ✓';this.disabled=true">${luIcon('megaphone',15)||''} 카카오</button>
   </div>`).join('');
   openM('m-notify-parents');
 }

@@ -480,8 +480,11 @@ div.ig-like{cursor:default;}
 .xp-gain{display:inline-block;font-size:14px;font-weight:800;color:var(--warnt);background:var(--warnl);padding:5px 14px;border-radius:20px;margin-bottom:1.2rem;animation:xpPop .4s ease;}
 @keyframes xpPop{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1)}}
 /* ── 자료 DB 시리즈 묶음 뷰 ── */
-.bser{background:#fff;border:1.5px solid var(--border);border-radius:12px;margin-bottom:8px;overflow:hidden;}
-.bser-h{display:flex;align-items:center;gap:8px;padding:11px 14px;cursor:pointer;user-select:none;list-style:none;flex-wrap:wrap;}
+.bser{background:var(--surface);border:1px solid var(--border);border-top:none;margin-bottom:0;overflow:hidden;}
+.bser:first-of-type{border-top:1px solid var(--border);border-radius:var(--r-card) var(--r-card) 0 0;}
+.bser:last-of-type{border-radius:0 0 var(--r-card) var(--r-card);}
+.bser[open]{background:var(--bg);}
+.bser-h{display:flex;align-items:center;gap:10px;padding:0 16px;min-height:var(--h-row);cursor:pointer;user-select:none;list-style:none;flex-wrap:wrap;}
 .bser-h::-webkit-details-marker{display:none;}
 .bser-h::before{content:'▸';font-size:12px;color:var(--slate);transition:transform .15s;}
 .bser[open] .bser-h::before{transform:rotate(90deg);}
@@ -2231,3 +2234,13 @@ body{font-size:14.5px;line-height:1.65;}
 /* 상세 탭이 잘리지 않게 가로 스크롤 */
 #sp-detail-wrap .sp-tabs,#sp-detail-wrap>.ntabs,.sp-tab-row{overflow-x:auto;scrollbar-width:none;}
 #sp-detail-wrap .sp-tabs::-webkit-scrollbar{display:none;}
+
+/* 자료 DB — 표처럼 읽히게 */
+.bser-h:hover{background:var(--bg);}
+.bser[open] .bser-h{border-bottom:1px solid var(--border);background:var(--bg);}
+.bser-h .badge{font-weight:600;}
+#book-series,#book-cards{padding:0 2px 10px;}
+.dtabs{border-bottom:1px solid var(--border);gap:2px;}
+.dtab{padding:11px 14px;font-size:13.5px;font-weight:500;color:var(--text-muted);
+  border-bottom:2px solid transparent;background:none;cursor:pointer;}
+.dtab.active,.dtab.on{color:var(--text);font-weight:600;border-bottom-color:var(--primary);}
