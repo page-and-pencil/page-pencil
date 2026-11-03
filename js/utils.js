@@ -464,6 +464,15 @@ function ppRetestCardHtml(stu,opts){
   return '<div class="rt-box"><div class="rt-h">'+esc(title)+' <span class="rt-n">'+q.length+'</span></div>'+rows+'</div>';
 }
 
+// 받침에 맞춘 조사 — "완료로" / "미완으로". 고정으로 '으로' 를 붙이면 "완료으로" 가 된다.
+function ppEuro(word){
+  const w=String(word||'');
+  if(!w)return '로';
+  const c=w.charCodeAt(w.length-1);
+  if(c<0xAC00||c>0xD7A3)return '로';          // 한글이 아니면 '로'
+  const jong=(c-0xAC00)%28;
+  return (jong===0||jong===8)?'로':'으로';     // 받침 없음 또는 ㄹ → '로'
+}
 // ── 숙제 상태 (B6) ───────────────────────────────────────────
 // 기존 completedAt / schedule[].done 은 그대로 두고 선택 필드만 더한다.
 //   hwStatus  done 완료 / part 일부 / miss 미완 / noshow 미지참 / defer 연기

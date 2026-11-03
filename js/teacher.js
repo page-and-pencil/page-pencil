@@ -2462,11 +2462,15 @@ async function saveLes(){
   // 미리보기에서 편집된 텍스트 우선 사용, 없으면 생성
   const previewTxt=(document.getElementById('cmt-preview-box')?.style.display!=='none')
     ?(document.getElementById('cmt-preview-text')?.value?.trim()||''):'';;
-  const polishedCmt=(rawCmt||matsText)?(previewTxt||(_polishedCmtCache.raw===rawCmt&&_polishedCmtCache.polished?_polishedCmtCache.polished:await polishCmt(rawCmt,matsText))):'';
+  // 미리보기로 직접 만든 글이 있으면 그것을, 없으면 코멘트를 쓴 경우에만 AI 를 부른다
+  const polishedCmt=previewTxt
+    || (_polishedCmtCache.raw===rawCmt&&_polishedCmtCache.polished ? _polishedCmtCache.polished : '')
+    || (String(rawCmt||'').trim() ? await polishCmt(rawCmt,matsText) : '');
   // 학생 응원 코멘트 - 미리보기 편집본 우선, 없으면 생성
   const stuPreviewTxt=(document.getElementById('stu-cmt-preview-box')?.style.display!=='none')
     ?(document.getElementById('stu-cmt-preview-text')?.value?.trim()||''):'';
-  const stuCmt=(rawCmt||matsText)?(stuPreviewTxt||_polishedCmtCache.stuCmt||await polishStuCmt_teacher(rawCmt,matsText,_sStu?.name||'')):'';
+  const stuCmt=stuPreviewTxt||_polishedCmtCache.stuCmt
+    ||(String(rawCmt||'').trim()?await polishStuCmt_teacher(rawCmt,matsText,_sStu?.name||''):'');
   if(rawCmt&&polishedCmt)_saveCmtExample(rawCmt,polishedCmt);
   const _sStuGrade=(_sStu&&(_sStu.grade||_sStu.lv))||'';
   const _rubric=getRubricData();
@@ -2819,7 +2823,10 @@ async function updLes(){
   const elPreviewTxt=(document.getElementById('el-cmt-preview-box')?.style.display!=='none')
     ?(document.getElementById('el-cmt-preview-text')?.value?.trim()||''):'';
   // 원문을 고쳤는데 미리보기를 다시 안 돌렸으면 → 낡은 변환본 대신 재변환
-  const polishedCmt=(rawCmt||matsText)?((!_elCmtDirtyP&&elPreviewTxt)||await polishCmt(rawCmt,matsText)):'';
+  // 원문을 고쳤는데 미리보기를 다시 안 돌렸으면 재변환. 코멘트가 비면 기존 값을 지킨다.
+  const _elOld=(_cache.lessons[idx]||{});
+  const polishedCmt=(!_elCmtDirtyP&&elPreviewTxt)
+    || (String(rawCmt||'').trim() ? await polishCmt(rawCmt,matsText) : (_elOld.polishedCmt||''));
   const elStuPreviewTxt=(document.getElementById('el-stu-cmt-preview-box')?.style.display!=='none')
     ?(document.getElementById('el-stu-cmt-preview-text')?.value?.trim()||''):'';
   const stuCmt=(rawCmt||matsText)?((!_elCmtDirtyS&&(elStuPreviewTxt||_cache.lessons[idx]?.stuCmt))||await polishStuCmt_teacher(rawCmt,matsText,'')||''):'';
@@ -3012,12 +3019,16 @@ function openRetestPaper(sid){
 function _vpTypeCounts(total){
   const g=k=>{const el=document.getElementById(k);const v=parseInt(el?el.value:'',10);return (v>=0)?v:null;};
   let ko=g('vp-t-ko'),en=g('vp-t-en'),mc=g('vp-t-mc'),cl=g('vp-t-cloze');
-  if(ko===null&&en===null&&!mc&&!cl){
-    ko=Math.ceil(total/2);en=total-ko;mc=0;cl=0;
-  }else{
-    ko=ko||0;en=en||0;mc=mc||0;cl=cl||0;
-    const sum=ko+en+mc+cl;
-    if(sum<total)ko+=total-sum;        // 모자라면 뜻 쓰기로 채운다
+  const koBlank=(ko===null), enBlank=(en===null);
+  ko=ko||0;en=en||0;mc=mc||0;cl=cl||0;
+  // 남은 몫은 '비워 둔 칸' 에만 나눠 준다. 둘 다 비었으면 반반.
+  // 전에는 4지선다·빈칸을 넣는 순간 남은 게 전부 뜻 쓰기로 몰렸다.
+  const rest=total-(ko+en+mc+cl);
+  if(rest>0){
+    if(koBlank&&enBlank){const h=Math.ceil(rest/2);ko+=h;en+=rest-h;}
+    else if(koBlank)ko+=rest;
+    else if(enBlank)en+=rest;
+    else ko+=rest;                      // 다 채웠는데 모자라면 뜻 쓰기로
   }
   return {ko,en,mc,cl};
 }
@@ -3104,8 +3115,7 @@ async function makeVocabPaper(){
 @page{size:A4;margin:14mm}
 *{box-sizing:border-box}
 body{font-family:'Pretendard Variable',Pretendard,-apple-system,sans-serif;color:#1B2430;margin:0;padding:0;font-size:13px}
-.sheet{page-break-after:always}
-.sheet:last-child{page-break-after:auto}
+.sheet+.sheet{page-break-before:always}   /* 마지막 뒤에는 끊지 않는다 — 빈 장이 생기던 자리 */
 h1{font-size:17px;margin:0 0 3px}
 .head{display:flex;align-items:flex-end;gap:14px;border-bottom:2px solid #1B2430;padding-bottom:8px;margin-bottom:6px}
 .head .meta{font-size:12px;color:#5F6672;line-height:1.6}
@@ -15540,6 +15550,16 @@ function fillOrtBookDatalist(){
   const rest=(_cache.library||[]).filter(b=>b&&b.title&&b.ortSeq==null).sort((a,b)=>String(a.title).localeCompare(String(b.title)));
   dl.innerHTML=[...ort,...rest].slice(0,600).map(b=>`<option value="${escAttr(b.title)}">`).join('');
 }
+// 이 날짜로 '넘어온' 숙제인지 — 연기한 날짜를 돌려준다 (아니면 '')
+// 같은 교재·범위면 원래 그날 숙제와 한 줄로 합쳐지므로, 꼬리표로만 구분한다.
+function _hwDeferFrom(a,ds){
+  if(!a||!ds)return '';
+  if((a.schedule||[]).length){
+    const hit=(a.schedule||[]).find(x=>x&&x.hwStatus==='defer'&&x.hwDeferTo===ds);
+    return hit?(hit.date||''):'';
+  }
+  return (a.hwStatus==='defer'&&a.hwDeferTo===ds)?(a.due||a.date||''):'';
+}
 function _clAutoHwFor(classId,ds,excludeLessonDate){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return{sched:[],singles:[]};
   const sids=new Set(c.studentIds||[]);
@@ -15550,30 +15570,34 @@ function _clAutoHwFor(classId,ds,excludeLessonDate){
       if(a.category!=='class5'&&a.category!=='recur')return;
       const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
       sch.forEach(s=>{
-        if(s.date!==ds)return;
+        // 연기로 이 날짜에 넘어온 칸도 올린다 (원래 그날 칸이 아니어도)
+        const _dfHere=(s.hwStatus==='defer'&&s.hwDeferTo===ds);
+        if(!_dfHere&&s.date!==ds)return;
         const label=a.category==='class5'?'🎮 클래스5':'🔁 '+(a.bookTitle||'반복 숙제');
         const txt=[s.book,s.unit].filter(Boolean).join(' · ')||a.bookTitle||'';
-        const k=label+'|'+_hwKeyNorm(txt);
+        const k=label+'|'+_hwKeyNorm(txt)+'|'+(_dfHere?('df'+(s.date||'')):'');
         // 리딩앤처럼 '무슨 책'이 비어 있는 숙제는 수업에서 물어 적을 수 있게 (s.title에 보관)
         if(!seen.has(k)){seen.add(k);sched.push({label,txt,aid:a.id,sid:a.sid,date:ds,sched:true,
           done:!!s.done,by:s.doneBy||s.hwBy||'',title:s.title||'',askTitle:_hwAskTitle(a,s),
           status:(typeof ppHwStatusOf==='function')?ppHwStatusOf(a,s):'',
           statusLabel:(typeof ppHwStatusLabel==='function')?ppHwStatusLabel(a,s):'',
-          pct:s.hwPct||''});}
+          pct:s.hwPct||'',deferFrom:_hwDeferFrom(a,ds)});}
       });
     }else{
       // 완료된 것도 목록에 남긴다 — 상태(완료/일부/연기)를 보고 되돌릴 수 있어야 한다
-      if((a.due||a.date)!==ds)return;
+      // 연기로 이 날짜에 넘어온 것은 원래 날짜가 달라도 올린다 (전에는 아예 안 보였다)
+      const _dfHere=(a.hwStatus==='defer'&&a.hwDeferTo===ds);
+      if(!_dfHere&&(a.due||a.date)!==ds)return;
       if(excludeLessonDate&&a.classId===classId&&a.date===excludeLessonDate)return;
       const KC={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신',book:'원서',mission:'미션',worksheet:'워크시트'};
       const cat=KC[a.category]||a.category||'';
       const txt=[a.bookTitle||a.text||'',a.range].filter(Boolean).join(' · ')||'과제';
-      const k=cat+'|'+_hwKeyNorm(txt);
+      const k=cat+'|'+_hwKeyNorm(txt)+'|'+(_dfHere?('df'+(a.due||a.date||'')):'');
       if(!seenS.has(k)){seenS.add(k);singles.push({label:'📕'+(cat?' ['+cat+']':''),txt,
         aid:a.id,sid:a.sid,date:ds,sched:false,done:!!a.completedAt,by:a.completedBy||'',
         status:(typeof ppHwStatusOf==='function')?ppHwStatusOf(a):'',
         statusLabel:(typeof ppHwStatusLabel==='function')?ppHwStatusLabel(a):'',
-        pct:a.hwPct||''});}
+        pct:a.hwPct||'',deferFrom:_hwDeferFrom(a,ds)});}
     }
   });
   return {sched,singles};
@@ -15590,6 +15614,7 @@ function _clAppendAutoHwRows(groupBody,autos){
     div.className='cl-hw-chk'+(st==='done'?' on':'')+(st&&st!=='done'?' part':'');
     div.style.cssText=`--c:${color}`;
     div.dataset.aid=x.aid;div.dataset.date=x.date;div.dataset.sched=String(!!x.sched);
+    div.dataset.note=note;        // 되돌렸을 때 원래 안내로 돌아가기 위해 보관
     const by=st&&x.by?`<em>${_PG_HW_BY[x.by]||x.by}</em>`:'';
     const opt=(v,t)=>`<option value="${v}"${st===v?' selected':''}>${t}</option>`;
     // 체크 하나로는 '했다/안 했다' 밖에 못 적는다 — 일부·미지참·연기를 구분한다
@@ -15601,6 +15626,7 @@ function _clAppendAutoHwRows(groupBody,autos){
       +` value="${x.pct||''}" style="display:${st==='part'?'':'none'}"`
       +` onchange="clHwSetPct(this,'${x.aid}','${x.date}',${!!x.sched})">`
       +`<span class="cl-hw-t">${x.label} <b>${escAttr(x.txt)}</b>`
+      +(x.deferFrom?` <span class="cl-hw-from">${escAttr(ppDowLabel(x.deferFrom))}에서 넘어옴</span>`:'')
       +(x.title?` <u>${escAttr(x.title)}</u>`:'')
       +`<span class="cl-hw-n" style="color:${color}">${x.statusLabel||note}</span>${by}</span>`
       +(st?`<button type="button" class="cl-hw-undo" title="미처리로 되돌리기"`
@@ -15631,7 +15657,14 @@ async function clHwSetStatus(sel,aid,ds,sched,forced){
       if(sched){o.done=true;o.doneBy='teacher';o.doneAt=new Date().toISOString();}
       else{o.completedAt=new Date().toISOString();o.completedBy='teacher';}
     }
-    if(v==='part')o.hwPct=parseInt((sel.closest('.cl-hw-chk')||{}).querySelector?.('.cl-hw-pct')?.value,10)||50;
+    if(v==='part'){
+      // 칸이 비어 있으면 50 을 쓰는데, 화면에도 같이 채워 넣는다
+      // (전에는 빈 칸을 보여 주면서 50 을 저장해 '아직 안 정했다' 로 읽혔다)
+      const pc=(sel.closest('.cl-hw-chk')||{}).querySelector?.('.cl-hw-pct');
+      let n=parseInt(pc?pc.value:'',10);
+      if(!(n>=1&&n<=99)){n=50;if(pc)pc.value=50;}
+      o.hwPct=n;
+    }
     if(v==='defer'){
       // 다음 수업일로 넘긴다 (클래스 요일 기준, 없으면 내일)
       const cid=document.getElementById('cl-class-id')?.value||'';
@@ -15653,7 +15686,8 @@ async function clHwSetStatus(sel,aid,ds,sched,forced){
     wrap.classList.toggle('part',!!v&&v!=='done');
     const pc=wrap.querySelector('.cl-hw-pct');if(pc)pc.style.display=(v==='part')?'':'none';
     const n=wrap.querySelector('.cl-hw-n');
-    if(n)n.textContent=v?(ppHwStatusLabel(a,sched?o:null)||PP_HW_STATUS[v].name):'했으면 상태를 골라 주세요';
+    if(n)n.textContent=v?(ppHwStatusLabel(a,sched?o:null)||PP_HW_STATUS[v].name)
+      :(wrap.dataset.note||'했으면 상태를 골라 주세요');
     let undo=wrap.querySelector('.cl-hw-undo');
     if(v&&!undo){
       undo=document.createElement('button');undo.type='button';undo.className='cl-hw-undo';
@@ -15663,7 +15697,8 @@ async function clHwSetStatus(sel,aid,ds,sched,forced){
     }else if(!v&&undo)undo.remove();
   }
   toast(v==='defer'?('다음 수업('+(o.hwDeferTo||'')+')으로 넘겼어요')
-    :(v?(PP_HW_STATUS[v].name+'으로 표시했어요'):'미처리로 되돌렸어요'));
+    :(v?(PP_HW_STATUS[v].name+((typeof ppEuro==='function')?ppEuro(PP_HW_STATUS[v].name):'으로')+' 표시했어요')
+        :'미처리로 되돌렸어요'));
 }
 async function clHwSetPct(inp,aid,ds,sched){
   const sel=inp.closest('.cl-hw-chk')?.querySelector('.cl-hw-st');
@@ -15977,7 +16012,12 @@ async function saveClassLesson(){
       const existing=editMode?(_cache.lessons||[]).find(l=>l.classId===classId&&l.date===date&&l.sid===d.sid):null;
       // 학부모 코멘트: 원문이 그대로면 기존 변환문 재사용 (AI 재호출·문구 변동 방지)
       const _mt=_getMatsTextFromMaterials(mats);
-      const polishedCmt=(cmt||_mt)?((existing&&existing.cmt===cmt&&existing.polishedCmt)?existing.polishedCmt:await polishCmt(cmt,_mt)):'';
+      // 선생님이 코멘트를 쓴 경우에만 AI 를 부른다.
+      // 전에는 코멘트가 비어도 교재만 있으면 AI 가 문장을 지어 polishedCmt 를 채웠다.
+      // 쓰지 않았으면 기존 값을 그대로 두고, 없으면 빈 채로 둔다 (덮어쓰지 않는다).
+      const polishedCmt=(existing&&existing.cmt===cmt&&existing.polishedCmt)
+        ? existing.polishedCmt
+        : (String(cmt||'').trim() ? await polishCmt(cmt,_mt) : (existing?(existing.polishedCmt||''):''));
       const les={id:existing?existing.id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:mats,cmt,polishedCmt,classId,...(existing&&existing.stuCmt?{stuCmt:existing.stuCmt}:{})};
       await supaUpsert('lessons',les.id,les,d.sid);
       if(existing){const li=_cache.lessons.findIndex(l=>l.id===existing.id);if(li>=0)_cache.lessons[li]=les;else _cache.lessons.unshift(les);}
