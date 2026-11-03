@@ -561,7 +561,10 @@ async function loadParent(sid){
             <summary style="padding:12px 16px;font-size:14px;font-weight:600;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;color:var(--navy)">
               <span>${yr}년 ${mn}월 리포트</span><span class="p-dim">▼</span>
             </summary>
-            <div style="padding:12px 16px;padding-top:0;font-size:14px;line-height:1.85;color:var(--navy);white-space:pre-wrap">${r.final||r.draft||''}</div>
+            <div style="padding:12px 16px;padding-top:0">
+              ${(r.metrics&&typeof ppMetricsHtml==='function')?ppMetricsHtml(r.metrics):''}
+              <div style="font-size:14px;line-height:1.85;color:var(--navy);white-space:pre-wrap">${r.final||r.draft||''}</div>
+            </div>
           </details>`;
         }).join('')}
       </div>

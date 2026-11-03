@@ -2613,3 +2613,26 @@ body{font-size:14.5px;line-height:1.65;}
   .stu-brief{gap:5px 12px;padding:9px 12px}
   .stu-brief .sb-v{font-size:13.5px}
 }
+
+/* 리포트 고정 지표 3칸 (B17) — 코드가 센 숫자. 값이 없으면 '—' 로 자리를 지킨다 */
+.rep-metrics{display:flex;gap:8px;margin-bottom:12px}
+.rep-metrics .rm-c{flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--rs);padding:10px 8px;text-align:center}
+.rep-metrics .rm-l{font-size:11.5px;color:var(--text-muted);font-weight:600;margin-bottom:3px}
+.rep-metrics .rm-v{font-size:19px;font-weight:800;color:var(--tealt);font-family:var(--fd);line-height:1.1}
+.rep-metrics .rm-s{font-size:11px;color:var(--text-muted);margin-top:2px}
+/* 선생님 메모 (B16) — 학부모에게 가지 않는 칸이라는 걸 색으로도 못박는다 */
+.re-note-box{margin-top:12px;border:1.5px dashed var(--warn);border-radius:var(--rs);
+  background:var(--warnl);padding:10px 12px}
+.re-note-h{font-size:12px;font-weight:800;color:var(--warnt);margin-bottom:6px}
+.re-note-h span{font-weight:600;color:var(--slate)}
+.re-note-box textarea{width:100%;height:90px;border:1px solid var(--border);border-radius:var(--rs);
+  padding:9px 10px;font-family:var(--fb);font-size:13px;line-height:1.7;resize:vertical;
+  outline:none;box-sizing:border-box;color:var(--navy);background:#fff}
+@media(max-width:420px){
+  .rep-metrics{gap:6px}
+  .rep-metrics .rm-c{padding:8px 4px}
+  .rep-metrics .rm-v{font-size:16px}
+  .rep-metrics .rm-l{font-size:10.5px}
+  .rep-metrics .rm-s{font-size:10px}
+}

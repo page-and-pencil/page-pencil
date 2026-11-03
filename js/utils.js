@@ -409,6 +409,49 @@ function ppAvgPct(list,field){
   return Math.round(rows.reduce((a,x)=>a+(x[c]||0)/x[t]*100,0)/rows.length);
 }
 
+// ── 리포트 고정 지표 (B17) ──────────────────────────────────
+// 출석률·숙제 완료율·단어 평균은 코드가 센다. AI 가 숫자를 만들면 리포트가 거짓이 된다.
+// 셀 게 없으면 null — 0% 가 아니다(화면이 '—' 로 처리한다).
+// 출석 분모에서 휴강·선생님 취소는 뺀다. 단어 평균은 자체 시험만(ppAvgPct 가 거른다).
+function ppMonthMetrics(stu,month){
+  if(!stu||!month||typeof DB==='undefined')return null;
+  const m=String(month).slice(0,7);
+  const inM=d=>String(d||'').startsWith(m);
+  const les=((typeof DB.less==='function')?DB.less():[]).filter(l=>l&&l.sid===stu.id&&inM(l.date));
+  const counted=les.filter(l=>!['teacher_cancel','holiday'].includes(l.att||''));
+  const attended=counted.filter(l=>(l.att||'normal')!=='absent').length;
+  const hw=((typeof DB.assigns==='function')?DB.assigns():[])
+    .filter(a=>a&&!a._deleted&&a.sid===stu.id&&inM(a.due||a.date));
+  const hwDone=hw.filter(a=>a.completedAt||(typeof hwFinished==='function'&&hwFinished(a))).length;
+  const tsts=((typeof DB.tsts==='function')?DB.tsts():[]).filter(t=>t&&t.sid===stu.id&&inM(t.date));
+  const vAvg=(typeof ppAvgPct==='function')?ppAvgPct(tsts,'vocab'):null;
+  const vN=(typeof ppScored==='function')?ppScored(tsts,'vocab').length:0;
+  return {
+    month:m,
+    att:  counted.length?{pct:Math.round(attended/counted.length*100),done:attended,total:counted.length}:null,
+    hw:   hw.length?{pct:Math.round(hwDone/hw.length*100),done:hwDone,total:hw.length}:null,
+    vocab:(vAvg==null)?null:{pct:vAvg,total:vN},
+  };
+}
+const PP_METRIC_LBL={att:'출석률',hw:'숙제 완료율',vocab:'단어 평균'};
+// 학부모 화면·편집기에 쓰는 3칸. 값이 없는 칸도 '—' 로 자리를 지킨다(빠지면 뭘 못 셌는지 모른다)
+function ppMetricsHtml(mx){
+  if(!mx)return '';
+  const cell=(k)=>{
+    const v=mx[k];
+    const sub=v?(k==='vocab'?('시험 '+v.total+'회'):(v.done+'/'+v.total)):'기록 없음';
+    return '<div class="rm-c"><div class="rm-l">'+PP_METRIC_LBL[k]+'</div>'
+      +'<div class="rm-v">'+(v?v.pct+'%':'—')+'</div><div class="rm-s">'+sub+'</div></div>';
+  };
+  return '<div class="rep-metrics">'+['att','hw','vocab'].map(cell).join('')+'</div>';
+}
+// 카카오톡으로 보낼 때의 한 줄. 값이 없는 지표는 넣지 않는다
+function ppMetricsText(mx){
+  if(!mx)return '';
+  return ['att','hw','vocab'].filter(k=>mx[k])
+    .map(k=>PP_METRIC_LBL[k]+' '+mx[k].pct+'%').join(' · ');
+}
+
 // ── 어휘 재시험 ──────────────────────────────────────────────
 // 최초 시험과 재시험을 같은 묶음(chain)으로 묶되 각 기록은 따로 남긴다 — 원점수를 덮어쓰지 않는다.
 // 미응시(absent)와 불합격은 다른 상태다. 둘 다 '통과'가 아니지만 뜻이 다르다.

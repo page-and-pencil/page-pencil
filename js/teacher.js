@@ -1058,6 +1058,7 @@ function renderSpLessons(sid){
         <span class="cls-les-date">${l.date||''}${day?` <span style="font-weight:400;color:var(--neutral)">(${day.slice(0,1)})</span>`:''}</span>
         <div style="display:flex;gap:4px;align-items:center">
           ${attLabel?`<span class="att-chip ${ATTCLS[l.att]}" style="font-size:11.5px">${attLabel}</span>`:''}
+          <button class="btn bo bxxs" onclick="copyLesSummary('${l.id}')" title="이 수업 한 건을 학부모에게 보낼 글로 복사">📋</button>
           <button class="btn bo bxxs" onclick="openEditLes('${l.id}')">✏️</button>
           <button class="btn bd bxxs" onclick="reqDelLesFromPanel('${l.id}','${sid}')">🗑️</button>
         </div>
@@ -1072,6 +1073,40 @@ function renderSpLessons(sid){
     ?`<div style="text-align:center;padding:10px 0;font-size:13px;color:var(--teal);cursor:pointer" onclick="swTab('t-les');document.getElementById('les-filter-stu').value='${sid}';lesPage=0;renderLes()">전체 ${all.length}건 수업 기록 보기 →</div>`:'';
   el.innerHTML=bar+cards+footer;
 }
+// ── 수업 1회 요약 복사 (B15) ────────────────────────────────
+// 저장된 수업 기록만으로 글을 만든다 — AI 를 부르지 않는다.
+// 학부모에게 보낼 글이므로 학생용 코멘트(stuCmt)는 넣지 않는다.
+async function copyLesSummary(lesId){
+  const l=DB.less().find(x=>x.id===lesId);if(!l)return toast('수업 기록을 찾을 수 없어요');
+  const s=DB.stus().find(x=>x.id===l.sid);
+  const DAYS=['일','월','화','수','목','금','토'];
+  const d=l.date||'';
+  const day=d?DAYS[new Date(d+'T00:00:00').getDay()]:'';
+  const head=(d?d.slice(5).split('-').join('/'):'')+(day?'('+day+')':'');
+  const books=[],texts=[];
+  Object.entries(l.materials||{}).forEach(([k,v])=>{
+    if(!v||!v.book)return;
+    const isBook=(k==='_book'||k.startsWith('_book_'));
+    (isBook?books:texts).push(v.book+(v.unit?' · '+v.unit:''));
+  });
+  const lines=[];
+  lines.push('[Page & Pencil] '+(s?s.name+' ':'')+head+' 수업');
+  if(l.att&&l.att!=='normal'&&typeof ATTLBL!=='undefined'&&ATTLBL[l.att])lines.push('· '+ATTLBL[l.att]);
+  if(texts.length)lines.push('교재  '+texts.join(' / '));
+  if(books.length)lines.push('원서  '+books.join(' / '));
+  const cmt=(l.polishedCmt||l.cmt||'').trim();
+  if(cmt){lines.push('');lines.push(cmt);}
+  const txt=lines.join(String.fromCharCode(10));
+  try{
+    await navigator.clipboard.writeText(txt);
+    toast('복사했어요 — 카카오톡에 붙여넣어 주세요');
+  }catch(e){
+    // 클립보드를 못 쓰는 브라우저 — 글을 보여 주고 직접 복사하게 한다
+    if(typeof askConfirm==='function')askConfirm('복사하지 못했어요',txt,'닫기','bo',()=>{});
+    else toast('복사 실패 — 직접 복사해 주세요');
+  }
+}
+
 // 학습 리포트 인쇄 — 월 선택 모달
 let _prSid='';
 function openPrintReport(sid){
@@ -8474,6 +8509,33 @@ function openMonthlyReportManager(month){
   }).join('');
   mo.classList.add('open');mo.style.removeProperty('display');
 }
+// ── 리포트: 학부모 본문과 선생님 메모 (B16) ─────────────────
+// AI 한 번 호출로 둘을 받아 나눈다. 메모는 teacherNote 로만 저장하고
+// final·draft 에 절대 섞지 않는다 — 학부모 화면과 카카오 전송은 그 두 필드만 읽는다.
+const RE_MARK_BODY='[학부모 본문]';
+const RE_MARK_NOTE='[선생님 메모]';
+function _splitReportDraft(raw){
+  const t=String(raw||'').trim();
+  const i=t.indexOf(RE_MARK_NOTE);
+  if(i<0)return {body:t.split(RE_MARK_BODY).join('').trim(),note:''};
+  return {body:t.slice(0,i).split(RE_MARK_BODY).join('').trim(),
+          note:t.slice(i+RE_MARK_NOTE.length).trim()};
+}
+// 보낼 글에 메모가 섞여 있는지 마지막으로 본다 (표식이 남았으면 그 뒤를 자른다)
+function _stripNote(text){
+  const t=String(text||'');
+  const i=t.indexOf(RE_MARK_NOTE);
+  return (i<0?t:t.slice(0,i)).split(RE_MARK_BODY).join('').trim();
+}
+function _reMetrics(sid,month){
+  const s=DB.stus().find(x=>x.id===sid);
+  return (s&&typeof ppMonthMetrics==='function')?ppMonthMetrics(s,month):null;
+}
+function _reShowMetrics(sid,month){
+  const el=document.getElementById('re-metrics');
+  if(el)el.innerHTML=(typeof ppMetricsHtml==='function')?(ppMetricsHtml(_reMetrics(sid,month))||''):'';
+}
+
 async function openReportEditor(sid,month){
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
   const mo=document.getElementById('m-report-editor');if(!mo)return;
@@ -8486,6 +8548,9 @@ async function openReportEditor(sid,month){
   const existing=DB.reports().find(r=>r.sid===sid&&r.month===month);
   const textEl=document.getElementById('re-text');
   textEl.value=existing?.final||existing?.draft||'';
+  const noteEl=document.getElementById('re-note');
+  if(noteEl)noteEl.value=existing?.teacherNote||'';
+  _reShowMetrics(sid,month);
   document.getElementById('re-status').textContent=existing?.status==='sent'?'✅ 발송 완료':existing?.status==='edited'?'✏️ 수정됨':existing?.draft?'📝 초안 있음':'';
   if(document.getElementById('m-monthly-report'))document.getElementById('m-monthly-report').classList.remove('open');
   mo.classList.add('open');mo.style.removeProperty('display');
@@ -8535,12 +8600,19 @@ async function generateReportDraft(){
 - 필요 시 "많이 칭찬해 주세요", "지도 부탁드립니다" 같은 부드러운 요청 한 번
 - 감탄사·이모지·과장 없음. 마크다운 없음.
 - 250~400자 (한국어 기준)
+- 숫자(퍼센트·점수·횟수·등급)를 본문에 쓰지 마세요. 출석률·숙제 완료율·단어 평균은 앱이 리포트 위에 따로 표시합니다. 아래 기록의 숫자를 옮겨 적거나 새로 계산하지 말고 "꾸준히", "대부분", "지난달보다 나아진" 처럼 말로 쓰세요.
 
 구성 순서 (자연스러운 한 단락):
 수업 태도·참여도 → 교재 진도 요약 → 테스트 성과 → 원서·리딩 → 특기사항 및 다음 달 방향
 
 [절대 금지] 이름·"학생"·"아이"를 문장 첫 주어로 쓰지 마세요. 서술어 또는 부사로 시작하세요.
-기록에 없는 내용 추가 금지. 리포트 문장만 출력하세요.
+기록에 없는 내용 추가 금지.
+
+출력 형식 — 아래 두 표식을 그대로 쓰고 각각 그 아래에 쓰세요. 다른 말은 붙이지 마세요.
+[학부모 본문]
+(학부모에게 그대로 전달되는 글. 위 어조·구성 규칙을 따릅니다.)
+[선생님 메모]
+(선생님만 봅니다. 학부모에게 가지 않습니다. 염려되는 점, 다음 달에 확인할 것, 상담 때 꺼낼 이야기를 2~4줄로 솔직하게. 기록에 근거가 있는 것만.)
 
 학생: ${s.name} (${s.grade||''}${s.school?', '+s.school:''})
 누적 출석: ${allLes.filter(l=>l.att!=='absent').length}회 (전체 기간)
@@ -8557,10 +8629,14 @@ ${tstSummary}
 이번 달 원서: ${rdSummary}
 리딩로그: ${logSummary}`;
     const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:600,messages:[{role:'user',content:prompt}]});
-    const draft=d.content?.[0]?.text?.trim()||'';
-    if(draft)textEl.value=draft;
-    // DB 저장
-    await saveReportToDB(sid,month,{draft,final:draft,status:'draft'});
+    const raw=d.content?.[0]?.text?.trim()||'';
+    const {body,note}=_splitReportDraft(raw);
+    if(body)textEl.value=body;
+    const noteEl=document.getElementById('re-note');
+    if(noteEl&&note)noteEl.value=note;
+    // DB 저장 — 메모는 teacherNote 로만, 본문에 섞지 않는다
+    await saveReportToDB(sid,month,{draft:body,final:body,teacherNote:note,
+      metrics:_reMetrics(sid,month),status:'draft'});
   }catch(e){toast('AI 생성 실패: '+e.message);}
   if(btn){btn.disabled=false;btn.textContent='🤖 AI 초안 생성';}
 }
@@ -8578,23 +8654,29 @@ async function saveReportToDB(sid,month,fields){
 async function saveAndSendReport(){
   const sid=document.getElementById('re-sid').value;
   const month=document.getElementById('re-month').value;
-  const text=document.getElementById('re-text').value.trim();
+  // 보낼 글에서 메모 표식 뒤는 잘라 낸다 — 선생님 메모가 학부모에게 가면 안 된다
+  const text=_stripNote(document.getElementById('re-text').value);
+  const note=(document.getElementById('re-note')?.value||'').trim();
   if(!text){toast('리포트 내용을 입력해 주세요');return;}
   const btn=document.getElementById('re-send-btn');
   if(btn){btn.disabled=true;btn.textContent='처리 중...';}
-  await saveReportToDB(sid,month,{final:text,status:'edited'});
+  const mx=_reMetrics(sid,month);
+  await saveReportToDB(sid,month,{final:text,teacherNote:note,metrics:mx,status:'edited'});
   toast('저장됐습니다. 카카오톡으로 발송합니다.');
   await new Promise(r=>setTimeout(r,400));
   // 카카오톡 발송
   const s=DB.stus().find(x=>x.id===sid);
   const [yr,mn]=month.split('-');
-  const fullText=`[Page & Pencil] ${s?.name||''} ${yr}년 ${mn}월 학습 리포트\n\n${text}\n\n— Page & Pencil`;
+  // 지표는 코드가 센 숫자만 넣는다. 선생님 메모는 넣지 않는다
+  const mLine=(typeof ppMetricsText==='function')?ppMetricsText(mx):'';
+  const fullText=`[Page & Pencil] ${s?.name||''} ${yr}년 ${mn}월 학습 리포트\n${mLine?mLine+'\n':''}\n${text}\n\n— Page & Pencil`;
   const kakao=DB.kakao();
   if(kakao.openchat){window.open(kakao.openchat,'_blank');}
   else if(kakao.phone){window.open(`kakaotalk://open/chat?phoneNum=${kakao.phone}`);}
   else{window.open('kakaotalk://launch');}
   try{await navigator.clipboard.writeText(fullText);}catch(e){}
-  await saveReportToDB(sid,month,{final:text,status:'sent',sentAt:new Date().toISOString()});
+  await saveReportToDB(sid,month,{final:text,teacherNote:note,metrics:mx,
+    status:'sent',sentAt:new Date().toISOString()});
   toast('카카오톡에 붙여넣기 해서 발송해 주세요 📋');
   document.getElementById('m-report-editor')?.classList.remove('open');
   renderDash();
@@ -8603,10 +8685,12 @@ async function saveAndSendReport(){
 async function saveReportDraftOnly(){
   const sid=document.getElementById('re-sid').value;
   const month=document.getElementById('re-month').value;
-  const text=document.getElementById('re-text').value.trim();
+  const text=_stripNote(document.getElementById('re-text').value);
+  const note=(document.getElementById('re-note')?.value||'').trim();
   if(!text){toast('내용을 입력해 주세요');return;}
-  await saveReportToDB(sid,month,{final:text,status:'edited'});
-  toast('저장됐습니다');
+  await saveReportToDB(sid,month,{final:text,teacherNote:note,
+    metrics:_reMetrics(sid,month),status:'edited'});
+  toast(note?'저장됐습니다 — 선생님 메모는 학부모에게 보내지 않습니다':'저장됐습니다');
 }
 
 // ── DASHBOARD ──
