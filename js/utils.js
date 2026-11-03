@@ -378,6 +378,76 @@ function ppTrackChipHtml(track){
   return '<span class="tk-chip tr-'+track+'">'+name+'</span>';
 }
 
+// ── 어휘 재시험 ──────────────────────────────────────────────
+// 최초 시험과 재시험을 같은 묶음(chain)으로 묶되 각 기록은 따로 남긴다 — 원점수를 덮어쓰지 않는다.
+// 미응시(absent)와 불합격은 다른 상태다. 둘 다 '통과'가 아니지만 뜻이 다르다.
+const PP_VOCAB_PASS_DEFAULT=90;
+function ppVocabPassPct(){
+  const raw=(typeof _cache!=='undefined'&&_cache.settings)?_cache.settings.vocabPassPct:null;
+  const v=parseInt(raw,10);
+  return (v>=1&&v<=100)?v:PP_VOCAB_PASS_DEFAULT;
+}
+function ppTestPct(t){
+  if(!t||t.absent||!(t.vocabTotal>0))return null;   // 미응시는 점수가 없다
+  return Math.round((t.vocabCorrect||0)/t.vocabTotal*100);
+}
+// 한 시험의 결과 — none(점수 없음) / absent(미응시) / pass / fail
+function ppVocabStatus(t){
+  if(!t)return {k:'none',label:'—'};
+  if(t.absent)return {k:'absent',label:'미응시',pct:null,pass:t.passPct||ppVocabPassPct()};
+  if(!(t.vocabTotal>0))return {k:'none',label:'—'};
+  const p=ppTestPct(t), pass=t.passPct||ppVocabPassPct();
+  return (p>=pass)?{k:'pass',label:'통과',pct:p,pass}:{k:'fail',label:'불합격',pct:p,pass};
+}
+// 한 학생의 시험들을 묶음으로 — 재시험은 최초 시험(root)에 매단다
+function ppTestChains(sid){
+  const all=((typeof DB!=='undefined'&&typeof DB.tsts==='function')?DB.tsts():[])
+    .filter(t=>t&&t.sid===sid&&(t.vocabTotal>0||t.absent));
+  const byRoot={};
+  all.forEach(t=>{const root=t.retestOf||t.id;(byRoot[root]=byRoot[root]||[]).push(t);});
+  return Object.entries(byRoot).map(([root,list])=>{
+    list.sort((a,b)=>((a.date||'')+'|'+String(a.attempt||1)).localeCompare((b.date||'')+'|'+String(b.attempt||1)));
+    return {root,list,first:list[0],last:list[list.length-1],tries:list.length};
+  });
+}
+// 재시험 대기 — 묶음마다 '최근 시도' 하나만 본다. 과거 실패를 중복해서 세지 않는다.
+function ppRetestQueue(sid){
+  return ppTestChains(sid)
+    .map(c=>({...c,status:ppVocabStatus(c.last)}))
+    .filter(c=>c.status.k==='fail'||c.status.k==='absent')
+    .sort((a,b)=>(b.last.date||'').localeCompare(a.last.date||''));
+}
+// 이 묶음에서 아직 못 외운 단어 (최근 시도의 틀린 단어)
+function ppRetestWords(chain){
+  const t=chain&&chain.last;
+  if(!t)return [];
+  if(t.absent)return [...new Set([...(t.allWords||[]),...(t.wrongWords||[])])];
+  return [...new Set(t.wrongWords||[])];
+}
+
+// 재시험 안내 카드 — 학생·학부모가 같은 판정에서 읽는다.
+// 다 외운 척이 아니라 '무엇을 다시 보면 되는지'를 보여 준다.
+function ppRetestCardHtml(stu,opts){
+  const o=opts||{};
+  if(!stu||typeof ppRetestQueue!=='function')return '';
+  const q=ppRetestQueue(stu.id);
+  if(!q.length)return '';
+  const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const rows=q.slice(0,o.max||3).map(c=>{
+    const w=ppRetestWords(c);
+    const st=c.status;
+    const tag=st.k==='absent'?'미응시':(st.pct+'% · 기준 '+st.pass+'%');
+    return '<div class="rt-row">'
+      +'<div class="rt-top"><span class="rt-st '+(st.k==='absent'?'is-absent':'is-fail')+'">'+esc(st.label)+'</span>'
+        +'<span class="rt-meta">'+esc((c.last.date||'')+' · '+tag+(c.tries>1?' · '+c.tries+'회차':''))+'</span></div>'
+      +(w.length?'<div class="rt-words">'+w.slice(0,12).map(x=>'<span class="rt-w">'+esc(x)+'</span>').join('')
+        +(w.length>12?'<span class="rt-w">외 '+(w.length-12)+'개</span>':'')+'</div>':'')
+    +'</div>';
+  }).join('');
+  const title=o.forParent?'다시 볼 단어':'다시 볼 단어가 있어요';
+  return '<div class="rt-box"><div class="rt-h">'+esc(title)+' <span class="rt-n">'+q.length+'</span></div>'+rows+'</div>';
+}
+
 // ── 학습 목표 ────────────────────────────────────────────────
 // 관찰 가능한 문장으로 적고, 확인 기준을 함께 둔다.
 // 확인하지 않은 목표는 '미평가'로 남는다 — 기간이 지나도 자동으로 달성 처리하지 않는다.

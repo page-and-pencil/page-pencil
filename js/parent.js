@@ -332,7 +332,11 @@ async function loadParent(sid){
       <div style="height:7px;background:var(--divider);border-radius:4px;overflow:hidden"><div style="width:${p}%;height:100%;background:${s.f};border-radius:4px;transition:width .5s"></div></div>
     </div>`;};
     secScore+=`<div class="card" id="pp-sec-score">
-      <div class="ch"><span class="ct">${luIcon('file-text',16)}최근 테스트</span><span class="mono" class="p-dim">${latTst.date||''}</span></div>
+      <div class="ch"><span class="ct">${luIcon('file-text',16)}최근 테스트</span><span class="mono" class="p-dim">${(()=>{
+        const st=(typeof ppVocabStatus==='function')?ppVocabStatus(latTst):null;
+        const kind=latTst.retestOf?('재시험'+(latTst.attempt?' '+latTst.attempt+'회차':'')):'최초';
+        return (latTst.date||'')+' · '+kind+(st&&st.k!=='none'?' · '+st.label:'');
+      })()}</span></div>
       <div class="cb" style="padding:14px 18px">
         <div style="background:var(--bg);border:1px solid rgba(12,164,201,.18);border-radius:14px;padding:15px 16px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between">
           <div><div style="font-size:13.5px;color:var(--tealt);font-weight:700">최근 단어 테스트</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">${latTst.date||''}</div></div>
@@ -347,6 +351,10 @@ async function loadParent(sid){
       </div>
     </div>`;
   }
+
+  // 블록 C-1 — 다시 볼 단어 (최초 시험과 재시험을 묶어 '남은 것'만)
+  {const rt=(typeof ppRetestCardHtml==='function')?ppRetestCardHtml(s,{max:3,forParent:true}):'';
+   if(rt)secScore+=`<div class="card"><div class="cb" style="padding:10px 14px">${rt}</div></div>`;}
 
   // 블록 C-2 — 영역별 성장 (어휘/어법=테스트, 리딩/리스닝=과제 완료율)
   secScore+=parentAreaGrowth(sid);

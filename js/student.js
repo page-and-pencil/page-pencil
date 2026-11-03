@@ -2899,10 +2899,12 @@ function renderStudentHome(sid){
   const trackHtml=(typeof ppTrackLineHtml==='function')?ppTrackLineHtml(stu):'';
   const goalHtml=(typeof ppGoalsHtml==='function')?ppGoalsHtml(stu,{max:2}):'';
   const examHtml=(typeof ppExamCardHtml==='function')?ppExamCardHtml(stu,{compact:true}):'';
+  const retestHtml=(typeof ppRetestCardHtml==='function')?ppRetestCardHtml(stu,{max:3}):'';
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
     ${hwSection}
     ${trackHtml}
     ${goalHtml}
+    ${retestHtml}
     ${examHtml}
     ${hwChHtml}
     ${stuBossCard(sid)}

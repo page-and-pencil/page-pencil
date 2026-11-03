@@ -418,6 +418,8 @@ async function loadAllData(bg){
     else{const lc=DB.g('cloud');if(lc&&lc.name){_cache.settings.cloud=lc;supaSetSetting('cloud',lc).catch(()=>{});}else{_cache.settings.cloud=DEFAULT_CLD;DB.s('cloud',DEFAULT_CLD);await supaSetSetting('cloud',DEFAULT_CLD);}}
     // 직결 준비 일수 (없으면 기본 28일 — ppJgPrepDays 가 판단)
     try{const jp=await supaGetSetting('jgPrepDays');if(jp!=null)_cache.settings.jgPrepDays=jp;}catch(e){}
+    // 어휘 테스트 통과 기준 (없으면 기본 90% — ppVocabPassPct 가 판단)
+    try{const vp=await supaGetSetting('vocabPassPct');if(vp!=null)_cache.settings.vocabPassPct=vp;}catch(e){}
     try{const cc=await supaGetSetting('cmtChips');if(cc){_cache.settings.cmtChips=cc;DB.s('cmtChips',cc);}else{const lcc=DB.g('cmtChips');if(lcc)_cache.settings.cmtChips=lcc;}}catch(e){const lcc=DB.g('cmtChips');if(lcc)_cache.settings.cmtChips=lcc;}
     // 진단: 학생 0명으로 로드가 끝나면 테이블별 상태를 화면에 표시 (원인 즉시 파악)
     if(!bg&&_cache.students.length===0){

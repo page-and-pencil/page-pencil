@@ -2849,7 +2849,49 @@ function reqDelLesFromPanel(lesId,sid){
 
 // ── TESTS ──
 function pct(c,t){return(t>0)?Math.round((c/t)*100):0;}
+// 통과 기준 저장 (세 화면의 판정에 바로 반영)
+async function saveVocabPassPct(){
+  const el=document.getElementById('ts-pass');if(!el)return;
+  const v=parseInt(el.value,10);
+  if(!(v>=1&&v<=100)){el.value=ppVocabPassPct();toast('1에서 100 사이로 입력해 주세요');return;}
+  _cache.settings.vocabPassPct=v;
+  try{ await supaSetSetting('vocabPassPct',v); }catch(e){ console.warn('vocabPassPct 저장 실패:',e); }
+  tsRefreshRetest();
+  toast('어휘 테스트 통과 기준을 '+v+'%로 바꿨습니다');
+}
+// 재시험 대상 드롭다운 — 묶음마다 최근 시도 하나만 (과거 실패 중복 없음)
+function tsRefreshRetest(){
+  const sel=document.getElementById('ts-retest');if(!sel)return;
+  const pe=document.getElementById('ts-pass');if(pe&&!pe.value)pe.value=ppVocabPassPct();
+  const sid=(document.getElementById('ts-stu')||{}).value||'';
+  const q=(sid&&typeof ppRetestQueue==='function')?ppRetestQueue(sid):[];
+  const keep=sel.value;
+  sel.innerHTML='<option value="">최초 시험</option>'+q.map(c=>{
+    const st=c.status;
+    const label=(c.last.date||'')+' · '+(st.k==='absent'?'미응시':(st.pct+'% 미달'))
+      +' · '+(ppRetestWords(c).length)+'개'+(c.tries>1?' · '+c.tries+'회차':'');
+    return '<option value="'+escAttr(c.root)+'">'+escAttr(label)+'</option>';
+  }).join('');
+  if(keep&&[...sel.options].some(o=>o.value===keep))sel.value=keep;
+  const hint=document.getElementById('ts-retest-hint');
+  if(hint)hint.textContent=q.length?('재시험 대기 '+q.length+'건'):'재시험 대기 없음';
+}
+// 재시험 대상을 고르면 그때 틀린 단어를 불러온다 (원점수는 그대로 둔다)
+function tsPickRetest(){
+  const root=(document.getElementById('ts-retest')||{}).value||'';
+  const sid=(document.getElementById('ts-stu')||{}).value||'';
+  if(!root||!sid)return;
+  const c=(typeof ppTestChains==='function'?ppTestChains(sid):[]).find(x=>x.root===root);
+  if(!c)return;
+  const words=ppRetestWords(c);
+  const aw=document.getElementById('ts-allwords');
+  if(aw)aw.value=words.join(', ');
+  const vt=document.getElementById('ts-vt');
+  if(vt)vt.value=words.length||'';
+  toast('재시험 대상 '+words.length+'개를 불러왔습니다');
+}
 function preloadTestWords(sid){
+  tsRefreshRetest();
   if(!sid)return;
   const el=document.getElementById('ts-allwords');
   if(!el||el.value.trim())return;
@@ -2874,7 +2916,17 @@ async function saveTst(){
   const allWordsRaw=document.getElementById('ts-allwords').value;
   const allWords=allWordsRaw?allWordsRaw.split(',').map(w=>w.trim()).filter(Boolean):[];
   const wrongWords=wr?wr.split(',').map(w=>w.trim()).filter(Boolean):[];
-  const newTst={id:uid(),sid,date:document.getElementById('ts-date').value,vocabCorrect:vc,vocabTotal:vt,grammarCorrect:gc,grammarTotal:gt,readingCorrect:rc,readingTotal:rt,listeningCorrect:lc,listeningTotal:lt,allWords,wrongWords,grammarWeak:document.getElementById('ts-gweak').value.trim(),cmt:document.getElementById('ts-cmt').value.trim(),photoUrl:tstPhotoUrl};
+  // 재시험은 최초 시험(root)에 매단다. 원래 기록은 그대로 둔다.
+  const _retestRoot=(document.getElementById('ts-retest')||{}).value||'';
+  const _absent=!!(document.getElementById('ts-absent')||{}).checked;
+  const _passPct=(()=>{const v=parseInt((document.getElementById('ts-pass')||{}).value,10);
+    return (v>=1&&v<=100)?v:ppVocabPassPct();})();
+  const _attempt=_retestRoot
+    ? (((typeof ppTestChains==='function'?ppTestChains(sid):[]).find(c=>c.root===_retestRoot)||{tries:1}).tries+1)
+    : 1;
+  const newTst={id:uid(),sid,date:document.getElementById('ts-date').value,
+    ...(_retestRoot&&{retestOf:_retestRoot}),attempt:_attempt,absent:_absent,passPct:_passPct,
+    vocabCorrect:_absent?0:vc,vocabTotal:_absent?0:vt,grammarCorrect:gc,grammarTotal:gt,readingCorrect:rc,readingTotal:rt,listeningCorrect:lc,listeningTotal:lt,allWords,wrongWords,grammarWeak:document.getElementById('ts-gweak').value.trim(),cmt:document.getElementById('ts-cmt').value.trim(),photoUrl:tstPhotoUrl};
   await supaUpsert('tests',newTst.id,newTst,sid);
   _cache.tests.unshift(newTst);
   // vocab_cards 자동 저장
@@ -2884,7 +2936,11 @@ async function saveTst(){
   }
   ['ts-vc','ts-vt','ts-gc','ts-gt','ts-rc','ts-rt','ts-lc','ts-lt','ts-wr','ts-allwords','ts-gweak','ts-cmt'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   tstPhotoUrl='';document.getElementById('tst-preview').style.display='none';
-  renderTst();toast('테스트 결과가 저장되었습니다');
+  {const r=document.getElementById('ts-retest');if(r)r.value='';
+   const ab=document.getElementById('ts-absent');if(ab)ab.checked=false;}
+  tsRefreshRetest();
+  renderTst();
+  toast(_absent?'미응시로 기록했습니다':(_retestRoot?'재시험 결과를 저장했습니다':'테스트 결과가 저장되었습니다'));
   checkNewBadges(sid);
   }catch(e){
     console.error('save error:',e);
@@ -9200,6 +9256,19 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
         text:'시험 일정 확인 필요 — '+nm,label:'일정 등록',
         action:"swTab('t-data');switchDataTab('exam')"});
     }
+  }
+  // 우선순위 4.7: 재시험 대기 — 묶음마다 최근 시도 하나만 센다
+  if(typeof ppRetestQueue==='function'){
+    (stus||[]).forEach(st=>{
+      if(st.inactive)return;
+      const q=ppRetestQueue(st.id);
+      if(!q.length)return;
+      const ab=q.filter(c=>c.status.k==='absent').length;
+      items.push({icon:luIcon('repeat',15),chip:'da-amber',
+        text:`${st.name} — 재시험 대기 ${q.length}건`+(ab?` (미응시 ${ab})`:''),
+        label:'테스트 입력',
+        action:`swTab('t-tst');setTimeout(()=>{const e=document.getElementById('ts-stu');if(e){e.value='${st.id}';e.dispatchEvent(new Event('change'));}},200)`});
+    });
   }
   // 우선순위 5: 월별 리포트 미발송 (이달 1~7일은 준비 기간, 8일부터 알림)
   const today=new Date();

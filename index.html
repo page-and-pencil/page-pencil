@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261102a">
-<link rel="stylesheet" href="css/style.css?v=20261103h">
+<link rel="stylesheet" href="css/style.css?v=20261103i">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -442,6 +442,20 @@
               <div class="f"><label>맞힌 수</label><input type="number" id="ts-vc" min="0" placeholder="8" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
               <div style="padding-bottom:10px;font-size:22px;color:var(--slate);font-family:var(--fm)">/</div>
               <div class="f"><label>전체 문제 수</label><input type="number" id="ts-vt" min="0" placeholder="10" style="font-family:var(--fm);font-size:18px;font-weight:700;text-align:center"></div>
+            </div>
+            <div class="score-row" style="align-items:flex-end;gap:10px">
+              <div class="f" style="flex:1"><label>재시험 대상 <span style="color:var(--slate);font-weight:400">— 고르면 그때 틀린 단어를 불러와요</span></label>
+                <select id="ts-retest" onchange="tsPickRetest()"><option value="">최초 시험</option></select>
+                <div id="ts-retest-hint" style="font-size:11.5px;color:var(--slate);margin-top:3px"></div></div>
+              <div class="f" style="flex:0 0 104px"><label>통과 기준</label>
+                <div style="display:flex;align-items:center;gap:4px">
+                  <input type="number" id="ts-pass" min="1" max="100" onchange="saveVocabPassPct()" style="text-align:center">
+                  <span style="font-size:13px;color:var(--slate)">%</span></div></div>
+            </div>
+            <div class="f">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none">
+                <input type="checkbox" id="ts-absent" style="width:auto;min-height:0">
+                <span style="font-weight:400">미응시 (보지 않음) — 불합격과 구분해 기록합니다</span></label>
             </div>
             <div class="f"><label>전체 단어 (쉼표 구분) <span style="color:var(--slate);font-weight:400">— 단어장 저장용</span></label><input type="text" id="ts-allwords" placeholder="quickly, enormous, vast, ..."></div>
             <div class="f"><label>틀린 단어 (쉼표 구분)</label><input type="text" id="ts-wr" placeholder="quickly, enormous"></div>
@@ -2363,11 +2377,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261103h"></script>
+<script src="js/utils.js?v=20261103i"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261103h"></script>
-<script src="js/teacher.js?v=20261103h"></script>
-<script src="js/student.js?v=20261103h"></script>
-<script src="js/parent.js?v=20261103h"></script>
+<script src="js/db.js?v=20261103i"></script>
+<script src="js/teacher.js?v=20261103i"></script>
+<script src="js/student.js?v=20261103i"></script>
+<script src="js/parent.js?v=20261103i"></script>
 </body>
 </html>
