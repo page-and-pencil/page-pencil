@@ -368,6 +368,16 @@ function ppTrackBadgeHtml(stu){
     +'</span>'+(t.needsSchedule?'<span class="track-need" title="이 학생의 학교·학년 시험 일정이 등록되지 않았습니다">일정 확인</span>':'');
 }
 
+// 과제·수업에 붙는 학습 방향 칩. 값이 없으면 아무 것도 그리지 않는다(미분류).
+// 기존 기록을 일괄 분류하지 않으므로 대부분의 옛 과제는 칩이 없다 — 정상이다.
+function ppTrackChipHtml(track){
+  if(track!=='jg'&&track!=='ch'&&track!=='common')return '';
+  const name=(track==='common')?'공통'
+    :((typeof PP_TRACK!=='undefined'&&PP_TRACK[track])?PP_TRACK[track].name:'');
+  if(!name)return '';
+  return '<span class="tk-chip tr-'+track+'">'+name+'</span>';
+}
+
 // ── 학습 목표 ────────────────────────────────────────────────
 // 관찰 가능한 문장으로 적고, 확인 기준을 함께 둔다.
 // 확인하지 않은 목표는 '미평가'로 남는다 — 기간이 지나도 자동으로 달성 처리하지 않는다.

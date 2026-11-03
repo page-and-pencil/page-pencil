@@ -1270,7 +1270,7 @@ async function loadStuPanel(sid){
       return `<div id="asgn-row-${a.id}" style="padding:8px 0;border-bottom:1px solid var(--border)${completed?';opacity:.72':''}">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1">
-            <div style="font-size:12px;color:${overdue?'var(--red)':'var(--slate)'};font-family:var(--fm)">${a.date||''}${a.due?' · 마감 '+a.due:''}${completed?' · 완료 '+(a.completedAt||'').slice(0,10):''}</div>
+            <div style="font-size:12px;color:${overdue?'var(--red)':'var(--slate)'};font-family:var(--fm)">${(typeof ppTrackChipHtml==='function')?ppTrackChipHtml(a.track):''}${a.date||''}${a.due?' · 마감 '+a.due:''}${completed?' · 완료 '+(a.completedAt||'').slice(0,10):''}</div>
             <div style="font-size:13px;font-weight:700;margin-top:2px">${
               a.type==='reading'?`${_catPill('원서')}${[a.bookTitle,a.range].filter(Boolean).join(' · ')||'원서 읽기'}`:
               a.type==='vocab'?`${_catPill('어휘')}단어: ${(a.words||[]).join(', ')}`:
@@ -10027,6 +10027,7 @@ function openAssignModal(sid){
   const rangeEl=document.getElementById('modal-assign-range');
   if(rangeEl){rangeEl.value='';const rf=rangeEl.closest('.f');if(rf)rf.style.display='';}
   const noteEl=document.getElementById('modal-assign-note');if(noteEl)noteEl.value='';
+  {const tk=document.getElementById('modal-assign-track');if(tk)tk.value='';}
   document.getElementById('modal-assign-extra').innerHTML='';
   openM('m-add-assign');
 }
@@ -10056,6 +10057,7 @@ function openEditAssignModal(aid){
   const rangeEl=document.getElementById('modal-assign-range');
   if(rangeEl)rangeEl.value=a.range||'';
   const noteEl2=document.getElementById('modal-assign-note');if(noteEl2)noteEl2.value=a.note||'';
+  {const tk=document.getElementById('modal-assign-track');if(tk)tk.value=a.track||'';}
   openM('m-add-assign');
 }
 async function deleteAssign(aid){
@@ -10517,6 +10519,12 @@ function buildRecurSchedule(opts){
   }
   return schedule;
 }
+// 과제 모달에서 고른 학습 방향. '' 이면 분류하지 않음(미분류).
+function _assignTrackVal(){
+  const el=document.getElementById('modal-assign-track');
+  const v=el?String(el.value||'').trim():'';
+  return (v==='jg'||v==='ch'||v==='common')?v:'';
+}
 async function saveModalAssignment(){
   try{
   const sid=document.getElementById('modal-assign-stu').value;
@@ -10534,13 +10542,14 @@ async function saveModalAssignment(){
     if(existing){
       if(existing.type==='mission'){
         // 미션 과제는 날짜/마감/메모만 수정 (교재·유닛·진행률 보호)
-        existing.date=date;existing.due=due;existing.note=note;
+        existing.date=date;existing.due=due;existing.note=note;existing.track=_assignTrackVal();
       }else{
         // 개별 수정으로 내용이 공통 배치본과 달라지면 공통 표식 해제 (수정 복원 시 전원 확산 방지)
         const changed=existing.category!==cat||existing.due!==due||(existing.bookTitle||'')!==book||(existing.range||'')!==range||(existing.note||'')!==note;
         if(changed&&existing.common===true)existing.common=false;
         existing.category=cat;existing.date=date;existing.due=due;
         existing.bookTitle=book;existing.range=range;existing.note=note;
+        existing.track=_assignTrackVal();
       }
       await supaUpsert('assignments',_editAssignId,existing,sid);
       const idx=(_cache.assignments||[]).findIndex(x=>x.id===_editAssignId);
@@ -10555,7 +10564,7 @@ async function saveModalAssignment(){
     const wsId=document.getElementById('ws-assign-sel')?.value||'';
     const w=(_cache.worksheets||[]).find(x=>x.id===wsId);
     if(!w){toast('워크시트를 선택해 주세요');return;}
-    const a={id:uid(),sid,type:'worksheet',category:'worksheet',date,due,note,
+    const a={id:uid(),sid,type:'worksheet',category:'worksheet',date,due,note,track:_assignTrackVal(),
       wsId,bookTitle:w.title||'워크시트',gradeLevel:w.gradeLevel||''};
     await supaUpsert('assignments',a.id,a,sid);
     if(!_cache.assignments)_cache.assignments=[];
@@ -10599,7 +10608,7 @@ async function saveModalAssignment(){
       const unitMissions=missions.filter(m=>av[m]);
       if(!unitMissions.length)continue;
       const unitDue=dueFor(i);
-      const a={id:uid(),sid,type:'mission',category:'mission',date,due:unitDue,note,
+      const a={id:uid(),sid,type:'mission',category:'mission',date,due:unitDue,note,track:_assignTrackVal(),
         tbId,unitKey,bookTitle:tb.title||'',unitTitle:tb.unitTitles?.[unitKey]||'',
         missions:unitMissions,progress:{}};
       if(unitMissions.includes('vocab')){
@@ -10636,7 +10645,7 @@ async function saveModalAssignment(){
     }
     if(!schedule.length){toast('해당 조건에 맞는 날이 없어요 — 시작일·반복 요일을 확인해 주세요');return;}
     const a={id:uid(),sid,type:'recur',category:'recur',recurRule:rule,date:schedule[0].date,due:schedule[schedule.length-1].date,
-      bookTitle:title,...(tbId&&{bookId:tbId,auto:true}),note,schedule}; // 교재형은 자동 진행(못 한 날 자동 밀림)
+      track:_assignTrackVal(),bookTitle:title,...(tbId&&{bookId:tbId,auto:true}),note,schedule}; // 교재형은 자동 진행(못 한 날 자동 밀림)
     await supaUpsert('assignments',a.id,a,sid);
     if(!_cache.assignments)_cache.assignments=[];
     _cache.assignments.unshift(a);
@@ -10647,7 +10656,7 @@ async function saveModalAssignment(){
     const schedRows=document.querySelectorAll('#c5-rows .c5-row');
     const schedule=[...schedRows].map(r=>({date:r.dataset.date,book:(r.querySelector('[data-c5="book"]')?.value||'').trim(),unit:(r.querySelector('[data-c5="unit"]')?.value||'').trim()})).filter(x=>x.book||x.unit);
     if(!schedule.length){toast('진도 스케줄을 입력해 주세요');return;}
-    const a={id:uid(),sid,type:'class5',category:'class5',date,due,bookTitle:'클래스5',schedule};
+    const a={id:uid(),sid,type:'class5',category:'class5',date,due,track:_assignTrackVal(),bookTitle:'클래스5',schedule};
     await supaUpsert('assignments',a.id,a,sid);
     if(!_cache.assignments)_cache.assignments=[];
     _cache.assignments.unshift(a);
@@ -10656,7 +10665,7 @@ async function saveModalAssignment(){
   const allLib=[...(_cache.library||[])];
   const isReading=cat==='book'||!!bookId||allLib.some(b=>b.title===book);
   const type=isReading?'reading':cat==='vocab'?'vocab':cat==='other'?'other':'textbook';
-  const a={id:uid(),sid,type,category:cat,date,due,bookTitle:book,bookId:bookId||'',range,note};
+  const a={id:uid(),sid,type,category:cat,date,due,track:_assignTrackVal(),bookTitle:book,bookId:bookId||'',range,note};
   if(type==='vocab'){
     const checked=[...document.querySelectorAll('.modal-vocab-check:checked')].map(c=>c.value);
     const extra=(document.getElementById('modal-vocab-extra')?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
@@ -14664,6 +14673,13 @@ function toggleAssignEdit(aid,sid){
     <div style="flex:1;min-width:140px"><label style="font-size:12px;display:block;margin-bottom:2px">교재/원서</label><input type="text" id="ae-book-${aid}" value="${bookVal}" list="dl-hw-books" autocomplete="off" placeholder="예: 공책, Easy Link Starter 2" style="width:100%"></div>
     <div style="flex:1;min-width:120px"><label style="font-size:12px;display:block;margin-bottom:2px">범위/내용</label><input type="text" id="ae-range-${aid}" value="${rangeVal}" style="width:100%"></div>
     <div style="flex:0 0 140px"><label style="font-size:12px;display:block;margin-bottom:2px">마감일</label><input type="date" id="ae-due-${aid}" value="${a.due||''}"></div>
+    <div style="flex:0 0 130px"><label style="font-size:12px;display:block;margin-bottom:2px">학습 방향</label>
+      <select id="ae-track-${aid}" style="width:100%">
+        <option value=""${!a.track?' selected':''}>미분류</option>
+        <option value="jg"${a.track==='jg'?' selected':''}>직결</option>
+        <option value="ch"${a.track==='ch'?' selected':''}>체력</option>
+        <option value="common"${a.track==='common'?' selected':''}>공통</option>
+      </select></div>
   </div>
   <div style="display:flex;gap:6px">
     <button class="btn bt bsm" style="font-size:12px" onclick="saveAssignEdit('${aid}','${sid}')">저장</button>
@@ -14682,6 +14698,7 @@ async function saveAssignEdit(aid,sid){
   if(a.common===true&&((a.due||'')!==due||_prevRange!==range||(a.bookTitle||'')!==book))a.common=false;
   a.bookTitle=book;
   a.due=due;
+  {const tk=document.getElementById('ae-track-'+aid);if(tk)a.track=(['jg','ch','common'].includes(tk.value)?tk.value:'');}
   // 레거시 'other'(text에만 내용 저장) 과제만 text 갱신 — 커스텀 구분(range 저장)은 range 갱신
   if(a.type==='other'&&a.text&&!a.range)a.text=range; else a.range=range;
   await supaUpsert('assignments',aid,a,sid);

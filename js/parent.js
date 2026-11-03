@@ -363,7 +363,8 @@ async function loadParent(sid){
     });
     const assignRow=a=>{
       const cat=a.category?(CAT_LBL[a.category]||a.category):''; // 직접 입력 구분은 그대로 표시
-      const catHtml=cat?`<span style="font-size:12px;font-weight:700;color:var(--teal)">[${cat}]</span> `:'';
+      const catHtml=(((typeof ppTrackChipHtml==='function')?ppTrackChipHtml(a.track):'')
+        +(cat?`<span style="font-size:12px;font-weight:700;color:var(--teal)">[${cat}]</span> `:''));
       const label=a.category==='vocab'?((a.words||[]).slice(0,3).join(', ')+(a.words?.length>3?` 외 ${a.words.length-3}개`:'')):(a.bookTitle||a.text||((a.category&&!['phonics','vocab','grammar','reading','listening','writing','naesin','book','class5','other'].includes(a.category))?a.category:'')||'과제');
       const range=a.range?` <span class="p-dim">${a.range}</span>`:'';
       const dueCol=a.due&&a.due<=todayD?'var(--coral)':'var(--slate)';

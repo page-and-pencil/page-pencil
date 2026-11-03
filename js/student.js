@@ -2832,7 +2832,7 @@ function renderStudentHome(sid){
         <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone?'uncompleteAssignment(\''+sid+'\',\''+a.id+'\')':(!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')')}" title="${isDone?'클릭: 완료 취소':(!canCheck?(a.type==='mission'?'미션을 모두 완료하면 자동으로 체크됩니다':'녹음 제출 후 완료 가능'):'완료 처리')}">${isDone?'✓':''}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span style="font-size:12.5px;color:var(--slate);font-family:var(--fm)">${qNo?`<span class="quest-no">퀘스트 ${qNo}</span> `:''}${a.date||''}</span>
+            <span style="font-size:12.5px;color:var(--slate);font-family:var(--fm)">${qNo?`<span class="quest-no">퀘스트 ${qNo}</span> `:''}${(typeof ppTrackChipHtml==='function')?ppTrackChipHtml(a.track):''}${a.date||''}</span>
             ${a.due?dueLabelHtml(a.due,today):''}
           </div>
           ${body}

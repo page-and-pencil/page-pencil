@@ -2516,3 +2516,10 @@ body{font-size:14.5px;line-height:1.65;}
 .gl-cri{font-size:12px;color:var(--text-muted);margin-top:3px;line-height:1.45}
 .gl-past{margin-top:6px}
 .gl-past>summary{font-size:12.5px;font-weight:700;color:var(--text-muted);cursor:pointer;padding:4px 0}
+
+/* 과제·수업의 학습 방향 칩 */
+.tk-chip{display:inline-flex;align-items:center;font-size:10.5px;font-weight:800;
+  padding:1px 7px;border-radius:50px;background:var(--nav-active);color:var(--text-muted);
+  margin-right:5px;vertical-align:1px;white-space:nowrap}
+.tk-chip.tr-jg{background:var(--avatar-bg);color:var(--avatar-text)}
+.tk-chip.tr-common{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
