@@ -2462,3 +2462,28 @@ body{font-size:14.5px;line-height:1.65;}
 .ex-tb-row .bx{font-size:17px;line-height:1;padding:4px 6px;}
 @media(max-width:600px){.ex-tb-row{grid-template-columns:1fr 28px;}
   .ex-tb-row .ex-tb-units{grid-column:1;}}
+
+/* ── 학습 방향 배지·한 줄 (직결/체력) — 색은 토큰만 ─────────── */
+.track-line{display:flex;align-items:center;gap:9px;padding:11px 14px;border-radius:12px;
+  border:1px solid var(--border);background:var(--surface);margin:10px 0;line-height:1.5}
+.track-line .track-chip{flex:0 0 auto;font-size:12px;font-weight:800;padding:3px 10px;border-radius:50px;
+  background:var(--nav-active);color:var(--primary);letter-spacing:.2px}
+.track-line .track-txt{font-size:13.5px;color:var(--text);font-weight:600}
+.track-line.tr-jg{border-left:3px solid var(--accent)}
+.track-line.tr-jg .track-chip{background:var(--avatar-bg);color:var(--avatar-text)}
+.track-line.tr-ch{border-left:3px solid var(--neutral)}
+.track-badge{display:inline-flex;align-items:center;gap:4px;margin-left:6px;font-size:11px;font-weight:700;
+  padding:1px 7px;border-radius:50px;background:var(--nav-active);color:var(--text-muted);white-space:nowrap}
+.track-badge.tr-jg{background:var(--avatar-bg);color:var(--avatar-text)}
+.track-badge i{font-style:normal;font-size:10px;font-weight:600;opacity:.75}
+.track-need{display:inline-flex;align-items:center;margin-left:5px;font-size:10.5px;font-weight:700;
+  padding:1px 6px;border-radius:50px;background:transparent;color:var(--warning);
+  border:1px solid var(--warning);white-space:nowrap}
+.ex-status{font-size:11.5px;font-weight:700;padding:1px 7px;border-radius:50px;white-space:nowrap}
+.ex-status.is-confirmed{background:var(--avatar-bg);color:var(--avatar-text)}
+.ex-status.is-planned{background:var(--nav-active);color:var(--text-muted)}
+.ex-status.is-none{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
+@media(max-width:480px){
+  .track-line{padding:10px 12px;gap:8px}
+  .track-line .track-txt{font-size:13px}
+}

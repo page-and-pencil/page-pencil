@@ -251,6 +251,10 @@ async function loadParent(sid){
       </div>
     </div>`;
   }
+  // 블록 A0 — 지금 어느 기간인가 (학생 화면과 같은 판정에서 읽는다)
+  {const tl=(typeof ppTrackLineHtml==='function')?ppTrackLineHtml(s,true):'';
+   if(tl)blocks+=`<div class="card"><div class="cb" style="padding:4px 14px">${tl}</div></div>`;}
+
   // 블록 A — 최근 수업 (가장 최근이 '수업 안 함'이면 안 한 사실을 안내)
   const skipDate=stuRecentSkip(sid,latLes?.date||'');
   if(skipDate){
@@ -382,6 +386,7 @@ async function loadParent(sid){
   const _archFrom=blocks.length;
 
   // 블록 D1 — 다음 영어 시험 D-day (학교 시험 일정에서)
+  // (기간 한 줄은 블록 A 앞으로 — '지금 무엇을 왜 배우는가'가 먼저)
   const examHtml=(typeof ppExamCardHtml==='function')?ppExamCardHtml(s,{compact:false}):'';
   if(examHtml)blocks+=`<div class="card"><div class="cb" style="padding:14px 16px">${examHtml}</div></div>`;
 

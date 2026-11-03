@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261102a">
-<link rel="stylesheet" href="css/style.css?v=20261103a">
+<link rel="stylesheet" href="css/style.css?v=20261103e">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -588,7 +588,7 @@
         <button id="dtab-lib" onclick="switchDataTab('lib')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 원서</button>
         <button id="dtab-word" onclick="switchDataTab('word')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 어휘</button>
         <button id="dtab-ws" onclick="switchDataTab('ws')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 저장된 워크시트</button>
-        <button id="dtab-exam" onclick="switchDataTab('exam')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i><i data-lucide="calendar-days" width="15" height="15" style="vertical-align:-3px"></i> 시험 일정</button>
+        <button id="dtab-exam" onclick="switchDataTab('exam')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="calendar-days" width="15" height="15" style="vertical-align:-3px"></i> 시험 일정</button>
         <button id="dtab-master" onclick="switchDataTab('master')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="wrench" width="15" height="15" style="vertical-align:-3px"></i> 백업·일괄</button>
       </div>
 
@@ -600,6 +600,12 @@
           <span style="flex:1"></span>
           <select class="filter-sel" id="exam-f-school" onchange="renderExamList()" style="min-width:130px"></select>
           <select class="filter-sel" id="exam-f-grade" onchange="renderExamList()" style="min-width:95px"></select>
+          <label style="font-size:12.5px;color:var(--text-muted);display:inline-flex;align-items:center;gap:5px;white-space:nowrap"
+                 title="확정된 영어 시험일 기준으로 며칠 전부터 직결 기간으로 볼지">
+            직결 준비
+            <input type="number" id="exam-prep-days" min="1" max="120" onchange="saveJgPrepDays()"
+                   style="width:54px;min-height:0;padding:4px 6px;text-align:center">
+            일 전부터</label>
           <button class="btn bt bsm" onclick="openExamEdit()">
             <i data-lucide="plus" width="14" height="14"></i> 시험 일정</button>
         </div>
@@ -1161,6 +1167,18 @@
       <div class="f"><label>수업료 (월)</label><input type="number" id="es-fee"></div>
       <div class="f"><label>결제일 (매월 며칠)</label><input type="number" id="es-payday" min="1" max="31"></div>
       <div class="f s2"><label>메모</label><input type="text" id="es-memo"></div>
+      <div class="f s2"><label>기간 수동 지정 <span style="font-size:12px;color:var(--slate);font-weight:400;text-transform:none">(자동 판정보다 우선)</span></label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <select id="es-track" style="flex:0 0 108px" onchange="esTrackToggle()">
+            <option value="">자동 판정</option>
+            <option value="jg">직결</option>
+            <option value="ch">체력</option>
+          </select>
+          <input type="date" id="es-track-until" style="flex:0 0 152px" title="이 날까지 적용">
+          <input type="text" id="es-track-reason" style="flex:1;min-width:140px" placeholder="지정 이유 (예: 수행평가 준비)">
+        </div>
+        <div id="es-track-hint" style="font-size:12px;color:var(--text-muted);margin-top:5px;line-height:1.5"></div>
+      </div>
       <div class="f"><label>학부모 성함</label><input type="text" id="es-parent-name" placeholder="예) 김민준 어머니"></div>
       <div class="f"><label>학부모 연락처</label><input type="tel" id="es-parent-phone" placeholder="01012345678" inputmode="numeric"></div>
       <div class="f s2"><label>소속 클래스 <span style="font-size:12px;color:var(--slate);font-weight:400;text-transform:none">(요일·시간은 클래스 탭에서 변경)</span></label><div id="es-classes" style="display:flex;flex-wrap:wrap;gap:6px;padding:2px 0"></div></div>
@@ -2220,6 +2238,17 @@
         <input type="date" id="ex-from"></div>
       <div class="f"><label>시험 기간 끝 <span style="font-weight:400;color:var(--neutral)">(선택)</span></label>
         <input type="date" id="ex-to"></div>
+      <div class="f"><label>일정 상태</label>
+        <select id="ex-status">
+          <option value="confirmed">확정 — 학교에서 확인함</option>
+          <option value="planned">예정 — 아직 확인 전</option>
+        </select></div>
+      <div class="f"><label>확인한 날</label>
+        <input type="date" id="ex-checked"></div>
+      <div class="f" style="grid-column:span 2"><label>출처 <span style="font-weight:400;color:var(--neutral)">(어디서 확인했는지)</span></label>
+        <input type="text" id="ex-source" placeholder="예) 학교 홈페이지 가정통신문 / 학생 전달"></div>
+      <div class="f" style="grid-column:span 2;font-size:12.5px;color:var(--text-muted);line-height:1.5">
+        확정으로 둔 일정만 직결 기간 전환에 쓰입니다. 예정은 목록에만 표시되고 D-day를 만들지 않습니다.</div>
     </div>
     <div class="f" style="margin-top:4px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -2279,11 +2308,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261103a"></script>
+<script src="js/utils.js?v=20261103e"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261103d"></script>
-<script src="js/teacher.js?v=20261103d"></script>
-<script src="js/student.js?v=20261103d"></script>
-<script src="js/parent.js?v=20261103d"></script>
+<script src="js/db.js?v=20261103e"></script>
+<script src="js/teacher.js?v=20261103e"></script>
+<script src="js/student.js?v=20261103e"></script>
+<script src="js/parent.js?v=20261103e"></script>
 </body>
 </html>

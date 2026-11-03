@@ -214,6 +214,160 @@ function ppExamCardHtml(stu, opts){
     + '</div>';
 }
 
+// ── 학습 방향: 직결 / 체력 ───────────────────────────────────
+// '지금이 어느 기간인가'와 '이 학습이 어느 성격인가'는 별개다.
+// 여기서 판정하는 것은 기간뿐이다. 과제·수업의 방향 태그는 다음 단계.
+// 두 방향에 우열은 없다 — 직결에서도 실력이 쌓이고, 체력도 학교 성적에 도움이 된다.
+const PP_TRACK={
+  // desc  = 앱 안내용 짧은 설명 (명사구)
+  // descP = 학부모 문장에 그대로 이어 붙이는 서술 (조사까지 맞춘 형태)
+  jg:{key:'jg',name:'직결',desc:'학교 수업과 평가에 바로 이어지는 영어',
+      descP:'학교 수업과 평가에 바로 이어지는 영어를 하고 있습니다.'},
+  ch:{key:'ch',name:'체력',desc:'읽고 듣고 표현하는 힘을 쌓는 영어',
+      descP:'읽고 듣고 표현하는 힘을 쌓고 있습니다.'},
+};
+const PP_JG_PREP_DEFAULT=28;
+// 직결 준비 일수 — 설정으로 조정 (기본 28일)
+function ppJgPrepDays(){
+  const raw=(typeof _cache!=='undefined'&&_cache.settings)?_cache.settings.jgPrepDays:null;
+  const v=parseInt(raw,10);
+  return (v>=1&&v<=120)?v:PP_JG_PREP_DEFAULT;
+}
+// 'YYYY-MM-DD' 에서 며칠 이동 (로컬 기준 — ppToday 와 같은 달력을 쓴다)
+function ppShiftDate(dateStr,days){
+  if(!dateStr)return '';
+  const d=new Date(dateStr+'T00:00:00');
+  if(isNaN(d))return '';
+  d.setDate(d.getDate()+(days||0));
+  return (typeof ppYmd==='function')?ppYmd(d)
+    :(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+}
+// '2026-04-01' → '4월 1일'
+function ppMdLabel(dateStr){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr||''));
+  return m?(parseInt(m[2],10)+'월 '+parseInt(m[3],10)+'일'):'';
+}
+// 확정 일정만으로 직결 준비 기간을 만든다. 겹치면 하나로 이어 붙인다.
+// '예정'(status==='planned')은 기간 전환에 쓰지 않는다 — 확인 안 된 날짜로 D-day를 만들지 않기 위해.
+// status 가 없는 옛 행은 확정으로 본다(직접 날짜를 넣어 저장한 것이므로).
+function ppJgWindows(stu){
+  const prep=ppJgPrepDays();
+  const src=(typeof ppExamsFor==='function')?ppExamsFor(stu):[];
+  const wins=src
+    .filter(e=>e&&!e.noExam&&e.examDate&&(e.status||'confirmed')==='confirmed')
+    .map(e=>({from:ppShiftDate(e.examDate,-prep),to:e.examDate,exam:e}))
+    .filter(w=>w.from&&w.to)
+    .sort((a,b)=>a.from.localeCompare(b.from));
+  const out=[];
+  wins.forEach(w=>{
+    const last=out[out.length-1];
+    if(last&&w.from<=last.to){                       // 겹치는 준비 기간은 연속된 하나로
+      if(w.to>last.to){last.to=w.to;last.exam=w.exam;}
+      last.exams.push(w.exam);
+    }else out.push({from:w.from,to:w.to,exam:w.exam,exams:[w.exam]});
+  });
+  return out;
+}
+// 이 학생의 지금 기간. 수동 지정이 자동 판정보다 우선한다.
+// 반환: {track,by,reason,until,nextFrom,exam,days,needsSchedule,noExam}
+function ppTrackOf(stu,todayStr){
+  const today=todayStr||((typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10));
+  const r={track:'ch',by:'auto',reason:'',until:'',nextFrom:'',exam:null,days:null,needsSchedule:false,noExam:null};
+  if(!stu)return r;
+  // 남은 일수는 반드시 이 판정의 기준일(today)에서 센다.
+  // ppDaysUntil 은 항상 실제 오늘을 쓰므로 여기서 쓰면 과거·미래 판정이 어긋난다.
+  const daysTo=d=>{
+    if(!d)return null;
+    const a=new Date(today+'T00:00:00'), b=new Date(d+'T00:00:00');
+    return isNaN(b)?null:Math.round((b-a)/86400000);
+  };
+  // 1) 선생님이 직접 지정한 기간 — 종료일이 지나지 않았을 때만
+  const ov=stu.trackOverride;
+  if(ov&&PP_TRACK[ov.track]&&(!ov.until||ov.until>=today)){
+    r.track=ov.track;r.by='manual';
+    r.reason=ov.reason||'선생님 지정';r.until=ov.until||'';
+    return r;
+  }
+  const list=(typeof ppExamsFor==='function')?ppExamsFor(stu):[];
+  const wins=ppJgWindows(stu);
+  // 2) 확정 시험일 기준 준비 기간 안이면 직결 (시험 당일 포함)
+  const cur=wins.find(w=>today>=w.from&&today<=w.to);
+  if(cur){
+    r.track='jg';r.exam=cur.exam;r.until=cur.to;
+    r.days=daysTo(cur.exam.examDate);
+    r.reason=((cur.exam.year||'')+' '+(cur.exam.semester||1)+'학기 '
+      +((typeof PP_EXAM_ROUND!=='undefined'&&PP_EXAM_ROUND[cur.exam.round])||'시험')).trim();
+    return r;
+  }
+  // 3) 그 밖에는 체력 — 시험 다음 날도 여기로 돌아온다
+  const next=wins.find(w=>w.from>today);
+  if(next){
+    r.nextFrom=next.from;r.exam=next.exam;
+    r.days=daysTo(next.exam.examDate);
+  }
+  const none=list.find(e=>e&&e.noExam);
+  if(none)r.noExam=none;
+  // 4) 일정 미등록을 '시험 없음'으로 보지 않는다 — 교사에게만 확인 요청을 띄운다.
+  //    초등은 지필고사가 없는 경우가 보통이라 중·고등학생만 묻는다.
+  const grade=String((stu.grade||stu.lv||'')).trim();
+  if(!next&&!none&&/^(중|고)/.test(grade))r.needsSchedule=true;
+  r.reason=next?('다음 직결 '+ppMdLabel(next.from)+' 시작')
+    :(none?'지필 없음 확인':(list.length?'확정된 시험 일정 없음':'시험 일정 미등록'));
+  return r;
+}
+
+// ── 기간 문구 ────────────────────────────────────────────────
+// 학생·학부모·선생님이 모두 같은 판정(ppTrackOf)에서 읽는다.
+function ppTrackTextStudent(stu){
+  const t=ppTrackOf(stu);
+  if(t.track==='jg'){
+    if(t.by==='manual')return '지금은 직결 기간이에요.';
+    if(t.days===0)return '오늘이 영어 시험일이에요.';
+    if(t.days>0)return '지금은 직결 기간이에요. 영어 시험까지 '+t.days+'일 남았어요.';
+    return '지금은 직결 기간이에요.';
+  }
+  if(t.by==='manual')return '지금은 체력 기간이에요.';
+  if(t.nextFrom)return '지금은 체력 기간이에요. '+ppMdLabel(t.nextFrom)+'부터 직결 기간이 시작돼요.';
+  if(t.noExam)return '지금은 체력 기간이에요. 이번 학기는 지필고사가 없어요.';
+  return '지금은 체력 기간이에요.';
+}
+function ppTrackTextParent(stu){
+  const t=ppTrackOf(stu);
+  if(t.track==='jg'){
+    let out='지금은 직결 기간입니다. '+PP_TRACK.jg.descP;
+    if(t.by!=='manual'&&t.days>0)out+=' 영어 시험까지 '+t.days+'일 남았습니다.';
+    else if(t.by!=='manual'&&t.days===0)out+=' 오늘이 영어 시험일입니다.';
+    return out;
+  }
+  let out='지금은 체력 기간입니다. '+PP_TRACK.ch.descP;
+  if(t.by==='manual')return out;
+  if(t.nextFrom)out+=' '+ppMdLabel(t.nextFrom)+'부터 직결 기간이 시작됩니다.';
+  else if(t.noExam)out+=' 이번 학기는 지필고사가 없습니다.';
+  return out;
+}
+// 학생 홈 한 줄 — 과제 아래에 놓는다(홈의 주인공은 오늘 할 학습).
+function ppTrackLineHtml(stu,forParent){
+  if(!stu||typeof ppTrackOf!=='function')return '';
+  const t=ppTrackOf(stu);
+  const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const txt=forParent?ppTrackTextParent(stu):ppTrackTextStudent(stu);
+  return '<div class="track-line tr-'+t.track+'">'
+    +'<span class="track-chip">'+esc(PP_TRACK[t.track].name)+'</span>'
+    +'<span class="track-txt">'+esc(txt)+'</span></div>';
+}
+// 선생님용 — 판정 근거를 항상 함께 보여 준다(왜 이 기간인지 바로 알 수 있게)
+function ppTrackBadgeHtml(stu){
+  if(!stu||typeof ppTrackOf!=='function')return '';
+  const t=ppTrackOf(stu);
+  const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const dd=(t.track==='jg'&&t.days>0)?(' D-'+t.days):(t.track==='jg'&&t.days===0?' 당일':'');
+  let why=(t.by==='manual'?'수동':'자동')+' · '+t.reason;
+  if(t.by==='manual'&&t.until)why+=', '+ppMdLabel(t.until)+'까지';
+  return '<span class="track-badge tr-'+t.track+'" title="'+esc(why)+'">'
+    +esc(PP_TRACK[t.track].name+dd)+(t.by==='manual'?'<i>수동</i>':'')
+    +'</span>'+(t.needsSchedule?'<span class="track-need" title="이 학생의 학교·학년 시험 일정이 등록되지 않았습니다">일정 확인</span>':'');
+}
+
 // ── 교재 여정 ────────────────────────────────────────────────
 // 끝낸 교재 / 지금 하는 교재 / 앞으로 할 교재를 영역별로 한 줄에 꿴다.
 // 데이터는 이미 다 있다 — 지나온 길은 수업 기록(lessons.materials)에, 앞길은

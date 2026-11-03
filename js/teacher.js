@@ -1441,7 +1441,8 @@ function renderStus(){
     const pay=s.inactive?{t:'퇴원',c:'is-neutral'}:(hasUnpaid(s)?{t:'미납',c:'is-warn'}:{t:'완료',c:'is-ok'});
     return '<tr class="sc'+(s.inactive?' inactive':'')+'" onclick="selStu(\''+s.id+'\',this)" tabindex="0">'
       +'<td class="sl-name"><span class="sc-avatar">'+(_esc((s.name||'').trim().slice(0,1))||'학')+'</span>'
-        +'<span class="sl-nm">'+_esc(s.name)+'</span></td>'
+        +'<span class="sl-nm">'+_esc(s.name)+'</span>'
+        +((typeof ppTrackBadgeHtml==='function')?ppTrackBadgeHtml(s):'')+'</td>'
       +'<td class="sl-dim" data-h="학년">'+_esc(s.grade||s.lv||'')+'</td>'
       +'<td class="sl-dim" data-h="학교">'+_esc(s.school||'')+'</td>'
       +'<td class="sl-dim" data-h="클래스">'+_esc(clsOf(s.id))+'</td>'
@@ -1462,6 +1463,30 @@ function renderStus(){
 }
 
 
+// 수동 지정 칸의 안내문 — 지금 자동 판정이 무엇인지 함께 보여 준다
+// 수동 지정 입력을 읽어 저장 모양으로. 자동이면 null(필드를 비운다).
+function _esReadTrack(){
+  const g=k=>{const el=document.getElementById(k);return el?String(el.value||'').trim():'';};
+  const track=g('es-track');
+  if(track!=='jg'&&track!=='ch')return null;
+  return {track,until:g('es-track-until'),reason:g('es-track-reason'),
+    at:(typeof ppToday==='function')?ppToday():''};
+}
+function esTrackToggle(stu){
+  const sel=document.getElementById('es-track'), hint=document.getElementById('es-track-hint');
+  if(!sel||!hint)return;
+  const s=stu||DB.stus().find(x=>x.id===(document.getElementById('es-id')||{}).value);
+  let auto='';
+  if(s&&typeof ppTrackOf==='function'){
+    const a=ppTrackOf({...s,trackOverride:null});
+    auto='자동 판정: '+PP_TRACK[a.track].name+' ('+a.reason+')';
+  }
+  const on=!!sel.value;
+  ['es-track-until','es-track-reason'].forEach(k=>{const el=document.getElementById(k);if(el)el.disabled=!on;});
+  hint.textContent=on
+    ? '지정한 날까지 자동 판정을 무시합니다. 날을 비우면 직접 바꿀 때까지 계속 적용됩니다. '+auto
+    : (auto||'학교·학년과 시험 일정으로 자동 판정합니다.');
+}
 function openEditStu(id){
   const s=DB.stus().find(x=>x.id===id);if(!s)return;
   document.getElementById('es-id').value=s.id;
@@ -1472,6 +1497,12 @@ function openEditStu(id){
   document.getElementById('es-fee').value=s.fee||'';
   document.getElementById('es-payday').value=s.payday||'';
   document.getElementById('es-memo').value=s.memo||'';
+  // 기간 수동 지정 (없으면 자동 판정)
+  {const ov=s.trackOverride||{};
+   const t=document.getElementById('es-track'); if(t)t.value=(ov.track==='jg'||ov.track==='ch')?ov.track:'';
+   const u=document.getElementById('es-track-until'); if(u)u.value=ov.until||'';
+   const rs=document.getElementById('es-track-reason'); if(rs)rs.value=ov.reason||'';
+   if(typeof esTrackToggle==='function')esTrackToggle(s);}
   // 소속 클래스 표시 (요일·시간의 원천 = 클래스, 변경은 클래스 탭에서)
   {const ec=document.getElementById('es-classes');
    if(ec){const myCls=DB.classes().filter(c=>c.active!==false&&(c.studentIds||[]).includes(s.id));
@@ -1595,7 +1626,7 @@ async function addStu(){
 async function updStu(){
   const id=document.getElementById('es-id').value;
   const idx=_cache.students.findIndex(s=>s.id===id);if(idx<0)return;
-  _cache.students[idx]={..._cache.students[idx],name:document.getElementById('es-name').value.trim(),grade:document.getElementById('es-grade').value,school:document.getElementById('es-school').value.trim(),pin:document.getElementById('es-pin').value.trim(),enrollDate:document.getElementById('es-enroll').value,fee:parseInt(document.getElementById('es-fee').value)||0,payday:parseInt(document.getElementById('es-payday').value)||0,memo:document.getElementById('es-memo').value.trim(),parentName:document.getElementById('es-parent-name').value.trim(),parentPhone:document.getElementById('es-parent-phone').value.trim()};
+  _cache.students[idx]={..._cache.students[idx],name:document.getElementById('es-name').value.trim(),grade:document.getElementById('es-grade').value,school:document.getElementById('es-school').value.trim(),pin:document.getElementById('es-pin').value.trim(),enrollDate:document.getElementById('es-enroll').value,fee:parseInt(document.getElementById('es-fee').value)||0,payday:parseInt(document.getElementById('es-payday').value)||0,memo:document.getElementById('es-memo').value.trim(),trackOverride:_esReadTrack(),parentName:document.getElementById('es-parent-name').value.trim(),parentPhone:document.getElementById('es-parent-phone').value.trim()};
   await supaUpsert('students',id,_cache.students[idx],null);
   closeM('m-edit-stu');renderStus();populateSels();toast('수정되었습니다');
 }
@@ -5308,6 +5339,8 @@ function switchDataTab(tab){
   if(act){act.style.color='var(--teal)';act.style.borderBottomColor='var(--teal)';act.style.fontWeight='700';}
   if(tab==='exam'){
     const p=document.getElementById('dp-exam');if(p)p.style.display='flex';
+    const pd=document.getElementById('exam-prep-days');
+    if(pd)pd.value=(typeof ppJgPrepDays==='function')?ppJgPrepDays():28;
     renderExamList();
   } else if(tab==='master'){
     const p=document.getElementById('dp-master');if(p)p.style.display='';
@@ -8326,18 +8359,26 @@ function renderExamList(){
     return;
   }
   box.innerHTML='<div class="tbl-wrap"><table class="tbl"><thead><tr>'
-    +['학교','학년','학기·회차','영어 시험일','D-day','범위',''].map(h=>'<th>'+h+'</th>').join('')
+    +['학교','학년','학기·회차','상태','영어 시험일','D-day','범위',''].map(h=>'<th>'+h+'</th>').join('')
     +'</tr></thead><tbody>'
     +rows.map(e=>{
-      const d=e.noExam?null:ppDaysUntil(e.examDate);
+      // 확정된 일정만 D-day 를 만든다. 예정은 날짜가 확인된 것이 아니므로 카운트다운하지 않는다.
+      const planned=!e.noExam&&(e.status||'confirmed')==='planned';
+      const d=(e.noExam||planned)?null:ppDaysUntil(e.examDate);
       const dd=e.noExam?'<span class="badge">지필 없음</span>'
-        :(d===null?'<span class="sl-dim">—</span>'
-          :(d>0?'<b>D-'+d+'</b>':(d===0?'<b style="color:var(--bad)">오늘</b>':'<span class="sl-dim">지남</span>')));
+        :(planned?'<span class="sl-dim" title="확정 후 D-day가 표시됩니다">—</span>'
+          :(d===null?'<span class="sl-dim">—</span>'
+            :(d>0?'<b>D-'+d+'</b>':(d===0?'<b style="color:var(--bad)">오늘</b>':'<span class="sl-dim">지남</span>'))));
       const sc=(typeof ppExamScopeLines==='function')?ppExamScopeLines(e):[];
+      // 상태: 확정만 직결 기간 전환에 쓰인다. 출처·확인일은 말풍선으로.
+      const st=e.noExam?{c:'is-none',t:'지필 없음'}
+        :((e.status||'confirmed')==='planned'?{c:'is-planned',t:'예정'}:{c:'is-confirmed',t:'확정'});
+      const stTip=[e.source?'출처: '+e.source:'',e.checkedAt?'확인: '+e.checkedAt:''].filter(Boolean).join(' · ');
       return '<tr style="cursor:pointer" onclick="openExamEdit(\''+e.id+'\')">'
         +'<td>'+escAttr(e.school||'')+'</td>'
         +'<td>'+escAttr(e.grade||'')+'</td>'
         +'<td class="sl-dim">'+escAttr((e.year||'')+' '+(e.semester||1)+'학기 '+(PP_EXAM_ROUND[e.round]||''))+'</td>'
+        +'<td><span class="ex-status '+st.c+'"'+(stTip?' title="'+escAttr(stTip)+'"':'')+'>'+st.t+'</span></td>'
         +'<td class="sl-num">'+escAttr(e.noExam?'—':(e.examDate||''))+'</td>'
         +'<td class="sl-num">'+dd+'</td>'
         +'<td class="sl-dim" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escAttr(sc.join(' / '))+'">'
@@ -8346,6 +8387,20 @@ function renderExamList(){
       +'</tr>';
     }).join('')+'</tbody></table></div>';
   try{lucide.createIcons();}catch(_){}
+}
+// 직결 준비 일수 — 설정에 저장하고 세 화면의 판정에 바로 반영된다
+async function saveJgPrepDays(){
+  const el=document.getElementById('exam-prep-days');if(!el)return;
+  const v=parseInt(el.value,10);
+  if(!(v>=1&&v<=120)){
+    el.value=(typeof ppJgPrepDays==='function')?ppJgPrepDays():28;
+    toast('1일에서 120일 사이로 입력해 주세요');return;
+  }
+  _cache.settings.jgPrepDays=v;
+  try{ await supaSetSetting('jgPrepDays',v); }catch(e){ console.warn('jgPrepDays 저장 실패:',e); }
+  renderExamList();
+  if(typeof renderStus==='function')renderStus();
+  toast('확정된 시험일 '+v+'일 전부터 직결 기간으로 봅니다');
 }
 function examToggleNoExam(){
   const on=document.getElementById('ex-noexam').checked;
@@ -8380,6 +8435,9 @@ function openExamEdit(id){
   v('ex-to',e?e.periodTo:'');
   v('ex-memo',e?e.memo:'');
   v('ex-noexam-note',e?e.noExamNote:'수행평가 100%');
+  v('ex-status',e?(e.status||'confirmed'):'confirmed');
+  v('ex-source',e?e.source:'');
+  v('ex-checked',e?e.checkedAt:(typeof ppToday==='function'?ppToday():''));
   document.getElementById('ex-noexam').checked=!!(e&&e.noExam);
   const extra=document.getElementById('ex-extra');
   if(extra)extra.value=((e&&e.scope&&e.scope.extra)||[]).join('\n');
@@ -8419,6 +8477,8 @@ async function saveExam(){
     examDate:noExam?'':examDate,
     periodFrom:g('ex-from'),periodTo:g('ex-to'),
     noExam,noExamNote:noExam?(g('ex-noexam-note')||'수행평가 100%'):'',
+    status:(g('ex-status')==='planned')?'planned':'confirmed',
+    source:g('ex-source'),checkedAt:g('ex-checked'),
     scope:{textbooks:tbs,extra},
     memo:g('ex-memo'),_deleted:false};
   try{ await supaUpsert('exam_schedules',id,rec,null); }
@@ -9008,6 +9068,16 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
   scoreDrops.forEach(({s,cur,prev})=>{items.push({icon:luIcon('trending-down',15),chip:'da-amber',text:`${s.name} — 점수 하락 (${prev}% → ${cur}%)`,label:'확인',action:`loadStuPanel('${s.id}')`});});
   // 우선순위 4: 이번 달 수업 없음
   noLessonStus.forEach(s=>{items.push({icon:luIcon('triangle-alert',15),chip:'da-amber',text:`${s.name} — 이번 달 수업 없음`,label:'수업 추가',action:`goAddLesson('${s.id}')`});});
+  // 우선순위 4.5: 시험 일정 미등록 — 중·고등학생만 (초등은 지필고사가 없는 경우가 보통)
+  if(typeof ppTrackOf==='function'){
+    const need=(stus||[]).filter(s=>!s.inactive&&ppTrackOf(s).needsSchedule);
+    if(need.length){
+      const nm=need.slice(0,3).map(s=>s.name).join(', ')+(need.length>3?' 외 '+(need.length-3)+'명':'');
+      items.push({icon:luIcon('calendar-clock',15),chip:'da-amber',
+        text:'시험 일정 확인 필요 — '+nm,label:'일정 등록',
+        action:"swTab('t-data');switchDataTab('exam')"});
+    }
+  }
   // 우선순위 5: 월별 리포트 미발송 (이달 1~7일은 준비 기간, 8일부터 알림)
   const today=new Date();
   if(today.getDate()>=1&&(reportPendingStus||[]).length>0){

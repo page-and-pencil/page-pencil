@@ -14,6 +14,10 @@ create table if not exists public.exam_schedules (
   updated_at  timestamptz not null default now()
 );
 
+-- 학년도(year)는 적용 학년도입니다. 2026 일정을 2027에 쓰지 않도록 해마다 새 행을 만드세요.
+-- 확정(status='confirmed') 일정만 직결 기간 전환에 쓰입니다.
+-- 행이 아예 없는 상태는 '일정 미등록'이며, '지필 없음'(noExam)과 구분합니다.
+--
 -- 학교·학년·학기로 자주 찾으므로 인덱스를 둡니다
 create index if not exists exam_schedules_school_idx
   on public.exam_schedules ((data->>'school'), (data->>'grade'));
@@ -47,6 +51,11 @@ grant select, insert, update, delete on public.exam_schedules to anon;
 --   "examDate": "2026-04-28",              -- 영어 시험일
 --   "periodFrom": "2026-04-27",            -- 시험 기간 시작 (선택)
 --   "periodTo":   "2026-05-01",            -- 시험 기간 끝   (선택)
+--   "status": "confirmed",                 -- confirmed = 학교에서 확인한 확정 일정
+--                                          -- planned   = 예정 (확인 전) — 기간 전환에 쓰지 않음
+--                                          -- 값이 없는 옛 행은 confirmed 로 본다
+--   "source": "학교 홈페이지 가정통신문",      -- 어디서 확인했는지
+--   "checkedAt": "2026-11-03",             -- 확인한 날
 --   "noExam": false,                       -- true 면 지필 없음(자유학기 등)
 --   "noExamNote": "수행평가 100%",
 --   "scope": {
