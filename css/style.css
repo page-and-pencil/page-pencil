@@ -2586,3 +2586,8 @@ body{font-size:14.5px;line-height:1.65;}
 .cl-hw-chk .cl-hw-from{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:50px;
   background:transparent;color:var(--warning);border:1px solid var(--warning);
   margin-left:4px;white-space:nowrap}
+
+/* 외부 앱 점수 (클래스카드 등 — 손으로 넣는 값) */
+.tst-ext{display:inline-flex;align-items:center;margin-top:6px;font-size:11.5px;font-weight:700;
+  padding:1px 8px;border-radius:50px;background:var(--nav-active);color:var(--text-muted);white-space:nowrap}
+.tst-ext.inline{margin-top:0}

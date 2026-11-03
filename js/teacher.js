@@ -1132,7 +1132,9 @@ async function loadStuPanel(sid){
     :tsts.slice(0,5).map(t=>{
       const vp=pct(t.vocabCorrect,t.vocabTotal),gp=pct(t.grammarCorrect,t.grammarTotal);
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:12px;color:var(--slate);font-family:var(--fm);margin-bottom:6px">${t.date||''}</div>
+        <div style="font-size:12px;color:var(--slate);font-family:var(--fm);margin-bottom:6px">${t.date||''}${
+          t.absent?' · <span style="font-weight:700">미응시</span>':''}${
+          t.extApp&&t.extScore?` · <span class="tst-ext inline">${escAttr(t.extApp)} ${escAttr(t.extScore)}</span>`:''}</div>
         <div style="display:flex;gap:16px">
           <div><div class="ring ${rcls(vp)}">${t.vocabCorrect}/${t.vocabTotal}</div><div style="font-size:11.5px;color:var(--slate);text-align:center;margin-top:2px">단어 ${vp}%</div></div>
           <div><div class="ring ${rcls(gp)}">${t.grammarCorrect}/${t.grammarTotal}</div><div style="font-size:11.5px;color:var(--slate);text-align:center;margin-top:2px">어법 ${gp}%</div></div>
@@ -3170,10 +3172,18 @@ async function saveTst(){
   if(_saving['saveTst'])return; _saving['saveTst']=true;
   try{
   const sid=document.getElementById('ts-stu').value;if(!sid){toast('학생을 선택해 주세요');return;}
-  const vc=parseInt(document.getElementById('ts-vc').value)||0,vt=parseInt(document.getElementById('ts-vt').value)||10;
-  const gc=parseInt(document.getElementById('ts-gc').value)||0,gt=parseInt(document.getElementById('ts-gt').value)||10;
-  const rc=parseInt(document.getElementById('ts-rc').value)||0,rt=parseInt(document.getElementById('ts-rt').value)||0;
-  const lc=parseInt(document.getElementById('ts-lc').value)||0,lt=parseInt(document.getElementById('ts-lt').value)||0;
+  // 영역 칸을 둘 다 비워 두면 '그 영역은 안 봤다' 는 뜻이다 → 0/0 으로 둔다.
+  // 전에는 총문항이 비면 10 으로 채워져, 단어만 본 날에도 '어법 0/10 0%' 가 저장됐다.
+  // 맞은 수만 넣고 총문항을 비우면 예전처럼 10 문항으로 본다.
+  const _n=id=>{const el=document.getElementById(id);const v=el?String(el.value||'').trim():'';
+    return v===''?null:(parseInt(v,10)||0);};
+  const _pair=(cid,tid,dflt)=>{const c=_n(cid),t=_n(tid);
+    if(c===null&&t===null)return [0,0];
+    return [c||0,(t!==null?t:(dflt||0))];};
+  const [vc,vt]=_pair('ts-vc','ts-vt',10);
+  const [gc,gt]=_pair('ts-gc','ts-gt',10);
+  const [rc,rt]=_pair('ts-rc','ts-rt',0);
+  const [lc,lt]=_pair('ts-lc','ts-lt',0);
   const wr=document.getElementById('ts-wr').value;
   const allWordsRaw=document.getElementById('ts-allwords').value;
   const allWords=allWordsRaw?allWordsRaw.split(',').map(w=>w.trim()).filter(Boolean):[];
@@ -3266,6 +3276,7 @@ function renderTst(){
           <button class="btn bo bsm" onclick="openEditTst('${t.id}')">수정</button>
         </div>
       </div>
+      ${t.extApp&&t.extScore?`<div class="tst-ext">${escAttr(t.extApp)} ${escAttr(t.extScore)}</div>`:''}
       ${t.cmt?`<div style="font-size:13px;color:var(--slate);margin-top:8px">${t.cmt}</div>`:''}
     </div>`;
     return `<div class="ri">
@@ -3293,6 +3304,7 @@ function renderTst(){
         </div>
         ${t.grammarWeak?`<span class="badge bamber">${t.grammarWeak}</span>`:''}
       </div>
+      ${t.extApp&&t.extScore?`<div class="tst-ext">${escAttr(t.extApp)} ${escAttr(t.extScore)}</div>`:''}
       ${t.cmt?`<div style="font-size:13px;color:var(--slate);margin-top:8px">${t.cmt}</div>`:''}
     </div>`;
   }).join('');
@@ -3330,7 +3342,15 @@ async function updTst(){
   const idx=_cache.tests.findIndex(x=>x.id===id);if(idx<0){toast('기록을 찾을 수 없습니다');return;}
   const wr=document.getElementById('et-wr').value;
   const sid=_cache.tests[idx].sid;
-  _cache.tests[idx]={..._cache.tests[idx],date:document.getElementById('et-date').value,vocabCorrect:parseInt(document.getElementById('et-vc').value)||0,vocabTotal:parseInt(document.getElementById('et-vt').value)||10,grammarCorrect:parseInt(document.getElementById('et-gc').value)||0,grammarTotal:parseInt(document.getElementById('et-gt').value)||10,readingCorrect:parseInt(document.getElementById('et-rc').value)||0,readingTotal:parseInt(document.getElementById('et-rt').value)||0,listeningCorrect:parseInt(document.getElementById('et-lc').value)||0,listeningTotal:parseInt(document.getElementById('et-lt').value)||0,wrongWords:wr?wr.split(',').map(w=>w.trim()).filter(Boolean):[],grammarWeak:document.getElementById('et-gweak').value.trim(),cmt:document.getElementById('et-cmt').value.trim()};
+  // 저장과 같은 규칙 — 비운 영역은 0/0
+  const _en=id=>{const el=document.getElementById(id);const v=el?String(el.value||'').trim():'';
+    return v===''?null:(parseInt(v,10)||0);};
+  const _ep=(cid,tid,dflt)=>{const c=_en(cid),t=_en(tid);
+    if(c===null&&t===null)return [0,0];
+    return [c||0,(t!==null?t:(dflt||0))];};
+  const [evc,evt]=_ep('et-vc','et-vt',10), [egc,egt]=_ep('et-gc','et-gt',10);
+  const [erc,ert]=_ep('et-rc','et-rt',0), [elc,elt]=_ep('et-lc','et-lt',0);
+  _cache.tests[idx]={..._cache.tests[idx],date:document.getElementById('et-date').value,vocabCorrect:evc,vocabTotal:evt,grammarCorrect:egc,grammarTotal:egt,readingCorrect:erc,readingTotal:ert,listeningCorrect:elc,listeningTotal:elt,wrongWords:wr?wr.split(',').map(w=>w.trim()).filter(Boolean):[],grammarWeak:document.getElementById('et-gweak').value.trim(),cmt:document.getElementById('et-cmt').value.trim()};
   await supaUpsert('tests',id,_cache.tests[idx],sid);
   closeM('m-edit-tst');renderTst();toast('수정되었습니다');
 }
