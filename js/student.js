@@ -1912,15 +1912,42 @@ function stuXpCard(sid,streak){
 // ── 배지 진열장 (기존 8종 + 보스 승수 배지) ──
 function stuBadgeShelf(sid){
   const bs=(typeof getBadges==='function')?getBadges(sid):[];
-  const all=[...bs];
-  all.sort((a,b)=>(b.unlocked?1:0)-(a.unlocked?1:0));
-  const got=all.filter(b=>b.unlocked).length;
-  return `<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:15px 18px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
-      <span style="font-size:15px;font-weight:800;color:var(--navy)">🏅 내 배지</span>
-      <span style="font-size:12px;color:var(--slate)">${got} / ${all.length}</span></div>
-    <div class="badge-shelf">${all.map(b=>`<div class="badge-cell${b.unlocked?'':' locked'}" title="${b.name}${b.unlocked?' — 획득!':' — 아직 잠겨 있어요'}"><span class="bi">${b.icon}</span><span class="bn">${b.name}</span></div>`).join('')}</div>
-  </div></div>`;
+  if(!bs.length)return '';
+  // 100개를 한 격자에 쏟으면 같은 종류가 줄줄이 붙어 단조롭다(원서만 14개).
+  // 종류별로 묶어 '지금까지 딴 최고 배지 + 다음 목표'를 한 줄씩 보여 주고,
+  // 전체 격자는 펼쳐서 볼 수 있게 둔다.
+  const groups={};
+  bs.forEach(b=>{
+    const pre=String(b.id).replace(/\d+$/,'');
+    (groups[pre]=groups[pre]||{icon:b.icon,list:[]}).list.push(b);
+  });
+  const got=bs.filter(b=>b.unlocked).length;
+  const rows=Object.values(groups).map(g=>{
+    const mine=g.list.filter(x=>x.unlocked);
+    const best=mine.length?mine[mine.length-1]:null;
+    const next=g.list.find(x=>!x.unlocked);
+    const pctN=Math.round(mine.length/g.list.length*100);
+    return '<div class="bdg-row">'
+      +'<span class="bdg-ico'+(best?'':' off')+'">'+g.icon+'</span>'
+      +'<span class="bdg-main">'
+        +'<span class="bdg-nm">'+(best?best.name:(next?next.name:''))+(best?'':' <span class="bdg-yet">아직</span>')+'</span>'
+        +'<span class="bdg-bar"><span style="width:'+pctN+'%"></span></span>'
+      +'</span>'
+      +'<span class="bdg-n">'+mine.length+'/'+g.list.length+'</span>'
+      +(next&&best?'<span class="bdg-next">다음 '+next.name+'</span>':'')
+    +'</div>';
+  }).join('');
+  const grid=bs.slice().sort((a,b)=>(b.unlocked?1:0)-(a.unlocked?1:0))
+    .map(b=>'<div class="badge-cell'+(b.unlocked?'':' locked')+'" title="'+b.name+(b.unlocked?' — 획득!':' — 아직')+'">'
+      +'<span class="bi">'+b.icon+'</span><span class="bn">'+b.name+'</span></div>').join('');
+  return '<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:15px 18px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">'
+      +'<span style="font-size:15px;font-weight:800;color:var(--navy)">🏅 내 배지</span>'
+      +'<span style="font-size:12.5px;color:var(--slate)">'+got+' / '+bs.length+'</span></div>'
+    +'<div class="bdg-rows">'+rows+'</div>'
+    +'<details class="bdg-fold"><summary>배지 '+bs.length+'개 전부 보기</summary>'
+      +'<div class="badge-shelf">'+grid+'</div></details>'
+  +'</div></div>';
 }
 // ── 주간 보스 (보너스 도전 — 필수 숙제 초과분으로만 잡는 엑스트라 마일) ──
 function _bossWeekKey(){
@@ -1973,8 +2000,9 @@ function weeklyBossInfo(sid){
 }
 function stuBossCard(sid){
   const b=weeklyBossInfo(sid);
-  const hp=Math.max(0,b.target-Math.min(b.prog,b.target));
-  const pct=Math.round(hp/b.target*100);
+  const hit=Math.min(b.prog,b.target);          // 지금까지 깎은 양
+  const hp=Math.max(0,b.target-hit);            // 남은 체력
+  const pct=Math.round(hit/b.target*100);       // 바는 '깎은 만큼' 차오른다
   if(b.done){
     try{
       const stu=DB.stus().find(x=>x.id===sid);
@@ -1998,7 +2026,7 @@ function stuBossCard(sid){
       ${b.done?`<div style="font-size:13px;font-weight:800;color:var(--okt);margin-top:3px">🏆 클리어! 보너스 XP +30 — 다음 주 월요일에 새 보스가 나타나요</div>`
         :`<div style="font-size:12.5px;color:var(--slate);margin-top:2px">${b.desc}</div>
       <div class="boss-hp"><div class="boss-hp-fill" style="width:${pct}%"></div></div>
-      <div style="font-size:12.5px;color:var(--slate);margin-top:3px">보스 체력 ${hp} / ${b.target} — 벌써 ${Math.min(b.prog,b.target)}만큼 깎았어요!</div>`}
+      <div style="font-size:12.5px;color:var(--slate);margin-top:3px">${hit?`${hit} / ${b.target} 깎았어요 — 체력 ${hp} 남음`:`아직 안 건드렸어요 — 단어를 만나면 체력이 깎여요 (${b.target} 남음)`}</div>`}
     </div>
   </div>`;
 }
@@ -2151,13 +2179,13 @@ function hwChallengeCardHtml(sid){
   }else{
     statusHtml=`<div style="font-size:13px;color:var(--slate)">오늘은 배정된 숙제가 없어요 😊</div>`;
   }
-  return `<div class="card" id="stu-hwch-card" style="margin-bottom:14px;border:2px solid var(--warn)"><div class="cb" style="padding:14px 16px">
+  return `<div class="card hwch-card" id="stu-hwch-card" style="margin-bottom:14px"><div class="cb" style="padding:14px 16px">
     ${giftBanner}
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">
       <span style="font-size:15px;font-weight:800;color:var(--navy)">🎁 도장 챌린지 <span style="font-size:12px;color:var(--slate);font-weight:600">${p.roundNo}번째 판</span></span>
       <span style="font-size:16px;font-weight:900;color:var(--warnt);font-family:var(--fd)">${p.count} <span style="font-size:12px;color:var(--slate);font-weight:600">/ ${p.goal}</span></span>
     </div>
-    <div style="font-size:12px;color:var(--slate);margin-bottom:10px">숙제를 <b>절반만 해도 도장 1개</b>, 전부 하면 ⭐! ${p.goal}개를 모으면 <b>${p.reward}</b> 🎁 — 다 채우면 다음 판이 바로 열려요 (하루 빠져도 모은 도장은 그대로)</div>
+    <div style="font-size:12px;color:var(--slate);margin-bottom:10px"><b>절반</b>만 해도 도장 1개 · 전부 하면 ⭐ · ${p.goal}개 모으면 <b>${p.reward}</b> 🎁</div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px">${cells.join('')}</div>
     ${statusHtml}
   </div></div>`;

@@ -2263,3 +2263,32 @@ body{font-size:14.5px;line-height:1.65;}
 .dash-cls-row{min-width:0;}
 .bpl-r{min-width:0;}
 .bpl-t{max-width:44%;}
+
+/* 배지 — 종류별 한 줄 요약 (100개 격자는 접어 둔다) */
+.bdg-rows{display:flex;flex-direction:column;gap:2px;}
+.bdg-row{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:10px;
+  padding:8px 0;border-bottom:1px solid var(--divider);}
+.bdg-row:last-child{border-bottom:none;}
+.bdg-ico{font-size:20px;line-height:1;text-align:center;}
+.bdg-ico.off{filter:grayscale(1);opacity:.4;}
+.bdg-main{min-width:0;display:flex;flex-direction:column;gap:5px;}
+.bdg-nm{font-size:13.5px;font-weight:600;color:var(--text);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
+.bdg-yet{font-size:11px;font-weight:500;color:var(--neutral);}
+.bdg-bar{height:5px;background:var(--divider);border-radius:var(--rpill);overflow:hidden;}
+.bdg-bar span{display:block;height:100%;background:var(--warn);border-radius:var(--rpill);
+  transition:width .5s cubic-bezier(.22,1,.36,1);}
+.bdg-n{font-size:12px;color:var(--text-muted);font-variant-numeric:tabular-nums;}
+.bdg-next{grid-column:2/4;font-size:11.5px;color:var(--neutral);margin-top:-2px;}
+.bdg-fold{margin-top:12px;}
+.bdg-fold summary{list-style:none;cursor:pointer;font-size:12.5px;color:var(--text-muted);
+  padding:8px 0;user-select:none;}
+.bdg-fold summary::-webkit-details-marker{display:none;}
+.bdg-fold summary::after{content:' ▾';color:var(--neutral);}
+.bdg-fold[open] summary::after{content:' ▴';}
+
+/* 도장 챌린지 — 카드 하나만 주황 외곽선이라 혼자 튀었다. 머리글만 강조한다. */
+.hwch-card .hwch-h,.hwch-card>.cb>div:first-child{color:var(--warnt);}
+.hwch-card{border-color:var(--border);}
+/* 도장 칸 — 찍힌 것과 빈 칸의 대비를 또렷하게 */
+#stu-hwch-card .cb>div[style*="grid"]>div{transition:transform .15s;}
