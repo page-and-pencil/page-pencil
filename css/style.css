@@ -2426,3 +2426,39 @@ body{font-size:14.5px;line-height:1.65;}
 @container stulist (max-width: 360px){
   .sl-tbl td.sl-dim[data-h="학교"],.sl-tbl td.sl-dim[data-h="클래스"]{display:none;}
 }
+
+/* ═══ 시험 일정 · D-day (직결영어 1단계) ═══
+   색은 토큰만. 평소에는 담백하고, 14일 이내일 때만 주의색으로 바뀐다. */
+.exam-card{border:1px solid var(--border);border-radius:var(--r-card);
+  padding:14px 16px;background:var(--surface);}
+.exam-card.is-near{border-color:var(--warn);background:var(--warnl);}
+.exam-card.is-none{background:var(--bg);}
+.exam-head{display:flex;align-items:center;gap:12px;}
+.exam-dday{font-size:19px;font-weight:700;color:var(--text);
+  font-variant-numeric:tabular-nums;flex-shrink:0;}
+.exam-card.is-near .exam-dday{color:var(--warnt);}
+.exam-main{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.exam-t{font-size:14px;font-weight:600;color:var(--text);}
+.exam-d{font-size:12.5px;color:var(--text-muted);}
+.exam-none{font-size:13.5px;color:var(--text-muted);margin-top:6px;}
+.exam-scope{margin-top:10px;border-top:1px solid var(--divider);padding-top:10px;}
+.exam-scope summary{list-style:none;cursor:pointer;font-size:12.5px;color:var(--text-muted);
+  user-select:none;padding:2px 0;}
+.exam-scope summary::-webkit-details-marker{display:none;}
+.exam-scope summary::after{content:' ▾';color:var(--neutral);}
+.exam-scope[open] summary::after{content:' ▴';}
+.exam-scope-h{font-size:12.5px;font-weight:600;color:var(--text-muted);margin-bottom:6px;}
+.exam-scope ul{margin:6px 0 0;padding-left:18px;}
+.exam-scope li{font-size:13px;color:var(--text);line-height:1.8;}
+
+/* 학생 화면에서는 조금 더 크게 (학생 전용 토큰을 따른다) */
+#s-student .exam-card{border-radius:var(--r-card);margin-bottom:14px;}
+#s-student .exam-dday{font-size:21px;}
+#s-student .exam-t{font-size:15px;}
+#s-student .exam-scope li{font-size:14px;}
+
+/* 선생님 — 시험 범위 교재 줄 */
+.ex-tb-row{display:grid;grid-template-columns:1fr 1fr 28px;gap:8px;margin-bottom:8px;align-items:center;}
+.ex-tb-row .bx{font-size:17px;line-height:1;padding:4px 6px;}
+@media(max-width:600px){.ex-tb-row{grid-template-columns:1fr 28px;}
+  .ex-tb-row .ex-tb-units{grid-column:1;}}

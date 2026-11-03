@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261102a">
-<link rel="stylesheet" href="css/style.css?v=20261102m">
+<link rel="stylesheet" href="css/style.css?v=20261103a">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -588,7 +588,22 @@
         <button id="dtab-lib" onclick="switchDataTab('lib')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 원서</button>
         <button id="dtab-word" onclick="switchDataTab('word')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 어휘</button>
         <button id="dtab-ws" onclick="switchDataTab('ws')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 저장된 워크시트</button>
+        <button id="dtab-exam" onclick="switchDataTab('exam')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i><i data-lucide="calendar-days" width="15" height="15" style="vertical-align:-3px"></i> 시험 일정</button>
         <button id="dtab-master" onclick="switchDataTab('master')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="wrench" width="15" height="15" style="vertical-align:-3px"></i> 백업·일괄</button>
+      </div>
+
+      <!-- 시험 일정 sub-panel (직결영어 1단계) -->
+      <div id="dp-exam" style="display:none;flex:1;min-height:0;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+          <span class="ph-title">시험 일정</span>
+          <span id="exam-count" style="font-size:12.5px;color:var(--text-muted)"></span>
+          <span style="flex:1"></span>
+          <select class="filter-sel" id="exam-f-school" onchange="renderExamList()" style="min-width:130px"></select>
+          <select class="filter-sel" id="exam-f-grade" onchange="renderExamList()" style="min-width:95px"></select>
+          <button class="btn bt bsm" onclick="openExamEdit()">
+            <i data-lucide="plus" width="14" height="14"></i> 시험 일정</button>
+        </div>
+        <div id="exam-list" style="flex:1;min-height:0;overflow-y:auto"></div>
       </div>
 
       <!-- 백업·일괄 관리 sub-panel (교재+원서+어휘 통합 평탄화 뷰, 마스터 CSV) -->
@@ -2182,6 +2197,64 @@
   <option value="도치구문"><option value="강조구문(It is ~ that)"><option value="불규칙동사">
 </datalist>
 
+<!-- 시험 일정 등록·수정 (직결영어 1단계) -->
+<div id="m-exam" class="mo">
+  <div class="mdl" style="max-width:560px">
+    <div class="mh"><span class="mt" id="exam-mt">시험 일정</span>
+      <button class="bx" onclick="closeM('m-exam')">&times;</button></div>
+    <input type="hidden" id="ex-id">
+    <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="f"><label>학교</label>
+        <input type="text" id="ex-school" list="dl-schools" placeholder="예) 섬강중학교"></div>
+      <div class="f"><label>학년</label>
+        <input type="text" id="ex-grade" list="dl-grades" placeholder="예) 중1"></div>
+      <div class="f"><label>학년도</label>
+        <input type="number" id="ex-year" min="2020" max="2100" placeholder="2026"></div>
+      <div class="f"><label>학기</label>
+        <select id="ex-semester"><option value="1">1학기</option><option value="2">2학기</option></select></div>
+      <div class="f"><label>회차</label>
+        <select id="ex-round"><option value="1">1회고사</option><option value="2">2회고사</option></select></div>
+      <div class="f"><label>영어 시험일</label>
+        <input type="date" id="ex-date"></div>
+      <div class="f"><label>시험 기간 시작 <span style="font-weight:400;color:var(--neutral)">(선택)</span></label>
+        <input type="date" id="ex-from"></div>
+      <div class="f"><label>시험 기간 끝 <span style="font-weight:400;color:var(--neutral)">(선택)</span></label>
+        <input type="date" id="ex-to"></div>
+    </div>
+    <div class="f" style="margin-top:4px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="ex-noexam" onchange="examToggleNoExam()" style="width:auto;min-height:0">
+        <span>이 학기는 지필고사 없음 (자유학기 등)</span></label>
+    </div>
+    <div class="f" id="ex-noexam-note-wrap" style="display:none">
+      <label>대신 안내할 문구</label>
+      <input type="text" id="ex-noexam-note" placeholder="예) 수행평가 100%">
+    </div>
+    <div id="ex-scope-wrap">
+      <div class="f">
+        <label>시험 범위 — 교과서</label>
+        <div id="ex-tb-rows"></div>
+        <button class="btn bo bsm" style="margin-top:6px" onclick="examAddTbRow()">
+          <i data-lucide="plus" width="13" height="13"></i> 교재 줄 추가</button>
+      </div>
+      <div class="f">
+        <label>시험 범위 — 부교재·프린트 <span style="font-weight:400;color:var(--neutral)">(한 줄에 하나)</span></label>
+        <textarea id="ex-extra" rows="3" placeholder="예) 부교재: 능률VOCA 중등 기본 Day 1~10&#10;프린트: 어법 정리 1~3"></textarea>
+      </div>
+    </div>
+    <div class="f"><label>메모 <span style="font-weight:400;color:var(--neutral)">(선택)</span></label>
+      <input type="text" id="ex-memo" placeholder="선생님만 보는 메모"></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;margin-top:18px">
+      <button class="btn bd bsm" id="ex-del-btn" style="display:none" onclick="deleteExam()">삭제</button>
+      <span style="flex:1"></span>
+      <button class="btn bo" onclick="closeM('m-exam')">취소</button>
+      <button class="btn bt" onclick="saveExam()">저장</button>
+    </div>
+  </div>
+</div>
+<datalist id="dl-schools"></datalist>
+<datalist id="dl-grades"></datalist>
+
 <!-- 끝낸 책 더하기 (선생님) -->
 <div id="m-bp-add" class="mo">
   <div class="mdl" style="max-width:420px">
@@ -2206,11 +2279,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261101m"></script>
+<script src="js/utils.js?v=20261103a"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261101c"></script>
-<script src="js/teacher.js?v=20261102g"></script>
-<script src="js/student.js?v=20261102c"></script>
-<script src="js/parent.js?v=20261102a"></script>
+<script src="js/db.js?v=20261103a"></script>
+<script src="js/teacher.js?v=20261103a"></script>
+<script src="js/student.js?v=20261103a"></script>
+<script src="js/parent.js?v=20261103a"></script>
 </body>
 </html>

@@ -5296,12 +5296,15 @@ let _dataTab='tbook';
 function switchDataTab(tab){
   if(tab==='book')tab='tbook'; // 구 통합 키 호환
   _dataTab=tab;
-  ['master','book','word','ws'].forEach(id=>{const p=document.getElementById('dp-'+id);if(p)p.style.display='none';});
+  ['master','book','word','ws','exam'].forEach(id=>{const p=document.getElementById('dp-'+id);if(p)p.style.display='none';});
   // 탭 버튼 스타일 초기화
-  ['master','tbook','lib','word','ws'].forEach(t=>{const b=document.getElementById('dtab-'+t);if(b){b.style.color='var(--slate)';b.style.borderBottomColor='transparent';b.style.fontWeight='600';}});
+  ['master','tbook','lib','word','ws','exam'].forEach(t=>{const b=document.getElementById('dtab-'+t);if(b){b.style.color='var(--slate)';b.style.borderBottomColor='transparent';b.style.fontWeight='600';}});
   const act=document.getElementById('dtab-'+tab);
   if(act){act.style.color='var(--teal)';act.style.borderBottomColor='var(--teal)';act.style.fontWeight='700';}
-  if(tab==='master'){
+  if(tab==='exam'){
+    const p=document.getElementById('dp-exam');if(p)p.style.display='flex';
+    renderExamList();
+  } else if(tab==='master'){
     const p=document.getElementById('dp-master');if(p)p.style.display='';
     renderMasterDB();
   } else if(tab==='ws'){
@@ -8277,6 +8280,161 @@ function bpRefresh(sid){
   try{if(document.getElementById('sp-summary')&&currentSpStuId===sid&&typeof renderSpSummary==='function')renderSpSummary(sid);}catch(e){}
   try{if(typeof renderDashClassPath==='function')renderDashClassPath();}catch(e){}
   try{if(_pgCalClsId&&typeof renderClsLessons==='function')renderClsLessons(_pgCalClsId);}catch(e){}
+}
+
+// ══ 시험 일정 (직결영어 1단계) ══════════════════════════════
+// 학교 단위 데이터. 학생의 school·grade 와 맞춰 학생·학부모 홈의 D-day 로 이어진다.
+// exam_schedules 테이블이 아직 없으면 DB.exams() 가 빈 배열이라 화면만 비어 보인다.
+function _examPeriodStr(e){
+  if(!e.periodFrom&&!e.periodTo)return '';
+  return (e.periodFrom||'')+' ~ '+(e.periodTo||'');
+}
+function _examSortKey(e){
+  return String(e.year||0)+String(e.semester||0)+String(e.round||0);
+}
+function renderExamList(){
+  const box=document.getElementById('exam-list');if(!box)return;
+  const all=(typeof DB.exams==='function'?DB.exams():[]).filter(e=>e&&!e._deleted);
+  const stus=DB.stus().filter(s=>!s.inactive);
+  const schools=[...new Set([...all.map(e=>e.school),...stus.map(s=>s.school)].filter(Boolean))].sort();
+  const grades=[...new Set([...all.map(e=>e.grade),...stus.map(s=>s.grade||s.lv)].filter(Boolean))].sort();
+  const fs=document.getElementById('exam-f-school'), fg=document.getElementById('exam-f-grade');
+  const keepS=fs?fs.value:'', keepG=fg?fg.value:'';
+  if(fs)fs.innerHTML='<option value="">전체 학교</option>'+schools.map(x=>'<option'+(x===keepS?' selected':'')+'>'+escAttr(x)+'</option>').join('');
+  if(fg)fg.innerHTML='<option value="">전체 학년</option>'+grades.map(x=>'<option'+(x===keepG?' selected':'')+'>'+escAttr(x)+'</option>').join('');
+  const dls=document.getElementById('dl-schools'), dlg=document.getElementById('dl-grades');
+  if(dls)dls.innerHTML=schools.map(x=>'<option value="'+escAttr(x)+'">').join('');
+  if(dlg)dlg.innerHTML=grades.map(x=>'<option value="'+escAttr(x)+'">').join('');
+
+  let rows=all;
+  if(keepS)rows=rows.filter(e=>e.school===keepS);
+  if(keepG)rows=rows.filter(e=>e.grade===keepG);
+  rows=rows.slice().sort((a,b)=>_examSortKey(b).localeCompare(_examSortKey(a)));
+  const cnt=document.getElementById('exam-count');
+  if(cnt)cnt.textContent=rows.length?rows.length+'건':'';
+
+  if(!rows.length){
+    box.innerHTML='<div class="empty boxed" style="margin:8px 0"><div class="empty-t">등록된 시험 일정이 없습니다</div>'
+      +'<div style="font-size:13px;color:var(--text-muted);margin-top:6px">'
+      +(all.length?'이 조건에 맞는 일정이 없습니다.':'오른쪽 위 시험 일정 버튼으로 첫 일정을 등록하세요.')
+      +'</div></div>';
+    return;
+  }
+  box.innerHTML='<div class="tbl-wrap"><table class="tbl"><thead><tr>'
+    +['학교','학년','학기·회차','영어 시험일','D-day','범위',''].map(h=>'<th>'+h+'</th>').join('')
+    +'</tr></thead><tbody>'
+    +rows.map(e=>{
+      const d=e.noExam?null:ppDaysUntil(e.examDate);
+      const dd=e.noExam?'<span class="badge">지필 없음</span>'
+        :(d===null?'<span class="sl-dim">—</span>'
+          :(d>0?'<b>D-'+d+'</b>':(d===0?'<b style="color:var(--bad)">오늘</b>':'<span class="sl-dim">지남</span>')));
+      const sc=(typeof ppExamScopeLines==='function')?ppExamScopeLines(e):[];
+      return '<tr style="cursor:pointer" onclick="openExamEdit(\''+e.id+'\')">'
+        +'<td>'+escAttr(e.school||'')+'</td>'
+        +'<td>'+escAttr(e.grade||'')+'</td>'
+        +'<td class="sl-dim">'+escAttr((e.year||'')+' '+(e.semester||1)+'학기 '+(PP_EXAM_ROUND[e.round]||''))+'</td>'
+        +'<td class="sl-num">'+escAttr(e.noExam?'—':(e.examDate||''))+'</td>'
+        +'<td class="sl-num">'+dd+'</td>'
+        +'<td class="sl-dim" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escAttr(sc.join(' / '))+'">'
+          +(sc.length?escAttr(sc[0])+(sc.length>1?' 외 '+(sc.length-1)+'건':''):'—')+'</td>'
+        +'<td style="text-align:right"><i data-lucide="chevron-right" width="14" height="14"></i></td>'
+      +'</tr>';
+    }).join('')+'</tbody></table></div>';
+  try{lucide.createIcons();}catch(_){}
+}
+function examToggleNoExam(){
+  const on=document.getElementById('ex-noexam').checked;
+  const w=document.getElementById('ex-noexam-note-wrap');if(w)w.style.display=on?'':'none';
+  const sc=document.getElementById('ex-scope-wrap');if(sc)sc.style.display=on?'none':'';
+}
+function examAddTbRow(title,units){
+  const box=document.getElementById('ex-tb-rows');if(!box)return;
+  const d=document.createElement('div');
+  d.className='ex-tb-row';
+  d.innerHTML='<input type="text" class="ex-tb-title" list="dl-tbooks" placeholder="교재 이름" value="'+escAttr(title||'')+'">'
+    +'<input type="text" class="ex-tb-units" placeholder="단원 (쉼표로 구분)" value="'+escAttr(units||'')+'">'
+    +'<button class="bx" title="줄 삭제" onclick="this.parentElement.remove()">&times;</button>';
+  box.appendChild(d);
+  let dl=document.getElementById('dl-tbooks');
+  if(!dl){dl=document.createElement('datalist');dl.id='dl-tbooks';document.body.appendChild(dl);}
+  dl.innerHTML=(_cache.globalTextbooks||[]).filter(b=>!b._deleted)
+    .map(b=>'<option value="'+escAttr(b.title||'')+'">').join('');
+}
+function openExamEdit(id){
+  const e=id?(DB.exams().find(x=>x.id===id)||null):null;
+  document.getElementById('exam-mt').textContent=e?'시험 일정 수정':'시험 일정 추가';
+  document.getElementById('ex-id').value=e?e.id:'';
+  const v=(k,val)=>{const el=document.getElementById(k);if(el)el.value=val==null?'':val;};
+  v('ex-school',e?e.school:((document.getElementById('exam-f-school')||{}).value||''));
+  v('ex-grade',e?e.grade:((document.getElementById('exam-f-grade')||{}).value||''));
+  v('ex-year',e?e.year:new Date().getFullYear());
+  v('ex-semester',e?e.semester:1);
+  v('ex-round',e?e.round:1);
+  v('ex-date',e?e.examDate:'');
+  v('ex-from',e?e.periodFrom:'');
+  v('ex-to',e?e.periodTo:'');
+  v('ex-memo',e?e.memo:'');
+  v('ex-noexam-note',e?e.noExamNote:'수행평가 100%');
+  document.getElementById('ex-noexam').checked=!!(e&&e.noExam);
+  const extra=document.getElementById('ex-extra');
+  if(extra)extra.value=((e&&e.scope&&e.scope.extra)||[]).join('\n');
+  const box=document.getElementById('ex-tb-rows');
+  if(box){box.innerHTML='';
+    const tbs=((e&&e.scope&&e.scope.textbooks)||[]);
+    if(tbs.length)tbs.forEach(t=>examAddTbRow(t.title,(t.units||[]).join(', ')));
+    else examAddTbRow('','');
+  }
+  const del=document.getElementById('ex-del-btn');
+  if(del)del.style.display=e?'':'none';
+  examToggleNoExam();
+  openM('m-exam');
+}
+async function saveExam(){
+  const g=k=>{const el=document.getElementById(k);return el?String(el.value||'').trim():'';};
+  const school=g('ex-school'), grade=g('ex-grade');
+  if(!school){toast('학교를 입력해 주세요');return;}
+  if(!grade){toast('학년을 입력해 주세요');return;}
+  const noExam=document.getElementById('ex-noexam').checked;
+  const examDate=g('ex-date');
+  if(!noExam&&!examDate){toast('영어 시험일을 입력해 주세요');return;}
+  const tbs=[...document.querySelectorAll('#ex-tb-rows .ex-tb-row')].map(r=>{
+    const title=String((r.querySelector('.ex-tb-title')||{}).value||'').trim();
+    const units=String((r.querySelector('.ex-tb-units')||{}).value||'').split(',').map(x=>x.trim()).filter(Boolean);
+    if(!title)return null;
+    const bk=(_cache.globalTextbooks||[]).find(b=>!b._deleted&&(b.title||'')===title);
+    return {bookId:bk?bk.id:null,title,units};
+  }).filter(Boolean);
+  const extra=g('ex-extra').split('\n').map(x=>x.trim()).filter(Boolean);
+  const id=g('ex-id')||('ex'+Date.now().toString(36));
+  const prev=DB.exams().find(x=>x.id===id)||{};
+  const rec={...prev,id,school,grade,
+    year:parseInt(g('ex-year'),10)||new Date().getFullYear(),
+    semester:parseInt(g('ex-semester'),10)||1,
+    round:parseInt(g('ex-round'),10)||1,
+    examDate:noExam?'':examDate,
+    periodFrom:g('ex-from'),periodTo:g('ex-to'),
+    noExam,noExamNote:noExam?(g('ex-noexam-note')||'수행평가 100%'):'',
+    scope:{textbooks:tbs,extra},
+    memo:g('ex-memo'),_deleted:false};
+  try{ await supaUpsert('exam_schedules',id,rec,null); }
+  catch(err){ return; }
+  const arr=_cache.examSchedules||(_cache.examSchedules=[]);
+  const i=arr.findIndex(x=>x.id===id);
+  if(i>=0)arr[i]=rec; else arr.push(rec);
+  closeM('m-exam');
+  renderExamList();
+  toast('시험 일정을 저장했습니다');
+}
+function deleteExam(){
+  const id=String((document.getElementById('ex-id')||{}).value||'');
+  if(!id)return;
+  askConfirm('시험 일정 삭제','이 시험 일정을 삭제할까요?','삭제','bd',async()=>{
+    const rec=DB.exams().find(x=>x.id===id);if(!rec)return;
+    try{ await supaTrash('exam_schedules',_cache.examSchedules||[],id); }
+    catch(err){ return; }
+    _cache.examSchedules=(_cache.examSchedules||[]).filter(x=>x.id!==id);
+    closeM('m-exam');renderExamList();toast('삭제했습니다');
+  });
 }
 
 // 반별 진도 — 어느 반이 어느 교재 어디쯤 왔는지 한 장으로.

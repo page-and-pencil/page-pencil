@@ -381,6 +381,10 @@ async function loadParent(sid){
   // 세 카드가 모두 조건부라 '추가된 게 있을 때만' 감싼다(빈 묶음·태그 깨짐 방지)
   const _archFrom=blocks.length;
 
+  // 블록 D1 — 다음 영어 시험 D-day (학교 시험 일정에서)
+  const examHtml=(typeof ppExamCardHtml==='function')?ppExamCardHtml(s,{compact:false}):'';
+  if(examHtml)blocks+=`<div class="card"><div class="cb" style="padding:14px 16px">${examHtml}</div></div>`;
+
   // 블록 D2 — 교재 여정: 끝낸 책 / 지금 / 다음을 영역별로 (보호자가 가장 궁금해하는 것)
   const bookPathHtml=(typeof ppBookPathHtml==='function')?ppBookPathHtml(sid):'';
   if(bookPathHtml)blocks+=`<div class="card"><div class="ch"><span class="ct">${luIcon('book-open',16)}교재 여정</span>

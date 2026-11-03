@@ -121,6 +121,99 @@ function confirmCancel(){closeM('m-confirm');_confirmCb=null;}
 // ── SCREENS ──
 // 화면 전환 — View Transitions 로 부드럽게 교차. 지원 안 하면 그대로 즉시 전환(동작 동일).
 // 라이브러리 없이 브라우저 기능만 쓰므로 추가 용량이 없다.
+// ── 학교 시험 일정 ───────────────────────────────────────────
+// 학생의 school·grade 로 그 학교·학년의 일정을 찾아 '다음 영어 시험'을 고른다.
+// 일치하는 일정이 없으면 null — 초등학생 화면에 중등 시험이 뜨지 않게 한다.
+const PP_EXAM_ROUND={1:'1회고사',2:'2회고사'};
+function ppDaysUntil(dateStr){
+  if(!dateStr)return null;
+  const t=(typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);
+  const a=new Date(t+'T00:00:00'), b=new Date(dateStr+'T00:00:00');
+  if(isNaN(b))return null;
+  return Math.round((b-a)/86400000);
+}
+// 이 학생에게 해당하는 일정만 (학교·학년이 모두 맞아야 한다)
+function ppExamsFor(stu){
+  if(!stu||typeof DB==='undefined'||typeof DB.exams!=='function')return [];
+  const sc=String(stu.school||'').trim(), gr=String(stu.grade||stu.lv||'').trim();
+  if(!sc||!gr)return [];
+  return DB.exams().filter(e=>e&&!e._deleted
+    &&String(e.school||'').trim()===sc&&String(e.grade||'').trim()===gr);
+}
+// 다음 영어 시험 — 오늘 포함 이후 중 가장 가까운 것.
+// 지필 없는 학기(noExam)는 '오늘이 그 학기 안'일 때만 안내로 돌려준다.
+function ppNextExam(stu){
+  const list=ppExamsFor(stu);
+  if(!list.length)return null;
+  const up=list.filter(e=>!e.noExam&&e.examDate).map(e=>({e,d:ppDaysUntil(e.examDate)}))
+    .filter(x=>x.d!==null&&x.d>=0).sort((a,b)=>a.d-b.d);
+  if(up.length)return {kind:'exam',exam:up[0].e,days:up[0].d};
+  const none=list.find(e=>e.noExam);
+  if(none)return {kind:'none',exam:none,days:null};
+  return null;
+}
+// 시험 범위를 한 줄씩 — 교재가 아직 등록 전이어도 제목 문자열만으로 보여 준다
+function ppExamScopeLines(exam){
+  const sc=(exam&&exam.scope)||{};
+  const out=[];
+  (sc.textbooks||[]).forEach(t=>{
+    if(!t)return;
+    const u=(t.units||[]).filter(Boolean).join(', ');
+    out.push(String(t.title||'')+(u?' · '+u:''));
+  });
+  (sc.extra||[]).forEach(x=>{if(String(x||'').trim())out.push(String(x).trim());});
+  return out;
+}
+
+// 다음 영어 시험 카드 — 학생·학부모가 같은 내용을 본다(opts.compact 면 범위를 접는다).
+// 해당 학교·학년 일정이 없으면 빈 문자열 → 카드 자체가 안 뜬다.
+function ppExamCardHtml(stu, opts){
+  const o = opts || {};
+  if (typeof ppNextExam !== 'function') return '';
+  const nx = ppNextExam(stu);
+  if (!nx) return '';
+  const esc = t => String(t == null ? '' : t)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const e = nx.exam;
+  const title = (e.year || '') + ' ' + (e.semester || 1) + '학기 '
+    + ((typeof PP_EXAM_ROUND !== 'undefined' && PP_EXAM_ROUND[e.round]) || '시험');
+
+  if (nx.kind === 'none') {
+    return '<div class="exam-card is-none">'
+      + '<div class="exam-head"><span class="exam-t">' + esc(title) + '</span></div>'
+      + '<div class="exam-none">이번 학기는 지필고사 없음'
+      + (e.noExamNote ? ' · ' + esc(e.noExamNote) : '') + '</div>'
+      + '</div>';
+  }
+
+  const d = nx.days;
+  const urgent = d <= 14;
+  const dLabel = d === 0 ? '오늘' : ('D-' + d);
+  const lines = (typeof ppExamScopeLines === 'function') ? ppExamScopeLines(e) : [];
+  const period = (e.periodFrom || e.periodTo)
+    ? ((e.periodFrom || '') + ' ~ ' + (e.periodTo || '')) : '';
+
+  let scope = '';
+  if (lines.length) {
+    const body = lines.map(x => '<li>' + esc(x) + '</li>').join('');
+    scope = o.compact
+      ? '<details class="exam-scope"><summary>시험 범위 ' + lines.length + '건</summary><ul>' + body + '</ul></details>'
+      : '<div class="exam-scope open"><div class="exam-scope-h">시험 범위</div><ul>' + body + '</ul></div>';
+  }
+
+  return '<div class="exam-card' + (urgent ? ' is-near' : '') + '">'
+    + '<div class="exam-head">'
+      + '<span class="exam-dday">' + dLabel + '</span>'
+      + '<span class="exam-main">'
+        + '<span class="exam-t">' + esc(title) + '</span>'
+        + '<span class="exam-d">영어 ' + esc(e.examDate || '')
+          + (period ? ' · 시험 기간 ' + esc(period) : '') + '</span>'
+      + '</span>'
+    + '</div>'
+    + scope
+    + '</div>';
+}
+
 // ── 교재 여정 ────────────────────────────────────────────────
 // 끝낸 교재 / 지금 하는 교재 / 앞으로 할 교재를 영역별로 한 줄에 꿴다.
 // 데이터는 이미 다 있다 — 지나온 길은 수업 기록(lessons.materials)에, 앞길은

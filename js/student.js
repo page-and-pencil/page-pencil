@@ -2866,7 +2866,9 @@ function renderStudentHome(sid){
 
   const hwChHtml=hwChallengeCardHtml(sid);
   {const stu2=DB.stus().find(s=>s.id===sid);const p2=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu2):null;window._hwChPrev=p2?p2.total:0;}
+  const examHtml=(typeof ppExamCardHtml==='function')?ppExamCardHtml(stu,{compact:true}):'';
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
+    ${examHtml}
     ${hwSection}
     ${hwChHtml}
     ${stuBossCard(sid)}
