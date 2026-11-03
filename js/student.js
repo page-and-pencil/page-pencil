@@ -2646,6 +2646,7 @@ function renderStudentHome(sid){
     ${hasCheer
       ?`<div class="stu-hero-cmt" id="stu-lesson-cmt" data-raw="${escAttr(heroRaw)}" data-mats="${escAttr(heroMatsText)}" data-stored="${escAttr(heroStored)}">${heroStored||'...'}</div>`
       :`<div class="stu-hero-cmt">${todayPendingN?`오늘은 딱 ${todayPendingN}개만 하면 끝! 화이팅 🔥`:'오늘 할 일 다 했어요! 참 잘했어요 👏'}</div>`}
+    <svg class="stu-mascot" viewBox="0 0 64 64" fill="none" aria-hidden="true"><g transform="rotate(-18 32 32)"><rect x="25" y="8" width="14" height="34" rx="3" fill="#FFD166"/><rect x="25" y="8" width="14" height="34" rx="3" fill="url(#pg)" opacity=".18"/><path d="M25 42h14l-7 11z" fill="#F7E7C8"/><path d="M28.6 47.2h6.8L32 53z" fill="#2A2520"/><rect x="25" y="5" width="14" height="6" rx="2.4" fill="#E86A5C"/><circle cx="29.4" cy="24" r="1.9" fill="#2A2520"/><circle cx="34.6" cy="24" r="1.9" fill="#2A2520"/><path d="M29.2 29.4q2.8 2.6 5.6 0" stroke="#2A2520" stroke-width="1.6" stroke-linecap="round"/><circle cx="26.6" cy="27.6" r="1.5" fill="#F09AA0" opacity=".75"/><circle cx="37.4" cy="27.6" r="1.5" fill="#F09AA0" opacity=".75"/></g><defs><linearGradient id="pg" x1="25" y1="8" x2="39" y2="42"><stop stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient></defs></svg>
   </div>`;
   // ── 오늘 할 일 히어로: 도넛 링(오늘 20개) + 큰 버튼 + 오늘의 게임 예고 ──
   const _revToday=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===ppToday()).length;
@@ -2855,7 +2856,7 @@ function renderStudentHome(sid){
       +(sl&&sl.isToday&&selPending.length?'<div style="font-size:13px;color:var(--slate);margin:2px 0 10px">남은 퀘스트 <b style="color:var(--tealt)">'+selPending.length+'개</b> — 다 깨면 오늘 도장을 받아요 🏅</div>':'');
     let body;
     if(!items.length)body='<div class="wk-empty-day">이 날은 배정된 학습이 없어요 😊<br><span style="font-size:12px">단어 복습으로 예습해볼까요?</span></div>';
-    else body=(allDoneToday?'<div style="text-align:center;padding:4px 0 12px"><div style="font-size:38px">🏆</div><div style="font-size:17px;font-weight:800;color:var(--okt)">오늘 퀘스트 올클리어!</div><div style="font-size:13px;color:var(--slate);margin-top:2px">오늘 도장 획득 🏅 내일 퀘스트에서 만나요</div></div>':'')
+    else body=(allDoneToday?'<div class="wk-alldone"><div class="wk-alldone-i">🏆</div><div class="wk-alldone-t">오늘 퀘스트 올클리어!</div><div class="wk-alldone-s">오늘 도장 획득 🏅 내일 퀘스트에서 만나요</div></div>':'')
       +selPending.map((it,i)=>renderItem(it,i+1)).join('')
       +(selDone.length?'<div style="opacity:.72">'+selDone.map(it=>renderItem(it,0)).join('')+'</div>':'');
     const etc=regAssigns.filter(a=>{const d=_asgnDay(a);return !d||d>_weekEnd;});

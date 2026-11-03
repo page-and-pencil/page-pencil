@@ -2292,3 +2292,98 @@ body{font-size:14.5px;line-height:1.65;}
 .hwch-card{border-color:var(--border);}
 /* 도장 칸 — 찍힌 것과 빈 칸의 대비를 또렷하게 */
 #stu-hwch-card .cb>div[style*="grid"]>div{transition:transform .15s;}
+
+/* ═══════════════════════════════════════════════════════════
+   학생 화면 — 따뜻하고 친근하게
+   Linear 톤(회색·네이비)은 선생님·학부모용이다. 초등학생이 매일 여는 화면은
+   조금 더 둥글고 따뜻해야 한다. #s-student 안에서만 토큰을 다시 잡는다.
+   ═══════════════════════════════════════════════════════════ */
+#s-student{
+  --bg:#FBFAF7;            /* 종이 느낌의 따뜻한 바탕 */
+  --surface:#FFFFFF;
+  --border:#ECE8E1;
+  --divider:#F3F0EA;
+  --text:#2A2520;
+  --text-muted:#6B635A;
+  --r-card:16px;           /* 더 둥글게 */
+  --r-ctl:12px;
+  --sh:0 2px 8px rgba(42,37,32,.05);
+  background:var(--bg);
+}
+#s-student .card,#s-student .hw-check-card,#s-student .rv-area,#s-student .bp-area{
+  border-radius:var(--r-card);box-shadow:var(--sh);}
+#s-student .btn{border-radius:var(--r-ctl);font-weight:700;}
+#s-student .btn.bt{box-shadow:0 2px 6px rgba(42,37,32,.12);}
+
+/* 히어로 — 하늘빛 그라데이션 + 종이 테이프 */
+.stu-hero{background-image:linear-gradient(145deg,#5B7BE8 0%,#3B5BDB 55%,#2F4BC4 100%)!important;
+  border-radius:20px!important;box-shadow:0 8px 22px rgba(59,91,219,.26);padding:22px 22px 24px;}
+.stu-hero-title{font-size:23px;letter-spacing:-.02em;}
+.stu-hero-cmt{font-size:16px;line-height:1.8;}
+.stu-hero-ico{width:52px;height:52px;font-size:26px;background:rgba(255,255,255,.25);}
+
+/* 마스코트 — 연필 한 자루 (Page & Pencil) */
+.stu-mascot{position:absolute;right:14px;bottom:-4px;width:64px;height:64px;opacity:.9;
+  pointer-events:none;}
+@media(prefers-reduced-motion:no-preference){
+  @keyframes pp-wiggle{0%,100%{transform:rotate(-6deg) translateY(0)}50%{transform:rotate(2deg) translateY(-5px)}}
+  .stu-mascot{animation:pp-wiggle 4s ease-in-out infinite;transform-origin:bottom center;}
+}
+
+/* 퀘스트 체크 — 누르면 도장이 찍히듯 */
+#s-student .hw-checkbox{width:34px;height:34px;border-width:2px;border-color:#DCD6CC;}
+#s-student .hw-checkbox.checked{box-shadow:0 2px 8px rgba(47,158,104,.3);}
+@media(prefers-reduced-motion:no-preference){
+  @keyframes pp-stampin{0%{transform:scale(1.5) rotate(-12deg);opacity:0}
+    60%{transform:scale(.92) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+  #s-student .hw-checkbox.checked{animation:pp-stampin .34s cubic-bezier(.34,1.56,.64,1);}
+}
+
+/* 요일 스트립 — 오늘을 또렷하게 */
+#s-student .wk-day{border-radius:14px;border-color:var(--border);}
+#s-student .wk-day.today{border-color:var(--accent);background:#EEF2FE;}
+#s-student .wk-day.today .wk-day-num{background:var(--accent);box-shadow:0 2px 6px rgba(59,91,219,.32);}
+#s-student .wk-day.sel{border-color:var(--accent);box-shadow:0 2px 10px rgba(59,91,219,.18);}
+
+/* 섹션 제목 — 손글씨 밑줄 느낌 유지하되 조금 크게 */
+#s-student .wk-sec-head .t{font-size:19px;}
+#s-student .rv-sec-h{font-size:18px;}
+
+/* 아이콘 배지 조금 크게 */
+#s-student .hw-ico{width:36px;height:36px;font-size:20px;border-radius:12px;}
+
+/* 눌림 반응 */
+@media(hover:none){
+  #s-student .hw-check-card:active{transform:scale(.985);}
+}
+
+/* 마스코트가 글과 겹치지 않게 오른쪽을 비워 둔다 */
+.stu-hero-cmt{padding-right:62px;}
+.stu-hero-top{padding-right:52px;}
+@media(max-width:360px){.stu-mascot{width:52px;height:52px;}}
+
+/* 오늘 다 끝낸 날 — 축하가 한눈에 */
+.wk-alldone{text-align:center;padding:18px 12px 20px;}
+.wk-alldone-i{font-size:46px;line-height:1;}
+.wk-alldone-t{font-size:19px;font-weight:800;color:var(--okt);margin-top:8px;}
+.wk-alldone-s{font-size:14px;color:var(--text-muted);margin-top:4px;}
+@media(prefers-reduced-motion:no-preference){
+  @keyframes pp-pop-in{0%{transform:scale(.4) rotate(-14deg);opacity:0}
+    60%{transform:scale(1.14) rotate(5deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+  .wk-alldone-i{display:inline-block;animation:pp-pop-in .5s cubic-bezier(.34,1.56,.64,1) both;}
+}
+
+/* 빈 상태 — 쓸쓸하지 않게 */
+#s-student .empty,#s-student .wk-empty-day{padding:28px 16px;text-align:center;
+  color:var(--text-muted);font-size:14.5px;line-height:1.8;}
+#s-student .empty-i{font-size:42px;margin-bottom:8px;display:block;}
+
+/* 퀘스트 카드 — 손이 닿는 느낌 */
+#s-student .hw-check-card{transition:transform .14s,box-shadow .18s;}
+@media(hover:hover){
+  #s-student .hw-check-card:not(.done):hover{transform:translateY(-2px);
+    box-shadow:0 6px 16px rgba(42,37,32,.1);}
+}
+/* 진행바 — 두툼하게 */
+#s-student .quest-bar{height:10px;border-radius:var(--rpill);}
+#s-student .bp-bar{height:10px;}
