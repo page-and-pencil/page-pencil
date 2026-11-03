@@ -4,27 +4,29 @@
    ══════════════════════════════════════════════════════════ */
 
 :root {
-  --navy: #14304a;
-  --navy-deep: #0e2230;
-  --bg: #f6fafb;
-  --bg-soft: #f1f6f8;
-  --bg-field: #f8fbfc;
+  /* 메인 앱(css/tokens.css)과 같은 Linear 팔레트.
+     이름은 그대로 두고 값만 맞춰 소스 전체를 고치지 않는다. */
+  --navy: #1b2430;
+  --navy-deep: #242f3d;
+  --bg: #f7f8fa;
+  --bg-soft: #f1f3f6;
+  --bg-field: #ffffff;
   --card: #ffffff;
-  --teal: #0ca4c9;
-  --teal-deep: #0b8dae;
-  --teal-light: #e3f5fa;
-  --slate: #5a6b7b;
-  --slate-light: #8a95a2;
-  --amber: #f59e0b;
-  --amber-light: #fef0d5;
-  --red: #d64550;
-  --red-light: #fdecec;
-  --border: rgba(15, 48, 74, 0.08);
-  --border-strong: rgba(15, 48, 74, 0.14);
-  --sh: 0 1px 3px rgba(15, 48, 74, 0.06);
-  --sh-lg: 0 8px 32px rgba(15, 48, 74, 0.12);
-  --r: 12px;
-  --r-sm: 8px;
+  --teal: #3b5bdb;
+  --teal-deep: #2b48b8;
+  --teal-light: #e8ecf8;
+  --slate: #5f6672;
+  --slate-light: #9aa1ac;
+  --amber: #c77700;
+  --amber-light: #fbf0dc;
+  --red: #d9480f;
+  --red-light: #fdede6;
+  --border: #e6e8ec;
+  --border-strong: #d5d9e0;
+  --sh: 0 1px 2px rgba(27, 36, 48, 0.06);
+  --sh-lg: 0 12px 32px rgba(27, 36, 48, 0.1);
+  --r: 8px;
+  --r-sm: 7px;
   --fb: "Pretendard", "Noto Sans KR", sans-serif;
   --fd: "Montserrat", sans-serif;
 }
@@ -194,7 +196,7 @@ body {
   outline: none;
   border-color: var(--teal);
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(12, 164, 201, 0.12);
+  box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.12);
 }
 
 select.input {
