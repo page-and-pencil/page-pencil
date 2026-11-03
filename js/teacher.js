@@ -400,6 +400,7 @@ async function saveAcct(){
 let currentSpStuId=null;
 let currentParentSid=null;
 function selStu(id,el){
+  if(typeof restoreStuWidth==='function')restoreStuWidth();
   document.querySelectorAll('.sc').forEach(c=>c.classList.remove('sel'));
   if(el)el.classList.add('sel');
   currentSpStuId=id;
@@ -14147,6 +14148,76 @@ function closeClsRecord(){
   const col=document.getElementById('cls-record-col');if(col)col.classList.remove('open');
   const r2=document.getElementById('cls-resizer-2');if(r2)r2.style.display='none';
 }
+// ── 학생 상세 폭 조절 ────────────────────────────────────────
+// 상세에 담기는 내용이 많아 400px 로는 좁다. 드래그로 넓히고 폭을 기억한다.
+// (클래스 탭의 startClsResize 와 같은 방식)
+const STU_W_KEY='pp_stu_detail_w';
+function _stuApplyW(w){
+  const col=document.getElementById('stu-detail-col');if(!col)return;
+  col.style.width=w?w+'px':'';
+  const btn=document.getElementById('sp-wide-btn');
+  if(btn){
+    const split=document.getElementById('stu-split');
+    const wide=w&&split&&w>split.offsetWidth*0.62;
+    btn.setAttribute('title',wide?'상세를 좁게 보기':'상세를 넓게 보기');
+    const ic=btn.querySelector('svg,i');
+    if(ic&&typeof lucide!=='undefined'){
+      btn.innerHTML='';
+      const el=document.createElement('i');
+      el.setAttribute('data-lucide',wide?'chevrons-right':'chevrons-left');
+      el.setAttribute('width','14');el.setAttribute('height','14');
+      btn.appendChild(el);
+      try{lucide.createIcons({attrs:{},nameAttr:'data-lucide'});}catch(e){}
+    }
+  }
+}
+function startStuResize(e){
+  e.preventDefault();
+  const col=document.getElementById('stu-detail-col');
+  const split=document.getElementById('stu-split');
+  if(!col||!split)return;
+  const rz=document.getElementById('stu-resizer');
+  if(rz)rz.classList.add('dragging');
+  const startX=e.clientX, startW=col.offsetWidth;
+  const onMove=ev=>{
+    const maxW=split.offsetWidth-280;          // 목록이 280px 아래로 줄지 않게
+    const w=Math.max(320,Math.min(maxW,startW-(ev.clientX-startX)));
+    col.style.width=w+'px';
+  };
+  const onUp=()=>{
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    if(rz)rz.classList.remove('dragging');
+    try{localStorage.setItem(STU_W_KEY,String(col.offsetWidth));}catch(_){}
+    _stuApplyW(col.offsetWidth);
+  };
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
+}
+// 버튼: 넓게 ↔ 기본 토글
+function toggleStuWide(){
+  const col=document.getElementById('stu-detail-col');
+  const split=document.getElementById('stu-split');
+  if(!col||!split)return;
+  const wide=col.offsetWidth>split.offsetWidth*0.62;
+  const w=wide?400:Math.max(560,Math.round(split.offsetWidth*0.68));
+  col.style.width=w+'px';
+  try{localStorage.setItem(STU_W_KEY,String(w));}catch(_){}
+  _stuApplyW(w);
+}
+function resetStuWidth(){
+  const col=document.getElementById('stu-detail-col');if(!col)return;
+  col.style.width='';
+  try{localStorage.removeItem(STU_W_KEY);}catch(_){}
+  _stuApplyW(0);
+}
+// 저장된 폭 복원 — 학생 탭을 열 때마다
+function restoreStuWidth(){
+  let w=0;
+  try{w=parseInt(localStorage.getItem(STU_W_KEY)||'0',10)||0;}catch(_){}
+  if(w)_stuApplyW(w);
+}
+
 function startClsResize(e,colId,invert=false){
   e.preventDefault();
   const col=document.getElementById(colId);if(!col)return;

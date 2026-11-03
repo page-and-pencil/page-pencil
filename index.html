@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261102a">
-<link rel="stylesheet" href="css/style.css?v=20261102k">
+<link rel="stylesheet" href="css/style.css?v=20261102l">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -278,8 +278,10 @@
             <div id="stu-grid" class="sg" style="padding:8px;gap:6px;margin-bottom:0"></div>
           </div>
         </div>
+        <div class="stu-resizer" id="stu-resizer" title="드래그해서 폭 조절 · 두 번 누르면 기본값"
+             onmousedown="startStuResize(event)" ondblclick="resetStuWidth()"></div>
         <!-- 오른쪽: 학생 상세 -->
-        <div class="stu-detail-col">
+        <div class="stu-detail-col" id="stu-detail-col">
           <div id="sp-no-stu" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--slate);gap:8px">
             <div class="sp-empty-i"><i data-lucide="mouse-pointer-click" width="30" height="30"></i></div>
             <div style="font-size:14px;font-weight:600">왼쪽에서 학생을 선택하세요</div>
@@ -297,6 +299,9 @@
               <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
                 <button class="btn bo bsm" onclick="previewAsStudent(currentSpStuId)" title="학생 화면 미리보기">학생뷰</button>
                 <button class="btn bo bsm" onclick="previewAsParent(currentSpStuId)" title="학부모 화면 미리보기">학부모뷰</button>
+                <button class="btn bo bsm sp-wide-btn" id="sp-wide-btn" onclick="toggleStuWide()"
+                        title="상세를 넓게 보기" aria-label="상세를 넓게 보기">
+                  <i data-lucide="chevrons-left" width="14" height="14"></i></button>
                 <button class="btn bt bsm" onclick="openEditStuFromPanel()">수정</button>
               </div>
             </div>
@@ -2204,7 +2209,7 @@
 <script src="js/utils.js?v=20261101m"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261101c"></script>
-<script src="js/teacher.js?v=20261102f"></script>
+<script src="js/teacher.js?v=20261102g"></script>
 <script src="js/student.js?v=20261102c"></script>
 <script src="js/parent.js?v=20261102a"></script>
 </body>

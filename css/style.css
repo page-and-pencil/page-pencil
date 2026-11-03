@@ -2387,3 +2387,18 @@ body{font-size:14.5px;line-height:1.65;}
 /* 진행바 — 두툼하게 */
 #s-student .quest-bar{height:10px;border-radius:var(--rpill);}
 #s-student .bp-bar{height:10px;}
+
+/* 학생 상세 폭 조절 — 내용이 많아 400px 로는 좁다 */
+.stu-resizer{width:5px;background:var(--divider);cursor:col-resize;flex-shrink:0;
+  transition:background .15s;position:relative;}
+.stu-resizer::after{content:'';position:absolute;inset:0 -4px;}  /* 잡기 쉽게 */
+.stu-resizer:hover,.stu-resizer.dragging{background:var(--accent);}
+.stu-detail-col{min-width:320px;}
+.sp-wide-btn{padding:6px 8px;}
+.sp-wide-btn svg{display:block;}
+/* 폰·좁은 화면에서는 상세가 전체를 덮으므로 리사이저를 숨긴다 */
+@media(max-width:768px){
+  .stu-resizer{display:none;}
+  .stu-detail-col{width:100%!important;min-width:0;}
+  .sp-wide-btn{display:none;}
+}
