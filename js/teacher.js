@@ -9165,6 +9165,26 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
     const s=stus.find(x=>x.id===sid);if(!s)return;
     items.push({icon:luIcon('inbox',15),chip:'',text:`${s.name} — 과제 제출 ${cnt}건 미확인`,label:'확인',action:`openStuPanelTab('${sid}','sp-hw')`});
   });
+  // 우선순위 1.5: 기한 지난 미제출 — 학생이 해야 할 일.
+  // 위의 '검토 대기'(교사가 해야 할 일)와 합치지 않는다.
+  if(typeof hwFinished==='function'&&typeof DB.assigns==='function'){
+    const _today=ppToday(), lateBy={};
+    DB.assigns().forEach(a=>{
+      if(!a||a._deleted||!a.due||a.due>=_today)return;
+      if(a.completedAt||hwFinished(a))return;
+      // 이미 제출된 건(검토 대기)은 '미제출'이 아니다 — 두 상태를 섞지 않는다
+      if((_cache.homeworks||[]).some(h=>h.assignmentId===a.id))return;
+      const st=stus.find(x=>x.id===a.sid);
+      if(!st||st.inactive)return;
+      lateBy[a.sid]=(lateBy[a.sid]||0)+1;
+    });
+    Object.entries(lateBy).forEach(([sid,cnt])=>{
+      const st=stus.find(x=>x.id===sid);if(!st)return;
+      items.push({icon:luIcon('clock',15),chip:'da-amber',
+        text:`${st.name} — 기한 지난 미제출 ${cnt}건`,label:'확인',
+        action:`openStuPanelTab('${sid}','sp-hw')`});
+    });
+  }
   // 우선순위 2: 이번 달 미납
   unpaidStus.forEach(s=>{items.push({icon:luIcon('wallet',15),chip:'da-amber',text:`${s.name} — 이번 달 미납`,label:'납입 안내',action:`openPayMsg('${s.id}')`});});
   // 우선순위 3: 점수 하락

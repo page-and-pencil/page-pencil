@@ -2523,3 +2523,12 @@ body{font-size:14.5px;line-height:1.65;}
   margin-right:5px;vertical-align:1px;white-space:nowrap}
 .tk-chip.tr-jg{background:var(--avatar-bg);color:var(--avatar-text)}
 .tk-chip.tr-common{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
+
+/* ── 기한 지난 과제 묶음 (학생 홈) ──────────────────────────── */
+.late-box{margin-top:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden}
+.late-box>summary{display:flex;align-items:center;gap:8px;padding:11px 14px;cursor:pointer;
+  list-style:none;font-size:13.5px;font-weight:700;color:var(--text-muted)}
+.late-box>summary::-webkit-details-marker{display:none}
+.late-box .late-n{display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;
+  padding:0 6px;border-radius:50px;background:var(--warning);color:#fff;font-size:12px;font-weight:800}
+.late-list{padding:0 10px 10px}

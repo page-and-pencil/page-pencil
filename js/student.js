@@ -2864,7 +2864,9 @@ function renderStudentHome(sid){
       return '<button class="wk-day '+wend+(d.isToday?' today':'')+(d.date===sel?' sel':'')+'" onclick="stuSelectDay(\''+d.date+'\')"><span class="wk-day-lbl">'+d.label+'</span><span class="wk-day-num">'+d.dnum+'</span>'+dot+'</button>';
     }).join('');
     let items=dayItems(sel);
-    if(sel===today)items=[...overdue.map(a=>({a,done:false})),...items]; // 늦은 일반 과제를 오늘 위로
+    // 기한 지난 과제는 오늘 퀘스트에 섞지 않는다 — 오늘 할 일이 흐려지고,
+    // 오늘 것을 다 해도 '올클리어'가 뜨지 않는다. 바로 아래 별도 묶음으로 둔다.
+    // 기한이 지났다고 지우거나 완료 처리하지 않는다.
     const selPending=items.filter(it=>!it.done);
     const selDone=items.filter(it=>it.done);
     window._wkCnt={date:sel,done:selDone.length,total:items.length};
@@ -2880,9 +2882,15 @@ function renderStudentHome(sid){
     else body=(allDoneToday?'<div class="wk-alldone"><div class="wk-alldone-i">🏆</div><div class="wk-alldone-t">오늘 퀘스트 올클리어!</div><div class="wk-alldone-s">오늘 도장 획득 🏅 내일 퀘스트에서 만나요</div></div>':'')
       +selPending.map((it,i)=>renderItem(it,i+1)).join('')
       +(selDone.length?'<div style="opacity:.72">'+selDone.map(it=>renderItem(it,0)).join('')+'</div>':'');
+    // 기한 지난 미제출 — 접어 두되 건수를 드러낸다 (2건 이하면 펼친 채로)
+    const lateHtml=(sel===today&&overdue.length)
+      ? '<details class="late-box"'+(overdue.length<=2?' open':'')+'>'
+        +'<summary><span class="late-n">'+overdue.length+'</span>기한 지난 과제 — 아직 할 수 있어요</summary>'
+        +'<div class="late-list">'+overdue.map(a=>asgnCard(a,0)).join('')+'</div></details>'
+      : '';
     const etc=regAssigns.filter(a=>{const d=_asgnDay(a);return !d||d>_weekEnd;});
     const etcHtml=etc.length?'<details style="margin-top:12px"><summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;list-style:none">📌 기타 과제 ('+etc.length+'건)</summary><div style="margin-top:8px">'+etc.map(asgnCard).join('')+'</div></details>':'';
-    return '<div class="card" id="stu-hw-card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px"><div class="wk-strip">'+strip+'</div>'+head+body+etcHtml+'</div></div>';
+    return '<div class="card" id="stu-hw-card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px"><div class="wk-strip">'+strip+'</div>'+head+body+lateHtml+etcHtml+'</div></div>';
   })();
 
   const hwChHtml=hwChallengeCardHtml(sid);
