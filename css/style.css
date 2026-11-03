@@ -2576,3 +2576,8 @@ body{font-size:14.5px;line-height:1.65;}
 .cl-dirty{display:none;font-size:12px;font-weight:700;color:var(--warning);
   border:1px solid var(--warning);border-radius:50px;padding:2px 9px;white-space:nowrap}
 .cl-dirty.on{display:inline-flex}
+/* ── 재시험 예정 칩 (B3) — 통과할 때까지 남는다 ─────────────── */
+.rt-chip{display:inline-flex;align-items:center;margin-left:5px;font-size:10.5px;font-weight:800;
+  padding:1px 7px;border-radius:50px;background:transparent;color:var(--warning);
+  border:1px solid var(--warning);white-space:nowrap}
+#vp-units{min-height:92px}
