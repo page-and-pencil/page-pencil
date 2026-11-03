@@ -9347,7 +9347,7 @@ function renderAssignCal(){
         const isRecur=a.category==='recur';
         (byDate[sc.date]=byDate[sc.date]||[]).push({
           ord:isRecur?10:20,
-          color:isRecur?'#0891B2':_PG_C5_COLOR,
+          color:isRecur?'#3B5BDB':_PG_C5_COLOR,
           label:sc.unit||sc.book||a.bookTitle||'',
           tip:`${asgSrcLabel(a)} — ${[a.bookTitle&&a.bookTitle!==sc.book?a.bookTitle:'',sc.book,sc.unit].filter(Boolean).join(' · ')}`,
           done:!!sc.done});
@@ -9399,7 +9399,7 @@ function renderAssignCal(){
       <button class="btn bo bxxs" onclick="assignCalMonth(1)">▶</button>
       ${hwPending&&stCls?`<button class="btn bt bxxs" title="배운 단원 복습 숙제를 반 전체에게 한 번에" onclick="pgAssignAllHomework('${stCls.id}')">📕 숙제 일괄</button>`:''}
       <span style="flex:1"></span>
-      <span class="pg-lg"><i style="background:#0891B2"></i>반복·자동</span>
+      <span class="pg-lg"><i style="background:#3B5BDB"></i>반복·자동</span>
       <span class="pg-lg"><i style="background:${_PG_C5_COLOR}"></i>클래스5</span>
       <span class="pg-lg"><i style="background:var(--text-muted)"></i>마감 과제</span>
       <span class="pg-lg" title="점선=아직 할당 전 제안"><i style="background:#fff;border:1.5px dashed var(--neutral)"></i>제안</span>
@@ -11455,7 +11455,7 @@ function _pgOrtProjection(classId,c,sid,uptoDate,skipDates){
   return placed;
 }
 // 클래스5 앱 과제 예정 {날짜:{unit,title}} — 시작일부터 매일 한 유닛씩 (수업일·휴강과 무관, 매일 나감)
-const _PG_C5_COLOR='#C026D3';
+const _PG_C5_COLOR='#7C4DD6';
 function _pgClass5Plan(c,uptoDate){
   const cfg=c&&c.class5;if(!cfg||!cfg.bookId)return{};
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===cfg.bookId);if(!tb)return{};
@@ -12449,7 +12449,7 @@ function _pgHwChips(sid,ym){
         if(!sc.date||(ym&&!sc.date.startsWith(ym)))return;
         (out[sc.date]=out[sc.date]||[]).push({
           ord:isRecur?10:20,kind:isRecur?'recur':'class5',aid:a.id,sched:true,
-          color:isRecur?'#0891B2':_PG_C5_COLOR,
+          color:isRecur?'#3B5BDB':_PG_C5_COLOR,
           label:sc.unit||sc.book||a.bookTitle||'',
           tip:`${asgSrcLabel(a)} — ${[a.bookTitle&&a.bookTitle!==sc.book?a.bookTitle:'',sc.book,sc.unit].filter(Boolean).join(' · ')}`,
           done:!!sc.done,by:sc.doneBy||''});
@@ -12620,7 +12620,7 @@ function _pgCalHtml(classId){
       <span class="pp-key-i"><i class="pp-sw rec"></i>기록</span>
       <span class="pp-key-i"><i class="pp-sw gho"></i>예정</span>
       <span class="pp-key-i"><i class="pp-sw om"></i>옆 달</span>
-      ${LY.hw?`<span class="pp-key-i"><i class="pp-sw" style="background:#0891B2"></i>반복 숙제</span>`:''}
+      ${LY.hw?`<span class="pp-key-i"><i class="pp-sw" style="background:#3B5BDB"></i>반복 숙제</span>`:''}
       ${LY.c5?`<span class="pp-key-i"><i class="pp-sw" style="background:${_PG_C5_COLOR}"></i>클래스5·리딩앤</span>`:''}
       <span class="pp-key-sp"></span>
       <span class="pp-key-d">끌어서 이동 · ✕로 빼기 · 우클릭 메뉴</span>
