@@ -261,6 +261,7 @@ function swTab(id){
   if(id==='t-stu')setTimeout(autoSelectFirstStu,0);
   if(id==='t-worksheet'){const f=document.getElementById('ws-frame');if(f&&!f.getAttribute('src'))f.setAttribute('src','studio/index.html');}
   if(id==='t-cfg'){
+    if(typeof renderThresholdSettings==='function')renderThresholdSettings();
     const c=DB.cld();document.getElementById('cfg-cld-name').value=c.name||'';document.getElementById('cfg-cld-preset').value=c.preset||'';
     document.getElementById('cfg-apikey').value=DB.api()?'••••••':'';
     const ec=_cache.settings.elevenlabs||DB.g('elevenlabs')||{};
@@ -9368,9 +9369,113 @@ function renderDashFill(){
 }
 function dashFillGo(i){const it=_dashFillItems[i];if(it)it.run();}
 function dashFillToggle(){_dashFillAll=!_dashFillAll;renderDashFill();}
+// ── 홈 신호 기준값 설정 (B19) ────────────────────────────────
+// 기준을 바꿨을 때 몇 명이 걸리는지 그 자리에서 보여 준다.
+// 느슨하게 잡았다가 목록이 무의미해지는 걸 저장 전에 알 수 있게.
+const _BM_TH_FIELDS=[
+  ['missDays','수업 기록 없음을 찾을 기간','일',1,30],
+  ['hwRecentN','최근 과제 몇 건을 볼지','건',1,20],
+  ['hwMissM','그 중 미완 몇 건이면 신호','건',1,20],
+  ['absentWeeks','결석을 볼 기간','주',1,52],
+  ['absentN','그 기간에 결석 몇 회면 신호','회',1,30],
+  ['vocabDropPt','단어 점수 하락 폭','%p',1,100],
+  ['retestFailStreak','재시험 연속 미통과','회',1,10],
+  ['signalMax','홈에 한 번에 보여 줄 학생','명',1,50],
+];
+function renderThresholdSettings(){
+  const box=document.getElementById('cfg-th');if(!box)return;
+  const th=ppTh();
+  box.innerHTML=_BM_TH_FIELDS.map(([k,label,unit,min,max])=>
+    '<div class="f" style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+    +'<label style="flex:1;margin:0;text-transform:none;font-weight:600;font-size:13px">'+escAttr(label)+'</label>'
+    +'<input type="number" id="cfg-th-'+k+'" value="'+th[k]+'" min="'+min+'" max="'+max+'"'
+    +' oninput="previewThresholds()" style="width:72px;text-align:center">'
+    +'<span style="font-size:12.5px;color:var(--slate);width:28px">'+escAttr(unit)+'</span></div>'
+  ).join('');
+  previewThresholds();
+}
+// 지금 입력값으로 몇 명이 걸리는지 (저장하지 않고 계산만)
+function previewThresholds(){
+  const out=document.getElementById('cfg-th-preview');if(!out)return;
+  const saved=(_cache.settings||{}).bmThresholds;
+  const draft={};
+  _BM_TH_FIELDS.forEach(([k])=>{
+    const v=parseInt((document.getElementById('cfg-th-'+k)||{}).value,10);
+    if(v>=0)draft[k]=v;
+  });
+  _cache.settings.bmThresholds=draft;                 // 계산용으로만 잠시 바꾼다
+  let miss=0,warn=0,check=0;
+  try{
+    DB.stus().filter(x=>!x.inactive).forEach(st=>{
+      if(ppMissingRecords(st).length)miss++;
+      const lv=ppStudentSignals(st).level;
+      if(lv==='확인 필요')check++;else if(lv==='주의')warn++;
+    });
+  }catch(e){}
+  _cache.settings.bmThresholds=saved;                 // 원래대로 (저장은 저장 버튼에서만)
+  const n=DB.stus().filter(x=>!x.inactive).length;
+  out.innerHTML='지금 기준이면 재원생 '+n+'명 중 — '
+    +'<b>기록 없음 '+miss+'명</b> · <b>확인 필요 '+check+'명</b> · 주의 '+warn+'명'
+    +(n&&(check+warn)/n>0.5?' <span style="color:var(--warning)">· 절반을 넘습니다. 기준을 더 엄격하게 잡으세요</span>':'');
+}
+async function saveThresholds(){
+  const th={};
+  for(const [k,label,,min,max] of _BM_TH_FIELDS){
+    const v=parseInt((document.getElementById('cfg-th-'+k)||{}).value,10);
+    if(!(v>=min&&v<=max))return toast(label+' 은 '+min+'에서 '+max+' 사이로 입력해 주세요');
+    th[k]=v;
+  }
+  _cache.settings.bmThresholds=th;
+  try{ await supaSetSetting('bmThresholds',th); }
+  catch(e){ console.warn('bmThresholds 저장 실패:',e); return toast('저장에 실패했습니다'); }
+  if(typeof renderDash==='function')renderDash();     // 홈 신호를 바로 다시 계산
+  toast('기준값을 저장했습니다');
+}
+function resetThresholds(){
+  _BM_TH_FIELDS.forEach(([k])=>{const el=document.getElementById('cfg-th-'+k);if(el)el.value=PP_TH_DEFAULT[k];});
+  previewThresholds();
+  toast('기본값으로 되돌렸습니다 — 저장을 눌러야 적용됩니다');
+}
 function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus,reportPendingStus,thisMonth){
   const el=document.getElementById('dash-actions');if(!el)return;
   const items=[];
+  const _today=ppToday();
+  const _act=(stus||[]).filter(x=>!x.inactive);
+
+  // 우선순위 0: 수업일인데 기록이 없음 (B1) — 가장 위
+  if(typeof ppMissingRecords==='function'){
+    _act.forEach(st=>{
+      const miss=ppMissingRecords(st,_today);
+      if(!miss.length)return;
+      const d=miss[0];
+      items.push({icon:luIcon('pencil-line',15),chip:'da-amber',
+        text:`${st.name} · ${ppDowLabel(d)} 수업 기록 없음`+(miss.length>1?` 외 ${miss.length-1}일`:''),
+        label:'기록하기',
+        action:`swTab('t-class');setTimeout(()=>{const e=document.getElementById('cl-date');if(e){e.value='${d}';e.dispatchEvent(new Event('change'));}},200)`});
+    });
+  }
+
+  // 우선순위 0.5: 관심 신호 (B2) — 학생당 한 줄, 이유는 숫자로.
+  // 홈에는 기준값의 signalMax 명까지만. 나머지는 '더 보기'.
+  if(typeof ppStudentSignals==='function'){
+    const th=ppTh();
+    const sig=_act.map(st=>({st,s:ppStudentSignals(st,_today)}))
+      .filter(x=>x.s.level)
+      // 기록 없음만 걸린 학생은 위 1순위와 겹치므로 신호 줄에서 뺀다
+      .filter(x=>!(x.s.reasons.length===1&&x.s.reasons[0].k==='rec'))
+      .sort((a,b)=>(b.s.reasons.length-a.s.reasons.length));
+    sig.slice(0,th.signalMax).forEach(({st,s})=>{
+      items.push({icon:luIcon('triangle-alert',15),chip:s.level==='확인 필요'?'da-amber':'',
+        text:`${st.name} — ${s.level} · ${s.reasons.map(r=>r.t).join(' · ')}`,
+        label:'학생 보기',action:`loadStuPanel('${st.id}')`});
+    });
+    if(sig.length>th.signalMax){
+      items.push({icon:luIcon('chevron-down',15),chip:'',
+        text:`관심 학생 ${sig.length-th.signalMax}명 더 있음`,
+        label:'학생 목록',action:`swTab('t-stu')`});
+    }
+  }
+
   // 우선순위 1: 미확인 숙제
   Object.entries(uncheckedHwByStu).forEach(([sid,cnt])=>{
     const s=stus.find(x=>x.id===sid);if(!s)return;

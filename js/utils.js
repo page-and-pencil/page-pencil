@@ -464,6 +464,132 @@ function ppRetestCardHtml(stu,opts){
   return '<div class="rt-box"><div class="rt-h">'+esc(title)+' <span class="rt-n">'+q.length+'</span></div>'+rows+'</div>';
 }
 
+// ── 기준값 (B19) ─────────────────────────────────────────────
+// 홈 신호에 몇 명이 걸릴지는 이 숫자들이 정한다. 느슨하면 목록이 의미를 잃는다.
+// 기본값은 보수적으로 잡았다. 설정에서 바꾸면 홈이 바로 다시 계산된다.
+const PP_TH_DEFAULT={
+  missDays:7,          // 최근 며칠까지 '수업 기록 없음' 을 찾을지
+  hwRecentN:3,         // 기한이 지난 최근 과제 N건 중
+  hwMissM:2,           // M건 이상 미완이면 신호
+  absentWeeks:4,       // 최근 N주 안에
+  absentN:2,           // 결석 N회 이상이면 신호
+  vocabDropPt:20,      // 단어 점수가 N%p 이상 떨어지면 신호
+  retestFailStreak:2,  // 재시험 N회 연속 미통과면 신호
+  signalMax:5,         // 홈에 한 번에 보여 줄 학생 수 (나머지는 '더 보기')
+};
+function ppTh(){
+  const raw=(typeof _cache!=='undefined'&&_cache.settings)?_cache.settings.bmThresholds:null;
+  const o={...PP_TH_DEFAULT};
+  if(raw&&typeof raw==='object'){
+    Object.keys(PP_TH_DEFAULT).forEach(k=>{
+      const v=parseInt(raw[k],10);
+      if(v>=0&&v<=365)o[k]=v;
+    });
+  }
+  return o;
+}
+
+// ── 수업일인데 기록이 없는 날 (B1) ───────────────────────────
+// classes.days 는 한글 요일 배열(["화","목","금"])이다.
+// 휴강(skipDates)은 빼고 추가 수업일(extraDates)은 넣는다 — 기존 _nextClassDay 와 같은 규칙.
+// 오늘도 본다. 수업이 끝났는데 아직 안 적은 경우가 가장 흔하다.
+const PP_DOW=['일','월','화','수','목','금','토'];
+function ppIsClassDay(classes,dateStr){
+  return (classes||[]).some(c=>{
+    if((c.skipDates||[]).includes(dateStr))return false;              // 휴강이 우선
+    if((c.extraDates||[]).includes(dateStr))return true;              // 추가 수업일
+    const d=new Date(dateStr+'T12:00:00');
+    return !isNaN(d)&&(c.days||[]).includes(PP_DOW[d.getDay()]);
+  });
+}
+function ppMissingRecords(stu,todayStr){
+  if(!stu||typeof DB==='undefined')return [];
+  const th=ppTh();
+  const today=todayStr||((typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10));
+  const classes=(typeof DB.classes==='function'?DB.classes():[])
+    .filter(c=>c&&c.active!==false&&(c.studentIds||[]).includes(stu.id));
+  if(!classes.length)return [];
+  const lesDates=new Set((typeof DB.less==='function'?DB.less():[])
+    .filter(l=>l&&l.sid===stu.id&&l.date).map(l=>l.date));
+  const enroll=String(stu.enrollDate||'').slice(0,10);
+  const out=[];
+  for(let i=0;i<th.missDays;i++){
+    const d=ppShiftDate(today,-i);
+    if(!d)continue;
+    if(enroll&&d<enroll)continue;        // 입회 전은 보지 않는다
+    if(lesDates.has(d))continue;         // 이미 적었다
+    if(ppIsClassDay(classes,d))out.push(d);
+  }
+  return out;                            // 최근 날짜부터
+}
+// '11/3(월)' 같은 짧은 표기
+function ppDowLabel(dateStr){
+  const d=new Date(String(dateStr||'')+'T12:00:00');
+  if(isNaN(d))return String(dateStr||'');
+  return (d.getMonth()+1)+'/'+d.getDate()+'('+PP_DOW[d.getDay()]+')';
+}
+
+// ── 관심 신호 (B2) ───────────────────────────────────────────
+// 이유는 반드시 숫자로 적는다. 단계는 '주의'와 '확인 필요' 둘뿐이다.
+// 학부모에게 자동으로 보내지 않는다 — 선생님 화면에만 쓴다.
+function ppStudentSignals(stu,todayStr){
+  const empty={level:'',reasons:[],missing:[]};
+  if(!stu||typeof DB==='undefined')return empty;
+  const th=ppTh();
+  const today=todayStr||((typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10));
+  const reasons=[];
+
+  // 1) 기한이 지난 최근 과제 N건 중 M건 이상 미완
+  const asg=(typeof DB.assigns==='function'?DB.assigns():[])
+    .filter(a=>a&&!a._deleted&&a.sid===stu.id&&a.due&&a.due<today)
+    .sort((a,b)=>(b.due||'').localeCompare(a.due||''))
+    .slice(0,th.hwRecentN);
+  const undone=asg.filter(a=>!a.completedAt&&!(typeof hwFinished==='function'&&hwFinished(a))).length;
+  if(asg.length>=th.hwRecentN&&undone>=th.hwMissM)
+    reasons.push({k:'hw',t:'최근 '+asg.length+'회 중 숙제 미완 '+undone+'회'});
+
+  // 2) 최근 N주 결석 N회
+  const from=ppShiftDate(today,-th.absentWeeks*7);
+  const absN=(typeof DB.less==='function'?DB.less():[])
+    .filter(l=>l&&l.sid===stu.id&&l.date&&l.date>=from&&l.date<=today&&l.att==='absent').length;
+  if(absN>=th.absentN)
+    reasons.push({k:'abs',t:'최근 '+th.absentWeeks+'주 결석 '+absN+'회'});
+
+  // 3) 단어 점수 하락 — 미응시는 빼고 본다
+  const ts=(typeof ppScored==='function')
+    ?ppScored((typeof DB.tsts==='function'?DB.tsts():[]).filter(t=>t&&t.sid===stu.id),'vocab'):[];
+  const sorted=ts.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(sorted.length>=2){
+    const cur=Math.round(sorted[0].vocabCorrect/sorted[0].vocabTotal*100);
+    const prev=Math.round(sorted[1].vocabCorrect/sorted[1].vocabTotal*100);
+    if(prev-cur>=th.vocabDropPt)
+      reasons.push({k:'drop',t:'단어 점수 '+(prev-cur)+'%p 하락 ('+prev+'% → '+cur+'%)'});
+  }
+
+  // 4) 재시험 연속 미통과 — 묶음마다 '최근 시도부터 연속으로' 만 센다
+  if(typeof ppTestChains==='function'&&typeof ppVocabStatus==='function'){
+    let worst=0;
+    ppTestChains(stu.id).forEach(c=>{
+      let n=0;
+      for(let i=c.list.length-1;i>=0;i--){
+        const k=ppVocabStatus(c.list[i]).k;
+        if(k==='fail'||k==='absent')n++;else break;
+      }
+      if(n>worst)worst=n;
+    });
+    if(worst>=th.retestFailStreak)
+      reasons.push({k:'retest',t:'재시험 '+worst+'회 연속 미통과'});
+  }
+
+  // 5) 수업 기록 누락 (B1 과 같은 계산 — 신호 줄에도 함께)
+  const miss=ppMissingRecords(stu,today);
+  if(miss.length)reasons.push({k:'rec',t:'수업 기록 없음 '+miss.length+'일'});
+
+  // 사유가 둘 이상이면 '확인 필요', 하나면 '주의'
+  const level=reasons.length>=2?'확인 필요':(reasons.length?'주의':'');
+  return {level,reasons,missing:miss};
+}
+
 // ── 학습 목표 ────────────────────────────────────────────────
 // 관찰 가능한 문장으로 적고, 확인 기준을 함께 둔다.
 // 확인하지 않은 목표는 '미평가'로 남는다 — 기간이 지나도 자동으로 달성 처리하지 않는다.

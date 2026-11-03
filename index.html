@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261102a">
-<link rel="stylesheet" href="css/style.css?v=20261104e">
+<link rel="stylesheet" href="css/style.css?v=20261104g">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -930,6 +930,22 @@
     <!-- 설정 -->
     <div id="t-cfg" class="panel">
       <div class="sh"><div><div class="st"><i data-lucide="settings" width="15" height="15" style="vertical-align:-3px"></i> 설정</div><div class="ssub">앱 동작과 학부모·학생에게 보이는 정보를 관리합니다</div></div></div>
+
+      <!-- 홈 신호 기준값 -->
+      <div class="card" style="margin-bottom:1rem">
+        <div class="ch"><span class="ct"><i data-lucide="sliders-horizontal" width="15" height="15" style="vertical-align:-3px"></i> 홈 신호 기준값</span></div>
+        <div class="cb">
+          <div style="font-size:13px;color:var(--slate);margin-bottom:14px;line-height:1.6">
+            대시보드 <b>바로 할 일</b>에 어떤 학생이 뜰지 정하는 숫자입니다.
+            느슨하게 잡으면 거의 모든 학생이 떠서 목록이 의미를 잃습니다.</div>
+          <div id="cfg-th"></div>
+          <div id="cfg-th-preview" style="font-size:13px;color:var(--slate);margin:10px 0 14px;line-height:1.6"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn bt bsm" onclick="saveThresholds()">저장</button>
+            <button class="btn bo bsm" onclick="resetThresholds()">기본값으로</button>
+          </div>
+        </div>
+      </div>
 
       <!-- 코멘트 칩 관리 -->
       <div class="card" style="margin-bottom:1rem">
@@ -2388,11 +2404,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261104e"></script>
+<script src="js/utils.js?v=20261104g"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261104e"></script>
-<script src="js/teacher.js?v=20261104e"></script>
-<script src="js/student.js?v=20261104e"></script>
-<script src="js/parent.js?v=20261104e"></script>
+<script src="js/db.js?v=20261104g"></script>
+<script src="js/teacher.js?v=20261104g"></script>
+<script src="js/student.js?v=20261104g"></script>
+<script src="js/parent.js?v=20261104g"></script>
 </body>
 </html>
