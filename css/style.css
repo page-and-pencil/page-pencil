@@ -2549,3 +2549,9 @@ body{font-size:14.5px;line-height:1.65;}
 .rt-words{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .rt-w{font-size:12px;font-weight:700;color:var(--text);background:var(--nav-active);
   padding:2px 8px;border-radius:50px}
+
+/* ── 재시험 예정 칩 (B3) — 통과할 때까지 남는다 ─────────────── */
+.rt-chip{display:inline-flex;align-items:center;margin-left:5px;font-size:10.5px;font-weight:800;
+  padding:1px 7px;border-radius:50px;background:transparent;color:var(--warning);
+  border:1px solid var(--warning);white-space:nowrap}
+#vp-units{min-height:92px}

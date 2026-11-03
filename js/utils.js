@@ -464,6 +464,109 @@ function ppRetestCardHtml(stu,opts){
   return '<div class="rt-box"><div class="rt-h">'+esc(title)+' <span class="rt-n">'+q.length+'</span></div>'+rows+'</div>';
 }
 
+// ── 단어 시험지 출제 구성 (B11) ──────────────────────────────
+// 새 단어 N + 최근 오답 M + 지난 범위 무작위 K. 기본 20+10+10, 설정에서 바꾼다.
+// 누적 복습이 목적이다 — 새 범위만 내면 지난 단어가 빠져나간다.
+const PP_PAPER_DEFAULT={newN:20,wrongM:10,pastK:10};
+function ppPaperMix(){
+  const raw=(typeof _cache!=='undefined'&&_cache.settings)?_cache.settings.paperMix:null;
+  const o={...PP_PAPER_DEFAULT};
+  if(raw&&typeof raw==='object'){
+    ['newN','wrongM','pastK'].forEach(k=>{
+      const v=parseInt(raw[k],10);
+      if(v>=0&&v<=200)o[k]=v;
+    });
+  }
+  return o;
+}
+function ppShuffle(a){
+  const r=(a||[]).slice();
+  for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}
+  return r;
+}
+function ppWordKey(w){return String((w&&(w.word||w))||'').trim().toLowerCase();}
+
+// 교재 단원에서 단어 꺼내기
+function ppUnitWords(bookId,unitKeys){
+  const b=(typeof _cache!=='undefined'?(_cache.globalTextbooks||[]):[]).find(x=>x.id===bookId);
+  if(!b)return [];
+  const keys=(unitKeys&&unitKeys.length)?unitKeys:Object.keys(b.units||{});
+  const out=[];
+  keys.forEach(k=>{
+    const ws=(typeof tuNormWords==='function')?tuNormWords((b.units||{})[k]||[]):((b.units||{})[k]||[]);
+    ws.forEach(w=>{ if(w&&w.word)out.push({word:w.word,ko:w.ko||'',pos:w.pos||'',example:w.example||'',src:b.title+' '+k}); });
+  });
+  return out;
+}
+// 최근 오답 — 시험 기록의 wrongWords 를 최근 순으로 모은다 (중복 제거)
+function ppRecentWrong(sid,limit){
+  const ts=((typeof DB!=='undefined'&&typeof DB.tsts==='function')?DB.tsts():[])
+    .filter(t=>t&&t.sid===sid&&(t.wrongWords||[]).length)
+    .sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  const seen=new Set(),out=[];
+  ts.forEach(t=>(t.wrongWords||[]).forEach(w=>{
+    const k=ppWordKey(w);
+    if(!k||seen.has(k))return;
+    seen.add(k);out.push(String(w).trim());
+  }));
+  return limit?out.slice(0,limit):out;
+}
+// 지난 범위 — 학생이 이미 만난 단어 카드에서 무작위
+function ppPastWords(sid,limit,excludeKeys){
+  const ex=new Set(excludeKeys||[]);
+  const cards=((typeof _cache!=='undefined')?(_cache.vocab_cards||[]):[])
+    .filter(c=>c&&!c._deleted&&c.sid===sid&&c.word&&!ex.has(ppWordKey(c.word)));
+  const pick=ppShuffle(cards).slice(0,limit||0);
+  return pick.map(c=>({word:c.word,ko:c.ko||c.meaning||'',pos:c.pos||'',example:c.example||'',src:'지난 범위'}));
+}
+// 시험지 문항 묶음. 같은 단어가 두 번 나오지 않게 한다.
+// 돌려주는 것: {items:[{word,ko,pos,example,src,from}], counts:{new,wrong,past}}
+function ppPaperPick(sid,opts){
+  const o=opts||{};
+  const mix=ppPaperMix();
+  const newN=(o.newN!=null)?o.newN:mix.newN;
+  const wrongM=(o.wrongM!=null)?o.wrongM:mix.wrongM;
+  const pastK=(o.pastK!=null)?o.pastK:mix.pastK;
+  const used=new Set();
+  const take=(arr,n,from)=>{
+    const out=[];
+    for(const w of arr){
+      if(out.length>=n)break;
+      const k=ppWordKey(w);
+      if(!k||used.has(k))continue;
+      used.add(k);out.push({...w,from});
+    }
+    return out;
+  };
+  // 1) 새 단어 — 고른 교재 단원에서
+  const fresh=take(ppShuffle(ppUnitWords(o.bookId,o.unitKeys)),newN,'new');
+  // 2) 최근 오답 — 카드에서 뜻을 메운다
+  const cards=((typeof _cache!=='undefined')?(_cache.vocab_cards||[]):[]).filter(c=>c&&c.sid===sid);
+  const wrongRaw=ppRecentWrong(sid,wrongM*3).map(w=>{
+    const c=cards.find(x=>ppWordKey(x.word)===ppWordKey(w));
+    return {word:w,ko:(c&&(c.ko||c.meaning))||'',pos:(c&&c.pos)||'',example:(c&&c.example)||'',src:'최근 오답'};
+  });
+  const wrong=take(wrongRaw,wrongM,'wrong');
+  // 3) 지난 범위 무작위
+  const past=take(ppPastWords(sid,pastK*3,[...used]),pastK,'past');
+  return {
+    items:ppShuffle([...fresh,...wrong,...past]),
+    counts:{new:fresh.length,wrong:wrong.length,past:past.length},
+  };
+}
+
+// ── 재시험 예정 (B3) ─────────────────────────────────────────
+// 통과할 때까지 학생 줄과 오늘 수업 목록에 칩이 남는다.
+function ppRetestPending(sid){
+  if(typeof ppRetestQueue!=='function')return 0;
+  return ppRetestQueue(sid).length;
+}
+function ppRetestChipHtml(sid){
+  const n=ppRetestPending(sid);
+  if(!n)return '';
+  return '<span class="rt-chip" title="통과할 때까지 남아 있습니다">재시험 예정 '+n+'</span>';
+}
+
 // ── 기준값 (B19) ─────────────────────────────────────────────
 // 홈 신호에 몇 명이 걸릴지는 이 숫자들이 정한다. 느슨하면 목록이 의미를 잃는다.
 // 기본값은 보수적으로 잡았다. 설정에서 바꾸면 홈이 바로 다시 계산된다.

@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261102a">
-<link rel="stylesheet" href="css/style.css?v=20261104g">
+<link rel="stylesheet" href="css/style.css?v=20261104i">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -435,6 +435,10 @@
           <div class="fg">
             <div class="f"><label>날짜</label><input type="date" id="ts-date"></div>
             <div class="f"><label>학생</label><select id="ts-stu" onchange="preloadTestWords(this.value)"></select></div>
+            <div class="f s2" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <button class="btn bo bsm" onclick="openVocabPaper(document.getElementById('ts-stu').value)" style="white-space:nowrap">
+                <i data-lucide="printer" width="14" height="14" style="vertical-align:-2px"></i> 단어 시험지 만들기</button>
+              <span style="font-size:12px;color:var(--slate)">종이 시험지 + 정답지를 A4로 뽑습니다</span></div>
           </div>
           <div class="score-block">
             <div class="score-block-title">단어 테스트</div>
@@ -465,6 +469,13 @@
                 <button class="btn bo bsm" onclick="tsLoadUnitWords()" style="white-space:nowrap">단어 불러오기</button>
               </div>
             </div>
+            <div class="score-row" style="align-items:flex-end;gap:10px">
+              <div class="f" style="flex:1.2"><label>외부 앱 <span style="color:var(--slate);font-weight:400">— 클래스카드 등 (연동 아님)</span></label>
+                <input type="text" id="ts-ext-name" list="dl-ext-apps" placeholder="클래스카드"></div>
+              <div class="f" style="flex:1"><label>그 앱 점수</label>
+                <input type="text" id="ts-ext-score" placeholder="예) 92점 / 46/50"></div>
+            </div>
+            <datalist id="dl-ext-apps"><option value="클래스카드"><option value="퀴즐렛"><option value="아라보카"></datalist>
             <div class="f"><label>전체 단어 (쉼표 구분) <span style="color:var(--slate);font-weight:400">— 단어장 저장용</span></label><input type="text" id="ts-allwords" placeholder="quickly, enormous, vast, ..."></div>
             <div class="f"><label>틀린 단어 (쉼표 구분)</label><input type="text" id="ts-wr" placeholder="quickly, enormous"></div>
           </div>
@@ -2263,6 +2274,50 @@
 </datalist>
 
 <!-- 시험 일정 등록·수정 (직결영어 1단계) -->
+<div id="m-vocab-paper" class="mo">
+  <div class="mdl" style="max-width:560px">
+    <div class="mh"><span class="mt">단어 시험지 만들기</span>
+      <button class="bx" onclick="closeM('m-vocab-paper')">&times;</button></div>
+    <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="f"><label>학생</label><select id="vp-stu"></select></div>
+      <div class="f"><label>통과 기준</label>
+        <div style="display:flex;align-items:center;gap:5px">
+          <input type="number" id="vp-pass" min="1" max="100" style="text-align:center">
+          <span style="font-size:13px;color:var(--slate)">%</span></div></div>
+      <div class="f" style="grid-column:span 2"><label>새 단어를 낼 교재</label>
+        <select id="vp-book" onchange="vpBookChange()"></select></div>
+      <div class="f" style="grid-column:span 2"><label>단원 <span style="font-weight:400;color:var(--neutral)">(여러 개 고를 수 있어요)</span></label>
+        <select id="vp-units" multiple size="4"></select></div>
+    </div>
+    <div class="section-label" style="margin-top:12px">구성 — 누적 복습</div>
+    <div class="fg" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div class="f"><label>새 단어</label><input type="number" id="vp-new" min="0" max="200" style="text-align:center"></div>
+      <div class="f"><label>최근 오답</label><input type="number" id="vp-wrong" min="0" max="200" style="text-align:center"></div>
+      <div class="f"><label>지난 범위</label><input type="number" id="vp-past" min="0" max="200" style="text-align:center"></div>
+    </div>
+    <div class="section-label" style="margin-top:12px">유형 <span style="font-weight:400;text-transform:none;color:var(--neutral)">— 비워 두면 뜻 쓰기 반 · 단어 쓰기 반</span></div>
+    <div class="fg" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+      <div class="f"><label>뜻 쓰기</label><input type="number" id="vp-t-ko" min="0" max="200" placeholder="자동" style="text-align:center"></div>
+      <div class="f"><label>단어 쓰기</label><input type="number" id="vp-t-en" min="0" max="200" placeholder="자동" style="text-align:center"></div>
+      <div class="f"><label>4지선다</label><input type="number" id="vp-t-mc" min="0" max="200" style="text-align:center"></div>
+      <div class="f"><label>예문 빈칸</label><input type="number" id="vp-t-cloze" min="0" max="200" style="text-align:center"></div>
+    </div>
+    <div class="f" style="margin-top:8px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none">
+        <input type="checkbox" id="vp-shuffle" style="width:auto;min-height:0" checked>
+        <span style="font-weight:400">문항 순서 섞기</span></label>
+    </div>
+    <div class="f" style="font-size:12.5px;color:var(--text-muted);line-height:1.6">
+      문제지와 정답지가 각각 A4 한 장으로 나옵니다. 인쇄 창에서 'PDF로 저장'을 고르면 파일이 됩니다.
+      예문 빈칸은 예문이 등록된 단어에만 배정됩니다.</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;margin-top:16px">
+      <button class="btn bo bsm" onclick="openRetestPaper(document.getElementById('vp-stu').value)">최근 오답만으로</button>
+      <span style="flex:1"></span>
+      <button class="btn bo" onclick="closeM('m-vocab-paper')">취소</button>
+      <button class="btn bt" onclick="makeVocabPaper()">시험지 만들기</button>
+    </div>
+  </div>
+</div>
 <div id="m-goal" class="mo">
   <div class="mdl" style="max-width:520px">
     <div class="mh"><span class="mt" id="goal-mt">학습 목표</span>
@@ -2404,11 +2459,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261104g"></script>
+<script src="js/utils.js?v=20261104i"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261104g"></script>
-<script src="js/teacher.js?v=20261104g"></script>
-<script src="js/student.js?v=20261104g"></script>
-<script src="js/parent.js?v=20261104g"></script>
+<script src="js/db.js?v=20261104i"></script>
+<script src="js/teacher.js?v=20261104i"></script>
+<script src="js/student.js?v=20261104i"></script>
+<script src="js/parent.js?v=20261104i"></script>
 </body>
 </html>

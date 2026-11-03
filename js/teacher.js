@@ -1445,7 +1445,8 @@ function renderStus(){
     return '<tr class="sc'+(s.inactive?' inactive':'')+'" onclick="selStu(\''+s.id+'\',this)" tabindex="0">'
       +'<td class="sl-name"><span class="sc-avatar">'+(_esc((s.name||'').trim().slice(0,1))||'학')+'</span>'
         +'<span class="sl-nm">'+_esc(s.name)+'</span>'
-        +((typeof ppTrackBadgeHtml==='function')?ppTrackBadgeHtml(s):'')+'</td>'
+        +((typeof ppTrackBadgeHtml==='function')?ppTrackBadgeHtml(s):'')
+        +((typeof ppRetestChipHtml==='function')?ppRetestChipHtml(s.id):'')+'</td>'
       +'<td class="sl-dim" data-h="학년">'+_esc(s.grade||s.lv||'')+'</td>'
       +'<td class="sl-dim" data-h="학교">'+_esc(s.school||'')+'</td>'
       +'<td class="sl-dim" data-h="클래스">'+_esc(clsOf(s.id))+'</td>'
@@ -2957,6 +2958,204 @@ function preloadTestWords(sid){
   toast('리딩로그에서 미시험 단어 '+pending.length+'개를 불러왔습니다');
 }
 function rcls(n){return n>=80?'rhi':n>=60?'rmd':'rlo';}
+// ── 종이 단어 시험지 (B9·B10·B11) ───────────────────────────
+// 유형: 뜻 쓰기 / 단어 쓰기 / 4지선다 / 예문 빈칸.
+// 유형별 문항 수를 정하지 않으면 뜻 쓰기 반 · 단어 쓰기 반으로 만든다.
+// 정답지는 따로 붙이고 번호와 정답만 적는다.
+function openVocabPaper(sid){
+  const sel=document.getElementById('vp-stu');
+  if(sel){
+    sel.innerHTML=DB.stus().filter(x=>!x.inactive)
+      .map(x=>`<option value="${x.id}"${x.id===sid?' selected':''}>${escAttr(x.name)}</option>`).join('');
+  }
+  const mix=ppPaperMix();
+  const v=(k,val)=>{const el=document.getElementById(k);if(el)el.value=val;};
+  v('vp-new',mix.newN);v('vp-wrong',mix.wrongM);v('vp-past',mix.pastK);
+  v('vp-t-ko','');v('vp-t-en','');v('vp-t-mc','0');v('vp-t-cloze','0');
+  const pe=document.getElementById('vp-pass');if(pe&&!pe.value)pe.value=ppVocabPassPct();
+  const sh=document.getElementById('vp-shuffle');if(sh)sh.checked=true;
+  vpFillBooks();
+  openM('m-vocab-paper');
+}
+function vpFillBooks(){
+  const bs=document.getElementById('vp-book');if(!bs)return;
+  const books=(_cache.globalTextbooks||[]).filter(b=>!b._deleted&&Object.keys(b.units||{}).length)
+    .sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),'ko'));
+  const keep=bs.value;
+  bs.innerHTML='<option value="">교재 선택 (새 단어 없이 복습만 낼 수도 있어요)</option>'
+    +books.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.title||'')}</option>`).join('');
+  if(keep&&books.some(b=>b.id===keep))bs.value=keep;
+  vpBookChange();
+}
+function vpBookChange(){
+  const bs=document.getElementById('vp-book'),us=document.getElementById('vp-units');
+  if(!bs||!us)return;
+  const b=(_cache.globalTextbooks||[]).find(x=>x.id===bs.value);
+  const keys=b?((typeof tbUnitKeys==='function')?tbUnitKeys(b):Object.keys(b.units||{})):[];
+  us.innerHTML=keys.map(k=>{
+    const n=((b.units||{})[k]||[]).length;
+    return `<option value="${escAttr(k)}">${escAttr(k)}${n?` (${n}개)`:''}</option>`;
+  }).join('');
+  us.size=Math.min(6,Math.max(3,keys.length));
+}
+// 재시험지 — 최근 오답만으로 (B10)
+function openRetestPaper(sid){
+  openVocabPaper(sid);
+  const v=(k,val)=>{const el=document.getElementById(k);if(el)el.value=val;};
+  v('vp-new',0);v('vp-past',0);
+  const q=(typeof ppRetestQueue==='function')?ppRetestQueue(sid||document.getElementById('vp-stu')?.value):[];
+  const n=q.reduce((a,c)=>a+ppRetestWords(c).length,0);
+  v('vp-wrong',n||20);
+  toast(n?`재시험 대상 ${n}개로 맞췄어요`:'최근 오답으로 구성합니다');
+}
+// 유형별 문항 수 — 비워 두면 뜻 쓰기 반 · 단어 쓰기 반
+function _vpTypeCounts(total){
+  const g=k=>{const el=document.getElementById(k);const v=parseInt(el?el.value:'',10);return (v>=0)?v:null;};
+  let ko=g('vp-t-ko'),en=g('vp-t-en'),mc=g('vp-t-mc'),cl=g('vp-t-cloze');
+  if(ko===null&&en===null&&!mc&&!cl){
+    ko=Math.ceil(total/2);en=total-ko;mc=0;cl=0;
+  }else{
+    ko=ko||0;en=en||0;mc=mc||0;cl=cl||0;
+    const sum=ko+en+mc+cl;
+    if(sum<total)ko+=total-sum;        // 모자라면 뜻 쓰기로 채운다
+  }
+  return {ko,en,mc,cl};
+}
+function _vpEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+async function makeVocabPaper(){
+  const sid=document.getElementById('vp-stu')?.value||'';
+  const stu=DB.stus().find(x=>x.id===sid);
+  if(!stu)return toast('학생을 골라 주세요');
+  const bookId=document.getElementById('vp-book')?.value||'';
+  const units=[...(document.getElementById('vp-units')?.selectedOptions||[])].map(o=>o.value);
+  const gi=k=>{const v=parseInt((document.getElementById(k)||{}).value,10);return (v>=0)?v:0;};
+  const pick=ppPaperPick(sid,{bookId,unitKeys:units,newN:gi('vp-new'),wrongM:gi('vp-wrong'),pastK:gi('vp-past')});
+  let items=pick.items;
+  if(!items.length)return toast('낼 단어가 없어요 — 교재 단원을 고르거나 복습 개수를 올려 주세요');
+  const shuffle=!!document.getElementById('vp-shuffle')?.checked;
+  if(!shuffle)items=items.slice().sort((a,b)=>String(a.word).localeCompare(String(b.word)));
+  const pass=parseInt((document.getElementById('vp-pass')||{}).value,10)||ppVocabPassPct();
+  const need=Math.ceil(items.length*pass/100);
+  const tc=_vpTypeCounts(items.length);
+
+  // 유형 배정 — 예문 빈칸은 예문이 있는 단어에만
+  const withEx=items.filter(x=>x.example&&/[a-zA-Z]/.test(x.example));
+  const assign=[];
+  let qi=0;
+  const pool=items.slice();
+  const popFrom=(arr)=>{const x=arr.shift();if(x){const i=pool.indexOf(x);if(i>=0)pool.splice(i,1);}return x;};
+  const clozePool=withEx.slice();
+  for(let i=0;i<tc.cl;i++){const x=popFrom(clozePool);if(x)assign.push({t:'cloze',x});}
+  for(let i=0;i<tc.mc;i++){const x=pool.shift();if(x)assign.push({t:'mc',x});}
+  for(let i=0;i<tc.ko;i++){const x=pool.shift();if(x)assign.push({t:'ko',x});}
+  for(let i=0;i<tc.en;i++){const x=pool.shift();if(x)assign.push({t:'en',x});}
+  pool.forEach(x=>assign.push({t:'ko',x}));          // 남은 것은 뜻 쓰기
+  const qs=shuffle?ppShuffle(assign):assign;
+
+  // 4지선다 보기 — 같은 시험지 안의 다른 뜻에서 뽑는다
+  const allKo=[...new Set(items.map(x=>String(x.ko||'').trim()).filter(Boolean))];
+  const mcOpts=(x)=>{
+    const right=String(x.ko||'').trim();
+    const others=ppShuffle(allKo.filter(k=>k&&k!==right)).slice(0,3);
+    return ppShuffle([right,...others]);
+  };
+
+  const w=window.open('','_blank');
+  if(!w)return toast('팝업이 차단됐어요 — 허용해 주세요');
+  const TYPE_LBL={ko:'뜻 쓰기',en:'단어 쓰기',mc:'알맞은 뜻 고르기',cl:'빈칸 채우기'};
+  const answers=[];
+  const body=qs.map((q,i)=>{
+    const no=i+1;
+    const x=q.x;
+    if(q.t==='ko'){
+      answers.push({no,a:x.ko||'—'});
+      return `<div class="q"><span class="no">${no}</span><span class="en">${_vpEsc(x.word)}</span><span class="line"></span></div>`;
+    }
+    if(q.t==='en'){
+      answers.push({no,a:x.word});
+      return `<div class="q"><span class="no">${no}</span><span class="ko">${_vpEsc(x.ko||'—')}</span><span class="line"></span></div>`;
+    }
+    if(q.t==='mc'){
+      const op=mcOpts(x);
+      answers.push({no,a:(op.indexOf(String(x.ko||'').trim())+1)+'번 · '+(x.ko||'—')});
+      return `<div class="q mc"><span class="no">${no}</span><span class="en">${_vpEsc(x.word)}</span>`
+        +`<div class="ops">${op.map((o,j)=>`<span class="op">${j+1}. ${_vpEsc(o)}</span>`).join('')}</div></div>`;
+    }
+    const re=new RegExp(String(x.word).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i');
+    answers.push({no,a:x.word});
+    return `<div class="q"><span class="no">${no}</span><span class="sent">`
+      +_vpEsc(String(x.example)).replace(re,'<u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>')
+      +`</span></div>`;
+  }).join('');
+
+  const today=ppToday();
+  const srcLine=[
+    pick.counts.new?`새 단어 ${pick.counts.new}`:'',
+    pick.counts.wrong?`최근 오답 ${pick.counts.wrong}`:'',
+    pick.counts.past?`지난 범위 ${pick.counts.past}`:'',
+  ].filter(Boolean).join(' · ');
+  const typeLine=Object.entries(tc).filter(([,v])=>v>0)
+    .map(([k,v])=>TYPE_LBL[k]+' '+v).join(' · ');
+
+  w.document.open();
+  w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<title>단어 시험지 — ${_vpEsc(stu.name)} ${today}</title>
+<style>
+@page{size:A4;margin:14mm}
+*{box-sizing:border-box}
+body{font-family:'Pretendard Variable',Pretendard,-apple-system,sans-serif;color:#1B2430;margin:0;padding:0;font-size:13px}
+.sheet{page-break-after:always}
+.sheet:last-child{page-break-after:auto}
+h1{font-size:17px;margin:0 0 3px}
+.head{display:flex;align-items:flex-end;gap:14px;border-bottom:2px solid #1B2430;padding-bottom:8px;margin-bottom:6px}
+.head .meta{font-size:12px;color:#5F6672;line-height:1.6}
+.fields{margin-left:auto;display:flex;gap:10px;font-size:12px;white-space:nowrap}
+.fields span{border:1px solid #9AA1AC;border-radius:6px;padding:5px 12px}
+.pass{font-size:12px;color:#5F6672;margin-bottom:12px}
+.pass b{color:#1B2430}
+.qs{column-count:2;column-gap:22px}
+.q{break-inside:avoid;display:flex;align-items:baseline;gap:7px;margin-bottom:11px;line-height:1.5}
+.q.mc{display:block}
+.q.mc .no{margin-right:7px}
+.no{flex:0 0 22px;font-size:11px;color:#9AA1AC;font-variant-numeric:tabular-nums}
+.en{font-weight:700;font-size:13.5px}
+.ko{font-size:13px}
+.line{flex:1;border-bottom:1px solid #C3CBD3;min-width:70px;height:15px}
+.sent{font-size:12.5px;line-height:1.9}
+.sent u{letter-spacing:2px}
+.ops{margin:5px 0 0 29px;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px}
+.op{white-space:nowrap}
+.ak{column-count:3;column-gap:18px;font-size:12px}
+.ak div{break-inside:avoid;margin-bottom:5px}
+.ak .n{color:#9AA1AC;display:inline-block;width:22px}
+.noprint{position:fixed;bottom:14px;right:14px;display:flex;gap:6px;z-index:9}
+.noprint button{padding:8px 14px;font-size:13px;cursor:pointer;border:1px solid #1B2430;background:#fff;border-radius:6px}
+@media print{.noprint{display:none}}
+</style></head><body>
+<div class="sheet">
+  <div class="head">
+    <div>
+      <h1>단어 시험 <span style="font-size:13px;font-weight:400;color:#5F6672">${_vpEsc(typeLine)}</span></h1>
+      <div class="meta">${_vpEsc(srcLine)}</div>
+    </div>
+    <div class="fields"><span>이름 ________</span><span>날짜 ____ / ____</span><span>점수 ____ / ${qs.length}</span></div>
+  </div>
+  <div class="pass">${qs.length}문항 중 <b>${need}개 이상</b> 맞으면 통과 (기준 ${pass}%)</div>
+  <div class="qs">${body}</div>
+</div>
+<div class="sheet">
+  <div class="head"><div><h1>정답지</h1><div class="meta">${_vpEsc(stu.name)} · ${today} · ${qs.length}문항</div></div></div>
+  <div class="ak">${answers.map(a=>`<div><span class="n">${a.no}</span>${_vpEsc(a.a)}</div>`).join('')}</div>
+</div>
+<div class="noprint">
+  <button onclick="print()">🖨 인쇄 / PDF 저장</button>
+  <button onclick="close()">닫기</button>
+</div>
+</body></html>`);
+  w.document.close();
+  closeM('m-vocab-paper');
+  toast(`${qs.length}문항 시험지를 만들었어요 (${srcLine})`);
+}
 async function saveTst(){
   if(_saving['saveTst'])return; _saving['saveTst']=true;
   try{
@@ -2981,6 +3180,12 @@ async function saveTst(){
     ...(_retestRoot&&{retestOf:_retestRoot}),attempt:_attempt,absent:_absent,passPct:_passPct,
     // 미응시는 어느 영역도 보지 않은 것 → 네 영역 모두 0/0.
     // (빈 칸이면 vt·gt 가 10 으로 채워져 '0/10' 이 저장되던 문제)
+    ...(function(){
+      // 외부 앱(클래스카드 등) 점수 — 손으로 넣는 칸. 연동은 하지 않는다 (B12)
+      const n=(document.getElementById('ts-ext-name')||{}).value||'';
+      const sc=(document.getElementById('ts-ext-score')||{}).value||'';
+      return (String(n).trim()&&String(sc).trim())?{extApp:String(n).trim(),extScore:String(sc).trim()}:{};
+    })(),
     vocabCorrect:_absent?0:vc,vocabTotal:_absent?0:vt,
     grammarCorrect:_absent?0:gc,grammarTotal:_absent?0:gt,
     readingCorrect:_absent?0:rc,readingTotal:_absent?0:rt,
@@ -2995,7 +3200,8 @@ async function saveTst(){
   ['ts-vc','ts-vt','ts-gc','ts-gt','ts-rc','ts-rt','ts-lc','ts-lt','ts-wr','ts-allwords','ts-gweak','ts-cmt'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   tstPhotoUrl='';document.getElementById('tst-preview').style.display='none';
   {const r=document.getElementById('ts-retest');if(r)r.value='';
-   const ab=document.getElementById('ts-absent');if(ab)ab.checked=false;}
+   const ab=document.getElementById('ts-absent');if(ab)ab.checked=false;
+   const es=document.getElementById('ts-ext-score');if(es)es.value='';}
   tsRefreshRetest();
   renderTst();
   toast(_absent?'미응시로 기록했습니다':(_retestRoot?'재시험 결과를 저장했습니다':'테스트 결과가 저장되었습니다'));
@@ -14810,6 +15016,7 @@ function openClassLesson(classId,dateStr){
     ?students.map(s=>{const nb=DB.ortNext(s.id);return`<div class="cl-stu-row" data-sid="${s.id}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-size:15px;font-weight:700;min-width:56px">${s.name}</span>
+        ${(typeof ppRetestChipHtml==='function')?ppRetestChipHtml(s.id):''}
         <select class="cl-att filter-sel" style="flex:0 0 auto">
           <option value="normal">정상</option><option value="absent">결석</option>
           <option value="late">지각</option><option value="sick">병결</option>
