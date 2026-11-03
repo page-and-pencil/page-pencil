@@ -2877,20 +2877,70 @@ function tsRefreshRetest(){
   if(keep&&[...sel.options].some(o=>o.value===keep))sel.value=keep;
   const hint=document.getElementById('ts-retest-hint');
   if(hint)hint.textContent=q.length?('재시험 대기 '+q.length+'건'):'재시험 대기 없음';
+  const wrap=document.getElementById('ts-unit-wrap');
+  if(wrap&&!sel.value)wrap.style.display='none';
 }
 // 재시험 대상을 고르면 그때 틀린 단어를 불러온다 (원점수는 그대로 둔다)
 function tsPickRetest(){
   const root=(document.getElementById('ts-retest')||{}).value||'';
   const sid=(document.getElementById('ts-stu')||{}).value||'';
-  if(!root||!sid)return;
+  const wrap=document.getElementById('ts-unit-wrap');
+  if(!root||!sid){if(wrap)wrap.style.display='none';return;}
   const c=(typeof ppTestChains==='function'?ppTestChains(sid):[]).find(x=>x.root===root);
   if(!c)return;
   const words=ppRetestWords(c);
+  if(words.length){
+    const aw=document.getElementById('ts-allwords');
+    if(aw)aw.value=words.join(', ');
+    const vt=document.getElementById('ts-vt');
+    if(vt)vt.value=words.length||'';
+    if(wrap)wrap.style.display='none';
+    toast('재시험 대상 '+words.length+'개를 불러왔습니다');
+    return;
+  }
+  // 미응시는 '틀린 단어'가 없다 — 어느 범위를 다시 볼지 직접 고른다.
+  // 직전 선택의 단어가 남아 있으면 그 범위로 착각하므로 비운다.
+  {const aw=document.getElementById('ts-allwords');if(aw)aw.value='';
+   const vt=document.getElementById('ts-vt');if(vt)vt.value='';}
+  if(wrap){wrap.style.display='';tsFillUnitSel();}
+  toast('미응시라 틀린 단어가 없어요 — 아래에서 범위를 골라 주세요');
+}
+// 재시험 범위 — 교재와 단원을 고르면 그 단원 단어를 불러온다
+function tsFillUnitSel(){
+  const bs=document.getElementById('ts-unit-book');if(!bs)return;
+  const books=(_cache.globalTextbooks||[]).filter(b=>!b._deleted&&Object.keys(b.units||{}).length)
+    .sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),'ko'));
+  const keep=bs.value;
+  bs.innerHTML='<option value="">교재 선택</option>'
+    +books.map(b=>'<option value="'+escAttr(b.id)+'">'+escAttr(b.title||'')+'</option>').join('');
+  if(keep&&books.some(b=>b.id===keep))bs.value=keep;
+  tsUnitBookChange();
+}
+function tsUnitBookChange(){
+  const bs=document.getElementById('ts-unit-book'), us=document.getElementById('ts-unit-sel');
+  if(!bs||!us)return;
+  const b=(_cache.globalTextbooks||[]).find(x=>x.id===bs.value);
+  const keys=b?(typeof tbUnitKeys==='function'?tbUnitKeys(b):Object.keys(b.units||{})):[];
+  us.innerHTML='<option value="">단원 선택</option>'
+    +keys.map(k=>{
+      const n=((b.units||{})[k]||[]).length;
+      return '<option value="'+escAttr(k)+'">'+escAttr(k)+(n?' ('+n+'개)':'')+'</option>';
+    }).join('');
+}
+// 고른 단원의 단어를 '전체 단어' 칸에 넣는다. 뜻·예문은 건드리지 않는다.
+function tsLoadUnitWords(){
+  const bs=document.getElementById('ts-unit-book'), us=document.getElementById('ts-unit-sel');
+  const b=(_cache.globalTextbooks||[]).find(x=>x.id===(bs||{}).value);
+  const key=(us||{}).value||'';
+  if(!b||!key)return toast('교재와 단원을 골라 주세요');
+  const ws=(typeof tuNormWords==='function')?tuNormWords((b.units||{})[key]||[]):((b.units||{})[key]||[]);
+  const words=[...new Set(ws.map(w=>String((w&&w.word)||w||'').trim()).filter(Boolean))];
+  if(!words.length)return toast('이 단원에 등록된 단어가 없어요');
   const aw=document.getElementById('ts-allwords');
   if(aw)aw.value=words.join(', ');
   const vt=document.getElementById('ts-vt');
-  if(vt)vt.value=words.length||'';
-  toast('재시험 대상 '+words.length+'개를 불러왔습니다');
+  if(vt)vt.value=words.length;
+  toast(b.title+' '+key+' 단어 '+words.length+'개를 불러왔습니다');
 }
 function preloadTestWords(sid){
   tsRefreshRetest();
