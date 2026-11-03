@@ -777,11 +777,12 @@ function renderSpVocab(sid){
       <summary style="font-size:13px;font-weight:600;color:var(--slate);cursor:pointer;padding:10px 0;border-top:1.5px solid var(--border);list-style:none">⚙️ 학습 방식 설정 ▾</summary>
       <div style="margin-top:10px;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border)">
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${[{key:'beginner',lbl:'초급',sub:'암기 → 뜻 고르기 → 짝 맞추기 (타이핑 없음)'},{key:'intermediate',lbl:'중급',sub:'암기 → 단어 고르기 → 철자 조립'},{key:'advanced',lbl:'고급',sub:'암기(영어뜻) → 리콜 → 스펠링'}].map(o=>`<button onclick="saveVocabMode('${sid}','${o.key}')" style="padding:8px 14px;border:2px solid ${vocabMode===o.key&&!(spStu?.vocabStages||[]).length?'var(--teal)':'var(--border)'};border-radius:10px;background:${vocabMode===o.key&&!(spStu?.vocabStages||[]).length?'var(--tl)':'#fff'};cursor:pointer;text-align:left">
+          ${[{key:'beginner',lbl:'초급',sub:'암기 → 게임 → 게임 (타이핑 없음)'},{key:'intermediate',lbl:'중급',sub:'암기 → 게임 → 스펠링·게임'},{key:'advanced',lbl:'고급',sub:'암기(영어뜻) → 리콜 → 스펠링'}].map(o=>`<button onclick="saveVocabMode('${sid}','${o.key}')" style="padding:8px 14px;border:2px solid ${vocabMode===o.key&&!(spStu?.vocabStages||[]).length?'var(--teal)':'var(--border)'};border-radius:10px;background:${vocabMode===o.key&&!(spStu?.vocabStages||[]).length?'var(--tl)':'#fff'};cursor:pointer;text-align:left">
             <div style="font-size:13px;font-weight:700;color:${vocabMode===o.key&&!(spStu?.vocabStages||[]).length?'var(--teal)':'var(--navy)'}">${o.lbl}</div>
             <div style="font-size:11.5px;color:var(--slate)">${o.sub}</div>
           </button>`).join('')}
         </div>
+        <div style="font-size:11.5px;color:var(--slate);margin-top:8px">프리셋은 2·3단계 게임이 요일마다 바뀝니다 (예: 화·금은 듣고 고르기·빙고). 고정하려면 아래 직접 조합을 쓰세요.</div>
         <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
           <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">🎛 직접 조합 ${(spStu?.vocabStages||[]).length?'<span style="color:var(--teal)">— 사용 중</span>':'<span style="color:var(--slate);font-weight:400">(프리셋 대신 단계 3개를 직접 고를 수 있어요)</span>'}</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
@@ -1130,14 +1131,14 @@ async function loadStuPanel(sid){
   const tstListHtml=!tsts.length
     ?`<div class="empty boxed"><div class="empty-i">${luIcon('pencil',15)||''}</div><div class="empty-t">아직 테스트 기록이 없습니다</div><div class="empty-s">회차별 점수를 입력하면 단어·어법 추이 그래프가 표시됩니다</div><button class="btn bt bsm" onclick="closeStuPanel();swTab('t-tst');setTimeout(()=>{const el=document.getElementById('ts-stu');if(el){el.value='${sid}';el.dispatchEvent(new Event('change'));}},200)">+ 테스트 입력하기</button></div>`
     :tsts.slice(0,5).map(t=>{
-      const vp=pct(t.vocabCorrect,t.vocabTotal),gp=pct(t.grammarCorrect,t.grammarTotal);
+      const _ar=(typeof ppAreasOf==='function')?ppAreasOf(t):[['vocab','단어'],['grammar','어법']];
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
         <div style="font-size:12px;color:var(--slate);font-family:var(--fm);margin-bottom:6px">${t.date||''}${
           t.absent?' · <span style="font-weight:700">미응시</span>':''}${
           t.extApp&&t.extScore?` · <span class="tst-ext inline">${escAttr(t.extApp)} ${escAttr(t.extScore)}</span>`:''}</div>
         <div style="display:flex;gap:16px">
-          <div><div class="ring ${rcls(vp)}">${t.vocabCorrect}/${t.vocabTotal}</div><div style="font-size:11.5px;color:var(--slate);text-align:center;margin-top:2px">단어 ${vp}%</div></div>
-          <div><div class="ring ${rcls(gp)}">${t.grammarCorrect}/${t.grammarTotal}</div><div style="font-size:11.5px;color:var(--slate);text-align:center;margin-top:2px">어법 ${gp}%</div></div>
+          ${_ar.map(([f,l])=>{const p=pct(t[f+'Correct'],t[f+'Total']);
+            return `<div><div class="ring ${rcls(p)}">${t[f+'Correct']||0}/${t[f+'Total']}</div><div style="font-size:11.5px;color:var(--slate);text-align:center;margin-top:2px">${l} ${p}%</div></div>`;}).join('')}
           ${t.wrongWords&&t.wrongWords.length?`<div style="flex:1"><div style="font-size:11.5px;color:var(--slate);margin-bottom:3px">틀린 단어</div><div class="wl">${t.wrongWords.slice(0,4).map(w=>`<span class="wc" style="font-size:11.5px;padding:2px 8px">${w}</span>`).join('')}</div></div>`:''}
         </div>
       </div>`;
@@ -2359,7 +2360,6 @@ function _catPill(txt){return txt?`<span style="display:inline-block;font-size:1
 function escJsA(s){return escAttr(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));} // onclick 속성 안 JS 문자열 인자용 — Kipper's Diary 등 아포스트로피 안전
 let _elCmtDirtyP=false,_elCmtDirtyS=false; // 수정 모달: 원문 변경 후 미리보기 미갱신 여부
 function addElCmtChip(text){const ta=document.getElementById('el-cmt');if(!ta)return;ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;ta.focus();}
-function addClCommonCmtChip(text){const ta=document.getElementById('cl-common-cmt');if(!ta)return;ta.value=ta.value?(ta.value.trimEnd()+'. '+text):text;ta.focus();}
 async function previewElPolishedCmt(){
   const raw=document.getElementById('el-cmt')?.value.trim()||'';
   const mats=getSMatsFrom('el-subj-rows');
@@ -3302,6 +3302,9 @@ function renderTst(){
   el.innerHTML=paged.map(t=>{
     const s=stus.find(x=>x.id===t.sid);
     const vp=pct(t.vocabCorrect,t.vocabTotal),gp=pct(t.grammarCorrect,t.grammarTotal);
+    // 문항이 0인 영역은 줄에서 뺀다 — '어법 0/0 0%' 는 점수가 아니라 안 본 영역이다
+    const _hasV=(typeof ppHasArea==='function')?ppHasArea(t,'vocab'):(t.vocabTotal||0)>0;
+    const _hasG=(typeof ppHasArea==='function')?ppHasArea(t,'grammar'):(t.grammarTotal||0)>0;
     // 미응시는 점수 칸을 보여 주지 않는다 — 0점과 구분된다
     if(t.absent)return `<div class="ri">
       <div class="ri-top">
@@ -3327,22 +3330,31 @@ function renderTst(){
         </div>
       </div>
       ${t.photoUrl?`<img src="${t.photoUrl}" class="tst-photo-thumb" onclick="openLb('${escU(t.photoUrl)}')" style="cursor:pointer">`:''}
-      <div style="margin-bottom:6px">
+      ${_hasV?`<div style="margin-bottom:6px">
         <div class="section-label" style="margin-bottom:4px">단어</div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
           <div class="ring ${rcls(vp)}">${t.vocabCorrect}/${t.vocabTotal}</div>
           <span style="font-size:13px;color:var(--slate)">${vp}%</span>
         </div>
         ${t.wrongWords&&t.wrongWords.length?`<div class="wl">${t.wrongWords.map(w=>`<span class="wc">${w}</span>`).join('')}</div>`:''}
-      </div>
-      <div>
+      </div>`:''}
+      ${_hasG?`<div style="margin-bottom:6px">
         <div class="section-label" style="margin-bottom:4px">어법</div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
           <div class="ring ${rcls(gp)}">${t.grammarCorrect}/${t.grammarTotal}</div>
           <span style="font-size:13px;color:var(--slate)">${gp}%</span>
         </div>
         ${t.grammarWeak?`<span class="badge bamber">${t.grammarWeak}</span>`:''}
-      </div>
+      </div>`:''}
+      ${[['reading','리딩'],['listening','리스닝']].filter(([f])=>(t[f+'Total']||0)>0).map(([f,l])=>{
+        const p=pct(t[f+'Correct'],t[f+'Total']);
+        return `<div style="margin-bottom:6px">
+        <div class="section-label" style="margin-bottom:4px">${l}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="ring ${rcls(p)}">${t[f+'Correct']||0}/${t[f+'Total']}</div>
+          <span style="font-size:13px;color:var(--slate)">${p}%</span>
+        </div>
+      </div>`;}).join('')}
       ${t.extApp&&t.extScore?`<div class="tst-ext">${escAttr(t.extApp)} ${escAttr(t.extScore)}</div>`:''}
       ${t.cmt?`<div style="font-size:13px;color:var(--slate);margin-top:8px">${t.cmt}</div>`:''}
     </div>`;
@@ -8223,26 +8235,13 @@ function _saveCmtExample(raw,confirmed){
   ex.push({raw:raw.trim(),confirmed:confirmed.trim()});
   localStorage.setItem('pp_cmt_examples',JSON.stringify(ex.slice(-5)));
 }
-// 단원의 실제 단어(교재 DB 전사 데이터)를 코멘트 프롬프트 힌트로 — 정확 일치만(오매칭 방지)
-function _unitWordsHint(book,unit){
-  if(!book||!unit)return '';
-  const g=(_cache.globalTextbooks||[]).find(x=>x.title===book&&x.units&&!Array.isArray(x.units));
-  if(!g)return '';
-  const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]/g,'');
-  const keys=Object.keys(g.units);
-  const words=[];
-  String(unit).split(',').map(x=>x.trim()).filter(Boolean).forEach(seg=>{
-    const k=keys.find(u=>norm(u)===norm(seg));
-    if(k)(g.units[k]||[]).forEach(w=>{if(w.word&&words.length<12)words.push(w.word);});
-  });
-  return words.length?` [이 단원에서 배운 단어: ${words.join(', ')}]`:'';
-}
 function _getMatsTextFromMaterials(mats){
   return Object.entries(mats||{}).map(([k,v])=>{
     if(!v.book)return '';
     const baseKey=k.replace(/_\d+$/,'');
     const label=(k==='_book'||k.startsWith('_book_'))?'원서':(SLBL[baseKey]||'');
-    return `${label} ${v.book}${v.unit?' '+v.unit:''}${_unitWordsHint(v.book,v.unit)}`.trim();
+    // 교재명·단원명까지만 넘긴다 — 단원 단어 목록을 주면 AI 가 '오늘 그 단어를 다뤘다' 고 쓴다
+    return `${label} ${v.book}${v.unit?' '+v.unit:''}`.trim();
   }).filter(Boolean).join(' / ');
 }
 async function polishCmt(raw,matsText=''){
@@ -8255,7 +8254,7 @@ async function polishCmt(raw,matsText=''){
     const examples=_getCmtExamples();
     const fewShot=examples.length?'\n\n[이전 승인된 코멘트 예시 — 이 말투와 형식을 참고하세요]\n'+examples.map(e=>`메모: "${e.raw}" → 코멘트: "${e.confirmed}"`).join('\n')+'\n':'\n';
     const matsLine=matsText?`\n오늘 수업에서 다룬 교재·원서 진도: ${matsText}`:'';
-    const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드와 진도 정보를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다. 학부모가 이 코멘트만 읽고도 "오늘 무엇을 얼마나 배웠고, 아이가 어떤 모습이었는지"를 구체적으로 알 수 있어야 합니다.\n\n작성 규칙:\n분량: 150~250자 (한국어 기준)\n어조(원장 톤앤매너): 합쇼체 위주의 담백하고 따뜻한 문장. 과장·호들갑 없이 아이의 구체적인 모습과 반응을 짚어 주세요("~하는 모습이 대견합니다", "기대 반 설렘 반 하는 모습"). 반복·노출·익숙해짐을 중시하는 교육관이 자연스럽게 배어나게 쓰되(암기보다 익숙해짐, 꾸준한 노출), 마무리는 "꾸준히 ~하겠습니다", "~하도록 돕겠습니다" 같은 지도 다짐으로 맺는 경우가 많습니다. 필요할 때만 "많이 칭찬해 주세요!", "지도 부탁드립니다" 같은 부드러운 협조 요청을 한 번 넣으세요. ":)" 같은 절제된 이모티콘은 아주 가끔만 허용.\n구조: 오늘 학습 내용(무엇을 어디까지) → 아이의 반응·태도 관찰 → 지도 방향·다짐, 자연스럽게 이어지는 한 단락\n진도 정보가 있으면 교재명·원서명은 자연스럽게 녹여 쓰되, 단원명(Unit/Lesson 번호·제목)은 그대로 나열하지 마세요 — 단원명은 앱에 별도로 표시됩니다. 대신 그 단원에서 무엇을 배웠는지를 구체적으로 서술하세요: '[이 단원에서 배운 단어]'가 주어지면 그중 2~4개를 예로 들고, 파닉스면 다룬 음가, 리딩이면 지문 주제, 어법이면 문법 포인트를 짚으세요. 원서는 완독/진행 중 등 진행 상태까지 전하고, 완독했다면 그 성취를 짚어 주세요.\n키워드가 짧아도, 아예 없어도 진도 정보를 활용해 학습 내용을 충실히 서술하세요. 키워드가 없으면 아이의 태도를 추측하지 말고 무엇을 어디까지 배웠는지와 지도 방향만 담백하게 쓰세요. 단, 키워드와 진도에 없는 사실을 지어내지 마세요.\n\n[절대 금지]\n첫 단어로 주어(이름, "학생", "아이")를 쓰지 마세요. 반드시 서술어 또는 부사로 시작하세요.\n과장된 칭찬이나 부정적 표현 피하기. 마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.${fewShot}\n키워드: ${r||'(입력 없음 — 진도 정보만으로 작성)'}${matsLine}`;
+    const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드와 진도 정보를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다. 선생님이 적어 둔 만큼만 전합니다 — 적히지 않은 것은 쓰지 않습니다.\n\n작성 규칙:\n분량: 선생님 메모 분량에 맞춥니다. 메모가 한 줄이면 두세 문장으로 짧게 쓰고, 길이를 채우려고 내용을 보태지 마세요.\n어조(원장 톤앤매너): 합쇼체 위주의 담백하고 따뜻한 문장. 과장·호들갑 없이 아이의 구체적인 모습과 반응을 짚어 주세요("~하는 모습이 대견합니다", "기대 반 설렘 반 하는 모습"). 반복·노출·익숙해짐을 중시하는 교육관이 자연스럽게 배어나게 쓰되(암기보다 익숙해짐, 꾸준한 노출), 마무리는 "꾸준히 ~하겠습니다", "~하도록 돕겠습니다" 같은 지도 다짐으로 맺는 경우가 많습니다. 필요할 때만 "많이 칭찬해 주세요!", "지도 부탁드립니다" 같은 부드러운 협조 요청을 한 번 넣으세요. ":)" 같은 절제된 이모티콘은 아주 가끔만 허용.\n구조: 오늘 학습 내용(무엇을 어디까지) → 아이의 반응·태도 관찰 → 지도 방향·다짐, 자연스럽게 이어지는 한 단락\n진도 정보가 있으면 교재명·원서명은 자연스럽게 녹여 쓰되, 단원명(Unit/Lesson 번호·제목)은 그대로 나열하지 마세요 — 단원명은 앱에 별도로 표시됩니다. 단원에서 무엇을 배웠는지는 선생님 메모에 적힌 범위에서만 쓰세요 — 다룬 단어·음가·지문 주제·문법 포인트를 메모에 없는데 짐작해 적으면 안 됩니다. 원서는 완독/진행 중 등 진행 상태까지 전하고, 완독했다면 그 성취를 짚어 주세요.\n키워드가 짧아도, 아예 없어도 진도 정보를 활용해 학습 내용을 충실히 서술하세요. 키워드가 없으면 아이의 태도를 추측하지 말고 무엇을 어디까지 배웠는지와 지도 방향만 담백하게 쓰세요. 단, 키워드와 진도에 없는 사실을 지어내지 마세요.\n\n[절대 금지]\n선생님 메모와 진도 정보에 없는 것은 쓰지 마세요 — 수업에서 다룬 단어·음가·활동, 아이의 반응·감정을 지어내면 안 됩니다. 아는 것은 교재명·단원명과 메모뿐입니다.\n첫 단어로 주어(이름, "학생", "아이")를 쓰지 마세요. 반드시 서술어 또는 부사로 시작하세요.\n과장된 칭찬이나 부정적 표현 피하기. 마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.${fewShot}\n키워드: ${r||'(입력 없음 — 진도 정보만으로 작성)'}${matsLine}`;
     const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:500,messages:[{role:'user',content:prompt}]});
     return d.content?.[0]?.text?.trim()||polishCmtLocal(r);
   }catch(e){
@@ -8267,7 +8266,7 @@ async function polishStuCmt_teacher(raw,matsText,stuName){
   if((!raw||!raw.trim())&&!String(matsText||'').trim())return '';
   const apiKey=DB.api();if(!apiKey)return '';
   try{
-    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${stuName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 오늘 배운 내용을 구체적으로 1개 이상 언급 — 진도에 [이 단원에서 배운 단어]가 있으면 그중 1~2개를 골라 칭찬에 녹여서(예: "오늘 proud 진짜 잘 읽었어!", "th 발음 완전 좋았어~"). 없는 사실은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${matsText||'없음'}\n선생님 메모: ${raw||'(없음 — 진도만 보고 쓰세요)'}`;
+    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${stuName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 선생님 메모에 적힌 내용만으로 칭찬하기. 메모와 진도에 없는 단어·활동·반응은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${matsText||'없음'}\n선생님 메모: ${raw||'(없음 — 진도만 보고 쓰세요)'}`;
     const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content}]});
     return d.content?.[0]?.text?.trim()||'';
   }catch(e){return '';}
@@ -8521,7 +8520,7 @@ async function generateReportDraft(){
     // 미응시는 0% 가 아니라 '미응시' 로 넘긴다 — AI 가 0점으로 읽지 않게
     const tstSummary=tsts.length?tsts.map(t=>t.absent
       ?`[${t.date}] 미응시`
-      :`[${t.date}] 단어 ${pct(t.vocabCorrect,t.vocabTotal)}% / 어법 ${pct(t.grammarCorrect,t.grammarTotal)}%${t.wrongWords?.length?' / 틀린 단어: '+t.wrongWords.slice(0,5).join(', '):''}${t.grammarWeak?' / 약점 어법: '+t.grammarWeak:''}`).join('\n'):'테스트 없음';
+      :`[${t.date}] ${(((typeof ppAreasOf==='function')?ppAreasOf(t):[]).map(([f,l])=>l+' '+pct(t[f+'Correct'],t[f+'Total'])+'%').join(' / '))||'점수 없음'}${t.wrongWords?.length?' / 틀린 단어: '+t.wrongWords.slice(0,5).join(', '):''}${t.grammarWeak?' / 약점 어법: '+t.grammarWeak:''}`).join('\n'):'테스트 없음';
     // 원서/리딩로그
     const allBookSrc=[...DB.libs()];
     const rdSummary=rds.length?rds.map(r=>{const lib=allBookSrc.find(b=>b.title===r.title);const ar=r.arLevel||(lib&&(lib.ar||lib.arLevel))||'';return r.title+(ar?' (AR '+ar+')':'')+(r.progress?' ['+r.progress+']':'');}).join(', '):'없음';
@@ -14943,9 +14942,6 @@ function openClassLessonEdit(classId,dateStr){
       const cmtEl=row.querySelector('.cl-ind-cmt');
       if(cmtEl&&les.cmt)cmtEl.value=les.cmt;
     });
-    // 공통 코멘트
-    const firstLes=existingLes[0];
-    if(firstLes){const cmtEl=document.getElementById('cl-common-cmt');if(cmtEl)cmtEl.value='';}
   },100);
 }
 // 수정 모드: 자동 채움 대신 이 수업(classId+date)에 저장된 과제로 공통/개별 과제 UI를 재구성
@@ -15067,7 +15063,6 @@ function openClassLesson(classId,dateStr){
     // 기존 선택된 교재에 직전 진도 힌트 설정
     document.querySelectorAll('#cl-subj-rows select[data-f="book"]').forEach(clUpdateUnitHint);
   }
-  const _clCmt=document.getElementById('cl-common-cmt');if(_clCmt)_clCmt.value='';
   // 과제 초기화 후 날짜별 공통 과제 행 자동 생성 (교재별 1행씩)
   document.getElementById('cl-hw-ind-rows').innerHTML='';
   // 개별 과제 학생 선택 드롭다운 채우기 (이 클래스 소속 학생)
@@ -15393,9 +15388,8 @@ async function clPreviewIndCmt(btn,stuName){
   if(!raw){toast('코멘트를 먼저 입력하세요');return;}
   btn.disabled=true;if(status)status.textContent='변환 중...';
   try{
-    // 저장 시와 동일한 입력으로 변환: 공통 코멘트 + 개별 코멘트 + 교재·원서 진도
-    const commonCmt=document.getElementById('cl-common-cmt')?.value.trim()||'';
-    const cmt=[commonCmt,raw].filter(Boolean).join(' / ');
+    // 저장 시와 동일한 입력으로 변환: 개별 코멘트 + 교재·원서 진도
+    const cmt=raw;
     const mats={...getSMatsFrom('cl-subj-rows')};
     [...row.querySelectorAll('.cl-book-row')].forEach((br,i)=>{
       const t=br.querySelector('.cl-rd-title')?.value.trim();if(!t)return;
@@ -15609,16 +15603,6 @@ function fillOrtBookDatalist(){
   const rest=(_cache.library||[]).filter(b=>b&&b.title&&b.ortSeq==null).sort((a,b)=>String(a.title).localeCompare(String(b.title)));
   dl.innerHTML=[...ort,...rest].slice(0,600).map(b=>`<option value="${escAttr(b.title)}">`).join('');
 }
-// 이 날짜로 '넘어온' 숙제인지 — 연기한 날짜를 돌려준다 (아니면 '')
-// 같은 교재·범위면 원래 그날 숙제와 한 줄로 합쳐지므로, 꼬리표로만 구분한다.
-function _hwDeferFrom(a,ds){
-  if(!a||!ds)return '';
-  if((a.schedule||[]).length){
-    const hit=(a.schedule||[]).find(x=>x&&x.hwStatus==='defer'&&x.hwDeferTo===ds);
-    return hit?(hit.date||''):'';
-  }
-  return (a.hwStatus==='defer'&&a.hwDeferTo===ds)?(a.due||a.date||''):'';
-}
 function _clAutoHwFor(classId,ds,excludeLessonDate){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return{sched:[],singles:[]};
   const sids=new Set(c.studentIds||[]);
@@ -15637,10 +15621,12 @@ function _clAutoHwFor(classId,ds,excludeLessonDate){
         const k=label+'|'+_hwKeyNorm(txt)+'|'+(_dfHere?('df'+(s.date||'')):'');
         // 리딩앤처럼 '무슨 책'이 비어 있는 숙제는 수업에서 물어 적을 수 있게 (s.title에 보관)
         if(!seen.has(k)){seen.add(k);sched.push({label,txt,aid:a.id,sid:a.sid,date:ds,sched:true,
+          srcDate:s.date||ds,                    // 저장은 이 칸에 — 넘어온 줄은 원래 날짜 칸이다
           done:!!s.done,by:s.doneBy||s.hwBy||'',title:s.title||'',askTitle:_hwAskTitle(a,s),
-          status:(typeof ppHwStatusOf==='function')?ppHwStatusOf(a,s):'',
-          statusLabel:(typeof ppHwStatusLabel==='function')?ppHwStatusLabel(a,s):'',
-          pct:s.hwPct||'',deferFrom:_hwDeferFrom(a,ds)});}
+          // 넘어온 줄은 '아직' 으로 보여 새로 확인받는다. '연기' 는 원래 그날 기록에 남는다
+          status:_dfHere?'':((typeof ppHwStatusOf==='function')?ppHwStatusOf(a,s):''),
+          statusLabel:_dfHere?'':((typeof ppHwStatusLabel==='function')?ppHwStatusLabel(a,s):''),
+          pct:_dfHere?'':(s.hwPct||''),deferFrom:_dfHere?(s.date||''):''});}
       });
     }else{
       // 완료된 것도 목록에 남긴다 — 상태(완료/일부/연기)를 보고 되돌릴 수 있어야 한다
@@ -15654,9 +15640,10 @@ function _clAutoHwFor(classId,ds,excludeLessonDate){
       const k=cat+'|'+_hwKeyNorm(txt)+'|'+(_dfHere?('df'+(a.due||a.date||'')):'');
       if(!seenS.has(k)){seenS.add(k);singles.push({label:'📕'+(cat?' ['+cat+']':''),txt,
         aid:a.id,sid:a.sid,date:ds,sched:false,done:!!a.completedAt,by:a.completedBy||'',
-        status:(typeof ppHwStatusOf==='function')?ppHwStatusOf(a):'',
-        statusLabel:(typeof ppHwStatusLabel==='function')?ppHwStatusLabel(a):'',
-        pct:a.hwPct||'',deferFrom:_hwDeferFrom(a,ds)});}
+        srcDate:a.due||a.date||ds,
+        status:_dfHere?'':((typeof ppHwStatusOf==='function')?ppHwStatusOf(a):''),
+        statusLabel:_dfHere?'':((typeof ppHwStatusLabel==='function')?ppHwStatusLabel(a):''),
+        pct:_dfHere?'':(a.hwPct||''),deferFrom:_dfHere?(a.due||a.date||''):''});}
     }
   });
   return {sched,singles};
@@ -15673,12 +15660,13 @@ function _clAppendAutoHwRows(groupBody,autos){
     div.className='cl-hw-chk'+(st==='done'?' on':'')+(st&&st!=='done'?' part':'');
     div.style.cssText=`--c:${color}`;
     div.dataset.aid=x.aid;div.dataset.date=x.date;div.dataset.sched=String(!!x.sched);
+    div.dataset.src=x.srcDate||x.date;    // 두 줄(원래 줄·넘어온 줄)이 서로의 칸을 덮지 않게
     div.dataset.note=note;        // 되돌렸을 때 원래 안내로 돌아가기 위해 보관
     const by=st&&x.by?`<em>${_PG_HW_BY[x.by]||x.by}</em>`:'';
     const opt=(v,t)=>`<option value="${v}"${st===v?' selected':''}>${t}</option>`;
     // 체크 하나로는 '했다/안 했다' 밖에 못 적는다 — 일부·미지참·연기를 구분한다
     div.innerHTML=`<select class="cl-hw-st" title="숙제 상태"`
-      +` onchange="clHwSetStatus(this,'${x.aid}','${x.date}',${!!x.sched})">`
+      +` onchange="clHwSetStatus(this,'${x.aid}','${x.date}',${!!x.sched},undefined,'${x.srcDate||x.date}')">`
       +opt('','아직')+opt('done','완료')+opt('part','일부')+opt('miss','미완')
       +opt('noshow','미지참')+opt('defer','연기')+`</select>`
       +`<input type="number" class="cl-hw-pct" min="1" max="99" placeholder="%"`
@@ -15689,7 +15677,7 @@ function _clAppendAutoHwRows(groupBody,autos){
       +(x.title?` <u>${escAttr(x.title)}</u>`:'')
       +`<span class="cl-hw-n" style="color:${color}">${x.statusLabel||note}</span>${by}</span>`
       +(st?`<button type="button" class="cl-hw-undo" title="미처리로 되돌리기"`
-        +` onclick="clHwSetStatus(this.closest('.cl-hw-chk').querySelector('.cl-hw-st'),'${x.aid}','${x.date}',${!!x.sched},'')">되돌리기</button>`:'')
+        +` onclick="clHwSetStatus(this.closest('.cl-hw-chk').querySelector('.cl-hw-st'),'${x.aid}','${x.date}',${!!x.sched},'','${x.srcDate||x.date}')">되돌리기</button>`:'')
       +(x.askTitle?`<input type="text" class="cl-hw-title" list="dl-ort-books" placeholder="읽은 책 (예: Floppy the Hero)"`
         +` value="${escAttr(x.title||'')}" onchange="clHwTitle(this,'${x.aid}','${x.date}')">`:'');
     groupBody.appendChild(div);
@@ -15699,10 +15687,12 @@ function _clAppendAutoHwRows(groupBody,autos){
 }
 // 숙제 상태 저장 (B6). 완료만 completedAt 을 채운다 — 일부·미지참·연기는 끝난 게 아니다.
 // 연기는 다음 수업일을 hwDeferTo 에 적어 그날 확인 목록에 다시 올라오게 한다.
-async function clHwSetStatus(sel,aid,ds,sched,forced){
+// src = 이 줄이 가리키는 칸의 날짜. 연기로 넘어온 줄은 ds(보고 있는 날)와 다르다 —
+// src 없이 ds 로 찾으면 넘어온 줄이 그날의 다른 줄을 덮고, 원래 칸의 연기 표식도 안 풀린다.
+async function clHwSetStatus(sel,aid,ds,sched,forced,src){
   const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
   const v=(forced!==undefined)?forced:String(sel.value||'');
-  const o=sched?((a.schedule||[]).find(x=>x.date===ds)||null):a;
+  const o=sched?((a.schedule||[]).find(x=>x.date===(src||ds))||null):a;
   if(!o)return;
   const prev={hwStatus:o.hwStatus,hwPct:o.hwPct,hwDeferTo:o.hwDeferTo,
     completedAt:o.completedAt,completedBy:o.completedBy,done:o.done,doneBy:o.doneBy,doneAt:o.doneAt};
@@ -15751,7 +15741,7 @@ async function clHwSetStatus(sel,aid,ds,sched,forced){
     if(v&&!undo){
       undo=document.createElement('button');undo.type='button';undo.className='cl-hw-undo';
       undo.textContent='되돌리기';undo.title='미처리로 되돌리기';
-      undo.onclick=()=>clHwSetStatus(sel,aid,ds,sched,'');
+      undo.onclick=()=>clHwSetStatus(sel,aid,ds,sched,'',src);
       wrap.appendChild(undo);
     }else if(!v&&undo)undo.remove();
   }
@@ -15760,8 +15750,9 @@ async function clHwSetStatus(sel,aid,ds,sched,forced){
         :'미처리로 되돌렸어요'));
 }
 async function clHwSetPct(inp,aid,ds,sched){
-  const sel=inp.closest('.cl-hw-chk')?.querySelector('.cl-hw-st');
-  if(sel)await clHwSetStatus(sel,aid,ds,sched,'part');
+  const row=inp.closest('.cl-hw-chk');
+  const sel=row?.querySelector('.cl-hw-st');
+  if(sel)await clHwSetStatus(sel,aid,ds,sched,'part',row?.dataset.src||ds);
 }
 // 이 요일의 숙제를 전부 완료로 (B5) — 예외만 뒤에 바꾸면 된다
 async function clHwAllDone(groupEl){
@@ -15771,7 +15762,7 @@ async function clHwAllDone(groupEl){
   for(const r of rows){
     const sel=r.querySelector('.cl-hw-st');
     if(!sel||sel.value==='done')continue;
-    await clHwSetStatus(sel,r.dataset.aid,r.dataset.date,r.dataset.sched==='true','done');
+    await clHwSetStatus(sel,r.dataset.aid,r.dataset.date,r.dataset.sched==='true','done',r.dataset.src||r.dataset.date);
     n++;
   }
   toast(n?(n+'건을 완료로 표시했어요 — 예외만 바꿔 주세요'):'이미 모두 완료예요');
@@ -16005,7 +15996,6 @@ async function saveClassLesson(){
   if(!date){toast('날짜를 선택하세요');return;}
   if(date>ppToday()){toast('미래 날짜예요 — 수업 계획은 진도 캘린더의 점선(예정)으로 관리하고, 기록은 수업 당일부터 저장해 주세요');return;}
   const commonMats=getSMatsFrom('cl-subj-rows');
-  const commonCmt=document.getElementById('cl-common-cmt')?.value.trim()||'';
   const stuRows=document.querySelectorAll('.cl-stu-row');
   if(!stuRows.length){toast('학생이 없습니다');return;}
   const stuData=[];
@@ -16066,7 +16056,7 @@ async function saveClassLesson(){
     for(const d of stuData){
       const mats={...commonMats};
       (d.books||[]).forEach((b,i)=>{mats[`_book_${i}`]={book:b.title,unit:b.prog||''};});
-      const cmt=[commonCmt,d.indCmt].filter(Boolean).join(' / ');
+      const cmt=d.indCmt||'';
       // 수정 모드: 기존 수업 레코드의 id를 재사용해 갱신 (중복 생성 방지)
       const existing=editMode?(_cache.lessons||[]).find(l=>l.classId===classId&&l.date===date&&l.sid===d.sid):null;
       // 학부모 코멘트: 원문이 그대로면 기존 변환문 재사용 (AI 재호출·문구 변동 방지)

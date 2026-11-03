@@ -389,6 +389,18 @@ function ppScored(list,field){
   const own=t=>(typeof ppTestKindOf!=='function')||ppTestKindOf(t)==='inhouse';
   return (list||[]).filter(t=>t&&!t.absent&&(t[tot]||0)>0&&own(t));
 }
+// ── 테스트 영역 유무 ───────────────────────────────────────
+// 문항 수가 0인 영역은 '0점' 이 아니라 '보지 않은 영역' 이다.
+// 화면·리포트·AI 입력에서 빼야 '어법 0/0 0%' 같은 거짓 숫자가 나오지 않는다.
+const PP_TEST_AREAS=[['vocab','단어'],['grammar','어법'],['reading','리딩'],['listening','리스닝']];
+function ppHasArea(t,field){
+  return !!t&&((t[(field||'vocab')+'Total']||0)>0);
+}
+// 이 기록에 실제로 문항이 있는 영역만 [key,label] 로
+function ppAreasOf(t){
+  return PP_TEST_AREAS.filter(([f])=>ppHasArea(t,f));
+}
+
 // 평균 퍼센트. 집계할 게 없으면 null — 0 이 아니다(화면들이 null 을 '—' 로 처리한다).
 function ppAvgPct(list,field){
   const f=field||'vocab', rows=ppScored(list,f);
