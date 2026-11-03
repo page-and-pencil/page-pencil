@@ -612,7 +612,7 @@ div.ig-like{cursor:default;}
 #s-teacher .ab.stu-mode{overflow:hidden;display:flex;flex-direction:column;}
 #t-stu.panel.active{display:flex;flex-direction:column;padding:0;flex:1;min-height:0;overflow:hidden;}
 .stu-split{display:flex;flex:1;overflow:hidden;min-height:0;}
-.stu-list-col{flex:1;min-width:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:var(--surface);}
+.stu-list-col{flex:1;min-width:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:var(--surface);container-type:inline-size;container-name:stulist;}
 .stu-list-head{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .stu-list-filters{padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .stu-detail-col{width:400px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;background:var(--surface);}
@@ -2091,7 +2091,7 @@ body{font-size:14.5px;line-height:1.65;}
 .sp-tabs,.sp-tab-bar{overflow-x:auto;scrollbar-width:none;}
 .sp-tabs::-webkit-scrollbar,.sp-tab-bar::-webkit-scrollbar{display:none;}
 /* 폰에서는 상세가 전체를 덮는다 (이미 translateX 로 처리됨) */
-@media(max-width:768px){.stu-detail-col{width:100%;}}
+@media(max-width:767px){.stu-detail-col{width:100%;}}
 
 /* 요약 숫자 — 테두리 카드 3칸 (시안) */
 .stc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);
@@ -2397,8 +2397,32 @@ body{font-size:14.5px;line-height:1.65;}
 .sp-wide-btn{padding:6px 8px;}
 .sp-wide-btn svg{display:block;}
 /* 폰·좁은 화면에서는 상세가 전체를 덮으므로 리사이저를 숨긴다 */
-@media(max-width:768px){
+@media(max-width:767px){
   .stu-resizer{display:none;}
   .stu-detail-col{width:100%!important;min-width:0;}
   .sp-wide-btn{display:none;}
+}
+
+/* ═══ 목록 칸이 좁아지면 표 → 카드 ═══
+   우측 상세를 넓히면 목록이 줄어 7열 표가 잘리고 가로 스크롤이 생겼다.
+   화면 폭이 아니라 '목록 칸이 얼마나 좁은지'를 기준으로 삼아,
+   상세를 넓혀도 왼쪽이 밀려 잘리지 않고 스스로 카드형으로 바뀐다. */
+@container stulist (max-width: 660px){
+  .sl-tbl thead{display:none;}
+  .sl-tbl,.sl-tbl tbody,.sl-tbl tr,.sl-tbl td{display:block;width:auto;}
+  .sl-tbl tbody tr.sc{border:1px solid var(--border);border-radius:var(--r-card);
+    margin:0 14px 10px;padding:12px 14px;background:var(--surface);}
+  .sl-tbl tbody tr.sc.sel{border-color:var(--accent);background:var(--row-selected);}
+  .sl-tbl td{height:auto;padding:2px 0;border:none;white-space:normal;}
+  .sl-tbl td.sl-name{margin-bottom:6px;}
+  .sl-tbl td.sl-dim:empty{display:none;}
+  .sl-tbl td[data-h]::before{content:attr(data-h) " · ";color:var(--neutral);font-size:12px;}
+  .sl-tbl td.sl-bar{min-width:0;margin-top:6px;}
+  .sl-grp td{margin:0;border-radius:0;background:var(--bg);height:32px;
+    display:flex;align-items:center;padding:0 14px;}
+  .sl-wrap{overflow-x:visible;}
+}
+/* 아주 좁을 때는 보조 정보를 접는다 (이름·학년·결제만) */
+@container stulist (max-width: 360px){
+  .sl-tbl td.sl-dim[data-h="학교"],.sl-tbl td.sl-dim[data-h="클래스"]{display:none;}
 }
