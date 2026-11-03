@@ -2256,3 +2256,10 @@ body{font-size:14.5px;line-height:1.65;}
 .mdl>*:last-child{padding-bottom:20px;}
 /* 두 칸 폼은 모바일에서 한 칸 */
 @media(max-width:600px){.fg{grid-template-columns:1fr!important;}}
+
+/* 대시보드 2단 — grid item 은 min-width:0 이 없으면 내용 크기만큼 늘어난다.
+   반별 진도를 왼쪽으로 옮긴 뒤 390px 에서 92px 넘쳤다. */
+.dash-col-main,.dash-col-side{min-width:0;}
+.dash-cls-row{min-width:0;}
+.bpl-r{min-width:0;}
+.bpl-t{max-width:44%;}
