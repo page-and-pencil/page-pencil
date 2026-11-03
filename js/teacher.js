@@ -1327,6 +1327,8 @@ async function loadStuPanel(sid){
   ${!sAssigns.length&&!sHws.length?`<div class="empty boxed"><div class="empty-i">📤</div><div class="empty-t">할당된 과제가 없습니다</div><div class="empty-s">과제를 할당하면 제출·확인 현황이 여기에 표시됩니다</div><button class="btn bt bsm" onclick="openAssignModal('${sid}')">+ 과제 할당하기</button></div>`:''}
   `;
 
+  {const bf=document.getElementById('sp-brief');
+   if(bf)bf.innerHTML=(typeof ppStudentBriefHtml==='function')?ppStudentBriefHtml(s):'';}
   swSpTab('sp-summary');
 }
 
@@ -1470,6 +1472,16 @@ function renderStus(){
 
 
 // 수동 지정 칸의 안내문 — 지금 자동 판정이 무엇인지 함께 보여 준다
+// 목표 점수 — 비운 칸은 넣지 않는다. 전부 비면 null.
+function _esReadGoals(){
+  const g=k=>{const v=parseInt((document.getElementById('es-goal-'+k)||{}).value,10);return (v>=1)?v:null;};
+  const o={};
+  const ih=g('inhouse'),sc=g('school'),mk=g('mock');
+  if(ih>=1&&ih<=100)o.inhouse=ih;
+  if(sc>=1&&sc<=100)o.school=sc;
+  if(mk>=1&&mk<=9)o.mock=mk;
+  return Object.keys(o).length?o:null;
+}
 // 수동 지정 입력을 읽어 저장 모양으로. 자동이면 null(필드를 비운다).
 function _esReadTrack(){
   const g=k=>{const el=document.getElementById(k);return el?String(el.value||'').trim():'';};
@@ -1503,6 +1515,12 @@ function openEditStu(id){
   document.getElementById('es-fee').value=s.fee||'';
   document.getElementById('es-payday').value=s.payday||'';
   document.getElementById('es-memo').value=s.memo||'';
+  // 목표 점수 (없으면 비움)
+  {const g=s.scoreGoals||{};
+   const sv=(k,v)=>{const el=document.getElementById(k);if(el)el.value=(v>=1)?v:'';};
+   sv('es-goal-inhouse',parseInt(g.inhouse,10));
+   sv('es-goal-school',parseInt(g.school,10));
+   sv('es-goal-mock',parseInt(g.mock,10));}
   // 기간 수동 지정 (없으면 자동 판정)
   {const ov=s.trackOverride||{};
    const t=document.getElementById('es-track'); if(t)t.value=(ov.track==='jg'||ov.track==='ch')?ov.track:'';
@@ -1632,7 +1650,7 @@ async function addStu(){
 async function updStu(){
   const id=document.getElementById('es-id').value;
   const idx=_cache.students.findIndex(s=>s.id===id);if(idx<0)return;
-  _cache.students[idx]={..._cache.students[idx],name:document.getElementById('es-name').value.trim(),grade:document.getElementById('es-grade').value,school:document.getElementById('es-school').value.trim(),pin:document.getElementById('es-pin').value.trim(),enrollDate:document.getElementById('es-enroll').value,fee:parseInt(document.getElementById('es-fee').value)||0,payday:parseInt(document.getElementById('es-payday').value)||0,memo:document.getElementById('es-memo').value.trim(),trackOverride:_esReadTrack(),parentName:document.getElementById('es-parent-name').value.trim(),parentPhone:document.getElementById('es-parent-phone').value.trim()};
+  _cache.students[idx]={..._cache.students[idx],name:document.getElementById('es-name').value.trim(),grade:document.getElementById('es-grade').value,school:document.getElementById('es-school').value.trim(),pin:document.getElementById('es-pin').value.trim(),enrollDate:document.getElementById('es-enroll').value,fee:parseInt(document.getElementById('es-fee').value)||0,payday:parseInt(document.getElementById('es-payday').value)||0,memo:document.getElementById('es-memo').value.trim(),trackOverride:_esReadTrack(),scoreGoals:_esReadGoals(),parentName:document.getElementById('es-parent-name').value.trim(),parentPhone:document.getElementById('es-parent-phone').value.trim()};
   await supaUpsert('students',id,_cache.students[idx],null);
   closeM('m-edit-stu');renderStus();populateSels();toast('수정되었습니다');
 }
@@ -2862,6 +2880,13 @@ function reqDelLesFromPanel(lesId,sid){
 
 // ── TESTS ──
 function pct(c,t){return(t>0)?Math.round((c/t)*100):0;}
+// 시험 종류에 따라 성취도·등급 칸을 보여 준다 (B14)
+function tsKindChange(){
+  const k=(document.getElementById('ts-kind')||{}).value||'inhouse';
+  const a=document.getElementById('ts-achv-wrap'), g=document.getElementById('ts-grade-wrap');
+  if(a)a.style.display=(k==='school')?'':'none';
+  if(g)g.style.display=(k==='mock')?'':'none';
+}
 // 통과 기준 저장 (세 화면의 판정에 바로 반영)
 async function saveVocabPassPct(){
   const el=document.getElementById('ts-pass');if(!el)return;
@@ -3201,6 +3226,15 @@ async function saveTst(){
     // 미응시는 어느 영역도 보지 않은 것 → 네 영역 모두 0/0.
     // (빈 칸이면 vt·gt 가 10 으로 채워져 '0/10' 이 저장되던 문제)
     ...(function(){
+      // 시험 종류와 그 체계의 값 (B14). 자체 시험이면 아무 것도 더하지 않는다.
+      const k=(document.getElementById('ts-kind')||{}).value||'inhouse';
+      if(k==='inhouse')return {};
+      const o={testKind:k};
+      if(k==='school'){const a=(document.getElementById('ts-achv')||{}).value||'';if(a)o.schoolAchv=a;}
+      if(k==='mock'){const g=parseInt((document.getElementById('ts-mgrade')||{}).value,10);if(g>=1&&g<=9)o.mockGrade=g;}
+      return o;
+    })(),
+    ...(function(){
       // 외부 앱(클래스카드 등) 점수 — 손으로 넣는 칸. 연동은 하지 않는다 (B12)
       const n=(document.getElementById('ts-ext-name')||{}).value||'';
       const sc=(document.getElementById('ts-ext-score')||{}).value||'';
@@ -3221,7 +3255,9 @@ async function saveTst(){
   tstPhotoUrl='';document.getElementById('tst-preview').style.display='none';
   {const r=document.getElementById('ts-retest');if(r)r.value='';
    const ab=document.getElementById('ts-absent');if(ab)ab.checked=false;
-   const es=document.getElementById('ts-ext-score');if(es)es.value='';}
+   const es=document.getElementById('ts-ext-score');if(es)es.value='';
+   const ac=document.getElementById('ts-achv');if(ac)ac.value='';
+   const mg=document.getElementById('ts-mgrade');if(mg)mg.value='';}
   tsRefreshRetest();
   renderTst();
   toast(_absent?'미응시로 기록했습니다':(_retestRoot?'재시험 결과를 저장했습니다':'테스트 결과가 저장되었습니다'));
@@ -3283,6 +3319,9 @@ function renderTst(){
       <div class="ri-top">
         <span style="font-weight:700">${s?s.name:'—'}</span>
         <div style="display:flex;align-items:center;gap:6px">
+          ${(typeof ppTestKindOf==='function'&&ppTestKindOf(t)!=='inhouse')?`<span class="tk-kind">${escAttr(ppTestKindName(t))}</span>`:''}
+          ${t.schoolAchv?`<span class="tk-kind is-achv">성취도 ${escAttr(t.schoolAchv)}</span>`:''}
+          ${t.mockGrade?`<span class="tk-kind is-grade">${escAttr(String(t.mockGrade))}등급</span>`:''}
           <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${t.date||''}</span>
           <button class="btn bo bsm" onclick="openEditTst('${t.id}')">수정</button>
         </div>

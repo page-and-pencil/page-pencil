@@ -671,6 +671,81 @@ function ppRetestChipHtml(sid){
   return '<span class="rt-chip" title="통과할 때까지 남아 있습니다">재시험 예정 '+n+'</span>';
 }
 
+// ── 시험 종류 (B14) ──────────────────────────────────────────
+// 같은 '점수' 라도 체계가 다르면 한 그래프에 두지 않는다.
+//   inhouse  교습소 자체 시험 — 지금까지의 모든 기록이 여기다 (값이 없으면 이것)
+//   school   학교 내신 — 점수와 별개로 성취도 A~E 를 받을 수 있다
+//   mock     모의고사 — 등급 1~9 는 낮을수록 좋다. 점수와 방향이 반대라 절대 같은 축에 두지 않는다
+// 성취도·등급은 수능 공식 등급이며 교습소 자체 평가와 다른 체계다. 섞어 보여 주지 않는다.
+const PP_TEST_KIND={
+  inhouse:{name:'자체',   full:'교습소 자체 시험'},
+  school: {name:'내신',   full:'학교 내신'},
+  mock:   {name:'모의고사',full:'모의고사'},
+};
+function ppTestKindOf(t){
+  const k=t&&t.testKind;
+  return PP_TEST_KIND[k]?k:'inhouse';     // 값이 없는 옛 기록은 자체 시험
+}
+function ppTestKindName(t){return PP_TEST_KIND[ppTestKindOf(t)].name;}
+// 한 종류만 추려 날짜순으로. 종류가 다르면 추이를 잇지 않는다.
+function ppTestsOfKind(sid,kind){
+  return ((typeof DB!=='undefined'&&typeof DB.tsts==='function')?DB.tsts():[])
+    .filter(t=>t&&t.sid===sid&&ppTestKindOf(t)===(kind||'inhouse'))
+    .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+}
+// 학생별 목표 — students.data.scoreGoals = {inhouse:90, school:90, mock:2}
+// 모의고사는 등급이라 '이하' 가 목표다.
+function ppGoalFor(stu,kind){
+  const g=(stu&&stu.scoreGoals)||{};
+  const v=parseInt(g[kind||'inhouse'],10);
+  if(!(v>=1))return null;
+  return {value:v,lowerIsBetter:(kind==='mock')};
+}
+
+// ── 학생 한 줄 요약 (B13) ────────────────────────────────────
+// 상세를 열자마자 보이는 줄. 기존 탭 구조는 그대로 두고 그 위에 얹는다.
+// 숫자가 없으면 '—' 로 둔다. 0% 로 보여 주지 않는다.
+function ppStudentBrief(stu){
+  if(!stu)return null;
+  const month=((typeof ppToday==='function')?ppToday():'').slice(0,7);
+  const les=((typeof DB!=='undefined'&&typeof DB.less==='function')?DB.less():[])
+    .filter(l=>l&&l.sid===stu.id&&String(l.date||'').startsWith(month));
+  const PRESERVED=['teacher_cancel','holiday'];
+  const counted=les.filter(l=>!PRESERVED.includes(l.att||''));
+  const attended=counted.filter(l=>(l.att||'normal')!=='absent').length;
+  const att=counted.length?Math.round(attended/counted.length*100):null;
+
+  const hw=(typeof ppHwRate==='function')?ppHwRate(stu):null;
+  const vocab=(typeof ppAvgPct==='function')
+    ?ppAvgPct(((typeof DB.tsts==='function')?DB.tsts():[]).filter(t=>t.sid===stu.id&&ppTestKindOf(t)==='inhouse'),'vocab')
+    :null;
+  const retest=(typeof ppRetestPending==='function')?ppRetestPending(stu.id):0;
+  const exam=(typeof ppNextExam==='function')?ppNextExam(stu):null;
+  const sig=(typeof ppStudentSignals==='function')?ppStudentSignals(stu):{level:'',reasons:[]};
+  return {att,attN:counted.length,hw,vocab,retest,exam,sig};
+}
+function ppStudentBriefHtml(stu){
+  const b=ppStudentBrief(stu);
+  if(!b)return '';
+  const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const cell=(lbl,val,extra)=>'<span class="sb-c"><span class="sb-l">'+esc(lbl)+'</span>'
+    +'<span class="sb-v">'+esc(val)+'</span>'+(extra?'<span class="sb-x">'+esc(extra)+'</span>':'')+'</span>';
+  const parts=[];
+  parts.push(cell('이번 달 출석', b.att==null?'—':b.att+'%', b.attN?('수업 '+b.attN+'회'):''));
+  parts.push(cell('숙제 완료', b.hw?b.hw.pct+'%':'—', b.hw?(b.hw.done+'/'+b.hw.total):''));
+  parts.push(cell('단어 평균', b.vocab==null?'—':b.vocab+'%', b.retest?('재시험 대기 '+b.retest):''));
+  if(b.exam&&b.exam.kind==='exam'&&b.exam.days!=null){
+    parts.push(cell('다음 영어 시험', b.exam.days===0?'오늘':('D-'+b.exam.days), b.exam.exam.examDate||''));
+  }else if(b.exam&&b.exam.kind==='none'){
+    parts.push(cell('다음 영어 시험','지필 없음',''));
+  }
+  const sig=b.sig&&b.sig.level
+    ? '<div class="sb-sig"><span class="sb-lv">'+esc(b.sig.level)+'</span>'
+      +esc(b.sig.reasons.map(r=>r.t).join(' · '))+'</div>'
+    : '';
+  return '<div class="stu-brief">'+parts.join('')+sig+'</div>';
+}
+
 // ── 기준값 (B19) ─────────────────────────────────────────────
 // 홈 신호에 몇 명이 걸릴지는 이 숫자들이 정한다. 느슨하면 목록이 의미를 잃는다.
 // 기본값은 보수적으로 잡았다. 설정에서 바꾸면 홈이 바로 다시 계산된다.

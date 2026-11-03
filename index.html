@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261102a">
-<link rel="stylesheet" href="css/style.css?v=20261104m">
+<link rel="stylesheet" href="css/style.css?v=20261104n">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -305,6 +305,7 @@
                 <button class="btn bt bsm" onclick="openEditStuFromPanel()">수정</button>
               </div>
             </div>
+            <div id="sp-brief"></div>
             <div class="stu-panel-tabs">
               <button class="sptab active" onclick="swSpTab('sp-summary')">요약</button>
               <button class="sptab" onclick="swSpTab('sp-lessons')">수업</button>
@@ -435,6 +436,19 @@
           <div class="fg">
             <div class="f"><label>날짜</label><input type="date" id="ts-date"></div>
             <div class="f"><label>학생</label><select id="ts-stu" onchange="preloadTestWords(this.value)"></select></div>
+            <div class="f"><label>시험 종류</label>
+              <select id="ts-kind" onchange="tsKindChange()">
+                <option value="inhouse">교습소 자체 시험</option>
+                <option value="school">학교 내신</option>
+                <option value="mock">모의고사</option>
+              </select></div>
+            <div class="f" id="ts-achv-wrap" style="display:none"><label>성취도 <span style="color:var(--slate);font-weight:400">(중등 내신)</span></label>
+              <select id="ts-achv">
+                <option value="">선택 안 함</option>
+                <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option>
+              </select></div>
+            <div class="f" id="ts-grade-wrap" style="display:none"><label>등급 <span style="color:var(--slate);font-weight:400">(1~9, 낮을수록 좋음)</span></label>
+              <input type="number" id="ts-mgrade" min="1" max="9" placeholder="2"></div>
             <div class="f s2" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
               <button class="btn bo bsm" onclick="openVocabPaper(document.getElementById('ts-stu').value)" style="white-space:nowrap">
                 <i data-lucide="printer" width="14" height="14" style="vertical-align:-2px"></i> 단어 시험지 만들기</button>
@@ -1216,6 +1230,19 @@
       <div class="f"><label>수업료 (월)</label><input type="number" id="es-fee"></div>
       <div class="f"><label>결제일 (매월 며칠)</label><input type="number" id="es-payday" min="1" max="31"></div>
       <div class="f s2"><label>메모</label><input type="text" id="es-memo"></div>
+      <div class="f s2"><label>목표 점수 <span style="font-size:12px;color:var(--slate);font-weight:400;text-transform:none">(선택 — 비워 두면 표시하지 않습니다)</span></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:12.5px;color:var(--slate);min-width:34px">자체</span>
+          <input type="number" id="es-goal-inhouse" min="1" max="100" placeholder="%" style="width:72px;text-align:center">
+          <span style="font-size:12.5px;color:var(--slate);min-width:34px">내신</span>
+          <input type="number" id="es-goal-school" min="1" max="100" placeholder="점" style="width:72px;text-align:center">
+          <span style="font-size:12.5px;color:var(--slate);min-width:52px">모의고사</span>
+          <input type="number" id="es-goal-mock" min="1" max="9" placeholder="등급" style="width:72px;text-align:center">
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:5px;line-height:1.5">
+          모의고사는 등급이라 숫자가 낮을수록 좋습니다. 내신 성취도(A~E)와 모의고사 등급은
+          자체 시험 점수와 체계가 달라 같은 그래프에 섞지 않습니다.</div>
+      </div>
       <div class="f s2"><label>기간 수동 지정 <span style="font-size:12px;color:var(--slate);font-weight:400;text-transform:none">(자동 판정보다 우선)</span></label>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           <select id="es-track" style="flex:0 0 108px" onchange="esTrackToggle()">
@@ -2459,11 +2486,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261104m"></script>
+<script src="js/utils.js?v=20261104n"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261104m"></script>
-<script src="js/teacher.js?v=20261104m"></script>
-<script src="js/student.js?v=20261104m"></script>
-<script src="js/parent.js?v=20261104m"></script>
+<script src="js/db.js?v=20261104n"></script>
+<script src="js/teacher.js?v=20261104n"></script>
+<script src="js/student.js?v=20261104n"></script>
+<script src="js/parent.js?v=20261104n"></script>
 </body>
 </html>
