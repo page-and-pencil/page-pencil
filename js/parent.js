@@ -12,7 +12,8 @@ function ppNav(btn,target){
 }
 // 영역별 성장: 어휘/어법/리딩/리스닝 — 최근 테스트 평균 우선, 테스트 없으면 과제 완료율로 보완
 function parentAreaGrowth(sid){
-  const tsts=DB.tsts().filter(t=>t.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
+  const tsts=DB.tsts().filter(t=>t.sid===sid&&((typeof ppTestKindOf!=='function')||ppTestKindOf(t)==='inhouse'))
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
   const assigns=DB.assigns().filter(a=>a.sid===sid);
   const avg=arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;
   const testAvg=(corr,tot)=>avg(tsts.filter(t=>!t.absent&&t[tot]>0).map(t=>pct(t[corr],t[tot])));
@@ -442,7 +443,7 @@ async function loadParent(sid){
   const totalVocab=vocabCards.length;
   const booksThisMonth=rds.filter(r=>r.date&&r.date.startsWith(thisMonthStr)).length;
   const bkChg=booksThisMonth-rds.filter(r=>r.date&&r.date.startsWith(lastMonthStr)).length;
-  const showChart=tsts.length>=2;
+  const showChart=scoredTsts.length>=2;   // 그릴 점이 없으면 빈 그래프 칸을 만들지 않는다
   if(showChart||totalVocab>0||rds.length>0){
     const arData=getArTrend(sid);
     const showStats=totalVocab>0||rds.length>0;

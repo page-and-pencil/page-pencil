@@ -382,9 +382,12 @@ function ppTrackChipHtml(track){
 // 미응시(absent)는 0점이 아니라 '점수가 없는 것'이다. 평균·추이·하락 판정에서 뺀다.
 // 문항 수가 0인 행도 뺀다 — pct(0,0) 이 0% 를 돌려줘 평균을 끌어내린다.
 // 옛 행은 고치지 않고 읽을 때만 거른다 (미응시인데 어법 10문항이 박힌 행도 여기서 빠진다).
+// 자체 시험만 센다 — 내신 점수(100점 만점)와 모의고사 등급(낮을수록 좋음)은 체계가 달라서
+// 같은 평균·같은 추이에 올리면 그래프가 거짓말을 한다. 다른 종류는 ppTestsOfKind 로 따로 읽는다.
 function ppScored(list,field){
   const tot=(field||'vocab')+'Total';
-  return (list||[]).filter(t=>t&&!t.absent&&(t[tot]||0)>0);
+  const own=t=>(typeof ppTestKindOf!=='function')||ppTestKindOf(t)==='inhouse';
+  return (list||[]).filter(t=>t&&!t.absent&&(t[tot]||0)>0&&own(t));
 }
 // 평균 퍼센트. 집계할 게 없으면 null — 0 이 아니다(화면들이 null 을 '—' 로 처리한다).
 function ppAvgPct(list,field){
