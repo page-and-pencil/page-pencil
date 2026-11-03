@@ -452,6 +452,42 @@ function ppMetricsText(mx){
     .map(k=>PP_METRIC_LBL[k]+' '+mx[k].pct+'%').join(' · ');
 }
 
+// ── 상담 기록 (B18) ─────────────────────────────────────────
+// 선생님만 본다. 학부모 앱·학생 앱은 이 데이터를 읽지 않는다.
+// 약속한 것(todo)을 지켰는지 남겨 둔다 — 적어 두고 잊는 것이 상담의 가장 흔한 실수다.
+const PP_COUNSEL_WAY={
+  phone:{name:'전화',icon:'phone'},
+  visit:{name:'방문',icon:'home'},
+  msg:  {name:'메시지',icon:'message-circle'},
+  other:{name:'기타',icon:'circle'},
+};
+function ppCounselWayName(c){
+  const k=c&&c.way;
+  return (PP_COUNSEL_WAY[k]||PP_COUNSEL_WAY.other).name;
+}
+// 최신순. 테이블이 아직 없으면 빈 배열이다
+function ppCounsels(sid){
+  const all=(typeof DB!=='undefined'&&typeof DB.counsels==='function')?DB.counsels():[];
+  return all.filter(c=>c&&!c._deleted&&(!sid||c.sid===sid))
+    .sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+}
+function ppLastCounsel(sid){
+  return ppCounsels(sid)[0]||null;
+}
+// 마지막 상담 이후 지난 날수. 상담 기록이 없으면 null (0 이 아니다)
+function ppDaysSinceCounsel(sid,todayStr){
+  const c=ppLastCounsel(sid);
+  if(!c||!c.date)return null;
+  const t=todayStr||((typeof ppToday==='function')?ppToday():'');
+  if(!t)return null;
+  const ms=new Date(t+'T00:00:00')-new Date(c.date+'T00:00:00');
+  return Math.max(0,Math.round(ms/86400000));
+}
+// 아직 못 지킨 약속 — 전체 학생 기준으로도 쓸 수 있게 sid 는 선택
+function ppCounselTodos(sid){
+  return ppCounsels(sid).filter(c=>String(c.todo||'').trim()&&!c.todoDone);
+}
+
 // ── 어휘 재시험 ──────────────────────────────────────────────
 // 최초 시험과 재시험을 같은 묶음(chain)으로 묶되 각 기록은 따로 남긴다 — 원점수를 덮어쓰지 않는다.
 // 미응시(absent)와 불합격은 다른 상태다. 둘 다 '통과'가 아니지만 뜻이 다르다.

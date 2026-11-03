@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261102a">
-<link rel="stylesheet" href="css/style.css?v=20261104q">
+<link rel="stylesheet" href="css/style.css?v=20261104r">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -1182,6 +1182,32 @@
       <button class="btn bo bsm" onclick="saveReportDraftOnly()" style="flex:1"><i data-lucide="save" width="15" height="15" style="vertical-align:-3px"></i> 저장만</button>
       <button id="re-send-btn" class="btn bt bsm" onclick="saveAndSendReport()" style="flex:2;background:#FEE500;color:#3C1E1E;border:none"><i data-lucide="upload" width="15" height="15" style="vertical-align:-3px"></i> 카카오톡으로 발송</button>
     </div>
+  </div>
+</div>
+
+<!-- 상담 기록 (B18) — 선생님만 봅니다 -->
+<div id="m-counsel" class="mo" style="display:none" data-protect>
+  <div class="mdl">
+    <div class="mh"><div class="mt" id="m-counsel-title">상담 기록</div>
+      <button class="bx" onclick="closeM('m-counsel')">&times;</button></div>
+    <input type="hidden" id="cs-sid"><input type="hidden" id="cs-id">
+    <div class="ib iba" style="margin-bottom:10px;font-size:12px">선생님만 보는 기록입니다. 학부모 앱에는 나오지 않습니다. 가정사·건강처럼 민감한 내용은 적지 말고 "상담 때 구두로" 처럼 표시만 남겨 주세요.</div>
+    <div class="fr">
+      <div class="f"><label>날짜</label><input type="date" id="cs-date"></div>
+      <div class="f"><label>방식</label>
+        <select id="cs-way">
+          <option value="phone">전화</option><option value="visit">방문</option>
+          <option value="msg">메시지</option><option value="other">기타</option>
+        </select></div>
+    </div>
+    <div class="f"><label>상담한 분 <span style="color:var(--slate);font-weight:400">(선택)</span></label>
+      <input type="text" id="cs-who" placeholder="어머니"></div>
+    <div class="f"><label>주제</label><input type="text" id="cs-topic" placeholder="겨울방학 수업 시간"></div>
+    <div class="f"><label>내용</label>
+      <textarea id="cs-note" rows="4" placeholder="오고 간 이야기"></textarea></div>
+    <div class="f"><label>다음에 할 일 <span style="color:var(--slate);font-weight:400">(선택 — 지켰는지 표시할 수 있어요)</span></label>
+      <input type="text" id="cs-todo" placeholder="다음 주까지 시간표 안내"></div>
+    <button class="btn bt" style="width:100%;margin-top:4px" onclick="saveCounsel()">저장하기</button>
   </div>
 </div>
 
@@ -2492,11 +2518,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261104q"></script>
+<script src="js/utils.js?v=20261104r"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261104q"></script>
-<script src="js/teacher.js?v=20261104q"></script>
-<script src="js/student.js?v=20261104q"></script>
-<script src="js/parent.js?v=20261104q"></script>
+<script src="js/db.js?v=20261104r"></script>
+<script src="js/teacher.js?v=20261104r"></script>
+<script src="js/student.js?v=20261104r"></script>
+<script src="js/parent.js?v=20261104r"></script>
 </body>
 </html>

@@ -2636,3 +2636,19 @@ body{font-size:14.5px;line-height:1.65;}
   .rep-metrics .rm-l{font-size:10.5px}
   .rep-metrics .rm-s{font-size:10px}
 }
+
+/* 상담 기록 (B18) — 선생님만 보는 목록 */
+.cs-row{padding:9px 0;border-bottom:1px solid var(--border)}
+.cs-row:last-of-type{border-bottom:none}
+.cs-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cs-date{font-size:12.5px;font-weight:700;color:var(--navy);font-family:var(--fm)}
+.cs-way{font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:50px;
+  background:var(--tl);color:var(--tealt)}
+.cs-who{font-size:12px;color:var(--slate)}
+.cs-topic{font-size:13.5px;font-weight:600;color:var(--navy);margin-top:3px}
+.cs-note{font-size:13px;color:var(--slate);line-height:1.7;margin-top:2px;white-space:pre-wrap}
+.cs-todo{display:flex;align-items:flex-start;gap:6px;margin-top:5px;cursor:pointer;
+  font-size:12.5px;font-weight:600;color:var(--warnt);background:var(--warnl);
+  border-radius:var(--rs);padding:5px 8px}
+.cs-todo.done{color:var(--okt);background:var(--okl);text-decoration:line-through}
+.cs-todo .cs-chk{font-weight:800;flex-shrink:0}

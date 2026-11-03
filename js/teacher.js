@@ -1107,6 +1107,92 @@ async function copyLesSummary(lesId){
   }
 }
 
+// ── 상담 기록 (B18) ─────────────────────────────────────────
+// 선생님만 보는 기록이다. 학부모·학생 앱은 이 데이터를 읽지 않는다.
+// counsels 테이블이 아직 없으면 목록이 비어 있을 뿐, 화면은 그대로 돈다.
+function spCounselHtml(sid){
+  const list=(typeof ppCounsels==='function')?ppCounsels(sid):[];
+  const days=(typeof ppDaysSinceCounsel==='function')?ppDaysSinceCounsel(sid):null;
+  const todos=(typeof ppCounselTodos==='function')?ppCounselTodos(sid):[];
+  const head=days==null?'상담 기록 없음':(days===0?'오늘 상담':days+'일 전 상담');
+  const rows=list.slice(0,5).map(c=>{
+    const todo=String(c.todo||'').trim();
+    return `<div class="cs-row">
+      <div class="cs-top">
+        <span class="cs-date">${escAttr(c.date||'')}</span>
+        <span class="cs-way">${escAttr(ppCounselWayName(c))}</span>
+        ${c.who?`<span class="cs-who">${escAttr(c.who)}</span>`:''}
+        <span style="flex:1"></span>
+        <button class="btn bo bxxs" onclick="openCounselEdit('${sid}','${c.id}')">✏️</button>
+        <button class="btn bd bxxs" onclick="reqDelCounsel('${c.id}','${sid}')">🗑️</button>
+      </div>
+      ${c.topic?`<div class="cs-topic">${escAttr(c.topic)}</div>`:''}
+      ${c.note?`<div class="cs-note">${escAttr(c.note)}</div>`:''}
+      ${todo?`<div class="cs-todo${c.todoDone?' done':''}" onclick="toggleCounselTodo('${c.id}','${sid}')" title="눌러서 완료 표시">
+        <span class="cs-chk">${c.todoDone?'✔':'□'}</span>${escAttr(todo)}</div>`:''}
+    </div>`;
+  }).join('');
+  return `<div class="card" style="margin-top:12px">
+    <div class="ch"><span class="ct">${luIcon('message-square',15)||''} 상담 기록</span>
+      <span style="font-size:12px;color:var(--slate)">${head}${todos.length?` · 약속 ${todos.length}건 남음`:''}</span></div>
+    <div class="cb">
+      ${rows||'<div style="font-size:13px;color:var(--slate)">아직 상담 기록이 없습니다. 전화 한 통도 남겨 두면 다음 상담이 쉬워집니다.</div>'}
+      ${list.length>5?`<div style="font-size:12px;color:var(--slate);margin-top:6px">최근 5건만 표시 (전체 ${list.length}건)</div>`:''}
+      <button class="btn ba bsm" style="width:100%;margin-top:10px" onclick="openCounselEdit('${sid}','')">+ 상담 기록</button>
+    </div>
+  </div>`;
+}
+function openCounselEdit(sid,cid){
+  const c=cid?((typeof ppCounsels==='function')?ppCounsels(sid).find(x=>x.id===cid):null):null;
+  const v=(id,val)=>{const el=document.getElementById(id);if(el)el.value=val;};
+  v('cs-sid',sid);v('cs-id',cid||'');
+  v('cs-date',c?.date||ppToday());
+  v('cs-way',c?.way||'phone');
+  v('cs-who',c?.who||'');
+  v('cs-topic',c?.topic||'');
+  v('cs-note',c?.note||'');
+  v('cs-todo',c?.todo||'');
+  const t=document.getElementById('m-counsel-title');
+  if(t)t.textContent=cid?'상담 기록 수정':'상담 기록';
+  openM('m-counsel');
+}
+async function saveCounsel(){
+  const g=id=>(document.getElementById(id)?.value||'').trim();
+  const sid=g('cs-sid'),cid=g('cs-id');
+  const date=g('cs-date');
+  if(!date)return toast('날짜를 선택해 주세요');
+  const topic=g('cs-topic'),note=g('cs-note');
+  if(!topic&&!note)return toast('주제나 내용 중 하나는 적어 주세요');
+  const prev=cid?((typeof ppCounsels==='function')?ppCounsels(sid).find(x=>x.id===cid):null):null;
+  const id=cid||('cs'+uid());
+  const row={...(prev||{}),id,sid,date,way:g('cs-way'),who:g('cs-who'),
+    topic,note,todo:g('cs-todo'),todoDone:prev?!!prev.todoDone:false};
+  try{await supaUpsert('counsels',id,row,sid);}
+  catch(e){console.error('saveCounsel:',e);return toast('저장 실패 — counsels 테이블이 있는지 확인해 주세요');}
+  if(!_cache.counsels)_cache.counsels=[];
+  const i=_cache.counsels.findIndex(x=>x.id===id);
+  if(i>=0)_cache.counsels[i]=row;else _cache.counsels.push(row);
+  closeM('m-counsel');
+  if(typeof renderSpSummary==='function')renderSpSummary(sid);
+  toast(cid?'상담 기록을 수정했습니다':'상담 기록을 저장했습니다');
+}
+function reqDelCounsel(cid,sid){
+  askConfirm('상담 기록 삭제','이 상담 기록을 휴지통으로 보낼까요?','삭제','bd',async()=>{
+    try{await supaTrash('counsels',_cache.counsels,cid);}
+    catch(e){console.error('reqDelCounsel:',e);return toast('삭제 실패');}
+    if(typeof renderSpSummary==='function')renderSpSummary(sid);
+    toast('휴지통으로 보냈습니다');
+  });
+}
+async function toggleCounselTodo(cid,sid){
+  const c=(_cache.counsels||[]).find(x=>x.id===cid);if(!c)return;
+  c.todoDone=!c.todoDone;
+  try{await supaUpsert('counsels',cid,c,sid);}
+  catch(e){c.todoDone=!c.todoDone;console.error('toggleCounselTodo:',e);return toast('저장 실패');}
+  if(typeof renderSpSummary==='function')renderSpSummary(sid);
+  toast(c.todoDone?'약속을 지켰다고 표시했습니다':'다시 할 일로 되돌렸습니다');
+}
+
 // 학습 리포트 인쇄 — 월 선택 모달
 let _prSid='';
 function openPrintReport(sid){
@@ -9402,6 +9488,7 @@ function renderSpSummary(sid,period,from,to){
       ${lastPay?`<div>최근 결제: <strong>${lastPay.date} · ${Number(lastPay.amt).toLocaleString()}원</strong></div>`:''}
       ${s.memo?`<div>메모: ${s.memo}</div>`:''}
     </div>
+    ${spCounselHtml(sid)}
     <div style="margin-top:12px">
       <button class="btn bo bsm" onclick="openPrintReport('${sid}')" style="width:100%">🖨️ 학습 리포트 인쇄</button>
     </div>
