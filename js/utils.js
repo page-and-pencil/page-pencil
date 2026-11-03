@@ -735,8 +735,16 @@ function show(id){
     window.scrollTo(0,0);
   };
   const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if(!reduce&&typeof document.startViewTransition==='function'){
-    try{document.startViewTransition(swap);return;}catch(e){}
+  // 탭이 백그라운드면 브라우저가 전환을 중단시킨다
+  // ("Transition was aborted because of invalid state. Document hidden")
+  // → 애초에 전환을 걸지 않고, 걸더라도 거부된 프라미스를 삼켜 오류 배너가 뜨지 않게 한다.
+  if(!reduce&&!document.hidden&&typeof document.startViewTransition==='function'){
+    try{
+      const t=document.startViewTransition(swap);
+      if(t){if(t.ready&&t.ready.catch)t.ready.catch(()=>{});
+            if(t.finished&&t.finished.catch)t.finished.catch(()=>{});}
+      return;
+    }catch(e){}
   }
   swap();
 }
@@ -1568,6 +1576,8 @@ window.addEventListener('load',()=>{
 
 // ── 치명 오류 안전망: 조용히 빈 화면이 되는 대신 원인을 표시 (동기+비동기 모두) ──
 function ppShowFatal(msg){
+  // 화면 전환이 중단된 것은 고장이 아니다 (탭을 백그라운드로 두면 브라우저가 끊는다)
+  if(/Transition was aborted|Document hidden/i.test(String(msg||'')))return;
   try{
     let bar=document.getElementById('pp-fatal');
     if(!bar){

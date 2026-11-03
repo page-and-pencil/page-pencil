@@ -1672,6 +1672,8 @@
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
         <button class="btn bt bsm" onclick="document.getElementById('tu-any-file').click()" style="white-space:nowrap" title="txt·CSV·Excel·Word·이미지 — 정제 안 된 워드리스트도 단원별로 자동 인식"><i data-lucide="bot" width="15" height="15" style="vertical-align:-3px"></i> AI 파일 가져오기</button>
         <input type="file" id="tu-any-file" accept=".txt,.csv,.xlsx,.xls,.docx,image/*" style="display:none" onchange="tuImportAny(event)">
+        <button class="btn bo bsm" onclick="document.getElementById('tu-csv-file').click()" style="white-space:nowrap" title="헤더 unit,word,ko,pos — AI를 거치지 않고 적힌 그대로 넣습니다 (뜻·예문을 만들어 내지 않음)"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> CSV 그대로</button>
+        <input type="file" id="tu-csv-file" accept=".csv,.txt" style="display:none" onchange="tuImportCsvRaw(event)">
         <button class="btn bt bsm" onclick="tuAutoFillAll()" style="white-space:nowrap">✨ AI 전체 채우기</button>
         <button class="btn ba bsm" onclick="tuRefreshFromLib()" style="white-space:nowrap"><i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 원서 예문 갱신</button>
         <span style="font-size:12px;color:var(--teal)" id="tu-import-status"></span>

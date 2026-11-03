@@ -1003,11 +1003,12 @@ function swStuTab(id){
   const cur=document.querySelector('#s-student .panel.active');
   const from=STU_TAB_ORDER.indexOf(cur?cur.id:''),to=STU_TAB_ORDER.indexOf(id);
   const reduce=typeof _ppReduceMotion==='function'&&_ppReduceMotion();
-  if(from>=0&&to>=0&&from!==to&&!reduce&&typeof document.startViewTransition==='function'){
+  if(from>=0&&to>=0&&from!==to&&!reduce&&!document.hidden&&typeof document.startViewTransition==='function'){
     const root=document.documentElement;
     root.dataset.ppDir=to>from?'fwd':'back';
     try{
       const t=document.startViewTransition(swap);
+      if(t.ready&&t.ready.catch)t.ready.catch(()=>{});   // 백그라운드 전환 중단은 오류가 아니다
       t.finished.then(()=>{delete root.dataset.ppDir;},()=>{delete root.dataset.ppDir;});
       return;
     }catch(e){delete root.dataset.ppDir;}

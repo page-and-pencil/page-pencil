@@ -249,7 +249,9 @@ function swTab(id){
   const ab=document.querySelector('#s-teacher .ab');if(ab)ab.classList.toggle('stu-mode',id==='t-stu');
   if(id==='t-dash')renderDash();
   if(id==='t-les'){populateFilterSels();renderLes();renderCmtChips();}
-  if(id==='t-tst'){populateFilterSels();renderTst();}
+  if(id==='t-tst'){populateFilterSels();renderTst();
+    // 통과 기준·재시험 목록은 학생을 고르기 전에도 보여 준다
+    if(typeof tsRefreshRetest==='function')tsRefreshRetest();}
   if(id==='t-bks'){populateLibSel();populateFilterSels();renderRd();}
   if(id==='t-assign'){populateFilterSels();renderAssignTab();renderAssignCal();const el=document.getElementById('assign-filter-date');if(el&&!el.value)el.value=ppToday();}
   if(id==='t-class')renderClassTab();
@@ -4493,9 +4495,14 @@ function tuWordlistMerge(tbId,parsedUnits){
   const plan=entries.map(([name,ws])=>{
     const target=match.get(name)||name; // 매칭되면 기존 단원에 합침, 아니면 새 단원
     const existing=tuNormWords((tb.units||{})[target]||[]);
-    const existSet=new Set(existing.map(w=>w.word));
-    const add=ws.map(w=>({word:fixWordCase(String(w.word||'').toLowerCase().trim(),w.ko),ko:w.ko||'',pos:w.pos||'',example:w.example||''}))
-      .filter(w=>w.word&&/^[a-zA-Z]/.test(w.word)&&!existSet.has(w.word));
+    const existSet=new Set(existing.map(w=>String(w.word||'').toLowerCase()));
+    // 원본에 대문자가 있으면 그대로 쓴다 (고유명사 보존).
+    // 전부 소문자인 것만 fixWordCase 로 January·English 같은 관용 표기를 살린다.
+    const add=ws.map(w=>{
+      const raw=String(w.word||'').trim();
+      const word=/[A-Z]/.test(raw)?raw:fixWordCase(raw.toLowerCase(),w.ko);
+      return {word,ko:w.ko||'',pos:w.pos||'',example:w.example||''};
+    }).filter(w=>w.word&&/^[a-zA-Z]/.test(w.word)&&!existSet.has(w.word.toLowerCase()));
     return{name,target,isNew:!existSet.size&&!match.get(name),add,skip:ws.length-add.length};
   }).filter(p=>p.add.length);
   if(!plan.length){toast('추가할 새 단어가 없습니다 (모두 이미 있음)');return;}
@@ -4592,7 +4599,9 @@ function tuDeleteUnitDirect(tbId,key){
 async function tuAddWord(){
   const tbId=document.getElementById('tu-tb-id').value;
   if(!_tuCurUnit)return toast('단원을 먼저 선택하거나 생성하세요');
-  const word=document.getElementById('tu-en').value.trim().toLowerCase();
+  // 입력한 대소문자를 그대로 둔다 — 소문자로 바꾸면 Northern Lights·Italian 같은
+  // 고유명사가 깨진다. 중복 판정만 대소문자를 무시한다.
+  const word=document.getElementById('tu-en').value.trim();
   if(!word)return toast('영어 단어를 입력하세요');
   const ko=document.getElementById('tu-ko').value.trim();
   const pos=document.getElementById('tu-pos').value;
@@ -4601,7 +4610,7 @@ async function tuAddWord(){
   const existing=tuNormWords(tb.units?.[_tuCurUnit]||[]);
   const clearInputs=()=>{['tu-en','tu-ko','tu-ex'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('tu-pos').value='';};
   // 같은 단어의 다른 뜻 → 별도 항목 대신 뜻 합치기 (예: short → "(길이가) 짧은, (키가) 작은")
-  const dupIdx=existing.findIndex(w=>w.word===word);
+  const dupIdx=existing.findIndex(w=>String(w.word||'').toLowerCase()===word.toLowerCase());
   if(dupIdx>=0){
     const dup=existing[dupIdx];
     const merged=_mergeKo(dup.ko,ko);
@@ -4683,6 +4692,62 @@ ${truncated}`}]});
   return units;
 }
 // 어떤 파일이든 AI가 단원 구분 + 단어 추출 (로컬 폴백 포함)
+// ── CSV 그대로 가져오기 (AI를 거치지 않음) ───────────────────
+// 헤더는 unit,word,ko,pos. 빈 칸은 비운 채로 넣고, 없는 단원은 새로 만든다.
+// 출처에서 확인한 단어만 넣어야 할 때 쓴다 — 뜻·품사·예문을 만들어 내지 않는다.
+function _ppCsvRows(text){
+  const rows=[];let row=[],cell='',q=false;
+  const t=String(text||'').replace(/^\uFEFF/,'');
+  for(let i=0;i<t.length;i++){
+    const ch=t[i];
+    if(q){
+      if(ch==='"'){ if(t[i+1]==='"'){cell+='"';i++;} else q=false; }
+      else cell+=ch;
+    }else if(ch==='"')q=true;
+    else if(ch===','||ch==='\t'){row.push(cell);cell='';}
+    else if(ch==='\n'){row.push(cell);cell='';rows.push(row);row=[];}
+    else if(ch!=='\r')cell+=ch;
+  }
+  if(cell||row.length){row.push(cell);rows.push(row);}
+  return rows.filter(r=>r.some(c=>String(c).trim()));
+}
+async function tuImportCsvRaw(e){
+  const file=e.target.files[0];if(!file)return;
+  e.target.value='';
+  const tbId=document.getElementById('tu-tb-id').value;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  if(!tb)return toast('교재를 먼저 선택하세요');
+  const status=document.getElementById('tu-import-status');
+  if(status)status.textContent='CSV 읽는 중...';
+  try{
+    const text=await file.text();
+    const rows=_ppCsvRows(text);
+    if(!rows.length)throw new Error('빈 파일입니다');
+    const head=rows[0].map(h=>String(h).trim().toLowerCase());
+    const iU=head.indexOf('unit'),iW=head.indexOf('word'),iK=head.indexOf('ko'),iP=head.indexOf('pos');
+    if(iW<0)throw new Error('헤더에 word 칸이 필요합니다 (unit,word,ko,pos)');
+    const units={};
+    let skipped=0;
+    rows.slice(1).forEach(r=>{
+      const word=String(r[iW]||'').trim();
+      if(!word||!/^[a-zA-Z]/.test(word)){skipped++;return;}
+      const unit=(iU>=0?String(r[iU]||'').trim():'')||_tuCurUnit||'Unit 1';
+      (units[unit]=units[unit]||[]).push({
+        word,
+        ko:iK>=0?String(r[iK]||'').trim():'',
+        pos:iP>=0?String(r[iP]||'').trim():'',
+        example:''            // 예문은 만들지 않는다 — 원문에 있을 때만 교재 쪽에서 채운다
+      });
+    });
+    const total=Object.values(units).reduce((a,v)=>a+v.length,0);
+    if(!total)throw new Error('가져올 단어가 없습니다');
+    if(status)status.textContent=`CSV ${total}개 · 단원 ${Object.keys(units).length}개`+(skipped?` · 건너뜀 ${skipped}`:'');
+    tuWordlistMerge(tbId,units);          // 미리보기 확인창은 기존 것을 그대로 쓴다
+  }catch(err){
+    if(status)status.textContent='';
+    toast('CSV 읽기 실패: '+(err.message||''));
+  }
+}
 async function tuImportAny(e){
   try{await ensureXLSX();await ensureJSZip();}catch(err){}
   const file=e.target.files[0];if(!file)return;
