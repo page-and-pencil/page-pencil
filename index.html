@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261102a">
-<link rel="stylesheet" href="css/style.css?v=20261104g">
+<link rel="stylesheet" href="css/style.css?v=20261104h">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -873,7 +873,7 @@
               </div>
             </div>
             <div style="margin-bottom:12px">
-              <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px"><i data-lucide="user" width="15" height="15" style="vertical-align:-3px"></i> 학생별 기록</div>
+              <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px;display:flex;align-items:center;gap:8px"><span><i data-lucide="user" width="15" height="15" style="vertical-align:-3px"></i> 학생별 기록</span><span id="cl-dirty" class="cl-dirty">저장 전 — 아래 저장을 눌러 주세요</span></div>
               <div id="cl-students"></div>
             </div>
             <div class="card" style="margin-bottom:12px">
@@ -2404,11 +2404,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261104g"></script>
+<script src="js/utils.js?v=20261104h"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261104g"></script>
-<script src="js/teacher.js?v=20261104g"></script>
-<script src="js/student.js?v=20261104g"></script>
-<script src="js/parent.js?v=20261104g"></script>
+<script src="js/db.js?v=20261104h"></script>
+<script src="js/teacher.js?v=20261104h"></script>
+<script src="js/student.js?v=20261104h"></script>
+<script src="js/parent.js?v=20261104h"></script>
 </body>
 </html>

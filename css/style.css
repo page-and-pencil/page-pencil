@@ -2549,3 +2549,30 @@ body{font-size:14.5px;line-height:1.65;}
 .rt-words{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .rt-w{font-size:12px;font-weight:700;color:var(--text);background:var(--nav-active);
   padding:2px 8px;border-radius:50px}
+
+/* ── 숙제 상태 (B5·B6) ──────────────────────────────────────── */
+.cl-hw-chk .cl-hw-st{flex:0 0 76px;padding:4px 6px;border:1.5px solid var(--border);border-radius:var(--rs);
+  font-size:12.5px;font-family:var(--fb);background:#fff;cursor:pointer}
+.cl-hw-chk.on .cl-hw-st{border-color:var(--okt);color:var(--okt);font-weight:700}
+.cl-hw-chk.part .cl-hw-st{border-color:var(--warning);color:var(--warning);font-weight:700}
+.cl-hw-chk .cl-hw-pct{flex:0 0 48px;padding:4px 4px;border:1.5px solid var(--border);border-radius:var(--rs);
+  font-size:12.5px;text-align:center;font-family:var(--fm)}
+.cl-hw-chk .cl-hw-undo{flex:0 0 auto;margin-left:auto;background:none;border:1px solid var(--border);
+  border-radius:50px;color:var(--text-muted);font-size:11.5px;padding:2px 9px;cursor:pointer;
+  font-family:var(--fb);white-space:nowrap}
+.cl-hw-chk .cl-hw-undo:hover{border-color:var(--accent);color:var(--accent)}
+/* 지난 수업에서 못 끝낸 것 (B7) */
+.cl-prev-hw{margin-bottom:12px;border:1px solid var(--border);border-left:3px solid var(--warning);
+  border-radius:10px;background:var(--surface);padding:10px 13px}
+.cl-prev-h{font-size:13px;font-weight:800;color:var(--text);margin-bottom:6px;
+  display:flex;align-items:center;gap:7px}
+.cl-prev-h .n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;
+  padding:0 6px;border-radius:50px;background:var(--warning);color:#fff;font-size:11.5px;font-weight:800}
+.cl-prev-row{font-size:12.5px;color:var(--text-muted);line-height:1.7}
+.cl-prev-row b{color:var(--text)}
+.cl-prev-row .st{font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:50px;
+  background:var(--nav-active);color:var(--text-muted);margin-right:5px}
+/* 출결 저장 전 표시 (B5) */
+.cl-dirty{display:none;font-size:12px;font-weight:700;color:var(--warning);
+  border:1px solid var(--warning);border-radius:50px;padding:2px 9px;white-space:nowrap}
+.cl-dirty.on{display:inline-flex}

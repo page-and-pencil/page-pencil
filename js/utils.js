@@ -464,6 +464,101 @@ function ppRetestCardHtml(stu,opts){
   return '<div class="rt-box"><div class="rt-h">'+esc(title)+' <span class="rt-n">'+q.length+'</span></div>'+rows+'</div>';
 }
 
+// ── 숙제 상태 (B6) ───────────────────────────────────────────
+// 기존 completedAt / schedule[].done 은 그대로 두고 선택 필드만 더한다.
+//   hwStatus  done 완료 / part 일부 / miss 미완 / noshow 미지참 / defer 연기
+//   hwPct     일부일 때의 퍼센트
+//   hwDeferTo 연기일 때 넘긴 날짜
+// 값이 없는 옛 데이터는 지금 의미 그대로 읽는다 — 완료 표식이 있으면 완료, 없으면 '아직'.
+// 완료(done)만 completedAt 을 채운다. 일부·미지참·연기는 끝난 게 아니므로 채우지 않는다
+// (학생 화면에서 계속 할 일로 남아야 한다).
+const PP_HW_STATUS={
+  done:  {name:'완료',   done:true },
+  part:  {name:'일부',   done:false},
+  miss:  {name:'미완',   done:false},
+  noshow:{name:'미지참', done:false},
+  defer: {name:'연기',   done:false},
+};
+// a: 과제 / sc: 반복·클래스5의 그 날짜 칸 (있으면 그쪽이 기준)
+function ppHwStatusOf(a,sc){
+  const o=sc||a;
+  if(!o)return '';
+  if(o.hwStatus&&PP_HW_STATUS[o.hwStatus])return o.hwStatus;
+  return (sc?sc.done:(a&&a.completedAt))?'done':'';     // 옛 데이터
+}
+function ppHwStatusLabel(a,sc){
+  const k=ppHwStatusOf(a,sc);
+  if(!k)return '';
+  const o=sc||a;
+  const n=PP_HW_STATUS[k].name;
+  return (k==='part'&&o.hwPct)?(n+' '+o.hwPct+'%'):n;
+}
+
+// ── 연기된 숙제 (B7) ─────────────────────────────────────────
+// 연기로 표시한 숙제는 다음 수업의 확인 목록에 다시 올라와야 한다.
+// hwDeferTo 가 이 날짜 이하면 '아직 안 끝난 연기분'으로 본다.
+function ppDeferredHw(sid,onDate){
+  if(typeof DB==='undefined'||typeof DB.assigns!=='function')return [];
+  const out=[];
+  DB.assigns().forEach(a=>{
+    if(!a||a._deleted||a.sid!==sid)return;
+    if((a.schedule||[]).length){
+      (a.schedule||[]).forEach(sc=>{
+        if(ppHwStatusOf(a,sc)!=='defer')return;
+        if(sc.hwDeferTo&&onDate&&sc.hwDeferTo>onDate)return;   // 아직 그 날이 안 됨
+        out.push({a,sc,from:sc.date,to:sc.hwDeferTo||''});
+      });
+    }else{
+      if(ppHwStatusOf(a)!=='defer')return;
+      if(a.hwDeferTo&&onDate&&a.hwDeferTo>onDate)return;
+      out.push({a,sc:null,from:a.due||a.date||'',to:a.hwDeferTo||''});
+    }
+  });
+  return out.sort((x,y)=>String(x.from).localeCompare(String(y.from)));
+}
+// 지난 수업에서 못 끝낸 것 — 미완·미지참·일부·연기 (완료와 '아직'은 뺀다)
+function ppUnfinishedBefore(sid,beforeDate,limit){
+  if(typeof DB==='undefined'||typeof DB.assigns!=='function')return [];
+  const out=[];
+  DB.assigns().forEach(a=>{
+    if(!a||a._deleted||a.sid!==sid)return;
+    const push=(sc,d)=>{
+      const k=ppHwStatusOf(a,sc);
+      if(k!=='miss'&&k!=='noshow'&&k!=='part'&&k!=='defer')return;
+      if(beforeDate&&d&&d>=beforeDate)return;      // 이번 수업 것은 빼고 '지난' 것만
+      out.push({a,sc,date:d,status:k,label:ppHwStatusLabel(a,sc)});
+    };
+    if((a.schedule||[]).length)(a.schedule||[]).forEach(sc=>push(sc,sc.date));
+    else push(null,a.due||a.date||'');
+  });
+  out.sort((x,y)=>String(y.date).localeCompare(String(x.date)));
+  return limit?out.slice(0,limit):out;
+}
+
+// ── 숙제 완료율 (B8) ─────────────────────────────────────────
+// 분모는 '그 숙제 날짜에 수강 중이던' 과제만. 입회 전 과제는 세지 않는다.
+// 휴원·퇴원 학생(inactive)은 반 단위 집계에서 통째로 뺀다 —
+// 언제 그만뒀는지 기록하는 필드가 없어 날짜로는 가를 수 없다.
+function ppHwScope(stu,list){
+  if(!stu)return [];
+  const enroll=String(stu.enrollDate||'').slice(0,10);
+  return (list||[]).filter(a=>{
+    if(!a||a._deleted||a.sid!==stu.id)return false;
+    const d=a.due||a.date||'';
+    if(enroll&&d&&d<enroll)return false;
+    return true;
+  });
+}
+// cat 을 주면 그 영역만. 집계할 게 없으면 null (0% 가 아니다).
+function ppHwRate(stu,cat){
+  if(!stu||typeof DB==='undefined'||typeof DB.assigns!=='function')return null;
+  let list=ppHwScope(stu,DB.assigns());
+  if(cat)list=list.filter(a=>a.category===cat);
+  if(!list.length)return null;
+  const done=list.filter(a=>a.completedAt||(typeof hwFinished==='function'&&hwFinished(a))).length;
+  return {done,total:list.length,pct:Math.round(done/list.length*100)};
+}
+
 // ── 기준값 (B19) ─────────────────────────────────────────────
 // 홈 신호에 몇 명이 걸릴지는 이 숫자들이 정한다. 느슨하면 목록이 의미를 잃는다.
 // 기본값은 보수적으로 잡았다. 설정에서 바꾸면 홈이 바로 다시 계산된다.

@@ -14808,9 +14808,10 @@ function openClassLesson(classId,dateStr){
   const students=allStus.filter(s=>(c.studentIds||[]).includes(s.id));
   document.getElementById('cl-students').innerHTML=students.length
     ?students.map(s=>{const nb=DB.ortNext(s.id);return`<div class="cl-stu-row" data-sid="${s.id}">
+      ${clPrevHwHtml(s.id)}
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-size:15px;font-weight:700;min-width:56px">${s.name}</span>
-        <select class="cl-att filter-sel" style="flex:0 0 auto">
+        <select class="cl-att filter-sel" style="flex:0 0 auto" onchange="clMarkDirty()">
           <option value="normal">정상</option><option value="absent">결석</option>
           <option value="late">지각</option><option value="sick">병결</option>
           <option value="teacher_cancel">선생님 취소</option><option value="holiday">휴강</option>
@@ -14835,6 +14836,43 @@ function openClassLesson(classId,dateStr){
     </div>`;}).join('')
     :'<div style="color:var(--slate);font-size:14px">소속 학생이 없습니다</div>';
   openClsRecord();
+}
+// 지난 수업에서 못 끝낸 숙제 (B7) — 미완·미지참·일부·연기를 수업 기록 맨 위에 보여 준다.
+// 연기분은 이번 수업 확인 목록(_clAutoHwFor)에도 들어가므로 여기서는 '무엇이 남았는지'만 알린다.
+function clPrevHwHtml(sid){
+  if(typeof ppUnfinishedBefore!=='function')return '';
+  const ds=document.getElementById('cl-date')?.value||ppToday();
+  const rows=ppUnfinishedBefore(sid,ds,4);
+  const defer=(typeof ppDeferredHw==='function')?ppDeferredHw(sid,ds):[];
+  if(!rows.length&&!defer.length)return '';
+  const line=r=>{
+    const a=r.a,sc=r.sc;
+    const txt=[a.bookTitle||a.text||'',(sc?[sc.book,sc.unit].filter(Boolean).join(' · '):a.range)||''].filter(Boolean).join(' · ')||'과제';
+    return `<div class="cl-prev-row"><span class="st">${escAttr(r.label||'')}</span>`
+      +`<b>${escAttr(txt)}</b> <span style="font-family:var(--fm)">${escAttr(r.date||'')}</span></div>`;
+  };
+  const dLine=d=>{
+    const txt=[d.a.bookTitle||d.a.text||'',(d.sc?[d.sc.book,d.sc.unit].filter(Boolean).join(' · '):d.a.range)||''].filter(Boolean).join(' · ')||'과제';
+    return `<div class="cl-prev-row"><span class="st">연기</span><b>${escAttr(txt)}</b>`
+      +` <span style="font-family:var(--fm)">${escAttr(d.from)}${d.to?' → '+escAttr(d.to):''}</span></div>`;
+  };
+  const n=rows.length+defer.length;
+  return `<div class="cl-prev-hw">`
+    +`<div class="cl-prev-h"><span class="n">${n}</span>지난 수업에서 못 끝낸 것`
+    +(defer.length?`<span style="font-size:11.5px;font-weight:600;color:var(--text-muted)">· 연기 ${defer.length}건은 아래 확인 목록에도 올라와 있어요</span>`:'')
+    +`</div>`
+    +defer.map(dLine).join('')
+    +rows.filter(r=>r.status!=='defer').map(line).join('')
+    +`</div>`;
+}
+// 출결은 저장을 눌러야 들어간다 — 바꾼 뒤 안 누르고 나가는 일을 막는다 (B5)
+function clMarkDirty(){
+  const el=document.getElementById('cl-dirty');
+  if(el)el.classList.add('on');
+}
+function clClearDirty(){
+  const el=document.getElementById('cl-dirty');
+  if(el)el.classList.remove('on');
 }
 function openClsRecord(){
   const col=document.getElementById('cls-record-col');if(col)col.classList.add('open');
@@ -15311,10 +15349,13 @@ function _clAutoHwFor(classId,ds,excludeLessonDate){
         const k=label+'|'+_hwKeyNorm(txt);
         // 리딩앤처럼 '무슨 책'이 비어 있는 숙제는 수업에서 물어 적을 수 있게 (s.title에 보관)
         if(!seen.has(k)){seen.add(k);sched.push({label,txt,aid:a.id,sid:a.sid,date:ds,sched:true,
-          done:!!s.done,by:s.doneBy||'',title:s.title||'',askTitle:_hwAskTitle(a,s)});}
+          done:!!s.done,by:s.doneBy||s.hwBy||'',title:s.title||'',askTitle:_hwAskTitle(a,s),
+          status:(typeof ppHwStatusOf==='function')?ppHwStatusOf(a,s):'',
+          statusLabel:(typeof ppHwStatusLabel==='function')?ppHwStatusLabel(a,s):'',
+          pct:s.hwPct||''});}
       });
     }else{
-      if(a.completedAt)return;
+      // 완료된 것도 목록에 남긴다 — 상태(완료/일부/연기)를 보고 되돌릴 수 있어야 한다
       if((a.due||a.date)!==ds)return;
       if(excludeLessonDate&&a.classId===classId&&a.date===excludeLessonDate)return;
       const KC={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신',book:'원서',mission:'미션',worksheet:'워크시트'};
@@ -15322,7 +15363,10 @@ function _clAutoHwFor(classId,ds,excludeLessonDate){
       const txt=[a.bookTitle||a.text||'',a.range].filter(Boolean).join(' · ')||'과제';
       const k=cat+'|'+_hwKeyNorm(txt);
       if(!seenS.has(k)){seenS.add(k);singles.push({label:'📕'+(cat?' ['+cat+']':''),txt,
-        aid:a.id,sid:a.sid,date:ds,sched:false,done:!!a.completedAt,by:a.completedBy||''});}
+        aid:a.id,sid:a.sid,date:ds,sched:false,done:!!a.completedAt,by:a.completedBy||'',
+        status:(typeof ppHwStatusOf==='function')?ppHwStatusOf(a):'',
+        statusLabel:(typeof ppHwStatusLabel==='function')?ppHwStatusLabel(a):'',
+        pct:a.hwPct||''});}
     }
   });
   return {sched,singles};
@@ -15335,14 +15379,25 @@ function _clAppendAutoHwRows(groupBody,autos){
   if(typeof fillOrtBookDatalist==='function')fillOrtBookDatalist();
   const row=(x,note,color)=>{
     const div=document.createElement('div');
-    div.className='cl-hw-chk'+(x.done?' on':'');
+    const st=x.status||'';
+    div.className='cl-hw-chk'+(st==='done'?' on':'')+(st&&st!=='done'?' part':'');
     div.style.cssText=`--c:${color}`;
-    const by=x.done&&x.by?`<em>${_PG_HW_BY[x.by]||x.by}</em>`:'';
-    div.innerHTML=`<button type="button" class="cl-hw-box" title="${x.done?'완료 취소':'수업에서 확인했으면 체크'}"`
-      +` onclick="clHwCheck(this,'${x.aid}','${x.date}',${!!x.sched})">${x.done?'✓':''}</button>`
+    div.dataset.aid=x.aid;div.dataset.date=x.date;div.dataset.sched=String(!!x.sched);
+    const by=st&&x.by?`<em>${_PG_HW_BY[x.by]||x.by}</em>`:'';
+    const opt=(v,t)=>`<option value="${v}"${st===v?' selected':''}>${t}</option>`;
+    // 체크 하나로는 '했다/안 했다' 밖에 못 적는다 — 일부·미지참·연기를 구분한다
+    div.innerHTML=`<select class="cl-hw-st" title="숙제 상태"`
+      +` onchange="clHwSetStatus(this,'${x.aid}','${x.date}',${!!x.sched})">`
+      +opt('','아직')+opt('done','완료')+opt('part','일부')+opt('miss','미완')
+      +opt('noshow','미지참')+opt('defer','연기')+`</select>`
+      +`<input type="number" class="cl-hw-pct" min="1" max="99" placeholder="%"`
+      +` value="${x.pct||''}" style="display:${st==='part'?'':'none'}"`
+      +` onchange="clHwSetPct(this,'${x.aid}','${x.date}',${!!x.sched})">`
       +`<span class="cl-hw-t">${x.label} <b>${escAttr(x.txt)}</b>`
       +(x.title?` <u>${escAttr(x.title)}</u>`:'')
-      +`<span class="cl-hw-n" style="color:${color}">${x.done?'확인 완료':note}</span>${by}</span>`
+      +`<span class="cl-hw-n" style="color:${color}">${x.statusLabel||note}</span>${by}</span>`
+      +(st?`<button type="button" class="cl-hw-undo" title="미처리로 되돌리기"`
+        +` onclick="clHwSetStatus(this.closest('.cl-hw-chk').querySelector('.cl-hw-st'),'${x.aid}','${x.date}',${!!x.sched},'')">되돌리기</button>`:'')
       +(x.askTitle?`<input type="text" class="cl-hw-title" list="dl-ort-books" placeholder="읽은 책 (예: Floppy the Hero)"`
         +` value="${escAttr(x.title||'')}" onchange="clHwTitle(this,'${x.aid}','${x.date}')">`:'');
     groupBody.appendChild(div);
@@ -15350,7 +15405,77 @@ function _clAppendAutoHwRows(groupBody,autos){
   autos.sched.forEach(x=>row(x,'앱에 자동 할당됨 — 했으면 체크','var(--teal)'));
   autos.singles.forEach(x=>row(x,'이미 할당된 숙제 — 했으면 체크','var(--warnt)'));
 }
-// 수업 기록 폼에서 바로 완료 토글
+// 숙제 상태 저장 (B6). 완료만 completedAt 을 채운다 — 일부·미지참·연기는 끝난 게 아니다.
+// 연기는 다음 수업일을 hwDeferTo 에 적어 그날 확인 목록에 다시 올라오게 한다.
+async function clHwSetStatus(sel,aid,ds,sched,forced){
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
+  const v=(forced!==undefined)?forced:String(sel.value||'');
+  const o=sched?((a.schedule||[]).find(x=>x.date===ds)||null):a;
+  if(!o)return;
+  const prev={hwStatus:o.hwStatus,hwPct:o.hwPct,hwDeferTo:o.hwDeferTo,
+    completedAt:o.completedAt,completedBy:o.completedBy,done:o.done,doneBy:o.doneBy,doneAt:o.doneAt};
+  // 표식 정리
+  delete o.hwStatus;delete o.hwPct;delete o.hwDeferTo;
+  if(sched){delete o.done;delete o.doneBy;delete o.doneAt;}
+  else{delete o.completedAt;delete o.completedBy;}
+  if(v){
+    o.hwStatus=v;
+    if(v==='done'){
+      if(sched){o.done=true;o.doneBy='teacher';o.doneAt=new Date().toISOString();}
+      else{o.completedAt=new Date().toISOString();o.completedBy='teacher';}
+    }
+    if(v==='part')o.hwPct=parseInt((sel.closest('.cl-hw-chk')||{}).querySelector?.('.cl-hw-pct')?.value,10)||50;
+    if(v==='defer'){
+      // 다음 수업일로 넘긴다 (클래스 요일 기준, 없으면 내일)
+      const cid=document.getElementById('cl-class-id')?.value||'';
+      const c=(DB.classes()||[]).find(x=>x.id===cid)||(DB.classes()||[]).find(x=>(x.studentIds||[]).includes(a.sid));
+      const nd=c&&typeof _nextClassDay==='function'
+        ?_nextClassDay(ds,c.days||[],new Set(c.skipDates||[]),new Set(c.extraDates||[])):'';
+      o.hwDeferTo=nd||ppShiftDate(ds,1);
+    }
+  }
+  try{await supaUpsert('assignments',a.id,a,a.sid);}
+  catch(e){
+    Object.assign(o,prev);                       // 저장 실패 시 되돌린다
+    console.error('clHwSetStatus:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;
+  }
+  const wrap=sel.closest('.cl-hw-chk');
+  if(wrap){
+    if(sel.value!==v)sel.value=v;
+    wrap.classList.toggle('on',v==='done');
+    wrap.classList.toggle('part',!!v&&v!=='done');
+    const pc=wrap.querySelector('.cl-hw-pct');if(pc)pc.style.display=(v==='part')?'':'none';
+    const n=wrap.querySelector('.cl-hw-n');
+    if(n)n.textContent=v?(ppHwStatusLabel(a,sched?o:null)||PP_HW_STATUS[v].name):'했으면 상태를 골라 주세요';
+    let undo=wrap.querySelector('.cl-hw-undo');
+    if(v&&!undo){
+      undo=document.createElement('button');undo.type='button';undo.className='cl-hw-undo';
+      undo.textContent='되돌리기';undo.title='미처리로 되돌리기';
+      undo.onclick=()=>clHwSetStatus(sel,aid,ds,sched,'');
+      wrap.appendChild(undo);
+    }else if(!v&&undo)undo.remove();
+  }
+  toast(v==='defer'?('다음 수업('+(o.hwDeferTo||'')+')으로 넘겼어요')
+    :(v?(PP_HW_STATUS[v].name+'으로 표시했어요'):'미처리로 되돌렸어요'));
+}
+async function clHwSetPct(inp,aid,ds,sched){
+  const sel=inp.closest('.cl-hw-chk')?.querySelector('.cl-hw-st');
+  if(sel)await clHwSetStatus(sel,aid,ds,sched,'part');
+}
+// 이 요일의 숙제를 전부 완료로 (B5) — 예외만 뒤에 바꾸면 된다
+async function clHwAllDone(groupEl){
+  const rows=[...groupEl.querySelectorAll('.cl-hw-chk')];
+  if(!rows.length)return toast('확인할 숙제가 없어요');
+  let n=0;
+  for(const r of rows){
+    const sel=r.querySelector('.cl-hw-st');
+    if(!sel||sel.value==='done')continue;
+    await clHwSetStatus(sel,r.dataset.aid,r.dataset.date,r.dataset.sched==='true','done');
+    n++;
+  }
+  toast(n?(n+'건을 완료로 표시했어요 — 예외만 바꿔 주세요'):'이미 모두 완료예요');
+}
+// 수업 기록 폼에서 바로 완료 토글 (이전 방식 — 다른 곳에서 부를 수 있어 남겨 둔다)
 async function clHwCheck(btn,aid,ds,sched){
   const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
   let on;
@@ -15393,7 +15518,7 @@ function clHwMakeDateGroup(dateStr,parentEl){
   group.style.cssText='margin-bottom:12px;border-radius:var(--rs);overflow:hidden;border:1.5px solid var(--navy)';
   const header=document.createElement('div');
   header.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--navy);color:#fff';
-  header.innerHTML=`<span style="font-size:16px;font-weight:700">${dayLabel}요일</span><span style="font-size:13px;opacity:.55;font-family:var(--fm)">${dateStr}</span><button type="button" onclick="clHwAddToGroup(this.closest('.cl-hw-date-group'))" class="cl-hw-add-btn" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">+ 과제 추가</button><button type="button" onclick="clHwCopyGroupToOthers(this.closest('.cl-hw-date-group'))" class="cl-hw-copy-btn" title="이 요일의 과제 구성을 다른 모든 요일에 복사" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">⧉ 다른 요일에 복사</button><button type="button" onclick="clHwToggleSkip(this.closest('.cl-hw-date-group'))" class="cl-hw-skip-btn" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:20px;color:rgba(255,255,255,.7);font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">생략</button>`;
+  header.innerHTML=`<span style="font-size:16px;font-weight:700">${dayLabel}요일</span><span style="font-size:13px;opacity:.55;font-family:var(--fm)">${dateStr}</span><button type="button" onclick="clHwAddToGroup(this.closest('.cl-hw-date-group'))" class="cl-hw-add-btn" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">+ 과제 추가</button><button type="button" onclick="clHwCopyGroupToOthers(this.closest('.cl-hw-date-group'))" class="cl-hw-copy-btn" title="이 요일의 과제 구성을 다른 모든 요일에 복사" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">⧉ 다른 요일에 복사</button><button type="button" onclick="clHwAllDone(this.closest('.cl-hw-date-group'))" class="cl-hw-alldone-btn" title="이 요일 숙제를 전부 완료로 — 예외만 뒤에 바꾸면 됩니다" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">✓ 모두 완료</button><button type="button" onclick="clHwToggleSkip(this.closest('.cl-hw-date-group'))" class="cl-hw-skip-btn" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:20px;color:rgba(255,255,255,.7);font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">생략</button>`;
   const body=document.createElement('div');
   body.className='cl-hw-group-body';
   body.style.cssText='display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:var(--cream2)';
@@ -15572,6 +15697,7 @@ function addClHwRow(dateStr,isCommon,prefillCat='',prefillBook='',prefillRange='
 }
 
 async function saveClassLesson(){
+  if(typeof clClearDirty==='function')setTimeout(clClearDirty,0);
   const classId=document.getElementById('cl-class-id').value;
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const date=document.getElementById('cl-date').value;
