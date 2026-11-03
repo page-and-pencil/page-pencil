@@ -8435,7 +8435,7 @@ function renderExamList(){
         +'<td>'+escAttr(e.grade||'')+'</td>'
         +'<td class="sl-dim">'+escAttr((e.year||'')+' '+(e.semester||1)+'학기 '+(PP_EXAM_ROUND[e.round]||''))+'</td>'
         +'<td><span class="ex-status '+st.c+'"'+(stTip?' title="'+escAttr(stTip)+'"':'')+'>'+st.t+'</span></td>'
-        +'<td class="sl-num">'+escAttr(e.noExam?'—':(e.examDate||''))+'</td>'
+        +'<td class="sl-num">'+escAttr((e.noExam||!e.examDate)?'—':e.examDate)+'</td>'
         +'<td class="sl-num">'+dd+'</td>'
         +'<td class="sl-dim" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escAttr(sc.join(' / '))+'">'
           +(sc.length?escAttr(sc[0])+(sc.length>1?' 외 '+(sc.length-1)+'건':''):'—')+'</td>'
@@ -8462,6 +8462,16 @@ function examToggleNoExam(){
   const on=document.getElementById('ex-noexam').checked;
   const w=document.getElementById('ex-noexam-note-wrap');if(w)w.style.display=on?'':'none';
   const sc=document.getElementById('ex-scope-wrap');if(sc)sc.style.display=on?'none':'';
+  examToggleStatus();
+}
+// 상태에 따라 영어 시험일이 필수인지 알려 준다 (예정은 비워도 저장된다)
+function examToggleStatus(){
+  const lb=document.getElementById('ex-date-lbl');if(!lb)return;
+  const noExam=!!(document.getElementById('ex-noexam')||{}).checked;
+  const planned=(document.getElementById('ex-status')||{}).value==='planned';
+  lb.textContent=(noExam||planned)
+    ?'영어 시험일 (아직 몰라도 비워 둘 수 있어요)'
+    :'영어 시험일 (확정 일정은 필수)';
 }
 function examAddTbRow(title,units){
   const box=document.getElementById('ex-tb-rows');if(!box)return;
@@ -8505,7 +8515,7 @@ function openExamEdit(id){
   }
   const del=document.getElementById('ex-del-btn');
   if(del)del.style.display=e?'':'none';
-  examToggleNoExam();
+  examToggleNoExam();   // 안에서 examToggleStatus 도 함께 부른다
   openM('m-exam');
 }
 async function saveExam(){
@@ -8515,7 +8525,15 @@ async function saveExam(){
   if(!grade){toast('학년을 입력해 주세요');return;}
   const noExam=document.getElementById('ex-noexam').checked;
   const examDate=g('ex-date');
-  if(!noExam&&!examDate){toast('영어 시험일을 입력해 주세요');return;}
+  const status=(g('ex-status')==='planned')?'planned':'confirmed';
+  // 확정은 시험일이 있어야 한다(D-day 와 직결 기간 전환의 근거).
+  // 예정은 기간만 알고 영어 시험일을 아직 모르는 상태이므로 비워도 저장한다.
+  if(!noExam&&status==='confirmed'&&!examDate){
+    toast('확정 일정은 영어 시험일이 필요합니다. 아직 모르면 상태를 예정으로 두세요');return;
+  }
+  if(!noExam&&status==='planned'&&!examDate&&!g('ex-from')&&!g('ex-to')){
+    toast('시험일이나 시험 기간 중 하나는 입력해 주세요');return;
+  }
   const tbs=[...document.querySelectorAll('#ex-tb-rows .ex-tb-row')].map(r=>{
     const title=String((r.querySelector('.ex-tb-title')||{}).value||'').trim();
     const units=String((r.querySelector('.ex-tb-units')||{}).value||'').split(',').map(x=>x.trim()).filter(Boolean);
@@ -8533,7 +8551,7 @@ async function saveExam(){
     examDate:noExam?'':examDate,
     periodFrom:g('ex-from'),periodTo:g('ex-to'),
     noExam,noExamNote:noExam?(g('ex-noexam-note')||'수행평가 100%'):'',
-    status:(g('ex-status')==='planned')?'planned':'confirmed',
+    status,
     source:g('ex-source'),checkedAt:g('ex-checked'),
     scope:{textbooks:tbs,extra},
     memo:g('ex-memo'),_deleted:false};

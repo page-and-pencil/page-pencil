@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261102a">
-<link rel="stylesheet" href="css/style.css?v=20261103i">
+<link rel="stylesheet" href="css/style.css?v=20261104b">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -2301,14 +2301,14 @@
         <select id="ex-semester"><option value="1">1학기</option><option value="2">2학기</option></select></div>
       <div class="f"><label>회차</label>
         <select id="ex-round"><option value="1">1회고사</option><option value="2">2회고사</option></select></div>
-      <div class="f"><label>영어 시험일</label>
+      <div class="f"><label id="ex-date-lbl">영어 시험일</label>
         <input type="date" id="ex-date"></div>
       <div class="f"><label>시험 기간 시작 <span style="font-weight:400;color:var(--neutral)">(선택)</span></label>
         <input type="date" id="ex-from"></div>
       <div class="f"><label>시험 기간 끝 <span style="font-weight:400;color:var(--neutral)">(선택)</span></label>
         <input type="date" id="ex-to"></div>
       <div class="f"><label>일정 상태</label>
-        <select id="ex-status">
+        <select id="ex-status" onchange="examToggleStatus()">
           <option value="confirmed">확정 — 학교에서 확인함</option>
           <option value="planned">예정 — 아직 확인 전</option>
         </select></div>
@@ -2317,7 +2317,8 @@
       <div class="f" style="grid-column:span 2"><label>출처 <span style="font-weight:400;color:var(--neutral)">(어디서 확인했는지)</span></label>
         <input type="text" id="ex-source" placeholder="예) 학교 홈페이지 가정통신문 / 학생 전달"></div>
       <div class="f" style="grid-column:span 2;font-size:12.5px;color:var(--text-muted);line-height:1.5">
-        확정으로 둔 일정만 직결 기간 전환에 쓰입니다. 예정은 목록에만 표시되고 D-day를 만들지 않습니다.</div>
+        확정으로 둔 일정만 직결 기간 전환에 쓰입니다. 예정은 목록에만 표시되고 D-day를 만들지 않습니다.<br>
+        영어 시험일을 아직 모르면 상태를 예정으로 두고 시험 기간만 넣어 두세요.</div>
     </div>
     <div class="f" style="margin-top:4px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -2377,11 +2378,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261103i"></script>
+<script src="js/utils.js?v=20261104b"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261103i"></script>
-<script src="js/teacher.js?v=20261103i"></script>
-<script src="js/student.js?v=20261103i"></script>
-<script src="js/parent.js?v=20261103i"></script>
+<script src="js/db.js?v=20261104b"></script>
+<script src="js/teacher.js?v=20261104b"></script>
+<script src="js/student.js?v=20261104b"></script>
+<script src="js/parent.js?v=20261104b"></script>
 </body>
 </html>
