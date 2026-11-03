@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261102a">
-<link rel="stylesheet" href="css/style.css?v=20261104d">
+<link rel="stylesheet" href="css/style.css?v=20261104e">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -456,6 +456,14 @@
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none">
                 <input type="checkbox" id="ts-absent" style="width:auto;min-height:0">
                 <span style="font-weight:400">미응시 (보지 않음) — 불합격과 구분해 기록합니다</span></label>
+            </div>
+            <div class="f" id="ts-unit-wrap" style="display:none">
+              <label>재시험 범위 <span style="color:var(--slate);font-weight:400">— 미응시는 틀린 단어가 없어요. 다시 볼 범위를 고르세요</span></label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                <select id="ts-unit-book" onchange="tsUnitBookChange()" style="flex:2;min-width:150px"></select>
+                <select id="ts-unit-sel" style="flex:1.4;min-width:120px"></select>
+                <button class="btn bo bsm" onclick="tsLoadUnitWords()" style="white-space:nowrap">단어 불러오기</button>
+              </div>
             </div>
             <div class="f"><label>전체 단어 (쉼표 구분) <span style="color:var(--slate);font-weight:400">— 단어장 저장용</span></label><input type="text" id="ts-allwords" placeholder="quickly, enormous, vast, ..."></div>
             <div class="f"><label>틀린 단어 (쉼표 구분)</label><input type="text" id="ts-wr" placeholder="quickly, enormous"></div>
@@ -2380,11 +2388,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261104d"></script>
+<script src="js/utils.js?v=20261104e"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261104d"></script>
-<script src="js/teacher.js?v=20261104d"></script>
-<script src="js/student.js?v=20261104d"></script>
-<script src="js/parent.js?v=20261104d"></script>
+<script src="js/db.js?v=20261104e"></script>
+<script src="js/teacher.js?v=20261104e"></script>
+<script src="js/student.js?v=20261104e"></script>
+<script src="js/parent.js?v=20261104e"></script>
 </body>
 </html>
