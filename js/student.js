@@ -2889,10 +2889,12 @@ function renderStudentHome(sid){
   {const stu2=DB.stus().find(s=>s.id===sid);const p2=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu2):null;window._hwChPrev=p2?p2.total:0;}
   // 홈의 주인공은 '오늘 해야 할 학습'. 기간·다음 평가는 그 아래에 둔다.
   const trackHtml=(typeof ppTrackLineHtml==='function')?ppTrackLineHtml(stu):'';
+  const goalHtml=(typeof ppGoalsHtml==='function')?ppGoalsHtml(stu,{max:2}):'';
   const examHtml=(typeof ppExamCardHtml==='function')?ppExamCardHtml(stu,{compact:true}):'';
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
     ${hwSection}
     ${trackHtml}
+    ${goalHtml}
     ${examHtml}
     ${hwChHtml}
     ${stuBossCard(sid)}

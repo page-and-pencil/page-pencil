@@ -8594,6 +8594,108 @@ async function delNeltResult(sid,nid){
   const idx=_cache.students.findIndex(s=>s.id===sid);if(idx>=0)_cache.students[idx]=updated;
   renderSpSummary(currentSpStuId,'month');toast('삭제됨');
 }
+// ── 학습 목표 (2단계) ────────────────────────────────────────
+// 관찰 가능한 문장 + 확인 기준을 함께 적는다. 확인은 선생님이 직접 표시한다.
+function spGoalsHtml(sid){
+  const stu=DB.stus().find(x=>x.id===sid);if(!stu)return '';
+  const list=(typeof ppGoalsFor==='function')?ppGoalsFor(stu):[];
+  const now=list.filter(g=>g._current), past=list.filter(g=>!g._current);
+  const esc=x=>escAttr(x==null?'':x);
+  const row=g=>{
+    const tn=(typeof ppGoalTrackName==='function')?ppGoalTrackName(g.track):'';
+    const st=(typeof PP_GOAL_STATUS!=='undefined'&&PP_GOAL_STATUS[g.status||'active'])||'진행 중';
+    const stCls=g.status==='met'?'is-met':(g.status==='notmet'?'is-notmet':'is-active');
+    return '<div class="gl-row" onclick="openGoalEdit(\''+g.id+'\',\''+sid+'\')">'
+      +'<div class="gl-top">'
+        +(tn?'<span class="gl-track tr-'+esc(g.track)+'">'+esc(tn)+'</span>':'')
+        +(g.area?'<span class="gl-area">'+esc(g.area)+'</span>':'')
+        +(g.classId?'<span class="gl-area">반 공통</span>':'')
+        +'<span class="gl-st '+stCls+'">'+esc(st)+'</span>'
+        +'<span class="gl-date">'+esc((g.from||'').slice(5))+(g.to?' ~ '+esc((g.to||'').slice(5)):'')+'</span>'
+      +'</div>'
+      +'<div class="gl-goal">'+esc(g.goal||'')+'</div>'
+      +(g.criteria?'<div class="gl-cri">확인 기준 · '+esc(g.criteria)+'</div>':'')
+      +(g.checkNote?'<div class="gl-cri">확인 메모 · '+esc(g.checkNote)+'</div>':'')
+    +'</div>';
+  };
+  const body=now.length?now.map(row).join('')
+    :'<div class="sp-prog-empty">지금 적용 중인 목표가 없습니다</div>';
+  const pastHtml=past.length
+    ? '<details class="gl-past"><summary>지난 목표 '+past.length+'건</summary>'+past.map(row).join('')+'</details>'
+    : '';
+  return '<div class="card" style="margin-bottom:16px">'
+    +'<div class="ch"><span class="ct">'+(luIcon('target',16)||'')+'학습 목표</span>'
+      +'<button class="btn bo bxxs" onclick="event.stopPropagation();openGoalEdit(\'\',\''+sid+'\')">+ 목표</button></div>'
+    +'<div class="cb" style="padding:12px 14px">'+body+pastHtml+'</div></div>';
+}
+function openGoalEdit(id,sid){
+  const g=id?((typeof DB.goals==='function'?DB.goals():[]).find(x=>x.id===id)||null):null;
+  const v=(k,val)=>{const el=document.getElementById(k);if(el)el.value=val==null?'':val;};
+  document.getElementById('goal-mt').textContent=g?'학습 목표 수정':'학습 목표 추가';
+  v('gl-id',g?g.id:'');
+  v('gl-sid',sid||(g?g.sid:''));
+  v('gl-track',g?(g.track||'ch'):'ch');
+  v('gl-area',g?(g.area||''):'');
+  v('gl-goal',g?g.goal:'');
+  v('gl-criteria',g?g.criteria:'');
+  const today=(typeof ppToday==='function')?ppToday():'';
+  v('gl-from',g?g.from:today);
+  v('gl-to',g?g.to:(typeof ppShiftDate==='function'?ppShiftDate(today,6):''));
+  v('gl-status',g?(g.status||'active'):'active');
+  v('gl-note',g?g.checkNote:'');
+  const cb=document.getElementById('gl-class');
+  if(cb){
+    const cls=DB.classes().find(c=>c.active!==false&&(c.studentIds||[]).includes(sid));
+    cb.checked=!!(g&&g.classId);
+    cb.disabled=!cls;
+    const lb=document.getElementById('gl-class-lbl');
+    if(lb)lb.textContent=cls?('이 반 전체에 같은 목표 ('+cls.name+')'):'소속 반이 없어 반 공통 목표를 쓸 수 없습니다';
+  }
+  const del=document.getElementById('gl-del-btn');
+  if(del)del.style.display=g?'':'none';
+  openM('m-goal');
+}
+async function saveGoal(){
+  const g=k=>{const el=document.getElementById(k);return el?String(el.value||'').trim():'';};
+  const goal=g('gl-goal');
+  if(!goal){toast('목표를 입력해 주세요');return;}
+  const sid=g('gl-sid');
+  const useClass=!!(document.getElementById('gl-class')||{}).checked;
+  const cls=useClass?DB.classes().find(c=>c.active!==false&&(c.studentIds||[]).includes(sid)):null;
+  const id=g('gl-id')||('gl'+Date.now().toString(36));
+  const prev=(typeof DB.goals==='function'?DB.goals():[]).find(x=>x.id===id)||{};
+  const status=g('gl-status')||'active';
+  const rec={...prev,id,
+    sid:cls?'':sid, classId:cls?cls.id:'',
+    track:g('gl-track')||'ch', area:g('gl-area'),
+    goal, criteria:g('gl-criteria'),
+    from:g('gl-from'), to:g('gl-to'),
+    status,
+    // 확인한 날은 달성/미달로 표시할 때만 남긴다 (진행 중은 미평가)
+    checkedAt:(status==='active')?'':((prev.checkedAt&&prev.status===status)?prev.checkedAt:((typeof ppToday==='function')?ppToday():'')),
+    checkNote:g('gl-note'),
+    _deleted:false};
+  try{ await supaUpsert('learning_goals',id,rec,rec.sid||null); }
+  catch(err){ return; }
+  const arr=_cache.learningGoals||(_cache.learningGoals=[]);
+  const i=arr.findIndex(x=>x.id===id);
+  if(i>=0)arr[i]=rec; else arr.push(rec);
+  closeM('m-goal');
+  if(typeof renderSpSummary==='function'&&currentSpStuId)renderSpSummary(currentSpStuId,'month');
+  toast('학습 목표를 저장했습니다');
+}
+function deleteGoal(){
+  const id=String((document.getElementById('gl-id')||{}).value||'');
+  if(!id)return;
+  askConfirm('학습 목표 삭제','이 목표를 삭제할까요? (휴지통에서 복원할 수 있어요)','삭제','bd',async()=>{
+    try{ await supaTrash('learning_goals',_cache.learningGoals||[],id); }
+    catch(err){ return; }
+    _cache.learningGoals=(_cache.learningGoals||[]).filter(x=>x.id!==id);
+    closeM('m-goal');
+    if(typeof renderSpSummary==='function'&&currentSpStuId)renderSpSummary(currentSpStuId,'month');
+    toast('휴지통으로 보냈어요');
+  });
+}
 function renderSpSummary(sid,period,from,to){
   const el=document.getElementById('sp-summary');if(!el)return;
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
@@ -8667,6 +8769,7 @@ function renderSpSummary(sid,period,from,to){
       <input type="date" id="sp-sum-to" value="${to||''}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;background:var(--cream);outline:none">
       <button class="btn bt bsm" onclick="renderSpSummary('${sid}','custom',document.getElementById('sp-sum-from').value,document.getElementById('sp-sum-to').value)">적용</button>
     </div>`:''}
+    ${spGoalsHtml(sid)}
     ${(typeof ppBookPathHtml==='function'&&ppBookPathHtml(sid))?`<div class="card" style="margin-bottom:16px"><div class="ch"><span class="ct">${luIcon('book-open',16)}교재 여정</span><span style="font-size:12px;color:var(--slate)">끝낸 책 · 지금 · 다음</span></div><div class="cb" style="padding:14px 16px">${ppBookPathHtml(sid,{bare:true,edit:sid})}</div></div>`:''}
     <div class="strow" style="margin-bottom:16px">
       <div class="stc"><div class="stnum">${attended}</div><div class="stlbl">출석</div></div>

@@ -368,6 +368,45 @@ function ppTrackBadgeHtml(stu){
     +'</span>'+(t.needsSchedule?'<span class="track-need" title="이 학생의 학교·학년 시험 일정이 등록되지 않았습니다">일정 확인</span>':'');
 }
 
+// ── 학습 목표 ────────────────────────────────────────────────
+// 관찰 가능한 문장으로 적고, 확인 기준을 함께 둔다.
+// 확인하지 않은 목표는 '미평가'로 남는다 — 기간이 지나도 자동으로 달성 처리하지 않는다.
+const PP_GOAL_AREAS=['어휘','구문','독해','듣기','쓰기','말하기','어법','서술형','수행평가','기타'];
+const PP_GOAL_STATUS={active:'진행 중',met:'달성',notmet:'미달'};
+// 이 학생에게 적용되는 목표 — 본인 목표 + 소속 반의 공통 목표
+function ppGoalsFor(stu,todayStr){
+  if(!stu||typeof DB==='undefined'||typeof DB.goals!=='function')return [];
+  const today=todayStr||((typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10));
+  const myCls=(typeof DB.classes==='function'?DB.classes():[])
+    .filter(c=>c&&c.active!==false&&(c.studentIds||[]).includes(stu.id)).map(c=>c.id);
+  return DB.goals().filter(g=>g&&!g._deleted
+    &&((g.sid&&g.sid===stu.id)||(g.classId&&myCls.includes(g.classId))))
+    .map(g=>({...g,_current:(!g.from||g.from<=today)&&(!g.to||g.to>=today)}))
+    .sort((a,b)=>(b.from||'').localeCompare(a.from||''));
+}
+// 지금 기간에 걸려 있는 목표만
+function ppGoalsNow(stu,todayStr){return ppGoalsFor(stu,todayStr).filter(g=>g._current);}
+function ppGoalTrackName(t){
+  if(t==='common')return '공통';
+  return (typeof PP_TRACK!=='undefined'&&PP_TRACK[t])?PP_TRACK[t].name:'';
+}
+// 학생·학부모가 함께 보는 목표 줄. 확인 기준을 같이 보여 준다(무엇을 하면 되는지).
+function ppGoalsHtml(stu,opts){
+  const o=opts||{};
+  const list=ppGoalsNow(stu).slice(0,o.max||2);
+  if(!list.length)return '';
+  const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return '<div class="goal-box">'+list.map(g=>{
+    const tn=ppGoalTrackName(g.track);
+    const head='이번 주'+(tn?' '+tn:'')+' 목표';
+    return '<div class="goal-row">'
+      +'<div class="goal-h">'+esc(head)+(g.area?' <span class="goal-area">'+esc(g.area)+'</span>':'')+'</div>'
+      +'<div class="goal-t">'+esc(g.goal||'')+'</div>'
+      +(g.criteria?'<div class="goal-c">확인 기준 · '+esc(g.criteria)+'</div>':'')
+      +'</div>';
+  }).join('')+'</div>';
+}
+
 // ── 교재 여정 ────────────────────────────────────────────────
 // 끝낸 교재 / 지금 하는 교재 / 앞으로 할 교재를 영역별로 한 줄에 꿴다.
 // 데이터는 이미 다 있다 — 지나온 길은 수업 기록(lessons.materials)에, 앞길은

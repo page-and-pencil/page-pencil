@@ -71,7 +71,7 @@ const supa={
 // ── 인메모리 캐시 (Supabase → 로컬 캐시 → UI) ──
 const _cache={
   students:[],lessons:[],tests:[],readings:[],logs:[],
-  library:[],notices:[],settings:{},vocab_cards:[],homeworks:[],assignments:[],textbooks:[],messages:[],globalClasses:[],monthlyReports:[],examSchedules:[]
+  library:[],notices:[],settings:{},vocab_cards:[],homeworks:[],assignments:[],textbooks:[],messages:[],globalClasses:[],monthlyReports:[],examSchedules:[],learningGoals:[],examSchedules:[]
 };
 
 // ── DATA ──
@@ -87,6 +87,7 @@ const DB={
   kakao(){return _cache.settings.kakao||this.g('kakao')||{phone:'',openchat:''};},
   reports(){return _cache.monthlyReports||[];},
   exams(){return _cache.examSchedules||[];},
+  goals(){return _cache.learningGoals||[];},
 
   // 캐시에서 읽기
   stus(){return _cache.students;},
@@ -367,7 +368,7 @@ async function loadAllData(bg){
     // 'library' 테이블은 레거시(원서는 global_textbooks의 type='library'로 통합) — 더 이상 로드하지 않음
     // ⚠️ 아직 만들지 않은 테이블은 404가 난다. 기능은 빈 배열로 잘 돌지만 콘솔이 매번 빨개져
     // 진짜 오류를 가리므로, 한 번 404가 난 테이블은 이 세션 동안 다시 부르지 않는다.
-    const tables=['students','lessons','tests','readings','logs','notices','homeworks','assignments','textbooks','messages','global_textbooks','classes','monthly_reports','exam_schedules'];
+    const tables=['students','lessons','tests','readings','logs','notices','homeworks','assignments','textbooks','messages','global_textbooks','classes','monthly_reports','exam_schedules','learning_goals'];
     const res=await Promise.allSettled([
       ...tables.map(t=>t==='global_textbooks'?supaFetchAll(t,true):supaFetch(t,'',true)),
       supaGetSetting('acct'),supaGetSetting('pw'),
@@ -377,7 +378,7 @@ async function loadAllData(bg){
     // 모든 테이블 fetch가 실패하면(네트워크 단절/프로젝트 중단) 재시도 UI 노출
     if(tables.every((t,i)=>res[i].status==='rejected'))throw new Error('all table fetches failed');
     const val=i=>res[i].status==='fulfilled'?res[i].value:null;
-    const [stus,les,tsts,rds,logs,notices,hws,assigns,tbs,msgs,gtbs,clss,mrpts,exsch]=tables.map((t,i)=>val(i));
+    const [stus,les,tsts,rds,logs,notices,hws,assigns,tbs,msgs,gtbs,clss,mrpts,exsch,lgoals]=tables.map((t,i)=>val(i));
     // 설정 2건은 테이블 목록 뒤에 이어짐 (과거 고정 인덱스(13,14)는 오프바이원으로 acct/pw가 어긋나던 버그)
     const acct=val(tables.length),pw=val(tables.length+1);
     // 실패(null)한 테이블은 기존 캐시 유지 — 부분 실패가 데이터를 '사라진 것처럼' 비우지 않게
@@ -401,6 +402,7 @@ async function loadAllData(bg){
     _cache.globalClasses=keep(_cache.globalClasses,clss);
     _cache.monthlyReports=(mrpts||[]).map(r=>({...( r.data||r),_id:r.id,sid:r.sid,month:r.month}));
     _cache.examSchedules=keep(_cache.examSchedules,exsch);
+    _cache.learningGoals=keep(_cache.learningGoals,lgoals);
     if(acct)_cache.settings.acct=acct;
     if(pw){_cache.settings.pw=pw;DB.s('pw',pw);}
     const [apikey,cloud,kakao,eleven]=await Promise.all([supaGetSetting('apikey'),supaGetSetting('cloud'),supaGetSetting('kakao'),supaGetSetting('elevenlabs')]);

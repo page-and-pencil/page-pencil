@@ -2487,3 +2487,32 @@ body{font-size:14.5px;line-height:1.65;}
   .track-line{padding:10px 12px;gap:8px}
   .track-line .track-txt{font-size:13px}
 }
+
+/* ── 학습 목표 ──────────────────────────────────────────────── */
+.goal-box{margin:8px 0 10px}
+.goal-row{padding:10px 13px;border:1px solid var(--border);border-left:3px solid var(--accent);
+  border-radius:10px;background:var(--surface);margin-bottom:7px}
+.goal-h{font-size:11.5px;font-weight:800;color:var(--text-muted);letter-spacing:.2px;
+  display:flex;align-items:center;gap:6px}
+.goal-area{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:50px;
+  background:var(--nav-active);color:var(--text-muted)}
+.goal-t{font-size:14px;font-weight:700;color:var(--text);margin-top:4px;line-height:1.45}
+.goal-c{font-size:12px;color:var(--text-muted);margin-top:4px;line-height:1.45}
+.gl-row{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);
+  margin-bottom:8px;cursor:pointer}
+.gl-row:hover{border-color:var(--accent)}
+.gl-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px}
+.gl-track{font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:50px;
+  background:var(--nav-active);color:var(--text-muted)}
+.gl-track.tr-jg{background:var(--avatar-bg);color:var(--avatar-text)}
+.gl-area{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:50px;
+  background:var(--nav-active);color:var(--text-muted)}
+.gl-st{font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:50px}
+.gl-st.is-active{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
+.gl-st.is-met{background:var(--avatar-bg);color:var(--avatar-text)}
+.gl-st.is-notmet{background:transparent;color:var(--warning);border:1px solid var(--warning)}
+.gl-date{margin-left:auto;font-size:11px;color:var(--neutral);font-family:var(--fm)}
+.gl-goal{font-size:13.5px;font-weight:700;color:var(--text);line-height:1.45}
+.gl-cri{font-size:12px;color:var(--text-muted);margin-top:3px;line-height:1.45}
+.gl-past{margin-top:6px}
+.gl-past>summary{font-size:12.5px;font-weight:700;color:var(--text-muted);cursor:pointer;padding:4px 0}
