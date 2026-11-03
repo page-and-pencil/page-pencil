@@ -1543,7 +1543,13 @@ let _vgCombo=0;
 function _sfx(kind){
   try{
     const ctx=window._sfxCtx||(window._sfxCtx=new (window.AudioContext||window.webkitAudioContext)());
-    if(ctx.state==='suspended')ctx.resume();
+    // suspended 상태에서 예약하면 currentTime 이 얼어있어 소리가 못 나온다 → 기다렸다 연주
+    if(ctx.state==='suspended'){ctx.resume().then(()=>_sfxTones(ctx,kind)).catch(()=>{});return;}
+    _sfxTones(ctx,kind);
+  }catch(e){}
+}
+function _sfxTones(ctx,kind){
+  try{
     const t=ctx.currentTime;
     const notes=kind==='wrong'?[196]:kind==='combo'?[523,659,784,1047]:[523,784];
     notes.forEach((f,i)=>{
@@ -1616,10 +1622,25 @@ function renderListenCard(el){
   const prompt=`<div style="background:var(--tl);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px">
       <button onclick="speakWord('${card.word.replace(/'/g,"\\'")}')" style="width:74px;height:74px;border-radius:50%;border:none;background:var(--teal);color:#fff;font-size:30px;cursor:pointer;box-shadow:var(--sh)">🔊</button>
       <div style="font-size:13px;color:var(--slate);margin-top:8px">잘 듣고 맞는 단어를 고르세요 (버튼을 누르면 다시 들려요)</div>
+      <div id="vg-nosound" style="display:${window._ppNoSound?'block':'none'};margin-top:10px;font-size:13px;color:var(--warn);line-height:1.5">
+        소리가 나지 않네요. 음량과 무음 모드를 확인해 주세요.<br>
+        <button class="btn bo bxxs" style="margin-top:6px" onclick="_vgListenHint()">뜻을 보고 풀기</button>
+      </div>
+      <div id="vg-hint" style="display:none;margin-top:10px;font-size:18px;font-weight:700;color:var(--navy)"></div>
     </div>`;
   _vgRenderChoice(el,prompt,opts,opts.indexOf(String(card.word||'').trim()));
   setTimeout(()=>speakWord(card.word),150);
 }
+// 소리를 낼 수 없는 기기에서도 단계를 마칠 수 있게 — 뜻을 보여 ‘단어 고르기’로 풀게 한다
+function _vgListenHint(){
+  const card=deckState.cards[deckState.idx];if(!card)return;
+  const h=document.getElementById('vg-hint');if(!h)return;
+  h.textContent=card.meaning||'(뜻 미입력)';h.style.display='block';
+}
+// 재생 수단이 모두 막혔다는 알림을 받으면 듣기 문제에 안내를 드러낸다
+document.addEventListener('pp-no-sound',()=>{
+  const n=document.getElementById('vg-nosound');if(n)n.style.display='block';
+});
 // ── 게임: 철자 조립 (글자 타일을 순서대로 탭) ──
 function renderTilesCard(el){
   const card=deckState.cards[deckState.idx];
@@ -3214,15 +3235,13 @@ function showUnitWordPopup(event,word,ko,pos){
   popup._t=setTimeout(()=>{popup.style.display='none';},2800);
 }
 
-function startUnitTTS(){
+async function startUnitTTS(){
   const body=document.getElementById('unit-read-body');if(!body)return;
-  const text=body.innerText||'';if(!text.trim())return;
+  const text=(body.innerText||'').trim();if(!text)return;
   stopSpeak();
-  const u=new SpeechSynthesisUtterance(text);
-  u.lang='en-US';u.rate=0.85;if(_bestVoice)u.voice=_bestVoice;
   const btn=document.getElementById('tts-play-btn');if(btn)btn.textContent='▶ 재생 중...';
-  u.onend=u.onerror=()=>{if(btn)btn.textContent='▶ 듣기';};
-  window.speechSynthesis.speak(u);
+  await speakSmart(text,0.85); // 원어민 음원 → 브라우저 음성 사슬을 그대로 탄다
+  const b2=document.getElementById('tts-play-btn');if(b2)b2.textContent='▶ 듣기';
 }
 
 
@@ -4098,8 +4117,11 @@ async function playPassage(text,levelId,hiPrefix){
   if(tok!==_seqTok)return false;
   if(!buf||!times.length){
     // 폴백: 쉼 삽입 없이 자연 흐름 그대로 (하이라이트만 동기화)
-    return await new Promise(res=>{
-      const a=new Audio(pa.url);a._res=res;_elAudio=a;
+    const contOk=await new Promise(res=>{
+      const a=(typeof ppAudioEl==='function')?ppAudioEl():new Audio();
+      a._res=res;a._stop=()=>{a.onended=a.onerror=a.ontimeupdate=null;a._stop=null;clearHi();res(true);};
+      _elAudio=a;
+      a.muted=false;a.volume=1;a.playbackRate=1;
       // 속도는 이미 생성에 반영됨 → 1배속 재생 (피치 변형 없음)
       let idx=-1;
       a.ontimeupdate=()=>{
@@ -4107,9 +4129,14 @@ async function playPassage(text,levelId,hiPrefix){
         const t=a.currentTime;
         for(let i=0;i<times.length;i++){const tm=times[i];if(t>=tm.s-0.05&&t<=tm.e+0.25){if(i!==idx){idx=i;clearHi();const el=document.getElementById(hiPrefix+i);if(el){el.style.background='var(--tl)';el.scrollIntoView({behavior:'smooth',block:'center'});}}break;}}
       };
-      a.onended=a.onerror=()=>{clearHi();if(_elAudio===a)_elAudio=null;res(true);};
-      a.play().catch(()=>res(false));
+      const fin=ok=>{a.onended=a.onerror=a.ontimeupdate=null;a._stop=null;clearHi();if(_elAudio===a)_elAudio=null;res(ok);};
+      a.onended=()=>fin(true);
+      a.onerror=()=>fin(false);   // 주소가 끊긴 경우 → 아래에서 문장별 읽기로 내려간다
+      a.src=pa.url;
+      a.play().catch(()=>fin(false));
     });
+    if(contOk)return true;
+    return tok===_seqTok?speakSentences(text,levelId,hiPrefix):false;
   }
   // 구간 스케줄 재생: 각 문장은 다음 문장 시작 직전(자연 여운 포함)까지 통째로
   // 속도는 생성에 이미 반영 → WebAudio는 항상 1배속 (playbackRate 감속은 피치가 떨어짐)

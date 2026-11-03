@@ -155,8 +155,13 @@ async function testElevenTts(){
   if(!ok){if(el)el.innerHTML='<span style="color:var(--coral)">API Key를 먼저 입력해 주세요</span>';return;}
   if(el)el.innerHTML='<span style="color:var(--slate)">생성·재생 중... (첫 재생은 1~2초 걸려요)</span>';
   try{
-    await speakSmart('Hello! Welcome to Page and Pencil. Reading is fun!');
-    if(el)el.innerHTML='<span style="color:var(--tealt)">✅ 재생 완료 — 이 목소리로 앱 전체 음성이 나갑니다 (문장은 1회 생성 후 캐시)</span>';
+    window._lastSpeakEngine='';
+    const ok=await speakSmart('Hello! Welcome to Page and Pencil. Reading is fun!');
+    // 어떤 수단으로 났는지 그대로 말한다 — 예전엔 브라우저 기본음으로 나도 ✅ 가 떴다
+    const eng=window._lastSpeakEngine;
+    if(ok&&eng==='eleven')el.innerHTML='<span style="color:var(--tealt)">✅ 재생 완료 — 이 목소리로 앱 전체 음성이 나갑니다 (문장은 1회 생성 후 캐시)</span>';
+    else if(ok)el.innerHTML='<span style="color:var(--warn)">⚠️ 소리는 났지만 <b>브라우저 기본음</b>입니다 — ElevenLabs 음성이 아닙니다. 키·크레딧을 확인해 주세요</span>';
+    else el.innerHTML='<span style="color:var(--coral)">❌ 아무 소리도 나지 않았습니다 — 기기 음량·무음 모드와 키를 확인해 주세요</span>';
   }catch(e){
     if(el)el.innerHTML='<span style="color:var(--coral)">❌ 실패: '+(e.message||'')+' — 키/크레딧을 확인해 주세요</span>';
   }

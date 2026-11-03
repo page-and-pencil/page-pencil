@@ -553,9 +553,11 @@ function stopSmartAudio(){
   _speakGen++; // 진행 중이던 생성→재생 체인 무효화 (닫기 후 늦게 도착한 오디오 차단)
   try{
     if(_elAudio){
-      const r=_elAudio._res;
-      _elAudio.onended=null;_elAudio.onerror=null;_elAudio.pause();_elAudio=null;
-      if(r)r(); // 정지 시 대기 중인 재생 프라미스도 즉시 해제
+      const a=_elAudio;_elAudio=null;
+      // 사용자가 끈 것은 '소리를 못 낸 것'이 아니다 → true 로 풀어 폴백을 타지 않게 한다
+      if(a._stop)a._stop();
+      else{a.onended=a.onerror=a.onplaying=a.ontimeupdate=null;if(a._res)a._res(true);}
+      try{a.pause();}catch(e){}
     }
   }catch(e){}
   try{if(window._waStop)window._waStop();}catch(e){} // WebAudio 구간 재생 정지
@@ -661,21 +663,83 @@ async function elevenGetPassageAudio(text,cfg,genSpeed){
   if(url)supaUpsert('tts_cache',id,data).catch(()=>{});
   return data;
 }
+// ── 소리 잠금 해제 (모바일) ───────────────────────────
+// 폰 브라우저는 "사용자가 화면을 누른 그 순간"에 시작한 재생만 허용한다.
+// 우리는 음원을 받아온 다음(await)에 play() 하므로 그 자격을 잃어 조용히 거부된다.
+// → 첫 탭에서 오디오 요소 하나를 무음으로 열어 둔 뒤, 그 뒤 모든 재생에 그 요소를 다시 쓴다.
+const PP_SILENT_WAV='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+let _ppAudio=null,_ppUnlocked=false;
+function ppAudioEl(){
+  if(!_ppAudio){
+    _ppAudio=new Audio();
+    _ppAudio.preload='auto';
+    try{_ppAudio.setAttribute('playsinline','');}catch(e){}
+  }
+  return _ppAudio;
+}
+function ppUnlockAudio(){
+  if(_ppUnlocked)return;
+  _ppUnlocked=true;
+  try{
+    const a=ppAudioEl();
+    a.src=PP_SILENT_WAV;
+    const pr=a.play();
+    if(pr&&pr.then)pr.then(()=>{try{a.pause();}catch(e){}},()=>{_ppUnlocked=false;}); // 다시 눌렀을 때 재시도
+  }catch(e){_ppUnlocked=false;}
+  // 효과음·본문 재생에 쓰는 WebAudio 컨텍스트도 같은 제스처에서 깨운다
+  try{['_sfxCtx','_waCtx'].forEach(k=>{const c=window[k];if(c&&c.state==='suspended')c.resume();});}catch(e){}
+  // iOS 음성합성은 제스처 안에서 한 번 불러 두어야 이후 호출이 통한다
+  try{if('speechSynthesis' in window){const u=new SpeechSynthesisUtterance(' ');u.volume=0;window.speechSynthesis.speak(u);}}catch(e){}
+}
+['pointerdown','touchstart','keydown','click'].forEach(ev=>{
+  try{document.addEventListener(ev,ppUnlockAudio,{capture:true,passive:true});}catch(e){}
+});
+// 사전 음원·ElevenLabs·브라우저 음성이 모두 막혔을 때 — 학생이 이유를 모른 채 멈추지 않게 한다
+let _noSoundShown=false;
+function ppNoSoundHint(){
+  window._ppNoSound=true;
+  const n=document.getElementById('vg-nosound');if(n)n.style.display='block';
+  try{document.dispatchEvent(new CustomEvent('pp-no-sound'));}catch(e){}
+  if(_noSoundShown)return;
+  _noSoundShown=true;
+  if(typeof toast==='function')toast('소리가 나오지 않아요 — 음량과 무음 모드를 확인해 주세요');
+}
+// 진짜로 소리가 났는지 알려 주는 재생기.
+// true = 끝까지 재생됨(또는 사용자가 정지) / false = 소리를 내지 못함
+// 예전엔 이 구분이 없어 주소가 끊긴 사전 음원도 "재생됨"으로 처리되어
+// 다음 수단(브라우저 음성)으로 넘어가지 못한 채 그대로 조용했다.
 function _playUrl(url,elRate){
   return new Promise(res=>{
-    const a=new Audio(url);a._res=res;_elAudio=a;
+    const a=ppAudioEl();a._res=res;_elAudio=a;
+    let done=false,started=false,guard=null;
+    const fin=ok=>{
+      if(done)return;done=true;clearTimeout(guard);
+      a.onended=a.onerror=a.onplaying=a.ontimeupdate=null;a._stop=null;
+      if(_elAudio===a)_elAudio=null;
+      res(ok);
+    };
+    a._stop=()=>fin(true);
+    a.onplaying=()=>{started=true;};
+    a.onended=()=>fin(true);
+    a.onerror=()=>fin(false);
+    a.ontimeupdate=null;             // 지나간 본문 하이라이트 핸들러 제거 (요소 공유)
+    a.muted=false;a.volume=1;
+    a.src=url;
     const r=Math.min(1.3,Math.max(0.7,elRate||1));
     if(r!==1){
       try{a.preservesPitch=true;a.mozPreservesPitch=true;a.webkitPreservesPitch=true;}catch(e){} // 감속해도 음높이 유지
       a.playbackRate=r; // 캐시는 1배속 원본 하나, 재생 배속만 조절 (재생성 없음)
-    }
-    a.onended=a.onerror=()=>{if(_elAudio===a)_elAudio=null;res();};
-    a.play().catch(()=>res());
+    }else a.playbackRate=1;
+    // 시작조차 안 되는 주소는 오래 기다리지 않고 다음 수단으로
+    guard=setTimeout(()=>{if(!started)fin(false);},5000);
+    a.play().catch(()=>fin(false));
   });
 }
+// 사전 음원 호스트가 막힐 때가 있다 — 두 번 헛돌면 그 세션은 바로 브라우저 음성으로
+let _dictFails=0;
 async function legacySpeak(text,rate){
   const clean=text.trim();
-  if(/^\w+$/.test(clean)){
+  if(/^\w+$/.test(clean)&&_dictFails<2){
     const key=clean.toLowerCase();
     if(_ttsCache[key]===undefined){
       try{
@@ -687,24 +751,50 @@ async function legacySpeak(text,rate){
       }catch{_ttsCache[key]='';}
     }
     if(_ttsCache[key]){
-      try{await _playUrl(_ttsCache[key],1);return;}catch(e){}
+      // 주소가 있어도 받아지지 않는 경우가 있다 → 정말 소리가 났는지 보고,
+      // 안 났으면 그 주소를 버리고 브라우저 음성으로 내려간다
+      if(await _playUrl(_ttsCache[key],1)){window._lastSpeakEngine='dict';return true;}
+      _ttsCache[key]='';_dictFails++;
     }
   }
-  if(!('speechSynthesis' in window))return;
-  window.speechSynthesis.cancel();
-  await new Promise(res=>{
-    const u=new SpeechSynthesisUtterance(clean);
-    u.lang='en-US';u.rate=rate;
-    if(_bestVoice)u.voice=_bestVoice;
-    // 음성 미지원/무음 환경에서 onend가 안 오는 경우 대비한 안전 타이머
-    const guard=setTimeout(res,Math.min(30000,2000+clean.length*90));
-    u.onend=u.onerror=()=>{clearTimeout(guard);res();};
-    window.speechSynthesis.speak(u);
+  const spoke=await browserSpeak(clean,rate);
+  window._lastSpeakEngine=spoke?'tts':'none';
+  return spoke;
+}
+// 브라우저 음성 — 마지막 수단. 말이 시작됐는지 확인하고, 시작되지 않았으면 한 번 다시 시도한다
+// (크롬은 cancel() 바로 뒤에 speak() 하면 큐가 멈춘 채 조용해지는 일이 있다)
+function browserSpeak(clean,rate){
+  if(!('speechSynthesis' in window)||!clean)return Promise.resolve(false);
+  const ss=window.speechSynthesis;
+  const gen=_speakGen,stopped=()=>gen!==_speakGen;
+  return new Promise(res=>{
+    let done=false,started=false,tries=0,guard=null,kick=null;
+    const fin=ok=>{if(done)return;done=true;clearTimeout(guard);clearTimeout(kick);res(ok);};
+    const go=()=>{
+      if(done)return;
+      tries++;
+      const u=new SpeechSynthesisUtterance(clean);
+      u.lang='en-US';u.rate=rate||0.85;
+      if(_bestVoice)u.voice=_bestVoice;
+      u.onstart=()=>{started=true;clearTimeout(kick);};
+      u.onend=()=>fin(started||stopped());
+      u.onerror=e=>{
+        if(stopped()||/interrupt|cancel/i.test((e&&e.error)||''))return fin(true);
+        if(tries<2){try{ss.cancel();}catch(_){}kick=setTimeout(go,150);}else fin(false);
+      };
+      try{ss.speak(u);}catch(e){return fin(false);}
+      clearTimeout(kick);
+      kick=setTimeout(()=>{if(started||done)return;if(stopped())return fin(true);if(tries<2){try{ss.cancel();}catch(_){}go();}else fin(false);},900);
+    };
+    // 음성 미지원/무음 환경에서 onend 가 안 오는 경우 대비한 안전 타이머
+    guard=setTimeout(()=>fin(started||stopped()),Math.min(30000,2500+clean.length*90));
+    try{ss.cancel();}catch(e){}
+    setTimeout(go,40); // cancel 직후 곧바로 speak 하면 조용해지는 크롬 버그 회피
   });
 }
 // rate: 숫자(레거시, 브라우저 TTS rate) 또는 {el, tts, word} 옵션 객체
 async function speakSmart(text,rate=0.85){
-  text=(text||'').trim();if(!text)return;
+  text=(text||'').trim();if(!text)return false;
   stopSmartAudio();
   const isObj=typeof rate==='object'&&rate;
   const wordMode=isObj&&!!rate.word;
@@ -715,13 +805,16 @@ async function speakSmart(text,rate=0.85){
   if(cfg&&text.length<=2500){
     try{
       const url=await elevenGetAudioUrl(text,cfg,wordMode);
-      if(gen!==_speakGen)return;
-      await _playUrl(url,elRate);
-      return;
+      if(gen!==_speakGen)return true;
+      // 캐시된 주소가 끊긴 경우도 있다 → 재생에 실패하면 다음 수단으로
+      if(await _playUrl(url,elRate)){window._lastSpeakEngine='eleven';return true;}
+      console.warn('ElevenLabs 음원 재생 실패 → 폴백');
     }catch(e){console.warn('ElevenLabs 실패 → 폴백:',e.message);}
   }
-  if(gen!==_speakGen)return;
-  await legacySpeak(text,ttsRate);
+  if(gen!==_speakGen)return true;
+  const ok=await legacySpeak(text,ttsRate);
+  if(!ok&&gen===_speakGen)ppNoSoundHint(); // 사전 음원·음성합성까지 모두 조용했다
+  return ok;
 }
 // 단어 발음: 고품질 모델 + 안정 발화 + 느린 재생(0.85×)으로 또박또박
 async function speakWord(text,rate){
