@@ -2220,3 +2220,14 @@ body{font-size:14.5px;line-height:1.65;}
 #s-parent .pp-sec-head{font-size:14px;font-weight:600;color:var(--text);}
 #s-parent .pp-tab .card:first-child{margin-top:0;}
 /* 과목 배지는 4영역 색을 유지 — 학생 화면과 같은 색으로 영역을 알아보게 한다 */
+
+/* 학생 상세 머리 — 400px 안에서 이름은 한 줄, 부제는 두 줄까지 */
+.sp-name{font-size:17px;font-weight:600;color:var(--text);letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sp-sub{font-size:12.5px;color:var(--text-muted);margin-top:3px;line-height:1.6;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.sp-empty-i{color:var(--neutral);}
+.stu-panel-header{padding:16px 18px;border-bottom:1px solid var(--divider);align-items:flex-start;}
+/* 상세 탭이 잘리지 않게 가로 스크롤 */
+#sp-detail-wrap .sp-tabs,#sp-detail-wrap>.ntabs,.sp-tab-row{overflow-x:auto;scrollbar-width:none;}
+#sp-detail-wrap .sp-tabs::-webkit-scrollbar{display:none;}
