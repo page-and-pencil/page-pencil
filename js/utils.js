@@ -378,6 +378,22 @@ function ppTrackChipHtml(track){
   return '<span class="tk-chip tr-'+track+'">'+name+'</span>';
 }
 
+// ── 점수 집계에 쓸 시험 고르기 ───────────────────────────────
+// 미응시(absent)는 0점이 아니라 '점수가 없는 것'이다. 평균·추이·하락 판정에서 뺀다.
+// 문항 수가 0인 행도 뺀다 — pct(0,0) 이 0% 를 돌려줘 평균을 끌어내린다.
+// 옛 행은 고치지 않고 읽을 때만 거른다 (미응시인데 어법 10문항이 박힌 행도 여기서 빠진다).
+function ppScored(list,field){
+  const tot=(field||'vocab')+'Total';
+  return (list||[]).filter(t=>t&&!t.absent&&(t[tot]||0)>0);
+}
+// 평균 퍼센트. 집계할 게 없으면 null — 0 이 아니다(화면들이 null 을 '—' 로 처리한다).
+function ppAvgPct(list,field){
+  const f=field||'vocab', rows=ppScored(list,f);
+  if(!rows.length)return null;
+  const c=f+'Correct', t=f+'Total';
+  return Math.round(rows.reduce((a,x)=>a+(x[c]||0)/x[t]*100,0)/rows.length);
+}
+
 // ── 어휘 재시험 ──────────────────────────────────────────────
 // 최초 시험과 재시험을 같은 묶음(chain)으로 묶되 각 기록은 따로 남긴다 — 원점수를 덮어쓰지 않는다.
 // 미응시(absent)와 불합격은 다른 상태다. 둘 다 '통과'가 아니지만 뜻이 다르다.

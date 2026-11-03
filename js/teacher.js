@@ -1095,7 +1095,7 @@ async function loadStuPanel(sid){
   const tsts=DB.tsts().filter(t=>t.sid===sid);
   const rds=DB.rds().filter(r=>r.sid===sid);
   const bks=rds.length;
-  const avg=tsts.length?Math.round(tsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/tsts.length):null;
+  const avg=ppAvgPct(tsts,'vocab');                  // 미응시 제외, 없으면 null
   const absCount=les.filter(l=>l.att==='absent').length;
   const lateCount=les.filter(l=>l.att==='late').length;
   const makeupCount=les.filter(l=>l.att==='makeup').length;
@@ -2926,7 +2926,12 @@ async function saveTst(){
     : 1;
   const newTst={id:uid(),sid,date:document.getElementById('ts-date').value,
     ...(_retestRoot&&{retestOf:_retestRoot}),attempt:_attempt,absent:_absent,passPct:_passPct,
-    vocabCorrect:_absent?0:vc,vocabTotal:_absent?0:vt,grammarCorrect:gc,grammarTotal:gt,readingCorrect:rc,readingTotal:rt,listeningCorrect:lc,listeningTotal:lt,allWords,wrongWords,grammarWeak:document.getElementById('ts-gweak').value.trim(),cmt:document.getElementById('ts-cmt').value.trim(),photoUrl:tstPhotoUrl};
+    // 미응시는 어느 영역도 보지 않은 것 → 네 영역 모두 0/0.
+    // (빈 칸이면 vt·gt 가 10 으로 채워져 '0/10' 이 저장되던 문제)
+    vocabCorrect:_absent?0:vc,vocabTotal:_absent?0:vt,
+    grammarCorrect:_absent?0:gc,grammarTotal:_absent?0:gt,
+    readingCorrect:_absent?0:rc,readingTotal:_absent?0:rt,
+    listeningCorrect:_absent?0:lc,listeningTotal:_absent?0:lt,allWords,wrongWords,grammarWeak:document.getElementById('ts-gweak').value.trim(),cmt:document.getElementById('ts-cmt').value.trim(),photoUrl:tstPhotoUrl};
   await supaUpsert('tests',newTst.id,newTst,sid);
   _cache.tests.unshift(newTst);
   // vocab_cards 자동 저장
@@ -2956,9 +2961,10 @@ function renderTstStats(){
   const el=document.getElementById('tst-stats');if(!el)return;
   const month=new Date().toISOString().slice(0,7);
   const monthT=DB.tsts().filter(t=>t.date&&t.date.startsWith(month));
-  const vAvg=monthT.length?Math.round(monthT.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/monthT.length):null;
-  const studentsTested=new Set(monthT.map(t=>t.sid)).size;
-  const lowCount=monthT.filter(t=>pct(t.vocabCorrect,t.vocabTotal)<60).length;
+  const scoredT=ppScored(monthT,'vocab');           // 미응시 제외
+  const vAvg=ppAvgPct(monthT,'vocab');
+  const studentsTested=new Set(scoredT.map(t=>t.sid)).size;
+  const lowCount=scoredT.filter(t=>pct(t.vocabCorrect,t.vocabTotal)<60).length;
   const card=(lbl,ico,icoCls,num,unit,color)=>`<div class="dash-stat"><div class="dash-stat-top"><span class="dash-stat-lbl">${lbl}</span><span class="dash-stat-ico ${icoCls}">${ico}</span></div><div class="dash-stat-num"${color?` style="color:${color}"`:''}>${num}${unit?`<small> ${unit}</small>`:''}</div></div>`;
   el.innerHTML=
     card('이번 달 테스트','✏️','',monthT.length,'건','')
@@ -2981,6 +2987,18 @@ function renderTst(){
   el.innerHTML=paged.map(t=>{
     const s=stus.find(x=>x.id===t.sid);
     const vp=pct(t.vocabCorrect,t.vocabTotal),gp=pct(t.grammarCorrect,t.grammarTotal);
+    // 미응시는 점수 칸을 보여 주지 않는다 — 0점과 구분된다
+    if(t.absent)return `<div class="ri">
+      <div class="ri-top">
+        <span style="font-weight:700">${s?s.name:'—'}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="badge">미응시</span>
+          <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${t.date||''}</span>
+          <button class="btn bo bsm" onclick="openEditTst('${t.id}')">수정</button>
+        </div>
+      </div>
+      ${t.cmt?`<div style="font-size:13px;color:var(--slate);margin-top:8px">${t.cmt}</div>`:''}
+    </div>`;
     return `<div class="ri">
       <div class="ri-top">
         <span style="font-weight:700">${s?s.name:'—'}</span>
@@ -8109,7 +8127,10 @@ async function generateReportDraft(){
     const attendNormal=les.filter(l=>!['absent','late'].includes(l.att||'normal')).length;
     const attendAbsent=les.filter(l=>l.att==='absent').length;
     // 테스트 요약
-    const tstSummary=tsts.length?tsts.map(t=>`[${t.date}] 단어 ${pct(t.vocabCorrect,t.vocabTotal)}% / 어법 ${pct(t.grammarCorrect,t.grammarTotal)}%${t.wrongWords?.length?' / 틀린 단어: '+t.wrongWords.slice(0,5).join(', '):''}${t.grammarWeak?' / 약점 어법: '+t.grammarWeak:''}`).join('\n'):'테스트 없음';
+    // 미응시는 0% 가 아니라 '미응시' 로 넘긴다 — AI 가 0점으로 읽지 않게
+    const tstSummary=tsts.length?tsts.map(t=>t.absent
+      ?`[${t.date}] 미응시`
+      :`[${t.date}] 단어 ${pct(t.vocabCorrect,t.vocabTotal)}% / 어법 ${pct(t.grammarCorrect,t.grammarTotal)}%${t.wrongWords?.length?' / 틀린 단어: '+t.wrongWords.slice(0,5).join(', '):''}${t.grammarWeak?' / 약점 어법: '+t.grammarWeak:''}`).join('\n'):'테스트 없음';
     // 원서/리딩로그
     const allBookSrc=[...DB.libs()];
     const rdSummary=rds.length?rds.map(r=>{const lib=allBookSrc.find(b=>b.title===r.title);const ar=r.arLevel||(lib&&(lib.ar||lib.arLevel))||'';return r.title+(ar?' (AR '+ar+')':'')+(r.progress?' ['+r.progress+']':'');}).join(', '):'없음';
@@ -8231,7 +8252,8 @@ function renderDash(){
   renderDashStats(recordedToday,todayClasses.length,uncheckedTotal,unpaidStus.length,stus.length);
   const scoreDrops=[];
   stus.forEach(s=>{
-    const sTsts=tsts.filter(t=>t.sid===s.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    // 미응시는 비교 대상이 아니다 — 끼면 0% 로 읽혀 가짜 하락 경보가 뜬다
+    const sTsts=ppScored(tsts.filter(t=>t.sid===s.id),'vocab').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     if(sTsts.length>=2){
       const cur=pct(sTsts[0].vocabCorrect,sTsts[0].vocabTotal);
       const prev=pct(sTsts[1].vocabCorrect,sTsts[1].vocabTotal);
@@ -8784,7 +8806,7 @@ function renderSpSummary(sid,period,from,to){
     +Object.keys(sickByMonthPeriod).length; // 보존: 선생님취소+휴강+병결월1회
   const total=les.length;
   const att=total?Math.round(attended/total*100):0;
-  const avgV=tsts.length?Math.round(tsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/tsts.length):null;
+  const avgV=ppAvgPct(tsts,'vocab');                 // 미응시 제외, 없으면 null
 
   // 교재 진도 집계 (교재와 원서 분리)
   const tbMap={},rdMap={};
@@ -11335,9 +11357,12 @@ function renderStudentMyInfo(sid){
       <div class="cb" style="padding:0">
         ${tsts.slice(0,5).map(t=>{
           const vp=pct(t.vocabCorrect,t.vocabTotal);
+          const right=t.absent
+            ? `<span style="font-size:13px;font-weight:700;color:var(--slate)">미응시</span>`
+            : `<span style="font-size:15px;font-weight:700;color:${vp>=80?'var(--okt)':vp>=60?'var(--tealt)':'var(--warnt)'}">${t.vocabCorrect}/${t.vocabTotal} (${vp}%)</span>`;
           return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
             <span style="font-size:13px;font-family:var(--fm);color:var(--slate)">${t.date||''}</span>
-            <span style="font-size:15px;font-weight:700;color:${vp>=80?'var(--okt)':vp>=60?'var(--tealt)':'var(--warnt)'}">${t.vocabCorrect}/${t.vocabTotal} (${vp}%)</span>
+            ${right}
           </div>`;
         }).join('')}
       </div>

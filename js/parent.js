@@ -15,7 +15,7 @@ function parentAreaGrowth(sid){
   const tsts=DB.tsts().filter(t=>t.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
   const assigns=DB.assigns().filter(a=>a.sid===sid);
   const avg=arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;
-  const testAvg=(corr,tot)=>avg(tsts.filter(t=>t[tot]>0).map(t=>pct(t[corr],t[tot])));
+  const testAvg=(corr,tot)=>avg(tsts.filter(t=>!t.absent&&t[tot]>0).map(t=>pct(t[corr],t[tot])));
   const catRate=cat=>{const ca=assigns.filter(a=>a.category===cat);return ca.length?Math.round(ca.filter(a=>a.completedAt).length/ca.length*100):null;};
   // 테스트 점수(우선) → 과제 완료율(보완)
   const pick=(testVal,cat)=>testVal!=null?{val:testVal,basis:'테스트 평균'}:(()=>{const r=catRate(cat);return r!=null?{val:r,basis:'과제 완료율'}:null;})();
@@ -223,7 +223,7 @@ async function loadParent(sid){
   {
     const givenName=s.name&&s.name.length>1?s.name.slice(1):(s.name||'');
     const josa=(n)=>{if(!n)return '는';const c=n.charCodeAt(n.length-1);if(c<0xAC00||c>0xD7A3)return '는';return (c-0xAC00)%28===0?'는':'은';};
-    const avgScore=tsts.length?Math.round(tsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/tsts.length):null;
+    const avgScore=ppAvgPct(tsts,'vocab');            // 미응시 제외, 없으면 null(—)
     const readBooks=rds.length;
     let summary;
     if(!les.length)summary='곧 첫 수업 기록이 올라올 거예요.';
@@ -311,8 +311,10 @@ async function loadParent(sid){
   if(timeline) blocks+=timeline;
 
   // 블록 C — 최근 테스트
-  if(tsts.length){
-    const latTst=tsts[0];const prevTst=tsts[1]||null;
+  // 점수 카드는 '응시한' 시험만 본다. 미응시만 있으면 카드 자체를 띄우지 않는다.
+  const scoredTsts=(typeof ppScored==='function')?ppScored(tsts,'vocab'):tsts.filter(t=>t&&!t.absent&&(t.vocabTotal||0)>0);
+  if(scoredTsts.length){
+    const latTst=scoredTsts[0];const prevTst=scoredTsts[1]||null;
     const vp=pct(latTst.vocabCorrect,latTst.vocabTotal);
     const gp=pct(latTst.grammarCorrect,latTst.grammarTotal);
     const vPrev=prevTst?pct(prevTst.vocabCorrect,prevTst.vocabTotal):null;
@@ -611,11 +613,12 @@ async function loadParent(sid){
 
   // 차트
   setTimeout(()=>{
-    if(tsts.length>=2){
+    const _trendT=(typeof ppScored==='function')?ppScored(tsts,'vocab'):tsts.filter(t=>t&&!t.absent&&(t.vocabTotal||0)>0);
+    if(_trendT.length>=2){
       const cv=document.getElementById('p-trend');
       if(cv){
         if(pC.trend)pC.trend.destroy();
-        const ct=[...tsts].reverse().slice(-10);
+        const ct=[..._trendT].reverse().slice(-10);   // 미응시 제외
         pC.trend=new Chart(cv.getContext('2d'),{type:'line',data:{labels:ct.map(t=>t.date?t.date.slice(5):''),datasets:[{label:'단어',data:ct.map(t=>pct(t.vocabCorrect,t.vocabTotal)),borderColor:'#0CA4C9',backgroundColor:'rgba(12,164,201,.1)',tension:.3,fill:true,pointBackgroundColor:'#0CA4C9',pointRadius:4},{label:'어법',data:ct.map(t=>pct(t.grammarCorrect,t.grammarTotal)),borderColor:'#0B8DAE',backgroundColor:'rgba(0,95,107,.07)',tension:.3,fill:true,pointBackgroundColor:'#0B8DAE',pointRadius:4},{label:'평균',data:ct.map(()=>Math.round(ct.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/ct.length)),borderColor:'rgba(0,0,0,.2)',borderDash:[5,5],borderWidth:1.5,pointRadius:0,fill:false,tension:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
       }
     }
@@ -807,8 +810,9 @@ async function printReport(sidArg,month){
   if(scoped&&!les.length&&!rds.length&&!tsts.length){toast(`${periodLabel}에는 기록이 없습니다`);return;}
   const badges=getBadges(sid).filter(b=>b.unlocked);
   const today=new Date();
-  const avgV=tsts.length?Math.round(tsts.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/tsts.length):null;
-  const latTst=tsts[0];
+  const avgV=ppAvgPct(tsts,'vocab');                  // 미응시 제외, 없으면 null
+  const _scoredPR=(typeof ppScored==='function')?ppScored(tsts,'vocab'):tsts.filter(t=>t&&!t.absent&&(t.vocabTotal||0)>0);
+  const latTst=_scoredPR[0];                          // 점수 칸은 응시한 시험만
   // 수업별 선생님 코멘트 — 최근 3건만 (전체 나열은 리포트가 길어져 생략)
   let cmtLes=les.filter(l=>(l.polishedCmt||l.cmt||'').trim()).slice(0,3);
   cmtLes=cmtLes.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
