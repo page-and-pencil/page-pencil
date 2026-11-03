@@ -751,11 +751,13 @@ async function legacySpeak(text,rate){
     if(_ttsCache[key]){
       // 주소가 있어도 받아지지 않는 경우가 있다 → 정말 소리가 났는지 보고,
       // 안 났으면 그 주소를 버리고 브라우저 음성으로 내려간다
-      if(await _playUrl(_ttsCache[key],1))return true;
+      if(await _playUrl(_ttsCache[key],1)){window._lastSpeakEngine='dict';return true;}
       _ttsCache[key]='';_dictFails++;
     }
   }
-  return await browserSpeak(clean,rate);
+  const spoke=await browserSpeak(clean,rate);
+  window._lastSpeakEngine=spoke?'tts':'none';
+  return spoke;
 }
 // 브라우저 음성 — 마지막 수단. 말이 시작됐는지 확인하고, 시작되지 않았으면 한 번 다시 시도한다
 // (크롬은 cancel() 바로 뒤에 speak() 하면 큐가 멈춘 채 조용해지는 일이 있다)
@@ -803,7 +805,7 @@ async function speakSmart(text,rate=0.85){
       const url=await elevenGetAudioUrl(text,cfg,wordMode);
       if(gen!==_speakGen)return true;
       // 캐시된 주소가 끊긴 경우도 있다 → 재생에 실패하면 다음 수단으로
-      if(await _playUrl(url,elRate))return true;
+      if(await _playUrl(url,elRate)){window._lastSpeakEngine='eleven';return true;}
       console.warn('ElevenLabs 음원 재생 실패 → 폴백');
     }catch(e){console.warn('ElevenLabs 실패 → 폴백:',e.message);}
   }
