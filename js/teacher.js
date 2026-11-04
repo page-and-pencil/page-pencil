@@ -1200,7 +1200,7 @@ let _prSid='';
 function openPrintReport(sid){
   _prSid=sid;
   const inp=document.getElementById('pr-month');
-  if(inp)inp.value=new Date().toISOString().slice(0,7);
+  if(inp)inp.value=ppToday().slice(0,7);
   openM('m-print-report');
 }
 function teacherUncompleteAssign(aid,sid){
@@ -2435,6 +2435,38 @@ function ecBoardAuto(){
   _ecBoardRender();
   toast('자동 배치했어요 — 칩을 끌어 조정하고 저장하세요');
 }
+// 폼이 아는 칸 — 수정 저장 때 이 칸만 폼 값으로 덮고, 나머지(ar 등)는 기존 값을 지킨다
+const _MAT_FORM_FIELDS=['book','unit','bookId','days','run'];
+// 수정 저장 때 기존 materials 의 키 이름과 폼에 없는 필드를 지킨다.
+// getSMatsFrom 은 화면의 행만 보고 키를 vocab, vocab_2 … 로 다시 번호 붙인다. 그래서 코멘트만
+// 고쳐 저장해도 vocab_5 → vocab, _book_0 → _book 으로 키가 바뀌고, _pgMergeBook 이 넣어 둔
+// ar(원서 AR 레벨)이 함께 사라졌다. 읽는 쪽은 모두 키 뒤 숫자를 떼고 보므로 화면은 멀쩡했지만,
+// 같은 기록이 저장할 때마다 다른 모양이 되고 AR 은 돌아오지 않았다.
+// 책(bookId 우선, 없으면 교재명)으로 짝을 찾아 원래 키와 남은 필드를 그대로 둔다.
+function _mergeMatsKeepKeys(oldMats,newMats){
+  const old=oldMats||{};
+  const norm=s=>String(s||'').trim().toLowerCase();
+  const usedOld=new Set(),takenKeys=new Set(),out={};
+  Object.entries(newMats||{}).map(([nk,nv])=>{
+    const base=nk.replace(/_\d+$/,'');
+    const hit=Object.entries(old).find(([ok,ov])=>{
+      if(usedOld.has(ok)||!ov)return false;
+      if(ok.replace(/_\d+$/,'')!==base)return false;
+      return (nv.bookId&&ov.bookId)?nv.bookId===ov.bookId:norm(nv.book)===norm(ov.book);
+    });
+    if(hit)usedOld.add(hit[0]);
+    return {nk,nv,ok:hit?hit[0]:null,ov:hit?hit[1]:null};
+  }).forEach(m=>{
+    let key=m.ok||m.nk;
+    if(takenKeys.has(key)){const base=key.replace(/_\d+$/,'');let i=2;key=base+'_'+i;while(takenKeys.has(key))key=base+'_'+(++i);}
+    takenKeys.add(key);
+    if(!m.ov){out[key]={...m.nv};return;}
+    const merged={...m.ov};
+    _MAT_FORM_FIELDS.forEach(f=>{if(f in m.nv)merged[f]=m.nv[f];else delete merged[f];});
+    out[key]=merged;
+  });
+  return out;
+}
 function getSMatsFrom(wrapperId){
   const r={};const counts={};
   document.querySelectorAll('#'+wrapperId+' .sr').forEach(row=>{
@@ -2961,7 +2993,8 @@ async function updLes(){
   const sid=document.getElementById('el-stu').value;
   const rawCmt=document.getElementById('el-cmt').value.trim();
   toast('저장 중...');
-  const mats=getSMatsFrom('el-subj-rows');
+  // 기존 키·필드를 지킨 채 폼 값만 덮는다 (키가 vocab_5 → vocab 으로 바뀌고 ar 이 날아가던 것)
+  const mats=_mergeMatsKeepKeys((_cache.lessons[idx]||{}).materials,getSMatsFrom('el-subj-rows'));
   const matsText=_getMatsTextFromMaterials(mats);
   const elPreviewTxt=(document.getElementById('el-cmt-preview-box')?.style.display!=='none')
     ?(document.getElementById('el-cmt-preview-text')?.value?.trim()||''):'';
@@ -3397,7 +3430,7 @@ async function saveTst(){
 let tstPage=0;
 function renderTstStats(){
   const el=document.getElementById('tst-stats');if(!el)return;
-  const month=new Date().toISOString().slice(0,7);
+  const month=ppToday().slice(0,7);
   const monthT=DB.tsts().filter(t=>t.date&&t.date.startsWith(month));
   const scoredT=ppScored(monthT,'vocab');           // 미응시 제외
   const vAvg=ppAvgPct(monthT,'vocab');
@@ -3526,14 +3559,31 @@ async function updTst(){
   const [erc,ert]=_ep('et-rc','et-rt',0), [elc,elt]=_ep('et-lc','et-lt',0);
   _cache.tests[idx]={..._cache.tests[idx],date:document.getElementById('et-date').value,vocabCorrect:evc,vocabTotal:evt,grammarCorrect:egc,grammarTotal:egt,readingCorrect:erc,readingTotal:ert,listeningCorrect:elc,listeningTotal:elt,wrongWords:wr?wr.split(',').map(w=>w.trim()).filter(Boolean):[],grammarWeak:document.getElementById('et-gweak').value.trim(),cmt:document.getElementById('et-cmt').value.trim()};
   await supaUpsert('tests',id,_cache.tests[idx],sid);
-  closeM('m-edit-tst');renderTst();toast('수정되었습니다');
+  closeM('m-edit-tst');renderTst();_ppRepaintStuScreens(sid);toast('수정되었습니다');
+}
+// 한 학생의 기록을 지우거나 고친 뒤, 열려 있는 화면을 다시 그린다.
+// 이 앱은 실시간 동기화가 없다 — 다른 탭·다른 기기의 화면은 새로고침해야 바뀐다.
+// 적어도 같은 화면 안에서는 지운 숫자가 남아 보이지 않게 한다.
+function _ppRepaintStuScreens(sid){
+  if(!sid)return;
+  try{
+    if(typeof currentSpStuId!=='undefined'&&currentSpStuId===sid&&typeof loadStuPanel==='function')loadStuPanel(sid);
+    if(typeof currentParentSid!=='undefined'&&currentParentSid===sid
+       &&document.getElementById('s-parent')?.classList.contains('active')
+       &&typeof loadParent==='function')loadParent(sid);
+  }catch(e){console.warn('화면 재그리기 실패:',e);}
 }
 function reqDelTst(){
   const id=document.getElementById('et-id').value;
   askConfirm('테스트 기록 삭제','이 테스트 기록을 삭제할까요?','삭제','bd',async()=>{
+    const sid=(_cache.tests.find(x=>x.id===id)||{}).sid;
     await supaTrash('tests',_cache.tests,id);
     _cache.tests=_cache.tests.filter(x=>x.id!==id);
-    closeM('m-edit-tst');renderTst();toast('삭제되었습니다');
+    closeM('m-edit-tst');renderTst();
+    // 이미 그려져 있던 화면도 다시 그린다 — 안 그리면 지운 점수가 평균·추이에 그대로 남아 보인다
+    // (캐시는 위에서 지워졌으니 숫자는 맞다. 화면만 낡은 것이다)
+    _ppRepaintStuScreens(sid);
+    toast('삭제되었습니다');
   });
 }
 
@@ -3600,21 +3650,23 @@ async function updRd(){
   const sid=_cache.readings[idx].sid;
   _cache.readings[idx]={..._cache.readings[idx],date:document.getElementById('er-date').value,title:document.getElementById('er-title').value.trim(),arLevel:document.getElementById('er-ar').value.trim(),progress:document.getElementById('er-prog').value.trim()};
   await supaUpsert('readings',id,_cache.readings[idx],sid);
-  closeM('m-edit-rd');renderRd();toast('수정되었습니다');
+  closeM('m-edit-rd');renderRd();_ppRepaintStuScreens(sid);toast('수정되었습니다');
 }
 function reqDelRd(){
   const id=document.getElementById('er-id').value;
   askConfirm('원서 기록 삭제','이 원서 기록을 삭제할까요?','삭제','bd',async()=>{
+    const sid=(_cache.readings.find(x=>x.id===id)||{}).sid;
     await supaTrash('readings',_cache.readings,id);
     _cache.readings=_cache.readings.filter(x=>x.id!==id);
-    closeM('m-edit-rd');renderRd();toast('삭제되었습니다');
+    closeM('m-edit-rd');renderRd();_ppRepaintStuScreens(sid);toast('삭제되었습니다');
   });
 }
 function reqDelRdInline(id){
   askConfirm('원서 기록 삭제','이 원서 기록을 삭제할까요?','삭제','bd',async()=>{
+    const sid=(_cache.readings.find(x=>x.id===id)||{}).sid;
     await supaTrash('readings',_cache.readings,id);
     _cache.readings=_cache.readings.filter(x=>x.id!==id);
-    renderRd();toast('삭제되었습니다');
+    renderRd();_ppRepaintStuScreens(sid);toast('삭제되었습니다');
   });
 }
 
@@ -8364,9 +8416,14 @@ function _getMatsTextFromMaterials(mats){
     const baseKey=k.replace(/_\d+$/,'');
     const label=(k==='_book'||k.startsWith('_book_'))?'원서':(SLBL[baseKey]||'');
     // 교재명·단원명까지만 넘긴다 — 단원 단어 목록을 주면 AI 가 '오늘 그 단어를 다뤘다' 고 쓴다
-    return `${label} ${v.book}${v.unit?' '+v.unit:''}`.trim();
+    // 교재명과 단원은 라벨로 끊어 준다. "어법 345 Grammar 1 Unit 3" 처럼 붙여 넘기면
+    // AI 가 앞 숫자를 단원 번호로 읽고 떼어내 "Grammar 1" 으로 쓴다 (실제로 겪음).
+    // 숫자로 시작하는 교재가 많다 — 345 Grammar, 1200 Words for Tests, 100-word READING.
+    return `${label?'['+label+'] ':''}교재명=${v.book}${v.unit?' | 단원='+v.unit:''}`;
   }).filter(Boolean).join(' / ');
 }
+// 교재명을 그대로 쓰게 하는 지시 — 교재 진도를 넘기는 모든 프롬프트가 같은 문장을 쓴다
+const PP_BOOKNAME_RULE="교재명은 '교재명=' 뒤에 적힌 글자를 한 글자도 바꾸지 말고 그대로 쓰세요. 앞에 붙은 숫자도 교재명의 일부입니다 — '345 Grammar 1' 에서 345 를 떼면 다른 책이 됩니다. '교재명=' '단원=' '[구분]' 같은 표식 자체는 출력하지 마세요.";
 async function polishCmt(raw,matsText=''){
   // 키워드가 없어도 진도(matsText)가 있으면 진도만으로 코멘트를 만든다 (원장 요청)
   if((!raw||!raw.trim())&&!String(matsText||'').trim()) return '';
@@ -8377,7 +8434,7 @@ async function polishCmt(raw,matsText=''){
     const examples=_getCmtExamples();
     const fewShot=examples.length?'\n\n[이전 승인된 코멘트 예시 — 이 말투와 형식을 참고하세요]\n'+examples.map(e=>`메모: "${e.raw}" → 코멘트: "${e.confirmed}"`).join('\n')+'\n':'\n';
     const matsLine=matsText?`\n오늘 수업에서 다룬 교재·원서 진도: ${matsText}`:'';
-    const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드와 진도 정보를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다. 선생님이 적어 둔 만큼만 전합니다 — 적히지 않은 것은 쓰지 않습니다.\n\n작성 규칙:\n분량: 선생님 메모 분량에 맞춥니다. 메모가 한 줄이면 두세 문장으로 짧게 쓰고, 길이를 채우려고 내용을 보태지 마세요.\n어조(원장 톤앤매너): 합쇼체 위주의 담백하고 따뜻한 문장. 과장·호들갑 없이 아이의 구체적인 모습과 반응을 짚어 주세요("~하는 모습이 대견합니다", "기대 반 설렘 반 하는 모습"). 반복·노출·익숙해짐을 중시하는 교육관이 자연스럽게 배어나게 쓰되(암기보다 익숙해짐, 꾸준한 노출), 마무리는 "꾸준히 ~하겠습니다", "~하도록 돕겠습니다" 같은 지도 다짐으로 맺는 경우가 많습니다. 필요할 때만 "많이 칭찬해 주세요!", "지도 부탁드립니다" 같은 부드러운 협조 요청을 한 번 넣으세요. ":)" 같은 절제된 이모티콘은 아주 가끔만 허용.\n구조: 오늘 학습 내용(무엇을 어디까지) → 아이의 반응·태도 관찰 → 지도 방향·다짐, 자연스럽게 이어지는 한 단락\n진도 정보가 있으면 교재명·원서명은 자연스럽게 녹여 쓰되, 단원명(Unit/Lesson 번호·제목)은 그대로 나열하지 마세요 — 단원명은 앱에 별도로 표시됩니다. 단원에서 무엇을 배웠는지는 선생님 메모에 적힌 범위에서만 쓰세요 — 다룬 단어·음가·지문 주제·문법 포인트를 메모에 없는데 짐작해 적으면 안 됩니다. 원서는 완독/진행 중 등 진행 상태까지 전하고, 완독했다면 그 성취를 짚어 주세요.\n키워드가 짧아도, 아예 없어도 진도 정보를 활용해 학습 내용을 충실히 서술하세요. 키워드가 없으면 아이의 태도를 추측하지 말고 무엇을 어디까지 배웠는지와 지도 방향만 담백하게 쓰세요. 단, 키워드와 진도에 없는 사실을 지어내지 마세요.\n\n[절대 금지]\n선생님 메모와 진도 정보에 없는 것은 쓰지 마세요 — 수업에서 다룬 단어·음가·활동, 아이의 반응·감정을 지어내면 안 됩니다. 아는 것은 교재명·단원명과 메모뿐입니다.\n첫 단어로 주어(이름, "학생", "아이")를 쓰지 마세요. 반드시 서술어 또는 부사로 시작하세요.\n과장된 칭찬이나 부정적 표현 피하기. 마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.${fewShot}\n키워드: ${r||'(입력 없음 — 진도 정보만으로 작성)'}${matsLine}`;
+    const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드와 진도 정보를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다. 선생님이 적어 둔 만큼만 전합니다 — 적히지 않은 것은 쓰지 않습니다.\n\n작성 규칙:\n분량: 선생님 메모 분량에 맞춥니다. 메모가 한 줄이면 두세 문장으로 짧게 쓰고, 길이를 채우려고 내용을 보태지 마세요.\n어조(원장 톤앤매너): 합쇼체 위주의 담백하고 따뜻한 문장. 과장·호들갑 없이 아이의 구체적인 모습과 반응을 짚어 주세요("~하는 모습이 대견합니다", "기대 반 설렘 반 하는 모습"). 반복·노출·익숙해짐을 중시하는 교육관이 자연스럽게 배어나게 쓰되(암기보다 익숙해짐, 꾸준한 노출), 마무리는 "꾸준히 ~하겠습니다", "~하도록 돕겠습니다" 같은 지도 다짐으로 맺는 경우가 많습니다. 필요할 때만 "많이 칭찬해 주세요!", "지도 부탁드립니다" 같은 부드러운 협조 요청을 한 번 넣으세요. ":)" 같은 절제된 이모티콘은 아주 가끔만 허용.\n구조: 오늘 학습 내용(무엇을 어디까지) → 아이의 반응·태도 관찰 → 지도 방향·다짐, 자연스럽게 이어지는 한 단락\n진도 정보가 있으면 교재명·원서명은 자연스럽게 녹여 쓰되, 단원명(Unit/Lesson 번호·제목)은 그대로 나열하지 마세요 — 단원명은 앱에 별도로 표시됩니다.\n${PP_BOOKNAME_RULE}\n단원에서 무엇을 배웠는지는 선생님 메모에 적힌 범위에서만 쓰세요 — 다룬 단어·음가·지문 주제·문법 포인트를 메모에 없는데 짐작해 적으면 안 됩니다. 원서는 완독/진행 중 등 진행 상태까지 전하고, 완독했다면 그 성취를 짚어 주세요.\n키워드가 짧아도, 아예 없어도 진도 정보를 활용해 학습 내용을 충실히 서술하세요. 키워드가 없으면 아이의 태도를 추측하지 말고 무엇을 어디까지 배웠는지와 지도 방향만 담백하게 쓰세요. 단, 키워드와 진도에 없는 사실을 지어내지 마세요.\n\n[절대 금지]\n선생님 메모와 진도 정보에 없는 것은 쓰지 마세요 — 수업에서 다룬 단어·음가·활동, 아이의 반응·감정을 지어내면 안 됩니다. 아는 것은 교재명·단원명과 메모뿐입니다.\n첫 단어로 주어(이름, "학생", "아이")를 쓰지 마세요. 반드시 서술어 또는 부사로 시작하세요.\n과장된 칭찬이나 부정적 표현 피하기. 마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.${fewShot}\n키워드: ${r||'(입력 없음 — 진도 정보만으로 작성)'}${matsLine}`;
     const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:500,messages:[{role:'user',content:prompt}]});
     return d.content?.[0]?.text?.trim()||polishCmtLocal(r);
   }catch(e){
@@ -8389,7 +8446,7 @@ async function polishStuCmt_teacher(raw,matsText,stuName){
   if((!raw||!raw.trim())&&!String(matsText||'').trim())return '';
   const apiKey=DB.api();if(!apiKey)return '';
   try{
-    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${stuName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 선생님 메모에 적힌 내용만으로 칭찬하기. 메모와 진도에 없는 단어·활동·반응은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${matsText||'없음'}\n선생님 메모: ${raw||'(없음 — 진도만 보고 쓰세요)'}`;
+    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${stuName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 선생님 메모에 적힌 내용만으로 칭찬하기. 메모와 진도에 없는 단어·활동·반응은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n${PP_BOOKNAME_RULE}\n수업 진도: ${matsText||'없음'}\n선생님 메모: ${raw||'(없음 — 진도만 보고 쓰세요)'}`;
     const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content}]});
     return d.content?.[0]?.text?.trim()||'';
   }catch(e){return '';}
@@ -8579,7 +8636,7 @@ function openMonthlyReportManager(month){
   const mo=document.getElementById('m-monthly-report');if(!mo)return;
   const stus=DB.stus().filter(s=>!s.inactive);
   const reports=DB.reports();
-  const m=month||new Date().toISOString().slice(0,7);
+  const m=month||ppToday().slice(0,7);
   const [yr,mn]=m.split('-');
   const monthLabel=yr+'년 '+mn+'월';
   document.getElementById('mrpt-month').textContent=monthLabel;
@@ -8662,13 +8719,19 @@ async function generateReportDraft(){
     const mastered=cards.filter(c=>(c.hits||0)>=3).length;
     // 수업 요약
     const lesSummary=les.length?les.map(l=>{
-      const mats=Object.entries(l.materials||{}).filter(([,v])=>v.book).map(([,v])=>v.book+(v.unit?' '+v.unit:'')).join(', ')||'—';
+      const mats=_getMatsTextFromMaterials(l.materials)||'—';
       const cmt=l.polishedCmt||l.cmt||'';
-      const att=l.att&&l.att!=='normal'?`(${l.att})`:'';
+      const att=l.att&&l.att!=='normal'?`(${ATTLBL[l.att]||l.att})`:'';
       return `[${l.date}${att}] 교재: ${mats}${cmt?' / 코멘트: '+cmt:''}`;
     }).join('\n'):'수업 없음';
-    const attendNormal=les.filter(l=>!['absent','late'].includes(l.att||'normal')).length;
-    const attendAbsent=les.filter(l=>l.att==='absent').length;
+    // 출결은 0 도 "0회" 라고 적어 넘긴다. 숫자를 아예 빼고 넘기면 AI 가 빈 칸을 메우려 들어
+    // "결석 이유가 기록에 없으므로…" 처럼 있지도 않은 결석을 메모에 쓴다 (실제로 겪음).
+    const _attN=a=>les.filter(l=>(l.att||'normal')===a).length;
+    const attOff=_attN('teacher_cancel')+_attN('holiday');   // 휴강·선생님 취소는 분모에서 뺀다
+    const attCounted=les.length-attOff;
+    const attAbsent=_attN('absent'),attSick=_attN('sick'),attLate=_attN('late');
+    const attendLine=`${attCounted}회 · 출석 ${attCounted-attAbsent-attSick}회 · 결석 ${attAbsent}회 · 병결 ${attSick}회 · 지각 ${attLate}회`
+      +(attOff?` (휴강·취소 ${attOff}회는 셈에서 제외)`:'');
     // 테스트 요약
     // 미응시는 0% 가 아니라 '미응시' 로 넘긴다 — AI 가 0점으로 읽지 않게
     const tstSummary=tsts.length?tsts.map(t=>t.absent
@@ -8689,6 +8752,8 @@ async function generateReportDraft(){
 - 감탄사·이모지·과장 없음. 마크다운 없음.
 - 250~400자 (한국어 기준)
 - 숫자(퍼센트·점수·횟수·등급)를 본문에 쓰지 마세요. 출석률·숙제 완료율·단어 평균은 앱이 리포트 위에 따로 표시합니다. 아래 기록의 숫자를 옮겨 적거나 새로 계산하지 말고 "꾸준히", "대부분", "지난달보다 나아진" 처럼 말로 쓰세요.
+- 결석·지각·병결이 0회면 그 이야기를 아예 꺼내지 마세요. 0회는 "한 번도 없었다"는 뜻이고 기록이 비어 있는 것이 아닙니다 — "기록에 없다", "이유가 적혀 있지 않다", "확인이 필요하다" 같은 말을 쓰면 안 됩니다.
+- ${PP_BOOKNAME_RULE}
 
 구성 순서 (자연스러운 한 단락):
 수업 태도·참여도 → 교재 진도 요약 → 테스트 성과 → 원서·리딩 → 특기사항 및 다음 달 방향
@@ -8700,12 +8765,12 @@ async function generateReportDraft(){
 [학부모 본문]
 (학부모에게 그대로 전달되는 글. 위 어조·구성 규칙을 따릅니다.)
 [선생님 메모]
-(선생님만 봅니다. 학부모에게 가지 않습니다. 염려되는 점, 다음 달에 확인할 것, 상담 때 꺼낼 이야기를 2~4줄로 솔직하게. 기록에 근거가 있는 것만.)
+(선생님만 봅니다. 학부모에게 가지 않습니다. 염려되는 점, 다음 달에 확인할 것, 상담 때 꺼낼 이야기를 2~4줄로 솔직하게. 기록에 근거가 있는 것만 — 기록에 없는 일을 추측하거나 "기록이 없으므로" 로 시작하는 말을 쓰지 마세요. 적을 것이 없으면 "특별히 염려되는 점 없음" 한 줄로만 쓰세요.)
 
 학생: ${s.name} (${s.grade||''}${s.school?', '+s.school:''})
 누적 출석: ${allLes.filter(l=>l.att!=='absent').length}회 (전체 기간)
 대상 월: ${monthLabel}
-이번 달 수업: ${les.length}회 (정상 출석 ${attendNormal}회${attendAbsent?', 결석 '+attendAbsent+'회':''})
+이번 달 출결: ${attendLine}
 단어카드: 총 ${cards.length}개, 마스터 ${mastered}개
 
 수업 기록:
@@ -8727,6 +8792,26 @@ ${tstSummary}
       metrics:_reMetrics(sid,month),status:'draft'});
   }catch(e){toast('AI 생성 실패: '+e.message);}
   if(btn){btn.disabled=false;btn.textContent='🤖 AI 초안 생성';}
+}
+// 월간 리포트 삭제 — 휴지통(_deleted 표식). 잘못 보낸 리포트를 학부모 화면에서 내리는 유일한 길이다
+function reqDelReport(){
+  const sid=document.getElementById('re-sid').value;
+  const month=document.getElementById('re-month').value;
+  const r=DB.reports().find(x=>x.sid===sid&&x.month===month);
+  if(!r){toast('아직 저장된 리포트가 없습니다');return;}
+  const [yr,mn]=String(month||'').split('-');
+  askConfirm('월간 리포트 삭제',
+    (r.status==='sent'?'이미 발송된 리포트입니다. ':'')+`${yr}년 ${Number(mn)}월 리포트를 삭제하면 학부모 화면에서 바로 사라집니다. 휴지통에서 30일 안에 복원할 수 있습니다.`,
+    '삭제','bd',async()=>{
+    try{
+      await saveReportToDB(sid,month,{_deleted:true,_deletedAt:new Date().toISOString()});
+      _cache.monthlyReports=(_cache.monthlyReports||[]).filter(x=>!(x.sid===sid&&x.month===month));
+      closeM('m-report-editor');
+      if(document.getElementById('m-monthly-report')?.classList.contains('open'))openMonthlyReportManager(month);
+      _ppRepaintStuScreens(sid);
+      toast('삭제되었습니다 — 휴지통에서 복원할 수 있습니다');
+    }catch(e){toast('삭제 실패: '+(e.message||''));}
+  });
 }
 async function saveReportToDB(sid,month,fields){
   const existing=DB.reports().find(r=>r.sid===sid&&r.month===month);
@@ -9358,7 +9443,9 @@ function renderSpSummary(sid,period,from,to){
   const el=document.getElementById('sp-summary');if(!el)return;
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
   const today=new Date();
-  const todayStr=today.toISOString().split('T')[0];
+  // toISOString 은 UTC 라 한국 오전 9시 전에는 어제가 나온다 — 기간 끝이 하루 밀려
+  // 오늘 넣은 테스트가 요약·평균에서 빠졌다. '오늘'은 항상 ppToday()
+  const todayStr=ppToday();
   let startDate,endDate=todayStr;
   if(period==='week'){const d=new Date(today);d.setDate(d.getDate()-7);startDate=d.toISOString().split('T')[0];}
   else if(period==='month'){startDate=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-01';}
@@ -9452,7 +9539,7 @@ function renderSpSummary(sid,period,from,to){
       const annualLes=allLesAll.filter(l=>l.date&&l.date.startsWith(yearStr));
       const annualAttended=annualLes.filter(l=>!PRESERVED_ATTS.includes(l.att||'')&&l.att!=='absent').length;
       // 병결 현황 (이번 달)
-      const thisMonthStr=new Date().toISOString().slice(0,7);
+      const thisMonthStr=ppToday().slice(0,7);
       const thisMonthSick=allLesAll.filter(l=>l.att==='sick'&&l.date?.startsWith(thisMonthStr)).length;
       const sickOk=thisMonthSick<=1;
       // 선생님 취소·휴강 보존 합계
@@ -9983,7 +10070,7 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
     items.push({icon:luIcon('file-text',15),chip:'',text:`이번 달 학부모 리포트 미발송 — ${(reportPendingStus||[]).length}명`,label:'리포트 보내기',action:`openMonthlyReportManager('${thisMonth||''}')`});
   }
   // 우선순위 6: 월 1회 전체 백업 (이 기기 기준)
-  const ymNow=new Date().toISOString().slice(0,7);
+  const ymNow=ppToday().slice(0,7);
   if(localStorage.getItem('pp_lastBackup')!==ymNow){
     items.push({icon:luIcon('download',15),chip:'',text:'이번 달 전체 백업이 아직 없어요 — 데이터 유실 대비 월 1회 권장',label:'지금 백업',action:'fullBackup()'});
   }
@@ -16227,11 +16314,13 @@ async function saveClassLesson(){
       }
     }
     for(const d of stuData){
-      const mats={...commonMats};
-      (d.books||[]).forEach((b,i)=>{mats[`_book_${i}`]={book:b.title,unit:b.prog||''};});
       const cmt=d.indCmt||'';
       // 수정 모드: 기존 수업 레코드의 id를 재사용해 갱신 (중복 생성 방지)
       const existing=editMode?(_cache.lessons||[]).find(l=>l.classId===classId&&l.date===date&&l.sid===d.sid):null;
+      const _newMats={...commonMats};
+      (d.books||[]).forEach((b,i)=>{_newMats[`_book_${i}`]={book:b.title,unit:b.prog||''};});
+      // 수정 저장이면 기존 키·필드(원서 ar 등)를 지킨다
+      const mats=existing?_mergeMatsKeepKeys(existing.materials,_newMats):_newMats;
       // 학부모 코멘트: 원문이 그대로면 기존 변환문 재사용 (AI 재호출·문구 변동 방지)
       const _mt=_getMatsTextFromMaterials(mats);
       // 선생님이 코멘트를 쓴 경우에만 AI 를 부른다.
@@ -16388,7 +16477,7 @@ function openNotifyParents(sids){
 }
 
 // ── 휴지통 — _deleted 표식 행 조회·복원·영구 삭제 (30일 자동 정리) ──
-const TRASH_TABLES=[['students','학생'],['lessons','수업 기록'],['tests','테스트'],['readings','원서 기록'],['logs','리딩로그'],['global_textbooks','책']];
+const TRASH_TABLES=[['students','학생'],['lessons','수업 기록'],['tests','테스트'],['readings','원서 기록'],['logs','리딩로그'],['global_textbooks','책'],['monthly_reports','월간 리포트']];
 let _trashItems=[];
 async function openTrash(){
   openM('m-trash');
@@ -16418,6 +16507,7 @@ function _trashLabel(e){
   if(e.table==='readings')return `${stu(d.sid)} 원서 ${d.title||''}`.trim();
   if(e.table==='logs')return `${stu(d.sid)} 리딩로그 ${d.date||''}`.trim();
   if(e.table==='global_textbooks')return `${d.type==='library'?'원서':d.type==='class5'?'클래스5':'교재'} — ${d.title||''}`;
+  if(e.table==='monthly_reports')return `${stu(d.sid)} ${String(d.month||'').replace('-','년 ')}월 리포트`.trim();
   return e.id;
 }
 function renderTrash(){
@@ -16525,7 +16615,7 @@ async function fullBackup(){
     a.download=`pagepencil_backup_${ppToday()}.json`;
     document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-    const ym=new Date().toISOString().slice(0,7);
+    const ym=ppToday().slice(0,7);
     localStorage.setItem('pp_lastBackup',ym);
     supaSetSetting('lastBackup',ym).catch(()=>{});
     const total=tables.reduce((s,t)=>s+(dump[t]?.length||0),0);

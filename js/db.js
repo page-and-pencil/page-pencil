@@ -407,7 +407,10 @@ async function loadAllData(bg){
       _cache.globalTextbooks=_allBooks.filter(b=>b.type==='textbook'||!b.type);
     }
     _cache.globalClasses=keep(_cache.globalClasses,clss);
-    _cache.monthlyReports=(mrpts||[]).map(r=>({...( r.data||r),_id:r.id,sid:r.sid,month:r.month}));
+    // sid·month 는 data 안의 값을 먼저 본다 — 복원(supaUpsert)은 data 만 되돌려 주고
+    // 같은 이름의 열은 비워 두므로, 열만 믿으면 복원한 리포트가 월을 잃는다.
+    _cache.monthlyReports=(mrpts||[]).map(r=>{const d=r.data||r;
+      return {...d,_id:r.id,sid:d.sid||r.sid,month:d.month||r.month};}).filter(r=>!r._deleted);
     _cache.examSchedules=keep(_cache.examSchedules,exsch);
     _cache.learningGoals=keep(_cache.learningGoals,lgoals);
     _cache.counsels=keep(_cache.counsels,cnsls);
