@@ -61,7 +61,10 @@ async function enter(page, base, role, sid) {
   console.log(`학생: ${stu ? stu.name : '없음'}`);
   fs.mkdirSync(OUT, { recursive: true });
 
-  const browser = await chromium.launch({ channel: 'chrome', headless: !KEEP });
+  // 스크롤바를 숨기지 않는다 — 헤드리스 기본값(--hide-scrollbars)으로 재면
+  // 세로 스크롤바 폭(약 15px)만큼의 가로 넘침을 놓친다(실제 브라우저에서는 보인다).
+  const browser = await chromium.launch({ channel: 'chrome', headless: !KEEP,
+    ignoreDefaultArgs: ['--hide-scrollbars'] });
   const report = [];
 
   for (const vp of VIEWPORTS) {

@@ -107,6 +107,7 @@ function updateApiKeyStatusDot(){
   const dot=document.getElementById('apikey-status-dot');if(!dot)return;
   const k=DB.api();
   if(!k){dot.style.color='var(--slate)';dot.textContent='● 미설정';}
+  else if(k==='proxy'){dot.style.color='var(--okt)';dot.textContent='● 서버 키 사용 중';}
   else{dot.style.color='#b8860b';dot.textContent='● 저장됨';}
 }
 // ── ElevenLabs 음성 설정 ──
@@ -184,7 +185,8 @@ async function testApiKey(){
   if(inputVal&&inputVal!=='••••••'){await saveApiKey();}
   const k=DB.api();
   if(!k){el.innerHTML='<div class="ais warn">⚠️ API Key를 입력하고 저장해 주세요</div>';return;}
-  if(!k.startsWith('sk-ant-')){el.innerHTML='<div class="ais err">❌ Key 형식이 올바르지 않습니다 (sk-ant-로 시작해야 합니다)</div>';if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}return;}
+  // 서버 시크릿을 쓰는 경우엔 형식을 검사할 키가 없다 — 바로 연결만 확인한다
+  if(k!=='proxy'&&!k.startsWith('sk-ant-')){el.innerHTML='<div class="ais err">❌ Key 형식이 올바르지 않습니다 (sk-ant-로 시작해야 합니다)</div>';if(dot){dot.style.color='var(--coral)';dot.textContent='● 오류';}return;}
   el.innerHTML='<div class="ais loading"><div class="spin"></div>연결 확인 중...</div>';
   try{
     await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:5,messages:[{role:'user',content:'ping'}]});

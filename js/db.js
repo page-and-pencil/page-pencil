@@ -83,7 +83,13 @@ const DB={
   s(k,v){localStorage.setItem('pp_'+k,JSON.stringify(v));},
   pw(){return _cache.settings.pw||this.g('pw')||'pencil2025';},
   cld(){return this.g('cloud')||{name:'',preset:''};},
-  api(){return _cache.settings.apikey||this.g('apikey')||'';},
+  // 'proxy' 는 '키는 서버에 있다' 는 표식이다. 로컬에 키가 없어도 AI 를 켤 수 있게
+  // 하는 값이며, callClaudeProxy 가 이 값은 동봉하지 않는다.
+  // 덕분에 settings 의 apikey 행을 anon 에게 닫아도(settings_rls.sql) AI 가 멈추지 않는다.
+  api(){
+    const k=_cache.settings.apikey||this.g('apikey')||'';
+    return k||(_cache.settings.aiProxy===true?'proxy':'');
+  },
   kakao(){return _cache.settings.kakao||this.g('kakao')||{phone:'',openchat:''};},
   reports(){return _cache.monthlyReports||[];},
   exams(){return _cache.examSchedules||[];},
@@ -418,6 +424,9 @@ async function loadAllData(bg){
     else{const la=DB.g('apikey');if(la)_cache.settings.apikey=la;}
     if(cloud){_cache.settings.cloud=cloud;DB.s('cloud',cloud);}
     else{const lc=DB.g('cloud');if(lc&&lc.name){_cache.settings.cloud=lc;supaSetSetting('cloud',lc).catch(()=>{});}else{_cache.settings.cloud=DEFAULT_CLD;DB.s('cloud',DEFAULT_CLD);await supaSetSetting('cloud',DEFAULT_CLD);}}
+    // 로컬 키가 없을 때만, 서버 시크릿이 있는지 한 번 물어본다 (있으면 AI 를 그대로 켠다).
+    // 로컬 키가 있으면 요청을 아예 보내지 않는다 — 지금까지와 똑같이 동작한다.
+    if(!_cache.settings.apikey)ppProbeAiProxy();
     // 직결 준비 일수 (없으면 기본 28일 — ppJgPrepDays 가 판단)
     try{const jp=await supaGetSetting('jgPrepDays');if(jp!=null)_cache.settings.jgPrepDays=jp;}catch(e){}
     // 어휘 테스트 통과 기준 (없으면 기본 90% — ppVocabPassPct 가 판단)
@@ -515,10 +524,24 @@ async function fetchWordMeaning(word){
     return{meaning:m?.definitions?.[0]?.definition||'',pos:m?.partOfSpeech||''};
   }catch{return null;}
 }
+// 서버 시크릿(ANTHROPIC_API_KEY)이 설정돼 있는지 확인한다. 토큰을 쓰지 않는다 —
+// 일부러 model·messages 를 빼고 보내므로, 키가 없으면 프록시가 'API key required' 로 막고
+// 키가 있으면 Anthropic 이 'model: Field required' 로 막는다. 어느 쪽도 생성이 일어나지 않는다.
+async function ppProbeAiProxy(){
+  try{
+    const r=await fetch(SUPA_URL+'/functions/v1/claude-proxy',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},body:'{}'});
+    const d=await r.json().catch(()=>({}));
+    const msg=String(d?.error?.message||'');
+    _cache.settings.aiProxy=!/API key required/i.test(msg);
+  }catch(e){_cache.settings.aiProxy=false;}
+}
 async function callClaudeProxy(body){
   // 서버 시크릿(ANTHROPIC_API_KEY) 우선 — 로컬에 키가 있으면 하위 호환으로만 동봉
+  // 'proxy' 는 실제 키가 아니라 '서버에 있다' 는 표식이므로 보내지 않는다
   const apiKey=DB.api();
-  const res=await fetch(SUPA_URL+'/functions/v1/claude-proxy',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify(apiKey?{apiKey,...body}:body)});
+  const send=(apiKey&&apiKey!=='proxy')?{apiKey,...body}:body;
+  const res=await fetch(SUPA_URL+'/functions/v1/claude-proxy',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify(send)});
   const d=await res.json().catch(()=>({}));
   if(!res.ok)throw new Error(d.error?.message||'HTTP '+res.status);
   return d;
