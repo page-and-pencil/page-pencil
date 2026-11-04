@@ -73,6 +73,9 @@ async function enter(page, base, role, sid) {
     const errs = [];
     page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0, 200)); });
     page.on('pageerror', (e) => errs.push('PAGEERROR ' + String(e.message).slice(0, 200)));
+    // 콘솔의 "Failed to load resource" 에는 주소가 없어 무엇이 실패했는지 알 수 없었다 — 응답을 직접 본다
+    page.on('response', (r) => { if (r.status() >= 400) errs.push(r.status() + ' ' + r.request().method() + ' ' + r.url().slice(0, 140)); });
+    page.on('requestfailed', (r) => errs.push('요청실패 ' + r.url().slice(0, 140) + ' ' + ((r.failure() || {}).errorText || '')));
 
     const shot = async (name) => {
       const f = path.join(OUT, `${vp.k}__${name}.png`);
