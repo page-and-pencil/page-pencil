@@ -564,6 +564,9 @@ async function loadParent(sid){
             <div style="padding:12px 16px;padding-top:0">
               ${(r.metrics&&typeof ppMetricsHtml==='function')?ppMetricsHtml(r.metrics):''}
               <div style="font-size:14px;line-height:1.85;color:var(--navy);white-space:pre-wrap">${r.final||r.draft||''}</div>
+              <div style="display:flex;justify-content:flex-end;margin-top:12px">
+                <button onclick="printReport('${sid}','${r.month}')" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;font-weight:700;color:var(--navy);cursor:pointer">${luIcon('printer',14)||''} 이 달 리포트 인쇄</button>
+              </div>
             </div>
           </details>`;
         }).join('')}
@@ -799,7 +802,7 @@ async function printReport(sidArg,month){
   if(!sid){toast('학생을 선택해 주세요');return;}
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
   // 기간: 'YYYY-MM'(해당 월) 또는 'all'(전체). 지정 없으면 이번 달
-  month=month||new Date().toISOString().slice(0,7);
+  month=month||ppToday().slice(0,7);
   const scoped=month!=='all';
   const inScope=d=>!scoped||(d||'').startsWith(month);
   const periodLabel=scoped?`${month.slice(0,4)}년 ${parseInt(month.slice(5))}월`:'전체 기간';
@@ -831,130 +834,25 @@ async function printReport(sidArg,month){
     if(v.unit&&!matMap[v.book].units.includes(v.unit))matMap[v.book].units.push(v.unit);
   });});
   // 진도는 기록된 문자열 그대로 사용 — ', ' 분해는 "Long Vowel o, u" 같은 유닛명을 파편내므로 금지
-  // Claude로 학부모용 선생님 종합 코멘트 생성 — 기간 내 진도·학습 내용 기반 (엣지 함수 프록시 경유)
-  let aiComment='';
-  if(DB.api()&&les.length){
-    try{
-      // ── 리포트 재료: 단원 '번호'가 아니라 '무엇을 배웠는지'를 모은다 ──
-      const _tbs=_cache.globalTextbooks||[];
-      const _n=x=>String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
-      const _pref=(a,b)=>a.startsWith(b)&&!/^\d/.test(a.slice(b.length));
-      const _uMatch=(a,b)=>a===b||(!!a&&!!b&&(_pref(a,b)||_pref(b,a)));
-      // 교재별: 단원 주제(unitTitles) + 그 단원에서 실제 배운 단어 예시 + 본문 학습 여부
-      const progSummary=Object.values(matMap).map(m=>{
-        const tb=_tbs.find(b=>_n(b.title)===_n(m.book));
-        const topics=[],wordEx=[],seenKey=new Set(),seenWord=new Set();let hasText=false,wordCnt=0;
-        (m.units||[]).forEach(u=>{
-          if(!tb)return;
-          const key=tbUnitKeys(tb).find(k=>_uMatch(_n(k),_n(u)));
-          if(!key||seenKey.has(key))return;   // 같은 단원이 여러 표기로 잡혀도 한 번만
-          seenKey.add(key);
-          const t=(tb.unitTitles?.[key]||'').trim();
-          if(t&&!topics.includes(t))topics.push(t);
-          if(tb.unitTexts?.[key])hasText=true;
-          const ws=(tb.units?.[key]||[]).map(w=>typeof w==='string'?{word:w}:w).filter(w=>w.word);
-          wordCnt+=ws.length;
-          ws.slice(0,4).forEach(w=>{
-            const k2=String(w.word).toLowerCase();
-            if(seenWord.has(k2)||wordEx.length>=8)return;
-            seenWord.add(k2);
-            wordEx.push(w.word+(w.ko?`(${w.ko})`:''));
-          });
-        });
-        const bits=[];
-        if(topics.length)bits.push(`다룬 주제: ${topics.slice(0,6).join(', ')}`);
-        if(wordCnt)bits.push(`학습 단어 ${wordCnt}개${wordEx.length?` (예: ${wordEx.join(', ')})`:''}`);
-        if(hasText)bits.push('지문 읽기·듣기 병행');
-        return `- ${m.label?'['+m.label+'] ':''}${m.book} (${m.units.length}개 단원 진행)\n   ${bits.join(' / ')||'세부 자료 미등록'}`;
-      }).join('\n')||'—';
-      // 원서: 제목 + AR 수준 (권수·난이도 흐름 파악용)
-      const _libs=_cache.library||[];
-      const rdSummary=rds.length?rds.slice(0,15).map(r=>{
-        const b=(r.bookId&&_libs.find(x=>x.id===r.bookId))||_libs.find(x=>_n(x.title)===_n(r.title));
-        const ar=r.arLevel||b?.arLevel||b?.ar||'';
-        return r.title+(ar?` [AR ${ar}]`:'')+(r.progress?`(${r.progress})`:'');
-      }).join(', '):'—';
-      // 단어장: 기간 내 학습량·정답률·아직 헷갈리는 단어 (아이의 실제 성취를 보여주는 근거)
-      const _cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
-      const _learned=_cards.filter(c=>inScope(c.addedDate)||inScope(c.lastSeen));
-      const _tries=_learned.reduce((a,c)=>a+(c.hits||0)+(c.misses||0),0);
-      const _hits=_learned.reduce((a,c)=>a+(c.hits||0),0);
-      const _rate=_tries?Math.round(100*_hits/_tries):null;
-      const _hard=_learned.filter(c=>(c.misses||0)>=2).sort((a,b)=>(b.misses||0)-(a.misses||0)).slice(0,6)
-        .map(c=>c.word+(c.meaning?`(${c.meaning})`:'')).join(', ');
-      const vocabSummary=_learned.length
-        ? `기간 내 학습 단어 ${_learned.length}개${_rate!=null?` · 누적 정답률 ${_rate}%`:''}${_hard?`\n아직 헷갈리는 단어: ${_hard}`:''}`
-        : '—';
-      // 과제 이행률 — '앱에서 완료 체크한' 기준. 종이로 해오고 체크만 안 한 경우가 있어
-      // 완료 0건이면 데이터를 넘기지 않는다 (아이가 과제를 안 했다는 오해를 리포트에 싣지 않기 위함)
-      const _asg=(_cache.assignments||[]).filter(a=>a.sid===sid&&inScope(a.date));
-      const _done=_asg.filter(a=>a.completedAt).length;
-      const hwSummary=(_asg.length&&_done)
-        ? `과제 ${_asg.length}건 중 ${_done}건 완료 (${Math.round(100*_done/_asg.length)}%) — 학생 앱에서 완료 체크한 기준`
-        : '—';
-      // 출결 (특기 사항 판단용)
-      const _abs=les.filter(l=>l.att==='absent').length,_late=les.filter(l=>l.att==='late').length;
-      const attSummary=`출석 ${les.filter(l=>!l.att||l.att==='normal').length}회${_abs?` · 결석 ${_abs}회`:''}${_late?` · 지각 ${_late}회`:''}`;
-      // 선생님 관찰 기록 — 날짜순 전체(최대 12건). 초반→후반 변화를 읽어내는 핵심 재료
-      const _cmts=les.filter(l=>(l.polishedCmt||l.cmt||'').trim())
-        .slice(0,12).sort((a,b)=>(a.date||'').localeCompare(b.date||''))
-        .map(l=>`[${l.date}] ${(l.polishedCmt||l.cmt).trim()}`).join('\n');
-      const lessSummary=_cmts||'—';
-      const prompt=`영어학원 선생님이 학부모에게 드리는 ${periodLabel} 종합 코멘트를 작성하세요. 인쇄용 학습 리포트에 실립니다.
-
-[가장 중요한 원칙]
-교재명과 단원 번호(Unit 3, Lesson 5 등)는 리포트에 표(진도표)로 이미 들어갑니다. 코멘트에 그것을 다시 나열하면 학부모가 읽을 내용이 없습니다.
-따라서 코멘트는 "무엇을 몇 과까지 나갔다"가 아니라 "아이가 무엇을 할 수 있게 되었고, 어떻게 달라지고 있는가"를 써야 합니다.
-- 교재명은 꼭 필요할 때만 1~2회. 단원 번호는 쓰지 마세요.
-- 대신 그 단원의 '주제'와 '실제 배운 단어·표현'을 근거로, 아이가 다룬 내용을 학부모의 언어로 풀어 쓰세요.
-  (나쁜 예: "Smart Reading 1.3 Unit 4까지 진행했습니다.")
-  (좋은 예: "가족과 계절을 소재로 한 짧은 글을 읽으며, 인물의 기분을 나타내는 표현을 익혔습니다.")
-
-[반드시 담을 것 — 아래 데이터에서 근거를 찾아 씁니다]
-1. 학습 태도·수업 중 모습: 선생님 관찰 기록에서 반복되는 모습을 짚어 주세요.
-2. 발전 흐름: 관찰 기록을 날짜순으로 비교해 기간 초반과 후반이 어떻게 달라졌는지 한 대목은 반드시 쓰세요. 변화가 뚜렷하지 않으면 "꾸준히 유지되고 있다"고 솔직히 쓰세요.
-3. 구체적 성취: 배운 단어의 주제·개수, 단어 정답률, 읽은 원서의 권수와 수준, 과제 이행률 중 데이터가 있는 것을 근거로 제시하세요. 숫자는 자연스럽게 문장에 녹이세요.
-4. 보완할 점: 아직 헷갈리는 단어나 낮은 이행률이 있으면 부드럽게 한 가지만. 없으면 생략하세요.
-5. 가정에서 도울 점: 데이터에 근거해 딱 한 가지만 구체적으로 제안하세요. (예: 읽은 원서를 소리 내어 한 번 더 읽어보기)
-
-[톤 — 원장 톤앤매너]
-합쇼체 위주의 담백하고 따뜻한 문장. 과장·미사여구 없이 아이의 구체적인 모습을 짚습니다. 반복·노출·익숙해짐을 중시하는 교육관이 배어나게. 마무리는 "꾸준히 ~하겠습니다" 같은 지도 다짐으로. 감탄사·이모지 없음.
-
-[금지]
-- 기록에 없는 내용을 지어내지 마세요. 데이터가 '—'인 항목은 언급하지 마세요.
-- 단원 번호 나열, 교재 목록 나열 금지.
-- 제목·머리말을 붙이지 마세요. 마크다운 기호(#, *, -)를 쓰지 말고 완성된 문단만 출력하세요. (리포트에 이미 섹션 제목이 있습니다)
-- 400~600자, 문단 3개.
-
-──────── 데이터 ────────
-학생: ${s.name} (${s.grade||''})
-기간: ${periodLabel} | 수업 ${les.length}회 | ${attSummary}
-
-■ 이 기간에 다룬 내용 (단원 주제와 실제 배운 단어)
-${progSummary}
-
-■ 단어 학습 성취
-${vocabSummary}
-
-■ 읽은 원서 (${rds.length}권)
-${rdSummary}
-
-■ 과제 이행
-${hwSummary}
-
-■ 선생님 관찰 기록 (날짜순 — 초반과 후반의 변화를 여기서 읽어내세요)
-${lessSummary}
-────────────────────
-
-종합 코멘트만 출력하세요.`;
-      const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:1200,messages:[{role:'user',content:prompt}]});
-      aiComment=d.content?.[0]?.text?.trim()||'';
-    }catch(e){console.warn('printReport AI 실패:',e.message);}
-  }
+  // 선생님 종합 코멘트 — 저장된 월간 리포트 본문을 그대로 싣는다.
+  // 전에는 인쇄할 때마다 AI 를 새로 불러 글을 지었다. 선생님이 읽어 보지 않은 글이 학부모에게
+  // 나가고, 숫자("총 35개 단어, 정답률 88%")와 교재 단어(bounce, clap)까지 섞여 들어갔다.
+  // 인쇄는 이제 짓지 않는다 — 리포트 편집기에서 선생님이 확정한 본문만 쓴다.
+  const _rpt=scoped?((typeof DB.reports==='function')?DB.reports():[]).find(r=>r.sid===sid&&r.month===month):null;
+  const _rptBody=_rpt?String(_rpt.final||_rpt.draft||''):'';   // teacherNote 는 읽지 않는다
+  const teacherComment=(typeof _stripNote==='function')?_stripNote(_rptBody):_rptBody.trim();
+  // 출석률·숙제 완료율·단어 평균 — 편집기·학부모 화면과 같은 계산(ppMonthMetrics)
+  const _mx=(scoped&&typeof ppMonthMetrics==='function')?ppMonthMetrics(s,month):null;
+  if(scoped&&!teacherComment)toast(`${periodLabel} 월간 리포트가 없어 종합 코멘트는 비워 둡니다`);
   const html=`<!DOCTYPE html><html lang="ko"><head>
   <meta charset="UTF-8">
   <title>${s.name} 학습 리포트</title>
   <style>
+    /* 인쇄 창은 앱 문서가 아니라 새 문서다 — css/tokens.css 를 못 읽는다.
+       전에는 var(--accent) 등이 전부 빈 값이 되어 제목선·점수막대 색이 빠진 채로 인쇄됐다.
+       tokens.css 와 같은 값을 여기에 둔다 (tokens.css 를 바꾸면 이 블록도 함께 고칠 것) */
+    :root{--accent:#3B5BDB;--text:#1B2430;--border:#E6E8EC;
+      --ok:#2F9E68;--okt:#1E7A4D;--tealt:#2B48B8;--warn:#C77700;--warnt:#8A5200;}
     *{margin:0;padding:0;box-sizing:border-box;}
     body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#1a1a2e;padding:32px;max-width:680px;margin:0 auto;font-size:14px;line-height:1.6;}
     .header{text-align:center;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid var(--accent);}
@@ -992,6 +890,16 @@ ${lessSummary}
       <div class="stat"><div class="stat-n" style="color:${avgV>=80?'var(--okt)':avgV>=60?'var(--tealt)':'var(--warnt)'}">${avgV!=null?avgV+'%':'—'}</div><div class="stat-l">단어 평균</div></div>
     </div>
   </div>
+  ${_mx?`<div class="section">
+    <div class="section-title">${luIcon('target',15)||''} ${periodLabel} 지표</div>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+      ${[['att','출석률'],['hw','숙제 완료율'],['vocab','단어 평균']].map(([k,lb])=>{
+        const v=_mx[k];
+        const sub=v?(k==='vocab'?'시험 '+v.total+'회':v.done+'/'+v.total):'기록 없음';
+        return `<div class="stat"><div class="stat-n">${v?v.pct+'%':'—'}</div><div class="stat-l">${lb}</div><div style="font-size:11px;color:#aaa;margin-top:1px">${sub}</div></div>`;
+      }).join('')}
+    </div>
+  </div>`:''}
   ${latTst?`<div class="section">
     <div class="section-title">📝 최근 테스트 (${latTst.date})</div>
     <div style="display:flex;gap:16px;margin-bottom:8px">
@@ -1001,9 +909,9 @@ ${lessSummary}
     </div>
     ${(latTst.wrongWords||[]).length?`<div style="font-size:13px">다시 볼 단어: <strong>${latTst.wrongWords.slice(0,10).join(', ')}</strong></div>`:''}
   </div>`:''}
-  ${aiComment?`<div class="section">
+  ${teacherComment?`<div class="section">
     <div class="section-title">💬 선생님 종합 코멘트</div>
-    <div class="comment-box" style="font-size:14px;line-height:1.8">${aiComment.replace(/\n/g,'<br>')}</div>
+    <div class="comment-box" style="font-size:14px;line-height:1.8">${teacherComment.replace(/\n/g,'<br>')}</div>
   </div>`:''}
   ${cmtLes.length?`<div class="section">
     <div class="section-title">🗒 수업별 선생님 코멘트</div>
