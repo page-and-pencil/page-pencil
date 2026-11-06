@@ -10264,7 +10264,7 @@ function renderAudioCell(b){
     return `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">
       ${ytBtn}
       <label class="audio-upload-btn" style="cursor:pointer">🎵 전권 업로드<input type="file" accept="audio/*" style="display:none" onchange="uploadBookAudio(event,'${b.id}','full')"></label>
-      <label class="audio-upload-btn" style="cursor:pointer;background:var(--pl);border-color:rgba(91,79,187,.3);color:var(--purple)">📑 챕터 추가<input type="file" accept="audio/*" style="display:none" onchange="uploadBookAudio(event,'${b.id}','chapter')"></label>
+      <label class="audio-upload-btn" style="cursor:pointer;background:var(--pl);border-color:rgba(91,79,187,.3);color:var(--purplet)">📑 챕터 추가<input type="file" accept="audio/*" style="display:none" onchange="uploadBookAudio(event,'${b.id}','chapter')"></label>
     </div>`;
   }
   if(ao.type==='chapters'){
@@ -10566,7 +10566,7 @@ function renderAssignCal(){
         const isRecur=a.category==='recur';
         (byDate[sc.date]=byDate[sc.date]||[]).push({
           ord:isRecur?10:20,
-          color:isRecur?'#3B5BDB':_PG_C5_COLOR,
+          color:isRecur?'#2F7D63':_PG_C5_COLOR,
           label:sc.unit||sc.book||a.bookTitle||'',
           tip:`${asgSrcLabel(a)} — ${[a.bookTitle&&a.bookTitle!==sc.book?a.bookTitle:'',sc.book,sc.unit].filter(Boolean).join(' · ')}`,
           done:!!sc.done});
@@ -10618,7 +10618,7 @@ function renderAssignCal(){
       <button class="btn bo bxxs" onclick="assignCalMonth(1)">▶</button>
       ${hwPending&&stCls?`<button class="btn bt bxxs" title="배운 단원 복습 숙제를 반 전체에게 한 번에" onclick="pgAssignAllHomework('${stCls.id}')">📕 숙제 일괄</button>`:''}
       <span style="flex:1"></span>
-      <span class="pg-lg"><i style="background:#3B5BDB"></i>반복·자동</span>
+      <span class="pg-lg"><i style="background:#2F7D63"></i>반복·자동</span>
       <span class="pg-lg"><i style="background:${_PG_C5_COLOR}"></i>클래스5</span>
       <span class="pg-lg"><i style="background:var(--text-muted)"></i>마감 과제</span>
       <span class="pg-lg" title="점선=아직 할당 전 제안"><i style="background:#fff;border:1.5px dashed var(--neutral)"></i>제안</span>
@@ -13680,7 +13680,7 @@ function _pgHwChips(sid,ym){
         if(!sc.date||(ym&&!sc.date.startsWith(ym)))return;
         (out[sc.date]=out[sc.date]||[]).push({
           ord:isRecur?10:20,kind:isRecur?'recur':'class5',aid:a.id,sched:true,
-          color:isRecur?'#3B5BDB':_PG_C5_COLOR,
+          color:isRecur?'#2F7D63':_PG_C5_COLOR,
           label:sc.unit||sc.book||a.bookTitle||'',
           tip:`${asgSrcLabel(a)} — ${[a.bookTitle&&a.bookTitle!==sc.book?a.bookTitle:'',sc.book,sc.unit].filter(Boolean).join(' · ')}`,
           done:!!sc.done,by:sc.doneBy||''});
@@ -13851,7 +13851,7 @@ function _pgCalHtml(classId){
       <span class="pp-key-i"><i class="pp-sw rec"></i>기록</span>
       <span class="pp-key-i"><i class="pp-sw gho"></i>예정</span>
       <span class="pp-key-i"><i class="pp-sw om"></i>옆 달</span>
-      ${LY.hw?`<span class="pp-key-i"><i class="pp-sw" style="background:#3B5BDB"></i>반복 숙제</span>`:''}
+      ${LY.hw?`<span class="pp-key-i"><i class="pp-sw" style="background:#2F7D63"></i>반복 숙제</span>`:''}
       ${LY.c5?`<span class="pp-key-i"><i class="pp-sw" style="background:${_PG_C5_COLOR}"></i>클래스5·리딩앤</span>`:''}
       <span class="pp-key-sp"></span>
       <span class="pp-key-d">끌어서 이동 · ✕로 빼기 · 우클릭 메뉴</span>

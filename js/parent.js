@@ -851,8 +851,8 @@ async function printReport(sidArg,month){
     /* 인쇄 창은 앱 문서가 아니라 새 문서다 — css/tokens.css 를 못 읽는다.
        전에는 var(--accent) 등이 전부 빈 값이 되어 제목선·점수막대 색이 빠진 채로 인쇄됐다.
        tokens.css 와 같은 값을 여기에 둔다 (tokens.css 를 바꾸면 이 블록도 함께 고칠 것) */
-    :root{--accent:#3B5BDB;--text:#1B2430;--border:#E6E8EC;
-      --ok:#2F9E68;--okt:#1E7A4D;--tealt:#2B48B8;--warn:#C77700;--warnt:#8A5200;}
+    :root{--accent:#1B5E4A;--text:#1B2430;--border:#E6E8EC;
+      --ok:#2F9E68;--okt:#1E7A4D;--tealt:#164C3C;--warn:#C77700;--warnt:#8A5200;}
     *{margin:0;padding:0;box-sizing:border-box;}
     body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#1a1a2e;padding:32px;max-width:680px;margin:0 auto;font-size:14px;line-height:1.6;}
     .header{text-align:center;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid var(--accent);}

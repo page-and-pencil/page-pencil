@@ -22,12 +22,12 @@
   --text-muted:#5F6672;      /* 대비 4.5:1 이상 */
 
   /* ── 강조 ── */
-  --primary:#242F3D;         /* 주 버튼, 선택된 칩, 로고 */
-  --primary-hover:#323E4E;
-  --accent:#3B5BDB;          /* 점수 막대, 링크 */
-  --accent-hover:#2B48B8;
-  --avatar-bg:#E8ECF8;
-  --avatar-text:#2B48B8;
+  --primary:#1B5E4A;         /* 주 버튼, 선택된 칩, 로고 */
+  --primary-hover:#164C3C;
+  --accent:#1B5E4A;          /* 점수 막대, 링크 */
+  --accent-hover:#164C3C;
+  --avatar-bg:#E8F0EC;
+  --avatar-text:#1B5E4A;
 
   /* ── 상태 ── */
   --warning:#D9480F;         /* 미납 등 */
@@ -42,12 +42,12 @@
   --r-chip:14px;             /* 칩(알약) */
 
   /* ═══ 기존 이름 호환 — 값만 Linear 팔레트로 ═══ */
-  --navy:#1B2430;--navy2:#242F3D;--navy3:#242F3D;
+  --navy:#1B2430;--navy2:#1B5E4A;--navy3:#1B5E4A;
   --cream:#FFFFFF;--cream2:#F1F3F6;--cream3:#F7F8FA;
-  --teal:#3B5BDB;--tl:#E8ECF8;--tealt:#2B48B8;
+  --teal:#1B5E4A;--tl:#E8F0EC;--tealt:#164C3C;
   --coral:#D9480F;--cl:#FDEDE6;
   --amber:#B86E00;--al:#FBF0DC;
-  --purple:#2B48B8;--pl:#E8ECF8;
+  --purple:#2F7D63;--purplet:#276B54;--pl:#E3EFE9;
   --slate:#5F6672;--slate2:#9AA1AC;
 
   /* 의미색 — 면(바탕)/선·아이콘/글자 세 단계. 채도를 낮춰 Linear 톤에 맞춘다 */

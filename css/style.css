@@ -257,7 +257,7 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
 .bsm{padding:8px 12px;font-size:13px;min-height:36px;}
 .bxxs{padding:2px 8px;font-size:12px;min-height:28px;}
 .ba{background:var(--surface);color:var(--text-muted);border:1px solid var(--border);}.ba:hover{background:var(--bg);}
-.bpurp{background:var(--pl);color:var(--purple);border:1px solid rgba(91,79,187,.2);}
+.bpurp{background:var(--pl);color:var(--purplet);border:1px solid rgba(91,79,187,.2);}
 
 /* CHIPS */
 .chips{display:flex;flex-wrap:wrap;gap:8px;}
@@ -726,7 +726,7 @@ div.ig-like{cursor:default;}
 .score-row .f{flex:1;min-width:120px;margin-bottom:0;}
 
 /* 결제 빠른 입력 버튼 */
-.quick-pay-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px dashed rgba(91,79,187,.4);background:var(--pl);color:var(--purple);transition:all .2s;font-family:var(--fb);}
+.quick-pay-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px dashed rgba(91,79,187,.4);background:var(--pl);color:var(--purplet);transition:all .2s;font-family:var(--fb);}
 .quick-pay-btn:hover{border-color:var(--purple);background:#e4e0fc;}
 
 /* Cloudinary 경고 */
@@ -1020,7 +1020,7 @@ div.ig-like{cursor:default;}
 .hw-upload-zone:hover{border-color:var(--teal);}
 .hw-status-badge{padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:700;}
 .hw-status-badge.pending{background:#FFF8E1;color:#b06000;}
-.hw-status-badge.checked{background:var(--tl);color:var(--purple);}
+.hw-status-badge.checked{background:var(--tl);color:var(--purplet);}
 
 /* LESSON COPY BTN */
 .les-copy-btn{padding:4px 10px;border-radius:var(--rs);font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--slate);font-family:var(--fb);transition:all .15s;}
@@ -1042,7 +1042,7 @@ div.ig-like{cursor:default;}
 .p-score-mini{background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px 14px;margin-bottom:10px;}
 
 /* MISC */
-.vocab-card-status{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:10px;font-size:10.5px;font-weight:700;background:var(--tl);color:var(--purple);}
+.vocab-card-status{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:10px;font-size:10.5px;font-weight:700;background:var(--tl);color:var(--purplet);}
 
 /* GAMIFICATION */
 .hw-check-card{background:#fff;border-radius:14px;border:1.5px solid var(--border);padding:15px 16px;margin-bottom:10px;min-height:56px;transition:all .3s;}
@@ -1350,7 +1350,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .pp-help-s::before{content:'ⓘ';font-weight:400;}
 .pp-help-s::after{content:'▾';font-size:9px;transition:transform .18s;}
 .pp-help[open] .pp-help-s::after{transform:rotate(180deg);}
-.pp-help-s:hover{background:var(--tl);color:var(--purple);}
+.pp-help-s:hover{background:var(--tl);color:var(--purplet);}
 .pp-help-b{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:3px 14px;margin-top:7px;padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--cream3);}
 .pp-help-r{display:grid;grid-template-columns:20px auto 1fr;align-items:baseline;gap:6px;font-size:11.5px;line-height:1.65;}
 .pp-help-r i{font-style:normal;text-align:center;}
@@ -1400,7 +1400,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 /* ── 동시 진행 줄 (같은 영역 안에서 교재가 함께 돌아갈 때) ── */
 .sr-c3{display:flex;align-items:center;gap:6px;min-width:0;}
 #m-edit-class .sr-run{font-size:12.5px;padding:6px 8px;background:#fff;color:var(--slate);border-radius:8px;min-width:0;max-width:150px;}
-#m-edit-class .sr-run.on{border-color:var(--purple);color:var(--purple);font-weight:700;background:var(--pl);}
+#m-edit-class .sr-run.on{border-color:var(--purple);color:var(--purplet);font-weight:700;background:var(--pl);}
 #m-edit-class .sr.sr-par{border-left:3px solid var(--purple);background:#F7FBFD;}
 
 /* ── 영역별 진도 보드 ── */
@@ -1415,12 +1415,12 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .tb-row{display:grid;grid-template-columns:86px 1fr;gap:9px;align-items:start;}
 .tb-subj{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--navy);padding-top:5px;}
 .tb-subj i{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.tb-subj b{font-size:9.5px;font-weight:700;color:var(--purple);background:var(--pl);border-radius:7px;padding:1px 5px;}
+.tb-subj b{font-size:9.5px;font-weight:700;color:var(--purplet);background:var(--pl);border-radius:7px;padding:1px 5px;}
 .tb-tracks{display:flex;flex-direction:column;gap:4px;min-width:0;}
 .tb-track{display:grid;grid-template-columns:40px minmax(90px,1.5fr) 1fr 54px 54px 1.2fr auto;gap:8px;align-items:center;
   background:var(--cream3);border:1px solid var(--border);border-radius:9px;padding:5px 9px;font-size:11.5px;min-width:0;}
 .tb-mode{font-size:9.5px;font-weight:800;text-align:center;border-radius:7px;padding:2px 0;}
-.tb-mode.cls{background:var(--tl);color:var(--purple);}
+.tb-mode.cls{background:var(--tl);color:var(--purplet);}
 .tb-mode.hw{background:var(--warnl);color:var(--warnt);}
 .tb-mode.alt{background:#EDE9FE;color:#5B21B6;}
 .tb-book{font-weight:700;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
@@ -1557,7 +1557,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .pg-ly-b{font-size:10.5px;font-weight:700;color:var(--slate);background:#fff;border:1px solid var(--border);
   border-radius:50px;padding:3px 9px;cursor:pointer;font-family:var(--fb);white-space:nowrap;transition:all .12s;}
 .pg-ly-b:hover{border-color:var(--teal);}
-.pg-ly-b.on{background:var(--tl);border-color:var(--teal);color:var(--purple);}
+.pg-ly-b.on{background:var(--tl);border-color:var(--teal);color:var(--purplet);}
 
 /* ── 수업 기록 폼: 이미 나가 있는 숙제 체크 ── */
 .cl-hw-chk{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;padding:7px 10px;
@@ -1569,7 +1569,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .cl-hw-box:hover{border-color:var(--teal);}
 .cl-hw-chk.on .cl-hw-box{background:#34D399;border-color:#34D399;color:#fff;}
 .cl-hw-t{flex:1;min-width:140px;}
-.cl-hw-t u{text-decoration:none;font-weight:700;color:var(--purple);background:var(--pl);border-radius:6px;padding:1px 6px;margin-left:4px;}
+.cl-hw-t u{text-decoration:none;font-weight:700;color:var(--purplet);background:var(--pl);border-radius:6px;padding:1px 6px;margin-left:4px;}
 .cl-hw-n{font-size:12px;margin-left:6px;}
 .cl-hw-chk em{font-style:normal;font-size:11px;color:var(--slate);}
 .cl-hw-title{flex-basis:100%;padding:6px 9px;border:1.5px solid var(--border);border-radius:8px;
@@ -1580,7 +1580,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .pg-lgw>summary{list-style:none;cursor:pointer;font-size:10.5px;font-weight:700;color:var(--slate);
   border:1px solid var(--border);border-radius:50px;padding:3px 9px;white-space:nowrap;background:#fff;}
 .pg-lgw>summary::-webkit-details-marker{display:none;}
-.pg-lgw>summary:hover{border-color:var(--teal);color:var(--purple);}
+.pg-lgw>summary:hover{border-color:var(--teal);color:var(--purplet);}
 .pg-lgw-b{position:absolute;right:0;top:calc(100% + 5px);z-index:20;background:#fff;border:1px solid var(--border);
   border-radius:10px;box-shadow:0 8px 24px rgba(15,48,74,.14);padding:9px 11px;display:flex;flex-direction:column;
   gap:5px;min-width:200px;max-width:min(330px,88vw);}
@@ -2316,7 +2316,7 @@ body{font-size:14.5px;line-height:1.65;}
 #s-student .btn.bt{box-shadow:0 2px 6px rgba(42,37,32,.12);}
 
 /* 히어로 — 하늘빛 그라데이션 + 종이 테이프 */
-.stu-hero{background-image:linear-gradient(145deg,#5B7BE8 0%,#3B5BDB 55%,#2F4BC4 100%)!important;
+.stu-hero{background-image:linear-gradient(145deg,#2A7A60 0%,#1B5E4A 55%,#164C3C 100%)!important;
   border-radius:20px!important;box-shadow:0 8px 22px rgba(59,91,219,.26);padding:22px 22px 24px;}
 .stu-hero-title{font-size:23px;letter-spacing:-.02em;}
 .stu-hero-cmt{font-size:16px;line-height:1.8;}
