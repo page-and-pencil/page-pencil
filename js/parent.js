@@ -254,8 +254,7 @@ async function loadParent(sid){
   }
   // 블록 A0 — 지금 어느 기간인가 (학생 화면과 같은 판정에서 읽는다)
   {const tl=(typeof ppTrackLineHtml==='function')?ppTrackLineHtml(s,true):'';
-   const gl=(typeof ppGoalsHtml==='function')?ppGoalsHtml(s,{max:3}):'';
-   if(tl||gl)blocks+=`<div class="card"><div class="cb" style="padding:4px 14px">${tl}${gl}</div></div>`;}
+   if(tl)blocks+=`<div class="card"><div class="cb" style="padding:4px 14px">${tl}</div></div>`;}
 
   // 블록 A — 최근 수업 (가장 최근이 '수업 안 함'이면 안 한 사실을 안내)
   const skipDate=stuRecentSkip(sid,latLes?.date||'');

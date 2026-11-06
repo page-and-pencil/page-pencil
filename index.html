@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261106d">
+<link rel="stylesheet" href="css/style.css?v=20261106h">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -2382,54 +2382,6 @@
     </div>
   </div>
 </div>
-<div id="m-goal" class="mo">
-  <div class="mdl" style="max-width:520px">
-    <div class="mh"><span class="mt" id="goal-mt">학습 목표</span>
-      <button class="bx" onclick="closeM('m-goal')">&times;</button></div>
-    <input type="hidden" id="gl-id"><input type="hidden" id="gl-sid">
-    <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="f"><label>학습 방향</label>
-        <select id="gl-track">
-          <option value="ch">체력 — 읽고 듣고 표현하는 힘</option>
-          <option value="jg">직결 — 학교 수업과 평가</option>
-          <option value="common">공통</option>
-        </select></div>
-      <div class="f"><label>학습 영역 <span style="font-weight:400;color:var(--neutral)">(선택)</span></label>
-        <select id="gl-area">
-          <option value="">선택 안 함</option>
-          <option>어휘</option><option>구문</option><option>독해</option><option>듣기</option>
-          <option>쓰기</option><option>말하기</option><option>어법</option><option>서술형</option>
-          <option>수행평가</option><option>기타</option>
-        </select></div>
-      <div class="f" style="grid-column:span 2"><label>목표 <span style="font-weight:400;color:var(--neutral)">(무엇을 할 수 있게 되는지 — 눈으로 확인되는 문장으로)</span></label>
-        <input type="text" id="gl-goal" placeholder="예) 긴 문장에서 주어와 동사를 찾는다"></div>
-      <div class="f" style="grid-column:span 2"><label>확인 기준 <span style="font-weight:400;color:var(--neutral)">(무엇을 보면 됐다고 할지)</span></label>
-        <input type="text" id="gl-criteria" placeholder="예) 처음 보는 지문 5문장 중 4문장 이상"></div>
-      <div class="f"><label>시작</label><input type="date" id="gl-from"></div>
-      <div class="f"><label>끝</label><input type="date" id="gl-to"></div>
-      <div class="f"><label>확인 결과</label>
-        <select id="gl-status">
-          <option value="active">진행 중 (아직 확인 전)</option>
-          <option value="met">달성</option>
-          <option value="notmet">미달</option>
-        </select></div>
-      <div class="f"><label>확인 메모 <span style="font-weight:400;color:var(--neutral)">(선택)</span></label>
-        <input type="text" id="gl-note" placeholder="무엇을 보고 그렇게 판단했는지"></div>
-      <div class="f" style="grid-column:span 2">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" id="gl-class" style="width:auto;min-height:0">
-          <span id="gl-class-lbl">이 반 전체에 같은 목표</span></label></div>
-      <div class="f" style="grid-column:span 2;font-size:12.5px;color:var(--text-muted);line-height:1.5">
-        확인하지 않은 목표는 미평가로 남습니다. 기간이 지나도 자동으로 달성 처리하지 않습니다.</div>
-    </div>
-    <div style="display:flex;justify-content:space-between;gap:8px;margin-top:18px">
-      <button class="btn bd bsm" id="gl-del-btn" style="display:none" onclick="deleteGoal()">삭제</button>
-      <span style="flex:1"></span>
-      <button class="btn bo" onclick="closeM('m-goal')">취소</button>
-      <button class="btn bt" onclick="saveGoal()">저장</button>
-    </div>
-  </div>
-</div>
 <div id="m-exam" class="mo">
   <div class="mdl" style="max-width:560px">
     <div class="mh"><span class="mt" id="exam-mt">시험 일정</span>
@@ -2523,11 +2475,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261106c"></script>
+<script src="js/utils.js?v=20261106h"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261106b"></script>
-<script src="js/teacher.js?v=20261106g"></script>
-<script src="js/student.js?v=20261106e"></script>
-<script src="js/parent.js?v=20261106d"></script>
+<script src="js/db.js?v=20261106h"></script>
+<script src="js/teacher.js?v=20261106h"></script>
+<script src="js/student.js?v=20261106h"></script>
+<script src="js/parent.js?v=20261106h"></script>
 </body>
 </html>
