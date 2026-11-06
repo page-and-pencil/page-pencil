@@ -448,6 +448,7 @@ function _injectPreviewBar(label){
 async function previewAsStudent(sid){
   if(!sid){toast('학생을 선택해 주세요');return;}
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+  noticePopupHide();_noticePreview=true;
   closeStuPanel();
   await loginStudent(s);
   _injectPreviewBar(s.name+' 학생 뷰');
@@ -455,11 +456,13 @@ async function previewAsStudent(sid){
 async function previewAsParent(sid){
   if(!sid){toast('학생을 선택해 주세요');return;}
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+  noticePopupHide();_noticePreview=true;
   closeStuPanel();
   await loadParent(sid);
   _injectPreviewBar(s.name+' 학부모 뷰');
 }
 function returnToTeacher(){
+  noticePopupHide();_noticePreview=false;
   document.getElementById('_teacher-preview-bar')?.remove();
   saveSession({role:'teacher'});
   show('s-teacher');
@@ -1401,7 +1404,7 @@ async function loadStuPanel(sid){
             <div style="font-size:12px;color:${overdue?'var(--red)':'var(--slate)'};font-family:var(--fm)">${(typeof ppTrackChipHtml==='function')?ppTrackChipHtml(a.track):''}${a.date||''}${a.due?' · 마감 '+a.due:''}${completed?' · 완료 '+(a.completedAt||'').slice(0,10):''}</div>
             <div style="font-size:13px;font-weight:700;margin-top:2px">${
               a.type==='reading'?`${_catPill('원서')}${[a.bookTitle,a.range].filter(Boolean).join(' · ')||'원서 읽기'}`:
-              a.type==='vocab'?`${_catPill('어휘')}단어: ${(a.words||[]).join(', ')}`:
+              a.type==='vocab'?`${_catPill('어휘')}${(a.words||[]).length?'단어: '+(a.words||[]).join(', '):(a.range||a.bookTitle||'단어 학습')}`:
               (a.category==='class5'||a.category==='recur')?(()=>{
                 const pill=a.category==='recur'?'🔁 반복':'클래스5';
                 const sc=a.schedule||[];
@@ -8423,8 +8426,24 @@ function _getMatsTextFromMaterials(mats){
 }
 // 교재명을 그대로 쓰게 하는 지시 — 교재 진도를 넘기는 모든 프롬프트가 같은 문장을 쓴다
 const PP_BOOKNAME_RULE="교재명은 '교재명=' 뒤에 적힌 글자를 한 글자도 바꾸지 말고 그대로 쓰세요. 앞에 붙은 숫자도 교재명의 일부입니다 — '345 Grammar 1' 에서 345 를 떼면 다른 책이 됩니다. '교재명=' '단원=' '[구분]' 같은 표식 자체는 출력하지 마세요.";
+// AI 가 코멘트 대신 '선생님에게 되묻는 말' 을 돌려줄 때가 있다.
+// (진도를 안 넣고 저장하면 "진도 정보를 함께 입력해 주시면 바로 작성해 드리겠습니다" 가
+//  polishedCmt 로 저장돼 학부모 화면에 그대로 나갔다 — 2026-11-06 점검)
+// 학부모에게 나가는 글은 이 검사를 통과한 것만 쓴다.
+const _AI_ASK_WORDS=['입력해 주시면','입력해주시면','알 수 없습니다','알 수 없어','작성해 드리겠','작성해드리겠',
+  '제공해 주시면','제공해주시면','말씀해 주시면','말씀해주시면','확인해 주세요','확인해주세요','알려 주시면','알려주시면',
+  '정보가 없어','정보가 부족'];
+function _aiLooksLikeAsk(t){
+  const s=String(t||'').trim();
+  if(!s)return true;
+  if(s.endsWith('?')||s.endsWith('？'))return true;
+  if(_AI_ASK_WORDS.some(w=>s.includes(w)))return true;
+  if(s.length<40&&!/(습니다|합니다|됩니다|했어요|해요|네요)[.!]?$/.test(s))return true;
+  return false;
+}
 async function polishCmt(raw,matsText=''){
-  // 키워드가 없어도 진도(matsText)가 있으면 진도만으로 코멘트를 만든다 (원장 요청)
+  // 키워드가 없어도 진도(matsText)가 있으면 진도만으로 코멘트를 만든다 (원장 요청).
+  // 둘 다 없으면 AI 를 부르지 않는다 — 쓸 재료가 없으면 지어내거나 되묻기 때문이다.
   if((!raw||!raw.trim())&&!String(matsText||'').trim()) return '';
   const r=(raw||'').trim();
   const apiKey=DB.api();
@@ -8432,10 +8451,18 @@ async function polishCmt(raw,matsText=''){
   try{
     const examples=_getCmtExamples();
     const fewShot=examples.length?'\n\n[이전 승인된 코멘트 예시 — 이 말투와 형식을 참고하세요]\n'+examples.map(e=>`메모: "${e.raw}" → 코멘트: "${e.confirmed}"`).join('\n')+'\n':'\n';
-    const matsLine=matsText?`\n오늘 수업에서 다룬 교재·원서 진도: ${matsText}`:'';
-    const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드와 진도 정보를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다. 선생님이 적어 둔 만큼만 전합니다 — 적히지 않은 것은 쓰지 않습니다.\n\n작성 규칙:\n분량: 선생님 메모 분량에 맞춥니다. 메모가 한 줄이면 두세 문장으로 짧게 쓰고, 길이를 채우려고 내용을 보태지 마세요.\n어조(원장 톤앤매너): 합쇼체 위주의 담백하고 따뜻한 문장. 과장·호들갑 없이 아이의 구체적인 모습과 반응을 짚어 주세요("~하는 모습이 대견합니다", "기대 반 설렘 반 하는 모습"). 반복·노출·익숙해짐을 중시하는 교육관이 자연스럽게 배어나게 쓰되(암기보다 익숙해짐, 꾸준한 노출), 마무리는 "꾸준히 ~하겠습니다", "~하도록 돕겠습니다" 같은 지도 다짐으로 맺는 경우가 많습니다. 필요할 때만 "많이 칭찬해 주세요!", "지도 부탁드립니다" 같은 부드러운 협조 요청을 한 번 넣으세요. ":)" 같은 절제된 이모티콘은 아주 가끔만 허용.\n구조: 오늘 학습 내용(무엇을 어디까지) → 아이의 반응·태도 관찰 → 지도 방향·다짐, 자연스럽게 이어지는 한 단락\n진도 정보가 있으면 교재명·원서명은 자연스럽게 녹여 쓰되, 단원명(Unit/Lesson 번호·제목)은 그대로 나열하지 마세요 — 단원명은 앱에 별도로 표시됩니다.\n${PP_BOOKNAME_RULE}\n단원에서 무엇을 배웠는지는 선생님 메모에 적힌 범위에서만 쓰세요 — 다룬 단어·음가·지문 주제·문법 포인트를 메모에 없는데 짐작해 적으면 안 됩니다. 원서는 완독/진행 중 등 진행 상태까지 전하고, 완독했다면 그 성취를 짚어 주세요.\n키워드가 짧아도, 아예 없어도 진도 정보를 활용해 학습 내용을 충실히 서술하세요. 키워드가 없으면 아이의 태도를 추측하지 말고 무엇을 어디까지 배웠는지와 지도 방향만 담백하게 쓰세요. 단, 키워드와 진도에 없는 사실을 지어내지 마세요.\n\n[절대 금지]\n선생님 메모와 진도 정보에 없는 것은 쓰지 마세요 — 수업에서 다룬 단어·음가·활동, 아이의 반응·감정을 지어내면 안 됩니다. 아는 것은 교재명·단원명과 메모뿐입니다.\n첫 단어로 주어(이름, "학생", "아이")를 쓰지 마세요. 반드시 서술어 또는 부사로 시작하세요.\n과장된 칭찬이나 부정적 표현 피하기. 마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.${fewShot}\n키워드: ${r||'(입력 없음 — 진도 정보만으로 작성)'}${matsLine}`;
+    const hasMats=!!String(matsText||'').trim();
+    const matsLine=hasMats?`\n오늘 수업에서 다룬 교재·원서 진도: ${matsText}`:'';
+    // 진도가 없으면 '진도를 써라/달라' 는 지시를 아예 넣지 않는다. 그 지시 때문에 AI 가 되물었다.
+    const matsRule=hasMats
+      ?`진도 정보가 있으면 교재명·원서명은 자연스럽게 녹여 쓰되, 단원명(Unit/Lesson 번호·제목)은 그대로 나열하지 마세요 — 단원명은 앱에 별도로 표시됩니다.\n${PP_BOOKNAME_RULE}\n단원에서 무엇을 배웠는지는 선생님 메모에 적힌 범위에서만 쓰세요 — 다룬 단어·음가·지문 주제·문법 포인트를 메모에 없는데 짐작해 적으면 안 됩니다. 원서는 완독/진행 중 등 진행 상태까지 전하고, 완독했다면 그 성취를 짚어 주세요.\n키워드가 짧아도, 아예 없어도 진도 정보를 활용해 학습 내용을 충실히 서술하세요. 키워드가 없으면 아이의 태도를 추측하지 말고 무엇을 어디까지 배웠는지와 지도 방향만 담백하게 쓰세요. 단, 키워드와 진도에 없는 사실을 지어내지 마세요.`
+      :`오늘은 진도 정보가 없습니다. 교재·단원·진도 이야기는 한 글자도 쓰지 마세요. 선생님이 적어 둔 키워드만으로 두 문장 이내로 쓰세요.\n진도를 묻거나 요청하지 마세요 — 이 글은 선생님이 아니라 학부모가 읽습니다. 되묻는 문장, 안내 문구, "정보가 없어" 같은 말은 절대 쓰지 마세요.`;
+    const prompt=`당신은 영어 소수 정예 수업을 진행하는 영어 전문 강사입니다. 수업 후 강사가 입력한 키워드와 진도 정보를 바탕으로 학부모에게 전달할 수업 코멘트를 작성합니다. 선생님이 적어 둔 만큼만 전합니다 — 적히지 않은 것은 쓰지 않습니다.\n\n작성 규칙:\n분량: 선생님 메모 분량에 맞춥니다. 메모가 한 줄이면 두세 문장으로 짧게 쓰고, 길이를 채우려고 내용을 보태지 마세요.\n어조(원장 톤앤매너): 합쇼체 위주의 담백하고 따뜻한 문장. 과장·호들갑 없이 아이의 구체적인 모습과 반응을 짚어 주세요("~하는 모습이 대견합니다", "기대 반 설렘 반 하는 모습"). 반복·노출·익숙해짐을 중시하는 교육관이 자연스럽게 배어나게 쓰되(암기보다 익숙해짐, 꾸준한 노출), 마무리는 "꾸준히 ~하겠습니다", "~하도록 돕겠습니다" 같은 지도 다짐으로 맺는 경우가 많습니다. 필요할 때만 "많이 칭찬해 주세요!", "지도 부탁드립니다" 같은 부드러운 협조 요청을 한 번 넣으세요. ":)" 같은 절제된 이모티콘은 아주 가끔만 허용.\n구조: 오늘 학습 내용(무엇을 어디까지) → 아이의 반응·태도 관찰 → 지도 방향·다짐, 자연스럽게 이어지는 한 단락\n${matsRule}\n\n[절대 금지]\n선생님 메모와 진도 정보에 없는 것은 쓰지 마세요 — 수업에서 다룬 단어·음가·활동, 아이의 반응·감정을 지어내면 안 됩니다. 아는 것은 교재명·단원명과 메모뿐입니다.\n첫 단어로 주어(이름, "학생", "아이")를 쓰지 마세요. 반드시 서술어 또는 부사로 시작하세요.\n과장된 칭찬이나 부정적 표현 피하기. 마크다운, 이모지, 따옴표 사용 금지. 코멘트 문장만 출력하세요.${fewShot}\n키워드: ${r||'(입력 없음 — 진도 정보만으로 작성)'}${matsLine}`;
     const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:500,messages:[{role:'user',content:prompt}]});
-    return d.content?.[0]?.text?.trim()||polishCmtLocal(r);
+    const out=d.content?.[0]?.text?.trim()||'';
+    // 코멘트가 아니라 선생님에게 되묻는 말이면 학부모 쪽에 넣지 않는다
+    if(_aiLooksLikeAsk(out)){console.warn('polishCmt: 코멘트가 아닌 응답 — 로컬 문장으로 대체:',out.slice(0,60));return polishCmtLocal(r);}
+    return out;
   }catch(e){
     console.warn('polishCmt API 실패, 로컬 폴백:', e.message);
     return polishCmtLocal(r);
@@ -8783,6 +8810,14 @@ ${tstSummary}
     const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:600,messages:[{role:'user',content:prompt}]});
     const raw=d.content?.[0]?.text?.trim()||'';
     const {body,note}=_splitReportDraft(raw);
+    // 본문이 코멘트가 아니라 되묻는 말이면 학부모 쪽에 넣지 않는다 (polishCmt 와 같은 기준)
+    if(body&&typeof _aiLooksLikeAsk==='function'&&_aiLooksLikeAsk(body)){
+      toast('AI 가 쓸 기록이 부족해 본문을 비웠습니다 — 직접 적어 주세요');
+      const _nEl=document.getElementById('re-note');   // noteEl 은 아래에서 선언된다(TDZ)
+      if(_nEl&&note)_nEl.value=note;
+      if(btn){btn.disabled=false;btn.textContent='🤖 AI 초안 생성';}
+      return;
+    }
     if(body)textEl.value=body;
     const noteEl=document.getElementById('re-note');
     if(noteEl&&note)noteEl.value=note;
@@ -10086,7 +10121,17 @@ function _noticeMarkRead(key){
     localStorage.setItem('pp_notice_read',JSON.stringify(a.slice(-60)));
   }catch(e){}
 }
-let _noticeKey='';
+let _noticeKey='',_noticeTimer=null,_noticePreview=false;
+// 공지 팝업은 .screen 바깥의 고정 요소라 역할을 바꿔도 혼자 남는다.
+// 미리보기에서 뜬 팝업이 선생님 화면을 덮어 아무것도 못 누르게 하던 것 — 전환할 때 꺼 준다.
+// 읽음 기록은 남기지 않는다(미리보기에서 누른 것 때문에 원장님 기기의 공지가 사라지면 안 된다).
+function noticePopupHide(){
+  if(_noticeTimer){clearTimeout(_noticeTimer);_noticeTimer=null;}
+  _noticeKey='';
+  const p=document.getElementById('notice-popup'),o=document.getElementById('notice-overlay');
+  if(p)p.style.display='none';
+  if(o)o.style.display='none';
+}
 function checkNotice(){
   const read=_noticeRead();
   const key=n=>String(n.id||n.text||'').slice(0,80);
@@ -10103,7 +10148,9 @@ function checkNotice(){
   document.getElementById('notice-overlay').style.display='block';
 }
 function closeNotice(){
-  if(_noticeKey)_noticeMarkRead(_noticeKey);   // 닫으면 기억 — 다시 뜨지 않게
+  // 미리보기(선생님이 학생·학부모 화면을 들여다보는 중)에서는 읽음으로 기록하지 않는다.
+  // 이 기기의 pp_notice_read 는 학생별·역할별이 아니라 하나뿐이라, 기록하면 다음 미리보기에도 안 뜬다.
+  if(_noticeKey&&!_noticePreview)_noticeMarkRead(_noticeKey);   // 닫으면 기억 — 다시 뜨지 않게
   _noticeKey='';
   document.getElementById('notice-popup').style.display='none';
   document.getElementById('notice-overlay').style.display='none';
@@ -10827,10 +10874,24 @@ function renderAssignTab(){
 }
 function c5BookLbl(a){const sc=a.schedule||[];if(!sc.length)return '';const f=sc[0];const c=[f.book,f.unit].filter(Boolean).join(', ');return sc.length>1?c+` 외 ${sc.length-1}일`:c;}
 let _editAssignId=null;
+// 과제 모달을 닫을 때는 '수정 중' 표식을 반드시 푼다.
+// 전에는 [취소]·× 가 closeM 만 불러 _editAssignId 가 남았고, 그 뒤 [+ 과제 할당] 으로 연
+// 창에서 [할당] 을 누르면 새 과제가 아니라 '아까 편집하던 과제' 를 조용히 덮어썼다.
+function closeAssignModal(){
+  _editAssignId=null;
+  const mt=document.querySelector('#m-add-assign .mt');
+  if(mt)mt.textContent='📋 과제 할당';
+  const sb=document.getElementById('assign-save-btn');
+  if(sb)sb.textContent='할당';
+  const ex=document.getElementById('modal-assign-extra');
+  if(ex)ex.innerHTML='';
+  closeM('m-add-assign');
+}
 function openAssignModal(sid){
   _editAssignId=null;
   const mt=document.querySelector('#m-add-assign .mt');
   if(mt)mt.textContent='📋 과제 할당';
+  {const sb=document.getElementById('assign-save-btn');if(sb)sb.textContent='할당';}
   document.getElementById('modal-assign-stu').value=sid||'';
   const today=ppToday();
   document.getElementById('modal-assign-date').value=today;
@@ -10877,6 +10938,7 @@ function openEditAssignModal(aid){
   _editAssignId=aid;
   const mt=document.querySelector('#m-add-assign .mt');
   if(mt)mt.textContent='📋 과제 수정';
+  {const sb=document.getElementById('assign-save-btn');if(sb)sb.textContent='저장';}
   document.getElementById('modal-assign-stu').value=a.sid||'';
   document.getElementById('modal-assign-date').value=a.date||'';
   document.getElementById('modal-assign-due').value=a.due||'';
@@ -10906,8 +10968,10 @@ async function deleteSchedDay(aid,ds){
   const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
   const sc=(a.schedule||[]).find(x=>x.date===ds);if(!sc){toast('그 날짜 일정이 없어요');return;}
   const name=[a.bookTitle||a.text||'숙제',sc.unit||''].filter(Boolean).join(' ');
-  askConfirm('이 날 숙제 빼기',`${name}
-${ds} 하루치만 빼고 나머지 일정은 그대로 둘까요?`,'빼기','bd',async()=>{
+  const doneWarn=sc.done
+    ? `\n⚠️ 이 날은 ${sc.doneBy==='student'?'학생이':'선생님이'} 완료 체크한 날입니다. 빼면 그 기록도 함께 사라지고 되돌릴 수 없습니다.`
+    : '';
+  askConfirm('이 날 숙제 빼기',`${name}\n${ds} 하루치만 빼고 나머지 일정은 그대로 둘까요?${doneWarn}`,'빼기','bd',async()=>{
     const keep=(a.schedule||[]).filter(x=>x.date!==ds);
     if(!keep.length){toast('마지막 하루예요 — 삭제를 눌러 과제를 지워 주세요');return;}
     const prev=a.schedule;
@@ -11118,7 +11182,7 @@ function modalAssignCatChange(){
           <option value="class">수업 있는 날만</option>
         </select>
       </div>
-      <div style="font-size:12px;color:var(--slate);line-height:1.6"><b>마감일을 비우면 끝 없이 이어집니다</b> (3개월치씩 자동으로 더 채워져요).<br>시작일 = 위 '날짜' 칸 (비우면 오늘) · 종료 = 위 '마감일' 칸.<br>교재 유형은 마감일을 비워도 단원이 끝나는 날 자동 종료, '매일 같은 내용'은 마감일 비우면 올해 말까지.<br><b>교재 유형은 자동 진행</b> — 사정상 못 한 날(✓ 없음)의 단원은 버리지 않고 다음 가능한 날로 자동으로 밀립니다. 교재가 끝나면 숙제 캘린더에서 다음 교재를 이어서 고를 수 있어요.</div>
+      <div style="font-size:12px;color:var(--slate);line-height:1.6"><b>마감일을 비우면 끝 없이 이어집니다</b> (3개월치씩 자동으로 더 채워져요).<br>시작일 = 위 '날짜' 칸 (비우면 오늘) · 종료 = 위 '마감일' 칸.<br>교재 유형은 마감일을 비워도 단원이 끝나는 날 자동 종료.<br><b>교재 유형은 자동 진행</b> — 사정상 못 한 날(✓ 없음)의 단원은 버리지 않고 다음 가능한 날로 자동으로 밀립니다. 교재가 끝나면 숙제 캘린더에서 다음 교재를 이어서 고를 수 있어요.</div>
     </div>`;
     // 교재 목록 채우기 (단원 있는 교재)
     const rcSel=document.getElementById('rc-book');
@@ -11466,6 +11530,7 @@ async function saveModalAssignment(){
     _editAssignId=null;
     const mt=document.querySelector('#m-add-assign .mt');
     if(mt)mt.textContent='📋 과제 할당';
+    {const sb=document.getElementById('assign-save-btn');if(sb)sb.textContent='할당';}
     closeM('m-add-assign');renderAssignTab();renderAssignCal();toast('수정되었습니다');return;
   }
   if(cat==='worksheet'){

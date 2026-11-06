@@ -928,7 +928,7 @@
     <div id="t-assign" class="panel">
       <div class="sh">
         <div><div class="st"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 과제</div><div class="ssub">반·학생에게 과제를 할당하고 제출 현황을 봅니다</div></div>
-        <button class="btn bt bsm" onclick="openM('m-add-assign')">+ 과제 할당</button>
+        <button class="btn bt bsm" onclick="openAssignModal('')">+ 과제 할당</button>
       </div>
       <div id="assign-stats" class="dash-stats" style="margin-bottom:14px"></div>
       <div class="card" style="margin-bottom:1rem">
@@ -2115,7 +2115,7 @@
 <!-- 과제 할당 모달 -->
 <div id="m-add-assign" class="mo" data-protect>
   <div class="mdl" style="max-width:560px">
-    <div class="mh"><div class="mt"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 과제 할당</div><button class="bx" onclick="closeM('m-add-assign')">×</button></div>
+    <div class="mh"><div class="mt"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 과제 할당</div><button class="bx" onclick="closeAssignModal()">×</button></div>
     <div class="fg">
       <div class="f"><label>학생</label><select id="modal-assign-stu"><option value="">-- 선택 --</option></select></div>
       <div class="f"><label>날짜</label><input type="date" id="modal-assign-date"></div>
@@ -2159,8 +2159,8 @@
     <div id="modal-assign-range-helper" style="display:none;margin:-4px 0 8px;padding:0 2px"></div>
     <div id="modal-assign-extra"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
-      <button class="btn bo bsm" onclick="closeM('m-add-assign')">취소</button>
-      <button class="btn bt" onclick="saveModalAssignment()">할당</button>
+      <button class="btn bo bsm" onclick="closeAssignModal()">취소</button>
+      <button class="btn bt" id="assign-save-btn" onclick="saveModalAssignment()">할당</button>
     </div>
   </div>
 </div>
@@ -2477,9 +2477,9 @@
 
 <script src="js/utils.js?v=20261106h"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261106h"></script>
-<script src="js/teacher.js?v=20261106h"></script>
-<script src="js/student.js?v=20261106h"></script>
+<script src="js/db.js?v=20261107a"></script>
+<script src="js/teacher.js?v=20261107a"></script>
+<script src="js/student.js?v=20261107a"></script>
 <script src="js/parent.js?v=20261106h"></script>
 </body>
 </html>

@@ -232,7 +232,8 @@ async function loginStudent(s){
   if(!_cache.assignments)_cache.assignments=[];
   _cache.assignments=_cache.assignments.filter(a=>a.sid!==s.id).concat(asgnRows);
   swStuTab('st-home');
-  setTimeout(checkNotice,500); // 게시 공지 팝업 — 학부모(loadParentWithNotice)와 같은 경로를 학생에게도 연결
+  if(typeof _noticeTimer!=='undefined'&&_noticeTimer)clearTimeout(_noticeTimer);
+  _noticeTimer=setTimeout(checkNotice,500); // 게시 공지 팝업 — 학부모(loadParentWithNotice)와 같은 경로를 학생에게도 연결
 }
 
 async function markHwChecked(hwId,sid){
@@ -771,7 +772,7 @@ function renderAssignmentTab(sid){
         }
       }
     } else if(a.type==='vocab'){
-      content=`<div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">📝 단어 암기</div><div class="wl">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
+      content=`<div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">📝 단어 암기${(a.words||[]).length?'':((a.range||a.bookTitle)?' — '+[a.bookTitle,a.range].filter(Boolean).join(' · '):'')}</div><div class="wl">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
     } else if((a.schedule||[]).length){
       // 날짜별 스케줄 과제 (클래스5·반복 숙제) — 오늘부터 7일만 보여주고 전체는 접기
       const today=ppToday();
@@ -2298,6 +2299,19 @@ async function completeSchedDay(sid,asgnId,ds){
   updateStreak(sid);
   _hwChRefresh(sid); // 도장 챌린지 갱신 (도장·달성 축하 포함)
   ppStampPop();stuLevelUpCheck(sid);if(ppTodayAllDone(sid))setTimeout(()=>showMiniConfetti(),500);
+  // 카드만 고치면 위쪽 인사말("오늘 할 일 N개")·"남은 퀘스트 N개"·주간 보스가 옛 숫자로 남는다.
+  // 같은 화면을 다시 그리되 보던 자리는 지킨다.
+  _stuRerenderHome(sid);
+}
+// 학생 홈 다시 그리기 — 스크롤 위치를 지킨다 (체크 한 번에 화면이 위로 튀지 않게)
+function _stuRerenderHome(sid){
+  try{
+    const y=window.scrollY;
+    const pane=document.getElementById('st-home');
+    if(!pane||pane.style.display==='none')return;
+    renderStudentHome(sid);
+    requestAnimationFrame(()=>window.scrollTo(0,y));
+  }catch(e){console.warn('홈 다시 그리기 실패:',e);}
 }
 async function uncompleteSchedDay(sid,asgnId,ds){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
@@ -2602,6 +2616,19 @@ function _stuWeekDates(today){
   return labels.map((label,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return {date:ymd(d),label,dnum:d.getDate(),isToday:ymd(d)===today,i};});
 }
 const _asgnDay=a=>(a.due||a.date||'').slice(0,10);
+// 단건 과제는 지금까지 '마감일 하루' 에만 놓였다. 오늘 내 준 3일짜리 숙제가 오늘 퀘스트에
+// 안 보이고 마감일(또는 '기타 과제')에만 떠서, 아이는 오늘 할 일이 없는 것처럼 봤다.
+// 시작일과 마감일이 다르면 그 사이 날에도 띄운다. 기간이 너무 긴 과제(2주 초과)는
+// 매일 뜨면 오히려 방해라 종전대로 마감일에만 둔다.
+const _asgnSpanDays=14;
+function _asgnOnDay(a,ds){
+  const d=String(a.date||'').slice(0,10),u=String(a.due||'').slice(0,10);
+  if(d&&u&&d<u){
+    const gap=Math.round((new Date(u+'T12:00:00')-new Date(d+'T12:00:00'))/864e5);
+    if(gap>0&&gap<=_asgnSpanDays)return ds>=d&&ds<=u;
+  }
+  return _asgnDay(a)===ds;
+}
 
 function renderStudentHome(sid){
   const el=document.getElementById('st-home');if(!el)return;
@@ -2638,7 +2665,7 @@ function renderStudentHome(sid){
     const isCovered=(book,range)=>{const b=_hwKeyNorm(book),u=_hwKeyNorm(range);return !!b&&covered.some(c=>(c.b===b||c.b.includes(b)||b.includes(c.b))&&((!u&&!c.u)||(!!c.u&&!!u&&(c.u===u||c.u.includes(u)||u.includes(c.u)))));};
     const items=[...sched];
     // 단건 과제 — 같은 책·단원을 스케줄이 이미 커버하면 중복이라 숨김
-    regAssigns.forEach(a=>{if(_asgnDay(a)===ds&&!isCovered(a.bookTitle||'',a.range||''))items.push({a,done:!!a.completedAt});});
+    regAssigns.forEach(a=>{if(_asgnOnDay(a,ds)&&!isCovered(a.bookTitle||'',a.range||''))items.push({a,done:!!a.completedAt});});
     return items;
   };
   const overdue=regAssigns.filter(a=>!a.completedAt&&_asgnDay(a)&&_asgnDay(a)<today&&!(typeof schedCoversHw==='function'&&schedCoversHw(sid,_asgnDay(a),a.bookTitle||'',a.range||'')));
@@ -2795,7 +2822,9 @@ function renderStudentHome(sid){
         if(hw.aiScore)body+=`<div style="font-size:12px;color:var(--tealt);background:var(--tl);border-radius:6px;padding:5px 8px;margin-top:4px">🤖 ${hw.aiScore}</div>`;
       }
     } else if(a.type==='vocab'){
-      body=`<div style="display:flex;align-items:center;font-size:14.5px;font-weight:700;color:var(--navy)"><span class="hw-ico">📝</span>단어 암기</div><div class="wl" style="margin-top:4px">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`;
+      body=`<div style="display:flex;align-items:center;font-size:14.5px;font-weight:700;color:var(--navy)"><span class="hw-ico">📝</span>단어 암기</div>`
+        +((a.words||[]).length?`<div class="wl" style="margin-top:4px">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`
+          :((a.range||a.bookTitle)?`<div style="font-size:13px;color:var(--slate);margin-top:3px">${(typeof escAttr==='function')?escAttr([a.bookTitle,a.range].filter(Boolean).join(' · ')):[a.bookTitle,a.range].filter(Boolean).join(' · ')}</div>`:''));
       if(!isDone)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:12px" onclick="openVocabForAssignment('${sid}','${a.id}')">📚 단어장 열기 →</button>`;
     } else if(a.type==='worksheet'){
       body=`<div style="display:flex;align-items:center;font-size:14.5px;font-weight:700;color:var(--navy)"><span class="hw-ico">🗒️</span>${a.bookTitle||'워크시트'}</div>

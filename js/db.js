@@ -209,7 +209,16 @@ async function supaFetchAll(table,silent=false){
   }
   return all;
 }
+// 쓰기와 백그라운드 새로고침이 겹치면, 저장 전에 떠난 GET 이 저장 뒤에 도착해
+// 방금 고친 내용을 캐시에서 지운다(서버에는 새 값이 남아 화면만 옛 값이 된다).
+// 쓰기 시각을 남겨, 로드 도중 쓰기가 있었으면 그 회차는 캐시를 건드리지 않는다.
+let _lastWriteAt=0,_pendingWrites=0;
 async function supaUpsert(table,id,dataObj,sid=null,timeoutMs=15000){
+  _pendingWrites++;_lastWriteAt=Date.now();
+  try{ return await _supaUpsert(table,id,dataObj,sid,timeoutMs); }
+  finally{ _pendingWrites--;_lastWriteAt=Date.now(); }
+}
+async function _supaUpsert(table,id,dataObj,sid=null,timeoutMs=15000){
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),timeoutMs);
   try{
@@ -228,6 +237,11 @@ async function supaUpsert(table,id,dataObj,sid=null,timeoutMs=15000){
   }
 }
 async function supaDelete(table,id){
+  _pendingWrites++;_lastWriteAt=Date.now();
+  try{ return await _supaDelete(table,id); }
+  finally{ _pendingWrites--;_lastWriteAt=Date.now(); }
+}
+async function _supaDelete(table,id){
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),15000);
   try{
@@ -324,6 +338,8 @@ const PP_STALE_BACK=120000, PP_STALE_IDLE=600000;
 function _refreshIfStale(minAge){
   if(document.visibilityState!=='visible')return;
   if(_bgRefreshing||!(_cache.students||[]).length)return;
+  // 저장 중이거나 막 저장한 직후에는 받아오지 않는다 (받아온 값이 저장 전 상태일 수 있다)
+  if(_pendingWrites>0||Date.now()-_lastWriteAt<4000)return;
   if(Date.now()-_lastLoadAt<(minAge||PP_STALE_IDLE))return;
   _bgRefreshing=true;
   loadAllData(true).then(()=>{_bgRefreshing=false;_afterBgRefresh();}).catch(()=>{_bgRefreshing=false;});
@@ -454,6 +470,7 @@ async function _tbSyncIfChanged(){
 // ── 전체 데이터 로드 (앱 시작 시 / bg=true면 조용히 백그라운드 갱신) ──
 async function loadAllData(bg){
   if(!bg)showLoading(true);
+  const _loadStart=Date.now();
   try{
     // 테이블별 독립 로드: 한 테이블이 404(미생성)여도 나머지는 정상 로드
     // 'library' 테이블은 레거시(원서는 global_textbooks의 type='library'로 통합) — 더 이상 로드하지 않음
@@ -481,7 +498,11 @@ async function loadAllData(bg){
     // 설정 2건은 테이블 목록 뒤에 이어짐 (과거 고정 인덱스(13,14)는 오프바이원으로 acct/pw가 어긋나던 버그)
     const acct=val(tables.length),pw=val(tables.length+1);
     // 실패(null)한 테이블은 기존 캐시 유지 — 부분 실패가 데이터를 '사라진 것처럼' 비우지 않게
-    const keep=(cur,rows)=>rows===null?(cur||[]):(rows||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
+    // 이 로드가 도는 동안 저장이 있었으면 받아온 값이 이미 낡았다 — 이번 회차는 캐시를 지킨다.
+    // (첫 로드는 캐시가 비어 있으니 적용하지 않는다)
+    const _staleByWrite=!!bg&&(_lastWriteAt>_loadStart||_pendingWrites>0);
+    if(_staleByWrite)console.warn('저장과 겹친 새로고침 — 이번 회차는 캐시를 유지합니다');
+    const keep=(cur,rows)=>(_staleByWrite||rows===null)?(cur||[]):(rows||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
     _cache.students=keep(_cache.students,stus);
     _cache.lessons=keep(_cache.lessons,les);
     _cache.tests=keep(_cache.tests,tsts);
@@ -493,7 +514,7 @@ async function loadAllData(bg){
     _cache.assignments=keep(_cache.assignments,assigns);
     _cache.textbooks=keep(_cache.textbooks,tbs);
     _cache.messages=keep(_cache.messages,msgs);
-    if(gtbs!==null){
+    if(gtbs!==null&&!_staleByWrite){
       const _allBooks=(gtbs||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
       _cache.library=_allBooks.filter(b=>b.type==='library');
       _cache.globalTextbooks=_allBooks.filter(b=>b.type==='textbook'||!b.type);
@@ -507,7 +528,7 @@ async function loadAllData(bg){
     _cache.globalClasses=keep(_cache.globalClasses,clss);
     // sid·month 는 data 안의 값을 먼저 본다 — 복원(supaUpsert)은 data 만 되돌려 주고
     // 같은 이름의 열은 비워 두므로, 열만 믿으면 복원한 리포트가 월을 잃는다.
-    _cache.monthlyReports=(mrpts||[]).map(r=>{const d=r.data||r;
+    if(!_staleByWrite)_cache.monthlyReports=(mrpts||[]).map(r=>{const d=r.data||r;
       return {...d,_id:r.id,sid:d.sid||r.sid,month:d.month||r.month};}).filter(r=>!r._deleted);
     _cache.examSchedules=keep(_cache.examSchedules,exsch);
     _cache.counsels=keep(_cache.counsels,cnsls);
