@@ -409,6 +409,7 @@ async function saveAcct(){
 let currentSpStuId=null;
 let currentParentSid=null;
 function selStu(id,el){
+  if(typeof _spTab!=='undefined'&&currentSpStuId!==id)_spTab='sp-summary';   // 다른 학생을 고르면 요약부터
   if(typeof restoreStuWidth==='function')restoreStuWidth();
   document.querySelectorAll('.sc').forEach(c=>c.classList.remove('sel'));
   if(el)el.classList.add('sel');
@@ -477,8 +478,10 @@ function returnToTeacher(){
     loadStuPanel(currentSpStuId);
   }
 }
+let _spTab='sp-summary';   // 학생 상세에서 보던 탭 — 저장 뒤 다시 그려도 여기로 돌아온다
 function swSpTab(id){
   const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-reading','sp-rdlog-tab','sp-vocab','sp-payment'];
+  if(IDS.includes(id))_spTab=id;
   document.querySelectorAll('.sptab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
   document.querySelectorAll('.sp-pane').forEach(p=>p.style.display=p.id===id?'block':'none');
   if(id==='sp-reading')renderSpBooks(currentSpStuId);
@@ -517,7 +520,7 @@ function renderSpRdlog(sid){
         </div>
       </div>
     </div>
-    ${logs.length?`<div style="font-size:12px;color:var(--slate);margin-bottom:8px">${logs.length}장</div>
+    ${logs.length?`<div style="font-size:12px;color:var(--slate);margin-bottom:8px">기록 ${logs.length}건${(()=>{const p=logs.filter(l=>logImgs(l).length).length;return p?` · 사진 ${p}건`:'';})()}</div>
     <div class="ig-grid">
       ${logs.map(l=>{const imgs=logImgs(l);const first=imgs[0]||'';return `<div class="ig-card">
         <div class="ig-ph" onclick="openLbLog('${l.id}')">
@@ -1455,7 +1458,7 @@ async function loadStuPanel(sid){
 
   {const bf=document.getElementById('sp-brief');
    if(bf)bf.innerHTML=(typeof ppStudentBriefHtml==='function')?ppStudentBriefHtml(s):'';}
-  swSpTab('sp-summary');
+  swSpTab(_spTab||'sp-summary');
 }
 
 function openQuickPayFor(sid){
@@ -1797,12 +1800,13 @@ function reqDelStu(){
     const ts=new Date().toISOString();
     await supaTrash('students',_cache.students,id);
     // 연관 기록도 함께 표식 (_deletedWith=학생 id → 복원/영구 삭제 시 한 묶음으로 처리)
-    for(const tbl of ['lessons','tests','readings','logs','homeworks','assignments']){
+    // vocab_cards·textbooks·counsels 가 빠져 있어, 학생을 지워도 서버에 그대로 남았다 (2026-11-06 점검)
+    for(const tbl of ['lessons','tests','readings','logs','homeworks','assignments','vocab_cards','textbooks','counsels']){
       const items=(_cache[tbl]||[]).filter(x=>x.sid===id);
       for(const it of items) await supaUpsert(tbl,it.id,{...it,_deleted:true,_deletedAt:ts,_deletedWith:id},id).catch(()=>{});
       _cache[tbl]=(_cache[tbl]||[]).filter(x=>x.sid!==id);
     }
-    // 단어 카드는 유지 (학생이 목록에서 빠져 접근 불가 — 복원 시 그대로 살아남)
+    // (위 목록에 vocab_cards 가 들어가 함께 휴지통으로 간다 — 복원하면 _deletedWith 로 같이 돌아온다)
     _cache.students=_cache.students.filter(x=>x.id!==id);
     closeM('m-edit-stu');renderStus();populateSels();toast('휴지통으로 이동했습니다');
   });
@@ -9680,15 +9684,20 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
 function renderDashVocabToday(){
   const el=document.getElementById('dash-vocab-today');if(!el)return;
   const today=ppToday();
-  const bySid={};
-  (_cache.vocab_cards||[]).forEach(c=>{if(c.lastSeen===today&&c.sid)bySid[c.sid]=(bySid[c.sid]||0)+1;});
+  // 테스트에 적어 넣은 단어도 lastSeen 이 오늘로 찍혀 '학습' 으로 세였다 — 둘을 나눠 센다
+  const bySid={},testBySid={};
+  (_cache.vocab_cards||[]).forEach(c=>{
+    if(c.lastSeen!==today||!c.sid)return;
+    if(c.lastSeenBy==='test')testBySid[c.sid]=(testBySid[c.sid]||0)+1;
+    else bySid[c.sid]=(bySid[c.sid]||0)+1;
+  });
   const rows=Object.entries(bySid).map(([sid,n])=>({stu:(_cache.students||[]).find(s=>s.id===sid),n}))
-    .filter(r=>r.stu&&!r.stu._deleted).sort((a,b)=>b.n-a.n);
+    .filter(r=>r.stu&&!r.stu._deleted&&!r.stu.inactive).sort((a,b)=>b.n-a.n);
   if(!rows.length){el.innerHTML='';return;}
   el.innerHTML=`<div class="card" style="margin-bottom:12px">
-    <div class="ch"><span class="ct">🎉 오늘 단어 학습한 학생</span><span style="font-size:13px;color:var(--slate)">${rows.length}명 · ${luIcon('trophy',15)||''}=20개 달성</span></div>
+    <div class="ch"><span class="ct">🎉 오늘 단어 학습한 학생</span><span style="font-size:13px;color:var(--slate)">${rows.length}명 · ${luIcon('trophy',15)||''}20개 이상 달성</span></div>
     <div class="cb" style="padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px">
-      ${rows.map(r=>`<span style="font-size:13px;padding:4px 11px;border-radius:20px;background:${r.n>=20?'#D9F6E9':'var(--cream2)'};border:1px solid ${r.n>=20?'var(--ok)':'var(--border)'};color:${r.n>=20?'var(--okt)':'var(--navy)'};font-weight:700">${r.stu.name} ${r.n}개${r.n>=20?' 🏆':''}</span>`).join('')}
+      ${rows.map(r=>`<span style="font-size:13px;padding:4px 11px;border-radius:20px;background:${r.n>=20?'#D9F6E9':'var(--cream2)'};border:1px solid ${r.n>=20?'var(--ok)':'var(--border)'};color:${r.n>=20?'var(--okt)':'var(--navy)'};font-weight:700">${r.stu.name} ${r.n}개${testBySid[r.stu.id]?` <span style="font-weight:400;color:var(--slate)">(테스트 ${testBySid[r.stu.id]}개 별도)</span>`:''}${r.n>=20?' 🏆':''}</span>`).join('')}
     </div>
   </div>`;
 }
@@ -10472,8 +10481,10 @@ let _recurMaintainBusy=false;
 function recurAutoMaintain(){
   const dirty=[];
   const today=(typeof ppToday==='function')?ppToday():'';
+  const _liveIds=new Set(((typeof DB!=='undefined'&&DB.stus)?DB.stus():[]).filter(s=>!s.inactive).map(s=>s.id));
   for(const a of (_cache.assignments||[])){
     if(a._deleted)continue;
+    if(a.sid&&!_liveIds.has(a.sid))continue;   // 퇴원생 숙제는 더 늘리지 않는다
     // 마감일 없는 반복 숙제 — 남은 날이 3주 밑으로 떨어지면 3개월치를 더 이어 붙인다
     if(a.openEnded&&a.category==='recur'&&(a.schedule||[]).length&&today){
       const last=a.schedule[a.schedule.length-1].date||'';
@@ -10798,7 +10809,9 @@ function renderAssignStats(){
   const el=document.getElementById('assign-stats');if(!el)return;
   const today=ppToday();
   const assigns=DB.assigns();
-  const pending=assigns.filter(a=>!a.completedAt);
+  // 퇴원 처리한 학생의 과제는 세지 않는다 (목록에서는 사라지는데 숫자에만 남아 있었다)
+  const _actIds=new Set(DB.stus().filter(s=>!s.inactive).map(s=>s.id));
+  const pending=assigns.filter(a=>!a.completedAt&&_actIds.has(a.sid));
   const dueToday=pending.filter(a=>a.due===today).length;
   const overdue=pending.filter(a=>a.due&&a.due<today).length;
   const unchecked=(_cache.homeworks||[]).filter(h=>h.submitted&&!h.checked).length;
@@ -16579,7 +16592,7 @@ function openNotifyParents(sids){
 }
 
 // ── 휴지통 — _deleted 표식 행 조회·복원·영구 삭제 (30일 자동 정리) ──
-const TRASH_TABLES=[['students','학생'],['lessons','수업 기록'],['tests','테스트'],['readings','원서 기록'],['logs','리딩로그'],['global_textbooks','책'],['monthly_reports','월간 리포트']];
+const TRASH_TABLES=[['students','학생'],['lessons','수업 기록'],['tests','테스트'],['readings','원서 기록'],['logs','리딩로그'],['global_textbooks','책'],['monthly_reports','월간 리포트'],['vocab_cards','단어카드'],['textbooks','학생 교재'],['counsels','상담 기록']];
 let _trashItems=[];
 async function openTrash(){
   openM('m-trash');
@@ -16610,6 +16623,9 @@ function _trashLabel(e){
   if(e.table==='logs')return `${stu(d.sid)} 리딩로그 ${d.date||''}`.trim();
   if(e.table==='global_textbooks')return `${d.type==='library'?'원서':d.type==='class5'?'클래스5':'교재'} — ${d.title||''}`;
   if(e.table==='monthly_reports')return `${stu(d.sid)} ${String(d.month||'').replace('-','년 ')}월 리포트`.trim();
+  if(e.table==='vocab_cards')return `${stu(d.sid)} 단어카드 ${d.word||''}`.trim();
+  if(e.table==='textbooks')return `${stu(d.sid)} 교재 ${d.title||d.book||''}`.trim();
+  if(e.table==='counsels')return `${stu(d.sid)} 상담 ${d.date||''}`.trim();
   return e.id;
 }
 function renderTrash(){

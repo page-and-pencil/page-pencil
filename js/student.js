@@ -1821,7 +1821,7 @@ async function renderVocabResult(el){
       const updated={..._cache.vocab_cards[ci],
         hits:(_cache.vocab_cards[ci].hits||0)+(correct?1:0),
         misses:(_cache.vocab_cards[ci].misses||0)+(correct?0:1),
-        lastSeen:today,box:nbox,due:ppYmd(nd)
+        lastSeen:today,lastSeenBy:'study',box:nbox,due:ppYmd(nd)
       };
       _cache.vocab_cards[ci]=updated;
       await supaUpsert('vocab_cards',card.id,updated,card.sid);
@@ -2159,7 +2159,7 @@ function getWeekDays(sid){
 async function _vocabHwAutoCheck(sid){
   if(!sid)return;
   const today=ppToday();
-  const n=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===today).length;
+  const n=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===today&&c.lastSeenBy!=='test').length;
   if(n<20)return;
   for(const a of (_cache.assignments||[])){
     if(a._deleted||a.sid!==sid||!a.vocabAuto)continue;

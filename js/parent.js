@@ -212,7 +212,7 @@ async function loadParent(sid){
   const todayIso=ppToday();
   const newLesCount=les.filter(l=>l.date&&l.date>lastVisit).length;
   const newTstCount=tsts.filter(t=>t.date&&t.date>lastVisit).length;
-  const pendingCount=DB.assigns().filter(a=>a.sid===sid&&!hwFinished(a)).length;
+  const pendingCount=DB.assigns().filter(a=>a.sid===sid&&(typeof hwPendingNow==='function'?hwPendingNow(a):!hwFinished(a))).length;
   const notifItems=[];
   if(newLesCount)notifItems.push(`수업 기록 ${newLesCount}건`);
   if(newTstCount)notifItems.push(`테스트 ${newTstCount}건`);
@@ -363,7 +363,7 @@ async function loadParent(sid){
 
   // 블록 D — 미완료 과제
   // 끝난 숙제는 빼고 센다 — 일정이 전부 done 인 반복 숙제도 '끝남'으로 본다 (hwFinished)
-  const assigns=DB.assigns().filter(a=>a.sid===sid&&!hwFinished(a));
+  const assigns=DB.assigns().filter(a=>a.sid===sid&&(typeof hwPendingNow==='function'?hwPendingNow(a):!hwFinished(a)));
   if(assigns.length){
     const CAT_LBL={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
     const todayD=ppToday();

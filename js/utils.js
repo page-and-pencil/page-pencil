@@ -32,6 +32,20 @@ function hwFinished(a){
   if(Array.isArray(sch)&&sch.length)return sch.every(s=>s&&s.done);
   return false;
 }
+// '지금 남은 숙제' 로 셀 때 쓰는 기준.
+// 반복 숙제는 몇 달치 일정이 한 건에 들어 있어, hwFinished 로만 보면 마지막 날까지 영원히
+// '안 끝난 숙제 1건' 으로 남는다. 오늘 몫이 끝났으면(또는 오늘 몫이 없으면) 남은 것으로 세지 않는다.
+function hwPendingNow(a,todayStr){
+  if(!a||a._deleted)return false;
+  if(a.completedAt)return false;
+  const today=todayStr||((typeof ppToday==='function')?ppToday():'');
+  const sch=a.schedule;
+  if(Array.isArray(sch)&&sch.length){
+    const past=sch.filter(s=>s&&s.date&&s.date<=today);
+    return past.some(s=>!s.done);          // 오늘까지 중 안 한 날이 있으면 남은 것
+  }
+  return true;                             // 단건은 종전대로 — 완료 전이면 남은 것
+}
 function ppToday(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 // 임의 Date를 로컬 YYYY-MM-DD로 포맷
 function ppYmd(d){d=(d instanceof Date)?d:new Date(d);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -644,7 +658,7 @@ function ppUnfinishedBefore(sid,beforeDate,limit){
 // 언제 그만뒀는지 기록하는 필드가 없어 날짜로는 가를 수 없다.
 function ppHwScope(stu,list){
   if(!stu)return [];
-  const enroll=String(stu.enrollDate||'').slice(0,10);
+  const enroll=(typeof ppStuSince==='function')?ppStuSince(stu):String(stu.enrollDate||'').slice(0,10);
   return (list||[]).filter(a=>{
     if(!a||a._deleted||a.sid!==stu.id)return false;
     const d=a.due||a.date||'';
@@ -878,6 +892,17 @@ function ppIsClassDay(classes,dateStr){
     return !isNaN(d)&&(c.days||[]).includes(PP_DOW[d.getDay()]);
   });
 }
+// 입회일이 비어 있으면 학생 레코드를 만든 날을 바닥으로 쓴다.
+// (uid() = Date.now().toString(36) + 무작위 4글자 — 앞부분이 만든 시각이다)
+function ppStuSince(stu){
+  const e=String((stu&&stu.enrollDate)||'').slice(0,10);
+  if(e)return e;
+  try{
+    const ts=parseInt(String((stu&&stu.id)||'').slice(0,-4),36);
+    if(ts>1.5e12&&ts<4e12)return ppYmd(new Date(ts));
+  }catch(err){}
+  return '';
+}
 function ppMissingRecords(stu,todayStr){
   if(!stu||typeof DB==='undefined')return [];
   const th=ppTh();
@@ -887,7 +912,7 @@ function ppMissingRecords(stu,todayStr){
   if(!classes.length)return [];
   const lesDates=new Set((typeof DB.less==='function'?DB.less():[])
     .filter(l=>l&&l.sid===stu.id&&l.date).map(l=>l.date));
-  const enroll=String(stu.enrollDate||'').slice(0,10);
+  const enroll=ppStuSince(stu);   // 입회일이 없으면 만든 날
   const out=[];
   for(let i=0;i<th.missDays;i++){
     const d=ppShiftDate(today,-i);

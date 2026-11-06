@@ -1065,7 +1065,8 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study
     if(found){
       const updated=mode==='expose'
         ?{...found,seen:(found.seen||0)+1}
-        :{...found,hits:(found.hits||0)+(isWrong?0:1),misses:(found.misses||0)+(isWrong?1:0),lastSeen:date,due:isWrong?date:found.due};
+        :{...found,hits:(found.hits||0)+(isWrong?0:1),misses:(found.misses||0)+(isWrong?1:0),lastSeen:date,
+           lastSeenBy:(source==='테스트'?'test':'study'),due:isWrong?date:found.due};
       if(meta.ko&&!found.meaning)updated.meaning=meta.ko;
       if(meta.pos&&!found.pos)updated.pos=meta.pos;
       if(meta.example&&!found.example)updated.example=meta.example;
@@ -1103,14 +1104,26 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study
     }
   }
 }
+// PostgREST 기본 상한이 1,000행이라 그냥 부르면 조용히 잘린다.
+// 단어카드가 1,000장을 넘은 학생은 뒤쪽 카드가 앱에 아예 안 들어왔고,
+// syncVocabCards 가 '이미 있는 단어' 를 못 찾아 같은 단어를 또 만들 수 있었다. 페이지로 다 받는다.
 async function supaFetchBySid(table,sid){
-  const r=await fetch(SUPA_URL+'/rest/v1/'+table+'?sid=eq.'+encodeURIComponent(sid)+'&order=updated_at.desc',{headers:SUPA_HEADERS});
-  if(!r.ok)return[];
-  const rows=await r.json();
-  return (rows||[]).map(r=>r.data||r);
+  const PAGE=1000;let out=[],off=0;
+  while(true){
+    const r=await fetch(`${SUPA_URL}/rest/v1/${table}?sid=eq.${encodeURIComponent(sid)}&order=updated_at.desc&limit=${PAGE}&offset=${off}`,{headers:SUPA_HEADERS});
+    if(!r.ok)break;
+    const rows=await r.json();
+    if(!Array.isArray(rows))break;
+    out=out.concat(rows);
+    if(rows.length<PAGE)break;
+    off+=PAGE;
+    if(off>20000)break;                 // 안전장치
+  }
+  return out.map(r=>r.data||r);
 }
 async function loadVocabCards(sid){
-  const rows=await supaFetchBySid('vocab_cards',sid);
+  const all=await supaFetchBySid('vocab_cards',sid);
+  const rows=all.filter(c=>c&&!c._deleted);   // 휴지통 카드는 화면·학습에 넣지 않는다
   if(!_cache.vocab_cards)_cache.vocab_cards=[];
   // sid 기준으로 교체
   _cache.vocab_cards=_cache.vocab_cards.filter(c=>c.sid!==sid).concat(rows);
