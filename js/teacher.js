@@ -10866,6 +10866,8 @@ function renderAssignTab(){
           ${sc.done?`<span class="badge bgreen" style="font-size:9.5px" title="${sc.doneBy==='student'?'학생이 앱에서 체크':sc.doneBy==='teacher'?'선생님이 체크':'체크 주체 기록 전(구 데이터)'}${sc.doneAt?' · '+new Date(sc.doneAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}):''}">완료${sc.doneBy==='student'?' · 학생':sc.doneBy==='teacher'?' · 쌤':''}</span>`:''}
           <button class="btn ${sc.done?'bo':'bt'}" style="font-size:9.5px;padding:1px 5px;min-height:0;line-height:1.2" title="${sc.done?'이 날 완료 표시를 취소':'이 날 분량을 완료로 표시'}" onclick="hwSchedToggleDone('${a.id}','${ds}')">${sc.done?'완료 취소':'✓ 완료'}</button>
           <button class="btn bo" style="font-size:9.5px;padding:1px 5px;min-height:0;line-height:1.2" onclick="openEditAssignModal('${a.id}')">수정</button>
+          <button class="btn bo" style="font-size:9.5px;padding:1px 5px;min-height:0;line-height:1.2" title="${ds} 하루치만 일정에서 뺍니다" onclick="deleteSchedDay('${a.id}','${ds}')">이 날 빼기</button>
+          <button class="btn bd" style="font-size:9.5px;padding:1px 5px;min-height:0;line-height:1.2" title="반복 일정 전체를 휴지통으로" onclick="deleteAssign('${a.id}')">삭제</button>
         </div>
       </div>`;
     });
@@ -10942,8 +10944,33 @@ function openEditAssignModal(aid){
   {const tk=document.getElementById('modal-assign-track');if(tk)tk.value=a.track||'';}
   openM('m-add-assign');
 }
+// 반복·클래스5 처럼 날짜별 일정이 있는 과제에서 하루치만 뺀다 (과제 자체는 남는다)
+async function deleteSchedDay(aid,ds){
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
+  const sc=(a.schedule||[]).find(x=>x.date===ds);if(!sc){toast('그 날짜 일정이 없어요');return;}
+  const name=[a.bookTitle||a.text||'숙제',sc.unit||''].filter(Boolean).join(' ');
+  askConfirm('이 날 숙제 빼기',`${name}
+${ds} 하루치만 빼고 나머지 일정은 그대로 둘까요?`,'빼기','bd',async()=>{
+    const keep=(a.schedule||[]).filter(x=>x.date!==ds);
+    if(!keep.length){toast('마지막 하루예요 — 삭제를 눌러 과제를 지워 주세요');return;}
+    const prev=a.schedule;
+    a.schedule=keep;
+    a.date=keep[0].date;a.due=keep[keep.length-1].date;
+    try{await supaUpsert('assignments',a.id,a,a.sid);}
+    catch(e){a.schedule=prev;console.error('deleteSchedDay:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+    renderAssignTab();renderAssignCal();
+    toast(`${ds} 숙제를 뺐어요 (남은 ${keep.length}일)`);
+  });
+}
 async function deleteAssign(aid){
-  askConfirm('과제 삭제','이 과제를 삭제할까요? (휴지통에서 복원할 수 있어요)','삭제','bd',async()=>{
+  const a=(_cache.assignments||[]).find(x=>x.id===aid);
+  const n=(a&&a.schedule||[]).length;
+  const name=a?(a.bookTitle||a.text||'이 과제'):'이 과제';
+  const msg=n
+    ? `${name} — 남은 일정까지 ${n}일치를 통째로 삭제합니다.
+하루만 빼려면 '이 날 빼기' 를 쓰세요. (휴지통에서 복원할 수 있어요)`
+    : '이 과제를 삭제할까요? (휴지통에서 복원할 수 있어요)';
+  askConfirm('과제 삭제',msg,'삭제','bd',async()=>{
     await supaTrash('assignments',_cache.assignments,aid);
     _cache.assignments=(_cache.assignments||[]).filter(a=>a.id!==aid);
     renderAssignTab();renderAssignCal();toast('휴지통으로 보냈어요');
@@ -11103,11 +11130,20 @@ function modalAssignCatChange(){
       <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">🔁 반복 숙제 — 정한 요일마다 자동으로 이어지는 숙제 스케줄을 만듭니다</div>
       <div class="f" style="margin-bottom:8px"><label>유형</label>
         <select id="rc-type" style="width:100%" onchange="recurTypeChange()">
+          <option value="app">앱 숙제 — 클래스5·오토보카·리딩앤 (매일 접속)</option>
           <option value="fixed">매일 같은 내용 (예: 공책 단어 쓰기)</option>
           <option value="book">교재 1과씩 진행 (단원이 끝나면 자동 종료)</option>
         </select>
       </div>
-      <div class="f" id="rc-fixed-wrap" style="margin-bottom:8px"><label>숙제 내용</label>
+      <div class="f" id="rc-app-wrap" style="margin-bottom:8px"><label>어느 앱</label>
+        <select id="rc-app" style="width:100%">
+          <option value="클래스5">🎮 클래스5</option>
+          <option value="오토보카">🔤 오토보카</option>
+          <option value="리딩앤">📖 리딩앤</option>
+        </select>
+        <div style="font-size:11.5px;color:var(--slate);margin-top:4px">학생 화면에 앱 열기 버튼이 함께 나오고, 다녀오면 체크를 물어봅니다.</div>
+      </div>
+      <div class="f" id="rc-fixed-wrap" style="display:none;margin-bottom:8px"><label>숙제 내용</label>
         <input type="text" id="rc-text" placeholder="예: 공책에 오늘 배운 단어 쓰기" style="width:100%;box-sizing:border-box">
       </div>
       <div id="rc-book-wrap" style="display:none">
@@ -11195,6 +11231,7 @@ function modalAssignCatChange(){
   } else if(isC5){
     extra.innerHTML=`<div style="margin-top:10px;border:1.5px solid var(--border);border-radius:var(--rs);padding:10px 12px">
       <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">${luIcon('calendar',15)||''} 일별 진도 스케줄</div>
+      <div class="ib iba" style="font-size:11.5px;margin-bottom:8px">날짜마다 진도가 다를 때 쓰는 화면입니다. <b>매일 클래스5 접속</b>만 시키려면 구분을 <b>반복</b> 으로 고르고 유형에서 <b>앱 숙제 → 클래스5</b> 를 선택하세요.</div>
       <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap">
         <label for="c5-upload" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream2)">📎 파일 업로드</label>
         <input type="file" id="c5-upload" accept=".csv,.txt" style="display:none" onchange="loadC5File(event)">
@@ -11343,8 +11380,10 @@ function selectModalBook(id,title){
 function recurTypeChange(){
   const t=document.getElementById('rc-type')?.value||'fixed';
   const f=document.getElementById('rc-fixed-wrap');const b=document.getElementById('rc-book-wrap');
+  const ap=document.getElementById('rc-app-wrap');
   if(f)f.style.display=t==='fixed'?'':'none';
   if(b)b.style.display=t==='book'?'':'none';
+  if(ap)ap.style.display=t==='app'?'':'none';
   // 교재 유형 기본값: 수업 없는 날 (단어 교재 로직 — 못 한 날은 자동으로 밀림)
   const dSel=document.getElementById('rc-days');
   if(dSel&&t==='book'&&!dSel.dataset.touched)dSel.value='noclass';
@@ -11373,6 +11412,7 @@ function buildRecurSchedule(opts){
     if(rule==='noclass')return !isCls;
     if(rule==='class')return isCls;
     if(rule==='weekday')return dow!=='토'&&dow!=='일';
+    if(rule==='weekend')return dow==='토'||dow==='일';   // 빠져 있어서 '주말만' 이 매일로 돌았다
     return true; // daily
   };
   let units=null,ui=0;
@@ -11519,6 +11559,11 @@ async function saveModalAssignment(){
       const startUnit=document.getElementById('rc-unit')?.value||'';
       schedule=buildRecurSchedule({rule,start,end:due||'',clsDays:stCls?.days,skipDates:stCls?.skipDates,extraDates:stCls?.extraDates,tb,startUnit});
       title=tb.title;tbId=tb.id;
+    }else if(rcType==='app'){
+      // 학생 화면은 숙제 제목의 글자로 앱을 찾는다(extAppForHw) — 앱 이름을 그대로 내용으로 쓴다
+      const app=(document.getElementById('rc-app')?.value||'클래스5').trim();
+      schedule=buildRecurSchedule({rule,start,end:due||'',clsDays:stCls?.days,skipDates:stCls?.skipDates,extraDates:stCls?.extraDates,text:app});
+      title=app;
     }else{
       const text=(document.getElementById('rc-text')?.value||'').trim();
       if(!text){toast('숙제 내용을 입력해 주세요');return;}

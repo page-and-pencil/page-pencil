@@ -2729,13 +2729,15 @@ function renderStudentHome(sid){
     const isRecur=a.category==='recur'||a.type==='recur';
     const done=!!sc.done;
     const isVocabAuto=!!a.vocabAuto;
-    const icon=isVocabAuto?'📚':isRecur?'🔁':'🎮';
     const title=isRecur?(a.bookTitle||sc.book||'반복 숙제'):'클래스5';
     const detail=isRecur?(sc.unit||(sc.book&&sc.book!==title?sc.book:'')):[sc.book,sc.unit].filter(Boolean).join(' · ');
+    // 앱에서 하는 숙제(클래스5·오토보카·리딩앤)는 반복으로 넣었어도 그 앱 숙제처럼 보이게 한다
+    const extApp=isVocabAuto?null:extAppForHw(title+' '+detail);
+    const icon=isVocabAuto?'📚':extApp?'🎮':isRecur?'🔁':'🎮';
     // 앱 단어 학습 연동 숙제: 손으로 체크 못 함 — 단어 20개를 실제로 끝내면 자동 체크
     const cbClick=isVocabAuto?'':(done?`uncompleteSchedDay('${sid}','${a.id}','${sc.date}')`:`completeSchedDay('${sid}','${a.id}','${sc.date}')`);
     const cbTitle=isVocabAuto?'단어 학습 20개를 끝내면 자동으로 체크돼요':(done?'클릭: 완료 취소':'완료하면 눌러요');
-    const kind=isVocabAuto?'vocab':isRecur?({grammar:'grammar',reading:'reading',listening:'listening',
+    const kind=isVocabAuto?'vocab':extApp?'app':isRecur?({grammar:'grammar',reading:'reading',listening:'listening',
       vocab:'vocab'}[a.category]||'recur'):'app';
     return `<div class="hw-check-card hw-k-${kind}${done?' done':''}" id="sch-card-${a.id}-${sc.date}">
       <div style="display:flex;gap:12px;align-items:flex-start">
@@ -2747,7 +2749,7 @@ function renderStudentHome(sid){
           ${isVocabAuto&&!done?`<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><button class="btn bo bsm" style="border-radius:50px;padding:8px 14px" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button></div><div style="font-size:12.5px;color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
           ${(()=>{ // 외부 앱에서 하는 숙제(리딩앤·클래스5·오토보카)는 그 앱으로 바로 보낸다
             if(isVocabAuto||done)return '';
-            const ex=extAppForHw(title+' '+detail);
+            const ex=extApp;
             if(!ex)return '';
             return `<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">`
               +`<button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openHwApp('${ex.k}','${sid}','${a.id}','${sc.date}')">▶ ${ex.lbl} 열기</button></div>`
