@@ -10503,6 +10503,14 @@ function showVocabCardStatus(sid,allWords){
 
 // ── ASSIGN CALENDAR ──
 let _assignCalOffset=0,_hwCalStuId='';
+// 앱에서 하는 숙제(클래스5·리딩앤·오토보카)인지 — 반복으로 넣었든 클래스5 구분으로 넣었든 같은 것으로 본다.
+// 반복은 초록으로만 칠해지는데, 그러면 클래스5 가 일반 반복 숙제와 구분되지 않는다(색으로 알아보던 것을 잃는다).
+// '원서 읽기' 는 _EXT_HINTS 에서 리딩앤으로 묶인다 — 같은 앱에서 하는 같은 숙제다.
+function _hwAppOf(a,sc){
+  if(typeof extAppForHw!=='function')return null;
+  const txt=[a&&a.bookTitle,a&&a.text,a&&a.range,sc&&sc.book,sc&&sc.unit].filter(Boolean).join(' ');
+  return txt?extAppForHw(txt):null;
+}
 // 과제의 출처 라벨 — 어디서 할당됐는지 추적용
 function asgSrcLabel(a){
   if(a.category==='class5')return '🎮 클래스5 진도 스케줄';
@@ -10519,8 +10527,21 @@ function asgSrcLabel(a){
 let _recurMaintainBusy=false;
 function recurAutoMaintain(){
   const dirty=[];
+  const today=(typeof ppToday==='function')?ppToday():'';
   for(const a of (_cache.assignments||[])){
     if(a._deleted)continue;
+    // 마감일 없는 반복 숙제 — 남은 날이 3주 밑으로 떨어지면 3개월치를 더 이어 붙인다
+    if(a.openEnded&&a.category==='recur'&&(a.schedule||[]).length&&today){
+      const last=a.schedule[a.schedule.length-1].date||'';
+      if(last&&last<_pgAddDays(today,21)){
+        const cls=DB.classes().find(c=>c.active!==false&&(c.studentIds||[]).includes(a.sid));
+        const from=_pgAddDays(last>today?last:today,1);
+        const ext=buildRecurSchedule({rule:a.recurRule||'daily',start:from,end:_pgAddDays(today,90),
+          clsDays:cls?.days,skipDates:cls?.skipDates,extraDates:cls?.extraDates,
+          text:a.schedule[a.schedule.length-1].book||a.bookTitle||''});
+        if(ext.length){a.schedule=a.schedule.concat(ext);a.due=a.schedule[a.schedule.length-1].date;dirty.push(a);}
+      }
+    }
     const ns=(typeof recurRebase==='function')?recurRebase(a):null;
     if(ns){a.schedule=ns;a.due=ns[ns.length-1]?.date||a.due;dirty.push(a);} // 캐시는 즉시 반영 (렌더가 바로 새 날짜 사용)
   }
@@ -10564,21 +10585,39 @@ function renderAssignCal(){
       a.schedule.forEach(sc=>{
         if(!sc.date||!sc.date.startsWith(ym))return;
         const isRecur=a.category==='recur';
+        const app=_hwAppOf(a,sc);
         (byDate[sc.date]=byDate[sc.date]||[]).push({
-          ord:isRecur?10:20,
-          color:isRecur?'#2F7D63':_PG_C5_COLOR,
-          label:sc.unit||sc.book||a.bookTitle||'',
+          ord:app?15:(isRecur?10:20),
+          app:app?app.k:'',
+          color:app?_PG_C5_COLOR:(isRecur?'#2F7D63':_PG_C5_COLOR),
+          label:app?app.lbl:(sc.unit||sc.book||a.bookTitle||''),
           tip:`${asgSrcLabel(a)} — ${[a.bookTitle&&a.bookTitle!==sc.book?a.bookTitle:'',sc.book,sc.unit].filter(Boolean).join(' · ')}`,
           done:!!sc.done});
       });
     }else if(a.due&&a.due.startsWith(ym)){
+      const appD=_hwAppOf(a,null);
       (byDate[a.due]=byDate[a.due]||[]).push({
-        ord:30,
-        color:_PG_CAT_COLORS[a.category]||'var(--text-muted)',
-        label:[a.bookTitle||a.text||'',a.range].filter(Boolean).join(' ').trim()||'과제',
+        ord:appD?15:30,
+        app:appD?appD.k:'',
+        color:appD?_PG_C5_COLOR:(_PG_CAT_COLORS[a.category]||'var(--text-muted)'),
+        label:appD?appD.lbl:([a.bookTitle||a.text||'',a.range].filter(Boolean).join(' ').trim()||'과제'),
         tip:`${asgSrcLabel(a)} — ${[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')} (마감 ${a.due})`,
         done:!!a.completedAt});
     }
+  });
+  // 같은 날 같은 앱 숙제가 둘 이상이면 한 칩으로 묶는다.
+  // (예: '리딩앤' 반복 숙제와 '주말 원서 읽기' 반복 숙제 — 아이는 같은 앱에서 한 번 하는 일이다)
+  Object.keys(byDate).forEach(d=>{
+    const first={},keep=[];
+    byDate[d].forEach(x=>{
+      if(!x.app){keep.push(x);return;}
+      const p=first[x.app];
+      if(!p){first[x.app]=x;x.srcN=1;keep.push(x);return;}
+      p.srcN++;p.tip+='\n'+x.tip;
+      p.done=p.done&&x.done;          // 묶인 것이 다 끝나야 완료로 본다
+    });
+    keep.forEach(x=>{if(x.srcN>1)x.tip=`같은 앱 숙제 ${x.srcN}건을 한 칩으로 묶었습니다\n`+x.tip;});
+    byDate[d]=keep;
   });
   // 수업일 음영(진도 캘린더와 동일한 판정: 요일+추가 수업일−휴강)
   const _hcExtra=new Set(stCls?.extraDates||[]),_hcSkip=new Set(stCls?.skipDates||[]);
@@ -10619,7 +10658,7 @@ function renderAssignCal(){
       ${hwPending&&stCls?`<button class="btn bt bxxs" title="배운 단원 복습 숙제를 반 전체에게 한 번에" onclick="pgAssignAllHomework('${stCls.id}')">📕 숙제 일괄</button>`:''}
       <span style="flex:1"></span>
       <span class="pg-lg"><i style="background:#2F7D63"></i>반복·자동</span>
-      <span class="pg-lg"><i style="background:${_PG_C5_COLOR}"></i>클래스5</span>
+      <span class="pg-lg"><i style="background:${_PG_C5_COLOR}"></i>앱 숙제(클래스5·리딩앤)</span>
       <span class="pg-lg"><i style="background:var(--text-muted)"></i>마감 과제</span>
       <span class="pg-lg" title="점선=아직 할당 전 제안"><i style="background:#fff;border:1.5px dashed var(--neutral)"></i>제안</span>
     </div>
@@ -10796,7 +10835,7 @@ function _assignItemHtml(a,hws){
     if(sc.length)return`<div style="margin-top:2px">${sc.slice(0,3).map(s=>`<div style="font-size:11.5px;color:var(--slate);line-height:1.5">${s.date||''} ${[s.book,s.unit].filter(Boolean).join(' · ')}</div>`).join('')}${sc.length>3?`<div style="font-size:11.5px;color:var(--slate)">외 ${sc.length-3}일...</div>`:''}</div>`;
     return(a.bookTitle&&a.bookTitle!=='클래스5'?` · ${a.bookTitle}`:'')+(a.range?' · '+a.range:'');
   })();
-  const bookLabel=a.type==='mission'?`${luIcon('target',15)||''} ${a.bookTitle||''} · ${a.unitKey||''}${a.unitTitle?' — '+a.unitTitle:''}`:a.type==='worksheet'?`🗒️ ${a.bookTitle||'워크시트'}`:a.category==='class5'?'🎮 클래스5':a.category==='recur'?`🔁 ${a.bookTitle||'반복 숙제'} <span style="font-weight:400;color:var(--slate)">(${(a.schedule||[]).length}일)</span>`:a.bookTitle||(a.text||'');
+  const bookLabel=a.type==='mission'?`${luIcon('target',15)||''} ${a.bookTitle||''} · ${a.unitKey||''}${a.unitTitle?' — '+a.unitTitle:''}`:a.type==='worksheet'?`🗒️ ${a.bookTitle||'워크시트'}`:a.category==='class5'?'🎮 클래스5':a.category==='recur'?`🔁 ${a.bookTitle||'반복 숙제'} <span style="font-weight:400;color:var(--slate)">(${a.openEnded?'계속':((a.schedule||[]).length+'일')})</span>`:a.bookTitle||(a.text||'');
   return `<div class="assign-item" style="align-items:flex-start">
     <div style="flex:1;min-width:0">
       <div style="font-size:12px;font-weight:600;color:var(--navy);${a.category!=='class5'&&a.type!=='mission'?'white-space:nowrap;overflow:hidden;text-overflow:ellipsis':''}">${catLabel?`<span style="color:var(--teal)">[${catLabel}]</span> `:''}${bookLabel}${a.category!=='class5'&&a.range?' '+a.range:''}${c5Detail}${missionDetail}</div>
@@ -11182,7 +11221,7 @@ function modalAssignCatChange(){
           <option value="class">수업 있는 날만</option>
         </select>
       </div>
-      <div style="font-size:12px;color:var(--slate);line-height:1.6">시작일 = 위 '날짜' 칸 (비우면 오늘) · 종료 = 위 '마감일' 칸.<br>교재 유형은 마감일을 비워도 단원이 끝나는 날 자동 종료, '매일 같은 내용'은 마감일 비우면 올해 말까지.<br><b>교재 유형은 자동 진행</b> — 사정상 못 한 날(✓ 없음)의 단원은 버리지 않고 다음 가능한 날로 자동으로 밀립니다. 교재가 끝나면 숙제 캘린더에서 다음 교재를 이어서 고를 수 있어요.</div>
+      <div style="font-size:12px;color:var(--slate);line-height:1.6"><b>마감일을 비우면 끝 없이 이어집니다</b> (3개월치씩 자동으로 더 채워져요).<br>시작일 = 위 '날짜' 칸 (비우면 오늘) · 종료 = 위 '마감일' 칸.<br>교재 유형은 마감일을 비워도 단원이 끝나는 날 자동 종료, '매일 같은 내용'은 마감일 비우면 올해 말까지.<br><b>교재 유형은 자동 진행</b> — 사정상 못 한 날(✓ 없음)의 단원은 버리지 않고 다음 가능한 날로 자동으로 밀립니다. 교재가 끝나면 숙제 캘린더에서 다음 교재를 이어서 고를 수 있어요.</div>
     </div>`;
     // 교재 목록 채우기 (단원 있는 교재)
     const rcSel=document.getElementById('rc-book');
@@ -11600,6 +11639,10 @@ async function saveModalAssignment(){
     const rcType=document.getElementById('rc-type')?.value||'fixed';
     const rule=document.getElementById('rc-days')?.value||'daily';
     const start=date||ppToday();
+    // 마감일을 비우면 끝 없이 이어지는 숙제. 한 번에 다 만들 수는 없으니 3개월치만 만들고
+    // recurAutoMaintain 이 끝이 다가올 때마다 이어 붙인다. 교재형은 단원이 끝나면 끝이라 제외.
+    const openEnded=rcType!=='book'&&!due;
+    const genEnd=due||_pgAddDays(start,90);
     const stCls=DB.classes().find(c=>(c.studentIds||[]).includes(sid));
     let schedule,title,tbId='';
     if(rcType==='book'){
@@ -11612,22 +11655,24 @@ async function saveModalAssignment(){
     }else if(rcType==='app'){
       // 학생 화면은 숙제 제목의 글자로 앱을 찾는다(extAppForHw) — 앱 이름을 그대로 내용으로 쓴다
       const app=(document.getElementById('rc-app')?.value||'클래스5').trim();
-      schedule=buildRecurSchedule({rule,start,end:due||'',clsDays:stCls?.days,skipDates:stCls?.skipDates,extraDates:stCls?.extraDates,text:app});
+      schedule=buildRecurSchedule({rule,start,end:genEnd,clsDays:stCls?.days,skipDates:stCls?.skipDates,extraDates:stCls?.extraDates,text:app});
       title=app;
     }else{
       const text=(document.getElementById('rc-text')?.value||'').trim();
       if(!text){toast('숙제 내용을 입력해 주세요');return;}
-      schedule=buildRecurSchedule({rule,start,end:due||'',clsDays:stCls?.days,skipDates:stCls?.skipDates,extraDates:stCls?.extraDates,text});
+      schedule=buildRecurSchedule({rule,start,end:genEnd,clsDays:stCls?.days,skipDates:stCls?.skipDates,extraDates:stCls?.extraDates,text});
       title=text;
     }
     if(!schedule.length){toast('해당 조건에 맞는 날이 없어요 — 시작일·반복 요일을 확인해 주세요');return;}
     const a={id:uid(),sid,type:'recur',category:'recur',recurRule:rule,date:schedule[0].date,due:schedule[schedule.length-1].date,
-      track:_assignTrackVal(),bookTitle:title,...(tbId&&{bookId:tbId,auto:true}),note,schedule}; // 교재형은 자동 진행(못 한 날 자동 밀림)
+      track:_assignTrackVal(),bookTitle:title,...(tbId&&{bookId:tbId,auto:true}),...(openEnded&&{openEnded:true}),note,schedule}; // 교재형은 자동 진행(못 한 날 자동 밀림)
     await supaUpsert('assignments',a.id,a,sid);
     if(!_cache.assignments)_cache.assignments=[];
     _cache.assignments.unshift(a);
     closeM('m-add-assign');renderAssignTab();
-    toast(`🔁 반복 숙제 ${schedule.length}일치 할당 (${schedule[0].date} ~ ${schedule[schedule.length-1].date})`);return;
+    toast(openEnded
+      ?`🔁 반복 숙제 — 마감일 없이 계속 (지금 ${schedule.length}일치, 끝이 가까워지면 자동으로 더 채웁니다)`
+      :`🔁 반복 숙제 ${schedule.length}일치 할당 (${schedule[0].date} ~ ${schedule[schedule.length-1].date})`);return;
   }
   if(cat==='class5'){
     const schedRows=document.querySelectorAll('#c5-rows .c5-row');
@@ -13773,10 +13818,11 @@ function _pgHwChips(sid,ym){
       const isRecur=a.category==='recur';
       sch.forEach(sc=>{
         if(!sc.date||(ym&&!sc.date.startsWith(ym)))return;
+        const app=_hwAppOf(a,sc);
         (out[sc.date]=out[sc.date]||[]).push({
-          ord:isRecur?10:20,kind:isRecur?'recur':'class5',aid:a.id,sched:true,
-          color:isRecur?'#2F7D63':_PG_C5_COLOR,
-          label:sc.unit||sc.book||a.bookTitle||'',
+          ord:app?15:(isRecur?10:20),kind:(app||!isRecur)?'class5':'recur',aid:a.id,sched:true,
+          color:app?_PG_C5_COLOR:(isRecur?'#2F7D63':_PG_C5_COLOR),
+          label:app?app.lbl:(sc.unit||sc.book||a.bookTitle||''),
           tip:`${asgSrcLabel(a)} — ${[a.bookTitle&&a.bookTitle!==sc.book?a.bookTitle:'',sc.book,sc.unit].filter(Boolean).join(' · ')}`,
           done:!!sc.done,by:sc.doneBy||''});
       });
