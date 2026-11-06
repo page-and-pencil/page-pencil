@@ -301,19 +301,27 @@ function _idbOpen(){return new Promise((res,rej)=>{const rq=indexedDB.open('pp_c
 async function idbGet(k){try{const db=await _idbOpen();return await new Promise((res,rej)=>{const g=db.transaction('kv').objectStore('kv').get(k);g.onsuccess=()=>res(g.result);g.onerror=()=>rej(g.error);});}catch(e){return null;}}
 async function idbSet(k,v){try{const db=await _idbOpen();await new Promise((res,rej)=>{const p=db.transaction('kv','readwrite').objectStore('kv').put(v,k);p.onsuccess=()=>res();p.onerror=()=>rej(p.error);});}catch(e){}}
 let _bgRefreshing=false,_lastLoadAt=0;
-// 앱이 다시 화면에 돌아오면(폰 PWA 재개·탭 전환 복귀) 2분 이상 지난 데이터는 조용히 최신화
+// 앱이 다시 화면에 돌아오면(폰 PWA 재개·탭 전환 복귀) 지난 데이터를 조용히 최신화
 // — 선생님이 과제·수업을 등록해도, 이미 열려 있던 학생·학부모 화면에 반영되지 않던 문제 해결
-function _refreshIfStale(){
+//
+// 기준이 두 개다 (2026-11-06, Supabase egress 절감):
+//   돌아왔을 때 2분  — 사람이 앱을 다시 본 순간이라 최신이 중요하다
+//   켜 둔 채   10분  — 아무도 안 보는 화면이 2분마다 전부 다시 받고 있었다
+// 한 번의 최신화가 5.51MB 였다(교재가 99%). 교재를 뺀 지금은 60KB 안쪽이라
+// '돌아왔을 때' 는 종전처럼 민감하게 두어도 비용이 거의 없다.
+const PP_STALE_BACK=120000, PP_STALE_IDLE=600000;
+function _refreshIfStale(minAge){
   if(document.visibilityState!=='visible')return;
   if(_bgRefreshing||!(_cache.students||[]).length)return;
-  if(Date.now()-_lastLoadAt<120000)return;
+  if(Date.now()-_lastLoadAt<(minAge||PP_STALE_IDLE))return;
   _bgRefreshing=true;
   loadAllData(true).then(()=>{_bgRefreshing=false;_afterBgRefresh();}).catch(()=>{_bgRefreshing=false;});
 }
-document.addEventListener('visibilitychange',_refreshIfStale);
-window.addEventListener('focus',_refreshIfStale);
-// 화면을 켜둔 채로도 자동 최신화 — 학생의 완료 체크가 선생님 화면에 몇 분 내 반영 (가드: 보이는 탭 + 2분 신선도 + 중복 방지)
-setInterval(_refreshIfStale,60000);
+// 이벤트 객체가 minAge 자리에 들어가지 않게 감싼다 (Event 는 숫자가 아니다)
+document.addEventListener('visibilitychange',()=>_refreshIfStale(PP_STALE_BACK));
+window.addEventListener('focus',()=>_refreshIfStale(PP_STALE_BACK));
+// 화면을 켜둔 채로도 자동 최신화 — 학생의 완료 체크가 선생님 화면에 몇 분 내 반영 (가드: 보이는 탭 + 신선도 + 중복 방지)
+setInterval(()=>_refreshIfStale(PP_STALE_IDLE),60000);
 let _snapTimer=null;
 function _scheduleSnapSave(){ // 쓰기 후 스냅샷 저장 (2.5초 디바운스)
   clearTimeout(_snapTimer);
@@ -367,6 +375,68 @@ function _afterBgRefresh(){
   }catch(e){console.warn('bg refresh render:',e);}
 }
 
+// ── 교재 변경 확인 (가벼운 질의) ─────────────────────────────
+// global_textbooks 전체는 압축 후 5.46MB 다 (단원 단어 목록이 75%). 백그라운드 갱신이
+// 2분마다 그걸 다시 받아 Supabase 무료 한도(월 5GB)를 혼자 다 썼다.
+// 그래서 백그라운드에서는 id·updated_at 만 받아(8KB) 바뀐 행만 다시 받는다.
+//
+// 안전 규칙:
+//   · 응답이 200 이 아니거나 0행이면 아무것도 지우지 않는다 (네트워크 오류를 '전부 삭제' 로 읽지 않게)
+//   · 바뀐 행 요청이 한 번이라도 실패하면 캐시를 건드리지 않는다 (반만 반영된 상태를 만들지 않게)
+//   · _tbStamps 가 없으면(이 기능 전의 스냅샷) 이 경로를 쓰지 않고 한 번 전체를 받는다
+let _tbSyncing=false;
+async function _tbStampRows(){   // id,updated_at 전량 (PostgREST 기본 max-rows=1000 → 페이지)
+  const PAGE=1000;let out=[],off=0;
+  while(true){
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),15000);
+    try{
+      const r=await fetch(`${SUPA_URL}/rest/v1/global_textbooks?select=id,updated_at&limit=${PAGE}&offset=${off}&order=updated_at.desc`,{headers:SUPA_HEADERS,signal:ctrl.signal});
+      clearTimeout(tid);
+      if(!r.ok)return null;
+      const rows=await r.json();
+      if(!Array.isArray(rows))return null;
+      out=out.concat(rows);
+      if(rows.length<PAGE)return out;
+      off+=PAGE;
+    }catch(e){clearTimeout(tid);return null;}
+  }
+}
+async function _tbSyncIfChanged(){
+  if(_tbSyncing)return false;
+  _tbSyncing=true;
+  try{
+    const rows=await _tbStampRows();
+    if(!rows||!rows.length)return false;          // 실패·빈 응답 → 그대로 둔다
+    const stamps=_cache._tbStamps||{};
+    const changed=rows.filter(x=>x&&x.id&&String(stamps[x.id]||'')!==String(x.updated_at||'')).map(x=>x.id);
+    const live=new Set(rows.map(x=>x&&x.id));
+    const gone=Object.keys(stamps).filter(id=>!live.has(id));   // 하드 삭제된 책
+    if(!changed.length&&!gone.length)return false;
+    const fetched=[];
+    for(let i=0;i<changed.length;i+=50){          // URL 길이 때문에 50개씩
+      const ids=changed.slice(i,i+50).map(id=>encodeURIComponent(id)).join(',');
+      const q=await fetch(`${SUPA_URL}/rest/v1/global_textbooks?select=*&id=in.(${ids})`,{headers:SUPA_HEADERS});
+      if(!q.ok)return false;
+      const part=await q.json();
+      if(!Array.isArray(part))return false;
+      fetched.push(...part);
+    }
+    const byId=new Map();
+    [...(_cache.globalTextbooks||[]),...(_cache.library||[])].forEach(b=>{if(b&&b.id)byId.set(b.id,b);});
+    gone.forEach(id=>byId.delete(id));
+    fetched.forEach(row=>{const d=row.data||row;if(!d||!d.id)return;if(d._deleted)byId.delete(d.id);else byId.set(d.id,d);});
+    const all=[...byId.values()];
+    _cache.library=all.filter(b=>b.type==='library');
+    _cache.globalTextbooks=all.filter(b=>b.type==='textbook'||!b.type);
+    const ns={};rows.forEach(x=>{if(x&&x.id)ns[x.id]=x.updated_at;});
+    _cache._tbStamps=ns;
+    console.log(`교재 변경 ${changed.length}권 반영${gone.length?' · 삭제 '+gone.length+'권':''} (전체 재수신 없음)`);
+    return true;
+  }catch(e){return false;}
+  finally{_tbSyncing=false;}
+}
+
 // ── 전체 데이터 로드 (앱 시작 시 / bg=true면 조용히 백그라운드 갱신) ──
 async function loadAllData(bg){
   if(!bg)showLoading(true);
@@ -376,8 +446,16 @@ async function loadAllData(bg){
     // ⚠️ 아직 만들지 않은 테이블은 404가 난다. 기능은 빈 배열로 잘 돌지만 콘솔이 매번 빨개져
     // 진짜 오류를 가리므로, 한 번 404가 난 테이블은 이 세션 동안 다시 부르지 않는다.
     const tables=['students','lessons','tests','readings','logs','notices','homeworks','assignments','textbooks','messages','global_textbooks','classes','monthly_reports','exam_schedules','learning_goals','counsels'];
+    // 백그라운드 갱신에서는 교재를 받지 않는다 — 한 번에 5.46MB 이고, 바뀌는 일은 드물다.
+    // 대신 아래에서 _tbSyncIfChanged() 가 8KB 로 변경을 확인한다.
+    // 교재 캐시가 비어 있거나 변경 확인의 기준(_tbStamps)이 없으면 평소처럼 전체를 받는다.
+    const _skipTb=!!bg
+      && ((_cache.globalTextbooks||[]).length+(_cache.library||[]).length)>0
+      && !!_cache._tbStamps && Object.keys(_cache._tbStamps).length>0;
     const res=await Promise.allSettled([
-      ...tables.map(t=>t==='global_textbooks'?supaFetchAll(t,true):supaFetch(t,'',true)),
+      ...tables.map(t=>t==='global_textbooks'
+        ?(_skipTb?Promise.resolve(null):supaFetchAll(t,true))
+        :supaFetch(t,'',true)),
       supaGetSetting('acct'),supaGetSetting('pw'),
     ]);
     const missing=tables.filter((t,i)=>res[i].status==='rejected');
@@ -405,7 +483,13 @@ async function loadAllData(bg){
       const _allBooks=(gtbs||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
       _cache.library=_allBooks.filter(b=>b.type==='library');
       _cache.globalTextbooks=_allBooks.filter(b=>b.type==='textbook'||!b.type);
+      // 다음 백그라운드 갱신이 '무엇이 바뀌었나' 를 8KB 로 판단할 기준.
+      // 삭제 표식 행도 넣는다 — 안 넣으면 매번 바뀐 것으로 보여 다시 받는다.
+      // 스냅샷(pp_cache_v2)이 _cache 를 통째로 담으므로 재방문 때도 그대로 쓰인다.
+      const st={};(gtbs||[]).forEach(r=>{if(r&&r.id)st[r.id]=r.updated_at;});
+      if(Object.keys(st).length)_cache._tbStamps=st;
     }
+    if(_skipTb)await _tbSyncIfChanged();
     _cache.globalClasses=keep(_cache.globalClasses,clss);
     // sid·month 는 data 안의 값을 먼저 본다 — 복원(supaUpsert)은 data 만 되돌려 주고
     // 같은 이름의 열은 비워 두므로, 열만 믿으면 복원한 리포트가 월을 잃는다.
@@ -486,35 +570,13 @@ function populateDataLists(){
   }
 }
 
-// ── 실시간 구독 ──
-function subscribeRealtime(){
-  if(window._pollInterval)clearInterval(window._pollInterval);
-  window._pollInterval=setInterval(async()=>{
-    if(document.getElementById('s-parent')?.classList.contains('active')&&currentParentSid){
-      await Promise.all([
-        reloadTable('lessons'),reloadTable('tests'),
-        reloadTable('readings'),reloadTable('logs'),reloadTable('notices')
-      ]);
-      await loadParent(currentParentSid);
-    }
-  },30000);
-}
-async function reloadTable(table){
-  const data=await supaFetch(table);
-  if(!data)return;
-  _cache[table]=(data||[]).map(r=>(r.data||r));
-  // UI 갱신
-  if(table==='students'){renderStus();populateSels();populateFilterSels();}
-  if(table==='lessons')renderLes();
-  if(table==='tests')renderTst();
-  if(table==='readings')renderRd();
-  if(table==='logs')renderLog();
-  if(table==='notices')renderNoticeBoard();
-  // 학부모 화면이 열려있으면 갱신
-  if(currentParentSid&&document.getElementById('s-parent').classList.contains('active')){
-    await loadParent(currentParentSid);
-  }
-}
+// ── 실시간 구독 (2026-11-06 제거) ──
+// subscribeRealtime() 은 학부모 화면이 열려 있으면 30초마다 5개 테이블을 다시 받고
+// loadParent() 로 화면을 전부 다시 그렸다. 시간당 2MB 를 쓰면서 하는 일이
+// _refreshIfStale → _afterBgRefresh 가 이미 하는 일과 같았다(그쪽도 학부모 화면을 다시 그린다).
+// 게다가 그 안의 reloadTable() 은 _deleted 를 걸러내지 않아, 휴지통에 넣은 수업·테스트가
+// 30초 뒤 학부모 화면에 되살아났다. 둘 다 여기서만 쓰던 함수라 함께 지웠다.
+// 학부모 화면은 앱으로 돌아올 때(visibilitychange·focus, 2분 기준)와 켜 둔 채 10분마다 최신화된다.
 
 // ── VOCAB CARDS (Supabase) ──
 async function fetchWordMeaning(word){

@@ -286,7 +286,6 @@ async function initApp(){
   await loadAllDataFast();
   // 렌더 격리: 한 함수가 죽어도 나머지 화면은 그려지고, 죽은 함수는 배너로 보고
   const _safe=(name,fn)=>{try{fn();}catch(e){console.error('initApp:'+name,e);if(typeof ppShowFatal==='function')ppShowFatal(name+': '+(e&&e.message||e));}};
-  _safe('subscribeRealtime',()=>subscribeRealtime());
   _safe('recurAutoMaintain',()=>recurAutoMaintain()); // 자동 진행 숙제 — 못 한 날 단원을 오늘부터로 재배치·저장
   _safe('renderStus',()=>renderStus());
   _safe('populateSels',()=>populateSels());
