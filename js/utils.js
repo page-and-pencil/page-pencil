@@ -521,11 +521,14 @@ function ppTestPct(t){
 }
 // 한 시험의 결과 — none(점수 없음) / absent(미응시) / pass / fail
 function ppVocabStatus(t){
-  if(!t)return {k:'none',label:'—'};
-  if(t.absent)return {k:'absent',label:'미응시',pct:null,pass:t.passPct||ppVocabPassPct()};
-  if(!(t.vocabTotal>0))return {k:'none',label:'—'};
+  if(!t)return {k:'none',label:'—',labelP:'—'};
+  if(t.absent)return {k:'absent',label:'미응시',labelP:'미응시',pct:null,pass:t.passPct||ppVocabPassPct()};
+  if(!(t.vocabTotal>0))return {k:'none',label:'—',labelP:'—'};
   const p=ppTestPct(t), pass=t.passPct||ppVocabPassPct();
-  return (p>=pass)?{k:'pass',label:'통과',pct:p,pass}:{k:'fail',label:'불합격',pct:p,pass};
+  // label 은 선생님 화면용, labelP 는 학부모·학생 화면용.
+  // 같은 85% 가 '불합격' 과 '우수' 로 함께 보이던 것 — 학부모에게는 다음에 할 일로 적는다.
+  return (p>=pass)?{k:'pass',label:'통과',labelP:'통과',pct:p,pass}
+                  :{k:'fail',label:'불합격',labelP:'재시험 예정',pct:p,pass};
 }
 // 한 학생의 시험들을 묶음으로 — 재시험은 최초 시험(root)에 매단다
 function ppTestChains(sid){
@@ -899,6 +902,26 @@ function ppIsClassDay(classes,dateStr){
 // 입회일이 비어 있으면 학생 레코드를 만든 날을 바닥으로 쓴다.
 // (uid() = Date.now().toString(36) + 무작위 4글자 — 앞부분이 만든 시각이다)
 // 받침에 맞는 조사 — "이더미이(가)" 처럼 보이던 것
+// 글 복사 — navigator.clipboard 는 문서에 포커스가 없으면 끝나지 않을 수 있다.
+// 시간 제한을 두고, 막히면 임시 textarea + execCommand 로 대신한다.
+async function ppCopyText(text){
+  try{
+    const ok=await Promise.race([
+      navigator.clipboard.writeText(text).then(()=>true).catch(()=>false),
+      new Promise(r=>setTimeout(()=>r(false),1200)),
+    ]);
+    if(ok)return true;
+  }catch(e){}
+  try{
+    const ta=document.createElement('textarea');
+    ta.value=text;ta.setAttribute('readonly','');
+    ta.style.cssText='position:fixed;left:-9999px;top:0;opacity:0';
+    document.body.appendChild(ta);ta.select();
+    const ok2=document.execCommand('copy');
+    ta.remove();
+    return !!ok2;
+  }catch(e){return false;}
+}
 function ppJosa(word,withBat,noBat){
   const s=String(word||'').trim();
   if(!s)return noBat;

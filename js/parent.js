@@ -345,7 +345,7 @@ async function loadParent(sid){
       <div class="ch"><span class="ct">${luIcon('file-text',16)}최근 테스트</span><span class="mono" class="p-dim">${(()=>{
         const st=(typeof ppVocabStatus==='function')?ppVocabStatus(latTst):null;
         const kind=latTst.retestOf?('재시험'+(latTst.attempt?' '+latTst.attempt+'회차':'')):'최초';
-        return (latTst.date||'')+' · '+kind+(st&&st.k!=='none'?' · '+st.label:'');
+        return (latTst.date||'')+' · '+kind+(st&&st.k!=='none'?' · '+(st.labelP||st.label):'');
       })()}</span></div>
       <div class="cb" style="padding:14px 18px">
         <div style="background:var(--bg);border:1px solid rgba(27,94,74,.18);border-radius:14px;padding:15px 16px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between">

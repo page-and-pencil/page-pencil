@@ -1754,6 +1754,11 @@ function renderNsClasses(checkId){
   }
 }
 function openAddStu(){
+  // 입력칸도 비운다 — 연달아 추가하면 앞 학생의 학년·학교·PIN 이 남아 있었다
+  ['ns-name','ns-pin','ns-school','ns-fee','ns-memo','ns-enroll','ns-payday'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  {const g=document.getElementById('ns-grade');if(g)g.selectedIndex=0;}
   // 이전 세션의 체크 잔존 방지 — 매 열기마다 미체크로 시작 (모달 열려 있는 동안의 보존은 renderNsClasses가 담당)
   document.querySelectorAll('#ns-classes input:checked').forEach(cb=>cb.checked=false);
   renderNsClasses();
@@ -8902,17 +8907,23 @@ async function saveAndSendReport(){
   // 지표는 코드가 센 숫자만 넣는다. 선생님 메모는 넣지 않는다
   const mLine=(typeof ppMetricsText==='function')?ppMetricsText(mx):'';
   const fullText=`[직결영어] ${s?.name||''} ${yr}년 ${mn}월 학습 리포트\n${mLine?mLine+'\n':''}\n${text}\n\n— 직결영어`;
-  const kakao=DB.kakao();
-  if(kakao.openchat){window.open(kakao.openchat,'_blank');}
-  else if(kakao.phone){window.open(`kakaotalk://open/chat?phoneNum=${kakao.phone}`);}
-  else{window.open('kakaotalk://launch');}
-  try{await navigator.clipboard.writeText(fullText);}catch(e){}
+  // 순서가 중요하다. 전에는 카카오를 먼저 열고 복사했는데,
+  // navigator.clipboard 는 문서에 포커스가 있어야 해서 카카오 창·프로토콜 대화상자로 포커스가
+  // 넘어가면 약속이 끝나지 않고 매달린다 → 버튼이 '처리 중...' 에서 멈추고 status 가 sent 로
+  // 저장되지 않았다. 복사 → 저장 → 카카오 열기 순으로 바꾸고, 복사에는 시간 제한을 둔다.
+  const copied=await ppCopyText(fullText);
   await saveReportToDB(sid,month,{final:text,teacherNote:note,metrics:mx,
     status:'sent',sentAt:new Date().toISOString()});
-  toast('카카오톡에 붙여넣기 해서 발송해 주세요 📋');
   document.getElementById('m-report-editor')?.classList.remove('open');
   renderDash();
   if(btn){btn.disabled=false;btn.textContent='📤 카카오톡으로 발송';}
+  const kakao=DB.kakao();
+  try{
+    if(kakao.openchat){window.open(kakao.openchat,'_blank');}
+    else if(kakao.phone){window.open(`kakaotalk://open/chat?phoneNum=${kakao.phone}`);}
+    else{window.open('kakaotalk://launch');}
+  }catch(e){console.warn('카카오 열기 실패:',e);}
+  toast(copied?'카카오톡에 붙여넣기 해서 발송해 주세요 📋':'복사가 막혔어요 — 리포트 글을 직접 복사해 주세요');
 }
 async function saveReportDraftOnly(){
   const sid=document.getElementById('re-sid').value;

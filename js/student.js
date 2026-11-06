@@ -986,6 +986,21 @@ function stopAllStudentMedia(){
   document.querySelectorAll('audio').forEach(a=>{try{a.pause();}catch(e){}});
 }
 const STU_TAB_ORDER=['st-home','st-vocab','st-library'];
+// 아이가 단어를 풀다가 [나가기] 를 눌러 바로 로그아웃되면, 다시 이름·PIN 을 넣어야 한다.
+// 학습 중이면 먼저 홈으로 보내고, 그다음 나갈지 한 번 묻는다.
+function stuLogoutAsk(){
+  const onDeck=(()=>{try{
+    const p=document.getElementById('st-vocab');
+    return !!p&&p.classList.contains('active')&&typeof deckState!=='undefined'&&deckState&&(deckState.cards||[]).length;
+  }catch(e){return false;}})();
+  const msg=onDeck
+    ? '단어 학습 중이에요. 지금 나가면 이번 판은 여기까지예요.\n(계속하려면 [← 홈] 을 눌러 홈으로 가세요)\n정말 나갈까요?'
+    : '앱에서 나갈까요? 다시 들어오려면 이름과 PIN 이 필요해요.';
+  askConfirm('나가기',msg,'나가기','bd',()=>{clearSession();show('s-land');});
+}
+function parentLogoutAsk(){
+  askConfirm('나가기','앱에서 나갈까요? 다시 들어오려면 아이 이름과 PIN 이 필요합니다.','나가기','bd',()=>{clearSession();show('s-land');});
+}
 function swStuTab(id){
   stopAllStudentMedia();
   const swap=()=>{
@@ -1218,6 +1233,7 @@ function renderMemCard(el){
   ).join('');
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
+      <button class="btn bo bxxs" style="margin-right:auto" onclick="swStuTab('st-home')">← 홈</button>
       <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>
@@ -1379,6 +1395,7 @@ function renderRecallCard(el){
     ?`<div style="font-size:13px;color:var(--slate);margin-top:8px;font-style:italic;line-height:1.5">${card.example}</div>`:'';
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
+      <button class="btn bo bxxs" style="margin-right:auto" onclick="swStuTab('st-home')">← 홈</button>
       <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>
@@ -1434,6 +1451,7 @@ function renderSpellCard(el){
   ).join('');
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
+      <button class="btn bo bxxs" style="margin-right:auto" onclick="swStuTab('st-home')">← 홈</button>
       <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>
@@ -1529,6 +1547,7 @@ function _vgHead(){
   const prog=deckState.cards.map((_,i)=>`<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`).join('');
   return `${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
+      <button class="btn bo bxxs" style="margin-right:auto" onclick="swStuTab('st-home')">← 홈</button>
       <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>${vcStageBar()}<div class="vc-prog">${prog}</div>`;
@@ -1903,6 +1922,8 @@ function stuLevelOf(xp){
   return{n,icon:tier.icon,name:tier.name,next:nx!=null?{xp:nx}:null,pct:nx!=null?Math.min(100,Math.round((xp-cur)/(nx-cur)*100)):100};
 }
 function stuLevelUpCheck(sid){
+  // 학부모 화면(또는 선생님의 학부모 미리보기)에서는 아이용 축하 알림을 띄우지 않는다
+  try{if(document.getElementById('s-parent')?.classList.contains('active'))return;}catch(e){}
   try{
     const lv=stuLevelOf(stuXP(sid));
     const key='pp_xplvl_'+sid;

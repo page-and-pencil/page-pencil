@@ -139,7 +139,7 @@
     <div style="display:flex;align-items:center;gap:9px">
       <span class="stu-streak-badge" id="stu-streak-badge" style="display:none"></span>
       <span class="stu-name-badge" id="stu-name-badge">—</span>
-      <button class="btn-lo" onclick="clearSession();show('s-land')">나가기</button>
+      <button class="btn-lo" onclick="stuLogoutAsk()">나가기</button>
     </div>
   </div>
   <div class="ab">
@@ -1109,7 +1109,7 @@
 <!-- PARENT VIEW -->
 <div id="s-parent" class="screen">
   <div class="ah">
-    <button class="btn-lo" onclick="clearSession();show('s-land')">← 나가기</button>
+    <button class="btn-lo" onclick="parentLogoutAsk()">← 나가기</button>
     <div class="ah-logo">직결영어</div>
     <button onclick="shareParentUpdate()" title="공유" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;padding:4px 8px;font-family:var(--fb)"><i data-lucide="share" width="16" height="16"></i></button>
   </div>
@@ -2475,11 +2475,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261107c"></script>
+<script src="js/utils.js?v=20261107d"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261107b"></script>
-<script src="js/teacher.js?v=20261107c"></script>
-<script src="js/student.js?v=20261107c"></script>
-<script src="js/parent.js?v=20261107c"></script>
+<script src="js/teacher.js?v=20261107d"></script>
+<script src="js/student.js?v=20261107d"></script>
+<script src="js/parent.js?v=20261107d"></script>
 </body>
 </html>
