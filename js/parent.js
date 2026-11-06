@@ -139,7 +139,7 @@ async function ppPushToggle(){
   if(ok){
     toast('숙제 알림을 켰어요 🔔');
     try{(await navigator.serviceWorker.ready).showNotification('알림이 켜졌어요 🔔',
-      {body:((s&&s.name)||'아이')+'이(가) 숙제를 안 한 날 저녁에 알려드릴게요.',icon:'icons/icon-192.png?v=2',tag:'pp-hw'});}catch(e){}
+      {body:((s&&s.name)||'아이')+'이(가) 숙제를 안 한 날 저녁에 알려드릴게요.',icon:'icons/icon-192.png?v=3',tag:'pp-hw'});}catch(e){}
   }
   _ppPushRow();
 }

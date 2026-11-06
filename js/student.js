@@ -2338,7 +2338,7 @@ async function stuPushToggle(sid){
   if(ok){
     toast('숙제 알림을 켰어요 🔔 남은 숙제가 있는 날 저녁에 알려줄게요');
     try{(await navigator.serviceWorker.ready).showNotification('알림이 켜졌어요! 🔔',
-      {body:'숙제가 남은 날 저녁에 알려줄게요 — 하나씩 체크하면 도장이 쌓여요!',icon:'icons/icon-192.png?v=2',tag:'pp-hw'});}catch(e){}
+      {body:'숙제가 남은 날 저녁에 알려줄게요 — 하나씩 체크하면 도장이 쌓여요!',icon:'icons/icon-192.png?v=3',tag:'pp-hw'});}catch(e){}
   }
   _stuPushRow(sid);
 }
@@ -2388,7 +2388,7 @@ function setStuNotifyTime(sid,v){if(!v)return;const s=stuNotifyState(sid);_stuNo
 function _stuShowNotify(title,body){
   try{
     if(navigator.serviceWorker&&navigator.serviceWorker.ready){
-      navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,{body,icon:'icons/icon-192.png?v=2',badge:'icons/icon-192.png?v=2',tag:'pp-daily-study',data:{url:location.origin+location.pathname}})).catch(()=>{try{new Notification(title,{body});}catch(e){}});
+      navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,{body,icon:'icons/icon-192.png?v=3',badge:'icons/icon-192.png?v=3',tag:'pp-daily-study',data:{url:location.origin+location.pathname}})).catch(()=>{try{new Notification(title,{body});}catch(e){}});
     }else new Notification(title,{body});
   }catch(e){}
 }

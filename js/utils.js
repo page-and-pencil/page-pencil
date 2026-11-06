@@ -2051,7 +2051,7 @@ function openInstallGuide(){
      +step(3,'\u2705','<b>설치</b>를 누르면 끝!');
   wrap.innerHTML=`<div style="background:#fff;border-radius:20px 20px 0 0;padding:20px 20px calc(18px + env(safe-area-inset-bottom));max-width:440px;width:100%;font-family:var(--fb)">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-      <img src="icons/icon-192.png?v=2" style="width:44px;height:44px;border-radius:12px;border:1px solid rgba(15,48,74,.1)">
+      <img src="icons/icon-192.png?v=3" style="width:44px;height:44px;border-radius:12px;border:1px solid rgba(15,48,74,.1)">
       <div><div style="font-size:15px;font-weight:800;color:#0F304A">홈 화면에 앱으로 추가</div>
       <div style="font-size:11.5px;color:#5A6B7B">한 번만 추가하면 아이콘으로 바로 열려요</div></div>
     </div>

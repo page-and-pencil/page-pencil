@@ -36,8 +36,8 @@ self.addEventListener('push',e=>{
       :'눌러서 오늘 할 일을 확인하고 하나씩 체크해요!';
     await self.registration.showNotification(title,{
       body,
-      icon:'icons/icon-192.png?v=2',
-      badge:'icons/icon-192.png?v=2',
+      icon:'icons/icon-192.png?v=3',
+      badge:'icons/icon-192.png?v=3',
       tag:'pp-hw',              // 같은 태그 — 알림이 여러 개 쌓이지 않게
       renotify:true,
       requireInteraction:false,
