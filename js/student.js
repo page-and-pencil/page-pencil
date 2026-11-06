@@ -644,7 +644,7 @@ function renderStudentLibrary(sid){
           <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${lastLes.date||''}</span>
         </div>
         <div style="font-size:12.5px;color:var(--slate);margin-bottom:6px">지난 시간에 배운 것부터 다시 만나 보세요!</div>
-        ${items.map(it=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(12,164,201,.15)">
+        ${items.map(it=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(27,94,74,.15)">
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;color:var(--navy)"><span style="font-size:12px;font-weight:700;color:var(--tealt);margin-right:5px">${it.label}</span><b>${it.title}</b></div>
             ${it.unit?`<div style="font-size:12px;color:var(--slate);margin-top:1px">${it.unit}</div>`:''}
@@ -793,7 +793,7 @@ function renderAssignmentTab(sid){
     }
 
     if(submitted){
-      return `<div class="stu-book-card" style="border-color:rgba(12,164,201,.3)">
+      return `<div class="stu-book-card" style="border-color:rgba(27,94,74,.3)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
           <span style="font-size:12px;font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
           <span style="font-size:12px;font-weight:700;color:var(--tealt);background:var(--tl);padding:2px 8px;border-radius:10px">제출완료 ✓</span>
@@ -2053,7 +2053,7 @@ function stuBossCard(sid){
   </div>`;
 }
 function launchConfetti(){
-  const colors=['#0CA4C9','#F59E0B','#ffd700','#7c3aed','#10b981'];
+  const colors=['#1B5E4A','#F59E0B','#ffd700','#7c3aed','#10b981'];
   for(let i=0;i<40;i++){
     const el=document.createElement('div');
     el.className='confetti-piece';
@@ -2081,7 +2081,7 @@ function ppTodayAllDone(sid){
   return n>0;
 }
 function showMiniConfetti(){
-  const colors=['#0CA4C9','#F59E0B','#7FD4E2','#FFD700','#14304A'];
+  const colors=['#1B5E4A','#F59E0B','#7FD4E2','#FFD700','#14304A'];
   const container=document.createElement('div');
   container.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden';
   for(let i=0;i<30;i++){
@@ -3232,7 +3232,7 @@ function _renderHighlightedText(text,words){
     if(!w)return match;
     const ko=(w.ko||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const pos=(w.pos||'').replace(/'/g,"\\'");
-    return`<span onclick="showUnitWordPopup(event,'${w.word.replace(/'/g,"\\'")}','${ko}','${pos}')" style="background:rgba(12,164,201,.22);border-radius:3px;padding:0 2px;cursor:pointer;font-weight:700;color:var(--teal)">${match}</span>`;
+    return`<span onclick="showUnitWordPopup(event,'${w.word.replace(/'/g,"\\'")}','${ko}','${pos}')" style="background:rgba(27,94,74,.22);border-radius:3px;padding:0 2px;cursor:pointer;font-weight:700;color:var(--teal)">${match}</span>`;
   }).replace(/\n/g,'<br>');
 }
 

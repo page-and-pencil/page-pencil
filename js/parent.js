@@ -217,7 +217,7 @@ async function loadParent(sid){
   if(newLesCount)notifItems.push(`수업 기록 ${newLesCount}건`);
   if(newTstCount)notifItems.push(`테스트 ${newTstCount}건`);
   if(pendingCount)notifItems.push(`미완료 숙제 ${pendingCount}개`);
-  if(notifItems.length)blocks+=`<div style="background:var(--bg),rgba(12,164,201,.15));border:1px solid rgba(12,164,201,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--tealt)">${luIcon('sparkles',14)||''} 새 업데이트: ${notifItems.join(' · ')}</div>`;
+  if(notifItems.length)blocks+=`<div style="background:var(--bg),rgba(27,94,74,.15));border:1px solid rgba(27,94,74,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--tealt)">${luIcon('sparkles',14)||''} 새 업데이트: ${notifItems.join(' · ')}</div>`;
   localStorage.setItem(lastVisitKey,todayIso);
 
   // 히어로 요약 카드 (이번 달 + 3종 통계) — 시안
@@ -231,7 +231,7 @@ async function loadParent(sid){
     else if(lesChange>0)summary='꾸준히 나오며 잘 성장하고 있어요.';
     else if(avgScore!=null&&avgScore>=80)summary='이번 달도 안정적으로 잘 해주고 있어요.';
     else summary='이번 달도 성실하게 함께하고 있어요.';
-    blocks+=`<div style="background:var(--bg);border:1px solid rgba(12,164,201,.18);border-radius:16px;padding:18px;margin-bottom:14px">
+    blocks+=`<div style="background:var(--bg);border:1px solid rgba(27,94,74,.18);border-radius:16px;padding:18px;margin-bottom:14px">
       <div style="font-size:13.5px;color:var(--tealt);font-weight:700;margin-bottom:3px">${today.getMonth()+1}월 한 달, ${givenName}${josa(givenName)}</div>
       <div style="font-size:16px;font-weight:700;color:var(--text);line-height:1.55;margin-bottom:14px">${summary}</div>
       <div style="display:flex;gap:10px">
@@ -341,7 +341,7 @@ async function loadParent(sid){
         return (latTst.date||'')+' · '+kind+(st&&st.k!=='none'?' · '+st.label:'');
       })()}</span></div>
       <div class="cb" style="padding:14px 18px">
-        <div style="background:var(--bg);border:1px solid rgba(12,164,201,.18);border-radius:14px;padding:15px 16px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between">
+        <div style="background:var(--bg);border:1px solid rgba(27,94,74,.18);border-radius:14px;padding:15px 16px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between">
           <div><div style="font-size:13.5px;color:var(--tealt);font-weight:700">최근 단어 테스트</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">${latTst.date||''}</div></div>
           <div style="text-align:right"><div style="font-size:30px;font-weight:800;color:var(--tealt);line-height:1;font-family:var(--fd)">${vp}<span style="font-size:16px">%</span></div>${vChange!=null?`<div style="font-size:12.5px;font-weight:700;color:${vChange>=0?'var(--okt)':'var(--warnt)'};margin-top:3px">${vChange>=0?'▲':'▼'} ${Math.abs(vChange)}</div>`:''}</div>
         </div>
@@ -449,7 +449,7 @@ async function loadParent(sid){
     const showStats=totalVocab>0||rds.length>0;
     let statsRow='';
     if(showStats){
-      const statItem=(val,lbl,sub)=>`<div style="flex:1;text-align:center;padding:8px 6px;background:rgba(12,164,201,.06);border-radius:8px"><div style="font-size:20px;font-weight:700;color:var(--teal)">${val}</div><div style="font-size:12px;color:var(--slate);margin-top:2px">${lbl}</div>${sub?`<div style="font-size:9.5px;color:rgba(0,0,0,.3)">${sub}</div>`:''}</div>`;
+      const statItem=(val,lbl,sub)=>`<div style="flex:1;text-align:center;padding:8px 6px;background:rgba(27,94,74,.06);border-radius:8px"><div style="font-size:20px;font-weight:700;color:var(--teal)">${val}</div><div style="font-size:12px;color:var(--slate);margin-top:2px">${lbl}</div>${sub?`<div style="font-size:9.5px;color:rgba(0,0,0,.3)">${sub}</div>`:''}</div>`;
       const items=[];
       if(totalVocab>0)items.push(statItem(masteredVocab,'단어 마스터',totalVocab+'개 중'));
       if(rds.length>0)items.push(statItem(booksThisMonth,'이번 달 독서'+(bkChg>0?' ▲'+bkChg:bkChg<0?' ▼'+Math.abs(bkChg):''),''));
@@ -626,7 +626,7 @@ async function loadParent(sid){
       if(cv){
         if(pC.trend)pC.trend.destroy();
         const ct=[..._trendT].reverse().slice(-10);   // 미응시 제외
-        pC.trend=new Chart(cv.getContext('2d'),{type:'line',data:{labels:ct.map(t=>t.date?t.date.slice(5):''),datasets:[{label:'단어',data:ct.map(t=>pct(t.vocabCorrect,t.vocabTotal)),borderColor:'#0CA4C9',backgroundColor:'rgba(12,164,201,.1)',tension:.3,fill:true,pointBackgroundColor:'#0CA4C9',pointRadius:4},{label:'어법',data:ct.map(t=>(t.grammarTotal||0)>0?pct(t.grammarCorrect,t.grammarTotal):null),borderColor:'#0B8DAE',backgroundColor:'rgba(0,95,107,.07)',tension:.3,fill:true,pointBackgroundColor:'#0B8DAE',pointRadius:4},{label:'평균',data:ct.map(()=>Math.round(ct.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/ct.length)),borderColor:'rgba(0,0,0,.2)',borderDash:[5,5],borderWidth:1.5,pointRadius:0,fill:false,tension:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
+        pC.trend=new Chart(cv.getContext('2d'),{type:'line',data:{labels:ct.map(t=>t.date?t.date.slice(5):''),datasets:[{label:'단어',data:ct.map(t=>pct(t.vocabCorrect,t.vocabTotal)),borderColor:'#1B5E4A',backgroundColor:'rgba(27,94,74,.1)',tension:.3,fill:true,pointBackgroundColor:'#1B5E4A',pointRadius:4},{label:'어법',data:ct.map(t=>(t.grammarTotal||0)>0?pct(t.grammarCorrect,t.grammarTotal):null),borderColor:'#9CC5B5',backgroundColor:'rgba(156,197,181,.18)',tension:.3,fill:true,pointBackgroundColor:'#9CC5B5',pointRadius:4},{label:'평균',data:ct.map(()=>Math.round(ct.reduce((a,t)=>a+pct(t.vocabCorrect,t.vocabTotal),0)/ct.length)),borderColor:'rgba(0,0,0,.2)',borderDash:[5,5],borderWidth:1.5,pointRadius:0,fill:false,tension:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
       }
     }
   },150);

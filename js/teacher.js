@@ -2682,7 +2682,7 @@ function showLesFollowup(sid,date,stuName){
   el.innerHTML=`<div class="followup-card" style="border-top:3px solid var(--teal);background:linear-gradient(to bottom,#f0fffe,#fff)">
     <div style="font-size:14px;font-weight:700;color:var(--tealt);margin-bottom:12px">✅ ${stuName} 수업 기록 저장됨 — 이어서 입력하시겠어요?</div>
     <div id="les-fu-tst">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(12,164,201,.15)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(27,94,74,.15)">
         <span style="font-size:14px;font-weight:600">${luIcon('pencil',15)||''} 테스트도 있었나요?</span>
         <div style="display:flex;gap:6px">
           <button class="btn bt bsm" onclick="showInlineTst('${sid}','${date}')">있음</button>
@@ -2699,7 +2699,7 @@ function showLesFollowup(sid,date,stuName){
         </div>
       </div>
     </div>
-    <div id="les-fu-share" style="padding-top:8px;border-top:1px solid rgba(12,164,201,.15)">
+    <div id="les-fu-share" style="padding-top:8px;border-top:1px solid rgba(27,94,74,.15)">
       <button class="btn bt bsm" style="width:100%" onclick="shareParentUpdateByStu('${sid}')">📤 학부모에게 수업 알림 보내기</button>
     </div>
   </div>`;
@@ -2707,7 +2707,7 @@ function showLesFollowup(sid,date,stuName){
 function hideLesFollowup(){const el=document.getElementById('les-followup');if(el){el.style.display='none';el.innerHTML='';}}
 function showInlineTst(sid,date){
   const el=document.getElementById('les-fu-tst');if(!el)return;
-  el.innerHTML=`<div style="padding:10px 0;border-bottom:1px solid rgba(12,164,201,.15)">
+  el.innerHTML=`<div style="padding:10px 0;border-bottom:1px solid rgba(27,94,74,.15)">
     <div style="font-size:13px;font-weight:700;margin-bottom:8px">${luIcon('pencil',15)||''} 테스트 간편 입력</div>
     <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px">
       <div class="f" style="margin:0;flex:1;min-width:80px"><label>단어 맞힌 수</label><input type="number" id="fu-vc" min="0" placeholder="8" style="font-family:var(--fm);font-size:16px;text-align:center"></div>
@@ -9287,7 +9287,7 @@ function renderDashCal(){
   for(let d=1;d<=daysInMonth;d++){
     const ds=`${y}-${mPad}-${String(d).padStart(2,'0')}`;
     let st='aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:12px;border-radius:7px;font-family:var(--fd);font-variant-numeric:tabular-nums;';
-    if(ds===todayStr)st+='background:var(--accent);color:#fff;font-weight:700;box-shadow:0 2px 6px rgba(12,164,201,.35);';
+    if(ds===todayStr)st+='background:var(--accent);color:#fff;font-weight:700;box-shadow:0 2px 6px rgba(27,94,74,.35);';
     else if(lesDates.has(ds))st+='background:var(--tl);color:var(--tealt);font-weight:700;';
     else if(offDates.has(ds))st+='background:var(--warnl);color:var(--warnt);font-weight:700;';
     else st+='color:#C8D0D8;';
@@ -9297,7 +9297,7 @@ function renderDashCal(){
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">${luIcon('calendar-days',16,'color:var(--tealt)')}<span style="font-size:15px;font-weight:800;color:var(--navy)">${y}년 ${m+1}월</span></div>
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>
     <div style="display:flex;gap:12px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(15,48,74,.06);font-size:12px;color:var(--neutral)">
-      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:var(--tl);border:1px solid rgba(12,164,201,.35)"></span>수업</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:var(--tl);border:1px solid rgba(27,94,74,.35)"></span>수업</span>
       <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:var(--warnl);border:1px solid rgba(245,158,11,.4)"></span>결석/보강</span>
       <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:var(--accent)"></span>오늘</span>
     </div>
