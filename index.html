@@ -2136,7 +2136,9 @@
           <option value="class5">클래스5</option>
           <option value="recur">🔁 반복 숙제 (매일/수업 없는 날)</option>
           <option value="other">기타</option>
+          <option value="__custom__">✏️ 직접 입력</option>
         </select>
+        <input type="text" id="modal-assign-cat-custom" placeholder="구분 직접 입력 (예: 스피킹, 발표 준비)" style="display:none;margin-top:5px;width:100%;box-sizing:border-box">
       </div>
       <div class="f s2" id="modal-assign-book-wrap"><label>교재/원서</label>
         <input type="text" id="modal-assign-book" placeholder="제목 검색 또는 직접 입력" autocomplete="off" oninput="modalAssignBookSearch()" onchange="assignBookChange()" list="dl-modal-assign-books" style="width:100%;box-sizing:border-box">
@@ -2524,7 +2526,7 @@
 <script src="js/utils.js?v=20261106c"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261106b"></script>
-<script src="js/teacher.js?v=20261106e"></script>
+<script src="js/teacher.js?v=20261106f"></script>
 <script src="js/student.js?v=20261106e"></script>
 <script src="js/parent.js?v=20261106d"></script>
 </body>

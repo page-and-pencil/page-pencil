@@ -10904,6 +10904,7 @@ function openAssignModal(sid){
   document.getElementById('modal-assign-due').value=nextDue||(()=>{const d=new Date();d.setDate(d.getDate()+1);return ppYmd(d);})();
   document.querySelectorAll('#modal-assign-cat option[data-custom-cat]').forEach(o=>o.remove());
   document.getElementById('modal-assign-cat').value='';
+  {const cc=document.getElementById('modal-assign-cat-custom');if(cc){cc.value='';cc.style.display='none';}}
   const bookEl=document.getElementById('modal-assign-book');
   if(bookEl){bookEl.value='';const bf=bookEl.closest('.f');if(bf)bf.style.display='';}
   const bookIdEl=document.getElementById('modal-assign-book-id');if(bookIdEl)bookIdEl.value='';
@@ -10914,6 +10915,25 @@ function openAssignModal(sid){
   {const tk=document.getElementById('modal-assign-track');if(tk)tk.value='';}
   document.getElementById('modal-assign-extra').innerHTML='';
   openM('m-add-assign');
+}
+// 날짜별 일정(반복·클래스5)을 그대로 고치는 편집기 — 줄마다 날짜·내용 수정, × 로 하루 빼기, 줄 추가
+function _schedEditorHtml(a){
+  const rows=(a.schedule||[]).slice().sort((x,y)=>String(x.date).localeCompare(String(y.date)));
+  const doneN=rows.filter(r=>r.done).length;
+  return `<div style="margin-top:10px;border:1.5px solid var(--teal);border-radius:var(--rs);padding:12px;background:var(--tl)">
+    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px">🗓 날짜별 일정 ${rows.length}일${doneN?` <span style="font-weight:400;color:var(--okt)">· 완료 ${doneN}일</span>`:''}</div>
+    <div style="font-size:11.5px;color:var(--slate);line-height:1.6;margin-bottom:8px">날짜·내용을 직접 고치고, ×로 하루를 빼고, 줄을 더할 수 있어요.<br>완료 표시는 날짜를 그대로 두면 유지됩니다. 과제 자체를 없애려면 목록의 '삭제'를 쓰세요.${a.auto?`<br><b style="color:var(--warnt)">자동 진행(못 한 날 밀림)이 켜져 있습니다 — 손으로 고치면 꺼집니다.</b>`:''}</div>
+    <div id="c5-rows">${rows.map(r=>c5RowHtml(r.date,r.book||'',r.unit||'')).join('')}</div>
+    <button class="btn bo bsm" style="margin-top:6px;width:100%;font-size:12px" onclick="addC5Row()">+ 줄 추가</button>
+  </div>`;
+}
+function _schedEditorRender(){
+  if(!_editAssignId)return false;
+  const a=(_cache.assignments||[]).find(x=>x.id===_editAssignId);
+  if(!a||!(a.schedule||[]).length)return false;
+  const extra=document.getElementById('modal-assign-extra');
+  if(extra)extra.innerHTML=_schedEditorHtml(a);
+  return true;
 }
 function openEditAssignModal(aid){
   const a=(_cache.assignments||[]).find(x=>x.id===aid);
@@ -10942,6 +10962,7 @@ function openEditAssignModal(aid){
   if(rangeEl)rangeEl.value=a.range||'';
   const noteEl2=document.getElementById('modal-assign-note');if(noteEl2)noteEl2.value=a.note||'';
   {const tk=document.getElementById('modal-assign-track');if(tk)tk.value=a.track||'';}
+  _schedEditorRender();
   openM('m-add-assign');
 }
 // 반복·클래스5 처럼 날짜별 일정이 있는 과제에서 하루치만 뺀다 (과제 자체는 남는다)
@@ -11094,6 +11115,8 @@ function missionMultiUnitChange(){
 
 function modalAssignCatChange(){
   const cat=document.getElementById('modal-assign-cat').value;
+  {const cc=document.getElementById('modal-assign-cat-custom');
+   if(cc){cc.style.display=cat==='__custom__'?'':'none';if(cat==='__custom__')setTimeout(()=>cc.focus(),0);}}
   const sid=document.getElementById('modal-assign-stu').value;
   const bookEl=document.getElementById('modal-assign-book');
   fillAsgnBookDatalist('dl-modal-assign-books',cat);
@@ -11242,6 +11265,7 @@ function modalAssignCatChange(){
       <button class="btn bo bsm" style="margin-top:6px;width:100%;font-size:12px" onclick="addC5Row()">+ 행 직접 추가</button>
     </div>`;
   } else {extra.innerHTML='';}
+  _schedEditorRender();   // 수정 중인 일정형 과제는 구분을 바꿔도 일정 편집기를 지킨다
 }
 function modalAssignBookSearch(){
   const q=(document.getElementById('modal-assign-book')?.value||'').trim().toLowerCase();
@@ -11291,13 +11315,18 @@ function assignBookChange(){
   helper.innerHTML=`<div style="font-size:12px;color:var(--slate);margin-bottom:4px">${label} (클릭 시 범위 자동 입력)</div>
     <div style="display:flex;flex-wrap:wrap;gap:4px">${entries.map(e=>`<button type="button" class="btn bo bsm" style="font-size:12px;padding:2px 8px" onclick="document.getElementById('modal-assign-range').value='${jsq(e.v)}';">${e.l}</button>`).join('')}</div>`;
 }
+// 일정 한 줄의 날짜 — 입력칸 값을 먼저 보고, 없으면 처음 값(data-date)
+function _c5RowDate(r){
+  const el=r.querySelector('[data-c5="date"]');
+  const v=el?String(el.value||'').trim():'';
+  return v||r.dataset.date||'';
+}
 function c5RowHtml(date,book,unit){
   const iS='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream2);outline:none;width:100%;min-width:0';
-  const lbl=date.length>=10?date.slice(5).replace('-','/'):date;
-  return `<div class="c5-row" data-date="${date}" style="display:grid;grid-template-columns:46px 1fr 1fr auto;gap:4px;align-items:center;margin-bottom:4px">
-    <span style="font-size:12px;color:var(--navy);font-family:var(--fm);white-space:nowrap">${lbl}</span>
-    <input type="text" data-c5="book" value="${escAttr(book||'')}" placeholder="교재명" style="${iS}" list="dl-tbooks-assign" autocomplete="off">
-    <input type="text" data-c5="unit" value="${escAttr(unit||'')}" placeholder="유닛" style="${iS}">
+  return `<div class="c5-row" data-date="${date}" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:4px">
+    <input type="date" data-c5="date" value="${escAttr(date||'')}" style="${iS};flex:0 0 118px;width:auto;font-family:var(--fm)">
+    <input type="text" data-c5="book" value="${escAttr(book||'')}" placeholder="교재·내용" style="${iS};flex:1 1 110px" list="dl-tbooks-assign" autocomplete="off">
+    <input type="text" data-c5="unit" value="${escAttr(unit||'')}" placeholder="유닛(선택)" style="${iS};flex:1 1 90px">
     <button style="background:none;border:none;cursor:pointer;color:var(--slate);font-size:16px;padding:0 4px;line-height:1" onclick="this.closest('.c5-row').remove()">×</button>
   </div>`;
 }
@@ -11308,7 +11337,7 @@ function buildC5Schedule(){
   if((new Date(to)-new Date(from))/(864e5)>60){toast('최대 60일까지 생성할 수 있습니다');return;}
   const rows=document.getElementById('c5-rows');if(!rows)return;
   const existing={};
-  rows.querySelectorAll('.c5-row').forEach(r=>{const d=r.dataset.date;existing[d]={b:r.querySelector('[data-c5="book"]')?.value||'',u:r.querySelector('[data-c5="unit"]')?.value||''};});
+  rows.querySelectorAll('.c5-row').forEach(r=>{const d=_c5RowDate(r);existing[d]={b:r.querySelector('[data-c5="book"]')?.value||'',u:r.querySelector('[data-c5="unit"]')?.value||''};});
   const dates=[];const cur=new Date(from);const end=new Date(to);
   while(cur<=end){dates.push(new Date(cur).toISOString().split('T')[0]);cur.setDate(cur.getDate()+1);}
   rows.innerHTML=dates.map(d=>c5RowHtml(d,existing[d]?.b||'',existing[d]?.u||'')).join('');
@@ -11317,7 +11346,8 @@ function addC5Row(){
   const rows=document.getElementById('c5-rows');if(!rows)return;
   const last=rows.querySelector('.c5-row:last-child');
   let next=ppToday();
-  if(last?.dataset.date){const d=new Date(last.dataset.date);d.setDate(d.getDate()+1);next=d.toISOString().split('T')[0];}
+  const lastD=last?_c5RowDate(last):'';
+  if(lastD){const d=new Date(lastD+'T12:00:00');d.setDate(d.getDate()+1);next=ppYmd(d);}
   rows.insertAdjacentHTML('beforeend',c5RowHtml(next,'',''));
 }
 function parseC5Date(s){
@@ -11451,7 +11481,10 @@ async function saveModalAssignment(){
   try{
   const sid=document.getElementById('modal-assign-stu').value;
   if(!sid){toast('학생을 선택해 주세요');return;}
-  const cat=document.getElementById('modal-assign-cat').value;
+  let cat=document.getElementById('modal-assign-cat').value;
+  if(cat==='__custom__'){   // 구분 직접 입력 — 비우면 '구분 없음'
+    cat=(document.getElementById('modal-assign-cat-custom')?.value||'').trim();
+  }
   const book=document.getElementById('modal-assign-book')?.value.trim()||'';
   const bookId=document.getElementById('modal-assign-book-id')?.value||'';
   const range=document.getElementById('modal-assign-range').value.trim();
@@ -11473,6 +11506,23 @@ async function saveModalAssignment(){
         existing.bookTitle=book;existing.range=range;existing.note=note;
         existing.track=_assignTrackVal();
       }
+      // 날짜별 일정을 고쳤으면 그걸로 바꾼다. 날짜가 그대로인 줄은 완료 표시를 지킨다.
+      const _schedHost=document.getElementById('c5-rows');
+      if(_schedHost&&(existing.schedule||[]).length){
+        const prev={};(existing.schedule||[]).forEach(x=>{if(x&&x.date)prev[x.date]=x;});
+        const byDate={};
+        [..._schedHost.querySelectorAll('.c5-row')].forEach(r=>{
+          const d=_c5RowDate(r);if(!d)return;
+          byDate[d]={...(prev[d]||{}),date:d,
+            book:(r.querySelector('[data-c5="book"]')?.value||'').trim(),
+            unit:(r.querySelector('[data-c5="unit"]')?.value||'').trim()};
+        });
+        const sched=Object.values(byDate).sort((x,y)=>x.date.localeCompare(y.date));
+        if(!sched.length){toast('일정이 한 줄도 없어요 — 과제를 없애려면 목록의 삭제를 쓰세요');return;}
+        existing.schedule=sched;
+        existing.date=sched[0].date;existing.due=sched[sched.length-1].date;
+        if(existing.auto)existing.auto=false;   // 손으로 고쳤으면 자동 밀림은 끈다
+      }
       await supaUpsert('assignments',_editAssignId,existing,sid);
       const idx=(_cache.assignments||[]).findIndex(x=>x.id===_editAssignId);
       if(idx>=0)_cache.assignments[idx]=existing;
@@ -11480,7 +11530,7 @@ async function saveModalAssignment(){
     _editAssignId=null;
     const mt=document.querySelector('#m-add-assign .mt');
     if(mt)mt.textContent='📋 과제 할당';
-    closeM('m-add-assign');renderAssignTab();toast('수정되었습니다');return;
+    closeM('m-add-assign');renderAssignTab();renderAssignCal();toast('수정되었습니다');return;
   }
   if(cat==='worksheet'){
     const wsId=document.getElementById('ws-assign-sel')?.value||'';
@@ -11581,7 +11631,7 @@ async function saveModalAssignment(){
   }
   if(cat==='class5'){
     const schedRows=document.querySelectorAll('#c5-rows .c5-row');
-    const schedule=[...schedRows].map(r=>({date:r.dataset.date,book:(r.querySelector('[data-c5="book"]')?.value||'').trim(),unit:(r.querySelector('[data-c5="unit"]')?.value||'').trim()})).filter(x=>x.book||x.unit);
+    const schedule=[...schedRows].map(r=>({date:_c5RowDate(r),book:(r.querySelector('[data-c5="book"]')?.value||'').trim(),unit:(r.querySelector('[data-c5="unit"]')?.value||'').trim()})).filter(x=>x.book||x.unit);
     if(!schedule.length){toast('진도 스케줄을 입력해 주세요');return;}
     const a={id:uid(),sid,type:'class5',category:'class5',date,due,track:_assignTrackVal(),bookTitle:'클래스5',schedule};
     await supaUpsert('assignments',a.id,a,sid);
