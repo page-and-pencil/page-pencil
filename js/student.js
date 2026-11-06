@@ -2554,10 +2554,21 @@ async function polishStudentCmt(givenName){
   const apiKey=DB.api();
   if(!apiKey){el.textContent=raw.slice(0,80)+(raw.length>80?'…':'');return;}
   try{
-    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${givenName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 오늘 배운 내용을 구체적으로 1개 이상 언급 — 진도에 [이 단원에서 배운 단어]가 있으면 그중 1~2개를 골라 칭찬에 녹여서(예: "오늘 proud 진짜 잘 읽었어!", "th 발음 완전 좋았어~"). 없는 사실은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${mats||'없음'}\n선생님 메모: ${raw}`;
+    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${givenName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 처음부터 끝까지 반말로만 쓰기(존댓말·'~요' 섞지 않기), 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 오늘 배운 내용을 구체적으로 1개 이상 언급 — 진도에 [이 단원에서 배운 단어]가 있으면 그중 1~2개를 골라 칭찬에 녹여서(예: "오늘 proud 진짜 잘 읽었어!", "th 발음 완전 좋았어~"). 없는 사실은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${mats||'없음'}\n선생님 메모: ${raw}`;
     const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:150,messages:[{role:'user',content}]});
     const text=d.content?.[0]?.text?.trim();
-    if(text&&el)el.textContent=text;
+    if(text&&el){
+      el.textContent=text;
+      el.dataset.stored=text;
+      // 한 번 만든 문장은 수업 기록에 남겨 다시 쓴다 —
+      // 저장하지 않으면 홈을 열 때마다 AI 를 불러 문장이 매번 바뀌고 비용도 든다.
+      const lid=el.dataset.lid||'',ssid=el.dataset.sid||'';
+      const les=lid?(_cache.lessons||[]).find(l=>l.id===lid):null;
+      if(les&&!les.stuCmt){
+        les.stuCmt=text;
+        try{await supaUpsert('lessons',les.id,les,les.sid||ssid);}catch(e){console.warn('응원 문구 저장 실패:',e);}
+      }
+    }
   }catch(e){if(el)el.textContent=raw.slice(0,80)+(raw.length>80?'…':'');}
 }
 // 단어 복습 현황: 약점 단어 + 숙련도 단계 (vocab_cards의 hits/misses 활용)
@@ -2693,7 +2704,7 @@ function renderStudentHome(sid){
       </div>
     </div>
     ${hasCheer
-      ?`<div class="stu-hero-cmt" id="stu-lesson-cmt" data-raw="${escAttr(heroRaw)}" data-mats="${escAttr(heroMatsText)}" data-stored="${escAttr(heroStored)}">${heroStored||'...'}</div>`
+      ?`<div class="stu-hero-cmt" id="stu-lesson-cmt" data-lid="${escAttr(lastLes?.id||'')}" data-sid="${escAttr(sid)}" data-raw="${escAttr(heroRaw)}" data-mats="${escAttr(heroMatsText)}" data-stored="${escAttr(heroStored)}">${heroStored||'...'}</div>`
       :`<div class="stu-hero-cmt">${todayPendingN?`오늘은 딱 ${todayPendingN}개만 하면 끝! 화이팅 🔥`:'오늘 할 일 다 했어요! 참 잘했어요 👏'}</div>`}
     <svg class="stu-mascot" viewBox="0 0 64 64" fill="none" aria-hidden="true"><g transform="rotate(-18 32 32)"><rect x="25" y="8" width="14" height="34" rx="3" fill="#FFD166"/><rect x="25" y="8" width="14" height="34" rx="3" fill="url(#pg)" opacity=".18"/><path d="M25 42h14l-7 11z" fill="#F7E7C8"/><path d="M28.6 47.2h6.8L32 53z" fill="#2A2520"/><rect x="25" y="5" width="14" height="6" rx="2.4" fill="#E86A5C"/><circle cx="29.4" cy="24" r="1.9" fill="#2A2520"/><circle cx="34.6" cy="24" r="1.9" fill="#2A2520"/><path d="M29.2 29.4q2.8 2.6 5.6 0" stroke="#2A2520" stroke-width="1.6" stroke-linecap="round"/><circle cx="26.6" cy="27.6" r="1.5" fill="#F09AA0" opacity=".75"/><circle cx="37.4" cy="27.6" r="1.5" fill="#F09AA0" opacity=".75"/></g><defs><linearGradient id="pg" x1="25" y1="8" x2="39" y2="42"><stop stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient></defs></svg>
   </div>`;

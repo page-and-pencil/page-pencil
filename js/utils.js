@@ -85,6 +85,10 @@ const LVC={L1:'lv1',L2:'lv2',L3:'lv3',L4:'lv4'};
 const SLBL={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신',pencil_down:'Pencil Down',sing_together:'Sing Together'};
 const SCLS={phonics:'sph',vocab:'sv',grammar:'sg2',reading:'srd',listening:'sls',writing:'swt',naesin:'sns',pencil_down:'spd',sing_together:'sst'};
 const ATTLBL={normal:'',absent:'결석',late:'지각',makeup:'보강',sick:'병결',teacher_cancel:'선생님취소',holiday:'휴강'};
+// 그날 수업을 실제로 듣지 않은 상태 — 진도·교재 여정·단어장 자동 추가에서 뺀다.
+// (지각·보강은 들은 것이므로 포함)
+const PP_ATT_AWAY=['absent','sick','teacher_cancel','holiday'];
+function ppAttAway(att){return PP_ATT_AWAY.includes(String(att||''));}
 const ATTCLS={absent:'att-abs',late:'att-late',makeup:'att-make',sick:'att-sick',teacher_cancel:'att-tc',holiday:'att-hol'};
 
 // ── 클래스 요일별 시간 헬퍼 ──
@@ -894,6 +898,14 @@ function ppIsClassDay(classes,dateStr){
 }
 // 입회일이 비어 있으면 학생 레코드를 만든 날을 바닥으로 쓴다.
 // (uid() = Date.now().toString(36) + 무작위 4글자 — 앞부분이 만든 시각이다)
+// 받침에 맞는 조사 — "이더미이(가)" 처럼 보이던 것
+function ppJosa(word,withBat,noBat){
+  const s=String(word||'').trim();
+  if(!s)return noBat;
+  const c=s.charCodeAt(s.length-1);
+  if(c<0xAC00||c>0xD7A3)return noBat;
+  return ((c-0xAC00)%28)?withBat:noBat;
+}
 function ppStuSince(stu){
   const e=String((stu&&stu.enrollDate)||'').slice(0,10);
   if(e)return e;
@@ -1317,13 +1329,41 @@ function landRole(role){
   }
 }
 function landToggleEye(id,btn){const el=document.getElementById(id);if(!el)return;const showing=el.type==='password';el.type=showing?'text':'password';btn.style.opacity=showing?'1':'.7';btn.setAttribute('aria-pressed',String(showing));btn.setAttribute('aria-label',showing?'비밀번호 숨기기':'비밀번호 표시');}
+// PIN 연속 실패 제한 — 같은 탭에서 5번 틀리면 30초 쉬게 한다.
+// 브라우저 쪽 장치라 API 를 직접 부르는 사람은 막지 못한다(진짜 보호는 서버 로그인).
+// 그래도 화면에서 366가지를 훑는 식의 시도는 막힌다.
+function ppPinGate(setErr){
+  try{
+    const n=Number(sessionStorage.getItem('pp_pin_fail')||0);
+    const until=Number(sessionStorage.getItem('pp_pin_until')||0);
+    if(until&&Date.now()<until){
+      setErr(`잠시 후 다시 시도해 주세요 (${Math.ceil((until-Date.now())/1000)}초)`);
+      return false;
+    }
+    if(until&&Date.now()>=until){sessionStorage.removeItem('pp_pin_until');sessionStorage.setItem('pp_pin_fail','0');}
+    return true;
+  }catch(e){return true;}
+}
+function ppPinFailed(){
+  try{
+    const n=Number(sessionStorage.getItem('pp_pin_fail')||0)+1;
+    sessionStorage.setItem('pp_pin_fail',String(n));
+    if(n>=5)sessionStorage.setItem('pp_pin_until',String(Date.now()+30000));
+  }catch(e){}
+}
+function ppPinOk(){try{sessionStorage.setItem('pp_pin_fail','0');sessionStorage.removeItem('pp_pin_until');}catch(e){}}
 async function landStudentSubmit(){
-  const pin=(document.getElementById('land-spin')?.value||'').trim();
   const err=document.getElementById('land-err');const setErr=t=>{if(err)err.textContent=t;};
+  if(!ppPinGate(setErr))return;
+  const read=()=>(document.getElementById('land-spin')?.value||'').trim();
+  let pin=read();
   if(pin.length<4){setErr('생년월일 4자리를 입력해 주세요');return;}
   if(typeof _cache!=='undefined'&&!_cache.students.length){setErr('확인하는 중이에요…');try{await loadAllData();}catch(e){setErr('연결이 불안정해요. 잠시 후 다시 시도해 주세요');return;}}
+  pin=read()||pin;   // 기다리는 동안 고쳐 넣은 값이 있으면 그걸로 본다 (옛 값으로 거절하던 것)
+  if(pin.length<4){setErr('생년월일 4자리를 입력해 주세요');return;}
   const matches=(typeof DB!=='undefined'?DB.stus():[]).filter(s=>s.pin===pin&&!s.inactive);
-  if(!matches.length){setErr('PIN이 맞지 않습니다');return;}
+  if(!matches.length){ppPinFailed();setErr('PIN이 맞지 않습니다');return;}
+  ppPinOk();
   if(matches.length===1){setErr('');await loginStudent(matches[0]);return;}
   const sel=document.getElementById('land-sname');
   if(sel){sel.innerHTML='<option value="">이름 선택...</option>'+matches.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');sel.style.display='block';}

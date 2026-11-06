@@ -42,19 +42,25 @@ async function checkPw(inputId='pw-in',errId='pw-err'){
 }
 async function checkPin(nameId='pin-name',codeId='pin-code',errId='pin-err'){
   const nameEl=document.getElementById(nameId),codeEl=document.getElementById(codeId);
-  const name=(nameEl?.value||'').trim();
-  const pin=codeEl?.value||'';
   const err=document.getElementById(errId);
   const setErr=t=>{if(err)err.textContent=t;};
+  if(typeof ppPinGate==='function'&&!ppPinGate(setErr))return;
+  const read=()=>({name:(nameEl?.value||'').trim(),pin:(codeEl?.value||'')});
+  let {name,pin}=read();
   if(!name){setErr('아이 이름을 입력해 주세요');return;}
   if(!_cache.students.length){
-    setErr('');
+    setErr('확인하는 중이에요…');
     try{await loadAllDataFast();}catch(e){}
+    const now=read();                 // 기다리는 동안 고쳐 넣었으면 그 값으로 본다
+    if(now.name)name=now.name;
+    if(now.pin)pin=now.pin;
+    setErr('');
   }
   const s=DB.stus().find(x=>x.name===name);
   if(!s){setErr('등록된 학생을 찾을 수 없습니다');return;}
-  if(s.pin===pin){if(codeEl)codeEl.value='';setErr('');await loadParentWithNotice(s.id);}
+  if(s.pin===pin){if(typeof ppPinOk==='function')ppPinOk();if(codeEl)codeEl.value='';setErr('');await loadParentWithNotice(s.id);}
   else{
+    if(typeof ppPinFailed==='function')ppPinFailed();
     setErr('PIN이 맞지 않습니다. 선생님께 문의해 주세요.');
     const contact=DB.acct()?.phone||DB.acct()?.contact||'';
     const h=document.getElementById('pin-contact-hint');
@@ -6326,10 +6332,25 @@ function masterCheckAll(checked){
   boxes.forEach(b=>{b.checked=checked;if(checked)_masterSelected.add(b.dataset.bid);else _masterSelected.delete(b.dataset.bid);});
   updateMasterDelBtn();
 }
-function deleteAllMasterDB(){
+async function deleteAllMasterDB(){
   const total=(_cache.globalTextbooks||[]).length+(_cache.library||[]).length;
   if(!total){toast('삭제할 데이터가 없습니다');return;}
-  askConfirm('마스터 DB 전체 삭제',`교재+원서 ${total}개를 모두 삭제합니다. 되돌릴 수 없습니다.`,'전체 삭제','bd',async()=>{
+  // 확인창 한 번으로 73,000개가 넘는 단어까지 사라졌다. 두 겹으로 막는다.
+  // ① '전체 삭제' 를 직접 타이핑  ② 지우기 전에 교재·원서 CSV 를 먼저 내려받는다
+  const typed=prompt('교재+원서 '+total+'개와 그 안의 단어가 모두 사라집니다. 되돌릴 수 없습니다.\n\n정말 지우시려면 아래에  전체 삭제  를 그대로 입력하세요.');
+  if(String(typed||'').trim()!=='전체 삭제'){toast('취소했습니다');return;}
+  try{
+    toast('지우기 전에 백업을 내려받습니다...');
+    if(typeof exportTbookCSV==='function')exportTbookCSV();
+    await new Promise(r=>setTimeout(r,800));
+    if(typeof exportLibCSV==='function')exportLibCSV();
+    await new Promise(r=>setTimeout(r,800));
+  }catch(e){
+    console.error('삭제 전 백업 실패:',e);
+    toast('백업 파일을 못 만들었습니다 — 삭제를 중단합니다');
+    return;
+  }
+  askConfirm('마지막 확인',`CSV 백업을 내려받았습니다. 이제 교재+원서 ${total}개를 지웁니다.`,'지금 지우기','bd',async()=>{
     const btn=document.querySelector('[onclick="deleteAllMasterDB()"]');
     if(btn){btn.disabled=true;btn.textContent='삭제 중...';}
     try{
@@ -8476,7 +8497,7 @@ async function polishStuCmt_teacher(raw,matsText,stuName){
   if((!raw||!raw.trim())&&!String(matsText||'').trim())return '';
   const apiKey=DB.api();if(!apiKey)return '';
   try{
-    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${stuName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 선생님 메모에 적힌 내용만으로 칭찬하기. 메모와 진도에 없는 단어·활동·반응은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n${PP_BOOKNAME_RULE}\n수업 진도: ${matsText||'없음'}\n선생님 메모: ${raw||'(없음 — 진도만 보고 쓰세요)'}`;
+    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${stuName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 처음부터 끝까지 반말로만 쓰기(존댓말 섞지 않기), 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 선생님 메모에 적힌 내용만으로 칭찬하기. 메모와 진도에 없는 단어·활동·반응은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n${PP_BOOKNAME_RULE}\n수업 진도: ${matsText||'없음'}\n선생님 메모: ${raw||'(없음 — 진도만 보고 쓰세요)'}`;
     const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content}]});
     return d.content?.[0]?.text?.trim()||'';
   }catch(e){return '';}
@@ -10761,7 +10782,29 @@ function openAssignForDate(dateStr){
   if(dateEl)dateEl.value=dateStr;
   if(dueEl)dueEl.value=dateStr;
 }
-function openBulkAssign(){openM('m-add-assign');}
+// 반 화면의 [일괄 할당] — 전에는 openM 만 불러 폼이 직전 상태 그대로였고, 학생 칸이
+// '전체 학생'(값 없음)이라 저장하면 "학생을 선택해 주세요" 로 막혔다(아무 일도 못 하는 버튼).
+// 이제 이 반 학생 전원에게 같은 과제를 한 번에 만든다.
+let _bulkClassId='';
+function openBulkAssign(classId){
+  openAssignModal('');                       // 폼 비우기
+  _bulkClassId=classId||'';
+  const c=DB.classes().find(x=>x.id===_bulkClassId);
+  const t=ppToday();
+  const dEl=document.getElementById('modal-assign-date'),uEl=document.getElementById('modal-assign-due');
+  if(dEl)dEl.value=t;
+  if(uEl&&c)uEl.value=_nextClassDay(t,c.days||[],new Set(c.skipDates||[]),new Set(c.extraDates||[]))||t;
+  const n=_bulkStus().length;
+  const ex=document.getElementById('modal-assign-extra');
+  if(ex&&c)ex.innerHTML=`<div class="ib iba" style="margin-top:10px;font-size:12.5px">${luIcon('users',14)||''} <b>${escAttr(c.name||'이 반')}</b> 학생 ${n}명에게 한 번에 할당합니다. 학생 칸은 비워 두세요.<br>반복·미션·워크시트·클래스5 는 일괄 할당이 안 됩니다 — 한 명씩 내 주세요.</div>`;
+  const mt=document.querySelector('#m-add-assign .mt');
+  if(mt&&c)mt.textContent='📋 '+(c.name||'반')+' 일괄 할당';
+}
+function _bulkStus(){
+  const c=DB.classes().find(x=>x.id===_bulkClassId);
+  if(!c)return [];
+  return DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
+}
 
 // ── TEACHER ASSIGN TAB ──
 function _assignItemHtml(a,hws){
@@ -10892,6 +10935,7 @@ let _editAssignId=null;
 // 창에서 [할당] 을 누르면 새 과제가 아니라 '아까 편집하던 과제' 를 조용히 덮어썼다.
 function closeAssignModal(){
   _editAssignId=null;
+  if(typeof _bulkClassId!=='undefined')_bulkClassId='';
   const mt=document.querySelector('#m-add-assign .mt');
   if(mt)mt.textContent='📋 과제 할당';
   const sb=document.getElementById('assign-save-btn');
@@ -10902,6 +10946,7 @@ function closeAssignModal(){
 }
 function openAssignModal(sid){
   _editAssignId=null;
+  if(typeof _bulkClassId!=='undefined')_bulkClassId='';
   const mt=document.querySelector('#m-add-assign .mt');
   if(mt)mt.textContent='📋 과제 할당';
   {const sb=document.getElementById('assign-save-btn');if(sb)sb.textContent='할당';}
@@ -11493,6 +11538,32 @@ function _assignTrackVal(){
 async function saveModalAssignment(){
   try{
   const sid=document.getElementById('modal-assign-stu').value;
+  if(_bulkClassId&&!sid){
+    const stus=_bulkStus();
+    if(!stus.length){toast('이 반에 재원 중인 학생이 없습니다');return;}
+    const catB=document.getElementById('modal-assign-cat').value;
+    if(['recur','mission','worksheet','class5'].includes(catB)){toast('이 구분은 일괄 할당이 안 됩니다 — 한 명씩 내 주세요');return;}
+    const bookB=document.getElementById('modal-assign-book')?.value.trim()||'';
+    const rangeB=document.getElementById('modal-assign-range').value.trim();
+    const noteB=document.getElementById('modal-assign-note')?.value.trim()||'';
+    const dateB=document.getElementById('modal-assign-date').value;
+    const dueB=document.getElementById('modal-assign-due').value;
+    if(!bookB&&!rangeB&&!noteB){toast('교재·범위·메모 중 하나는 적어 주세요');return;}
+    const bookIdB=document.getElementById('modal-assign-book-id')?.value||'';
+    const isRd=catB==='book'||!!bookIdB;
+    let made=0;
+    for(const s of stus){
+      const a={id:uid(),sid:s.id,type:isRd?'reading':(catB==='other'?'other':'textbook'),category:catB,
+        date:dateB,due:dueB,track:_assignTrackVal(),bookTitle:bookB,bookId:bookIdB,range:rangeB,note:noteB,common:true};
+      try{await supaUpsert('assignments',a.id,a,s.id);}catch(e){console.error('일괄 할당:',e);continue;}
+      if(!_cache.assignments)_cache.assignments=[];
+      _cache.assignments.unshift(a);made++;
+    }
+    _bulkClassId='';
+    closeAssignModal();renderAssignTab();renderAssignCal();
+    toast(`${made}명에게 할당했습니다`);
+    return;
+  }
   if(!sid){toast('학생을 선택해 주세요');return;}
   let cat=document.getElementById('modal-assign-cat').value;
   if(cat==='__custom__'){   // 구분 직접 입력 — 비우면 '구분 없음'
@@ -13572,7 +13643,7 @@ function _pgHwPanelHtml(classId){
     <div class="hw-body">${rows}
       <div class="hw-acts">
         <button class="btn bo bxxs" onclick="pgHwAdd('${classId}')">+ 숙제 추가</button>
-        <button class="btn bo bxxs" onclick="openBulkAssign()">일괄 할당</button>
+        <button class="btn bo bxxs" onclick="openBulkAssign('${classId}')">일괄 할당</button>
         <button class="btn bo bxxs" onclick="swTab('t-assign')">${luIcon('calendar',15)||''} 숙제 캘린더</button>
       </div>
     </div>
@@ -15771,7 +15842,13 @@ async function clPreviewIndCmt(btn,stuName){
       mats[`_book_${i}`]={book:t,unit:br.querySelector('.cl-rd-prog')?.value.trim()||''};
     });
     const result=await polishCmt(cmt,_getMatsTextFromMaterials(mats));
-    if(preview){preview.textContent=result;preview.style.display='block';}
+    if(preview){
+      preview.textContent=result;preview.style.display='block';
+      // 선생님이 확인한 그 문장을 저장에 쓴다. 전에는 저장 때 AI 를 또 불러
+      // 미리보기와 다른 글이 학부모에게 갔고 비용도 두 번 들었다.
+      preview.dataset.cmt=result;
+      preview.dataset.src=cmt;
+    }
     if(status)status.textContent=`${result.length}자`;
   }catch(e){if(status)status.textContent='변환 실패';}
   finally{btn.disabled=false;}
@@ -16382,8 +16459,10 @@ async function saveClassLesson(){
       ar:br.querySelector('.cl-rd-ar')?.value.trim()||'',
       prog:br.querySelector('.cl-rd-prog')?.value.trim()||''
     })).filter(b=>b.title);
+    const _pvEl=row.querySelector('.cl-preview-cmt');
     stuData.push({sid,grade:s?.grade||s?.lv||'',att:row.querySelector('.cl-att').value,books,
-      indCmt:row.querySelector('.cl-ind-cmt')?.value.trim()||''});
+      indCmt:row.querySelector('.cl-ind-cmt')?.value.trim()||'',
+      previewCmt:_pvEl?.dataset?.cmt||'',previewSrc:_pvEl?.dataset?.src||''});
   });
   // 과제 rows 수집
   const collectHwRows=sel=>[...document.querySelectorAll(sel)]
@@ -16402,8 +16481,23 @@ async function saveClassLesson(){
         cat,book,range,note
       };
     }).filter(r=>r.book||r.range||r.note);
-  const commonHws=collectHwRows('#cl-hw-common-rows .cl-hw-row');
-  const indHws=collectHwRows('#cl-hw-ind-rows .cl-hw-row').filter(r=>r.sid);
+  // 과제 칸은 '이번 수업 ~ 다음 수업 전날' 을 하루씩 묶음으로 보여 준다(getClassLessonDates).
+  // 묶음마다 같은 교재 줄이 자동으로 채워지므로, 월·수·금 반의 금요일 수업은 같은 숙제가
+  // 금·토·일 3건으로 저장됐다. 학생은 같은 숙제를 세 번 보고, 완료율은 1/3 이 됐다.
+  // 내용이 똑같은 줄은 한 건으로 합치고 마감만 가장 늦은 날(= 다음 수업 전날)로 둔다.
+  // 선생님이 날짜별로 내용을 다르게 적었으면 그대로 날짜별로 나간다.
+  const _mergeSameHw=(rows)=>{
+    const by=new Map();
+    rows.forEach(r=>{
+      const k=[r.sid||'',r.cat||'',(r.book||'').trim(),(r.range||'').trim(),(r.note||'').trim()].join('|');
+      const prev=by.get(k);
+      if(!prev){by.set(k,{...r});return;}
+      if((r.due||'')>(prev.due||''))prev.due=r.due;   // 마감은 가장 늦은 날로
+    });
+    return [...by.values()];
+  };
+  const commonHws=_mergeSameHw(collectHwRows('#cl-hw-common-rows .cl-hw-row'));
+  const indHws=_mergeSameHw(collectHwRows('#cl-hw-ind-rows .cl-hw-row').filter(r=>r.sid));
   const btn=document.getElementById('cl-save-btn');btn.disabled=true;
   toast('저장 중...');
   const editMode=document.getElementById('cl-class-id').dataset.editMode==='true';
@@ -16441,14 +16535,24 @@ async function saveClassLesson(){
       // 선생님이 코멘트를 쓴 경우에만 AI 를 부른다.
       // 전에는 코멘트가 비어도 교재만 있으면 AI 가 문장을 지어 polishedCmt 를 채웠다.
       // 쓰지 않았으면 기존 값을 그대로 두고, 없으면 빈 채로 둔다 (덮어쓰지 않는다).
-      const polishedCmt=(existing&&existing.cmt===cmt&&existing.polishedCmt)
-        ? existing.polishedCmt
-        : (String(cmt||'').trim() ? await polishCmt(cmt,_mt) : (existing?(existing.polishedCmt||''):''));
-      const les={id:existing?existing.id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:mats,cmt,polishedCmt,classId,...(existing&&existing.stuCmt?{stuCmt:existing.stuCmt}:{})};
+      // ① 선생님이 [학부모용 미리보기] 로 확인한 문장이 있고 원문이 그대로면 그 문장을 쓴다
+      // ② 아니면 기존 변환문 ③ 그것도 없으면 그때 AI 를 부른다
+      const _pv=d.previewCmt&&d.previewSrc===cmt?d.previewCmt:'';
+      const polishedCmt=_pv
+        ? _pv
+        : ((existing&&existing.cmt===cmt&&existing.polishedCmt)
+          ? existing.polishedCmt
+          : (String(cmt||'').trim() ? await polishCmt(cmt,_mt) : (existing?(existing.polishedCmt||''):'')));
+      // 결석·병결·휴강·선생님취소 학생에게는 그날 공통 진도를 남기지 않는다.
+      // 남기면 교재 여정이 올라가고, 단어장에 안 배운 단어가 들어가고,
+      // 학부모 화면에 '최근 수업 · Unit 1' 로 보인다 (2026-11-06 점검).
+      const _away=(typeof ppAttAway==='function')&&ppAttAway(d.att);
+      const matsForStu=_away?{}:mats;
+      const les={id:existing?existing.id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:matsForStu,cmt,polishedCmt,classId,...(existing&&existing.stuCmt?{stuCmt:existing.stuCmt}:{})};
       await supaUpsert('lessons',les.id,les,d.sid);
       if(existing){const li=_cache.lessons.findIndex(l=>l.id===existing.id);if(li>=0)_cache.lessons[li]=les;else _cache.lessons.unshift(les);}
       else _cache.lessons.unshift(les);
-      addUnitWordsToVocab(d.sid,les.materials,date).catch(()=>{});
+      if(!_away)addUnitWordsToVocab(d.sid,les.materials,date).catch(()=>{});   // 결석이면 단어장 자동 추가도 안 한다
       // 수정 모드: 이 수업분 기존 원서 기록을 지우고 현재 행으로 재생성
       if(editMode){
         const oldRds=(_cache.readings||[]).filter(r=>r.classId===classId&&r.date===date&&r.sid===d.sid);
@@ -16753,6 +16857,9 @@ document.addEventListener('DOMContentLoaded',async()=>{
     const pin=params.get('pin');
     const role=params.get('role');
     if(pin&&role){
+      // 주소에 PIN 이 남으면 방문 기록·화면 공유·캡처에 그대로 남고, [나가기] 뒤 새로고침에
+      // 다시 자동 로그인된다. 읽자마자 지운다 (뒤로 가기 기록도 남기지 않게 replaceState)
+      try{history.replaceState(null,'',location.pathname+location.hash);}catch(e){}
       setToday();
       if(!_cache.students.length)await loadAllData();
       const matches=_cache.students.filter(s=>s.pin===pin&&!s.inactive);

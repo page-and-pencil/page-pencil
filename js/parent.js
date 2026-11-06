@@ -139,7 +139,7 @@ async function ppPushToggle(){
   if(ok){
     toast('숙제 알림을 켰어요 🔔');
     try{(await navigator.serviceWorker.ready).showNotification('알림이 켜졌어요 🔔',
-      {body:((s&&s.name)||'아이')+'이(가) 숙제를 안 한 날 저녁에 알려드릴게요.',icon:'icons/icon-192.png?v=3',tag:'pp-hw'});}catch(e){}
+      {body:((s&&s.name)||'아이')+((typeof ppJosa==='function')?ppJosa((s&&s.name)||'아이','이','가'):'이(가)')+' 숙제를 안 한 날 저녁에 알려드릴게요.',icon:'icons/icon-192.png?v=3',tag:'pp-hw'});}catch(e){}
   }
   _ppPushRow();
 }
@@ -226,8 +226,14 @@ async function loadParent(sid){
     const josa=(n)=>{if(!n)return '는';const c=n.charCodeAt(n.length-1);if(c<0xAC00||c>0xD7A3)return '는';return (c-0xAC00)%28===0?'는':'은';};
     const avgScore=ppAvgPct(tsts,'vocab');            // 미응시 제외, 없으면 null(—)
     const readBooks=rds.length;
+    // 출석이 1회 이하이거나 이번 달 결석이 있으면 칭찬형 문구를 쓰지 않는다.
+    // (수업 0회·결석 1회인데 "성실하게 함께하고 있어요" 가 나갔다 — 2026-11-06 점검)
+    const _attendedThis=thisMonthLes.filter(l=>!(typeof ppAttAway==='function'&&ppAttAway(l.att))).length;
+    const _awayThis=les.filter(l=>l.date&&l.date.startsWith(thisMonthStr)&&(typeof ppAttAway==='function')&&ppAttAway(l.att)).length;
     let summary;
     if(!les.length)summary='곧 첫 수업 기록이 올라올 거예요.';
+    else if(_awayThis&&_attendedThis<=1)summary=`이번 달은 ${_attendedThis}회 수업했어요. 못 온 날은 보강으로 채워 갈게요.`;
+    else if(_attendedThis<=1)summary='이번 달 수업이 이제 시작이에요.';
     else if(lesChange>0)summary='꾸준히 나오며 잘 성장하고 있어요.';
     else if(avgScore!=null&&avgScore>=80)summary='이번 달도 안정적으로 잘 해주고 있어요.';
     else summary='이번 달도 성실하게 함께하고 있어요.';
@@ -274,10 +280,12 @@ async function loadParent(sid){
     blocks+=`<div class="card">
       <div class="ch"><span class="ct">${luIcon('pin',16)}최근 수업</span><span class="mono" class="p-dim">${latLes.date||''}</span></div>
       <div class="cb" style="padding:12px 16px">
-        ${mats?`<div style="font-size:13px;margin-bottom:8px;line-height:1.8">${mats}</div>`:''}
+        ${(typeof ppAttAway==='function'&&ppAttAway(latLes.att))
+          ?`<div style="font-size:13.5px;line-height:1.8;color:var(--navy)">${(latLes.date||'').slice(5).replace('-','월 ')}일은 <b>${ATTLBL[latLes.att]||'수업에 참여하지 못했어요'}</b>${latLes.att==='teacher_cancel'||latLes.att==='holiday'?' 이었어요.':' 했어요.'}<br><span style="color:var(--slate)">보강 일정은 선생님이 따로 안내드릴게요.</span></div>`
+          :`${mats?`<div style="font-size:13px;margin-bottom:8px;line-height:1.8">${mats}</div>`:''}
         ${polished
           ?`<div class="pcmt"><div class="pcmt-lbl">선생님 코멘트</div><div class="pcmt-txt">${polished}</div></div>`
-          :`<div style="font-size:13px;color:var(--slate);font-style:italic">수업 코멘트가 곧 업데이트됩니다 😊</div>`}
+          :`<div style="font-size:13px;color:var(--slate);font-style:italic">수업 코멘트가 곧 업데이트됩니다 😊</div>`}`}
         <div style="margin-top:10px;display:flex;justify-content:flex-end">
           <button id="p-ack-btn" onclick="parentAckLesson('${sid}','${latLes.id}')"
             style="background:none;border:1.5px solid ${isAcked?'var(--okt)':'var(--border)'};border-radius:20px;padding:4px 12px;font-size:13px;cursor:pointer;color:${isAcked?'var(--okt)':'var(--slate)'};font-family:var(--fb);display:flex;align-items:center;gap:4px">
