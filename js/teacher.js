@@ -16653,11 +16653,13 @@ document.addEventListener('DOMContentLoaded',async()=>{
         if(session.role==='teacher'){
           show('s-teacher');await initApp();
         } else if(session.role==='student'){
-          if(!_cache.students.length)await loadAllData();
+          // 선생님 앱과 같은 길로 — 스냅샷으로 즉시 부팅하고 뒤에서 최신화(60KB).
+          // 전에는 학생·학부모만 loadAllData() 를 직접 불러, 앱을 열 때마다 5.58MB 를 받았다.
+          if(!_cache.students.length)await loadAllDataFast();
           const s=_cache.students.find(x=>x.id===session.sid&&!x.inactive);
           if(s){await loginStudent(s);}else clearSession();
         } else if(session.role==='parent'){
-          if(!_cache.students.length)await loadAllData();
+          if(!_cache.students.length)await loadAllDataFast();
           const s=_cache.students.find(x=>x.id===session.sid&&!x.inactive);
           if(s){loadParentWithNotice(s.id);}else clearSession();
         }

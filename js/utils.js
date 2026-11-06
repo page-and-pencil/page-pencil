@@ -1277,7 +1277,11 @@ async function goPinScreen(){
 }
 function saveSession(data){try{localStorage.setItem('pp_session',JSON.stringify(data));}catch(e){}}
 function loadSession(){try{const s=localStorage.getItem('pp_session');return s?JSON.parse(s):null;}catch(e){return null;}}
-function clearSession(){try{localStorage.removeItem('pp_session');}catch(e){}}
+function clearSession(){
+  try{localStorage.removeItem('pp_session');}catch(e){}
+  // 로그아웃하면 로컬 스냅샷도 지운다 — 같은 기기를 다른 사람이 쓸 때 그 데이터로 부팅하지 않게
+  try{if(typeof ppDropSnapshot==='function')ppDropSnapshot();}catch(e){}
+}
 function logout(){clearSession();landRole('teacher');show('s-land');}
 
 // ── 랜딩 인라인 로그인 (역할 선택 → 같은 화면에서 입력) ──

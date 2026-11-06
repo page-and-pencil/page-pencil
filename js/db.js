@@ -300,6 +300,18 @@ async function supaSetSetting(key,value){
 function _idbOpen(){return new Promise((res,rej)=>{const rq=indexedDB.open('pp_cache',1);rq.onupgradeneeded=()=>rq.result.createObjectStore('kv');rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error);});}
 async function idbGet(k){try{const db=await _idbOpen();return await new Promise((res,rej)=>{const g=db.transaction('kv').objectStore('kv').get(k);g.onsuccess=()=>res(g.result);g.onerror=()=>rej(g.error);});}catch(e){return null;}}
 async function idbSet(k,v){try{const db=await _idbOpen();await new Promise((res,rej)=>{const p=db.transaction('kv','readwrite').objectStore('kv').put(v,k);p.onsuccess=()=>res();p.onerror=()=>rej(p.error);});}catch(e){}}
+async function idbDel(k){try{const db=await _idbOpen();await new Promise((res,rej)=>{const p=db.transaction('kv','readwrite').objectStore('kv').delete(k);p.onsuccess=()=>res();p.onerror=()=>rej(p.error);});}catch(e){}}
+// 스냅샷의 주인 — 이 로그인으로 만든 것만 다시 쓴다 (역할·학생 id 가 같을 때만)
+function _snapOwner(){
+  const s=(typeof loadSession==='function')?loadSession():null;
+  return {role:String((s&&s.role)||''),sid:String((s&&s.sid)||'')};
+}
+function _snapIsMine(snap){
+  const me=_snapOwner();
+  return !!snap&&String(snap.role||'')===me.role&&String(snap.sid||'')===me.sid;
+}
+// 로그아웃하면 지운다 (clearSession 이 부른다) — 남겨 두면 다음 사람이 그 데이터로 부팅한다
+function ppDropSnapshot(){try{idbDel('pp_cache_v2');}catch(e){}}
 let _bgRefreshing=false,_lastLoadAt=0;
 // 앱이 다시 화면에 돌아오면(폰 PWA 재개·탭 전환 복귀) 지난 데이터를 조용히 최신화
 // — 선생님이 과제·수업을 등록해도, 이미 열려 있던 학생·학부모 화면에 반영되지 않던 문제 해결
@@ -326,14 +338,17 @@ let _snapTimer=null;
 function _scheduleSnapSave(){ // 쓰기 후 스냅샷 저장 (2.5초 디바운스)
   clearTimeout(_snapTimer);
   _snapTimer=setTimeout(()=>{
-    try{const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v2',{at:Date.now(),cache:snap});}catch(e){}
+    try{const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v2',{at:Date.now(),..._snapOwner(),cache:snap});}catch(e){}
   },2500);
 }
 async function loadAllDataFast(){
   if(_cache.students.length)return;
   try{
     const snap=await idbGet('pp_cache_v2');
-    const _snapOk=snap&&snap.cache&&Array.isArray(snap.cache.students)&&snap.cache.students.length
+    // 스냅샷은 '그 로그인 그대로일 때만' 쓴다. 역할이나 학생 id 가 다르면 버리고 전체를 받는다.
+    // vocab_cards 처럼 학생별로만 담기는 캐시가 있어서, 학생 A 의 스냅샷으로 B 가 부팅하면
+    // A 의 단어가 한순간 B 화면에 보일 수 있다. 로그인 전(세션 없음)에도 쓰지 않는다.
+    const _snapOk=_snapIsMine(snap)&&snap.cache&&Array.isArray(snap.cache.students)&&snap.cache.students.length
       &&((snap.cache.lessons||[]).length||(snap.cache.globalTextbooks||[]).length); // 학생만 있고 나머지 빈 스냅샷 = 오염 의심 → 전체 로드
     if(_snapOk){
       Object.assign(_cache,snap.cache);
@@ -536,7 +551,7 @@ async function loadAllData(bg){
     // 다음 방문 즉시 부팅용 스냅샷 — 핵심 테이블이 전부 성공한 완전 로드만 저장 (오염 방지)
     try{
       const coreOk=['students','lessons','readings','logs','assignments','textbooks','global_textbooks'].every(t=>res[tables.indexOf(t)].status==='fulfilled');
-      if(coreOk){const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v2',{at:Date.now(),cache:snap});}
+      if(coreOk){const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v2',{at:Date.now(),..._snapOwner(),cache:snap});}
     }catch(e){}
   }catch(e){
     console.error('loadAllData:',e);
