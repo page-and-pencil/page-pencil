@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261106h">
+<link rel="stylesheet" href="css/style.css?v=20261107f">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -948,8 +948,8 @@
     </div>
 
     <!-- 워크시트 스튜디오 (내장 iframe) -->
-    <div id="t-worksheet" class="panel" style="padding:0;overflow:hidden">
-      <iframe id="ws-frame" title="워크시트 스튜디오" style="width:100%;height:calc(100vh - 54px);border:0;display:block"></iframe>
+    <div id="t-worksheet" class="panel" style="padding:0;overflow:hidden;height:calc(100vh - 54px)">
+      <iframe id="ws-frame" title="워크시트 스튜디오" style="width:100%;height:100%;border:0;display:block"></iframe>
     </div>
 
     <!-- 설정 -->
@@ -2475,11 +2475,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261107e"></script>
+<script src="js/utils.js?v=20261107f"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261107b"></script>
-<script src="js/teacher.js?v=20261107d"></script>
-<script src="js/student.js?v=20261107d"></script>
-<script src="js/parent.js?v=20261107e"></script>
+<script src="js/teacher.js?v=20261107f"></script>
+<script src="js/student.js?v=20261107f"></script>
+<script src="js/parent.js?v=20261107f"></script>
 </body>
 </html>

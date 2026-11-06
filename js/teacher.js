@@ -2679,7 +2679,9 @@ async function saveLes(){
   const _pb=document.getElementById('cmt-preview-box');if(_pb)_pb.style.display='none';
   const _sb=document.getElementById('stu-cmt-preview-box');if(_sb)_sb.style.display='none';
   const _ph=document.getElementById('polished-ready-hint');if(_ph)_ph.style.display='none';
-  _resetRubric();renderLes();toast('수업 기록이 저장되었습니다');
+  _resetRubric();renderLes();
+  if(typeof renderStus==='function')renderStus();   // 목록의 '최근 수업' 칸
+  toast('수업 기록이 저장되었습니다');
   checkNewBadges(sid);
   const _dupW=document.getElementById('les-dup-warn');if(_dupW)_dupW.style.display='none';
   showLesFollowup(sid,newLes.date,_sStu?.name||'');
@@ -2849,9 +2851,19 @@ async function saveFuAssign(sid,date){
 }
 
 // ── 학부모 알림 공유 ──
+// 학부모 화면의 [공유] — 전에는 shareUpdate(이름, 학부모 본인 번호) 라
+// '학부모 자기 자신과의 카카오톡 채팅' 을 열었다(쓸 데가 없는 동작).
+// 받는 사람을 정하지 않고 공유 시트(있으면)나 복사로만 넘긴다 — 다른 보호자에게 전달하기 좋게.
+// 선생님이 학부모에게 보내는 shareParentUpdateByStu 는 종전대로 카카오톡 채팅을 연다.
 async function shareParentUpdate(){
   const stu=DB.stus().find(s=>s.id===currentParentSid);
-  shareUpdate(stu?.name||'',stu?.parentPhone||'');
+  const url='https://page-and-pencil.github.io/page-pencil/';
+  const text=`[직결영어] ${stu?.name||''} 학습 기록 보기: ${url}`;
+  try{
+    if(navigator.share){await navigator.share({title:'직결영어',text,url});return;}
+  }catch(e){ if(e&&e.name==='AbortError')return; }
+  const ok=(typeof ppCopyText==='function')?await ppCopyText(text):false;
+  toast(ok?'링크를 복사했어요 — 붙여넣어 보내 주세요 📋':('공유 링크: '+url));
 }
 async function shareParentUpdateByStu(sid){
   const stu=DB.stus().find(s=>s.id===sid);
@@ -3182,6 +3194,34 @@ function openVocabPaper(sid){
   const pe=document.getElementById('vp-pass');if(pe&&!pe.value)pe.value=ppVocabPassPct();
   const sh=document.getElementById('vp-shuffle');if(sh)sh.checked=true;
   vpFillBooks();
+  // 교재·단원이 늘 비어 있어 매번 찾아 고르셔야 했다 — 그 학생이 지금 하는 어휘 교재·단원을 기본값으로
+  try{
+    const cls=DB.classes().find(c=>c.active!==false&&(c.studentIds||[]).includes(sid));
+    let book='',unit='';
+    if(cls&&typeof _pgActiveMats==='function'){
+      const hit=Object.entries(_pgActiveMats(cls.id,cls)).find(([k])=>k==='vocab'||k.startsWith('vocab_'));
+      if(hit){book=hit[1].book||'';unit=hit[1].unit||'';}
+    }
+    if(!book){   // 클래스에 없으면 최근 수업 기록에서
+      const les=DB.less().filter(l=>l.sid===sid).slice(0,12);
+      for(const l of les){
+        const hit=Object.entries(l.materials||{}).find(([k,v])=>v&&v.book&&(k==='vocab'||k.startsWith('vocab_')));
+        if(hit){book=hit[1].book||'';unit=hit[1].unit||'';break;}
+      }
+    }
+    if(book){
+      const bs=document.getElementById('vp-book');
+      const tb=(_cache.globalTextbooks||[]).find(b=>!b._deleted&&(b.title||'')===book);
+      if(bs&&tb&&[...bs.options].some(o=>o.value===tb.id)){
+        bs.value=tb.id;vpBookChange();
+        if(unit){
+          const us=document.getElementById('vp-units');
+          const want=String(unit).split(',').map(x=>x.trim()).filter(Boolean);
+          if(us)[...us.options].forEach(o=>{if(want.some(w=>o.value===w||o.textContent.trim().startsWith(w)))o.selected=true;});
+        }
+      }
+    }
+  }catch(e){console.warn('시험지 기본값:',e);}
   openM('m-vocab-paper');
 }
 function vpFillBooks(){
@@ -3432,7 +3472,7 @@ async function saveTst(){
    const ac=document.getElementById('ts-achv');if(ac)ac.value='';
    const mg=document.getElementById('ts-mgrade');if(mg)mg.value='';}
   tsRefreshRetest();
-  renderTst();
+  renderTst();if(typeof renderStus==='function')renderStus();   // 목록의 '단어 테스트' 칸
   toast(_absent?'미응시로 기록했습니다':(_retestRoot?'재시험 결과를 저장했습니다':'테스트 결과가 저장되었습니다'));
   checkNewBadges(sid);
   }catch(e){
@@ -3452,13 +3492,18 @@ function renderTstStats(){
   const scoredT=ppScored(monthT,'vocab');           // 미응시 제외
   const vAvg=ppAvgPct(monthT,'vocab');
   const studentsTested=new Set(scoredT.map(t=>t.sid)).size;
-  const lowCount=scoredT.filter(t=>pct(t.vocabCorrect,t.vocabTotal)<60).length;
+  // 전에는 60% 미만만 셌다 — 통과 기준(기본 90%)에 못 미친 시험이 있어도 0 으로 보였다.
+  // 통과 기준 미달을 센다. 기준은 설정의 vocabPassPct (시험별 passPct 가 있으면 그것)
+  const lowCount=scoredT.filter(t=>{
+    const st=(typeof ppVocabStatus==='function')?ppVocabStatus(t):null;
+    return st?st.k==='fail':pct(t.vocabCorrect,t.vocabTotal)<60;
+  }).length;
   const card=(lbl,ico,icoCls,num,unit,color)=>`<div class="dash-stat"><div class="dash-stat-top"><span class="dash-stat-lbl">${lbl}</span><span class="dash-stat-ico ${icoCls}">${ico}</span></div><div class="dash-stat-num"${color?` style="color:${color}"`:''}>${num}${unit?`<small> ${unit}</small>`:''}</div></div>`;
   el.innerHTML=
     card('이번 달 테스트','✏️','',monthT.length,'건','')
     +card('단어 평균','📊',vAvg!=null&&vAvg>=80?'st-green':'',vAvg!=null?vAvg:'—',vAvg!=null?'%':'',vAvg!=null?(vAvg>=80?'var(--okt)':vAvg>=60?'var(--tealt)':'var(--warnt)'):'')
     +card('응시 학생','🎓','',studentsTested,'명','')
-    +card('보완 필요','⚠️',lowCount?'st-amber':'',lowCount,'건',lowCount?'var(--warnt)':'');
+    +card(`보완 필요(${(typeof ppVocabPassPct==='function')?ppVocabPassPct():90}% 미달)`,'⚠️',lowCount?'st-amber':'',lowCount,'건',lowCount?'var(--warnt)':'');
 }
 function renderTst(){
   renderTstStats();
@@ -3576,7 +3621,7 @@ async function updTst(){
   const [erc,ert]=_ep('et-rc','et-rt',0), [elc,elt]=_ep('et-lc','et-lt',0);
   _cache.tests[idx]={..._cache.tests[idx],date:document.getElementById('et-date').value,vocabCorrect:evc,vocabTotal:evt,grammarCorrect:egc,grammarTotal:egt,readingCorrect:erc,readingTotal:ert,listeningCorrect:elc,listeningTotal:elt,wrongWords:wr?wr.split(',').map(w=>w.trim()).filter(Boolean):[],grammarWeak:document.getElementById('et-gweak').value.trim(),cmt:document.getElementById('et-cmt').value.trim()};
   await supaUpsert('tests',id,_cache.tests[idx],sid);
-  closeM('m-edit-tst');renderTst();_ppRepaintStuScreens(sid);toast('수정되었습니다');
+  closeM('m-edit-tst');renderTst();if(typeof renderStus==='function')renderStus();_ppRepaintStuScreens(sid);toast('수정되었습니다');
 }
 // 한 학생의 기록을 지우거나 고친 뒤, 열려 있는 화면을 다시 그린다.
 // 이 앱은 실시간 동기화가 없다 — 다른 탭·다른 기기의 화면은 새로고침해야 바뀐다.
@@ -6406,7 +6451,8 @@ function renderMasterDB(){
   const rows=[];
   if(!_masterFilter||_masterFilter==='textbook'){
     for(const tb of (_cache.globalTextbooks||[])){
-      const units=tb.units||{};const uKeys=Object.keys(units);
+      const units=tb.units||{};
+      const uKeys=(typeof tbUnitKeys==='function')?tbUnitKeys(tb):Object.keys(units);   // 단원 순서대로
       if(!uKeys.length){rows.push({type:'textbook',title:tb.title||'',sc:tb.category||tb.series||'',level:tb.level||'',unit:'',word:'',ko:'',pos:'',_id:tb.id});continue;}
       for(const uName of uKeys){
         const words=tuNormWords(units[uName]||[]);
@@ -9301,6 +9347,10 @@ async function saveExam(){
   if(i>=0)arr[i]=rec; else arr.push(rec);
   closeM('m-exam');
   renderExamList();
+  // 학생 목록의 '직결 D-N' 뱃지는 시험 일정에서 나온다 — 같이 다시 그린다
+  if(typeof renderStus==='function')renderStus();
+  if(typeof renderDash==='function')renderDash();
+  if(typeof currentSpStuId!=='undefined'&&currentSpStuId&&typeof loadStuPanel==='function')loadStuPanel(currentSpStuId);
   toast('시험 일정을 저장했습니다');
 }
 function deleteExam(){
@@ -9398,14 +9448,16 @@ async function saveNeltResult(){
   const updated={...stu,neltResults:[...(stu.neltResults||[]),entry]};
   await supaUpsert('students',sid,updated,null);
   const idx=_cache.students.findIndex(s=>s.id===sid);if(idx>=0)_cache.students[idx]=updated;
-  closeM('m-nelt');renderSpSummary(currentSpStuId,'month');toast('NELT 결과 저장됨');
+  closeM('m-nelt');
+  await loadStuPanel(sid);swSpTab('sp-tests');   // 요약만 다시 그려선 NELT 목록이 안 바뀐다
+  toast('NELT 결과 저장됨');
 }
 async function delNeltResult(sid,nid){
   const stu=DB.stus().find(s=>s.id===sid);if(!stu)return;
   const updated={...stu,neltResults:(stu.neltResults||[]).filter(n=>n.id!==nid)};
   await supaUpsert('students',sid,updated,null);
   const idx=_cache.students.findIndex(s=>s.id===sid);if(idx>=0)_cache.students[idx]=updated;
-  renderSpSummary(currentSpStuId,'month');toast('삭제됨');
+  await loadStuPanel(sid);swSpTab('sp-tests');toast('삭제됨');
 }
 function renderSpSummary(sid,period,from,to){
   const el=document.getElementById('sp-summary');if(!el)return;
@@ -9666,7 +9718,12 @@ function renderDashStats(recordedToday,totalToday,uncheckedTotal,unpaidCount,stu
 function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
   const el=document.getElementById('dash-today');if(!el)return;
   let body;
-  if(!todayClasses.length){
+  // 오늘이 '원래 수업일인데 휴강으로 뺀 날' 인지 — 그냥 '수업 없음' 과 구분해서 알린다
+  const _dayK=['일','월','화','수','목','금','토'][new Date(todayStr+'T12:00:00').getDay()];
+  const _skipToday=DB.classes().filter(c=>c.active!==false&&(c.days||[]).includes(_dayK)&&(c.skipDates||[]).includes(todayStr));
+  if(!todayClasses.length&&_skipToday.length){
+    body=`<div style="font-size:14px;color:var(--navy)">${luIcon('calendar-off',15)||'🚫'} 오늘은 <b>${_skipToday.map(c=>c.name||'반').join(' · ')}</b> 휴강입니다<div style="font-size:12.5px;color:var(--slate);margin-top:3px">쉬는 날로 등록돼 있어요 — 수업 기록은 받지 않습니다</div></div>`;
+  } else if(!todayClasses.length){
     body=`<div style="color:var(--slate);font-size:14px">오늘 수업 없음 — <span style="color:var(--teal);cursor:pointer;text-decoration:underline" onclick="swTab('t-class')">클래스 만들기</span></div>`;
   } else {
     const todayLessonSids=new Set(DB.less().filter(l=>l.date===todayStr).map(l=>l.sid));

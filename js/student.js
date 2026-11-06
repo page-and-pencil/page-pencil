@@ -650,7 +650,7 @@ function renderStudentLibrary(sid){
             <div style="font-size:14px;color:var(--navy)"><span style="font-size:12px;font-weight:700;color:var(--tealt);margin-right:5px">${it.label}</span><b>${it.title}</b></div>
             ${it.unit?`<div style="font-size:12px;color:var(--slate);margin-top:1px">${it.unit}</div>`:''}
           </div>
-          <div style="flex-shrink:0">${it.btns||'<span style="font-size:12.5px;color:var(--slate)">자료 준비 중</span>'}</div>
+          <div style="flex-shrink:0">${it.btns||'<span style="font-size:12.5px;color:var(--slate)" title="이 단원의 본문·음원이 교재 DB 에 아직 없어요. 선생님이 넣으면 바로 복습할 수 있어요">본문·음원 없음</span>'}</div>
         </div>`).join('')}
       </div>`;
     }
