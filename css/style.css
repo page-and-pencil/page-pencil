@@ -461,7 +461,7 @@ div.ig-like{cursor:default;}
 .pl-cmt{font-size:13.5px;line-height:1.7;color:#3E5468;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer;}
 .pl-cmt.open{display:block;}
 /* ── 학생 게이미피케이션: XP 카드·퀘스트 ── */
-.xp-card{background:#14304A;border-left:4px solid var(--accent);color:#fff;border-radius:14px;padding:15px 17px;margin-bottom:14px;box-shadow:0 2px 8px rgba(15,48,74,.16);}
+.xp-card{background:#164C3C;border-left:4px solid var(--accent);color:#fff;border-radius:14px;padding:15px 17px;margin-bottom:14px;box-shadow:0 2px 8px rgba(15,48,74,.16);}
 .xp-ava{width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;animation:xpBob 3s ease-in-out infinite;}
 @keyframes xpBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 .xp-flame{font-size:12px;font-weight:700;background:rgba(255,255,255,.16);padding:2px 9px;border-radius:10px;animation:flamePulse 1.6s ease-in-out infinite;}
@@ -726,8 +726,8 @@ div.ig-like{cursor:default;}
 .score-row .f{flex:1;min-width:120px;margin-bottom:0;}
 
 /* 결제 빠른 입력 버튼 */
-.quick-pay-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px dashed rgba(91,79,187,.4);background:var(--pl);color:var(--purplet);transition:all .2s;font-family:var(--fb);}
-.quick-pay-btn:hover{border-color:var(--purple);background:#e4e0fc;}
+.quick-pay-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px dashed var(--purple);background:var(--pl);color:var(--purplet);transition:all .2s;font-family:var(--fb);}
+.quick-pay-btn:hover{border-color:var(--purplet);background:var(--pl);}
 
 /* Cloudinary 경고 */
 .cld-warn{background:var(--cl);border:1px solid rgba(224,92,58,.2);border-radius:var(--rs);padding:10px 14px;font-size:13px;color:var(--warnt);margin-top:8px;line-height:1.7;}

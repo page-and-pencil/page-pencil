@@ -2480,7 +2480,7 @@ function renderHomeStats(sid){
 function dueLabelHtml(dueStr,today){
   if(!dueStr)return '';
   const diff=Math.round((new Date(dueStr)-new Date(today))/(86400000));
-  if(diff<0)return `<span style="color:var(--coral);font-weight:700;font-size:12px">늦었어요</span>`;
+  if(diff<0)return `<span style="color:var(--badt);font-weight:700;font-size:12px">늦었어요</span>`;
   if(diff===0)return `<span style="color:var(--coral);font-weight:700;font-size:12px">오늘 마감</span>`;
   if(diff===1)return `<span style="color:#e07b00;font-weight:700;font-size:12px">내일 마감</span>`;
   if(diff<=2)return `<span style="color:#e07b00;font-weight:700;font-size:12px">D-${diff}</span>`;

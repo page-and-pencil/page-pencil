@@ -921,7 +921,7 @@ async function printReport(sidArg,month){
     <div class="section-title">📚 ${scoped?periodLabel+' ':''}교재 진도</div>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr style="background:#f0fffe"><th style="text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)">구분</th><th style="text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)">교재명</th><th style="text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)">진도 기록</th></tr></thead>
-      <tbody>${Object.values(matMap).map(m=>`<tr style="border-bottom:1px solid #eee"><td style="padding:5px 8px;color:#888;vertical-align:top;white-space:nowrap">${m.label}</td><td style="padding:5px 8px;font-weight:600;vertical-align:top;white-space:nowrap">${m.book}</td><td style="padding:6px 8px;color:#475569">${m.units.length?m.units.map(u=>`<span style="display:inline-block;background:#f4fafb;border:1px solid #dcedf1;border-radius:10px;padding:1px 8px;margin:2px 4px 2px 0;font-size:12px;line-height:1.6">${u}</span>`).join(''):'—'}</td></tr>`).join('')}</tbody>
+      <tbody>${Object.values(matMap).map(m=>`<tr style="border-bottom:1px solid #eee"><td style="padding:5px 8px;color:#888;vertical-align:top;white-space:nowrap">${m.label}</td><td style="padding:5px 8px;font-weight:600;vertical-align:top">${m.book}</td><td style="padding:6px 8px;color:#475569">${m.units.length?m.units.map(u=>`<span style="display:inline-block;background:#f4fafb;border:1px solid #dcedf1;border-radius:10px;padding:1px 8px;margin:2px 4px 2px 0;font-size:12px;line-height:1.6">${u}</span>`).join(''):'—'}</td></tr>`).join('')}</tbody>
     </table>
   </div>`:''}
   ${rds.length?`<div class="section">
