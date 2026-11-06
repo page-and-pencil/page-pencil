@@ -2322,7 +2322,7 @@ body{font-size:14.5px;line-height:1.65;}
 .stu-hero-cmt{font-size:16px;line-height:1.8;}
 .stu-hero-ico{width:52px;height:52px;font-size:26px;background:rgba(255,255,255,.25);}
 
-/* 마스코트 — 연필 한 자루 (Page & Pencil) */
+/* 마스코트 — 연필 한 자루 (직결영어) */
 .stu-mascot{position:absolute;right:14px;bottom:-4px;width:64px;height:64px;opacity:.9;
   pointer-events:none;}
 @media(prefers-reduced-motion:no-preference){

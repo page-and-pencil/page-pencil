@@ -1,7 +1,7 @@
 {
- "name": "Page & Pencil",
- "short_name": "Page & Pencil",
- "description": "기준이 다른 전문가의 밀착 영어 — 수업·과제·단어·리딩 관리",
+ "name": "직결영어",
+ "short_name": "직결영어",
+ "description": "배운 것이 바로 쓰이는 영어 — 수업·과제·단어·리딩 관리",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",

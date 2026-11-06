@@ -1091,7 +1091,7 @@ async function copyLesSummary(lesId){
     (isBook?books:texts).push(v.book+(v.unit?' · '+v.unit:''));
   });
   const lines=[];
-  lines.push('[Page & Pencil] '+(s?s.name+' ':'')+head+' 수업');
+  lines.push('[직결영어] '+(s?s.name+' ':'')+head+' 수업');
   if(l.att&&l.att!=='normal'&&typeof ATTLBL!=='undefined'&&ATTLBL[l.att])lines.push('· '+ATTLBL[l.att]);
   if(texts.length)lines.push('교재  '+texts.join(' / '));
   if(books.length)lines.push('원서  '+books.join(' / '));
@@ -2841,7 +2841,7 @@ async function shareParentUpdateByStu(sid){
 }
 async function shareUpdate(name,parentPhone=''){
   const url='https://page-and-pencil.github.io/page-pencil/';
-  const text=`[Page & Pencil] ${name} 수업 기록이 업데이트됐습니다. 확인하기: ${url}`;
+  const text=`[직결영어] ${name} 수업 기록이 업데이트됐습니다. 확인하기: ${url}`;
   const phone=parentPhone||(DB.kakao()?.phone||'');
   const kakaoUrl=phone?`kakaotalk://open/chat?phoneNum=${phone}`:`kakaotalk://send?text=${encodeURIComponent(text)}`;
   window.open(kakaoUrl);
@@ -7355,7 +7355,7 @@ function wdbExportCSV(){
   const header='영어,한국어,영영의미,품사,과거형,과거분사,예문,출처명,출처단원,출처타입,레벨,시리즈,출판사,분류';
   const rows=words.map(w=>[q(w.word),q(w.ko),q(w.en_def||''),q(POS_KO[w.pos]||w.pos),q(w.v2||''),q(w.v3||''),q(w.example),q(w.srcTitle),q(w.srcUnit),w.srcType==='textbook'?'교재':'원서',q(w.srcLevel),q(w.srcSeries||''),q(w.srcPublisher||''),q(w.srcCategory||'')].join(','));
   const csv='﻿'+[header,...rows].join('\r\n');
-  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='PagePencil_단어DB_'+ppToday()+'.csv';a.click();
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='직결영어_단어DB_'+ppToday()+'.csv';a.click();
   toast(`${words.length}개 단어 CSV 다운로드 완료`);
 }
 
@@ -7628,7 +7628,7 @@ function exportTbookCSV(){
   const csv='﻿'+[HEADER,...rows].join('\r\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='PagePencil_교재DB_'+ppToday()+'.csv';
+  a.download='직결영어_교재DB_'+ppToday()+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   toast(`${books.length}권 CSV 다운로드 완료`);
 }
@@ -7729,7 +7729,7 @@ function exportLibCSV(){
   const csv='\uFEFF'+[header,...rows].join('\r\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='PagePencil_원서DB_'+ppToday()+'.csv';
+  a.download='직결영어_원서DB_'+ppToday()+'.csv';
   a.click();
   toast(`${allSrc.length}권 CSV 다운로드 완료`);
 }
@@ -8841,7 +8841,7 @@ async function saveAndSendReport(){
   const [yr,mn]=month.split('-');
   // 지표는 코드가 센 숫자만 넣는다. 선생님 메모는 넣지 않는다
   const mLine=(typeof ppMetricsText==='function')?ppMetricsText(mx):'';
-  const fullText=`[Page & Pencil] ${s?.name||''} ${yr}년 ${mn}월 학습 리포트\n${mLine?mLine+'\n':''}\n${text}\n\n— Page & Pencil`;
+  const fullText=`[직결영어] ${s?.name||''} ${yr}년 ${mn}월 학습 리포트\n${mLine?mLine+'\n':''}\n${text}\n\n— 직결영어`;
   const kakao=DB.kakao();
   if(kakao.openchat){window.open(kakao.openchat,'_blank');}
   else if(kakao.phone){window.open(`kakaotalk://open/chat?phoneNum=${kakao.phone}`);}

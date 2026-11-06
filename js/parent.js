@@ -877,7 +877,7 @@ async function printReport(sidArg,month){
     @media print{body{padding:20px;}@page{margin:15mm;}}
   </style></head><body>
   <div class="header">
-    <div class="logo">Page & Pencil · ${periodLabel} 학습 리포트</div>
+    <div class="logo">직결영어 · ${periodLabel} 학습 리포트</div>
     <div class="name">${s.name}</div>
     <div class="meta">${s.grade||s.lv||''} ${s.school?'· '+s.school:''} · 출력일 ${today.toLocaleDateString('ko-KR')}</div>
   </div>
@@ -932,7 +932,7 @@ async function printReport(sidArg,month){
     <div class="section-title">🏅 달성 뱃지</div>
     <div class="badge-list">${badges.map(b=>`<div class="badge">${b.icon} ${b.name}</div>`).join('')}</div>
   </div>`:''}
-  <div class="footer">Page & Pencil · 기준이 다른 전문가의 밀착 영어</div>
+  <div class="footer">직결영어 · 배운 것이 바로 쓰이는 영어</div>
   </body></html>`;
   const w=window.open('','_blank','width=720,height=900');
   w.document.write(html);

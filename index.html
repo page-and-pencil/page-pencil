@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Page & Pencil</title>
+<title>직결영어</title>
 <link rel="icon" type="image/png" href="icons/favicon-32.png?v=2">
 <link rel="apple-touch-icon" href="icons/icon-180.png?v=2">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#242F3D">
-<meta name="description" content="기준이 다른 전문가의 밀착 영어 — Page & Pencil">
+<meta name="description" content="배운 것이 바로 쓰이는 영어 — 직결영어">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Page & Pencil">
+<meta name="apple-mobile-web-app-title" content="직결영어">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
@@ -29,9 +29,9 @@
 <div id="s-land" class="screen active">
   <div class="land2">
     <div class="land2-brand">
-      <div class="land2-logo">Page <span>&</span> Pencil</div>
+      <div class="land2-logo">직결영어</div>
       <div class="land2-mid">
-        <h1 class="land2-h1">기준이 다른<br>전문가의 밀착 영어</h1>
+        <h1 class="land2-h1">배운 것이<br>바로 쓰이는 영어</h1>
         <p class="land2-sub">수업마다 기록이 남고, 단어는 매일 이어집니다.<br> 아이의 어제와 오늘을 데이터로 비교해 지도합니다.</p>
         <!-- 브랜드 칸 아래쪽이 300px 비어 있어, 앱에 실제로 있는 기능으로 채운다 (폰에서는 숨김) -->
         <div class="land2-chips" aria-hidden="true">
@@ -73,7 +73,7 @@
 <!-- TEACHER LOGIN -->
 <div id="s-login" class="screen cs">
   <div class="ac">
-    <div class="ac-logo">Page <span>&</span> Pencil</div>
+    <div class="ac-logo">직결영어</div>
     <div class="ac-title">선생님 로그인</div>
     <div class="f"><label>비밀번호</label><input type="password" id="pw-in" placeholder="비밀번호 입력" onkeydown="handlePwKey(event)" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"></div>
     <div class="err" id="pw-err"></div>
@@ -85,7 +85,7 @@
 <!-- PARENT PIN -->
 <div id="s-pin" class="screen cs">
   <div class="ac">
-    <div class="ac-logo">Page <span>&</span> Pencil</div>
+    <div class="ac-logo">직결영어</div>
     <div class="ac-title">학부모 조회</div>
     <div class="ac-sub">아이 이름과 PIN(생년월일 4자리)을 입력해 주세요<br>예) 3월 12일 → 0312</div>
     <div class="f"><label>아이 이름</label><input type="text" id="pin-name" placeholder="이름 입력" autocomplete="off"></div>
@@ -99,7 +99,7 @@
 <!-- STUDENT PIN -->
 <div id="s-stupin" class="screen cs">
   <div class="ac" style="max-width:320px;text-align:center">
-    <div class="ac-logo">Page <span>&</span> Pencil</div>
+    <div class="ac-logo">직결영어</div>
     <div class="ac-title">학생 로그인</div>
     <div style="font-size:13px;color:var(--slate)">생년월일 4자리를 눌러주세요</div>
     <div class="pin-dots" id="pin-dots">
@@ -135,7 +135,7 @@
 <!-- STUDENT APP -->
 <div id="s-student" class="screen">
   <div class="stu-app-header">
-    <div class="stu-app-logo">Page <span>&</span> Pencil</div>
+    <div class="stu-app-logo">직결영어</div>
     <div style="display:flex;align-items:center;gap:9px">
       <span class="stu-streak-badge" id="stu-streak-badge" style="display:none"></span>
       <span class="stu-name-badge" id="stu-name-badge">—</span>
@@ -191,7 +191,7 @@
 <!-- TEACHER APP -->
 <div id="s-teacher" class="screen">
   <div class="t-topbar">
-    <div class="ah-logo t-topbar-logo" style="cursor:pointer" onclick="show('s-land')">Page <span>&</span> Pencil</div>
+    <div class="ah-logo t-topbar-logo" style="cursor:pointer" onclick="show('s-land')">직결영어</div>
     <div style="display:flex;align-items:center;gap:12px">
       <button onclick="openGlobalSearch()" title="전역 검색 (Ctrl+K)" style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--cream2);color:var(--slate);font-size:13px;font-family:var(--fb);cursor:pointer"><i data-lucide="search" width="13" height="13"></i> 검색 <kbd style="font-size:10.5px;background:#fff;border:1px solid var(--border);border-radius:4px;padding:0 5px;font-family:var(--fm)">Ctrl K</kbd></button>
       <span class="t-avatar">선생님</span>
@@ -1110,7 +1110,7 @@
 <div id="s-parent" class="screen">
   <div class="ah">
     <button class="btn-lo" onclick="clearSession();show('s-land')">← 나가기</button>
-    <div class="ah-logo">Page <span>&</span> Pencil</div>
+    <div class="ah-logo">직결영어</div>
     <button onclick="shareParentUpdate()" title="공유" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;padding:4px 8px;font-family:var(--fb)"><i data-lucide="share" width="16" height="16"></i></button>
   </div>
   <div class="parent-hero">
