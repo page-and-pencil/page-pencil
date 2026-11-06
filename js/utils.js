@@ -2037,7 +2037,8 @@ function dailyVocabPick(sid,today,limit){
   lesson.forEach(c=>why[c.id]='lesson');overdue.forEach(c=>why[c.id]='overdue');
   fresh.forEach(c=>why[c.id]='fresh');notYet.forEach(c=>why[c.id]='ahead');
   const cards=[...lesson,...overdue,...fresh,...notYet].slice(0,limit);
-  return {cards,why,lessonDate:lw.date,doneToday:all.filter(c=>c.lastSeen===today).length};
+  // 테스트에 적어 넣은 단어는 '오늘 학습' 으로 세지 않는다 (lastSeenBy)
+  return {cards,why,lessonDate:lw.date,doneToday:all.filter(c=>c.lastSeen===today&&c.lastSeenBy!=='test').length};
 }
 // 이 학생에게 그 책이 반복(recur)·클래스5 숙제로 이미 배정돼 있는가.
 // 자체 진행 숙제 책(예: 단어가 읽기다 — 매일 1과씩 나감)은 수업 복습 제안 대상이 아님 (이미 진도로 나가는 걸 또 제안하던 문제).

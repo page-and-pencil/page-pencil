@@ -536,7 +536,7 @@ async function loadParent(sid){
           ${acct.number?`<div class="acct-row"><span class="acct-label">계좌번호</span><span class="acct-value" style="font-family:var(--fm)">${acct.number}</span></div>`:''}
           ${acct.name?`<div class="acct-row"><span class="acct-label">예금주</span><span class="acct-value">${acct.name}</span></div>`:''}
           ${acct.msg?`<div style="margin-top:6px;font-size:12px;color:var(--slate)">${acct.msg}</div>`:''}
-        </div>`:''}
+        </div>`:`<div class="ib iba" style="margin-top:10px;font-size:12.5px">납부 계좌 안내가 아직 등록되지 않았습니다. 선생님께 문의해 주세요.${DB.kakao&&(DB.kakao().openchat||DB.kakao().phone)?' (아래 메시지 탭에서 카카오톡으로 물어보실 수 있어요)':''}</div>`}
         ${payments.length?`<div style="margin-top:10px">
           <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:6px">결제 내역</div>
           ${[...payments].reverse().slice(0,5).map(p=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--border)">
