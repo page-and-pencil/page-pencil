@@ -246,19 +246,21 @@ const DB={
     return k||(_cache.settings.aiProxy===true?'proxy':'');
   },
   kakao(){return _cache.settings.kakao||this.g('kakao')||{phone:'',openchat:''};},
-  reports(){return _cache.monthlyReports||[];},
-  exams(){return _cache.examSchedules||[];},
-  counsels(){return _cache.counsels||[];},
+  reports(){return ppLive(_cache.monthlyReports);},
+  exams(){return ppLive(_cache.examSchedules);},
+  counsels(){return ppLive(_cache.counsels);},
 
-  // 캐시에서 읽기
-  stus(){return _cache.students;},
+  // 캐시에서 읽기 — **휴지통(_deleted) 행은 여기서 한 번 더 거른다** (2026-11-08).
+  // loadAllData 는 걸러 담지만, 학생 로그인처럼 캐시를 따로 채우는 길이 있어서
+  // 어느 한 곳만 빠져도 '지운 숙제가 보이는' 사고가 난다. 읽는 쪽에서 막는다.
+  stus(){return ppLive(_cache.students);},
   // 날짜 내림차순 보장 — 로드가 updated_at 순이라 옛 기록을 수정하면 앞으로 튀는 문제 방지
-  less(){return _cache.lessons.sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
-  tsts(){return _cache.tests.sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
-  rds(){return _cache.readings.sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
+  less(){return ppLive(_cache.lessons).sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
+  tsts(){return ppLive(_cache.tests).sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
+  rds(){return ppLive(_cache.readings).sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
   allRds(sid){
-    const base=_cache.readings.filter(r=>r.sid===sid);
-    const tbRds=(_cache.textbooks||[]).filter(t=>t.sid===sid&&t.type==='원서'&&t.completed).map(t=>({...t,date:t.completedDate||''}));
+    const base=ppLive(_cache.readings).filter(r=>r.sid===sid);
+    const tbRds=ppLive(_cache.textbooks).filter(t=>t.sid===sid&&t.type==='원서'&&t.completed).map(t=>({...t,date:t.completedDate||''}));
     // 선생님 입력 completedDate 우선 적용 (readings와 textbooks 둘 다 있을 때)
     const tbDateMap=new Map(tbRds.map(t=>[t.title,t.completedDate||'']));
     const merged=base.map(r=>r.title&&tbDateMap.has(r.title)?{...r,date:tbDateMap.get(r.title)||r.date}:r);
@@ -277,17 +279,19 @@ const DB={
       .find(b=>!readIds.has(b.id)&&!readTitles.has(n(b.title)))||null;
   },
   // 리딩로그만 — login 함수가 남기는 보안 기록(type:'login_fail')은 빼고 돌려준다 (2026-11-08)
-  logs(){return _cache.logs.filter(l=>!l||!l.type||l.type==='reading').sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
-  sysLogs(type){return (_cache.logs||[]).filter(l=>l&&l.type===type);},
-  libs(){return _cache.library;},
+  logs(){return ppLive(_cache.logs).filter(l=>!l.type||l.type==='reading').sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
+  sysLogs(type){return ppLive(_cache.logs).filter(l=>l.type===type);},
+  libs(){return ppLive(_cache.library);},
 
   // 설정 (Supabase settings 테이블)
   acct(){return _cache.settings.acct||{bank:'',number:'',name:'',msg:''};},
-  notices_list(){return _cache.notices||[];},
-  assigns(){return _cache.assignments||[];},
-  tbooks(){return _cache.textbooks||[];},
-  msgs(){return _cache.messages||[];},
-  classes(){return _cache.globalClasses||[];}
+  notices_list(){return ppLive(_cache.notices);},
+  assigns(){return ppLive(_cache.assignments);},
+  hws(){return ppLive(_cache.homeworks);},
+  cards(sid){const a=ppLive(_cache.vocab_cards);return sid?a.filter(c=>c.sid===sid):a;},
+  tbooks(){return ppLive(_cache.textbooks);},
+  msgs(){return ppLive(_cache.messages);},
+  classes(){return ppLive(_cache.globalClasses);}
 };
 
 // ── Supabase CRUD 헬퍼 ──
@@ -1342,7 +1346,12 @@ async function refreshVocabExamples(sid){
 async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study'){
   const stu=(_cache.students||[]).find(s=>s.id===sid);
   const grade=stu?.grade||stu?.lv||'';
-  const existing=await supaFetchBySid('vocab_cards',sid);
+  // 휴지통 카드까지 받아 온다 — 같은 단어가 휴지통에 있으면 **되살린다**.
+  // 안 그러면 ① 휴지통 카드를 '이미 있음'으로 보고 _deleted 를 단 채 저장하거나
+  //           ② 없는 것으로 보고 새로 만들어 같은 단어가 둘이 된다.
+  // 되살리기를 고른 이유: 휴지통은 되돌릴 수 있는 삭제이고, 다시 넣는다는 것은
+  // '이 단어를 다시 쓰겠다'는 뜻이다. 학습 기록(hits·misses)도 그대로 이어진다.
+  const existing=await supaFetchBySid('vocab_cards',sid,{withDeleted:true});
   const wrongSet=new Set(wrongWords.map(x=>(typeof x==='string'?x:x.word).toLowerCase().trim()));
   for(const entry of allWords){
     const wordText=fixWordCase((typeof entry==='string'?entry:entry.word||'').toLowerCase().trim(),(typeof entry==='object'&&entry)?entry.ko:'');if(!wordText)continue;
@@ -1354,6 +1363,8 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study
         ?{...found,seen:(found.seen||0)+1}
         :{...found,hits:(found.hits||0)+(isWrong?0:1),misses:(found.misses||0)+(isWrong?1:0),lastSeen:date,
            lastSeenBy:(source==='테스트'?'test':'study'),due:isWrong?date:found.due};
+      // 휴지통에 있던 카드면 표식을 지워 되살린다 (지운 단어를 다시 넣었는데 안 보이던 문제)
+      if(updated._deleted){delete updated._deleted;delete updated._deletedAt;delete updated._deletedWith;}
       if(meta.ko&&!found.meaning)updated.meaning=meta.ko;
       if(meta.pos&&!found.pos)updated.pos=meta.pos;
       if(meta.example&&!found.example)updated.example=meta.example;
@@ -1361,7 +1372,9 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study
       if(meta.v2&&!found.v2)updated.v2=meta.v2;
       if(meta.v3&&!found.v3)updated.v3=meta.v3;
       await supaUpsert('vocab_cards',found.id,updated,sid);
-      const ci=_cache.vocab_cards.findIndex(c=>c.id===found.id);if(ci>=0)_cache.vocab_cards[ci]=updated;
+      if(!_cache.vocab_cards)_cache.vocab_cards=[];
+      const ci=_cache.vocab_cards.findIndex(c=>c.id===found.id);
+      if(ci>=0)_cache.vocab_cards[ci]=updated;else _cache.vocab_cards.push(updated);   // 되살린 카드는 캐시에 없다
       if(!updated.meaning||!updated.example){
         getWordMetaFull(wordText,grade,updated.meaning||meta.ko||'').then(async m=>{
           let changed=false;
@@ -1395,7 +1408,12 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study
 // PostgREST 기본 상한이 1,000행이라 그냥 부르면 조용히 잘린다.
 // 단어카드가 1,000장을 넘은 학생은 뒤쪽 카드가 앱에 아예 안 들어왔고,
 // syncVocabCards 가 '이미 있는 단어' 를 못 찾아 같은 단어를 또 만들 수 있었다. 페이지로 다 받는다.
-async function supaFetchBySid(table,sid){
+// sid 로 한 테이블을 받아 온다. **휴지통(_deleted) 행은 기본으로 뺀다** (2026-11-08).
+// 지운 숙제가 학생 화면에 다시 나타난 일이 있었다 — loginStudent 가 받은 행을 그대로
+// 캐시에 넣었고, loadAllData 가 걸러 둔 목록을 그게 덮어썼다.
+// 휴지통이 필요한 곳(복원 화면·되살리기 판단)만 {withDeleted:true} 로 부른다.
+async function supaFetchBySid(table,sid,opts){
+  const withDeleted=!!(opts&&opts.withDeleted);
   const PAGE=1000;let out=[],off=0;
   while(true){
     const r=await ppFetch(`${SUPA_URL}/rest/v1/${table}?sid=eq.${encodeURIComponent(sid)}&order=updated_at.desc&limit=${PAGE}&offset=${off}`,{headers:SUPA_HEADERS});
@@ -1407,11 +1425,11 @@ async function supaFetchBySid(table,sid){
     off+=PAGE;
     if(off>20000)break;                 // 안전장치
   }
-  return out.map(r=>r.data||r);
+  const rows=out.map(r=>r.data||r);
+  return withDeleted?rows:rows.filter(x=>x&&!x._deleted);
 }
 async function loadVocabCards(sid){
-  const all=await supaFetchBySid('vocab_cards',sid);
-  const rows=all.filter(c=>c&&!c._deleted);   // 휴지통 카드는 화면·학습에 넣지 않는다
+  const rows=await supaFetchBySid('vocab_cards',sid);   // 휴지통 카드는 기본으로 빠진다
   if(!_cache.vocab_cards)_cache.vocab_cards=[];
   // sid 기준으로 교체
   _cache.vocab_cards=_cache.vocab_cards.filter(c=>c.sid!==sid).concat(rows);

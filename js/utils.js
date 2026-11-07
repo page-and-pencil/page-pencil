@@ -89,6 +89,10 @@ const ATTLBL={normal:'',absent:'결석',late:'지각',makeup:'보강',sick:'병�
 // (지각·보강은 들은 것이므로 포함)
 const PP_ATT_AWAY=['absent','sick','teacher_cancel','holiday'];
 function ppAttAway(att){return PP_ATT_AWAY.includes(String(att||''));}
+// ── 휴지통 행 거르기 (2026-11-08) ──
+// 삭제는 하드 delete 가 아니라 _deleted 표식(supaTrash)이다. 그래서 '지운 것이 보이는' 사고는
+// 어딘가 한 군데만 거르는 걸 잊어도 생긴다. 목록을 그리는 쪽에서 한 번 더 거른다.
+function ppLive(arr){return (arr||[]).filter(x=>x&&!x._deleted);}
 // ── 주간 보스 승리 기록 (2026-11-08) ──
 // 전에는 students 행에 bossWinWeeks·bossWins 를 적었다. 학생이 students 를 쓸 수 있어야 해서
 // 안전하지 않고(한 행 전체를 덮어쓴다), 토큰으로는 RLS 에 막혀 조용히 실패했다.

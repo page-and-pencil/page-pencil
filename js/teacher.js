@@ -783,7 +783,7 @@ function renderSpVocab(sid){
   if(!sid)return;
   const el=document.getElementById('sp-vocab');if(!el)return;
   if(_vocabSid!==sid){_vocabFilter={search:'',phase:'',src:'',sort:'alpha'};}_vocabSid=sid;
-  const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const allCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
   // 실효 단계(학습 기록 자동 반영)로 집계 — renderVocabList의 effPh와 동일 규칙 (2026-08-04)
   const _eff=c=>Math.max(c.phase||0,(c.hits||0)>=3?2:((c.hits||0)>0||c.lastSeen?1:0));
   const p0=allCards.filter(c=>_eff(c)===0).length;
@@ -910,7 +910,7 @@ function renderVocabList(sid){
   const listEl=document.getElementById('vocab-list');
   const hdrEl=document.getElementById('vocab-list-hdr');
   if(!listEl)return;
-  const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const allCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
   // 실효 단계: 수동 단계와 앱 학습 기록(정답 3회=숙달, 학습 시작=학습중) 중 높은 쪽 — 학생 학습이 자동 반영되게 (2026-08-04)
   const effPh=c=>Math.max(c.phase||0,(c.hits||0)>=3?2:((c.hits||0)>0||c.lastSeen?1:0));
   let cards=[...allCards];
@@ -989,7 +989,7 @@ async function saveManualVocabCard(sid){
   document.getElementById('vadd-word').value='';
   document.getElementById('vadd-meaning').value='';
   document.getElementById('vadd-example').value='';
-  const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const allCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
   const upd=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
   upd('vstat-total',allCards.length);upd('vstat-0',allCards.filter(c=>(c.phase||0)===0).length);
   upd('vstat-1',allCards.filter(c=>(c.phase||0)===1).length);upd('vstat-2',allCards.filter(c=>(c.phase||0)===2).length);
@@ -999,7 +999,7 @@ async function cycleVocabPhase(cardId,sid,currentPhase){
   const card=(_cache.vocab_cards||[]).find(c=>c.id===cardId);if(!card)return;
   card.phase=(currentPhase+1)%3;
   await supaUpsert('vocab_cards',cardId,card,sid);
-  const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const allCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
   const upd=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
   upd('vstat-0',allCards.filter(c=>(c.phase||0)===0).length);
   upd('vstat-1',allCards.filter(c=>(c.phase||0)===1).length);
@@ -1088,7 +1088,7 @@ async function saveVocabField(cardId,sid,field,value){
 }
 async function batchFixKoreanExamples(sid){
   if(!DB.api())return toast('API 키가 필요합니다');
-  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.example&&/[가-힣]/.test(c.example));
+  const cards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid&&c.example&&/[가-힣]/.test(c.example));
   if(!cards.length)return toast('교체할 한국어 예문이 없습니다');
   toast(`${cards.length}개 예문 교체 중...`);
   let updated=0;
@@ -1431,8 +1431,8 @@ async function loadStuPanel(sid){
       </table>`}`;
 
   // ── 과제 탭 (선생님: 숙제 할당 + 제출 확인) ──
-  const sHws=(_cache.homeworks||[]).filter(h=>h.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const sAssigns=(_cache.assignments||[]).filter(a=>a.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const sHws=ppLive(_cache.homeworks).filter(h=>h.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const sAssigns=ppLive(_cache.assignments).filter(a=>a.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const unread=sHws.filter(h=>!h.checked).length;
   const tomorrowStr=(()=>{ // 마감 기본값: 다음 실제 수업일(휴강 제외), 클래스 없으면 내일
     const c0=DB.classes().find(c=>c.active!==false&&(c.studentIds||[]).includes(sid));
@@ -3009,7 +3009,7 @@ async function batchFillEmptyExamples(sid){
   if(!DB.api())return toast('API 키가 필요합니다');
   const stu=(_cache.students||[]).find(s=>s.id===sid);
   const grade=stu?.grade||stu?.lv||'';
-  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&!c.example);
+  const cards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid&&!c.example);
   if(!cards.length)return toast('빈 예문이 없습니다 (모두 입력됨)');
   toast(`${cards.length}개 예문 생성 중...`);
   let updated=0;
@@ -6205,7 +6205,7 @@ async function ensureWorksheets(refetch){
   if(!refetch&&_cache.worksheets)return _cache.worksheets;
   try{
     const rows=await supaFetch('worksheets','select=*',true);
-    _cache.worksheets=(rows||[]).map(r=>({rowId:r.id,...(r.data||r)}));
+    _cache.worksheets=ppLive((rows||[]).map(r=>({rowId:r.id,...(r.data||r)})));   // 휴지통 제외
   }catch(e){_cache.worksheets=_cache.worksheets||[];}
   return _cache.worksheets;
 }
@@ -8677,11 +8677,11 @@ function getBadges(sid){
   const lesN=DB.less().filter(l=>l.sid===sid&&l.att!=='absent').length;
   const tsts=DB.tsts().filter(t=>t.sid===sid);
   const perfect=tsts.filter(t=>pct(t.vocabCorrect,t.vocabTotal)===100).length;
-  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const cards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
   const seen=cards.filter(c=>c.lastSeen).length;
   const mastered=cards.filter(c=>(c.hits||0)>=3).length;
-  const asgnDone=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).length;
-  const stampDays=new Set((_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).map(a=>(a.completedAt||'').slice(0,10))).size;
+  const asgnDone=ppLive(_cache.assignments).filter(a=>a.sid===sid&&a.completedAt).length;
+  const stampDays=new Set(ppLive(_cache.assignments).filter(a=>a.sid===sid&&a.completedAt).map(a=>(a.completedAt||'').slice(0,10))).size;
   const wins=(typeof ppBossWins==='function')?ppBossWins(sid):0;
   const lvl=(typeof stuLevelOf==='function'&&typeof stuXP==='function')?stuLevelOf(stuXP(sid)).n:1;
   const mk=(pre,icon,tpl,arr,val)=>arr.map(t=>({id:pre+t,icon,name:tpl.replace('{n}',t),unlocked:val>=t}));
@@ -8928,7 +8928,7 @@ async function generateReportDraft(){
     const rds=DB.rds().filter(r=>r.sid===sid&&r.date?.startsWith(month));
     const logs=DB.logs().filter(l=>l.sid===sid&&l.date?.startsWith(month));
     const allLes=DB.less().filter(l=>l.sid===sid);
-    const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+    const cards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
     const mastered=cards.filter(c=>(c.hits||0)>=3).length;
     // 수업 요약
     const lesSummary=les.length?les.map(l=>{
@@ -9099,7 +9099,7 @@ function renderDash(){
   const stus=DB.stus().filter(s=>!s.inactive);
   const les=DB.less();
   const tsts=DB.tsts();
-  const hws=_cache.homeworks||[];
+  const hws=ppLive(_cache.homeworks);
   const today=new Date();
   const todayStr=today.toISOString().split('T')[0];
   const thisMonth=todayStr.slice(0,7);
@@ -9942,7 +9942,7 @@ function renderDashFill(){
     if(!lastTb[key]||String(l.date||'')>lastTb[key].date)lastTb[key]={date:String(l.date||''),title:t};
   }));
   // 수업 기록엔 없어도 과제로 배우는 교재(예: 어휘 교재 단어 암기)도 채우기 대상
-  (_cache.assignments||[]).forEach(a=>{
+  ppLive(_cache.assignments).forEach(a=>{
     if(a.type!=='textbook'||!a.bookTitle)return;
     const t=String(a.bookTitle).trim();if(t.length<2||/^(클래스5|class5)$/i.test(t))return;
     const key=nrm(t);
@@ -10163,7 +10163,7 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
       if(!a||a._deleted||!a.due||a.due>=_today)return;
       if(a.completedAt||hwFinished(a))return;
       // 이미 제출된 건(검토 대기)은 '미제출'이 아니다 — 두 상태를 섞지 않는다
-      if((_cache.homeworks||[]).some(h=>h.assignmentId===a.id))return;
+      if(ppLive(_cache.homeworks).some(h=>h.assignmentId===a.id))return;
       const st=stus.find(x=>x.id===a.sid);
       if(!st||st.inactive)return;
       lateBy[a.sid]=(lateBy[a.sid]||0)+1;
@@ -10659,7 +10659,7 @@ async function uploadBookAudio(e, bookId, uploadType='full'){
 // ── TEACHER: vocab card status toast after saving test ──
 function showVocabCardStatus(sid,allWords){
   if(!allWords||!allWords.length)return;
-  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const cards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
   const newCount=allWords.filter(w=>!cards.find(c=>c.word===w.toLowerCase())).length;
   const updateCount=allWords.length-newCount;
   let msg=`단어카드: `;
@@ -10749,7 +10749,7 @@ function renderAssignCal(){
   // ① 이 학생의 실제 과제 → 날짜별 칩 (스케줄형은 각 날짜, 일반형은 마감일)
   // 진도 캘린더와 같은 시각 언어: 아이콘 없이 과목색+단원 라벨, 완료된 반복분은 ✓ 한 글자로 압축
   const byDate={};
-  (_cache.assignments||[]).forEach(a=>{
+  ppLive(_cache.assignments).forEach(a=>{
     if(a.sid!==sid)return;
     if((a.schedule||[]).length){
       a.schedule.forEach(sc=>{
@@ -10795,7 +10795,7 @@ function renderAssignCal(){
   const hwBy=stCls?_pgHomeworkPlan(stCls.id,stCls):{};
   const hwPending=Object.values(hwBy).some(arr=>arr.some(h=>!h.assigned));
   // ③ 자동 진행 교재를 다 끝냈고 이어지는 교재가 없으면 → 다음 교재 선택 안내
-  const autoRec=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.category==='recur'&&a.auto&&(a.schedule||[]).length);
+  const autoRec=ppLive(_cache.assignments).filter(a=>a.sid===sid&&a.category==='recur'&&a.auto&&(a.schedule||[]).length);
   const autoFin=autoRec.length&&!autoRec.some(a=>a.schedule.some(s=>!s.done))
     ?autoRec.slice().sort((x,y)=>(y.due||'').localeCompare(x.due||''))[0]:null;
   const stuOpts=stus.map(s=>`<option value="${s.id}"${s.id===sid?' selected':''}>${escAttr(s.name)}</option>`).join('');
@@ -10846,7 +10846,7 @@ function assignCalMonth(dir){
   renderAssignCal();
 }
 function showAssignDateDetail(dateStr){
-  const assigns=(_cache.assignments||[]).filter(a=>{
+  const assigns=ppLive(_cache.assignments).filter(a=>{
     // 스케줄 있는 클래스5만 스케줄 날짜 매칭, 스케줄 없는 클래스5는 일반 과제처럼 due 매칭
     if((a.schedule||[]).length) return a.schedule.some(sc=>sc.date===dateStr); // 스케줄형(클래스5·반복 숙제)은 날짜별 매칭
     return a.due===dateStr||(!a.due&&a.date===dateStr);
@@ -11054,7 +11054,7 @@ function renderAssignStats(){
   const pending=assigns.filter(a=>!a.completedAt&&_actIds.has(a.sid));
   const dueToday=pending.filter(a=>a.due===today).length;
   const overdue=pending.filter(a=>a.due&&a.due<today).length;
-  const unchecked=(_cache.homeworks||[]).filter(h=>h.submitted&&!h.checked).length;
+  const unchecked=ppLive(_cache.homeworks).filter(h=>h.submitted&&!h.checked).length;
   const card=(lbl,ico,icoCls,num,unit,subColor)=>`<div class="dash-stat">
     <div class="dash-stat-top"><span class="dash-stat-lbl">${lbl}</span><span class="dash-stat-ico ${icoCls}">${ico}</span></div>
     <div class="dash-stat-num"${subColor?` style="color:${subColor}"`:''}>${num}${unit?`<small> ${unit}</small>`:''}</div>
@@ -11074,7 +11074,7 @@ function renderAssignTab(){
   const showStus=filterStu?stus.filter(s=>s.id===filterStu):stus;
   const assigns=DB.assigns().sort((a,b)=>(b.due||b.date||'').localeCompare(a.due||a.date||''));
   if(!showStus.length){el.innerHTML='<div class="empty"><div class="empty-i">📋</div><div class="empty-t">학생 없음</div></div>';return;}
-  const hws=_cache.homeworks||[];
+  const hws=ppLive(_cache.homeworks);
   // 선택 날짜의 숙제만 표시 — 전체 기간·반복 스케줄 관리는 아래 숙제 캘린더에서 (2026-07-26)
   const ds=document.getElementById('assign-filter-date')?.value||ppToday();
   const cards=showStus.map(s=>{
@@ -11398,7 +11398,7 @@ function modalAssignCatChange(){
   assignBookChange(); // 구분 변경(자동 채움 포함) 후 단원/챕터/과 칩 재계산
   const extra=document.getElementById('modal-assign-extra');
   if(cat==='vocab'&&sid){
-    const recentCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).slice(0,20);
+    const recentCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid).slice(0,20);
     extra.innerHTML=`<div class="f" style="margin-top:8px"><label>단어 선택 (최근 카드)</label>
       <div style="max-height:130px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);padding:8px">
         ${recentCards.length?recentCards.map(c=>`<label style="display:flex;align-items:center;gap:8px;padding:2px 0;cursor:pointer"><input type="checkbox" class="modal-vocab-check" value="${c.word}"> <span style="font-family:var(--fd);font-weight:700">${c.word}</span><span style="font-size:12px;color:var(--slate)">${c.meaning||''}</span></label>`).join(''):'<span style="font-size:13px;color:var(--slate)">단어 카드 없음</span>'}
@@ -12477,7 +12477,7 @@ async function removeTextbook(id,sid){
 // ── 학생 내 기록 ──
 function renderStudentMyInfo(sid){
   const el=document.getElementById('st-myinfo');if(!el)return;
-  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const cards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
   const tsts=DB.tsts().filter(t=>t.sid===sid);
   const les=DB.less().filter(l=>l.sid===sid);
   const totalCards=cards.length;
@@ -13128,7 +13128,7 @@ function _pgClass5Plan(c,uptoDate){
 // 클래스5가 이미 과제로 할당된 날짜 집합 (이 클래스5 책 기준)
 function _pgClass5Assigned(classId,bookId){
   const s=new Set();
-  (_cache.assignments||[]).forEach(a=>{
+  ppLive(_cache.assignments).forEach(a=>{
     if(a.category!=='class5'||a.classId!==classId||a.c5BookId!==bookId)return;
     (a.schedule||[]).forEach(sc=>{if(sc.date)s.add(sc.date);});
   });
@@ -13155,7 +13155,7 @@ function _pgHomeworkPlan(classId,c){
   const skipSet=new Set(c.skipDates||[]); // 휴강일엔 숙제 마감을 잡지 않음 — 다음 실제 수업일로
   const dismissed=new Set(c.hwDismissed||[]); // 취소한 제안 ('책|단원' 정규화 키) — 다시 띄우지 않음
   const classSids=new Set(c.studentIds||[]);
-  const asgs=(_cache.assignments||[]).filter(a=>classSids.has(a.sid)&&a.category!=='class5'&&a.bookTitle);
+  const asgs=ppLive(_cache.assignments).filter(a=>classSids.has(a.sid)&&a.category!=='class5'&&a.bookTitle);
   const isAssigned=(book,unit,due)=>asgs.some(a=>_pgNorm(a.bookTitle)===_pgNorm(book)&&(!unit||_pgUMatch(_pgNorm(a.range||''),_pgNorm(unit))))
     // 클래스5·반복 스케줄이 그 마감일에 같은 책·단원을 이미 커버하면 제안하지 않음
     ||(due&&[...classSids].some(sid=>schedCoversHw(sid,due,book,unit)));
@@ -15629,7 +15629,7 @@ function clHwRestoreFromSaved(classId,dateStr){
   if(ind)ind.innerHTML='';
   // '이 수업 폼이 만든 과제'만 복원 대상 — 스케줄형(반복·클래스5)은 date가 수업일과 겹쳐도 이 수업 과제가 아님
   // (앱 단어 반복 숙제 due=12/31이 마감일 그룹으로 잡혀 뜬금없는 12/31 그룹이 생기던 문제)
-  const saved=(_cache.assignments||[]).filter(a=>a.classId===classId&&a.date===dateStr
+  const saved=ppLive(_cache.assignments).filter(a=>a.classId===classId&&a.date===dateStr
     &&!(a.schedule||[]).length&&['reading','textbook'].includes(a.type||''));
   const c=DB.classes().find(x=>x.id===classId);
   if(!saved.length){
@@ -15957,7 +15957,7 @@ function spHwCatChange(sid){
   if(bookEl)spAsgnBookChange(bookEl,sid,false); // 자동 채움 이후 단원 datalist 동기화 (라이브러리 등록 없음)
   const extra=document.getElementById(`asgn-extra-${sid}`);
   if(cat==='vocab'&&extra){
-    const recentCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid).slice(0,20);
+    const recentCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid).slice(0,20);
     extra.innerHTML=`<div class="f" style="margin-top:6px"><label>단어 선택</label>
       <div style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);padding:6px">
         ${recentCards.length?recentCards.map(c=>`<label style="display:flex;align-items:center;gap:6px;padding:2px 0;cursor:pointer;font-size:13px"><input type="checkbox" class="asgn-vocab-chk" value="${c.word}"> ${c.word}<span style="font-size:11.5px;color:var(--slate)">${c.meaning||''}</span></label>`).join(''):'<span style="font-size:13px;color:var(--slate)">단어 카드 없음</span>'}
@@ -15984,7 +15984,7 @@ async function saveStudentAssign(sid){
     if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제','expose');
   }
   if(!book&&!range&&type!=='vocab'){toast('교재/원서 또는 범위를 입력해 주세요');return;}
-  const isDup=(_cache.assignments||[]).some(x=>x.sid===sid&&_tbBase(x.bookTitle||'')===_tbBase(book||'')&&(x.range||'')===range&&x.due===due);
+  const isDup=ppLive(_cache.assignments).some(x=>x.sid===sid&&_tbBase(x.bookTitle||'')===_tbBase(book||'')&&(x.range||'')===range&&x.due===due);
   if(isDup){toast('이미 동일한 과제가 있습니다');return;}
   try{
     await supaUpsert('assignments',a.id,a,sid);
@@ -16743,7 +16743,7 @@ async function saveClassLesson(){
       // 정리 대상은 '이 수업 폼이 만든 과제'만: 단건 reading/textbook.
       // 스케줄형(반복·클래스5 — date가 우연히 수업일과 같을 수 있음)·미션·워크시트는 절대 건드리지 않음
       // ('앱으로 단어 20개' 반복 숙제가 date=수업일이라 수정 저장 때 통째로 삭제되던 사고 방지)
-      const olds=(_cache.assignments||[]).filter(a=>a.classId===classId&&a.date===date
+      const olds=ppLive(_cache.assignments).filter(a=>a.classId===classId&&a.date===date
         &&!(a.schedule||[]).length&&['reading','textbook'].includes(a.type||''));
       for(const a of olds){
         const key=[a.sid,a.due||date,a.category||'',_tbBase(a.bookTitle||''),a.range||'',a.note||''].join('');

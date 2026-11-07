@@ -576,7 +576,7 @@ async function loadParent(sid){
   }
 
   // 블록 F — 성장 기록
-  const vocabCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const vocabCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
   const masteredVocab=vocabCards.filter(c=>(c.hits||0)>=3).length;
   const totalVocab=vocabCards.length;
   const booksThisMonth=rds.filter(r=>r.date&&r.date.startsWith(thisMonthStr)).length;

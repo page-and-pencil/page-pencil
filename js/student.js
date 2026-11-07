@@ -267,10 +267,13 @@ async function loginStudent(s){
     supaFetchBySid('homeworks',s.id),
     supaFetchBySid('assignments',s.id)
   ]);
+  // supaFetchBySid 가 휴지통 행을 이미 걸러 준다. 그래도 한 번 더 거른다 —
+  // 이 자리가 loadAllData 가 걸러 둔 캐시를 '덮어쓰는' 곳이라, 여기서 새면 그대로 화면에 나온다.
+  // (2026-11-08: 지운 반복 숙제가 학생 퀘스트에 다시 나타난 원인)
   if(!_cache.homeworks)_cache.homeworks=[];
-  _cache.homeworks=_cache.homeworks.filter(h=>h.sid!==s.id).concat(hwRows);
+  _cache.homeworks=_cache.homeworks.filter(h=>h.sid!==s.id).concat(ppLive(hwRows));
   if(!_cache.assignments)_cache.assignments=[];
-  _cache.assignments=_cache.assignments.filter(a=>a.sid!==s.id).concat(asgnRows);
+  _cache.assignments=_cache.assignments.filter(a=>a.sid!==s.id).concat(ppLive(asgnRows));
   swStuTab('st-home');
   if(typeof _noticeTimer!=='undefined'&&_noticeTimer)clearTimeout(_noticeTimer);
   _noticeTimer=setTimeout(checkNotice,500); // 게시 공지 팝업 — 학부모(loadParentWithNotice)와 같은 경로를 학생에게도 연결
@@ -445,7 +448,7 @@ function renderStudentLibrary(sid){
     return best;};
 
   // ── 교재 섹션 (최근 수업에 쓴 책부터) ──
-  const myCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.srcType==='textbook'&&c.srcId);
+  const myCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid&&c.srcType==='textbook'&&c.srcId);
   const tbIdSet=new Set(myCards.map(c=>c.srcId));
   const myTbooks=(_cache.globalTextbooks||[]).filter(b=>tbIdSet.has(b.id)&&(b.unitTexts&&Object.keys(b.unitTexts).some(u=>b.unitTexts[u])))
     .sort((a,b)=>((_lastLesForBook[_n(b.title)]||'').localeCompare(_lastLesForBook[_n(a.title)]||''))||(a.title||'').localeCompare(b.title||''));
@@ -778,12 +781,13 @@ function renderAssignmentTab(sid){
     const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
     sch.forEach(s=>_schedCov.add(_hwKeyNorm((s.book||a.bookTitle||'')+'|'+(s.unit||'')+'|'+(s.date||''))));
   });
-  const assigns=(_cache.assignments||[]).filter(a=>{
+  // ppLive — 휴지통 행은 그리지 않는다 (2026-11-08)
+  const assigns=ppLive(_cache.assignments).filter(a=>{
     if(a.sid!==sid)return false;
     if((a.schedule||[]).length)return true;
     return !_schedCov.has(_hwKeyNorm((a.bookTitle||'')+'|'+(a.range||'')+'|'+(a.due||a.date||'')));
   }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const hws=(_cache.homeworks||[]).filter(h=>h.sid===sid);
+  const hws=ppLive(_cache.homeworks).filter(h=>h.sid===sid);
   const isSubmitted=a=>hws.some(h=>h.assignmentId===a.id);
   const getHw=a=>hws.find(h=>h.assignmentId===a.id);
   const allBooks=[...DB.libs()];
@@ -907,7 +911,7 @@ function renderHomeworkTab(sid){
   const lastLes=les[0];
   const rangeText=lastLes?`${lastLes.date||''} 수업 진도`:'범위를 선생님께 확인해 주세요';
   // 기존 제출 기록
-  const homeworks=(_cache.homeworks||[]).filter(h=>h.sid===sid);
+  const homeworks=ppLive(_cache.homeworks).filter(h=>h.sid===sid);
   el.innerHTML=`<div style="padding:1.25rem">
     <div class="card" style="margin-bottom:12px">
       <div class="ch"><span class="ct">📤 낭독 과제 제출</span></div>
@@ -1150,9 +1154,9 @@ function vcStageBar(){
 }
 function renderVocabDeck(sid){
   const el=document.getElementById('st-vocab');if(!el)return;
-  const missingCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&(!c.meaning||!c.example));
+  const missingCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid&&(!c.meaning||!c.example));
   if(missingCards.length) fillMissingMeanings(missingCards);
-  let cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  let cards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
   const filterLabel=vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 1.25rem;background:var(--tl);font-size:13px;color:var(--tealt)"><span>📌 숙제 단어 ${vocabDeckFilter.words.length}개</span><button onclick="vocabDeckFilter=null;renderVocabDeck('${sid}')" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--slate)">전체 보기</button></div>`:'';
   if(vocabDeckFilter)cards=cards.filter(c=>vocabDeckFilter.words.map(w=>w.toLowerCase()).includes((c.word||'').toLowerCase()));
   if(!cards.length){
@@ -1947,11 +1951,11 @@ const XP_TIERS=[
 function xpForLevel(n){return n<=1?0:Math.round(30*Math.pow(n-1,1.85));}
 function stuXP(sid){
   const les=DB.less().filter(l=>l.sid===sid&&l.att!=='absent').length;
-  const asgn=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).length;
-  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const asgn=ppLive(_cache.assignments).filter(a=>a.sid===sid&&a.completedAt).length;
+  const cards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
   const hits=cards.reduce((t,c)=>t+(c.hits||0),0);
   const mastered=cards.filter(c=>(c.hits||0)>=3).length;
-  const readLogs=(_cache.logs||[]).filter(l=>l.sid===sid&&l.read).length;
+  const readLogs=ppLive(_cache.logs).filter(l=>l.sid===sid&&l.read).length;
   const rds=DB.allRds(sid).filter(r=>r.date).length;
   const tests=DB.tsts().filter(t=>t.sid===sid).length;
   const bossWins=(typeof ppBossWins==='function')?ppBossWins(sid):0;
@@ -2063,7 +2067,7 @@ function weeklyBossInfo(sid){
   const wk=_bossWeekKey();
   let h=0;for(const ch of (wk+sid))h=(h*31+ch.charCodeAt(0))>>>0;
   const def=BOSS_POOL[h%BOSS_POOL.length];
-  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const cards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
   let prog=0,go="openVocabStudy('daily')";
   if(def.k==='w')prog=cards.filter(c=>(c.lastSeen||'')>=wk).length;
   else if(def.k==='d'){prog=getWeekDays(sid).filter(d=>d.done).length;go="swStuTab('st-home')";}
@@ -2074,7 +2078,7 @@ function weeklyBossInfo(sid){
     if(base<0){base=mastered;try{localStorage.setItem(bk,String(base));}catch(e){}}
     prog=Math.max(0,mastered-base);go="openVocabStudy('last')";
   }else{
-    const asg=(_cache.assignments||[]).filter(a=>a.sid===sid&&!a._deleted);
+    const asg=ppLive(_cache.assignments).filter(a=>a.sid===sid&&!a._deleted);
     let n=0;
     for(const a of asg){
       if((a.completedAt||'').slice(0,10)>=wk)n++;
@@ -2208,7 +2212,7 @@ function getWeeklyStats(sid){
   const today=new Date(ppToday()+'T12:00:00');          // UTC 보정 (ppToday 기준)
   const weekStart=new Date(today);weekStart.setDate(today.getDate()-today.getDay());
   const wStr=ppYmd(weekStart);
-  const wa=(_cache.assignments||[]).filter(a=>a.sid===sid&&(a.date||'')>=wStr);
+  const wa=ppLive(_cache.assignments).filter(a=>a.sid===sid&&(a.date||'')>=wStr);
   const done=wa.filter(a=>a.completedAt).length;
   return{total:wa.length,done,pct:wa.length?Math.round(done/wa.length*100):0};
 }
@@ -2240,7 +2244,7 @@ function getWeekDays(sid){
 async function _vocabHwAutoCheck(sid){
   if(!sid)return;
   const today=ppToday();
-  const n=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&ppStudiedToday(c,today)).length;
+  const n=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid&&ppStudiedToday(c,today)).length;
   if(n<20)return;
   for(const a of (_cache.assignments||[])){
     if(a._deleted||a.sid!==sid||!a.vocabAuto)continue;
@@ -2514,12 +2518,12 @@ let homeAsgnAudioBlob=null,homeAsgnCurrentId='';
 function showStatDetail(sid,type){
   let title='',rows='';
   if(type==='assign'){
-    const items=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
+    const items=ppLive(_cache.assignments).filter(a=>a.sid===sid&&a.completedAt).sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
     title=`완료한 숙제 (${items.length}건)`;
     const catIcon={phonics:'📘',vocab:'📝',grammar:'✏️',reading:'📖',listening:'🎧',writing:'✍️',naesin:'📋',book:'📗',class5:'🎮'};
     rows=items.map(a=>{const KC=['phonics','vocab','grammar','reading','listening','writing','naesin','book','class5','other'];const label=[a.bookTitle||a.text||((a.category&&!KC.includes(a.category))?a.category:''),a.range].filter(Boolean).join(' · ')||'과제';return `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span>${catIcon[a.category]||'📋'} ${label}</span></div>`;}).join('')||'없음';
   }else if(type==='vocab'){
-    const allCards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+    const allCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
     const mastered=allCards.filter(c=>(c.hits||0)>=3).sort((a,b)=>(b.hits||0)-(a.hits||0));
     const learning=allCards.filter(c=>(c.hits||0)>0&&(c.hits||0)<3).sort((a,b)=>(b.hits||0)-(a.hits||0));
     const unseen=allCards.filter(c=>!(c.hits||0));
@@ -2554,8 +2558,8 @@ function showStatDetail(sid,type){
   document.body.appendChild(ov);document.body.appendChild(box);
 }
 function renderHomeStats(sid){
-  const completedCount=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).length;
-  const vocabLearned=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&(c.hits||0)>0).length;
+  const completedCount=ppLive(_cache.assignments).filter(a=>a.sid===sid&&a.completedAt).length;
+  const vocabLearned=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid&&(c.hits||0)>0).length;
   const rdsCount=DB.allRds(sid).length;
   if(!completedCount&&!vocabLearned&&!rdsCount)return '';
   const statBox=(val,color,label,type)=>`<div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center;cursor:pointer;transition:.15s" onclick="showStatDetail('${sid}','${type}')" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background='#fff'">
@@ -2640,7 +2644,7 @@ function polishStudentCmt(givenName){
 }
 // 단어 복습 현황: 약점 단어 + 숙련도 단계 (vocab_cards의 hits/misses 활용)
 function renderVocabReview(sid){
-  const cards=(_cache.vocab_cards||[]).filter(c=>c.sid===sid);
+  const cards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
   if(cards.length<3)return '';
   const fresh=cards.filter(c=>(c.hits||0)<1).length;
   const learning=cards.filter(c=>(c.hits||0)>=1&&(c.hits||0)<3).length;
@@ -2714,7 +2718,7 @@ function renderStudentHome(sid){
   const today=ppToday();
   const _wk=_stuWeekDates(today);
   const _weekStart=_wk[0].date,_weekEnd=_wk[6].date;
-  const allAssigns=(_cache.assignments||[]).filter(a=>a.sid===sid);
+  const allAssigns=ppLive(_cache.assignments).filter(a=>a.sid===sid);
   const done=allAssigns.filter(a=>a.completedAt).sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
   // 긴급도 정렬: 늦은 것 → 오늘 마감 → 내일 → 가까운 순 → 마감 없음(날짜 오름차순)
   const pending=allAssigns.filter(a=>!hwFinished(a)).sort((a,b)=>{
@@ -2776,7 +2780,7 @@ function renderStudentHome(sid){
     <svg class="stu-mascot" viewBox="0 0 64 64" fill="none" aria-hidden="true"><g transform="rotate(-18 32 32)"><rect x="25" y="8" width="14" height="34" rx="3" fill="#FFD166"/><rect x="25" y="8" width="14" height="34" rx="3" fill="url(#pg)" opacity=".18"/><path d="M25 42h14l-7 11z" fill="#F7E7C8"/><path d="M28.6 47.2h6.8L32 53z" fill="#2A2520"/><rect x="25" y="5" width="14" height="6" rx="2.4" fill="#E86A5C"/><circle cx="29.4" cy="24" r="1.9" fill="#2A2520"/><circle cx="34.6" cy="24" r="1.9" fill="#2A2520"/><path d="M29.2 29.4q2.8 2.6 5.6 0" stroke="#2A2520" stroke-width="1.6" stroke-linecap="round"/><circle cx="26.6" cy="27.6" r="1.5" fill="#F09AA0" opacity=".75"/><circle cx="37.4" cy="27.6" r="1.5" fill="#F09AA0" opacity=".75"/></g><defs><linearGradient id="pg" x1="25" y1="8" x2="39" y2="42"><stop stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient></defs></svg>
   </div>`;
   // ── 오늘 할 일 히어로: 도넛 링(오늘 20개) + 큰 버튼 + 오늘의 게임 예고 ──
-  const _revToday=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&ppStudiedToday(c)).length;
+  const _revToday=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid&&ppStudiedToday(c)).length;
   const _ringN=Math.min(20,_revToday);
   const _ringDone=_ringN>=20;
   const _rR=37,_rC=2*Math.PI*_rR;
@@ -3028,7 +3032,7 @@ function renderStudentHome(sid){
       <div style="margin-top:8px">${lastLessonHtml}${renderHomeStats(sid)}${notifyRowHtml}</div>
     </details>
     ${(()=>{
-      const myLogs=(_cache.logs||[]).filter(l=>l.sid===sid&&(l.photoUrl||(l.photoUrls&&l.photoUrls.length))).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      const myLogs=ppLive(_cache.logs).filter(l=>l.sid===sid&&(l.photoUrl||(l.photoUrls&&l.photoUrls.length))).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
       if(!myLogs.length)return '';
       return '<div style="margin-top:14px"><div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">📸 리딩로그</div><div class="ig-strip">'+
         myLogs.map(l=>{const imgs=logImgs(l);const first=imgs[0]||'';return '<div class="ig-card"><div class="ig-ph" onclick="openLbLog(\''+l.id+'\')"><img src="'+first+'" loading="lazy">'+(imgs.length>1?'<div class="rdlog-multi">📄 1/'+imgs.length+'</div>':'')+'</div><div class="ig-body">'+(l.read?'<div class="ig-like on">❤️ 완독</div>':'')+(l.bookTitle?'<div class="ig-title">'+l.bookTitle+'</div>':'')+'<div class="ig-date">'+(l.date||'')+'</div></div></div>';}).join('')+
