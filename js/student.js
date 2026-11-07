@@ -970,7 +970,8 @@ async function submitHomework(sid, assignmentId=''){
 
 // ── PARENT NOTICE BANNER ──
 function showParentNoticeBanner(){
-  const _nk=n=>{const t=Number(String(n.id||'').replace(/^n/,''));return t>0?t:(Date.parse(n.date||'')||0);};const active=(_cache.notices||[]).filter(n=>n.active&&!(n.readBy||[]).some(r=>r.sid===currentParentSid)).sort((a,b)=>_nk(a)-_nk(b))[0]||null;
+  const _nk=n=>{const t=Number(String(n.id||'').replace(/^n/,''));return t>0?t:(Date.parse(n.date||'')||0);};const active=(_cache.notices||[]).filter(n=>n.active&&!(n.readBy||[]).some(r=>r.sid===currentParentSid)
+    &&((typeof ppNoticeForSid!=='function')||ppNoticeForSid(n,currentParentSid))).sort((a,b)=>_nk(a)-_nk(b))[0]||null;
   _activeNoticeId=active?active.id:null;
   const banner=document.getElementById('parent-notice-banner');
   const txt=document.getElementById('parent-notice-text');
@@ -2118,60 +2119,76 @@ function showMiniConfetti(){
   document.body.appendChild(container);
   setTimeout(()=>container.remove(),2000);
 }
+// ── 도장·연속 학습은 '숙제 날짜' 기준 (2026-11-07 원장 지시) ──
+// 금요일에 토요일 몫을 미리 해도 토요일 칸에 도장이 찍힌다. 그래서 연속 기록도
+// '누른 날'(pp_streak_ 의 lastDate)이 아니라 도장 이력(pp_stamps_)에서 거꾸로 센다.
+function _ppStampSet(sid){
+  try{return new Set(JSON.parse(localStorage.getItem('pp_stamps_'+sid)||'[]'));}catch(e){return new Set();}
+}
 function getStreak(sid){
   const today=ppToday();
-  const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
-  const yStr=yesterday.toISOString().split('T')[0];
-  const data=JSON.parse(localStorage.getItem('pp_streak_'+sid)||'{"count":0,"lastDate":""}');
-  if(data.lastDate===today||data.lastDate===yStr)return data.count;
-  return 0;
+  const set=_ppStampSet(sid);
+  const d=new Date(today+'T12:00:00');
+  if(!set.has(today))d.setDate(d.getDate()-1);   // 오늘 아직 안 했으면 어제까지의 연속
+  let n=0,shield=false,guard=0;
+  while(guard++<400){
+    const ds=ppYmd(d);
+    if(set.has(ds)){n++;d.setDate(d.getDate()-1);continue;}
+    // 스트릭 보호권: 하루 빠졌어도 불꽃은 한 번 지켜 준다 — 좌절로 이탈하지 않게
+    if(!shield&&n>0){shield=true;d.setDate(d.getDate()-1);continue;}
+    break;
+  }
+  return n;
 }
-function updateStreak(sid){
+function updateStreak(sid,forDate){
   const today=ppToday();
-  const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
-  const yStr=yesterday.toISOString().split('T')[0];
-  const y2=new Date();y2.setDate(y2.getDate()-2);
-  const y2Str=y2.toISOString().split('T')[0];
-  const key='pp_streak_'+sid;
-  const data=JSON.parse(localStorage.getItem(key)||'{"count":0,"lastDate":""}');
-  // 학습 도장 이력 (주간 목표·요일 도장용, 최근 60일)
+  const day=forDate||today;                       // 숙제 날짜(없으면 오늘)
+  // 학습 도장 이력 (주간 목표·요일 도장·연속 학습용, 최근 60일)
+  let added=false;
   try{
     const sk='pp_stamps_'+sid;
     const st=JSON.parse(localStorage.getItem(sk)||'[]');
-    if(!st.includes(today)){st.push(today);localStorage.setItem(sk,JSON.stringify(st.slice(-60)));}
+    if(!st.includes(day)){st.push(day);st.sort();localStorage.setItem(sk,JSON.stringify(st.slice(-60)));added=true;}
   }catch(e){}
-  if(data.lastDate===today)return;
-  const wkStart=(()=>{const t=new Date(today+'T00:00:00');t.setDate(t.getDate()-t.getDay());return t.toISOString().split('T')[0];})();
-  if(data.lastDate===yStr){data.count+=1;}
-  else if(data.lastDate===y2Str&&data.shieldWeek!==wkStart){
-    // 스트릭 보호권: 하루 빠졌어도 주 1회는 불꽃 유지 — 좌절로 이탈하지 않게
-    data.count+=1;data.shieldWeek=wkStart;
+  // 불꽃 안내는 오늘 몫을 해서 연속이 이어진 때만 — 미리 해 둔 날에 띄우면 날짜가 어긋나 보인다
+  if(added&&day===today&&getStreak(sid)>1&&!_ppStampSet(sid).has(ppShiftDate(today,-1))){
     setTimeout(()=>toast('🛡 스트릭 보호권 사용! 불꽃이 지켜졌어요'),400);
   }
-  else data.count=1;
-  data.lastDate=today;
-  localStorage.setItem(key,JSON.stringify(data));
+  // pp_streak_ 는 옛 기록 호환용으로만 남긴다 (연속 수는 도장 이력에서 센다)
+  try{
+    const key='pp_streak_'+sid;
+    const data=JSON.parse(localStorage.getItem(key)||'{"count":0,"lastDate":""}');
+    if(day>(data.lastDate||'')&&day<=today){data.lastDate=day;data.count=getStreak(sid);localStorage.setItem(key,JSON.stringify(data));}
+  }catch(e){}
 }
 function getWeeklyStats(sid){
-  const today=new Date();
+  const today=new Date(ppToday()+'T12:00:00');          // UTC 보정 (ppToday 기준)
   const weekStart=new Date(today);weekStart.setDate(today.getDate()-today.getDay());
-  const wStr=weekStart.toISOString().split('T')[0];
+  const wStr=ppYmd(weekStart);
   const wa=(_cache.assignments||[]).filter(a=>a.sid===sid&&(a.date||'')>=wStr);
   const done=wa.filter(a=>a.completedAt).length;
   return{total:wa.length,done,pct:wa.length?Math.round(done/wa.length*100):0};
 }
 // 이번 주 요일별 학습 여부 (과제 완료일 기준) — 주간 연속 학습 7원형
 function getWeekDays(sid){
-  const today=new Date();
-  const todayStr=today.toISOString().split('T')[0];
+  // 날짜는 로컬 기준으로만 — toISOString 은 UTC 라 한국 오전 9시 전에는 어제가 나와
+  // 도장이 하루 밀려 찍힌 것처럼 보였다 (ppToday·ppYmd 로 통일)
+  const todayStr=ppToday();
+  const today=new Date(todayStr+'T12:00:00');
   const weekStart=new Date(today);weekStart.setDate(today.getDate()-today.getDay());
-  const doneDates=new Set((_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).map(a=>(a.completedAt||'').split('T')[0]));
+  // 요일 점도 '숙제 날짜' 기준 — 미리 한 숙제가 누른 날에 찍히지 않게 (2026-11-07)
+  const doneDates=new Set();
+  (_cache.assignments||[]).forEach(a=>{
+    if(a._deleted||a.sid!==sid)return;
+    if((a.schedule||[]).length){(a.schedule||[]).forEach(s2=>{if(s2&&s2.done&&s2.date)doneDates.add(s2.date);});return;}
+    if(a.completedAt)doneDates.add((a.due||a.date||'').slice(0,10));
+  });
   try{JSON.parse(localStorage.getItem('pp_stamps_'+sid)||'[]').forEach(d=>doneDates.add(d));}catch(e){} // 단어 학습 도장도 포함
   const DAYS=['일','월','화','수','목','금','토'];
   const out=[];
   for(let i=0;i<7;i++){
     const d=new Date(weekStart);d.setDate(weekStart.getDate()+i);
-    const ds=d.toISOString().split('T')[0];
+    const ds=ppYmd(d);
     out.push({label:DAYS[i],done:doneDates.has(ds),isToday:ds===todayStr});
   }
   return out;
@@ -2180,7 +2197,7 @@ function getWeekDays(sid){
 async function _vocabHwAutoCheck(sid){
   if(!sid)return;
   const today=ppToday();
-  const n=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===today&&c.lastSeenBy!=='test').length;
+  const n=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&ppStudiedToday(c,today)).length;
   if(n<20)return;
   for(const a of (_cache.assignments||[])){
     if(a._deleted||a.sid!==sid||!a.vocabAuto)continue;
@@ -2281,7 +2298,7 @@ async function completeAssignment(sid,asgnId){
     _wkBump(1);
   }
   await supaUpsert('assignments',asgnId,a,sid);
-  updateStreak(sid);
+  updateStreak(sid,(a.due||a.date||'').slice(0,10)||ppToday());   // 도장은 숙제 날짜에
   checkNewBadges(currentStudentSid);
   _hwChRefresh(sid); // 도장 챌린지 갱신 (도장·달성 축하 포함)
   ppStampPop();stuLevelUpCheck(sid);if(ppTodayAllDone(sid))setTimeout(()=>showMiniConfetti(),500);
@@ -2315,9 +2332,8 @@ async function completeSchedDay(sid,asgnId,ds){
   }
   try{await supaUpsert('assignments',asgnId,a,sid);}
   catch(e){console.error('completeSchedDay:',e);toast('저장 실패 — 네트워크를 확인해 주세요');}
-  // 학습 도장·스트릭에도 반영
-  try{const k='pp_stamps_'+sid;const arr=JSON.parse(localStorage.getItem(k)||'[]');const t=ppToday();if(!arr.includes(t)){arr.push(t);localStorage.setItem(k,JSON.stringify(arr));}}catch(e){}
-  updateStreak(sid);
+  // 학습 도장·스트릭에도 반영 — 누른 날이 아니라 '그 숙제 날짜'에 (2026-11-07)
+  updateStreak(sid,ds);
   _hwChRefresh(sid); // 도장 챌린지 갱신 (도장·달성 축하 포함)
   ppStampPop();stuLevelUpCheck(sid);if(ppTodayAllDone(sid))setTimeout(()=>showMiniConfetti(),500);
   // 카드만 고치면 위쪽 인사말("오늘 할 일 N개")·"남은 퀘스트 N개"·주간 보스가 옛 숫자로 남는다.
@@ -2429,7 +2445,7 @@ function _stuShowNotify(title,body){
 }
 function _todayVocabDone(sid){
   const t=ppToday();
-  if((_cache.vocab_cards||[]).some(c=>c.sid===sid&&c.lastSeen===t))return true;
+  if((_cache.vocab_cards||[]).some(c=>c.sid===sid&&ppStudiedToday(c,t)))return true;
   try{return JSON.parse(localStorage.getItem('pp_stamps_'+sid)||'[]').includes(t);}catch(e){return false;}
 }
 let _stuReminderTimer=null;
@@ -2441,7 +2457,7 @@ function ensureStuReminderLoop(sid){
 function _stuReminderTick(sid){
   const s=stuNotifyState(sid);
   if(!s.on||typeof Notification==='undefined'||Notification.permission!=='granted')return;
-  const now=new Date();const t=now.toISOString().split('T')[0];
+  const now=new Date();const t=ppToday();   // UTC 보정 — 오전 9시 전에 어제로 찍혀 알림이 두 번 가던 문제
   const [hh,mm]=(s.time||'17:00').split(':').map(Number);
   if(now.getHours()*60+now.getMinutes()<hh*60+mm)return;
   if(s.lastNotified===t)return;
@@ -2575,7 +2591,7 @@ async function polishStudentCmt(givenName){
   const apiKey=DB.api();
   if(!apiKey){el.textContent=raw.slice(0,80)+(raw.length>80?'…':'');return;}
   try{
-    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${givenName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 처음부터 끝까지 반말로만 쓰기(존댓말·'~요' 섞지 않기), 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 오늘 배운 내용을 구체적으로 1개 이상 언급 — 진도에 [이 단원에서 배운 단어]가 있으면 그중 1~2개를 골라 칭찬에 녹여서(예: "오늘 proud 진짜 잘 읽었어!", "th 발음 완전 좋았어~"). 없는 사실은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n수업 진도: ${mats||'없음'}\n선생님 메모: ${raw}`;
+    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${givenName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 처음부터 끝까지 반말로만 쓰기(존댓말·'~요' 섞지 않기), 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 오늘 배운 내용을 구체적으로 1개 이상 언급 — 진도에 [이 단원에서 배운 단어]가 있으면 그중 1~2개를 골라 칭찬에 녹여서(예: "오늘 proud 진짜 잘 읽었어!", "th 발음 완전 좋았어~"). 없는 사실은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n${(typeof PP_BOOKNAME_RULE!=='undefined')?PP_BOOKNAME_RULE+'\n':''}교재·단원 이름은 진도에 적힌 표기를 그대로 쓰세요 — 대소문자를 바꾸지 마세요('Unit 1' 을 'unit 1' 로 쓰지 않기).\n수업 진도: ${mats||'없음'}\n선생님 메모: ${raw}`;
     const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:150,messages:[{role:'user',content}]});
     const text=d.content?.[0]?.text?.trim();
     if(text&&el){
@@ -2730,7 +2746,7 @@ function renderStudentHome(sid){
     <svg class="stu-mascot" viewBox="0 0 64 64" fill="none" aria-hidden="true"><g transform="rotate(-18 32 32)"><rect x="25" y="8" width="14" height="34" rx="3" fill="#FFD166"/><rect x="25" y="8" width="14" height="34" rx="3" fill="url(#pg)" opacity=".18"/><path d="M25 42h14l-7 11z" fill="#F7E7C8"/><path d="M28.6 47.2h6.8L32 53z" fill="#2A2520"/><rect x="25" y="5" width="14" height="6" rx="2.4" fill="#E86A5C"/><circle cx="29.4" cy="24" r="1.9" fill="#2A2520"/><circle cx="34.6" cy="24" r="1.9" fill="#2A2520"/><path d="M29.2 29.4q2.8 2.6 5.6 0" stroke="#2A2520" stroke-width="1.6" stroke-linecap="round"/><circle cx="26.6" cy="27.6" r="1.5" fill="#F09AA0" opacity=".75"/><circle cx="37.4" cy="27.6" r="1.5" fill="#F09AA0" opacity=".75"/></g><defs><linearGradient id="pg" x1="25" y1="8" x2="39" y2="42"><stop stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient></defs></svg>
   </div>`;
   // ── 오늘 할 일 히어로: 도넛 링(오늘 20개) + 큰 버튼 + 오늘의 게임 예고 ──
-  const _revToday=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&c.lastSeen===ppToday()).length;
+  const _revToday=(_cache.vocab_cards||[]).filter(c=>c.sid===sid&&ppStudiedToday(c)).length;
   const _ringN=Math.min(20,_revToday);
   const _ringDone=_ringN>=20;
   const _rR=37,_rC=2*Math.PI*_rR;
@@ -2940,7 +2956,8 @@ function renderStudentHome(sid){
     const qPct=items.length?Math.round(selDone.length/items.length*100):0;
     const head='<div class="wk-sec-head"><span class="t">'+(sl&&sl.isToday?'⚔️ 오늘의 퀘스트':(sl?'⚔️ '+sl.label+'요일 퀘스트':''))+'</span><span class="s" id="wk-head-cnt">'+selDone.length+' / '+items.length+' 클리어</span></div>'
       +(items.length?'<div class="quest-bar"><div class="quest-bar-fill" id="quest-bar-fill" style="width:'+qPct+'%"></div></div>':'')
-      +(sl&&sl.isToday&&selPending.length?'<div style="font-size:13px;color:var(--slate);margin:2px 0 10px">남은 퀘스트 <b style="color:var(--tealt)">'+selPending.length+'개</b> — 다 깨면 오늘 도장을 받아요 🏅</div>':'');
+      +(sl&&sl.isToday&&selPending.length?'<div style="font-size:13px;color:var(--slate);margin:2px 0 10px">남은 퀘스트 <b style="color:var(--tealt)">'+selPending.length+'개</b> — 다 깨면 오늘 도장을 받아요 🏅</div>':'')
+      +(sel>today&&items.length?'<div style="font-size:12.5px;color:var(--tealt);margin:2px 0 10px">미리 해 두면 그날 도장으로 찍혀요 🏅</div>':'');
     let body;
     if(!items.length)body='<div class="wk-empty-day">이 날은 배정된 학습이 없어요 😊<br><span style="font-size:12px">단어 복습으로 예습해볼까요?</span></div>';
     else body=(allDoneToday?'<div class="wk-alldone"><div class="wk-alldone-i">🏆</div><div class="wk-alldone-t">오늘 퀘스트 올클리어!</div><div class="wk-alldone-s">오늘 도장 획득 🏅 내일 퀘스트에서 만나요</div></div>':'')

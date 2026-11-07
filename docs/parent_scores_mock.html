@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>학부모 점수 탭 시안</title>
+<!--
+  학부모 점수 탭 시안 (2026-11-07) — docs/PARENT_SCORES_PLAN.md 와 함께 봅니다.
+  · 앱에 포함되지 않습니다. 이 파일만 브라우저로 열어 보세요.
+  · 숫자는 모양을 보기 위한 예시입니다(실제 학생 데이터가 아닙니다).
+  · 색은 앱 토큰(css/tokens.css)과 같은 값을 복사해 두었습니다.
+-->
+<style>
+:root{
+  --bg:#F7F8FA;--surface:#FFFFFF;--border:#E6E8EC;--divider:#EEF0F3;
+  --navy:#1B2430;--slate:#5F6672;--slate2:#9AA1AC;
+  --teal:#1B5E4A;--tl:#E8F0EC;--tealt:#164C3C;
+  --ok:#2F9E68;--okt:#1E7A4D;--okl:#E4F4EB;
+  --warn:#C77700;--warnt:#8A5200;--warnl:#FBF0DC;
+  --bad:#D9480F;--badt:#A03209;--badl:#FDEDE6;
+  --r:8px;--rs:7px;--rpill:999px;--sh:0 1px 2px rgba(27,36,48,.06);
+  --fb:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:var(--fb);color:var(--navy);-webkit-text-size-adjust:100%}
+.wrap{max-width:430px;margin:0 auto;padding:16px 16px 40px}
+.note{font-size:12px;color:var(--slate);background:var(--surface);border:1px dashed var(--border);
+  border-radius:var(--rs);padding:10px 12px;line-height:1.7;margin-bottom:14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  box-shadow:var(--sh);margin-bottom:14px;overflow:hidden}
+.ch{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:12px 16px;border-bottom:1px solid var(--divider)}
+.ct{font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px}
+.meta{font-size:11.5px;color:var(--slate)}
+.cb{padding:14px 16px}
+.hero{background:var(--bg);border:1px solid rgba(27,94,74,.18);border-radius:14px;
+  padding:15px 16px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.hero .l1{font-size:13.5px;color:var(--tealt);font-weight:700}
+.hero .l2{font-size:12px;color:var(--slate);margin-top:2px}
+.big{font-size:30px;font-weight:800;color:var(--tealt);line-height:1}
+.big span{font-size:16px}
+.up{font-size:12.5px;font-weight:700;color:var(--okt);margin-top:3px}
+.down{font-size:12.5px;font-weight:700;color:var(--warnt);margin-top:3px}
+.bar-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.bar-lbl{font-size:13px;font-weight:700}
+.bar-val{display:flex;align-items:center;gap:6px}
+.bar-wrap{height:7px;background:var(--divider);border-radius:4px;overflow:hidden;margin-bottom:12px}
+.bar-fill{height:100%;border-radius:4px}
+.row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--divider)}
+.row:last-child{border-bottom:none}
+.row .d{font-size:11.5px;color:var(--slate);white-space:nowrap;min-width:58px}
+.row .n{font-size:13.5px;font-weight:700;flex:1;min-width:0}
+.row .s{font-size:12px;color:var(--slate)}
+.chip{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:var(--rpill);white-space:nowrap}
+.chip.ok{background:var(--okl);color:var(--okt)}
+.chip.te{background:var(--tl);color:var(--tealt)}
+.chip.wa{background:var(--warnl);color:var(--warnt)}
+.grade{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.hint{font-size:11.5px;color:var(--slate);line-height:1.6;margin-top:10px;
+  background:var(--bg);border-radius:var(--rs);padding:8px 10px}
+.secttl{font-size:11.5px;font-weight:800;color:var(--slate2);letter-spacing:.04em;
+  margin:22px 2px 8px}
+.ico{width:16px;height:16px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+@media (prefers-color-scheme:dark){ /* 앱은 라이트 전용이라 시안도 라이트로 고정 */ }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="note">
+    <b>시안</b> — 학부모 앱의 <b>점수</b> 탭. 아래 네 블록 중 <b>기록이 있는 것만</b> 나옵니다.
+    숫자는 모양 확인용 예시입니다.
+  </div>
+
+  <!-- ① 자체 시험 — 지금 있는 것 (그대로) -->
+  <div class="secttl">① 자체 시험 — 지금 있는 블록</div>
+  <div class="card">
+    <div class="ch">
+      <span class="ct">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        최근 테스트
+      </span>
+      <span class="meta">2026-11-07 · 최초 · 조금 더</span>
+    </div>
+    <div class="cb">
+      <div class="hero">
+        <div><div class="l1">최근 단어 테스트</div><div class="l2">2026-11-07</div></div>
+        <div style="text-align:right">
+          <div class="big">85<span>%</span></div>
+          <div class="down">▼ 5</div>
+        </div>
+      </div>
+
+      <div class="bar-row"><span class="bar-lbl">단어</span>
+        <span class="bar-val"><span style="font-size:12px;font-weight:700;color:var(--warnt)">조금 더</span>
+        <span style="font-size:16px;font-weight:700;color:var(--warnt)">85%</span>
+        <span class="down" style="margin:0">▼5</span></span></div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:85%;background:var(--warn)"></div></div>
+
+      <div class="bar-row"><span class="bar-lbl">어법</span>
+        <span class="bar-val"><span style="font-size:12px;font-weight:700;color:var(--okt)">통과</span>
+        <span style="font-size:16px;font-weight:700;color:var(--okt)">95%</span></span></div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:95%;background:var(--ok)"></div></div>
+
+      <div style="font-size:12px;color:var(--slate);margin:2px 0 6px">다시 볼 단어</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <span class="chip wa">brave</span><span class="chip wa">whisper</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 학교 내신 -->
+  <div class="secttl">② 학교 내신 — 새 블록 (기록 있을 때만)</div>
+  <div class="card">
+    <div class="ch">
+      <span class="ct">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        학교 내신
+      </span>
+      <span class="meta">성취도 그대로</span>
+    </div>
+    <div class="cb" style="padding-top:4px;padding-bottom:6px">
+      <div class="row">
+        <span class="d">2026-1학기</span>
+        <span class="n">중간고사 <span class="s">· 신정중</span></span>
+        <span class="grade" style="color:var(--okt)">A</span>
+        <span class="chip ok">92%</span>
+      </div>
+      <div class="row">
+        <span class="d">2026-1학기</span>
+        <span class="n">기말고사 <span class="s">· 신정중</span></span>
+        <span class="grade" style="color:var(--okt)">A</span>
+        <span class="chip ok">95%</span>
+      </div>
+      <div class="row">
+        <span class="d">2025-2학기</span>
+        <span class="n">기말고사 <span class="s">· 신정중</span></span>
+        <span class="grade" style="color:var(--tealt)">B</span>
+        <span class="chip te">88%</span>
+      </div>
+      <div class="hint">학교 시험은 학교·학년마다 범위가 달라 서로 비교하지 않습니다.</div>
+    </div>
+  </div>
+
+  <!-- ③ 모의고사 -->
+  <div class="secttl">③ 모의고사 — 새 블록 (기록 있을 때만)</div>
+  <div class="card">
+    <div class="ch">
+      <span class="ct">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+        모의고사
+      </span>
+      <span class="meta">등급</span>
+    </div>
+    <div class="cb" style="padding-top:4px;padding-bottom:6px">
+      <div class="row">
+        <span class="d">2026-09</span>
+        <span class="n">9월 모의고사</span>
+        <span class="grade" style="color:var(--okt)">2<span style="font-size:13px;font-weight:700">등급</span></span>
+        <span class="up" style="margin:0">▲1</span>
+      </div>
+      <div class="row">
+        <span class="d">2026-06</span>
+        <span class="n">6월 모의고사</span>
+        <span class="grade" style="color:var(--tealt)">3<span style="font-size:13px;font-weight:700">등급</span></span>
+      </div>
+      <div class="hint">등급은 <b>1등급이 가장 높습니다.</b> 회차가 적을 때는 그래프 대신 목록으로 보여 드립니다.</div>
+    </div>
+  </div>
+
+  <!-- ④ NELT -->
+  <div class="secttl">④ NELT — 새 블록 (기록 있을 때만)</div>
+  <div class="card">
+    <div class="ch">
+      <span class="ct">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0z"/></svg>
+        NELT
+      </span>
+      <span class="meta">점수 · 레벨</span>
+    </div>
+    <div class="cb" style="padding-top:4px;padding-bottom:6px">
+      <div class="row">
+        <span class="d">2026</span>
+        <span class="n">하반기 <span class="s">· 2026-11-07</span></span>
+        <span class="grade" style="color:var(--tealt)">78<span style="font-size:13px;font-weight:700">점</span></span>
+        <span class="chip te">Level 5</span>
+        <span class="up" style="margin:0">▲6</span>
+      </div>
+      <div class="row">
+        <span class="d">2026</span>
+        <span class="n">상반기 <span class="s">· 2026-05-18</span></span>
+        <span class="grade" style="color:var(--tealt)">72<span style="font-size:13px;font-weight:700">점</span></span>
+        <span class="chip te">Level 4</span>
+      </div>
+      <div class="hint">상반기·하반기 한 번씩 보는 시험입니다. 점수와 레벨을 함께 보여 드립니다.</div>
+    </div>
+  </div>
+
+  <div class="secttl">네 블록이 모두 비었을 때</div>
+  <div class="card">
+    <div class="cb" style="padding:30px 18px;text-align:center">
+      <svg class="ico" viewBox="0 0 24 24" style="width:30px;height:30px;color:var(--slate2)"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18z"/><path d="m2 2 7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+      <div style="font-size:15px;font-weight:700;margin:8px 0 4px">아직 테스트 기록이 없어요</div>
+      <div style="font-size:13px;color:var(--slate);line-height:1.7">시험을 보면 점수와 영역별 성장이<br>여기에 표시됩니다.</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -18,36 +18,33 @@ const CONCURRENCY = 3;
 // claude-proxy(엣지 함수)로 보내는 본문 크기 여유치 — 이미지/PDF base64 합계 제한
 const MAX_IMPORT_TOTAL_BASE64 = 11_000_000; // ≈ 원본 8MB
 
-// ── API 키 (페이지앤펜슬 설정 재사용) ────────────────────────────────────────
-let _apiKeyCache;
-async function getApiKey() {
-  if (_apiKeyCache !== undefined) return _apiKeyCache;
+// 서버 시크릿이 있는지 한 번 확인 — 일부러 model 을 빼고 보내므로 토큰을 쓰지 않는다.
+// 키가 없으면 프록시가 'API key required' 로 막고, 있으면 model 오류로 막힌다.
+let _aiProbe;
+async function probeAi() {
+  if (_aiProbe !== undefined) return _aiProbe;
   try {
-    const local = JSON.parse(localStorage.getItem("pp_apikey") || "null");
-    if (local) return (_apiKeyCache = local);
-  } catch {}
-  try {
-    const r = await fetch(`${SUPA_URL}/rest/v1/settings?key=eq.apikey&limit=1`, {
-      headers: { ...SUPA_HEADERS, Accept: "application/vnd.pgrst.object+json" },
+    const r = await fetch(`${SUPA_URL}/functions/v1/claude-proxy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPA_KEY },
+      body: "{}",
     });
-    if (r.ok) {
-      const d = await r.json();
-      if (d?.value) return (_apiKeyCache = d.value);
-    }
-  } catch {}
-  return (_apiKeyCache = "");
+    const d = await r.json().catch(() => ({}));
+    return (_aiProbe = !/API key required/i.test(String(d?.error?.message || "")));
+  } catch {
+    return (_aiProbe = false);
+  }
 }
 
 // ── claude-proxy 호출 ────────────────────────────────────────────────────────
+// 2026-11-07: API 키는 서버 시크릿(ANTHROPIC_API_KEY)에만 둔다. settings 의 apikey 행은
+// 지워졌고(공개 anon 키로 읽혔다), claude-proxy 도 클라이언트가 보내는 apiKey 를 무시한다.
+// 그래서 여기서 키를 찾거나 동봉하지 않는다 — 키가 없으면 프록시가 400 으로 알려 준다.
 async function callClaude(body) {
-  const apiKey = await getApiKey();
-  if (!apiKey) {
-    throw new Error("Claude API 키가 없습니다 — 페이지앤펜슬 설정 탭에서 API Key를 확인해 주세요.");
-  }
   const res = await fetch(`${SUPA_URL}/functions/v1/claude-proxy`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPA_KEY },
-    body: JSON.stringify({ apiKey, ...body }),
+    body: JSON.stringify(body),
   });
   const d = await res.json().catch(() => ({}));
   if (!res.ok || d.type === "error") {
@@ -314,7 +311,7 @@ async function deleteWorksheet(id) {
 export const ppApi = {
   bootstrap: async () => ({
     user: { id: "pp-teacher", name: "Page & Pencil" },
-    aiConfigured: Boolean(await getApiKey()),
+    aiConfigured: await probeAi(),
   }),
   importFiles,
   createJob,

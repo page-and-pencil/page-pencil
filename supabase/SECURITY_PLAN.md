@@ -1,138 +1,161 @@
-# 공개 키로 읽히는 것들 — 현황과 정리 계획
+# 공개 키로 읽히는 것들 — 현황과 남은 순서
 
-작성 2026-11-07. **값(키·비밀번호)은 이 문서 어디에도 적지 않습니다. 있음/없음과 키 이름만.**
-이 문서의 SQL·코드는 **원장님이 실행**합니다. 이 저장소에서는 파일만 만들었습니다.
-
----
-
-## 0. 먼저 할 일 (원장님)
-
-1. Anthropic 콘솔에서 'page and pencil' 키 **새로 발급 → 옛 키 폐기**
-2. ElevenLabs 키 **새로 발급 → 옛 키 폐기**
-3. 선생님 비밀번호 변경
-4. 새 키는 **앱 설정 화면에 넣지 않습니다.** 아래 4번 순서대로 서버 시크릿에만 넣습니다.
-
-지금 공개된 anon 키로 `settings` 를 읽으면 그 값들이 그대로 나옵니다. 키를 바꾸기 전에는
-아래 작업을 아무리 해도 이미 유출된 키는 살아 있습니다. **폐기가 먼저입니다.**
+최초 2026-11-04 · 갱신 2026-11-07.
+**값(키·비밀번호·토큰)은 이 문서 어디에도 적지 않습니다. 있음/없음과 키 이름만.**
+이 문서의 SQL·배포 명령은 **원장님이 실행**합니다. 저장소에는 파일만 만들어 두었습니다.
 
 ---
 
-## 1. 테이블별 anon 권한
+## 0. 지금까지 끝난 것
 
-Supabase 커넥터가 지금 정책 조회를 거부해(권한 오류) 정책 SQL 을 직접 읽지 못했습니다.
-대신 **확인된 사실**로만 적습니다. 쓰기 시험은 하지 않았습니다.
+| 날짜 | 한 일 | 결과 |
+|---|---|---|
+| 11/07 09:50 | `settings` 의 `apikey` 행 삭제 (Aside) | Anthropic 키는 서버 시크릿 `ANTHROPIC_API_KEY` 만. 앱은 '● 서버 키 사용 중' |
+| 11/07 10:05 | ElevenLabs 를 새 계정·새 키로 교체 (Aside) | TTS 권한만 · 월 8,000 크레딧 상한 · 유출 감지 시 자동 비활성화. 시크릿 `ELEVENLABS_API_KEY` 등록 |
+| 11/07 | `tts-proxy` 작성 · `claude-proxy` 강화 · 앱이 프록시 우선 | **배포는 아직** — 아래 2번 순서대로 |
 
-- 2026-11-04 Supabase security advisor: **RLS 가 꺼진 테이블 8개** —
-  `students`, `lessons`, `tests`, `readings`, `logs`, `notices`, `settings`, `monthly_reports`
-- RLS 가 꺼진 테이블은 PostgREST 를 통해 anon 역할의 테이블 권한을 그대로 따릅니다.
-- **앱이 매일 anon 키로 그 테이블들에 쓰고 있습니다**(supaUpsert/supaDelete). 즉 쓰기가 됩니다 —
-  시험해 볼 필요 없이 앱 동작 자체가 증거입니다.
-
-| 테이블 | select | insert/update | delete | 근거 |
-|---|---|---|---|---|
-| students | ○ | ○ | ○ | RLS off(advisor) · 앱이 anon 으로 저장·휴지통 처리 |
-| lessons | ○ | ○ | ○ | 〃 |
-| tests | ○ | ○ | ○ | 〃 |
-| readings | ○ | ○ | ○ | 〃 |
-| logs | ○ | ○ | ○ | 〃 |
-| notices | ○ | ○ | ○ | 〃 · supaDelete 사용 |
-| settings | ○ | ○ | ○ | 〃 · **apikey·elevenlabs·pw 가 여기 있음** |
-| monthly_reports | ○ | ○ | ○ | 〃 |
-| assignments · homeworks · textbooks · messages · vocab_cards · global_textbooks · classes · exam_schedules · counsels · worksheets | ○ | ○ | ○ | RLS 를 켰더라도 anon 에게 열어 주는 정책이 있어야 앱이 도는데, 실제로 돌고 있음 |
-
-**요약: 지금은 anon 키 하나로 모든 테이블을 읽고 쓰고 지울 수 있습니다.**
-anon 키는 `js/db.js` 에 들어 있고 그 파일은 공개 저장소에 있습니다.
+4번 ②~⑤(옛 번호)는 끝났습니다. 남은 것은 **ElevenLabs 서버 경유**와 **settings 잠금**,
+그리고 별도 과제인 **학생 개인정보**입니다.
 
 ---
 
-## 2. 비밀값 위치 (값은 적지 않음)
+## 1. 지금 상태 요약
+
+- 공개 anon 키가 `js/db.js` 에 있고 그 파일은 공개 저장소에 있습니다.
+- `settings` 에 남아 있는 비밀값: **`elevenlabs`(키), `pw`(선생님 비밀번호 해시)**.
+  `gbooks_key` 도 anon 으로 읽히지만 **앱 코드에 사용처가 없습니다**(지워도 됨).
+- `students`·`lessons`·`tests`·`readings`·`logs`·`notices`·`monthly_reports` 는
+  RLS 가 꺼져 있어 anon 키로 전부 읽고 쓰고 지울 수 있습니다 → 6번(별도 과제).
+- `claude-proxy`·`tts-proxy` 는 anon 키만 있으면 누구나 부를 수 있었습니다 →
+  11/07 에 **출처·모델·토큰·크기·IP 상한**을 넣었습니다(배포 필요).
+
+---
+
+## 2. 남은 실행 순서 (그대로 따라 하시면 됩니다)
+
+```
+① 시크릿 확인                                                    (원장님, 1분)
+   Supabase → Edge Functions → Secrets 에 아래 두 개가 있는지
+     ANTHROPIC_API_KEY      (있음 — 11/07)
+     ELEVENLABS_API_KEY     (있음 — 11/07)
+
+② 함수 배포                                                      (원장님, 2분)
+   supabase functions deploy tts-proxy
+   supabase functions deploy claude-proxy
+   ※ 저장소에 코드만 있습니다. 이 명령은 제가 실행하지 않았습니다.
+
+③ 앱 배포 확인                                                    (이미 push 됨)
+   라이브 index.html 의 ?v= 가 새 값인지 확인
+   (새로고침이 안 먹으면 주소 뒤 ?x=1 을 붙여 한 번 열어 보세요)
+
+④ 음성 확인                                                      (원장님, 2분)
+   설정 탭을 엽니다 → ElevenLabs 점이 '● 사용 중 (서버 경유)' 로 바뀌는지
+   [테스트 재생] → 결과 아래에 '경로: 서버 경유(tts-proxy)' 라고 나오면 성공
+   → '경로: 이 기기에 저장된 키' 로 나오면 함수 배포나 시크릿을 다시 확인하세요
+   (설정 행의 키가 아직 살아 있어서, 서버가 안 되면 자동으로 그 키로 돌아갑니다
+    — 이 단계에서 음성이 끊기는 일은 없습니다. 학생·학부모 화면은 ⑥ 뒤에
+    서버 경유로 바뀝니다.)
+
+⑤ AI 확인                                                        (원장님, 1분)
+   수업 기록에서 AI 코멘트 한 번 · 워크시트 스튜디오에서 한 문제 생성
+   → 되면 claude-proxy 강화판이 정상
+
+⑥ ElevenLabs 키 행 삭제                                           (원장님, 1분)
+   supabase/settings_drop_secrets.sql 의 2) 줄만 실행
+   → 앱을 새로 열면 점이 '● 서버 키 사용 중' 이 되고 키 입력칸이 사라집니다
+   → 이때부터 학생·학부모 화면의 음성도 서버 경유로 생성됩니다
+   → 목소리는 그대로입니다 (기본 목소리 Matilda 를 코드에 박아 뒀습니다)
+   → 학생 화면에서 ⑴ 단어 발음 ⑵ 원서 본문 듣기 를 한 번씩 확인해 주세요
+   ───── 여기까지 하면 공개된 키는 0개입니다 ─────
+
+⑦ 쓰이지 않는 행 정리 (선택)
+   settings_drop_secrets.sql 의 3) 줄 — gbooks_key
+
+⑧ settings 잠금                                                  (원장님, 1분)
+   supabase/settings_rls.sql 실행 → 그 뒤 앱을 한 번 열어
+   결제 안내·기준값·코멘트 칩이 그대로 나오는지 확인
+
+⑨ 선생님 비밀번호·학생 개인정보                                     → 6번(별도 과제)
+```
+
+④⑤ 가 안 되면 ⑥ 을 하지 마세요. `settings` 의 `elevenlabs` 행이 남아 있는 동안은
+앱이 그 키로 직접 생성하므로 음성이 멈추지 않습니다(프록시 실패 시 자동 폴백).
+
+---
+
+## 3. 비밀값 위치 (값은 적지 않음)
 
 | 키 이름 | 지금 어디에 | 옮길 곳 |
 |---|---|---|
-| Anthropic API 키 (`settings.apikey`) | settings 행 · 브라우저 localStorage | **Edge Function 시크릿 `ANTHROPIC_API_KEY` 만** |
-| ElevenLabs 키 (`settings.elevenlabs`) | settings 행 · localStorage | **시크릿 `ELEVENLABS_API_KEY`** + 서버 함수 경유 |
-| 선생님 비밀번호 (`settings.pw`) | settings 행 (64자 해시) | 서버에서 비교하거나 Supabase Auth |
-| Cloudinary (`settings.cloud`) | settings 행 | 그대로 — unsigned preset 이라 공개돼도 업로드 외 권한 없음 |
-| 기준값 (`jgPrepDays`·`vocabPassPct`·`bmThresholds`·`paperMix`·`cmtChips`·`acct`·`kakao`) | settings 행 | 그대로 (비밀이 아님, 계속 읽혀야 함) |
-
-확인된 것: `callClaudeProxy` 는 이미 서버 시크릿을 우선 씁니다(2026-11-04 확인 — 클라이언트 키 없이도
-AI 가 작동). 즉 **`settings.apikey` 는 이미 없어도 되는 값**입니다.
-ElevenLabs 는 다릅니다 — `js/db.js:718,761` 이 브라우저에서 `api.elevenlabs.io` 를 직접 부릅니다.
-**키를 지우면 음원 생성이 멈춥니다.** 서버 함수(`tts-proxy`)를 먼저 만들어야 합니다.
+| Anthropic API 키 | **시크릿 `ANTHROPIC_API_KEY` 만** | 끝 |
+| ElevenLabs 키 (`settings.elevenlabs`) | 시크릿 `ELEVENLABS_API_KEY` + settings 행(아직) | ⑥ 으로 settings 행 삭제 |
+| 선생님 비밀번호 (`settings.pw`) | settings 행 (64자 해시) | 서버 비교 또는 Supabase Auth (6번) |
+| Cloudinary (`settings.cloud`) | settings 행 | 그대로 — unsigned preset |
+| Google Books (`settings.gbooks_key`) | settings 행 | **사용처 없음 → 삭제** |
+| 기준값 (`jgPrepDays`·`vocabPassPct`·`bmThresholds`·`cmtChips`·`acct`·`kakao`·`lastBackup`·`paperMix`) | settings 행 | 그대로 (비밀이 아니고 계속 읽혀야 함) |
 
 ---
 
-## 3. 만들 파일
+## 4. 파일 목록
 
 | 파일 | 하는 일 | 상태 |
 |---|---|---|
-| `supabase/settings_rls.sql` | settings 를 화이트리스트로 잠금 (apikey·elevenlabs·pw 차단) | 이미 있음 — ElevenLabs 서버화 뒤에 적용 |
-| `supabase/settings_drop_secrets.sql` | settings 에서 apikey·elevenlabs 행 삭제 | **이번에 추가** |
-| `supabase/rls_student_privacy.sql` | students 등 개인정보 테이블 RLS 설계 (초안·적용 금지) | **이번에 추가(주석 위주)** |
-| `supabase/functions/tts-proxy/` | ElevenLabs 를 서버에서 부르는 함수 | 다음 단계 |
+| `supabase/functions/tts-proxy/index.ts` | ElevenLabs 를 서버에서 부른다 (글자 수·목소리·출처·IP 상한) | **이번에 추가 — 배포 필요** |
+| `supabase/functions/claude-proxy/index.ts` | 허용 모델·max_tokens·본문 크기·출처·IP 상한, 클라이언트 키 무시 | **이번에 갱신 — 배포 필요** |
+| `supabase/settings_rls.sql` | settings 화이트리스트 잠금 (apikey·elevenlabs·gbooks_key 차단) | ⑧ 에서 실행 |
+| `supabase/settings_drop_secrets.sql` | 비밀값 행 삭제 (순서 주석 포함) | ⑥⑦ 에서 실행 |
+| `supabase/auth_rls_draft.sql` | students 등 RLS 정책 초안 (실행 금지) | **이번에 추가 — 결정 뒤 1단계에서** |
+| `supabase/AUTH_PLAN.md` | Supabase Auth 전환 설계서 | **이번에 추가 — 읽고 결정만** |
 
----
+### 함수에 넣을 수 있는 선택 시크릿
 
-## 4. 실행 순서 (앱이 끊기지 않게)
+값이 없으면 코드의 기본값이 쓰입니다. 평소에는 건드릴 필요가 없습니다.
 
 ```
-① Anthropic·ElevenLabs 키 새로 발급, 옛 키 폐기          (원장님)
-② Supabase → Edge Functions → Secrets 에
-   ANTHROPIC_API_KEY 등록(이미 있으면 새 값으로 교체)      (원장님)
-③ 앱 설정 화면에서 Claude 키 칸을 비우고 저장 →
-   점이 '● 서버 키 사용 중' 으로 바뀌는지 확인              (원장님, 1분)
-④ supabase/settings_drop_secrets.sql 의 apikey 줄만 실행    (원장님)
-⑤ 앱에서 AI 코멘트 한 번 눌러 작동 확인                     (원장님)
-───── 여기까지 하면 Anthropic 키는 더 이상 공개되지 않습니다 ─────
-⑥ ElevenLabs: tts-proxy 함수 작성·배포 → 앱을 서버 경유로 바꿈 → 키 행 삭제
-⑦ settings_rls.sql 적용 (화이트리스트 잠금)
-⑧ pw·students 는 5번 참고 — 별도 과제
+TTS_ALLOWED_ORIGINS      기본 https://page-and-pencil.github.io
+TTS_ALLOW_NO_ORIGIN      '1' 이면 Origin 없는 요청 허용 (로컬 file:// 시험용)
+TTS_ALLOWED_VOICES       기본 Matilda, Sarah 두 개
+TTS_MAX_PER_MIN          기본 40
+TTS_MAX_CHARS_PER_DAY    기본 20000
+CLAUDE_ALLOWED_ORIGINS   기본 https://page-and-pencil.github.io
+CLAUDE_ALLOW_NO_ORIGIN   '1' 이면 Origin 없는 요청 허용
+CLAUDE_ALLOWED_MODELS    기본 haiku-4-5 / sonnet-4-6 / opus-4-8
+CLAUDE_MAX_TOKENS        기본 16000
+CLAUDE_MAX_BODY_BYTES    기본 12MB (워크시트 스튜디오의 이미지 가져오기)
+CLAUDE_MAX_PER_MIN       기본 30 · CLAUDE_MAX_PER_DAY 기본 800
 ```
 
-③④⑤ 사이에 AI 가 잠깐 멈춰도 수업 기록·숙제는 그대로 돌아갑니다.
+**주의**: 새 모델로 바꾸면 `CLAUDE_ALLOWED_MODELS` 에 그 이름을 넣거나
+함수 코드의 `DEFAULT_MODELS` 를 고쳐야 합니다. 안 하면 "허용되지 않은 model" 로 막힙니다.
 
 ---
 
-## 5. claude-proxy 남용 방지
+## 5. claude-proxy·tts-proxy 남용 방지 — 무엇이 막히고 무엇이 안 막히나
 
-지금은 anon 키만 있으면 누구나 부를 수 있습니다(= 원장님 Anthropic 요금으로 남이 쓸 수 있음).
-현실적인 순서:
+**막히는 것**
+- 다른 사이트에 올린 페이지에서 부르기 (Origin 확인)
+- 비싼 모델·큰 max_tokens 로 바꿔 부르기 (모델 목록·토큰 상한)
+- 큰 본문 밀어 넣기 (크기 상한)
+- 한 사람이 몰아서 쓰기 (IP 별 분·일 상한)
+- 모르는 목소리로 음성 만들기 (voiceId 목록)
 
-1. **모델·max_tokens 상한** — 함수에서 허용 모델 목록과 max_tokens 상한을 강제. 코드 몇 줄, 위험 없음. **먼저 이것**
-2. **요청 수 제한** — IP 또는 anon 키 기준 분당/일별 상한. Supabase Edge 에서 메모리 카운터로 간단히. 중간
-3. **선생님 세션 확인** — 제대로 하려면 Supabase Auth 가 필요(지금은 PIN 을 브라우저에서 비교). 8번 과제와 묶임
+**아직 막히지 않는 것**
+- anon 키를 들고 **정상 범위 안에서** 부르는 것. 상한은 인스턴스 메모리라
+  함수가 여러 개 떠 있으면 그만큼 느슨합니다.
+- 제대로 막으려면 **선생님 세션 확인**이 필요하고, 그건 Supabase Auth 과제(6번)와 묶입니다.
+- 현실적 방어선: ElevenLabs 새 키의 **월 8,000 크레딧 상한**과 Anthropic 콘솔의 사용량 한도.
+  Anthropic 쪽에도 월 상한을 걸어 두시는 걸 권합니다(콘솔 → Limits).
 
 ---
 
-## 6. 학생 개인정보 (students 의 PIN·학부모 연락처)
+## 6. 학생 개인정보 (students 의 PIN·학부모 연락처) — 별도 과제
 
-**지금 구조로는 RLS 를 켜도 막을 수 없습니다.** 학생·학부모가 이름+PIN 으로 로그인하는데,
-그 비교를 브라우저가 합니다. 브라우저가 비교하려면 students 를 읽을 수 있어야 하고,
+**지금 구조로는 RLS 를 켜도 막을 수 없습니다.** 학생·학부모가 이름+PIN 으로 로그인하는데
+그 비교를 브라우저가 합니다. 브라우저가 비교하려면 `students` 를 읽을 수 있어야 하고,
 읽을 수 있으면 anon 키를 가진 누구나 읽을 수 있습니다.
 
-제대로 막으려면 **로그인을 서버로 옮겨야** 합니다.
+설계서를 따로 만들었습니다 → **`supabase/AUTH_PLAN.md`**
+(선생님 Auth 계정 1개 + 학생·학부모 로그인 함수, 테이블별 정책 초안, 바뀌는 코드 목록,
+끊김 없이 옮기는 순서, 되돌리는 방법.) **아직 아무 기능도 켜지 않았습니다.**
 
-```
-A안 (작음·빠름)  로그인 전용 Edge Function
-   · login(name, pin) → 맞으면 그 학생 데이터만 담은 토큰/세션 반환
-   · students 는 anon select 금지, 함수(service_role)만 읽음
-   · 앱은 토큰으로 자기 데이터만 요청
-   작업량: 함수 1개 + 로그인 흐름 수정 + 각 테이블 RLS 정책 → 2~3일
-   한계: 토큰을 직접 다뤄야 하고, 선생님 앱은 여전히 anon 으로 전부 읽음
-
-B안 (제대로)   Supabase Auth 도입
-   · 선생님 계정 1개 + 학생/학부모 계정(또는 매직링크·PIN 교환)
-   · RLS 를 auth.uid() 기준으로 — 학생은 자기 행만, 선생님은 전부
-   작업량: 로그인·세션·정책 전면 수정 → 1~2주
-   효과: 키·개인정보·claude-proxy 남용이 한 번에 정리됨
-```
-
-**권고**: ①~⑤(키 정리)를 먼저 끝내고, 학생 개인정보는 B안을 별도 과제로 잡으시는 게 맞습니다.
-A안은 중간 상태라 나중에 B안으로 갈 때 두 번 고치게 됩니다.
-
----
-
-## 7. 지금 당장 줄어드는 위험
-
-②~⑤만 해도 **Anthropic 키 유출은 끝납니다**(가장 돈이 나가는 구멍).
-⑥⑦로 ElevenLabs·비밀번호가 정리되고, 남는 것은 학생 개인정보 하나입니다.
+권고: 위 ①~⑧(키·설정 정리)을 먼저 끝내고, 개인정보는 날짜를 따로 잡아 진행하세요.

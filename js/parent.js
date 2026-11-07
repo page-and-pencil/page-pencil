@@ -33,7 +33,9 @@ function parentAreaGrowth(sid){
   if(areas.length<2)return '';
   // 학생 화면 퀘스트 띠와 같은 색 — 보호자와 아이가 같은 색으로 같은 영역을 떠올리게 한다
   const AREA_COLOR={'리딩':'#10876A','리스닝':'#D08A12','어법':'#7C4DD6','어휘':'#3B6FD4'};
-  const sem=p=>p>=80?{f:'var(--ok)',t:'var(--okt)',l:'우수'}:p>=60?{f:'var(--accent)',t:'var(--tealt)',l:'양호'}:{f:'var(--warn)',t:'var(--warnt)',l:'보완 중'};
+  // 등급은 통과 기준(vocabPassPct)을 기준선으로 — 기준 미만을 '우수' 라 부르지 않는다
+  const _passL=()=>(typeof ppVocabPassPct==='function')?ppVocabPassPct():90;
+  const sem=p=>{const q=_passL();return p>=q?{f:'var(--ok)',t:'var(--okt)',l:'통과'}:p>=q-15?{f:'var(--accent)',t:'var(--tealt)',l:'조금 더'}:{f:'var(--warn)',t:'var(--warnt)',l:'보완 중'};};
   return `<div class="card">
     <div class="ch"><span class="ct">${luIcon('trending-up',16)}영역별 성장</span></div>
     <div class="cb" style="padding:14px 18px">
@@ -165,13 +167,13 @@ async function _ppPushRow(){
   const s=DB.stus().find(x=>x.id===currentParentSid);
   const nm=(s&&s.name)||'아이';
   if(st.on){
-    d.textContent='켜짐 — '+nm+'이(가) 숙제를 안 한 날 알려드려요';
+    d.textContent='켜짐 — '+nm+ppJosa(nm,'이','가')+' 숙제를 안 한 날 알려드려요';
     b.textContent='끄기';b.className='btn bo bsm stu-push-b';row.classList.add('on');
   }else if(st.perm==='denied'){
     d.textContent='차단돼 있어요 — 아래 방법으로 풀어 주세요';
     b.textContent='다시 시도';b.className='btn bo bsm stu-push-b';row.classList.remove('on');
   }else{
-    d.textContent=nm+'이(가) 숙제를 안 한 날 저녁에 알려드려요';
+    d.textContent=nm+ppJosa(nm,'이','가')+' 숙제를 안 한 날 저녁에 알려드려요';
     b.textContent='켜기';b.className='btn bt bsm stu-push-b';row.classList.remove('on');
   }
 }
@@ -187,7 +189,9 @@ async function loadParent(sid){
   // 히어로 업데이트
   document.getElementById('p-name').textContent=s.name;
   const av=document.getElementById('p-avatar');if(av)av.textContent=(s.name||'').trim().slice(0,1)||'학';
-  const heroMeta=[(s.grade||s.lv||''),(s.school||''),(latLes?'마지막 수업: '+latLes.date:'')].filter(Boolean).join(' · ');
+  // '마지막 수업'은 실제로 들은 수업 — 결석·휴강 날짜를 가리키지 않게 (2026-11-07)
+  const latAttLes=les.find(l=>!(typeof ppAttAway==='function'&&ppAttAway(l.att)));
+  const heroMeta=[(s.grade||s.lv||''),(s.school||''),(latAttLes?'마지막 수업: '+latAttLes.date:'')].filter(Boolean).join(' · ');
   document.getElementById('p-meta').textContent=heroMeta;
   _ppPushRow();   // 숙제 알림 구독 상태 (비동기)
 
@@ -281,7 +285,7 @@ async function loadParent(sid){
       <div class="ch"><span class="ct">${luIcon('pin',16)}최근 수업</span><span class="mono" class="p-dim">${latLes.date||''}</span></div>
       <div class="cb" style="padding:12px 16px">
         ${(typeof ppAttAway==='function'&&ppAttAway(latLes.att))
-          ?`<div style="font-size:13.5px;line-height:1.8;color:var(--navy)">${(latLes.date||'').slice(5).replace('-','월 ')}일은 <b>${ATTLBL[latLes.att]||'수업에 참여하지 못했어요'}</b>${latLes.att==='teacher_cancel'||latLes.att==='holiday'?' 이었어요.':' 했어요.'}<br><span style="color:var(--slate)">보강 일정은 선생님이 따로 안내드릴게요.</span></div>`
+          ?`<div style="font-size:13.5px;line-height:1.8;color:var(--navy)">${(typeof ppMdLabel==='function'&&ppMdLabel(latLes.date))?ppMdLabel(latLes.date)+'은 ':''}<b>${(typeof PP_ATT_SENT!=='undefined'&&PP_ATT_SENT[latLes.att])||'수업에 참여하지 못했어요'}</b><br><span style="color:var(--slate)">보강 일정은 선생님이 따로 안내드릴게요.</span></div>`
           :`${mats?`<div style="font-size:13px;margin-bottom:8px;line-height:1.8">${mats}</div>`:''}
         ${polished
           ?`<div class="pcmt"><div class="pcmt-lbl">선생님 코멘트</div><div class="pcmt-txt">${polished}</div></div>`
@@ -329,7 +333,7 @@ async function loadParent(sid){
     const vChange=vPrev!==null?vp-vPrev:null;
     const nextWords=(latTst.wrongWords||[]).slice(0,5);
     // 시맨틱 점수 막대 (우수=에메랄드 / 양호=틸 / 보완=앰버)
-    const _sem=p=>p>=80?{f:'var(--ok)',t:'var(--okt)',l:'우수'}:p>=60?{f:'var(--accent)',t:'var(--tealt)',l:'양호'}:{f:'var(--warn)',t:'var(--warnt)',l:'보완 중'};
+    const _sem=p=>{const q=(typeof ppVocabPassPct==='function')?ppVocabPassPct():90;return p>=q?{f:'var(--ok)',t:'var(--okt)',l:'통과'}:p>=q-15?{f:'var(--accent)',t:'var(--tealt)',l:'조금 더'}:{f:'var(--warn)',t:'var(--warnt)',l:'보완 중'};};
     const scoreBar=(label,p,delta)=>{const s=_sem(p);return `<div style="margin-bottom:13px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <span style="font-size:13.5px;color:var(--text-muted)">${label}</span>

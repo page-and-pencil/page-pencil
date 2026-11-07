@@ -548,6 +548,10 @@ async function loadAllData(bg){
     // 로컬 키가 없을 때만, 서버 시크릿이 있는지 한 번 물어본다 (있으면 AI 를 그대로 켠다).
     // 로컬 키가 있으면 요청을 아예 보내지 않는다 — 지금까지와 똑같이 동작한다.
     if(!_cache.settings.apikey)ppProbeAiProxy();
+    // 음성도 같은 방식 — 설정에 키가 없을 때만 서버 함수(tts-proxy)에 키가 있는지 묻는다.
+    // 로컬 키가 있으면 요청을 아예 보내지 않는다(아이 기기 콘솔에 404 를 남기지 않기 위해).
+    // 키가 있는 동안 서버 경유를 확인하려면 설정 탭을 열면 된다 — 거기서 한 번 확인한다.
+    if(!(_cache.settings.elevenlabs&&_cache.settings.elevenlabs.key)&&_cache.settings.ttsProxy===undefined)ppProbeTtsProxy();
     // 직결 준비 일수 (없으면 기본 28일 — ppJgPrepDays 가 판단)
     try{const jp=await supaGetSetting('jgPrepDays');if(jp!=null)_cache.settings.jgPrepDays=jp;}catch(e){}
     // 어휘 테스트 통과 기준 (없으면 기본 90% — ppVocabPassPct 가 판단)
@@ -634,6 +638,11 @@ async function ppProbeAiProxy(){
     const msg=String(d?.error?.message||'');
     _cache.settings.aiProxy=!/API key required/i.test(msg);
   }catch(e){_cache.settings.aiProxy=false;}
+  // 이 확인은 부팅 뒤에 끝난다. 그 전에 그려진 'API Key 미설정' 배너를 다시 판단한다.
+  try{
+    if(typeof checkCldWarn==='function')checkCldWarn();
+    if(typeof updateApiKeyStatusDot==='function')updateApiKeyStatusDot();
+  }catch(e){}
 }
 async function callClaudeProxy(body){
   // 서버 시크릿(ANTHROPIC_API_KEY) 우선 — 로컬에 키가 있으면 하위 호환으로만 동봉
@@ -696,9 +705,65 @@ function stopSmartAudio(){
   try{window.speechSynthesis?.cancel();}catch(e){}
 }
 async function sha256Hex(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
-function elevenCfg(){const c=_cache.settings.elevenlabs||DB.g('elevenlabs')||null;return(c&&c.key)?c:null;}
+// 음성 설정 — 로컬/설정 행에 키가 있으면 그 키, 없어도 서버 함수(tts-proxy)에 키가 있으면 진행.
+// 'proxy:true' 는 '키는 서버에 있다' 는 표식 (DB.api() 의 'proxy' 와 같은 규칙).
+// 기본 목소리 = Matilda. settings 의 elevenlabs 행을 지워도 들리던 목소리가 그대로여야 한다 —
+// tts_cache 키에 목소리가 들어가므로 기본값이 바뀌면 만들어 둔 음원 전부가 무용지물이 된다.
+const PP_TTS_VOICE='XrExE9yKIg1WjnnlVkGX';
+function _ttsVoiceOf(cfg){
+  return (cfg&&cfg.voiceId)||(_cache.settings.ttsVoices||[])[0]||PP_TTS_VOICE;
+}
+function elevenCfg(){
+  const c=_cache.settings.elevenlabs||DB.g('elevenlabs')||null;
+  if(c&&c.key)return c;
+  if(_cache.settings.ttsProxy===true)return {key:'',voiceId:(c&&c.voiceId)||'',proxy:true};
+  return null;
+}
+// tts-proxy 에 키가 있는지 확인 — ElevenLabs 를 부르지 않는다(크레딧 0)
+async function ppProbeTtsProxy(){
+  try{
+    const r=await fetch(SUPA_URL+'/functions/v1/tts-proxy',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},body:'{"probe":true}'});
+    if(!r.ok){_cache.settings.ttsProxy=false;_cache.settings.ttsProxyUp=false;}
+    else{
+      const d=await r.json().catch(()=>({}));
+      _cache.settings.ttsProxyUp=!!d.ok;
+      _cache.settings.ttsProxy=!!d.server;
+      if(Array.isArray(d.voices)&&d.voices.length)_cache.settings.ttsVoices=d.voices;
+    }
+  }catch(e){_cache.settings.ttsProxy=false;_cache.settings.ttsProxyUp=false;}
+  try{if(typeof updateElevenDot==='function')updateElevenDot();}catch(e){}
+}
+// ElevenLabs 호출 한 곳 — 서버 함수 우선, 함수가 없거나 서버 키가 없으면 옛 방식(로컬 키 직호출).
+// 브라우저가 api.elevenlabs.io 를 직접 부르면 키가 공개 설정에 있어야 한다(SECURITY_PLAN 2번).
+async function _ttsFetch(mode,voice,text,opts,cfg){
+  opts=opts||{};
+  if(_cache.settings.ttsProxy===true){
+    const r=await fetch(SUPA_URL+'/functions/v1/tts-proxy',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},
+      body:JSON.stringify({mode,voiceId:voice,text,wordMode:!!opts.wordMode,speed:opts.speed||1})});
+    if(r.ok){window._ttsVia='proxy';return r;}
+    // 프록시가 안 되면 로컬 키가 있을 때만 옛 방식으로 내려간다(음성이 멈추지 않게).
+    // 로컬 키가 없으면 응답을 그대로 넘겨 호출한 쪽이 키 오류를 표시하게 한다.
+    console.warn('tts-proxy '+r.status+' → '+((cfg&&cfg.key)?'이 기기 키로 폴백':'폴백할 키 없음'));
+    if(!(cfg&&cfg.key))return r;
+    if(r.status===404||r.status===503)_cache.settings.ttsProxy=false;   // 함수가 없다 → 다음부터 바로 직호출
+  }
+  if(!cfg||!cfg.key)throw new Error('ElevenLabs 키가 없습니다 (서버 함수·설정 모두 비어 있음)');
+  const url=(mode==='timestamps')
+    ?`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps?output_format=mp3_44100_64`
+    :`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_64`;
+  const body=(mode==='timestamps')
+    ?{text,model_id:'eleven_multilingual_v2',voice_settings:{stability:0.5,similarity_boost:0.8,style:0.35,use_speaker_boost:true,speed:opts.speed||1}}
+    :(opts.wordMode
+      // 단어 하나는 다국어 모델이 언어를 오인함(come→이탈리아어 '코메') → 영어 강제 가능한 turbo v2.5 사용
+      ?{text,model_id:'eleven_turbo_v2_5',language_code:'en',voice_settings:{stability:0.85,similarity_boost:0.8,style:0,use_speaker_boost:true}}
+      :{text,model_id:'eleven_turbo_v2_5',voice_settings:{stability:0.5,similarity_boost:0.8,style:0.35,use_speaker_boost:true}});
+  window._ttsVia='local';
+  return fetch(url,{method:'POST',headers:{'xi-api-key':cfg.key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+}
 async function elevenGetAudioUrl(text,cfg,wordMode){
-  const voice=cfg.voiceId||'EXAVITQu4vr4xnSDxMaL';
+  const voice=_ttsVoiceOf(cfg);
   // 모드별 캐시 키 (w2=단어 또렷 모드 / s4=문장 균형 모드 — 설정 바뀌면 버전 올려 재생성)
   const id='tts_'+await sha256Hex(voice+'|'+(wordMode?'w2|':'s4|')+text);
   // 1) 캐시 조회 — 같은 문장은 다시 생성하지 않음 (크레딧 절약)
@@ -711,15 +776,8 @@ async function elevenGetAudioUrl(text,cfg,wordMode){
   if(window._elAuthFail)throw new Error('ElevenLabs 키 오류 — 생성 건너뜀');
   // 2) 생성 — 단어: 고품질+안정(또박또박) / 문장: 균형 설정(일관된 톤 + 은은한 생기)
   //    0.5/0.35는 원장이 고른 Matilda 샘플 톤과 동일 값 — 바꾸면 들었던 느낌과 달라짐
-  const body=wordMode
-    // 단어 하나는 다국어 모델이 언어를 오인함(come→이탈리아어 '코메') → 영어 강제 가능한 turbo v2.5 사용
-    ?{text,model_id:'eleven_turbo_v2_5',language_code:'en',voice_settings:{stability:0.85,similarity_boost:0.8,style:0,use_speaker_boost:true}}
-    :{text,model_id:'eleven_turbo_v2_5',voice_settings:{stability:0.5,similarity_boost:0.8,style:0.35,use_speaker_boost:true}};
-  const gen=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_64`,{
-    method:'POST',
-    headers:{'xi-api-key':cfg.key,'Content-Type':'application/json'},
-    body:JSON.stringify(body),
-  });
+  //    (서버 함수 tts-proxy 도 같은 값을 쓴다)
+  const gen=await _ttsFetch('audio',voice,text,{wordMode},cfg);
   if(!gen.ok){
     const why=await gen.text().catch(()=>'');
     if(/authentication_error|invalid_api_key|api_key/i.test(why)){
@@ -749,7 +807,7 @@ async function elevenGetAudioUrl(text,cfg,wordMode){
 // with-timestamps 응답의 글자별 타임스탬프로 문장 경계 시간(times)을 계산해
 // 재생 중 하이라이트·레벨별 쉼은 프로그램으로 처리한다. 캐시 키: p6.
 async function elevenGetPassageAudio(text,cfg,genSpeed){
-  const voice=cfg.voiceId||'EXAVITQu4vr4xnSDxMaL';
+  const voice=_ttsVoiceOf(cfg);
   const speed=Math.min(1.2,Math.max(0.7,genSpeed||1));
   // 속도는 생성 단계(네이티브 speed)에서 — 재생단 감속은 피치가 떨어져 목소리가 변함
   const id='tts_'+await sha256Hex(voice+'|p6|'+speed+'|'+text);
@@ -758,11 +816,7 @@ async function elevenGetPassageAudio(text,cfg,genSpeed){
     if(r.ok){const a=await r.json();const row=Array.isArray(a)?a[0]:a;if(row?.data?.url&&row?.data?.times)return row.data;}
   }catch(e){}
   // 본문은 고품질 모델 + 균형 설정 — 내레이션 프로소디가 안정적 (유닛·레벨당 1회 생성)
-  const gen=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps?output_format=mp3_44100_64`,{
-    method:'POST',
-    headers:{'xi-api-key':cfg.key,'Content-Type':'application/json'},
-    body:JSON.stringify({text,model_id:'eleven_multilingual_v2',voice_settings:{stability:0.5,similarity_boost:0.8,style:0.35,use_speaker_boost:true,speed}}),
-  });
+  const gen=await _ttsFetch('timestamps',voice,text,{speed},cfg);
   if(!gen.ok)throw new Error('ElevenLabs HTTP '+gen.status);
   const d=await gen.json();
   const al=d.alignment;
@@ -1087,7 +1141,8 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study
         }).catch(()=>{});
       }
     }else{
-      const newCard={id:uid(),sid,word:wordText,meaning:meta.ko||'',pos:meta.pos||'',example:meta.example||'',exampleSrc:meta.example?'':'',hits:(mode==='expose'||isWrong)?0:1,misses:isWrong?1:0,phase:0,lastSeen:mode==='expose'?'':date,due:date,addedDate:date,seen:mode==='expose'?1:0,source,srcId:meta.srcId||'',srcType:meta.srcType||'',srcUnit:meta.srcUnit||'',v2:meta.v2||'',v3:meta.v3||'',wlevel:getWordLevel(wordText).display};
+      const newCard={id:uid(),sid,word:wordText,meaning:meta.ko||'',pos:meta.pos||'',example:meta.example||'',exampleSrc:meta.example?'':'',hits:(mode==='expose'||isWrong)?0:1,misses:isWrong?1:0,phase:0,lastSeen:mode==='expose'?'':date,
+        lastSeenBy:(mode==='expose'?'':(source==='테스트'?'test':'study')),due:date,addedDate:date,seen:mode==='expose'?1:0,source,srcId:meta.srcId||'',srcType:meta.srcType||'',srcUnit:meta.srcUnit||'',v2:meta.v2||'',v3:meta.v3||'',wlevel:getWordLevel(wordText).display};
       await supaUpsert('vocab_cards',newCard.id,newCard,sid);
       if(!_cache.vocab_cards)_cache.vocab_cards=[];_cache.vocab_cards.push(newCard);
       if(!meta.ko||!newCard.example){

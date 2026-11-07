@@ -121,6 +121,23 @@ function updateElevenDot(){
   const dot=document.getElementById('eleven-status-dot');if(!dot)return;
   const c=_cache.settings.elevenlabs||DB.g('elevenlabs');
   const warn=document.getElementById('eleven-key-warn');
+  // 서버 함수(tts-proxy)에 키가 있으면 이 화면은 '표시만' 한다 (2026-11-07).
+  // 설정 행에 아직 키가 남아 있는 동안은 칸을 그대로 둔다 — 그 키로 폴백이 돌고 있으므로.
+  const srv=_cache.settings.ttsProxy===true;
+  const hasLocal=!!(c&&c.key);
+  {const row=document.getElementById('eleven-key-row');if(row)row.style.display=(srv&&!hasLocal)?'none':'';
+   const note=document.getElementById('eleven-proxy-note');
+   if(note){
+     note.style.display=srv?'':'none';
+     note.innerHTML=hasLocal
+       ? '서버(Supabase 시크릿)에 음성 키가 준비돼 있습니다. 지금은 <b>서버 경유</b>로 생성하고, 서버가 안 되면 이 칸의 키로 돌아갑니다.<br>설정의 <code>elevenlabs</code> 행을 지우면 이 칸은 사라집니다 (supabase/SECURITY_PLAN.md ⑥).'
+       : '음성 키는 <b>서버(Supabase 시크릿)</b>에 있습니다 — 이 화면에 키를 넣지 않습니다.';
+   }}
+  if(srv&&!hasLocal){
+    dot.style.color='var(--okt)';dot.textContent='● 서버 키 사용 중';
+    if(warn)warn.style.display='none';
+    return;
+  }
   // 키가 틀리면 조용히 브라우저 음성으로 넘어가 버려서 선생님이 알 수 없었다 → 여기서 드러낸다
   const badForm=!!(c&&c.key&&!/^sk_/.test(c.key));
   if(window._elAuthFail||badForm){
@@ -136,7 +153,7 @@ function updateElevenDot(){
     return;
   }
   if(warn)warn.style.display='none';
-  if(c&&c.key){dot.style.color='var(--tealt)';dot.textContent='● 사용 중';}
+  if(c&&c.key){dot.style.color='var(--tealt)';dot.textContent=srv?'● 사용 중 (서버 경유)':'● 사용 중';}
   else{dot.style.color='var(--slate)';dot.textContent='● 미설정';}
 }
 async function saveElevenCfg(silent){
@@ -144,11 +161,13 @@ async function saveElevenCfg(silent){
   const voiceIn=(document.getElementById('cfg-eleven-voice')?.value||'').trim();
   const prev=_cache.settings.elevenlabs||DB.g('elevenlabs')||{};
   const key=(keyIn&&keyIn!=='••••••')?keyIn:(prev.key||'');
-  if(!key){if(!silent)toast('ElevenLabs API Key를 입력해 주세요');return false;}
-  if(!/^sk_/.test(key)){
+  const srv=_cache.settings.ttsProxy===true;
+  // 서버 키를 쓰는 중이면 키 없이도 저장된다 (목소리만 바꾸는 경우)
+  if(!key&&!srv){if(!silent)toast('ElevenLabs API Key를 입력해 주세요');return false;}
+  if(key&&!/^sk_/.test(key)){
     if(!silent)toast('키 형식을 확인해 주세요 — ElevenLabs API 키는 sk_ 로 시작합니다');
   }else{window._elAuthFail=false;window._elAuthMsg='';}  // 새 키를 넣으면 다시 시도한다
-  const cfg={key,voiceId:voiceIn||prev.voiceId||''};
+  const cfg=key?{key,voiceId:voiceIn||prev.voiceId||''}:{voiceId:voiceIn||prev.voiceId||''};
   _cache.settings.elevenlabs=cfg;DB.s('elevenlabs',cfg);
   try{await supaSetSetting('elevenlabs',cfg);}catch(e){console.warn('elevenlabs 저장 실패:',e);}
   const ki=document.getElementById('cfg-eleven-key');if(ki)ki.value='••••••';
@@ -158,15 +177,18 @@ async function saveElevenCfg(silent){
 }
 async function testElevenTts(){
   const el=document.getElementById('eleven-test-result');
+  if(_cache.settings.ttsProxy===undefined&&typeof ppProbeTtsProxy==='function')await ppProbeTtsProxy();
   const ok=await saveElevenCfg(true);
   if(!ok){if(el)el.innerHTML='<span style="color:var(--coral)">API Key를 먼저 입력해 주세요</span>';return;}
   if(el)el.innerHTML='<span style="color:var(--slate)">생성·재생 중... (첫 재생은 1~2초 걸려요)</span>';
   try{
-    window._lastSpeakEngine='';
+    window._lastSpeakEngine='';window._ttsVia='';
     const ok=await speakSmart('Hello! Welcome to Page and Pencil. Reading is fun!');
     // 어떤 수단으로 났는지 그대로 말한다 — 예전엔 브라우저 기본음으로 나도 ✅ 가 떴다
     const eng=window._lastSpeakEngine;
-    if(ok&&eng==='eleven')el.innerHTML='<span style="color:var(--tealt)">✅ 재생 완료 — 이 목소리로 앱 전체 음성이 나갑니다 (문장은 1회 생성 후 캐시)</span>';
+    const via=window._ttsVia==='proxy'?'서버 경유(tts-proxy)':(window._ttsVia==='local'?'이 기기에 저장된 키':'캐시된 음원');
+    if(ok&&eng==='eleven')el.innerHTML='<span style="color:var(--tealt)">✅ 재생 완료 — 이 목소리로 앱 전체 음성이 나갑니다 (문장은 1회 생성 후 캐시)</span>'
+      +'<br><span style="color:var(--slate);font-size:12.5px">경로: '+via+'</span>';
     else if(ok)el.innerHTML='<span style="color:var(--warn)">⚠️ 소리는 났지만 <b>브라우저 기본음</b>입니다 — ElevenLabs 음성이 아닙니다. 키·크레딧을 확인해 주세요</span>';
     else el.innerHTML='<span style="color:var(--coral)">❌ 아무 소리도 나지 않았습니다 — 기기 음량·무음 모드와 키를 확인해 주세요</span>';
   }catch(e){
@@ -240,10 +262,11 @@ function openQuickNotice(){
   if(!text||!text.trim())return;
   postNoticeText(text.trim());
 }
-async function postNoticeText(v){
+async function postNoticeText(v,classIds){
   const notices=_cache.notices||[];
   const id='n'+Date.now();
   const notice={id,text:v,date:ppToday(),active:true};
+  if(Array.isArray(classIds)&&classIds.filter(Boolean).length)notice.classIds=classIds.filter(Boolean);
   await supaUpsert('notices',id,notice,null);
   notices.unshift(notice);
   _cache.notices=notices;
@@ -276,6 +299,8 @@ function swTab(id){
     const ek=document.getElementById('cfg-eleven-key');if(ek)ek.value=ec.key?'••••••':'';
     const ev=document.getElementById('cfg-eleven-voice');if(ev)ev.value=ec.voiceId||'';
     updateElevenDot();
+    // 서버 함수에 음성 키가 있는지는 이 화면을 열 때 확인한다 (설정 행을 지우기 전에도 확인 가능)
+    if(_cache.settings.ttsProxy===undefined&&typeof ppProbeTtsProxy==='function')ppProbeTtsProxy();
     const a=DB.acct();document.getElementById('cfg-bank').value=a.bank||'';document.getElementById('cfg-acct').value=a.number||'';document.getElementById('cfg-acct-name').value=a.name||'';document.getElementById('cfg-pay-msg').value=a.msg||'';
     updateApiKeyStatusDot();
     renderCmtChipSettings();
@@ -825,7 +850,7 @@ function renderVocabList(sid){
   else if(_vocabFilter.sort==='recent')cards.sort((a,b)=>(b.id||'').localeCompare(a.id||''));
   else if(_vocabFilter.sort==='misses')cards.sort((a,b)=>(b.misses||0)-(a.misses||0)||(a.word||'').localeCompare(b.word));
   else if(_vocabFilter.sort==='phase')cards.sort((a,b)=>effPh(a)-effPh(b)||(a.word||'').localeCompare(b.word));
-  const _todayN=allCards.filter(c=>c.lastSeen===ppToday()).length;
+  const _todayN=allCards.filter(c=>(typeof ppStudiedToday==='function')?ppStudiedToday(c):c.lastSeen===ppToday()).length;
   if(hdrEl)hdrEl.textContent=(cards.length===allCards.length?`전체 ${allCards.length}개`:`${cards.length}개 표시 / 전체 ${allCards.length}개`)+(_todayN?` · 오늘 학습 ${_todayN}개`:'');
   if(!cards.length){listEl.innerHTML=`<div style="font-size:13px;color:var(--slate);padding:20px 0;text-align:center">${allCards.length?'검색/필터 결과 없음':'단어장이 비어있습니다'}</div>`;return;}
   const PHASE_LBL=['신규','학습중','숙달'];const PHASE_CLS=['bslate','bamber','bteal'];
@@ -3212,12 +3237,27 @@ function openVocabPaper(sid){
     if(book){
       const bs=document.getElementById('vp-book');
       const tb=(_cache.globalTextbooks||[]).find(b=>!b._deleted&&(b.title||'')===book);
+      // 클래스 진도(commonMaterials)는 책만 적고 단원은 비어 있다 — 단원은 '실제 기록'에서 채운다 (1-6-2)
+      if(!unit){
+        const les=DB.less().filter(l=>l.sid===sid).slice(0,20);
+        for(const l of les){
+          const hit=Object.entries(l.materials||{}).find(([k,v])=>v&&v.unit&&(k==='vocab'||k.startsWith('vocab_'))&&(tb&&v.bookId?v.bookId===tb.id:(v.book||'')===book));
+          if(hit){unit=hit[1].unit||'';break;}
+        }
+      }
+      if(!unit&&cls&&tb&&typeof _pgLastRec==='function'){   // 반 전체 기록의 마지막 단원
+        const rec=_pgLastRec(cls.id,tb),keys=tbUnitKeys(tb);
+        if(rec&&rec.idx>=0&&keys[rec.idx])unit=keys[rec.idx];
+      }
       if(bs&&tb&&[...bs.options].some(o=>o.value===tb.id)){
         bs.value=tb.id;vpBookChange();
         if(unit){
           const us=document.getElementById('vp-units');
-          const want=String(unit).split(',').map(x=>x.trim()).filter(Boolean);
-          if(us)[...us.options].forEach(o=>{if(want.some(w=>o.value===w||o.textContent.trim().startsWith(w)))o.selected=true;});
+          // 'DAY 01' 과 'DAY 1' 처럼 0 채움만 다른 표기도 같게 본다
+          const nz=s=>((typeof _pgNorm==='function')?_pgNorm(s):String(s||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'')).replace(/0+(\d)/g,'$1');
+          const eq=(a,b)=>(typeof _pgUMatch==='function')?_pgUMatch(a,b):a===b;
+          const want=String(unit).split(',').map(x=>nz(x)).filter(Boolean);
+          if(us)[...us.options].forEach(o=>{if(want.some(w=>eq(nz(o.value),w)))o.selected=true;});
         }
       }
     }
@@ -10163,6 +10203,13 @@ function renderDashNotice(){
         <textarea id="dash-notice-input" placeholder="예) 6월 6일 현충일 휴강합니다." style="flex:1;min-height:56px;resize:vertical;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:14px;color:var(--navy);background:var(--cream);outline:none"></textarea>
         <button class="btn bt bsm" style="align-self:flex-end" onclick="postNotice()">등록</button>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <label style="font-size:12.5px;color:var(--slate)">받는 대상</label>
+        <select id="dash-notice-target" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);max-width:100%">
+          <option value="">전체 (모든 학생·학부모)</option>
+          ${DB.classes().filter(c=>c.active!==false).map(c=>`<option value="${escAttr(c.id)}">${escAttr(c.name||'반')}</option>`).join('')}
+        </select>
+      </div>
       <div id="notice-board"></div>
     </div>
   </div>`;
@@ -10173,14 +10220,18 @@ function renderDashNotice(){
 async function postNotice(){
   const v=document.getElementById('dash-notice-input')?.value.trim();
   if(!v){toast('내용을 입력해 주세요');return;}
+  const cid=document.getElementById('dash-notice-target')?.value||'';
   const notices=_cache.notices||[];
   const id='n'+Date.now();
+  // classIds 를 비워 두면 전체 공지 — 반을 고르면 그 반 학생·학부모에게만 (1-4)
   const notice={id,text:v,date:ppToday(),active:true};
+  if(cid)notice.classIds=[cid];
   await supaUpsert('notices',id,notice,null);
   notices.unshift(notice);
   document.getElementById('dash-notice-input').value='';
   renderNoticeBoard();
-  toast('공지가 등록되었습니다');
+  const cname=cid?((DB.classes().find(c=>c.id===cid)||{}).name||'그 반'):'';
+  toast(cid?`${cname} 공지가 등록되었습니다`:'전체 공지가 등록되었습니다');
 }
 async function toggleNoticeActive(id){
   const idx=_cache.notices.findIndex(n=>n.id===id);
@@ -10233,7 +10284,11 @@ function noticePopupHide(){
 function checkNotice(){
   const read=_noticeRead();
   const key=n=>String(n.id||n.text||'').slice(0,80);
-  const list=(_cache.notices||[]).filter(n=>n&&n.active&&read.indexOf(key(n))<0)
+  // 지금 보고 있는 사람(학생·학부모)의 반에 맞는 공지만 — 반 공지가 다른 반에 뜨던 문제 (1-4)
+  const _inStu=!!document.getElementById('s-student')?.classList.contains('active');
+  const who=(_inStu?(typeof currentStudentSid!=='undefined'&&currentStudentSid):(typeof currentParentSid!=='undefined'&&currentParentSid))||'';
+  const list=(_cache.notices||[]).filter(n=>n&&n.active&&read.indexOf(key(n))<0
+      &&((typeof ppNoticeForSid!=='function')||ppNoticeForSid(n,who)))
     .sort((a,b)=>_noticeWhen(a).localeCompare(_noticeWhen(b)));
   const pick=list[0];
   if(!pick||!pick.text)return;
@@ -10863,8 +10918,11 @@ function openBulkAssign(classId){
   if(dEl)dEl.value=t;
   if(uEl&&c)uEl.value=_nextClassDay(t,c.days||[],new Set(c.skipDates||[]),new Set(c.extraDates||[]))||t;
   const n=_bulkStus().length;
+  // 일괄 할당은 반 학생 전체가 대상 — 다른 반 학생이 섞인 드롭다운을 보여 줄 이유가 없다 (1-6-4)
+  {const sel=document.getElementById('modal-assign-stu');if(sel)sel.value='';
+   const sf=document.getElementById('modal-assign-stu-f');if(sf)sf.style.display='none';}
   const ex=document.getElementById('modal-assign-extra');
-  if(ex&&c)ex.innerHTML=`<div class="ib iba" style="margin-top:10px;font-size:12.5px">${luIcon('users',14)||''} <b>${escAttr(c.name||'이 반')}</b> 학생 ${n}명에게 한 번에 할당합니다. 학생 칸은 비워 두세요.<br>반복·미션·워크시트·클래스5 는 일괄 할당이 안 됩니다 — 한 명씩 내 주세요.</div>`;
+  if(ex&&c)ex.innerHTML=`<div class="ib iba" style="margin-top:10px;font-size:12.5px">${luIcon('users',14)||''} <b>${escAttr(c.name||'이 반')}</b> 학생 ${n}명에게 한 번에 할당합니다.<br>반복·미션·워크시트·클래스5 는 일괄 할당이 안 됩니다 — 한 명씩 내 주세요.</div>`;
   const mt=document.querySelector('#m-add-assign .mt');
   if(mt&&c)mt.textContent='📋 '+(c.name||'반')+' 일괄 할당';
 }
@@ -11019,6 +11077,7 @@ function openAssignModal(sid){
   if(mt)mt.textContent='📋 과제 할당';
   {const sb=document.getElementById('assign-save-btn');if(sb)sb.textContent='할당';}
   document.getElementById('modal-assign-stu').value=sid||'';
+  {const sf=document.getElementById('modal-assign-stu-f');if(sf)sf.style.display='';}   // 일괄 할당에서 숨겼던 것 되돌리기
   const today=ppToday();
   document.getElementById('modal-assign-date').value=today;
   // 마감 기본값: 학생 클래스의 다음 실제 수업일(휴강 제외) — 없으면 내일
@@ -12415,21 +12474,24 @@ async function markNoticeRead(noticeId,sid){
 function renderNoticeBoard(){
   const notices=_cache.notices||[];
   const el=document.getElementById('notice-board');if(!el)return;
-  const totalStus=DB.stus().filter(s=>!s.inactive).length;
   const lbl=document.getElementById('notice-count-lbl');
   if(lbl)lbl.textContent=`총 ${notices.length}건 · 활성 ${notices.filter(n=>n.active).length}건`;
   if(!notices.length){el.innerHTML='<div style="color:var(--slate);font-size:13px;padding:8px 0">등록된 공지가 없습니다</div>';return;}
   // 게시 중 공지만 펼치고 지난 공지는 접어 둔다 — 대시보드가 공지 전체 목록으로 길어지던 문제
   const _item=n=>{
     const readBy=n.readBy||[];
-    const readCount=readBy.length;
-    const unreadStus=DB.stus().filter(s=>!s.inactive&&!readBy.some(r=>r.sid===s.id));
+    // 읽음 수는 '그 공지를 받는 사람' 기준 — 반 공지를 전체 인원으로 세면 영원히 미읽음이 남는다
+    const tgtStus=(typeof ppNoticeStus==='function')?ppNoticeStus(n):DB.stus().filter(s=>!s.inactive);
+    const unreadStus=tgtStus.filter(s=>!readBy.some(r=>r.sid===s.id));
+    const readCount=tgtStus.length-unreadStus.length;
+    const tgtLbl=(typeof ppNoticeTargetLabel==='function')?ppNoticeTargetLabel(n):'전체';
     return `<div class="notice-item ${n.active?'notice-active':''}">
       <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
           ${n.active?'<span class="notice-pin">📌 게시 중</span>':''}
           <span class="notice-date">${n.date}</span>
-          <span style="font-size:11.5px;color:var(--slate)">읽음 ${readCount}/${totalStus}명</span>
+          <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--tl);color:var(--tealt)">${escAttr(tgtLbl)}</span>
+          <span style="font-size:11.5px;color:var(--slate)">읽음 ${readCount}/${tgtStus.length}명</span>
         </div>
         <div class="notice-text" title="눌러서 전문 보기" onclick="this.closest('.notice-item').classList.toggle('open')">${n.text.replace(/\n/g,'<br>')}</div>
         ${unreadStus.length?`<details style="margin-top:6px"><summary style="font-size:12px;color:var(--slate);cursor:pointer">미읽음 ${unreadStus.length}명 ▼</summary>
@@ -13573,7 +13635,8 @@ async function pgFixSave(){
     list.forEach((v,i)=>{out[i===0?base:base+'_'+(i+1)]=v;});
     Object.keys(others).forEach(k=>{out[k]=others[k];});
     c.commonMaterials=out;
-    msg=isMove?`${title}을(를) 이 줄로 옮겼어요`:`${title}을(를) 다음 교재로 넣었어요`;
+    const _j=(typeof ppJosa==='function')?ppJosa(title,'을','를'):'을(를)';
+    msg=isMove?`${title}${_j} 이 줄로 옮겼어요`:`${title}${_j} 다음 교재로 넣었어요`;
   }
   try{await supaUpsert('classes',ctx.classId,c,null);}
   catch(e){console.error('pgFixSave:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}

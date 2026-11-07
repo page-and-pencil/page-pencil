@@ -89,7 +89,38 @@ const ATTLBL={normal:'',absent:'결석',late:'지각',makeup:'보강',sick:'병�
 // (지각·보강은 들은 것이므로 포함)
 const PP_ATT_AWAY=['absent','sick','teacher_cancel','holiday'];
 function ppAttAway(att){return PP_ATT_AWAY.includes(String(att||''));}
+// 학부모 화면 문장용 — '11월 7일은 결석했어요' 처럼 한 덩어리로 읽히게
+const PP_ATT_SENT={absent:'결석했어요',sick:'병결로 쉬었어요',teacher_cancel:'수업이 취소되었어요',holiday:'휴강이었어요'};
+function ppAttSentence(dateStr,att){
+  const d=(typeof ppMdLabel==='function')?ppMdLabel(dateStr):'';
+  const w=PP_ATT_SENT[String(att||'')]||'수업에 참여하지 못했어요';
+  return (d?d+'은 ':'')+w;
+}
 const ATTCLS={absent:'att-abs',late:'att-late',makeup:'att-make',sick:'att-sick',teacher_cancel:'att-tc',holiday:'att-hol'};
+
+// ── 공지 대상 (2026-11-07) ──
+// classIds 가 없거나 비어 있으면 '전체' — 옛 공지는 데이터를 고치지 않고 그대로 전체로 보인다.
+function ppNoticeClassIds(n){return Array.isArray(n&&n.classIds)?n.classIds.filter(Boolean):[];}
+function ppNoticeForSid(n,sid){
+  const t=ppNoticeClassIds(n);
+  if(!t.length)return true;
+  if(!sid)return false;
+  const cs=(typeof DB!=='undefined'&&DB.classes)?DB.classes():[];
+  return cs.some(c=>t.includes(c.id)&&(c.studentIds||[]).includes(sid));
+}
+function ppNoticeTargetLabel(n){
+  const t=ppNoticeClassIds(n);
+  if(!t.length)return '전체';
+  const cs=(typeof DB!=='undefined'&&DB.classes)?DB.classes():[];
+  return t.map(id=>(cs.find(c=>c.id===id)||{}).name||'(없는 반)').join(', ');
+}
+// 이 공지를 받는 학생들 (읽음 수 계산용)
+function ppNoticeStus(n){
+  const stus=(typeof DB!=='undefined'&&DB.stus)?DB.stus().filter(s=>!s.inactive):[];
+  const t=ppNoticeClassIds(n);
+  if(!t.length)return stus;
+  return stus.filter(s=>ppNoticeForSid(n,s.id));
+}
 
 // ── 클래스 요일별 시간 헬퍼 ──
 // c.dayTimes = {'월':{start:'16:00',end:'17:00'},...}
@@ -569,7 +600,7 @@ function ppRetestCardHtml(stu,opts){
     const st=c.status;
     const tag=st.k==='absent'?'미응시':(st.pct+'% · 기준 '+st.pass+'%');
     return '<div class="rt-row">'
-      +'<div class="rt-top"><span class="rt-st '+(st.k==='absent'?'is-absent':'is-fail')+'">'+esc(st.label)+'</span>'
+      +'<div class="rt-top"><span class="rt-st '+(st.k==='absent'?'is-absent':'is-fail')+'">'+esc(o.forParent?(st.labelP||st.label):st.label)+'</span>'
         +'<span class="rt-meta">'+esc((c.last.date||'')+' · '+tag+(c.tries>1?' · '+c.tries+'회차':''))+'</span></div>'
       +(w.length?'<div class="rt-words">'+w.slice(0,12).map(x=>'<span class="rt-w">'+esc(x)+'</span>').join('')
         +(w.length>12?'<span class="rt-w">외 '+(w.length-12)+'개</span>':'')+'</div>':'')
@@ -925,9 +956,13 @@ async function ppCopyText(text){
 function ppJosa(word,withBat,noBat){
   const s=String(word||'').trim();
   if(!s)return noBat;
-  const c=s.charCodeAt(s.length-1);
-  if(c<0xAC00||c>0xD7A3)return noBat;
-  return ((c-0xAC00)%28)?withBat:noBat;
+  const ch=s[s.length-1];
+  const c=ch.charCodeAt(0);
+  if(c>=0xAC00&&c<=0xD7A3)return ((c-0xAC00)%28)?withBat:noBat;
+  // 영문·숫자로 끝나는 이름(교재명 등) — 읽는 소리의 받침으로 고른다
+  if(/[0-9]/.test(ch))return ('0136780'.includes(ch))?withBat:noBat;   // 영/일/삼/육/칠/팔/십 → 받침
+  if(/[a-zA-Z]/.test(ch))return 'lmnrLMNR'.includes(ch)?withBat:noBat;
+  return noBat;
 }
 function ppStuSince(stu){
   const e=String((stu&&stu.enrollDate)||'').slice(0,10);
@@ -2017,10 +2052,16 @@ async function ppPushDisable(){
   try{const c=await caches.open('pp-push-id');await c.delete('/who');}catch(e){}
   return true;
 }
+// 선생님이 테스트 결과를 적어 넣으면 그 단어 카드도 lastSeen 이 오늘로 찍힌다.
+// 그러면 학생이 아직 공부하지 않았는데 '오늘 학습' 으로 세이고, 오늘 학습할 단어 풀에서도 빠져
+// 홈이 "오늘 예정 단어를 모두 학습했어요!" 가 된다. 출처가 테스트면 학습으로 보지 않는다.
+function ppStudiedToday(c,today){
+  return !!c&&c.lastSeen===(today||ppToday())&&c.lastSeenBy!=='test';
+}
 function dailyVocabPick(sid,today,limit){
   today=today||ppToday();limit=limit||20;
   const all=(typeof _cache!=='undefined'?(_cache.vocab_cards||[]):[]).filter(c=>c.sid===sid);
-  const pool=all.filter(c=>c.lastSeen!==today);
+  const pool=all.filter(c=>!ppStudiedToday(c,today));
   const lw=lessonWordSet(sid);
   const inLesson=c=>lw.words.has(String(c.word||'').toLowerCase().trim());
   const lesson=pool.filter(inLesson).sort((a,b)=>{
@@ -2038,7 +2079,7 @@ function dailyVocabPick(sid,today,limit){
   fresh.forEach(c=>why[c.id]='fresh');notYet.forEach(c=>why[c.id]='ahead');
   const cards=[...lesson,...overdue,...fresh,...notYet].slice(0,limit);
   // 테스트에 적어 넣은 단어는 '오늘 학습' 으로 세지 않는다 (lastSeenBy)
-  return {cards,why,lessonDate:lw.date,doneToday:all.filter(c=>c.lastSeen===today&&c.lastSeenBy!=='test').length};
+  return {cards,why,lessonDate:lw.date,doneToday:all.filter(c=>ppStudiedToday(c,today)).length};
 }
 // 이 학생에게 그 책이 반복(recur)·클래스5 숙제로 이미 배정돼 있는가.
 // 자체 진행 숙제 책(예: 단어가 읽기다 — 매일 1과씩 나감)은 수업 복습 제안 대상이 아님 (이미 진도로 나가는 걸 또 제안하던 문제).
