@@ -1336,6 +1336,8 @@ function saveSession(data){try{localStorage.setItem('pp_session',JSON.stringify(
 function loadSession(){try{const s=localStorage.getItem('pp_session');return s?JSON.parse(s):null;}catch(e){return null;}}
 function clearSession(){
   try{localStorage.removeItem('pp_session');}catch(e){}
+  // 서버 세션(Supabase Auth)도 폐기한다 — 토큰이 기기에 남지 않게 (2026-11-08)
+  try{if(typeof ppLogout==='function')ppLogout();}catch(e){}
   // 로그아웃하면 로컬 스냅샷도 지운다 — 같은 기기를 다른 사람이 쓸 때 그 데이터로 부팅하지 않게
   try{if(typeof ppDropSnapshot==='function')ppDropSnapshot();}catch(e){}
 }

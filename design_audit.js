@@ -16,7 +16,10 @@ const { execFileSync } = require('child_process');
 const LOCAL = process.argv.includes('--local');
 const KEEP = process.argv.includes('--keep');
 const OUT = path.join('design_shots');
-const BASE = LOCAL ? 'file://' + path.resolve('index.html') : 'https://page-and-pencil.github.io/page-pencil/';
+// --url=http://127.0.0.1:5500/  로 로컬 서버를 가리킬 수 있다.
+// (엣지 함수의 출처 확인 때문에 file:// 로 열면 403 이 난다 — 127.0.0.1:5500 은 허용 목록에 있다)
+const URL_ARG = (process.argv.find((a) => a.startsWith('--url=')) || '').slice(6);
+const BASE = URL_ARG || (LOCAL ? 'file://' + path.resolve('index.html') : 'https://page-and-pencil.github.io/page-pencil/');
 
 const VIEWPORTS = [
   { k: 'mobile-320', w: 320, h: 760 },

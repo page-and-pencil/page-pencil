@@ -1,6 +1,6 @@
 # 공개 키로 읽히는 것들 — 현황과 남은 순서
 
-최초 2026-11-04 · 갱신 2026-11-07.
+최초 2026-11-04 · 갱신 2026-11-08.
 **값(키·비밀번호·토큰)은 이 문서 어디에도 적지 않습니다. 있음/없음과 키 이름만.**
 이 문서의 SQL·배포 명령은 **원장님이 실행**합니다. 저장소에는 파일만 만들어 두었습니다.
 
@@ -12,26 +12,34 @@
 |---|---|---|
 | 11/07 09:50 | `settings` 의 `apikey` 행 삭제 (Aside) | Anthropic 키는 서버 시크릿 `ANTHROPIC_API_KEY` 만. 앱은 '● 서버 키 사용 중' |
 | 11/07 10:05 | ElevenLabs 를 새 계정·새 키로 교체 (Aside) | TTS 권한만 · 월 8,000 크레딧 상한 · 유출 감지 시 자동 비활성화. 시크릿 `ELEVENLABS_API_KEY` 등록 |
-| 11/07 | `tts-proxy` 작성 · `claude-proxy` 강화 · 앱이 프록시 우선 | **배포는 아직** — 아래 2번 순서대로 |
+| 11/07 | `tts-proxy` 신규 · `claude-proxy` 강화 **배포 완료** (Aside) | 브라우저가 ElevenLabs·Anthropic 을 직접 부르지 않음 |
+| 11/07 | `settings` 의 `elevenlabs` · `gbooks_key` 행 삭제 (Aside) | **공개 anon 키로 읽히는 비밀 키는 0개** |
+| 11/07 | `settings_rls.sql` 적용 (Aside) | anon 은 `acct`·`bmThresholds`·`cloud`·`pw`·`lastBackup`·`jgPrepDays`·`vocabPassPct` 만 읽음 |
+| 11/07 | 시크릿 `CLAUDE_ALLOWED_ORIGINS`·`TTS_ALLOWED_ORIGINS` 등록 (Aside) | `https://page-and-pencil.github.io`, `http://127.0.0.1:5500`, `http://localhost:5500` |
+| 11/08 | 로그인 서버 이전 **1·2단계 파일** 작성 | `login` 함수 · `auth_step1.sql` · 앱 병행 코드 — 배포·실행은 `AUTH_RUNBOOK.md` |
 
-4번 ②~⑤(옛 번호)는 끝났습니다. 남은 것은 **ElevenLabs 서버 경유**와 **settings 잠금**,
-그리고 별도 과제인 **학생 개인정보**입니다.
-
----
-
-## 1. 지금 상태 요약
-
-- 공개 anon 키가 `js/db.js` 에 있고 그 파일은 공개 저장소에 있습니다.
-- `settings` 에 남아 있는 비밀값: **`elevenlabs`(키), `pw`(선생님 비밀번호 해시)**.
-  `gbooks_key` 도 anon 으로 읽히지만 **앱 코드에 사용처가 없습니다**(지워도 됨).
-- `students`·`lessons`·`tests`·`readings`·`logs`·`notices`·`monthly_reports` 는
-  RLS 가 꺼져 있어 anon 키로 전부 읽고 쓰고 지울 수 있습니다 → 6번(별도 과제).
-- `claude-proxy`·`tts-proxy` 는 anon 키만 있으면 누구나 부를 수 있었습니다 →
-  11/07 에 **출처·모델·토큰·크기·IP 상한**을 넣었습니다(배포 필요).
+**키 정리는 끝났습니다.** 남은 것은 `settings.pw`(선생님 비밀번호 해시)와
+**학생 개인정보(students 의 PIN·학부모 연락처)** 뿐이고, 둘 다 로그인 서버 이전 과제입니다.
+→ **`supabase/AUTH_RUNBOOK.md`** 순서대로 진행합니다.
 
 ---
 
-## 2. 남은 실행 순서 (그대로 따라 하시면 됩니다)
+## 1. 지금 상태 요약 (2026-11-08)
+
+- 공개 anon 키가 `js/db.js` 에 있고 그 파일은 공개 저장소에 있습니다. **그대로입니다.**
+- `settings` 에 남은 비밀값은 **`pw`(선생님 비밀번호 해시) 하나**입니다.
+  Anthropic·ElevenLabs 키는 서버 시크릿에만 있고, `settings_rls.sql` 로 화이트리스트도 걸려 있습니다.
+- **아직 열려 있는 것**: `students`·`lessons`·`tests`·`readings`·`logs`·`notices`·
+  `monthly_reports` 등 표 전체가 anon 키로 읽고 쓰고 지울 수 있습니다.
+  `students` 에는 **학생 이름·PIN·학부모 연락처·수강료**가 들어 있습니다 → 6번.
+- `claude-proxy`·`tts-proxy` 는 **출처·모델·토큰·크기·IP 상한**이 걸려 배포돼 있습니다.
+
+---
+
+## 2. 끝난 순서 (11/07 — 기록용)
+
+아래 ①~⑧ 은 **전부 완료됐습니다.** 남은 일은 3부(로그인 서버 이전)뿐이고,
+그 순서는 **`supabase/AUTH_RUNBOOK.md`** 에 따로 적었습니다.
 
 ```
 ① 시크릿 확인                                                    (원장님, 1분)
@@ -104,8 +112,13 @@
 | `supabase/functions/claude-proxy/index.ts` | 허용 모델·max_tokens·본문 크기·출처·IP 상한, 클라이언트 키 무시 | **이번에 갱신 — 배포 필요** |
 | `supabase/settings_rls.sql` | settings 화이트리스트 잠금 (apikey·elevenlabs·gbooks_key 차단) | ⑧ 에서 실행 |
 | `supabase/settings_drop_secrets.sql` | 비밀값 행 삭제 (순서 주석 포함) | ⑥⑦ 에서 실행 |
-| `supabase/auth_rls_draft.sql` | students 등 RLS 정책 초안 (실행 금지) | **이번에 추가 — 결정 뒤 1단계에서** |
-| `supabase/AUTH_PLAN.md` | Supabase Auth 전환 설계서 | **이번에 추가 — 읽고 결정만** |
+| `supabase/AUTH_PLAN.md` | Supabase Auth 전환 설계서 (왜·무엇을) | 11/07 |
+| `supabase/AUTH_RUNBOOK.md` | **그대로 따라 하는 순서** (배포·SQL·확인·되돌리기) | **11/08 추가 — 여기부터 보세요** |
+| `supabase/functions/login/index.ts` | 학생·학부모 로그인(이름+PIN / QR 토큰)을 서버에서 | **11/08 추가 — 배포 필요** |
+| `supabase/auth_step1.sql` | students_safe 뷰 + 토큰용 정책 (anon 은 건드리지 않음) | **11/08 추가 — 실행 필요** |
+| `supabase/auth_teacher_setup.md` | 선생님 Auth 계정 만들기 | **11/08 추가** |
+| `supabase/auth_step3_close_anon.sql` · `auth_step3_rollback.sql` | 공개 권한 닫기 / 되돌리기 | **11/08 추가 — 아직 실행 금지** |
+| `supabase/auth_rls_draft.sql` | 맨 처음 초안 (auth_step1.sql 로 대체됨 — 참고용) | 11/07 |
 
 ### 함수에 넣을 수 있는 선택 시크릿
 
@@ -154,7 +167,9 @@ CLAUDE_MAX_PER_MIN       기본 30 · CLAUDE_MAX_PER_DAY 기본 800
 그 비교를 브라우저가 합니다. 브라우저가 비교하려면 `students` 를 읽을 수 있어야 하고,
 읽을 수 있으면 anon 키를 가진 누구나 읽을 수 있습니다.
 
-설계서를 따로 만들었습니다 → **`supabase/AUTH_PLAN.md`**
+설계서는 **`supabase/AUTH_PLAN.md`**, 실행 순서는 **`supabase/AUTH_RUNBOOK.md`** 입니다.
+2026-11-08 에 **1·2단계 파일을 전부 만들었습니다**(앱은 서버 로그인을 먼저 시도하고
+안 되면 지금 방식으로 들어가므로, 배포 전에도 그대로 돕니다).
 (선생님 Auth 계정 1개 + 학생·학부모 로그인 함수, 테이블별 정책 초안, 바뀌는 코드 목록,
 끊김 없이 옮기는 순서, 되돌리는 방법.) **아직 아무 기능도 켜지 않았습니다.**
 

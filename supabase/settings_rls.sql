@@ -1,4 +1,5 @@
 -- Page & Pencil: settings 테이블 잠금 (2026-11-07 갱신)
+-- ✅ 2026-11-07 적용 완료 (Aside). 아래는 기록·재적용용입니다.
 -- 실행: Supabase 대시보드 → SQL Editor 에 붙여넣고 Run
 -- 효과: 공개(anon) 키로는 아래 화이트리스트 키만 읽기/쓰기 가능.
 --       apikey·elevenlabs·gbooks_key 는 어느 목록에도 없으므로 **차단**됩니다.

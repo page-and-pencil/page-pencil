@@ -15,10 +15,26 @@ function handlePwKey(e){
 }
 async function hashPw(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 const _isPwHash=s=>/^[0-9a-f]{64}$/.test(s||'');
+// 선생님 계정 이메일 — Supabase Auth 로그인에 쓴다 (비밀번호는 원장님만 안다)
+const PP_TEACHER_EMAIL='jikgyeol@gmail.com';
 async function checkPw(inputId='pw-in',errId='pw-err'){
   const inEl=document.getElementById(inputId);
   const errEl=document.getElementById(errId);
   const v=(inEl?.value||'').trim();
+  // ① 서버 로그인(Supabase Auth) 먼저 — 계정이 아직 없거나 비밀번호가 다르면 null 이 온다.
+  //    그때는 지금까지 쓰던 settings.pw 비교로 폴백한다 (병행 기간, AUTH_PLAN 5-2단계).
+  if(v&&typeof ppLoginTeacher==='function'){
+    const t=await ppLoginTeacher(PP_TEACHER_EMAIL,v);
+    if(t){
+      if(inEl)inEl.value='';if(errEl)errEl.textContent='';
+      saveSession({role:'teacher'});show('s-teacher');await initApp();
+      return;
+    }
+  }
+  if(typeof PP_AUTH_FALLBACK!=='undefined'&&PP_AUTH_FALLBACK===false){
+    if(errEl)errEl.textContent='비밀번호가 맞지 않습니다';
+    return;
+  }
   const vHash=await hashPw(v);
   // 저장값이 해시면 해시 비교만 허용 (해시 문자열 자체를 비밀번호처럼 입력해도 로그인 불가 —
   // 과거 '문자 그대로 일치 → 재해시 저장' 로직이 비밀번호를 이중 해시로 망가뜨리던 버그의 원인)
@@ -56,6 +72,29 @@ async function checkPin(nameId='pin-name',codeId='pin-code',errId='pin-err'){
     if(now.pin)pin=now.pin;
     setErr('');
   }
+  // ① 서버 로그인(login 엣지 함수) 먼저 — PIN 대조를 서버에서 한다 (AUTH_PLAN 2-A).
+  //    함수가 아직 없거나 네트워크 오류면 ②로 내려가 지금 방식으로 확인한다.
+  //    PIN 이 틀린 것(401)은 폴백하지 않는다 — 막은 의미가 없어진다.
+  if(typeof ppLoginPin==='function'){
+    const r=await ppLoginPin('parent',{name,pin});
+    if(r.ok){
+      if(typeof ppPinOk==='function')ppPinOk();
+      if(codeEl)codeEl.value='';setErr('');
+      if(!_cache.students.length){try{await loadAllDataFast();}catch(e){}}
+      await loadParentWithNotice(r.sid);
+      return;
+    }
+    if(r.hard){
+      if(typeof ppPinFailed==='function')ppPinFailed();
+      setErr(r.why||'이름 또는 PIN 이 맞지 않습니다');
+      return;
+    }
+  }
+  // ② 폴백 — 지금까지의 방식 (브라우저에서 대조)
+  if(typeof PP_AUTH_FALLBACK!=='undefined'&&PP_AUTH_FALLBACK===false){
+    setErr('로그인 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
   const s=DB.stus().find(x=>x.name===name);
   if(!s){setErr('등록된 학생을 찾을 수 없습니다');return;}
   if(s.pin===pin){if(typeof ppPinOk==='function')ppPinOk();if(codeEl)codeEl.value='';setErr('');await loadParentWithNotice(s.id);}
@@ -72,6 +111,17 @@ async function changePw(){
   const e=document.getElementById('pw-ch-err');
   if(nw.length<4){e.textContent='4자 이상 입력해 주세요';return;}
   if(nw!==cf){e.textContent='새 비밀번호 불일치';return;}
+  // 병행 기간에는 양쪽 다 바꾼다 — Auth 계정(서버 로그인) + settings.pw(폴백)
+  let _authOk=null;
+  if(typeof ppSession==='function'&&ppSession()&&ppAuthRole()==='teacher'){
+    try{
+      const r=await ppFetch(SUPA_URL+'/auth/v1/user',{method:'PUT',
+        headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+ppAccessToken(),'Content-Type':'application/json'},
+        body:JSON.stringify({password:nw})});
+      _authOk=r.ok;
+      if(!r.ok)console.warn('Auth 비밀번호 변경 실패:',r.status);
+    }catch(err){_authOk=false;console.warn('Auth 비밀번호 변경 실패:',err);}
+  }
   // localStorage + Supabase 양쪽 저장
   const nwHash=await hashPw(nw);
   DB.s('pw',nwHash);
@@ -80,7 +130,10 @@ async function changePw(){
   try{await supaSetSetting('pw',nwHash);}catch(err){console.warn('설정 저장 실패:',err);_pwSaveOk=false;}
   e.textContent='';
   ['pw-cur','pw-nw','pw-cf'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
-  toast(_pwSaveOk?'비밀번호가 변경되었습니다':'비밀번호 변경됨 (서버 동기화 실패)');
+  const _msg=_authOk===false?'비밀번호 변경됨 (서버 계정 쪽은 실패 — 설정에서 로그인 방식을 확인해 주세요)'
+    :(_pwSaveOk?'비밀번호가 변경되었습니다':'비밀번호 변경됨 (서버 동기화 실패)');
+  toast(_msg);
+  if(typeof updateAuthModeRow==='function')updateAuthModeRow();
 }
 // ── GOOGLE BOOKS KEY ──
 // ── 카카오톡 연결 설정 ──
@@ -115,6 +168,20 @@ function updateApiKeyStatusDot(){
   if(!k){dot.style.color='var(--slate)';dot.textContent='● 미설정';}
   else if(k==='proxy'){dot.style.color='var(--okt)';dot.textContent='● 서버 키 사용 중';}
   else{dot.style.color='#b8860b';dot.textContent='● 저장됨';}
+}
+// ── 로그인 방식 표시 (서버 이전 병행 기간) ──
+// 선생님이 '지금 어느 쪽으로 로그인돼 있는지' 를 한 줄로 본다. 병행이 끝나면 지워도 되는 줄이다.
+function updateAuthModeRow(){
+  const el=document.getElementById('auth-mode-row');if(!el)return;
+  const role=(typeof ppAuthRole==='function')?ppAuthRole():'';
+  const on=!!(typeof ppSession==='function'&&ppSession());
+  const chip=(t,c,b)=>`<span style="font-weight:700;padding:2px 9px;border-radius:var(--rpill);background:${b};color:${c}">${t}</span>`;
+  el.innerHTML='로그인 방식 '+(on&&role==='teacher'
+    ? chip('서버(Supabase Auth)','var(--okt)','var(--okl)')
+    : chip('예전 방식(폴백)','var(--warnt)','var(--warnl)'))
+    +'<span style="color:var(--slate2)">'+(on&&role==='teacher'
+      ? '토큰으로 접속 중입니다.'
+      : '아직 비밀번호 대조로 들어와 있습니다 — supabase/auth_teacher_setup.md 참고')+'</span>';
 }
 // ── ElevenLabs 음성 설정 ──
 function updateElevenDot(){
@@ -301,6 +368,7 @@ function swTab(id){
     updateElevenDot();
     // 서버 함수에 음성 키가 있는지는 이 화면을 열 때 확인한다 (설정 행을 지우기 전에도 확인 가능)
     if(_cache.settings.ttsProxy===undefined&&typeof ppProbeTtsProxy==='function')ppProbeTtsProxy();
+    updateAuthModeRow();
     const a=DB.acct();document.getElementById('cfg-bank').value=a.bank||'';document.getElementById('cfg-acct').value=a.number||'';document.getElementById('cfg-acct-name').value=a.name||'';document.getElementById('cfg-pay-msg').value=a.msg||'';
     updateApiKeyStatusDot();
     renderCmtChipSettings();
@@ -12523,7 +12591,11 @@ function renderQRCode(){
   const pin=s.pin||'';
   if(!pin){el.innerHTML='<div style="color:var(--slate);font-size:13px">PIN이 설정되지 않은 학생입니다</div>';return;}
   const baseUrl='https://page-and-pencil.github.io/page-pencil/';
-  const target=`${baseUrl}?pin=${encodeURIComponent(pin)}&role=${role}`;
+  // QR 은 PIN 대신 무작위 토큰을 쓴다 — 주소·캡처에 PIN 이 남지 않고, 새로 만들면 옛 링크가 막힌다.
+  // 토큰이 없는 학생은 이 화면을 열 때 만들어 저장한다 (기존 행 일괄 변경은 하지 않는다).
+  const tok=s.qrToken||'';
+  if(!tok){qrEnsureToken(sid);el.innerHTML='<div style="color:var(--slate);font-size:13px">QR 링크를 만드는 중…</div>';return;}
+  const target=`${baseUrl}?t=${encodeURIComponent(tok)}&role=${role}`;
   const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(target)}`;
   el.innerHTML=`<div>
     <div style="font-size:13px;color:var(--slate);margin-bottom:8px;white-space:nowrap">${s.name} (${role==='student'?'학생':'학부모'})</div>
@@ -12532,9 +12604,32 @@ function renderQRCode(){
       <a href="${qrUrl}" download="${s.name}_QR.png" class="btn bo bsm">⬇ 이미지 저장</a>
       <button class="btn ba bsm" onclick="window.print()">🖨 인쇄</button>
       <button class="btn bo bsm" onclick="navigator.clipboard.writeText('${target}').then(()=>toast('링크 복사됨'))">🔗 링크 복사</button>
+      <button class="btn bo bsm" onclick="qrRenewToken('${escAttr(sid)}')" title="새로 만들면 지금까지 보낸 링크는 열리지 않습니다">♻ QR 새로 만들기</button>
     </div>
     <div style="font-size:11.5px;color:var(--slate);margin-top:6px;word-break:break-all">${target}</div>
+    <div style="font-size:11.5px;color:var(--slate);margin-top:6px;line-height:1.6">예전에 보낸 <b>?pin=</b> 링크는 아직 열리지만 곧 막힙니다 — 새 링크로 다시 보내 주세요.</div>
   </div>`;
+}
+// QR 토큰 — 없으면 만들어 저장 (학생 행의 선택 필드, 옛 행을 일괄로 고치지 않는다)
+function _qrNewToken(){
+  const a=new Uint8Array(24);crypto.getRandomValues(a);
+  return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,32);
+}
+async function qrEnsureToken(sid){
+  const s=DB.stus().find(x=>x.id===sid);if(!s)return '';
+  if(s.qrToken)return s.qrToken;
+  s.qrToken=_qrNewToken();
+  try{await supaUpsert('students',sid,s,null);}catch(e){console.warn('QR 토큰 저장 실패:',e);toast('QR 링크 저장에 실패했어요');return '';}
+  renderQRCode();
+  return s.qrToken;
+}
+async function qrRenewToken(sid){
+  askConfirm('QR 새로 만들기','지금까지 보낸 링크는 더 이상 열리지 않습니다. 새로 만들까요?','새로 만들기','bd',async()=>{
+    const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+    s.qrToken=_qrNewToken();
+    try{await supaUpsert('students',sid,s,null);}catch(e){toast('저장에 실패했어요');return;}
+    renderQRCode();toast('새 QR 링크를 만들었어요 — 옛 링크는 막혔습니다');
+  });
 }
 
 // ── CLASSES ──
@@ -16987,7 +17082,33 @@ document.addEventListener('DOMContentLoaded',async()=>{
     const params=new URLSearchParams(location.search);
     const pin=params.get('pin');
     const role=params.get('role');
-    if(pin&&role){
+    const qrTok=params.get('t');
+    // 새 QR 링크(?t=무작위토큰) — PIN 이 주소에 실리지 않는다
+    if(qrTok){
+      try{history.replaceState(null,'',location.pathname+location.hash);}catch(e){}
+      setToday();
+      const _role=(role==='parent')?'parent':'student';
+      let done=false;
+      if(typeof ppLoginPin==='function'){
+        const r=await ppLoginPin(_role,{qr:qrTok});
+        if(r.ok){
+          if(!_cache.students.length){try{await loadAllDataFast();}catch(e){}}
+          if(_role==='student'){
+            const st=DB.stus().find(x=>x.id===r.sid)||{id:r.sid,name:r.name||''};
+            await loginStudent(st);
+          }else{await loadParentWithNotice(r.sid);}
+          done=true;
+        }else if(r.hard){toast(r.why||'링크가 더 이상 유효하지 않습니다');done=true;}
+      }
+      if(!done&&(typeof PP_AUTH_FALLBACK==='undefined'||PP_AUTH_FALLBACK)){
+        // 함수가 아직 없는 동안은 토큰으로 캐시에서 찾아 본다 (병행 기간)
+        if(!_cache.students.length)await loadAllDataFast();
+        const st=DB.stus().find(x=>x.qrToken===qrTok&&!x.inactive);
+        if(st){ if(_role==='student')await loginStudent(st); else await loadParentWithNotice(st.id); }
+        else toast('링크가 더 이상 유효하지 않습니다');
+      }
+    } else if(pin&&role&&(typeof PP_AUTH_FALLBACK==='undefined'||PP_AUTH_FALLBACK)){
+      // 옛 QR 링크(?pin=). 3단계에서 PP_AUTH_FALLBACK 을 false 로 두면 이 가지가 통째로 꺼진다.
       // 주소에 PIN 이 남으면 방문 기록·화면 공유·캡처에 그대로 남고, [나가기] 뒤 새로고침에
       // 다시 자동 로그인된다. 읽자마자 지운다 (뒤로 가기 기록도 남기지 않게 replaceState)
       try{history.replaceState(null,'',location.pathname+location.hash);}catch(e){}

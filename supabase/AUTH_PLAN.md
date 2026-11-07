@@ -98,7 +98,7 @@ supabase/functions/login/index.ts   (service_role 로 students 를 읽는다)
 
 | 테이블 | 선생님 | 학생·학부모 | anon |
 |---|---|---|---|
-| students | 전부 읽기·쓰기 | **자기 행만**, PIN·연락처·수강료는 뷰로 가림 | 닫음 |
+| students | 전부 읽기·쓰기 | **자기 행만**, PIN·연락처는 뷰로 가림 (학생은 결제도 가림) | 닫음 |
 | assignments · homeworks · vocab_cards · readings · logs | 전부 | 자기 `sid` 행 읽기·쓰기 (숙제 체크·단어 학습) | 닫음 |
 | lessons · tests · messages · monthly_reports · counsels | 전부 | 자기 `sid` 행 읽기만 | 닫음 |
 | classes · exam_schedules | 전부 | 읽기만 | 닫음 |
@@ -106,9 +106,15 @@ supabase/functions/login/index.ts   (service_role 로 students 를 읽는다)
 | tts_cache | 전부 | 읽기 + 새 음원 넣기 | 닫음 |
 | settings | 전부 | 화이트리스트만 읽기 (`settings_rls.sql`) | 같음 |
 
-`students` 의 PIN·연락처·수강료는 학생 자신에게도 보일 필요가 없습니다.
-**뷰 `students_safe`**(이름·학년·학교·반만)를 만들어 학생·학부모는 뷰를 읽게 하고,
-원본 테이블은 선생님만 읽게 하는 것이 깔끔합니다.
+`students` 의 PIN·QR토큰·연락처·메모는 학생에게도 학부모에게도 보일 필요가 없습니다.
+안전 뷰 **두 개**를 만들어 원본 테이블은 선생님만 읽게 합니다 (`supabase/auth_step1.sql`):
+
+| 뷰 | 누가 | 뺀 것 |
+|---|---|---|
+| `students_safe` | 학생 | pin · qrToken · 연락처 · 메모 · **수강료·결제** |
+| `students_parent` | 학부모 | pin · qrToken · 연락처 · 메모 (결제 탭이 쓰는 `fee`·`payday`·`payments` 는 남김) |
+
+둘 다 '빼기'로 만들어 새 필드가 생겨도 자동으로 따라갑니다.
 
 ---
 

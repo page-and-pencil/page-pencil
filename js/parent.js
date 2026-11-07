@@ -49,6 +49,128 @@ function parentAreaGrowth(sid){
     </div>
   </div>`;
 }
+// ── 학부모 점수 탭 ②학교 내신 ③모의고사 ④NELT (2026-11-08, docs/PARENT_SCORES_PLAN.md) ──
+// 자체 시험과 체계가 달라 한 그래프에 잇지 않는다. 블록으로 따로 보여 주고,
+// 판정하는 말(우수·불합격 등)을 덧붙이지 않는다. 숫자는 여기서 계산한다(AI 문장에 넣지 않는다).
+// 학기 표기: 3~7월=1학기, 8~12월=2학기, 1~2월은 앞 학년도 2학기 (표기 규칙이지 데이터가 아님)
+function _pSemLabel(dateStr){
+  const m=/^(\d{4})-(\d{2})/.exec(String(dateStr||''));
+  if(!m)return '';
+  const y=+m[1],mo=+m[2];
+  if(mo>=3&&mo<=7)return y+'-1학기';
+  if(mo>=8)return y+'-2학기';
+  return (y-1)+'-2학기';
+}
+// 네 영역을 합친 정답률 — 영역 기록이 없으면 null (0% 로 보여 주지 않는다)
+function _pTestPct(t){
+  let c=0,n=0;
+  ['vocab','grammar','reading','listening'].forEach(f=>{
+    const tot=Number(t[f+'Total'])||0;
+    if(tot>0){c+=Number(t[f+'Correct'])||0;n+=tot;}
+  });
+  return n>0?Math.round(c/n*100):null;
+}
+const _P_ACHV_COLOR={A:'var(--okt)',B:'var(--okt)',C:'var(--tealt)',D:'var(--warnt)',E:'var(--warnt)'};
+function _pSchoolTests(sid){
+  return DB.tsts().filter(t=>t.sid===sid&&(typeof ppTestKindOf==='function')&&ppTestKindOf(t)==='school')
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+}
+function _pMockTests(sid){
+  return DB.tsts().filter(t=>t.sid===sid&&(typeof ppTestKindOf==='function')&&ppTestKindOf(t)==='mock'&&Number(t.mockGrade)>=1)
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+}
+function _pNeltRows(s){
+  return ((s&&s.neltResults)||[]).filter(n=>n&&(n.score!=null||n.level))
+    .slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+}
+// ② 학교 내신 — 성취도를 크게, 점수는 보조. 학교·학년이 다르면 비교하지 않으므로 증감(▲▼)은 쓰지 않는다.
+function parentSchoolBlock(sid,s){
+  const list=_pSchoolTests(sid);
+  if(!list.length)return '';
+  return `<div class="card">
+    <div class="ch"><span class="ct">${luIcon('graduation-cap',16)}학교 내신</span><span class="p-dim">${list.length}회</span></div>
+    <div class="cb" style="padding:4px 16px 8px">
+      ${list.map(t=>{
+        const p=_pTestPct(t);
+        const ac=String(t.schoolAchv||'').trim();
+        return `<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--divider)">
+          <span style="font-size:11.5px;color:var(--slate);white-space:nowrap;min-width:72px">${_pSemLabel(t.date)||(t.date||'')}</span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+            <span style="font-size:13.5px;font-weight:700;color:var(--navy)">${escAttr(t.date||'')}</span>
+            ${s&&s.school?`<span style="font-size:11.5px;color:var(--slate);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(s.school)}</span>`:''}
+          </span>
+          ${ac?`<span style="font-size:22px;font-weight:800;line-height:1;color:${_P_ACHV_COLOR[ac]||'var(--tealt)'};font-family:var(--fd)">${escAttr(ac)}</span>`:''}
+          ${p!=null?`<span style="font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:var(--rpill);background:var(--tl);color:var(--tealt);white-space:nowrap">${p}%</span>`:''}
+        </div>`;
+      }).join('')}
+      <div style="font-size:11.5px;color:var(--slate);line-height:1.6;margin-top:10px;background:var(--bg);border-radius:var(--rs);padding:8px 10px">학교 시험은 학교·학년마다 범위가 달라 서로 비교하지 않습니다.</div>
+    </div>
+  </div>`;
+}
+// ③ 모의고사 — 회차별 칩. 등급은 낮을수록 좋으므로 머리에 한 줄을 매번 둔다.
+function parentMockBlock(sid){
+  const list=_pMockTests(sid);
+  if(!list.length)return '';
+  return `<div class="card">
+    <div class="ch"><span class="ct">${luIcon('chart-line',16)}모의고사</span><span class="p-dim">${list.length}회</span></div>
+    <div class="cb" style="padding:12px 16px">
+      <div style="font-size:12px;color:var(--slate);margin-bottom:10px"><b style="color:var(--navy)">1등급이 가장 높아요.</b> 숫자가 낮을수록 좋은 등급입니다.</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        ${list.map(t=>{
+          const g=Number(t.mockGrade);
+          const col=g<=2?'var(--okt)':g<=4?'var(--tealt)':'var(--warnt)';
+          const bg=g<=2?'var(--okl)':g<=4?'var(--tl)':'var(--warnl)';
+          return `<span style="display:inline-flex;align-items:baseline;gap:5px;font-size:12.5px;padding:5px 11px;border-radius:var(--rpill);background:${bg};color:${col};white-space:nowrap">
+            <span style="color:var(--slate);font-size:11.5px">${escAttr((t.date||'').slice(0,7))}</span>
+            <b style="font-size:14px;font-family:var(--fd)">${g}</b>등급</span>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+// ④ NELT — 상·하반기 한 줄씩. 점수와 레벨을 함께, 직전 기록 대비 ▲▼.
+function parentNeltBlock(s){
+  const list=_pNeltRows(s);
+  if(!list.length)return '';
+  return `<div class="card">
+    <div class="ch"><span class="ct">${luIcon('trophy',16)}NELT</span><span class="p-dim">${list.length}회</span></div>
+    <div class="cb" style="padding:4px 16px 8px">
+      ${list.map((n,i)=>{
+        const prev=list[i+1];
+        const d=(n.score!=null&&prev&&prev.score!=null)?(Number(n.score)-Number(prev.score)):null;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--divider)">
+          <span style="font-size:11.5px;color:var(--slate);white-space:nowrap;min-width:72px">${escAttr((n.date||'').slice(0,4))} ${escAttr(n.term||'')}</span>
+          <span style="font-size:12px;color:var(--slate);flex:1;min-width:0">${escAttr(n.date||'')}</span>
+          ${n.score!=null?`<span style="font-size:20px;font-weight:800;line-height:1;color:var(--tealt);font-family:var(--fd)">${Number(n.score)}<span style="font-size:12px;font-weight:700">점</span></span>`:''}
+          ${n.level?`<span style="font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:var(--rpill);background:var(--tl);color:var(--tealt);white-space:nowrap">${escAttr(n.level)}</span>`:''}
+          ${d!=null&&d!==0?`<span style="font-size:12px;font-weight:700;color:${d>0?'var(--okt)':'var(--warnt)'};white-space:nowrap">${d>0?'▲':'▼'}${Math.abs(d)}</span>`:''}
+        </div>`;
+      }).join('')}
+      <div style="font-size:11.5px;color:var(--slate);line-height:1.6;margin-top:10px;background:var(--bg);border-radius:var(--rs);padding:8px 10px">상반기·하반기 한 번씩 보는 시험입니다. 점수와 레벨을 함께 보여 드립니다.</div>
+    </div>
+  </div>`;
+}
+// 인쇄 리포트용 한 줄 요약 — 기록이 있을 때만. 숫자는 여기서 계산한다.
+function _pPrintOtherScores(sid,s,inScope){
+  const ok=d=>(typeof inScope==='function')?inScope(d):true;
+  const sch=_pSchoolTests(sid).filter(t=>ok(t.date));
+  const mock=_pMockTests(sid).filter(t=>ok(t.date));
+  const nelt=_pNeltRows(s).filter(n=>ok(n.date));
+  const rows=[];
+  if(sch.length)rows.push(['학교 내신',sch.map(t=>{
+    const p=_pTestPct(t);
+    return (_pSemLabel(t.date)||t.date)+(t.schoolAchv?' 성취도 '+t.schoolAchv:'')+(p!=null?' · '+p+'%':'');
+  }).join(' / ')]);
+  if(mock.length)rows.push(['모의고사',mock.map(t=>(t.date||'').slice(0,7)+' '+Number(t.mockGrade)+'등급').join(' / ')+' (1등급이 가장 높아요)']);
+  if(nelt.length)rows.push(['NELT',nelt.map(n=>((n.date||'').slice(0,4)+' '+(n.term||'')).trim()+(n.score!=null?' '+Number(n.score)+'점':'')+(n.level?' · '+n.level:'')).join(' / ')]);
+  if(!rows.length)return '';
+  return `<div class="section">
+    <div class="section-title">🏫 학교 시험 · 모의고사 · NELT</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tbody>${rows.map(([k,v])=>`<tr style="border-bottom:1px solid #eee"><td style="padding:5px 8px;color:#888;white-space:nowrap;vertical-align:top">${k}</td><td style="padding:5px 8px">${v}</td></tr>`).join('')}</tbody>
+    </table>
+  </div>`;
+}
 // 수업 코멘트에서 코멘트 칩(강점/진행/보완)을 감지해 색상 칩으로 표시
 function lessonChips(rawCmt){
   if(!rawCmt||typeof getCmtChips!=='function')return '';
@@ -181,7 +303,10 @@ async function loadParent(sid){
   currentParentSid=sid;
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
   const les=DB.less().filter(l=>l.sid===sid);
-  const tsts=DB.tsts().filter(t=>t.sid===sid);
+  // 점수 탭의 단어 평균·추이·영역별 성장은 **자체 시험만** 쓴다 — 내신·모의고사는 체계가
+  // 달라 한 선에 이으면 과목이 다른 점수를 비교하게 된다 (2026-11-08, PARENT_SCORES_PLAN 3-1)
+  const tstsAll=DB.tsts().filter(t=>t.sid===sid);
+  const tsts=tstsAll.filter(t=>(typeof ppTestKindOf!=='function')||ppTestKindOf(t)==='inhouse');
   const rds=DB.allRds(sid);
   const logs=DB.logs().filter(l=>l.sid===sid);
   const latLes=les[0];
@@ -215,7 +340,7 @@ async function loadParent(sid){
   const lastVisit=localStorage.getItem(lastVisitKey)||'';
   const todayIso=ppToday();
   const newLesCount=les.filter(l=>l.date&&l.date>lastVisit).length;
-  const newTstCount=tsts.filter(t=>t.date&&t.date>lastVisit).length;
+  const newTstCount=tstsAll.filter(t=>t.date&&t.date>lastVisit).length;   // 새 기록 알림은 내신·모의고사도 센다
   const pendingCount=DB.assigns().filter(a=>a.sid===sid&&(typeof hwPendingNow==='function'?hwPendingNow(a):!hwFinished(a))).length;
   const notifItems=[];
   if(newLesCount)notifItems.push(`수업 기록 ${newLesCount}건`);
@@ -324,8 +449,10 @@ async function loadParent(sid){
 
   // 블록 C — 최근 테스트
   // 점수 카드는 '응시한' 시험만 본다. 미응시만 있으면 카드 자체를 띄우지 않는다.
+  let _scoreBlocks=0;                 // ①자체 ②내신 ③모의고사 ④NELT 중 실제로 그린 수
   const scoredTsts=(typeof ppScored==='function')?ppScored(tsts,'vocab'):tsts.filter(t=>t&&!t.absent&&(t.vocabTotal||0)>0);
   if(scoredTsts.length){
+    _scoreBlocks++;
     const latTst=scoredTsts[0];const prevTst=scoredTsts[1]||null;
     const vp=pct(latTst.vocabCorrect,latTst.vocabTotal);
     const gp=pct(latTst.grammarCorrect,latTst.grammarTotal);
@@ -477,6 +604,12 @@ async function loadParent(sid){
     </div>`;
   }
 
+  // 블록 ②③④ — 학교 내신 · 모의고사 · NELT (자체 시험 다음 순서, 기록 없는 블록은 숨김)
+  {
+    const _b2=parentSchoolBlock(sid,s),_b3=parentMockBlock(sid),_b4=parentNeltBlock(s);
+    [_b2,_b3,_b4].forEach(h=>{if(h){secScore+=h;_scoreBlocks++;}});
+  }
+
   // 블록 G — 리딩로그
   if(logs.length){
     blocks+=`<div class="card">
@@ -593,12 +726,15 @@ async function loadParent(sid){
       ${(DB.kakao().openchat||DB.kakao().phone)?`<button onclick="openParentMsgModal('${sid}')" style="width:100%;padding:13px;background:#FEE500;border:none;border-radius:12px;font-family:var(--fb);font-size:15px;font-weight:800;cursor:pointer;color:#3C1E1E">💬 카카오톡으로 질문하기</button>`:""}
     </div></div>`;
 
-  // 점수 탭 빈 상태
-  if(!secScore.trim())secScore=`<div class="card"><div class="cb" style="padding:30px 18px;text-align:center">
+  // 점수 탭 빈 상태 — 네 블록(자체·내신·모의고사·NELT)이 모두 비었을 때만 (PARENT_SCORES_PLAN 3-4)
+  if(!_scoreBlocks){
+    const _empty=`<div class="card"><div class="cb" style="padding:30px 18px;text-align:center">
     <div style="font-size:34px;margin-bottom:8px">${luIcon('pencil',15)||''}</div>
     <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px">아직 테스트 기록이 없어요</div>
     <div style="font-size:13px;color:var(--slate)">시험을 보면 점수와 영역별 성장이<br>여기에 표시됩니다.</div>
   </div></div>`;
+    secScore=_empty+secScore;    // 과제 완료율로만 그려진 카드가 있으면 그 위에 둔다
+  }
 
   document.getElementById('pp-body').innerHTML=`
     <div class="pp-tab" data-pptab="les">${blocks}</div>
@@ -821,11 +957,13 @@ async function printReport(sidArg,month){
   const byDateDesc=(a,b)=>(b.date||'').localeCompare(a.date||'');
   const lesAll=DB.less().filter(l=>l.sid===sid).sort(byDateDesc);
   const les=lesAll.filter(l=>inScope(l.date));
-  const tsts=DB.tsts().filter(t=>t.sid===sid&&inScope(t.date)).sort(byDateDesc);
+  // 인쇄도 점수 칸은 자체 시험만 — 내신·모의고사·NELT 는 아래 별도 줄로 (2026-11-08)
+  const tstsAll=DB.tsts().filter(t=>t.sid===sid&&inScope(t.date)).sort(byDateDesc);
+  const tsts=tstsAll.filter(t=>(typeof ppTestKindOf!=='function')||ppTestKindOf(t)==='inhouse');
   // 같은 원서를 여러 수업에 걸쳐 읽으면 기록이 중복됨 — 제목별 최신 기록 1건으로 정리 (권수·진도 정확화)
   const rdSeen=new Set();
   const rds=DB.allRds(sid).filter(r=>inScope(r.date)).filter(r=>{const t=(r.title||'').trim();if(!t||rdSeen.has(t))return false;rdSeen.add(t);return true;});
-  if(scoped&&!les.length&&!rds.length&&!tsts.length){toast(`${periodLabel}에는 기록이 없습니다`);return;}
+  if(scoped&&!les.length&&!rds.length&&!tstsAll.length){toast(`${periodLabel}에는 기록이 없습니다`);return;}
   const badges=getBadges(sid).filter(b=>b.unlocked);
   const today=new Date();
   const avgV=ppAvgPct(tsts,'vocab');                  // 미응시 제외, 없으면 null
@@ -920,6 +1058,7 @@ async function printReport(sidArg,month){
     </div>
     ${(latTst.wrongWords||[]).length?`<div style="font-size:13px">다시 볼 단어: <strong>${latTst.wrongWords.slice(0,10).join(', ')}</strong></div>`:''}
   </div>`:''}
+  ${(typeof _pPrintOtherScores==='function')?_pPrintOtherScores(sid,s,inScope):''}
   ${teacherComment?`<div class="section">
     <div class="section-title">💬 선생님 종합 코멘트</div>
     <div class="comment-box" style="font-size:14px;line-height:1.8">${teacherComment.replace(/\n/g,'<br>')}</div>

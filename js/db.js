@@ -3,7 +3,162 @@ const BOOK_DB=[];
 // ── SUPABASE CONFIG (fetch 직접 호출) ──
 const SUPA_URL='https://pznpcewwdsbxwibpnapn.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6bnBjZXd3ZHNieHdpYnBuYXBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NjQ4NzUsImV4cCI6MjA5NTQ0MDg3NX0.fzXJKPfcxR-vrgsFbgt6-5sMEjtUH2p_rPsv6XjHe-c';
-const SUPA_HEADERS={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'};
+// ── SUPABASE AUTH 세션 (2026-11-08, AUTH_PLAN 2단계: 병행) ──
+// 토큰이 있으면 그 토큰으로, 없으면 지금까지처럼 공개 anon 키로 요청한다.
+// 그래서 이 단계에서는 서버가 준비되지 않아도 앱이 그대로 돈다.
+//
+// 보관 위치
+//   access_token  : sessionStorage 만 (탭을 닫으면 사라진다)
+//   refresh_token : 선생님 = sessionStorage, 학생·학부모 = localStorage
+//     학생은 지금도 localStorage 의 pp_session 으로 다시 열어도 로그인 상태가 유지된다.
+//     그 경험을 지키려면 refresh_token 이 살아 있어야 한다. 대신 그 토큰으로 할 수 있는 일은
+//     '그 학생 자기 데이터' 뿐이고, 로그아웃하면 서버에서 폐기한다.
+//     (선생님 토큰은 전부를 볼 수 있으므로 탭을 닫으면 사라지게 둔다.)
+// ── 폴백 스위치 (AUTH_PLAN 3단계에서 false 로) ──
+// true  : 서버 로그인이 안 되면 지금까지의 방식(브라우저 PIN 대조·settings.pw)으로 들어간다.
+// false : 서버 로그인만 쓴다. anon 권한을 닫기(auth_step3_close_anon.sql) **전에** 이 값을
+//         false 로 바꿔 배포하고, 하루 이틀 문제가 없는지 본 뒤에 SQL 을 실행한다.
+const PP_AUTH_FALLBACK=true;
+const PP_AUTH_KEY='pp_auth';        // sessionStorage
+const PP_RT_KEY='pp_auth_rt';       // localStorage (학생·학부모만)
+let _ppAuth=null,_ppRefreshing=null;
+function _ppAuthLoad(){
+  if(_ppAuth)return _ppAuth;
+  try{const s=sessionStorage.getItem(PP_AUTH_KEY);if(s)_ppAuth=JSON.parse(s);}catch(e){}
+  if(!_ppAuth){
+    // 탭을 새로 열었다 — 학생·학부모는 저장해 둔 refresh_token 으로 되살린다
+    try{const rt=localStorage.getItem(PP_RT_KEY);if(rt)_ppAuth=JSON.parse(rt);}catch(e){}
+  }
+  return _ppAuth;
+}
+function _ppAuthSave(a){
+  _ppAuth=a||null;
+  try{
+    if(a)sessionStorage.setItem(PP_AUTH_KEY,JSON.stringify(a));
+    else sessionStorage.removeItem(PP_AUTH_KEY);
+  }catch(e){}
+  try{
+    if(a&&a.role&&a.role!=='teacher')localStorage.setItem(PP_RT_KEY,JSON.stringify({role:a.role,sid:a.sid,refresh_token:a.refresh_token}));
+    else localStorage.removeItem(PP_RT_KEY);
+  }catch(e){}
+}
+function ppSession(){const a=_ppAuthLoad();return (a&&a.refresh_token)?a:null;}
+function ppAccessToken(){
+  const a=_ppAuthLoad();
+  return (a&&a.access_token)?a.access_token:'';
+}
+// 선생님 토큰인지 (화면 표시용)
+function ppAuthRole(){const a=_ppAuthLoad();return a?(a.role||''):'';}
+// 토큰이 있으면 그걸로, 없으면 공개 anon 키로.
+function ppHeaders(extra){
+  const t=ppAccessToken();
+  return Object.assign({
+    'apikey':SUPA_KEY,
+    'Authorization':'Bearer '+(t||SUPA_KEY),
+    'Content-Type':'application/json',
+    'Prefer':'return=minimal',
+  },extra||{});
+}
+async function ppRefresh(){
+  const a=_ppAuthLoad();
+  if(!a||!a.refresh_token)return false;
+  if(_ppRefreshing)return _ppRefreshing;          // 동시에 여러 요청이 401 이면 한 번만
+  _ppRefreshing=(async()=>{
+    try{
+      const r=await fetch(SUPA_URL+'/auth/v1/token?grant_type=refresh_token',{
+        method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},
+        body:JSON.stringify({refresh_token:a.refresh_token})});
+      if(!r.ok){_ppAuthSave(null);return false;}
+      const d=await r.json();
+      if(!d||!d.access_token){_ppAuthSave(null);return false;}
+      _ppAuthSave({...a,access_token:d.access_token,refresh_token:d.refresh_token||a.refresh_token,
+        expires_at:Date.now()+((d.expires_in||3600)*1000)});
+      return true;
+    }catch(e){return false;}
+    finally{_ppRefreshing=null;}
+  })();
+  return _ppRefreshing;
+}
+// 만료가 가까우면 미리 갱신 — 수업 중에 끊기지 않게
+async function ppEnsureFresh(){
+  const a=_ppAuthLoad();
+  if(!a||!a.refresh_token)return;
+  if(!a.access_token||!a.expires_at||a.expires_at-Date.now()<60000)await ppRefresh();
+}
+// 선생님 로그인 (이메일+비밀번호). 실패하면 null 을 돌려주고 호출한 쪽이 옛 방식으로 폴백한다.
+async function ppLoginTeacher(email,password){
+  try{
+    const r=await fetch(SUPA_URL+'/auth/v1/token?grant_type=password',{
+      method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({email,password})});
+    if(!r.ok)return null;
+    const d=await r.json();
+    if(!d||!d.access_token)return null;
+    _ppAuthSave({role:'teacher',sid:'',access_token:d.access_token,refresh_token:d.refresh_token,
+      expires_at:Date.now()+((d.expires_in||3600)*1000)});
+    return d;
+  }catch(e){return null;}
+}
+// 학생·학부모 로그인 (login 엣지 함수).
+// 돌려주는 값: {ok:true,...} / {ok:false,hard:true} = PIN 이 틀림(폴백 금지)
+//              {ok:false,hard:false} = 함수가 없거나 네트워크 오류(옛 방식으로 폴백)
+async function ppLoginPin(role,opts){
+  if(window._ppLoginFnOff===true)return {ok:false,hard:false,why:'함수 없음'};
+  try{
+    const r=await fetch(SUPA_URL+'/functions/v1/login',{
+      method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({role,...(opts||{})})});
+    if(r.status===404||r.status===503){window._ppLoginFnOff=true;return {ok:false,hard:false,why:'함수 미배포'};}
+    const d=await r.json().catch(()=>({}));
+    if(r.ok&&d&&d.access_token){
+      _ppAuthSave({role,sid:d.sid||'',name:d.name||'',access_token:d.access_token,
+        refresh_token:d.refresh_token,expires_at:Date.now()+((d.expires_in||3600)*1000)});
+      return {ok:true,sid:d.sid,name:d.name};
+    }
+    // 401·409·429 는 '서버가 판단한 실패' — 옛 방식으로 돌아가면 막은 의미가 없다
+    if(r.status===401||r.status===409||r.status===429)
+      return {ok:false,hard:true,why:(d&&d.error&&d.error.message)||'로그인 실패',candidates:(d&&d.candidates)||null};
+    return {ok:false,hard:false,why:(d&&d.error&&d.error.message)||('HTTP '+r.status)};
+  }catch(e){return {ok:false,hard:false,why:e.message};}
+}
+async function ppLogout(){
+  const t=ppAccessToken();
+  if(t){
+    try{await fetch(SUPA_URL+'/auth/v1/logout',{method:'POST',
+      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+t,'Content-Type':'application/json'}});}catch(e){}
+  }
+  _ppAuthSave(null);
+}
+// REST 호출 한 겹 — 401 이면 토큰을 한 번 갱신하고 다시 보낸다.
+async function ppFetch(url,opts){
+  opts=opts||{};
+  if(ppSession())await ppEnsureFresh();
+  let r=await fetch(url,opts);
+  if(r.status===401&&ppSession()){
+    const ok=await ppRefresh();
+    if(ok){
+      let o=opts;
+      // headers 를 복사해 둔 호출은 옛 토큰이 박혀 있다 — 새 토큰으로 바꿔 끼운다
+      if(opts.headers&&typeof opts.headers==='object'&&!(opts.headers instanceof Headers)){
+        const h={...opts.headers};
+        if(h.Authorization)h.Authorization='Bearer '+(ppAccessToken()||SUPA_KEY);
+        o={...opts,headers:h};
+      }
+      r=await fetch(url,o);
+    }
+  }
+  return r;
+}
+
+// 기존 호출부(31곳)가 그대로 쓰도록 같은 이름을 남긴다.
+// Authorization 은 **읽을 때마다** 계산한다 — fetch 가 헤더를 읽는 순간,
+// 그리고 {...SUPA_HEADERS} 로 복사하는 순간 getter 가 돌아 지금 토큰이 들어간다.
+const SUPA_HEADERS={
+  'apikey':SUPA_KEY,
+  get Authorization(){return 'Bearer '+(ppAccessToken()||SUPA_KEY);},
+  'Content-Type':'application/json',
+  'Prefer':'return=minimal',
+};
 
 // ── 어휘 레벨 조회 헬퍼 ──
 const DOLCH_LABEL={pk:'Dolch Pre-K',k:'Dolch K',g1:'Dolch 1',g2:'Dolch 2',g3:'Dolch 3'};
@@ -121,7 +276,9 @@ const DB={
       .sort((a,b)=>a.ortSeq-b.ortSeq)
       .find(b=>!readIds.has(b.id)&&!readTitles.has(n(b.title)))||null;
   },
-  logs(){return _cache.logs.sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
+  // 리딩로그만 — login 함수가 남기는 보안 기록(type:'login_fail')은 빼고 돌려준다 (2026-11-08)
+  logs(){return _cache.logs.filter(l=>!l||!l.type||l.type==='reading').sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
+  sysLogs(type){return (_cache.logs||[]).filter(l=>l&&l.type===type);},
   libs(){return _cache.library;},
 
   // 설정 (Supabase settings 테이블)
@@ -176,7 +333,7 @@ async function supaFetch(table,params='',silent=false){
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),15000);
   try{
-    const r=await fetch(SUPA_URL+'/rest/v1/'+table+'?'+params+'&order=updated_at.desc',{headers:SUPA_HEADERS,signal:ctrl.signal});
+    const r=await ppFetch(SUPA_URL+'/rest/v1/'+table+'?'+params+'&order=updated_at.desc',{headers:SUPA_HEADERS,signal:ctrl.signal});
     clearTimeout(tid);
     if(!r.ok){if(!silent)handleSupaError(r.status);throw new Error('HTTP '+r.status);}
     return r.json();
@@ -194,7 +351,7 @@ async function supaFetchAll(table,silent=false){
     const ctrl=new AbortController();
     const tid=setTimeout(()=>ctrl.abort(),30000);
     try{
-      const r=await fetch(`${SUPA_URL}/rest/v1/${table}?limit=${PAGE}&offset=${offset}&order=updated_at.desc`,{headers:SUPA_HEADERS,signal:ctrl.signal});
+      const r=await ppFetch(`${SUPA_URL}/rest/v1/${table}?limit=${PAGE}&offset=${offset}&order=updated_at.desc`,{headers:SUPA_HEADERS,signal:ctrl.signal});
       clearTimeout(tid);
       if(!r.ok){if(!silent)handleSupaError(r.status);break;}
       const rows=await r.json();
@@ -225,7 +382,7 @@ async function _supaUpsert(table,id,dataObj,sid=null,timeoutMs=15000){
     const row={id,data:dataObj,updated_at:new Date().toISOString()};
     if(sid)row.sid=sid;
     const h={...SUPA_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'};
-    const r=await fetch(SUPA_URL+'/rest/v1/'+table,{method:'POST',headers:h,body:JSON.stringify(row),signal:ctrl.signal});
+    const r=await ppFetch(SUPA_URL+'/rest/v1/'+table,{method:'POST',headers:h,body:JSON.stringify(row),signal:ctrl.signal});
     clearTimeout(tid);
     if(!r.ok){handleSupaError(r.status,'write');throw new Error('HTTP '+r.status);}
     if(typeof _scheduleSnapSave==='function')_scheduleSnapSave();
@@ -245,7 +402,7 @@ async function _supaDelete(table,id){
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),15000);
   try{
-    const r=await fetch(SUPA_URL+'/rest/v1/'+table+'?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:SUPA_HEADERS,signal:ctrl.signal});
+    const r=await ppFetch(SUPA_URL+'/rest/v1/'+table+'?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:SUPA_HEADERS,signal:ctrl.signal});
     clearTimeout(tid);
     if(!r.ok){const t=await r.text();console.error('delete',table,t);toast('삭제 오류: '+t);return false;}
     return true;
@@ -259,7 +416,7 @@ async function supaDeleteWhere(table,jsonKey,value){
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),15000);
   try{
-    const r=await fetch(SUPA_URL+'/rest/v1/'+table+'?data->>'+encodeURIComponent(jsonKey)+'=eq.'+encodeURIComponent(value),{method:'DELETE',headers:SUPA_HEADERS,signal:ctrl.signal});
+    const r=await ppFetch(SUPA_URL+'/rest/v1/'+table+'?data->>'+encodeURIComponent(jsonKey)+'=eq.'+encodeURIComponent(value),{method:'DELETE',headers:SUPA_HEADERS,signal:ctrl.signal});
     clearTimeout(tid);
     if(!r.ok){const t=await r.text();console.error('deleteWhere',table,jsonKey,t);return false;}
     return true;
@@ -284,7 +441,7 @@ async function supaGetSetting(key){
   try{
     // ⚠️ Accept: object+json 을 쓰면 행이 없을 때 406이 떠 콘솔이 빨개진다(값 없음은 정상 상황).
     // 배열로 받아 첫 항목을 쓰면 0행이어도 200 [] 이라 조용하다.
-    const r=await fetch(SUPA_URL+'/rest/v1/settings?key=eq.'+encodeURIComponent(key)+'&select=value&limit=1',{headers:SUPA_HEADERS,signal:ctrl.signal});
+    const r=await ppFetch(SUPA_URL+'/rest/v1/settings?key=eq.'+encodeURIComponent(key)+'&select=value&limit=1',{headers:SUPA_HEADERS,signal:ctrl.signal});
     clearTimeout(tid);
     if(!r.ok)return null;
     const d=await r.json();
@@ -300,7 +457,7 @@ async function supaSetSetting(key,value){
   const tid=setTimeout(()=>ctrl.abort(),15000);
   try{
     const h={...SUPA_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'};
-    await fetch(SUPA_URL+'/rest/v1/settings',{method:'POST',headers:h,body:JSON.stringify({key,value,updated_at:new Date().toISOString()}),signal:ctrl.signal});
+    await ppFetch(SUPA_URL+'/rest/v1/settings',{method:'POST',headers:h,body:JSON.stringify({key,value,updated_at:new Date().toISOString()}),signal:ctrl.signal});
     clearTimeout(tid);
   }catch(e){
     clearTimeout(tid);
@@ -483,10 +640,16 @@ async function loadAllData(bg){
     const _skipTb=!!bg
       && ((_cache.globalTextbooks||[]).length+(_cache.library||[]).length)>0
       && !!_cache._tbStamps && Object.keys(_cache._tbStamps).length>0;
+    // 토큰으로 들어온 학생·학부모는 students 원본 대신 **students_safe 뷰**를 읽는다 —
+    // PIN·학부모 연락처·수강료가 애초에 내려오지 않는다 (AUTH_PLAN 3번).
+    // 선생님 토큰·공개 anon 키는 지금처럼 원본을 읽는다(화면에 PIN·연락처가 필요하다).
+    const _authRole=(typeof ppAuthRole==='function')?ppAuthRole():'';
+    // 학생은 students_safe(수강료·결제까지 뺀 것), 학부모는 students_parent(결제 탭에 필요)
+    const _stuTable=_authRole==='student'?'students_safe':(_authRole==='parent'?'students_parent':'students');
     const res=await Promise.allSettled([
       ...tables.map(t=>t==='global_textbooks'
         ?(_skipTb?Promise.resolve(null):supaFetchAll(t,true))
-        :supaFetch(t,'',true)),
+        :supaFetch(t==='students'?_stuTable:t,'',true)),
       supaGetSetting('acct'),supaGetSetting('pw'),
     ]);
     const missing=tables.filter((t,i)=>res[i].status==='rejected');
@@ -494,7 +657,11 @@ async function loadAllData(bg){
     // 모든 테이블 fetch가 실패하면(네트워크 단절/프로젝트 중단) 재시도 UI 노출
     if(tables.every((t,i)=>res[i].status==='rejected'))throw new Error('all table fetches failed');
     const val=i=>res[i].status==='fulfilled'?res[i].value:null;
-    const [stus,les,tsts,rds,logs,notices,hws,assigns,tbs,msgs,gtbs,clss,mrpts,exsch,cnsls]=tables.map((t,i)=>val(i));
+    let [stus,les,tsts,rds,logs,notices,hws,assigns,tbs,msgs,gtbs,clss,mrpts,exsch,cnsls]=tables.map((t,i)=>val(i));
+    // students_safe 뷰가 아직 없으면(auth_step1.sql 실행 전) 원본으로 한 번 더 — 학생 화면이 비지 않게
+    if(_stuTable!=='students'&&stus===null){
+      try{stus=await supaFetch('students','',true);}catch(e){}
+    }
     // 설정 2건은 테이블 목록 뒤에 이어짐 (과거 고정 인덱스(13,14)는 오프바이원으로 acct/pw가 어긋나던 버그)
     const acct=val(tables.length),pw=val(tables.length+1);
     // 실패(null)한 테이블은 기존 캐시 유지 — 부분 실패가 데이터를 '사라진 것처럼' 비우지 않게
@@ -1165,7 +1332,7 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study
 async function supaFetchBySid(table,sid){
   const PAGE=1000;let out=[],off=0;
   while(true){
-    const r=await fetch(`${SUPA_URL}/rest/v1/${table}?sid=eq.${encodeURIComponent(sid)}&order=updated_at.desc&limit=${PAGE}&offset=${off}`,{headers:SUPA_HEADERS});
+    const r=await ppFetch(`${SUPA_URL}/rest/v1/${table}?sid=eq.${encodeURIComponent(sid)}&order=updated_at.desc&limit=${PAGE}&offset=${off}`,{headers:SUPA_HEADERS});
     if(!r.ok)break;
     const rows=await r.json();
     if(!Array.isArray(rows))break;

@@ -190,6 +190,34 @@ async function checkStudentPin(){
   const pin=pinInput.join('');
   const err=document.getElementById('stupin-err');
   if(pin.length<4)return;
+  // ① 서버 로그인(login 엣지 함수) 먼저. 함수가 없거나 네트워크 오류일 때만 ②로 내려간다.
+  if(typeof ppLoginPin==='function'){
+    const r=await ppLoginPin('student',{pin});
+    if(r.ok){
+      if(!_cache.students.length)await loadAllDataFast();
+      const st=DB.stus().find(x=>x.id===r.sid)||{id:r.sid,name:r.name||''};
+      await loginStudent(st);
+      return;
+    }
+    if(r.hard){
+      // 같은 PIN 인 학생이 여럿 — 이름을 골라 다시 보낸다
+      if(Array.isArray(r.candidates)&&r.candidates.length>1){
+        const sel=document.getElementById('stupin-name-sel-val');
+        sel.innerHTML='<option value="">이름 선택...</option>'+r.candidates.map(c=>`<option value="${(typeof escAttr==='function')?escAttr(c.name):c.name}">${(typeof escAttr==='function')?escAttr(c.name):c.name}</option>`).join('');
+        document.getElementById('stupin-name-sel').style.display='block';
+        document.getElementById('stu-keypad').style.display='none';
+        _stuPin=pin;
+        return;
+      }
+      _stuPinFail(err,r.why||'PIN이 맞지 않습니다');
+      return;
+    }
+  }
+  // ② 폴백 — 지금까지의 방식 (브라우저에서 대조)
+  if(typeof PP_AUTH_FALLBACK!=='undefined'&&PP_AUTH_FALLBACK===false){
+    _stuPinFail(err,'로그인 서버에 연결하지 못했어요. 잠시 뒤 다시 해 볼까요?');
+    return;
+  }
   if(!_cache.students.length)await loadAllDataFast();
   const matches=_cache.students.filter(s=>s.pin===pin&&!s.inactive);
   if(!matches.length){
@@ -207,10 +235,32 @@ async function checkStudentPin(){
   document.getElementById('stu-keypad').style.display='none';
 }
 async function confirmStudentByName(){
-  const sid=document.getElementById('stupin-name-sel-val').value;
-  const s=DB.stus().find(x=>x.id===sid);
-  if(!s){document.getElementById('stupin-err').textContent='학생을 선택해 주세요';return;}
+  const v=document.getElementById('stupin-name-sel-val').value;
+  const err=document.getElementById('stupin-err');
+  if(!v){if(err)err.textContent='학생을 선택해 주세요';return;}
+  // 서버 로그인에서 온 목록이면 값이 '이름' 이다 — 이름+PIN 으로 다시 확인한다
+  if(typeof ppLoginPin==='function'&&!DB.stus().some(x=>x.id===v)){
+    const r=await ppLoginPin('student',{name:v,pin:_stuPin||pinInput.join('')});
+    if(r.ok){
+      if(!_cache.students.length)await loadAllDataFast();
+      const st=DB.stus().find(x=>x.id===r.sid)||{id:r.sid,name:r.name||v};
+      await loginStudent(st);
+      return;
+    }
+    _stuPinFail(err,r.why||'PIN이 맞지 않습니다');
+    return;
+  }
+  const s=DB.stus().find(x=>x.id===v);
+  if(!s){if(err)err.textContent='학생을 선택해 주세요';return;}
   await loginStudent(s);
+}
+// PIN 실패 표시 한 곳 (흔들림·초기화 포함)
+function _stuPinFail(err,msg){
+  const dotsEl=document.getElementById('pin-dots');
+  document.querySelectorAll('#pin-dots .pin-dot').forEach(d=>d.classList.add('error'));
+  if(dotsEl)dotsEl.classList.add('shake');
+  if(err)err.textContent=msg||'PIN이 맞지 않습니다';
+  setTimeout(()=>{pinInput=[];_stuPin='';updatePinDots();if(dotsEl)dotsEl.classList.remove('shake');},500);
 }
 async function loginStudent(s){
   pinInput=[];_stuPin='';updatePinDots();

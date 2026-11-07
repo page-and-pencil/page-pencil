@@ -10,7 +10,9 @@ from settings order by key;
 --    claude-proxy 가 시크릿 ANTHROPIC_API_KEY 를 씁니다. 다시 실행할 필요 없습니다.
 -- delete from settings where key = 'apikey';
 
--- 2) ElevenLabs 키 — **tts-proxy 를 배포한 뒤에 실행**
+-- 2) ElevenLabs 키 — ✅ 2026-11-07 완료 (Aside). 다시 실행할 필요 없습니다.
+--    (아래는 그때의 순서 기록입니다)
+-- 2-옛) **tts-proxy 를 배포한 뒤에 실행**
 --    순서: supabase functions deploy tts-proxy
 --          → 앱 배포(?v= 올린 js) → 설정 화면 점이 '● 서버 키 사용 중' 인지 확인
 --          → 단어 발음·본문 듣기를 한 번씩 재생해 소리가 나는지 확인
@@ -19,12 +21,11 @@ from settings order by key;
 --    행을 지워도 목소리는 그대로입니다 (기본 목소리 Matilda 를 코드에 박아 뒀습니다).
 -- delete from settings where key = 'elevenlabs';
 
--- 3) 쓰이지 않는 Google Books 키 — 앱 코드에 사용처가 없습니다(2026-11-07 전체 grep).
---    지금 바로 지워도 앱 동작에 영향이 없습니다. (settings_rls.sql 메모 3번)
+-- 3) 쓰이지 않는 Google Books 키 — ✅ 2026-11-07 완료 (Aside).
 -- delete from settings where key = 'gbooks_key';
 
--- 4) 선생님 비밀번호 — 지우면 로그인이 막힙니다.
---    서버 비교 또는 Supabase Auth 로 옮긴 뒤에만 (supabase/AUTH_PLAN.md).
+-- 4) 선생님 비밀번호 — **아직 지우지 마세요.** 지우면 폴백 로그인이 막힙니다.
+--    supabase/AUTH_RUNBOOK.md 7번(4단계)에서, 서버 로그인만으로 도는 것을 확인한 뒤에.
 -- delete from settings where key = 'pw';
 
 -- 지운 뒤 확인
