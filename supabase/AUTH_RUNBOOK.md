@@ -13,6 +13,11 @@
 - 앱에는 이미 '서버 로그인을 먼저 시도하고, 안 되면 지금 방식으로' 들어가는 코드가 들어 있습니다.
   함수가 없으면 404 를 한 번 받고 바로 옛 방식으로 갑니다.
 - 되돌리는 스위치: `js/db.js` 의 `PP_AUTH_FALLBACK` (지금 `true`).
+- **로그인 전에는 데이터를 받지 않습니다**(2026-11-08). 첫 화면에서 요청 0건이고,
+  로그인에 성공하면 그때 캐시를 비우고 역할에 맞게 받습니다
+  (학생=`students_safe`, 학부모=`students_parent`, 선생님=원본).
+- 학생·학부모 기기의 로컬 스냅샷에는 **자기 행만** 저장합니다(`_snapSanitize`).
+  로그아웃하면 스냅샷을 지웁니다.
 
 ---
 
@@ -52,9 +57,19 @@ curl -s -X POST https://<프로젝트>.supabase.co/functions/v1/login \
 
 ## 2. step1 SQL (Aside, 2분)
 
-SQL Editor 에 `supabase/auth_step1.sql` 을 통째로 붙여넣고 Run.
-이 파일은 **정책을 추가만** 합니다. anon 권한은 그대로이므로 앱 동작은 달라지지 않습니다.
+SQL Editor 에 **순서대로** 두 파일을 Run 합니다.
+
+1. `supabase/auth_step1.sql` — 안전 뷰 2개 + 테이블별 정책
+2. `supabase/auth_step1_supp.sql` — **보완 정책 (반드시 step1 다음)**
+   messages(학부모 '확인했습니다') · notices(공지 읽음, 임시) ·
+   settings(결제 안내·카카오 문의) · learning_goals(선생님 목록)
+
+둘 다 **정책을 추가만** 합니다. anon 권한은 그대로이므로 앱 동작은 달라지지 않습니다.
 여러 번 실행해도 안전합니다.
+
+> `auth_step1_supp.sql` 의 공지 정책 두 개는 **임시**입니다(`using (true)` 라
+> 학생·학부모 토큰으로 공지 본문까지 고칠 수 있음). 앱이 읽음 표시를 messages 로 옮겼으니
+> ?v=20261108b 이상이 퍼진 뒤 `supabase/auth_step1_notice_cleanup.sql` 로 지웁니다 → 5-1번.
 
 ### 확인
 ```sql
@@ -100,6 +115,27 @@ select email, raw_app_meta_data ->> 'role' from auth.users where email='jikgyeol
 | 7 | 설정 → QR 만들기 | `?t=…` 링크가 나오고, 그 링크로 바로 들어가짐 |
 | 8 | 옛 `?pin=` 링크 | 아직 열림 (병행 기간이므로 정상) |
 | 9 | 나가기(로그아웃) → 다시 들어오기 | 정상 |
+| 10 | 학부모 결제 탭 계좌 안내 · 카카오 문의 버튼 | 보임 (settings acct·kakao) |
+| 11 | 학부모 수업 카드 [확인했습니다] | 눌리고 토스트가 뜸 (messages) |
+| 12 | 공지 배너 [닫기] → 새로고침 | 그 공지가 다시 뜨지 않음 |
+| 13 | 학생 주간 보스 클리어 | 축하가 뜨고, 다음에 열어도 다시 뜨지 않음 (logs) |
+| 14 | 첫 화면(로그인 전)에서 개발자도구 → 네트워크 | `rest/v1` 요청 **0건** |
+| 15 | 학생 로그인 뒤 콘솔에 `_cache.students.length` | **1** (전교생이 아니어야 함) |
+| 16 | 학생 화면 '오늘의 한마디' | 선생님이 저장한 문장이 바로 뜸(AI 호출 없음) |
+
+---
+
+## 5-1. 공지 임시 정책 지우기 (Aside, 1분)
+
+앱 `?v=20261108b` 이상이 배포되고 학생·학부모가 한 번씩 열어 본 뒤(하루면 충분):
+
+```
+supabase/auth_step1_notice_cleanup.sql 실행
+```
+
+확인: 학부모 계정에서 공지 배너 [닫기] → 다시 열어도 그 공지가 안 뜸 ·
+선생님 대시보드 공지 목록의 '읽음 N/M' 이 올라감.
+되돌리기: `auth_step1_supp.sql` 의 2) 블록 다시 실행.
 
 ---
 
@@ -183,10 +219,11 @@ select email, raw_app_meta_data ->> 'role' from auth.users where email='jikgyeol
 
 ```
 1. login 함수 배포 + LOGIN_SECRET          → probe 가 ready:true
-2. auth_step1.sql                          → 앱 그대로 돎
+2. auth_step1.sql → auth_step1_supp.sql    → 앱 그대로 돎
 3. 선생님 계정 + role:teacher              → 설정 탭 '서버'
 4. 앱 확인 9항목
-5. 1~2주 병행 (주 1회 체크, 새 QR 배포)
-6. PP_AUTH_FALLBACK=false 배포 → 1~2일 → auth_step3_close_anon.sql
-7. settings.pw 삭제 → anon 키 회전
+5. auth_step1_notice_cleanup.sql (공지 임시 정책 제거)
+6. 1~2주 병행 (주 1회 체크, 새 QR 배포)
+7. PP_AUTH_FALLBACK=false 배포 → 1~2일 → auth_step3_close_anon.sql
+8. settings.pw 삭제 → anon 키 회전
 ```

@@ -27,7 +27,9 @@ async function checkPw(inputId='pw-in',errId='pw-err'){
     const t=await ppLoginTeacher(PP_TEACHER_EMAIL,v);
     if(t){
       if(inEl)inEl.value='';if(errEl)errEl.textContent='';
-      saveSession({role:'teacher'});show('s-teacher');await initApp();
+      saveSession({role:'teacher'});
+      if(typeof ppResetCache==='function')ppResetCache();   // 앞사람 캐시를 지우고 선생님 권한으로 다시 받는다
+      show('s-teacher');await initApp();
       return;
     }
   }
@@ -53,7 +55,9 @@ async function checkPw(inputId='pw-in',errId='pw-err'){
     // 평문으로 저장돼 있던 경우에만 1회 해시 마이그레이션 (이미 해시면 절대 재저장 금지)
     if(!_isPwHash(stored)&&v===stored){_cache.settings.pw=vHash;DB.s('pw',vHash);supaSetSetting('pw',vHash).catch(e=>console.warn('비밀번호 저장 실패:',e));}
     if(inEl)inEl.value='';if(errEl)errEl.textContent='';
-    saveSession({role:'teacher'});show('s-teacher');await initApp();
+    saveSession({role:'teacher'});
+    if(typeof ppResetCache==='function')ppResetCache();
+    show('s-teacher');await initApp();
   } else if(errEl)errEl.textContent='비밀번호가 맞지 않습니다';
 }
 async function checkPin(nameId='pin-name',codeId='pin-code',errId='pin-err'){
@@ -66,7 +70,7 @@ async function checkPin(nameId='pin-name',codeId='pin-code',errId='pin-err'){
   if(!name){setErr('아이 이름을 입력해 주세요');return;}
   if(!_cache.students.length){
     setErr('확인하는 중이에요…');
-    try{await loadAllDataFast();}catch(e){}
+    try{await loadAllDataFast(true);}catch(e){}
     const now=read();                 // 기다리는 동안 고쳐 넣었으면 그 값으로 본다
     if(now.name)name=now.name;
     if(now.pin)pin=now.pin;
@@ -80,8 +84,7 @@ async function checkPin(nameId='pin-name',codeId='pin-code',errId='pin-err'){
     if(r.ok){
       if(typeof ppPinOk==='function')ppPinOk();
       if(codeEl)codeEl.value='';setErr('');
-      if(!_cache.students.length){try{await loadAllDataFast();}catch(e){}}
-      await loadParentWithNotice(r.sid);
+      await ppParentEnter(r.sid);
       return;
     }
     if(r.hard){
@@ -97,7 +100,7 @@ async function checkPin(nameId='pin-name',codeId='pin-code',errId='pin-err'){
   }
   const s=DB.stus().find(x=>x.name===name);
   if(!s){setErr('등록된 학생을 찾을 수 없습니다');return;}
-  if(s.pin===pin){if(typeof ppPinOk==='function')ppPinOk();if(codeEl)codeEl.value='';setErr('');await loadParentWithNotice(s.id);}
+  if(s.pin===pin){if(typeof ppPinOk==='function')ppPinOk();if(codeEl)codeEl.value='';setErr('');await ppParentEnter(s.id);}
   else{
     if(typeof ppPinFailed==='function')ppPinFailed();
     setErr('PIN이 맞지 않습니다. 선생님께 문의해 주세요.');
@@ -8656,7 +8659,7 @@ async function polishStuCmt_teacher(raw,matsText,stuName){
   if((!raw||!raw.trim())&&!String(matsText||'').trim())return '';
   const apiKey=DB.api();if(!apiKey)return '';
   try{
-    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${stuName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 처음부터 끝까지 반말로만 쓰기(존댓말 섞지 않기), 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 선생님 메모에 적힌 내용만으로 칭찬하기. 메모와 진도에 없는 단어·활동·반응은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n${PP_BOOKNAME_RULE}\n수업 진도: ${matsText||'없음'}\n선생님 메모: ${raw||'(없음 — 진도만 보고 쓰세요)'}`;
+    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${stuName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 처음부터 끝까지 반말로만 쓰기(존댓말 섞지 않기), 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 선생님 메모에 적힌 내용만으로 칭찬하기. 메모와 진도에 없는 단어·활동·반응은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n교재·단원 이름은 진도에 적힌 표기를 그대로 쓰세요 — 대소문자를 바꾸지 마세요('Unit 1' 을 'unit 1' 로 쓰지 않기).\n${PP_BOOKNAME_RULE}\n수업 진도: ${matsText||'없음'}\n선생님 메모: ${raw||'(없음 — 진도만 보고 쓰세요)'}`;
     const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content}]});
     return d.content?.[0]?.text?.trim()||'';
   }catch(e){return '';}
@@ -8679,7 +8682,7 @@ function getBadges(sid){
   const mastered=cards.filter(c=>(c.hits||0)>=3).length;
   const asgnDone=(_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).length;
   const stampDays=new Set((_cache.assignments||[]).filter(a=>a.sid===sid&&a.completedAt).map(a=>(a.completedAt||'').slice(0,10))).size;
-  const wins=(((_cache.students||[]).find(x=>x.id===sid))||{}).bossWins||0;
+  const wins=(typeof ppBossWins==='function')?ppBossWins(sid):0;
   const lvl=(typeof stuLevelOf==='function'&&typeof stuXP==='function')?stuLevelOf(stuXP(sid)).n:1;
   const mk=(pre,icon,tpl,arr,val)=>arr.map(t=>({id:pre+t,icon,name:tpl.replace('{n}',t),unlocked:val>=t}));
   return [
@@ -12532,11 +12535,13 @@ function closeParentNotice(){
   if(_activeNoticeId&&currentParentSid)markNoticeRead(_activeNoticeId,currentParentSid);
 }
 async function markNoticeRead(noticeId,sid){
-  const n=(_cache.notices||[]).find(x=>x.id===noticeId);if(!n)return;
-  if(!n.readBy)n.readBy=[];
-  if(n.readBy.some(r=>r.sid===sid))return;
-  n.readBy.push({sid,readAt:new Date().toISOString()});
-  await supaUpsert('notices',noticeId,n,null);
+  const n=(_cache.notices||[]).find(x=>x.id===noticeId);if(!n||!sid)return;
+  if(typeof ppNoticeIsRead==='function'&&ppNoticeIsRead(n,sid))return;
+  // notices 행을 고치지 않는다 — 읽음은 messages 에 한 줄로 (2026-11-08)
+  const row={id:'nr_'+noticeId+'_'+sid,sid,type:'notice_read',noticeId,at:new Date().toISOString()};
+  if(!_cache.messages)_cache.messages=[];
+  if(!_cache.messages.some(m=>m&&m.id===row.id))_cache.messages.push(row);
+  try{await supaUpsert('messages',row.id,row,sid);}catch(e){console.warn('읽음 표시 저장 실패:',e);}
 }
 
 function renderNoticeBoard(){
@@ -12547,10 +12552,10 @@ function renderNoticeBoard(){
   if(!notices.length){el.innerHTML='<div style="color:var(--slate);font-size:13px;padding:8px 0">등록된 공지가 없습니다</div>';return;}
   // 게시 중 공지만 펼치고 지난 공지는 접어 둔다 — 대시보드가 공지 전체 목록으로 길어지던 문제
   const _item=n=>{
-    const readBy=n.readBy||[];
+    const readSids=(typeof ppNoticeReadSids==='function')?ppNoticeReadSids(n):new Set(((n.readBy)||[]).map(r=>r.sid));
     // 읽음 수는 '그 공지를 받는 사람' 기준 — 반 공지를 전체 인원으로 세면 영원히 미읽음이 남는다
     const tgtStus=(typeof ppNoticeStus==='function')?ppNoticeStus(n):DB.stus().filter(s=>!s.inactive);
-    const unreadStus=tgtStus.filter(s=>!readBy.some(r=>r.sid===s.id));
+    const unreadStus=tgtStus.filter(s=>!readSids.has(s.id));
     const readCount=tgtStus.length-unreadStus.length;
     const tgtLbl=(typeof ppNoticeTargetLabel==='function')?ppNoticeTargetLabel(n):'전체';
     return `<div class="notice-item ${n.active?'notice-active':''}">
@@ -16774,7 +16779,14 @@ async function saveClassLesson(){
       // 학부모 화면에 '최근 수업 · Unit 1' 로 보인다 (2026-11-06 점검).
       const _away=(typeof ppAttAway==='function')&&ppAttAway(d.att);
       const matsForStu=_away?{}:mats;
-      const les={id:existing?existing.id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:matsForStu,cmt,polishedCmt,classId,...(existing&&existing.stuCmt?{stuCmt:existing.stuCmt}:{})};
+      // 학생 응원 문구(stuCmt)도 여기서 만들어 둔다 — 학생 화면은 읽기만 한다 (2026-11-08).
+      // 전에는 학생이 열 때마다 AI 를 부르고 lessons 에 저장하려 했는데, 학생은 lessons 를
+      // 쓸 수 없어 저장이 실패하고 매번 새 문장이 나왔다(비용).
+      const _stuName=(DB.stus().find(x=>x.id===d.sid)||{}).name||'';
+      const stuCmt=(existing&&existing.cmt===cmt&&existing.stuCmt)
+        ? existing.stuCmt
+        : (String(cmt||'').trim()&&!_away ? (await polishStuCmt_teacher(cmt,_mt,_stuName)||'') : (existing?(existing.stuCmt||''):''));
+      const les={id:existing?existing.id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:matsForStu,cmt,polishedCmt,classId,...(stuCmt?{stuCmt}:{})};
       await supaUpsert('lessons',les.id,les,d.sid);
       if(existing){const li=_cache.lessons.findIndex(l=>l.id===existing.id);if(li>=0)_cache.lessons[li]=les;else _cache.lessons.unshift(les);}
       else _cache.lessons.unshift(les);
@@ -17073,10 +17085,9 @@ async function fullBackup(){
 }
 
 // ── URL PARAM AUTO LOGIN ──
-function _prefetchPw(){
-  if(_cache.settings.pw)return;
-  supaGetSetting('pw').then(sp=>{if(sp){_cache.settings.pw=sp;DB.s('pw',sp);}}).catch(()=>{});
-}
+// 로그인 전에는 아무것도 받지 않는다 (2026-11-08). 선생님 로그인은 Auth 가 먼저고,
+// 폴백이 필요할 때 checkPw 가 그때 한 번 settings.pw 를 읽는다.
+function _prefetchPw(){}
 document.addEventListener('DOMContentLoaded',async()=>{
   try{
     const params=new URLSearchParams(location.search);
@@ -17092,19 +17103,16 @@ document.addEventListener('DOMContentLoaded',async()=>{
       if(typeof ppLoginPin==='function'){
         const r=await ppLoginPin(_role,{qr:qrTok});
         if(r.ok){
-          if(!_cache.students.length){try{await loadAllDataFast();}catch(e){}}
-          if(_role==='student'){
-            const st=DB.stus().find(x=>x.id===r.sid)||{id:r.sid,name:r.name||''};
-            await loginStudent(st);
-          }else{await loadParentWithNotice(r.sid);}
+          if(_role==='student')await ppStudentEnter(r.sid,r.name);
+          else await ppParentEnter(r.sid);
           done=true;
         }else if(r.hard){toast(r.why||'링크가 더 이상 유효하지 않습니다');done=true;}
       }
       if(!done&&(typeof PP_AUTH_FALLBACK==='undefined'||PP_AUTH_FALLBACK)){
         // 함수가 아직 없는 동안은 토큰으로 캐시에서 찾아 본다 (병행 기간)
-        if(!_cache.students.length)await loadAllDataFast();
+        if(!_cache.students.length)await loadAllDataFast(true);
         const st=DB.stus().find(x=>x.qrToken===qrTok&&!x.inactive);
-        if(st){ if(_role==='student')await loginStudent(st); else await loadParentWithNotice(st.id); }
+        if(st){ if(_role==='student')await ppStudentEnter(st.id,st.name); else await ppParentEnter(st.id); }
         else toast('링크가 더 이상 유효하지 않습니다');
       }
     } else if(pin&&role&&(typeof PP_AUTH_FALLBACK==='undefined'||PP_AUTH_FALLBACK)){
@@ -17113,11 +17121,11 @@ document.addEventListener('DOMContentLoaded',async()=>{
       // 다시 자동 로그인된다. 읽자마자 지운다 (뒤로 가기 기록도 남기지 않게 replaceState)
       try{history.replaceState(null,'',location.pathname+location.hash);}catch(e){}
       setToday();
-      if(!_cache.students.length)await loadAllData();
+      if(!_cache.students.length)await loadAllDataFast(true);
       const matches=_cache.students.filter(s=>s.pin===pin&&!s.inactive);
       if(matches.length===1){
         if(role==='student'){
-          await loginStudent(matches[0]);
+          await ppStudentEnter(matches[0].id,matches[0].name);
         } else if(role==='parent'){
           document.getElementById('pin-code').value=pin;
           document.getElementById('pin-name').value=matches[0].name;
@@ -17129,7 +17137,13 @@ document.addEventListener('DOMContentLoaded',async()=>{
       const session=loadSession();
       if(session){
         if(session.role==='teacher'){
-          show('s-teacher');await initApp();
+          // 폴백을 끈 뒤(3단계)에는 pp_session 만으로 선생님 화면을 열지 않는다 —
+          // 선생님 토큰은 탭을 닫으면 사라지므로, 토큰이 없으면 로그인 화면으로 보낸다.
+          if(typeof PP_AUTH_FALLBACK!=='undefined'&&PP_AUTH_FALLBACK===false
+             &&!(typeof ppSession==='function'&&ppSession()&&ppAuthRole()==='teacher')){
+            clearSession();show('s-land');
+          }else{
+          show('s-teacher');await initApp();}
         } else if(session.role==='student'){
           // 선생님 앱과 같은 길로 — 스냅샷으로 즉시 부팅하고 뒤에서 최신화(60KB).
           // 전에는 학생·학부모만 loadAllData() 를 직접 불러, 앱을 열 때마다 5.58MB 를 받았다.

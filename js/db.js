@@ -136,16 +136,16 @@ async function ppFetch(url,opts){
   let r=await fetch(url,opts);
   if(r.status===401&&ppSession()){
     const ok=await ppRefresh();
-    if(ok){
-      let o=opts;
-      // headers 를 복사해 둔 호출은 옛 토큰이 박혀 있다 — 새 토큰으로 바꿔 끼운다
-      if(opts.headers&&typeof opts.headers==='object'&&!(opts.headers instanceof Headers)){
-        const h={...opts.headers};
-        if(h.Authorization)h.Authorization='Bearer '+(ppAccessToken()||SUPA_KEY);
-        o={...opts,headers:h};
-      }
-      r=await fetch(url,o);
+    // 갱신에 성공하면 새 토큰으로, 실패하면(세션이 끊김) 공개 키로 한 번 더.
+    // 한 번 더 보내지 않으면 그 요청만 빈손으로 끝나 화면 한 곳이 조용히 비어 보인다.
+    // (3단계에서 anon 을 닫으면 이 재시도는 그냥 실패하므로 보안이 느슨해지지 않는다)
+    let o=opts;
+    if(opts.headers&&typeof opts.headers==='object'&&!(opts.headers instanceof Headers)){
+      const h={...opts.headers};
+      if(h.Authorization)h.Authorization='Bearer '+(ok?(ppAccessToken()||SUPA_KEY):SUPA_KEY);
+      o={...opts,headers:h};
     }
+    r=await fetch(url,o);
   }
   return r;
 }
@@ -482,6 +482,67 @@ function _snapIsMine(snap){
 }
 // 로그아웃하면 지운다 (clearSession 이 부른다) — 남겨 두면 다음 사람이 그 데이터로 부팅한다
 function ppDropSnapshot(){try{idbDel('pp_cache_v2');}catch(e){}}
+// ── 로그인 전에는 데이터를 받지 않는다 (2026-11-08) ──
+// 전에는 첫 화면에 들어오기만 해도 focus·타이머가 loadAllData 를 돌려
+// 공개 키로 students(전원 · PIN·연락처·수강료 포함)·lessons 를 전부 받아 두었다.
+// 3단계(anon 닫기) 뒤에는 그 요청이 실패하므로, 지금부터 로그인한 뒤에만 받는다.
+// 폴백 경로(브라우저에서 PIN 대조)만 force=true 로 예외를 쓴다.
+function ppMayLoad(){
+  try{
+    if(typeof ppSession==='function'&&ppSession())return true;
+    const s=(typeof loadSession==='function')?loadSession():null;
+    return !!(s&&s.role);
+  }catch(e){return true;}
+}
+// 로그인·로그아웃 때 캐시를 비운다 — 앞사람 데이터가 남지 않게
+function ppResetCache(){
+  // 사람에 딸린 것만 비운다. 교재(globalTextbooks·library)는 공용 자료이고 5MB 가 넘어
+  // 로그인할 때마다 다시 받으면 전송량이 크다 — 그대로 둔다.
+  ['students','lessons','tests','readings','logs','notices','vocab_cards',
+   'homeworks','assignments','textbooks','messages','globalClasses','monthlyReports',
+   'examSchedules','counsels','worksheets'].forEach(k=>{if(k in _cache)_cache[k]=[];});
+  _lastLoadAt=0;
+  // 스냅샷은 여기서 지우지 않는다 — 로그아웃(clearSession)이 지운다.
+  // 스냅샷은 역할·학생 id 로 주인을 따지므로(_snapIsMine) 다른 사람이 그걸로 부팅하지 않는다.
+  // 로그인할 때마다 지우면 교재(5MB 넘음)를 매번 다시 받게 된다.
+}
+// 로그인 직후 한 곳 — 세션을 적고, 캐시를 비우고, 그 역할로 다시 받는다.
+// (학생·학부모 토큰이면 RLS 와 안전 뷰 덕분에 자기 것 + 공용 자료만 내려온다)
+async function ppAfterLogin(role,sid){
+  try{if(typeof saveSession==='function')saveSession(sid?{role,sid}:{role});}catch(e){}
+  ppResetCache();
+  await loadAllData();
+}
+// 학생·학부모 입장 한 곳 — 진입점(첫 화면·키패드·QR·이름 선택)이 모두 이 길로 들어온다
+async function ppStudentEnter(sid,name){
+  await ppAfterLogin('student',sid);
+  const s=((typeof DB!=='undefined'&&DB.stus)?DB.stus():[]).find(x=>x.id===sid)||{id:sid,name:name||''};
+  if(typeof loginStudent==='function')await loginStudent(s);
+}
+async function ppParentEnter(sid){
+  await ppAfterLogin('parent',sid);
+  if(typeof loadParentWithNotice==='function')await loadParentWithNotice(sid);
+}
+// 스냅샷에 남의 데이터를 남기지 않는다 — 학생·학부모 기기에는 자기 행만 저장한다.
+// (폴백 경로에서는 캐시에 전교생이 들어올 수 있는데, 그게 기기에 그대로 남으면 안 된다)
+function _snapSanitize(cache){
+  const o=_snapOwner();
+  if(o.role!=='student'&&o.role!=='parent')return cache;
+  const sid=o.sid;if(!sid)return cache;
+  const out={...cache};
+  ['lessons','tests','readings','logs','homeworks','assignments','messages','monthlyReports','counsels','vocab_cards']
+    .forEach(k=>{if(Array.isArray(out[k]))out[k]=out[k].filter(r=>r&&r.sid===sid);});
+  if(Array.isArray(out.students))out.students=out.students.filter(s=>s&&s.id===sid);
+  return out;
+}
+function _snapSave(){
+  try{
+    const src=_snapSanitize(_cache);
+    const snap=(typeof structuredClone==='function')?structuredClone(src):JSON.parse(JSON.stringify(src));
+    idbSet('pp_cache_v2',{at:Date.now(),..._snapOwner(),cache:snap});
+  }catch(e){}
+}
+
 let _bgRefreshing=false,_lastLoadAt=0;
 // 앱이 다시 화면에 돌아오면(폰 PWA 재개·탭 전환 복귀) 지난 데이터를 조용히 최신화
 // — 선생님이 과제·수업을 등록해도, 이미 열려 있던 학생·학부모 화면에 반영되지 않던 문제 해결
@@ -494,6 +555,7 @@ let _bgRefreshing=false,_lastLoadAt=0;
 const PP_STALE_BACK=120000, PP_STALE_IDLE=600000;
 function _refreshIfStale(minAge){
   if(document.visibilityState!=='visible')return;
+  if(!ppMayLoad())return;                      // 로그인 전(첫 화면)에는 받지 않는다
   if(_bgRefreshing||!(_cache.students||[]).length)return;
   // 저장 중이거나 막 저장한 직후에는 받아오지 않는다 (받아온 값이 저장 전 상태일 수 있다)
   if(_pendingWrites>0||Date.now()-_lastWriteAt<4000)return;
@@ -510,11 +572,12 @@ let _snapTimer=null;
 function _scheduleSnapSave(){ // 쓰기 후 스냅샷 저장 (2.5초 디바운스)
   clearTimeout(_snapTimer);
   _snapTimer=setTimeout(()=>{
-    try{const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v2',{at:Date.now(),..._snapOwner(),cache:snap});}catch(e){}
+    _snapSave();
   },2500);
 }
-async function loadAllDataFast(){
+async function loadAllDataFast(force){
   if(_cache.students.length)return;
+  if(!force&&!ppMayLoad())return;              // 로그인 전에는 받지 않는다
   try{
     const snap=await idbGet('pp_cache_v2');
     // 스냅샷은 '그 로그인 그대로일 때만' 쓴다. 역할이나 학생 id 가 다르면 버리고 전체를 받는다.
@@ -531,7 +594,7 @@ async function loadAllDataFast(){
       return;
     }
   }catch(e){}
-  await loadAllData();
+  await loadAllData(false,force);
 }
 // 백그라운드 최신화 후: 사용 중(모달·입력)이 아니면 현재 화면만 조용히 갱신
 function _afterBgRefresh(){
@@ -625,7 +688,9 @@ async function _tbSyncIfChanged(){
 }
 
 // ── 전체 데이터 로드 (앱 시작 시 / bg=true면 조용히 백그라운드 갱신) ──
-async function loadAllData(bg){
+async function loadAllData(bg,force){
+  // 로그인 전에는 받지 않는다. 폴백(브라우저 PIN 대조) 경로만 force 로 받는다.
+  if(!force&&!ppMayLoad())return;
   if(!bg)showLoading(true);
   const _loadStart=Date.now();
   try{
@@ -637,8 +702,9 @@ async function loadAllData(bg){
     // 백그라운드 갱신에서는 교재를 받지 않는다 — 한 번에 5.46MB 이고, 바뀌는 일은 드물다.
     // 대신 아래에서 _tbSyncIfChanged() 가 8KB 로 변경을 확인한다.
     // 교재 캐시가 비어 있거나 변경 확인의 기준(_tbStamps)이 없으면 평소처럼 전체를 받는다.
-    const _skipTb=!!bg
-      && ((_cache.globalTextbooks||[]).length+(_cache.library||[]).length)>0
+    // 이미 교재를 들고 있고 변경 확인 기준(_tbStamps)이 있으면 백그라운드가 아니어도 건너뛴다 —
+    // 로그인할 때마다 5MB 를 다시 받지 않게 (2026-11-08). 바뀐 책은 _tbSyncIfChanged 가 받아 온다.
+    const _skipTb=((_cache.globalTextbooks||[]).length+(_cache.library||[]).length)>0
       && !!_cache._tbStamps && Object.keys(_cache._tbStamps).length>0;
     // 토큰으로 들어온 학생·학부모는 students 원본 대신 **students_safe 뷰**를 읽는다 —
     // PIN·학부모 연락처·수강료가 애초에 내려오지 않는다 (AUTH_PLAN 3번).
@@ -741,7 +807,7 @@ async function loadAllData(bg){
     // 다음 방문 즉시 부팅용 스냅샷 — 핵심 테이블이 전부 성공한 완전 로드만 저장 (오염 방지)
     try{
       const coreOk=['students','lessons','readings','logs','assignments','textbooks','global_textbooks'].every(t=>res[tables.indexOf(t)].status==='fulfilled');
-      if(coreOk){const snap=(typeof structuredClone==='function')?structuredClone(_cache):JSON.parse(JSON.stringify(_cache));idbSet('pp_cache_v2',{at:Date.now(),..._snapOwner(),cache:snap});}
+      if(coreOk)_snapSave();
     }catch(e){}
   }catch(e){
     console.error('loadAllData:',e);

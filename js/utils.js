@@ -89,6 +89,23 @@ const ATTLBL={normal:'',absent:'결석',late:'지각',makeup:'보강',sick:'병�
 // (지각·보강은 들은 것이므로 포함)
 const PP_ATT_AWAY=['absent','sick','teacher_cancel','holiday'];
 function ppAttAway(att){return PP_ATT_AWAY.includes(String(att||''));}
+// ── 주간 보스 승리 기록 (2026-11-08) ──
+// 전에는 students 행에 bossWinWeeks·bossWins 를 적었다. 학생이 students 를 쓸 수 있어야 해서
+// 안전하지 않고(한 행 전체를 덮어쓴다), 토큰으로는 RLS 에 막혀 조용히 실패했다.
+// 지금은 학생이 쓸 수 있는 logs 에 { type:'boss_win', week } 한 줄로 남긴다.
+// (DB.logs() 는 리딩로그만 돌려주므로 이 줄은 리딩로그 목록에 섞이지 않는다)
+function ppBossWeeks(sid){
+  const rows=(typeof DB!=='undefined'&&DB.sysLogs)?DB.sysLogs('boss_win'):
+    ((typeof _cache!=='undefined'?(_cache.logs||[]):[]).filter(l=>l&&l.type==='boss_win'));
+  return rows.filter(l=>l&&l.sid===sid).map(l=>l.week).filter(Boolean);
+}
+function ppBossWins(sid){
+  const stu=(typeof DB!=='undefined'&&DB.stus)?DB.stus().find(x=>x.id===sid):null;
+  // 옛 기록(students.bossWins)도 함께 센다 — 지난 승리를 잃지 않게. 새 기록은 logs 에만 쌓인다.
+  const old=(stu&&Number(stu.bossWins))||0;
+  const oldWeeks=((stu&&stu.bossWinWeeks)||[]).length;
+  return Math.max(old,oldWeeks)+ppBossWeeks(sid).filter(w=>!((stu&&stu.bossWinWeeks)||[]).includes(w)).length;
+}
 // 학부모 화면 문장용 — '11월 7일은 결석했어요' 처럼 한 덩어리로 읽히게
 const PP_ATT_SENT={absent:'결석했어요',sick:'병결로 쉬었어요',teacher_cancel:'수업이 취소되었어요',holiday:'휴강이었어요'};
 function ppAttSentence(dateStr,att){
@@ -114,6 +131,17 @@ function ppNoticeTargetLabel(n){
   const cs=(typeof DB!=='undefined'&&DB.classes)?DB.classes():[];
   return t.map(id=>(cs.find(c=>c.id===id)||{}).name||'(없는 반)').join(', ');
 }
+// 공지 읽음 표시 (2026-11-08) — notices 행을 고치지 않고 messages 에 한 줄로 남긴다.
+// 전에는 학부모가 notices 행(readBy)을 직접 고쳤다. 그러려면 공지 테이블에 쓰기를 열어야 하고,
+// 그러면 학생·학부모 토큰으로 공지 본문까지 고칠 수 있다.
+// 옛 readBy 기록도 함께 읽어 지금까지의 읽음 표시를 잃지 않는다.
+function ppNoticeReadSids(n){
+  const out=new Set(((n&&n.readBy)||[]).map(r=>r&&r.sid).filter(Boolean));
+  const msgs=(typeof DB!=='undefined'&&DB.msgs)?DB.msgs():((typeof _cache!=='undefined')?(_cache.messages||[]):[]);
+  msgs.forEach(m=>{if(m&&m.type==='notice_read'&&m.noticeId===(n&&n.id)&&m.sid)out.add(m.sid);});
+  return out;
+}
+function ppNoticeIsRead(n,sid){return !!sid&&ppNoticeReadSids(n).has(sid);}
 // 이 공지를 받는 학생들 (읽음 수 계산용)
 function ppNoticeStus(n){
   const stus=(typeof DB!=='undefined'&&DB.stus)?DB.stus().filter(s=>!s.inactive):[];
@@ -1317,15 +1345,12 @@ async function goTeacherLogin(){
     return;
   }
   // 새 기기(localStorage 없음)에서도 Supabase 비밀번호로 로그인 가능하도록 사전 로드
-  if(typeof _cache!=='undefined'&&!_cache.settings?.pw){
-    try{const pw=await supaGetSetting('pw');if(pw){_cache.settings.pw=pw;DB.s('pw',pw);}}catch(e){}
-  }
   show('s-login');setTimeout(()=>document.getElementById('pw-in').focus(),100);
 }
 async function goPinScreen(){
   const sess=loadSession();
   if(sess?.role==='parent'){
-    if(!_cache.students.length)await loadAllData();
+    if(!_cache.students.length)await loadAllDataFast();
     const s=_cache.students.find(x=>x.id===sess.sid&&!x.inactive);
     if(s){loadParentWithNotice(s.id);return;}
     clearSession();
@@ -1347,8 +1372,8 @@ function logout(){clearSession();landRole('teacher');show('s-land');}
 function landRole(role){
   ['teacher','student','parent'].forEach(r=>{const c=document.getElementById('rc-'+r);if(c){c.classList.toggle('role-card-on',r===role);c.setAttribute('aria-pressed',String(r===role));}});
   const area=document.getElementById('land-login-area');if(!area)return;
-  // 새 기기에서 선생님 비밀번호 사전 로드
-  if(role==='teacher'&&typeof _cache!=='undefined'&&!_cache.settings?.pw){supaGetSetting('pw').then(pw=>{if(pw){_cache.settings.pw=pw;DB.s('pw',pw);}}).catch(()=>{});}
+  // 비밀번호 사전 로드는 하지 않는다 — 선생님 로그인은 Auth 가 먼저고,
+  // 폴백이 필요할 때 checkPw 가 그때 한 번 읽는다 (로그인 전 요청 0건)
   if(role==='teacher'){
     area.innerHTML=`
       <label class="land-lbl" for="land-tpw">비밀번호</label>
@@ -1412,24 +1437,59 @@ function ppPinFailed(){
   }catch(e){}
 }
 function ppPinOk(){try{sessionStorage.setItem('pp_pin_fail','0');sessionStorage.removeItem('pp_pin_until');}catch(e){}}
+// 첫 화면 학생 입장. 키패드(checkStudentPin)·QR 과 같은 길 — 서버 로그인 먼저, 404·네트워크만 폴백.
+let _landPin='';
 async function landStudentSubmit(){
   const err=document.getElementById('land-err');const setErr=t=>{if(err)err.textContent=t;};
   if(!ppPinGate(setErr))return;
   const read=()=>(document.getElementById('land-spin')?.value||'').trim();
   let pin=read();
   if(pin.length<4){setErr('생년월일 4자리를 입력해 주세요');return;}
-  if(typeof _cache!=='undefined'&&!_cache.students.length){setErr('확인하는 중이에요…');try{await loadAllData();}catch(e){setErr('연결이 불안정해요. 잠시 후 다시 시도해 주세요');return;}}
+  // ① 서버 로그인(login 엣지 함수)
+  if(typeof ppLoginPin==='function'){
+    setErr('확인하는 중이에요…');
+    const r=await ppLoginPin('student',{pin});
+    if(r.ok){ppPinOk();setErr('');_landPin='';await ppStudentEnter(r.sid,r.name);return;}
+    if(r.hard){
+      if(Array.isArray(r.candidates)&&r.candidates.length>1){
+        _landPin=pin;
+        const sel=document.getElementById('land-sname');
+        if(sel){sel.innerHTML='<option value="">이름 선택...</option>'+r.candidates.map(c=>`<option value="${String(c.name||'').replace(/"/g,'&quot;')}">${String(c.name||'')}</option>`).join('');sel.style.display='block';}
+        setErr('같은 PIN을 쓰는 학생이 있어요. 이름을 선택하세요.');
+        return;
+      }
+      ppPinFailed();setErr(r.why||'PIN이 맞지 않습니다');return;
+    }
+    setErr('');
+  }
+  // ② 폴백 — 지금까지의 방식 (브라우저에서 대조)
+  if(typeof PP_AUTH_FALLBACK!=='undefined'&&PP_AUTH_FALLBACK===false){
+    setErr('로그인 서버에 연결하지 못했어요. 잠시 뒤 다시 해 볼까요?');return;
+  }
+  if(typeof _cache!=='undefined'&&!_cache.students.length){setErr('확인하는 중이에요…');try{await loadAllDataFast(true);}catch(e){setErr('연결이 불안정해요. 잠시 후 다시 시도해 주세요');return;}}
   pin=read()||pin;   // 기다리는 동안 고쳐 넣은 값이 있으면 그걸로 본다 (옛 값으로 거절하던 것)
   if(pin.length<4){setErr('생년월일 4자리를 입력해 주세요');return;}
   const matches=(typeof DB!=='undefined'?DB.stus():[]).filter(s=>s.pin===pin&&!s.inactive);
   if(!matches.length){ppPinFailed();setErr('PIN이 맞지 않습니다');return;}
   ppPinOk();
-  if(matches.length===1){setErr('');await loginStudent(matches[0]);return;}
+  if(matches.length===1){setErr('');_landPin='';await ppStudentEnter(matches[0].id,matches[0].name);return;}
+  _landPin=pin;
   const sel=document.getElementById('land-sname');
   if(sel){sel.innerHTML='<option value="">이름 선택...</option>'+matches.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');sel.style.display='block';}
   setErr('같은 PIN을 쓰는 학생이 있어요. 이름을 선택하세요.');
 }
-async function landStudentByName(){const sid=document.getElementById('land-sname')?.value;if(!sid)return;const s=DB.stus().find(x=>x.id===sid);if(s)await loginStudent(s);}
+async function landStudentByName(){
+  const v=document.getElementById('land-sname')?.value;if(!v)return;
+  const err=document.getElementById('land-err');const setErr=t=>{if(err)err.textContent=t;};
+  const known=(typeof DB!=='undefined'?DB.stus():[]).find(x=>x.id===v);
+  // 서버에서 받은 목록이면 값이 '이름' 이다 — 이름+PIN 으로 다시 확인한다
+  if(!known&&typeof ppLoginPin==='function'){
+    const r=await ppLoginPin('student',{name:v,pin:_landPin});
+    if(r.ok){ppPinOk();setErr('');_landPin='';await ppStudentEnter(r.sid,r.name);return;}
+    ppPinFailed();setErr(r.why||'PIN이 맞지 않습니다');return;
+  }
+  if(known)await ppStudentEnter(known.id,known.name);
+}
 function startConsult(){
   const k=(typeof DB!=='undefined'&&DB.kakao)?DB.kakao():null;
   if(k&&k.openchat){window.open(k.openchat,'_blank');return;}

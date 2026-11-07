@@ -193,12 +193,7 @@ async function checkStudentPin(){
   // ① 서버 로그인(login 엣지 함수) 먼저. 함수가 없거나 네트워크 오류일 때만 ②로 내려간다.
   if(typeof ppLoginPin==='function'){
     const r=await ppLoginPin('student',{pin});
-    if(r.ok){
-      if(!_cache.students.length)await loadAllDataFast();
-      const st=DB.stus().find(x=>x.id===r.sid)||{id:r.sid,name:r.name||''};
-      await loginStudent(st);
-      return;
-    }
+    if(r.ok){await ppStudentEnter(r.sid,r.name);return;}
     if(r.hard){
       // 같은 PIN 인 학생이 여럿 — 이름을 골라 다시 보낸다
       if(Array.isArray(r.candidates)&&r.candidates.length>1){
@@ -218,7 +213,7 @@ async function checkStudentPin(){
     _stuPinFail(err,'로그인 서버에 연결하지 못했어요. 잠시 뒤 다시 해 볼까요?');
     return;
   }
-  if(!_cache.students.length)await loadAllDataFast();
+  if(!_cache.students.length)await loadAllDataFast(true);
   const matches=_cache.students.filter(s=>s.pin===pin&&!s.inactive);
   if(!matches.length){
     const dotsEl=document.getElementById('pin-dots');
@@ -228,7 +223,7 @@ async function checkStudentPin(){
     setTimeout(()=>{pinInput=[];_stuPin='';updatePinDots();dotsEl.classList.remove('shake');},500);
     return;
   }
-  if(matches.length===1){await loginStudent(matches[0]);return;}
+  if(matches.length===1){await ppStudentEnter(matches[0].id,matches[0].name);return;}
   const sel=document.getElementById('stupin-name-sel-val');
   sel.innerHTML='<option value="">이름 선택...</option>'+matches.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   document.getElementById('stupin-name-sel').style.display='block';
@@ -241,18 +236,13 @@ async function confirmStudentByName(){
   // 서버 로그인에서 온 목록이면 값이 '이름' 이다 — 이름+PIN 으로 다시 확인한다
   if(typeof ppLoginPin==='function'&&!DB.stus().some(x=>x.id===v)){
     const r=await ppLoginPin('student',{name:v,pin:_stuPin||pinInput.join('')});
-    if(r.ok){
-      if(!_cache.students.length)await loadAllDataFast();
-      const st=DB.stus().find(x=>x.id===r.sid)||{id:r.sid,name:r.name||v};
-      await loginStudent(st);
-      return;
-    }
+    if(r.ok){await ppStudentEnter(r.sid,r.name||v);return;}
     _stuPinFail(err,r.why||'PIN이 맞지 않습니다');
     return;
   }
   const s=DB.stus().find(x=>x.id===v);
   if(!s){if(err)err.textContent='학생을 선택해 주세요';return;}
-  await loginStudent(s);
+  await ppStudentEnter(s.id,s.name);
 }
 // PIN 실패 표시 한 곳 (흔들림·초기화 포함)
 function _stuPinFail(err,msg){
@@ -1020,7 +1010,8 @@ async function submitHomework(sid, assignmentId=''){
 
 // ── PARENT NOTICE BANNER ──
 function showParentNoticeBanner(){
-  const _nk=n=>{const t=Number(String(n.id||'').replace(/^n/,''));return t>0?t:(Date.parse(n.date||'')||0);};const active=(_cache.notices||[]).filter(n=>n.active&&!(n.readBy||[]).some(r=>r.sid===currentParentSid)
+  const _nk=n=>{const t=Number(String(n.id||'').replace(/^n/,''));return t>0?t:(Date.parse(n.date||'')||0);};const active=(_cache.notices||[]).filter(n=>n.active
+    &&!((typeof ppNoticeIsRead==='function')?ppNoticeIsRead(n,currentParentSid):(n.readBy||[]).some(r=>r.sid===currentParentSid))
     &&((typeof ppNoticeForSid!=='function')||ppNoticeForSid(n,currentParentSid))).sort((a,b)=>_nk(a)-_nk(b))[0]||null;
   _activeNoticeId=active?active.id:null;
   const banner=document.getElementById('parent-notice-banner');
@@ -1963,7 +1954,7 @@ function stuXP(sid){
   const readLogs=(_cache.logs||[]).filter(l=>l.sid===sid&&l.read).length;
   const rds=DB.allRds(sid).filter(r=>r.date).length;
   const tests=DB.tsts().filter(t=>t.sid===sid).length;
-  const bossWins=((DB.stus().find(x=>x.id===sid)||{}).bossWins)||0;
+  const bossWins=(typeof ppBossWins==='function')?ppBossWins(sid):0;
   return les*10+asgn*20+hits*2+mastered*5+readLogs*15+rds*10+tests*10+bossWins*30;
 }
 function stuLevelOf(xp){
@@ -2100,14 +2091,16 @@ function stuBossCard(sid){
   const pct=Math.round(hit/b.target*100);       // 바는 '깎은 만큼' 차오른다
   if(b.done){
     try{
+      // 승리 기록은 logs 에 남긴다 — 학생이 students 행 전체를 덮어쓰지 않게 (2026-11-08).
+      // 옛 기록(students.bossWinWeeks)도 함께 보아 중복 토스트·중복 카운트를 막는다.
       const stu=DB.stus().find(x=>x.id===sid);
-      const wonWeeks=(stu&&stu.bossWinWeeks)||[];
-      // 승리 기록은 DB(students.bossWinWeeks)가 기준 — 기기·브라우저가 바뀌어도 중복 토스트·중복 카운트 없음 (QA 수정)
-      if(stu&&!wonWeeks.includes(b.week)){
-        stu.bossWinWeeks=[...wonWeeks,b.week];
-        stu.bossWins=(stu.bossWins||0)+1;
+      const wonWeeks=[...(((stu&&stu.bossWinWeeks)||[])),...ppBossWeeks(sid)];
+      if(!wonWeeks.includes(b.week)){
+        const row={id:uid(),sid,type:'boss_win',week:b.week,name:b.name,date:ppToday()};
+        if(!_cache.logs)_cache.logs=[];
+        _cache.logs.push(row);
         setTimeout(()=>{launchConfetti();toast('👑 주간 보스 '+b.name+' 클리어! 보너스 XP +30');},900);
-        (async()=>{try{await supaUpsert('students',sid,stu,null);}catch(e){}})();
+        (async()=>{try{await supaUpsert('logs',row.id,row,sid);}catch(e){console.warn('보스 기록 저장 실패:',e);}})();
       }
     }catch(e){}
   }
@@ -2632,31 +2625,18 @@ function renderLastLesson(sid){
     <button class="btn bt bsm" style="margin-top:8px;border-radius:50px" onclick="openVocabStudy('last')">📚 지난 수업 단어 복습 →</button>
   </div>`;
 }
-async function polishStudentCmt(givenName){
+// 학생 응원 문구 — **읽기만 한다** (2026-11-08).
+// 전에는 학생 화면이 AI 를 부르고 그 문장을 lessons.stuCmt 에 저장했다.
+// 학생은 lessons 를 쓸 수 없으므로(RLS) 저장이 조용히 실패하고, 화면을 열 때마다
+// AI 를 다시 불러 문장이 매번 바뀌고 비용도 들었다.
+// 문장은 선생님이 수업 기록을 저장할 때 만들어 둔다(teacher.js polishStuCmt_teacher).
+// 여기서는 그 문장을 보여 주고, 없으면 선생님 메모를 짧게 보여 준다.
+function polishStudentCmt(givenName){
   const el=document.getElementById('stu-lesson-cmt');if(!el)return;
   const stored=el.dataset.stored||'';
   if(stored){el.textContent=stored;return;}
-  const raw=el.dataset.raw||'';if(!raw){el.textContent='';return;}
-  const mats=el.dataset.mats||'';
-  const apiKey=DB.api();
-  if(!apiKey){el.textContent=raw.slice(0,80)+(raw.length>80?'…':'');return;}
-  try{
-    const content=`당신은 영어 학원 선생님입니다. 아래 수업 정보를 바탕으로 학생 ${givenName||''}에게 직접 전달하는 따뜻하고 격려하는 한국어 코멘트를 써주세요.\n규칙: 처음부터 끝까지 반말로만 쓰기(존댓말·'~요' 섞지 않기), 학생에게 직접 말하는 말투, 단원 번호를 나열하지 말고 오늘 배운 내용을 구체적으로 1개 이상 언급 — 진도에 [이 단원에서 배운 단어]가 있으면 그중 1~2개를 골라 칭찬에 녹여서(예: "오늘 proud 진짜 잘 읽었어!", "th 발음 완전 좋았어~"). 없는 사실은 지어내지 않기, 90자 이내, 이모지 1개 허용, 마크다운·따옴표 금지, 문장만 출력.\n${(typeof PP_BOOKNAME_RULE!=='undefined')?PP_BOOKNAME_RULE+'\n':''}교재·단원 이름은 진도에 적힌 표기를 그대로 쓰세요 — 대소문자를 바꾸지 마세요('Unit 1' 을 'unit 1' 로 쓰지 않기).\n수업 진도: ${mats||'없음'}\n선생님 메모: ${raw}`;
-    const d=await callClaudeProxy({model:'claude-sonnet-4-6',max_tokens:150,messages:[{role:'user',content}]});
-    const text=d.content?.[0]?.text?.trim();
-    if(text&&el){
-      el.textContent=text;
-      el.dataset.stored=text;
-      // 한 번 만든 문장은 수업 기록에 남겨 다시 쓴다 —
-      // 저장하지 않으면 홈을 열 때마다 AI 를 불러 문장이 매번 바뀌고 비용도 든다.
-      const lid=el.dataset.lid||'',ssid=el.dataset.sid||'';
-      const les=lid?(_cache.lessons||[]).find(l=>l.id===lid):null;
-      if(les&&!les.stuCmt){
-        les.stuCmt=text;
-        try{await supaUpsert('lessons',les.id,les,les.sid||ssid);}catch(e){console.warn('응원 문구 저장 실패:',e);}
-      }
-    }
-  }catch(e){if(el)el.textContent=raw.slice(0,80)+(raw.length>80?'…':'');}
+  const raw=el.dataset.raw||'';
+  el.textContent=raw?(raw.slice(0,80)+(raw.length>80?'…':'')):'';
 }
 // 단어 복습 현황: 약점 단어 + 숙련도 단계 (vocab_cards의 hits/misses 활용)
 function renderVocabReview(sid){

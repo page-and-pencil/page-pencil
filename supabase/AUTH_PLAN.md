@@ -131,7 +131,11 @@ supabase/functions/login/index.ts   (service_role 로 students 를 읽는다)
 | js/student.js | `checkStudentPin` · `confirmStudentByName` · `loginStudent` | login 함수 호출로. **PIN 으로 학생 목록을 훑는 지금 방식이 사라진다** |
 | js/student.js · js/parent.js | `stuLogoutAsk` · `parentLogoutAsk` | 토큰 폐기까지 |
 | js/teacher.js | `renderQRCode` · `previewAsStudent` · `previewAsParent` | QR 는 토큰 방식으로, 미리보기는 선생님 토큰으로 그대로 |
-| js/db.js | `ppDropSnapshot` · `_snapOwner` | 역할·sid 를 토큰에서 얻도록 기준을 맞춤 |
+| js/db.js | `ppDropSnapshot` · `_snapOwner` · `_snapSanitize` | 역할·sid 기준 + 학생·학부모 기기에는 자기 행만 저장 |
+| js/db.js | (신규) `ppMayLoad` · `ppResetCache` · `ppAfterLogin` · `ppStudentEnter` · `ppParentEnter` | 로그인 전 로드 금지 · 로그인 직후 캐시 재구성 · 진입점 한 곳 |
+| js/student.js | `stuBossCard` | 주간 보스 승리를 `students` 행이 아니라 `logs` 한 줄로 |
+| js/student.js | `polishStudentCmt` | 읽기만 — 응원 문구는 선생님이 저장할 때 만든다 |
+| js/teacher.js | `markNoticeRead` | 공지 읽음을 `notices.readBy` 가 아니라 `messages` 한 줄로 |
 
 **예상 작업량**: 함수 2개(login · 선생님 세션) + 위 수정 + 정책 20여 개 + 검증 →
 **집중해서 3~5일**, 실제로는 **1~2주**(수업·학부모 사용이 멈추지 않게 병행 기간이 필요).
