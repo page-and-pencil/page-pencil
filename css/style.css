@@ -2730,3 +2730,51 @@ body{font-size:14.5px;line-height:1.65;}
   #mq-layer .mq-opts{grid-template-columns:1fr}
   #mq-layer .mq-opt{padding:14px 12px;min-height:56px}
 }
+
+/* ── 문장 학습 (P7) ──────────────────────────────────────── */
+/* 암기 — 가린 문장. 누른 자리까지만 1.2초 보인다 */
+.st-mask-box{display:flex;flex-wrap:wrap;gap:6px;padding:14px 12px;background:var(--cream2);
+  border:2px solid var(--border);border-radius:14px;min-height:62px;align-items:center}
+.st-mask{padding:7px 9px;border:none;border-radius:6px;background:var(--navy);color:var(--navy);
+  font-family:var(--fm);font-size:15px;font-weight:700;letter-spacing:-1px;cursor:pointer;
+  line-height:1.2;transition:background .12s,color .12s}
+.st-mask.on{background:var(--tl);color:var(--tealt);letter-spacing:0;font-family:var(--fd)}
+.st-ko{font-size:14px;font-weight:600;color:var(--slate);margin-top:10px;line-height:1.6}
+.st-prompt{font-size:19px;font-weight:700;color:var(--navy);background:var(--tl);
+  border-radius:14px;padding:16px 14px;text-align:center;margin-bottom:14px;line-height:1.5}
+/* 리콜·스피드·빈칸 — 단어 조각 */
+.st-tok{padding:9px 14px;border:1.5px solid var(--border);border-radius:10px;background:#fff;
+  font-weight:700;color:var(--navy);font-family:var(--fd);font-size:16px;cursor:pointer;line-height:1.3}
+.st-tok.on{border:none;box-shadow:var(--sh)}
+.st-tok.sel{border-color:var(--teal);background:var(--tl);color:var(--tealt)}
+.st-tok:disabled{cursor:default}
+.st-ansbox{min-height:54px;display:flex;flex-wrap:wrap;gap:7px;padding:11px;margin:12px 0 14px;
+  border:2px solid var(--teal);border-radius:14px;background:var(--tl);transition:border-color .15s,background .15s}
+.st-ansbox.ok{border-color:var(--okt);background:var(--okl)}
+.st-ansbox.no{border-color:var(--coral);background:var(--cl)}
+.st-bank{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+/* 빈칸 */
+.st-clozebox{font-size:17px;line-height:2.1;color:var(--navy);background:var(--cream2);
+  border:2px solid var(--border);border-radius:14px;padding:14px 13px;margin:12px 0 14px;word-break:break-word}
+.st-blank{min-width:74px;padding:3px 9px;border:none;border-bottom:2.5px solid var(--teal);
+  border-radius:6px;background:#fff;font-family:var(--fd);font-size:16px;font-weight:700;
+  color:var(--neutral);cursor:pointer;line-height:1.4}
+.st-blank.filled{color:var(--navy);background:var(--tl)}
+.st-blank.ok{border-bottom-color:var(--okt);background:var(--okl);color:var(--okt)}
+.st-blank.no{border-bottom-color:var(--coral);background:var(--cl);color:var(--coral)}
+@media (max-width:360px){
+  .st-tok{padding:8px 11px;font-size:15px}
+  .st-clozebox{font-size:16px}
+  .st-blank{min-width:62px}
+}
+
+/* 문장 학습 5단계 세그먼트 — 5칸이 320px 에 들어가야 한다 (.seg 는 nowrap 이라 넘친다) */
+.st-seg{display:flex;gap:2px;margin:0 16px 10px;padding:3px;background:var(--cream2);
+  border:1.5px solid var(--border);border-radius:10px;overflow:hidden}
+.st-seg button{flex:1;min-width:0;border:none;background:none;font-family:var(--fb);
+  font-size:11px;font-weight:600;color:var(--slate);padding:5px 1px;border-radius:7px;
+  cursor:pointer;line-height:1.25;display:flex;flex-direction:column;align-items:center;gap:1px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-seg button.on{background:#fff;color:var(--navy);font-weight:800;box-shadow:var(--sh)}
+.st-seg button:disabled{cursor:default}
+.st-seg-i{font-size:13px;line-height:1}

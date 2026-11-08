@@ -5413,6 +5413,9 @@ function tuRenderWords(tbId,unitKey){
     const ta=document.getElementById('tu-unit-text');
     if(ta)ta.value=tuCurScriptText(tb0,unitKey);
     const pa=document.getElementById('tu-unit-patterns');if(pa)pa.value=tb0?.unitPatterns?.[unitKey]||'';
+    const sk=document.getElementById('tu-unit-sentko');if(sk)sk.value=tb0?.unitSentKo?.[unitKey]||'';
+    const sc=document.getElementById('tu-unit-sentcloze');if(sc)sc.value=tb0?.unitSentCloze?.[unitKey]||'';
+    tuSentHint(tb0,unitKey);
     const li=document.getElementById('tu-unit-link');if(li)li.value=tb0?.unitLinks?.[unitKey]||'';
     const audioUrl=tb0?.unitAudio?.[unitKey]||'';
     const ind=document.getElementById('tu-audio-indicator');if(ind)ind.textContent=audioUrl?'✓ 업로드됨':'없음';
@@ -6238,6 +6241,16 @@ async function tuToggleNoVocab(tbId,unitKey){
   if(typeof renderDash==='function')renderDash();
   toast(cur[unitKey]?'단어 없음이 정상인 단원으로 표시했어요':'표식을 해제했어요');
 }
+// 문장 학습 — 지금 설정으로 몇 문장이 잡히고 어떤 단어가 빈칸이 되는지 보여 준다
+function tuSentHint(tb,unitKey){
+  const el=document.getElementById('tu-sentcloze-hint');if(!el)return;
+  if(!tb||typeof sentLines!=='function'){el.textContent='';return;}
+  const lines=sentLines(tb,unitKey);
+  if(!lines.length){el.innerHTML='<span style="color:var(--warnt)">문장이 없어 문장 학습 미션이 뜨지 않습니다</span>';return;}
+  const cw=sentClozeWords(tb,unitKey);
+  const ko=lines.filter(r=>r.ko).length;
+  el.textContent='문장 '+lines.length+'개 (해석 있는 것 '+ko+'개) · 빈칸: '+(cw.length?cw.join(', '):'없음');
+}
 async function tuSaveUnitText(silent=false){
   const tbId=document.getElementById('tu-tb-id').value;
   if(!_tuCurUnit)return silent?null:toast('단원을 선택하세요');
@@ -6247,6 +6260,11 @@ async function tuSaveUnitText(silent=false){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const unitPatterns={...(tb.unitPatterns||{}),[_tuCurUnit]:patterns};
   const unitLinks={...(tb.unitLinks||{}),[_tuCurUnit]:link};
+  // 문장 학습(P7) — 해석·빈칸 지정. 둘 다 선택 필드다 (비면 자동 규칙)
+  const sentKo=(document.getElementById('tu-unit-sentko')?.value||'').trim();
+  const sentCloze=(document.getElementById('tu-unit-sentcloze')?.value||'').trim();
+  const unitSentKo={...(tb.unitSentKo||{}),[_tuCurUnit]:sentKo};
+  const unitSentCloze={...(tb.unitSentCloze||{}),[_tuCurUnit]:sentCloze};
   // 스크립트가 여러 개인 단원: 지금 고른 스크립트만 갱신하고, 본문(unitTexts)은 전체를 이어붙여 다시 만든다
   const sc=tuScriptsOf(tb,_tuCurUnit);
   let unitTexts,unitScripts=tb.unitScripts;
@@ -6258,7 +6276,7 @@ async function tuSaveUnitText(silent=false){
   }else{
     unitTexts={...(tb.unitTexts||{}),[_tuCurUnit]:text};
   }
-  const updated={...tb,unitTexts,unitPatterns,unitLinks,...(unitScripts?{unitScripts}:{})};
+  const updated={...tb,unitTexts,unitPatterns,unitLinks,unitSentKo,unitSentCloze,...(unitScripts?{unitScripts}:{})};
   await supaUpsert('global_textbooks',tbId,updated,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
   if(!silent)toast('저장되었습니다');
@@ -6316,7 +6334,10 @@ async function tuExtractExamples(){
   const unitLinks={...(tb.unitLinks||{}),[_tuCurUnit]:link};
   const patterns=(document.getElementById('tu-unit-patterns')?.value||'').trim();
   const unitPatterns={...(tb.unitPatterns||{}),[_tuCurUnit]:patterns};
-  const updTb={...tb,units:{...(tb.units||{}),[_tuCurUnit]:words},unitTexts,unitPatterns,unitLinks};
+  // 문장 학습 칸도 함께 저장 — 예문 추출로 넘어가며 입력이 날아가지 않게
+  const unitSentKo={...(tb.unitSentKo||{}),[_tuCurUnit]:(document.getElementById('tu-unit-sentko')?.value||'').trim()};
+  const unitSentCloze={...(tb.unitSentCloze||{}),[_tuCurUnit]:(document.getElementById('tu-unit-sentcloze')?.value||'').trim()};
+  const updTb={...tb,units:{...(tb.units||{}),[_tuCurUnit]:words},unitTexts,unitPatterns,unitLinks,unitSentKo,unitSentCloze};
   await supaUpsert('global_textbooks',tbId,updTb,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updTb;
   let cardUpdated=0;

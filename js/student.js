@@ -4662,6 +4662,8 @@ function closeMissionPlayer(){
   clearInterval(_msTimerInt);_msTimerInt=null;
   // 미니게임/연습 상태 리셋 (다음 미션에 잔여 상태가 새지 않도록)
   _msCloze=null;_msScr=null;_msGame=null;_vocR=null;_vocS=null;_msRead=null;
+  if(typeof _stStopTimer==='function')_stStopTimer();
+  _stState=null;
   if(_msState)renderStudentHome(_msState.sid);
 }
 function msProgressPct(){
@@ -4694,6 +4696,7 @@ function renderMsStep(i){
   else if(m==='scramble')renderMsScramble(body,footer);
   else if(m==='record')renderMsRecord(body,footer);
   else if(m==='game')renderMsGame(body,footer);
+  else if(m==='sentence')renderMsSentence(body,footer);
 }
 function msDoneBtn(m,label){
   const done=!!(_msState.a.progress||{})[m];
@@ -5088,6 +5091,409 @@ function msScrCheck(){
   }
 }
 
+// ── 미션: 문장 학습 (P7) ─────────────────────────────────────
+// pattern·scramble·cloze 를 5단계 한 흐름으로 합친 것.
+// 문장은 교재 전사본만 쓴다(sentLines). 음성은 새로 만들지 않는다(speakCachedOnly).
+// 구간 엔진(vc*)은 쓰지 않는다 — 10문장 라운드가 그 역할을 한다.
+// 단어 카드(hits·misses·box·due·lastSeen)는 건드리지 않는다.
+let _stState=null;
+let _stForce0=false;      // [처음부터] 를 누른 직후 한 번만 from=0
+function _stEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _stPh(){const C=_stState;return C?C.phases[C.ph]:null;}
+function renderMsSentence(body,footer){
+  const {tb,unitKey,sid}=_msState;
+  // 긴 본문은 10문장씩 묶음으로. 다음에 열면 그 뒤 10문장부터 (이미 받아 둔 logs 로만 계산)
+  const want=(_stForce0?0:((typeof sentNextFrom==='function')?sentNextFrom(sid,tb.id,unitKey):0));
+  const rd0=(typeof sentRound==='function')?sentRound(tb,unitKey,want):{lines:[],from:0,total:0,chunk:1,chunks:1};
+  const lines=rd0.lines;
+  if(!lines.length){
+    body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">이 단원에 등록된 문장이 없어요</div>';
+    footer.innerHTML=msDoneBtn('sentence','✓ 완료');return;
+  }
+  if(!_stState||_stState.unitKey!==unitKey||_stState.tbId!==tb.id){
+    const cloze=(typeof sentClozeWords==='function')?sentClozeWords(tb,unitKey):[];
+    const items=_stClozeItems(lines,cloze);
+    const phases=SENT_PHASES.filter(p=>p.k!=='cloze'||items.length>0);
+    _stState={sid:sid,tbId:tb.id,unitKey:unitKey,lines:lines,cloze:cloze,clozeItems:items,
+      from:rd0.from,total:rd0.total,chunk:rd0.chunk,chunks:rd0.chunks,
+      phases:phases,ph:0,idx:0,reads:{},first:{},tried:{},
+      t0:Date.now(),spoke:false,saved:false,
+      audio:(tb.unitAudio&&tb.unitAudio[unitKey])||''};
+  }
+  _stForce0=false;
+  _stDraw();
+  // 단계에 처음 들어올 때 문장 발음 한 번 (강제 청취 아님 · 새 생성 0)
+  if(!_stState.spoke){_stState.spoke=true;_stSpeak(0);}
+}
+function _stPhaseBar(){
+  const C=_stState;
+  return '<div class="st-seg">'+C.phases.map((p,i)=>
+    '<button class="'+(i===C.ph?'on':'')+'" '+(i<C.ph?'':'disabled')
+    +' onclick="'+(i<C.ph?'_stGo('+i+')':'')+'">'
+    +'<span class="st-seg-i">'+(i<C.ph?'✓':p.icon)+'</span>'+p.label+'</button>').join('')+'</div>';
+}
+// 수업 직후 앞부분을 다시 하고 싶을 때 — 첫 묶음으로 되돌린다
+function _stRestart(){
+  if(!_stState)return;
+  _stStopTimer();
+  _stForce0=true;_stState=null;
+  renderMsSentence(document.getElementById('ms-body'),document.getElementById('ms-footer'));
+}
+function _stGo(i){const C=_stState;if(!C)return;C.ph=Math.max(0,Math.min(C.phases.length-1,i));C.idx=0;_stDraw();}
+function _stHead(){
+  const C=_stState,ph=_stPh();
+  const total=(ph.k==='cloze')?C.clozeItems.length:C.lines.length;
+  return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">'
+    +'<span style="font-size:12px;font-weight:700;color:var(--slate)">문장 '+(C.idx+1)+' / '+total
+    +((C.chunks>1)?' · '+C.chunk+'번째 묶음':'')+'</span>'
+    +((ph.k==='mem')?'<button class="btn bo bxxs" onclick="_stRestart()">↺ 처음부터</button>':'')
+    +(C.audio?'<button class="btn bo bxxs" onclick="_stUnitAudio()">🎧 단원 전체 듣기</button>':'')
+    +'<button class="btn ba bxxs" style="margin-left:auto" onclick="_stSpeak('+C.idx+')">🔊 듣기</button>'
+    +'</div>';
+}
+// 음성: ① 이미 있는 캐시 음원 → ② 브라우저 음성. ElevenLabs 새 생성은 하지 않는다.
+function _stSpeak(i){
+  const C=_stState;if(!C)return;
+  const row=C.lines[i];if(!row||!row.en)return;
+  if(typeof speakCachedOnly==='function')speakCachedOnly(row.en,{el:0.95,tts:0.85});
+  else if(typeof browserSpeak==='function')browserSpeak(row.en,0.85);
+}
+// 교재 unitAudio(출판사 음원)는 문장 단위가 아니라 단원 전체 듣기로만
+function _stUnitAudio(){
+  const C=_stState;if(!C||!C.audio)return;
+  stopSpeak();
+  if(typeof _playUrl==='function')_playUrl(C.audio,1);
+}
+// 단계별 '첫 시도'만 센다 (구간 엔진은 쓰지 않고 개념만 가져온 것)
+function _stMarkFirst(ok){
+  const C=_stState;if(!C)return;
+  const k=_stPh().k,key=k+':'+C.idx;
+  if(C.tried[key])return;
+  C.tried[key]=1;
+  if(!C.first[k])C.first[k]={ok:0,total:0};
+  C.first[k].total++;if(ok)C.first[k].ok++;
+}
+function _stDraw(){
+  const C=_stState;if(!C)return;
+  const body=document.getElementById('ms-body'),footer=document.getElementById('ms-footer');
+  if(!body||!footer)return;
+  const k=_stPh().k;
+  if(k==='mem')return _stMemDraw(body,footer);
+  if(k==='spell')return _stSpellDraw(body,footer);
+  if(k==='cloze')return _stClozeDraw(body,footer);
+  return _stScrDraw(body,footer);     // recall · speed
+}
+// 다음 문장 → 없으면 다음 단계 → 없으면 미션 완료
+function _stNext(){
+  const C=_stState;if(!C)return;
+  const ph=_stPh();
+  const total=(ph.k==='cloze')?C.clozeItems.length:C.lines.length;
+  if(C.idx<total-1){C.idx++;C.sel=null;_stPrep();_stDraw();return;}
+  if(C.ph<C.phases.length-1){C.ph++;C.idx=0;C.sel=null;showMiniConfetti();_stPrep();_stDraw();return;}
+  _stFinish();
+}
+function _stPrep(){
+  const C=_stState,k=_stPh().k;
+  if(k==='recall'||k==='speed')_stScrLoad();
+  if(k==='cloze')_stClozeLoad();
+}
+async function _stFinish(){
+  const C=_stState;if(!C)return;
+  _stStopTimer();
+  await _stSave();
+  await msCompleteMission('sentence');
+}
+async function _stSave(){
+  const C=_stState;if(!C||C.saved)return;
+  C.saved=true;
+  if(typeof ppSandbox==='function'&&ppSandbox())return;      // 체험 모드면 저장 0
+  const order=C.phases.map(p=>p.k).filter(k=>C.first[k]);
+  const last=order.length?order[order.length-1]:'';           // 마지막 단계의 첫 시도
+  const f=C.first[last]||{ok:0,total:0};
+  const row={id:uid(),sid:C.sid,date:ppToday(),type:'sent_session',
+    tbId:C.tbId,unitKey:C.unitKey,setKey:'tb:'+C.tbId+':'+C.unitKey,
+    n:C.lines.length,from:C.from||0,total:C.total||C.lines.length,phases:C.phases.map(p=>p.k),
+    lastPhase:last,first:{ok:f.ok,total:f.total},
+    ms:Date.now()-C.t0,at:new Date().toISOString()};
+  if(!_cache.logs)_cache.logs=[];
+  _cache.logs.unshift(row);
+  try{await supaUpsert('logs',row.id,row,C.sid);}catch(e){console.warn('문장 기록 저장:',e);}
+}
+
+// ── ① 암기 — 가리고, 누른 위치까지만 잠깐 보이기 ──
+function _stMemDraw(body,footer){
+  const C=_stState;
+  const row=C.lines[C.idx];
+  const toks=row.en.split(/\s+/).filter(Boolean);
+  const rev=(C.rev==null)?-1:C.rev;
+  const tiles=toks.map((w,i)=>{
+    const shown=i<=rev;
+    return '<button class="st-mask'+(shown?' on':'')+'" onclick="_stMemPeek('+i+')">'
+      +(shown?_stEsc(w):new Array(Math.min(12,w.length)+1).join('█'))+'</button>';
+  }).join('');
+  const reads=C.reads[C.idx]||0;
+  const dots=new Array(SENT_READ_GOAL).fill(0).map((_,i)=>i<reads?'●':'○').join('');
+  body.innerHTML=_stPhaseBar()+'<div style="padding:0 16px 12px">'+_stHead()
+    +'<div class="st-mask-box">'+tiles+'</div>'
+    +(row.ko?'<div class="st-ko">'+_stEsc(row.ko)+'</div>':'<div class="st-ko" style="color:var(--neutral)">해석이 등록되지 않은 문장이에요</div>')
+    +'<div style="font-size:12px;color:var(--slate);margin-top:10px">단어를 누르면 그 자리까지 잠깐 보여요</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-top:12px">'
+    +'<span style="font-size:12.5px;color:var(--slate)">소리 내어 읽기</span>'
+    +'<span style="font-size:15px;letter-spacing:2px;color:var(--teal)">'+dots+'</span>'
+    +'<span style="font-size:11.5px;color:var(--neutral)">'+reads+'/'+SENT_READ_GOAL+' 권장</span>'
+    +'</div></div>';
+  footer.innerHTML='<div style="display:flex;gap:8px">'
+    +'<button class="btn bo bsm" style="border-radius:var(--rpill)" onclick="_stMemRead()">🗣 읽었어요</button>'
+    +'<button class="btn bt" style="flex:1;border-radius:var(--rpill);padding:12px;font-weight:700" onclick="_stNext()">'
+    +(C.idx<C.lines.length-1?'다음 문장 →':'리콜로 →')+'</button></div>';
+}
+function _stMemPeek(i){
+  const C=_stState;if(!C)return;
+  C.rev=i;_stMemDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));
+  if(C._peek)clearTimeout(C._peek);
+  C._peek=setTimeout(()=>{
+    const S=_stState;if(!S||_stPh().k!=='mem')return;
+    S.rev=-1;_stMemDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));
+  },1200);
+}
+function _stMemRead(){
+  const C=_stState;if(!C)return;
+  C.reads[C.idx]=Math.min(SENT_READ_GOAL,(C.reads[C.idx]||0)+1);
+  _stSpeak(C.idx);
+  _stMemDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));
+}
+
+// ── ②④ 리콜 / 스피드 — 언스크램블 (기존 어순 배열 방식) ──
+function _stScrLoad(){
+  const C=_stState;if(!C)return;
+  const row=C.lines[C.idx];
+  const toks=row.en.split(/\s+/).filter(Boolean);
+  let order=toks.map((_,i)=>i);
+  for(let t=0;t<8;t++){order=_shuffle(toks.map((_,i)=>i));if(toks.length<=2||order.some((v,i)=>v!==i))break;}
+  C.toks=toks;C.bank=order;C.ans=[];C.checked=null;
+  C.left=(_stPh().k==='speed')?sentSpeedSec(row.en):0;
+  C.paused=false;
+  _stStopTimer();
+  if(_stPh().k==='speed')_stTimer();
+}
+function _stStopTimer(){const C=_stState;if(C&&C.timer){clearInterval(C.timer);C.timer=null;}}
+function _stTimer(){
+  _stStopTimer();
+  _stState.timer=setInterval(()=>{
+    const C=_stState;
+    if(!C||_stPh().k!=='speed'){_stStopTimer();return;}
+    if(C.paused)return;
+    C.left--;
+    const el=document.getElementById('st-clock');
+    if(el)el.textContent=Math.max(0,C.left)+'초';
+    const bar=document.getElementById('st-bar');
+    if(bar)bar.style.width=Math.max(0,C.left/Math.max(1,C.secMax||C.left||1)*100)+'%';
+    if(C.left<=0){_stStopTimer();_stMarkFirst(false);C.checked='time';_stScrDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));
+      setTimeout(()=>{if(_stState===C)_stNext();},1100);}
+  },1000);
+}
+function _stScrDraw(body,footer){
+  const C=_stState;if(!C)return;
+  if(!C.toks)_stScrLoad();
+  const timed=_stPh().k==='speed';
+  const row=C.lines[C.idx];
+  if(timed&&!C.secMax)C.secMax=sentSpeedSec(row.en);
+  const placed=new Set(C.ans);
+  const bank=C.bank.filter(id=>!placed.has(id)).map(id=>
+    '<button class="st-tok" onclick="_stScrPick('+id+')">'+_stEsc(C.toks[id])+'</button>').join('');
+  const st=C.checked==='ok'?'ok':(C.checked?'no':'');
+  const answer=C.ans.length
+    ? C.ans.map((id,pos)=>'<button class="st-tok on" onclick="_stScrUnpick('+pos+')">'+_stEsc(C.toks[id])+'</button>').join('')
+    : '<span style="font-size:13px;color:var(--slate);align-self:center">단어를 순서대로 눌러 문장을 만들어요</span>';
+  const clock=timed
+    ?'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+      +'<span id="st-clock" style="font-size:15px;font-weight:800;color:var(--navy);font-family:var(--fm)">'+Math.max(0,C.left)+'초</span>'
+      +'<div style="flex:1;height:8px;background:var(--divider);border-radius:4px;overflow:hidden">'
+      +'<div id="st-bar" style="height:100%;width:'+Math.max(0,C.left/Math.max(1,C.secMax)*100)+'%;background:var(--accent);border-radius:4px;transition:width .9s linear"></div></div>'
+      +'<button class="btn bo bxxs" onclick="_stPause()">'+(C.paused?'이어서':'멈춤')+'</button></div>'
+    :'';
+  body.innerHTML=_stPhaseBar()+'<div style="padding:0 16px 12px">'+_stHead()+clock
+    +(C.paused
+      ?'<div style="padding:40px 10px;text-align:center"><div style="font-size:38px;margin-bottom:10px">⏸</div>'
+        +'<div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:14px">잠깐 멈췄어요</div>'
+        +'<button class="btn bt" style="padding:12px 32px;border-radius:var(--rpill)" onclick="_stPause()">이어서 하기 →</button></div>'
+      :(row.ko?'<div class="st-ko">'+_stEsc(row.ko)+'</div>':'')
+        +'<div class="st-ansbox '+st+'">'+answer+'</div>'
+        +'<div class="st-bank">'+(bank||'<span style="font-size:13px;color:var(--slate)">아래 확인을 눌러요</span>')+'</div>')
+    +'</div>';
+  const full=C.ans.length===C.toks.length;
+  footer.innerHTML=C.paused?'':'<div style="display:flex;gap:8px">'
+    +'<button class="btn bo bsm" style="border-radius:var(--rpill)" onclick="_stScrReset()">↺ 다시</button>'
+    +'<button class="btn bt" style="flex:1;border-radius:var(--rpill);padding:12px;font-weight:700" '+(full?'':'disabled')
+    +' onclick="_stScrCheck()">'+(full?'정답 확인':'단어를 배열해요')+'</button></div>';
+}
+function _stPause(){const C=_stState;if(!C)return;C.paused=!C.paused;_stScrDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));}
+function _stScrPick(id){const C=_stState;if(!C||C.checked==='ok'||C.paused)return;if(C.ans.indexOf(id)>=0)return;C.ans.push(id);C.checked=null;_stScrDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));}
+function _stScrUnpick(pos){const C=_stState;if(!C||C.checked==='ok'||C.paused)return;C.ans.splice(pos,1);C.checked=null;_stScrDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));}
+function _stScrReset(){const C=_stState;if(!C||C.checked==='ok')return;C.ans=[];C.checked=null;_stScrDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));}
+function _stScrCheck(){
+  const C=_stState;if(!C||C.checked==='ok')return;
+  const built=C.ans.map(id=>C.toks[id]).join(' ');
+  const ok=_scrNorm(built)===_scrNorm(C.lines[C.idx].en);
+  _stMarkFirst(ok);
+  C.checked=ok?'ok':'no';
+  _stScrDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));
+  if(ok){
+    _stStopTimer();
+    _stSpeak(C.idx);showMiniConfetti();
+    setTimeout(()=>{if(_stState===C)_stNext();},1000);
+  }else{
+    setTimeout(()=>{if(_stState!==C||C.checked!=='no')return;C.ans=[];C.checked=null;
+      _stScrDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));},900);
+  }
+}
+
+// ── ③ 스펠 — 해석 보고 문장 입력 (해석이 없으면 첫 글자 힌트) ──
+function _stSpellDraw(body,footer){
+  const C=_stState;
+  const row=C.lines[C.idx];
+  const hint=row.ko?'':sentFirstHint(row.en);
+  body.innerHTML=_stPhaseBar()+'<div style="padding:0 16px 12px">'+_stHead()
+    +(row.ko
+      ?'<div class="st-prompt">'+_stEsc(row.ko)+'</div>'
+      :'<div class="st-prompt" style="font-family:var(--fm);letter-spacing:1px">'+_stEsc(hint)
+        +'<div style="font-size:11.5px;font-weight:400;color:var(--slate);margin-top:6px;letter-spacing:0">해석이 없어 첫 글자만 보여 줘요</div></div>')
+    +'<input class="recall-input" id="st-in" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"'
+    +' placeholder="영어 문장을 입력..."'
+    +' onkeydown="if(event.key===\'Enter\'){if(event.isComposing||event.keyCode===229)return;event.preventDefault();_stSpellCheck();}">'
+    +'<div id="st-fb" style="min-height:44px;font-size:13.5px;font-weight:700;margin-top:10px;line-height:1.6"></div>'
+    +'</div>';
+  footer.innerHTML='<div style="display:flex;gap:8px">'
+    +'<button class="btn bo bsm" style="border-radius:var(--rpill)" onclick="_stSpellSkip()">모르겠어요</button>'
+    +'<button class="btn bt" style="flex:1;border-radius:var(--rpill);padding:12px;font-weight:700" onclick="_stSpellCheck()">확인</button></div>';
+  setTimeout(()=>{const i=document.getElementById('st-in');if(i)i.focus();},60);
+}
+function _stSpellCheck(){
+  const C=_stState;if(!C||C.answered)return;
+  const inp=document.getElementById('st-in');if(!inp)return;
+  const raw=String(inp.value||'');
+  if(!raw.trim())return;
+  const ans=C.lines[C.idx].en;
+  const ok=_spellNorm(raw)===_spellNorm(ans);
+  _stMarkFirst(ok);
+  const fb=document.getElementById('st-fb');
+  if(ok){
+    C.answered=true;
+    if(fb){fb.style.color='var(--okt)';fb.innerHTML='정답이에요! ✓<div style="font-weight:400;color:var(--slate);margin-top:4px">'+_stEsc(ans)+'</div>';}
+    _stSpeak(C.idx);showMiniConfetti();
+    setTimeout(()=>{if(_stState===C){C.answered=false;_stNext();}},1100);
+  }else{
+    // 틀린 위치를 그 자리에서 보여 준다 (단어 스펠과 같은 _spellSplitAt)
+    const at=_spellSplitAt(raw,ans);
+    if(fb){
+      fb.style.color='var(--warnt)';
+      fb.innerHTML='여기부터 달라요 🙂 &nbsp;<span style="font-family:var(--fm)">'+_stEsc(raw.slice(0,at))
+        +'<span style="color:var(--coral);text-decoration:underline">'+(_stEsc(raw.slice(at))||'&nbsp;')+'</span></span>';
+    }
+    inp.classList.add('bad');
+    setTimeout(()=>{const i=document.getElementById('st-in');if(i)i.classList.remove('bad');},320);
+  }
+}
+function _stSpellSkip(){
+  const C=_stState;if(!C)return;
+  _stMarkFirst(false);
+  const fb=document.getElementById('st-fb');
+  if(fb){fb.style.color='var(--slate)';fb.innerHTML='정답: <strong style="color:var(--navy)">'+_stEsc(C.lines[C.idx].en)+'</strong>';}
+  _stSpeak(C.idx);
+  setTimeout(()=>{if(_stState===C)_stNext();},1600);
+}
+
+// ── ⑤ 빈칸 — 선생님이 지정한 단어만 빈칸 ──
+// 빈칸이 들어가는 문장만 모아 둔다 (지정 단어가 없는 문장은 건너뛴다)
+function _stClozeItems(lines,words){
+  const esc=w=>String(w).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const out=[];
+  lines.forEach((row,li)=>{
+    let parts=[{t:'text',v:row.en}],answers=[];
+    const cap=(typeof SENT_CLOZE_MAX==='number')?SENT_CLOZE_MAX:2;
+    words.forEach(w=>{
+      if(answers.length>=cap)return;              // 한 문장에 빈칸은 최대 2개
+      for(let pi=0;pi<parts.length;pi++){
+        if(parts[pi].t!=='text')continue;
+        const m=parts[pi].v.match(new RegExp('(?<![A-Za-z])('+esc(w)+')(?![A-Za-z])','i'));
+        if(!m)continue;
+        const before=parts[pi].v.slice(0,m.index),after=parts[pi].v.slice(m.index+m[0].length);
+        const si=answers.length;answers.push(m[0]);
+        parts.splice(pi,1,{t:'text',v:before},{t:'blank',i:si},{t:'text',v:after});
+        break;
+      }
+    });
+    if(answers.length)out.push({li:li,parts:parts,answers:answers});
+  });
+  return out;
+}
+function _stClozeLoad(){
+  const C=_stState;if(!C)return;
+  const it=C.clozeItems[C.idx];if(!it)return;
+  // 보기: 이 문장의 정답 + 다른 문장의 지정 단어 2개
+  const others=C.cloze.filter(w=>!it.answers.some(a=>a.toLowerCase()===String(w).toLowerCase()));
+  C.cBank=_shuffle(it.answers.concat(_shuffle(others).slice(0,2)));
+  C.cFill=new Array(it.answers.length).fill(null);
+  C.cRes=new Array(it.answers.length).fill(null);
+  C.cSel=null;
+}
+function _stClozeDraw(body,footer){
+  const C=_stState;if(!C)return;
+  if(!C.cFill)_stClozeLoad();
+  const it=C.clozeItems[C.idx];
+  if(!it){ _stNext(); return; }
+  const row=C.lines[it.li];
+  const html=it.parts.map(p=>{
+    if(p.t==='text')return _stEsc(p.v);
+    const v=C.cFill[p.i],res=C.cRes[p.i];
+    const cls='st-blank'+(res==='ok'?' ok':res==='no'?' no':'')+(v?' filled':'');
+    return '<button class="'+cls+'" onclick="_stClozePlace('+p.i+')">'+(v?_stEsc(v):'____')+'</button>';
+  }).join('');
+  const bank=C.cBank.map((w,i)=>{
+    const used=C.cFill.some((v,bi)=>v===w&&C.cRes[bi]!=='no');
+    return '<button class="st-tok'+(C.cSel===i?' sel':'')+'" '+(used?'disabled style="opacity:.3"':'')
+      +' onclick="_stClozePick('+i+')">'+_stEsc(w)+'</button>';
+  }).join('');
+  body.innerHTML=_stPhaseBar()+'<div style="padding:0 16px 12px">'+_stHead()
+    +(row.ko?'<div class="st-ko">'+_stEsc(row.ko)+'</div>':'')
+    +'<div class="st-clozebox">'+html+'</div>'
+    +'<div class="st-bank">'+bank+'</div></div>';
+  const full=C.cFill.every(v=>v);
+  footer.innerHTML='<div style="display:flex;gap:8px">'
+    +'<button class="btn bo bsm" style="border-radius:var(--rpill)" onclick="_stClozeLoad();_stClozeDraw(document.getElementById(\'ms-body\'),document.getElementById(\'ms-footer\'))">↺ 다시</button>'
+    +'<button class="btn bt" style="flex:1;border-radius:var(--rpill);padding:12px;font-weight:700" '+(full?'':'disabled')
+    +' onclick="_stClozeCheck()">'+(full?'정답 확인':'빈칸을 채워요')+'</button></div>';
+}
+function _stClozePick(i){const C=_stState;if(!C)return;C.cSel=(C.cSel===i?null:i);_stClozeDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));}
+function _stClozePlace(bi){
+  const C=_stState;if(!C)return;
+  if(C.cRes[bi]==='ok')return;
+  if(C.cSel==null){C.cFill[bi]=null;C.cRes[bi]=null;}
+  else{C.cFill[bi]=C.cBank[C.cSel];C.cRes[bi]=null;C.cSel=null;}
+  _stClozeDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));
+}
+function _stClozeCheck(){
+  const C=_stState;if(!C)return;
+  const it=C.clozeItems[C.idx];if(!it)return;
+  let allOk=true;
+  it.answers.forEach((a,i)=>{
+    const ok=String(C.cFill[i]||'').toLowerCase()===String(a).toLowerCase();
+    C.cRes[i]=ok?'ok':'no';if(!ok)allOk=false;
+  });
+  _stMarkFirst(allOk);
+  _stClozeDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));
+  if(allOk){
+    _stSpeak(it.li);showMiniConfetti();
+    setTimeout(()=>{if(_stState===C)_stNext();},1000);
+  }else{
+    setTimeout(()=>{
+      if(_stState!==C)return;
+      C.cRes=C.cRes.map(r=>r==='ok'?'ok':null);
+      C.cFill=C.cFill.map((v,i)=>C.cRes[i]==='ok'?v:null);
+      _stClozeDraw(document.getElementById('ms-body'),document.getElementById('ms-footer'));
+    },1000);
+  }
+}
 // 미션: 마무리 게임 (뜻 보고 알맞은 단어 빠르게 고르기)
 let _msGame=null;
 function renderMsGame(body,footer){

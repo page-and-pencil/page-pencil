@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261110d">
+<link rel="stylesheet" href="css/style.css?v=20261110e">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -1757,6 +1757,16 @@
             <div style="font-size:12px;color:var(--slate);margin-bottom:3px">🎤 패턴 드릴 문장 (한 줄씩)</div>
             <textarea id="tu-unit-patterns" placeholder="I have small seeds on my body.&#10;I have yellow skin on my body.&#10;I have white stripes on my body." style="width:100%;height:64px;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fd);font-size:13px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
           </div>
+          <div style="margin-top:8px">
+            <div style="font-size:12px;color:var(--slate);margin-bottom:3px">📄 문장 해석 (패턴/본문 문장 순서대로 한 줄씩 · 비워 두면 해석 없이)</div>
+            <textarea id="tu-unit-sentko" placeholder="이것은 가방이야.&#10;나는 노래할 수 있어." style="width:100%;height:56px;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);resize:vertical;box-sizing:border-box;outline:none"></textarea>
+            <div style="font-size:11.5px;color:var(--neutral);margin-top:3px">패턴 줄에 <b>&nbsp;—&nbsp;</b> 로 해석을 붙여 뒀으면 이 칸은 비워 두세요 (그 해석을 씁니다)</div>
+          </div>
+          <div style="margin-top:8px">
+            <div style="font-size:12px;color:var(--slate);margin-bottom:3px">📝 빈칸 지정 (쉼표로 구분 · 비워 두면 단원 단어에서 자동)</div>
+            <input type="text" id="tu-unit-sentcloze" placeholder="bag, sing, seeds" style="width:100%;padding:6px 9px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fd);color:var(--navy);background:var(--cream);box-sizing:border-box;outline:none">
+            <div id="tu-sentcloze-hint" style="font-size:11.5px;color:var(--neutral);margin-top:3px"></div>
+          </div>
           <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
             <span style="font-size:12px;color:var(--slate);white-space:nowrap"><i data-lucide="link" width="15" height="15" style="vertical-align:-3px"></i> 외부 링크</span>
             <input type="url" id="tu-unit-link" placeholder="https://quizlet.com/..." style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream);outline:none">
@@ -2520,11 +2530,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261110d"></script>
+<script src="js/utils.js?v=20261110e"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261110d"></script>
-<script src="js/teacher.js?v=20261110d"></script>
-<script src="js/student.js?v=20261110d"></script>
-<script src="js/parent.js?v=20261110d"></script>
+<script src="js/db.js?v=20261110e"></script>
+<script src="js/teacher.js?v=20261110e"></script>
+<script src="js/student.js?v=20261110e"></script>
+<script src="js/parent.js?v=20261110e"></script>
 </body>
 </html>
