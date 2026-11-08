@@ -154,6 +154,8 @@ function openExtApp(key){
 }
 // 단어 학습 모드: daily=오늘의 20개(직전 수업 우선→복습 도래→새 단어, utils.dailyVocabPick) | last=지난 수업 단어 전부 | all=전체
 let vocabStudyMode='daily';
+let vocabStarOnly=false;    // ⭐ 별표 단어만 학습
+let vocabChunkAll=false;    // 구간으로 나누지 않고 한 번에
 function openVocabStudy(mode){
   if(vocabStudyMode!==mode){try{sessionStorage.removeItem('deckState_'+currentStudentSid);}catch(e){}}
   vocabStudyMode=mode;
@@ -1197,6 +1199,136 @@ function vocabStageDone(){
   deckState._sessionCards=[...(deckState._fullCards||deckState.cards)];
   renderPhaseTransition(el,deckState.phase+1);
 }
+
+// ── 구간(청킹) 학습 ─────────────────────────────────────────────
+// 세트를 작은 구간으로 나눠 구간 단위로 돈다. 구간 안에서는 카드 순서를 섞어
+// '몇 번째 자리'로 외우는 것을 막고, 모르는 카드는 **같은 구간의 다음 라운드**에 다시 낸다
+// (바로 다시 보여 주는 즉시 반복은 기억에 거의 남지 않는다).
+// 기록(hits·misses·box·due)은 **그 세션에서 그 카드를 처음 답한 결과**만 쓴다.
+// 다시 나온 라운드의 정답·오답은 화면 진행(큐)에만 쓴다 — 라운드를 돌수록 점수가
+// 부풀거나, 반대로 한 번 틀린 단어가 계속 오답으로 쌓이는 것을 막는다. (2026-11-09 원장 지시)
+const VC_CHUNK_DEFAULT=8;
+const VC_MAX_ROUND=3;      // 한 구간을 3라운드까지만 — 그 뒤는 내일로 넘긴다
+function vcChunkSize(sid){
+  const stu=(_cache.students||[]).find(s=>s.id===sid);
+  const n=parseInt(stu&&stu.vocabChunk,10);
+  return (n>=2&&n<=50)?n:VC_CHUNK_DEFAULT;
+}
+function vcMakeChunks(cards,size){
+  const out=[];
+  for(let i=0;i<cards.length;i+=size)out.push(cards.slice(i,i+size));
+  return out.length?out:[[]];
+}
+// 구간을 처음부터 다시 깐다 (스테이지 시작·스테이지 전환에서 부른다)
+function vcStartChunks(){
+  const full=deckState._fullCards||deckState.cards||[];
+  const size=deckState.chunkAll?Math.max(1,full.length):(deckState.chunkSize||VC_CHUNK_DEFAULT);
+  deckState._chunks=vcMakeChunks(full,Math.max(1,size));
+  deckState.ci=0;deckState.round=1;deckState._retry=[];
+  deckState.cards=_vgShuffle([...(deckState._chunks[0]||[])]);
+  deckState.idx=0;
+}
+// 그 카드의 '첫 시도' 결과를 남긴다 (이미 남겼으면 그대로 둔다)
+// 기록은 **스테이지마다** 첫 시도를 따로 남긴다.
+// hits·misses·box·due 는 그중 '가장 늦은 스테이지'의 첫 시도를 쓴다 (vcFinalFirst).
+// 암기 단계의 자가보고("알겠어요")로 복습 일정이 정해지면 안 되기 때문이다.
+// (2026-11-09 원장 지시 — 전에는 세션 전체에서 한 번만 남겨 암기 결과가 기록을 차지했다)
+function vcMarkFirst(card,correct){
+  if(!card)return;
+  if(!deckState._firstS)deckState._firstS={};
+  const ph=deckState.phase||0;
+  const m=deckState._firstS[ph]||(deckState._firstS[ph]={});
+  if(!(card.id in m))m[card.id]=!!correct;
+}
+// 카드별 '가장 늦은 스테이지의 첫 시도' — 마지막 스테이지에 안 나온 카드
+// (3라운드 넘기기로 넘긴 카드 등)는 그 전 스테이지 중 가장 늦은 것을 쓴다.
+function vcFinalFirst(){
+  const by=deckState._firstS||{};
+  const out={};
+  Object.keys(by).map(Number).sort((a,b)=>a-b).forEach(ph=>{
+    Object.entries(by[ph]).forEach(([id,v])=>{out[id]=v;});   // 늦은 스테이지가 덮어쓴다
+  });
+  return out;
+}
+// 답 하나를 처리하고 다음 카드로
+function vcNext(correct){
+  const card=deckState.cards[deckState.idx];
+  vcMarkFirst(card,correct);
+  if(!correct&&card){
+    if(!deckState._retry)deckState._retry=[];
+    if(!deckState._retry.some(c=>c.id===card.id))deckState._retry.push(card);
+  }
+  deckState.idx++;
+  if(deckState.idx<deckState.cards.length){saveDeckState();vocabRenderStage();return;}
+  vcRoundEnd();
+}
+// 라운드 끝 — 틀린 카드가 남았으면 같은 구간 다음 라운드, 아니면 다음 구간
+function vcRoundEnd(){
+  const el=document.getElementById('st-vocab');
+  const retry=deckState._retry||[];
+  if(retry.length&&(deckState.round||1)<VC_MAX_ROUND){
+    deckState.round=(deckState.round||1)+1;
+    deckState.cards=_vgShuffle([...retry]);
+    deckState._retry=[];deckState.idx=0;
+    saveDeckState();vocabRenderStage();return;
+  }
+  if(retry.length){renderChunkCarry(el);return;}   // 3라운드를 넘겼다 → 내일로
+  vcNextChunk();
+}
+function vcNextChunk(){
+  const chunks=deckState._chunks||[];
+  if(deckState.ci+1<chunks.length){
+    deckState.ci++;deckState.round=1;deckState._retry=[];
+    deckState.cards=_vgShuffle([...chunks[deckState.ci]]);
+    deckState.idx=0;saveDeckState();vocabRenderStage();return;
+  }
+  vocabStageDone();
+}
+// 3라운드를 넘긴 구간 — 지적하지 않고 다음으로 넘긴다
+function renderChunkCarry(el){
+  if(!el)return;
+  const left=deckState._retry||[];
+  const n=left.length;
+  const more=(deckState._chunks||[]).length>deckState.ci+1;
+  el.innerHTML=`<div style="padding:2rem;text-align:center">
+    <div style="font-size:42px;margin-bottom:10px">🙂</div>
+    <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:6px">이 단어들은 내일 다시 만나요</div>
+    <div style="font-size:13.5px;color:var(--slate);line-height:1.8;margin-bottom:16px">오늘 충분히 봤어요. ${n}개는 내일 다시 나와요!</div>
+    <div class="missed-list" style="margin-bottom:20px">${left.slice(0,8).map(c=>`<span class="missed-chip">${_vgEsc(c.word)}</span>`).join('')}${n>8?`<span class="missed-chip">외 ${n-8}개</span>`:''}</div>
+    <button class="btn bt" style="padding:13px 32px;font-size:16px;border-radius:50px" onclick="vcCarryGo()">${more?'다음 구간으로 넘어가기 →':'결과 보기 →'}</button>
+  </div>`;
+}
+function vcCarryGo(){deckState._retry=[];vcNextChunk();}
+// 진행 표시 — '구간 2/3 · 카드 3/8 · 2라운드'
+function vcProgLine(){
+  const nc=(deckState._chunks||[]).length||1;
+  const ci=(deckState.ci||0)+1;
+  const r=deckState.round||1;
+  const parts=[];
+  if(nc>1)parts.push(`구간 ${ci}/${nc}`);
+  parts.push(`카드 ${Math.min(deckState.idx+1,deckState.cards.length)}/${deckState.cards.length}`);
+  if(r>1)parts.push(`${r}라운드`);
+  return parts.join(' · ');
+}
+// 별표 — 어려운 단어를 학생이 직접 표시한다 (카드의 선택 필드 starred)
+function vcStarHtml(card){
+  if(!card)return '';
+  const on=!!card.starred;
+  return `<button id="vc-star" title="어려운 단어로 표시" onclick="vcToggleStar('${card.id}')"
+    style="background:none;border:none;cursor:pointer;font-size:20px;line-height:1;padding:2px 4px;color:${on?'#F59E0B':'var(--border)'}">${on?'★':'☆'}</button>`;
+}
+async function vcToggleStar(cardId){
+  const ci=(_cache.vocab_cards||[]).findIndex(c=>c.id===cardId);
+  if(ci<0)return;
+  const next={..._cache.vocab_cards[ci],starred:!_cache.vocab_cards[ci].starred};
+  if(!next.starred)delete next.starred;
+  _cache.vocab_cards[ci]=next;
+  const dc=(deckState.cards||[]).find(c=>c.id===cardId);if(dc)dc.starred=next.starred;
+  const fc=(deckState._fullCards||[]).find(c=>c.id===cardId);if(fc)fc.starred=next.starred;
+  const b=document.getElementById('vc-star');
+  if(b){b.textContent=next.starred?'★':'☆';b.style.color=next.starred?'#F59E0B':'var(--border)';}
+  try{await supaUpsert('vocab_cards',cardId,next,next.sid);}catch(e){console.warn('별표 저장:',e);}
+}
 // 단어카드 단계 진행 표시 — 학생별 스테이지 구성 반영
 function vcStageBar(){
   const stages=(deckState.stages||['mem','recall','spell']).map(k=>VOCAB_STAGES[k]||VOCAB_STAGES.mem);
@@ -1251,6 +1383,7 @@ function renderVocabDeck(sid){
     return (a.lastSeen||'').localeCompare(b.lastSeen||'');               // 오래 안 본 순
   };
   const mode=vocabDeckFilter?'all':vocabStudyMode;
+  if(vocabStarOnly&&!vocabDeckFilter)cards=cards.filter(c=>c.starred);
   let session;
   if(mode==='last'){
     // 딱 직전 수업 진도(책·단원)에 등록된 단어만 — lessonWordSet(utils, 선생님 패널과 공유)
@@ -1272,13 +1405,16 @@ function renderVocabDeck(sid){
       <div style="font-size:40px;margin-bottom:12px">${mode==='daily'?'🎉':'📭'}</div>
       <div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px">${mode==='daily'?'오늘 예정 단어를 모두 학습했어요!':'지난 수업에서 나온 단어가 없어요'}</div>
       <div style="font-size:14px;color:var(--slate);line-height:1.8;margin-bottom:12px">${mode==='daily'?'내일 또 새로운 단어가 준비돼요':'수업 후에 다시 확인해 보세요'}</div>
-      <button class="btn bo bsm" onclick="vocabStudyMode='all';renderVocabDeck(currentStudentSid)">전체 단어에서 더 학습하기</button>
+      <button class="btn bo bsm" onclick="vocabStarOnly=false;vocabStudyMode='all';renderVocabDeck(currentStudentSid)">${vocabStarOnly?'★ 별표 해제하고 전체 보기':'전체 단어에서 더 학습하기'}</button>
     </div>`;
     return;
   }
   const stu=(_cache.students||[]).find(s=>s.id===sid);
   const vocabMode=stu?.vocabMode||'intermediate';
-  deckState={cards:session,idx:0,phase:0,phaseResults:[],sessionResults:[],vocabMode,mode,stages:vocabStagePlan(sid),_fullCards:[...session]};
+  deckState={cards:session,idx:0,phase:0,phaseResults:[],sessionResults:[],vocabMode,mode,
+    stages:vocabStagePlan(sid),_fullCards:[...session],
+    chunkSize:vcChunkSize(sid),chunkAll:!!vocabChunkAll,_firstS:{}};
+  vcStartChunks();
   vocabRenderStage();
 }
 
@@ -1297,6 +1433,10 @@ function renderVocabPhaseIntro(el){
     <div style="font-size:14px;color:var(--slate);margin-bottom:1.2rem;line-height:1.8">${p.sub}</div>
     ${deckState.phase===0&&!vocabDeckFilter?`<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:1.4rem;flex-wrap:wrap">
       <div class="sp-seg">${[['daily','오늘의 20개'],['last','지난 수업'],['all','전체']].map(([m,l])=>`<button class="${vocabStudyMode===m?'on':''}" onclick="vocabStudyMode='${m}';sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">${l}</button>`).join('')}</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:1.2rem;flex-wrap:wrap">
+      <div class="sp-seg">${[[false,`구간 ${vcChunkSize(currentStudentSid)}장씩`],[true,'한 번에']].map(([v,l])=>`<button class="${vocabChunkAll===v?'on':''}" onclick="vocabChunkAll=${v};sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">${l}</button>`).join('')}</div>
+      <button class="btn ${vocabStarOnly?'bt':'bo'} bsm" style="border-radius:50px" onclick="vocabStarOnly=!vocabStarOnly;sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">★ 별표만</button>
     </div>`:''}
     <button class="btn bt" style="padding:14px 40px;font-size:16px;border-radius:50px" onclick="startVocabPhase()">시작 →</button>
     ${deckState.phase>0?`<div style="margin-top:1rem"><button class="btn bo bsm" onclick="renderVocabDeck(currentStudentSid)">처음부터</button></div>`:''}
@@ -1304,7 +1444,8 @@ function renderVocabPhaseIntro(el){
 }
 
 function startVocabPhase(){
-  deckState.idx=0;deckState.phaseResults=[];_vgCombo=0;deckState._spellMiss=0;
+  deckState.phaseResults=[];_vgCombo=0;deckState._spellMiss=0;
+  vcStartChunks();
   vocabRenderStage();
 }
 
@@ -1338,7 +1479,7 @@ function renderMemCard(el){
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
       <button class="btn bo bxxs" style="margin-right:auto" onclick="swStuTab('st-home')">← 홈</button>
-      <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      ${vcStarHtml(card)}<span style="font-size:12.5px;color:var(--slate);font-family:var(--fm)">${vcProgLine()}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>
     ${vcStageBar()}
@@ -1371,7 +1512,7 @@ function renderMemCard(el){
       <button class="btn bo bsm" onclick="flipMemCard(document.querySelector('.vc-deck'))">뒤집기</button>
     </div>
   </div>`;
-  setTimeout(()=>speakWord(card.word),120);
+  // 먼저 떠올리고 그다음 듣는다 — 들어오자마자 발음하던 것을 뺐다 (2026-11-09)
   _vcFillImage(card);
 }
 // 뜻 쪽에 그림을 채운다. 교재 DB 에 선생님이 정해 둔 그림이 있으면 그것을 쓰고,
@@ -1434,21 +1575,15 @@ function flipMemCard(deckEl){
   document.getElementById('mem-actions').style.display=isFlipped?'flex':'none';
   if(isFlipped){
     const c=deckState.cards[deckState.idx];
+    if(c?.word)speakWord(c.word);                     // 뒤집은 뒤에 발음
     const ex=c?.example&&/[a-zA-Z]/.test(c.example)&&!/[가-힣]/.test(c.example)?c.example:'';
-    if(ex)setTimeout(()=>speakWord(ex,0.8),200);
+    if(ex)setTimeout(()=>speakWord(ex,0.8),700);
   }
 }
 function memResult(knew){
   const _c=document.getElementById('mem-card');if(_c)_c.classList.remove('has-img');
   deckState.phaseResults.push({word:deckState.cards[deckState.idx].word,knew});
-  deckState.idx++;
-  const el=document.getElementById('st-vocab');
-  if(deckState.idx>=deckState.cards.length){
-    vocabStageDone();
-  }else{
-    saveDeckState();
-    renderMemCard(el);
-  }
+  vcNext(knew);
 }
 
 function renderPhaseTransition(el,nextPhase){
@@ -1480,10 +1615,10 @@ function renderPhaseTransition(el,nextPhase){
 
 function startNextPhase(phase){
   deckState.phase=phase;
-  deckState.idx=0;
   deckState.phaseResults=[];
   _vgCombo=0;deckState._spellMiss=0;
-  deckState.cards=deckState._sessionCards||deckState.cards;
+  if(deckState._sessionCards&&deckState._sessionCards.length)deckState._fullCards=[...deckState._sessionCards];
+  vcStartChunks();
   saveDeckState();
   vocabRenderStage();
 }
@@ -1500,7 +1635,7 @@ function renderRecallCard(el){
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
       <button class="btn bo bxxs" style="margin-right:auto" onclick="swStuTab('st-home')">← 홈</button>
-      <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      ${vcStarHtml(card)}<span style="font-size:12.5px;color:var(--slate);font-family:var(--fm)">${vcProgLine()}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>
     ${vcStageBar()}
@@ -1536,19 +1671,13 @@ function recallReveal(){
 }
 function recallResult(knew){
   deckState.phaseResults.push({word:deckState.cards[deckState.idx].word,knew});
-  deckState.idx++;
-  const el=document.getElementById('st-vocab');
-  if(deckState.idx>=deckState.cards.length){
-    vocabStageDone();
-  }else{
-    saveDeckState();
-    renderRecallCard(el);
-  }
+  vcNext(knew);
 }
 
 // ── 단계 2: 스펠 (뜻 보고 스펠링 입력) ──
 function renderSpellCard(el){
   const card=deckState.cards[deckState.idx];
+  deckState._answered=false;deckState._lastCorrect=false;   // 새 카드 — 채점 전
   const total=deckState.cards.length;
   const prog=deckState.cards.map((_,i)=>
     `<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`
@@ -1556,7 +1685,7 @@ function renderSpellCard(el){
   el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
       <button class="btn bo bxxs" style="margin-right:auto" onclick="swStuTab('st-home')">← 홈</button>
-      <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      ${vcStarHtml(card)}<span style="font-size:12.5px;color:var(--slate);font-family:var(--fm)">${vcProgLine()}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>
     ${vcStageBar()}
@@ -1569,34 +1698,68 @@ function renderSpellCard(el){
         ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:13px;color:var(--tealt);margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
       </div>
       <input class="recall-input" id="spell-in" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
-        placeholder="영어로 입력..." onkeydown="if(event.key==='Enter')checkSpell()">
+        placeholder="영어로 입력..." onkeydown="if(event.key==='Enter'){event.preventDefault();deckState._answered?spellNext():checkSpell();}">
       <div class="recall-feedback" id="spell-fb"></div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
-        <button class="btn-vc unsure" id="spell-skip-btn" onclick="spellSkip()">모르겠어요</button>
-        <button class="btn-vc know" id="spell-next-btn" style="display:none" onclick="spellNext()">다음 →</button>
+        <button class="btn-vc unsure" id="spell-skip-btn" onclick="spellSkip()">힌트 (정답 보기)</button>
+        <button class="btn-vc know" id="spell-next-btn" style="display:none" onkeydown="if(event.key==='Enter'){event.preventDefault();spellNext();}" onclick="spellNext()">다음 →</button>
       </div>
     </div>
   </div>`;
   setTimeout(()=>document.getElementById('spell-in')?.focus(),100);
 }
+// 철자 채점 — 대소문자·문장부호·띄어쓰기·굽은 따옴표(’)를 무시한다
+function _spellNorm(s){
+  return String(s==null?'':s).toLowerCase()
+    .replace(/[‘’ʼ´`]/g,"'")      // 굽은 따옴표 → 곧은 따옴표
+    .replace(/[“”]/g,'"')
+    .replace(/[^a-z0-9']+/g,'');                      // 공백·문장부호 무시
+}
+// 어디서부터 틀렸는지 (정규화한 문자열끼리 비교한 자리 → 원문 자리로 되돌린다)
+function _spellSplitAt(typed,ans){
+  const a=_spellNorm(typed),b=_spellNorm(ans);
+  let i=0;while(i<a.length&&i<b.length&&a[i]===b[i])i++;
+  if(i>=a.length)return typed.length;                 // 끝까지 맞음(길이만 모자람)
+  let seen=0;
+  for(let j=0;j<typed.length;j++){
+    if(_spellNorm(typed[j]))seen++;
+    if(seen>i)return j;
+  }
+  return typed.length;
+}
 function checkSpell(){
+  if(deckState._answered)return;                      // 엔터를 또 쳐도 다시 채점하지 않는다
   const card=deckState.cards[deckState.idx];
   const inp=document.getElementById('spell-in');
   const fb=document.getElementById('spell-fb');
-  const val=(inp.value||'').trim().toLowerCase();
-  const ans=(card.word||'').toLowerCase();
-  if(!val)return;
-  const correct=val===ans;
+  const raw=(inp.value||'').trim();
+  if(!raw)return;
+  const correct=_spellNorm(raw)===_spellNorm(card.word);
+  deckState._answered=true;deckState._lastCorrect=correct;
   inp.classList.toggle('correct',correct);
   inp.classList.toggle('wrong',!correct);
   inp.readOnly=true;
   document.getElementById('spell-skip-btn').style.display='none';
-  document.getElementById('spell-next-btn').style.display='';
-  if(correct){fb.style.color='var(--okt)';fb.textContent='✓ 정답!';deckState._spellMiss=0;}
-  else{fb.style.color='var(--coral)';fb.innerHTML='✗ 정답: <strong>'+card.word+'</strong>';deckState._spellMiss=(deckState._spellMiss||0)+1;}
+  const nb=document.getElementById('spell-next-btn');
+  if(nb){nb.style.display='';nb.textContent='다음 → (Enter)';}
+  if(correct){
+    fb.style.color='var(--okt)';fb.textContent='정답이에요! ✓';
+    deckState._spellMiss=0;
+  }else{
+    // X·빨강 대신 '다시 나와요' — 틀린 자리부터 흐리게 보여 준다
+    const at=_spellSplitAt(raw,card.word);
+    const head=_vgEsc(raw.slice(0,at)),tail=_vgEsc(raw.slice(at));
+    fb.style.color='var(--warnt)';
+    fb.innerHTML='다시 나와요 🙂 &nbsp;<span style="font-family:var(--fm)">'+head
+      +'<span style="color:var(--coral);text-decoration:underline">'+(tail||'&nbsp;')+'</span></span>'
+      +'<div style="margin-top:4px">정답: <strong>'+_vgEsc(card.word)+'</strong></div>';
+    deckState._spellMiss=(deckState._spellMiss||0)+1;
+  }
   deckState.phaseResults.push({word:card.word,correct});
   vgMark(correct);
+  setTimeout(()=>{try{speakWord(card.word);}catch(e){}},150);   // 답한 뒤에 발음
   _spellEaseOffer(fb);
+  setTimeout(()=>{try{document.getElementById('spell-next-btn')?.focus();}catch(e){}},60);
 }
 // 스펠링 연속 3오답 → 좌절 방지: 철자 조립으로 낮춰서 이어가기 제안
 function _spellEaseOffer(fb){
@@ -1608,58 +1771,96 @@ function _spellEaseOffer(fb){
   </div>`);
 }
 function spellSkip(){
+  if(deckState._answered)return;
   const card=deckState.cards[deckState.idx];
   const inp=document.getElementById('spell-in');
   const fb=document.getElementById('spell-fb');
+  deckState._answered=true;deckState._lastCorrect=false;   // 힌트는 오답 — 다음 라운드에 다시
   inp.readOnly=true;
-  fb.style.color='var(--coral)';
-  fb.innerHTML='정답: <strong>'+card.word+'</strong>';
+  fb.style.color='var(--warnt)';
+  fb.innerHTML='정답은 <strong>'+_vgEsc(card.word)+'</strong> 이에요. 다시 나와요 🙂';
   document.getElementById('spell-skip-btn').style.display='none';
-  document.getElementById('spell-next-btn').style.display='';
+  const nb=document.getElementById('spell-next-btn');
+  if(nb){nb.style.display='';nb.textContent='다음 → (Enter)';}
   deckState.phaseResults.push({word:card.word,correct:false});
   deckState._spellMiss=(deckState._spellMiss||0)+1;
   vgMark(false);
+  setTimeout(()=>{try{speakWord(card.word);}catch(e){}},150);
   _spellEaseOffer(fb);
 }
 function spellNext(){
-  deckState.idx++;
-  const el=document.getElementById('st-vocab');
-  if(deckState.idx>=deckState.cards.length){vocabStageDone();}
-  else{saveDeckState();renderSpellCard(el);}
+  if(!deckState._answered)return;          // 아직 채점 전이면 넘어가지 않는다
+  const ok=!!deckState._lastCorrect;
+  deckState._answered=false;deckState._lastCorrect=false;
+  vcNext(ok);
 }
 
 // ── 게임 공용 헬퍼 ──
 function _vgEsc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function _vgShuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-// 보기 4개(정답+오답 3) — 오답은 이번 세션 카드 우선, 부족하면 학생 전체 카드에서
+// 두 문자열이 얼마나 닮았는가 (0~1) — 철자가 비슷한 오답을 고르는 데 쓴다
+function _vgSim(a,b){
+  a=String(a||'').toLowerCase();b=String(b||'').toLowerCase();
+  if(!a||!b)return 0;
+  if(a===b)return 1;
+  let same=0;const used=new Array(b.length).fill(false);
+  for(let i=0;i<a.length;i++){
+    for(let j=0;j<b.length;j++){
+      if(!used[j]&&a[i]===b[j]){used[j]=true;same++;break;}
+    }
+  }
+  return (2*same)/(a.length+b.length);
+}
+// 보기 4개(정답+오답 3) — 쉽게 찍히지 않게 고른다 (2026-11-09)
+//   ① 같은 품사  ② 같은 교재·단원  ③ 철자·뜻이 닮은 것  ④ 숫자 답이면 비슷한 숫자
+// 전에는 '세션 순서대로 앞 세 개'라 매번 같은 보기가 나왔고 품사도 뒤섞였다.
 function _vgOpts(card,field){
   const val=String(card[field]||'').trim();
   const seen=new Set([val]);
-  const opts=[val];
-  const cand=[...deckState.cards,...(_cache.vocab_cards||[]).filter(c=>c.sid===card.sid)];
-  for(const c of cand){
-    if(opts.length>=4)break;
-    if(c.id===card.id)continue;
-    const v=String(c[field]||'').trim();
-    if(!v||seen.has(v))continue;
-    seen.add(v);opts.push(v);
+  const pool=[];
+  const push=(v)=>{const t=String(v||'').trim();if(t&&!seen.has(t)){seen.add(t);pool.push(t);}};
+
+  // ④ 숫자 뜻이면 비슷한 숫자를 만들어 준다 ('30, 서른' 처럼 숫자가 든 뜻)
+  const num=val.match(/\d+/);
+  if(num){
+    const n=parseInt(num[0],10);
+    _vgShuffle([n+1,n-1,n+10,n-10,n*2]).filter(x=>x>0).slice(0,3)
+      .forEach(x=>push(val.replace(/\d+/,String(x))));
   }
-  return _vgShuffle(opts);
+
+  const mine=(_cache.vocab_cards||[]).filter(c=>c.sid===card.sid&&c.id!==card.id&&String(c[field]||'').trim());
+  const score=(c)=>{
+    let s=0;
+    if(c.pos&&card.pos&&c.pos===card.pos)s+=3;                                  // ① 같은 품사
+    if(c.srcId&&card.srcId&&c.srcId===card.srcId){s+=2;                          // ② 같은 교재
+      if(c.srcUnit&&card.srcUnit&&c.srcUnit===card.srcUnit)s+=2;}                //    같은 단원
+    if((deckState.cards||[]).some(x=>x.id===c.id))s+=1;                          //    이번 세션 카드
+    s+=_vgSim(c[field],val)*2;                                                   // ③ 닮은 정도
+    return s;
+  };
+  _vgShuffle(mine).sort((a,b)=>score(b)-score(a)).forEach(c=>{if(pool.length<12)push(c[field]);});
+
+  // 앞쪽(점수 높은 것) 가운데서 섞어 뽑는다 — 매번 같은 보기가 나오지 않게
+  const picks=_vgShuffle(pool.slice(0,6)).slice(0,3);
+  while(picks.length<3&&pool.length>picks.length){
+    const nxt=pool.find(v=>!picks.includes(v));
+    if(!nxt)break;picks.push(nxt);
+  }
+  return _vgShuffle([val,...picks]);
 }
 function _vgHead(){
+  const card=deckState.cards[deckState.idx];
   const total=deckState.cards.length;
   const prog=deckState.cards.map((_,i)=>`<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`).join('');
   return `${vocabHwBanner()}
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
       <button class="btn bo bxxs" style="margin-right:auto" onclick="swStuTab('st-home')">← 홈</button>
-      <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${deckState.idx+1} / ${total}</span>
+      ${vcStarHtml(card)}<span style="font-size:12.5px;color:var(--slate);font-family:var(--fm)">${vcProgLine()}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>${vcStageBar()}<div class="vc-prog">${prog}</div>`;
 }
-function _vgAdvance(){
-  deckState.idx++;
-  if(deckState.idx>=deckState.cards.length){vocabStageDone();}
-  else{saveDeckState();vocabRenderStage();}
+function _vgAdvance(correct){
+  vcNext(correct===undefined?true:!!correct);
 }
 let _vgLock=false;
 const _VG_BTN='display:block;width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:12px;background:#fff;font-size:16px;font-weight:700;color:var(--navy);font-family:var(--fb);cursor:pointer;text-align:center;margin-bottom:10px';
@@ -1717,7 +1918,7 @@ function _vgPickIdx(btn,i){
   btn.style.background=correct?'#ECFDF5':'#FEF2F2';
   if(!correct){const ans=btn.parentElement.querySelector(`[data-vg-i="${deckState._vg.correctIdx}"]`);if(ans){ans.style.borderColor='#10B981';ans.style.background='#ECFDF5';}}
   if(correct)speakWord(card.word);
-  setTimeout(()=>{_vgLock=false;deckState._vg=null;_vgAdvance();},correct?700:1500);
+  setTimeout(()=>{_vgLock=false;deckState._vg=null;_vgAdvance(correct);},correct?700:1500);
 }
 // ── 게임: 뜻 고르기 (영단어 → 한국어 4지선다) ──
 function renderMcCard(el){
@@ -1801,7 +2002,7 @@ function _vtPick(i){
     vgMark(T.correct);
     vocabRenderStage();
     if(T.correct)speakWord(card.word);
-    setTimeout(()=>{deckState._vt=null;_vgAdvance();},T.correct?900:1900);
+    setTimeout(()=>{deckState._vt=null;_vgAdvance(T.correct);},T.correct?900:1900);
     return;
   }
   vocabRenderStage();
@@ -1848,9 +2049,10 @@ function _mgPick(i){
     vgMark(true);
     const c=M.group.find(x=>x.id===t.id);if(c)speakWord(c.word);
     if(M.matched.length>=M.group.length){
-      M.group.forEach(c2=>deckState.phaseResults.push({word:c2.word,correct:!M.missed.includes(c2.id)}));
+      M.group.forEach(c2=>{deckState.phaseResults.push({word:c2.word,correct:!M.missed.includes(c2.id)});
+        vcMarkFirst(c2,!M.missed.includes(c2.id));});
       deckState.idx+=M.group.length;deckState._mg=null;
-      if(deckState.idx>=deckState.cards.length){vocabStageDone();return;}
+      if(deckState.idx>=deckState.cards.length){vcNextChunk();return;}
       saveDeckState();
     }
     vocabRenderStage();
@@ -1910,7 +2112,9 @@ function _bgPick(i){
     const nl=_bgLines(B);
     if(nl>B.lines){B.lines=nl;setTimeout(()=>{try{showMiniConfetti();}catch(e){}},100);}
     B.ci++;
-    if(B.ci>=B.calls.length){deckState._bg=null;vocabStageDone();return;}
+    if(B.ci>=B.calls.length){
+      (deckState.cards||[]).forEach(c=>vcMarkFirst(c,B.firstTry[c.id]!==false));
+      deckState._bg=null;deckState.idx=deckState.cards.length;vcNextChunk();return;}
     saveDeckState();vocabRenderStage();
   }else{
     B.firstTry[cur.id]=false;
@@ -1923,33 +2127,40 @@ function _bgPick(i){
 // ── 결과 화면 ──
 async function renderVocabResult(el){
   try{sessionStorage.removeItem('deckState_'+currentStudentSid);}catch(e){}
-  const results=deckState.phaseResults;
-  const total=deckState.cards.length;
-  const correct=results.filter(r=>'correct' in r?r.correct:r.knew).length;
+  // 점수·기록은 모두 **첫 시도** 기준 — 스테이지마다 따로 남기고 가장 늦은 것을 쓴다. 구간 라운드로 같은 카드가 여러 번 나와도
+  // 한 번만 센다. 답하지 않은 카드는 아예 건드리지 않는다. (2026-11-09 원장 지시)
+  const first=vcFinalFirst();   // 가장 늦은 스테이지의 첫 시도
+  const full=deckState._fullCards||deckState.cards||[];
+  const answered=full.filter(c=>c.id in first);
+  const total=answered.length;
+  const correct=answered.filter(c=>first[c.id]).length;
   const pctScore=total?Math.round(correct/total*100):0;
   const cls=pctScore>=80?'hi':pctScore>=50?'md':'lo';
-  const missed=results.filter(r=>'correct' in r?!r.correct:!r.knew).map(r=>r.word);
-  // Supabase 업데이트
+  const missed=answered.filter(c=>!first[c.id]).map(c=>c.word);
+  // Supabase 업데이트 — 실제로 바뀐 카드만 저장한다 (세션당 20건씩 보내던 것)
   const today=ppToday();
-  for(const card of deckState.cards){
-    const res=results.find(r=>r.word===card.word);
-    const correct=res?('correct' in res?res.correct:res.knew):false;
+  let saved=0;
+  for(const card of answered){
+    const ok=!!first[card.id];
     const ci=(_cache.vocab_cards||[]).findIndex(c=>c.id===card.id);
-    if(ci>=0){
-      // 에빙하우스 간격 반복: 맞으면 다음 박스(1→2→4→7→15→30→60일 뒤 복습), 틀리면 1일 뒤로 리셋
-      const BOXD=[1,2,4,7,15,30,60];
-      const box0=_cache.vocab_cards[ci].box||0;
-      const nbox=correct?Math.min(box0+1,BOXD.length-1):0;
-      const nd=new Date(today+'T12:00:00');nd.setDate(nd.getDate()+BOXD[nbox]);
-      const updated={..._cache.vocab_cards[ci],
-        hits:(_cache.vocab_cards[ci].hits||0)+(correct?1:0),
-        misses:(_cache.vocab_cards[ci].misses||0)+(correct?0:1),
-        lastSeen:today,lastSeenBy:'study',box:nbox,due:ppYmd(nd)
-      };
-      _cache.vocab_cards[ci]=updated;
-      await supaUpsert('vocab_cards',card.id,updated,card.sid);
-    }
+    if(ci<0)continue;
+    const cur=_cache.vocab_cards[ci];
+    // 에빙하우스 간격 반복: 맞으면 다음 박스(1→2→4→7→15→30→60일 뒤 복습), 틀리면 1일 뒤로 리셋
+    const BOXD=[1,2,4,7,15,30,60];
+    const nbox=ok?Math.min((cur.box||0)+1,BOXD.length-1):0;
+    const nd=new Date(today+'T12:00:00');nd.setDate(nd.getDate()+BOXD[nbox]);
+    const updated={...cur,
+      hits:(cur.hits||0)+(ok?1:0),
+      misses:(cur.misses||0)+(ok?0:1),
+      lastSeen:today,lastSeenBy:'study',box:nbox,due:ppYmd(nd)
+    };
+    const same=['hits','misses','lastSeen','lastSeenBy','box','due'].every(k=>cur[k]===updated[k]);
+    _cache.vocab_cards[ci]=updated;
+    if(same)continue;                       // 바뀐 게 없으면 보내지 않는다
+    saved++;
+    await supaUpsert('vocab_cards',card.id,updated,card.sid);
   }
+  deckState._savedCount=saved;
   _vocabHwAutoCheck(currentStudentSid).catch(()=>{}); // 오늘 20개 채우면 '앱 단어 학습' 숙제 자동 체크
   if(pctScore>=80){
     updateStreak(currentStudentSid);
@@ -1963,7 +2174,7 @@ async function renderVocabResult(el){
     }
   }
   // 헷갈린 단어 즉시 재도전 + 내일 예고(다음 접속의 이유) + 레벨 마스코트 반응
-  window._vocMissedCards=deckState.cards.filter(c=>missed.includes(c.word));
+  window._vocMissedCards=(deckState._fullCards||deckState.cards).filter(c=>missed.includes(c.word));
   const _tmr=vocabStagesForDay(currentStudentSid,1);
   const _tmrNames=_tmr.slice(1).map(k=>(VOCAB_STAGES[k]||{}).name).filter(Boolean).join(' · ');
   const _mv=stuLevelOf(stuXP(currentStudentSid));
@@ -1993,8 +2204,10 @@ function vocabRetryMissed(){
   const cards=window._vocMissedCards||[];
   if(!cards.length)return;
   deckState={cards:[...cards],idx:0,phase:0,phaseResults:[],sessionResults:[],
-    vocabMode:deckState.vocabMode,mode:deckState.mode,stages:deckState.stages||vocabStagePlan(currentStudentSid),_fullCards:[...cards]};
+    vocabMode:deckState.vocabMode,mode:deckState.mode,stages:deckState.stages||vocabStagePlan(currentStudentSid),
+    _fullCards:[...cards],chunkSize:vcChunkSize(currentStudentSid),chunkAll:true,_firstS:{}};
   _vgCombo=0;
+  vcStartChunks();
   saveDeckState();
   vocabRenderStage();
 }
