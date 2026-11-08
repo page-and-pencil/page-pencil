@@ -929,6 +929,7 @@ function renderSpVocab(sid){
         </div>
       </div>
     </details>
+    ${(typeof rpReportHtml==='function')?rpReportHtml(sid):''}
     ${(function(){
       // 단어 스피드 테스트 설정 (P3) — 최고·최종·횟수만. 그래프는 P6.
       const q=ppQuizCfg(sid);
@@ -953,7 +954,11 @@ function renderSpVocab(sid){
             <input type="number" id="qz-times" value="${q.goalTimes}" min="1" max="10" style="width:52px;text-align:center"><span style="font-size:12px;color:var(--slate)">회</span>
             <label style="font-size:12.5px;display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:6px"><input type="checkbox" id="qz-req" ${q.require==='stages'?'checked':''} style="width:auto;min-height:0">학습 끝낸 뒤에만</label>
           </div>
-          <div><button class="btn bt bsm" onclick="saveQuizCfg('${sid}')">테스트 설정 저장</button></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:12px;color:var(--slate);min-width:46px">구간</span>
+            <input type="number" id="qz-chunk" value="${vcChunkSize(sid)}" min="2" max="50" style="width:62px;text-align:center"><span style="font-size:12px;color:var(--slate)">장씩 (학습 단계)</span>
+          </div>
+          <div><button class="btn bt bsm" onclick="saveQuizCfg('${sid}')">단어 학습·테스트 설정 저장</button></div>
         </div>
       </details>`;
     })()}
@@ -990,11 +995,89 @@ async function saveQuizCfg(sid){
   const goal=parseInt(document.getElementById('qz-goal')?.value,10)||ppVocabPassPct();
   const goalTimes=parseInt(document.getElementById('qz-times')?.value,10)||1;
   const require=document.getElementById('qz-req')?.checked?'stages':'';
-  const stu={..._cache.students[idx],vocabQuiz:{types,n,sec,goal,goalTimes,require}};
+  const chunkRaw=parseInt(document.getElementById('qz-chunk')?.value,10);
+  const vocabChunk=(chunkRaw>=2&&chunkRaw<=50)?chunkRaw:VC_CHUNK_DEFAULT;
+  const stu={..._cache.students[idx],vocabQuiz:{types,n,sec,goal,goalTimes,require},vocabChunk};
   _cache.students[idx]=stu;
   try{await supaUpsert('students',sid,stu,null);}
   catch(e){console.error('saveQuizCfg:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
-  toast(`단어 테스트 설정 저장 (${n}문항 · ${sec}초 · 목표 ${goal}점 ${goalTimes}회)`);
+  toast(`설정 저장 — 학습 구간 ${vocabChunk}장 · 테스트 ${n}문항 ${sec}초 · 목표 ${goal}점 ${goalTimes}회`);
+}
+// ── 📊 단어 리포트 (P6) — 선생님 학생 패널 ────────────────────
+// 전부 이미 받아 둔 자료로만 그린다 (추가 수신 0). 학부모 화면에는 넣지 않는다.
+let _rpTrendSet=null;     // 점수 추이로 펼쳐 놓은 세트
+function rpPickSet(k){_rpTrendSet=(_rpTrendSet===k)?null:k;renderSpVocab(currentSpStuId);}
+// 점수 추이 — 라이브러리 없이 인라인 SVG. X=회차, 목표 점수 선.
+function rpTrendSvg(sid,setKey){
+  const pts=ppQuizTrend(sid,setKey,20);
+  const goal=ppQuizCfg(sid).goal;
+  if(!pts.length)return '<div style="font-size:12px;color:var(--slate);padding:10px 2px">아직 이 세트의 퀴즈 기록이 없어요</div>';
+  const W=320,H=120,PL=28,PR=8,PT=10,PB=20;
+  const iw=W-PL-PR,ih=H-PT-PB;
+  const x=i=>PL+(pts.length<2?iw/2:(i/(pts.length-1))*iw);
+  const y=v=>PT+ih-(Math.max(0,Math.min(100,v))/100)*ih;
+  const line=pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p.score).toFixed(1)).join(' ');
+  const gy=y(goal).toFixed(1);
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;max-width:360px;display:block">'
+    +'<line x1="'+PL+'" y1="'+y(0)+'" x2="'+(W-PR)+'" y2="'+y(0)+'" stroke="var(--border)" stroke-width="1"/>'
+    +'<line x1="'+PL+'" y1="'+y(100)+'" x2="'+(W-PR)+'" y2="'+y(100)+'" stroke="var(--divider)" stroke-width="1"/>'
+    +'<line x1="'+PL+'" y1="'+gy+'" x2="'+(W-PR)+'" y2="'+gy+'" stroke="var(--ok)" stroke-width="1.5" stroke-dasharray="4 3"/>'
+    +'<text x="2" y="'+(+gy+4)+'" font-size="10" fill="var(--okt)">'+goal+'</text>'
+    +'<text x="2" y="'+(y(100)+4)+'" font-size="10" fill="var(--neutral)">100</text>'
+    +'<text x="2" y="'+(y(0)+4)+'" font-size="10" fill="var(--neutral)">0</text>'
+    +'<path d="'+line+'" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+    +pts.map((p,i)=>'<circle cx="'+x(i).toFixed(1)+'" cy="'+y(p.score).toFixed(1)+'" r="3.2" fill="'+((p.score>=goal)?'var(--ok)':'var(--coral)')+'"><title>'+(i+1)+'회차 '+p.score+'점 ('+p.date+')</title></circle>').join('')
+    +pts.map((p,i)=>((pts.length<=10||i%2===0)?'<text x="'+x(i).toFixed(1)+'" y="'+(H-6)+'" font-size="9" fill="var(--neutral)" text-anchor="middle">'+(i+1)+'</text>':'')).join('')
+    +'</svg>';
+}
+function rpReportHtml(sid){
+  if(typeof ppVocabReport!=='function')return '';
+  const r=ppVocabReport(sid);
+  const sets=ppVocabSets(sid);
+  const wn=r.wn||{};
+  const pct=(a,b)=>b?Math.round(a/b*100):0;
+  const sum=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    ${[['이번 주 학습',r.days+'일 · '+ppMsText(r.ms)],
+       ['퀴즈',r.quizTries+'회'+(r.quizBest?' · 최고 '+r.quizBest+(r.quizLast!=null?' · 최종 '+r.quizLast:''):'')],
+       ['오답 복습',(wn.lastPct==null?'지난주 —':'지난주 '+wn.lastPct+'%')+' · 이번 주 '+(wn.done||0)+'/'+(wn.total||0)],
+      ].map(([t,v])=>`<div style="flex:1;min-width:140px;background:var(--cream2);border-radius:10px;padding:9px 11px">
+        <div style="font-size:11px;color:var(--slate)">${t}</div>
+        <div style="font-size:13.5px;font-weight:700;color:var(--navy);margin-top:2px">${escAttr(v)}</div></div>`).join('')}
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <span style="font-size:11.5px;color:var(--slate)">단어 ${r.cards}장</span>
+    <div style="flex:1;min-width:160px;display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--divider)">
+      <div style="width:${pct(r.dist.fresh,r.cards)}%;background:var(--border)" title="앱 학습 전 ${r.dist.fresh} — 수업·클래스5·리딩앤에서 본 적은 있지만 앱에서 아직 학습하지 않은 단어"></div>
+      <div style="width:${pct(r.dist.learning,r.cards)}%;background:var(--accent)" title="학습 중 ${r.dist.learning}"></div>
+      <div style="width:${pct(r.dist.long,r.cards)}%;background:var(--ok)" title="장기 기억 ${r.dist.long}"></div>
+    </div>
+    <span style="font-size:11.5px;color:var(--neutral)"><span title="수업·클래스5·리딩앤에서 본 적은 있지만 앱에서 아직 학습하지 않은 단어" style="border-bottom:1px dotted var(--border);cursor:help">앱 학습 전</span> ${r.dist.fresh} · 학습중 ${r.dist.learning} · 장기 ${r.dist.long}</span>
+  </div>`;
+  const rows=sets.length?sets.map(s=>`
+    <div style="border-top:1px solid var(--divider)">
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 0;cursor:pointer" onclick="rpPickSet('${escAttr(s.key)}')">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(s.label)}</div>
+          <div style="font-size:11.5px;color:var(--slate);margin-top:2px">학습 ${s.sessions}회 · ${ppMsText(s.ms)} · 퀴즈 ${s.tries}회${s.tries?` (최고 ${s.best}${s.last!=null?' / 최종 '+s.last:''})`:''}</div>
+          ${s.wrong.length?`<div style="font-size:11.5px;color:var(--coral);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">최근 오답: ${escAttr(s.wrong.join(', '))}</div>`:''}
+        </div>
+        <span style="font-size:11.5px;color:var(--neutral);white-space:nowrap">${escAttr(s.lastDate||'')}</span>
+        <span style="font-size:11px;color:var(--teal)">${_rpTrendSet===s.key?'▴':'▾'}</span>
+      </div>
+      ${_rpTrendSet===s.key?`<div style="padding:4px 0 10px">${rpTrendSvg(sid,s.key)}</div>`:''}
+    </div>`).join('')
+    :'<div style="font-size:12.5px;color:var(--slate);padding:10px 2px">최근 30일 학습·퀴즈 기록이 없어요</div>';
+  const top=(wn.top||[]).length?`<div style="margin-top:10px">
+      <div style="font-size:12px;color:var(--slate);margin-bottom:5px">자주 틀린 단어</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">${wn.top.map(t=>`<span style="font-size:12px;background:var(--cream2);border:1px solid var(--border);border-radius:9px;padding:3px 9px;color:var(--navy)">${escAttr(t.word)} <b style="color:var(--coral)">${t.n}</b></span>`).join('')}</div>
+    </div>`:'';
+  return `<details open style="margin-top:10px;border:1.5px solid var(--border);border-radius:12px;padding:10px 12px;background:#fff">
+    <summary style="font-size:13px;font-weight:800;color:var(--navy);cursor:pointer;user-select:none">📊 단어 리포트 <span style="font-weight:400;color:var(--slate)">— 최근 30일</span></summary>
+    <div style="padding-top:10px">${sum}
+      <div style="font-size:12px;color:var(--slate);margin-bottom:2px">세트별 (누르면 점수 추이)</div>
+      ${rows}${top}
+    </div>
+  </details>`;
 }
 function renderVocabList(sid){
   const listEl=document.getElementById('vocab-list');
@@ -11446,6 +11529,24 @@ function renderAssignStats(){
     +card('미제출(지남)','⚠️',overdue?'st-amber':'',overdue,'건',overdue?'var(--warnt)':'')
     +card('확인 대기','📥',unchecked?'st-green':'',unchecked,'건',unchecked?'var(--okt)':'');
 }
+// ── 학습기록 리셋 (P6) ──
+// 그 숙제의 **완료 표시만** 되돌린다. 단어 카드의 hits·misses·box·due 는 절대 건드리지 않는다.
+// resetAt 을 남겨, 리포트·목표 달성 판정이 그 뒤 기록만 세게 한다.
+async function hwResetProgress(asgnId){
+  const i=(_cache.assignments||[]).findIndex(a=>a&&a.id===asgnId);if(i<0)return;
+  const a=_cache.assignments[i];
+  askConfirm('학습기록 리셋','이 숙제의 완료 표시만 지워요. 단어 카드 기록은 그대로예요.','리셋','bd',async()=>{
+    const sch=(a.schedule||[]).map(x=>{const y={...x};delete y.done;delete y.doneBy;delete y.doneAt;return y;});
+    const upd={...a,schedule:sch,resetAt:new Date().toISOString()};
+    delete upd.completedAt;
+    _cache.assignments[i]=upd;
+    try{await supaUpsert('assignments',a.id,upd,a.sid);}
+    catch(e){console.error('hwResetProgress:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+    toast('완료 표시를 지웠어요 — 단어 카드 기록은 그대로입니다');
+    try{renderAssignTab();renderAssignCal();}catch(e){}
+    if(typeof currentSpStuId!=='undefined'&&currentSpStuId===a.sid)loadStuPanel(a.sid);
+  });
+}
 function renderAssignTab(){
   recurAutoMaintain(); // 자동 진행 숙제의 밀린 단원을 먼저 재배치
   renderAssignStats();
@@ -11474,7 +11575,8 @@ function renderAssignTab(){
       const a=x.a,sc=x.sc;
       const isRecur=a.category==='recur';
       const lbl=isRecur?`🔁 ${a.bookTitle||'반복 숙제'}${sc.unit?' — '+sc.unit:''}`:`${luIcon('gamepad-2',15)||''} ${[sc.book,sc.unit].filter(Boolean).join(' · ')}`;
-      return `<div class="assign-item" style="align-items:flex-start">
+      // 아직 안 한 숙제는 흐리게 (P6)
+      return `<div class="assign-item" style="align-items:flex-start${sc.done?'':';opacity:.62'}">
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:var(--teal)">[${isRecur?'반복':'클래스5'}]</span> ${lbl}</div>
           <div style="font-size:11.5px;color:var(--slate)">${ds} 분량 · 전체 일정은 숙제 캘린더</div>
@@ -11484,6 +11586,7 @@ function renderAssignTab(){
           <button class="btn ${sc.done?'bo':'bt'}" style="font-size:9.5px;padding:1px 5px;min-height:0;line-height:1.2" title="${sc.done?'이 날 완료 표시를 취소':'이 날 분량을 완료로 표시'}" onclick="hwSchedToggleDone('${a.id}','${ds}')">${sc.done?'완료 취소':'✓ 완료'}</button>
           <button class="btn bo" style="font-size:9.5px;padding:1px 5px;min-height:0;line-height:1.2" onclick="openEditAssignModal('${a.id}')">수정</button>
           <button class="btn bo" style="font-size:9.5px;padding:1px 5px;min-height:0;line-height:1.2" title="${ds} 하루치만 일정에서 뺍니다" onclick="deleteSchedDay('${a.id}','${ds}')">이 날 빼기</button>
+          <button class="btn bo" style="font-size:9.5px;padding:1px 5px;min-height:0;line-height:1.2" title="완료 표시만 지웁니다 (단어 카드 기록은 그대로)" onclick="hwResetProgress('${a.id}')">기록 리셋</button>
           <button class="btn bd" style="font-size:9.5px;padding:1px 5px;min-height:0;line-height:1.2" title="반복 일정 전체를 휴지통으로" onclick="deleteAssign('${a.id}')">삭제</button>
         </div>
       </div>`;
@@ -11784,7 +11887,13 @@ function modalAssignCatChange(){
       <div style="max-height:130px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);padding:8px">
         ${recentCards.length?recentCards.map(c=>`<label style="display:flex;align-items:center;gap:8px;padding:2px 0;cursor:pointer"><input type="checkbox" class="modal-vocab-check" value="${c.word}"> <span style="font-family:var(--fd);font-weight:700">${c.word}</span><span style="font-size:12px;color:var(--slate)">${c.meaning||''}</span></label>`).join(''):'<span style="font-size:13px;color:var(--slate)">단어 카드 없음</span>'}
       </div></div>
-      <div class="f"><label>단어 직접 입력 (쉼표 구분)</label><input type="text" id="modal-vocab-extra" placeholder="apple, enormous..."></div>`;
+      <div class="f"><label>단어 직접 입력 (쉼표 구분)</label><input type="text" id="modal-vocab-extra" placeholder="apple, enormous..."></div>
+      <div class="f" style="margin-top:6px"><label>🏁 단어 테스트 목표 <span style="font-weight:400;color:var(--neutral)">— 비우면 오늘 20개 학습만으로 완료</span></label>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <input type="number" id="modal-hw-goal" min="1" max="100" placeholder="90" style="width:70px;text-align:center"><span style="font-size:12.5px;color:var(--slate)">점</span>
+          <input type="number" id="modal-hw-times" min="1" max="10" value="1" style="width:58px;text-align:center"><span style="font-size:12.5px;color:var(--slate)">회</span>
+          <select id="modal-hw-req" style="width:148px;margin-left:6px"><option value="">응시 조건 없음</option><option value="stages">학습 끝낸 뒤에만</option></select>
+        </div></div>`;
   } else if(isRecur){
     extra.innerHTML=`<div style="margin-top:10px;border:1.5px solid var(--teal);border-radius:var(--rs);padding:12px;background:var(--tl)">
       <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">🔁 반복 숙제 — 정한 요일마다 자동으로 이어지는 숙제 스케줄을 만듭니다</div>
@@ -12333,6 +12442,10 @@ async function saveModalAssignment(){
     const checked=[...document.querySelectorAll('.modal-vocab-check:checked')].map(c=>c.value);
     const extra=(document.getElementById('modal-vocab-extra')?.value||'').split(',').map(w=>w.trim()).filter(Boolean);
     a.words=[...new Set([...checked,...extra])];
+    const _g=parseInt(document.getElementById('modal-hw-goal')?.value,10);
+    if(_g>=1&&_g<=100){a.quizGoal=_g;a.quizTimes=parseInt(document.getElementById('modal-hw-times')?.value,10)||1;}
+    const _rq=document.getElementById('modal-hw-req')?.value||'';
+    if(_rq)a.quizRequire=_rq;
     if(a.words.length)await syncVocabCards(sid,a.words,[],date,'과제','expose');
   }
   if(!book&&!range&&!note&&type!=='vocab'){toast('교재/원서, 범위 또는 메모를 입력해 주세요');return;}
