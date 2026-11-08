@@ -1251,6 +1251,43 @@ function ppVocabReport(sid){
     quizTries:full.length,quizBest:best,quizLast:lastRow?(lastRow.score||0):null,
     cards:cards.length,dist,wn};
 }
+// ── 복습 게임 (P5) ───────────────────────────────────────────
+// 게임은 놀이 복습이다. 카드의 hits·misses·box·due·lastSeen 은 건드리지 않는다.
+// 기록은 logs 한 줄 {type:'vocab_game', game, setKey, score, ms, at} — 한 판에 1행.
+// logs 에 type 이 있으면 DB.logs()(리딩로그·학부모 화면)에서 자동으로 빠진다.
+const PP_GAMES={
+  match :{name:'타임어택 매칭',icon:'⏱',unit:'초',lower:true ,tip:'단어와 뜻을 빨리 짝지어요'},
+  crash :{name:'크래시',      icon:'💥',unit:'개',lower:false,tip:'떨어지는 뜻을 영어로 받아쳐요'},
+  minute:{name:'1분 퀴즈',    icon:'⏳',unit:'점',lower:false,tip:'수업에서 선생님과 함께'},
+};
+function ppGameLogs(sid,game){
+  return ((typeof _cache!=='undefined')?(_cache.logs||[]):[])
+    .filter(l=>l&&!l._deleted&&l.sid===sid&&l.type==='vocab_game'&&(!game||l.game===game));
+}
+// 내 최고 기록 — 매칭은 시간이라 낮을수록 좋다
+function ppGameBest(sid,game){
+  const rows=ppGameLogs(sid,game);
+  if(!rows.length)return {plays:0,best:null,last:null,lastDate:''};
+  const lower=!!(PP_GAMES[game]||{}).lower;
+  const sc=r=>(r.score==null?0:r.score);
+  let best=sc(rows[0]);
+  rows.forEach(r=>{const s=sc(r);if(lower?(s<best):(s>best))best=s;});
+  const newest=rows.slice().sort((a,b)=>String(b.at||b.date||'').localeCompare(String(a.at||a.date||'')))[0];
+  return {plays:rows.length,best,last:sc(newest),lastDate:String(newest.date||'')};
+}
+// 점수 읽기 — 매칭은 ms 로 담고 초로 보여 준다
+function ppGameScoreText(game,score){
+  if(score==null)return '—';
+  if(game==='match')return (Math.round(score/100)/10).toFixed(1)+'초';
+  return score+((PP_GAMES[game]||{}).unit||'점');
+}
+// 이번 판이 최고 기록인가 (저장 전에 묻는다 — 같은 행을 두 번 세지 않게)
+function ppGameIsBest(sid,game,score){
+  const b=ppGameBest(sid,game);
+  if(b.best==null)return true;
+  return (PP_GAMES[game]||{}).lower?(score<b.best):(score>b.best);
+}
+
 function ppMsText(ms){
   const m=Math.round((ms||0)/60000);
   if(m<1)return '1분 미만';

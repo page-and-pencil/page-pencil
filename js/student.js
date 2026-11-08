@@ -1110,6 +1110,7 @@ function parentLogoutAsk(){
 }
 function swStuTab(id){
   stopAllStudentMedia();
+  if(id!=='st-vocab'&&typeof _gmLeave==='function')_gmLeave();
   const swap=()=>{
     document.querySelectorAll('.stutab[data-tab]').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
     document.querySelectorAll('#s-student .panel').forEach(p=>{
@@ -1117,7 +1118,7 @@ function swStuTab(id){
       else p.classList.remove('active');
     });
     if(id==='st-home')renderStudentHome(currentStudentSid);
-    if(id==='st-vocab'){if(typeof wnState!=='undefined'&&wnState)renderWrongNote();else if(typeof quizState!=='undefined'&&quizState)_qzRender();else renderVocabDeck(currentStudentSid);}
+    if(id==='st-vocab'){if(typeof gmState!=='undefined'&&gmState)_gmRender();else if(typeof wnState!=='undefined'&&wnState)renderWrongNote();else if(typeof quizState!=='undefined'&&quizState)_qzRender();else renderVocabDeck(currentStudentSid);}
     if(id==='st-library')renderStudentLibrary(currentStudentSid);
     window.scrollTo(0,0);
   };
@@ -2792,6 +2793,361 @@ function renderWrongNoteDone(){
   </div>`;
 }
 function wnQuit(){wnState=null;swStuTab('st-home');}
+// ── 복습 게임 (P5) ───────────────────────────────────────────
+// 놀이 복습이다. 카드의 hits·misses·box·due·lastSeen 은 어떤 경우에도 건드리지 않는다.
+// 한 판이 끝나면 logs 한 줄만 남긴다 (type:'vocab_game'). 체험 모드면 저장 0.
+let gmState=null;
+let _gmVV=null;
+const GM_MATCH_PAIRS=6;           // 6쌍 = 타일 12개
+const GM_MATCH_PENALTY=1000;      // 틀리면 +1초
+const GM_CRASH_LIVES=3;
+const GM_CRASH_DUR0=9000;         // 처음 떨어지는 시간
+const GM_CRASH_MIN=3200;          // 아무리 빨라져도 이보다는 느리게
+const GM_CRASH_STEP=0.92;         // 맞힐 때마다 ×0.92
+function _gmEl(){return document.getElementById('st-vocab');}
+// 단어 묶음 — ppQuizSet 우선순위를 그대로 쓴다.
+// 오늘 몫을 다 하면 ppQuizSet 이 비니까, 놀이는 전체 단어장으로 받쳐 준다.
+function _gmSet(sid){
+  const usable=list=>(list||[]).filter(c=>String(c.word||'').trim()&&String(c.meaning||'').trim());
+  const set=(typeof ppQuizSet==='function')?ppQuizSet(sid):null;
+  if(set){const cs=usable(set.cards);if(cs.length>=3)return {key:set.key,label:set.label,cards:cs};}
+  const all=usable(((typeof ppLive==='function')?ppLive(_cache.vocab_cards):(_cache.vocab_cards||[])).filter(c=>c.sid===sid));
+  if(all.length>=3)return {key:'mode:all',label:'전체 단어장',cards:all};
+  return null;
+}
+function _gmCards(set){return set.cards.map(c=>({id:c.id,word:String(c.word||''),meaning:String(c.meaning||'')}));}
+// 탭을 다시 그릴 때 게임 화면으로 돌아오게
+function _gmRender(){
+  const g=gmState;if(!g)return;
+  if(g.phase==='intro')return renderGameIntro();
+  if(g.phase==='done')return renderGameResult();
+  if(g.game==='match')return renderMatchBoard();
+  if(g.game==='crash')return renderCrashBoard();
+}
+function _gmLeave(){
+  if(!gmState)return;
+  _gmStopTimer();_gmVVOff();
+  if(gmState.raf){cancelAnimationFrame(gmState.raf);gmState.raf=null;}
+  gmState=null;
+}
+function gmQuit(){_gmLeave();swStuTab('st-home');}
+function _gmStopTimer(){if(gmState&&gmState.timer){clearInterval(gmState.timer);gmState.timer=null;}}
+// ── 공통 시작 화면 ──
+function renderGameIntro(){
+  const g=gmState;if(!g)return;const el=_gmEl();if(!el)return;
+  const m=PP_GAMES[g.game]||{};
+  const b=ppGameBest(g.sid,g.game);
+  const how=(g.game==='match')
+    ?(g.n+'쌍을 짝지어요 · 틀리면 +1초<br>빠를수록 좋은 기록이에요')
+    :('뜻이 떨어져요. 바닥에 닿기 전에 영어로!<br>목숨 '+GM_CRASH_LIVES+'개 · 맞힐 때마다 빨라져요');
+  const extra=(g.game==='crash')
+    ?('<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--slate);margin-bottom:16px;cursor:pointer">'
+      +'<input type="checkbox" id="gm-mode-ko" '+(g.mode==='ko'?'checked':'')+' style="width:auto;min-height:0">'
+      +' 단어 보고 뜻 입력 (한국어)</label><br>'):'';
+  el.innerHTML='<div style="padding:1.5rem;text-align:center">'
+    +'<div style="font-size:42px;margin-bottom:8px">'+(m.icon||'🎮')+'</div>'
+    +'<div style="font-size:20px;font-weight:800;color:var(--navy);margin-bottom:4px">'+_qzEsc(m.name||'게임')+'</div>'
+    +'<div style="font-size:14px;color:var(--slate);margin-bottom:14px">'+_qzEsc(g.label||'')+'</div>'
+    +'<div style="background:var(--tl);border-radius:14px;padding:14px 16px;margin-bottom:18px;font-size:13.5px;color:var(--tealt);line-height:1.8">'
+    +how
+    +(b.plays?'<div style="color:var(--slate);margin-top:6px">최고 '+ppGameScoreText(g.game,b.best)+' · '+b.plays+'판</div>':'')
+    +'</div>'
+    +extra
+    +'<button class="btn bt" style="padding:14px 44px;font-size:17px;border-radius:var(--rpill)" onclick="_gmStart()">시작! →</button>'
+    +'<div style="margin-top:14px"><button class="btn bo bsm" onclick="gmQuit()">← 홈으로</button></div>'
+    +'<div style="margin-top:14px;font-size:11.5px;color:var(--neutral)">게임 기록은 복습 일정(단어 카드)에 영향을 주지 않아요</div>'
+    +'</div>';
+}
+function _gmStart(){
+  const g=gmState;if(!g)return;
+  if(g.game==='crash'){const cb=document.getElementById('gm-mode-ko');g.mode=(cb&&cb.checked)?'ko':'en';}
+  g.phase='play';g.t0=Date.now();
+  if(g.game==='match'){renderMatchBoard();_gmTimer();}
+  else _crashBegin();
+}
+// ── 끝 ──
+function _gmEnd(){
+  const g=gmState;if(!g)return;
+  g.phase='done';
+  _gmStopTimer();_gmVVOff();
+  if(g.raf){cancelAnimationFrame(g.raf);g.raf=null;}
+  // 최고 기록 판정은 저장 '전'에 — 이번 판을 지난 기록과 비교해야 한다
+  g.isBest=(typeof ppGameIsBest==='function')?ppGameIsBest(g.sid,g.game,g.score):false;
+  g.prevBest=ppGameBest(g.sid,g.game).best;
+  renderGameResult();
+  _gmSave();
+}
+async function _gmSave(){
+  const g=gmState;if(!g||g.saved)return;
+  g.saved=true;
+  if(typeof ppSandbox==='function'&&ppSandbox())return;      // 체험 모드면 저장 0
+  const row={id:uid(),sid:g.sid,date:ppToday(),type:'vocab_game',
+    game:g.game,setKey:g.setKey||'',score:g.score||0,ms:g.ms||0,n:g.n||0,
+    at:new Date().toISOString()};
+  if(!_cache.logs)_cache.logs=[];
+  _cache.logs.unshift(row);
+  try{await supaUpsert('logs',row.id,row,g.sid);}catch(e){console.warn('게임 기록 저장:',e);}
+}
+function renderGameResult(){
+  const g=gmState;if(!g)return;const el=_gmEl();if(!el)return;
+  const m=PP_GAMES[g.game]||{};
+  const mine=ppGameScoreText(g.game,g.score);
+  const line=(g.game==='match')
+    ?(g.n+'짝 완성 · 벌점 '+g.wrong+'회 (+'+g.wrong+'초)')
+    :('맞힌 단어 '+g.hits+'개 · '+Math.round((g.ms||0)/1000)+'초');
+  const missed=(g.game==='crash'&&g.missed.length)
+    ?('<div style="text-align:left;background:var(--cl);border-radius:14px;padding:11px 13px;margin-bottom:16px">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--coral);margin-bottom:5px">놓친 단어 '+g.missed.length+'개</div>'
+      +g.missed.map(w=>'<div style="font-size:13px;color:var(--navy);line-height:1.6">'+_qzEsc(w)+'</div>').join('')
+      +'</div>'):'';
+  const again=(g.game==='match')?("openGameMatch('"+g.sid+"')"):("openGameCrash('"+g.sid+"')");
+  el.innerHTML='<div style="padding:2rem 1.25rem;text-align:center">'
+    +'<div style="font-size:42px;margin-bottom:6px">'+(g.isBest?'🏆':(m.icon||'🎮'))+'</div>'
+    +'<div style="font-size:30px;font-weight:800;color:var(--navy);font-family:var(--fm)">'+_qzEsc(mine)+'</div>'
+    +(g.isBest
+      ?'<div style="display:inline-block;margin-top:6px;background:var(--okl);color:var(--okt);font-size:12.5px;font-weight:800;border-radius:var(--rpill);padding:4px 14px">최고 기록!</div>'
+      :(g.prevBest!=null?'<div style="font-size:12.5px;color:var(--slate);margin-top:6px">최고 '+ppGameScoreText(g.game,g.prevBest)+'</div>':''))
+    +'<div style="font-size:13.5px;color:var(--slate);margin:10px 0 16px">'+_qzEsc(line)+'</div>'
+    +missed
+    +'<button class="btn bt" style="padding:13px 36px;font-size:16px;border-radius:var(--rpill)" onclick="'+again+'">다시 하기</button>'
+    +'<div style="margin-top:14px"><button class="btn bo bsm" onclick="gmQuit()">← 홈으로</button></div>'
+    +'</div>';
+}
+// ── A. 타임어택 매칭 ─────────────────────────────────────────
+function openGameMatch(sid){
+  const set=_gmSet(sid);
+  if(!set){toast('게임에 쓸 단어가 모자라요 (뜻이 있는 단어 3개 이상)');return;}
+  const n=Math.min(GM_MATCH_PAIRS,set.cards.length);
+  const pick=_vgShuffle(_gmCards(set)).slice(0,n);
+  gmState={game:'match',sid:sid,setKey:set.key,label:set.label,n:n,
+    pairs:pick,lcol:_vgShuffle(pick.map(c=>c.id)),rcol:_vgShuffle(pick.map(c=>c.id)),
+    matched:[],sel:null,wrong:0,penalty:0,t0:0,ms:0,score:0,timer:null,
+    phase:'intro',isBest:false,prevBest:null,saved:false};
+  swStuTab('st-vocab');
+}
+function _gmTimer(){
+  _gmStopTimer();
+  gmState.timer=setInterval(()=>{
+    const g=gmState;
+    if(!g||g.phase!=='play'){_gmStopTimer();return;}
+    const t=document.getElementById('gm-clock');
+    if(t)t.textContent=((Date.now()-g.t0+g.penalty)/1000).toFixed(1)+'초';
+  },100);
+}
+function renderMatchBoard(){
+  const g=gmState;if(!g)return;const el=_gmEl();if(!el)return;
+  const P=id=>g.pairs.find(p=>p.id===id)||{};
+  const tile=(id,side)=>{
+    const done=g.matched.indexOf(id)>=0;
+    const sel=g.sel&&g.sel.id===id&&g.sel.side===side;
+    const txt=(side==='l')?P(id).word:P(id).meaning;
+    return '<button id="gm-'+side+'-'+id+'" class="gm-tile'+(done?' done':'')+(sel?' sel':'')+(side==='l'?' w':'')+'"'
+      +(done?' disabled':'')+' onclick="gmPick(\''+side+'\',\''+id+'\')">'+_qzEsc(txt)+'</button>';
+  };
+  el.innerHTML='<div style="padding:1.25rem">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    +'<button class="btn bo bxxs" onclick="gmQuit()">← 그만</button>'
+    +(g.wrong?'<span style="font-size:12px;font-weight:700;color:var(--coral)">벌점 +'+g.wrong+'초</span>':'')
+    +'<span id="gm-clock" style="margin-left:auto;font-size:16px;font-weight:800;color:var(--navy);font-family:var(--fm)">0.0초</span>'
+    +'</div>'
+    +'<div style="font-size:12.5px;color:var(--slate);margin-bottom:10px">'+g.matched.length+' / '+g.n+' 짝 · 단어와 뜻을 차례로 누르세요</div>'
+    +'<div style="display:flex;gap:8px;align-items:flex-start">'
+    +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">'+g.lcol.map(id=>tile(id,'l')).join('')+'</div>'
+    +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">'+g.rcol.map(id=>tile(id,'r')).join('')+'</div>'
+    +'</div></div>';
+}
+function gmPick(side,id){
+  const g=gmState;if(!g||g.game!=='match'||g.phase!=='play')return;
+  if(g.matched.indexOf(id)>=0)return;
+  // 같은 쪽을 다시 누르면 고른 것만 바뀐다 (어느 쪽을 먼저 눌러도 된다)
+  if(!g.sel||g.sel.side===side){g.sel={side:side,id:id};renderMatchBoard();return;}
+  const a=g.sel,b={side:side,id:id};
+  g.sel=null;
+  if(a.id===b.id){
+    g.matched.push(id);
+    if(g.matched.length>=g.n){
+      g.ms=Date.now()-g.t0;g.score=g.ms+g.penalty;
+      _gmEnd();return;
+    }
+    renderMatchBoard();return;
+  }
+  g.wrong++;g.penalty+=GM_MATCH_PENALTY;
+  renderMatchBoard();
+  const flash=[a,b].map(o=>document.getElementById('gm-'+o.side+'-'+o.id)).filter(Boolean);
+  flash.forEach(n=>n.classList.add('bad'));
+  setTimeout(()=>flash.forEach(n=>n.classList.remove('bad')),380);
+}
+// ── B. 크래시 ───────────────────────────────────────────────
+function openGameCrash(sid){
+  const set=_gmSet(sid);
+  if(!set){toast('게임에 쓸 단어가 모자라요 (뜻이 있는 단어 3개 이상)');return;}
+  gmState={game:'crash',sid:sid,setKey:set.key,label:set.label,mode:'en',
+    pool:_gmCards(set),queue:[],cur:null,
+    lives:GM_CRASH_LIVES,hits:0,missed:[],n:0,
+    dur:GM_CRASH_DUR0,fallT0:0,laneH:200,raf:null,
+    t0:0,ms:0,score:0,timer:null,phase:'intro',isBest:false,prevBest:null,saved:false};
+  swStuTab('st-vocab');
+}
+function renderCrashBoard(){
+  const g=gmState;if(!g)return;const el=_gmEl();if(!el)return;
+  el.innerHTML='<div id="gm-crash">'
+    +'<div id="gm-head">'
+    +'<button class="btn bo bxxs" onclick="gmQuit()">← 그만</button>'
+    +'<div id="gm-hud"></div>'
+    +'</div>'
+    +'<div id="gm-lane" class="gm-lane"><div id="gm-fall" class="gm-fall"></div></div>'
+    +'<div id="gm-foot">'
+    +'<input class="recall-input" id="gm-in" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"'
+    +' placeholder="'+(g.mode==='ko'?'뜻을 한국어로...':'영어로 입력...')+'"'
+    +' onkeydown="if(event.key===\'Enter\'){if(event.isComposing||event.keyCode===229)return;event.preventDefault();crashType();}">'
+    +'<div id="gm-msg"></div>'
+    +'</div></div>';
+}
+function _crashBegin(){
+  const g=gmState;if(!g)return;
+  g.queue=_vgShuffle(g.pool.slice());
+  renderCrashBoard();
+  _gmVVOn();
+  _gmFit();
+  const i=document.getElementById('gm-in');if(i)i.focus();   // 시작 버튼을 누른 흐름이라 포커스가 먹는다
+  setTimeout(()=>{_gmFit();_crashNext();},60);
+}
+function _crashNext(){
+  const g=gmState;if(!g||g.phase!=='play')return;
+  if(!g.queue.length)g.queue=_vgShuffle(g.pool.slice());
+  g.cur=g.queue.shift();
+  g.dur=Math.max(GM_CRASH_MIN,Math.round(GM_CRASH_DUR0*Math.pow(GM_CRASH_STEP,g.hits)));
+  g.fallT0=(typeof performance!=='undefined')?performance.now():Date.now();
+  const t=document.getElementById('gm-fall');
+  if(t){
+    t.textContent=(g.mode==='ko')?g.cur.word:g.cur.meaning;
+    t.className='gm-fall'+((g.mode==='ko')?' en':'');
+    t.style.transform='translate(-50%,0)';
+  }
+  _crashHud();
+  if(g.raf)cancelAnimationFrame(g.raf);
+  g.raf=requestAnimationFrame(_crashFrame);
+}
+function _crashFrame(){
+  const g=gmState;if(!g||g.game!=='crash'||g.phase!=='play')return;
+  const t=document.getElementById('gm-fall');
+  if(!t){g.raf=null;return;}
+  const now=(typeof performance!=='undefined')?performance.now():Date.now();
+  const p=Math.min(1,(now-g.fallT0)/Math.max(1,g.dur));
+  t.style.transform='translate(-50%,'+Math.round(p*g.laneH)+'px)';
+  if(p>=1){g.raf=null;_crashMiss();return;}
+  g.raf=requestAnimationFrame(_crashFrame);
+}
+function _crashMiss(){
+  const g=gmState;if(!g)return;
+  if(g.raf){cancelAnimationFrame(g.raf);g.raf=null;}
+  g.lives--;g.n++;
+  if(g.cur)g.missed.push(g.cur.word+' — '+g.cur.meaning);
+  const lane=document.getElementById('gm-lane');
+  if(lane){lane.classList.add('hit');setTimeout(()=>{const l=document.getElementById('gm-lane');if(l)l.classList.remove('hit');},260);}
+  if(g.lives<=0){
+    g.ms=Date.now()-g.t0;g.score=g.hits;
+    _gmEnd();return;
+  }
+  _crashFlash('💔 '+(g.cur?g.cur.word:''),false);
+  _crashNext();
+}
+function crashType(){
+  const g=gmState;if(!g||g.game!=='crash'||g.phase!=='play'||!g.cur)return;
+  const i=document.getElementById('gm-in');if(!i)return;
+  const typed=String(i.value||'');
+  if(!typed.trim())return;
+  let ok=false,near=false;
+  if(g.mode==='ko'){
+    const r=(typeof kspGrade==='function')?kspGrade(typed,g.cur.meaning):{r:'no'};
+    ok=(r.r==='ok');near=(r.r==='near');
+  }else{
+    const a=_spellNorm(typed),b=_spellNorm(g.cur.word);
+    ok=!!a&&a===b;
+  }
+  if(ok){
+    i.value='';g.hits++;g.n++;
+    if(g.raf){cancelAnimationFrame(g.raf);g.raf=null;}
+    const t=document.getElementById('gm-fall');if(t)t.classList.add('pop');
+    _crashFlash('💥 '+g.cur.word,true);
+    _crashHud();
+    setTimeout(()=>{
+      const n=document.getElementById('gm-fall');if(n)n.classList.remove('pop');
+      _crashNext();
+    },150);
+    return;
+  }
+  // 틀려도 목숨은 줄지 않는다 — 바닥에 닿을 때만 줄어든다
+  i.classList.add('bad');
+  setTimeout(()=>{const n=document.getElementById('gm-in');if(n)n.classList.remove('bad');},320);
+  _crashFlash(near?'거의! 끝말을 고쳐 보세요':'다시!',false);
+  i.value='';
+}
+function _crashHud(){
+  const g=gmState;if(!g)return;
+  const h=document.getElementById('gm-hud');if(!h)return;
+  const live=Math.max(0,g.lives),gone=Math.max(0,GM_CRASH_LIVES-live);
+  const hearts=new Array(live+1).join('❤️')+new Array(gone+1).join('🤍');
+  h.innerHTML='<span style="font-size:14px;letter-spacing:1px">'+hearts+'</span>'
+    +'<span style="margin-left:auto;font-size:15px;font-weight:800;color:var(--navy);font-family:var(--fm)">'+g.hits+'개</span>'
+    +'<span style="font-size:11.5px;color:var(--slate)">×'+(GM_CRASH_DUR0/Math.max(1,g.dur)).toFixed(2)+'</span>';
+}
+function _crashFlash(msg,good){
+  const n=document.getElementById('gm-msg');if(!n)return;
+  n.textContent=msg;n.style.color=good?'var(--okt)':'var(--coral)';
+  if(n._t)clearTimeout(n._t);
+  n._t=setTimeout(()=>{const m=document.getElementById('gm-msg');if(m)m.textContent='';},900);
+}
+// 키보드가 올라와도 떨어지는 칸과 입력칸이 화면에 남게 — 눈에 보이는 높이(visualViewport)에 맞춘다
+function _gmFit(){
+  const g=gmState;if(!g||g.game!=='crash')return;
+  const layer=document.getElementById('gm-crash');if(!layer)return;
+  const vv=(typeof window!=='undefined')?window.visualViewport:null;
+  const h=Math.round(vv?vv.height:window.innerHeight);
+  layer.style.top=Math.round(vv?vv.offsetTop:0)+'px';
+  layer.style.height=h+'px';
+  const head=document.getElementById('gm-head'),foot=document.getElementById('gm-foot'),lane=document.getElementById('gm-lane');
+  if(!lane)return;
+  const inner=h-(head?head.offsetHeight:0)-(foot?foot.offsetHeight:0)-16;
+  lane.style.height=Math.max(96,inner)+'px';
+  const fall=document.getElementById('gm-fall');
+  g.laneH=Math.max(50,Math.max(96,inner)-((fall&&fall.offsetHeight)||44)-6);
+}
+function _gmVVOn(){
+  _gmVVOff();
+  _gmVV=function(){_gmFit();};
+  window.addEventListener('resize',_gmVV);
+  if(window.visualViewport){window.visualViewport.addEventListener('resize',_gmVV);window.visualViewport.addEventListener('scroll',_gmVV);}
+}
+function _gmVVOff(){
+  if(!_gmVV)return;
+  window.removeEventListener('resize',_gmVV);
+  if(window.visualViewport){window.visualViewport.removeEventListener('resize',_gmVV);window.visualViewport.removeEventListener('scroll',_gmVV);}
+  _gmVV=null;
+}
+// ── 홈 '🎮 보너스 · 내 기록' 안의 게임 줄 ──
+function stuGameCards(sid){
+  if(typeof PP_GAMES==='undefined')return '';
+  const row=(key,go)=>{
+    const m=PP_GAMES[key],b=ppGameBest(sid,key);
+    const rec=b.plays
+      ?('최고 '+ppGameScoreText(key,b.best)+'<br><span style="color:var(--neutral)">'+b.plays+'판</span>')
+      :'기록 없음';
+    return '<button class="gm-row"'+(go?(' onclick="'+go+'"'):' disabled')+'>'
+      +'<span style="font-size:20px">'+m.icon+'</span>'
+      +'<span style="flex:1;min-width:0;text-align:left">'
+      +'<span style="display:block;font-size:13.5px;font-weight:700;color:var(--navy)">'+m.name+'</span>'
+      +'<span style="display:block;font-size:11.5px;color:var(--slate)">'+m.tip+'</span>'
+      +'</span>'
+      +'<span style="font-size:11.5px;color:'+(b.plays?'var(--tealt)':'var(--neutral)')+';white-space:nowrap;text-align:right;line-height:1.45">'+rec+'</span>'
+      +'</button>';
+  };
+  return '<div style="margin-bottom:10px">'
+    +row('match',"openGameMatch('"+sid+"')")
+    +row('crash',"openGameCrash('"+sid+"')")
+    +row('minute','')
+    +'</div>';
+}
 // ── GAMIFICATION HELPERS ──
 // XP는 실제 학습 데이터에서 파생 (수업 10 · 과제 20 · 단어 정답 2 · 마스터 5 · 완독 15 · 원서 10 · 테스트 10)
 // 100레벨 커브: xpForLevel(n)=30*(n-1)^1.85 — Lv2=30, Lv13≈2900, Lv100≈147,000 (학습량 대비 과도한 레벨 인플레 방지)
@@ -3931,7 +4287,7 @@ function renderStudentHome(sid){
     ${wnCtaHtml}
     <details style="margin-top:8px;margin-bottom:8px">
       <summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">🎮 보너스 · 내 기록 <span style="font-size:12px;color:var(--teal)">▾</span></summary>
-      <div style="margin-top:8px">${stuXpCard(sid,streak)}${stuBadgeShelf(sid)}${renderVocabReview(sid)}</div>
+      <div style="margin-top:8px">${(typeof stuGameCards==='function')?stuGameCards(sid):''}${stuXpCard(sid,streak)}${stuBadgeShelf(sid)}${renderVocabReview(sid)}</div>
     </details>
     ${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 지난 완료 기록 (${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length}건)</summary><div style="margin-top:8px">${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).map(asgnCard).join('')}</div></details>`:''}
     <details open style="margin-top:14px">

@@ -929,6 +929,14 @@ function renderSpVocab(sid){
         </div>
       </div>
     </details>
+    ${(function(){
+      // 1분 퀴즈 (P5) — 수업에서 쓰는 도구. 학생 기기와 연동하지 않는다.
+      const mb=(typeof ppGameBest==='function')?ppGameBest(sid,'minute'):{plays:0,best:null};
+      return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <button class="btn bo bxs" onclick="openMinuteQuiz('${sid}')">⏳ 1분 퀴즈 (수업 도구)</button>
+        <span style="font-size:11.5px;color:var(--slate)">${mb.plays?`최고 ${mb.best}점 · ${mb.plays}판`:'전체화면 4지선다 · 60초 · 정답 +10 / 오답 −10 / 패스 −5'}</span>
+      </div>`;
+    })()}
     ${(typeof rpReportHtml==='function')?rpReportHtml(sid):''}
     ${(function(){
       // 단어 스피드 테스트 설정 (P3) — 최고·최종·횟수만. 그래프는 P6.
@@ -1002,6 +1010,159 @@ async function saveQuizCfg(sid){
   try{await supaUpsert('students',sid,stu,null);}
   catch(e){console.error('saveQuizCfg:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
   toast(`설정 저장 — 학습 구간 ${vocabChunk}장 · 테스트 ${n}문항 ${sec}초 · 목표 ${goal}점 ${goalTimes}회`);
+}
+// ── C. 1분 퀴즈 (P5) — 수업 도구 ───────────────────────────────
+// 선생님 화면에서만 돈다. 학생 기기와 연동하지 않고, 단어 카드도 건드리지 않는다.
+// 끝에 그 학생 logs 에 {type:'vocab_game', game:'minute'} 한 줄을 남길지 묻는다 (기본 저장).
+let mqState=null;
+const MQ_SEC=60, MQ_OK=10, MQ_NO=-10, MQ_PASS=-5;
+function _mqLayer(){
+  let el=document.getElementById('mq-layer');
+  if(!el){el=document.createElement('div');el.id='mq-layer';document.body.appendChild(el);}
+  return el;
+}
+function _mqClose(){
+  if(mqState&&mqState.timer){clearInterval(mqState.timer);mqState.timer=null;}
+  mqState=null;
+  const el=document.getElementById('mq-layer');if(el)el.remove();
+}
+function openMinuteQuiz(sid){
+  if(!sid)return;
+  const stu=(_cache.students||[]).find(s=>s.id===sid);
+  const usable=l=>(l||[]).filter(c=>String(c.word||'').trim()&&String(c.meaning||'').trim());
+  // 단어 묶음은 ppQuizSet 우선순위를 그대로 쓴다 (비면 전체 단어장으로 받쳐 준다)
+  const set=(typeof ppQuizSet==='function')?ppQuizSet(sid):null;
+  let cards=set?usable(set.cards):[];
+  let key=set?set.key:'',label=set?set.label:'';
+  if(cards.length<4){
+    cards=usable(ppLive(_cache.vocab_cards).filter(c=>c.sid===sid));
+    key='mode:all';label='전체 단어장';
+  }
+  if(cards.length<4){toast('1분 퀴즈에 쓸 단어(뜻 있는 것)가 4개 이상 있어야 해요');return;}
+  mqState={sid:sid,name:(stu&&stu.name)||'',setKey:key,label:label,pool:cards,
+    queue:[],cur:null,opts:[],right:-1,
+    score:0,ok:0,no:0,pass:0,n:0,left:MQ_SEC,timer:null,locked:false,saving:false,phase:'intro'};
+  _mqRender();
+}
+function _mqRender(){
+  const q=mqState;if(!q)return;
+  if(q.phase==='done')return _mqResult();
+  if(q.phase==='play')return _mqCard();
+  const el=_mqLayer();
+  el.innerHTML='<div style="margin:auto;text-align:center;color:#fff;max-width:520px">'
+    +'<div style="font-size:48px">⏳</div>'
+    +'<div style="font-size:26px;font-weight:800;margin:6px 0 4px">1분 퀴즈</div>'
+    +'<div style="font-size:15px;opacity:.82">'+escAttr(q.name)+' · '+escAttr(q.label)+'</div>'
+    +'<div style="font-size:14px;opacity:.75;line-height:1.9;margin:14px 0 20px">'
+    +'60초 · 정답 +'+MQ_OK+' · 오답 '+MQ_NO+' · 패스 '+MQ_PASS+'<br>'
+    +'단어 '+q.pool.length+'개에서 번갈아 나와요</div>'
+    +'<button class="btn bt" style="padding:15px 46px;font-size:18px;border-radius:var(--rpill)" onclick="_mqStart()">시작! →</button>'
+    +'<div style="margin-top:16px"><button class="btn bo bsm" onclick="_mqClose()">닫기</button></div>'
+    +'<div style="margin-top:14px;font-size:11.5px;opacity:.6">학생 기기와 연동되지 않고, 단어 카드의 복습 일정도 바뀌지 않아요</div>'
+    +'</div>';
+}
+function _mqStart(){
+  const q=mqState;if(!q||q.phase==='play')return;
+  q.phase='play';q.left=MQ_SEC;q.queue=_vgShuffle(q.pool.slice());
+  _mqNext();
+  if(q.timer)clearInterval(q.timer);
+  q.timer=setInterval(()=>{
+    const s=mqState;if(!s||s.phase!=='play')return;
+    s.left--;
+    const c=document.getElementById('mq-clock');
+    if(c){c.textContent=s.left+'초';c.style.color=(s.left<=10)?'#FFB3A0':'#fff';}
+    if(s.left<=0){clearInterval(s.timer);s.timer=null;s.phase='done';_mqResult();}
+  },1000);
+}
+function _mqNext(){
+  const q=mqState;if(!q||q.phase!=='play')return;
+  if(!q.queue.length)q.queue=_vgShuffle(q.pool.slice());
+  q.cur=q.queue.shift();
+  const opts=(typeof _vgOpts==='function')?_vgOpts(q.cur,'meaning'):[String(q.cur.meaning||'')];
+  q.opts=opts;q.right=opts.indexOf(String(q.cur.meaning||'').trim());
+  q.locked=false;
+  _mqCard();
+}
+function _mqCard(){
+  const q=mqState;if(!q||!q.cur)return;
+  const el=_mqLayer();
+  el.innerHTML='<div class="mq-head">'
+    +'<span class="mq-clock" id="mq-clock">'+q.left+'초</span>'
+    +'<span style="font-size:13px;opacity:.72">'+escAttr(q.name)+' · '+q.n+'문제</span>'
+    +'<span class="mq-score" id="mq-score">'+(q.score>0?'+':'')+q.score+'</span>'
+    +'</div>'
+    +'<div class="mq-word">'+escAttr(q.cur.word)+'</div>'
+    +'<div class="mq-opts" id="mq-opts">'
+    +q.opts.map((o,i)=>'<button class="mq-opt" onclick="mqAnswer('+i+')">'+escAttr(o)+'</button>').join('')
+    +'</div>'
+    +'<div class="mq-foot">'
+    +'<button class="btn bo bsm" onclick="mqAnswer(-1)">패스 '+MQ_PASS+'</button>'
+    +'<button class="btn bo bsm" onclick="_mqGiveUp()">그만</button>'
+    +'</div>';
+}
+function mqAnswer(i){
+  const q=mqState;if(!q||q.phase!=='play'||q.locked)return;
+  q.locked=true;q.n++;
+  const right=(i>=0&&i===q.right);
+  if(i<0){q.pass++;q.score+=MQ_PASS;}
+  else if(right){q.ok++;q.score+=MQ_OK;}
+  else{q.no++;q.score+=MQ_NO;}
+  const wrap=document.getElementById('mq-opts');
+  if(wrap){
+    const btns=wrap.querySelectorAll('.mq-opt');
+    if(q.right>=0&&btns[q.right])btns[q.right].classList.add('ok');
+    if(i>=0&&!right&&btns[i])btns[i].classList.add('no');
+  }
+  const sc=document.getElementById('mq-score');
+  if(sc)sc.textContent=(q.score>0?'+':'')+q.score;
+  setTimeout(()=>{const s=mqState;if(!s||s.phase!=='play')return;_mqNext();},right?340:680);
+}
+function _mqGiveUp(){
+  const q=mqState;if(!q)return;
+  if(q.timer){clearInterval(q.timer);q.timer=null;}
+  q.phase='done';_mqResult();
+}
+function _mqResult(){
+  const q=mqState;if(!q)return;
+  const el=_mqLayer();
+  const b=(typeof ppGameBest==='function')?ppGameBest(q.sid,'minute'):{plays:0,best:null};
+  const isBest=(typeof ppGameIsBest==='function')?ppGameIsBest(q.sid,'minute',q.score):false;
+  el.innerHTML='<div style="margin:auto;text-align:center;color:#fff;max-width:520px">'
+    +'<div style="font-size:46px">'+(isBest?'🏆':'⏳')+'</div>'
+    +'<div style="font-size:44px;font-weight:800;font-family:var(--fm)">'+(q.score>0?'+':'')+q.score+'점</div>'
+    +(isBest
+      ?'<div style="display:inline-block;margin-top:6px;background:var(--ok);font-size:12.5px;font-weight:800;border-radius:var(--rpill);padding:4px 14px">최고 기록!</div>'
+      :(b.best!=null?'<div style="font-size:13px;opacity:.75;margin-top:6px">최고 '+b.best+'점</div>':''))
+    +'<div style="font-size:15px;opacity:.85;margin:12px 0 18px">'+q.n+'문제 · 정답 '+q.ok+' · 오답 '+q.no+' · 패스 '+q.pass+'</div>'
+    +'<div style="background:rgba(255,255,255,.1);border-radius:14px;padding:14px 16px">'
+    +'<div style="font-size:14px;margin-bottom:10px">이 기록을 <b>'+escAttr(q.name)+'</b> 학생 기록에 남길까요?</div>'
+    +'<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">'
+    +'<button class="btn bt bsm" id="mq-save" onclick="mqSave(true)">기록 남기기</button>'
+    +'<button class="btn bo bsm" onclick="mqSave(false)">안 남기기</button>'
+    +'</div>'
+    +'<div style="font-size:11.5px;opacity:.6;margin-top:8px">단어 카드의 복습 일정은 바뀌지 않아요</div>'
+    +'</div></div>';
+  const sv=document.getElementById('mq-save');if(sv)sv.focus();     // 기본은 저장
+}
+async function mqSave(save){
+  const q=mqState;if(!q||q.saving)return;
+  q.saving=true;
+  const sid=q.sid;
+  if(save){
+    if(typeof ppSandbox==='function'&&ppSandbox()){
+      toast('체험 모드에서는 기록을 남기지 않아요');
+    }else{
+      const row={id:uid(),sid:sid,date:ppToday(),type:'vocab_game',game:'minute',
+        setKey:q.setKey||'',score:q.score||0,ms:(MQ_SEC-Math.max(0,q.left))*1000,n:q.n||0,
+        at:new Date().toISOString()};
+      if(!_cache.logs)_cache.logs=[];
+      _cache.logs.unshift(row);
+      try{await supaUpsert('logs',row.id,row,sid);toast('1분 퀴즈 기록을 남겼어요');}
+      catch(e){console.warn('1분 퀴즈 기록 저장:',e);toast('기록 저장에 실패했어요');}
+    }
+  }
+  _mqClose();
+  if(typeof renderSpVocab==='function')renderSpVocab(sid);
 }
 // ── 📊 단어 리포트 (P6) — 선생님 학생 패널 ────────────────────
 // 전부 이미 받아 둔 자료로만 그린다 (추가 수신 0). 학부모 화면에는 넣지 않는다.
