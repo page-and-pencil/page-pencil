@@ -1047,11 +1047,11 @@ function rpReportHtml(sid){
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
     <span style="font-size:11.5px;color:var(--slate)">단어 ${r.cards}장</span>
     <div style="flex:1;min-width:160px;display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--divider)">
-      <div style="width:${pct(r.dist.fresh,r.cards)}%;background:var(--border)" title="새 단어 ${r.dist.fresh}"></div>
+      <div style="width:${pct(r.dist.fresh,r.cards)}%;background:var(--border)" title="앱 학습 전 ${r.dist.fresh} — 수업·클래스5·리딩앤에서 본 적은 있지만 앱에서 아직 학습하지 않은 단어"></div>
       <div style="width:${pct(r.dist.learning,r.cards)}%;background:var(--accent)" title="학습 중 ${r.dist.learning}"></div>
       <div style="width:${pct(r.dist.long,r.cards)}%;background:var(--ok)" title="장기 기억 ${r.dist.long}"></div>
     </div>
-    <span style="font-size:11.5px;color:var(--neutral)">새 ${r.dist.fresh} · 학습중 ${r.dist.learning} · 장기 ${r.dist.long}</span>
+    <span style="font-size:11.5px;color:var(--neutral)"><span title="수업·클래스5·리딩앤에서 본 적은 있지만 앱에서 아직 학습하지 않은 단어" style="border-bottom:1px dotted var(--border);cursor:help">앱 학습 전</span> ${r.dist.fresh} · 학습중 ${r.dist.learning} · 장기 ${r.dist.long}</span>
   </div>`;
   const rows=sets.length?sets.map(s=>`
     <div style="border-top:1px solid var(--divider)">
