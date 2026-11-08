@@ -5121,10 +5121,10 @@ function renderMsSentence(body,footer){
 }
 function _stPhaseBar(){
   const C=_stState;
-  return '<div class="seg" style="margin:0 16px 10px">'+C.phases.map((p,i)=>
-    '<button class="'+(i===C.ph?'seg-on':'')+'" style="font-size:12px;padding:6px 3px" '
-    +(i<C.ph?'':'disabled')+' onclick="'+(i<C.ph?'_stGo('+i+')':'')+'">'
-    +(i<C.ph?'✓ ':'')+p.icon+' '+p.label+'</button>').join('')+'</div>';
+  return '<div class="st-seg">'+C.phases.map((p,i)=>
+    '<button class="'+(i===C.ph?'on':'')+'" '+(i<C.ph?'':'disabled')
+    +' onclick="'+(i<C.ph?'_stGo('+i+')':'')+'">'
+    +'<span class="st-seg-i">'+(i<C.ph?'✓':p.icon)+'</span>'+p.label+'</button>').join('')+'</div>';
 }
 function _stGo(i){const C=_stState;if(!C)return;C.ph=Math.max(0,Math.min(C.phases.length-1,i));C.idx=0;_stDraw();}
 function _stHead(){
