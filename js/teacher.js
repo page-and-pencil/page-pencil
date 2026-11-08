@@ -921,7 +921,7 @@ function renderSpVocab(sid){
           <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">🎛 직접 조합 ${(spStu?.vocabStages||[]).length?'<span style="color:var(--teal)">— 사용 중</span>':'<span style="color:var(--slate);font-weight:400">(프리셋 대신 단계 3개를 직접 고를 수 있어요)</span>'}</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
             ${[0,1,2].map(i=>`<select id="vstage-${i}-${sid}" style="${selSt}">
-              ${[['','(없음)'],['mem','암기 카드'],['mc','뜻 고르기'],['mcr','단어 고르기'],['listen','듣고 고르기'],['tiles','철자 조립'],['match','짝 맞추기'],['bingo','빙고'],['recall','리콜'],['spell','스펠링 입력']].map(([v,l])=>`<option value="${v}" ${(spStu?.vocabStages||[])[i]===v?'selected':''}>${i+1}단계: ${l}</option>`).join('')}
+              ${[['','(없음)'],['mem','암기 카드'],['mc','뜻 고르기'],['mcr','단어 고르기'],['listen','듣고 고르기'],['tiles','철자 조립'],['match','짝 맞추기'],['bingo','빙고'],['recall','리콜'],['spell','스펠링 입력'],['kspell','뜻 쓰기 (한국어)']].map(([v,l])=>`<option value="${v}" ${(spStu?.vocabStages||[])[i]===v?'selected':''}>${i+1}단계: ${l}</option>`).join('')}
             </select>`).join('')}
             <button class="btn bt bxs" onclick="saveVocabStages('${sid}')">저장</button>
             ${(spStu?.vocabStages||[]).length?`<button class="btn bo bxs" onclick="saveVocabStages('${sid}',true)">해제(프리셋으로)</button>`:''}
