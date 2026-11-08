@@ -1133,6 +1133,8 @@ async function elevenGetAudioUrl(text,cfg,wordMode){
 // with-timestamps 응답의 글자별 타임스탬프로 문장 경계 시간(times)을 계산해
 // 재생 중 하이라이트·레벨별 쉼은 프로그램으로 처리한다. 캐시 키: p6.
 async function elevenGetPassageAudio(text,cfg,genSpeed){
+  // 대화문 화자 라벨을 빼고 읽는다 — 문장 시간(times)도 이 텍스트 기준
+  if(typeof ppDialogText==='function')text=ppDialogText(text);
   const voice=_ttsVoiceOf(cfg);
   const speed=Math.min(1.2,Math.max(0.7,genSpeed||1));
   // 속도는 생성 단계(네이티브 speed)에서 — 재생단 감속은 피치가 떨어져 목소리가 변함
@@ -1320,6 +1322,7 @@ async function elevenCachedUrl(text){
   return '';
 }
 async function speakCachedOnly(text,opt){
+  if(typeof ppDialogText==='function')text=ppDialogText(text);   // 화자 라벨 제거
   const t=String(text||'').trim();if(!t)return false;
   stopSmartAudio();
   const o=opt||{};
@@ -1336,6 +1339,7 @@ async function speakCachedOnly(text,opt){
 }
 // rate: 숫자(레거시, 브라우저 TTS rate) 또는 {el, tts, word} 옵션 객체
 async function speakSmart(text,rate=0.85){
+  if(typeof ppDialogText==='function')text=ppDialogText(text);   // 화자 라벨 제거
   text=(text||'').trim();if(!text)return false;
   stopSmartAudio();
   const isObj=typeof rate==='object'&&rate;
@@ -1399,8 +1403,9 @@ function findExampleFromBooks(word,grade){
     const ar=parseFloat(book.arLevel||book.ar||'0');
     const dist=ar?Math.abs(ar-target)*2+(ar<arMin||ar>arMax?5:0):6;
     const texts=[];
-    if(book.chapters?.length)book.chapters.forEach(c=>{if(c.text)texts.push(c.text);});
-    if(book.bookText)texts.push(book.bookText);
+    const _dlg=t=>(typeof ppDialogText==='function')?ppDialogText(t):t;   // 예문에 화자 라벨이 섞이지 않게
+    if(book.chapters?.length)book.chapters.forEach(c=>{if(c.text)texts.push(_dlg(c.text));});
+    if(book.bookText)texts.push(_dlg(book.bookText));
     for(const text of texts){
       const wRe=new RegExp('(?<![a-z])'+safe+'(?![a-z])','gi');
       const sents=text.match(/[A-Z][^.!?]{10,190}[.!?]+/g)||[];

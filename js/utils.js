@@ -2055,6 +2055,123 @@ const MISSION_DEFS={
 const MISSION_ORDER=['vocab','listen','sentence','record','game'];
 // 옛 과제(a.missions 에 pattern·scramble·cloze 가 든 것)는 그대로 열린다
 const MISSION_LEGACY=['cloze','pattern','scramble'];
+// ── 대화문 화자 표기 (fix/dialog-speakers) ──────────────────
+// Smart Listening 처럼 본문에 화자가 적혀 있으면 음성이 그 글자를 읽어 버린다
+// ("B Oh!" → "비 오!"). 교재 원문(global_textbooks)은 고치지 않고,
+// 읽을 때와 보여 줄 때만 떼어 낸다.
+//   형식 1) 줄·문장 맨 앞 알파벳 한 글자 + 공백 — B(소년) G(소녀) M(남자) W(여자)
+//   형식 2) 줄·문장 맨 앞 '이름:' — Min: Mark: Boy: Dad: …
+// 단원 단위로 판정한다: 라벨이 2종류 이상 && 라벨 붙은 줄이 3줄 이상일 때만 대화문.
+// 대화문이 아니면 원문을 '글자 하나 안 바꾸고' 그대로 돌려준다 —
+// 그래야 이미 만들어 둔 음성 캐시 키가 그대로 쓰인다.
+const PP_SPK1={
+  B:{icon:'👦',name:'Boy'}, G:{icon:'👧',name:'Girl'},
+  M:{icon:'👨',name:'Man'}, W:{icon:'👩',name:'Woman'},
+  Q:{icon:'❓',name:'Question'}, A:{icon:'💬',name:'Answer'},
+};
+// 소제목·약어는 화자가 아니다 (Pros:/Cons:/Note:/Dr/Dear …)
+const PP_SPK_SKIP=new Set(['Pros','Cons','Note','Notes','Tip','Tips','Step','Steps',
+  'Example','Examples','Answer','Answers','Question','Questions','Warning','Caution',
+  'Hint','Hints','Key','Keys','Summary','Title','Topic','Fact','Facts','Idea','Ideas',
+  'Goal','Goals','Rule','Rules','Problem','Problems','Solution','Cause','Causes','Effect','Effects',
+  'Vocabulary','Words','Grammar','Reading','Writing','Listening','Speaking',
+  'Unit','Lesson','Part','Chapter','Page','Level','Date','Name','Class','School','Subject',
+  'Dr','Mr','Mrs','Ms','Mx','Prof','St','Dear','Sincerely','Regards','Source','Sources',
+  'Before','After','First','Second','Third','Next','Then','Finally','Also','However',
+  'Pro','Con','Plus','Minus','Advantage','Advantages','Disadvantage','Disadvantages',
+  // 목록형 소제목 — 'Time: 12:30' 처럼 자료 이름이 2종류 이상 3줄 넘게 나오는 표가 있다
+  'Time','Times','Place','Places','Price','Prices','Cost','Address','Phone','Email',
+  'Age','Height','Weight','Length','Width','Color','Colour','Size','Shape','Type','Kind',
+  'Number','Total','Score','Scores','Result','Results','Location','Material','Materials',
+  'Ingredients','Directions','Instructions','Method','Author','Genre','Setting','Characters',
+  'Theme','Moral','Meaning','Definition','Synonym','Antonym','Usage','Form','Tense',
+  'Plural','Singular','Past','Present','Future','Today','Yesterday','Tomorrow',
+  'Day','Days','Month','Months','Year','Years','Week','Weeks','Season','Weather',
+  'Country','City','Habitat','Diet','Food','Group','Groups','Species','Family','Order',
+  'Pattern','Patterns','Phrase','Phrases','Sentence','Sentences','Expression','Expressions',
+  'Word','Dialog','Dialogue','Conversation','Script','Track','Audio','CD','Picture','Pictures',
+  'Chart','Table','Graph','Map','Note','Memo','Quiz','Test','Review','Practice','Activity',
+  'Warm','Checkup','Check','Wrap','Intro','Introduction','Conclusion','Body','Main','Detail','Details']);
+const _PD_RE1=/^([BGMW])\s+(?=[A-Z"'(])/;          // 한 글자 라벨은 B·G·M·W만
+const _PD_REQA=/^([QA])\s+(?=[A-Z"'(])/;           // Q/A 는 짝으로 여러 번 나올 때만
+const _PD_RE2=/^([A-Z][a-zA-Z]{1,11}):\s+/;        // '이름: '
+const _PD_CACHE=new Map();                         // 같은 본문을 여러 번 파싱하지 않게
+// 한 줄 안에 화자가 여러 명일 수 있다 — 문장이 끝난 뒤에 오는 라벨에서 쪼갠다
+function _pdSegs(text){
+  const out=[];
+  String(text==null?'':text).split(/\r?\n/).forEach(ln=>{
+    const t=ln.trim();if(!t)return;
+    t.split(/(?<=[.!?"'’”])\s+(?=(?:[BGMWQA]\s+[A-Z"'(]|[A-Z][a-zA-Z]{1,11}:\s))/)
+      .forEach(p=>{const s=p.trim();if(s)out.push(s);});
+  });
+  return out;
+}
+function _pdBadge(label,kind){
+  if(kind===2)return label;                        // '이름' 은 그 이름 그대로
+  const d=PP_SPK1[label];
+  return d?(d.icon+' '+d.name):label;
+}
+function ppParseDialog(text){
+  const raw=String(text==null?'':text);
+  if(!raw.trim())return {dialog:false,fmt:0,lines:[]};
+  const hit=_PD_CACHE.get(raw);
+  if(hit)return hit;
+  const marked=_pdSegs(raw).map(s=>{
+    let m=_PD_RE1.exec(s);
+    if(m)return {kind:1,label:m[1],text:s.slice(m[0].length).trim()};
+    m=_PD_RE2.exec(s);
+    if(m&&!PP_SPK_SKIP.has(m[1]))return {kind:2,label:m[1],text:s.slice(m[0].length).trim()};
+    m=_PD_REQA.exec(s);
+    if(m)return {kind:3,label:m[1],text:s.slice(m[0].length).trim()};
+    return {kind:0,label:'',text:s};
+  });
+  // Q/A 는 같은 단원에 짝으로 여러 번 나올 때만 라벨로 본다
+  const qa={Q:0,A:0};marked.forEach(x=>{if(x.kind===3)qa[x.label]++;});
+  if(!(qa.Q>=2&&qa.A>=2))marked.forEach(x=>{
+    if(x.kind===3){x.text=(x.label+' '+x.text).trim();x.kind=0;x.label='';}
+  });
+  const labeled=marked.filter(x=>x.kind);
+  const kinds=new Set(labeled.map(x=>x.label));
+  const fmts=new Set(labeled.map(x=>x.kind===2?2:1));
+  const ok=kinds.size>=2&&labeled.length>=3;
+  let res;
+  if(!ok){
+    res={dialog:false,fmt:0,kinds:[...kinds],labeled:labeled.length,
+      lines:[{spk:'',label:'',text:raw.trim()}]};
+  }else{
+    res={dialog:true,fmt:(fmts.size===1?[...fmts][0]:12),kinds:[...kinds],labeled:labeled.length,
+      lines:marked.filter(x=>x.text).map(x=>({spk:x.label,label:x.kind?_pdBadge(x.label,x.kind):'',text:x.text}))};
+  }
+  if(_PD_CACHE.size>400)_PD_CACHE.clear();
+  _PD_CACHE.set(raw,res);
+  return res;
+}
+// 음성·문장 분리에 쓸 텍스트 — 라벨을 뺀다. 화자가 바뀌는 자리는 빈 줄(짧은 쉼).
+// 대화문이 아니면 원문을 그대로 돌려준다(캐시 키 보존). 두 번 걸어도 결과가 같다.
+function ppDialogText(text){
+  const p=ppParseDialog(text);
+  if(!p.dialog)return String(text==null?'':text);
+  let out='';
+  p.lines.forEach((l,i)=>{
+    if(i)out+=(l.spk&&p.lines[i-1].spk!==l.spk)?'\n\n':'\n';
+    out+=l.text;
+  });
+  return out;
+}
+// 줄 하나에서 라벨만 떼어 낸다 (문장 목록·예문용)
+function ppStripSpeaker(line){
+  const s=String(line==null?'':line).trim();
+  let m=_PD_RE1.exec(s)||_PD_REQA.exec(s);
+  if(m)return {spk:m[1],label:_pdBadge(m[1],1),text:s.slice(m[0].length).trim()};
+  m=_PD_RE2.exec(s);
+  if(m&&!PP_SPK_SKIP.has(m[1]))return {spk:m[1],label:m[1],text:s.slice(m[0].length).trim()};
+  return {spk:'',label:'',text:s};
+}
+// 화면용 배지 HTML
+function ppSpeakerBadge(label){
+  if(!label)return '';
+  return '<span class="dlg-spk">'+String(label).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</span>';
+}
 // ── 문장 학습 (P7) ──────────────────────────────────────────
 // 문장과 해석은 교재에서 전사된 것만 쓴다. AI 로 문장도 해석도 만들지 않는다.
 // 문장 출처 순서: ① unitPatterns (줄 하나 = 문장 하나)  ② unitTexts (본문을 문장으로 분리)
@@ -2135,15 +2252,21 @@ function sentLines(tb,unitKey0){
   if(!tb)return [];
   const unitKey=(typeof ppUnitKeyOf==='function')?ppUnitKeyOf(tb,unitKey0):unitKey0;
   const pat=String((tb.unitPatterns&&tb.unitPatterns[unitKey])||'').trim();
-  let rows;
+  // 대화문이면 화자 라벨을 떼고 화자는 따로 들고 간다 (타일·스펠·빈칸에 라벨이 들어가지 않게)
+  let rows=[];
   if(pat){
-    rows=pat.split('\n').map(l=>l.trim()).filter(Boolean).map(_sentSplitKo);
+    const d=ppParseDialog(pat);
+    const src=d.dialog?d.lines:pat.split('\n').map(l=>({spk:'',label:'',text:l.trim()})).filter(x=>x.text);
+    src.forEach(l=>{const r=_sentSplitKo(l.text);rows.push({en:r.en,ko:r.ko,spk:l.spk||'',label:l.label||''});});
   }else{
-    rows=_sentSplitText((tb.unitTexts&&tb.unitTexts[unitKey])||'').map(_sentSplitKo);
+    const d=ppParseDialog((tb.unitTexts&&tb.unitTexts[unitKey])||'');
+    d.lines.forEach(l=>{
+      _sentSplitText(l.text).forEach(s=>{const r=_sentSplitKo(s);rows.push({en:r.en,ko:r.ko,spk:l.spk||'',label:l.label||''});});
+    });
   }
   const ko=_sentKoLines(tb,unitKey);
   return rows
-    .map((r,i)=>({en:r.en,ko:r.ko||ko[i]||''}))
+    .map((r,i)=>({en:r.en,ko:r.ko||ko[i]||'',spk:r.spk||'',label:r.label||''}))
     .filter(r=>r.en&&_sentWords(r.en).length>=SENT_MIN_WORDS);
 }
 // 이번에 할 10문장 묶음. 긴 본문은 다음에 열면 그 뒤 10문장부터, 끝까지 가면 앞으로 돌아온다.
@@ -2201,6 +2324,9 @@ function scrambleLines(tb,unitKey){
     const text=(tb?.unitTexts?.[unitKey]||'').replace(/\s+/g,' ').trim();
     lines=text.split(/(?<=[.!?])\s+/).map(s=>s.trim()).filter(Boolean);
   }
+  // 옛 어순 배열 미션의 타일에도 화자 라벨이 들어가지 않게
+  if(typeof ppParseDialog==='function'&&ppParseDialog(raw||(tb?.unitTexts?.[unitKey]||'')).dialog)
+    lines=lines.map(l=>ppStripSpeaker(l).text).filter(Boolean);
   return lines.filter(l=>l.split(/\s+/).filter(Boolean).length>=3).slice(0,6);
 }
 // 본문에서 실제로 등장하는 유닛 단어 (빈칸 후보)

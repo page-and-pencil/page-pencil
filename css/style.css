@@ -2778,3 +2778,8 @@ body{font-size:14.5px;line-height:1.65;}
 .st-seg button.on{background:#fff;color:var(--navy);font-weight:800;box-shadow:var(--sh)}
 .st-seg button:disabled{cursor:default}
 .st-seg-i{font-size:13px;line-height:1}
+
+/* 대화문 화자 배지 — 본문과 분리해 보여 준다 (음성은 읽지 않는다) */
+.dlg-spk{display:inline-block;margin-right:6px;padding:1px 8px;border-radius:var(--rpill);
+  background:var(--tl);color:var(--tealt);font-family:var(--fb);font-size:11.5px;font-weight:700;
+  white-space:nowrap;vertical-align:1px}

@@ -4904,7 +4904,8 @@ let _msCloze=null;
 function _shuffle(a){const r=a.slice();for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
 function renderMsCloze(body,footer){
   const{tb,unitKey}=_msState;
-  const text=tb.unitTexts?.[unitKey]||'';
+  const _raw=tb.unitTexts?.[unitKey]||'';
+  const text=(typeof ppDialogText==='function')?ppDialogText(_raw):_raw;   // 화자 라벨 제거
   const targets=clozeTargets(tb,unitKey);
   if(!text||targets.length<2){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">빈칸으로 낼 단어가 부족해요</div>';footer.innerHTML=msDoneBtn('cloze','✓ 완료');return;}
   // 본문 등장 순서대로 빈칸 만들기
@@ -4984,7 +4985,9 @@ function msClozeCheck(){
 function renderMsPattern(body,footer){
   const{tb,unitKey}=_msState;
   const raw=(tb.unitPatterns?.[unitKey]||'').trim();
-  const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  const _pd=(typeof ppParseDialog==='function')?ppParseDialog(raw):{dialog:false};
+  const lines=(_pd.dialog?_pd.lines.map(l=>(l.label?'['+l.label+'] ':'')+l.text)
+                        :raw.split('\n').map(l=>l.trim())).filter(Boolean);
   if(!lines.length){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">이 단원에 등록된 패턴이 없습니다</div>';footer.innerHTML=msDoneBtn('pattern','✓ 완료');return;}
   _msState._patLines=lines;
   body.innerHTML='<div style="padding:12px 16px">'
@@ -5234,6 +5237,7 @@ function _stMemDraw(body,footer){
   const reads=C.reads[C.idx]||0;
   const dots=new Array(SENT_READ_GOAL).fill(0).map((_,i)=>i<reads?'●':'○').join('');
   body.innerHTML=_stPhaseBar()+'<div style="padding:0 16px 12px">'+_stHead()
+    +((row.label&&typeof ppSpeakerBadge==='function')?('<div style="margin-bottom:6px">'+ppSpeakerBadge(row.label)+'</div>'):'')
     +'<div class="st-mask-box">'+tiles+'</div>'
     +(row.ko?'<div class="st-ko">'+_stEsc(row.ko)+'</div>':'<div class="st-ko" style="color:var(--neutral)">해석이 등록되지 않은 문장이에요</div>')
     +'<div style="font-size:12px;color:var(--slate);margin-top:10px">단어를 누르면 그 자리까지 잠깐 보여요</div>'
@@ -5317,7 +5321,8 @@ function _stScrDraw(body,footer){
       ?'<div style="padding:40px 10px;text-align:center"><div style="font-size:38px;margin-bottom:10px">⏸</div>'
         +'<div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:14px">잠깐 멈췄어요</div>'
         +'<button class="btn bt" style="padding:12px 32px;border-radius:var(--rpill)" onclick="_stPause()">이어서 하기 →</button></div>'
-      :(row.ko?'<div class="st-ko">'+_stEsc(row.ko)+'</div>':'')
+      :((row.label&&typeof ppSpeakerBadge==='function')?('<div style="margin-bottom:6px">'+ppSpeakerBadge(row.label)+'</div>'):'')
+        +(row.ko?'<div class="st-ko">'+_stEsc(row.ko)+'</div>':'')
         +'<div class="st-ansbox '+st+'">'+answer+'</div>'
         +'<div class="st-bank">'+(bank||'<span style="font-size:13px;color:var(--slate)">아래 확인을 눌러요</span>')+'</div>')
     +'</div>';
@@ -5354,6 +5359,7 @@ function _stSpellDraw(body,footer){
   const row=C.lines[C.idx];
   const hint=row.ko?'':sentFirstHint(row.en);
   body.innerHTML=_stPhaseBar()+'<div style="padding:0 16px 12px">'+_stHead()
+    +((row.label&&typeof ppSpeakerBadge==='function')?('<div style="margin-bottom:6px">'+ppSpeakerBadge(row.label)+'</div>'):'')
     +(row.ko
       ?'<div class="st-prompt">'+_stEsc(row.ko)+'</div>'
       :'<div class="st-prompt" style="font-family:var(--fm);letter-spacing:1px">'+_stEsc(hint)
@@ -5455,6 +5461,7 @@ function _stClozeDraw(body,footer){
       +' onclick="_stClozePick('+i+')">'+_stEsc(w)+'</button>';
   }).join('');
   body.innerHTML=_stPhaseBar()+'<div style="padding:0 16px 12px">'+_stHead()
+    +((row.label&&typeof ppSpeakerBadge==='function')?('<div style="margin-bottom:6px">'+ppSpeakerBadge(row.label)+'</div>'):'')
     +(row.ko?'<div class="st-ko">'+_stEsc(row.ko)+'</div>':'')
     +'<div class="st-clozebox">'+html+'</div>'
     +'<div class="st-bank">'+bank+'</div></div>';
@@ -5656,7 +5663,7 @@ function msSplitSents(text){
 }
 function msReadStart(){
   const{tb,unitKey}=_msState||{};if(!tb)return;
-  const sents=msSplitSents(tb.unitTexts?.[unitKey]||'');
+  const sents=msSplitSents((typeof ppDialogText==='function')?ppDialogText(tb.unitTexts?.[unitKey]||''):(tb.unitTexts?.[unitKey]||''));
   if(!sents.length){toast('연습할 본문이 없어요');return;}
   _msRead={sents,idx:0,scores:[]};
   msRenderReadSent();
@@ -5846,6 +5853,7 @@ function ttsLevelSeg(cur,fnName){
     '<button type="button" class="'+(cur===id?'seg-on':'')+'" onclick="'+fnName+'(\''+id+'\')" style="font-size:12px;padding:5px 9px">'+L.label+'</button>').join('')+'</div>';
 }
 async function speakSentences(text,levelId,hiPrefix){
+  if(typeof ppDialogText==='function')text=ppDialogText(text);   // 화자 라벨 제거 (문장 번호도 이 기준)
   const L=TTS_LEVELS[levelId]||TTS_LEVELS.intermediate;
   const sents=ttsSplitSents(text);
   if(!sents.length)return true;
@@ -5868,15 +5876,20 @@ async function speakSentences(text,levelId,hiPrefix){
 // 레벨 연동 본문 레이아웃: 초급=한 줄에 한 문장 / 중·고급=문단 단위 줄바꿈
 // (문장 id 순서는 speakSentences의 ttsSplitSents 순서와 동일하게 유지)
 function ttsSentHtml(text,words,prefix,levelId){
-  const paras=(text||'').split(/\n+/).map(p=>p.trim()).filter(Boolean);
+  // 대화문이면 화자를 본문에서 떼어 작은 배지로만 보여 준다.
+  // 문장 번호(prefix+i)는 ppDialogText 로 만든 텍스트 기준 — 음성 타임스탬프와 같은 순서다.
+  const _dlg=(typeof ppParseDialog==='function')?ppParseDialog(text):{dialog:false,lines:[]};
+  const _src=(typeof ppDialogText==='function')?ppDialogText(text):(text||'');
+  const paras=(_src||'').split(/\n+/).map(p=>p.trim()).filter(Boolean);
+  const _bdg=i=>(_dlg.dialog&&_dlg.lines[i]&&_dlg.lines[i].label)?ppSpeakerBadge(_dlg.lines[i].label):'';
   let gi=0;
   if(levelId==='beginner'){
-    return paras.map(p=>
-      ttsSplitSents(p).map(s=>`<div id="${prefix}${gi++}" style="transition:background .2s;border-radius:4px;padding:2px 4px;margin:0 0 6px">${_renderHighlightedText(s,words)}</div>`).join('')
+    return paras.map((p,pi)=>
+      _bdg(pi)+ttsSplitSents(p).map(s=>`<div id="${prefix}${gi++}" style="transition:background .2s;border-radius:4px;padding:2px 4px;margin:0 0 6px">${_renderHighlightedText(s,words)}</div>`).join('')
     ).join('<div style="height:10px"></div>');
   }
-  return paras.map(p=>
-    '<p style="margin:0 0 12px">'+ttsSplitSents(p).map(s=>`<span id="${prefix}${gi++}" style="transition:background .2s;border-radius:4px">${_renderHighlightedText(s,words)}</span>`).join(' ')+'</p>'
+  return paras.map((p,pi)=>
+    '<p style="margin:0 0 12px">'+_bdg(pi)+ttsSplitSents(p).map(s=>`<span id="${prefix}${gi++}" style="transition:background .2s;border-radius:4px">${_renderHighlightedText(s,words)}</span>`).join(' ')+'</p>'
   ).join('');
 }
 function msSetTtsLevel(l){if(_msState){_msState.ttsLevel=l;stopSpeak();renderMsStep(_msState.idx);}}
@@ -5890,6 +5903,7 @@ window._waStop=function(){
   _waSrc=null;
 };
 async function playPassage(text,levelId,hiPrefix){
+  if(typeof ppDialogText==='function')text=ppDialogText(text);   // 화자 라벨 제거
   const L=TTS_LEVELS[levelId]||TTS_LEVELS.intermediate;
   const cfg=(typeof elevenCfg==='function')?elevenCfg():null;
   if(!cfg||text.length>2500)return speakSentences(text,levelId,hiPrefix);

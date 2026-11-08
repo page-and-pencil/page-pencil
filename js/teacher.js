@@ -5397,7 +5397,8 @@ function tuToggleTextSec(force){
 }
 // 원문 미리듣기 (선생님용) — 학생이 듣는 것과 같은 AI 낭독 경로(speakWord→speakSmart)
 function teacherSpeakText(taId){
-  const t=(document.getElementById(taId)?.value||'').trim();
+  const _raw=(document.getElementById(taId)?.value||'').trim();
+  const t=((typeof ppDialogText==='function')?ppDialogText(_raw):_raw).trim();   // 화자 라벨 제거
   if(!t)return toast('원문이 비어 있어요');
   if(t.length>2500)toast('본문이 길어 앞부분 위주로 재생됩니다');
   speakWord(t.slice(0,2500));
@@ -6321,7 +6322,9 @@ async function tuExtractExamples(){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const words=tuNormWords(tb.units?.[_tuCurUnit]||[]);
   if(!words.length)return toast('단어가 없습니다');
-  const sentences=(text.match(/[^.!?]+[.!?]+/g)||[text]).map(s=>s.trim().replace(/^[“”‘’"'`\s]+|[“”‘’"'`\s]+$/g,'')).filter(Boolean);
+  // 예문에 화자 라벨이 섞이지 않게 — 저장하는 unitTexts 는 원문 그대로다
+  const _exText=(typeof ppDialogText==='function')?ppDialogText(text):text;
+  const sentences=(_exText.match(/[^.!?]+[.!?]+/g)||[_exText]).map(s=>s.trim().replace(/^[“”‘’"'`\s]+|[“”‘’"'`\s]+$/g,'')).filter(Boolean);
   let updated=0;
   for(const w of words){
     const re=new RegExp('\\b'+w.word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:s|es|ed|ing|er|est|ly|d)?\\b','i');
