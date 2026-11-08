@@ -426,43 +426,38 @@ function renderStudentLibrary(sid){
       return v&&v.book&&bk!=='pencil_down'&&bk!=='sing_together';
     });
   });
-  const _recentPairs=[]; // {b,u} — 직전 수업에서 다룬 책·단원 (배지·정렬용)
-  if(lastLes)Object.entries(lastLes.materials||{}).forEach(([k,v])=>{
-    if(v&&v.book&&v.unit)String(v.unit).split(/[,/]/).forEach(seg=>{if(seg.trim())_recentPairs.push({b:_n(v.book),u:_n(seg),raw:seg.trim()});});
-  });
   // 수업 기록 'Unit 1' vs 교재 키 'Unit 1 New Friends' 표기 차이 흡수
   // (숫자 경계 보호로 Unit 11 오매칭 방지). 2026-11-08 부터 교재가 있으면
   // 공용 ppMatchUnit 을 쓰고, 교재를 모를 때만 글자끼리 비교로 돌아간다.
   const _pref=(a,b)=>a.startsWith(b)&&!/^\d/.test(a.slice(b.length));
   const _uMatch=(a,b)=>a===b||(!!a&&!!b&&(_pref(a,b)||_pref(b,a)));
-  const _tbByTitle={};
-  (_cache.globalTextbooks||[]).forEach(b=>{if(b&&b.title)_tbByTitle[_n(b.title)]=b;});
-  // 어떤 교재의 단원 이름 두 개가 같은 단원을 가리키는가
-  const _uSame=(title,a,b)=>{
-    const tb=_tbByTitle[_n(title)];
-    if(tb&&typeof ppMatchUnit==='function'){
-      const ka=ppMatchUnit(tb,a),kb=ppMatchUnit(tb,b);
-      if(ka.length&&kb.length)return ka.some(x=>kb.includes(x));
-    }
-    return _uMatch(_n(a),_n(b));
-  };
-  const _isRecent=(title,unit)=>{const tb=_n(title);return _recentPairs.some(p=>p.b===tb&&_uSame(title,p.raw,unit));};
-  const _unitLesDate={}; // '책|단원'별 마지막 수업일 — 단원 목록 최근 학습 정렬용
-  DB.less().forEach(l=>{
-    if(l.sid!==sid)return;
-    Object.values(l.materials||{}).forEach(v=>{
-      if(v&&v.book&&v.unit)String(v.unit).split(/[,/]/).forEach(seg=>{
-        if(!seg.trim())return;const k=_n(v.book)+'|'+_n(seg);
-        if(!_unitLesDate[k]||(l.date||'')>_unitLesDate[k].date)_unitLesDate[k]={date:l.date||'',raw:seg.trim()};
+  const _tbByTitle={},_tbById={};
+  (_cache.globalTextbooks||[]).forEach(b=>{if(b){_tbById[b.id]=b;if(b.title)_tbByTitle[_n(b.title)]=b;}});
+  // 학생의 수업 기록을 **한 번만** 교재·단원 키로 정리해 둔다 (2026-11-09).
+  // 전에는 단원을 그릴 때마다 기록 전체를 다시 훑었다.
+  const _lesUnits={};          // tbId → { 단원키: 마지막 수업일 }
+  const _recentKeys={};        // tbId → Set(직전 수업에서 다룬 단원키)
+  (function(){
+    const tbOf=v=>(v.bookId&&_tbById[v.bookId])||_tbByTitle[_n(v.book)]||null;
+    DB.less().filter(l=>l.sid===sid).forEach(l=>{
+      Object.values(l.materials||{}).forEach(v=>{
+        if(!v||!v.book||!v.unit)return;
+        const tb=tbOf(v);if(!tb)return;
+        const m=_lesUnits[tb.id]||(_lesUnits[tb.id]={});
+        ppMatchUnit(tb,v.unit).forEach(k=>{const d=l.date||'';if(!m[k]||d>m[k])m[k]=d;});
       });
     });
-  });
-  const _uLesDate=(title,unit)=>{const tb=_n(title);let best='';
-    for(const k in _unitLesDate){const i=k.indexOf('|');if(k.slice(0,i)!==tb)continue;
-      const row=_unitLesDate[k];
-      if(_uSame(title,row.raw,unit)&&row.date>best)best=row.date;}
-    return best;};
-
+    if(lastLes)Object.values(lastLes.materials||{}).forEach(v=>{
+      if(!v||!v.book||!v.unit)return;
+      const tb=tbOf(v);if(!tb)return;
+      const sset=_recentKeys[tb.id]||(_recentKeys[tb.id]=new Set());
+      ppMatchUnit(tb,v.unit).forEach(k=>sset.add(k));
+    });
+  })();
+  const _lesDateOf=(tb,key)=>((_lesUnits[tb.id]||{})[key])||'';
+  const _isRecentKey=(tb,key)=>!!(_recentKeys[tb.id]&&_recentKeys[tb.id].has(key));
+  // 누를 게 있는 단원인가 — 본문·음원·링크 중 하나라도 있어야 보여 준다
+  const _hasStuff=(tb,k)=>!!((tb.unitTexts&&tb.unitTexts[k])||(tb.unitAudio&&tb.unitAudio[k])||(tb.unitLinks&&tb.unitLinks[k]));
   // ── 과제로 끝낸 교재·단원 (2026-11-08) ──
   // 카드(srcId/srcUnit)로만 모으면, 그 단어가 다른 교재로 먼저 들어가 카드가 안 생긴 단원이 빠진다.
   // 클래스5든 반복이든 schedule 의 done 행이면 '끝낸 단원'으로 본다(type 은 보지 않는다).
@@ -500,14 +495,20 @@ function renderStudentLibrary(sid){
   const myCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid&&c.srcType==='textbook'&&c.srcId);
   const tbIdSet=new Set(myCards.map(c=>c.srcId));
   // 카드가 한 장도 없어도 과제로 끝낸 교재면 책장에 넣는다
-  const myTbooks=(_cache.globalTextbooks||[]).filter(b=>(tbIdSet.has(b.id)||!!_asgDone[_n(b.title)])&&(b.unitTexts&&Object.keys(b.unitTexts).some(u=>b.unitTexts[u])))
+  // 내 책장에 넣는 기준 (2026-11-09):
+  //  ① 단어카드·과제·수업 기록 중 하나라도 있고
+  //  ② 본문·음원·링크 중 하나라도 있는 교재 (셋 다 없으면 눌 게 없다)
+  const _anyStuff=b=>['unitTexts','unitAudio','unitLinks'].some(f=>b[f]&&Object.keys(b[f]).some(u=>b[f][u]));
+  const myTbooks=(_cache.globalTextbooks||[]).filter(b=>(tbIdSet.has(b.id)||!!_asgDone[_n(b.title)]||!!_lesUnits[b.id])&&_anyStuff(b))
     .sort((a,b)=>((_lastLesForBook[_n(b.title)]||'').localeCompare(_lastLesForBook[_n(a.title)]||''))||(a.title||'').localeCompare(b.title||''));
 
   // ── 내 책장: 표지 그리드 + 선택한 책의 단원 패널 ──
   // 이 교재에서 '내가 한' 단원 = 단어카드가 있는 단원 + 과제로 끝낸 단원
   const _myUnitsOf=tb=>{
     const fromCards=[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))];
-    return [...new Set([...fromCards,...Object.keys(_asgUnitsOf(tb))])];
+    const fromLes=Object.keys(_lesUnits[tb.id]||{});     // 수업에서 나간 단원 (카드·과제가 없어도)
+    return [...new Set([...fromCards,...Object.keys(_asgUnitsOf(tb)),...fromLes])]
+      .filter(k=>_hasStuff(tb,k));                       // 본문·음원·링크가 하나도 없으면 숨긴다 (Review Test 등)
   };
   const _unitRowsOf=tb=>{
     const unitCards={};
@@ -521,8 +522,8 @@ function renderStudentLibrary(sid){
       return fromCards>fromAsg?fromCards:fromAsg;
     };
     const myUnits=[...ordered].sort((a,b)=>
-      ((_isRecent(tb.title,b)?1:0)-(_isRecent(tb.title,a)?1:0))
-      ||_uLesDate(tb.title,b).localeCompare(_uLesDate(tb.title,a))
+      ((_isRecentKey(tb,b)?1:0)-(_isRecentKey(tb,a)?1:0))
+      ||_lesDateOf(tb,b).localeCompare(_lesDateOf(tb,a))
       ||_uCardDate(b).localeCompare(_uCardDate(a))
       ||(ordered.indexOf(a)-ordered.indexOf(b)));
     return myUnits.map(u=>{
@@ -533,7 +534,7 @@ function renderStudentLibrary(sid){
       const hasLink=!!(tb.unitLinks?.[u]);
       return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:12px;font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_isRecent(tb.title,u)?` <span style="font-size:11.5px;font-weight:700;background:var(--tl);color:var(--tealt);padding:2px 7px;border-radius:9px;vertical-align:1px">\uD83D\uDD04 지난 수업</span>`:''}</div>
+          <div style="font-size:14px;font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:12px;font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_isRecentKey(tb,u)?` <span style="font-size:11.5px;font-weight:700;background:var(--tl);color:var(--tealt);padding:2px 7px;border-radius:9px;vertical-align:1px">\uD83D\uDD04 지난 수업</span>`:''}</div>
           <div style="font-size:12px;color:var(--slate);margin-top:2px">단어 ${wCnt}개</div>
         </div>
         <div style="display:flex;gap:5px;flex-shrink:0">
@@ -545,14 +546,14 @@ function renderStudentLibrary(sid){
     }).join('');
   };
   if(_stuShelfOpen===null){
-    const rec=myTbooks.find(tb=>_myUnitsOf(tb).some(u=>_isRecent(tb.title,u)));
+    const rec=myTbooks.find(tb=>_myUnitsOf(tb).some(u=>_isRecentKey(tb,u)));
     _stuShelfOpen=rec?rec.id:(myTbooks[0]?.id||'');
   }
   const tbookHtml=myTbooks.length?(()=>{
     const cardOf=(tb)=>{
       // 교재 전체 등록 단어 수 (단원 합계)
       const wCnt=Object.values(tb.units||{}).reduce((s,a)=>s+(Array.isArray(a)?tuNormWords(a).filter(w=>w.word).length:0),0);
-      const recent=_myUnitsOf(tb).some(u=>_isRecent(tb.title,u));
+      const recent=_myUnitsOf(tb).some(u=>_isRecentKey(tb,u));
       return `<div class="shelf-card${_stuShelfOpen===tb.id?' on':''}" onclick="stuShelfToggle('${tb.id}')">
         <div class="shelf-cv">${tb.coverUrl?`<img src="${tb.coverUrl}" loading="lazy" onerror="this.replaceWith(document.createTextNode('\uD83D\uDCDA'))">`:'\uD83D\uDCDA'}</div>
         ${recent?'<span class="shelf-badge" title="지난 수업에서 배웠어요">\uD83D\uDD04</span>':''}
