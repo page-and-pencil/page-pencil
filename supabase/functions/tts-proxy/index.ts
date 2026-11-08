@@ -1,4 +1,12 @@
-// Page & Pencil — ElevenLabs TTS 서버 경유 (2026-11-07)
+// Page & Pencil — ElevenLabs TTS 서버 경유 (2026-11-07 · 2026-11-08 월 누적 상한 추가)
+//
+// 2026-11-08 에 더한 것 (그 밖은 그대로다):
+//   · 보내기 전에 이번 달(KST) 누적 글자 수를 확인한다. 상한을 넘기는 요청은
+//     ElevenLabs 를 부르지 않고 429 {reason:"monthly_cap"} 을 준다.
+//     앱은 이 응답을 받으면 조용히 브라우저 음성으로 이어서 읽는다(로컬 키로도 만들지 않는다).
+//   · 생성에 성공하면 보낸 글자 수를 tts_usage 에 더한다 (service_role · supabase/tts_usage.sql).
+//   · probe 응답에 month·used·calls·cap 을 더해 선생님 화면이 사용량을 보여 줄 수 있게 했다.
+//   단어 음성(audio)·본문 음성(timestamps) 모두 같은 집계에 들어간다.
 //
 // 왜: 지금까지 브라우저가 api.elevenlabs.io 를 직접 불러서 ElevenLabs 키가
 //     settings 행(공개 anon 키로 읽힘)과 localStorage 에 있어야 했다.
@@ -12,6 +20,9 @@
 //   TTS_ALLOWED_VOICES   (선택) 쉼표 구분 voiceId 목록. 기본값은 아래 DEFAULT_VOICES.
 //   TTS_MAX_PER_MIN      (선택) IP 당 분당 요청 수 (기본 40)
 //   TTS_MAX_CHARS_PER_DAY(선택) IP 당 하루 생성 글자 수 (기본 20000)
+//   TTS_MONTH_CAP        (선택) 이번 달(KST) 누적 글자 수 상한.
+//                        없으면 settings 의 ttsMonthCap 행, 그것도 없으면 6000 (키 한도 8,000의 75%)
+//   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY — 플랫폼이 넣어 준다 (tts_usage 기록에 쓴다)
 //
 // 입력 (POST JSON):
 //   { probe: true }                       → 호출 없이 상태만 ({ok, server, voices})
@@ -76,6 +87,68 @@ function allow(ip: string, chars: number) {
   return "";
 }
 
+// ── 월 누적 상한 (2026-11-08) ──────────────────────────────────────────
+// KST 기준 'YYYY-MM' — 서버가 어느 지역에 있어도 학원 달과 같게 맞춘다.
+const DEFAULT_MONTH_CAP = 6000;
+function kstMonth(): string {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+}
+const SB_URL = env("SUPABASE_URL");
+const SB_SRV = env("SUPABASE_SERVICE_ROLE_KEY");
+const sbHeaders = { apikey: SB_SRV, Authorization: "Bearer " + SB_SRV, "Content-Type": "application/json" };
+// 조회가 안 되면 0 으로 본다 — 집계 문제로 음성이 멈추지는 않게 한다.
+async function usageOf(month: string): Promise<{ chars: number; calls: number }> {
+  if (!SB_URL || !SB_SRV) return { chars: 0, calls: 0 };
+  try {
+    const r = await fetch(
+      `${SB_URL}/rest/v1/tts_usage?select=chars,calls&month=eq.${encodeURIComponent(month)}&limit=1`,
+      { headers: sbHeaders },
+    );
+    if (!r.ok) return { chars: 0, calls: 0 };
+    const a = await r.json();
+    const row = Array.isArray(a) ? a[0] : a;
+    return { chars: Number(row?.chars) || 0, calls: Number(row?.calls) || 0 };
+  } catch { return { chars: 0, calls: 0 }; }
+}
+// 상한: 시크릿이 먼저 → settings.ttsMonthCap → 6000.
+// (settings 행은 anon 화이트리스트에 넣지 않았다 — 서비스 롤로만 읽는다)
+let _capCache = { at: 0, v: 0 };
+async function monthCap(): Promise<number> {
+  const fromEnv = parseInt(env("TTS_MONTH_CAP"), 10);
+  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
+  if (_capCache.v && Date.now() - _capCache.at < 300000) return _capCache.v;
+  let v = DEFAULT_MONTH_CAP;
+  if (SB_URL && SB_SRV) {
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/settings?select=value&key=eq.ttsMonthCap&limit=1`, { headers: sbHeaders });
+      if (r.ok) {
+        const a = await r.json();
+        const raw = (Array.isArray(a) ? a[0] : a)?.value;
+        const nn = parseInt(typeof raw === "object" && raw ? (raw.value ?? raw.cap) : raw, 10);
+        if (Number.isFinite(nn) && nn > 0) v = nn;
+      }
+    } catch { /* 기본값 */ }
+  }
+  _capCache = { at: Date.now(), v };
+  return v;
+}
+// 원자적으로 더한다 (supabase/tts_usage.sql 의 tts_usage_add)
+async function addUsage(month: string, chars: number) {
+  if (!SB_URL || !SB_SRV) return;
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/tts_usage_add`, {
+      method: "POST", headers: sbHeaders,
+      body: JSON.stringify({ p_month: month, p_chars: chars }),
+    });
+  } catch { /* 집계 실패가 음성을 막지는 않는다 */ }
+}
+// 상한에 걸린 응답 — 앱이 reason 으로 알아보고 브라우저 음성으로 내려간다
+const capped429 = (month: string, used: number, cap: number, need: number, origin: string) =>
+  new Response(JSON.stringify({
+    reason: "monthly_cap", month, used, cap, need,
+    error: { message: "이번 달 음성 생성 한도를 넘었습니다" },
+  }), { status: 429, headers: { ...cors(origin), "Content-Type": "application/json" } });
+
 serve(async (req) => {
   // file:// 로 열면 Origin 이 문자열 "null" 로 온다 — 헤더가 없는 것과 같이 본다
   const originRaw = req.headers.get("origin") || "";
@@ -107,7 +180,14 @@ serve(async (req) => {
 
   // 상태 확인 — ElevenLabs 를 부르지 않는다(크레딧 0)
   if (body.probe === true) {
-    return new Response(JSON.stringify({ ok: true, server: !!key, voices }), {
+    // 선생님 화면의 '이번 달 음성 사용'·'남은 몫 %' 표시에 쓴다
+    const pMonth = kstMonth();
+    const pCap = await monthCap();
+    const pUsed = await usageOf(pMonth);
+    return new Response(JSON.stringify({
+      ok: true, server: !!key, voices,
+      month: pMonth, used: pUsed.chars, calls: pUsed.calls, cap: pCap,
+    }), {
       headers: { ...cors(origin), "Content-Type": "application/json" },
     });
   }
@@ -125,6 +205,14 @@ serve(async (req) => {
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
   const why = allow(ip, text.length);
   if (why) return bad(429, why, origin);
+
+  // 이번 달 누적 상한 — 넘기는 요청은 ElevenLabs 를 부르지 않는다
+  const month = kstMonth();
+  const cap = await monthCap();
+  const used = await usageOf(month);
+  if (used.chars + text.length > cap) {
+    return capped429(month, used.chars, cap, text.length, origin);
+  }
 
   // 모델·톤은 서버가 고정 — 앱이 쓰던 값과 같다
   const speed = Math.min(1.2, Math.max(0.7, Number(body.speed) || 1));
@@ -163,6 +251,8 @@ serve(async (req) => {
       // 키 값은 응답에 들어가지 않는다 — ElevenLabs 의 오류 코드만 그대로 전한다
       return bad(res.status, "ElevenLabs " + res.status + " " + whyTxt.slice(0, 300), origin);
     }
+    // 성공한 만큼만 누적에 더한다
+    await addUsage(month, text.length);
     if (mode === "timestamps") {
       const data = await res.json();
       return new Response(JSON.stringify(data), {

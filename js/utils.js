@@ -2055,6 +2055,21 @@ const MISSION_DEFS={
 const MISSION_ORDER=['vocab','listen','sentence','record','game'];
 // 옛 과제(a.missions 에 pattern·scramble·cloze 가 든 것)는 그대로 열린다
 const MISSION_LEGACY=['cloze','pattern','scramble'];
+// ── 음성 사용량 표시 ────────────────────────────────────────
+// 이번 달 사용량은 tts-proxy 의 probe 응답으로 받아 둔다 (tts_usage 표는 선생님만 읽는다).
+function ppTtsUsageLine(){
+  const u=(typeof ppTtsUsage==='function')?ppTtsUsage():null;
+  if(!u||!u.cap)return '';
+  return '이번 달 음성 사용: '+u.used.toLocaleString()+' / '+u.cap.toLocaleString()+'자';
+}
+// 이 단원을 만들면 '이번 달 남은 몫'의 몇 %를 쓰는지
+function ppTtsSharePct(chars){
+  const u=(typeof ppTtsUsage==='function')?ppTtsUsage():null;
+  if(!u||!u.cap)return 0;
+  const left=Math.max(0,u.cap-u.used);
+  if(!left)return 100;
+  return Math.min(100,Math.round(chars/left*100));
+}
 // ── 대화문 화자 표기 (fix/dialog-speakers) ──────────────────
 // Smart Listening 처럼 본문에 화자가 적혀 있으면 음성이 그 글자를 읽어 버린다
 // ("B Oh!" → "비 오!"). 교재 원문(global_textbooks)은 고치지 않고,
