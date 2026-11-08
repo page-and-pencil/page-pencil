@@ -1214,10 +1214,26 @@ function vcStartChunks(){
   deckState.idx=0;
 }
 // 그 카드의 '첫 시도' 결과를 남긴다 (이미 남겼으면 그대로 둔다)
+// 기록은 **스테이지마다** 첫 시도를 따로 남긴다.
+// hits·misses·box·due 는 그중 '가장 늦은 스테이지'의 첫 시도를 쓴다 (vcFinalFirst).
+// 암기 단계의 자가보고("알겠어요")로 복습 일정이 정해지면 안 되기 때문이다.
+// (2026-11-09 원장 지시 — 전에는 세션 전체에서 한 번만 남겨 암기 결과가 기록을 차지했다)
 function vcMarkFirst(card,correct){
   if(!card)return;
-  if(!deckState._first)deckState._first={};
-  if(!(card.id in deckState._first))deckState._first[card.id]=!!correct;
+  if(!deckState._firstS)deckState._firstS={};
+  const ph=deckState.phase||0;
+  const m=deckState._firstS[ph]||(deckState._firstS[ph]={});
+  if(!(card.id in m))m[card.id]=!!correct;
+}
+// 카드별 '가장 늦은 스테이지의 첫 시도' — 마지막 스테이지에 안 나온 카드
+// (3라운드 넘기기로 넘긴 카드 등)는 그 전 스테이지 중 가장 늦은 것을 쓴다.
+function vcFinalFirst(){
+  const by=deckState._firstS||{};
+  const out={};
+  Object.keys(by).map(Number).sort((a,b)=>a-b).forEach(ph=>{
+    Object.entries(by[ph]).forEach(([id,v])=>{out[id]=v;});   // 늦은 스테이지가 덮어쓴다
+  });
+  return out;
 }
 // 답 하나를 처리하고 다음 카드로
 function vcNext(correct){
@@ -1382,7 +1398,7 @@ function renderVocabDeck(sid){
   const vocabMode=stu?.vocabMode||'intermediate';
   deckState={cards:session,idx:0,phase:0,phaseResults:[],sessionResults:[],vocabMode,mode,
     stages:vocabStagePlan(sid),_fullCards:[...session],
-    chunkSize:vcChunkSize(sid),chunkAll:!!vocabChunkAll,_first:{}};
+    chunkSize:vcChunkSize(sid),chunkAll:!!vocabChunkAll,_firstS:{}};
   vcStartChunks();
   vocabRenderStage();
 }
@@ -2096,9 +2112,9 @@ function _bgPick(i){
 // ── 결과 화면 ──
 async function renderVocabResult(el){
   try{sessionStorage.removeItem('deckState_'+currentStudentSid);}catch(e){}
-  // 점수·기록은 모두 **첫 시도**(_first) 기준. 구간 라운드로 같은 카드가 여러 번 나와도
+  // 점수·기록은 모두 **첫 시도** 기준 — 스테이지마다 따로 남기고 가장 늦은 것을 쓴다. 구간 라운드로 같은 카드가 여러 번 나와도
   // 한 번만 센다. 답하지 않은 카드는 아예 건드리지 않는다. (2026-11-09 원장 지시)
-  const first=deckState._first||{};
+  const first=vcFinalFirst();   // 가장 늦은 스테이지의 첫 시도
   const full=deckState._fullCards||deckState.cards||[];
   const answered=full.filter(c=>c.id in first);
   const total=answered.length;
@@ -2174,7 +2190,7 @@ function vocabRetryMissed(){
   if(!cards.length)return;
   deckState={cards:[...cards],idx:0,phase:0,phaseResults:[],sessionResults:[],
     vocabMode:deckState.vocabMode,mode:deckState.mode,stages:deckState.stages||vocabStagePlan(currentStudentSid),
-    _fullCards:[...cards],chunkSize:vcChunkSize(currentStudentSid),chunkAll:true,_first:{}};
+    _fullCards:[...cards],chunkSize:vcChunkSize(currentStudentSid),chunkAll:true,_firstS:{}};
   _vgCombo=0;
   vcStartChunks();
   saveDeckState();
