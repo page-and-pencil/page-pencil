@@ -827,7 +827,11 @@ function ppWordKey(w){
 function ppUnitWords(bookId,unitKeys){
   const b=(typeof _cache!=='undefined'?(_cache.globalTextbooks||[]):[]).find(x=>x.id===bookId);
   if(!b)return [];
-  const keys=(unitKeys&&unitKeys.length)?unitKeys:Object.keys(b.units||{});
+  // 고른 단원 이름을 실제 키로 바꾼다 — 목록에서 고른 값이라 보통 그대로지만,
+  // 숙제·기록에서 넘어온 이름('DAY 01' vs 'Day 1')도 받을 수 있게 공용 매칭을 거친다 (2026-11-08)
+  const keys=(unitKeys&&unitKeys.length)
+    ?[...new Set(unitKeys.flatMap(u=>{const m=ppMatchUnit(b,u);return m.length?m:[u];}))]
+    :Object.keys(b.units||{});
   const out=[];
   keys.forEach(k=>{
     const ws=(typeof tuNormWords==='function')?tuNormWords((b.units||{})[k]||[]):((b.units||{})[k]||[]);
@@ -1174,7 +1178,11 @@ function ppBookPath(sid,cid){
       if(!v||!v.bookId||!byId[v.bookId])return;
       const base=k.replace(/_\d+$/,'');
       const e=seen[v.bookId]||(seen[v.bookId]={id:v.bookId,area:base,units:new Set(),first:l.date||'',last:l.date||''});
-      String(v.unit||'').split(/,\s*/).filter(Boolean).forEach(u=>e.units.add(u.trim()));
+      // 기록에 적힌 글자 그대로 세면 'Unit 1' 과 'Unit 01 Hello!' 가 두 과로 잡힌다 —
+      // 공용 매칭으로 실제 단원 키로 바꾼 뒤 센다 (2026-11-08). 못 찾은 이름은 종전대로 글자 그대로.
+      const _mk=(typeof ppMatchUnit==='function')?ppMatchUnit(byId[v.bookId],v.unit):[];
+      if(_mk.length)_mk.forEach(u=>e.units.add(u));
+      else String(v.unit||'').split(/[,/]/).map(x=>x.trim()).filter(Boolean).forEach(u=>e.units.add(u));
       if((l.date||'')<e.first||!e.first)e.first=l.date||'';
       if((l.date||'')>e.last)e.last=l.date||'';
     });
@@ -1654,7 +1662,15 @@ function clozeTargets(tb,unitKey){
   return out;
 }
 // 해당 유닛에 각 미션을 수행할 콘텐츠가 있는지
-function missionAvail(tb,unitKey){
+// unitKey 는 보통 실제 키지만, 숙제·기록에서 온 이름일 수도 있어 공용 매칭을 한 번 거친다 (2026-11-08)
+function ppUnitKeyOf(tb,unitKey){
+  if(!tb||!unitKey)return unitKey;
+  if((tb.units||{})[unitKey]!==undefined)return unitKey;
+  const m=(typeof ppMatchUnit==='function')?ppMatchUnit(tb,unitKey):[];
+  return m.length?m[0]:unitKey;
+}
+function missionAvail(tb,unitKey0){
+  const unitKey=ppUnitKeyOf(tb,unitKey0);
   const text=(tb?.unitTexts?.[unitKey]||'').trim();
   return{
     vocab:((tb?.units?.[unitKey])||[]).length>0,
@@ -2007,13 +2023,11 @@ function lessonWordSet(sid){
     if(lib){(lib.vocab||[]).forEach(w=>{if(w.word)words.add(String(w.word).toLowerCase().trim());});return;}
     const tb=(typeof _cache!=='undefined'?(_cache.globalTextbooks||[]):[]).find(typeof _tbSame==='function'?_tbSame(title):same);
     if(!tb)return;
-    const parts=String(v.unit||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
-    if(!parts.length)return; // 단원 미기재면 그 교재 전체를 쓸어담지 않음
-    Object.entries(tb.units||{}).forEach(([k,ws])=>{
-      const kl=k.trim().toLowerCase();
-      const _bp=(a,b)=>a.startsWith(b)&&!/^\d/.test(a.slice(b.length)); // 숫자 경계 보호 — 'unit 1'≠'unit 11'
-      if(!parts.some(p=>p===kl||_bp(p,kl)||_bp(kl,p)))return;
-      _nw(ws).forEach(w=>{if(w.word)words.add(String(w.word).toLowerCase().trim());});
+    if(!String(v.unit||'').trim())return; // 단원 미기재면 그 교재 전체를 쓸어담지 않음
+    // 공용 매칭(ppMatchUnit) 으로 (2026-11-08). 전에는 앞자리 0 을 지우지 않아
+    // 'DAY 01' 교재에 'Day 1' 로 적은 기록이 연결되지 않았다.
+    ppMatchUnit(tb,v.unit).forEach(k=>{
+      _nw((tb.units||{})[k]||[]).forEach(w=>{if(w.word)words.add(String(w.word).toLowerCase().trim());});
     });
   });
   (typeof _cache!=='undefined'?(_cache.logs||[]):[]).filter(l=>l.sid===sid&&l.date===les.date)
@@ -2254,6 +2268,168 @@ function tbUnitKeys(tb){
   const inOrder=new Set(order);
   const rest=keys.filter(k=>!inOrder.has(k)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
   return [...order,...rest];
+}
+// ── 단원 이름 → 교재의 실제 단원 키 (공용 매칭) ─────────────────────────────
+// 2026-11-08: 같은 일을 하는 매칭이 다섯 군데에 따로 있었다. 규칙이 조금씩 달라
+// 수업 기록 단원명 90가지가 교재 단원에 연결되지 않았다(진도·단어장·복습 탭이 끊김).
+// 여기 하나로 모으고, 모든 호출부가 이것만 쓴다.
+//
+// 돌려주는 것: 단원 키 배열. 못 찾으면 []. 제목이 같은 단원이 둘이면 둘 다 (EFL Phonics 'Long Vowel a' = Unit 1·2).
+// 쉼표·슬래시로 나누는 일도 여기서 한다 — 호출부마다 split 을 다르게 하던 것을 없앤다.
+//
+// 규칙 순서 (앞에서 찾으면 멈춘다)
+//   1 키 완전 일치                 'Unit 1'   → 'Unit 1'
+//   2 키 앞부분 일치(숫자 경계)     'Unit 1'   → 'Unit 1 New Friends'   ('unit1' 은 'unit11' 에 붙지 않는다)
+//   3 교재 별칭 unitAliases        {'ee':'Unit 1'}
+//   4 소제목 일치                  'Short Vowel e' → unitTitles 가 같은 단원 (여럿이면 전부)
+//   5 소제목 + 번호 꼬리표          'Long Vowel a 1-2' → 'Long Vowel a' 인 Unit 1·Unit 2
+//   6 범위끼리                     'A~L' → 소제목 'Aa-Ll' 인 Review 1 (앞·뒤 토큰을 각각 앞부분 일치)
+//   7 Review 가 덮는 번호           'Review 1-4' → Lesson 1~4 뒤에 오는 Review 1 (목차 순서에서 계산)
+//   8 꼬리말 일치                  'Final test' → 'Test' (숫자 없는 3글자 이상 키만)
+function _umNorm(s){
+  return String(s == null ? '' : s).toLowerCase()
+    .replace(/[^a-z0-9가-힣]/g, '')
+    .replace(/([^0-9])0+(\d)/g, '$1$2')   // day01 → day1 (앞자리 0 무시)
+    .replace(/^0+(\d)/, '$1');            // 01 → 1
+}
+// 앞부분 일치 + 숫자 경계 보호 — 'unit1' 이 'unit11' 에 붙는 것을 막는다
+function _umPref(a, b) { return !!a && !!b && a.startsWith(b) && !/^\d/.test(a.slice(b.length)); }
+function _umEq(a, b) { return !!a && !!b && (a === b || _umPref(a, b) || _umPref(b, a)); }
+// 'A~L' · 'bl-tr' · '1-4' 처럼 범위로 보이는 이름을 앞·뒤 토큰으로 가른다
+function _umRange(s) {
+  const m = String(s == null ? '' : s).match(/^\s*(.+?)\s*[-~–—]\s*(.+?)\s*$/);
+  if (!m) return null;
+  const a = _umNorm(m[1]), b = _umNorm(m[2]);
+  return (a && b) ? { a, b } : null;
+}
+// 이름 끝에 붙은 번호·번호범위를 뗀다: 'Long Vowel a 1-2' → 'Long Vowel a'
+function _umStripTail(s) {
+  return String(s == null ? '' : s).replace(/\s*\d+\s*[-~–—]\s*\d+\s*$/, '').replace(/\s+\d+\s*$/, '').trim();
+}
+// 소제목을 낱개로 가른다: 'ph th wh' → ['ph','th','wh'] · 'Short Vowels a·i' → ['short','vowels','a','i']
+function _umTokens(s) {
+  return String(s == null ? '' : s).split(/[\s·,/]+/).map(_umNorm).filter(Boolean);
+}
+function _umIsReviewish(k, title) {
+  return /review|test|복습|평가/i.test(String(k || '') + ' ' + String(title || ''));
+}
+// 목차 순서에서 Review 단원이 '덮는' 번호 집합을 구한다.
+// Easy Link Starter 1: Lesson 1~4 · Review 1 · Lesson 5~8 · Review 2 ... → Review 1 = {1,2,3,4}
+function _umReviewSpans(tb, keys) {
+  const titles = (tb && tb.unitTitles) || {};
+  const spans = [];
+  let bucket = [];
+  keys.forEach(k => {
+    if (_umIsReviewish(k, titles[k])) { spans.push({ key: k, nums: bucket }); bucket = []; return; }
+    const m = String(k).match(/(\d+)/);
+    if (m) bucket.push(parseInt(m[1], 10));
+  });
+  return spans;
+}
+// 단원 이름 하나를 푼다 (쉼표 분해는 ppMatchUnit 이 한다)
+function _umOne(tb, keys, seg) {
+  const n = _umNorm(seg);
+  if (!n) return [];
+  const titles = (tb && tb.unitTitles) || {};
+  const nk = keys.map(k => [k, _umNorm(k)]);
+
+  // 1·2 키
+  const exact = nk.filter(([, kn]) => kn === n).map(([k]) => k);
+  if (exact.length) return exact;
+  const pref = nk.filter(([, kn]) => _umEq(kn, n)).map(([k]) => k);
+  if (pref.length) return pref;
+
+  // 3 교재 별칭 (선택 필드 — 아직 데이터 없음)
+  const al = (tb && tb.unitAliases) || {};
+  for (const a in al) {
+    if (_umNorm(a) === n) {
+      const want = String(al[a] || '').split(/[,/]/).map(x => x.trim()).filter(Boolean);
+      const hit = [];
+      want.forEach(w => { const wn = _umNorm(w); nk.forEach(([k, kn]) => { if (kn === wn && !hit.includes(k)) hit.push(k); }); });
+      if (hit.length) return hit;
+    }
+  }
+
+  // 4 소제목 일치 (같은 제목이 여럿이면 전부)
+  // 'ee' 는 'ee ea'(Unit 1) 에는 붙지만 'ee-oy'(Review 1) 에는 붙으면 안 된다 —
+  // 낱개 이름이 범위 제목의 앞부분과 겹칠 뿐이다. 범위 제목은 완전 일치만 받는다.
+  const segIsRange = !!_umRange(seg);
+  const titleOk = (k) => {
+    const t = _umNorm(titles[k]);
+    if (!t) return false;
+    if (!segIsRange && _umRange(titles[k])) return t === n;
+    return _umEq(t, n);
+  };
+  const byTitle = keys.filter(titleOk);
+  if (byTitle.length) return byTitle;
+
+  // 5 소제목 + 번호 꼬리표 ('Long Vowel a 1-2')
+  const tail = _umNorm(_umStripTail(seg));
+  if (tail && tail !== n) {
+    const byTail = keys.filter(k => _umNorm(titles[k]) === tail);
+    if (byTail.length) return byTail;
+  }
+
+  // 6 범위끼리 ('A~L' ↔ 소제목 'Aa-Ll', 'M~O' ↔ 'Mm Nn Oo' 의 처음·끝)
+  const r = _umRange(seg);
+  if (r) {
+    const byRange = keys.filter(k => {
+      const t = String(titles[k] || ''); if (!t) return false;
+      const tr = _umRange(t);
+      if (tr) return _umEq(tr.a, r.a) && _umEq(tr.b, r.b);
+      const ps = _umTokens(t);
+      return ps.length > 1 && _umEq(ps[0], r.a) && _umEq(ps[ps.length - 1], r.b);
+    });
+    if (byRange.length) return byRange;
+  }
+
+  // 6b 소제목의 낱개 토큰 일치 — 'th' → 'ph th wh'(Unit 8), 'E' → 'Dd Ee Ff'(Unit 2)
+  // 교재가 한 단원에 소리·글자를 여럿 묶어 적어 두고, 수업 기록은 그중 하나만 적는 일이 잦다.
+  // 범위로 적힌 이름은 위 6 에서만 푼다 ('ee~oy' 가 'ee ea' 에 붙지 않게).
+  if (!segIsRange) {
+    const byTok = keys.filter(k => {
+      const t = String(titles[k] || ''); if (!t) return false;
+      if (_umRange(t)) return false;
+      const ps = _umTokens(t);
+      return ps.length > 1 && ps.some(x => _umEq(x, n));
+    });
+    if (byTok.length) return byTok;
+  }
+
+  // 7 Review 가 덮는 번호 ('Review 1-4' → Review 1)
+  const rv = String(seg).match(/^\s*(review|test|복습)\s*(\d+)\s*[-~–—]\s*(\d+)\s*$/i);
+  if (rv) {
+    const lo = parseInt(rv[2], 10), hi = parseInt(rv[3], 10);
+    const hit = _umReviewSpans(tb, keys).find(s => s.nums.includes(hi) || s.nums.includes(lo));
+    if (hit) return [hit.key];
+  }
+
+  // 8 꼬리말 일치 ('Final test' → 'Test')
+  const tailKey = nk.filter(([, kn]) => kn.length >= 3 && !/\d/.test(kn) && n.endsWith(kn) && n !== kn).map(([k]) => k);
+  if (tailKey.length === 1) return tailKey;
+
+  return [];
+}
+// 교재 tb 에서 label 이 가리키는 단원 키들. label 은 'Unit 1, Unit 2' 처럼 여러 개여도 된다.
+function ppMatchUnit(tb, label) {
+  if (!tb || label == null) return [];
+  const keys = (typeof tbUnitKeys === 'function') ? tbUnitKeys(tb) : Object.keys((tb && tb.units) || {});
+  if (!keys.length) return [];
+  const out = [];
+  String(label).split(/[,/]/).forEach(seg => {
+    if (!seg.trim()) return;
+    _umOne(tb, keys, seg).forEach(k => { if (!out.includes(k)) out.push(k); });
+  });
+  return out;
+}
+// 단원 이름 하나가 그 키와 같은 단원인가 (키끼리 비교하는 옛 _pgUMatch 자리 대체용)
+function ppSameUnit(tb, label, key) { return ppMatchUnit(tb, label).includes(key); }
+// 목차에서 가장 뒤쪽 단원의 자리 (-1 = 없음)
+function ppUnitIdx(tb, label) {
+  const keys = (typeof tbUnitKeys === 'function') ? tbUnitKeys(tb) : Object.keys((tb && tb.units) || {});
+  let best = -1;
+  ppMatchUnit(tb, label).forEach(k => { const i = keys.indexOf(k); if (i > best) best = i; });
+  return best;
 }
 // 임의 단원명 배열을 교재의 단원 순서 기준으로 정렬 (목록에 없는 이름은 뒤에 이름순)
 function tbSortUnitNames(tb,names){

@@ -3349,11 +3349,9 @@ function openVocabPaper(sid){
         bs.value=tb.id;vpBookChange();
         if(unit){
           const us=document.getElementById('vp-units');
-          // 'DAY 01' 과 'DAY 1' 처럼 0 채움만 다른 표기도 같게 본다
-          const nz=s=>((typeof _pgNorm==='function')?_pgNorm(s):String(s||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'')).replace(/0+(\d)/g,'$1');
-          const eq=(a,b)=>(typeof _pgUMatch==='function')?_pgUMatch(a,b):a===b;
-          const want=String(unit).split(',').map(x=>nz(x)).filter(Boolean);
-          if(us)[...us.options].forEach(o=>{if(want.some(w=>eq(nz(o.value),w)))o.selected=true;});
+          // 'DAY 01' ↔ 'Day 1', 소제목·별칭까지 공용 매칭으로 (2026-11-08)
+          const want=new Set((typeof ppMatchUnit==='function')?ppMatchUnit(tb,unit):[]);
+          if(us&&want.size)[...us.options].forEach(o=>{if(want.has(o.value))o.selected=true;});
         }
       }
     }
@@ -5167,11 +5165,21 @@ function tuCreateUnit(){
 // ── 목차 이미지 → 단원 일괄 생성 (Claude 비전으로 목차 추출, 확인 후 생성) ──
 function tuTocFile(e){const f=e.target.files[0];e.target.value='';if(f)tuTocFromFile(f);}
 // ── 단원명 매칭 공용: 정규화 일치 → 접두 일치('Unit 1' ↔ 'Unit 1. Short Vowels') → 첫 숫자 1:1 일치(모호하면 미매칭) ──
-function tuMatchUnitNames(existKeys,names){
+// tb 를 받으면 공용 ppMatchUnit 으로 먼저 찾는다 (소제목·별칭·Review 범위까지 같은 규칙, 2026-11-08).
+// 1:1 배정(한 기존 단원은 한 새 이름에만)은 그대로 — 목차 동기화에서 단원이 합쳐지면 안 되기 때문이다.
+function tuMatchUnitNames(tb,existKeys,names){
+  if(Array.isArray(tb)){names=existKeys;existKeys=tb;tb=null;}   // 옛 호출 방식 호환
   const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
   const firstNum=s=>{const m2=String(s||'').match(/\d+/);return m2?parseInt(m2[0]):null;};
   const used=new Set();const out=new Map();
-  names.forEach(n=>{const k=existKeys.find(k2=>!used.has(k2)&&norm(k2)===norm(n));if(k){out.set(n,k);used.add(k);}});
+  if(tb&&typeof ppMatchUnit==='function'){
+    const stub={...tb,units:Object.fromEntries(existKeys.map(k=>[k,[]])),unitOrder:existKeys};
+    names.forEach(n=>{
+      const k=ppMatchUnit(stub,n).find(x=>!used.has(x));
+      if(k){out.set(n,k);used.add(k);}
+    });
+  }
+  names.forEach(n=>{if(out.has(n))return;const k=existKeys.find(k2=>!used.has(k2)&&norm(k2)===norm(n));if(k){out.set(n,k);used.add(k);}});
   names.forEach(n=>{
     if(out.has(n))return;
     const nn=norm(n);
@@ -5239,7 +5247,7 @@ function tuTocSync(tbId,items){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   try{
     const existKeys=tbUnitKeys(tb);
-    const match=tuMatchUnitNames(existKeys,items.map(x=>x.unit));
+    const match=tuMatchUnitNames(tb,existKeys,items.map(x=>x.unit));
     items.forEach(x=>{x._match=match.get(x.unit)||null;});
     const usedOld=new Set([...match.values()]);
     const renames=[],creates=[];
@@ -5276,7 +5284,7 @@ function tuWordlistMerge(tbId,parsedUnits){
   const entries=Object.entries(parsedUnits||{}).filter(([,ws])=>Array.isArray(ws)&&ws.length);
   if(!entries.length){toast('단어를 찾지 못했어요');return;}
   const existKeys=tbUnitKeys(tb);
-  const match=tuMatchUnitNames(existKeys,entries.map(([n])=>n));
+  const match=tuMatchUnitNames(tb,existKeys,entries.map(([n])=>n));
   const plan=entries.map(([name,ws])=>{
     const target=match.get(name)||name; // 매칭되면 기존 단원에 합침, 아니면 새 단원
     const existing=tuNormWords((tb.units||{})[target]||[]);
@@ -6018,22 +6026,16 @@ async function addUnitWordsToVocab(sid,materials,date){
     const bookBase=mat.book.replace(/\s*\(.*\)\s*$|^\s*\(.*\)\s*/,'').trim().toLowerCase();
     const tb=(_cache.globalTextbooks||[]).find(b=>b.title.trim().toLowerCase()===bookBase||b.title.trim().toLowerCase()===mat.book.trim().toLowerCase());
     if(!tb?.units)continue;
-    // 유닛명 매칭: 정확 → 숫자 경계 안전 포함 (Lesson 1이 Lesson 12에 걸리던 오매칭 방지, 앞자리 0 정규화)
-    const zz=s=>s.replace(/\b0+(\d)/g,'$1');
-    const ul=zz(mat.unit.trim().toLowerCase());
-    const numSafeIncl=(hay,needle)=>{
-      const i=hay.indexOf(needle);
-      if(i<0)return false;
-      const nx=hay[i+needle.length];
-      return !(nx&&/[0-9.]/.test(nx)&&/[0-9]$/.test(needle)); // 숫자로 끝나는 키 뒤에 또 숫자면 다른 번호
-    };
-    const matchKey=Object.keys(tb.units).find(k=>{
-      const kl=zz(k.trim().toLowerCase());
-      return kl===ul||numSafeIncl(ul,kl)||numSafeIncl(kl,ul);
+    // 단원 매칭은 공용 ppMatchUnit 으로 (2026-11-08).
+    // 전에는 '중간 포함'까지 허용해 엉뚱한 단원에 붙을 수 있었고, 'Unit 4, Unit 6' 처럼
+    // 여러 단원을 적은 기록은 맨 앞 하나만 반영됐다. 이제 쉼표를 나눠 전부 반영한다.
+    const matchKeys=(typeof ppMatchUnit==='function')?ppMatchUnit(tb,mat.unit):[];
+    if(!matchKeys.length)continue;
+    const words=[];
+    matchKeys.forEach(mk=>{
+      tuNormWords(tb.units[mk]||[]).forEach(w=>words.push({...(w&&typeof w==='object'?w:{word:String(w)}),srcId:tb.id,srcType:'textbook',srcUnit:mk}));
     });
-    if(!matchKey)continue;
-    const words=tuNormWords(tb.units[matchKey]).map(w=>({...(w&&typeof w==='object'?w:{word:String(w)}),srcId:tb.id,srcType:'textbook',srcUnit:matchKey}));
-    if(words?.length)await syncVocabCards(sid,words,[],date,mat.book||'수업','expose');
+    if(words.length)await syncVocabCards(sid,words,[],date,mat.book||'수업','expose');
   }
 }
 function updateTbookDatalist(){
@@ -12941,13 +12943,8 @@ function _pgTbOf(mat){
 }
 // 진도 문자열("DAY 01, DAY 02")에서 가장 뒤쪽 단원의 목차 인덱스 (-1=매칭 없음)
 function _pgUnitIdx(tb,unitStr){
-  const keys=tbUnitKeys(tb);if(!keys.length)return -1;
-  let best=-1;
-  String(unitStr||'').split(',').map(s=>_pgNorm(s)).filter(Boolean).forEach(u=>{
-    const i=keys.findIndex(k=>_pgUMatch(_pgNorm(k),u));
-    if(i>best)best=i;
-  });
-  return best;
+  // 공용 매칭(ppMatchUnit)으로 옮김 (2026-11-08) — 쉼표 분해·소제목·별칭·Review 범위까지 같은 규칙
+  return (typeof ppUnitIdx==='function')?ppUnitIdx(tb,unitStr):-1;
 }
 // 클래스에서 이 교재의 마지막 기록 {idx,date} — 최신 수업일 우선 (미래 기록은 진도 계산 제외)
 // 이 교재의 진도 = **가장 멀리 나간 단원**. '마지막 날짜의 단원'으로 잡으면 복습으로 앞 단원을

@@ -426,25 +426,39 @@ function renderStudentLibrary(sid){
   });
   const _recentPairs=[]; // {b,u} — 직전 수업에서 다룬 책·단원 (배지·정렬용)
   if(lastLes)Object.entries(lastLes.materials||{}).forEach(([k,v])=>{
-    if(v&&v.book&&v.unit)String(v.unit).split(',').forEach(seg=>{if(seg.trim())_recentPairs.push({b:_n(v.book),u:_n(seg)});});
+    if(v&&v.book&&v.unit)String(v.unit).split(/[,/]/).forEach(seg=>{if(seg.trim())_recentPairs.push({b:_n(v.book),u:_n(seg),raw:seg.trim()});});
   });
-  // 수업 기록 'Unit 1' vs 교재 키 'Unit 1 New Friends' 표기 차이 흡수 (숫자 경계 보호로 Unit 11 오매칭 방지)
+  // 수업 기록 'Unit 1' vs 교재 키 'Unit 1 New Friends' 표기 차이 흡수
+  // (숫자 경계 보호로 Unit 11 오매칭 방지). 2026-11-08 부터 교재가 있으면
+  // 공용 ppMatchUnit 을 쓰고, 교재를 모를 때만 글자끼리 비교로 돌아간다.
   const _pref=(a,b)=>a.startsWith(b)&&!/^\d/.test(a.slice(b.length));
   const _uMatch=(a,b)=>a===b||(!!a&&!!b&&(_pref(a,b)||_pref(b,a)));
-  const _isRecent=(title,unit)=>{const tb=_n(title),tu=_n(unit);return _recentPairs.some(p=>p.b===tb&&_uMatch(p.u,tu));};
+  const _tbByTitle={};
+  (_cache.globalTextbooks||[]).forEach(b=>{if(b&&b.title)_tbByTitle[_n(b.title)]=b;});
+  // 어떤 교재의 단원 이름 두 개가 같은 단원을 가리키는가
+  const _uSame=(title,a,b)=>{
+    const tb=_tbByTitle[_n(title)];
+    if(tb&&typeof ppMatchUnit==='function'){
+      const ka=ppMatchUnit(tb,a),kb=ppMatchUnit(tb,b);
+      if(ka.length&&kb.length)return ka.some(x=>kb.includes(x));
+    }
+    return _uMatch(_n(a),_n(b));
+  };
+  const _isRecent=(title,unit)=>{const tb=_n(title);return _recentPairs.some(p=>p.b===tb&&_uSame(title,p.raw,unit));};
   const _unitLesDate={}; // '책|단원'별 마지막 수업일 — 단원 목록 최근 학습 정렬용
   DB.less().forEach(l=>{
     if(l.sid!==sid)return;
     Object.values(l.materials||{}).forEach(v=>{
-      if(v&&v.book&&v.unit)String(v.unit).split(',').forEach(seg=>{
+      if(v&&v.book&&v.unit)String(v.unit).split(/[,/]/).forEach(seg=>{
         if(!seg.trim())return;const k=_n(v.book)+'|'+_n(seg);
-        if(!_unitLesDate[k]||(l.date||'')>_unitLesDate[k])_unitLesDate[k]=l.date||'';
+        if(!_unitLesDate[k]||(l.date||'')>_unitLesDate[k].date)_unitLesDate[k]={date:l.date||'',raw:seg.trim()};
       });
     });
   });
-  const _uLesDate=(title,unit)=>{const tb=_n(title),tu=_n(unit);let best='';
+  const _uLesDate=(title,unit)=>{const tb=_n(title);let best='';
     for(const k in _unitLesDate){const i=k.indexOf('|');if(k.slice(0,i)!==tb)continue;
-      if(_uMatch(k.slice(i+1),tu)&&_unitLesDate[k]>best)best=_unitLesDate[k];}
+      const row=_unitLesDate[k];
+      if(_uSame(title,row.raw,unit)&&row.date>best)best=row.date;}
     return best;};
 
   // ── 과제로 끝낸 교재·단원 (2026-11-08) ──
@@ -472,9 +486,10 @@ function renderStudentLibrary(sid){
     if(!raw)return out;
     const keys=[...new Set([...Object.keys(tb.units||{}),...Object.keys(tb.unitTexts||{})])];
     Object.entries(raw).forEach(([u,d])=>{
-      const nu=_n(u);
-      const hit=keys.find(k=>_uMatch(_n(k),nu));
-      if(hit&&(!out[hit]||d>out[hit]))out[hit]=d;
+      // 공용 매칭 먼저, 못 찾으면 종전대로 글자끼리 (2026-11-08)
+      let hits=(typeof ppMatchUnit==='function')?ppMatchUnit(tb,u):[];
+      if(!hits.length){const nu=_n(u);const h=keys.find(k=>_uMatch(_n(k),nu));hits=h?[h]:[];}
+      hits.forEach(hit=>{if(!out[hit]||d>out[hit])out[hit]=d;});
     });
     return out;
   };
@@ -3145,9 +3160,10 @@ function openVocabForAssignment(sid,asgnId){
 // ── 단원 3단계 복습 ──
 let _urState={tbId:'',unitKey:'',tb:null,words:[],step:1};
 
-function openUnitReview(tbId,unitKey){
+function openUnitReview(tbId,unitKey0){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
   if(!tb)return toast('교재 정보가 없습니다');
+  const unitKey=(typeof ppUnitKeyOf==='function')?ppUnitKeyOf(tb,unitKey0):unitKey0;
   const words=tuNormWords(tb.units?.[unitKey]||[]);
   _urState={tbId,unitKey,tb,words,step:1,ttsLevel:ttsLevelForTb(tb)};
   document.getElementById('ur-title').textContent=tb.title||'복습';
