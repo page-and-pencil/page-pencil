@@ -928,8 +928,51 @@ function renderSpVocab(sid){
           </div>
         </div>
       </div>
-    </details>`;
+    </details>
+    ${(function(){
+      // 단어 스피드 테스트 설정 (P3) — 최고·최종·횟수만. 그래프는 P6.
+      const q=ppQuizCfg(sid);
+      const st=ppQuizStat(sid,'');
+      const T=[['mc','뜻 고르기'],['mcr','단어 고르기'],['listen','듣고 고르기'],['spell','철자 쓰기']];
+      return `<details style="margin-top:8px">
+        <summary style="font-size:12.5px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none">🏁 단어 테스트 설정${st.all?` <span style="color:var(--teal);font-weight:600">— 최고 ${st.best}점 · 최종 ${st.last}점 · ${st.tries}회</span>`:''}</summary>
+        <div style="padding:10px 2px 2px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:12px;color:var(--slate);min-width:46px">유형</span>
+            ${T.map(([v,l])=>`<label style="font-size:12.5px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" class="qz-type" value="${v}" ${q.types.includes(v)?'checked':''} style="width:auto;min-height:0">${l}</label>`).join('')}
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:12px;color:var(--slate);min-width:46px">문항</span>
+            <input type="number" id="qz-n" value="${q.n}" min="2" max="50" style="width:62px;text-align:center">
+            <span style="font-size:12px;color:var(--slate);margin-left:8px">제한시간</span>
+            <select id="qz-sec" style="width:96px">${[[10,'느림 10초'],[7,'보통 7초'],[5,'빠름 5초'],[3,'매우 빠름 3초']].map(([v,l])=>`<option value="${v}"${q.sec===v?' selected':''}>${l}</option>`).join('')}</select>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:12px;color:var(--slate);min-width:46px">목표</span>
+            <input type="number" id="qz-goal" value="${q.goal}" min="1" max="100" style="width:62px;text-align:center"><span style="font-size:12px;color:var(--slate)">점</span>
+            <input type="number" id="qz-times" value="${q.goalTimes}" min="1" max="10" style="width:52px;text-align:center"><span style="font-size:12px;color:var(--slate)">회</span>
+            <label style="font-size:12.5px;display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:6px"><input type="checkbox" id="qz-req" ${q.require==='stages'?'checked':''} style="width:auto;min-height:0">학습 끝낸 뒤에만</label>
+          </div>
+          <div><button class="btn bt bsm" onclick="saveQuizCfg('${sid}')">테스트 설정 저장</button></div>
+        </div>
+      </details>`;
+    })()}`;
   renderVocabList(sid);
+}
+async function saveQuizCfg(sid){
+  const idx=(_cache.students||[]).findIndex(s=>s.id===sid);if(idx<0)return;
+  const types=[...document.querySelectorAll('.qz-type:checked')].map(c=>c.value);
+  if(!types.length)return toast('유형을 하나 이상 골라 주세요');
+  const n=parseInt(document.getElementById('qz-n')?.value,10)||10;
+  const sec=parseInt(document.getElementById('qz-sec')?.value,10)||7;
+  const goal=parseInt(document.getElementById('qz-goal')?.value,10)||ppVocabPassPct();
+  const goalTimes=parseInt(document.getElementById('qz-times')?.value,10)||1;
+  const require=document.getElementById('qz-req')?.checked?'stages':'';
+  const stu={..._cache.students[idx],vocabQuiz:{types,n,sec,goal,goalTimes,require}};
+  _cache.students[idx]=stu;
+  try{await supaUpsert('students',sid,stu,null);}
+  catch(e){console.error('saveQuizCfg:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
+  toast(`단어 테스트 설정 저장 (${n}문항 · ${sec}초 · 목표 ${goal}점 ${goalTimes}회)`);
 }
 function renderVocabList(sid){
   const listEl=document.getElementById('vocab-list');

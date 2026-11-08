@@ -973,6 +973,94 @@ function ppPaperPick(sid,opts){
   };
 }
 
+// ── 단어 스피드 테스트 (P3) ──────────────────────────────────
+// 설정·단어 묶음·기록 조회. 화면은 student.js.
+// 기록은 logs 에 {type:'vocab_quiz'} 로 남긴다 — DB.logs() 가 type 있는 행을 거르므로
+// 리딩로그·자체 시험(tests)·학부모 점수 탭에는 섞이지 않는다.
+const PP_QUIZ_TYPES={
+  mc:   {name:'뜻 고르기',  field:'meaning'},
+  mcr:  {name:'단어 고르기',field:'word'},
+  listen:{name:'듣고 고르기',field:'word'},
+  spell:{name:'철자 쓰기',  field:'word'},
+};
+const PP_QUIZ_DEFAULT={types:['mc','mcr'],n:10,sec:7,require:'',goalTimes:1};
+function ppQuizCfg(sid){
+  const stu=((typeof _cache!=='undefined')?(_cache.students||[]):[]).find(s=>s.id===sid)||{};
+  const c=(stu.vocabQuiz&&typeof stu.vocabQuiz==='object')?stu.vocabQuiz:{};
+  const types=(Array.isArray(c.types)?c.types.filter(t=>PP_QUIZ_TYPES[t]):[]);
+  const n=parseInt(c.n,10), sec=parseInt(c.sec,10), gt=parseInt(c.goalTimes,10), g=parseInt(c.goal,10);
+  return {
+    types:types.length?types:PP_QUIZ_DEFAULT.types.slice(),
+    n:(n>=2&&n<=50)?n:PP_QUIZ_DEFAULT.n,
+    sec:[3,5,7,10].includes(sec)?sec:PP_QUIZ_DEFAULT.sec,
+    require:(c.require==='stages')?'stages':'',
+    goal:(g>=1&&g<=100)?g:((typeof ppVocabPassPct==='function')?ppVocabPassPct():90),
+    goalTimes:(gt>=1&&gt<=10)?gt:PP_QUIZ_DEFAULT.goalTimes,
+  };
+}
+// 오늘 낼 단어 묶음 — ①오늘 마감 단어 숙제 ②직전 수업 단원 ③오늘의 20개
+function ppQuizSet(sid){
+  const today=(typeof ppToday==='function')?ppToday():'';
+  const cards=((typeof ppLive==='function')?ppLive(_cache.vocab_cards):(_cache.vocab_cards||[])).filter(c=>c.sid===sid);
+  const byWord=(list)=>{
+    const want=new Set(list.map(w=>String(w||'').toLowerCase().trim()).filter(Boolean));
+    return cards.filter(c=>want.has(String(c.word||'').toLowerCase().trim()));
+  };
+  // ① 오늘 마감인 단어 숙제
+  const asgs=((typeof ppLive==='function')?ppLive(_cache.assignments):(_cache.assignments||[])).filter(a=>a.sid===sid&&!a.completedAt);
+  for(const a of asgs){
+    if(!Array.isArray(a.words)||!a.words.length)continue;
+    const due=String(a.due||a.date||'').slice(0,10);
+    if(due!==today)continue;
+    const cs=byWord(a.words);
+    if(cs.length>=2)return {key:'hw:'+a.id,label:(a.bookTitle||a.range||'단어 숙제'),cards:cs,why:'hw'};
+  }
+  // ② 직전 수업 단원
+  if(typeof lessonWordSet==='function'){
+    const lw=lessonWordSet(sid);
+    if(lw&&lw.words&&lw.words.size){
+      const cs=byWord([...lw.words]);
+      if(cs.length>=2){
+        // 묶음 이름·키는 그 수업의 교재·단원에서
+        let key='les:'+(lw.date||''),label='지난 수업 단어';
+        const les=((typeof DB!=='undefined')?DB.less():[]).filter(l=>l.sid===sid&&l.date===lw.date)[0];
+        if(les)Object.values(les.materials||{}).some(v=>{
+          if(!v||!v.book||!v.unit)return false;
+          const tb=(_cache.globalTextbooks||[]).find(b=>(v.bookId&&b.id===v.bookId)||b.title===v.book);
+          if(!tb)return false;
+          key='tb:'+tb.id+':'+v.unit;label=tb.title+' '+v.unit;return true;
+        });
+        return {key,label,cards:cs,why:'lesson'};
+      }
+    }
+  }
+  // ③ 오늘의 20개
+  if(typeof dailyVocabPick==='function'){
+    const d=dailyVocabPick(sid,today);
+    if(d&&d.cards&&d.cards.length>=2)return {key:'daily',label:'오늘의 20개',cards:d.cards.slice(),why:'daily'};
+  }
+  return null;
+}
+// 이 묶음의 퀴즈 기록 (최신 순)
+function ppQuizLogs(sid,setKey){
+  const all=((typeof _cache!=='undefined')?(_cache.logs||[]):[])
+    .filter(l=>l&&!l._deleted&&l.sid===sid&&l.type==='vocab_quiz');
+  const rows=setKey?all.filter(l=>l.setKey===setKey):all;
+  return rows.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||((b.at||0)-(a.at||0)));
+}
+// 최고·최종·횟수 (전체 문항 회차만 센다 — '직전 오답만' 회차는 응시 횟수에 넣지 않는다)
+function ppQuizStat(sid,setKey){
+  const rows=ppQuizLogs(sid,setKey);
+  const full=rows.filter(r=>!r.partial);
+  const best=rows.reduce((m,r)=>Math.max(m,r.score||0),0);
+  return {best,last:rows.length?(rows[0].score||0):0,tries:full.length,all:rows.length,rows};
+}
+// 목표 점수를 goalTimes 번 넘겼는가 (숙제 자동 완료 판단)
+function ppQuizGoalMet(sid,setKey,goal,times){
+  const g=(goal>=1&&goal<=100)?goal:((typeof ppVocabPassPct==='function')?ppVocabPassPct():90);
+  const need=(times>=1)?times:1;
+  return ppQuizLogs(sid,setKey).filter(r=>(r.score||0)>=g).length>=need;
+}
 // ── 재시험 예정 (B3) ─────────────────────────────────────────
 // 통과할 때까지 학생 줄과 오늘 수업 목록에 칩이 남는다.
 function ppRetestPending(sid){

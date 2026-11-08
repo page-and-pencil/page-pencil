@@ -1117,7 +1117,7 @@ function swStuTab(id){
       else p.classList.remove('active');
     });
     if(id==='st-home')renderStudentHome(currentStudentSid);
-    if(id==='st-vocab')renderVocabDeck(currentStudentSid);
+    if(id==='st-vocab'){if(typeof quizState!=='undefined'&&quizState)_qzRender();else renderVocabDeck(currentStudentSid);}
     if(id==='st-library')renderStudentLibrary(currentStudentSid);
     window.scrollTo(0,0);
   };
@@ -2330,6 +2330,9 @@ async function renderVocabResult(el){
     const ci=(_cache.vocab_cards||[]).findIndex(c=>c.id===card.id);
     if(ci<0)continue;
     const cur=_cache.vocab_cards[ci];
+    // 그날 퀴즈가 이미 반영한 카드는 다시 올리지 않는다 (2026-11-10).
+    // 하루에 학습+퀴즈로 두 번 반영하면 box 가 두 칸 올라 복습 주기가 어긋난다.
+    if(cur.lastSeen===today&&cur.lastSeenBy==='quiz')continue;
     // 에빙하우스 간격 반복: 맞으면 다음 박스(1→2→4→7→15→30→60일 뒤 복습), 틀리면 1일 뒤로 리셋
     const BOXD=[1,2,4,7,15,30,60];
     const nbox=ok?Math.min((cur.box||0)+1,BOXD.length-1):0;
@@ -2397,6 +2400,295 @@ function vocabRetryMissed(){
   vocabRenderStage();
 }
 
+// ── 단어 스피드 테스트 (P3) ──────────────────────────────────
+// 학습(구간 엔진)과 별개로 돈다. 상태도 deckState 와 섞지 않는다.
+// 기록 규칙 (2026-11-10 원장 지시)
+//  · 퀴즈 자기 세션의 **첫 시도**만 카드에 반영. 재응시·'틀린 것만 다시'는 점수에만 쓴다
+//  · 그날 이미 학습 세션이 반영한 카드(lastSeen===오늘 && lastSeenBy==='study')는 건드리지 않는다
+//  · 반대로 학습 세션도 그날 퀴즈가 반영한 카드는 box·due·hits·misses 를 다시 올리지 않는다
+//    (renderVocabResult 쪽에 같은 규칙을 넣었다)
+let quizState=null;
+function _qzEsc(s){return (typeof _vgEsc==='function')?_vgEsc(s):String(s==null?'':s);}
+// 유형별 제한시간 — 철자 쓰기는 두 배, 듣고 고르기는 소리가 끝난 뒤부터 잰다
+function _qzSecFor(type,base){return type==='spell'?base*2:base;}
+// 보기 모자랄 때 같은 교재 → 학생 단어장 순으로 채운다 (_vgOpts 가 이미 그 순서로 가중)
+function _qzOpts(card,field){
+  const opts=(typeof _vgOpts==='function')?_vgOpts(card,field):[String(card[field]||'')];
+  return opts;
+}
+function openVocabQuiz(sid,opts){
+  const o=opts||{};
+  const set=o.set||ppQuizSet(sid);
+  if(!set||!set.cards||set.cards.length<2){toast('퀴즈를 낼 단어가 모자라요');return;}
+  const cfg=ppQuizCfg(sid);
+  const n=Math.min(cfg.n,set.cards.length);     // 단어가 적으면 그만큼만
+  quizState={
+    sid,setKey:set.key,label:set.label,pool:set.cards.slice(),
+    cfg,n,idx:0,answers:[],pauses:0,paused:false,
+    attempt:(ppQuizStat(sid,set.key).all||0)+1,
+    partial:false,baseCorrect:0,baseTotal:0,t0:0,ms:0,timer:null,left:0,
+  };
+  _qzBuild();
+  quizState.t0=0;
+  swStuTab('st-vocab');          // 탭 전환이 _qzRender 를 부른다
+  setTimeout(()=>{if(quizState&&!quizState.t0)renderQuizIntro();},60);
+}
+// 문항 만들기 — 매번 새로 섞는다
+function _qzBuild(){
+  const q=quizState;if(!q)return;
+  const pool=_vgShuffle(q.pool.slice()).slice(0,q.n);
+  q.qs=pool.map((c,i)=>({card:c,type:q.cfg.types[i%q.cfg.types.length]}));
+  q.idx=0;q.answers=[];q.ms=0;
+}
+// 퀴즈가 돌고 있을 때 탭을 다시 그리면 학습 화면이 아니라 퀴즈 화면으로
+function _qzRender(){
+  const q=quizState;if(!q)return;
+  if(!q.qs||!q.qs.length||q.idx>=q.qs.length&&q.answers&&q.answers.length)return renderQuizIntro();
+  if(q.t0)return renderQuizCard();
+  renderQuizIntro();
+}
+function renderQuizIntro(){
+  const q=quizState;if(!q)return;
+  const el=document.getElementById('st-vocab');if(!el)return;
+  const st=ppQuizStat(q.sid,q.setKey);
+  const tn=q.cfg.types.map(t=>(PP_QUIZ_TYPES[t]||{}).name).filter(Boolean).join(' · ');
+  el.innerHTML=`<div style="padding:1.5rem;text-align:center">
+    <div style="font-size:40px;margin-bottom:8px">🏁</div>
+    <div style="font-size:20px;font-weight:800;color:var(--navy);margin-bottom:4px">단어 테스트</div>
+    <div style="font-size:14px;color:var(--slate);margin-bottom:14px">${_qzEsc(q.label)}</div>
+    <div style="background:var(--tl);border-radius:12px;padding:14px 16px;margin-bottom:18px;font-size:13.5px;color:var(--tealt);line-height:1.8">
+      ${q.n}문항 · 문항당 ${q.cfg.sec}초<br>${_qzEsc(tn)}
+      ${st.tries?`<div style="color:var(--slate);margin-top:6px">최고 ${st.best}점 · ${st.tries}회 응시</div>`:''}
+    </div>
+    <button class="btn bt" style="padding:14px 44px;font-size:17px;border-radius:50px" onclick="_qzStart()">시작! →</button>
+    <div style="margin-top:14px"><button class="btn bo bsm" onclick="quizState=null;renderVocabDeck(currentStudentSid)">단어 학습으로</button></div>
+  </div>`;
+}
+function _qzStart(){
+  const q=quizState;if(!q)return;
+  q.t0=Date.now();q.ms=0;
+  renderQuizCard();
+}
+function _qzClearTimer(){const q=quizState;if(q&&q.timer){clearInterval(q.timer);q.timer=null;}}
+function renderQuizCard(){
+  const q=quizState;if(!q)return;
+  const el=document.getElementById('st-vocab');if(!el)return;
+  _qzClearTimer();
+  if(q.idx>=q.qs.length){renderQuizResult();return;}
+  const it=q.qs[q.idx];
+  const card=it.card,type=it.type;
+  const sec=_qzSecFor(type,q.cfg.sec);
+  q.left=sec;q.secMax=sec;
+  const head=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="font-size:13px;color:var(--slate);font-family:var(--fm)">${q.idx+1} / ${q.qs.length}</span>
+      <div style="flex:1;height:8px;background:var(--divider);border-radius:4px;overflow:hidden">
+        <div id="qz-bar" style="height:100%;width:100%;background:var(--accent);border-radius:4px;transition:width .25s linear"></div>
+      </div>
+      <button class="btn bo bxxs" id="qz-pause-btn" onclick="qzPause()">멈춤</button>
+    </div>`;
+  let body='';
+  if(type==='spell'){
+    body=`<div style="background:var(--tl);border-radius:10px;padding:18px;text-align:center;margin-bottom:14px">
+        <div style="font-size:21px;font-weight:700;color:var(--navy)">${_qzEsc(card.meaning||'(뜻 미입력)')}</div>
+      </div>
+      <input class="recall-input" id="qz-in" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+        placeholder="영어로 입력..." onkeydown="if(event.key==='Enter'){if(event.isComposing||event.keyCode===229)return;event.preventDefault();qzAnswerSpell();}">
+      <div style="text-align:center;margin-top:10px"><button class="btn bt bsm" onclick="qzAnswerSpell()">확인</button></div>`;
+  }else{
+    const field=(PP_QUIZ_TYPES[type]||{}).field||'meaning';
+    const opts=_qzOpts(card,field);
+    q.cur={opts,right:opts.indexOf(String(card[field]||'').trim())};
+    const prompt=type==='listen'
+      ?`<div style="background:var(--tl);border-radius:10px;padding:22px;text-align:center;margin-bottom:14px">
+          <button onclick="speakWord('${String(card.word).replace(/'/g,"\\'")}')" style="width:72px;height:72px;border-radius:50%;border:none;background:var(--teal);color:#fff;font-size:30px;cursor:pointer;box-shadow:var(--sh)">🔊</button>
+          <div style="font-size:12.5px;color:var(--slate);margin-top:8px">잘 듣고 맞는 단어를 고르세요</div>
+        </div>`
+      :`<div style="background:var(--tl);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px">
+          <div style="font-size:${type==='mc'?'26px':'21px'};font-weight:${type==='mc'?'800':'700'};color:var(--navy);${type==='mc'?'font-family:var(--fd)':''}">${_qzEsc(type==='mc'?card.word:(card.meaning||'(뜻 미입력)'))}</div>
+        </div>`;
+    body=prompt+`<div id="qz-opts">${opts.map((o,i)=>`<button class="qz-opt" data-i="${i}" onclick="qzAnswer(${i})" style="display:block;width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:12px;background:#fff;font-size:16px;font-weight:700;color:var(--navy);font-family:var(--fb);cursor:pointer;text-align:center;margin-bottom:10px">${_qzEsc(o)}</button>`).join('')}</div>`;
+  }
+  el.innerHTML=`<div style="padding:1.25rem" id="qz-wrap">${head}
+    <div id="qz-body">${body}</div>
+    <div id="qz-paused" style="display:none;padding:40px 10px;text-align:center">
+      <div style="font-size:38px;margin-bottom:10px">⏸</div>
+      <div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:14px">잠깐 멈췄어요</div>
+      <button class="btn bt" style="padding:12px 32px;border-radius:50px" onclick="qzResume()">이어서 하기 →</button>
+      <div style="margin-top:12px"><button class="btn bo bsm" onclick="qzQuit()">그만하기</button></div>
+    </div>
+  </div>`;
+  if(type==='spell')setTimeout(()=>{const i=document.getElementById('qz-in');if(i){i.focus();try{i.scrollIntoView({block:'center'});}catch(e){}}},120);
+  // 듣고 고르기는 **소리가 끝난 뒤부터** 시간을 잰다
+  if(type==='listen'){
+    const bar=document.getElementById('qz-bar');if(bar)bar.style.width='100%';
+    Promise.resolve(speakWord(card.word)).catch(()=>{}).then(()=>{ if(quizState===q&&!q.paused)_qzTick(); });
+  }else _qzTick();
+}
+function _qzTick(){
+  const q=quizState;if(!q)return;
+  _qzClearTimer();
+  q.tStart=Date.now();
+  q.timer=setInterval(()=>{
+    if(!quizState||quizState!==q||q.paused)return;
+    q.left-=0.1;
+    const bar=document.getElementById('qz-bar');
+    if(bar)bar.style.width=Math.max(0,(q.left/q.secMax)*100)+'%';
+    if(q.left<=0){_qzClearTimer();_qzRecord(false,true);}
+  },100);
+}
+function qzPause(){
+  const q=quizState;if(!q||q.paused)return;
+  q.paused=true;q.pauses++;_qzClearTimer();
+  // 문제·보기를 가린다
+  const b=document.getElementById('qz-body');if(b)b.style.display='none';
+  const p=document.getElementById('qz-paused');if(p)p.style.display='block';
+  const btn=document.getElementById('qz-pause-btn');if(btn)btn.style.display='none';
+}
+function qzResume(){
+  const q=quizState;if(!q||!q.paused)return;
+  q.paused=false;
+  const b=document.getElementById('qz-body');if(b)b.style.display='';
+  const p=document.getElementById('qz-paused');if(p)p.style.display='none';
+  const btn=document.getElementById('qz-pause-btn');if(btn)btn.style.display='';
+  _qzTick();
+}
+function qzQuit(){_qzClearTimer();quizState=null;swStuTab('st-home');}
+function qzAnswer(i){
+  const q=quizState;if(!q||q.paused)return;
+  _qzClearTimer();
+  const ok=(i===q.cur.right);
+  // 고른 것·정답 표시
+  document.querySelectorAll('#qz-opts .qz-opt').forEach(b=>{
+    const bi=parseInt(b.dataset.i,10);
+    if(bi===q.cur.right){b.style.borderColor='#10B981';b.style.background='#ECFDF5';}
+    else if(bi===i){b.style.borderColor='var(--coral)';b.style.background='#FEF2F2';}
+    b.disabled=true;
+  });
+  if(typeof vgMark==='function')vgMark(ok);
+  setTimeout(()=>_qzRecord(ok,false),ok?450:900);
+}
+function qzAnswerSpell(){
+  const q=quizState;if(!q||q.paused)return;
+  const inp=document.getElementById('qz-in');if(!inp||inp.readOnly)return;
+  _qzClearTimer();
+  const card=q.qs[q.idx].card;
+  const ok=(typeof _spellNorm==='function')
+    ?(_spellNorm(inp.value)===_spellNorm(card.word))
+    :(String(inp.value||'').trim().toLowerCase()===String(card.word||'').toLowerCase());
+  inp.readOnly=true;
+  inp.classList.toggle('correct',ok);inp.classList.toggle('wrong',!ok);
+  if(typeof vgMark==='function')vgMark(ok);
+  setTimeout(()=>_qzRecord(ok,false),ok?450:900);
+}
+// 한 문항 마무리 — 시간 초과도 오답
+function _qzRecord(ok,timeout){
+  const q=quizState;if(!q)return;
+  const it=q.qs[q.idx];
+  q.answers.push({word:it.card.word,id:it.card.id,ok:!!ok,timeout:!!timeout,type:it.type});
+  q.idx++;
+  if(q.idx>=q.qs.length){q.ms=Date.now()-q.t0;renderQuizResult();return;}
+  renderQuizCard();
+}
+async function renderQuizResult(){
+  const q=quizState;if(!q)return;
+  _qzClearTimer();
+  const el=document.getElementById('st-vocab');if(!el)return;
+  const correct=q.answers.filter(a=>a.ok).length;
+  // '직전 오답만 다시' 는 앞 회차에서 맞힌 몫을 더해 센다
+  const totalAll=q.partial?q.baseTotal:q.answers.length;
+  const corrAll=q.partial?(q.baseCorrect+correct):correct;
+  const score=totalAll?Math.round(corrAll/totalAll*100):0;
+  const wrong=q.answers.filter(a=>!a.ok).map(a=>a.word);
+  // ── 카드 기록: 전체 문항 회차의 **첫 응시**만, 그날 학습이 이미 반영한 카드는 건너뜀 ──
+  let savedCards=0;
+  if(!q.partial){
+    const today=ppToday();
+    const BOXD=[1,2,4,7,15,30,60];
+    const seen=new Set();
+    for(const a of q.answers){
+      if(seen.has(a.id))continue;seen.add(a.id);
+      const ci=(_cache.vocab_cards||[]).findIndex(c=>c.id===a.id);
+      if(ci<0)continue;
+      const cur=_cache.vocab_cards[ci];
+      if(cur.lastSeen===today)continue;          // 오늘 이미 (학습이든 퀴즈든) 반영됨
+      const nbox=a.ok?Math.min((cur.box||0)+1,BOXD.length-1):0;
+      const nd=new Date(today+'T12:00:00');nd.setDate(nd.getDate()+BOXD[nbox]);
+      const upd={...cur,hits:(cur.hits||0)+(a.ok?1:0),misses:(cur.misses||0)+(a.ok?0:1),
+        lastSeen:today,lastSeenBy:'quiz',box:nbox,due:ppYmd(nd)};
+      if(['hits','misses','lastSeen','lastSeenBy','box','due'].every(k=>cur[k]===upd[k]))continue;
+      _cache.vocab_cards[ci]=upd;savedCards++;
+      try{await supaUpsert('vocab_cards',a.id,upd,a.id&&cur.sid);}catch(e){console.warn('퀴즈 카드 저장:',e);}
+    }
+  }
+  // ── 기록 한 줄 ──
+  const row={id:uid(),sid:q.sid,date:ppToday(),type:'vocab_quiz',setKey:q.setKey,
+    score,total:totalAll,correct:corrAll,wrong:wrong.slice(0,40),
+    mode:q.cfg.types.slice(),sec:q.cfg.sec,ms:q.ms||0,
+    attempt:q.attempt,partial:!!q.partial,pauses:q.pauses||0};
+  if(!_cache.logs)_cache.logs=[];
+  _cache.logs.unshift(row);
+  try{await supaUpsert('logs',row.id,row,q.sid);}catch(e){console.warn('퀴즈 기록 저장:',e);}
+  _quizHwAutoCheck(q.sid,q.setKey).catch(()=>{});
+  const st=ppQuizStat(q.sid,q.setKey);
+  const cls=score>=80?'hi':score>=50?'md':'lo';
+  const secs=Math.round((q.ms||0)/1000);
+  q.lastWrongIds=q.answers.filter(a=>!a.ok).map(a=>a.id);
+  el.innerHTML=`<div style="padding:2rem;text-align:center">
+    <div class="result-ring ${cls}">${score}점</div>
+    <div style="font-size:14px;color:var(--slate);margin:8px 0 2px">${totalAll}문항 중 ${corrAll}개 · ${secs}초 · ${q.attempt}번째 응시</div>
+    ${st.best?`<div style="font-size:13px;color:var(--tealt);font-weight:700;margin-bottom:10px">최고 ${st.best}점</div>`:''}
+    ${wrong.length?`<div style="margin:14px 0">
+      <div style="font-size:13px;font-weight:700;color:var(--slate);margin-bottom:8px">틀린 단어</div>
+      <div class="missed-list">${wrong.map(w=>`<span class="missed-chip">${_qzEsc(w)}</span>`).join('')}</div>
+    </div>`:'<div style="font-size:15px;font-weight:700;color:var(--okt);margin:14px 0">다 맞혔어요! 🎉</div>'}
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px">
+      ${wrong.length?`<button class="btn bt" style="padding:11px 22px;border-radius:50px" onclick="qzRetryWrong()">🔁 틀린 ${wrong.length}개만 다시</button>`:''}
+      <button class="btn bo" style="padding:11px 22px;border-radius:50px" onclick="qzAgain()">다시 응시</button>
+      <button class="btn bo" style="padding:11px 22px;border-radius:50px" onclick="quizState=null;swStuTab('st-home')">홈으로</button>
+    </div>
+  </div>`;
+  if(score>=80){try{showMiniConfetti();}catch(e){}}
+}
+// 틀린 것만 다시 — 맞힌 만큼 점수에 더한다. 카드 기록은 바꾸지 않는다.
+function qzRetryWrong(){
+  const q=quizState;if(!q)return;
+  const ids=new Set(q.lastWrongIds||[]);
+  const cards=q.qs.filter(x=>ids.has(x.card.id)).map(x=>x.card);
+  if(!cards.length)return;
+  const prevTotal=q.partial?q.baseTotal:q.answers.length;
+  const prevCorrect=q.partial?(q.baseCorrect+q.answers.filter(a=>a.ok).length):q.answers.filter(a=>a.ok).length;
+  q.partial=true;q.baseTotal=prevTotal;q.baseCorrect=prevCorrect;
+  q.pool=cards;q.n=cards.length;q.attempt++;
+  _qzBuild();q.t0=Date.now();q.pauses=0;
+  renderQuizCard();
+}
+// 다시 응시 — 100점이었으면 다시 전체 문항으로
+function qzAgain(){
+  const q=quizState;if(!q)return;
+  const set=ppQuizSet(q.sid);
+  q.pool=(set&&set.cards&&set.cards.length)?set.cards.slice():q.pool;
+  q.partial=false;q.baseTotal=0;q.baseCorrect=0;
+  q.n=Math.min(q.cfg.n,q.pool.length);
+  q.attempt=(ppQuizStat(q.sid,q.setKey).all||0)+1;
+  q.pauses=0;
+  _qzBuild();q.t0=Date.now();
+  renderQuizCard();
+}
+// 목표 점수 N회를 채우면 단어 숙제 그날 몫을 완료 처리 ('오늘 20개 학습' 과 둘 중 하나)
+async function _quizHwAutoCheck(sid,setKey){
+  if(!sid)return;
+  const today=ppToday();
+  for(const a of (_cache.assignments||[])){
+    if(a._deleted||a.sid!==sid)continue;
+    const goal=parseInt(a.quizGoal,10);
+    if(!(goal>=1&&goal<=100))continue;
+    const sc=(a.schedule||[]).find(s=>s.date===today);
+    if(!sc||sc.done)continue;
+    if(!ppQuizGoalMet(sid,setKey,goal,parseInt(a.quizTimes,10)||1))continue;
+    await completeSchedDay(sid,a.id,today);
+    toast('🏁 목표 점수 달성 — 숙제가 저절로 체크됐어요! ✓');
+  }
+}
 // ── GAMIFICATION HELPERS ──
 // XP는 실제 학습 데이터에서 파생 (수업 10 · 과제 20 · 단어 정답 2 · 마스터 5 · 완독 15 · 원서 10 · 테스트 10)
 // 100레벨 커브: xpForLevel(n)=30*(n-1)^1.85 — Lv2=30, Lv13≈2900, Lv100≈147,000 (학습량 대비 과도한 레벨 인플레 방지)
@@ -3287,6 +3579,22 @@ function renderStudentHome(sid){
       </div>
     </div>
   </div></div>`;
+  // ── 단어 스피드 테스트 (P3) — 낼 단어가 2개 미만이면 줄을 숨긴다 ──
+  const _qzSet=(typeof ppQuizSet==='function')?ppQuizSet(sid):null;
+  const quizCtaHtml=(_qzSet&&_qzSet.cards.length>=2)?(()=>{
+    const cfg=ppQuizCfg(sid);
+    const st=ppQuizStat(sid,_qzSet.key);
+    const n=Math.min(cfg.n,_qzSet.cards.length);
+    return `<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:800;color:var(--navy)">🏁 단어 테스트${st.tries?`<span style="font-size:12px;font-weight:600;color:var(--tealt);margin-left:8px">최고 ${st.best}점 · ${st.tries}회</span>`:''}</div>
+          <div style="font-size:12.5px;color:var(--neutral);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(_qzSet.label)} · ${n}문항 · ${cfg.sec}초</div>
+        </div>
+        <button class="btn bo bsm" style="flex:0 0 auto;border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabQuiz('${sid}')">시작!</button>
+      </div>
+    </div></div>`;
+  })():'';
   // 숙제 알림 — 서버에서 보내므로 앱을 닫아도 온다. 상태는 비동기로 채운다(_stuPushRow)
   const notifyRowHtml=(typeof ppPushSupported==='function'&&ppPushSupported())
     ?`<div id="stu-push-row" class="stu-push">
@@ -3500,6 +3808,7 @@ function renderStudentHome(sid){
     ${hwChHtml}
     ${stuBossCard(sid)}
     ${vocabCtaHtml}
+    ${quizCtaHtml}
     <details style="margin-top:8px;margin-bottom:8px">
       <summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">🎮 보너스 · 내 기록 <span style="font-size:12px;color:var(--teal)">▾</span></summary>
       <div style="margin-top:8px">${stuXpCard(sid,streak)}${stuBadgeShelf(sid)}${renderVocabReview(sid)}</div>
