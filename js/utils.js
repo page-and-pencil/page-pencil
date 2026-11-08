@@ -2068,7 +2068,45 @@ const SENT_PHASES=[
   {k:'speed', icon:'⚡', label:'스피드'},
   {k:'cloze', icon:'📝', label:'빈칸'},
 ];
-const SENT_READ_GOAL=5;     // 소리 내어 읽기 권장 횟수 (강제 아님)
+const SENT_READ_GOAL=5;     // 소리 내어 읽기 권장 횟수 (강제 아님 · 통과 조건이 아니다)
+const SENT_CLOZE_MAX=2;     // 한 문장에 빈칸은 최대 2개
+// 본문을 문장으로 나눈다. (?<=[.!?])\s+ 만으로는 아래가 잘못 잘린다:
+//   약어(Mr. Mrs. Ms. Dr. St. e.g. i.e.) · 소수점(3.5) · 따옴표 안 문장("Hi!" she said.) · 말줄임표(...)
+// 규칙: 끝맺음표 뒤가 '공백 + 대문자/따옴표/숫자' 일 때만 자르고, 위 네 경우는 넘어간다.
+const _SENT_ABBR=/(?:^|[\s("'“‘])(mr|mrs|ms|mx|dr|st|prof|rev|jr|sr|vs|no|fig|approx|etc|e\.g|i\.e|a\.m|p\.m)$/i;
+function _sentSplitText(text){
+  const t=String(text==null?'':text).replace(/\s+/g,' ').trim();
+  if(!t)return [];
+  const out=[];let start=0;
+  const openQuote=(seg)=>{
+    const d=(seg.match(/"/g)||[]).length%2;                    // 곧은 따옴표는 짝으로 센다
+    const c=(seg.match(/“/g)||[]).length-(seg.match(/”/g)||[]).length;
+    return d===1||c>0;
+  };
+  for(let i=0;i<t.length;i++){
+    const c=t[i];
+    if(c!=='.'&&c!=='!'&&c!=='?')continue;
+    let j=i;while(j+1<t.length&&/[.!?]/.test(t[j+1]))j++;      // 연속 끝맺음표를 한 덩어리로
+    const run=t.slice(i,j+1);
+    if(/^\.{2,}$/.test(run)){i=j;continue;}                    // 말줄임표 — 끊지 않는다
+    let k=j;
+    while(k+1<t.length&&/["'’”)\]]/.test(t[k+1]))k++;          // 닫는 따옴표·괄호는 문장에 포함
+    if(c==='.'&&/\d$/.test(t.slice(0,i))&&/^\d/.test(t.slice(j+1))){i=k;continue;}   // 소수점 3.5
+    if(c==='.'&&_SENT_ABBR.test(t.slice(start,i))){i=k;continue;}                     // 약어 Mr.
+    if(openQuote(t.slice(start,k+1))){i=k;continue;}            // 따옴표가 아직 안 닫혔다
+    const rest=t.slice(k+1);
+    if(!/^\s/.test(rest)){i=k;continue;}                        // 바로 붙어 있으면 경계가 아니다
+    const nxt=rest.replace(/^\s+/,'');
+    if(!nxt){i=k;continue;}
+    if(!/^["'“‘(\[]?[A-Z0-9]/.test(nxt)){i=k;continue;}         // 소문자로 이어지면 같은 문장
+    out.push(t.slice(start,k+1).trim());
+    start=k+1;i=k;
+  }
+  const tail=t.slice(start).trim();
+  if(tail)out.push(tail);
+  return out.filter(Boolean);
+}
+
 const _SENT_HANGUL=/[가-힣ㄱ-ㆎ]/;
 // ' — '(앞뒤 공백 있는 대시)로 문장과 해석을 나눈다.
 // 학생에게 보이는 영어 문장에 한글이 섞이면 안 되므로, 나눈 뒤에도 한글이 남으면 그 자리에서 자른다.
@@ -2101,14 +2139,31 @@ function sentLines(tb,unitKey0){
   if(pat){
     rows=pat.split('\n').map(l=>l.trim()).filter(Boolean).map(_sentSplitKo);
   }else{
-    const text=String((tb.unitTexts&&tb.unitTexts[unitKey])||'').replace(/\s+/g,' ').trim();
-    rows=text.split(/(?<=[.!?])\s+/).map(_sentSplitKo);
+    rows=_sentSplitText((tb.unitTexts&&tb.unitTexts[unitKey])||'').map(_sentSplitKo);
   }
   const ko=_sentKoLines(tb,unitKey);
   return rows
     .map((r,i)=>({en:r.en,ko:r.ko||ko[i]||''}))
-    .filter(r=>r.en&&_sentWords(r.en).length>=SENT_MIN_WORDS)
-    .slice(0,SENT_MAX);
+    .filter(r=>r.en&&_sentWords(r.en).length>=SENT_MIN_WORDS);
+}
+// 이번에 할 10문장 묶음. 긴 본문은 다음에 열면 그 뒤 10문장부터, 끝까지 가면 앞으로 돌아온다.
+function sentRound(tb,unitKey,from){
+  const all=sentLines(tb,unitKey);
+  const total=all.length;
+  const chunks=Math.max(1,Math.ceil(total/SENT_MAX));
+  let f=Math.max(0,Math.floor((Number(from)||0)/SENT_MAX)*SENT_MAX);
+  if(f>=total)f=0;
+  return {lines:all.slice(f,f+SENT_MAX),from:f,total:total,
+    chunk:Math.floor(f/SENT_MAX)+1,chunks:chunks};
+}
+// 다음 묶음의 시작 번호 — 이미 받아 둔 logs 로만 계산한다 (추가 전송량 0)
+function sentNextFrom(sid,tbId,unitKey){
+  const rows=((typeof _cache!=='undefined')?(_cache.logs||[]):[])
+    .filter(l=>l&&!l._deleted&&l.sid===sid&&l.type==='sent_session'&&l.tbId===tbId&&l.unitKey===unitKey)
+    .sort((a,b)=>String(b.at||b.date||'').localeCompare(String(a.at||a.date||'')));
+  if(!rows.length)return 0;
+  const last=Math.max(0,Math.floor((Number(rows[0].from)||0)/SENT_MAX)*SENT_MAX);
+  return last+SENT_MAX;          // sentRound 가 끝을 넘으면 0 으로 돌린다
 }
 // 빈칸 — 선생님 지정(unitSentCloze)이 먼저. 없으면 단원 단어 중 문장에 나오는 것.
 function sentClozeWords(tb,unitKey0){
@@ -2124,9 +2179,11 @@ function sentClozeWords(tb,unitKey0){
   };
   const uniq=arr=>{const s=new Set(),o=[];arr.forEach(w=>{const k=String(w).toLowerCase();if(!s.has(k)){s.add(k);o.push(w);}});return o;};
   const raw=String((tb.unitSentCloze&&tb.unitSentCloze[unitKey])||'').trim();
-  if(raw)return uniq(raw.split(/[,\n]/).map(w=>w.trim()).filter(has)).slice(0,10);
-  const words=((tb.units&&tb.units[unitKey])||[]).map(w=>(typeof w==='string'?w:(w&&w.word)||''));
-  return uniq(words.map(w=>String(w).trim()).filter(has)).slice(0,8);
+  const picked=raw?uniq(raw.split(/[,\n]/).map(w=>w.trim()).filter(has)):[];
+  const auto=uniq(((tb.units&&tb.units[unitKey])||[])
+    .map(w=>String((typeof w==='string'?w:(w&&w.word)||'')).trim()).filter(has))
+    .filter(w=>!picked.some(p=>p.toLowerCase()===w.toLowerCase()));
+  return picked.concat(auto).slice(0,24);     // 지정이 앞, 자동이 뒤
 }
 // 스피드 제한시간 — 단어 수 × 3초 + 5초 (최소 10초 · 최대 30초)
 function sentSpeedSec(en){

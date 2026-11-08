@@ -5097,11 +5097,15 @@ function msScrCheck(){
 // 구간 엔진(vc*)은 쓰지 않는다 — 10문장 라운드가 그 역할을 한다.
 // 단어 카드(hits·misses·box·due·lastSeen)는 건드리지 않는다.
 let _stState=null;
+let _stForce0=false;      // [처음부터] 를 누른 직후 한 번만 from=0
 function _stEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function _stPh(){const C=_stState;return C?C.phases[C.ph]:null;}
 function renderMsSentence(body,footer){
   const {tb,unitKey,sid}=_msState;
-  const lines=(typeof sentLines==='function')?sentLines(tb,unitKey):[];
+  // 긴 본문은 10문장씩 묶음으로. 다음에 열면 그 뒤 10문장부터 (이미 받아 둔 logs 로만 계산)
+  const want=(_stForce0?0:((typeof sentNextFrom==='function')?sentNextFrom(sid,tb.id,unitKey):0));
+  const rd0=(typeof sentRound==='function')?sentRound(tb,unitKey,want):{lines:[],from:0,total:0,chunk:1,chunks:1};
+  const lines=rd0.lines;
   if(!lines.length){
     body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">이 단원에 등록된 문장이 없어요</div>';
     footer.innerHTML=msDoneBtn('sentence','✓ 완료');return;
@@ -5111,10 +5115,12 @@ function renderMsSentence(body,footer){
     const items=_stClozeItems(lines,cloze);
     const phases=SENT_PHASES.filter(p=>p.k!=='cloze'||items.length>0);
     _stState={sid:sid,tbId:tb.id,unitKey:unitKey,lines:lines,cloze:cloze,clozeItems:items,
+      from:rd0.from,total:rd0.total,chunk:rd0.chunk,chunks:rd0.chunks,
       phases:phases,ph:0,idx:0,reads:{},first:{},tried:{},
       t0:Date.now(),spoke:false,saved:false,
       audio:(tb.unitAudio&&tb.unitAudio[unitKey])||''};
   }
+  _stForce0=false;
   _stDraw();
   // 단계에 처음 들어올 때 문장 발음 한 번 (강제 청취 아님 · 새 생성 0)
   if(!_stState.spoke){_stState.spoke=true;_stSpeak(0);}
@@ -5126,12 +5132,21 @@ function _stPhaseBar(){
     +' onclick="'+(i<C.ph?'_stGo('+i+')':'')+'">'
     +'<span class="st-seg-i">'+(i<C.ph?'✓':p.icon)+'</span>'+p.label+'</button>').join('')+'</div>';
 }
+// 수업 직후 앞부분을 다시 하고 싶을 때 — 첫 묶음으로 되돌린다
+function _stRestart(){
+  if(!_stState)return;
+  _stStopTimer();
+  _stForce0=true;_stState=null;
+  renderMsSentence(document.getElementById('ms-body'),document.getElementById('ms-footer'));
+}
 function _stGo(i){const C=_stState;if(!C)return;C.ph=Math.max(0,Math.min(C.phases.length-1,i));C.idx=0;_stDraw();}
 function _stHead(){
   const C=_stState,ph=_stPh();
   const total=(ph.k==='cloze')?C.clozeItems.length:C.lines.length;
-  return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
-    +'<span style="font-size:12px;font-weight:700;color:var(--slate)">문장 '+(C.idx+1)+' / '+total+'</span>'
+  return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">'
+    +'<span style="font-size:12px;font-weight:700;color:var(--slate)">문장 '+(C.idx+1)+' / '+total
+    +((C.chunks>1)?' · '+C.chunk+'번째 묶음':'')+'</span>'
+    +((ph.k==='mem')?'<button class="btn bo bxxs" onclick="_stRestart()">↺ 처음부터</button>':'')
     +(C.audio?'<button class="btn bo bxxs" onclick="_stUnitAudio()">🎧 단원 전체 듣기</button>':'')
     +'<button class="btn ba bxxs" style="margin-left:auto" onclick="_stSpeak('+C.idx+')">🔊 듣기</button>'
     +'</div>';
@@ -5197,7 +5212,7 @@ async function _stSave(){
   const f=C.first[last]||{ok:0,total:0};
   const row={id:uid(),sid:C.sid,date:ppToday(),type:'sent_session',
     tbId:C.tbId,unitKey:C.unitKey,setKey:'tb:'+C.tbId+':'+C.unitKey,
-    n:C.lines.length,phases:C.phases.map(p=>p.k),
+    n:C.lines.length,from:C.from||0,total:C.total||C.lines.length,phases:C.phases.map(p=>p.k),
     lastPhase:last,first:{ok:f.ok,total:f.total},
     ms:Date.now()-C.t0,at:new Date().toISOString()};
   if(!_cache.logs)_cache.logs=[];
@@ -5395,7 +5410,9 @@ function _stClozeItems(lines,words){
   const out=[];
   lines.forEach((row,li)=>{
     let parts=[{t:'text',v:row.en}],answers=[];
+    const cap=(typeof SENT_CLOZE_MAX==='number')?SENT_CLOZE_MAX:2;
     words.forEach(w=>{
+      if(answers.length>=cap)return;              // 한 문장에 빈칸은 최대 2개
       for(let pi=0;pi<parts.length;pi++){
         if(parts[pi].t!=='text')continue;
         const m=parts[pi].v.match(new RegExp('(?<![A-Za-z])('+esc(w)+')(?![A-Za-z])','i'));
