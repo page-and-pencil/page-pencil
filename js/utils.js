@@ -35,16 +35,43 @@ function hwFinished(a){
 // '지금 남은 숙제' 로 셀 때 쓰는 기준.
 // 반복 숙제는 몇 달치 일정이 한 건에 들어 있어, hwFinished 로만 보면 마지막 날까지 영원히
 // '안 끝난 숙제 1건' 으로 남는다. 오늘 몫이 끝났으면(또는 오늘 몫이 없으면) 남은 것으로 세지 않는다.
+// 그 숙제의 '지금 일정' — 자동 진행 반복은 학생 화면과 같은 재계산본을 본다.
+// (학부모 화면이 원본 schedule 을 보고 학생 화면이 재계산본을 봐서 서로 다르게 보이던 문제)
+function _hwSchedOf(a){
+  if(!a)return [];
+  const sch=a.schedule||[];
+  if(a.category==='recur'&&a.auto&&typeof recurRebase==='function')return recurRebase(a)||sch;
+  return sch;
+}
 function hwPendingNow(a,todayStr){
   if(!a||a._deleted)return false;
   if(a.completedAt)return false;
   const today=todayStr||((typeof ppToday==='function')?ppToday():'');
-  const sch=a.schedule;
+  const sch=_hwSchedOf(a);
   if(Array.isArray(sch)&&sch.length){
-    const past=sch.filter(s=>s&&s.date&&s.date<=today);
-    return past.some(s=>!s.done);          // 오늘까지 중 안 한 날이 있으면 남은 것
+    // **오늘 몫** 만 본다 — 학생 화면의 '오늘 퀘스트' 와 같은 기준 (2026-11-08).
+    // 전에는 지난 날 중 하나만 비어도 학부모 화면에 계속 '남은 숙제' 로 떠서,
+    // 학생은 오늘 것을 다 했는데 학부모 화면에는 체크가 안 된 것처럼 보였다.
+    // 밀린 날은 hwOverdueDays 로 따로 알린다.
+    const todayRow=sch.find(s=>s&&s.date===today);
+    return todayRow?!todayRow.done:false;
   }
   return true;                             // 단건은 종전대로 — 완료 전이면 남은 것
+}
+// 오늘 이전에 안 한 칸 수 (밀린 숙제). 수업으로 처리된 몫은 빼고 센다.
+// winDays 를 주면 그 기간 안에서만 센다 —
+// 7월부터 쌓인 '밀린 74일' 은 사실이지만 학부모에게는 손쓸 수 없는 숫자라,
+// 보여 줄 때는 최근 2주(PP_OVERDUE_WIN)만 센다.
+const PP_OVERDUE_WIN=14;
+function hwOverdueDays(a,todayStr,winDays){
+  if(!a||a._deleted||a.completedAt)return 0;
+  const today=todayStr||((typeof ppToday==='function')?ppToday():'');
+  const from=(winDays>0&&typeof ppShiftDate==='function')?ppShiftDate(today,-winDays):'';
+  const sch=_hwSchedOf(a);
+  if(!Array.isArray(sch)||!sch.length){
+    return (a.due&&a.due<today&&(!from||a.due>=from))?1:0;   // 단건은 마감이 지났으면 1
+  }
+  return sch.filter(s=>s&&s.date&&s.date<today&&(!from||s.date>=from)&&!s.done&&s.doneBy!=='lesson').length;
 }
 function ppToday(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 // 임의 Date를 로컬 YYYY-MM-DD로 포맷
@@ -761,6 +788,27 @@ function ppPaperMix(){
   }
   return o;
 }
+// ── 시험지 양식 (유형 묶음) ──────────────────────────────────
+// 한국어 뜻 하나만 보고 영어를 고르는 '단순 짝 맞추기' 는 외워도 금방 잊는다.
+// 영영풀이 표 — 영어 정의를 주고 단어·품사·한국어 뜻을 쓰게 한다 (원장 지시, 2026-11-08)
+// 예문 빈칸   — 영어 문장 안에서 쓰임으로 떠올리게 한다
+const PP_PAPER_PRESETS={
+  def:  {label:'영영풀이형',note:'영어 정의를 주고 단어·품사·한국어 뜻을 쓰게 합니다. 남는 몫은 예문 빈칸으로.',
+         counts:{def:null,cl:null,ko:0,en:0,mc:0}},
+  mix:  {label:'섞어서',    note:'영영풀이 표 · 예문 빈칸 · 단어 쓰기를 고르게 섞습니다.',
+         counts:{def:null,cl:null,ko:0,en:null,mc:0}},
+  write:{label:'쓰기형',    note:'뜻 쓰기 반 · 단어 쓰기 반 — 예전 방식입니다.',
+         counts:{def:0,cl:0,ko:null,en:null,mc:0}},
+};
+function ppPaperPreset(){
+  let v='';
+  try{v=localStorage.getItem('pp_paper_preset')||'';}catch(e){}
+  return PP_PAPER_PRESETS[v]?v:'def';
+}
+function ppSetPaperPreset(k){
+  if(!PP_PAPER_PRESETS[k])return;
+  try{localStorage.setItem('pp_paper_preset',k);}catch(e){}
+}
 function ppShuffle(a){
   const r=(a||[]).slice();
   for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}
@@ -783,7 +831,7 @@ function ppUnitWords(bookId,unitKeys){
   const out=[];
   keys.forEach(k=>{
     const ws=(typeof tuNormWords==='function')?tuNormWords((b.units||{})[k]||[]):((b.units||{})[k]||[]);
-    ws.forEach(w=>{ if(w&&w.word)out.push({word:w.word,ko:w.ko||'',pos:w.pos||'',example:w.example||'',src:b.title+' '+k}); });
+    ws.forEach(w=>{ if(w&&w.word)out.push({word:w.word,ko:w.ko||'',pos:w.pos||'',example:w.example||'',en_def:w.en_def||'',src:b.title+' '+k}); });
   });
   return out;
 }
@@ -806,7 +854,7 @@ function ppPastWords(sid,limit,excludeKeys){
   const cards=((typeof _cache!=='undefined')?(_cache.vocab_cards||[]):[])
     .filter(c=>c&&!c._deleted&&c.sid===sid&&c.word&&!ex.has(ppWordKey(c.word)));
   const pick=ppShuffle(cards).slice(0,limit||0);
-  return pick.map(c=>({word:c.word,ko:c.ko||c.meaning||'',pos:c.pos||'',example:c.example||'',src:'지난 범위'}));
+  return pick.map(c=>({word:c.word,ko:c.ko||c.meaning||'',pos:c.pos||'',example:c.example||'',en_def:c.en_def||'',src:'지난 범위'}));
 }
 // 시험지 문항 묶음. 같은 단어가 두 번 나오지 않게 한다.
 // 돌려주는 것: {items:[{word,ko,pos,example,src,from}], counts:{new,wrong,past}}
@@ -833,7 +881,7 @@ function ppPaperPick(sid,opts){
   const cards=((typeof _cache!=='undefined')?(_cache.vocab_cards||[]):[]).filter(c=>c&&c.sid===sid);
   const wrongRaw=ppRecentWrong(sid,wrongM*3).map(w=>{
     const c=cards.find(x=>ppWordKey(x.word)===ppWordKey(w));
-    return {word:w,ko:(c&&(c.ko||c.meaning))||'',pos:(c&&c.pos)||'',example:(c&&c.example)||'',src:'최근 오답'};
+    return {word:w,ko:(c&&(c.ko||c.meaning))||'',pos:(c&&c.pos)||'',example:(c&&c.example)||'',en_def:(c&&c.en_def)||'',src:'최근 오답'};
   });
   const wrong=take(wrongRaw,wrongM,'wrong');
   // 3) 지난 범위 무작위

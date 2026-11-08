@@ -502,7 +502,19 @@ async function loadParent(sid){
 
   // 블록 D — 미완료 과제
   // 끝난 숙제는 빼고 센다 — 일정이 전부 done 인 반복 숙제도 '끝남'으로 본다 (hwFinished)
+  // 오늘 남은 것(학생 화면과 같은 기준) + 밀린 날은 따로 알린다 (2026-11-08)
   const assigns=DB.assigns().filter(a=>a.sid===sid&&(typeof hwPendingNow==='function'?hwPendingNow(a):!hwFinished(a)));
+  const _overdue=DB.assigns().filter(a=>a.sid===sid).map(a=>({a,n:(typeof hwOverdueDays==='function')?hwOverdueDays(a,'',PP_OVERDUE_WIN):0})).filter(x=>x.n>0);
+  const _overdueN=_overdue.reduce((t,x)=>t+x.n,0);
+  if(!assigns.length&&_overdueN){
+    blocks+=`<div class="card">
+      <div class="ch"><span class="ct">${luIcon('clipboard-list',16)}숙제</span><span style="font-size:12px;color:var(--okt);font-weight:700">오늘 몫 완료 ✓</span></div>
+      <div class="cb" style="padding:12px 16px">
+        <div style="font-size:14px;color:var(--navy);line-height:1.7">오늘 할 숙제는 <b style="color:var(--okt)">다 했어요</b>.</div>
+        <div style="font-size:13px;color:var(--warnt);margin-top:6px;line-height:1.7">${luIcon('rotate-ccw',14)||''} 최근 2주 중 <b>${_overdueN}일</b>치가 비어 있어요 — ${_overdue.slice(0,2).map(x=>escAttr(x.a.bookTitle||x.a.range||'숙제')).join(', ')}${_overdue.length>2?' 외':''}</div>
+      </div>
+    </div>`;
+  }
   if(assigns.length){
     const CAT_LBL={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
     const todayD=ppToday();
@@ -523,7 +535,7 @@ async function loadParent(sid){
     const shown=sorted.slice(0,3);
     const rest=sorted.slice(3);
     blocks+=`<div class="card">
-      <div class="ch"><span class="ct">${luIcon('clipboard-list',16)}숙제</span><span style="font-size:12px;color:var(--coral);font-weight:700">${assigns.length}개 남음</span></div>
+      <div class="ch"><span class="ct">${luIcon('clipboard-list',16)}숙제</span>${_overdueN?`<span style="font-size:11.5px;color:var(--warnt);font-weight:700;margin-left:auto;margin-right:8px" title="최근 2주 기준">밀린 ${_overdueN}일</span>`:''}<span style="font-size:12px;color:var(--coral);font-weight:700">${assigns.length}개 남음</span></div>
       <div class="cb" style="padding:12px 16px">
         ${shown.map(assignRow).join('')}
         ${rest.length?`<div id="pp-assign-more" style="display:none">${rest.map(assignRow).join('')}</div>

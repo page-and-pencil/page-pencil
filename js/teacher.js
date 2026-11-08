@@ -3286,7 +3286,7 @@ function openVocabPaper(sid){
   const mix=ppPaperMix();
   const v=(k,val)=>{const el=document.getElementById(k);if(el)el.value=val;};
   v('vp-new',mix.newN);v('vp-wrong',mix.wrongM);v('vp-past',mix.pastK);
-  v('vp-t-ko','');v('vp-t-en','');v('vp-t-mc','0');v('vp-t-cloze','0');
+  vpPreset(ppPaperPreset());
   const pe=document.getElementById('vp-pass');if(pe&&!pe.value)pe.value=ppVocabPassPct();
   const sh=document.getElementById('vp-shuffle');if(sh)sh.checked=true;
   vpFillBooks();
@@ -3366,22 +3366,44 @@ function openRetestPaper(sid){
   v('vp-wrong',n||20);
   toast(n?`재시험 대상 ${n}개로 맞췄어요`:'최근 오답으로 구성합니다');
 }
-// 유형별 문항 수 — 비워 두면 뜻 쓰기 반 · 단어 쓰기 반
+// 양식 단추 — 유형 칸을 한 번에 채운다. 빈 칸('자동')은 남는 몫을 나눠 받는다.
+const _VP_FIELD={def:'vp-t-def',cl:'vp-t-cloze',ko:'vp-t-ko',en:'vp-t-en',mc:'vp-t-mc'};
+function vpPreset(k){
+  const p=PP_PAPER_PRESETS[k]||PP_PAPER_PRESETS.def;
+  Object.entries(_VP_FIELD).forEach(([t,id])=>{
+    const el=document.getElementById(id);
+    if(el)el.value=(p.counts[t]==null)?'':String(p.counts[t]);
+  });
+  ppSetPaperPreset(k);
+  vpPresetPaint(k);
+}
+function vpPresetPaint(k){
+  document.querySelectorAll('#vp-preset-row [data-vp-preset]').forEach(b=>{
+    const on=b.getAttribute('data-vp-preset')===k;
+    b.classList.toggle('bt',on);b.classList.toggle('bo',!on);
+  });
+  const n=document.getElementById('vp-preset-note');
+  if(n)n.textContent=k?((PP_PAPER_PRESETS[k]||{}).note||''):'유형을 직접 정했습니다.';
+}
+function vpMarkCustom(){vpPresetPaint('');}
+// 유형별 문항 수 — 빈 칸에만 남은 몫을 나눠 준다
 function _vpTypeCounts(total){
   const g=k=>{const el=document.getElementById(k);const v=parseInt(el?el.value:'',10);return (v>=0)?v:null;};
-  let ko=g('vp-t-ko'),en=g('vp-t-en'),mc=g('vp-t-mc'),cl=g('vp-t-cloze');
-  const koBlank=(ko===null), enBlank=(en===null);
-  ko=ko||0;en=en||0;mc=mc||0;cl=cl||0;
-  // 남은 몫은 '비워 둔 칸' 에만 나눠 준다. 둘 다 비었으면 반반.
+  const raw={};Object.entries(_VP_FIELD).forEach(([t,id])=>{raw[t]=g(id);});
+  const blanks=Object.keys(raw).filter(t=>raw[t]===null);
+  const out={};Object.keys(raw).forEach(t=>{out[t]=raw[t]||0;});
+  // 남은 몫은 '비워 둔 칸' 에만 나눠 준다.
   // 전에는 4지선다·빈칸을 넣는 순간 남은 게 전부 뜻 쓰기로 몰렸다.
-  const rest=total-(ko+en+mc+cl);
+  let rest=total-Object.values(out).reduce((a,c)=>a+c,0);
   if(rest>0){
-    if(koBlank&&enBlank){const h=Math.ceil(rest/2);ko+=h;en+=rest-h;}
-    else if(koBlank)ko+=rest;
-    else if(enBlank)en+=rest;
-    else ko+=rest;                      // 다 채웠는데 모자라면 뜻 쓰기로
+    if(blanks.length){
+      const order=['def','cl','en','ko','mc'].filter(t=>blanks.includes(t));
+      const per=Math.floor(rest/order.length);
+      order.forEach(t=>{out[t]+=per;rest-=per;});
+      for(let i=0;rest>0;i=(i+1)%order.length){out[order[i]]++;rest--;}
+    }else out.ko+=rest;                 // 다 채웠는데 모자라면 뜻 쓰기로
   }
-  return {ko,en,mc,cl};
+  return out;
 }
 function _vpEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 async function makeVocabPaper(){
@@ -3397,22 +3419,30 @@ async function makeVocabPaper(){
   const shuffle=!!document.getElementById('vp-shuffle')?.checked;
   if(!shuffle)items=items.slice().sort((a,b)=>String(a.word).localeCompare(String(b.word)));
   const pass=parseInt((document.getElementById('vp-pass')||{}).value,10)||ppVocabPassPct();
-  const need=Math.ceil(items.length*pass/100);
   const tc=_vpTypeCounts(items.length);
 
-  // 유형 배정 — 예문 빈칸은 예문이 있는 단어에만
-  const withEx=items.filter(x=>x.example&&/[a-zA-Z]/.test(x.example));
-  const assign=[];
-  let qi=0;
+  // 유형 배정 — 영영풀이 표는 영영의미가, 예문 빈칸은 '그 단어가 실제로 들어 있는' 예문이 있는 단어에만.
+  // 모자란 몫은 다른 유형으로 넘긴다 (전에는 빈칸을 못 뚫은 채 문장만 찍히던 자리).
+  const _reWord=(wd)=>{
+    const e=String(wd||'').trim().replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    return new RegExp((/^[a-zA-Z]/.test(wd)?'\\b':'')+e+(/[a-zA-Z]$/.test(wd)?'\\b':''),'i');
+  };
+  const hasDef=x=>!!(x.en_def&&/[a-zA-Z]/.test(x.en_def));
+  const hasEx =x=>{const ex=String(x.example||'');return /[a-zA-Z]/.test(ex)&&_reWord(x.word).test(ex);};
+  // 교재 예문은 "It's time for ___." 처럼 같은 틀이 여러 단어에 붙어 있다.
+  // 틀이 겹치면 보기에서 무엇을 넣어도 말이 돼 정답이 하나로 떨어지지 않는다 → 한 틀은 한 번만.
+  const _stem=x=>String(x.example||'').replace(_reWord(x.word),'\u0001').toLowerCase().replace(/[^a-z0-9\u0001]+/g,' ').trim();
+  const usedStem=new Set();
+  const freeEx=x=>hasEx(x)&&!usedStem.has(_stem(x));
   const pool=items.slice();
-  const popFrom=(arr)=>{const x=arr.shift();if(x){const i=pool.indexOf(x);if(i>=0)pool.splice(i,1);}return x;};
-  const clozePool=withEx.slice();
-  for(let i=0;i<tc.cl;i++){const x=popFrom(clozePool);if(x)assign.push({t:'cloze',x});}
-  for(let i=0;i<tc.mc;i++){const x=pool.shift();if(x)assign.push({t:'mc',x});}
-  for(let i=0;i<tc.ko;i++){const x=pool.shift();if(x)assign.push({t:'ko',x});}
-  for(let i=0;i<tc.en;i++){const x=pool.shift();if(x)assign.push({t:'en',x});}
-  pool.forEach(x=>assign.push({t:'ko',x}));          // 남은 것은 뜻 쓰기
-  const qs=shuffle?ppShuffle(assign):assign;
+  const bucket={def:[],cl:[],mc:[],ko:[],en:[]};
+  const pull=(pred)=>{const i=pool.findIndex(pred);return i>=0?pool.splice(i,1)[0]:null;};
+  const toCl=x=>{usedStem.add(_stem(x));bucket.cl.push(x);};
+  for(let i=0;i<tc.def;i++){const x=pull(hasDef);if(!x)break;bucket.def.push(x);}
+  for(let i=0;i<tc.cl; i++){const x=pull(freeEx);if(!x)break;toCl(x);}
+  ['mc','ko','en'].forEach(t=>{for(let i=0;i<tc[t];i++){const x=pool.shift();if(!x)break;bucket[t].push(x);}});
+  // 남은 것 — 낼 수 있는 유형으로 보낸다
+  pool.forEach(x=>{ if(hasDef(x))bucket.def.push(x); else if(freeEx(x))toCl(x); else bucket.en.push(x); });
 
   // 4지선다 보기 — 같은 시험지 안의 다른 뜻에서 뽑는다
   const allKo=[...new Set(items.map(x=>String(x.ko||'').trim()).filter(Boolean))];
@@ -3421,33 +3451,64 @@ async function makeVocabPaper(){
     const others=ppShuffle(allKo.filter(k=>k&&k!==right)).slice(0,3);
     return ppShuffle([right,...others]);
   };
+  const _pos=p=>{const k=String(p||'').trim();return k?((typeof POS_KO!=='undefined'&&POS_KO[k])||k):'';};
 
   const w=window.open('','_blank');
   if(!w)return toast('팝업이 차단됐어요 — 허용해 주세요');
-  const TYPE_LBL={ko:'뜻 쓰기',en:'단어 쓰기',mc:'알맞은 뜻 고르기',cl:'빈칸 채우기'};
+  const TYPE_LBL={def:'영영풀이 표',cl:'예문 빈칸',mc:'알맞은 뜻 고르기',ko:'뜻 쓰기',en:'단어 쓰기'};
+  const SEC_ASK={
+    def:'영어 뜻을 읽고 단어 · 품사 · 한국어 뜻을 쓰세요.',
+    cl: '보기에서 골라 문장의 빈칸을 채우세요. (한 번씩만 씁니다)',
+    mc: '알맞은 뜻을 골라 번호를 쓰세요.',
+    ko: '한국어 뜻을 쓰세요.',
+    en: '알맞은 영어 단어를 쓰세요.',
+  };
+  const ord=(a)=>shuffle?ppShuffle(a):a.slice().sort((p,q)=>String(p.word).localeCompare(String(q.word)));
   const answers=[];
-  const body=qs.map((q,i)=>{
-    const no=i+1;
-    const x=q.x;
-    if(q.t==='ko'){
-      answers.push({no,a:x.ko||'—'});
-      return `<div class="q"><span class="no">${no}</span><span class="en">${_vpEsc(x.word)}</span><span class="line"></span></div>`;
+  let no=0, nq=0;
+  const AB='ABCDEFG';
+  const body=['def','cl','mc','ko','en'].filter(t=>bucket[t].length).map((t,si)=>{
+    const rows=ord(bucket[t]);
+    nq+=rows.length;
+    const head=`<div class="st"><b>${AB[si]}.</b> ${_vpEsc(SEC_ASK[t])} <span class="stn">${rows.length}문항</span></div>`;
+    if(t==='def'){
+      const trs=rows.map(x=>{
+        no++;answers.push({no,a:x.word+(_pos(x.pos)?' ('+_pos(x.pos)+')':'')+(x.ko?' · '+x.ko:'')});
+        return `<tr><td class="n">${no}</td><td></td><td></td><td class="d">${_vpEsc(x.en_def)}</td><td></td></tr>`;
+      }).join('');
+      return `<div class="sec">${head}<table class="dft"><thead><tr>`
+        +`<th class="n"></th><th style="width:19%">Word</th><th style="width:11%">PoS</th>`
+        +`<th>English Definition</th><th style="width:19%">Korean Definition</th></tr></thead><tbody>${trs}</tbody></table></div>`;
     }
-    if(q.t==='en'){
+    if(t==='cl'){
+      const bank=ppShuffle(rows.map(x=>x.word));
+      const qs=rows.map(x=>{
+        no++;
+        const ex=String(x.example),re=_reWord(x.word);
+        const hit=(ex.match(re)||[x.word])[0];
+        answers.push({no,a:hit});
+        return `<div class="q"><span class="no">${no}</span><span class="sent">`
+          +_vpEsc(ex).replace(re,'<u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>')+`</span></div>`;
+      }).join('');
+      return `<div class="sec">${head}<div class="bank">${bank.map(b=>`<span>${_vpEsc(b)}</span>`).join('')}</div>`
+        +`<div class="qs">${qs}</div></div>`;
+    }
+    const qs=rows.map(x=>{
+      no++;
+      if(t==='mc'){
+        const op=mcOpts(x);
+        answers.push({no,a:(op.indexOf(String(x.ko||'').trim())+1)+'번 · '+(x.ko||'—')});
+        return `<div class="q mc"><span class="no">${no}</span><span class="en">${_vpEsc(x.word)}</span>`
+          +`<div class="ops">${op.map((o,j)=>`<span class="op">${j+1}. ${_vpEsc(o)}</span>`).join('')}</div></div>`;
+      }
+      if(t==='ko'){
+        answers.push({no,a:x.ko||'—'});
+        return `<div class="q"><span class="no">${no}</span><span class="en">${_vpEsc(x.word)}</span><span class="line"></span></div>`;
+      }
       answers.push({no,a:x.word});
       return `<div class="q"><span class="no">${no}</span><span class="ko">${_vpEsc(x.ko||'—')}</span><span class="line"></span></div>`;
-    }
-    if(q.t==='mc'){
-      const op=mcOpts(x);
-      answers.push({no,a:(op.indexOf(String(x.ko||'').trim())+1)+'번 · '+(x.ko||'—')});
-      return `<div class="q mc"><span class="no">${no}</span><span class="en">${_vpEsc(x.word)}</span>`
-        +`<div class="ops">${op.map((o,j)=>`<span class="op">${j+1}. ${_vpEsc(o)}</span>`).join('')}</div></div>`;
-    }
-    const re=new RegExp(String(x.word).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i');
-    answers.push({no,a:x.word});
-    return `<div class="q"><span class="no">${no}</span><span class="sent">`
-      +_vpEsc(String(x.example)).replace(re,'<u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>')
-      +`</span></div>`;
+    }).join('');
+    return `<div class="sec">${head}<div class="qs">${qs}</div></div>`;
   }).join('');
 
   const today=ppToday();
@@ -3456,8 +3517,10 @@ async function makeVocabPaper(){
     pick.counts.wrong?`최근 오답 ${pick.counts.wrong}`:'',
     pick.counts.past?`지난 범위 ${pick.counts.past}`:'',
   ].filter(Boolean).join(' · ');
-  const typeLine=Object.entries(tc).filter(([,v])=>v>0)
-    .map(([k,v])=>TYPE_LBL[k]+' '+v).join(' · ');
+  const need=Math.ceil(nq*pass/100);
+  // 실제로 배정된 수로 적는다 — 영영의미·예문이 모자라 다른 유형으로 넘어간 몫이 있다
+  const typeLine=['def','cl','mc','ko','en'].filter(t=>bucket[t].length)
+    .map(t=>TYPE_LBL[t]+' '+bucket[t].length).join(' · ');
 
   w.document.open();
   w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
@@ -3474,6 +3537,17 @@ h1{font-size:17px;margin:0 0 3px}
 .fields span{border:1px solid #9AA1AC;border-radius:6px;padding:5px 12px}
 .pass{font-size:12px;color:#5F6672;margin-bottom:12px}
 .pass b{color:#1B2430}
+.sec{margin-bottom:15px}
+.st{font-size:12px;border-bottom:1px solid #C3CBD3;padding-bottom:4px;margin-bottom:9px}
+.st .stn{color:#9AA1AC;font-size:11px;margin-left:4px}
+.dft{width:100%;border-collapse:collapse;font-size:12px}
+.dft th{background:#F2F4F7;border:1px solid #9AA1AC;padding:5px 6px;font-size:11px;font-weight:700;text-align:left}
+.dft td{border:1px solid #C3CBD3;padding:0 6px;height:26px;vertical-align:middle}
+.dft tr{break-inside:avoid}
+.dft .n{width:22px;text-align:center;color:#9AA1AC;font-size:11px;font-variant-numeric:tabular-nums}
+.dft .d{font-size:11.5px;line-height:1.4;padding:4px 6px}
+.bank{border:1px dashed #9AA1AC;border-radius:6px;padding:7px 9px;margin-bottom:9px;display:flex;flex-wrap:wrap;gap:3px 13px;font-size:12px}
+.bank span{white-space:nowrap}
 .qs{column-count:2;column-gap:22px}
 .q{break-inside:avoid;display:flex;align-items:baseline;gap:7px;margin-bottom:11px;line-height:1.5}
 .q.mc{display:block}
@@ -3499,13 +3573,13 @@ h1{font-size:17px;margin:0 0 3px}
       <h1>단어 시험 <span style="font-size:13px;font-weight:400;color:#5F6672">${_vpEsc(typeLine)}</span></h1>
       <div class="meta">${_vpEsc(srcLine)}</div>
     </div>
-    <div class="fields"><span>이름 ________</span><span>날짜 ____ / ____</span><span>점수 ____ / ${qs.length}</span></div>
+    <div class="fields"><span>이름 ________</span><span>날짜 ____ / ____</span><span>점수 ____ / ${nq}</span></div>
   </div>
-  <div class="pass">${qs.length}문항 중 <b>${need}개 이상</b> 맞으면 통과 (기준 ${pass}%)</div>
-  <div class="qs">${body}</div>
+  <div class="pass">${nq}문항 중 <b>${need}개 이상</b> 맞으면 통과 (기준 ${pass}%)</div>
+  ${body}
 </div>
 <div class="sheet">
-  <div class="head"><div><h1>정답지</h1><div class="meta">${_vpEsc(stu.name)} · ${today} · ${qs.length}문항</div></div></div>
+  <div class="head"><div><h1>정답지</h1><div class="meta">${_vpEsc(stu.name)} · ${today} · ${nq}문항</div></div></div>
   <div class="ak">${answers.map(a=>`<div><span class="n">${a.no}</span>${_vpEsc(a.a)}</div>`).join('')}</div>
 </div>
 <div class="noprint">
@@ -3515,7 +3589,7 @@ h1{font-size:17px;margin:0 0 3px}
 </body></html>`);
   w.document.close();
   closeM('m-vocab-paper');
-  toast(`${qs.length}문항 시험지를 만들었어요 (${srcLine})`);
+  toast(`${nq}문항 시험지를 만들었어요 (${srcLine})`);
 }
 async function saveTst(){
   if(_saving['saveTst'])return; _saving['saveTst']=true;
@@ -11524,20 +11598,36 @@ function modalAssignCatChange(){
   } else {extra.innerHTML='';}
   _schedEditorRender();   // 수정 중인 일정형 과제는 구분을 바꿔도 일정 편집기를 지킨다
 }
+// 과제 할당 교재 검색 — **교재(global_textbooks)와 원서(library)를 함께** 찾는다 (2026-11-08).
+// 전에는 구분이 '원서'이거나 비어 있을 때만 원서 목록에서 찾아서,
+// 어휘·어법·리딩 등을 고르면 교재명을 아무리 쳐도 아무것도 뜨지 않았다.
 function modalAssignBookSearch(){
   const q=(document.getElementById('modal-assign-book')?.value||'').trim().toLowerCase();
   const dd=document.getElementById('modal-assign-book-dd');if(!dd)return;
-  document.getElementById('modal-assign-book-id').value='';
+  const hid=document.getElementById('modal-assign-book-id');if(hid)hid.value='';
   if(!q){dd.style.display='none';return;}
   const cat=document.getElementById('modal-assign-cat')?.value||'';
-  const isLibCat=cat==='book'||!cat;
-  const allBooks=isLibCat?[...(_cache.library||[])]:[];
-  if(isLibCat){
-    const hits=allBooks.filter(b=>b.title&&b.title.toLowerCase().includes(q)).slice(0,8);
-    if(!hits.length){dd.style.display='none';return;}
-    dd.innerHTML=hits.map(b=>`<div onclick="modalAssignSelectBook('${escAttr(b.id)}','${escJsA(b.title)}')" style="padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background=''">${b.title}</div>`).join('');
-    dd.style.display='block';
-  }else{dd.style.display='none';}
+  const n=x=>String(x||'').toLowerCase();
+  const tbs=ppLive(_cache.globalTextbooks).filter(b=>b.title&&n(b.title).includes(q));
+  const libs=ppLive(_cache.library).filter(b=>b.title&&n(b.title).includes(q));
+  // 구분이 '원서'면 원서를 먼저, 아니면 교재를 먼저. 같은 구분의 교재를 맨 위로.
+  const catKo=(typeof _CAT_KO!=='undefined')?(_CAT_KO[cat]||''):'';
+  const sameCat=b=>(catKo&&b.category===catKo)?0:1;
+  const rank=(list)=>list.slice().sort((a,b)=>sameCat(a)-sameCat(b)
+    ||n(a.title).indexOf(q)-n(b.title).indexOf(q)
+    ||String(a.title).localeCompare(String(b.title),'ko'));
+  const hits=(cat==='book'?[...rank(libs),...rank(tbs)]:[...rank(tbs),...rank(libs)]).slice(0,10);
+  if(!hits.length){dd.style.display='none';return;}
+  dd.innerHTML=hits.map(b=>{
+    const kind=(b.type==='library')?'원서':(b.category||'교재');
+    const units=Object.keys(b.units||{}).length;
+    return `<div onclick="modalAssignSelectBook('${escAttr(b.id)}','${escJsA(_tbVal(b))}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background=''">`
+      +`<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(_tbVal(b))}</span>`
+      +`<span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:var(--rpill);background:var(--tl);color:var(--tealt);flex-shrink:0">${kind}</span>`
+      +(units?`<span style="font-size:11px;color:var(--slate);flex-shrink:0">${units}과</span>`:'')
+    +`</div>`;
+  }).join('');
+  dd.style.display='block';
 }
 function modalAssignSelectBook(id,title){
   const inp=document.getElementById('modal-assign-book');if(inp)inp.value=title;

@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261108e">
+<link rel="stylesheet" href="css/style.css?v=20261108f">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -2377,12 +2377,20 @@
       <div class="f"><label>최근 오답</label><input type="number" id="vp-wrong" min="0" max="200" style="text-align:center"></div>
       <div class="f"><label>지난 범위</label><input type="number" id="vp-past" min="0" max="200" style="text-align:center"></div>
     </div>
-    <div class="section-label" style="margin-top:12px">유형 <span style="font-weight:400;text-transform:none;color:var(--neutral)">— 비워 두면 뜻 쓰기 반 · 단어 쓰기 반</span></div>
-    <div class="fg" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
-      <div class="f"><label>뜻 쓰기</label><input type="number" id="vp-t-ko" min="0" max="200" placeholder="자동" style="text-align:center"></div>
-      <div class="f"><label>단어 쓰기</label><input type="number" id="vp-t-en" min="0" max="200" placeholder="자동" style="text-align:center"></div>
-      <div class="f"><label>4지선다</label><input type="number" id="vp-t-mc" min="0" max="200" style="text-align:center"></div>
-      <div class="f"><label>예문 빈칸</label><input type="number" id="vp-t-cloze" min="0" max="200" style="text-align:center"></div>
+    <div class="section-label" style="margin-top:12px">양식</div>
+    <div id="vp-preset-row" style="display:flex;flex-wrap:wrap;gap:6px">
+      <button type="button" class="btn bo bsm" data-vp-preset="def" onclick="vpPreset('def')">영영풀이형</button>
+      <button type="button" class="btn bo bsm" data-vp-preset="mix" onclick="vpPreset('mix')">섞어서</button>
+      <button type="button" class="btn bo bsm" data-vp-preset="write" onclick="vpPreset('write')">쓰기형</button>
+    </div>
+    <div id="vp-preset-note" style="font-size:12.5px;color:var(--text-muted);line-height:1.6;margin-top:6px"></div>
+    <div class="section-label" style="margin-top:12px">유형 <span style="font-weight:400;text-transform:none;color:var(--neutral)">— 숫자를 직접 고쳐도 됩니다</span></div>
+    <div class="fg" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:10px">
+      <div class="f"><label>영영풀이 표</label><input type="number" id="vp-t-def" min="0" max="200" placeholder="자동" style="text-align:center" oninput="vpMarkCustom()"></div>
+      <div class="f"><label>예문 빈칸</label><input type="number" id="vp-t-cloze" min="0" max="200" placeholder="자동" style="text-align:center" oninput="vpMarkCustom()"></div>
+      <div class="f"><label>뜻 쓰기</label><input type="number" id="vp-t-ko" min="0" max="200" placeholder="자동" style="text-align:center" oninput="vpMarkCustom()"></div>
+      <div class="f"><label>단어 쓰기</label><input type="number" id="vp-t-en" min="0" max="200" placeholder="자동" style="text-align:center" oninput="vpMarkCustom()"></div>
+      <div class="f"><label>4지선다</label><input type="number" id="vp-t-mc" min="0" max="200" placeholder="자동" style="text-align:center" oninput="vpMarkCustom()"></div>
     </div>
     <div class="f" style="margin-top:8px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none">
@@ -2391,7 +2399,7 @@
     </div>
     <div class="f" style="font-size:12.5px;color:var(--text-muted);line-height:1.6">
       문제지와 정답지가 각각 A4 한 장으로 나옵니다. 인쇄 창에서 'PDF로 저장'을 고르면 파일이 됩니다.
-      예문 빈칸은 예문이 등록된 단어에만 배정됩니다.</div>
+      영영풀이 표는 영영의미가, 예문 빈칸은 예문이 등록된 단어에만 배정됩니다 — 모자라면 남은 몫이 다른 유형으로 넘어갑니다.</div>
     <div style="display:flex;justify-content:space-between;gap:8px;margin-top:16px">
       <button class="btn bo bsm" onclick="openRetestPaper(document.getElementById('vp-stu').value)">최근 오답만으로</button>
       <span style="flex:1"></span>
@@ -2493,11 +2501,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261108e"></script>
+<script src="js/utils.js?v=20261108f"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261108e"></script>
-<script src="js/teacher.js?v=20261108e"></script>
-<script src="js/student.js?v=20261108e"></script>
-<script src="js/parent.js?v=20261108e"></script>
+<script src="js/db.js?v=20261108f"></script>
+<script src="js/teacher.js?v=20261108f"></script>
+<script src="js/student.js?v=20261108f"></script>
+<script src="js/parent.js?v=20261108f"></script>
 </body>
 </html>
