@@ -829,15 +829,92 @@ function ppUnitWords(bookId,unitKeys){
   if(!b)return [];
   // 고른 단원 이름을 실제 키로 바꾼다 — 목록에서 고른 값이라 보통 그대로지만,
   // 숙제·기록에서 넘어온 이름('DAY 01' vs 'Day 1')도 받을 수 있게 공용 매칭을 거친다 (2026-11-08)
-  const keys=(unitKeys&&unitKeys.length)
+  const keys0=(unitKeys&&unitKeys.length)
     ?[...new Set(unitKeys.flatMap(u=>{const m=ppMatchUnit(b,u);return m.length?m:[u];}))]
     :Object.keys(b.units||{});
+  // Review 단원은 새 단어가 없다 — 덮는 앞 단원의 단어를 대신 낸다 (2026-11-09)
+  const keys=(typeof ppUnitsForWords==='function')?ppUnitsForWords(b,keys0):keys0;
   const out=[];
   keys.forEach(k=>{
     const ws=(typeof tuNormWords==='function')?tuNormWords((b.units||{})[k]||[]):((b.units||{})[k]||[]);
     ws.forEach(w=>{ if(w&&w.word)out.push({word:w.word,ko:w.ko||'',pos:w.pos||'',example:w.example||'',en_def:w.en_def||'',src:b.title+' '+k}); });
   });
   return out;
+}
+// ── Review 단원이 덮는 범위 ────────────────────────────────────
+// Review 단원에는 새 단어가 없다(요즘 초등 영단어 Unit 5·10·…, Easy Link Review 1~3 등).
+// 시험지에서 그 단원을 고르면 낼 단어가 0개였다 → 앞 단원 단어를 쓴다.
+// **단어를 복사해 넣지 않는다.** 그때그때 목차에서 계산한다 (데이터가 커지고 중복이 생기므로).
+//
+// 범위: unitOrder 에서 '바로 앞 Review 다음 단원 ~ 이 단원 바로 앞 단원' 중 단어가 있는 것.
+//   요즘 초등 영단어 2  Unit 5  → Unit 1~4      ·  Unit 10 → Unit 6~9
+//   Easy Link Starter 1 Review 2 → Lesson 5~8
+// Test·Challenge·Final Test·Project·Flashcards 는 자동 대상이 아니다 —
+// 책마다 범위가 달라 (전권일 수도, 한 단원일 수도) 추측하면 틀린다.
+// 필요하면 교재의 선택 필드 unitReviewOf 로 직접 지정한다 (있으면 그게 우선).
+// (2026-11-09 원장 지시)
+const PP_REVIEW_RE=/review|복습/i;                       // 자동 대상
+const PP_REVIEW_SKIP_RE=/test|challenge|project|flashcard|sticker|word\s*review|sight/i;
+function ppIsReviewUnit(tb,key){
+  if(!tb||!key)return false;
+  const title=String(((tb.unitTitles||{})[key])||'');
+  const both=key+' '+title;
+  // 'Review Test' 는 Review 로 본다. 'Final Test'·'Challenge' 는 아니다.
+  if(PP_REVIEW_RE.test(both))return true;
+  return false;
+}
+// 이 단원이 '새 단어가 있는 보통 단원' 인가 (범위에 넣을 대상)
+function _ppPlainUnit(tb,key){
+  if(ppIsReviewUnit(tb,key))return false;
+  const title=String(((tb.unitTitles||{})[key])||'');
+  if(PP_REVIEW_SKIP_RE.test(key+' '+title))return false;
+  const ws=((tb.units||{})[key])||[];
+  return Array.isArray(ws)&&ws.length>0;
+}
+// Review 단원이 덮는 단원 키 배열. Review 가 아니거나 범위가 없으면 [].
+function ppReviewCover(tb,unitKey){
+  if(!tb||!unitKey)return [];
+  // 교재가 직접 지정했으면 그게 우선 (선택 필드 — 지금은 데이터 없음)
+  const fixed=(tb.unitReviewOf||{})[unitKey];
+  if(fixed){
+    const want=Array.isArray(fixed)?fixed:String(fixed).split(/[,/]/);
+    const out=[];
+    want.forEach(u=>ppMatchUnit(tb,u).forEach(k=>{if(!out.includes(k))out.push(k);}));
+    return out;
+  }
+  if(!ppIsReviewUnit(tb,unitKey))return [];
+  const keys=(typeof tbUnitKeys==='function')?tbUnitKeys(tb):Object.keys(tb.units||{});
+  const at=keys.indexOf(unitKey);
+  if(at<0)return [];
+  // 바로 앞 Review 를 찾는다
+  let from=0;
+  for(let i=at-1;i>=0;i--){ if(ppIsReviewUnit(tb,keys[i])){from=i+1;break;} }
+  const out=[];
+  for(let i=from;i<at;i++){ if(_ppPlainUnit(tb,keys[i]))out.push(keys[i]); }
+  return out;
+}
+// 시험지·단어 불러오기에서 쓸 '실제로 낼 단원' — Review 면 덮는 단원으로 바꾼다
+function ppUnitsForWords(tb,unitKeys){
+  const out=[];
+  (unitKeys||[]).forEach(k=>{
+    const ws=((tb&&tb.units)||{})[k]||[];
+    if(Array.isArray(ws)&&ws.length){out.push(k);return;}   // 단어가 있으면 그대로
+    const cov=ppReviewCover(tb,k);
+    if(cov.length)cov.forEach(c=>{if(!out.includes(c))out.push(c);});
+    else if(!out.includes(k))out.push(k);
+  });
+  return out;
+}
+// 단원 한 줄 표기 — 'Unit 5 Review Test (Unit 1~4 · 36단어)'
+function ppUnitLabel(tb,key){
+  const title=((tb.unitTitles||{})[key])||'';
+  const ws=((tb.units||{})[key])||[];
+  if(Array.isArray(ws)&&ws.length)return key+(title?' '+title:'')+' ('+ws.length+'단어)';
+  const cov=ppReviewCover(tb,key);
+  if(!cov.length)return key+(title?' '+title:'')+' (0단어)';
+  const n=cov.reduce((a,k2)=>a+(((tb.units||{})[k2])||[]).length,0);
+  const range=cov.length>1?(cov[0]+'~'+cov[cov.length-1]):cov[0];
+  return key+(title?' '+title:'')+' ('+range+' · '+n+'단어)';
 }
 // 최근 오답 — 시험 기록의 wrongWords 를 최근 순으로 모은다 (중복 제거)
 function ppRecentWrong(sid,limit){

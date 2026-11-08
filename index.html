@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261109h">
+<link rel="stylesheet" href="css/style.css?v=20261109i">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -729,6 +729,7 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <button id="book-add-tbook" class="btn bt bsm" onclick="openTbookAdd()">+ 교재 추가</button>
             <button id="book-add-lib" class="btn bt bsm" style="display:none" onclick="libAddCoverClear();openM('m-add-lib')">+ 원서 추가</button>
+            <button id="book-unit-audit" class="btn bo bsm" onclick="openUnitAudit()" title="단원 번호 빈칸·순서 어긋남·연결 안 되는 수업 기록 단원명을 지금 받아 둔 자료로 점검합니다 (새로 받지 않습니다)">🔎 단원 점검</button>
             <div style="position:relative">
               <button class="btn bo bsm" onclick="toggleBookIOMenu(event)">📦 가져오기·내보내기 ▾</button>
               <div id="book-io-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:#fff;border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(15,48,74,.14);padding:6px;z-index:60;min-width:200px">
@@ -2362,6 +2363,18 @@
 </datalist>
 
 <!-- 시험 일정 등록·수정 (직결영어 1단계) -->
+<div id="m-unit-audit" class="mo">
+  <div class="mdl" style="max-width:720px">
+    <div class="mh"><span class="mt">🔎 단원 점검</span>
+      <button class="bx" onclick="closeM('m-unit-audit')">&times;</button></div>
+    <div id="unit-audit-sum" style="font-size:13px;color:var(--text-muted);line-height:1.7;margin-bottom:10px"></div>
+    <div id="unit-audit-body" style="max-height:60vh;overflow:auto;-webkit-overflow-scrolling:touch"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px">
+      <button class="btn bo" onclick="closeM('m-unit-audit')">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div id="m-vocab-paper" class="mo">
   <div class="mdl" style="max-width:560px">
     <div class="mh"><span class="mt">단어 시험지 만들기</span>
@@ -2507,11 +2520,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261109h"></script>
+<script src="js/utils.js?v=20261109i"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261109h"></script>
-<script src="js/teacher.js?v=20261109h"></script>
-<script src="js/student.js?v=20261109h"></script>
-<script src="js/parent.js?v=20261109h"></script>
+<script src="js/db.js?v=20261109i"></script>
+<script src="js/teacher.js?v=20261109i"></script>
+<script src="js/student.js?v=20261109i"></script>
+<script src="js/parent.js?v=20261109i"></script>
 </body>
 </html>

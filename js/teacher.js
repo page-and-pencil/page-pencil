@@ -3275,14 +3275,17 @@ function tsLoadUnitWords(){
   const b=(_cache.globalTextbooks||[]).find(x=>x.id===(bs||{}).value);
   const key=(us||{}).value||'';
   if(!b||!key)return toast('교재와 단원을 골라 주세요');
-  const ws=(typeof tuNormWords==='function')?tuNormWords((b.units||{})[key]||[]):((b.units||{})[key]||[]);
+  // Review 단원이면 덮는 앞 단원들의 단어를 불러온다 (2026-11-09)
+  const useKeys=(typeof ppUnitsForWords==='function')?ppUnitsForWords(b,[key]):[key];
+  const ws=useKeys.flatMap(k=>(typeof tuNormWords==='function')?tuNormWords((b.units||{})[k]||[]):((b.units||{})[k]||[]));
   const words=[...new Set(ws.map(w=>String((w&&w.word)||w||'').trim()).filter(Boolean))];
   if(!words.length)return toast('이 단원에 등록된 단어가 없어요');
   const aw=document.getElementById('ts-allwords');
   if(aw)aw.value=words.join(', ');
   const vt=document.getElementById('ts-vt');
   if(vt)vt.value=words.length;
-  toast(b.title+' '+key+' 단어 '+words.length+'개를 불러왔습니다');
+  const via=(useKeys.length!==1||useKeys[0]!==key)?' ('+useKeys[0]+'~'+useKeys[useKeys.length-1]+')':'';
+  toast(b.title+' '+key+via+' 단어 '+words.length+'개를 불러왔습니다');
 }
 function preloadTestWords(sid){
   tsRefreshRetest();
@@ -3374,8 +3377,9 @@ function vpBookChange(){
   const b=(_cache.globalTextbooks||[]).find(x=>x.id===bs.value);
   const keys=b?((typeof tbUnitKeys==='function')?tbUnitKeys(b):Object.keys(b.units||{})):[];
   us.innerHTML=keys.map(k=>{
-    const n=((b.units||{})[k]||[]).length;
-    return `<option value="${escAttr(k)}">${escAttr(k)}${n?` (${n}개)`:''}</option>`;
+    // Review 단원은 '덮는 범위 · 단어 수' 를 함께 보여 준다 (2026-11-09)
+    const lbl=(typeof ppUnitLabel==='function')?ppUnitLabel(b,k):k;
+    return `<option value="${escAttr(k)}">${escAttr(lbl)}</option>`;
   }).join('');
   us.size=Math.min(6,Math.max(3,keys.length));
 }
@@ -4551,6 +4555,152 @@ function delLib(){
   });
 }
 // ── 교재 DB ──
+// ── 단원 점검 (P2-5) ─────────────────────────────────────────
+// 지금 받아 둔 자료(_cache)만으로 계산한다 — 새로 받지 않는다 (전송량 0).
+// a) unitOrder·units 키 불일치  b) 번호 빈칸(마지막 뒤 포함)  c) unitOrder 없음
+// d) totalUnits 불일치  e) 같은 시리즈 다른 권엔 Review 가 있는데 이 권엔 없음(참고)
+// f) 수업 기록 단원명 중 ppMatchUnit 으로 안 붙는 것
+function _uaNum(k){const m=String(k||'').match(/^\s*(unit|lesson|day|chapter)\s*0*(\d+)\s*$/i);return m?{label:m[1].toLowerCase(),n:parseInt(m[2],10)}:null;}
+// 시리즈 비교용 — Review·Test 만 본다.
+// Project·Flashcards·Sight Words·Challenge 는 책마다 있고 없고가 자연스러워
+// 전부 넣으면 거의 모든 교재가 걸린다 (실측 128권).
+function _uaReviewish(tb,k){
+  const t=String(((tb.unitTitles||{})[k])||'');
+  return /review|test|복습|평가/i.test(k+' '+t);
+}
+function ppUnitAudit(){
+  const tbs=(_cache.globalTextbooks||[]).filter(b=>b&&!b._deleted&&(b.type||'textbook')==='textbook');
+  const byId={},byTitle={};
+  tbs.forEach(b=>{byId[b.id]=b;if(b.title)byTitle[String(b.title).trim()]=b;});
+  const rows={};   // tbId → {title, items:[{k,msg,note}]}
+  const add=(b,k,msg,note)=>{
+    const r=rows[b.id]||(rows[b.id]={title:b.title||'(제목 없음)',items:[]});
+    r.items.push({k,msg,note:note||''});
+  };
+  const cnt={a:0,b:0,c:0,d:0,e:0,f:0};
+
+  // 시리즈별 Review·Test 보유 (e 판정용)
+  const ser={};
+  tbs.forEach(b=>{
+    if(!b.series)return;
+    const o=ser[b.series]||(ser[b.series]={n:0,wi:[],wo:[]});
+    o.n++;
+    (Object.keys(b.units||{}).some(k=>_uaReviewish(b,k))?o.wi:o.wo).push(b.title||'');
+  });
+
+  tbs.forEach(b=>{
+    const units=b.units||{};
+    const ukeys=Object.keys(units);
+    const order=Array.isArray(b.unitOrder)?b.unitOrder:null;
+    // c) unitOrder 없음
+    if(!order||!order.length){
+      if(ukeys.length){add(b,'c','unitOrder 없음 — 단원 '+ukeys.length+'개가 키 순서에만 기댑니다','순서를 정해 두면 진도·시험지에서 안 어긋납니다');cnt.c++;}
+    }else{
+      // a) 불일치
+      const onlyOrder=order.filter(k=>!(k in units));
+      const onlyUnits=ukeys.filter(k=>!order.includes(k));
+      if(onlyOrder.length){add(b,'a','unitOrder 에만 있는 키 '+onlyOrder.length+'개',onlyOrder.slice(0,6).join(', '));cnt.a++;}
+      if(onlyUnits.length){add(b,'a','unitOrder 에 없는 단원 '+onlyUnits.length+'개 (맨 뒤로 밀립니다)',onlyUnits.slice(0,6).join(', '));cnt.a++;}
+    }
+    // b) 번호 빈칸
+    const nums={};
+    ukeys.forEach(k=>{const p=_uaNum(k);if(p)(nums[p.label]=nums[p.label]||[]).push(p.n);});
+    Object.entries(nums).forEach(([label,arr])=>{
+      arr.sort((x,y)=>x-y);
+      const lo=arr[0],hi=arr[arr.length-1];
+      const miss=[];for(let i=lo;i<=hi;i++)if(!arr.includes(i))miss.push(i);
+      if(miss.length){add(b,'b',label.toUpperCase()+' '+lo+'~'+hi+' 중 빠진 번호: '+miss.join(', '),'단원 '+arr.length+'개');cnt.b++;}
+      // totalUnits 는 번호 없는 단원(Review·Project·Flashcards)까지 센다.
+      // 번호 최댓값과 바로 견주면 거짓 경고가 난다 (Easy Link: Lesson 12 + Review 3 + Project 3 + … = 20).
+      // 실제 단원 수가 totalUnits 보다 적을 때만 알린다.
+      const tu=parseInt(b.totalUnits,10);
+      if(tu>hi&&tu>ukeys.length){add(b,'b','마지막 '+label.toUpperCase()+' '+hi+' 에서 끝남 — totalUnits 는 '+tu+' 인데 단원은 '+ukeys.length+'개','뒤쪽 단원이 빠졌을 수 있습니다');cnt.b++;}
+    });
+    // d) totalUnits 불일치
+    const tu=parseInt(b.totalUnits,10);
+    if(tu>=1&&tu!==ukeys.length){add(b,'d','totalUnits='+tu+' 인데 실제 단원 '+ukeys.length+'개','');cnt.d++;}
+    // e) 는 교재별로 늘어놓지 않고 시리즈 한 줄로 묶는다 (아래 serGap)
+  });
+
+  // f) 수업 기록 단원명 중 안 붙는 것
+  const bad={};   // tbId|seg → n
+  (typeof DB!=='undefined'?DB.less():[]).forEach(l=>{
+    Object.values(l.materials||{}).forEach(v=>{
+      if(!v||!v.book||!v.unit)return;
+      const tb=(v.bookId&&byId[v.bookId])||byTitle[String(v.book).trim()];
+      if(!tb)return;
+      String(v.unit).split(/[,/]/).forEach(seg=>{
+        seg=seg.trim();if(!seg)return;
+        if(ppMatchUnit(tb,seg).length)return;
+        const key=tb.id+'|'+seg;
+        bad[key]=(bad[key]||0)+1;
+      });
+    });
+  });
+  Object.entries(bad).forEach(([key,n])=>{
+    const i=key.indexOf('|'),tb=byId[key.slice(0,i)];
+    if(!tb)return;
+    add(tb,'f','수업 기록 "'+key.slice(i+1)+'" 이 단원에 연결되지 않습니다 ('+n+'회)','교재에 그 단원이 있는지 확인해 주세요');
+    cnt.f++;
+  });
+
+  // e) 시리즈 참고 — 일부 권에만 Review·Test 가 있는 시리즈.
+  // 교재별로 나열하면 130건이 넘어 읽을 수 없다 → 시리즈 한 줄로.
+  // 책에 정말 없을 수도 있어 '고칠 것'이 아니라 '목차 확인 후보'다.
+  const serGap=Object.entries(ser).filter(([,v])=>v.wi.length&&v.wo.length)
+    .map(([k,v])=>({series:k,n:v.n,wi:v.wi,wo:v.wo}))
+    .sort((a,b)=>b.wo.length-a.wo.length);
+  cnt.e=serGap.length;
+  return {rows,cnt,books:tbs.length,serGap};
+}
+function openUnitAudit(){
+  const r=ppUnitAudit();
+  const sum=document.getElementById('unit-audit-sum');
+  const body=document.getElementById('unit-audit-body');
+  const LBL={a:'순서 어긋남',b:'번호 빈칸',c:'순서 없음',d:'단원 수 불일치',e:'시리즈 참고',f:'기록 연결 안 됨'};
+  const COL={a:'var(--warnt)',b:'var(--warnt)',c:'var(--warnt)',d:'var(--warnt)',e:'var(--neutral)',f:'var(--coral)'};
+  if(sum){
+    const parts=['a','b','c','d','f'].filter(k=>r.cnt[k]).map(k=>LBL[k]+' '+r.cnt[k]);
+    sum.innerHTML='교재 '+r.books+'권을 지금 받아 둔 자료로 점검했습니다 (새로 받지 않았습니다).<br>'
+      +(parts.length?'<b style="color:var(--warnt)">'+parts.join(' · ')+'</b>':'<b style="color:var(--okt)">고칠 것 없음 ✓</b>')
+      +(r.cnt.e?' <span style="color:var(--neutral)">· 시리즈 참고 '+r.cnt.e+'개 시리즈</span>':'');
+  }
+  if(!body)return;
+  const ids=Object.keys(r.rows).sort((x,y)=>{
+    const rx=r.rows[x].items.some(i=>i.k!=='e')?0:1, ry=r.rows[y].items.some(i=>i.k!=='e')?0:1;
+    return rx-ry||String(r.rows[x].title).localeCompare(String(r.rows[y].title),'ko');
+  });
+  // 시리즈 참고는 교재별로 늘어놓지 않고 맨 아래 한 덩이로 (교재별이면 100건이 넘어 못 읽는다)
+  const serHtml=(r.serGap&&r.serGap.length)
+    ?'<details style="border:1.5px dashed var(--border);border-radius:10px;margin-top:10px;background:var(--cream2)">'
+      +'<summary style="padding:10px 12px;cursor:pointer;font-size:13px;font-weight:700;color:var(--neutral)">'
+      +'참고 — 일부 권에만 Review·Test 가 있는 시리즈 '+r.serGap.length+'개 '
+      +'<span style="font-weight:400">(책에 정말 없을 수도 있습니다 — 목차 확인 후보)</span></summary>'
+      +'<div style="padding:0 12px 10px">'
+      +r.serGap.map(g=>'<div style="padding:7px 0;border-top:1px solid var(--divider);font-size:12.5px;line-height:1.6;color:var(--navy)">'
+        +'<b>'+escAttr(g.series)+'</b> <span style="color:var(--slate)">'+g.n+'권 중 '+g.wi.length+'권에만 있음</span>'
+        +'<div style="color:var(--slate);margin-top:2px">없는 권: '+escAttr(g.wo.slice(0,6).join(', '))+(g.wo.length>6?' 외 '+(g.wo.length-6):'')+'</div>'
+        +'</div>').join('')
+      +'</div></details>'
+    :'';
+  if(!ids.length){body.innerHTML=(serHtml||'<div style="padding:24px;text-align:center;color:var(--slate);font-size:14px">점검할 것이 없습니다 🎉</div>');openM('m-unit-audit');return;}
+  body.innerHTML=ids.map(id=>{
+    const row=r.rows[id];
+    const onlyRef=row.items.every(i=>i.k==='e');
+    return '<details style="border:1.5px solid var(--border);border-radius:10px;margin-bottom:8px;background:#fff">'
+      +'<summary style="padding:10px 12px;cursor:pointer;font-size:13.5px;font-weight:700;color:'+(onlyRef?'var(--neutral)':'var(--navy)')+'">'
+      +escAttr(row.title)+' <span style="font-weight:400;color:var(--slate)">— '+row.items.length+'건</span></summary>'
+      +'<div style="padding:0 12px 10px">'
+      +row.items.map(it=>'<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--divider)">'
+        +'<span style="flex:0 0 auto;font-size:11px;font-weight:700;color:'+COL[it.k]+';background:var(--cream2);border-radius:6px;padding:2px 7px;white-space:nowrap">'+LBL[it.k]+'</span>'
+        +'<span style="flex:1;min-width:0;font-size:13px;color:var(--navy);line-height:1.6">'+escAttr(it.msg)
+        +(it.note?'<span style="display:block;font-size:12px;color:var(--slate);margin-top:2px">'+escAttr(it.note)+'</span>':'')+'</span>'
+        +'</div>').join('')
+      +'<button class="btn bo bsm" style="margin-top:8px" onclick="closeM(\'m-unit-audit\');openTbookUnits(\''+escAttr(id)+'\')">이 교재 열기 →</button>'
+      +'</div></details>';
+  }).join('')+serHtml;
+  openM('m-unit-audit');
+}
 function renderTbookTable(){
   const q=(document.getElementById('tbook-q')?.value||'').toLowerCase();
   const cat=document.getElementById('tbook-filter-cat')?.value||'';
