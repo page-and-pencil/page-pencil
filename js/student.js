@@ -1224,6 +1224,7 @@ function vcMakeChunks(cards,size){
 }
 // 구간을 처음부터 다시 깐다 (스테이지 시작·스테이지 전환에서 부른다)
 function vcStartChunks(){
+  if(!deckState._t0)deckState._t0=Date.now();   // 학습 시간 재기 (리포트용)
   const full=deckState._fullCards||deckState.cards||[];
   const size=deckState.chunkAll?Math.max(1,full.length):(deckState.chunkSize||VC_CHUNK_DEFAULT);
   deckState._chunks=vcMakeChunks(full,Math.max(1,size));
@@ -1416,7 +1417,8 @@ function renderVocabDeck(sid){
   const vocabMode=stu?.vocabMode||'intermediate';
   deckState={cards:session,idx:0,phase:0,phaseResults:[],sessionResults:[],vocabMode,mode,
     stages:vocabStagePlan(sid),_fullCards:[...session],
-    chunkSize:vcChunkSize(sid),chunkAll:!!vocabChunkAll,_firstS:{}};
+    chunkSize:vcChunkSize(sid),chunkAll:!!vocabChunkAll,_firstS:{},
+    setKey:(vocabDeckFilter&&vocabDeckFilter.asgnId)?('hw:'+vocabDeckFilter.asgnId):('mode:'+mode)};
   vcStartChunks();
   vocabRenderStage();
 }
@@ -2349,6 +2351,17 @@ async function renderVocabResult(el){
     await supaUpsert('vocab_cards',card.id,updated,card.sid);
   }
   deckState._savedCount=saved;
+  // 학습 시간·횟수를 리포트에서 쓰려고 세션 한 줄을 남긴다 (약 200B).
+  // 체험 모드(선생님 미리보기)에서는 저장하지 않는다.
+  if(!(typeof ppSandbox==='function'&&ppSandbox())&&answered.length){
+    const _ms=deckState._t0?Math.min(Date.now()-deckState._t0,3*3600*1000):0;   // 3시간 넘는 값은 방치로 보고 자른다
+    const _row={id:uid(),sid:currentStudentSid,date:today,type:'vocab_session',
+      setKey:deckState.setKey||('mode:'+(deckState.mode||'all')),
+      ms:_ms,n:answered.length,correct,stages:(deckState.stages||[]).slice(),at:new Date().toISOString()};
+    if(!_cache.logs)_cache.logs=[];
+    _cache.logs.unshift(_row);
+    try{await supaUpsert('logs',_row.id,_row,currentStudentSid);}catch(e){console.warn('학습 세션 기록:',e);}
+  }
   _vocabHwAutoCheck(currentStudentSid).catch(()=>{}); // 오늘 20개 채우면 '앱 단어 학습' 숙제 자동 체크
   if(pctScore>=80){
     updateStreak(currentStudentSid);
@@ -2624,7 +2637,7 @@ async function renderQuizResult(){
   const row={id:uid(),sid:q.sid,date:ppToday(),type:'vocab_quiz',setKey:q.setKey,
     score,total:totalAll,correct:corrAll,wrong:wrong.slice(0,40),
     mode:q.cfg.types.slice(),sec:q.cfg.sec,ms:q.ms||0,
-    attempt:q.attempt,partial:!!q.partial,pauses:q.pauses||0};
+    attempt:q.attempt,partial:!!q.partial,pauses:q.pauses||0,at:new Date().toISOString()};
   if(!_cache.logs)_cache.logs=[];
   _cache.logs.unshift(row);
   try{await supaUpsert('logs',row.id,row,q.sid);}catch(e){console.warn('퀴즈 기록 저장:',e);}
@@ -2684,7 +2697,7 @@ async function _quizHwAutoCheck(sid,setKey){
     if(!(goal>=1&&goal<=100))continue;
     const sc=(a.schedule||[]).find(s=>s.date===today);
     if(!sc||sc.done)continue;
-    if(!ppQuizGoalMet(sid,setKey,goal,parseInt(a.quizTimes,10)||1))continue;
+    if(!ppQuizGoalMet(sid,setKey,goal,parseInt(a.quizTimes,10)||1,a.resetAt))continue;
     await completeSchedDay(sid,a.id,today);
     toast('🏁 목표 점수 달성 — 숙제가 저절로 체크됐어요! ✓');
   }

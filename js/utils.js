@@ -1056,10 +1056,12 @@ function ppQuizStat(sid,setKey){
   return {best,last:rows.length?(rows[0].score||0):0,tries:full.length,all:rows.length,rows};
 }
 // 목표 점수를 goalTimes 번 넘겼는가 (숙제 자동 완료 판단)
-function ppQuizGoalMet(sid,setKey,goal,times){
+// resetAt 을 주면 그 뒤 기록만 센다 (학습기록 리셋, P6)
+function ppQuizGoalMet(sid,setKey,goal,times,resetAt){
   const g=(goal>=1&&goal<=100)?goal:((typeof ppVocabPassPct==='function')?ppVocabPassPct():90);
   const need=(times>=1)?times:1;
-  return ppQuizLogs(sid,setKey).filter(r=>(r.score||0)>=g).length>=need;
+  const from=resetAt?String(resetAt):'';
+  return ppQuizLogs(sid,setKey).filter(r=>(r.score||0)>=g&&(!from||String(r.at||r.date||'')>=from)).length>=need;
 }
 // ── 누적 오답 4주 복습 (P4) ──────────────────────────────────
 // 한 번이라도 틀린 단어를 **다음 주부터 4주 동안 매주 한 번** 다시 본다.
@@ -1154,6 +1156,106 @@ function ppWrongStat(sid){
     lastPct:lastSet.cards.length?Math.round(((lastP.done||[]).length/lastSet.cards.length)*100):null,
     top,
   };
+}
+// ── 단어 리포트 (P6) ─────────────────────────────────────────
+// 전부 이미 받아 둔 _cache.logs · tests · vocab_cards 로만 계산한다 (부팅 추가 수신 0).
+// 카드 분포 기준 (에빙하우스 박스 1→2→4→7→15→30→60일):
+//   새 단어   box 0 이고 아직 한 번도 안 본 것(lastSeen 없음)
+//   학습 중   box 0~2 (복습 간격 1~4일)
+//   장기 기억 box 3 이상 (복습 간격 7일 이상)
+const PP_RP_LONG_BOX=3;
+const PP_RP_DAYS=30;        // 세트별 표는 최근 30일
+function _rpLogs(sid,type){
+  return ((typeof _cache!=='undefined')?(_cache.logs||[]):[])
+    .filter(l=>l&&!l._deleted&&l.sid===sid&&l.type===type);
+}
+// 세트 이름 — 'hw:<id>' · 'tb:<교재id>:<단원>' · 'mode:daily' 등
+function ppSetLabel(setKey){
+  const k=String(setKey||'');
+  if(k.indexOf('hw:')===0){
+    const a=((typeof _cache!=='undefined')?(_cache.assignments||[]):[]).find(x=>x&&x.id===k.slice(3));
+    return a?('숙제 · '+(a.bookTitle||a.range||'단어')):'숙제';
+  }
+  if(k.indexOf('tb:')===0){
+    const rest=k.slice(3),i=rest.indexOf(':');
+    const tb=((typeof _cache!=='undefined')?(_cache.globalTextbooks||[]):[]).find(b=>b&&b.id===rest.slice(0,i));
+    return (tb?tb.title:'교재')+' '+rest.slice(i+1);
+  }
+  if(k==='daily'||k==='mode:daily')return '오늘의 20개';
+  if(k==='mode:last')return '지난 수업 단어';
+  if(k==='mode:all')return '전체 단어장';
+  if(k.indexOf('les:')===0)return '지난 수업 단어';
+  return k||'(묶음 없음)';
+}
+// 숙제 학습기록 리셋 — 그 뒤 기록만 센다
+function _rpResetAt(setKey){
+  const k=String(setKey||'');
+  if(k.indexOf('hw:')!==0)return '';
+  const a=((typeof _cache!=='undefined')?(_cache.assignments||[]):[]).find(x=>x&&x.id===k.slice(3));
+  return (a&&a.resetAt)?String(a.resetAt):'';   // ISO 그대로 — 같은 날 리셋도 가려진다
+}
+// 세트별 표 (최근 30일, 최근순)
+function ppVocabSets(sid){
+  const today=ppToday();
+  const from=ppShiftDate(today,-PP_RP_DAYS);
+  const m={};
+  const row=k=>m[k]||(m[k]={key:k,label:ppSetLabel(k),sessions:0,ms:0,n:0,
+    tries:0,best:0,last:null,wrong:[],lastDate:''});
+  _rpLogs(sid,'vocab_session').forEach(l=>{
+    const d=String(l.date||'');if(d<from)return;
+    const ra=_rpResetAt(l.setKey);if(ra&&String(l.at||d)<ra)return;
+    const r=row(l.setKey||'');r.sessions++;r.ms+=(l.ms||0);r.n+=(l.n||0);
+    if(d>r.lastDate)r.lastDate=d;
+  });
+  _rpLogs(sid,'vocab_quiz').forEach(l=>{
+    const d=String(l.date||'');if(d<from)return;
+    const ra=_rpResetAt(l.setKey);if(ra&&String(l.at||d)<ra)return;
+    const r=row(l.setKey||'');
+    if(!l.partial)r.tries++;
+    if((l.score||0)>r.best)r.best=l.score||0;
+    if(r.last===null||d>=r.lastDate)r.last=l.score||0;
+    if(d>r.lastDate)r.lastDate=d;
+    if(!l.partial&&(l.wrong||[]).length)r.wrong=(l.wrong||[]).slice(0,8);
+  });
+  return Object.values(m).sort((a,b)=>String(b.lastDate).localeCompare(String(a.lastDate)));
+}
+// 한 세트의 퀴즈 점수 추이 (전체 문항 회차만, 최근 20회, 오래된 → 최근)
+function ppQuizTrend(sid,setKey,limit){
+  const ra=_rpResetAt(setKey);
+  return _rpLogs(sid,'vocab_quiz')
+    .filter(l=>l.setKey===setKey&&!l.partial&&(!ra||String(l.at||l.date||'')>=ra))
+    .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')))
+    .slice(-(limit||20))
+    .map(l=>({score:l.score||0,date:l.date||''}));
+}
+// 리포트 요약
+function ppVocabReport(sid){
+  const today=ppToday();
+  const mon=(typeof ppWeekMon==='function')?ppWeekMon(today):today;
+  const sess=_rpLogs(sid,'vocab_session').filter(l=>String(l.date||'')>=mon);
+  const days=new Set(sess.map(l=>l.date)).size;
+  const ms=sess.reduce((t,l)=>t+(l.ms||0),0);
+  const quiz=_rpLogs(sid,'vocab_quiz').filter(l=>String(l.date||'')>=mon);
+  const full=quiz.filter(l=>!l.partial);
+  const best=quiz.reduce((x,l)=>Math.max(x,l.score||0),0);
+  const lastRow=quiz.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')))[0];
+  const cards=((typeof DB!=='undefined'&&DB.cards)?DB.cards(sid):[]);
+  const dist={fresh:0,learning:0,long:0};
+  cards.forEach(c=>{
+    if(!c.lastSeen&&!(c.box||0))dist.fresh++;
+    else if((c.box||0)>=PP_RP_LONG_BOX)dist.long++;
+    else dist.learning++;
+  });
+  const wn=(typeof ppWrongStat==='function')?ppWrongStat(sid):null;
+  return {week:(typeof ppWeekKey==='function')?ppWeekKey(today):'',days,ms,
+    quizTries:full.length,quizBest:best,quizLast:lastRow?(lastRow.score||0):null,
+    cards:cards.length,dist,wn};
+}
+function ppMsText(ms){
+  const m=Math.round((ms||0)/60000);
+  if(m<1)return '1분 미만';
+  if(m<60)return m+'분';
+  return Math.floor(m/60)+'시간 '+(m%60)+'분';
 }
 // ── 재시험 예정 (B3) ─────────────────────────────────────────
 // 통과할 때까지 학생 줄과 오늘 수업 목록에 칩이 남는다.
