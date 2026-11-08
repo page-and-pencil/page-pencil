@@ -1247,7 +1247,8 @@ function ppVocabReport(sid){
     else dist.learning++;
   });
   const wn=(typeof ppWrongStat==='function')?ppWrongStat(sid):null;
-  return {week:(typeof ppWeekKey==='function')?ppWeekKey(today):'',days,ms,
+  const games=(typeof ppGameSummary==='function')?ppGameSummary(sid,PP_RP_DAYS):[];
+  return {week:(typeof ppWeekKey==='function')?ppWeekKey(today):'',days,ms,games,
     quizTries:full.length,quizBest:best,quizLast:lastRow?(lastRow.score||0):null,
     cards:cards.length,dist,wn};
 }
@@ -1281,6 +1282,20 @@ function ppGameScoreText(game,score){
   if(game==='match')return (Math.round(score/100)/10).toFixed(1)+'초';
   return score+((PP_GAMES[game]||{}).unit||'점');
 }
+// 리포트용 게임 한 줄 — 최근 30일 판 수와 최고 기록.
+// 놀이 기록이라 세트별 표(학습·퀴즈)에는 섞지 않는다.
+function ppGameSummary(sid,days){
+  const from=ppShiftDate(ppToday(),-(days||PP_RP_DAYS));
+  return Object.keys(PP_GAMES).map(k=>{
+    const g=PP_GAMES[k];
+    const rows=ppGameLogs(sid,k).filter(l=>String(l.date||'')>=from);
+    if(!rows.length)return {game:k,name:g.name,icon:g.icon,plays:0,best:null,text:''};
+    const sc=r=>(r.score==null?0:r.score);
+    let best=sc(rows[0]);
+    rows.forEach(r=>{const v=sc(r);if(g.lower?(v<best):(v>best))best=v;});
+    return {game:k,name:g.name,icon:g.icon,plays:rows.length,best:best,text:ppGameScoreText(k,best)};
+  });
+}
 // 이번 판이 최고 기록인가 (저장 전에 묻는다 — 같은 행을 두 번 세지 않게)
 function ppGameIsBest(sid,game,score){
   const b=ppGameBest(sid,game);
@@ -1290,6 +1305,7 @@ function ppGameIsBest(sid,game,score){
 
 function ppMsText(ms){
   const m=Math.round((ms||0)/60000);
+  if(!(ms>0))return '0분';            // 기록이 아예 없을 때는 '1분 미만'이 아니라 0분
   if(m<1)return '1분 미만';
   if(m<60)return m+'분';
   return Math.floor(m/60)+'시간 '+(m%60)+'분';

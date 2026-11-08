@@ -1213,6 +1213,13 @@ function rpReportHtml(sid){
       <div style="width:${pct(r.dist.long,r.cards)}%;background:var(--ok)" title="장기 기억 ${r.dist.long}"></div>
     </div>
     <span style="font-size:11.5px;color:var(--neutral)"><span title="수업·클래스5·리딩앤에서 본 적은 있지만 앱에서 아직 학습하지 않은 단어" style="border-bottom:1px dotted var(--border);cursor:help">앱 학습 전</span> ${r.dist.fresh} · 학습중 ${r.dist.learning} · 장기 ${r.dist.long}</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;font-size:11.5px" title="복습 게임은 놀이라 복습 일정·학습 통계에는 섞지 않습니다">
+    <span style="color:var(--slate)">🎮 게임</span>
+    ${(()=>{const gm=(r.games||[]).filter(g=>g.plays);
+      return gm.length
+        ?gm.map(g=>`<span style="color:var(--navy)">${g.icon} ${escAttr(g.name)} <b>${g.plays}판</b> · 최고 ${escAttr(g.text)}</span>`).join('')
+        :'<span style="color:var(--neutral)">최근 30일 기록 없음</span>';})()}
   </div>`;
   const rows=sets.length?sets.map(s=>`
     <div style="border-top:1px solid var(--divider)">
