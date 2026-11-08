@@ -1167,6 +1167,8 @@ const VOCAB_STAGES={
   tiles: {name:'철자 조립',  icon:'🧩', sub:'글자를 순서대로 눌러 단어를 완성하세요',     render:(el)=>renderTilesCard(el)},
   match: {name:'짝 맞추기',  icon:'🃏', sub:'카드를 뒤집어 단어와 뜻의 짝을 찾으세요',    render:(el)=>renderMatchGame(el)},
   bingo: {name:'빙고',      icon:'🎰', sub:'단어를 보고 빙고판에서 뜻을 찾으세요',       render:(el)=>renderBingoGame(el)},
+  // 뜻 쓰기 — 프리셋에는 넣지 않는다. 학생별 직접 조합(students.vocabStages)으로만 고른다.
+  kspell:{name:'뜻 쓰기',   icon:'📝', sub:'영어를 보고 한국어 뜻을 써 보세요',          render:(el)=>renderKspellCard(el)},
 };
 const VOCAB_PRESETS={
   beginner:['mem','mc','match'],       // 저학년: 타이핑 없이 탭만으로
@@ -1796,6 +1798,188 @@ function spellNext(){
   vcNext(ok);
 }
 
+// ── 뜻 쓰기 (kspell) ─────────────────────────────────────────
+// 영어를 보고 한국어 뜻을 쓴다. 채점은 **코드 규칙으로만** 한다 (AI 채점 없음 — 비용·전송량).
+// 2026-11-09 원장 지시.
+//
+// 정답 후보 만들기 (카드 meaning 에서)
+//   · 괄호 안 지우기   '(달걀을) 휘저어 익힌' → '휘저어 익힌' · '배(과일)' → '배'
+//   · 물결표 지우기    '~할 수 없다' → '할 수 없다'
+//   · , ; / 로 나눈 뜻은 각각 후보
+//   · 띄어쓰기·문장부호 무시
+function kspCandidates(meaning){
+  const raw=String(meaning==null?'':meaning);
+  const out=[];
+  const push=v=>{const t=String(v||'').trim();if(t&&!out.includes(t))out.push(t);};
+  // 괄호를 지운 것과 괄호 안만 남긴 것 둘 다 후보로 (배(과일) → '배' · '과일' 은 쓰지 않는다)
+  const noParen=raw.replace(/[(（][^)）]*[)）]/g,' ');
+  [raw,noParen].forEach(src=>{
+    String(src).split(/[,;/·]/).forEach(seg=>{
+      const s=String(seg).replace(/[~～]/g,'').replace(/[(（][^)）]*[)）]/g,' ').trim();
+      if(s)push(s);
+    });
+  });
+  return out;
+}
+// 띄어쓰기·문장부호 무시
+function kspNorm(s){
+  return String(s==null?'':s).toLowerCase().replace(/[~～]/g,'').replace(/[^0-9a-z가-힣]/g,'');
+}
+// 끝말 떼기 — '조깅하다' ↔ '조깅'
+const KSP_TAILS=['하는','적인','하다','한','는','의','다'];
+function kspStem(s){
+  let t=kspNorm(s);
+  for(const tail of KSP_TAILS){
+    if(t.length>tail.length+1&&t.endsWith(tail))return t.slice(0,-tail.length);
+  }
+  return t;
+}
+// 받침 ㄴ·ㄹ·ㅁ 떼기 — '빠르다'(→빠르) 와 '빠른'(→빠르) 을 같게 본다.
+// 여기까지만 한다. 1음절 어간('긴'↔'길다')이나 ㅂ불규칙('조심스러운'↔'조심스럽다')까지
+// 억지로 맞추면 '산'(명사)과 '사다'(동사)가 같다고 나온다 — 오채점이 더 해롭다.
+// 그런 경우는 '거의 맞았어요'로 떨어져 한 번 더 쓸 기회를 준다.
+// 한글 음절 코드: 0xAC00 + (초성*21 + 중성)*28 + 종성. 종성 4=ㄴ, 8=ㄹ, 16=ㅁ.
+function kspDeep(s){
+  const t=kspStem(s);
+  if(t.length<2)return t;
+  const code=t.charCodeAt(t.length-1)-0xAC00;
+  if(code<0||code>11171)return t;
+  const fin=code%28;
+  if(fin!==4&&fin!==8&&fin!==16)return t;
+  return t.slice(0,-1)+String.fromCharCode(0xAC00+(code-fin));
+}
+// 채점 — 'ok'(정답) · 'near'(거의 맞음, 한 번 더) · 'no'(오답)
+function kspGrade(typed,meaning){
+  const t=kspNorm(typed);
+  if(!t)return {r:'no',hit:''};
+  const cands=kspCandidates(meaning);
+  for(const c of cands){
+    if(kspNorm(c)===t)return {r:'ok',hit:c};
+  }
+  // 끝말만 다른 경우도 정답 ('조깅'='조깅하다', '빠른'='빠르다')
+  const ts=kspStem(typed),td=kspDeep(typed);
+  for(const c of cands){
+    if(ts&&kspStem(c)===ts)return {r:'ok',hit:c};
+    if(td&&td.length>=2&&kspDeep(c)===td)return {r:'ok',hit:c};
+  }
+  // 핵심 글자가 2자 이상 맞으면 '거의'
+  for(const c of cands){
+    const cn=kspNorm(c);
+    let same=0;
+    for(let i=0;i<Math.min(cn.length,t.length);i++){if(cn[i]===t[i])same++;else break;}
+    if(same>=2)return {r:'near',hit:c};
+    // 앞이 아니라 중간이 겹치는 경우도 본다 (두 글자 이상 연속)
+    for(let i=0;i+2<=t.length;i++){
+      if(cn.includes(t.slice(i,i+2)))return {r:'near',hit:c};
+    }
+  }
+  return {r:'no',hit:cands[0]||String(meaning||'')};
+}
+function renderKspellCard(el){
+  // 뜻이 빈 카드는 낼 수 없다 → 건너뛴다
+  let card=deckState.cards[deckState.idx];
+  let guard=0;
+  while(card&&!String(card.meaning||'').trim()&&guard++<200){
+    vcMarkFirst(card,true);            // 낼 수 없는 카드는 기록을 깎지 않는다
+    deckState.idx++;
+    card=deckState.cards[deckState.idx];
+  }
+  if(!card){vcRoundEnd();return;}
+  deckState._kAnswered=false;deckState._kTry=0;deckState._kLast=false;
+  const total=deckState.cards.length;
+  const prog=deckState.cards.map((_,i)=>
+    `<div class="vc-dot ${i<deckState.idx?'done':i===deckState.idx?'cur':''}"></div>`
+  ).join('');
+  el.innerHTML=`<div style="padding:1.25rem">${vocabHwBanner()}
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
+      <button class="btn bo bxxs" style="margin-right:auto" onclick="swStuTab('st-home')">← 홈</button>
+      ${vcStarHtml(card)}<span style="font-size:12.5px;color:var(--slate);font-family:var(--fm)">${vcProgLine()}</span>
+      <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
+    </div>
+    ${vcStageBar()}
+    <div class="vc-prog">${prog}</div>
+    <div class="recall-wrap">
+      <div style="font-size:13px;color:var(--slate);text-align:center;margin-bottom:8px">영어를 보고 한국어 뜻을 써 보세요</div>
+      <div style="background:var(--tl);border-radius:10px;padding:18px;text-align:center;margin-bottom:16px">
+        <div style="font-size:26px;font-weight:800;color:var(--navy);font-family:var(--fd);cursor:pointer" onclick="speakWord('${String(card.word).replace(/'/g,"\\'")}')">${_vgEsc(card.word)} 🔊</div>
+        ${card.pos?`<div style="font-size:12px;color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
+      </div>
+      <input class="recall-input" id="ksp-in" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+        placeholder="한국어 뜻을 입력..."
+        onkeydown="if(event.key==='Enter'){if(event.isComposing||event.keyCode===229)return;event.preventDefault();deckState._kAnswered?kspNext():kspCheck();}">
+      <div class="recall-feedback" id="ksp-fb"></div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+        <button class="btn-vc unsure" id="ksp-skip-btn" onclick="kspSkip()">힌트 (정답 보기)</button>
+        <button class="btn-vc know" id="ksp-next-btn" style="display:none" onclick="kspNext()">다음 →</button>
+      </div>
+    </div>
+  </div>`;
+  // 입력칸이 키보드에 가리지 않게 — 포커스 뒤 화면 안으로 끌어온다
+  setTimeout(()=>{
+    const i=document.getElementById('ksp-in');
+    if(!i)return;
+    i.focus();
+    try{i.scrollIntoView({block:'center',behavior:'smooth'});}catch(e){}
+  },120);
+}
+function kspCheck(){
+  if(deckState._kAnswered)return;
+  const card=deckState.cards[deckState.idx];
+  const inp=document.getElementById('ksp-in');
+  const fb=document.getElementById('ksp-fb');
+  const raw=(inp.value||'').trim();
+  if(!raw)return;
+  const g=kspGrade(raw,card.meaning);
+  if(g.r==='near'&&(deckState._kTry||0)===0){
+    // 거의 맞았다 — 첫 두 글자만 보여 주고 한 번 더
+    deckState._kTry=1;
+    const head=kspNorm(g.hit).slice(0,2);
+    fb.style.color='var(--warnt)';
+    fb.innerHTML=`거의 맞았어요: <strong>${_vgEsc(head)}</strong>… 한 번 더 써 볼까요?`;
+    inp.value='';inp.focus();
+    return;
+  }
+  const ok=g.r==='ok';
+  deckState._kAnswered=true;deckState._kLast=ok;
+  inp.classList.toggle('correct',ok);
+  inp.classList.toggle('wrong',!ok);
+  inp.readOnly=true;
+  document.getElementById('ksp-skip-btn').style.display='none';
+  const nb=document.getElementById('ksp-next-btn');
+  if(nb){nb.style.display='';nb.textContent='다음 → (Enter)';}
+  if(ok){
+    fb.style.color='var(--okt)';
+    fb.innerHTML='정답이에요! ✓'+(kspNorm(g.hit)!==kspNorm(raw)?` <span style="color:var(--slate);font-size:13px">(${_vgEsc(g.hit)})</span>`:'');
+  }else{
+    fb.style.color='var(--warnt)';
+    fb.innerHTML=`다시 나와요 🙂<div style="margin-top:4px">뜻: <strong>${_vgEsc(card.meaning||'')}</strong></div>`;
+  }
+  deckState.phaseResults.push({word:card.word,correct:ok});
+  vgMark(ok);
+  setTimeout(()=>{try{speakWord(card.word);}catch(e){}},150);
+}
+function kspSkip(){
+  if(deckState._kAnswered)return;
+  const card=deckState.cards[deckState.idx];
+  const inp=document.getElementById('ksp-in');
+  const fb=document.getElementById('ksp-fb');
+  deckState._kAnswered=true;deckState._kLast=false;
+  inp.readOnly=true;
+  fb.style.color='var(--warnt)';
+  fb.innerHTML=`뜻은 <strong>${_vgEsc(card.meaning||'')}</strong> 이에요. 다시 나와요 🙂`;
+  document.getElementById('ksp-skip-btn').style.display='none';
+  const nb=document.getElementById('ksp-next-btn');
+  if(nb){nb.style.display='';nb.textContent='다음 → (Enter)';}
+  deckState.phaseResults.push({word:card.word,correct:false});
+  vgMark(false);
+  setTimeout(()=>{try{speakWord(card.word);}catch(e){}},150);
+}
+function kspNext(){
+  if(!deckState._kAnswered)return;
+  const ok=!!deckState._kLast;
+  deckState._kAnswered=false;deckState._kLast=false;deckState._kTry=0;
+  vcNext(ok);
+}
 // ── 게임 공용 헬퍼 ──
 function _vgEsc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function _vgShuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
