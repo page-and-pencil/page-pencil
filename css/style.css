@@ -2676,3 +2676,57 @@ body{font-size:14.5px;line-height:1.65;}
   border-radius:var(--rs);padding:5px 8px}
 .cs-todo.done{color:var(--okt);background:var(--okl);text-decoration:line-through}
 .cs-todo .cs-chk{font-weight:800;flex-shrink:0}
+
+/* ── 복습 게임 (P5) ──────────────────────────────────────── */
+/* A. 타임어택 매칭 — 좁은 화면에서도 2열 */
+.gm-tile{display:block;width:100%;padding:12px 8px;border:2px solid var(--border);border-radius:10px;
+  background:#fff;font-size:14px;font-weight:700;color:var(--navy);font-family:var(--fb);
+  cursor:pointer;text-align:center;line-height:1.35;word-break:break-word;min-height:46px;
+  transition:border-color .12s,background .12s,opacity .18s}
+.gm-tile.w{font-family:var(--fd);letter-spacing:.2px}
+.gm-tile.sel{border-color:var(--teal);background:var(--tl);color:var(--tealt)}
+.gm-tile.done{opacity:.26;border-style:dashed;cursor:default}
+.gm-tile.bad{border-color:var(--coral);background:var(--cl);animation:gmShake .34s}
+@keyframes gmShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+/* B. 크래시 — 키보드가 올라와도 남아 있게 visualViewport 로 높이를 맞춘다(_gmFit) */
+#gm-crash{position:fixed;left:0;right:0;top:0;z-index:60;background:var(--cream);
+  display:flex;flex-direction:column;overflow:hidden}
+#gm-head{display:flex;align-items:center;gap:8px;padding:10px 14px 6px;flex-shrink:0}
+#gm-hud{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+#gm-foot{padding:8px 14px 12px;flex-shrink:0}
+#gm-msg{height:17px;font-size:12px;font-weight:700;text-align:center;margin-top:4px}
+.gm-lane{position:relative;overflow:hidden;margin:0 14px;border:2px dashed var(--border);
+  border-radius:14px;background:var(--cream2);transition:border-color .15s,background .15s}
+.gm-lane.hit{border-color:var(--coral);background:var(--cl)}
+.gm-fall{position:absolute;left:50%;top:0;transform:translate(-50%,0);max-width:86%;
+  padding:9px 14px;border-radius:10px;background:var(--teal);color:#fff;
+  font-size:17px;font-weight:800;font-family:var(--fb);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;box-shadow:var(--sh);will-change:transform}
+.gm-fall.en{font-family:var(--fd);letter-spacing:.3px}
+.gm-fall.pop{opacity:0;transition:opacity .14s}
+.recall-input.bad{border-color:var(--coral)!important;background:var(--cl)}
+/* 홈 '🎮 보너스' 안의 게임 줄 */
+.gm-row{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;margin-bottom:6px;
+  border:1.5px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;
+  font-family:var(--fb);text-align:left}
+.gm-row:disabled{cursor:default;opacity:.7}
+/* C. 1분 퀴즈 (수업 도구 — 선생님 화면) */
+#mq-layer{position:fixed;inset:0;z-index:1150;background:var(--navy);
+  display:flex;flex-direction:column;padding:18px;overflow:auto;font-family:var(--fb)}
+#mq-layer .mq-head{display:flex;align-items:center;gap:12px;color:#fff;flex-shrink:0}
+#mq-layer .mq-clock{font-size:34px;font-weight:800;font-family:var(--fm);line-height:1}
+#mq-layer .mq-score{font-size:22px;font-weight:800;margin-left:auto}
+#mq-layer .mq-word{font-size:clamp(30px,7vw,64px);font-weight:800;color:#fff;
+  font-family:var(--fd);text-align:center;margin:auto 0;padding:14px 6px;word-break:break-word}
+#mq-layer .mq-opts{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex-shrink:0}
+#mq-layer .mq-opt{padding:22px 14px;border:2px solid rgba(255,255,255,.3);border-radius:14px;
+  background:rgba(255,255,255,.06);color:#fff;font-size:clamp(16px,2.4vw,24px);font-weight:700;
+  font-family:var(--fb);cursor:pointer;line-height:1.35;min-height:84px;transition:background .12s}
+#mq-layer .mq-opt:hover{background:rgba(255,255,255,.16)}
+#mq-layer .mq-opt.ok{border-color:var(--ok);background:var(--ok)}
+#mq-layer .mq-opt.no{border-color:var(--coral);background:var(--coral)}
+#mq-layer .mq-foot{display:flex;gap:10px;justify-content:center;margin-top:12px;flex-shrink:0}
+@media (max-width:560px){
+  #mq-layer .mq-opts{grid-template-columns:1fr}
+  #mq-layer .mq-opt{padding:14px 12px;min-height:56px}
+}
