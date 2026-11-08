@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261109a">
+<link rel="stylesheet" href="css/style.css?v=20261109c">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -1711,6 +1711,11 @@
               <input type="text" id="tu-new-unit-subtitle" placeholder="소제목 (선택)" onkeydown="if(event.key==='Enter'&&!event.isComposing)tuCreateUnit()" style="flex:1;min-width:0;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:#fff;outline:none">
               <button class="btn bt bsm" onclick="tuCreateUnit()" style="flex-shrink:0;white-space:nowrap">+ 생성</button>
             </div>
+            <div style="display:flex;gap:5px;align-items:center">
+              <label style="font-size:12px;color:var(--slate);white-space:nowrap">넣을 위치</label>
+              <select id="tu-new-unit-pos" style="flex:1;min-width:0;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:12.5px;font-family:var(--fb);color:var(--navy);background:#fff;outline:none"></select>
+            </div>
+            <button class="btn bo bsm" style="width:100%;white-space:nowrap" onclick="tuCreateEmptyUnit()" title="Review·Test 처럼 단어가 없는 단원을 넣습니다 ('단어 없음이 정상' 표식이 함께 붙습니다)">＋ 빈 단원 추가 (Review·Test)</button>
             <button class="btn ba bsm" style="width:100%;white-space:nowrap" onclick="document.getElementById('tu-toc-file').click()" title="목차 사진은 단원 생성·동기화, 단어 리스트 사진은 단원별 단어 추가 — 자동 판별">📷 목차·단어 리스트 이미지 인식</button>
             <input type="file" id="tu-toc-file" accept="image/*" style="display:none" onchange="tuTocFile(event)">
             <div style="font-size:10.5px;color:var(--slate);text-align:center">사진을 Ctrl+V로 붙여넣어도 됩니다 (목차/단어 리스트 자동 판별)</div>
@@ -2502,11 +2507,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261109a"></script>
+<script src="js/utils.js?v=20261109c"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261109a"></script>
-<script src="js/teacher.js?v=20261109a"></script>
-<script src="js/student.js?v=20261109a"></script>
-<script src="js/parent.js?v=20261109a"></script>
+<script src="js/db.js?v=20261109c"></script>
+<script src="js/teacher.js?v=20261109c"></script>
+<script src="js/student.js?v=20261109c"></script>
+<script src="js/parent.js?v=20261109c"></script>
 </body>
 </html>

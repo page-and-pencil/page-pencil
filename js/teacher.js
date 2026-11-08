@@ -4813,6 +4813,7 @@ function openTbookUnits(tbId){
 }
 function tuPopulateUnitSel(tbId){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  try{tuFillPosSel(tbId);}catch(e){}
   const units=tb?.units||{};const keys=tbUnitKeys(tb);
   const sub=document.getElementById('tu-sub');if(sub)sub.textContent=`(${keys.length}개)`;
   const sel=document.getElementById('tu-unit-sel');
@@ -5143,24 +5144,68 @@ async function tuAIFillInline(tbId,unitKey,idx){
   }catch(e){toast('AI 실패');}
   if(btn){btn.textContent='✨';btn.disabled=false;}
 }
-function tuCreateUnit(){
+// 새 단원을 넣을 자리 — 기본은 '번호 순서 자리', 번호가 없으면 맨 뒤 (2026-11-09)
+// 'Unit 5' 를 뒤늦게 넣을 때 Unit 29 뒤에 붙던 것을 고친다.
+function tuNumOf(k){const m=String(k||'').match(/(\d+)/);return m?parseInt(m[1],10):null;}
+function tuPlaceUnit(keys,name){
+  const sel=document.getElementById('tu-new-unit-pos');
+  const v=sel?sel.value:'';
+  const rest=keys.filter(k=>k!==name);
+  if(v==='end')return [...rest,name];
+  if(v&&v!=='auto'){
+    const i=rest.indexOf(v);
+    return i>=0?[...rest.slice(0,i+1),name,...rest.slice(i+1)]:[...rest,name];
+  }
+  // auto — 같은 접두어·번호 순서 자리
+  const n=tuNumOf(name);
+  if(n==null)return [...rest,name];
+  let at=rest.length;
+  for(let i=0;i<rest.length;i++){
+    const m=tuNumOf(rest[i]);
+    if(m!=null&&m>n){at=i;break;}
+  }
+  return [...rest.slice(0,at),name,...rest.slice(at)];
+}
+function tuFillPosSel(tbId){
+  const sel=document.getElementById('tu-new-unit-pos');if(!sel)return;
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  const keys=tb?tbUnitKeys(tb):[];
+  const keep=sel.value;
+  sel.innerHTML='<option value="auto">번호 순서 자리 (기본)</option>'
+    +'<option value="end">맨 뒤</option>'
+    +keys.map(k=>`<option value="${escAttr(k)}">${escAttr(k)} 다음</option>`).join('');
+  if(keep&&[...sel.options].some(o=>o.value===keep))sel.value=keep;
+}
+function _tuAddUnit(name,sub,noVocabNote){
   const tbId=document.getElementById('tu-tb-id').value;
-  const name=document.getElementById('tu-new-unit-name').value.trim();
-  const sub=(document.getElementById('tu-new-unit-subtitle')?.value||'').trim();
   if(!name)return toast('단원번호를 입력하세요');
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   if(tb.units?.[name])return toast('이미 있는 단원명입니다');
   const unitTitles={...(tb.unitTitles||{})};if(sub)unitTitles[name]=sub;
-  // 사용자 지정 순서를 쓰는 교재면 새 단원을 맨 뒤에 추가 (삭제 후 재생성 시 옛 위치 잔재 제거)
-  const updated={...tb,units:{...(tb.units||{}),[name]:[]},unitTitles,
-    ...(Array.isArray(tb.unitOrder)?{unitOrder:[...tb.unitOrder.filter(k=>k!==name),name]}:{})};
+  const unitNoVocab={...(tb.unitNoVocab||{})};if(noVocabNote)unitNoVocab[name]=noVocabNote;
+  const order=tuPlaceUnit(tbUnitKeys(tb),name);
+  const updated={...tb,units:{...(tb.units||{}),[name]:[]},unitTitles,unitOrder:order,
+    ...(noVocabNote?{unitNoVocab}:{})};
   supaUpsert('global_textbooks',tbId,updated,null).then(()=>{
     const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
     document.getElementById('tu-new-unit-name').value='';
     const subEl=document.getElementById('tu-new-unit-subtitle');if(subEl)subEl.value='';
     _tuCurUnit=name;
-    tuPopulateUnitSel(tbId);tuRenderWords(tbId,name);renderTbookTable();toast(`'${name}' 단원 생성됨`);
+    tuPopulateUnitSel(tbId);tuFillPosSel(tbId);tuRenderWords(tbId,name);renderTbookTable();
+    const at=order.indexOf(name);
+    toast(`'${name}' 단원 생성됨 (${at+1}번째 자리${noVocabNote?' · 단어 없음 표식':''})`);
   });
+}
+function tuCreateUnit(){
+  _tuAddUnit(document.getElementById('tu-new-unit-name').value.trim(),
+    (document.getElementById('tu-new-unit-subtitle')?.value||'').trim(),'');
+}
+// Review·Test 처럼 단어가 없는 단원 — '단어 없음이 정상' 표식을 함께 붙인다
+function tuCreateEmptyUnit(){
+  const name=document.getElementById('tu-new-unit-name').value.trim();
+  if(!name)return toast('단원번호를 먼저 입력하세요 (예: Unit 5)');
+  const sub=(document.getElementById('tu-new-unit-subtitle')?.value||'').trim()||'Review Test';
+  _tuAddUnit(name,sub,'단어 없음이 정상인 단원 (빈 단원으로 추가)');
 }
 // ── 목차 이미지 → 단원 일괄 생성 (Claude 비전으로 목차 추출, 확인 후 생성) ──
 function tuTocFile(e){const f=e.target.files[0];e.target.value='';if(f)tuTocFromFile(f);}
@@ -5281,7 +5326,8 @@ function tuTocSync(tbId,items){
 // ── 워드리스트 병합: 인식된 단원명을 기존 단원과 매칭해 단어만 추가 (미리보기 확인, 기존 단어·단원 유지) ──
 function tuWordlistMerge(tbId,parsedUnits){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
-  const entries=Object.entries(parsedUnits||{}).filter(([,ws])=>Array.isArray(ws)&&ws.length);
+  // 단어 0개 단원도 남긴다 — Review·Test 처럼 목차에만 있는 단원을 버리지 않게 (2026-11-09)
+  const entries=Object.entries(parsedUnits||{}).filter(([,ws])=>Array.isArray(ws));
   if(!entries.length){toast('단어를 찾지 못했어요');return;}
   const existKeys=tbUnitKeys(tb);
   const match=tuMatchUnitNames(tb,existKeys,entries.map(([n])=>n));
@@ -5296,22 +5342,30 @@ function tuWordlistMerge(tbId,parsedUnits){
       const word=/[A-Z]/.test(raw)?raw:fixWordCase(raw.toLowerCase(),w.ko);
       return {word,ko:w.ko||'',pos:w.pos||'',example:w.example||''};
     }).filter(w=>w.word&&/^[a-zA-Z]/.test(w.word)&&!existSet.has(w.word.toLowerCase()));
-    return{name,target,isNew:!existSet.size&&!match.get(name),add,skip:ws.length-add.length};
-  }).filter(p=>p.add.length);
+    const isNewUnit=!match.get(name)&&!existKeys.includes(target);
+    return{name,target,isNew:isNewUnit,add,skip:ws.length-add.length,empty:!ws.length&&isNewUnit};
+  }).filter(p=>p.add.length||p.empty);      // 빈 새 단원도 계획에 남긴다
   if(!plan.length){toast('추가할 새 단어가 없습니다 (모두 이미 있음)');return;}
   const total=plan.reduce((s,p)=>s+p.add.length,0);
-  const lines=plan.slice(0,12).map(p=>`· ${p.target}${match.get(p.name)&&p.target!==p.name?` (인식명: ${p.name})`:!match.get(p.name)?' (새 단원)':''}: +${p.add.length}단어${p.skip?` · 중복 ${p.skip} 건너뜀`:''}`);
+  const nEmpty=plan.filter(p=>p.empty).length;
+  const lines=plan.slice(0,12).map(p=>p.empty
+    ?`· ${p.target} (새 단원 — 단어 0개)`
+    :`· ${p.target}${match.get(p.name)&&p.target!==p.name?` (인식명: ${p.name})`:!match.get(p.name)?' (새 단원)':''}: +${p.add.length}단어${p.skip?` · 중복 ${p.skip} 건너뜀`:''}`);
   if(plan.length>12)lines.push(`외 ${plan.length-12}개 단원`);
-  askConfirm('워드리스트 가져오기',`${plan.length}개 단원에 단어 ${total}개를 추가합니다. 기존 단어·단원은 그대로 유지됩니다.\n\n${lines.join('\n')}\n\n적용할까요?`,'적용','bt',async()=>{
+  askConfirm('워드리스트 가져오기',`단어 ${total}개를 추가합니다${nEmpty?` · 빈 단원 ${nEmpty}개 생성`:''}. 기존 단어·단원은 그대로 유지됩니다.\n\n${lines.join('\n')}\n\n적용할까요?`,'적용','bt',async()=>{
     try{
       const units={...(tb.units||{})};
-      plan.forEach(p=>{units[p.target]=[...tuNormWords(units[p.target]||[]),...p.add];});
+      const noVocab={...(tb.unitNoVocab||{})};
+      plan.forEach(p=>{
+        units[p.target]=[...tuNormWords(units[p.target]||[]),...p.add];
+        if(p.empty)noVocab[p.target]='목차에만 있는 단원 (가져오기 단어 0개)';
+      });
       const newKeys=plan.map(p=>p.target).filter(k=>!existKeys.includes(k));
-      const updated={...tb,units,...(newKeys.length?{unitOrder:[...existKeys,...newKeys]}:{})};
+      const updated={...tb,units,unitNoVocab:noVocab,...(newKeys.length?{unitOrder:[...existKeys,...newKeys]}:{})};
       await supaUpsert('global_textbooks',tbId,updated,null);
       const ci=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(ci>=0)_cache.globalTextbooks[ci]=updated;
       tuPopulateUnitSel(tbId);tuRenderWords(tbId,_tuCurUnit);renderTbookTable();
-      toast(`${plan.length}개 단원에 ${total}개 단어 추가 완료`);
+      toast(`단어 ${total}개 추가 완료${nEmpty?` · 빈 단원 ${nEmpty}개 생성`:''}`);
     }catch(err){toast('저장 실패: '+(err.message||''));}
   });
 }
@@ -5520,11 +5574,18 @@ async function tuImportCsvRaw(e){
     const iU=head.indexOf('unit'),iW=head.indexOf('word'),iK=head.indexOf('ko'),iP=head.indexOf('pos');
     if(iW<0)throw new Error('헤더에 word 칸이 필요합니다 (unit,word,ko,pos)');
     const units={};
-    let skipped=0;
+    let skipped=0,emptyUnits=0;
     rows.slice(1).forEach(r=>{
       const word=String(r[iW]||'').trim();
-      if(!word||!/^[a-zA-Z]/.test(word)){skipped++;return;}
-      const unit=(iU>=0?String(r[iU]||'').trim():'')||_tuCurUnit||'Unit 1';
+      const unitCell=iU>=0?String(r[iU]||'').trim():'';
+      if(!word||!/^[a-zA-Z]/.test(word)){
+        // 단원만 적고 단어 칸이 빈 줄 = Review·Test 처럼 단어가 없는 단원이다 (2026-11-09).
+        // 전에는 이런 줄을 통째로 버려서 목차에 있는 단원이 교재에서 빠졌다.
+        if(unitCell&&!(unitCell in units)){units[unitCell]=[];emptyUnits++;}
+        else skipped++;
+        return;
+      }
+      const unit=unitCell||_tuCurUnit||'Unit 1';
       (units[unit]=units[unit]||[]).push({
         word,
         ko:iK>=0?String(r[iK]||'').trim():'',
@@ -5532,9 +5593,12 @@ async function tuImportCsvRaw(e){
         example:''            // 예문은 만들지 않는다 — 원문에 있을 때만 교재 쪽에서 채운다
       });
     });
+    // 단어가 들어온 단원은 '빈 단원' 이 아니다
+    emptyUnits=Object.values(units).filter(v=>!v.length).length;
     const total=Object.values(units).reduce((a,v)=>a+v.length,0);
-    if(!total)throw new Error('가져올 단어가 없습니다');
-    if(status)status.textContent=`CSV ${total}개 · 단원 ${Object.keys(units).length}개`+(skipped?` · 건너뜀 ${skipped}`:'');
+    if(!total&&!emptyUnits)throw new Error('가져올 단어가 없습니다');
+    if(status)status.textContent=`CSV ${total}개 · 단원 ${Object.keys(units).length}개`
+      +(emptyUnits?` · 빈 단원 ${emptyUnits}개`:'')+(skipped?` · 건너뜀 ${skipped}`:'');
     tuWordlistMerge(tbId,units);          // 미리보기 확인창은 기존 것을 그대로 쓴다
   }catch(err){
     if(status)status.textContent='';
