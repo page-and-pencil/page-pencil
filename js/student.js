@@ -4587,13 +4587,81 @@ function openUnitRead(tbId,unitKey){
   if(!text){
     bodyEl.innerHTML='<div style="text-align:center;padding:2rem;color:var(--slate);font-size:14px">이 단원에 등록된 원문이 없습니다.</div>';
   }else{
-    bodyEl.innerHTML=_renderHighlightedText(text,words);
+    bodyEl.innerHTML=ppDialogBodyHtml(text,words);
   }
+  // 읽을 텍스트는 따로 들고 있는다 — 화면의 innerText 에는 화자 배지가 섞여 있다
+  window._urReadText=(typeof ppDialogText==='function')?ppDialogText(text):text;
 
   stopSpeak();
   openM('m-unit-read');
+  _urTeacherTtsBtn(tb,unitKey);
+}
+// ⓒ 긴 단원 음성은 선생님만 만든다. 학생에게는 이 버튼이 보이지 않는다.
+function ppIsTeacherView(){
+  try{
+    if(typeof ppSandbox==='function'&&ppSandbox())return false;   // 체험 모드는 학생 화면이다
+    const s=(typeof loadSession==='function')?loadSession():null;
+    return !!(s&&s.role==='teacher');
+  }catch(e){return false;}
+}
+async function _urTeacherTtsBtn(tb,unitKey){
+  const host=document.getElementById('unit-read-audio');
+  if(!host||!ppIsTeacherView())return;
+  if(tb.unitAudio&&tb.unitAudio[unitKey])return;                 // 출판사 음원이 있으면 그걸 쓴다
+  const raw=(tb.unitTexts&&tb.unitTexts[unitKey])||'';
+  const text=((typeof ppDialogText==='function')?ppDialogText(raw):raw)||'';
+  const max=(typeof ppTtsAutoMax==='function')?ppTtsAutoMax():600;
+  if(!text.trim()||text.length<=max)return;
+  const cfg=(typeof elevenCfg==='function')?elevenCfg():null;if(!cfg)return;
+  const lvl=(typeof ttsLevelForTb==='function')?ttsLevelForTb(tb):'intermediate';
+  const speed=(TTS_LEVELS[lvl]&&TTS_LEVELS[lvl].gen)||1;
+  let has=false;
+  try{has=await elevenHasPassage(raw,cfg,speed);}catch(e){}
+  if(has)return;
+  const pct=(typeof ppTtsSharePct==='function')?ppTtsSharePct(text.length):0;
+  const div=document.createElement('div');
+  div.id='ur-tts-make';div.style.marginTop='8px';
+  div.innerHTML='<button class="btn ba bsm" onclick="urMakeUnitAudio(\''+tb.id+'\',\''+String(unitKey).replace(/'/g,"\\'")+'\')">🎙 이 단원 음성 만들기 ('
+    +text.length.toLocaleString()+'자'+(pct?' · 이번 달 남은 몫의 '+pct+'%':'')+')</button>'
+    +'<div style="font-size:11.5px;color:var(--neutral);margin-top:3px">선생님에게만 보입니다 — 학생 화면은 지금 브라우저 음성으로 들립니다</div>';
+  host.appendChild(div);
+}
+async function urMakeUnitAudio(tbId,unitKey){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const raw=(tb.unitTexts&&tb.unitTexts[unitKey])||'';
+  const text=((typeof ppDialogText==='function')?ppDialogText(raw):raw)||'';
+  const cfg=(typeof elevenCfg==='function')?elevenCfg():null;if(!cfg)return toast('음성 키가 없습니다');
+  const pct=(typeof ppTtsSharePct==='function')?ppTtsSharePct(text.length):0;
+  const uline=(typeof ppTtsUsageLine==='function')?ppTtsUsageLine():'';
+  askConfirm('이 단원 음성 만들기',
+    text.length.toLocaleString()+'자를 만듭니다'+(pct?' — 이번 달 남은 몫의 '+pct+'%':'')+'.'
+    +(uline?' ('+uline+')':'')+' 한 번 만들면 학생은 그 음원을 그대로 듣습니다.',
+    '만들기','bt',async()=>{
+      const d=document.getElementById('ur-tts-make');
+      if(d)d.innerHTML='<span style="font-size:12px;color:var(--slate)">만들고 있어요... (글자 수에 따라 10~40초)</span>';
+      const lvl=(typeof ttsLevelForTb==='function')?ttsLevelForTb(tb):'intermediate';
+      const speed=(TTS_LEVELS[lvl]&&TTS_LEVELS[lvl].gen)||1;
+      try{
+        await elevenGetPassageAudio(raw,cfg,speed,{auto:false});
+        if(typeof ppProbeTtsProxy==='function')await ppProbeTtsProxy();
+        if(d)d.innerHTML='<span style="font-size:12px;color:var(--okt)">✓ 만들었습니다 — 이제 학생도 이 음원으로 듣습니다</span>';
+      }catch(e){
+        const capped=!!window._ttsCap;
+        if(d)d.innerHTML='<span style="font-size:12px;color:var(--coral)">'+(capped?'이번 달 음성 한도를 넘었어요':'실패: '+(e.message||''))+'</span>';
+      }
+    });
 }
 
+// 대화문 본문을 줄 단위로 그린다 — 화자는 배지, 본문엔 라벨 없음.
+// (단원 복습 모달은 ttsSentHtml 을 쓰지 않아 따로 필요하다)
+function ppDialogBodyHtml(text,words){
+  const p=(typeof ppParseDialog==='function')?ppParseDialog(text):{dialog:false};
+  if(!p.dialog)return _renderHighlightedText(text,words);
+  return p.lines.map(l=>
+    '<div style="margin:0 0 8px">'
+    +((l.label&&typeof ppSpeakerBadge==='function')?ppSpeakerBadge(l.label):'')
+    +_renderHighlightedText(l.text,words)+'</div>').join('');
+}
 function _renderHighlightedText(text,words){
   const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   if(!words.length)return esc(text).replace(/\n/g,'<br>');
@@ -4629,7 +4697,8 @@ function showUnitWordPopup(event,word,ko,pos){
 
 async function startUnitTTS(){
   const body=document.getElementById('unit-read-body');if(!body)return;
-  const text=(body.innerText||'').trim();if(!text)return;
+  // 화면 글자(innerText)에는 화자 배지가 섞여 있다 → 모달을 열 때 담아 둔 텍스트를 읽는다
+  const text=String(window._urReadText||body.innerText||'').trim();if(!text)return;
   stopSpeak();
   const btn=document.getElementById('tts-play-btn');if(btn)btn.textContent='▶ 재생 중...';
   await speakSmart(text,0.85); // 원어민 음원 → 브라우저 음성 사슬을 그대로 탄다
@@ -4904,7 +4973,8 @@ let _msCloze=null;
 function _shuffle(a){const r=a.slice();for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
 function renderMsCloze(body,footer){
   const{tb,unitKey}=_msState;
-  const text=tb.unitTexts?.[unitKey]||'';
+  const _raw=tb.unitTexts?.[unitKey]||'';
+  const text=(typeof ppDialogText==='function')?ppDialogText(_raw):_raw;   // 화자 라벨 제거
   const targets=clozeTargets(tb,unitKey);
   if(!text||targets.length<2){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">빈칸으로 낼 단어가 부족해요</div>';footer.innerHTML=msDoneBtn('cloze','✓ 완료');return;}
   // 본문 등장 순서대로 빈칸 만들기
@@ -4984,7 +5054,9 @@ function msClozeCheck(){
 function renderMsPattern(body,footer){
   const{tb,unitKey}=_msState;
   const raw=(tb.unitPatterns?.[unitKey]||'').trim();
-  const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  const _pd=(typeof ppParseDialog==='function')?ppParseDialog(raw):{dialog:false};
+  const lines=(_pd.dialog?_pd.lines.map(l=>(l.label?'['+l.label+'] ':'')+l.text)
+                        :raw.split('\n').map(l=>l.trim())).filter(Boolean);
   if(!lines.length){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">이 단원에 등록된 패턴이 없습니다</div>';footer.innerHTML=msDoneBtn('pattern','✓ 완료');return;}
   _msState._patLines=lines;
   body.innerHTML='<div style="padding:12px 16px">'
@@ -5234,6 +5306,7 @@ function _stMemDraw(body,footer){
   const reads=C.reads[C.idx]||0;
   const dots=new Array(SENT_READ_GOAL).fill(0).map((_,i)=>i<reads?'●':'○').join('');
   body.innerHTML=_stPhaseBar()+'<div style="padding:0 16px 12px">'+_stHead()
+    +((row.label&&typeof ppSpeakerBadge==='function')?('<div style="margin-bottom:6px">'+ppSpeakerBadge(row.label)+'</div>'):'')
     +'<div class="st-mask-box">'+tiles+'</div>'
     +(row.ko?'<div class="st-ko">'+_stEsc(row.ko)+'</div>':'<div class="st-ko" style="color:var(--neutral)">해석이 등록되지 않은 문장이에요</div>')
     +'<div style="font-size:12px;color:var(--slate);margin-top:10px">단어를 누르면 그 자리까지 잠깐 보여요</div>'
@@ -5317,7 +5390,8 @@ function _stScrDraw(body,footer){
       ?'<div style="padding:40px 10px;text-align:center"><div style="font-size:38px;margin-bottom:10px">⏸</div>'
         +'<div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:14px">잠깐 멈췄어요</div>'
         +'<button class="btn bt" style="padding:12px 32px;border-radius:var(--rpill)" onclick="_stPause()">이어서 하기 →</button></div>'
-      :(row.ko?'<div class="st-ko">'+_stEsc(row.ko)+'</div>':'')
+      :((row.label&&typeof ppSpeakerBadge==='function')?('<div style="margin-bottom:6px">'+ppSpeakerBadge(row.label)+'</div>'):'')
+        +(row.ko?'<div class="st-ko">'+_stEsc(row.ko)+'</div>':'')
         +'<div class="st-ansbox '+st+'">'+answer+'</div>'
         +'<div class="st-bank">'+(bank||'<span style="font-size:13px;color:var(--slate)">아래 확인을 눌러요</span>')+'</div>')
     +'</div>';
@@ -5354,6 +5428,7 @@ function _stSpellDraw(body,footer){
   const row=C.lines[C.idx];
   const hint=row.ko?'':sentFirstHint(row.en);
   body.innerHTML=_stPhaseBar()+'<div style="padding:0 16px 12px">'+_stHead()
+    +((row.label&&typeof ppSpeakerBadge==='function')?('<div style="margin-bottom:6px">'+ppSpeakerBadge(row.label)+'</div>'):'')
     +(row.ko
       ?'<div class="st-prompt">'+_stEsc(row.ko)+'</div>'
       :'<div class="st-prompt" style="font-family:var(--fm);letter-spacing:1px">'+_stEsc(hint)
@@ -5455,6 +5530,7 @@ function _stClozeDraw(body,footer){
       +' onclick="_stClozePick('+i+')">'+_stEsc(w)+'</button>';
   }).join('');
   body.innerHTML=_stPhaseBar()+'<div style="padding:0 16px 12px">'+_stHead()
+    +((row.label&&typeof ppSpeakerBadge==='function')?('<div style="margin-bottom:6px">'+ppSpeakerBadge(row.label)+'</div>'):'')
     +(row.ko?'<div class="st-ko">'+_stEsc(row.ko)+'</div>':'')
     +'<div class="st-clozebox">'+html+'</div>'
     +'<div class="st-bank">'+bank+'</div></div>';
@@ -5656,7 +5732,7 @@ function msSplitSents(text){
 }
 function msReadStart(){
   const{tb,unitKey}=_msState||{};if(!tb)return;
-  const sents=msSplitSents(tb.unitTexts?.[unitKey]||'');
+  const sents=msSplitSents((typeof ppDialogText==='function')?ppDialogText(tb.unitTexts?.[unitKey]||''):(tb.unitTexts?.[unitKey]||''));
   if(!sents.length){toast('연습할 본문이 없어요');return;}
   _msRead={sents,idx:0,scores:[]};
   msRenderReadSent();
@@ -5845,7 +5921,10 @@ function ttsLevelSeg(cur,fnName){
   return '<div class="seg" style="flex:0 0 auto">'+Object.entries(TTS_LEVELS).map(([id,L])=>
     '<button type="button" class="'+(cur===id?'seg-on':'')+'" onclick="'+fnName+'(\''+id+'\')" style="font-size:12px;padding:5px 9px">'+L.label+'</button>').join('')+'</div>';
 }
-async function speakSentences(text,levelId,hiPrefix){
+async function speakSentences(text,levelId,hiPrefix,opts){
+  if(typeof ppDialogText==='function')text=ppDialogText(text);   // 화자 라벨 제거 (문장 번호도 이 기준)
+  // opts.noGen: 새로 만들지 않는다 — 캐시 음원이 있으면 그것, 없으면 브라우저 음성
+  const _noGen=!!(opts&&opts.noGen);
   const L=TTS_LEVELS[levelId]||TTS_LEVELS.intermediate;
   const sents=ttsSplitSents(text);
   if(!sents.length)return true;
@@ -5858,7 +5937,8 @@ async function speakSentences(text,levelId,hiPrefix){
       const el=document.getElementById(hiPrefix+i);
       if(el){el.style.background='var(--tl)';el.style.borderRadius='4px';el.scrollIntoView({behavior:'smooth',block:'center'});}
     }
-    await speakSmart(sents[i],{el:L.el,tts:L.tts});
+    if(_noGen&&typeof speakCachedOnly==='function')await speakCachedOnly(sents[i],{el:L.el,tts:L.tts});
+    else await speakSmart(sents[i],{el:L.el,tts:L.tts});
     if(tok!==_seqTok)return false;
     if(i<sents.length-1)await new Promise(r=>setTimeout(r,L.gap)); // 문장 사이 쉼
   }
@@ -5868,15 +5948,20 @@ async function speakSentences(text,levelId,hiPrefix){
 // 레벨 연동 본문 레이아웃: 초급=한 줄에 한 문장 / 중·고급=문단 단위 줄바꿈
 // (문장 id 순서는 speakSentences의 ttsSplitSents 순서와 동일하게 유지)
 function ttsSentHtml(text,words,prefix,levelId){
-  const paras=(text||'').split(/\n+/).map(p=>p.trim()).filter(Boolean);
+  // 대화문이면 화자를 본문에서 떼어 작은 배지로만 보여 준다.
+  // 문장 번호(prefix+i)는 ppDialogText 로 만든 텍스트 기준 — 음성 타임스탬프와 같은 순서다.
+  const _dlg=(typeof ppParseDialog==='function')?ppParseDialog(text):{dialog:false,lines:[]};
+  const _src=(typeof ppDialogText==='function')?ppDialogText(text):(text||'');
+  const paras=(_src||'').split(/\n+/).map(p=>p.trim()).filter(Boolean);
+  const _bdg=i=>(_dlg.dialog&&_dlg.lines[i]&&_dlg.lines[i].label)?ppSpeakerBadge(_dlg.lines[i].label):'';
   let gi=0;
   if(levelId==='beginner'){
-    return paras.map(p=>
-      ttsSplitSents(p).map(s=>`<div id="${prefix}${gi++}" style="transition:background .2s;border-radius:4px;padding:2px 4px;margin:0 0 6px">${_renderHighlightedText(s,words)}</div>`).join('')
+    return paras.map((p,pi)=>
+      _bdg(pi)+ttsSplitSents(p).map(s=>`<div id="${prefix}${gi++}" style="transition:background .2s;border-radius:4px;padding:2px 4px;margin:0 0 6px">${_renderHighlightedText(s,words)}</div>`).join('')
     ).join('<div style="height:10px"></div>');
   }
-  return paras.map(p=>
-    '<p style="margin:0 0 12px">'+ttsSplitSents(p).map(s=>`<span id="${prefix}${gi++}" style="transition:background .2s;border-radius:4px">${_renderHighlightedText(s,words)}</span>`).join(' ')+'</p>'
+  return paras.map((p,pi)=>
+    '<p style="margin:0 0 12px">'+_bdg(pi)+ttsSplitSents(p).map(s=>`<span id="${prefix}${gi++}" style="transition:background .2s;border-radius:4px">${_renderHighlightedText(s,words)}</span>`).join(' ')+'</p>'
   ).join('');
 }
 function msSetTtsLevel(l){if(_msState){_msState.ttsLevel=l;stopSpeak();renderMsStep(_msState.idx);}}
@@ -5890,15 +5975,22 @@ window._waStop=function(){
   _waSrc=null;
 };
 async function playPassage(text,levelId,hiPrefix){
+  if(typeof ppDialogText==='function')text=ppDialogText(text);   // 화자 라벨 제거
   const L=TTS_LEVELS[levelId]||TTS_LEVELS.intermediate;
   const cfg=(typeof elevenCfg==='function')?elevenCfg():null;
-  if(!cfg||text.length>2500)return speakSentences(text,levelId,hiPrefix);
+  if(!cfg||text.length>2500)return speakSentences(text,levelId,hiPrefix,{noGen:text.length>ppTtsAutoMax()});
   stopSpeak();
   const tok=_seqTok;                 // ← 생성 "전"에 캡처: 대기 중 X를 누르면 아래에서 중단
   let pa;
   // 속도는 생성 단계에서 네이티브로 (재생단 감속은 피치가 내려가 목소리가 변조됨)
   try{pa=await elevenGetPassageAudio(text,cfg,L.gen||1);}
-  catch(e){console.warn('통짜 생성 실패 → 문장별 폴백:',e.message);return tok===_seqTok?speakSentences(text,levelId,hiPrefix):false;}
+  catch(e){
+    // 자동 생성 상한(ⓑ)·서버 월 누적 상한에 걸린 경우에는 새로 만들지 않고 읽는다.
+    // 학생 화면에는 아무 경고도 띄우지 않는다 — 소리는 그대로 난다.
+    const capped=(e.message==='PP_TTS_AUTO_MAX')||!!window._ttsCap;
+    if(!capped)console.warn('통짜 생성 실패 → 문장별 폴백:',e.message);
+    return tok===_seqTok?speakSentences(text,levelId,hiPrefix,{noGen:capped}):false;
+  }
   if(tok!==_seqTok)return false;     // 생성 중 닫힘/다른 재생 → 소리 내지 않음
   const gapMs=({beginner:700,intermediate:280,advanced:0})[levelId]??280;
   const clearHi=()=>document.querySelectorAll('[id^="'+hiPrefix+'"]').forEach(e=>e.style.background='');

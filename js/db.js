@@ -1036,6 +1036,22 @@ async function sha256Hex(s){const b=await crypto.subtle.digest('SHA-256',new Tex
 // 기본 목소리 = Matilda. settings 의 elevenlabs 행을 지워도 들리던 목소리가 그대로여야 한다 —
 // tts_cache 키에 목소리가 들어가므로 기본값이 바뀌면 만들어 둔 음원 전부가 무용지물이 된다.
 const PP_TTS_VOICE='XrExE9yKIg1WjnnlVkGX';
+// ── 음성 비용 장치 ──────────────────────────────────────────
+// ⓑ 학생 화면에서 '자동 생성'하는 본문 음성의 글자 수 상한.
+//    넘으면 만들지 않고 브라우저 음성으로 읽는다(학생에게 경고를 띄우지 않는다).
+//    캐시가 있으면 길이와 상관없이 그 음원을 쓴다.
+// ⓒ 긴 단원은 선생님이 '이 단원 음성 만들기'로 하나씩 만든다 (auto:false).
+// 월 누적 상한은 서버(tts-proxy)가 막는다 — 429 {reason:'monthly_cap'}.
+const PP_TTS_AUTO_MAX=600;
+function ppTtsAutoMax(){
+  const v=parseInt(_cache.settings.ttsAutoMax,10);
+  return (Number.isFinite(v)&&v>0)?v:PP_TTS_AUTO_MAX;
+}
+// probe 응답으로 받아 둔 이번 달 사용량 {month,used,calls,cap}
+function ppTtsUsage(){
+  const u=_cache.settings.ttsUsage;
+  return (u&&typeof u==='object')?u:{month:'',used:0,calls:0,cap:0};
+}
 function _ttsVoiceOf(cfg){
   return (cfg&&cfg.voiceId)||(_cache.settings.ttsVoices||[])[0]||PP_TTS_VOICE;
 }
@@ -1056,9 +1072,12 @@ async function ppProbeTtsProxy(){
       _cache.settings.ttsProxyUp=!!d.ok;
       _cache.settings.ttsProxy=!!d.server;
       if(Array.isArray(d.voices)&&d.voices.length)_cache.settings.ttsVoices=d.voices;
+      // 이번 달 음성 사용량 — 선생님 화면 표시와 '남은 몫' 계산에 쓴다
+      if(d.month)_cache.settings.ttsUsage={month:d.month,used:+d.used||0,calls:+d.calls||0,cap:+d.cap||0};
     }
   }catch(e){_cache.settings.ttsProxy=false;_cache.settings.ttsProxyUp=false;}
   try{if(typeof updateElevenDot==='function')updateElevenDot();}catch(e){}
+  try{if(typeof ppTtsCapNotice==='function')ppTtsCapNotice();}catch(e){}
 }
 // ElevenLabs 호출 한 곳 — 서버 함수 우선, 함수가 없거나 서버 키가 없으면 옛 방식(로컬 키 직호출).
 // 브라우저가 api.elevenlabs.io 를 직접 부르면 키가 공개 설정에 있어야 한다(SECURITY_PLAN 2번).
@@ -1068,7 +1087,19 @@ async function _ttsFetch(mode,voice,text,opts,cfg){
     const r=await fetch(SUPA_URL+'/functions/v1/tts-proxy',{method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},
       body:JSON.stringify({mode,voiceId:voice,text,wordMode:!!opts.wordMode,speed:opts.speed||1})});
-    if(r.ok){window._ttsVia='proxy';return r;}
+    if(r.ok){window._ttsVia='proxy';window._ttsCap=null;return r;}
+    // 월 누적 상한에 걸린 것이면 로컬 키로도 만들지 않는다 — 아끼는 게 목적이다.
+    // 호출한 쪽은 이 응답을 받아 조용히 브라우저 음성으로 내려간다.
+    if(r.status===429){
+      const info=await r.clone().json().catch(()=>({}));
+      if(info&&info.reason==='monthly_cap'){
+        window._ttsCap={month:info.month||'',used:+info.used||0,cap:+info.cap||0,at:Date.now()};
+        if(info.month)_cache.settings.ttsUsage={month:info.month,used:+info.used||0,calls:(ppTtsUsage().calls||0),cap:+info.cap||0};
+        console.warn('tts-proxy 월 누적 상한 — 브라우저 음성으로 읽습니다 ('+(info.used||0)+'/'+(info.cap||0)+'자)');
+        try{if(typeof ppTtsCapNotice==='function')ppTtsCapNotice();}catch(e){}   // 선생님에게만
+        return r;
+      }
+    }
     // 프록시가 안 되면 로컬 키가 있을 때만 옛 방식으로 내려간다(음성이 멈추지 않게).
     // 로컬 키가 없으면 응답을 그대로 넘겨 호출한 쪽이 키 오류를 표시하게 한다.
     console.warn('tts-proxy '+r.status+' → '+((cfg&&cfg.key)?'이 기기 키로 폴백':'폴백할 키 없음'));
@@ -1132,7 +1163,22 @@ async function elevenGetAudioUrl(text,cfg,wordMode){
 // 본문 전체를 한 번에 생성 — 문장별 짜깁기 없이 자연스러운 억양 흐름.
 // with-timestamps 응답의 글자별 타임스탬프로 문장 경계 시간(times)을 계산해
 // 재생 중 하이라이트·레벨별 쉼은 프로그램으로 처리한다. 캐시 키: p6.
-async function elevenGetPassageAudio(text,cfg,genSpeed){
+// 본문 음성이 이미 캐시에 있는지만 본다 (ElevenLabs 를 부르지 않는다)
+async function elevenHasPassage(text,cfg,genSpeed){
+  const t=((typeof ppDialogText==='function')?ppDialogText(text):text)||'';
+  const voice=_ttsVoiceOf(cfg);
+  const speed=Math.min(1.2,Math.max(0.7,genSpeed||1));
+  const id='tts_'+await sha256Hex(voice+'|p6|'+speed+'|'+t);
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1&select=data`,{headers:SUPA_HEADERS});
+    if(r.ok){const a=await r.json();const row=Array.isArray(a)?a[0]:a;return !!(row&&row.data&&row.data.url&&row.data.times);}
+  }catch(e){}
+  return false;
+}
+async function elevenGetPassageAudio(text,cfg,genSpeed,opts){
+  // 대화문 화자 라벨을 빼고 읽는다 — 문장 시간(times)도 이 텍스트 기준
+  if(typeof ppDialogText==='function')text=ppDialogText(text);
+  const _auto=!(opts&&opts.auto===false);      // 학생 화면은 자동, 선생님 버튼은 auto:false
   const voice=_ttsVoiceOf(cfg);
   const speed=Math.min(1.2,Math.max(0.7,genSpeed||1));
   // 속도는 생성 단계(네이티브 speed)에서 — 재생단 감속은 피치가 떨어져 목소리가 변함
@@ -1141,6 +1187,9 @@ async function elevenGetPassageAudio(text,cfg,genSpeed){
     const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1`,{headers:SUPA_HEADERS});
     if(r.ok){const a=await r.json();const row=Array.isArray(a)?a[0]:a;if(row?.data?.url&&row?.data?.times)return row.data;}
   }catch(e){}
+  // ⓑ 자동 생성 상한 — 캐시가 없고 긴 본문이면 만들지 않는다.
+  //    호출한 쪽(playPassage)은 조용히 브라우저 음성으로 읽는다.
+  if(_auto&&text.length>ppTtsAutoMax())throw new Error('PP_TTS_AUTO_MAX');
   // 본문은 고품질 모델 + 균형 설정 — 내레이션 프로소디가 안정적 (유닛·레벨당 1회 생성)
   const gen=await _ttsFetch('timestamps',voice,text,{speed},cfg);
   if(!gen.ok)throw new Error('ElevenLabs HTTP '+gen.status);
@@ -1320,6 +1369,7 @@ async function elevenCachedUrl(text){
   return '';
 }
 async function speakCachedOnly(text,opt){
+  if(typeof ppDialogText==='function')text=ppDialogText(text);   // 화자 라벨 제거
   const t=String(text||'').trim();if(!t)return false;
   stopSmartAudio();
   const o=opt||{};
@@ -1336,6 +1386,7 @@ async function speakCachedOnly(text,opt){
 }
 // rate: 숫자(레거시, 브라우저 TTS rate) 또는 {el, tts, word} 옵션 객체
 async function speakSmart(text,rate=0.85){
+  if(typeof ppDialogText==='function')text=ppDialogText(text);   // 화자 라벨 제거
   text=(text||'').trim();if(!text)return false;
   stopSmartAudio();
   const isObj=typeof rate==='object'&&rate;
@@ -1399,8 +1450,9 @@ function findExampleFromBooks(word,grade){
     const ar=parseFloat(book.arLevel||book.ar||'0');
     const dist=ar?Math.abs(ar-target)*2+(ar<arMin||ar>arMax?5:0):6;
     const texts=[];
-    if(book.chapters?.length)book.chapters.forEach(c=>{if(c.text)texts.push(c.text);});
-    if(book.bookText)texts.push(book.bookText);
+    const _dlg=t=>(typeof ppDialogText==='function')?ppDialogText(t):t;   // 예문에 화자 라벨이 섞이지 않게
+    if(book.chapters?.length)book.chapters.forEach(c=>{if(c.text)texts.push(_dlg(c.text));});
+    if(book.bookText)texts.push(_dlg(book.bookText));
     for(const text of texts){
       const wRe=new RegExp('(?<![a-z])'+safe+'(?![a-z])','gi');
       const sents=text.match(/[A-Z][^.!?]{10,190}[.!?]+/g)||[];

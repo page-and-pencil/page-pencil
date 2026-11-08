@@ -189,6 +189,15 @@ function updateAuthModeRow(){
 // ── ElevenLabs 음성 설정 ──
 function updateElevenDot(){
   const dot=document.getElementById('eleven-status-dot');if(!dot)return;
+  // 이번 달 음성 사용 (서버 집계 tts_usage — probe 응답으로 받아 둔 값)
+  {const uEl=document.getElementById('eleven-usage-line');
+   if(uEl){const line=(typeof ppTtsUsageLine==='function')?ppTtsUsageLine():'';
+     uEl.textContent=line;uEl.style.display=line?'':'none';
+     const u=(typeof ppTtsUsage==='function')?ppTtsUsage():null;
+     const hit=!!(u&&u.cap&&u.used>=u.cap);
+     uEl.style.color=hit?'var(--coral)':((u&&u.cap&&u.used>=u.cap*0.9)?'var(--warnt)':'var(--slate)');
+     uEl.style.fontWeight=hit?'700':'400';
+     if(hit)uEl.textContent=line+' — 한도에 닿았어요. 학생 화면은 기본 음성으로 읽습니다';}}
   const c=_cache.settings.elevenlabs||DB.g('elevenlabs');
   const warn=document.getElementById('eleven-key-warn');
   // 서버 함수(tts-proxy)에 키가 있으면 이 화면은 '표시만' 한다 (2026-11-07).
@@ -402,6 +411,15 @@ async function initApp(){
   _safe('checkCldWarn',()=>checkCldWarn());
   _safe('renderDash',()=>renderDash());
   _safe('renderCmtChips',()=>renderCmtChips());
+  // 음성 월 한도 알림 — 선생님 화면을 열 때 하루 한 번. 설정에 키가 있어 부팅 probe 를
+  // 건너뛴 경우에도 여기서 한 번 물어본다 (ElevenLabs 를 부르지 않는 probe 다).
+  _safe('ttsCapNotice',()=>{
+    if(_cache.settings.ttsProxy===undefined&&typeof ppProbeTtsProxy==='function'){
+      ppProbeTtsProxy().then(()=>{try{ppTtsCapNotice();}catch(e){}});
+    }else if(typeof ppTtsCapNotice==='function'){
+      setTimeout(()=>{try{ppTtsCapNotice();}catch(e){}},1200);
+    }
+  });
   _safe('updateApiKeyStatusDot',()=>updateApiKeyStatusDot());
   _safe('updateKakaoStatusDot',()=>updateKakaoStatusDot());
   const kk=DB.kakao();
@@ -5397,7 +5415,8 @@ function tuToggleTextSec(force){
 }
 // 원문 미리듣기 (선생님용) — 학생이 듣는 것과 같은 AI 낭독 경로(speakWord→speakSmart)
 function teacherSpeakText(taId){
-  const t=(document.getElementById(taId)?.value||'').trim();
+  const _raw=(document.getElementById(taId)?.value||'').trim();
+  const t=((typeof ppDialogText==='function')?ppDialogText(_raw):_raw).trim();   // 화자 라벨 제거
   if(!t)return toast('원문이 비어 있어요');
   if(t.length>2500)toast('본문이 길어 앞부분 위주로 재생됩니다');
   speakWord(t.slice(0,2500));
@@ -5416,6 +5435,7 @@ function tuRenderWords(tbId,unitKey){
     const sk=document.getElementById('tu-unit-sentko');if(sk)sk.value=tb0?.unitSentKo?.[unitKey]||'';
     const sc=document.getElementById('tu-unit-sentcloze');if(sc)sc.value=tb0?.unitSentCloze?.[unitKey]||'';
     tuSentHint(tb0,unitKey);
+    tuUnitTtsBtn(tb0,unitKey);
     const li=document.getElementById('tu-unit-link');if(li)li.value=tb0?.unitLinks?.[unitKey]||'';
     const audioUrl=tb0?.unitAudio?.[unitKey]||'';
     const ind=document.getElementById('tu-audio-indicator');if(ind)ind.textContent=audioUrl?'✓ 업로드됨':'없음';
@@ -6251,6 +6271,61 @@ function tuSentHint(tb,unitKey){
   const ko=lines.filter(r=>r.ko).length;
   el.textContent='문장 '+lines.length+'개 (해석 있는 것 '+ko+'개) · 빈칸: '+(cw.length?cw.join(', '):'없음');
 }
+// ⓒ 긴 단원 음성은 선생님이 하나씩 만든다 — 학생 화면은 자동 생성하지 않는다.
+//    표시 조건: 자동 생성 상한 초과 + 캐시 없음.
+async function tuUnitTtsBtn(tb,unitKey){
+  const host=document.getElementById('tu-unit-tts');if(!host)return;
+  host.innerHTML='';host.style.display='none';
+  if(!tb||!unitKey)return;
+  const raw=(tb.unitTexts&&tb.unitTexts[unitKey])||'';
+  const text=((typeof ppDialogText==='function')?ppDialogText(raw):raw)||'';
+  if(!text.trim())return;
+  if(tb.unitAudio&&tb.unitAudio[unitKey])return;          // 출판사 음원이 있으면 그걸 쓴다
+  const max=(typeof ppTtsAutoMax==='function')?ppTtsAutoMax():600;
+  if(text.length<=max)return;                             // 짧은 단원은 학생 화면에서 자동 생성
+  const cfg=(typeof elevenCfg==='function')?elevenCfg():null;
+  if(!cfg)return;
+  const lvl=(typeof ttsLevelForTb==='function')?ttsLevelForTb(tb):'intermediate';
+  const speed=(TTS_LEVELS[lvl]&&TTS_LEVELS[lvl].gen)||1;
+  let has=false;
+  try{has=await elevenHasPassage(raw,cfg,speed);}catch(e){}
+  if(has){host.style.display='';host.innerHTML='<span style="font-size:12px;color:var(--okt)">✓ 이 단원 음성은 이미 만들어져 있습니다 ('+text.length.toLocaleString()+'자)</span>';return;}
+  const pct=(typeof ppTtsSharePct==='function')?ppTtsSharePct(text.length):0;
+  host.style.display='';
+  host.innerHTML='<button class="btn ba bsm" onclick="tuMakeUnitAudio()">🎙 이 단원 음성 만들기 ('
+    +text.length.toLocaleString()+'자'+(pct?' · 이번 달 남은 몫의 '+pct+'%':'')+')</button>'
+    +'<div style="font-size:11.5px;color:var(--neutral);margin-top:3px">길어서 학생 화면에서는 자동으로 만들지 않습니다 — 지금은 브라우저 음성으로 들립니다</div>';
+}
+async function tuMakeUnitAudio(){
+  const tbId=document.getElementById('tu-tb-id')?.value;
+  if(!tbId||!_tuCurUnit)return toast('단원을 선택하세요');
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
+  const raw=(tb.unitTexts&&tb.unitTexts[_tuCurUnit])||'';
+  const text=((typeof ppDialogText==='function')?ppDialogText(raw):raw)||'';
+  if(!text.trim())return toast('본문이 비어 있어요');
+  const cfg=(typeof elevenCfg==='function')?elevenCfg():null;
+  if(!cfg)return toast('음성 키가 없습니다');
+  const pct=(typeof ppTtsSharePct==='function')?ppTtsSharePct(text.length):0;
+  const uline=(typeof ppTtsUsageLine==='function')?ppTtsUsageLine():'';
+  askConfirm('이 단원 음성 만들기',
+    text.length.toLocaleString()+'자를 만듭니다'+(pct?' — 이번 달 남은 몫의 '+pct+'%':'')+'.'
+    +(uline?' ('+uline+')':'')+' 한 번 만들면 학생은 그 음원을 그대로 듣습니다.',
+    '만들기','bt',async()=>{
+      const host=document.getElementById('tu-unit-tts');
+      if(host)host.innerHTML='<span style="font-size:12px;color:var(--slate)">만들고 있어요... (글자 수에 따라 10~40초)</span>';
+      const lvl=(typeof ttsLevelForTb==='function')?ttsLevelForTb(tb):'intermediate';
+      const speed=(TTS_LEVELS[lvl]&&TTS_LEVELS[lvl].gen)||1;
+      try{
+        await elevenGetPassageAudio(raw,cfg,speed,{auto:false});
+        if(typeof ppProbeTtsProxy==='function')await ppProbeTtsProxy();
+        toast('음성을 만들었습니다 — 이제 학생도 이 음원으로 듣습니다');
+      }catch(e){
+        const capped=!!window._ttsCap;
+        toast(capped?'이번 달 음성 한도를 넘었어요 — 다음 달에 다시 시도해 주세요':'음성 만들기에 실패했어요: '+(e.message||''));
+      }
+      tuUnitTtsBtn(tb,_tuCurUnit);
+    });
+}
 async function tuSaveUnitText(silent=false){
   const tbId=document.getElementById('tu-tb-id').value;
   if(!_tuCurUnit)return silent?null:toast('단원을 선택하세요');
@@ -6321,7 +6396,9 @@ async function tuExtractExamples(){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);if(!tb)return;
   const words=tuNormWords(tb.units?.[_tuCurUnit]||[]);
   if(!words.length)return toast('단어가 없습니다');
-  const sentences=(text.match(/[^.!?]+[.!?]+/g)||[text]).map(s=>s.trim().replace(/^[“”‘’"'`\s]+|[“”‘’"'`\s]+$/g,'')).filter(Boolean);
+  // 예문에 화자 라벨이 섞이지 않게 — 저장하는 unitTexts 는 원문 그대로다
+  const _exText=(typeof ppDialogText==='function')?ppDialogText(text):text;
+  const sentences=(_exText.match(/[^.!?]+[.!?]+/g)||[_exText]).map(s=>s.trim().replace(/^[“”‘’"'`\s]+|[“”‘’"'`\s]+$/g,'')).filter(Boolean);
   let updated=0;
   for(const w of words){
     const re=new RegExp('\\b'+w.word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:s|es|ed|ing|er|est|ly|d)?\\b','i');
