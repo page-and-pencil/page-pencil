@@ -1949,10 +1949,9 @@ function hwDayStatus(sid,ds){
       total++;if(a.completedAt)done++;
     }
   });
-  // perfect=그 날 숙제를 전부 / half=절반 이상.
-  // 도장을 '전부 체크한 날'만 주면 하루 3개 중 하나만 밀려도 0개가 되어 연속이 끊긴다
-  // (실측: 하루 1개였던 시기엔 체크율 100%, 하루 3개가 된 뒤 3~8%로 붕괴).
-  // 절반 이상이면 도장을 찍고, 전부 한 날은 ⭐로 따로 표시해 판의 속도는 그대로 둔다.
+  // perfect=그 날 숙제를 전부 한 날. 도장은 이것만 센다 (2026-11-08 원장 지시 —
+  // 절반만 해도 찍어 주던 것을 되돌렸다. 숙제를 다 해야 도장이라는 기준이 분명해야 해서).
+  // half 는 옛 기준 — 지금은 도장 계산에 쓰지 않는다.
   return {total,done,perfect:total>0&&done>=total,half:total>0&&done*2>=total};
 }
 function hwChallengeProgress(stu){
@@ -1968,14 +1967,14 @@ function hwChallengeProgress(stu){
     const made=String(c.createdAt||'').slice(0,10);
     return (made&&made>s0)?made:s0;
   })();
-  const stamps=[],fullDays=[]; // stamps=도장 찍힌 날(절반 이상) / fullDays=전부 한 날(⭐)
+  const stamps=[],fullDays=[]; // 도장 = 그날 숙제를 '전부' 한 날. fullDays 는 옛 화면 호환용(= stamps)
   const d=new Date(start+'T12:00:00');
   let guard=0;
   while(guard++<420){
     const ds=ppYmd(d);
     if(ds>today)break;
     const st=hwDayStatus(stu.id,ds);
-    if(st.half){stamps.push(ds);if(st.perfect)fullDays.push(ds);}
+    if(st.perfect){stamps.push(ds);fullDays.push(ds);}
     d.setDate(d.getDate()+1);
   }
   const goal=c.goal||20;

@@ -2328,15 +2328,13 @@ function hwChallengeCardHtml(sid){
   const stu=DB.stus().find(s=>s.id===sid);
   const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu):null;
   if(!p)return '';
-  // 이번 판에 찍힌 도장을 '전부 한 날(⭐)'과 '절반 이상(🏅)'으로 나눠 보여준다 — 칸 수는 그대로
+  // 도장 1개 = 그날 숙제를 전부 한 날 (2026-11-08부터 — 절반 기준은 없어졌다)
   const roundStamps=p.stamps.slice(Math.max(0,p.stamps.length-p.count));
-  const fullSet=new Set(p.fullDays||[]);
   const cells=[];
   for(let i=1;i<=p.goal;i++){
     const filled=i<=p.count;
     const isGift=i===p.goal;
-    const isFull=filled&&fullSet.has(roundStamps[i-1]);
-    cells.push(`<div title="${filled?(roundStamps[i-1]||'')+(isFull?' · 숙제 전부 완료':''):''}" style="aspect-ratio:1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${filled?'20px':'12px'};${filled?(isFull?'background:#FDE68A;border:1.5px solid #D97706':'background:#FEF3C7;border:1.5px solid var(--warn)'):'background:var(--cream2);border:1.5px dashed var(--border);color:var(--neutral);font-weight:700'}">${filled?(isGift?'🎁':(isFull?'⭐':'🏅')):(isGift?'🎁':i)}</div>`);
+    cells.push(`<div title="${filled?(roundStamps[i-1]||'')+' · 숙제 전부 완료':''}" style="aspect-ratio:1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${filled?'20px':'12px'};${filled?'background:#FDE68A;border:1.5px solid #D97706':'background:var(--cream2);border:1.5px dashed var(--border);color:var(--neutral);font-weight:700'}">${filled?(isGift?'🎁':'⭐'):(isGift?'🎁':i)}</div>`);
   }
   const today=ppToday();
   const ts=hwDayStatus(sid,today);
@@ -2346,12 +2344,10 @@ function hwChallengeCardHtml(sid){
     ?`<div style="font-size:14.5px;font-weight:800;color:var(--warnt);background:#FEF3C7;border:1.5px solid var(--warn);border-radius:10px;padding:8px 10px;margin-bottom:10px">🎉 도장판 ${p.rounds}개 완성! 선생님께 <b>${p.reward}</b>${p.pendingGifts>1?` ${p.pendingGifts}개`:''} 받으세요 🎁</div>`
     :'';
   if(p.todayStamp){
-    statusHtml=p.todayFull
-      ?`<div style="font-size:13.5px;font-weight:700;color:var(--okt)">오늘 숙제 전부 완료! ⭐ ${p.goal-p.count}개 남았어요 — 내일도 화이팅!</div>`
-      :`<div style="font-size:13.5px;font-weight:700;color:var(--okt)">오늘 도장 획득! 🏅 남은 숙제 ${ts.total-ts.done}개까지 하면 ⭐로 바뀌어요</div>`;
+    statusHtml=`<div style="font-size:13.5px;font-weight:700;color:var(--okt)">오늘 숙제 전부 완료! ⭐ ${p.goal-p.count}개 남았어요 — 내일도 화이팅!</div>`;
   }else if(ts.total>0){
-    const need=Math.ceil(ts.total/2)-ts.done; // 절반까지 몇 개 더
-    statusHtml=`<div style="font-size:13.5px;font-weight:700;color:var(--warnt)">숙제 ${need}개만 더 하면 도장 쾅! 🏅 (${ts.done}/${ts.total} · 전부 하면 ⭐)</div>`;
+    const need=ts.total-ts.done;          // 전부 끝내야 도장 1개
+    statusHtml=`<div style="font-size:13.5px;font-weight:700;color:var(--warnt)">숙제 ${need}개만 더 하면 도장 쾅! ⭐ (${ts.done}/${ts.total})</div>`;
   }else{
     statusHtml=`<div style="font-size:13px;color:var(--slate)">오늘은 배정된 숙제가 없어요 😊</div>`;
   }
@@ -2361,7 +2357,7 @@ function hwChallengeCardHtml(sid){
       <span style="font-size:15px;font-weight:800;color:var(--navy)">🎁 도장 챌린지 <span style="font-size:12px;color:var(--slate);font-weight:600">${p.roundNo}번째 판</span></span>
       <span style="font-size:16px;font-weight:900;color:var(--warnt);font-family:var(--fd)">${p.count} <span style="font-size:12px;color:var(--slate);font-weight:600">/ ${p.goal}</span></span>
     </div>
-    <div style="font-size:12px;color:var(--slate);margin-bottom:10px"><b>절반</b>만 해도 도장 1개 · 전부 하면 ⭐ · ${p.goal}개 모으면 <b>${p.reward}</b> 🎁</div>
+    <div style="font-size:12px;color:var(--slate);margin-bottom:10px">그날 숙제를 <b>전부</b> 하면 도장 ⭐ 1개 · ${p.goal}개 모으면 <b>${p.reward}</b> 🎁</div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px">${cells.join('')}</div>
     ${statusHtml}
   </div></div>`;
@@ -2382,7 +2378,7 @@ function _hwChRefresh(sid){
       if(typeof _stuShowNotify==='function'&&typeof Notification!=='undefined'&&Notification.permission==='granted')
         _stuShowNotify(`🎉 도장판 완성!`,`도장 ${p.goal}개를 다 모았어요! 선생님께 ${p.reward} 받으세요 🎁`);
     }else{
-      toast(`🏅 도장 획득! (${p.count}/${p.goal})`);
+      toast(`⭐ 도장 획득! (${p.count}/${p.goal})`);
     }
   }
   window._hwChPrev=p.total;
@@ -3059,11 +3055,11 @@ function renderStudentHome(sid){
     const qPct=items.length?Math.round(selDone.length/items.length*100):0;
     const head='<div class="wk-sec-head"><span class="t">'+(sl&&sl.isToday?'⚔️ 오늘의 퀘스트':(sl?'⚔️ '+sl.label+'요일 퀘스트':''))+'</span><span class="s" id="wk-head-cnt">'+selDone.length+' / '+items.length+' 클리어</span></div>'
       +(items.length?'<div class="quest-bar"><div class="quest-bar-fill" id="quest-bar-fill" style="width:'+qPct+'%"></div></div>':'')
-      +(sl&&sl.isToday&&selPending.length?'<div style="font-size:13px;color:var(--slate);margin:2px 0 10px">남은 퀘스트 <b style="color:var(--tealt)">'+selPending.length+'개</b> — 다 깨면 오늘 도장을 받아요 🏅</div>':'')
-      +(sel>today&&items.length?'<div style="font-size:12.5px;color:var(--tealt);margin:2px 0 10px">미리 해 두면 그날 도장으로 찍혀요 🏅</div>':'');
+      +(sl&&sl.isToday&&selPending.length?'<div style="font-size:13px;color:var(--slate);margin:2px 0 10px">남은 퀘스트 <b style="color:var(--tealt)">'+selPending.length+'개</b> — 다 깨면 오늘 도장을 받아요 ⭐</div>':'')
+      +(sel>today&&items.length?'<div style="font-size:12.5px;color:var(--tealt);margin:2px 0 10px">미리 해 두면 그날 도장으로 찍혀요 ⭐</div>':'');
     let body;
     if(!items.length)body='<div class="wk-empty-day">이 날은 배정된 학습이 없어요 😊<br><span style="font-size:12px">단어 복습으로 예습해볼까요?</span></div>';
-    else body=(allDoneToday?'<div class="wk-alldone"><div class="wk-alldone-i">🏆</div><div class="wk-alldone-t">오늘 퀘스트 올클리어!</div><div class="wk-alldone-s">오늘 도장 획득 🏅 내일 퀘스트에서 만나요</div></div>':'')
+    else body=(allDoneToday?'<div class="wk-alldone"><div class="wk-alldone-i">🏆</div><div class="wk-alldone-t">오늘 퀘스트 올클리어!</div><div class="wk-alldone-s">오늘 도장 획득 ⭐ 내일 퀘스트에서 만나요</div></div>':'')
       +selPending.map((it,i)=>renderItem(it,i+1)).join('')
       +(selDone.length?'<div style="opacity:.72">'+selDone.map(it=>renderItem(it,0)).join('')+'</div>':'');
     // 기한 지난 미제출 — 접어 두되 건수를 드러낸다 (2건 이하면 펼친 채로)

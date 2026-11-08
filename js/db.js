@@ -130,8 +130,74 @@ async function ppLogout(){
   _ppAuthSave(null);
 }
 // REST 호출 한 겹 — 401 이면 토큰을 한 번 갱신하고 다시 보낸다.
+// ── 체험 모드(샌드박스) ───────────────────────────────────────
+// 선생님이 학생 화면 기능(단어 학습 등)을 직접 눌러 볼 때, 학생의 실제 기록이 바뀌면 안 된다.
+// 체험 모드가 켜져 있는 동안 DB 쓰기는 전부 막고 '무엇을 쓰려 했는지'만 모아 둔다. 읽기는 그대로.
+// 화면은 평소처럼 움직여야 하니 _cache 는 그대로 두고, 나갈 때 건드린 표만 서버에서 다시 받아 되돌린다.
+let PP_SANDBOX=false;
+const _sbLog=[];
+// 학생 앱이 쓰는 표 → _cache 키. 여기 없는 표는 체험 모드에서 되돌리지 않는다(쓰기는 어차피 막힌다).
+const _SB_CACHE_KEY={students:'students',lessons:'lessons',tests:'tests',readings:'readings',logs:'logs',
+  notices:'notices',homeworks:'homeworks',assignments:'assignments',messages:'messages',vocab_cards:'vocab_cards'};
+const _SB_WHOLE=['students','notices'];     // sid 로 나뉘지 않는 표 — 통째로 다시 받는다
+function ppSandbox(){return PP_SANDBOX;}
+function _sbNote(table,what){
+  if(_sbLog.length<500)_sbLog.push({at:new Date().toISOString(),table,what});
+}
+function ppSandboxOn(){
+  PP_SANDBOX=true;_sbLog.length=0;
+  // 이 기기의 로컬 기록(연속 학습·도장 이력 등)도 되돌릴 수 있게 떠 둔다
+  try{_sbLS=Object.keys(localStorage).filter(k=>k.indexOf('pp_')===0).map(k=>[k,localStorage.getItem(k)]);}catch(e){_sbLS=null;}
+  // 체험하려면 그 학생으로 로그인해야 한다 — 선생님 세션은 떠 뒀다가 나올 때 그대로 돌려준다.
+  // (서버 로그아웃은 하지 않는다. 학생이 자기 폰에서 쓰고 있는 세션까지 끊길 수 있다)
+  _sbAuth=_ppAuthLoad()?JSON.parse(JSON.stringify(_ppAuth)):null;
+}
+let _sbLS=null,_sbAuth=null;
+// 체험 중에 새로고침·탭 닫기로 빠져나가도 이 기기가 학생으로 로그인된 채 남지 않게
+try{window.addEventListener('beforeunload',()=>{
+  if(!PP_SANDBOX||!_sbLS)return;
+  try{
+    Object.keys(localStorage).filter(k=>k.indexOf('pp_')===0).forEach(k=>localStorage.removeItem(k));
+    _sbLS.forEach(([k,v])=>{if(v!=null)localStorage.setItem(k,v);});
+  }catch(e){}
+});}catch(e){}
+// 체험 모드 종료 — 건드린 표만 서버에서 다시 받아 캐시를 원래대로 돌린다.
+async function ppSandboxOff(sid){
+  if(!PP_SANDBOX)return [];
+  PP_SANDBOX=false;
+  const touched=[...new Set(_sbLog.map(x=>x.table))].filter(t=>_SB_CACHE_KEY[t]);
+  for(const t of touched){
+    const key=_SB_CACHE_KEY[t];
+    try{
+      if(_SB_WHOLE.includes(t)){
+        const rows=await supaFetch(t,'',true);
+        if(rows)_cache[key]=rows.map(r=>r.data||r).filter(d=>d&&!d._deleted);
+      }else if(sid){
+        const rows=await supaFetchBySid(t,sid);
+        _cache[key]=(_cache[key]||[]).filter(r=>r&&r.sid!==sid).concat(rows);
+      }
+    }catch(e){console.warn('체험 모드 되돌리기 실패:',t,e);}
+  }
+  // 표를 다시 받는 데 학생 토큰이 필요하므로, 세션 되돌리기는 그 뒤에
+  try{_ppAuthSave(_sbAuth);}catch(e){}
+  _sbAuth=null;
+  if(_sbLS){
+    try{
+      Object.keys(localStorage).filter(k=>k.indexOf('pp_')===0).forEach(k=>localStorage.removeItem(k));
+      _sbLS.forEach(([k,v])=>{if(v!=null)localStorage.setItem(k,v);});
+    }catch(e){}
+    _sbLS=null;
+  }
+  return _sbLog.splice(0);
+}
 async function ppFetch(url,opts){
   opts=opts||{};
+  // 체험 모드에서는 데이터 쓰기를 서버로 보내지 않는다 (읽기·엣지 함수는 그대로)
+  const _m=String((opts.method||'GET')).toUpperCase();
+  if(PP_SANDBOX&&_m!=='GET'&&_m!=='HEAD'&&/\/rest\/v1\//.test(String(url))){
+    _sbNote(String(url).split('/rest/v1/')[1].split('?')[0],_m);
+    return new Response('[]',{status:200,headers:{'Content-Type':'application/json'}});
+  }
   if(ppSession())await ppEnsureFresh();
   let r=await fetch(url,opts);
   if(r.status===401&&ppSession()){
@@ -393,6 +459,7 @@ async function supaFetchAll(table,silent=false){
 // 쓰기 시각을 남겨, 로드 도중 쓰기가 있었으면 그 회차는 캐시를 건드리지 않는다.
 let _lastWriteAt=0,_pendingWrites=0;
 async function supaUpsert(table,id,dataObj,sid=null,timeoutMs=15000){
+  if(PP_SANDBOX){_sbNote(table,'upsert '+id);return true;}   // 체험 모드 — 저장하지 않는다
   _pendingWrites++;_lastWriteAt=Date.now();
   try{ return await _supaUpsert(table,id,dataObj,sid,timeoutMs); }
   finally{ _pendingWrites--;_lastWriteAt=Date.now(); }
@@ -416,6 +483,7 @@ async function _supaUpsert(table,id,dataObj,sid=null,timeoutMs=15000){
   }
 }
 async function supaDelete(table,id){
+  if(PP_SANDBOX){_sbNote(table,'delete '+id);return true;}
   _pendingWrites++;_lastWriteAt=Date.now();
   try{ return await _supaDelete(table,id); }
   finally{ _pendingWrites--;_lastWriteAt=Date.now(); }
@@ -435,6 +503,7 @@ async function _supaDelete(table,id){
   }
 }
 async function supaDeleteWhere(table,jsonKey,value){
+  if(PP_SANDBOX){_sbNote(table,'deleteWhere '+jsonKey);return true;}
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),15000);
   try{
@@ -558,6 +627,7 @@ function _snapSanitize(cache){
   return out;
 }
 function _snapSave(){
+  if(PP_SANDBOX)return;        // 체험 중 캐시는 기기에 남기지 않는다
   try{
     const src=_snapSanitize(_cache);
     const snap=(typeof structuredClone==='function')?structuredClone(src):JSON.parse(JSON.stringify(src));
@@ -592,6 +662,7 @@ window.addEventListener('focus',()=>_refreshIfStale(PP_STALE_BACK));
 setInterval(()=>_refreshIfStale(PP_STALE_IDLE),60000);
 let _snapTimer=null;
 function _scheduleSnapSave(){ // 쓰기 후 스냅샷 저장 (2.5초 디바운스)
+  if(PP_SANDBOX)return;        // 체험 중 캐시는 기기에 남기지 않는다
   clearTimeout(_snapTimer);
   _snapTimer=setTimeout(()=>{
     _snapSave();

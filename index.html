@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261108f">
+<link rel="stylesheet" href="css/style.css?v=20261108g">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -311,8 +311,9 @@
                 </div>
               </div>
               <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-                <button class="btn bo bsm" onclick="previewAsStudent(currentSpStuId)" title="학생 화면 미리보기">학생뷰</button>
-                <button class="btn bo bsm" onclick="previewAsParent(currentSpStuId)" title="학부모 화면 미리보기">학부모뷰</button>
+                <button class="btn bo bsm" onclick="tryStudentVocab(currentSpStuId)" title="학생 단어 학습을 직접 해 봅니다 — 학생 기록에는 남지 않아요">🧪 단어 학습 체험</button>
+                <button class="btn bo bsm" onclick="previewAsStudent(currentSpStuId)" title="학생 화면 미리보기 (체험 모드 — 저장되지 않아요)">학생뷰</button>
+                <button class="btn bo bsm" onclick="previewAsParent(currentSpStuId)" title="학부모 화면 미리보기 (체험 모드 — 저장되지 않아요)">학부모뷰</button>
                 <button class="btn bo bsm sp-wide-btn" id="sp-wide-btn" onclick="toggleStuWide()"
                         title="상세를 넓게 보기" aria-label="상세를 넓게 보기">
                   <i data-lucide="chevrons-left" width="14" height="14"></i></button>
@@ -2501,11 +2502,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261108f"></script>
+<script src="js/utils.js?v=20261108g"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261108f"></script>
-<script src="js/teacher.js?v=20261108f"></script>
-<script src="js/student.js?v=20261108f"></script>
-<script src="js/parent.js?v=20261108f"></script>
+<script src="js/db.js?v=20261108g"></script>
+<script src="js/teacher.js?v=20261108g"></script>
+<script src="js/student.js?v=20261108g"></script>
+<script src="js/parent.js?v=20261108g"></script>
 </body>
 </html>

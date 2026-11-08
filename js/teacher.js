@@ -544,29 +544,54 @@ function _injectPreviewBar(label){
   document.getElementById('_teacher-preview-bar')?.remove();
   const bar=document.createElement('div');
   bar.id='_teacher-preview-bar';
-  bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:var(--text);color:#fff;padding:9px 16px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-family:var(--fb);box-shadow:0 2px 8px rgba(0,0,0,.25)';
-  bar.innerHTML=`<span style="opacity:.85">👁 ${label}</span><button onclick="returnToTeacher()" style="background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);color:#fff;padding:5px 14px;border-radius:20px;cursor:pointer;font-size:13px;font-family:var(--fb);font-weight:700">← 선생님 뷰로 돌아가기</button>`;
+  const sb=(typeof ppSandbox==='function')&&ppSandbox();
+  bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:'+(sb?'#1E7A4D':'var(--text)')+';color:#fff;padding:9px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;font-family:var(--fb);box-shadow:0 2px 8px rgba(0,0,0,.25)';
+  bar.innerHTML=`<span style="opacity:.92;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sb?'🧪':'👁'} ${label}${sb?' <b>· 체험 모드</b> — 저장되지 않아요':''}</span><button onclick="returnToTeacher()" style="flex:0 0 auto;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);color:#fff;padding:5px 14px;border-radius:20px;cursor:pointer;font-size:13px;font-family:var(--fb);font-weight:700">← 선생님 뷰로</button>`;
   document.body.appendChild(bar);
 }
-async function previewAsStudent(sid){
+// 학생·학부모 화면 미리보기는 항상 체험 모드로 들어간다 (2026-11-08 원장 지시).
+// 단어 학습·숙제 체크·도장 같은 것을 직접 눌러 봐도 학생의 실제 기록은 그대로 남는다.
+let _previewSid='';
+async function previewAsStudent(sid,opts){
   if(!sid){toast('학생을 선택해 주세요');return;}
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
-  noticePopupHide();_noticePreview=true;
+  noticePopupHide();_noticePreview=true;_previewSid=sid;
   closeStuPanel();
+  if(typeof ppSandboxOn==='function')ppSandboxOn();
   await loginStudent(s);
   _injectPreviewBar(s.name+' 학생 뷰');
+  if(opts&&opts.tab){
+    await new Promise(r=>setTimeout(r,250));
+    try{swStuTab(opts.tab);}catch(e){}
+  }
+}
+// 선생님 페이지 → 학생 단어 학습 체험 (기록은 그대로)
+async function tryStudentVocab(sid){
+  const id=sid||((typeof currentSpStuId!=='undefined')?currentSpStuId:'');
+  if(!id){toast('학생을 선택해 주세요');return;}
+  await previewAsStudent(id,{tab:'st-vocab'});
+  toast('🧪 체험 모드 — 여기서 한 것은 학생 기록에 남지 않아요');
 }
 async function previewAsParent(sid){
   if(!sid){toast('학생을 선택해 주세요');return;}
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
-  noticePopupHide();_noticePreview=true;
+  noticePopupHide();_noticePreview=true;_previewSid=sid;
   closeStuPanel();
+  if(typeof ppSandboxOn==='function')ppSandboxOn();
   await loadParent(sid);
   _injectPreviewBar(s.name+' 학부모 뷰');
 }
-function returnToTeacher(){
+async function returnToTeacher(){
   noticePopupHide();_noticePreview=false;
   document.getElementById('_teacher-preview-bar')?.remove();
+  // 체험 중 화면이 바꾸어 놓은 캐시를 서버 값으로 되돌린다
+  if(typeof ppSandboxOff==='function'){
+    try{
+      const did=await ppSandboxOff(_previewSid);
+      if(did&&did.length)toast(`체험 모드 종료 — 눌러 본 ${did.length}건은 저장하지 않았어요`);
+    }catch(e){console.warn('returnToTeacher:',e);}
+  }
+  _previewSid='';
   saveSession({role:'teacher'});
   show('s-teacher');
   swTab('t-stu');
