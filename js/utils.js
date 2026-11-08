@@ -766,7 +766,14 @@ function ppShuffle(a){
   for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}
   return r;
 }
-function ppWordKey(w){return String((w&&(w.word||w))||'').trim().toLowerCase();}
+// 단어 비교용 열쇠 — 대소문자와 따옴표 모양을 무시한다 (2026-11-08).
+// fixWordCase 가 'sunday'→'Sunday' 로 고쳐 저장하는데 비교를 소문자로만 하면
+// 같은 단어가 매번 '없는 것'으로 보여 카드가 계속 새로 생겼다(Friday 4장).
+// 굽은 따옴표(’)와 곧은 따옴표(')도 같은 글자로 본다 (don't / don’t).
+function ppWordKey(w){
+  return String((w&&(w.word||w))||'').trim().toLowerCase()
+    .replace(/[‘’ʼ´`]/g,"'");
+}
 
 // 교재 단원에서 단어 꺼내기
 function ppUnitWords(bookId,unitKeys){

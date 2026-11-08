@@ -1352,12 +1352,16 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study
   // 되살리기를 고른 이유: 휴지통은 되돌릴 수 있는 삭제이고, 다시 넣는다는 것은
   // '이 단어를 다시 쓰겠다'는 뜻이다. 학습 기록(hits·misses)도 그대로 이어진다.
   const existing=await supaFetchBySid('vocab_cards',sid,{withDeleted:true});
-  const wrongSet=new Set(wrongWords.map(x=>(typeof x==='string'?x:x.word).toLowerCase().trim()));
+  // 오답 목록도 같은 열쇠로 — 'Sunday' 를 틀렸는데 'sunday' 로 찾아 못 세던 것 (2026-11-08)
+  const _wkey=(typeof ppWordKey==='function')?ppWordKey:(x=>String(x||'').trim().toLowerCase());
+  const wrongSet=new Set(wrongWords.map(x=>_wkey(typeof x==='string'?x:(x&&x.word))));
   for(const entry of allWords){
     const wordText=fixWordCase((typeof entry==='string'?entry:entry.word||'').toLowerCase().trim(),(typeof entry==='object'&&entry)?entry.ko:'');if(!wordText)continue;
     const meta=typeof entry==='string'?{}:entry;
-    const found=existing.find(c=>(c.word||'').toLowerCase()===wordText);
-    const isWrong=wrongSet.has(wordText);
+    // 대소문자·따옴표 모양을 무시하고 찾는다 — 'Sunday' 와 'sunday' 는 같은 카드다
+    const wk=_wkey(wordText);
+    const found=existing.find(c=>_wkey(c.word)===wk);
+    const isWrong=wrongSet.has(wk);
     if(found){
       const updated=mode==='expose'
         ?{...found,seen:(found.seen||0)+1}

@@ -447,19 +447,62 @@ function renderStudentLibrary(sid){
       if(_uMatch(k.slice(i+1),tu)&&_unitLesDate[k]>best)best=_unitLesDate[k];}
     return best;};
 
+  // ── 과제로 끝낸 교재·단원 (2026-11-08) ──
+  // 카드(srcId/srcUnit)로만 모으면, 그 단어가 다른 교재로 먼저 들어가 카드가 안 생긴 단원이 빠진다.
+  // 클래스5든 반복이든 schedule 의 done 행이면 '끝낸 단원'으로 본다(type 은 보지 않는다).
+  const _asgDone={};   // _n(교재명) → { 과제에 적힌 단원 문자열: 끝낸 날짜(최신) }
+  ppLive(_cache.assignments).forEach(a=>{
+    if(a.sid!==sid)return;
+    const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):(a.schedule||[]);
+    (sch||[]).forEach(sc=>{
+      if(!sc||!sc.done)return;
+      const book=sc.book||a.bookTitle||'',unit=sc.unit||'';
+      if(!book||!unit)return;
+      const bk=_n(book);if(!bk)return;
+      const d=String(sc.date||'');
+      _asgDone[bk]=_asgDone[bk]||{};
+      if(!_asgDone[bk][unit]||d>_asgDone[bk][unit])_asgDone[bk][unit]=d;
+    });
+  });
+  // 과제에 적힌 단원 문자열을 그 교재의 실제 단원키로 바꾼다
+  // ('Unit 03' ↔ 'Unit 03 Nice to Meet You' — 앞부분 일치 + 숫자 경계 보호는 _uMatch 가 한다)
+  const _asgUnitsOf=tb=>{
+    const raw=_asgDone[_n(tb.title)];
+    const out={};
+    if(!raw)return out;
+    const keys=[...new Set([...Object.keys(tb.units||{}),...Object.keys(tb.unitTexts||{})])];
+    Object.entries(raw).forEach(([u,d])=>{
+      const nu=_n(u);
+      const hit=keys.find(k=>_uMatch(_n(k),nu));
+      if(hit&&(!out[hit]||d>out[hit]))out[hit]=d;
+    });
+    return out;
+  };
+
   // ── 교재 섹션 (최근 수업에 쓴 책부터) ──
   const myCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid&&c.srcType==='textbook'&&c.srcId);
   const tbIdSet=new Set(myCards.map(c=>c.srcId));
-  const myTbooks=(_cache.globalTextbooks||[]).filter(b=>tbIdSet.has(b.id)&&(b.unitTexts&&Object.keys(b.unitTexts).some(u=>b.unitTexts[u])))
+  // 카드가 한 장도 없어도 과제로 끝낸 교재면 책장에 넣는다
+  const myTbooks=(_cache.globalTextbooks||[]).filter(b=>(tbIdSet.has(b.id)||!!_asgDone[_n(b.title)])&&(b.unitTexts&&Object.keys(b.unitTexts).some(u=>b.unitTexts[u])))
     .sort((a,b)=>((_lastLesForBook[_n(b.title)]||'').localeCompare(_lastLesForBook[_n(a.title)]||''))||(a.title||'').localeCompare(b.title||''));
 
   // ── 내 책장: 표지 그리드 + 선택한 책의 단원 패널 ──
+  // 이 교재에서 '내가 한' 단원 = 단어카드가 있는 단원 + 과제로 끝낸 단원
+  const _myUnitsOf=tb=>{
+    const fromCards=[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))];
+    return [...new Set([...fromCards,...Object.keys(_asgUnitsOf(tb))])];
+  };
   const _unitRowsOf=tb=>{
     const unitCards={};
     myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).forEach(c=>{(unitCards[c.srcUnit]=unitCards[c.srcUnit]||[]).push(c);});
-    const ordered=tbSortUnitNames(tb,Object.keys(unitCards));
-    // 최근 학습이 맨 위: 지난 수업 단원 → 수업일 최신순 → 카드 등록일 최신순 → 목차 순
-    const _uCardDate=u=>(unitCards[u]||[]).reduce((m,c)=>{const d=String(c.lastSeen||c.addedDate||'');return d>m?d:m;},'');
+    const asgU=_asgUnitsOf(tb);
+    const ordered=tbSortUnitNames(tb,_myUnitsOf(tb));
+    // 최근 학습이 맨 위: 지난 수업 단원 → 수업일 최신순 → 카드·과제 날짜 최신순 → 목차 순
+    const _uCardDate=u=>{
+      const fromCards=(unitCards[u]||[]).reduce((m,c)=>{const d=String(c.lastSeen||c.addedDate||'');return d>m?d:m;},'');
+      const fromAsg=asgU[u]||'';
+      return fromCards>fromAsg?fromCards:fromAsg;
+    };
     const myUnits=[...ordered].sort((a,b)=>
       ((_isRecent(tb.title,b)?1:0)-(_isRecent(tb.title,a)?1:0))
       ||_uLesDate(tb.title,b).localeCompare(_uLesDate(tb.title,a))
@@ -485,14 +528,14 @@ function renderStudentLibrary(sid){
     }).join('');
   };
   if(_stuShelfOpen===null){
-    const rec=myTbooks.find(tb=>[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))].some(u=>_isRecent(tb.title,u)));
+    const rec=myTbooks.find(tb=>_myUnitsOf(tb).some(u=>_isRecent(tb.title,u)));
     _stuShelfOpen=rec?rec.id:(myTbooks[0]?.id||'');
   }
   const tbookHtml=myTbooks.length?(()=>{
     const cardOf=(tb)=>{
       // 교재 전체 등록 단어 수 (단원 합계)
       const wCnt=Object.values(tb.units||{}).reduce((s,a)=>s+(Array.isArray(a)?tuNormWords(a).filter(w=>w.word).length:0),0);
-      const recent=[...new Set(myCards.filter(c=>c.srcId===tb.id&&c.srcUnit).map(c=>c.srcUnit))].some(u=>_isRecent(tb.title,u));
+      const recent=_myUnitsOf(tb).some(u=>_isRecent(tb.title,u));
       return `<div class="shelf-card${_stuShelfOpen===tb.id?' on':''}" onclick="stuShelfToggle('${tb.id}')">
         <div class="shelf-cv">${tb.coverUrl?`<img src="${tb.coverUrl}" loading="lazy" onerror="this.replaceWith(document.createTextNode('\uD83D\uDCDA'))">`:'\uD83D\uDCDA'}</div>
         ${recent?'<span class="shelf-badge" title="지난 수업에서 배웠어요">\uD83D\uDD04</span>':''}
