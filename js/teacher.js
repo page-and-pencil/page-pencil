@@ -194,7 +194,10 @@ function updateElevenDot(){
    if(uEl){const line=(typeof ppTtsUsageLine==='function')?ppTtsUsageLine():'';
      uEl.textContent=line;uEl.style.display=line?'':'none';
      const u=(typeof ppTtsUsage==='function')?ppTtsUsage():null;
-     uEl.style.color=(u&&u.cap&&u.used>=u.cap*0.9)?'var(--coral)':'var(--slate)';}}
+     const hit=!!(u&&u.cap&&u.used>=u.cap);
+     uEl.style.color=hit?'var(--coral)':((u&&u.cap&&u.used>=u.cap*0.9)?'var(--warnt)':'var(--slate)');
+     uEl.style.fontWeight=hit?'700':'400';
+     if(hit)uEl.textContent=line+' — 한도에 닿았어요. 학생 화면은 기본 음성으로 읽습니다';}}
   const c=_cache.settings.elevenlabs||DB.g('elevenlabs');
   const warn=document.getElementById('eleven-key-warn');
   // 서버 함수(tts-proxy)에 키가 있으면 이 화면은 '표시만' 한다 (2026-11-07).
@@ -408,6 +411,15 @@ async function initApp(){
   _safe('checkCldWarn',()=>checkCldWarn());
   _safe('renderDash',()=>renderDash());
   _safe('renderCmtChips',()=>renderCmtChips());
+  // 음성 월 한도 알림 — 선생님 화면을 열 때 하루 한 번. 설정에 키가 있어 부팅 probe 를
+  // 건너뛴 경우에도 여기서 한 번 물어본다 (ElevenLabs 를 부르지 않는 probe 다).
+  _safe('ttsCapNotice',()=>{
+    if(_cache.settings.ttsProxy===undefined&&typeof ppProbeTtsProxy==='function'){
+      ppProbeTtsProxy().then(()=>{try{ppTtsCapNotice();}catch(e){}});
+    }else if(typeof ppTtsCapNotice==='function'){
+      setTimeout(()=>{try{ppTtsCapNotice();}catch(e){}},1200);
+    }
+  });
   _safe('updateApiKeyStatusDot',()=>updateApiKeyStatusDot());
   _safe('updateKakaoStatusDot',()=>updateKakaoStatusDot());
   const kk=DB.kakao();

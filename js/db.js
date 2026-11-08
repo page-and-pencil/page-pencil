@@ -1077,6 +1077,7 @@ async function ppProbeTtsProxy(){
     }
   }catch(e){_cache.settings.ttsProxy=false;_cache.settings.ttsProxyUp=false;}
   try{if(typeof updateElevenDot==='function')updateElevenDot();}catch(e){}
+  try{if(typeof ppTtsCapNotice==='function')ppTtsCapNotice();}catch(e){}
 }
 // ElevenLabs 호출 한 곳 — 서버 함수 우선, 함수가 없거나 서버 키가 없으면 옛 방식(로컬 키 직호출).
 // 브라우저가 api.elevenlabs.io 를 직접 부르면 키가 공개 설정에 있어야 한다(SECURITY_PLAN 2번).
@@ -1095,6 +1096,7 @@ async function _ttsFetch(mode,voice,text,opts,cfg){
         window._ttsCap={month:info.month||'',used:+info.used||0,cap:+info.cap||0,at:Date.now()};
         if(info.month)_cache.settings.ttsUsage={month:info.month,used:+info.used||0,calls:(ppTtsUsage().calls||0),cap:+info.cap||0};
         console.warn('tts-proxy 월 누적 상한 — 브라우저 음성으로 읽습니다 ('+(info.used||0)+'/'+(info.cap||0)+'자)');
+        try{if(typeof ppTtsCapNotice==='function')ppTtsCapNotice();}catch(e){}   // 선생님에게만
         return r;
       }
     }

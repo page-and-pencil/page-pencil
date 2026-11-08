@@ -2055,6 +2055,33 @@ const MISSION_DEFS={
 const MISSION_ORDER=['vocab','listen','sentence','record','game'];
 // 옛 과제(a.missions 에 pattern·scramble·cloze 가 든 것)는 그대로 열린다
 const MISSION_LEGACY=['cloze','pattern','scramble'];
+// ── 월 한도 알림 — 선생님에게만, 하루 한 번 ──────────────────
+// 학생 화면에는 아무 표시도 하지 않는다. 소리는 기본 음성으로 그대로 난다.
+const PP_TTS_CAP_MSG='이번 달 원어민 음성 한도에 닿았어요. 다음 달 1일까지 학생 화면은 기본 음성으로 읽어요.';
+// 기본 toast 는 white-space:nowrap 이라 긴 문장이 320px 를 넘친다 → 줄바꿈되는 알림을 따로 띄운다
+function ppNoticeToast(msg,ms){
+  document.querySelectorAll('.toast.pp-notice').forEach(x=>x.remove());
+  const t=document.createElement('div');
+  t.className='toast show pp-notice';
+  t.style.cssText='white-space:normal;width:min(92vw,420px);box-sizing:border-box;text-align:left;line-height:1.6;border-radius:14px;padding:12px 16px;bottom:76px;';
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{t.remove();},ms||7000);
+}
+// 한도에 닿았으면 선생님 화면에서 하루 한 번만 알린다
+function ppTtsCapNotice(){
+  try{
+    if(!(typeof ppIsTeacherView==='function'&&ppIsTeacherView()))return false;   // 학생·체험 모드는 조용히
+    const u=(typeof ppTtsUsage==='function')?ppTtsUsage():null;
+    const hit=(u&&u.cap&&u.used>=u.cap)||!!window._ttsCap;
+    if(!hit)return false;
+    const today=(typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);
+    if(localStorage.getItem('pp_ttsCapToast')===today)return false;              // 하루 한 번
+    localStorage.setItem('pp_ttsCapToast',today);
+    ppNoticeToast(PP_TTS_CAP_MSG);
+    return true;
+  }catch(e){return false;}
+}
 // ── 음성 사용량 표시 ────────────────────────────────────────
 // 이번 달 사용량은 tts-proxy 의 probe 응답으로 받아 둔다 (tts_usage 표는 선생님만 읽는다).
 function ppTtsUsageLine(){
