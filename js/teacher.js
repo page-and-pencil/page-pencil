@@ -956,6 +956,28 @@ function renderSpVocab(sid){
           <div><button class="btn bt bsm" onclick="saveQuizCfg('${sid}')">테스트 설정 저장</button></div>
         </div>
       </details>`;
+    })()}
+    ${(function(){
+      // 누적 오답 4주 복습 (P4) — 지난주 복습률 · 이번 주 진행 · 자주 틀린 단어
+      if(typeof ppWrongStat!=='function')return '';
+      const w=ppWrongStat(sid);
+      if(!w.total&&!w.lastTotal&&!w.top.length)return '';
+      const pct=w.total?Math.round(w.done/w.total*100):0;
+      return `<details style="margin-top:8px">
+        <summary style="font-size:12.5px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none">📒 오답 복습${w.total?` <span style="color:var(--teal);font-weight:600">— 이번 주 ${w.done}/${w.total}</span>`:''}</summary>
+        <div style="padding:10px 2px 2px;display:flex;flex-direction:column;gap:9px">
+          <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--navy)">
+            <span>지난주 복습률 <b style="color:${w.lastPct==null?'var(--slate)':(w.lastPct>=80?'var(--okt)':'var(--warnt)')}">${w.lastPct==null?'—':w.lastPct+'%'}</b>${w.lastTotal?` <span style="color:var(--slate)">(${w.lastDone}/${w.lastTotal})</span>`:''}</span>
+            <span>이번 주 <b style="color:var(--tealt)">${w.done}/${w.total}</b> <span style="color:var(--slate)">${w.week}</span></span>
+          </div>
+          ${w.total?`<div style="height:7px;background:var(--divider);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--ok);border-radius:4px"></div></div>`:''}
+          ${w.top.length?`<div>
+            <div style="font-size:12px;color:var(--slate);margin-bottom:5px">자주 틀린 단어</div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap">${w.top.map(t=>`<span style="font-size:12px;background:var(--cream2);border:1px solid var(--border);border-radius:9px;padding:3px 9px;color:var(--navy)">${escAttr(t.word)} <b style="color:var(--coral)">${t.n}</b></span>`).join('')}</div>
+          </div>`:''}
+          <div style="font-size:11.5px;color:var(--neutral);line-height:1.6">한 번이라도 틀린 단어를 다음 주부터 4주 동안 매주 한 번씩 다시 봅니다. 월~일 기준이고, 단어 카드의 복습 주기와는 따로 돕니다.</div>
+        </div>
+      </details>`;
     })()}`;
   renderVocabList(sid);
 }

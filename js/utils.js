@@ -1061,6 +1061,100 @@ function ppQuizGoalMet(sid,setKey,goal,times){
   const need=(times>=1)?times:1;
   return ppQuizLogs(sid,setKey).filter(r=>(r.score||0)>=g).length>=need;
 }
+// ── 누적 오답 4주 복습 (P4) ──────────────────────────────────
+// 한 번이라도 틀린 단어를 **다음 주부터 4주 동안 매주 한 번** 다시 본다.
+// 재료는 새로 저장하지 않고 이미 있는 기록에서 계산한다.
+//   · 퀴즈  logs {type:'vocab_quiz', partial:false} 의 wrong  (첫 전체 응시만)
+//   · 종이 시험  tests 의 wrongWords (자체 시험만 — 내신·모의고사는 체계가 다르다)
+//   · 학습 세션 오답은 넣지 않는다 (모르는 것을 찾는 과정이라 '틀렸다'로 보지 않는다)
+// 주는 월~일(KST). 카드 기록(hits·misses·box·due·lastSeen)은 건드리지 않는다 —
+// 기존 복습 주기와 따로 도는 장기 기억용이다. (2026-11-10 원장 지시)
+const PP_WN_WEEKS=4;       // 몇 주 동안 다시 보는가
+const PP_WN_CHUNK=20;      // 한 번에 끊어 하는 개수
+// 그 날짜가 속한 주의 월요일
+function ppWeekMon(ds){
+  const d=new Date((ds||ppToday())+'T12:00:00');
+  d.setDate(d.getDate()-((d.getDay()+6)%7));
+  return ppYmd(d);
+}
+// '2026-W46' — ISO 주차
+function ppWeekKey(ds){
+  const mon=new Date(ppWeekMon(ds)+'T12:00:00');
+  const thu=new Date(mon);thu.setDate(mon.getDate()+3);        // 그 주의 목요일이 속한 해가 ISO 기준
+  const y=thu.getFullYear();
+  const jan1=new Date(y+'-01-01T12:00:00');
+  const week=Math.floor((thu-jan1)/(7*86400000))+1;
+  return y+'-W'+String(week).padStart(2,'0');
+}
+// 오답이 난 날짜별 단어 [{date, word}]
+function ppWrongEvents(sid){
+  const out=[];
+  ((typeof _cache!=='undefined')?(_cache.logs||[]):[]).forEach(l=>{
+    if(!l||l._deleted||l.sid!==sid||l.type!=='vocab_quiz'||l.partial)return;
+    (l.wrong||[]).forEach(w=>{if(w)out.push({date:String(l.date||''),word:String(w)});});
+  });
+  ((typeof DB!=='undefined'&&DB.tsts)?DB.tsts():[]).forEach(t=>{
+    if(!t||t.sid!==sid)return;
+    if(typeof ppTestKindOf==='function'&&ppTestKindOf(t)!=='inhouse')return;   // 자체 시험만
+    (t.wrongWords||[]).forEach(w=>{if(w)out.push({date:String(t.date||''),word:String(w)});});
+  });
+  return out.filter(x=>x.date);
+}
+// 이번 주 복습 묶음 — 지난 1~4주에 틀린 단어의 합집합 (5주 지난 것은 빠진다)
+function ppWrongSet(sid,todayStr){
+  const today=todayStr||ppToday();
+  const mon=ppWeekMon(today);
+  const from=ppShiftDate(mon,-7*PP_WN_WEEKS);   // 4주 전 월요일
+  const to=ppShiftDate(mon,-1);                 // 지난 일요일
+  const key=(typeof ppWordKey==='function')?ppWordKey:(x=>String(x||'').trim().toLowerCase());
+  const seen=new Map();                          // 열쇠 → 보여 줄 철자
+  ppWrongEvents(sid).forEach(e=>{
+    if(e.date<from||e.date>to)return;
+    const k=key(e.word);
+    if(k&&!seen.has(k))seen.set(k,e.word);
+  });
+  // 학생 단어장에 있는 카드만 낸다 (보기 4개를 만들 수 있어야 한다)
+  const cards=((typeof DB!=='undefined'&&DB.cards)?DB.cards(sid):[]);
+  const byKey={};cards.forEach(c=>{const k=key(c.word);if(k&&!byKey[k])byKey[k]=c;});
+  const picked=[];
+  seen.forEach((word,k)=>{ if(byKey[k])picked.push(byKey[k]); });
+  return {week:ppWeekKey(today),mon,from,to,cards:picked,words:picked.map(c=>c.word)};
+}
+// 이번 주 진도 (logs 주당 1행)
+function ppWrongLogId(sid,week){return 'wn_'+sid+'_'+week;}
+function ppWrongProgress(sid,week){
+  const id=ppWrongLogId(sid,week);
+  const row=((typeof _cache!=='undefined')?(_cache.logs||[]):[]).find(l=>l&&l.id===id&&!l._deleted);
+  return row||{id,sid,type:'vocab_wrongnote',week,done:[],total:0,date:ppToday()};
+}
+// 아직 안 한 단어
+function ppWrongRemain(sid,todayStr){
+  const set=ppWrongSet(sid,todayStr);
+  const p=ppWrongProgress(sid,set.week);
+  const key=(typeof ppWordKey==='function')?ppWordKey:(x=>String(x||'').trim().toLowerCase());
+  const done=new Set((p.done||[]).map(key));
+  return {...set,done:(p.done||[]),remain:set.cards.filter(c=>!done.has(key(c.word)))};
+}
+// 선생님용 — 지난주 복습률 · 이번 주 진행 · 자주 틀린 단어
+function ppWrongStat(sid){
+  const today=ppToday();
+  const thisSet=ppWrongRemain(sid,today);
+  const lastMon=ppShiftDate(ppWeekMon(today),-7);
+  const lastSet=ppWrongSet(sid,lastMon);
+  const lastP=ppWrongProgress(sid,lastSet.week);
+  const cnt={};
+  ppWrongEvents(sid).forEach(e=>{
+    const k=(typeof ppWordKey==='function')?ppWordKey(e.word):String(e.word).toLowerCase();
+    if(!k)return;(cnt[k]=cnt[k]||{word:e.word,n:0}).n++;
+  });
+  const top=Object.values(cnt).sort((a,b)=>b.n-a.n).slice(0,10);
+  return {
+    week:thisSet.week,total:thisSet.cards.length,done:thisSet.done.length,remain:thisSet.remain.length,
+    lastWeek:lastSet.week,lastTotal:lastSet.cards.length,lastDone:(lastP.done||[]).length,
+    lastPct:lastSet.cards.length?Math.round(((lastP.done||[]).length/lastSet.cards.length)*100):null,
+    top,
+  };
+}
 // ── 재시험 예정 (B3) ─────────────────────────────────────────
 // 통과할 때까지 학생 줄과 오늘 수업 목록에 칩이 남는다.
 function ppRetestPending(sid){

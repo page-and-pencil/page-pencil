@@ -1117,7 +1117,7 @@ function swStuTab(id){
       else p.classList.remove('active');
     });
     if(id==='st-home')renderStudentHome(currentStudentSid);
-    if(id==='st-vocab'){if(typeof quizState!=='undefined'&&quizState)_qzRender();else renderVocabDeck(currentStudentSid);}
+    if(id==='st-vocab'){if(typeof wnState!=='undefined'&&wnState)renderWrongNote();else if(typeof quizState!=='undefined'&&quizState)_qzRender();else renderVocabDeck(currentStudentSid);}
     if(id==='st-library')renderStudentLibrary(currentStudentSid);
     window.scrollTo(0,0);
   };
@@ -2689,6 +2689,96 @@ async function _quizHwAutoCheck(sid,setKey){
     toast('🏁 목표 점수 달성 — 숙제가 저절로 체크됐어요! ✓');
   }
 }
+// ── 누적 오답 4주 복습 (P4) — 학생 화면 ─────────────────────
+// 4지선다, 제한시간 없음. 틀리면 묶음 끝에 다시 넣어 전부 맞혀야 끝난다.
+// 묶음이 크면 20개씩 끊어서 이어 한다. 카드 기록(hits·box·due)은 건드리지 않는다.
+let wnState=null;
+function openWrongNote(sid){
+  const set=ppWrongRemain(sid);
+  if(!set.remain.length){toast('이번 주 오답 복습을 다 했어요 ✓');return;}
+  const chunk=set.remain.slice(0,PP_WN_CHUNK);
+  wnState={sid,week:set.week,total:set.cards.length,
+    doneWords:(set.done||[]).slice(),
+    queue:_vgShuffle(chunk.slice()),chunkN:chunk.length,cleared:0,idx:0,locked:false};
+  swStuTab('st-vocab');
+  setTimeout(()=>{if(wnState)renderWrongNote();},60);
+}
+function renderWrongNote(){
+  const w=wnState;if(!w)return;
+  const el=document.getElementById('st-vocab');if(!el)return;
+  if(!w.queue.length){renderWrongNoteDone();return;}
+  const card=w.queue[0];
+  const opts=(typeof _vgOpts==='function')?_vgOpts(card,'meaning'):[card.meaning||''];
+  w.cur={opts,right:opts.indexOf(String(card.meaning||'').trim())};
+  const left=w.queue.length;
+  el.innerHTML=`<div style="padding:1.25rem">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <button class="btn bo bxxs" style="margin-right:auto" onclick="wnQuit()">← 홈</button>
+      <span style="font-size:12.5px;color:var(--slate);font-family:var(--fm)">이번 묶음 ${w.cleared}/${w.chunkN} · 남은 ${left}개</span>
+    </div>
+    <div style="font-size:13px;color:var(--slate);text-align:center;margin-bottom:10px">📒 오답 복습 — 전에 틀린 단어예요</div>
+    <div style="height:8px;background:var(--divider);border-radius:4px;overflow:hidden;margin-bottom:16px">
+      <div style="height:100%;width:${Math.round((w.cleared/Math.max(1,w.chunkN))*100)}%;background:var(--accent);border-radius:4px;transition:width .3s"></div>
+    </div>
+    <div style="background:var(--tl);border-radius:10px;padding:22px;text-align:center;margin-bottom:14px">
+      <div style="font-size:26px;font-weight:800;color:var(--navy);font-family:var(--fd);cursor:pointer" onclick="speakWord('${String(card.word).replace(/'/g,"\\'")}')">${_vgEsc(card.word)} 🔊</div>
+      ${card.pos?`<div style="font-size:12px;color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
+    </div>
+    <div id="wn-opts">${w.cur.opts.map((o,i)=>`<button class="wn-opt" data-i="${i}" onclick="wnAnswer(${i})" style="display:block;width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:12px;background:#fff;font-size:16px;font-weight:700;color:var(--navy);font-family:var(--fb);cursor:pointer;text-align:center;margin-bottom:10px">${_vgEsc(o)}</button>`).join('')}</div>
+  </div>`;
+}
+function wnAnswer(i){
+  const w=wnState;if(!w||w.locked)return;
+  w.locked=true;
+  const ok=(i===w.cur.right);
+  document.querySelectorAll('#wn-opts .wn-opt').forEach(b=>{
+    const bi=parseInt(b.dataset.i,10);
+    if(bi===w.cur.right){b.style.borderColor='#10B981';b.style.background='#ECFDF5';}
+    else if(bi===i){b.style.borderColor='var(--warn)';b.style.background='#FEF3C7';}
+    b.disabled=true;
+  });
+  if(typeof vgMark==='function')vgMark(ok);
+  const card=w.queue[0];
+  setTimeout(async()=>{
+    w.locked=false;
+    if(ok){
+      w.queue.shift();w.cleared++;
+      if(!w.doneWords.includes(card.word))w.doneWords.push(card.word);
+      await _wnSave();
+    }else{
+      // 틀리면 묶음 끝으로 — 전부 맞혀야 끝난다
+      w.queue.push(w.queue.shift());
+    }
+    if(wnState)renderWrongNote();
+  },ok?450:900);
+}
+// 주당 1행을 갱신(upsert) — 같은 id 라 행이 늘지 않는다
+async function _wnSave(){
+  const w=wnState;if(!w)return;
+  const row={id:ppWrongLogId(w.sid,w.week),sid:w.sid,type:'vocab_wrongnote',
+    week:w.week,done:w.doneWords.slice(),total:w.total,date:ppToday()};
+  if(!_cache.logs)_cache.logs=[];
+  const ci=_cache.logs.findIndex(l=>l&&l.id===row.id);
+  if(ci>=0)_cache.logs[ci]=row;else _cache.logs.unshift(row);
+  try{await supaUpsert('logs',row.id,row,w.sid);}catch(e){console.warn('오답 복습 저장:',e);}
+}
+function renderWrongNoteDone(){
+  const w=wnState;if(!w)return;
+  const el=document.getElementById('st-vocab');if(!el)return;
+  const left=ppWrongRemain(w.sid).remain.length;
+  el.innerHTML=`<div style="padding:2rem;text-align:center">
+    <div style="font-size:46px;margin-bottom:10px">${left?'👏':'🎉'}</div>
+    <div style="font-size:19px;font-weight:800;color:var(--navy);margin-bottom:6px">${left?'이번 묶음 끝!':'이번 주 오답 복습 완료!'}</div>
+    <div style="font-size:14px;color:var(--slate);line-height:1.8;margin-bottom:20px">
+      ${w.chunkN}개를 전부 맞혔어요${left?`<br>아직 <b style="color:var(--tealt)">${left}개</b>가 남아 있어요`:'<br>다음 주에 또 만나요'}
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      ${left?`<button class="btn bt" style="padding:12px 26px;border-radius:50px" onclick="openWrongNote('${w.sid}')">이어서 ${Math.min(left,PP_WN_CHUNK)}개 더 →</button>`:''}
+      <button class="btn bo" style="padding:12px 26px;border-radius:50px" onclick="wnQuit()">홈으로</button>
+    </div>
+  </div>`;
+}
+function wnQuit(){wnState=null;swStuTab('st-home');}
 // ── GAMIFICATION HELPERS ──
 // XP는 실제 학습 데이터에서 파생 (수업 10 · 과제 20 · 단어 정답 2 · 마스터 5 · 완독 15 · 원서 10 · 테스트 10)
 // 100레벨 커브: xpForLevel(n)=30*(n-1)^1.85 — Lv2=30, Lv13≈2900, Lv100≈147,000 (학습량 대비 과도한 레벨 인플레 방지)
@@ -3595,6 +3685,22 @@ function renderStudentHome(sid){
       </div>
     </div></div>`;
   })():'';
+  // ── 이번 주 오답 복습 (P4) — 0개면 줄을 숨긴다 ──
+  const _wn=(typeof ppWrongRemain==='function')?ppWrongRemain(sid):null;
+  const wnCtaHtml=(_wn&&_wn.cards.length)?(()=>{
+    const wdone=_wn.cards.length-_wn.remain.length;
+    const wall=!_wn.remain.length;
+    return `<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:800;color:${wall?'var(--okt)':'var(--navy)'}">\uD83D\uDCD2 ${wall?'이번 주 오답 복습 완료 ✓':'이번 주 오답 복습 '+_wn.cards.length+'개'}</div>
+          ${wall?'':`<div style="font-size:12.5px;color:var(--neutral);margin-top:3px">남은 ${_wn.remain.length}개 · 전에 틀린 단어를 다시 봐요</div>`}
+        </div>
+        ${wall?'':`<button class="btn bo bsm" style="flex:0 0 auto;border-radius:50px;padding:8px 18px;font-weight:700" onclick="openWrongNote('${sid}')">복습하기</button>`}
+      </div>
+      ${(wdone&&!wall)?`<div style="height:6px;background:var(--divider);border-radius:3px;overflow:hidden;margin-top:9px"><div style="height:100%;width:${Math.round(wdone/_wn.cards.length*100)}%;background:var(--ok);border-radius:3px"></div></div>`:''}
+    </div></div>`;
+  })():'';
   // 숙제 알림 — 서버에서 보내므로 앱을 닫아도 온다. 상태는 비동기로 채운다(_stuPushRow)
   const notifyRowHtml=(typeof ppPushSupported==='function'&&ppPushSupported())
     ?`<div id="stu-push-row" class="stu-push">
@@ -3809,6 +3915,7 @@ function renderStudentHome(sid){
     ${stuBossCard(sid)}
     ${vocabCtaHtml}
     ${quizCtaHtml}
+    ${wnCtaHtml}
     <details style="margin-top:8px;margin-bottom:8px">
       <summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">🎮 보너스 · 내 기록 <span style="font-size:12px;color:var(--teal)">▾</span></summary>
       <div style="margin-top:8px">${stuXpCard(sid,streak)}${stuBadgeShelf(sid)}${renderVocabReview(sid)}</div>
