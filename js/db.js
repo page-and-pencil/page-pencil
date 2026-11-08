@@ -1304,6 +1304,36 @@ function browserSpeak(clean,rate){
     setTimeout(go,40); // cancel 직후 곧바로 speak 하면 조용해지는 크롬 버그 회피
   });
 }
+// ── 문장 음성 — 새로 만들지 않는다 (P7) ──────────────────────
+// 앱 ElevenLabs 키는 월 8,000 크레딧이고 패턴 문장만으로도 약 34,000자다.
+// 그래서 문장 학습의 음성 순서는: ① 이미 있는 tts_cache 음원 → ② 브라우저 음성.
+// 생성(_ttsFetch) 은 부르지 않는다. 교재 unitAudio(출판사 음원)는 문장 단위가 아니라
+// 문장 학습 화면의 '단원 전체 듣기' 버튼에서만 쓴다. 단어(speakWord)는 지금 그대로다.
+async function elevenCachedUrl(text){
+  const t=String(text||'').trim();if(!t)return '';
+  const voice=_ttsVoiceOf(elevenCfg());
+  const id='tts_'+await sha256Hex(voice+'|s4|'+t);
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/tts_cache?id=eq.${id}&limit=1&select=data`,{headers:SUPA_HEADERS});
+    if(r.ok){const a=await r.json();const row=Array.isArray(a)?a[0]:a;if(row&&row.data&&row.data.url)return row.data.url;}
+  }catch(e){}
+  return '';
+}
+async function speakCachedOnly(text,opt){
+  const t=String(text||'').trim();if(!t)return false;
+  stopSmartAudio();
+  const o=opt||{};
+  const gen=_speakGen;
+  try{
+    const url=await elevenCachedUrl(t);
+    if(gen!==_speakGen)return true;
+    if(url&&await _playUrl(url,o.el||0.95)){window._lastSpeakEngine='eleven-cache';return true;}
+  }catch(e){}
+  if(gen!==_speakGen)return true;
+  const ok=await browserSpeak(t,o.tts||0.85);
+  window._lastSpeakEngine=ok?'tts':'none';
+  return ok;
+}
 // rate: 숫자(레거시, 브라우저 TTS rate) 또는 {el, tts, word} 옵션 객체
 async function speakSmart(text,rate=0.85){
   text=(text||'').trim();if(!text)return false;

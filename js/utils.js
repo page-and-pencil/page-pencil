@@ -2048,8 +2048,94 @@ const MISSION_DEFS={
   scramble:{icon:'🧩',label:'어순 배열'},
   record:{icon:'🎙',label:'낭독 녹음'},
   game:{icon:'🎮',label:'마무리 게임'},
+  // 문장 학습(P7) — pattern·scramble·cloze 를 5단계 한 흐름으로 합친 것.
+  // 옛 3개 정의는 지우지 않는다: 이미 할당된 과제는 옛 화면이 그대로 열린다.
+  sentence:{icon:'📄',label:'문장 학습'},
 };
-const MISSION_ORDER=['vocab','listen','cloze','pattern','scramble','record','game'];
+const MISSION_ORDER=['vocab','listen','sentence','record','game'];
+// 옛 과제(a.missions 에 pattern·scramble·cloze 가 든 것)는 그대로 열린다
+const MISSION_LEGACY=['cloze','pattern','scramble'];
+// ── 문장 학습 (P7) ──────────────────────────────────────────
+// 문장과 해석은 교재에서 전사된 것만 쓴다. AI 로 문장도 해석도 만들지 않는다.
+// 문장 출처 순서: ① unitPatterns (줄 하나 = 문장 하나)  ② unitTexts (본문을 문장으로 분리)
+// 해석 순서:      ① 패턴 줄의 ' — ' 뒤  ② unitSentKo (교재 편집기에서 선생님 입력)  ③ 없음
+const SENT_MAX=10;          // 한 라운드는 10문장 이내
+const SENT_MIN_WORDS=3;     // 3단어 미만은 쓰지 않는다
+const SENT_PHASES=[
+  {k:'mem',   icon:'🙈', label:'암기'},
+  {k:'recall',icon:'🧩', label:'리콜'},
+  {k:'spell', icon:'⌨️', label:'스펠'},
+  {k:'speed', icon:'⚡', label:'스피드'},
+  {k:'cloze', icon:'📝', label:'빈칸'},
+];
+const SENT_READ_GOAL=5;     // 소리 내어 읽기 권장 횟수 (강제 아님)
+const _SENT_HANGUL=/[가-힣ㄱ-ㆎ]/;
+// ' — '(앞뒤 공백 있는 대시)로 문장과 해석을 나눈다.
+// 학생에게 보이는 영어 문장에 한글이 섞이면 안 되므로, 나눈 뒤에도 한글이 남으면 그 자리에서 자른다.
+function _sentSplitKo(line){
+  let en=String(line==null?'':line).trim(),ko='';
+  const m=en.match(/\s+[—–\-]\s+/);
+  if(m&&_SENT_HANGUL.test(en.slice(m.index))){
+    ko=en.slice(m.index+m[0].length).trim();
+    en=en.slice(0,m.index).trim();
+  }
+  if(_SENT_HANGUL.test(en)){                  // 대시 없이 한글이 붙어 있는 줄
+    const i=en.search(_SENT_HANGUL);
+    const tail=en.slice(i).trim();
+    en=en.slice(0,i).replace(/[\s\-–—(,:;]+$/,'').trim();
+    if(!ko)ko=tail;
+  }
+  return {en,ko};
+}
+function _sentWords(en){return String(en==null?'':en).trim().split(/\s+/).filter(Boolean);}
+// 선생님이 교재 편집기에 넣은 줄별 해석 — 문장 줄 번호로 맞춘다
+function _sentKoLines(tb,unitKey){
+  const raw=(tb&&tb.unitSentKo&&tb.unitSentKo[unitKey])||'';
+  return String(raw).split('\n').map(s=>s.trim());
+}
+function sentLines(tb,unitKey0){
+  if(!tb)return [];
+  const unitKey=(typeof ppUnitKeyOf==='function')?ppUnitKeyOf(tb,unitKey0):unitKey0;
+  const pat=String((tb.unitPatterns&&tb.unitPatterns[unitKey])||'').trim();
+  let rows;
+  if(pat){
+    rows=pat.split('\n').map(l=>l.trim()).filter(Boolean).map(_sentSplitKo);
+  }else{
+    const text=String((tb.unitTexts&&tb.unitTexts[unitKey])||'').replace(/\s+/g,' ').trim();
+    rows=text.split(/(?<=[.!?])\s+/).map(_sentSplitKo);
+  }
+  const ko=_sentKoLines(tb,unitKey);
+  return rows
+    .map((r,i)=>({en:r.en,ko:r.ko||ko[i]||''}))
+    .filter(r=>r.en&&_sentWords(r.en).length>=SENT_MIN_WORDS)
+    .slice(0,SENT_MAX);
+}
+// 빈칸 — 선생님 지정(unitSentCloze)이 먼저. 없으면 단원 단어 중 문장에 나오는 것.
+function sentClozeWords(tb,unitKey0){
+  if(!tb)return [];
+  const unitKey=(typeof ppUnitKeyOf==='function')?ppUnitKeyOf(tb,unitKey0):unitKey0;
+  const lines=sentLines(tb,unitKey);
+  if(!lines.length)return [];
+  const hay=' '+lines.map(r=>r.en).join(' ')+' ';
+  const has=w=>{
+    const t=String(w||'').trim();
+    if(!/^[A-Za-z][A-Za-z'-]*$/.test(t))return false;
+    return new RegExp('(?<![A-Za-z])'+t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![A-Za-z])','i').test(hay);
+  };
+  const uniq=arr=>{const s=new Set(),o=[];arr.forEach(w=>{const k=String(w).toLowerCase();if(!s.has(k)){s.add(k);o.push(w);}});return o;};
+  const raw=String((tb.unitSentCloze&&tb.unitSentCloze[unitKey])||'').trim();
+  if(raw)return uniq(raw.split(/[,\n]/).map(w=>w.trim()).filter(has)).slice(0,10);
+  const words=((tb.units&&tb.units[unitKey])||[]).map(w=>(typeof w==='string'?w:(w&&w.word)||''));
+  return uniq(words.map(w=>String(w).trim()).filter(has)).slice(0,8);
+}
+// 스피드 제한시간 — 단어 수 × 3초 + 5초 (최소 10초 · 최대 30초)
+function sentSpeedSec(en){
+  return Math.max(10,Math.min(30,_sentWords(en).length*3+5));
+}
+// 첫 글자 힌트 — 해석이 없는 문장의 스펠 단계용 (This is a bag. → T___ i_ a b__.)
+function sentFirstHint(en){
+  return String(en==null?'':en).replace(/[A-Za-z][A-Za-z']*/g,w=>w[0]+new Array(w.length).join('_'));
+}
 // 어순배열용 문장 목록 (패턴 우선, 없으면 본문 문장) — 3단어 이상만
 function scrambleLines(tb,unitKey){
   const raw=(tb?.unitPatterns?.[unitKey]||'').trim();
@@ -2094,6 +2180,7 @@ function missionAvail(tb,unitKey0){
     scramble:scrambleLines(tb,unitKey).length>0,
     record:!!text,
     game:(tb?.units?.[unitKey]||[]).length>=4&&(tb?.units?.[unitKey]||[]).map(w=>typeof w==='string'?'':(w.ko||'')).filter(Boolean).length>=3,
+    sentence:(typeof sentLines==='function')?sentLines(tb,unitKey).length>0:false,
   };
 }
 // 과제의 유효 미션 목록 (교재 콘텐츠가 있는 것만)
