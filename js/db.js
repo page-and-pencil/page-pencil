@@ -258,6 +258,10 @@ const DB={
   less(){return ppLive(_cache.lessons).sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
   tsts(){return ppLive(_cache.tests).sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
   rds(){return ppLive(_cache.readings).sort((a,b)=>(b.date||'').localeCompare(a.date||''));},
+  // 읽은 원서 — **같은 책은 한 권으로 센다** (2026-11-08).
+  // 같은 책을 여러 수업에 걸쳐 읽으면 readings 에 여러 줄이 남는다(나연: 25종 56줄).
+  // 그걸 그대로 세면 '완독 권수'가 부풀고 책장에 같은 책이 여러 번 나온다.
+  // 가장 최근 기록 한 줄만 남기고, 읽은 횟수는 _times 로 들고 간다(다시 읽기 표시용).
   allRds(sid){
     const base=ppLive(_cache.readings).filter(r=>r.sid===sid);
     const tbRds=ppLive(_cache.textbooks).filter(t=>t.sid===sid&&t.type==='원서'&&t.completed).map(t=>({...t,date:t.completedDate||''}));
@@ -265,7 +269,21 @@ const DB={
     const tbDateMap=new Map(tbRds.map(t=>[t.title,t.completedDate||'']));
     const merged=base.map(r=>r.title&&tbDateMap.has(r.title)?{...r,date:tbDateMap.get(r.title)||r.date}:r);
     const seen=new Set(merged.map(r=>r.title).filter(Boolean));
-    return [...merged,...tbRds.filter(t=>t.title&&!seen.has(t.title))].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const all=[...merged,...tbRds.filter(t=>t.title&&!seen.has(t.title))].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    // 제목(기호·대소문자 무시) 또는 bookId 로 묶는다. 둘 다 없으면 묶지 않는다(원문 보존).
+    const key=r=>String(r.bookId||'')||String(r.title||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+    const byKey=new Map(),out=[];
+    all.forEach(r=>{
+      const k=key(r);
+      if(!k){out.push(r);return;}
+      const prev=byKey.get(k);
+      if(!prev){const row={...r,_times:1};byKey.set(k,row);out.push(row);return;}
+      prev._times=(prev._times||1)+1;                       // 이미 가장 최근 것이 앞에 있다(날짜 내림차순)
+      if(!prev.date&&r.date)prev.date=r.date;
+      if(!prev.arLevel&&r.arLevel)prev.arLevel=r.arLevel;
+      if(!prev.coverUrl&&r.coverUrl)prev.coverUrl=r.coverUrl;
+    });
+    return out;
   },
   // ORT 순서 기반 다음 읽을 원서 — 읽음(readings)·원서 기록(textbooks) 어디에도 없는 가장 낮은 ortSeq
   ortNext(sid){

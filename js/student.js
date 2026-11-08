@@ -625,7 +625,7 @@ function renderStudentLibrary(sid){
   // ── 내 원서 책장: 표지 그리드 + 선택한 책의 학습 자료 패널 ──
   const _n2=x=>String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
   const shelfMap=new Map();
-  myBooks.forEach(b=>{shelfMap.set(b.id,{key:b.id,title:b.title,b,read:true,cur:b.id===lastReadBookId,date:(myRds.find(r=>r.bookId===b.id)||{}).date||''});});
+  myBooks.forEach(b=>{const _r=myRds.find(r=>r.bookId===b.id)||{};shelfMap.set(b.id,{key:b.id,title:b.title,b,read:true,cur:b.id===lastReadBookId,date:_r.date||'',times:_r._times||1});});
   tbRds.forEach(t=>{
     const lb=allBooks.find(x=>_n2(x.title)===_n2(t.title));
     const key=lb?lb.id:'tb:'+t.id;
@@ -644,7 +644,7 @@ function renderStudentLibrary(sid){
       <div class="shelf-cv">${cov}</div>
       ${e.cur?'<span class="shelf-badge" title="읽는 중">\uD83D\uDCD6</span>':(e.completed?'<span class="shelf-badge" title="완독">✅</span>':'')}
       <div class="shelf-t">${e.title}</div>
-      <div class="shelf-s">${st}${e.date?' · '+String(e.date).slice(5):''}</div>
+      <div class="shelf-s">${st}${e.date?' · '+String(e.date).slice(5):''}${(e.times||1)>1?' · '+e.times+'번 읽음':''}</div>
     </div>`;
   };
   const selMine=myShelf.find(e=>e.key===_stuRdShelfOpen);
@@ -2021,6 +2021,19 @@ function stuLevelUpCheck(sid){
     localStorage.setItem(key,String(lv.n));
   }catch(e){}
 }
+// 상단바 '내 단계' 뱃지 — 레벨은 홈 카드 안에만 있어서 잘 안 보였다 (2026-11-08).
+// 이름 옆에 항상 두고, 누르면 홈 맨 위 레벨 카드로 간다.
+function stuLvBadge(sid){
+  const el=document.getElementById('stu-lv-badge');if(!el)return;
+  try{
+    const lv=stuLevelOf(stuXP(sid));
+    el.innerHTML='<span class="lv-ico">'+lv.icon+'</span>'
+      +'<span class="lv-n">Lv.'+lv.n+'</span>'
+      +'<span class="lv-nm">'+lv.name+'</span>';
+    el.style.display='';
+    el.title=lv.name+' · Lv.'+lv.n+(lv.next?' · 다음 레벨까지 더 모으기':' · 최고 레벨');
+  }catch(e){el.style.display='none';}
+}
 function stuXpCard(sid,streak){
   const xp=stuXP(sid);
   const lv=stuLevelOf(xp);
@@ -2048,35 +2061,46 @@ function stuBadgeShelf(sid){
   if(!bs.length)return '';
   // 100개를 한 격자에 쏟으면 같은 종류가 줄줄이 붙어 단조롭다(원서만 14개).
   // 종류별로 묶어 '지금까지 딴 최고 배지 + 다음 목표'를 한 줄씩 보여 주고,
-  // 전체 격자는 펼쳐서 볼 수 있게 둔다.
+  // 전체 격자는 펼쳐서 볼 수 있게 둔다. (2026-11-08 디자인 정리)
   const groups={};
   bs.forEach(b=>{
     const pre=String(b.id).replace(/\d+$/,'');
     (groups[pre]=groups[pre]||{icon:b.icon,list:[]}).list.push(b);
   });
-  const got=bs.filter(b=>b.unlocked).length;
+  const mineAll=bs.filter(b=>b.unlocked);
+  const got=mineAll.length;
+  const pctAll=Math.round(got/bs.length*100);
+  // 맨 위 — 최근에 딴 배지 셋 (아이 눈에 '내가 가진 것'이 먼저 보이게)
+  const latest=mineAll.slice(-3).reverse();
+  const topHtml=latest.length
+    ?'<div class="bdg-top">'+latest.map((b,i)=>'<span class="bdg-chip'+(i===0?' new':'')+'" title="'+b.name+'">'
+        +'<span class="bdg-chip-i">'+b.icon+'</span><span class="bdg-chip-n">'+b.name+'</span></span>').join('')+'</div>'
+    :'<div class="bdg-empty">아직 배지가 없어요 — 숙제를 하나 끝내면 첫 배지가 열려요 🙂</div>';
   const rows=Object.values(groups).map(g=>{
     const mine=g.list.filter(x=>x.unlocked);
     const best=mine.length?mine[mine.length-1]:null;
     const next=g.list.find(x=>!x.unlocked);
     const pctN=Math.round(mine.length/g.list.length*100);
-    return '<div class="bdg-row">'
+    const done=!next;
+    return '<div class="bdg-row'+(done?' done':'')+(best?'':' off')+'">'
       +'<span class="bdg-ico'+(best?'':' off')+'">'+g.icon+'</span>'
       +'<span class="bdg-main">'
         +'<span class="bdg-nm">'+(best?best.name:(next?next.name:''))+(best?'':' <span class="bdg-yet">아직</span>')+'</span>'
         +'<span class="bdg-bar"><span style="width:'+pctN+'%"></span></span>'
       +'</span>'
-      +'<span class="bdg-n">'+mine.length+'/'+g.list.length+'</span>'
+      +'<span class="bdg-n">'+(done?'✓ ':'')+mine.length+'/'+g.list.length+'</span>'
       +(next&&best?'<span class="bdg-next">다음 '+next.name+'</span>':'')
     +'</div>';
   }).join('');
   const grid=bs.slice().sort((a,b)=>(b.unlocked?1:0)-(a.unlocked?1:0))
     .map(b=>'<div class="badge-cell'+(b.unlocked?'':' locked')+'" title="'+b.name+(b.unlocked?' — 획득!':' — 아직')+'">'
-      +'<span class="bi">'+b.icon+'</span><span class="bn">'+b.name+'</span></div>').join('');
-  return '<div class="card" style="margin-bottom:14px"><div class="cb" style="padding:15px 18px">'
-    +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">'
-      +'<span style="font-size:15px;font-weight:800;color:var(--navy)">🏅 내 배지</span>'
-      +'<span style="font-size:12.5px;color:var(--slate)">'+got+' / '+bs.length+'</span></div>'
+      +'<span class="bi">'+(b.unlocked?b.icon:'🔒')+'</span><span class="bn">'+b.name+'</span></div>').join('');
+  return '<div class="card bdg-card" style="margin-bottom:14px"><div class="cb" style="padding:15px 18px">'
+    +'<div class="bdg-head">'
+      +'<span class="bdg-title">🏅 내 배지</span>'
+      +'<span class="bdg-count"><b>'+got+'</b> / '+bs.length+'</span></div>'
+    +'<div class="bdg-total"><span style="width:'+pctAll+'%"></span></div>'
+    +topHtml
     +'<div class="bdg-rows">'+rows+'</div>'
     +'<details class="bdg-fold"><summary>배지 '+bs.length+'개 전부 보기</summary>'
       +'<div class="badge-shelf">'+grid+'</div></details>'
@@ -2268,9 +2292,10 @@ function getWeekDays(sid){
   const weekStart=new Date(today);weekStart.setDate(today.getDate()-today.getDay());
   // 요일 점도 '숙제 날짜' 기준 — 미리 한 숙제가 누른 날에 찍히지 않게 (2026-11-07)
   const doneDates=new Set();
-  (_cache.assignments||[]).forEach(a=>{
-    if(a._deleted||a.sid!==sid)return;
-    if((a.schedule||[]).length){(a.schedule||[]).forEach(s2=>{if(s2&&s2.done&&s2.date)doneDates.add(s2.date);});return;}
+  ppLive(_cache.assignments).forEach(a=>{
+    if(a.sid!==sid)return;
+    // 수업으로 처리된 몫(doneBy:'lesson')은 학생이 한 게 아니라 요일 점에도 넣지 않는다
+    if((a.schedule||[]).length){(a.schedule||[]).forEach(s2=>{if(s2&&s2.done&&s2.date&&s2.doneBy!=='lesson')doneDates.add(s2.date);});return;}
     if(a.completedAt)doneDates.add((a.due||a.date||'').slice(0,10));
   });
   try{JSON.parse(localStorage.getItem('pp_stamps_'+sid)||'[]').forEach(d=>doneDates.add(d));}catch(e){} // 단어 학습 도장도 포함
@@ -2589,7 +2614,7 @@ function showStatDetail(sid,type){
   }else{
     const rds=DB.allRds(sid);
     title=`읽은 책 (${rds.length}권)`;
-    rows=rds.map(r=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="font-weight:600">${r.title||'—'}</span>${r.progress?`<span style="color:var(--slate)"> · ${r.progress}</span>`:''} <span style="font-size:12px;color:var(--slate)">${r.date||''}</span></div>`).join('')||'없음';
+    rows=rds.map(r=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="font-weight:600">${((r._times||1)>1?'🔁 ':'')+r.title||'—'}</span>${r.progress?`<span style="color:var(--slate)"> · ${r.progress}</span>`:''} <span style="font-size:12px;color:var(--slate)">${r.date||''}</span></div>`).join('')||'없음';
   }
   const box=document.createElement('div');
   box.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:var(--rs);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:2000;min-width:260px;max-width:400px;width:88vw;max-height:65vh;display:flex;flex-direction:column;overflow:hidden';
@@ -2875,6 +2900,7 @@ function renderStudentHome(sid){
       ${typeof ppPushInstallHtml==='function'?ppPushInstallHtml():''}`;
   const lastLessonHtml=renderLastLesson(sid);
   {const sb=document.getElementById('stu-streak-badge');if(sb){sb.textContent='🔥 '+streak+'일';sb.style.display=streak>0?'':'none';}}
+  stuLvBadge(sid);   // 이름 옆 단계 뱃지 (새싹 리더 등)
 
   // 매일 스케줄 숙제(클래스5·반복)의 하루치 카드 — 체크 한 번으로 오늘 몫 완료
   function schDayCard(a,sc,qNo){

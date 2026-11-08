@@ -1465,7 +1465,7 @@ async function loadStuPanel(sid){
       🎁 <b>숙제 도장 챌린지</b> — 목표 <input type="number" id="hwch-goal-${sid}" value="20" style="width:52px">일 ·
       선물 <input type="text" id="hwch-reward-${sid}" value="작은 선물" style="width:110px"> ·
       시작 <input type="date" id="hwch-start-${sid}" value="${ppToday()}"> ·
-      이월 <input type="number" id="hwch-carry-${sid}" value="0" title="시작 전 이미 모은 도장 수 (종이로 세던 몫)" style="width:44px">개
+      이월 <input type="number" id="hwch-carry-${sid}" value="0" title="시작 전 이미 모은 도장 수 (종이로 세던 몫) — 판을 만들기 전 날짜는 자동으로 세지 않습니다" style="width:44px">개
       <button class="btn bt bsm" style="font-size:11.5px;padding:2px 8px" onclick="spChallengeStart('${sid}')">시작</button>
       <span style="width:100%;font-size:12px;color:var(--slate)">숙제를 전부 체크한 날마다 도장 1개 (누적 — 하루 빠져도 리셋 없음). 목표 달성 시 대시보드·학생 앱에 알림</span>
     </div>`;
@@ -9787,7 +9787,8 @@ async function spChallengeStart(sid){
   const carry=parseInt(document.getElementById('hwch-carry-'+sid)?.value||'0',10)||0; // 시작 전 이미 모은 도장
   const idx=(_cache.students||[]).findIndex(s=>s.id===sid);if(idx<0)return;
   const stu=_cache.students[idx];
-  stu.hwChallenge={goal,reward,start,...(carry&&{carry})};
+  // createdAt — 판을 만든 날. 이 날 이전은 도장을 세지 않는다(지난 몫은 '이월' 칸으로).
+  stu.hwChallenge={goal,reward,start,createdAt:ppToday(),...(carry&&{carry})};
   try{await supaUpsert('students',sid,stu,null);}
   catch(e){console.error('spChallengeStart:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
   toast(`🎁 ${stu.name} 도장 챌린지 시작 (${goal}일 · ${reward})`);

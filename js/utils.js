@@ -1787,6 +1787,10 @@ function recurRebase(a){
     return true;
   };
   const doneUnits=new Set(a.schedule.filter(s=>s.done).map(s=>String(s.unit||'')));
+  // 누가 완료했는지(doneBy)도 단원 기준으로 따라간다 — 이걸 잃으면 '수업으로 처리된 몫'이
+  // 다음 재계산 때 '학생이 한 것'으로 바뀌어 도장이 잘못 찍힌다 (2026-11-08)
+  const doneByUnit={};
+  a.schedule.forEach(s=>{if(s.done&&s.doneBy)doneByUnit[String(s.unit||'')]=s.doneBy;});
   // 수업 진도 동기화 준비 — 이 학생 클래스의 수업 기록에서 이 책의 최대 진도 단원 인덱스를 찾고,
   // 그 이하 단원 전체를 '수업에서 이미 나간 단원' 집합으로 만든다 (표기 차이는 문자·숫자만 남겨 비교)
   const nrm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
@@ -1825,14 +1829,14 @@ function recurRebase(a){
       }
       const u=units[i++];
       const row={date:ds,book:bookTitle,unit:u};
-      if(doneUnits.has(String(u)))row.done=true;
+      if(doneUnits.has(String(u))){row.done=true;if(doneByUnit[String(u)])row.doneBy=doneByUnit[String(u)];}
       else if(covered&&covered.has(nrm(u))){row.done=true;row.doneBy='lesson';} // 과거 날짜에 깔렸던 몫 — 수업 처리로 완료
       res.push(row);
     }
     d.setDate(d.getDate()+1);
   }
   // 기존과 동일하면 저장 불필요
-  const same=res.length===a.schedule.length&&res.every((s,idx)=>{const o=a.schedule[idx];return o&&o.date===s.date&&o.unit===s.unit&&!!o.done===!!s.done;});
+  const same=res.length===a.schedule.length&&res.every((s,idx)=>{const o=a.schedule[idx];return o&&o.date===s.date&&o.unit===s.unit&&!!o.done===!!s.done&&(o.doneBy||'')===(s.doneBy||'');});
   return same?null:res;
 }
 // ── 숙제 중복 방지 헬퍼 ──
@@ -1863,13 +1867,33 @@ function schedCoversHw(sid,ds,book,unit){
 // ── 숙제 도장 챌린지 (예: 20일 모으면 선물) ──
 // 설계: '연속'이 아니라 '누적' — 하루 빠져도 모은 도장은 그대로. 실패 경험(리셋)이 없도록. (원장 지시: 긍정 동기부여)
 // 도장 1개 = 그날 배정된 숙제(스케줄형 그날 몫 + 단건)를 전부 체크한 날. 지나간 날도 체크를 채우면 도장 인정.
+// 도장·연속 학습은 '학생이 한 것'만 센다.
+// 자동 진행 반복 숙제는 수업이 그 단원을 나가면 지난 날짜 몫을 doneBy:'lesson' 으로 완료 처리한다
+// (밀린 숙제로 남지 않게 하려고). 그건 학생이 한 게 아니므로 도장 판정에서는 아예 뺀다 —
+// 전에는 그 몫까지 세어 수업 한 번에 지난 수십 일 도장이 한꺼번에 찍혔다 (2026-11-08).
+// 학생이 실제로 한 체크인가. 자동 진행 반복 숙제(auto)는 수업 진도에 따라 서버가 아닌
+// 앱 계산으로 과거 몫을 완료 처리하므로, 누가 했는지(doneBy)가 분명한 것만 센다.
+// (옛 행은 doneBy 가 없는데, 그 대부분이 수업으로 처리된 몫이다 — 2026-11-08 실측)
+const PP_DONE_REAL=['student','teacher','class5','readingn','parent'];
+function _hwDoneByStudent(s,autoRecur){
+  if(!s||!s.done)return false;
+  if(s.doneBy==='lesson')return false;
+  if(autoRecur)return PP_DONE_REAL.includes(String(s.doneBy||''));
+  return true;
+}
 function hwDayStatus(sid,ds){
   let total=0,done=0;
   (typeof _cache!=='undefined'?(_cache.assignments||[]):[]).forEach(a=>{
     if(a._deleted||a.sid!==sid)return;
     if((a.schedule||[]).length){
-      const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
-      sch.forEach(s=>{if(s.date===ds){total++;if(s.done)done++;}});
+      const _auto=a.category==='recur'&&!!a.auto;
+      const sch=(_auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+      sch.forEach(s=>{
+        if(s.date!==ds)return;
+        // 수업으로 처리된 몫은 '그 날 할 일'에서도 뺀다 (학생에게 낸 숙제가 아니게 됐으므로)
+        if(s.done&&!_hwDoneByStudent(s,_auto))return;
+        total++;if(s.done)done++;
+      });
     }else{
       const d=(a.due||a.date||'').slice(0,10);
       if(d!==ds)return;
@@ -1887,7 +1911,15 @@ function hwChallengeProgress(stu){
   const c=stu&&stu.hwChallenge;
   if(!c||!c.goal||c.stopped)return null;
   const today=ppToday();
-  const start=c.start||today;
+  // 판을 만들기 **전**의 날은 세지 않는다 (2026-11-08).
+  // 전에는 시작일만 보고 거슬러 올라가 세서, 오늘 판을 만들면서 시작일을 과거로 잡으면
+  // 지난 석 달 치 도장이 한꺼번에 찍혔다(수업 진도로 자동 완료된 몫까지 함께).
+  // 지난 몫을 인정하려면 설정의 '이월' 칸을 쓴다.
+  const start=(()=>{
+    const s0=c.start||today;
+    const made=String(c.createdAt||'').slice(0,10);
+    return (made&&made>s0)?made:s0;
+  })();
   const stamps=[],fullDays=[]; // stamps=도장 찍힌 날(절반 이상) / fullDays=전부 한 날(⭐)
   const d=new Date(start+'T12:00:00');
   let guard=0;

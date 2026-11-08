@@ -92,6 +92,17 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
 .stu-app-logo span{color:var(--accent);font-style:italic;}
 .stu-name-badge{font-size:13px;color:rgba(255,255,255,.6);background:rgba(255,255,255,.1);padding:3px 10px;border-radius:20px;}
 .stu-streak-badge{font-size:13px;font-weight:700;color:var(--warnt);background:var(--warnl);padding:4px 11px;border-radius:20px;white-space:nowrap;}
+/* 내 단계(새싹 리더 등) — 이름 옆에 항상 보이게. 눌러서 홈 맨 위 카드로 (2026-11-08) */
+.stu-lv-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--fb);font-size:12.5px;font-weight:800;
+  color:#fff;background:rgba(255,255,255,.16);border:1.5px solid rgba(255,255,255,.34);
+  padding:3px 10px 3px 4px;border-radius:999px;white-space:nowrap;cursor:pointer;line-height:1.5;}
+.stu-lv-badge .lv-ico{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;
+  border-radius:50%;background:rgba(255,255,255,.92);font-size:13px;line-height:1;}
+.stu-lv-badge .lv-n{font-variant-numeric:tabular-nums;opacity:.95;}
+.stu-lv-badge .lv-nm{font-weight:700;opacity:.92;}
+/* 좁은 폰에서는 레벨 숫자를 접고 단계 이름(새싹 리더 등)을 남긴다 — 이름이 더 눈에 띄어야 한다 */
+@media (max-width:430px){.stu-lv-badge .lv-n{display:none;}}
+@media (max-width:330px){.stu-lv-badge .lv-nm{display:none;}.stu-lv-badge .lv-n{display:inline;}}
 /* 학생 홈 응원 hero */
 .stu-hero{position:relative;background:var(--accent) linear-gradient(to right,transparent 22px,rgba(255,255,255,.35) 22px,rgba(255,255,255,.35) 23px,transparent 23px),var(--accent) repeating-linear-gradient(transparent,transparent 23px,rgba(255,255,255,.09) 23px,rgba(255,255,255,.09) 24px);background-color:var(--accent);border-radius:18px;padding:20px 20px 20px 34px;color:#fff;margin-bottom:16px;box-shadow:0 4px 14px rgba(27,94,74,.22);}
 .stu-hero::before{content:'';position:absolute;top:-7px;left:50%;transform:translateX(-50%) rotate(-2.5deg);width:92px;height:22px;background:rgba(255,250,232,.93);border-left:1px dashed rgba(150,120,60,.45);border-right:1px dashed rgba(150,120,60,.45);border-radius:2px;box-shadow:0 1px 3px rgba(15,48,74,.12);}
@@ -105,8 +116,16 @@ select.land-input{padding:12px 14px;border:1.5px solid rgba(15,48,74,.12);border
 .stu-bottomnav .stutab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 2px;border:none;background:none;cursor:pointer;color:#94A3AE;font-family:var(--fb);transition:color .15s;}
 .stu-bottomnav .stutab.active{color:var(--tealt);}
 .snav-ico{font-size:20px;line-height:1;}
-.snav-lbl{font-size:11px;font-weight:600;}
+.snav-lbl{font-size:11px;font-weight:600;white-space:nowrap;}
 .stu-bottomnav .stutab.active .snav-lbl{font-weight:700;}
+/* 탭이 6개(오늘·단어·복습·클래스5·오토보카·리딩앤)라 좁은 폰에서는 글자를 줄인다 */
+@media (max-width:380px){
+  .stu-bottomnav{padding-left:2px;padding-right:2px;}
+  .stu-bottomnav .stutab{padding:5px 0;gap:2px;}
+  .snav-lbl{font-size:9.5px;letter-spacing:-.3px;}
+  .snav-ico{font-size:18px;}
+  .stu-bottomnav .stutab .snav-ico svg{width:19px;height:19px;}
+}
 
 /* VOCAB CARD */
 .vc-deck{perspective:1200px;width:100%;max-width:340px;margin:0 auto;}
@@ -1226,8 +1245,9 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .badge-cell{display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--cream2);border:1.5px solid var(--border);border-radius:10px;padding:9px 4px;}
 .badge-cell .bi{font-size:23px;line-height:1;}
 .badge-cell .bn{font-size:10.5px;font-weight:700;color:var(--navy);text-align:center;}
-.badge-cell.locked{opacity:.45;}
-.badge-cell.locked .bi{filter:grayscale(1);}
+.badge-cell.locked{opacity:.5;}
+.badge-cell.locked .bi{filter:grayscale(1);opacity:.65;}
+.badge-cell.locked .bn{color:var(--text-muted);font-weight:600;}
 .boss-card{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;cursor:pointer;}
 .boss-card.win{border-left-color:var(--okt);cursor:default;}
 .boss-ava{font-size:34px;line-height:1;flex-shrink:0;}
@@ -2274,12 +2294,35 @@ body{font-size:14.5px;line-height:1.65;}
 .bpl-t{max-width:44%;}
 
 /* 배지 — 종류별 한 줄 요약 (100개 격자는 접어 둔다) */
+/* 내 배지 — 머리글·전체 진행·최근 획득 칩 (2026-11-08) */
+.bdg-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.bdg-title{font-size:15px;font-weight:800;color:var(--navy);}
+.bdg-count{font-size:12.5px;color:var(--text-muted);font-variant-numeric:tabular-nums;}
+.bdg-count b{font-size:15px;font-weight:800;color:var(--tealt);}
+.bdg-total{height:7px;background:var(--divider);border-radius:var(--rpill);overflow:hidden;margin-bottom:12px;}
+.bdg-total span{display:block;height:100%;border-radius:var(--rpill);
+  background:linear-gradient(90deg,var(--teal),var(--ok));transition:width .6s cubic-bezier(.22,1,.36,1);}
+.bdg-top{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;}
+.bdg-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;
+  background:var(--tl);border:1.5px solid rgba(27,94,74,.22);border-radius:var(--rpill);
+  padding:4px 11px 4px 5px;}
+.bdg-chip.new{background:var(--okl);border-color:rgba(47,158,104,.45);box-shadow:0 1px 5px rgba(27,94,74,.14);}
+.bdg-chip-i{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;
+  border-radius:50%;background:#fff;font-size:14px;line-height:1;}
+.bdg-chip-n{font-size:12px;font-weight:700;color:var(--tealt);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
+.bdg-empty{font-size:12.5px;color:var(--text-muted);background:var(--bg);border-radius:var(--rs);
+  padding:10px 12px;margin-bottom:12px;line-height:1.6;}
 .bdg-rows{display:flex;flex-direction:column;gap:2px;}
 .bdg-row{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:10px;
   padding:8px 0;border-bottom:1px solid var(--divider);}
 .bdg-row:last-child{border-bottom:none;}
-.bdg-ico{font-size:20px;line-height:1;text-align:center;}
-.bdg-ico.off{filter:grayscale(1);opacity:.4;}
+.bdg-ico{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;
+  background:var(--tl);font-size:17px;line-height:1;}
+.bdg-ico.off{background:var(--divider);filter:grayscale(1);opacity:.5;}
+.bdg-row.done .bdg-ico{background:var(--okl);}
+.bdg-row.done .bdg-n{color:var(--okt);font-weight:700;}
+.bdg-row.off .bdg-nm{color:var(--text-muted);}
 .bdg-main{min-width:0;display:flex;flex-direction:column;gap:5px;}
 .bdg-nm{font-size:13.5px;font-weight:600;color:var(--text);overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap;}
@@ -2287,6 +2330,7 @@ body{font-size:14.5px;line-height:1.65;}
 .bdg-bar{height:5px;background:var(--divider);border-radius:var(--rpill);overflow:hidden;}
 .bdg-bar span{display:block;height:100%;background:var(--warn);border-radius:var(--rpill);
   transition:width .5s cubic-bezier(.22,1,.36,1);}
+.bdg-row.done .bdg-bar span{background:var(--ok);}
 .bdg-n{font-size:12px;color:var(--text-muted);font-variant-numeric:tabular-nums;}
 .bdg-next{grid-column:2/4;font-size:11.5px;color:var(--neutral);margin-top:-2px;}
 .bdg-fold{margin-top:12px;}
