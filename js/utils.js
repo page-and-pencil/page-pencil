@@ -1594,7 +1594,7 @@ function ppBookPath(sid,cid){
       const e=seen[v.bookId]||(seen[v.bookId]={id:v.bookId,area:base,units:new Set(),first:l.date||'',last:l.date||''});
       // 기록에 적힌 글자 그대로 세면 'Unit 1' 과 'Unit 01 Hello!' 가 두 과로 잡힌다 —
       // 공용 매칭으로 실제 단원 키로 바꾼 뒤 센다 (2026-11-08). 못 찾은 이름은 종전대로 글자 그대로.
-      const _mk=(typeof ppMatchUnit==='function')?ppMatchUnit(byId[v.bookId],v.unit):[];
+      const _mk=(typeof ppMatchUnitCtx==='function')?ppMatchUnitCtx(byId[v.bookId],v.unit,{sid:l.sid,date:l.date}):[];
       if(_mk.length)_mk.forEach(u=>e.units.add(u));
       else String(v.unit||'').split(/[,/]/).map(x=>x.trim()).filter(Boolean).forEach(u=>e.units.add(u));
       if((l.date||'')<e.first||!e.first)e.first=l.date||'';
@@ -2752,7 +2752,7 @@ function lessonWordSet(sid){
     if(!String(v.unit||'').trim())return; // 단원 미기재면 그 교재 전체를 쓸어담지 않음
     // 공용 매칭(ppMatchUnit) 으로 (2026-11-08). 전에는 앞자리 0 을 지우지 않아
     // 'DAY 01' 교재에 'Day 1' 로 적은 기록이 연결되지 않았다.
-    ppMatchUnit(tb,v.unit).forEach(k=>{
+    ppMatchUnitCtx(tb,v.unit,{sid:sid,date:les.date}).forEach(k=>{
       _nw((tb.units||{})[k]||[]).forEach(w=>{if(w.word)words.add(String(w.word).toLowerCase().trim());});
     });
   });
@@ -3147,6 +3147,81 @@ function ppMatchUnit(tb, label) {
     _umOne(tb, keys, seg).forEach(k => { if (!out.includes(k)) out.push(k); });
   });
   return out;
+}
+// ── 번호 없는 'Review'·'Review Test' 를 기록 맥락으로 정한다 (2026-11-09) ──────
+// 교재 목차에 Review 1~4 가 들어갔는데(Aside, 2026-11-09) 기록에는 번호 없이 'Review' 로
+// 적힌 줄이 있다. ppMatchUnit 은 기록의 학생·날짜를 모르므로 여기서 맥락을 받아 정한다.
+//   ① 같은 기록 줄에 다른 단원이 있으면 → 그 중 가장 뒤 단원 바로 다음 Review
+//   ② 없으면 → 같은 학생(또는 클래스)·같은 교재의 그 날짜 '이전' 기록에서 가장 뒤 단원 다음 Review
+//   ③ 그래도 못 정하면 → ppMatchUnit 결과 그대로 (지금 동작 그대로)
+// 맥락이 없는 호출부는 ppMatchUnit 을 계속 쓴다 — 다른 지점의 동작은 바뀌지 않는다.
+const PP_BARE_REVIEW_RE=/^(review|review\s*test|복습)$/i;
+function ppIsBareReview(seg){
+  return PP_BARE_REVIEW_RE.test(String(seg==null?'':seg).replace(/\s+/g,' ').trim());
+}
+// Review 단원인가 — 'Final Test' 같은 평가는 제외하고 'Review Test' 는 포함
+function _umIsReviewKey(tb,k){
+  return /review|복습/i.test(String(k||'')+' '+String(((tb&&tb.unitTitles)||{})[k]||''));
+}
+function _umNextReviewKey(tb,keys,afterIdx){
+  for(let i=afterIdx+1;i<keys.length;i++)if(_umIsReviewKey(tb,keys[i]))return keys[i];
+  return '';
+}
+// 그 날짜 '이전' 기록에서 이 교재의 가장 뒤 단원 자리 (-1 = 없음)
+function _umPrevUnitIdx(tb,ctx){
+  if(typeof DB==='undefined'||!DB.less||!tb)return -1;
+  const c=ctx||{};
+  const date=String(c.date||'');
+  if(!date)return -1;
+  const sids=c.sid?new Set(Array.isArray(c.sid)?c.sid:[c.sid]):null;
+  const cids=c.classId?new Set(Array.isArray(c.classId)?c.classId:[c.classId]):null;
+  if(!sids&&!cids)return -1;
+  let best=-1;
+  DB.less().forEach(l=>{
+    if(!l||String(l.date||'')>=date)return;
+    if(sids&&!sids.has(l.sid))return;
+    if(cids&&!cids.has(l.classId))return;
+    Object.values(l.materials||{}).forEach(v=>{
+      if(!v||!v.unit)return;
+      const same=v.bookId?(v.bookId===tb.id):(String(v.book||'').trim()===String(tb.title||'').trim());
+      if(!same)return;
+      String(v.unit).split(/[,/]/).forEach(seg=>{
+        const t=seg.trim();
+        if(!t||ppIsBareReview(t))return;
+        const i=ppUnitIdx(tb,t);if(i>best)best=i;
+      });
+    });
+  });
+  return best;
+}
+// ctx: {sid|classId, date}. 번호 없는 Review 가 없으면 ppMatchUnit 과 완전히 같다.
+function ppMatchUnitCtx(tb,label,ctx){
+  if(!tb||label==null)return [];
+  const segs=String(label).split(/[,/]/).map(x=>x.trim()).filter(Boolean);
+  if(!segs.some(ppIsBareReview))return ppMatchUnit(tb,label);
+  const keys=(typeof tbUnitKeys==='function')?tbUnitKeys(tb):Object.keys((tb&&tb.units)||{});
+  const out=[];
+  let best=-1;
+  segs.forEach(x=>{
+    if(ppIsBareReview(x))return;
+    ppMatchUnit(tb,x).forEach(k=>{
+      if(!out.includes(k))out.push(k);
+      const i=keys.indexOf(k);if(i>best)best=i;
+    });
+  });
+  if(best<0)best=_umPrevUnitIdx(tb,ctx);
+  if(best<0)return ppMatchUnit(tb,label);
+  const k=_umNextReviewKey(tb,keys,best);
+  if(!k)return ppMatchUnit(tb,label);
+  if(!out.includes(k))out.push(k);
+  return out;
+}
+// 맥락까지 본 뒤 가장 뒤쪽 단원 자리
+function ppUnitIdxCtx(tb,label,ctx){
+  const keys=(typeof tbUnitKeys==='function')?tbUnitKeys(tb):Object.keys((tb&&tb.units)||{});
+  let best=-1;
+  ppMatchUnitCtx(tb,label,ctx).forEach(k=>{const i=keys.indexOf(k);if(i>best)best=i;});
+  return best;
 }
 // 단원 이름 하나가 그 키와 같은 단원인가 (키끼리 비교하는 옛 _pgUMatch 자리 대체용)
 function ppSameUnit(tb, label, key) { return ppMatchUnit(tb, label).includes(key); }
