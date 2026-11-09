@@ -444,14 +444,14 @@ function renderStudentLibrary(sid){
         if(!v||!v.book||!v.unit)return;
         const tb=tbOf(v);if(!tb)return;
         const m=_lesUnits[tb.id]||(_lesUnits[tb.id]={});
-        ppMatchUnit(tb,v.unit).forEach(k=>{const d=l.date||'';if(!m[k]||d>m[k])m[k]=d;});
+        ppMatchUnitCtx(tb,v.unit,{sid:sid,date:l.date}).forEach(k=>{const d=l.date||'';if(!m[k]||d>m[k])m[k]=d;});
       });
     });
     if(lastLes)Object.values(lastLes.materials||{}).forEach(v=>{
       if(!v||!v.book||!v.unit)return;
       const tb=tbOf(v);if(!tb)return;
       const sset=_recentKeys[tb.id]||(_recentKeys[tb.id]=new Set());
-      ppMatchUnit(tb,v.unit).forEach(k=>sset.add(k));
+      ppMatchUnitCtx(tb,v.unit,{sid:sid,date:lastLes.date}).forEach(k=>sset.add(k));
     });
   })();
   const _lesDateOf=(tb,key)=>((_lesUnits[tb.id]||{})[key])||'';
@@ -3745,12 +3745,10 @@ function _stuReminderTick(sid){
 let homeAsgnAudioBlob=null,homeAsgnCurrentId='';
 function showStatDetail(sid,type){
   let title='',rows='';
-  if(type==='assign'){
-    const items=ppLive(_cache.assignments).filter(a=>a.sid===sid&&a.completedAt).sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
-    title=`완료한 숙제 (${items.length}건)`;
-    const catIcon={phonics:'📘',vocab:'📝',grammar:'✏️',reading:'📖',listening:'🎧',writing:'✍️',naesin:'📋',book:'📗',class5:'🎮'};
-    rows=items.map(a=>{const KC=['phonics','vocab','grammar','reading','listening','writing','naesin','book','class5','other'];const label=[a.bookTitle||a.text||((a.category&&!KC.includes(a.category))?a.category:''),a.range].filter(Boolean).join(' · ')||'과제';return `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span>${catIcon[a.category]||'📋'} ${label}</span></div>`;}).join('')||'없음';
-  }else if(type==='vocab'){
+  // 'assign'(완료한 숙제) 창은 학생 화면에서 뺐다 (2026-11-09 원장 결정).
+  // 부르는 곳이 없어졌지만, 옛 화면이 남아 눌러도 아무 일이 없게 여기서 막는다.
+  if(type==='assign')return;
+  if(type==='vocab'){
     const allCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
     const mastered=allCards.filter(c=>(c.hits||0)>=3).sort((a,b)=>(b.hits||0)-(a.hits||0));
     const learning=allCards.filter(c=>(c.hits||0)>0&&(c.hits||0)<3).sort((a,b)=>(b.hits||0)-(a.hits||0));
@@ -3786,18 +3784,17 @@ function showStatDetail(sid,type){
   document.body.appendChild(ov);document.body.appendChild(box);
 }
 function renderHomeStats(sid){
-  const completedCount=ppLive(_cache.assignments).filter(a=>a.sid===sid&&a.completedAt).length;
+  // '완료 숙제' 칸은 학생 화면에서 뺐다 (2026-11-09 원장 결정) — 남는 두 칸을 2열로 꽉 채운다.
   const vocabLearned=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid&&(c.hits||0)>0).length;
   const rdsCount=DB.allRds(sid).length;
-  if(!completedCount&&!vocabLearned&&!rdsCount)return '';
+  if(!vocabLearned&&!rdsCount)return '';
   const statBox=(val,color,label,type)=>`<div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center;cursor:pointer;transition:.15s" onclick="showStatDetail('${sid}','${type}')" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background='#fff'">
     <div style="font-size:24px;font-weight:700;color:${color};font-family:var(--fm)">${val}</div>
     <div style="font-size:12px;color:var(--slate);margin-top:2px">${label}</div>
   </div>`;
   return `<div style="margin-top:16px">
     <div style="font-size:12px;font-weight:700;color:var(--slate);margin-bottom:8px;letter-spacing:.04em">📊 내 기록 <span style="font-weight:400;font-size:12px">(숫자 클릭 시 상세)</span></div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-      ${statBox(completedCount,'var(--navy)','완료 숙제','assign')}
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
       ${statBox(vocabLearned,'var(--teal)','공부한 단어','vocab')}
       ${statBox(rdsCount,'var(--navy)','읽은 책','rds')}
     </div>
@@ -4289,7 +4286,8 @@ function renderStudentHome(sid){
       <summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">🎮 보너스 · 내 기록 <span style="font-size:12px;color:var(--teal)">▾</span></summary>
       <div style="margin-top:8px">${(typeof stuGameCards==='function')?stuGameCards(sid):''}${stuXpCard(sid,streak)}${stuBadgeShelf(sid)}${renderVocabReview(sid)}</div>
     </details>
-    ${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length?`<details style="margin-top:8px;margin-bottom:14px"><summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none">✅ 지난 완료 기록 (${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).length}건)</summary><div style="margin-top:8px">${done.filter(a=>{const d=_asgnDay(a);return d&&d<_weekStart;}).map(asgnCard).join('')}</div></details>`:''}
+    <!-- '✅ 지난 완료 기록' 묶음은 학생 화면에서 뺐다 (2026-11-09 원장 결정).
+         선생님·학부모 화면의 완료 기록은 그대로다. 데이터·도장·올클리어 판정도 그대로. -->
     <details open style="margin-top:14px">
       <summary style="font-size:13px;font-weight:600;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">📊 지난 수업 &amp; 학습 현황 <span style="font-size:12px;color:var(--teal)">▾</span></summary>
       <div style="margin-top:8px">${lastLessonHtml}${renderHomeStats(sid)}${notifyRowHtml}</div>

@@ -6657,7 +6657,7 @@ async function addUnitWordsToVocab(sid,materials,date){
     // 단원 매칭은 공용 ppMatchUnit 으로 (2026-11-08).
     // 전에는 '중간 포함'까지 허용해 엉뚱한 단원에 붙을 수 있었고, 'Unit 4, Unit 6' 처럼
     // 여러 단원을 적은 기록은 맨 앞 하나만 반영됐다. 이제 쉼표를 나눠 전부 반영한다.
-    const matchKeys=(typeof ppMatchUnit==='function')?ppMatchUnit(tb,mat.unit):[];
+    const matchKeys=(typeof ppMatchUnitCtx==='function')?ppMatchUnitCtx(tb,mat.unit,{sid:sid,date:date}):[];
     if(!matchKeys.length)continue;
     const words=[];
     matchKeys.forEach(mk=>{
@@ -13600,8 +13600,10 @@ function _pgTbOf(mat){
     ||(_cache.globalTextbooks||[]).find(b=>b.title===mat.book)||null;
 }
 // 진도 문자열("DAY 01, DAY 02")에서 가장 뒤쪽 단원의 목차 인덱스 (-1=매칭 없음)
-function _pgUnitIdx(tb,unitStr){
+function _pgUnitIdx(tb,unitStr,ctx){
   // 공용 매칭(ppMatchUnit)으로 옮김 (2026-11-08) — 쉼표 분해·소제목·별칭·Review 범위까지 같은 규칙
+  // ctx(클래스·날짜)를 주면 번호 없는 'Review' 도 정해진다 (2026-11-09). 안 주면 종전과 같다.
+  if(ctx&&typeof ppUnitIdxCtx==='function')return ppUnitIdxCtx(tb,unitStr,ctx);
   return (typeof ppUnitIdx==='function')?ppUnitIdx(tb,unitStr):-1;
 }
 // 클래스에서 이 교재의 마지막 기록 {idx,date} — 최신 수업일 우선 (미래 기록은 진도 계산 제외)
@@ -13619,7 +13621,7 @@ function _pgLastRec(classId,tb){
     Object.values(l.materials).forEach(m=>{
       if(!m||!m.book)return;
       if(m.bookId?m.bookId!==tb.id:m.book!==tb.title)return;
-      const idx=_pgUnitIdx(tb,m.unit);
+      const idx=_pgUnitIdx(tb,m.unit,{classId:classId,date:l.date});
       if(idx<0)return;
       if(!best||idx>best.idx||(idx===best.idx&&(l.date||'')>best.date))best={idx,date:l.date||''};
     });
@@ -14404,7 +14406,7 @@ function pgEditProgress(classId,bookId){
       Object.values(l.materials).forEach(m=>{
         if(!m||!m.book)return;
         if(m.bookId?m.bookId!==tb.id:m.book!==tb.title)return;
-        const i=_pgUnitIdx(tb,m.unit);if(i>best)best=i;
+        const i=_pgUnitIdx(tb,m.unit,{classId:classId,date:l.date});if(i>best)best=i;
       });
     });
     return best;
