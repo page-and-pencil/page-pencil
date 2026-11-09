@@ -419,11 +419,20 @@ function renderStudentLibrary(sid){
       if(v&&v.book){const k=_n(v.book);if(!_lastLesForBook[k]||(l.date||'')>_lastLesForBook[k])_lastLesForBook[k]=l.date||'';}
     });
   });
+  // 펜슬다운 활동 중 '노래'(Sing Together)는 앱 안에서 다시 들을 수 있다.
+  // 게임·프리톡 같은 활동은 복습할 것이 없으니 그대로 건너뛴다.
+  const _songMat=v=>{
+    if(!v||!v.book||typeof ppSongVid!=='function'||typeof ppMatchUnit!=='function')return null;
+    const g=(_cache.globalTextbooks||[]).find(x=>x&&x.songBook&&(x.id===v.bookId||_n(x.title)===_n(v.book)));
+    if(!g)return null;
+    const uk=ppMatchUnit(g,v.unit||'').find(u=>ppSongVid(g,u));
+    return uk?{g:g,uk:uk}:null;
+  };
   const lastLes=DB.less().find(l=>{
     if(l.sid!==sid)return false;
     return Object.entries(l.materials||{}).some(([k,v])=>{
       const bk=k.replace(/_\d+$/,'');
-      return v&&v.book&&bk!=='pencil_down'&&bk!=='sing_together';
+      return v&&v.book&&((bk!=='pencil_down'&&bk!=='sing_together')||!!_songMat(v));
     });
   });
   // 수업 기록 'Unit 1' vs 교재 키 'Unit 1 New Friends' 표기 차이 흡수
@@ -717,17 +726,21 @@ function renderStudentLibrary(sid){
     Object.entries(lastLes.materials||{}).forEach(([k,v])=>{
       if(!v||!v.book)return;
       const bk=k.replace(/_\d+$/,'');
-      if(bk==='pencil_down'||bk==='sing_together')return;
+      if(bk==='pencil_down'||bk==='sing_together'){
+        const sg=_songMat(v);
+        if(sg)items.push({label:'활동',title:v.book,unit:v.unit||'',btns:`<button class="btn bt bsm" onclick="openUnitRead('${sg.g.id}','${sg.uk.replace(/'/g,"\\'")}')">\uD83C\uDFB5 노래</button>`});
+        return;
+      }
       const isBook=k==='_book'||k.startsWith('_book_');
       if(isBook){
         const b=(_cache.library||[]).find(x=>_n(x.title)===_n(v.book));
         items.push({label:'원서',title:v.book,unit:v.unit||'',btns:(b&&bookListenable(b))?`<button class="btn bt bsm" onclick="openBookListen('${escAttr(b.id)}')">\uD83C\uDFA7 듣기</button>`:''});
       }else{
-        const _hasRev=x=>(x.unitTexts&&!Array.isArray(x.unitTexts)&&Object.keys(x.unitTexts).length)||(x.unitAudio&&Object.keys(x.unitAudio||{}).length);
+        const _hasRev=x=>(x.unitTexts&&!Array.isArray(x.unitTexts)&&Object.keys(x.unitTexts).length)||(x.unitAudio&&Object.keys(x.unitAudio||{}).length)||(x.songBook&&Object.keys(x.unitLinks||{}).length);
         const g=(_cache.globalTextbooks||[]).find(x=>x.title===v.book&&_hasRev(x))||(_cache.globalTextbooks||[]).find(x=>_n(x.title)===_n(v.book)&&_hasRev(x))||(_cache.globalTextbooks||[]).find(x=>x.title===v.book);
         let btns='';
         if(g){
-          const keys=[...new Set([...Object.keys(g.unitTexts||{}),...Object.keys(g.unitAudio||{})])];
+          const keys=[...new Set([...Object.keys(g.unitTexts||{}),...Object.keys(g.unitAudio||{}),...(g.songBook?Object.keys(g.unitLinks||{}):[])])];
           let uk='';
           for(const seg of String(v.unit||'').split(',').map(x=>x.trim()).filter(Boolean)){
             const ns=_n(seg);
@@ -4688,6 +4701,7 @@ function _renderHighlightedText(text,words){
 
 function showUnitWordPopup(event,word,ko,pos){
   event.stopPropagation();
+  if(typeof ppSongDuck==='function')ppSongDuck();   // 노래 중이면 잠깐 멈춘다 — 단어 소리가 노래에 묻히지 않게
   speakWord(word);
   const popup=document.getElementById('unit-word-popup');if(!popup)return;
   document.getElementById('uwp-word').textContent=word;
@@ -5016,12 +5030,35 @@ async function ppSongSaveOffset(){
 
 function ppSongPause(){
   const S=_songState;if(!S||!S.player)return;
+  S.duck=0;clearTimeout(S.duckT);   // 손으로 멈춘 것이면 다시 틀지 않는다
   _songTimer(false);
   try{if(S.player.pauseVideo)S.player.pauseVideo();}catch(e){}
+}
+// 단어를 누르면 노래를 잠깐 멈추고, 뜻 풍선이 사라질 때쯤 이어서 튼다 (2.8초 — 풍선과 같은 시간)
+function ppSongDuck(){
+  const S=_songState;if(!S||!S.player)return;
+  let pst=-9;
+  try{pst=S.player.getPlayerState?S.player.getPlayerState():-9;}catch(e){return;}
+  if(pst===1){
+    try{if(S.player.pauseVideo)S.player.pauseVideo();}catch(e){return;}
+    _songTimer(false);
+    S.duck=1;
+  }
+  if(!S.duck)return;   // 이미 멈춰 있던 노래는 건드리지 않는다
+  clearTimeout(S.duckT);
+  S.duckT=setTimeout(()=>{
+    const T=_songState;
+    if(!T||T!==S||!T.duck||!T.player)return;
+    T.duck=0;
+    const m=document.getElementById('m-unit-read');
+    if(!m||!m.classList.contains('open'))return;   // 창이 닫혔으면 다시 틀지 않는다
+    try{if(T.player.playVideo)T.player.playVideo();}catch(e){}
+  },2800);
 }
 function ppSongDestroy(){
   const S=_songState;
   if(!S)return;
+  clearTimeout(S.duckT);
   _songTimer(false);
   _songState=null;
   try{if(S.player&&S.player.destroy)S.player.destroy();}catch(e){}
