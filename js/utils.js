@@ -1990,6 +1990,7 @@ function startConsult(){
 function escU(u){return(u||'').replace(/'/g,"\\'");}
 function openM(id){const m=document.getElementById(id);if(m){m.style.removeProperty('display');m.classList.add('open');m.style.zIndex='9999';}}
 function closeM(id){
+  if(id==='m-unit-read'&&typeof ppSongDestroy==='function')ppSongDestroy();   // 노래 플레이어 정리
   const m=document.getElementById(id);
   if(m)m.style.display='none';
   document.getElementById('modal-overlay')?.classList.remove('open');
@@ -3341,3 +3342,45 @@ function ensureJSZip(){return typeof JSZip==='undefined'?loadScriptOnce('https:/
     });
   }catch(e){}
 })();
+
+
+// ── 노래 교재 공용 (유튜브 + LRC 가사) ───────────────────────────
+// Sing Together(펜슬다운) 교재는 단원마다 유튜브 영상과 LRCLIB 가사 id 가 있다.
+// 유튜브 앱으로 나가지 않고 앱 안에서 보고 가사를 따라 부르게 한다.
+// 가사 전문은 교재 DB 에 넣지 않는다 — 열 때 받아서 그 기기에만 캐시한다.
+function ppYouTubeId(url){
+  const s=String(url||'').trim();
+  if(!s)return '';
+  const m=s.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|embed\/|live\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m?m[1]:'';
+}
+function ppIsSongTb(tb){return !!(tb&&tb.songBook);}
+// 이 단원을 노래 모드로 열 수 있나 (유튜브 링크가 있나)
+function ppSongVid(tb,unitKey){return (tb&&tb.unitLinks)?ppYouTubeId(tb.unitLinks[unitKey]):'';}
+// LRC → [{t:초, text:'한 줄'}] (시간순). [ar:..] 같은 메타 태그는 걸러진다.
+function ppParseLrc(txt){
+  const out=[];
+  String(txt||'').split(/\r?\n/).forEach(ln=>{
+    const tags=ln.match(/\[\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?\]/g);
+    if(!tags)return;
+    const text=ln.replace(/\[[^\]]*\]/g,'').trim();
+    tags.forEach(tag=>{
+      const m=tag.match(/\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]/);
+      if(!m)return;
+      const t=parseInt(m[1],10)*60+parseFloat(String(m[2]).replace(':','.'));
+      if(isFinite(t))out.push({t:t,text:text});
+    });
+  });
+  return out.sort((a,b)=>a.t-b.t);
+}
+// 싱크 보정값 — 학생은 그 기기에만, 선생님은 교재(unitLyricsOffset)에 저장한다.
+// 우선순위: 학생 로컬 → 교재 저장값 → 0
+function ppLrcOffKey(tbId,unitKey){return 'pp_lrcoff_'+tbId+'|'+unitKey;}
+function ppLrcOffset(tb,unitKey){
+  try{
+    const v=localStorage.getItem(ppLrcOffKey(tb&&tb.id,unitKey));
+    if(v!==null&&isFinite(parseFloat(v)))return parseFloat(v);
+  }catch(e){}
+  const o=tb&&tb.unitLyricsOffset&&tb.unitLyricsOffset[unitKey];
+  return isFinite(parseFloat(o))?parseFloat(o):0;
+}

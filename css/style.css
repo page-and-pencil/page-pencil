@@ -2783,3 +2783,52 @@ body{font-size:14.5px;line-height:1.65;}
 .dlg-spk{display:inline-block;margin-right:6px;padding:1px 8px;border-radius:var(--rpill);
   background:var(--tl);color:var(--tealt);font-family:var(--fb);font-size:11.5px;font-weight:700;
   white-space:nowrap;vertical-align:1px}
+
+
+/* ── 노래 모드 (앱 안 유튜브 + 가사 따라 부르기) ───────────────────── */
+/* 영상은 16:9 로, 높이는 32vh 를 넘지 않게 (폭을 56.8vh 로 묶으면 높이가 32vh) */
+.song-box{width:100%;max-width:56.8vh;margin:0 auto}
+.song-ratio{position:relative;width:100%;padding-top:56.25%;background:var(--navy);
+  border-radius:14px;overflow:hidden}
+.song-ratio>div,.song-ratio iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
+.song-blocked{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;
+  background:var(--cream2);border:1.5px solid var(--border);border-radius:14px;
+  font-family:var(--fb);font-size:13px;color:var(--slate);text-align:center}
+.song-blocked a{font-size:12.5px;color:var(--tealt);font-weight:700;text-decoration:underline}
+.song-pane{line-height:1.7;white-space:normal;font-family:var(--fb)}
+.song-wait{padding:1.6rem 0;text-align:center;font-size:13.5px;color:var(--slate)}
+/* 노래 단어 칩 */
+.song-chiphead{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.song-more{border:1.5px solid var(--border);background:var(--cream);color:var(--slate);
+  font-family:var(--fb);font-size:11.5px;font-weight:700;padding:3px 10px;
+  border-radius:var(--rpill);cursor:pointer;flex-shrink:0}
+.song-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.song-chips.clamp{max-height:62px;overflow:hidden}
+.song-chip{border:1.5px solid var(--border);background:#fff;border-radius:var(--rpill);
+  padding:4px 10px;font-family:var(--fd);font-size:13px;font-weight:700;color:var(--navy);
+  cursor:pointer;line-height:1.3}
+.song-chip i{font-family:var(--fb);font-style:normal;font-weight:500;font-size:11.5px;
+  color:var(--slate);margin-left:5px}
+/* 싱크 보정 줄 */
+.song-sync{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:7px 8px;
+  margin-bottom:10px;background:var(--cream2);border:1.5px solid var(--border);border-radius:10px}
+.song-sbtn{border:1.5px solid var(--border);background:#fff;color:var(--slate);
+  font-family:var(--fb);font-size:11.5px;font-weight:700;padding:4px 9px;
+  border-radius:var(--rpill);cursor:pointer;white-space:nowrap}
+.song-sbtn.on{background:var(--tl);border-color:var(--teal);color:var(--tealt)}
+.song-off{font-family:var(--fm);font-size:11.5px;color:var(--slate);white-space:nowrap}
+/* 가사 — 지금 줄만 굵게·바탕색으로 */
+.song-lrc{padding:2px 0}
+.lrc-l{padding:4px 8px;border-radius:10px;font-size:15.5px;color:var(--slate);
+  transition:background .2s,color .2s;cursor:pointer}
+.lrc-l.on{background:var(--tl);color:var(--navy);font-weight:800}
+.lrc-gap{height:12px}
+.lrc-w{text-decoration-color:var(--teal);text-decoration-thickness:2px;
+  text-underline-offset:2px;color:var(--tealt);font-weight:700;cursor:pointer}
+.lrc-l.on .lrc-w{color:var(--teal)}
+.song-src{margin:10px 0 2px;font-size:11px;color:var(--slate2);text-align:right}
+@media(max-width:480px){
+  .lrc-l{font-size:15px}
+  .song-box{max-width:100%}
+}
