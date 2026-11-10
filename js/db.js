@@ -943,11 +943,21 @@ function populateDataLists(){
 // 학부모 화면은 앱으로 돌아올 때(visibilitychange·focus, 2분 기준)와 켜 둔 채 10분마다 최신화된다.
 
 // ── VOCAB CARDS (Supabase) ──
+// dictionaryapi.dev 는 막히는 환경이 있다(CORS). 한 번 실패하면 이 세션에서는 다시 부르지
+// 않는다 — 콘솔 오류가 카드마다 쌓이고 그만큼 기다리기만 했다 (2026-11-09).
+let _dictOff=false;
+function ppDictOff(){return _dictOff;}
+async function _dictLookup(word){
+  if(_dictOff)return null;
+  try{
+    const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,{signal:AbortSignal.timeout(4000)});
+    if(!r.ok)return null;                 // 404(없는 단어)는 정상 — 끄지 않는다
+    return await r.json();
+  }catch(e){_dictOff=true;return null;}   // CORS·네트워크 실패 → 이 세션에서는 그만
+}
 async function fetchWordMeaning(word){
   try{
-    const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-    if(!r.ok)return null;
-    const d=await r.json();
+    const d=await _dictLookup(word);
     if(!d||!d[0])return null;
     const m=d[0].meanings?.[0];
     return{meaning:m?.definitions?.[0]?.definition||'',pos:m?.partOfSpeech||''};
@@ -1300,7 +1310,7 @@ function _playUrl(url,elRate){
 let _dictFails=0;
 async function legacySpeak(text,rate){
   const clean=text.trim();
-  if(/^\w+$/.test(clean)&&_dictFails<2){
+  if(/^\w+$/.test(clean)&&_dictFails<2&&!_dictOff){
     const key=clean.toLowerCase();
     if(_ttsCache[key]===undefined){
       try{
@@ -1420,10 +1430,7 @@ async function speakWord(text,rate){
 async function getMeaningKo(word){
   const apiKey=DB.api();
   let engDef='';
-  try{
-    const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-    if(r.ok){const d=await r.json();engDef=d[0]?.meanings[0]?.definitions[0]?.definition||'';}
-  }catch(e){}
+  try{const dd=await _dictLookup(word);engDef=dd?.[0]?.meanings?.[0]?.definitions?.[0]?.definition||'';}catch(e){}
   const koFast=await getMeaningKoFast(word);
   if(koFast)return koFast;
   if(!apiKey)return engDef;
@@ -1470,13 +1477,23 @@ function findExampleFromBooks(word,grade){
   candidates.sort((a,b)=>a.dist-b.dist);
   return candidates[0].sentence;
 }
+// 뜻이 이미 있으면 외부(사전·번역·AI)를 부르지 않는다 (2026-11-09).
+// 예문은 '원문 발췌만' 규칙이라 AI 결과를 쓰지 않으므로, 뜻이 있는 카드에 AI 를 부를 이유가
+// 없었다. 그런데도 예문 없는 카드마다 사전·번역·AI 를 불러 단어 탭을 열 때마다 수백 번
+// 외부 호출이 생기고, 예문은 끝내 안 채워져 다음에 또 불렀다.
+// koHint 를 주는 호출부(syncVocabCards·학습 카드)는 이 길로 빠지고,
+// 뜻을 받으러 일부러 부르는 곳(선생님 일괄 조회)은 종전대로 전체 조회를 한다.
 async function getWordMetaFull(word,grade,koHint){
   const bookEx=findExampleFromBooks(word,grade);
+  if(String(koHint||'').trim()){
+    return {ko:'',pos:'',example:bookEx||'',exampleSrc:bookEx?'book':''};
+  }
   const apiKey=DB.api();
   let ko='',pos='',example=bookEx||'',exampleSrc=bookEx?'book':'';
   try{
-    const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-    if(r.ok){const d=await r.json();const m=d[0]?.meanings[0];if(m){if(!pos)pos=m.partOfSpeech||'';if(!ko)ko=m.definitions[0]?.definition||'';}}
+    const dd=await _dictLookup(word);
+    const m=dd?.[0]?.meanings?.[0];
+    if(m){if(!pos)pos=m.partOfSpeech||'';if(!ko)ko=m.definitions?.[0]?.definition||'';}
   }catch(e){}
   const koFast=await getMeaningKoFast(word);
   if(koFast)ko=koFast;
@@ -1550,8 +1567,15 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study
       if(!_cache.vocab_cards)_cache.vocab_cards=[];
       const ci=_cache.vocab_cards.findIndex(c=>c.id===found.id);
       if(ci>=0)_cache.vocab_cards[ci]=updated;else _cache.vocab_cards.push(updated);   // 되살린 카드는 캐시에 없다
-      if(!updated.meaning||!updated.example){
-        getWordMetaFull(wordText,grade,updated.meaning||meta.ko||'').then(async m=>{
+      // 뜻이 있으면 외부 호출 없이 원문 예문만 찾는다 (2026-11-09)
+      if(updated.meaning&&!updated.example){
+        const _bx=findExampleFromBooks(wordText,grade);
+        if(_bx){updated.example=_bx;updated.exampleSrc='book';
+          await supaUpsert('vocab_cards',updated.id,updated,sid);
+          const ci2=_cache.vocab_cards.findIndex(c=>c.id===found.id);if(ci2>=0)_cache.vocab_cards[ci2]={...updated};
+        }
+      }else if(!updated.meaning){
+        getWordMetaFull(wordText,grade,'').then(async m=>{
           let changed=false;
           if(m.ko&&!updated.meaning){updated.meaning=m.ko;changed=true;}
           if(m.pos&&!updated.pos){updated.pos=m.pos;changed=true;}
@@ -1566,8 +1590,15 @@ async function syncVocabCards(sid,allWords,wrongWords,date,source='',mode='study
         lastSeenBy:(mode==='expose'?'':(source==='테스트'?'test':'study')),due:date,addedDate:date,seen:mode==='expose'?1:0,source,srcId:meta.srcId||'',srcType:meta.srcType||'',srcUnit:meta.srcUnit||'',v2:meta.v2||'',v3:meta.v3||'',wlevel:getWordLevel(wordText).display};
       await supaUpsert('vocab_cards',newCard.id,newCard,sid);
       if(!_cache.vocab_cards)_cache.vocab_cards=[];_cache.vocab_cards.push(newCard);
-      if(!meta.ko||!newCard.example){
-        getWordMetaFull(wordText,grade,newCard.meaning||'').then(async m=>{
+      // 뜻이 있으면 외부 호출 없이 원문 예문만 찾는다 (2026-11-09)
+      if(meta.ko&&!newCard.example){
+        const _bx=findExampleFromBooks(wordText,grade);
+        if(_bx){newCard.example=_bx;newCard.exampleSrc='book';
+          await supaUpsert('vocab_cards',newCard.id,newCard,sid);
+          const ci2=_cache.vocab_cards.findIndex(c=>c.id===newCard.id);if(ci2>=0)_cache.vocab_cards[ci2]={...newCard};
+        }
+      }else if(!meta.ko){
+        getWordMetaFull(wordText,grade,'').then(async m=>{
           let changed=false;
           if(m.ko&&!newCard.meaning){newCard.meaning=m.ko;changed=true;}
           if(m.pos&&!newCard.pos){newCard.pos=m.pos;changed=true;}

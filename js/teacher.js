@@ -3337,31 +3337,51 @@ async function shareUpdate(name,parentPhone=''){
 }
 
 // ── VOCAB MEANING FILL (학생 앱에서 빈 뜻 채우기) ──
+// 예문을 한 번 찾아 없으면 exampleChecked 에 날짜를 적고 이 기간은 다시 찾지 않는다.
+// 원서·교재 본문이 늘어날 수 있으니 기간이 지나면 다시 찾는다.
+const PP_EXCHECK_DAYS=30;
+const PP_META_MAX_PER_OPEN=10;   // 뜻 없는 카드의 외부 조회는 한 번 열 때 최대 10장
 async function fillMissingMeanings(cards){
+  const today=(typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);
+  const since=(typeof ppShiftDate==='function')?ppShiftDate(today,-PP_EXCHECK_DAYS):'';
+  const sandbox=(typeof ppSandbox==='function'&&ppSandbox());
+  const _save=async c=>{
+    const ci=_cache.vocab_cards.findIndex(x=>x.id===c.id);
+    if(ci>=0)_cache.vocab_cards[ci]={...c};
+    if(sandbox)return;                                  // 체험 모드면 저장하지 않는다
+    try{await supaUpsert('vocab_cards',c.id,c,c.sid);}catch(e){console.warn('카드 보완 저장:',e);}
+  };
+  let left=PP_META_MAX_PER_OPEN;
   for(const c of cards){
     const stu=(_cache.students||[]).find(s=>s.id===c.sid);
     const grade=stu?.grade||stu?.lv||'';
-    // AI 예문 → 원서 텍스트 생기면 자동 업그레이드 (API 비용 없음)
+    // AI 예문 → 원문 예문이 생기면 올려 준다 (외부 호출 0)
     if(c.example&&c.exampleSrc==='ai'){
       const bookEx=findExampleFromBooks(c.word,grade);
-      if(bookEx&&bookEx!==c.example){
-        c.example=bookEx;c.exampleSrc='book';
-        await supaUpsert('vocab_cards',c.id,c,c.sid);
-        const ci=_cache.vocab_cards.findIndex(x=>x.id===c.id);
-        if(ci>=0)_cache.vocab_cards[ci]={...c};
-      }
+      if(bookEx&&bookEx!==c.example){c.example=bookEx;c.exampleSrc='book';await _save(c);}
     }
-    if(c.meaning&&c.example)continue; // 둘 다 있으면 API 생략
-    const m=await getWordMetaFull(c.word,grade);
+    if(c.meaning&&c.example)continue;
+    // ── 뜻이 있는 카드: 외부 호출 없이 원문 예문만 ──
+    if(c.meaning){
+      if(c.example)continue;
+      const ck=String(c.exampleChecked||'');
+      if(ck&&since&&ck>=since)continue;                 // 최근에 찾아봤다 → 건너뛴다
+      const bookEx=findExampleFromBooks(c.word,grade);
+      if(bookEx){c.example=bookEx;c.exampleSrc='book';c.exampleChecked=today;}
+      else c.exampleChecked=today;                      // 없으면 날짜만 적어 둔다
+      await _save(c);
+      continue;
+    }
+    // ── 뜻이 없는 카드만 외부 조회 (순차 · 한 번에 최대 10장) ──
+    if(left<=0)continue;
+    left--;
+    const m=await getWordMetaFull(c.word,grade,'');
     let changed=false;
     if(m.ko&&!c.meaning){c.meaning=m.ko;changed=true;}
     if(m.pos&&!c.pos){c.pos=m.pos;changed=true;}
     if(m.example&&!c.example){c.example=m.example;c.exampleSrc=m.exampleSrc;changed=true;}
-    if(changed){
-      await supaUpsert('vocab_cards',c.id,c,c.sid);
-      const ci=_cache.vocab_cards.findIndex(x=>x.id===c.id);
-      if(ci>=0)_cache.vocab_cards[ci]={...c};
-    }
+    if(!c.example&&!c.exampleChecked){c.exampleChecked=today;changed=true;}
+    if(changed)await _save(c);
   }
 }
 async function batchFillEmptyExamples(sid){
