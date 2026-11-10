@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261111b">
+<link rel="stylesheet" href="css/style.css?v=20261111d">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -652,7 +652,44 @@
         <button id="dtab-ws" onclick="switchDataTab('ws')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 저장된 워크시트</button>
         <button id="dtab-exam" onclick="switchDataTab('exam')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="calendar-days" width="15" height="15" style="vertical-align:-3px"></i> 시험 일정</button>
         <button id="dtab-master" onclick="switchDataTab('master')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="wrench" width="15" height="15" style="vertical-align:-3px"></i> 백업·일괄</button>
-        <a href="https://docs.google.com/spreadsheets/d/1McJdpsEDSNkW9n7fGPNhUJzWniZcp2DGn9hDNkVE_rQ/edit" target="_blank" rel="noopener" title="선생님 전용 — 비공개 드라이브 목록" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;text-decoration:none"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 기출문제</a>
+        <button id="dtab-bank" onclick="switchDataTab('bank')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 기출문제</button>
+      </div>
+
+      <!-- 기출·자료실 sub-panel (드라이브 자료 — 선생님 전용) -->
+      <div id="dp-bank" style="display:none">
+        <div class="sh">
+          <div>
+            <div class="st"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 기출·자료실</div>
+            <div class="ssub"><span id="eb-count"></span> <span id="eb-state" class="eb-state"></span></div>
+          </div>
+          <div style="position:relative">
+            <button class="btn bo bsm" onclick="ebMenu(event)" title="더 보기" aria-label="더 보기">⋯</button>
+            <div id="eb-menu" class="eb-menu" style="display:none">
+              <button onclick="ebImportPick()">카탈로그 가져오기…</button>
+              <button onclick="ebRefresh()">지금 최신화</button>
+              <button onclick="ebOpenSheet()">목록 시트 열기</button>
+              <button onclick="ebCacheClear()">기기 캐시 비우고 다시 받기</button>
+            </div>
+            <input type="file" id="eb-import-file" accept=".json,application/json" style="display:none" onchange="ebImportFile(event)">
+          </div>
+        </div>
+        <div class="eb-filters">
+          <select class="filter-sel" id="eb-f-cat" onchange="ebFilterChange()"></select>
+          <select class="filter-sel" id="eb-f-level" onchange="ebFilterChange()"></select>
+          <select class="filter-sel" id="eb-f-grade" onchange="ebFilterChange()"></select>
+          <select class="filter-sel" id="eb-f-term" onchange="ebFilterChange()"></select>
+          <span class="eb-chk"><input type="number" class="eb-y" id="eb-f-y1" placeholder="연도" min="1990" max="2099" onchange="ebFilterChange()"> ~
+            <input type="number" class="eb-y" id="eb-f-y2" placeholder="연도" min="1990" max="2099" onchange="ebFilterChange()"></span>
+          <select class="filter-sel" id="eb-f-region" onchange="ebFilterChange()"></select>
+          <select class="filter-sel" id="eb-f-city" onchange="ebFilterChange()"></select>
+          <select class="filter-sel" id="eb-f-school" onchange="ebFilterChange()"></select>
+          <label class="eb-chk"><input type="checkbox" id="eb-f-audio" onchange="ebFilterChange()"> 듣기 있음</label>
+          <input type="text" class="eb-q" id="eb-f-q" placeholder="제목·학교·폴더 검색…" oninput="ebFilterChange()">
+          <button class="btn bo bsm" id="eb-only-fav" onclick="ebOnly('fav')">즐겨찾기 0</button>
+          <button class="btn bo bsm" id="eb-only-recent" onclick="ebOnly('recent')">최근 본 0</button>
+          <button class="btn bo bsm" onclick="ebResetFilters()">초기화</button>
+        </div>
+        <div id="eb-list"></div>
       </div>
 
       <!-- 시험 일정 sub-panel (직결영어 1단계) -->
@@ -1016,6 +1053,18 @@
       </div>
 
 
+      <!-- 자료 계정 (기출·자료실) -->
+      <div class="card" style="margin-bottom:1rem">
+        <div class="ch"><span class="ct"><i data-lucide="folder" width="15" height="15" style="vertical-align:-3px"></i> 자료 계정 (기출·자료실)</span></div>
+        <div class="cb">
+          <div class="ib iba">기출·자료실의 문서와 음원은 <b>비공개 구글 드라이브</b>에 있습니다. 이 계정으로 로그인된 브라우저에서만 열립니다. 앱은 파일 주소만 알고, 공유 설정은 건드리지 않습니다.</div>
+          <div class="f"><label>구글 계정</label><input type="text" id="cfg-drive-acct" placeholder="jikgyeol@gmail.com"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn bp bsm" onclick="ebSaveAcct()">저장</button>
+            <a class="btn ba bsm" href="https://drive.google.com/" target="_blank" rel="noopener">드라이브 열기</a>
+          </div>
+        </div>
+      </div>
       <div class="card" style="margin-bottom:1rem">
         <div class="ch"><span class="ct">Cloudinary 설정 (사진 저장)</span></div>
         <div class="cb">
@@ -2539,10 +2588,56 @@
   </div>
 </div>
 
+<!-- 기출·자료실: 자료 한 건 (선생님 전용) -->
+<div id="m-eb-detail" class="mo">
+  <div class="mdl mdl-xl eb-modal">
+    <div class="mh">
+      <div style="min-width:0">
+        <div class="mt" id="eb-d-title">자료</div>
+        <div style="font-size:12px;color:var(--slate);margin-top:3px;line-height:1.5" id="eb-d-sub"></div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+        <button class="btn bo bsm" id="eb-d-fav" onclick="ebDetailFav()">☆ 즐겨찾기</button>
+        <button class="bx" onclick="ebCloseDetail()">×</button>
+      </div>
+    </div>
+    <div id="eb-d-body"></div>
+  </div>
+</div>
+
+<!-- 기출·자료실: 문서 미리보기 -->
+<div id="m-eb-view" class="mo">
+  <div class="mdl mdl-xl eb-modal" style="padding-bottom:10px">
+    <div class="mh" style="margin-bottom:10px">
+      <div class="mt" id="eb-view-title" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">문서</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+        <button class="btn bo bsm" onclick="ebViewFull()"><i data-lucide="maximize" width="15" height="15" style="vertical-align:-3px"></i> 수업에 띄우기</button>
+        <button class="btn bo bsm" onclick="ebViewNewTab()"><i data-lucide="printer" width="15" height="15" style="vertical-align:-3px"></i> 인쇄 · 새 탭</button>
+        <button class="bx" onclick="ebViewClose()">×</button>
+      </div>
+    </div>
+    <div id="eb-view-box" style="background:var(--cream2);border-radius:10px;overflow:hidden">
+      <iframe id="eb-view-frame" src="about:blank" style="width:100%;height:70vh;border:0;display:block;background:#fff"></iframe>
+    </div>
+    <div class="eb-note">비공개 드라이브입니다. "권한이 필요합니다"가 뜨면 <b>인쇄 · 새 탭</b>으로 열어 자료 계정으로 로그인해 주세요. 전체 화면은 ESC 로 빠져나옵니다.</div>
+  </div>
+</div>
+
+<!-- 기출·자료실: 카탈로그 가져오기 -->
+<div id="m-eb-import" class="mo" data-protect="1">
+  <div class="mdl">
+    <div class="mh"><div class="mt">카탈로그 가져오기</div></div>
+    <div id="eb-import-prog" style="font-size:13px;color:var(--navy);line-height:1.7">준비 중…</div>
+    <div class="eb-bar"><div id="eb-import-bar" class="eb-bar-in"></div></div>
+    <div class="eb-note">같은 id 는 덮어쓰고, 파일에 없는 자료는 그대로 둡니다. 드라이브 파일 자체는 건드리지 않습니다.</div>
+    <button class="btn bt bsm" id="eb-import-close" style="display:none;margin-top:12px" onclick="closeM('m-eb-import')">닫기</button>
+  </div>
+</div>
+
 <script src="js/utils.js?v=20261111b"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261111c"></script>
-<script src="js/teacher.js?v=20261111c"></script>
+<script src="js/teacher.js?v=20261111d"></script>
 <script src="js/student.js?v=20261111b"></script>
 <script src="js/parent.js?v=20261111b"></script>
 </body>
