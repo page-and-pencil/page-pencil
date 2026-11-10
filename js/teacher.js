@@ -5437,6 +5437,7 @@ function tuRenderWords(tbId,unitKey){
     tuSentHint(tb0,unitKey);
     tuUnitTtsBtn(tb0,unitKey);
     const li=document.getElementById('tu-unit-link');if(li)li.value=tb0?.unitLinks?.[unitKey]||'';
+    tuSongBar(tb0,unitKey);
     const audioUrl=tb0?.unitAudio?.[unitKey]||'';
     const ind=document.getElementById('tu-audio-indicator');if(ind)ind.textContent=audioUrl?'✓ 업로드됨':'없음';
     const delBtn=document.getElementById('tu-audio-del-btn');if(delBtn)delBtn.style.display=audioUrl?'':'none';
@@ -5873,7 +5874,7 @@ function tuDeleteUnit(){
 // 단원 키 변경 시 그 키에 매달린 모든 데이터를 함께 이전 — 단어·소제목·원문·드릴·링크·오디오·순서.
 // renames: [[oldKey,newKey],...]. 반환: 갱신된 tb 객체 (저장은 호출부에서)
 function tuApplyRenames(tb,renames){
-  const maps=['units','unitTitles','unitTexts','unitPatterns','unitLinks','unitAudio'];
+  const maps=['units','unitTitles','unitTexts','unitPatterns','unitLinks','unitAudio','unitLyricsId','unitLyricsOffset'];
   const out={...tb};
   maps.forEach(mk=>{
     if(!tb[mk])return;
@@ -6273,10 +6274,32 @@ function tuSentHint(tb,unitKey){
 }
 // ⓒ 긴 단원 음성은 선생님이 하나씩 만든다 — 학생 화면은 자동 생성하지 않는다.
 //    표시 조건: 자동 생성 상한 초과 + 캐시 없음.
+// 노래 단원(유튜브 링크) — 앱 안에서 바로 듣기 + LRCLIB 가사 id 칸
+function tuSongBar(tb,unitKey){
+  const btn=document.getElementById('tu-song-open'),row=document.getElementById('tu-lyr-row'),inp=document.getElementById('tu-unit-lyrid');
+  const vid=(tb&&unitKey&&typeof ppSongVid==='function')?ppSongVid(tb,unitKey):'';
+  if(inp)inp.value=(tb&&tb.unitLyricsId&&tb.unitLyricsId[unitKey])||'';
+  if(btn)btn.style.display=vid?'':'none';
+  if(row)row.style.display=vid?'flex':'none';
+}
+function tuOpenSong(){
+  const tbId=document.getElementById('tu-tb-id')?.value;
+  if(!tbId||!_tuCurUnit)return toast('단원을 선택하세요');
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  if(!tb)return toast('교재 정보가 없습니다');
+  // 화면에 적은 링크·가사 id 가 아직 저장 전이면 먼저 저장하게 한다 (교재 행은 크다 — 몰래 쓰지 않는다)
+  const link=(document.getElementById('tu-unit-link')?.value||'').trim();
+  const lyr=(document.getElementById('tu-unit-lyrid')?.value||'').trim();
+  const savedLink=(tb.unitLinks&&tb.unitLinks[_tuCurUnit])||'';
+  const savedLyr=String((tb.unitLyricsId&&tb.unitLyricsId[_tuCurUnit])||'');
+  if(link!==savedLink||lyr!==savedLyr)return toast('링크·가사 id 를 먼저 저장하세요');
+  if(typeof openUnitRead==='function')openUnitRead(tbId,_tuCurUnit);
+}
 async function tuUnitTtsBtn(tb,unitKey){
   const host=document.getElementById('tu-unit-tts');if(!host)return;
   host.innerHTML='';host.style.display='none';
   if(!tb||!unitKey)return;
+  if(typeof ppIsSongTb==='function'&&ppIsSongTb(tb))return;   // 노래 교재는 ElevenLabs 를 쓰지 않는다
   const raw=(tb.unitTexts&&tb.unitTexts[unitKey])||'';
   const text=((typeof ppDialogText==='function')?ppDialogText(raw):raw)||'';
   if(!text.trim())return;
@@ -6338,6 +6361,10 @@ async function tuSaveUnitText(silent=false){
   // 문장 학습(P7) — 해석·빈칸 지정. 둘 다 선택 필드다 (비면 자동 규칙)
   const sentKo=(document.getElementById('tu-unit-sentko')?.value||'').trim();
   const sentCloze=(document.getElementById('tu-unit-sentcloze')?.value||'').trim();
+  // 노래 단원 가사 id (LRCLIB) — 비우면 그 단원의 원문 칸만 쓴다
+  const _lyrRaw=(document.getElementById('tu-unit-lyrid')?.value||'').trim();
+  const unitLyricsId={...(tb.unitLyricsId||{})};
+  if(_lyrRaw)unitLyricsId[_tuCurUnit]=Number(_lyrRaw)||_lyrRaw;else delete unitLyricsId[_tuCurUnit];
   const unitSentKo={...(tb.unitSentKo||{}),[_tuCurUnit]:sentKo};
   const unitSentCloze={...(tb.unitSentCloze||{}),[_tuCurUnit]:sentCloze};
   // 스크립트가 여러 개인 단원: 지금 고른 스크립트만 갱신하고, 본문(unitTexts)은 전체를 이어붙여 다시 만든다
@@ -6351,7 +6378,7 @@ async function tuSaveUnitText(silent=false){
   }else{
     unitTexts={...(tb.unitTexts||{}),[_tuCurUnit]:text};
   }
-  const updated={...tb,unitTexts,unitPatterns,unitLinks,unitSentKo,unitSentCloze,...(unitScripts?{unitScripts}:{})};
+  const updated={...tb,unitTexts,unitPatterns,unitLinks,unitLyricsId,unitSentKo,unitSentCloze,...(unitScripts?{unitScripts}:{})};
   await supaUpsert('global_textbooks',tbId,updated,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updated;
   if(!silent)toast('저장되었습니다');
@@ -6412,9 +6439,13 @@ async function tuExtractExamples(){
   const patterns=(document.getElementById('tu-unit-patterns')?.value||'').trim();
   const unitPatterns={...(tb.unitPatterns||{}),[_tuCurUnit]:patterns};
   // 문장 학습 칸도 함께 저장 — 예문 추출로 넘어가며 입력이 날아가지 않게
+  // 노래 단원 가사 id (LRCLIB) — 비우면 그 단원의 원문 칸만 쓴다
+  const _lyrRaw=(document.getElementById('tu-unit-lyrid')?.value||'').trim();
+  const unitLyricsId={...(tb.unitLyricsId||{})};
+  if(_lyrRaw)unitLyricsId[_tuCurUnit]=Number(_lyrRaw)||_lyrRaw;else delete unitLyricsId[_tuCurUnit];
   const unitSentKo={...(tb.unitSentKo||{}),[_tuCurUnit]:(document.getElementById('tu-unit-sentko')?.value||'').trim()};
   const unitSentCloze={...(tb.unitSentCloze||{}),[_tuCurUnit]:(document.getElementById('tu-unit-sentcloze')?.value||'').trim()};
-  const updTb={...tb,units:{...(tb.units||{}),[_tuCurUnit]:words},unitTexts,unitPatterns,unitLinks,unitSentKo,unitSentCloze};
+  const updTb={...tb,units:{...(tb.units||{}),[_tuCurUnit]:words},unitTexts,unitPatterns,unitLinks,unitLyricsId,unitSentKo,unitSentCloze};
   await supaUpsert('global_textbooks',tbId,updTb,null);
   const idx=_cache.globalTextbooks.findIndex(b=>b.id===tbId);if(idx>=0)_cache.globalTextbooks[idx]=updTb;
   let cardUpdated=0;

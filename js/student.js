@@ -532,6 +532,7 @@ function renderStudentLibrary(sid){
       const hasText=!!(tb.unitTexts?.[u]);
       const hasAudio=!!(tb.unitAudio?.[u]);
       const hasLink=!!(tb.unitLinks?.[u]);
+      const songVid=(typeof ppSongVid==='function')?ppSongVid(tb,u):'';   // 노래 단원이면 앱 안에서 듣는다
       return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:12px;font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_isRecentKey(tb,u)?` <span style="font-size:11.5px;font-weight:700;background:var(--tl);color:var(--tealt);padding:2px 7px;border-radius:9px;vertical-align:1px">\uD83D\uDD04 지난 수업</span>`:''}</div>
@@ -540,7 +541,7 @@ function renderStudentLibrary(sid){
         <div style="display:flex;gap:5px;flex-shrink:0">
           ${hasText?`<button class="btn bt bsm" onclick="openUnitReview('${tb.id}','${u.replace(/'/g,"\\'")}')">\uD83D\uDCD6 복습</button>`:''}
           ${hasAudio&&!hasText?`<button class="btn ba bsm" onclick="openUnitRead('${tb.id}','${u.replace(/'/g,"\\'")}')">\uD83C\uDFA7 듣기</button>`:''}
-          ${hasLink?`<a href="${tb.unitLinks[u]}" target="_blank" rel="noopener" class="btn ba bsm">\uD83D\uDD17 심화</a>`:''}
+          ${hasLink?(songVid?`<button class="btn bt bsm" onclick="openUnitRead('${tb.id}','${u.replace(/'/g,"\\'")}')">\uD83C\uDFB5 노래</button>`:`<a href="${tb.unitLinks[u]}" target="_blank" rel="noopener" class="btn ba bsm">\uD83D\uDD17 심화</a>`):''}
         </div>
       </div>`;
     }).join('');
@@ -722,11 +723,11 @@ function renderStudentLibrary(sid){
         const b=(_cache.library||[]).find(x=>_n(x.title)===_n(v.book));
         items.push({label:'원서',title:v.book,unit:v.unit||'',btns:(b&&bookListenable(b))?`<button class="btn bt bsm" onclick="openBookListen('${escAttr(b.id)}')">\uD83C\uDFA7 듣기</button>`:''});
       }else{
-        const _hasRev=x=>(x.unitTexts&&!Array.isArray(x.unitTexts)&&Object.keys(x.unitTexts).length)||(x.unitAudio&&Object.keys(x.unitAudio||{}).length);
+        const _hasRev=x=>(x.unitTexts&&!Array.isArray(x.unitTexts)&&Object.keys(x.unitTexts).length)||(x.unitAudio&&Object.keys(x.unitAudio||{}).length)||(x.songBook&&Object.keys(x.unitLinks||{}).length);
         const g=(_cache.globalTextbooks||[]).find(x=>x.title===v.book&&_hasRev(x))||(_cache.globalTextbooks||[]).find(x=>_n(x.title)===_n(v.book)&&_hasRev(x))||(_cache.globalTextbooks||[]).find(x=>x.title===v.book);
         let btns='';
         if(g){
-          const keys=[...new Set([...Object.keys(g.unitTexts||{}),...Object.keys(g.unitAudio||{})])];
+          const keys=[...new Set([...Object.keys(g.unitTexts||{}),...Object.keys(g.unitAudio||{}),...(g.songBook?Object.keys(g.unitLinks||{}):[])])];
           let uk='';
           for(const seg of String(v.unit||'').split(',').map(x=>x.trim()).filter(Boolean)){
             const ns=_n(seg);
@@ -738,6 +739,7 @@ function renderStudentLibrary(sid){
           }
           if(uk&&g.unitTexts?.[uk])btns=`<button class="btn bt bsm" onclick="openUnitReview('${g.id}','${uk.replace(/'/g,"\\'")}')">\uD83D\uDCD6 복습</button>`;
           else if(uk&&g.unitAudio?.[uk])btns=`<button class="btn ba bsm" onclick="openUnitRead('${g.id}','${uk.replace(/'/g,"\\'")}')">\uD83C\uDFA7 듣기</button>`;
+          else if(uk&&typeof ppSongVid==='function'&&ppSongVid(g,uk))btns=`<button class="btn bt bsm" onclick="openUnitRead('${g.id}','${uk.replace(/'/g,"\\'")}')">\uD83C\uDFB5 노래</button>`;
         }
         items.push({label:(typeof SLBL!=='undefined'?SLBL[bk]:'')||'교재',title:v.book,unit:v.unit||'',btns});
       }
@@ -1091,6 +1093,7 @@ function showParentNoticeBanner(){
 function stopAllStudentMedia(){
   stopSpeak(); // 통합 정지: TTS + ElevenLabs 오디오 + WebAudio 구간 재생 + 진행 중 생성 취소
   document.querySelectorAll('audio').forEach(a=>{try{a.pause();}catch(e){}});
+  if(typeof ppSongPause==='function')ppSongPause();   // 앱 안 유튜브도 멈춘다
 }
 const STU_TAB_ORDER=['st-home','st-vocab','st-library'];
 // 아이가 단어를 풀다가 [나가기] 를 눌러 바로 로그아웃되면, 다시 이름·PIN 을 넣어야 한다.
@@ -4546,7 +4549,7 @@ async function urPlayAllPatterns(){
 
 // ── 단원 원문 읽기 ──
 let _seqTok=0; // 순차 재생 취소 토큰 (새 재생/정지 시 증가)
-function stopSpeak(){_seqTok++;try{window.speechSynthesis?.cancel();}catch(e){}if(typeof stopSmartAudio==='function')stopSmartAudio();}
+function stopSpeak(){_seqTok++;try{window.speechSynthesis?.cancel();}catch(e){}if(typeof stopSmartAudio==='function')stopSmartAudio();if(typeof ppSongPause==='function')ppSongPause();}
 
 function openUnitRead(tbId,unitKey){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
@@ -4558,6 +4561,10 @@ function openUnitRead(tbId,unitKey){
 
   document.getElementById('unit-read-title').textContent=tb.title||'원문 읽기';
   document.getElementById('unit-read-sub').textContent=unitKey+(tb.unitTitles?.[unitKey]?' — '+tb.unitTitles[unitKey]:'');
+
+  // 노래 단원(유튜브 링크)은 앱 안에서 보고 가사를 따라 부른다. 아래 원문 읽기 길은 그대로다.
+  const _songVid=(typeof ppYouTubeId==='function')?ppYouTubeId(link):'';
+  if(_songVid)return ppSongOpen(tb,unitKey,_songVid,words);
 
   const audioEl=document.getElementById('unit-read-audio');
   if(audioUrl){
@@ -4605,6 +4612,7 @@ function ppIsTeacherView(){
 async function _urTeacherTtsBtn(tb,unitKey){
   const host=document.getElementById('unit-read-audio');
   if(!host||!ppIsTeacherView())return;
+  if(typeof ppIsSongTb==='function'&&ppIsSongTb(tb))return;      // 노래 교재는 ElevenLabs 를 쓰지 않는다
   if(tb.unitAudio&&tb.unitAudio[unitKey])return;                 // 출판사 음원이 있으면 그걸 쓴다
   const raw=(tb.unitTexts&&tb.unitTexts[unitKey])||'';
   const text=((typeof ppDialogText==='function')?ppDialogText(raw):raw)||'';
@@ -4680,6 +4688,7 @@ function _renderHighlightedText(text,words){
 
 function showUnitWordPopup(event,word,ko,pos){
   event.stopPropagation();
+  if(typeof ppSongPause==='function')ppSongPause();   // 노래 중이면 멈춘다 — 단어 소리가 노래에 묻히지 않게 (다시 틀기는 학생이 ▶ 로)
   speakWord(word);
   const popup=document.getElementById('unit-word-popup');if(!popup)return;
   document.getElementById('uwp-word').textContent=word;
@@ -4703,6 +4712,333 @@ async function startUnitTTS(){
   const b2=document.getElementById('tts-play-btn');if(b2)b2.textContent='▶ 듣기';
 }
 
+
+
+// ── 노래 모드 (앱 안 유튜브 + 가사 따라 부르기) ─────────────────────
+// 노래 교재(songBook)의 단원 링크는 유튜브 영상이다. 밖으로 나가지 않고 여기서 본다.
+// 가사는 열 때 LRCLIB 에서 받아 그 기기에만 캐시한다 (교재 DB 에는 넣지 않는다).
+// 노래 단원은 ElevenLabs 를 부르지 않는다 — 원어민 음원은 노래 자체다.
+let _songState=null,_ytReadyP=null;
+const PP_YT_API='https://www.youtube.com/iframe_api';
+
+function _sEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// onclick 속성 안에 들어갈 JS 문자열 리터럴 (따옴표·역슬래시·꺾쇠 모두 안전하게)
+function _sArg(s){
+  return "'"+String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')+"'";
+}
+
+// 유튜브 IFrame API 는 한 번만 싣는다
+function _ytApi(){
+  if(window.YT&&window.YT.Player)return Promise.resolve(window.YT);
+  if(_ytReadyP)return _ytReadyP;
+  _ytReadyP=new Promise((res,rej)=>{
+    const prev=window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady=function(){try{if(typeof prev==='function')prev();}catch(e){}res(window.YT);};
+    if(!document.querySelector('script[src="'+PP_YT_API+'"]')){
+      const s=document.createElement('script');
+      s.src=PP_YT_API;s.async=true;
+      s.onerror=()=>rej(new Error('YT_LOAD'));
+      document.head.appendChild(s);
+    }
+    setTimeout(()=>{if(!(window.YT&&window.YT.Player))rej(new Error('YT_TIMEOUT'));},12000);
+  }).catch(e=>{_ytReadyP=null;throw e;});
+  return _ytReadyP;
+}
+
+function ppSongOpen(tb,unitKey,vid,words){
+  ppSongDestroy();
+  stopSpeak();
+  window._urReadText='';                      // 브라우저 음성이 가사를 읽지 않게
+  const lyrId=String((tb.unitLyricsId&&tb.unitLyricsId[unitKey])||'').trim();
+  _songState={tbId:tb.id,unitKey:unitKey,vid:vid,lyrId:lyrId,words:words||[],
+    lines:[],src:'',synced:false,offset:ppLrcOffset(tb,unitKey),cur:-2,
+    sync:false,timer:null,player:null,scrollAt:0,
+    chipsOpen:(typeof window!=='undefined'&&window.innerWidth>480)};
+  const audioEl=document.getElementById('unit-read-audio');
+  if(audioEl)audioEl.innerHTML='<div class="song-box"><div class="song-ratio"><div id="song-yt"></div></div></div>';
+  const linkDiv=document.getElementById('unit-read-link');
+  if(linkDiv)linkDiv.style.display='none';     // 유튜브로 나가는 '심화 학습 앱 열기' 는 감춘다
+  const bodyEl=document.getElementById('unit-read-body');
+  if(bodyEl)bodyEl.innerHTML='<div class="song-pane"><div class="song-wait">가사를 불러오는 중...</div></div>';
+  openM('m-unit-read');
+  _songMount(vid);
+  _songLoadLyrics(tb,unitKey);
+}
+
+async function _songMount(vid){
+  let YTa=null;
+  try{YTa=await _ytApi();}catch(e){return _songBlocked('유튜브 플레이어를 불러오지 못했어요',vid);}
+  const S=_songState;
+  if(!S||S.vid!==vid||!document.getElementById('song-yt'))return;
+  try{
+    S.player=new YTa.Player('song-yt',{
+      host:'https://www.youtube-nocookie.com',
+      videoId:vid,
+      playerVars:{playsinline:1,rel:0,modestbranding:1},
+      events:{
+        onStateChange:e=>{
+          const playing=(e&&e.data===1);
+          _songTimer(playing);
+          if(playing){if(_songState)_songState.cur=-2;_songTick();}
+        },
+        // 101·150(임베드 금지)·153·100(삭제)·2·5 — 앱 안에서는 못 튼다
+        onError:e=>{
+          console.warn('노래 영상 재생 불가 — 코드',e&&e.data,'·',vid);
+          _songBlocked('이 영상은 앱 안에서 재생이 막혀 있어요',vid);
+        }
+      }
+    });
+  }catch(e){_songBlocked('플레이어를 만들지 못했어요',vid);}
+}
+
+// 임베드가 막힌 영상 — 이때만 유튜브로 나가는 작은 링크를 둔다
+function _songBlocked(msg,vid){
+  _songTimer(false);
+  const host=document.getElementById('unit-read-audio');
+  if(!host)return;
+  host.innerHTML='<div class="song-blocked"><div>'+_sEsc(msg)+'</div>'
+    +'<a href="https://www.youtube.com/watch?v='+encodeURIComponent(vid)+'" target="_blank" rel="noopener">유튜브에서 열기 →</a></div>';
+}
+
+function _songTimer(on){
+  const S=_songState;
+  if(S&&S.timer){clearInterval(S.timer);S.timer=null;}
+  if(on&&S)S.timer=setInterval(_songTick,200);
+}
+
+// 가사: 기기 캐시 → LRCLIB. 받은 것은 localStorage 에만 둔다.
+async function ppSongLyrics(lyrId){
+  const key='pp_lrc_'+lyrId;
+  try{
+    const c=JSON.parse(localStorage.getItem(key)||'null');
+    if(c&&(c.synced||c.plain))return c;
+  }catch(e){}
+  const r=await fetch('https://lrclib.net/api/get/'+encodeURIComponent(lyrId),{signal:AbortSignal.timeout(8000)});
+  if(!r.ok)throw new Error('LRCLIB '+r.status);
+  const d=await r.json();
+  const out={synced:String(d.syncedLyrics||''),plain:String(d.plainLyrics||''),at:Date.now()};
+  try{localStorage.setItem(key,JSON.stringify(out));}catch(e){}
+  return out;
+}
+
+function _songPlainLines(txt){
+  const ls=String(txt||'').split(/\r?\n/).map(s=>s.trim());
+  while(ls.length&&!ls[0])ls.shift();
+  while(ls.length&&!ls[ls.length-1])ls.pop();
+  return ls.map(s=>({t:-1,text:s}));
+}
+
+// 고르는 순서: 가사 id 의 싱크 가사 → 선생님이 넣은 본문 → 가사 id 의 줄글 가사
+async function _songLoadLyrics(tb,unitKey){
+  const S=_songState;if(!S)return;
+  const own=(tb.unitTexts&&tb.unitTexts[unitKey])||'';
+  let synced='',plain='';
+  if(S.lyrId){
+    try{const d=await ppSongLyrics(S.lyrId);synced=d.synced||'';plain=d.plain||'';}
+    catch(e){console.warn('가사 받기 실패:',e.message);}
+  }
+  if(_songState!==S)return;                    // 그사이 다른 노래를 열었다
+  if(synced){const ls=ppParseLrc(synced);if(ls.length){S.lines=ls;S.src='LRCLIB';S.synced=true;}}
+  if(!S.lines.length&&own){S.lines=_songPlainLines(own);S.src='선생님이 넣은 가사';}
+  if(!S.lines.length&&plain){S.lines=_songPlainLines(plain);S.src='LRCLIB';}
+  _songRender();
+}
+
+// 단원 단어 → 가사에서 찾을 꼴 (-s/-es/-ed/-ing, 불규칙 v2/v3, 구동사는 공백 그대로)
+function _songWordRe(words){
+  const map={},forms=[];
+  (words||[]).forEach(w=>{
+    const base=String(w&&w.word||'').trim();
+    if(!base)return;
+    const set=[base];
+    [w.v2,w.v3].forEach(v=>String(v||'').split(/[,/·]/).forEach(x=>{const t=x.trim();if(t)set.push(t);}));
+    if(!/\s/.test(base)){
+      set.push(base+'s',base+'es',base+'ed',base+'ing');
+      if(/[^aeiou]y$/i.test(base))set.push(base.slice(0,-1)+'ies',base.slice(0,-1)+'ied');
+      if(/e$/i.test(base))set.push(base.slice(0,-1)+'ing',base+'d');
+      if(base.length>2&&/[bdgklmnprt]$/i.test(base)&&/[aeiou]$/i.test(base.slice(-2,-1)))
+        set.push(base+base.slice(-1)+'ing',base+base.slice(-1)+'ed');   // stop → stopping
+    }
+    set.forEach(f=>{
+      const k=f.toLowerCase();
+      if(!k||map[k])return;
+      map[k]={word:base,ko:w.ko||'',pos:w.pos||''};
+      forms.push(f);
+    });
+  });
+  if(!forms.length)return{map:map,re:null};
+  forms.sort((a,b)=>b.length-a.length);
+  const reStr=forms.map(f=>f.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|');
+  return {map:map,re:new RegExp('\\b('+reStr+')\\b','gi')};
+}
+
+function _songLineHtml(text,map,re){
+  const t=_sEsc(text);
+  if(!re)return t;
+  return t.replace(re,m=>{
+    const w=map[m.toLowerCase()];
+    if(!w)return m;
+    return '<u class="lrc-w" onclick="event.stopPropagation();showUnitWordPopup(event,'
+      +_sArg(w.word)+','+_sArg(w.ko)+','+_sArg(w.pos)+')">'+m+'</u>';
+  });
+}
+
+function _songSyncBar(teacher){
+  const S=_songState;
+  const sh=(S.offset>0?'+':'')+S.offset.toFixed(1);
+  return '<div class="song-sync">'
+    +'<button class="song-sbtn" onclick="ppSongOffset(-0.5)">가사 −0.5초</button>'
+    +'<button class="song-sbtn" onclick="ppSongOffset(0.5)">+0.5초</button>'
+    +'<span class="song-off" id="song-off">보정 '+sh+'초</span>'
+    +'<button class="song-sbtn'+(S.sync?' on':'')+'" onclick="ppSongSync()">'
+      +(S.sync?'✓ 싱크 맞추는 중':'싱크 맞추기')+'</button>'
+    +(teacher?'<button class="song-sbtn" onclick="ppSongSaveOffset()">💾 이 곡 보정 저장</button>':'')
+    +'</div>';
+}
+
+function _songRender(){
+  const S=_songState;if(!S)return;
+  const body=document.getElementById('unit-read-body');if(!body)return;
+  const wr=_songWordRe(S.words);
+  const chips=(S.words||[]).filter(w=>w&&w.word);
+  const teacher=(typeof ppIsTeacherView==='function')&&ppIsTeacherView();
+  const lrc=S.lines.length
+    ? S.lines.map((l,i)=>l.text
+        ?'<div class="lrc-l" data-i="'+i+'"'+(S.synced?' onclick="ppSongLineClick('+i+')"':'')+'>'
+           +_songLineHtml(l.text,wr.map,wr.re)+'</div>'
+        :'<div class="lrc-gap"></div>').join('')
+    : '<div class="song-wait">가사를 불러오지 못했어요</div>';
+  body.innerHTML='<div class="song-pane">'
+    +(chips.length?'<div class="song-chiphead"><span>🎵 이 노래 단어 '+chips.length+'개</span>'
+      +'<button class="song-more" onclick="ppSongChips()">'+(S.chipsOpen?'접기':'더 보기')+'</button></div>'
+      +'<div id="song-chips" class="song-chips'+(S.chipsOpen?'':' clamp')+'">'
+      +chips.map(w=>'<button class="song-chip" onclick="showUnitWordPopup(event,'
+        +_sArg(w.word)+','+_sArg(w.ko)+','+_sArg(w.pos)+')">'+_sEsc(w.word)
+        +(w.ko?'<i>'+_sEsc(w.ko)+'</i>':'')+'</button>').join('')
+      +'</div>':'')
+    +(S.synced?_songSyncBar(teacher):'')
+    +'<div id="song-lrc" class="song-lrc">'+lrc+'</div>'
+    +(S.src?'<div class="song-src">가사: '+_sEsc(S.src)+'</div>':'')
+    +'</div>';
+  S.cur=-2;
+  _songBindScroll();
+  _songTick();
+}
+
+// 손으로 스크롤한 직후 3초는 자동 스크롤을 멈춘다
+function _songBindScroll(){
+  const sc=document.getElementById('unit-read-body');
+  if(!sc||sc._songBound)return;
+  sc._songBound=1;
+  const mark=()=>{if(_songState)_songState.scrollAt=Date.now();};
+  ['wheel','touchstart','touchmove','mousedown'].forEach(ev=>sc.addEventListener(ev,mark,{passive:true}));
+}
+
+function _songTick(){
+  const S=_songState;
+  if(!S||!S.synced||!S.lines.length||!S.player||!S.player.getCurrentTime)return;
+  let t=0;
+  try{t=S.player.getCurrentTime()||0;}catch(e){return;}
+  t+=S.offset;
+  let idx=-1;
+  for(let i=0;i<S.lines.length;i++){if(S.lines[i].t<=t)idx=i;else break;}
+  if(idx===S.cur)return;
+  S.cur=idx;
+  const box=document.getElementById('song-lrc');if(!box)return;
+  box.querySelectorAll('.lrc-l').forEach(el=>el.classList.toggle('on',+el.dataset.i===idx));
+  if(idx<0)return;
+  if(Date.now()-(S.scrollAt||0)<3000)return;
+  const el=box.querySelector('.lrc-l[data-i="'+idx+'"]');
+  const sc=document.getElementById('unit-read-body');
+  if(!el||!sc)return;
+  // 가사 칸만 움직인다 (scrollIntoView 는 바깥 틀까지 끌어당긴다)
+  const r=el.getBoundingClientRect(),rc=sc.getBoundingClientRect();
+  const to=sc.scrollTop+(r.top-rc.top)-(rc.height/2-r.height/2);
+  try{sc.scrollTo({top:Math.max(0,to),behavior:'smooth'});}catch(e){sc.scrollTop=Math.max(0,to);}
+}
+
+function ppSongLineClick(i){
+  const S=_songState;if(!S||!S.lines[i])return;
+  const line=S.lines[i];
+  if(S.sync){
+    let t=0;try{t=S.player&&S.player.getCurrentTime?S.player.getCurrentTime():0;}catch(e){}
+    _songSetOffset(line.t-t);
+    toast('이 줄에 맞췄어요 — 보정 '+(S.offset>0?'+':'')+S.offset.toFixed(1)+'초');
+    return;
+  }
+  try{
+    S.player.seekTo(Math.max(0,line.t-S.offset),true);
+    S.player.playVideo();
+  }catch(e){}
+  S.cur=-2;
+}
+
+function _songSetOffset(v){
+  const S=_songState;if(!S)return;
+  S.offset=Math.round(v*10)/10;
+  try{localStorage.setItem(ppLrcOffKey(S.tbId,S.unitKey),String(S.offset));}catch(e){}
+  const el=document.getElementById('song-off');
+  if(el)el.textContent='보정 '+(S.offset>0?'+':'')+S.offset.toFixed(1)+'초';
+  S.cur=-2;_songTick();
+}
+function ppSongOffset(d){const S=_songState;if(S)_songSetOffset(S.offset+d);}
+function ppSongSync(){
+  const S=_songState;if(!S)return;
+  S.sync=!S.sync;
+  const bar=document.querySelector('.song-sync');
+  if(bar)bar.outerHTML=_songSyncBar((typeof ppIsTeacherView==='function')&&ppIsTeacherView());
+  toast(S.sync?'노래가 지금 부르는 줄을 눌러 주세요':'줄을 누르면 그 줄로 이동해요');
+}
+function ppSongChips(){
+  const S=_songState;if(!S)return;
+  S.chipsOpen=!S.chipsOpen;
+  const box=document.getElementById('song-chips');
+  if(box)box.classList.toggle('clamp',!S.chipsOpen);
+  const btn=document.querySelector('.song-more');
+  if(btn)btn.textContent=S.chipsOpen?'접기':'더 보기';
+}
+
+// 선생님만 — 이 곡의 보정값을 교재에 저장한다 (학생 화면은 기기에만 남는다)
+async function ppSongSaveOffset(){
+  const S=_songState;if(!S)return;
+  if(typeof ppSandbox==='function'&&ppSandbox())return toast('선생님 화면에서 저장하세요');
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===S.tbId);
+  if(!tb)return toast('교재 정보가 없습니다');
+  const unitLyricsOffset={...(tb.unitLyricsOffset||{}),[S.unitKey]:S.offset};
+  const updated={...tb,unitLyricsOffset:unitLyricsOffset};
+  try{
+    await supaUpsert('global_textbooks',tb.id,updated,null);
+    const i=(_cache.globalTextbooks||[]).findIndex(b=>b.id===tb.id);
+    if(i>=0)_cache.globalTextbooks[i]=updated;
+    toast('이 곡 보정을 저장했어요 ('+(S.offset>0?'+':'')+S.offset.toFixed(1)+'초)');
+  }catch(e){toast('저장 실패: '+(e.message||''));}
+}
+
+function ppSongPause(){
+  const S=_songState;if(!S||!S.player)return;
+  _songTimer(false);
+  try{if(S.player.pauseVideo)S.player.pauseVideo();}catch(e){}
+}
+function ppSongDestroy(){
+  const S=_songState;
+  if(!S)return;
+  _songTimer(false);
+  _songState=null;
+  try{if(S.player&&S.player.destroy)S.player.destroy();}catch(e){}
+  const host=document.getElementById('unit-read-audio');
+  const f=host&&host.querySelector('iframe');
+  if(f&&f.parentNode)f.parentNode.removeChild(f);
+}
+// 배경(바깥)을 눌러 닫는 길에서도 소리가 남지 않게 — .mo 는 class 만 떼고 닫힌다
+function _songBindBackdrop(){
+  const m=document.getElementById('m-unit-read');
+  if(!m||m._songBound)return;
+  m._songBound=1;
+  m.addEventListener('click',e=>{if(e.target===m){ppSongDestroy();stopAllStudentMedia();}});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_songBindBackdrop);
+else _songBindBackdrop();
 
 // ── 학습 미션 플레이어 (class5 스타일 유닛 과제) ──
 let _msState=null,_msRecBlob=null,_msTimerInt=null;
@@ -6063,7 +6399,9 @@ async function msListenPlay(){
   const{tb,unitKey}=_msState||{};if(!tb)return;
   const text=tb.unitTexts?.[unitKey]||'';if(!text)return;
   const btn=document.getElementById('ms-tts-btn');if(btn)btn.textContent='▶ 재생 중...';
-  await playPassage(text,_msState.ttsLevel||'intermediate','ms-ls-');
+  // 노래 교재는 새 음성을 만들지 않는다 — 있는 캐시 음원만 쓴다
+  if(typeof ppIsSongTb==='function'&&ppIsSongTb(tb))await speakSentences(text,_msState.ttsLevel||'intermediate','ms-ls-',{noGen:true});
+  else await playPassage(text,_msState.ttsLevel||'intermediate','ms-ls-');
   const b2=document.getElementById('ms-tts-btn');if(b2)b2.textContent='▶ 듣기';
 }
 async function urListenPlay(){
@@ -6073,7 +6411,8 @@ async function urListenPlay(){
   const text=(sc?(sc[_urState.scriptIdx||0]?.text||''):(tb.unitTexts?.[_urState.unitKey]||''));
   if(!text)return;
   const btn=document.getElementById('ur-tts-btn');if(btn)btn.textContent='▶ 재생 중...';
-  await playPassage(text,_urState.ttsLevel||'intermediate','ur-ls-');
+  if(typeof ppIsSongTb==='function'&&ppIsSongTb(tb))await speakSentences(text,_urState.ttsLevel||'intermediate','ur-ls-',{noGen:true});
+  else await playPassage(text,_urState.ttsLevel||'intermediate','ur-ls-');
   const b2=document.getElementById('ur-tts-btn');if(b2)b2.textContent='▶ 듣기';
 }
 
