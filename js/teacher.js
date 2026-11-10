@@ -18059,7 +18059,7 @@ let _ebSrc='view';             // 'view' = 가벼운 뷰 · 'table' = 뷰가 아
 let _ebLoading=false,_ebNote='';
 const _ebFull=new Map();       // 상세를 연 행의 data 전체 (이 세션 동안 메모리에만)
 let _ebPage=1,_ebViewId='',_ebDetailId='';
-let _ebF={cat:'',level:'',grade:'',term:'',y1:'',y2:'',region:'',city:'',school:'',audio:false,only:'',q:''};
+let _ebF={cat:'',series:'',level:'',grade:'',term:'',y1:'',y2:'',region:'',city:'',school:'',audio:false,only:'',q:''};
 let _ebSeq=null;               // 전체 이어 듣기 중인 번호
 
 const _ebE=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -18099,7 +18099,7 @@ function _ebLight(row){
   const fs=Array.isArray(d.files)?d.files:[];
   const au=(d.audio&&Array.isArray(d.audio.files))?d.audio.files:[];
   const meta={};
-  ['cat','title','path','note','level','grade','term','school','region','city','year','month','round','_deleted']
+  ['cat','title','path','note','level','grade','term','school','region','city','year','month','round','series','_deleted']
     .forEach(k=>{const v=d[k];if(v!==''&&v!==null&&v!==undefined)meta[k]=v;});
   return {id:row.id,updated_at:row.updated_at,meta:meta,nfiles:fs.length,
     kinds:[...new Set(fs.map(f=>(f&&f.k)||'').filter(Boolean))].sort().join(','),
@@ -18242,16 +18242,16 @@ function _ebSaveF(){try{localStorage.setItem('pp_eb_filters',JSON.stringify(_ebF
 function _ebLoadF(){try{const s=JSON.parse(localStorage.getItem('pp_eb_filters')||'null');if(s&&typeof s==='object')_ebF={..._ebF,...s};}catch(e){}}
 function ebFilterChange(){
   const v=id=>{const el=document.getElementById(id);return el?el.value:'';};
-  _ebF.cat=v('eb-f-cat');_ebF.level=v('eb-f-level');_ebF.grade=v('eb-f-grade');_ebF.term=v('eb-f-term');
+  _ebF.cat=v('eb-f-cat');_ebF.series=v('eb-f-series');_ebF.level=v('eb-f-level');_ebF.grade=v('eb-f-grade');_ebF.term=v('eb-f-term');
   _ebF.y1=v('eb-f-y1');_ebF.y2=v('eb-f-y2');
   _ebF.region=v('eb-f-region');_ebF.city=v('eb-f-city');_ebF.school=v('eb-f-school');
   const a=document.getElementById('eb-f-audio');_ebF.audio=!!(a&&a.checked);
   _ebF.q=v('eb-f-q');
-  _ebPage=1;_ebSaveF();renderBankList();
+  _ebPage=1;_ebPaintSeries();_ebSaveF();renderBankList();
 }
 function ebOnly(kind){_ebF.only=(_ebF.only===kind?'':kind);_ebPage=1;_ebSaveF();_ebPaintFilters();renderBankList();}
 function ebResetFilters(){
-  _ebF={cat:'',level:'',grade:'',term:'',y1:'',y2:'',region:'',city:'',school:'',audio:false,only:'',q:''};
+  _ebF={cat:'',series:'',level:'',grade:'',term:'',y1:'',y2:'',region:'',city:'',school:'',audio:false,only:'',q:''};
   _ebPage=1;_ebSaveF();_ebPaintFilters();renderBankList();
 }
 function _ebCatName(k){const c=EB_CATS.find(x=>x.k===k);return c?c.n:(k||'');}
@@ -18261,6 +18261,7 @@ function _ebMatch(r){
   if(_ebF.only==='fav'&&!ebIsFav(r.id))return false;
   if(_ebF.only==='recent'&&ebRecents().indexOf(r.id)<0)return false;
   if(_ebF.cat&&String(m.cat||'')!==_ebF.cat)return false;
+  if(_ebF.series&&String(m.series||'')!==_ebF.series)return false;
   if(_ebF.level&&String(m.level||'')!==_ebF.level)return false;
   if(_ebF.grade&&String(m.grade||'')!==_ebF.grade)return false;
   if(_ebF.term&&String(m.term||'')!==_ebF.term)return false;
@@ -18273,7 +18274,7 @@ function _ebMatch(r){
   if(y2!==null&&(y===null||y>y2))return false;
   const q=String(_ebF.q||'').trim().toLowerCase();
   if(q){
-    const hay=[m.title,m.school,m.city,m.region,m.path,m.catLabel,m.note,m.grade,m.term,m.year].join(' ').toLowerCase();
+    const hay=[m.title,m.school,m.city,m.region,m.path,m.series,m.catLabel,m.note,m.grade,m.term,m.year].join(' ').toLowerCase();
     if(q.split(/\s+/).some(w=>w&&hay.indexOf(w)<0))return false;
   }
   return true;
@@ -18296,6 +18297,16 @@ function _ebOpts(id,label,vals,cur){
   el.innerHTML=['<option value="">'+_ebE(label)+'</option>'].concat(vals.map(v=>
     '<option value="'+_ebA(v.v)+'"'+(String(cur)===String(v.v)?' selected':'')+'>'+_ebE(v.n)+'</option>')).join('');
 }
+// 시리즈 칸은 그 구분에 시리즈가 있을 때만 (출판사 자료에만 들어 있다)
+function _ebPaintSeries(){
+  const el=document.getElementById('eb-f-series');if(!el)return;
+  const vals=_ebF.cat?[...new Set((_ebRows||[]).filter(r=>String((r.meta||{}).cat||'')===_ebF.cat)
+    .map(r=>String((r.meta||{}).series||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko')):[];
+  if(!vals.length){el.style.display='none';el.innerHTML='';if(_ebRows&&_ebRows.length)_ebF.series='';return;}
+  if(_ebF.series&&vals.indexOf(_ebF.series)<0)_ebF.series='';   // 구분을 바꾸면 안 맞는 시리즈는 푼다
+  el.style.display='';
+  _ebOpts('eb-f-series','시리즈 전체',vals.map(v=>({v:v,n:v})),_ebF.series);
+}
 function _ebPaintFilters(){
   const rows=(_ebRows||[]);
   const uniq=k=>[...new Set(rows.map(r=>String((r.meta||{})[k]||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
@@ -18303,6 +18314,7 @@ function _ebPaintFilters(){
   const catVals=EB_CATS.filter(c=>cats.indexOf(c.k)>=0).map(c=>({v:c.k,n:c.g+' · '+c.n}))
     .concat(cats.filter(k=>!EB_CATS.some(c=>c.k===k)).map(k=>({v:k,n:k})));
   _ebOpts('eb-f-cat','구분 전체',catVals,_ebF.cat);
+  _ebPaintSeries();
   _ebOpts('eb-f-level','학교급',['초','중','고'].filter(v=>rows.some(r=>(r.meta||{}).level===v)).map(v=>({v:v,n:v})),_ebF.level);
   _ebOpts('eb-f-grade','학년',uniq('grade').map(v=>({v:v,n:v})),_ebF.grade);
   _ebOpts('eb-f-term','학기',uniq('term').map(v=>({v:v,n:v})),_ebF.term);
@@ -18371,8 +18383,8 @@ function ebOpenTab(){
   _ebLoadF();_ebPaintFilters();renderBankList();
   const st=document.getElementById('eb-state');
   if(st&&!(_ebRows&&_ebRows.length))st.textContent='불러오는 중…';
-  ebLoad(false).then(ch=>{
-    if(ch)_ebPaintFilters();
+  ebLoad(false).then(()=>{
+    _ebPaintFilters();
     renderBankList();_ebStamp();
   });
 }
@@ -18464,7 +18476,7 @@ async function ebOpenDetail(id){
   const row=(_ebRows||[]).find(r=>r.id===id),m=(row&&row.meta)||{};
   const t=document.getElementById('eb-d-title');if(t)t.textContent=m.title||'자료';
   const s=document.getElementById('eb-d-sub');
-  if(s)s.textContent=[_ebCatName(m.cat),m.grade||m.level,m.year?(m.year+'년'+(m.month?(' '+m.month+'월'):'')):'',m.term,m.school,m.path].filter(Boolean).join(' · ');
+  if(s)s.textContent=[_ebCatName(m.cat),m.grade||m.level,m.year?(m.year+'년'+(m.month?(' '+m.month+'월'):'')):'',m.term,m.school,m.series,m.path].filter(Boolean).join(' · ');
   const body=document.getElementById('eb-d-body');
   if(body)body.innerHTML='<div class="eb-empty">불러오는 중…</div>';
   _ebPaintFav();
@@ -18479,22 +18491,30 @@ function _ebDetailHtml(d){
   const files=(Array.isArray(d.files)?d.files:[]).filter(f=>f&&f.id).slice();
   files.sort((a,b)=>{
     const ai=EB_KIND_ORDER.indexOf(a.k),bi=EB_KIND_ORDER.indexOf(b.k);
-    return (ai<0?9:ai)-(bi<0?9:bi);
+    if(ai!==bi)return (ai<0?9:ai)-(bi<0?9:bi);
+    return String(a.name||'').localeCompare(String(b.name||''),'ko',{numeric:true});
   });
+  const main=files.filter(f=>f.k!=='etc');          // 문제지·정답·해설·듣기대본
+  const etc=files.filter(f=>f.k==='etc');           // 통계·분석표 등 — 합쳐진 폴더 자료도 여기로 온다
   const au=(d.audio&&Array.isArray(d.audio.files)?d.audio.files:[]).filter(a=>a&&a.id).slice();
   au.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ko',{numeric:true}));
-  let h='';
-  h+='<div class="eb-sec"><div class="eb-sec-t">문서 '+files.length+'개</div>';
-  h+=files.length?('<div class="eb-files">'+files.map(f=>{
+  const fileList=list=>'<div class="eb-files">'+list.map(f=>{
       const k=EB_KIND[f.k]||EB_KIND.etc;
-      return '<button class="eb-file" onclick="ebView(\''+escJsA(f.id)+'\',\''+escJsA(f.name||'')+'\')" title="'+_ebA(f.name||'')+'">'+
+      return '<button class="eb-file" onclick="ebView(\'' + escJsA(f.id) + '\',\'' + escJsA(f.name||'') + '\')" title="'+_ebA(f.name||'')+'">'+
         '<i data-lucide="'+k.i+'" width="15" height="15"></i>'+
         '<span class="eb-file-k">'+_ebE(k.n)+'</span>'+
         '<span class="eb-file-n">'+_ebE(f.name||'')+'</span>'+
         (f.size?'<span class="eb-file-s">'+Math.max(1,Math.round(f.size/1024)).toLocaleString()+'KB</span>':'')+
       '</button>';
-    }).join('')+'</div>'):'<div class="eb-empty">등록된 문서가 없습니다.</div>';
-  h+='</div>';
+    }).join('')+'</div>';
+  let h='';
+  if(main.length||!etc.length){
+    h+='<div class="eb-sec"><div class="eb-sec-t">문서 '+main.length+'개</div>';
+    h+=main.length?fileList(main):'<div class="eb-empty">등록된 문서가 없습니다.</div>';
+    h+='</div>';
+  }
+  if(etc.length)
+    h+='<div class="eb-sec"><div class="eb-sec-t">기타 자료 '+etc.length+'개</div>'+fileList(etc)+'</div>';
   if(au.length||d.extAudio){
     h+='<div class="eb-sec"><div class="eb-sec-t">듣기'+(au.length?(' '+au.length+'개'):'')+
        (au.length>1?'<button class="btn bo bsm" style="margin-left:8px;padding:3px 10px;font-size:12px" onclick="ebPlayAll()">전체 이어 듣기</button>':'')+'</div>';
@@ -18514,6 +18534,11 @@ function _ebDetailHtml(d){
   if(d.note)h+='<div class="eb-sec"><div class="eb-sec-t">메모</div><div class="eb-memo">'+_ebE(d.note)+'</div></div>';
   h+='<div class="eb-sec" style="display:flex;gap:8px;flex-wrap:wrap">';
   if(d.folderId)h+='<a class="btn bo bsm" href="'+_ebA(ebFolderUrl(d.folderId))+'" target="_blank" rel="noopener"><i data-lucide="folder" width="15" height="15" style="vertical-align:-3px"></i> 드라이브 폴더 열기</a>';
+  // 같은 시험인데 폴더가 여러 개로 흩어져 있던 것 — 합치면서 챙긴 원래 폴더들
+  (Array.isArray(d.extraFolders)?d.extraFolders:[]).filter(Boolean).forEach((fid,i)=>{
+    h+='<a class="btn bo bsm" href="'+_ebA(ebFolderUrl(fid))+'" target="_blank" rel="noopener">'+
+      '<i data-lucide="folder" width="15" height="15" style="vertical-align:-3px"></i> 합쳐진 폴더'+(i?(' '+(i+1)):'')+' 열기</a>';
+  });
   h+='<button class="btn bo bsm" onclick="ebOpenSheet()"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 목록 시트</button>';
   h+='</div>';
   h+='<div class="eb-note">자료 계정 <b>'+_ebE(ebAcct())+'</b> 으로 엽니다. 비공개 드라이브라 "권한이 필요합니다"가 뜨면 미리보기 창의 <b>새 탭에서 열기</b>로 그 계정에 로그인해 주세요. (설정 → 자료 계정)</div>';

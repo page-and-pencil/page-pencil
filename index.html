@@ -652,7 +652,7 @@
         <button id="dtab-ws" onclick="switchDataTab('ws')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 저장된 워크시트</button>
         <button id="dtab-exam" onclick="switchDataTab('exam')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="calendar-days" width="15" height="15" style="vertical-align:-3px"></i> 시험 일정</button>
         <button id="dtab-master" onclick="switchDataTab('master')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="wrench" width="15" height="15" style="vertical-align:-3px"></i> 백업·일괄</button>
-        <button id="dtab-bank" onclick="switchDataTab('bank')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 기출문제</button>
+        <button id="dtab-bank" onclick="switchDataTab('bank')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 자료실</button>
       </div>
 
       <!-- 기출·자료실 sub-panel (드라이브 자료 — 선생님 전용) -->
@@ -675,6 +675,7 @@
         </div>
         <div class="eb-filters">
           <select class="filter-sel" id="eb-f-cat" onchange="ebFilterChange()"></select>
+          <select class="filter-sel" id="eb-f-series" onchange="ebFilterChange()" style="display:none"></select>
           <select class="filter-sel" id="eb-f-level" onchange="ebFilterChange()"></select>
           <select class="filter-sel" id="eb-f-grade" onchange="ebFilterChange()"></select>
           <select class="filter-sel" id="eb-f-term" onchange="ebFilterChange()"></select>

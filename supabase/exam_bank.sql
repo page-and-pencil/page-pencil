@@ -44,6 +44,7 @@ select
     'level',  nullif(b.data->>'level',''),    'grade',  nullif(b.data->>'grade',''),
     'term',   nullif(b.data->>'term',''),     'school', nullif(b.data->>'school',''),
     'region', nullif(b.data->>'region',''),   'city',   nullif(b.data->>'city',''),
+    'series', nullif(b.data->>'series',''),
     'year',   (nullif(b.data->>'year',''))::numeric,
     'month',  (nullif(b.data->>'month',''))::numeric,
     'round',  (nullif(b.data->>'round',''))::numeric
@@ -122,5 +123,7 @@ $do$;
 --   ],
 --   "audio": {"folderId":"1Dpo...","files":[{"id":"1R9U...","name":"01_문항 01.mp3"}]},
 --   "extAudio": "https://wdown.ebsi.co.kr/.../eng_mp3.mp3",   -- 드라이브 mp3 가 없을 때
+--   "series": "NE능률 (ELT·Build&Grow)",   -- 출판사 자료만 (목록 거르기에 쓴다)
+--   "extraFolders": ["1Ghj..."],           -- 같은 시험이 여러 폴더로 나뉘어 있던 것을 합쳤을 때 원래 폴더들
 --   "note": "", "tags": []
 -- }
