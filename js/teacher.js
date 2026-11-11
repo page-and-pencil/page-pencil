@@ -18068,7 +18068,10 @@ const EB_CATS=[
   {k:'basic',    g:'기출', n:'기초학력'},
   {k:'research', g:'기출', n:'연구 자료'},
   {k:'publisher',g:'교재', n:'출판사·학원용'},
-  {k:'elt',      g:'교재', n:'영어교육 출판사'}
+  {k:'elt',      g:'교재', n:'영어교육 출판사'},
+  {k:'bookaudio',g:'교재', n:'교재 음원'},
+  {k:'bookdocs', g:'교재', n:'교재 단어·워크시트'},
+  {k:'audiobook',g:'원서', n:'원서 오디오'}
 ];
 // 문서 종류 — k 값은 카탈로그 표기 그대로
 const EB_KIND={q:{n:'문제지',i:'file-text'},a:{n:'정답',i:'check'},s:{n:'해설',i:'info'},sc:{n:'듣기대본',i:'file-text'},etc:{n:'기타',i:'paperclip'}};
@@ -18084,6 +18087,7 @@ const _ebFull=new Map();       // 상세를 연 행의 data 전체 (이 세션 �
 let _ebPage=1,_ebViewId='',_ebDetailId='';
 let _ebF={cat:'',series:'',level:'',grade:'',term:'',y1:'',y2:'',region:'',city:'',school:'',audio:false,only:'',q:''};
 let _ebAuIdx=-1,_ebAuList=[];  // 지금 열어 둔 드라이브 음원 (한 번에 하나)
+let _ebAuLbl='다음 문항 ▶';     // 원서 오디오는 '다음 트랙'
 
 const _ebE=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const _ebA=x=>escAttr(_ebE(x));
@@ -18499,7 +18503,8 @@ async function ebOpenDetail(id){
   const row=(_ebRows||[]).find(r=>r.id===id),m=(row&&row.meta)||{};
   const t=document.getElementById('eb-d-title');if(t)t.textContent=m.title||'자료';
   const s=document.getElementById('eb-d-sub');
-  if(s)s.textContent=[_ebCatName(m.cat),m.grade||m.level,m.year?(m.year+'년'+(m.month?(' '+m.month+'월'):'')):'',m.term,m.school,m.series,m.path].filter(Boolean).join(' · ');
+  // 원서·교재 줄은 시리즈와 폴더 경로가 같은 말일 때가 많다 — 같은 말은 한 번만
+  if(s)s.textContent=[...new Set([_ebCatName(m.cat),m.grade||m.level,m.year?(m.year+'년'+(m.month?(' '+m.month+'월'):'')):'',m.term,m.school,m.series,m.path].filter(Boolean))].join(' · ');
   const body=document.getElementById('eb-d-body');
   if(body)body.innerHTML='<div class="eb-empty">불러오는 중…</div>';
   _ebPaintFav();
@@ -18519,6 +18524,9 @@ function _ebDetailHtml(d){
   });
   const main=files.filter(f=>f.k!=='etc');          // 문제지·정답·해설·듣기대본
   const etc=files.filter(f=>f.k==='etc');           // 통계·분석표 등 — 합쳐진 폴더 자료도 여기로 온다
+  const cat=String(d.cat||((((_ebRows||[]).find(r=>r.id===_ebDetailId)||{}).meta)||{}).cat||'');
+  const auFirst=(cat==='audiobook');   // 원서는 음원이 주 — 듣기를 문서보다 위에 둔다
+  _ebAuLbl=auFirst?'다음 트랙 ▶':'다음 문항 ▶';
   const au=(d.audio&&Array.isArray(d.audio.files)?d.audio.files:[]).filter(a=>a&&a.id).slice();
   au.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ko',{numeric:true}));
   const fileList=list=>'<div class="eb-files">'+list.map(f=>{
@@ -18530,33 +18538,36 @@ function _ebDetailHtml(d){
         (f.size?'<span class="eb-file-s">'+Math.max(1,Math.round(f.size/1024)).toLocaleString()+'KB</span>':'')+
       '</button>';
     }).join('')+'</div>';
-  let h='';
-  if(main.length||!etc.length){
-    h+='<div class="eb-sec"><div class="eb-sec-t">문서 '+main.length+'개</div>';
-    h+=main.length?fileList(main):'<div class="eb-empty">등록된 문서가 없습니다.</div>';
-    h+='</div>';
+  let hDoc='';
+  // 음원만 있는 줄(원서 한 권 등)에는 '등록된 문서가 없습니다'를 띄우지 않는다
+  if(main.length||(!etc.length&&!au.length&&!d.extAudio)){
+    hDoc+='<div class="eb-sec"><div class="eb-sec-t">문서 '+main.length+'개</div>';
+    hDoc+=main.length?fileList(main):'<div class="eb-empty">등록된 문서가 없습니다.</div>';
+    hDoc+='</div>';
   }
   if(etc.length)
-    h+='<div class="eb-sec"><div class="eb-sec-t">기타 자료 '+etc.length+'개</div>'+fileList(etc)+'</div>';
+    hDoc+='<div class="eb-sec"><div class="eb-sec-t">기타 자료 '+etc.length+'개</div>'+fileList(etc)+'</div>';
+  let hAu='';
   if(au.length||d.extAudio){
     _ebAuList=au;_ebAuIdx=-1;
-    h+='<div class="eb-sec"><div class="eb-sec-t">듣기'+(au.length?(' '+au.length+'개'):'')+'</div>';
+    hAu+='<div class="eb-sec"><div class="eb-sec-t">듣기'+(au.length?(' '+au.length+'개'):'')+'</div>';
     if(d.extAudio)
-      h+='<div class="eb-au"><div class="eb-au-n">바깥 음원 (EBS 등)</div>'+
+      hAu+='<div class="eb-au"><div class="eb-au-n">바깥 음원 (EBS 등)</div>'+
          '<audio controls preload="none" src="'+_ebA(d.extAudio)+'" style="width:100%"></audio></div>';
     if(au.length){
       // 드라이브 음원은 <audio> 로 직접 받으면 쿠키가 붙지 않아 막힌다(라이브 확인) —
       // 처음부터 드라이브 재생기로 열고, 누른 것 하나만 띄운다.
-      h+='<div class="eb-aul">'+au.map((a,i)=>
+      hAu+='<div class="eb-aul">'+au.map((a,i)=>
         '<div class="eb-aui"><button class="eb-aub" id="eb-aub-'+i+'" onclick="ebAuOpen('+i+')">'+
           '<span class="eb-aup">▶</span><span class="eb-aun">'+_ebE(a.name||('음원 '+(i+1)))+'</span></button>'+
           '<div class="eb-aubox" id="eb-aubox-'+i+'" style="display:none"></div></div>').join('')+'</div>';
-      h+='<div class="eb-note" style="margin-top:8px">드라이브 음원은 누르면 재생기가 열립니다 — 한 번에 하나만 열려요.</div>';
+      hAu+='<div class="eb-note" style="margin-top:8px">드라이브 음원은 누르면 재생기가 열립니다 — 한 번에 하나만 열려요.</div>';
     }
     if(d.audio&&d.audio.folderId)
-      h+='<div style="margin-top:8px"><a class="btn bo bsm" href="'+_ebA(ebFolderUrl(d.audio.folderId))+'" target="_blank" rel="noopener">듣기 폴더 열기</a></div>';
-    h+='</div>';
+      hAu+='<div style="margin-top:8px"><a class="btn bo bsm" href="'+_ebA(ebFolderUrl(d.audio.folderId))+'" target="_blank" rel="noopener">듣기 폴더 열기</a></div>';
+    hAu+='</div>';
   }
+  let h=auFirst?(hAu+hDoc):(hDoc+hAu);   // 원서면 듣기가 먼저
   if(d.note)h+='<div class="eb-sec"><div class="eb-sec-t">메모</div><div class="eb-memo">'+_ebE(d.note)+'</div></div>';
   h+='<div class="eb-sec" style="display:flex;gap:8px;flex-wrap:wrap">';
   if(d.folderId)h+='<a class="btn bo bsm" href="'+_ebA(ebFolderUrl(d.folderId))+'" target="_blank" rel="noopener"><i data-lucide="folder" width="15" height="15" style="vertical-align:-3px"></i> 드라이브 폴더 열기</a>';
@@ -18586,7 +18597,7 @@ function ebAuOpen(i){
   const box=document.getElementById('eb-aubox-'+i);if(!box)return;
   box.innerHTML='<iframe class="eb-aufr" src="'+_ebA(ebPreviewUrl(a.id))+'" allow="autoplay"></iframe>'+
     '<div class="eb-aunav">'+
-    (i+1<_ebAuList.length?'<button class="btn bo bsm" onclick="ebAuOpen('+(i+1)+')">다음 문항 ▶</button>':'')+
+    (i+1<_ebAuList.length?'<button class="btn bo bsm" onclick="ebAuOpen('+(i+1)+')">'+_ebE(_ebAuLbl)+'</button>':'')+
     '<a class="btn bo bsm" href="'+_ebA(ebViewUrl(a.id))+'" target="_blank" rel="noopener">새 탭에서 열기</a></div>';
   box.style.display='';
   const b=document.getElementById('eb-aub-'+i);if(b)b.classList.add('on');
