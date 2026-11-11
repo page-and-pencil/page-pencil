@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261111g">
+<link rel="stylesheet" href="css/style.css?v=20261112b">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -651,6 +651,7 @@
         <button id="dtab-word" onclick="switchDataTab('word')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 어휘</button>
         <button id="dtab-ws" onclick="switchDataTab('ws')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 저장된 워크시트</button>
         <button id="dtab-iso" onclick="switchDataTab('iso')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="wand-2" width="15" height="15" style="vertical-align:-3px"></i> 동형 문제</button>
+        <button id="dtab-items" onclick="switchDataTab('items')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="library" width="15" height="15" style="vertical-align:-3px"></i> 문제 은행</button>
         <button id="dtab-exam" onclick="switchDataTab('exam')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="calendar-days" width="15" height="15" style="vertical-align:-3px"></i> 시험 일정</button>
         <button id="dtab-master" onclick="switchDataTab('master')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="wrench" width="15" height="15" style="vertical-align:-3px"></i> 백업·일괄</button>
         <button id="dtab-bank" onclick="switchDataTab('bank')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 자료실</button>
@@ -799,7 +800,64 @@
           <button class="btn bo bsm" onclick="isoPrint('a')">🖨 정답·해설지</button>
           <span style="flex:1"></span>
           <span id="iso-nosave" class="iso-nosave" style="display:none">이 묶음은 이 기기에만 보관돼요 (원문 지문) — 인쇄로 쓰세요.</span>
+          <button class="btn bo bsm" id="iso-tobank" style="display:none" onclick="isoToBank()">📥 문제 은행으로 가져오기</button>
           <button class="btn bt bsm" id="iso-save" onclick="isoSave()">지금 저장</button>
+        </div>
+      </div>
+
+      <!-- 문제 은행 sub-panel (문항 한 개 = 한 줄 — 선생님 전용) -->
+      <div id="dp-items" style="display:none">
+        <div class="sh">
+          <div style="min-width:0">
+            <div class="st"><i data-lucide="library" width="15" height="15" style="vertical-align:-3px"></i> 문제 은행</div>
+            <div class="ssub"><span id="ib-count"></span> <span id="ib-state" class="eb-state"></span></div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <span id="ib-basket" class="ib-basket">🧺 바구니 0개</span>
+            <button class="btn bo bsm" onclick="ibAddManual()"><i data-lucide="plus" width="14" height="14" style="vertical-align:-2px"></i> 문항 추가</button>
+            <div style="position:relative">
+              <button class="btn bo bsm" onclick="ibMenu(event)" title="더 보기" aria-label="더 보기">⋯</button>
+              <div id="ib-menu" class="eb-menu" style="display:none">
+                <button onclick="ibImportPick('skip')">JSON 가져오기… (새 문항만)</button>
+                <button onclick="ibImportPick('over')">JSON 가져오기… (같은 id 덮어쓰기)</button>
+                <div class="mi-hint">문항 JSON — <b>정답은 0부터(① = 0)</b><br>덮어써도 검수했거나 손댄 문항은 지킵니다</div>
+                <button onclick="ibRefresh()">지금 최신화</button>
+                <button onclick="ibCacheClear()">기기 캐시 비우고 다시 받기</button>
+              </div>
+            </div>
+            <input type="file" id="ib-import-file" accept=".json,application/json" style="display:none" onchange="ibImportFile(event)">
+          </div>
+        </div>
+
+        <div class="ib-wrap">
+          <!-- 왼쪽: 거르기 -->
+          <div class="ib-side">
+            <div class="ib-s-t">거르기</div>
+            <select class="filter-sel" id="ib-f-skill" onchange="ibFilterChange()"></select>
+            <select class="filter-sel" id="ib-f-type" onchange="ibFilterChange()"></select>
+            <select class="filter-sel" id="ib-f-grade" onchange="ibFilterChange()"></select>
+            <select class="filter-sel" id="ib-f-diff" onchange="ibFilterChange()"></select>
+            <select class="filter-sel" id="ib-f-src" onchange="ibFilterChange()"></select>
+            <select class="filter-sel" id="ib-f-tb" onchange="ibFilterChange()"></select>
+            <select class="filter-sel" id="ib-f-unit" onchange="ibFilterChange()" style="display:none"></select>
+            <select class="filter-sel" id="ib-f-checked" onchange="ibFilterChange()"></select>
+            <select class="filter-sel" id="ib-f-tag" onchange="ibFilterChange()"></select>
+            <label class="iso-chk"><input type="checkbox" id="ib-f-star" onchange="ibFilterChange()"> 별표만</label>
+            <input type="text" class="eb-q" id="ib-f-q" placeholder="발문·선택지 검색…" oninput="ibFilterChange()">
+            <div class="ib-s-row">
+              <button class="btn bo bsm" onclick="ibDeepSearch()" title="목록에 없는 지문 속까지 서버에서 찾습니다">본문까지 찾기</button>
+              <button class="btn bo bsm" onclick="ibResetFilters()">초기화</button>
+            </div>
+          </div>
+
+          <!-- 가운데: 문항 카드 -->
+          <div class="ib-mid">
+            <div id="ib-bulk" class="ib-bulk" style="display:none"></div>
+            <div id="ib-list"></div>
+          </div>
+
+          <!-- 오른쪽: 미리보기·고치기 -->
+          <div class="ib-detail" id="ib-detail"></div>
         </div>
       </div>
 
@@ -2749,7 +2807,7 @@
 <script src="js/utils.js?v=20261111b"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261111c"></script>
-<script src="js/teacher.js?v=20261111g"></script>
+<script src="js/teacher.js?v=20261112b"></script>
 <script src="js/student.js?v=20261111e"></script>
 <script src="js/parent.js?v=20261111b"></script>
 </body>
