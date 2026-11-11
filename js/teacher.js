@@ -18961,6 +18961,7 @@ async function _isoCreate(n,extra){
   const key=_isoCfg.type||(_isoAnalysis&&_isoAnalysis.type)||'';
   const t=ISO_TYPES[key]||{n:'',w:''};
   const essay=_isoIsEssay(key);
+  const srcW=Number(_isoAnalysis&&_isoAnalysis.words)||0;   // 원본 지문 단어 수
   const diff={same:'원본과 같은 난이도',easy:'원본보다 한 단계 쉽게',hard:'원본보다 한 단계 어렵게'}[_isoCfg.diff]||'원본과 같은 난이도';
   const lines=[];
   lines.push('너는 한국 영어 시험 출제 경험이 많은 선생님이다. 아래 조건으로 새 문항 '+n+'개를 만들어 JSON 배열로만 답하라.');
@@ -18971,7 +18972,7 @@ async function _isoCreate(n,extra){
       words:_isoAnalysis.words||'',level:_isoAnalysis.level||'',
       points:_isoAnalysis.points||[],distractors:_isoAnalysis.distractors||''
     }));
-    lines.push('원본과 같은 발문 형식, 같은 선택지 수, 지문 길이는 원본의 ±10% 로 맞춘다.');
+    lines.push('원본과 같은 발문 형식, 같은 선택지 수로 만든다.');
   }
   lines.push('\n[설정]');
   lines.push('- 학년·수준: '+_isoCfg.grade+' 교육과정 어휘 수준 · '+diff);
@@ -18988,6 +18989,11 @@ async function _isoCreate(n,extra){
   }else{
     lines.push('- 지문: 새로 쓴다.'+(_isoCfg.topic?(' 주제는 "'+_isoCfg.topic+'" 쪽으로.'):' 주제는 자유롭게 고르되 문항마다 다르게.'));
   }
+  if(srcW&&_isoCfg.passage!=='keep'){   // 새 지문이 자꾸 20% 넘게 짧아져서 숫자로 못 박는다
+    const lo=Math.round(srcW*0.9),hi=Math.round(srcW*1.1);
+    lines.push('- 지문 길이: 원본은 '+srcW+'단어다. 새 지문은 '+srcW+'단어 안팎, 반드시 '+lo+'~'+hi+'단어로 쓴다.');
+    lines.push('  다 쓴 뒤 단어 수를 세어 '+lo+'단어보다 짧으면 내용을 더 붙여 채운다. 요약하듯 줄이지 마라.');
+  }
   lines.push('- 정답 위치는 문항마다 고르게 흩어지게 한다(모두 같은 번호가 되지 않게).');
   if(essay&&_isoCfg.rubric)lines.push('- 서술형이므로 채점 기준(배점 포함)을 반드시 쓴다.');
   if(extra)lines.push('\n[다시 만드는 이유] '+extra);
@@ -18996,7 +19002,7 @@ async function _isoCreate(n,extra){
   const txt=await _isoCall([{type:'text',text:lines.join('\n')}],16000);
   let arr=_isoJson(txt);
   if(!Array.isArray(arr))arr=[arr];
-  const sw=Number(_isoAnalysis&&_isoAnalysis.words)||0;
+  const sw=srcW;
   const keep=(_isoCfg.passage==='keep');   // 기출·출판사 원문 지문 — 저장하지 않고 인쇄만
   return arr.map(x=>{const it=_isoNorm(x,key);it.srcWords=sw;it.srcKeep=keep;return it;});
 }
@@ -19053,6 +19059,7 @@ async function isoGenerate(){
   if(!hasSrc&&!_isoCfg.type){toast('원본을 넣거나 유형을 골라 주세요');return;}
   if(_isoCfg.passage==='book'&&!_isoBookText()){toast('교재와 단원을 고르면 본문을 씁니다');return;}
   _isoBusy=true;_isoPaintSrc();
+  let okMade=false;
   const btn=document.getElementById('iso-go');if(btn)btn.disabled=true;
   try{
     if(hasSrc){
@@ -19075,6 +19082,7 @@ async function isoGenerate(){
     _isoStat('',100);
     const bad=_isoItems.filter(it=>it.check).length;
     toast(bad?('문항 '+_isoItems.length+'개 — 확인 필요 '+bad+'개'):('문항 '+_isoItems.length+'개를 만들었어요 ✓'));
+    okMade=true;
   }catch(e){
     console.warn('iso:',e);
     _isoStat('',0);
@@ -19084,11 +19092,16 @@ async function isoGenerate(){
     const b=document.getElementById('iso-go');if(b)b.disabled=false;
     _isoPaintSrc();_isoRender();
   }
+  if(okMade){
+    try{await _isoAutoSave(false);}catch(e){}   // 만든 직후 자동 저장
+    _isoScrollToFirst();                        // 첫 문항 카드가 보이게 내려 준다
+  }
 }
 async function isoRegen(i){
   if(_isoBusy)return;
   const old=_isoItems[i];if(!old)return;
   _isoBusy=true;_isoRender();
+  let okRe=false;
   try{
     _isoStat('문항 '+(i+1)+'번을 다시 만드는 중…',40);
     const why=old.check?('앞서 만든 문항에 이런 문제가 있었다: '+old.checkNote+' 같은 실수를 하지 마라.')
@@ -19097,24 +19110,25 @@ async function isoRegen(i){
     if(made&&made[0]){
       _isoStat('다시 푼 결과를 확인하는 중…',75);
       try{await _isoVerify(made);}catch(e){made[0].check=true;made[0].checkNote='검증을 하지 못했어요.';}
-      _isoItems[i]=made[0];
+      _isoItems[i]=made[0];okRe=true;
     }
     _isoStat('',100);
   }catch(e){toast('다시 만들기 실패: '+((e&&e.message)||''));_isoStat('',0);}
-  finally{_isoBusy=false;_isoRender();}
+  finally{_isoBusy=false;_isoRender();if(okRe)_isoAutoSave(false);}   // 다시 만든 뒤 자동 저장
 }
 function isoMove(i,d){
   const j=i+d;if(j<0||j>=_isoItems.length)return;
-  const t=_isoItems[i];_isoItems[i]=_isoItems[j];_isoItems[j]=t;_isoRender();
+  const t=_isoItems[i];_isoItems[i]=_isoItems[j];_isoItems[j]=t;_isoRender();_isoAutoLater();
 }
-function isoDel(i){_isoItems.splice(i,1);_isoRender();}
+function isoDel(i){_isoItems.splice(i,1);_isoRender();_isoAutoLater();}
 function isoEdit(i,field,el,ci){
   const it=_isoItems[i];if(!it)return;
   const val=String(el.innerText||'').replace(/ /g,' ').trim();
   if(field==='choice')it.choices[ci]=val;
   else it[field]=val;
+  _isoAutoLater();
 }
-function isoSetAnswer(i,ci){const it=_isoItems[i];if(!it)return;it.answer=ci;it.check=false;it.checkNote='';_isoRender();}
+function isoSetAnswer(i,ci){const it=_isoItems[i];if(!it)return;it.answer=ci;it.check=false;it.checkNote='';_isoRender();_isoAutoLater();}
 
 // ── 결과 화면 ─────────────────────────────────────────────────────────────
 function _isoRender(){
@@ -19126,9 +19140,9 @@ function _isoRender(){
     return;
   }
   if(foot)foot.style.display='';
-  const noSave=_isoItems.some(it=>it.srcKeep);          // ② 원본 지문 유지 — 인쇄만
-  const sb=document.getElementById('iso-save');if(sb)sb.style.display=noSave?'none':'';
-  const ns=document.getElementById('iso-nosave');if(ns)ns.style.display=noSave?'':'none';
+  const keepOnly=_isoItems.some(it=>it.srcKeep);        // ② 원본 지문 유지 — 서버 대신 기기에만
+  const sb=document.getElementById('iso-save');if(sb)sb.style.display='';
+  const ns=document.getElementById('iso-nosave');if(ns)ns.style.display=keepOnly?'':'none';
   const dist={};_isoItems.forEach(it=>{if(it.choices.length)dist[it.answer]=(dist[it.answer]||0)+1;});
   const distTxt=Object.keys(dist).sort().map(k=>_isoCirc(Number(k))+' '+dist[k]).join(' · ');
   const head=document.getElementById('iso-head');
@@ -19163,7 +19177,13 @@ function _isoRender(){
     const pw=String(it.passage||'').trim()?String(it.passage).trim().split(/\s+/).length:0;
     if(pw){
       const off=it.srcWords?Math.round((pw-it.srcWords)/it.srcWords*100):0;
-      h+='<div class="iso-meta">지문 '+pw+'단어'+(it.srcWords?(' · 원본 '+it.srcWords+'단어'+(Math.abs(off)>15?(' ('+(off>0?'+':'')+off+'%)'):'')):'')+'</div>';
+      let tag='';
+      if(it.srcWords){                                   // 범위를 벗어나면 표시만 (AI 를 더 부르지 않는다)
+        const lo=Math.round(it.srcWords*0.9),hi=Math.round(it.srcWords*1.1);
+        if(pw<lo)tag=' <span class="iso-len">짧음</span>';
+        else if(pw>hi)tag=' <span class="iso-len">김</span>';
+      }
+      h+='<div class="iso-meta">지문 '+pw+'단어'+(it.srcWords?(' · 원본 '+it.srcWords+'단어 ('+(off>0?'+':'')+off+'%)'):'')+tag+'</div>';
     }
     if(it.intent)h+='<div class="iso-meta">출제 의도: '+_ebE(it.intent)+'</div>';
     if(it.wrong&&it.wrong.length)h+='<div class="iso-meta">오답 해설: '+_ebE(it.wrong.join(' / '))+'</div>';
@@ -19239,18 +19259,43 @@ function isoPrint(kind){
   w.document.close();
 }
 
-// ── 저장 · 다시 열기 ──────────────────────────────────────────────────────
-async function isoSave(){
-  if(!_isoItems.length){toast('먼저 문항을 만들어 주세요');return;}
-  if(_isoItems.some(it=>it.srcKeep)){toast('기출·출판사 원문 지문은 저장하지 않아요 — 인쇄로만 쓰세요');return;}
-  if(typeof ppSandbox==='function'&&ppSandbox()){toast('체험 모드에서는 저장하지 않아요');return;}
+// ── 자동 저장 · 기기 보관 ─────────────────────────────────────────────────
+// 만들기·다시 만들기·고치기가 끝나면 알아서 저장한다(고치기는 1.5초 모아서 한 번).
+// 기기(IndexedDB)에도 늘 한 벌 남겨 두어 서버 저장이 실패하거나 탭을 닫았다 열어도 되살아난다.
+// 원본 지문 그대로(srcKeep) 묶음은 서버에 올리지 않고 기기에만 둔다.
+const ISO_DEV_KEY='pp_iso_sets';     // 기기 보관함 (최근 10묶음)
+const ISO_LAST_KEY='pp_iso_last';    // 마지막으로 보던 묶음 id
+const ISO_DEV_MAX=10;
+const ISO_AUTO_MS=1500;              // 고치기는 이만큼 모아서 한 번
+let _isoAutoT=null,_isoSaving=false,_isoDirty=false;
+
+function _isoP2(n){return ('0'+n).slice(-2);}
+function _isoHHMM(t){const d=new Date(t||Date.now());return _isoP2(d.getHours())+':'+_isoP2(d.getMinutes());}
+function _isoMMDD(t){const d=new Date(t||Date.now());return _isoP2(d.getMonth()+1)+'-'+_isoP2(d.getDate());}
+function _isoStatus(kind,msg){
+  const el=document.getElementById('iso-stat');if(!el)return;
+  el.className='iso-stat'+(kind?(' '+kind):'');
+  el.textContent=msg||'';
+  el.onclick=(kind==='err')?(()=>_isoAutoSave(true)):null;
+  el.title=(kind==='err')?'눌러서 다시 저장':'';
+}
+function _isoKeepOnly(){return _isoItems.some(it=>it.srcKeep);}   // 기출·출판사 원문 지문 — 서버에 올리지 않는다
+function _isoAutoTitle(){
+  const t=ISO_TYPES[_isoCfg.type];
+  return (t?t.n:'동형 문제')+' '+_isoItems.length+'문항 · '+_isoMMDD()+' '+_isoHHMM();
+}
+function _isoTitleNow(){
   const el=document.getElementById('iso-title');
-  const title=String((el&&el.value)||'').trim()||((ISO_TYPES[_isoCfg.type]?ISO_TYPES[_isoCfg.type].n:'동형 문제')+' '+_isoItems.length+'문항');
-  _isoTitle=title;
-  const id=_isoRowId||uid();
-  // 저장하는 것은 만들어진 문항뿐이다 — 올린 이미지와 붙여넣은 원본 글은 저장하지 않는다
-  const rec={
-    id:id,kind:'iso',title:title,createdAt:Date.now(),
+  let v=String((el&&el.value)||'').trim();
+  if(!v){v=_isoAutoTitle();if(el)el.value=v;}   // 비어 있으면 알아서 붙인다
+  _isoTitle=v;return v;
+}
+// 저장하는 것은 만들어진 문항뿐이다 — 올린 이미지와 붙여넣은 원본 글은 저장하지 않는다
+function _isoRec(){
+  const title=_isoTitleNow();
+  if(!_isoRowId)_isoRowId=uid();
+  return {
+    id:_isoRowId,kind:'iso',title:title,createdAt:Date.now(),
     gradeLevel:_isoCfg.grade,
     isoType:_isoCfg.type,isoTypeName:_isoTypeName(_isoCfg.type),
     source:{exam:_isoInfo.title||'',qno:_isoCfg.qno||'',passage:_isoCfg.passage,
@@ -19258,13 +19303,93 @@ async function isoSave(){
     items:_isoItems.map(it=>({...it,check:undefined,checkNote:undefined,verifyAnswer:undefined})),
     usage:{calls:_isoUse.calls,inTok:_isoUse.in,outTok:_isoUse.out,model:ISO_MODEL}
   };
-  const ok=await supaUpsert('worksheets',id,rec).catch(()=>false);
-  if(!ok){toast('저장 실패 — 잠시 뒤 다시 해 주세요');return;}
-  _isoRowId=id;
-  _cache.worksheets=(_cache.worksheets||[]).filter(w=>w.id!==id).concat([{rowId:id,...rec}]);
-  try{renderWsDB();}catch(e){}
-  toast('저장했어요 ✓ — 자료 DB → 저장된 워크시트에서 다시 열 수 있어요');
 }
+async function _isoDevPut(rec,deviceOnly){
+  try{
+    const old=await idbGet(ISO_DEV_KEY);
+    const list=(Array.isArray(old)?old:[]).filter(x=>x&&x.id!==rec.id);
+    list.unshift({...rec,deviceOnly:!!deviceOnly,savedAt:Date.now(),
+      cfg:{type:_isoCfg.type,grade:_isoCfg.grade,qno:_isoCfg.qno,passage:_isoCfg.passage,
+           choices:_isoCfg.choices,rubric:_isoCfg.rubric,n:_isoCfg.n},
+      info:{..._isoInfo}});
+    await idbSet(ISO_DEV_KEY,list.slice(0,ISO_DEV_MAX));
+    await idbSet(ISO_LAST_KEY,rec.id);
+  }catch(e){}
+}
+async function _isoDevLast(){
+  try{
+    const id=await idbGet(ISO_LAST_KEY);if(!id)return null;
+    const list=await idbGet(ISO_DEV_KEY);
+    return (Array.isArray(list)?list:[]).find(x=>x&&x.id===id)||null;
+  }catch(e){return null;}
+}
+function _isoAutoLater(){
+  if(_isoAutoT)clearTimeout(_isoAutoT);_isoAutoT=null;
+  if(!_isoItems.length){_isoStatus('','');return;}   // 문항 0개는 저장하지 않는다
+  _isoStatus('','고친 내용 저장 대기…');
+  _isoAutoT=setTimeout(()=>{_isoAutoT=null;_isoAutoSave(false);},ISO_AUTO_MS);
+}
+async function _isoAutoSave(manual){
+  if(_isoAutoT){clearTimeout(_isoAutoT);_isoAutoT=null;}
+  if(!_isoItems.length){_isoStatus('','');if(manual)toast('먼저 문항을 만들어 주세요');return false;}
+  if(typeof ppSandbox==='function'&&ppSandbox()){_isoStatus('','체험 모드 — 저장하지 않아요');return false;}
+  if(_isoSaving){_isoDirty=true;return false;}
+  _isoSaving=true;
+  let ok=false;
+  try{
+    const rec=_isoRec();
+    const keep=_isoKeepOnly();
+    await _isoDevPut(rec,keep);                 // 기기에는 늘 먼저 남긴다
+    if(keep){
+      ok=true;
+      _isoStatus('ok','이 묶음은 이 기기에만 보관돼요 (원문 지문) · '+_isoHHMM());
+      if(manual)toast('원문 지문 묶음이라 이 기기에만 보관했어요 — 인쇄로 쓰세요');
+    }else{
+      _isoStatus('','저장 중…');
+      ok=!!(await supaUpsert('worksheets',rec.id,rec).catch(()=>false));
+      if(ok){
+        _isoStatus('ok','저장됨 '+_isoHHMM());
+        _cache.worksheets=(_cache.worksheets||[]).filter(w=>w.id!==rec.id).concat([{rowId:rec.id,...rec}]);
+        try{renderWsDB();}catch(e){}
+        if(manual)toast('저장했어요 ✓ — 자료 DB → 저장된 워크시트에서 다시 열 수 있어요');
+      }else{
+        _isoStatus('err','저장 실패 · 다시 저장');
+        if(manual)toast('저장 실패 — 잠시 뒤 다시 해 주세요');
+      }
+    }
+  }catch(e){_isoStatus('err','저장 실패 · 다시 저장');}
+  _isoSaving=false;
+  if(_isoDirty){_isoDirty=false;_isoAutoLater();}
+  return ok;
+}
+// 탭을 닫았다 열거나 새로고침했을 때 마지막 작업을 되살린다
+async function _isoRestore(){
+  if(_isoItems.length||_isoBusy)return;
+  if(typeof ppSandbox==='function'&&ppSandbox())return;
+  const d=await _isoDevLast();
+  if(!d||!Array.isArray(d.items)||!d.items.length)return;
+  if(_isoItems.length)return;                     // 그새 뭔가 만들었으면 건드리지 않는다
+  _isoRowId=d.id;_isoTitle=d.title||'';
+  _isoItems=d.items.map(it=>({...it,check:false,checkNote:''}));
+  if(d.cfg)_isoCfg={..._isoCfg,...d.cfg};
+  if(d.info)_isoInfo={..._isoInfo,...d.info};
+  const t=document.getElementById('iso-title');if(t)t.value=_isoTitle;
+  const st=document.getElementById('iso-exam');
+  if(st){st.textContent=_isoInfo.title?('가져온 시험: '+_isoInfo.title):'';st.style.display=_isoInfo.title?'':'none';}
+  _isoPaintCfg();_isoRender();
+  _isoStatus('ok',(d.deviceOnly?'이 기기에만 보관돼요 (원문 지문) · ':'저장됨 ')+_isoHHMM(d.savedAt));
+  toast('마지막 작업을 되살렸어요 — 문항 '+_isoItems.length+'개');
+}
+function _isoScrollToFirst(){
+  try{
+    const c=document.querySelector('#iso-list .iso-card');
+    if(c)c.scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(e){}
+}
+
+// ── 저장 · 다시 열기 ──────────────────────────────────────────────────────
+async function isoSave(){return _isoAutoSave(true);}   // [지금 저장] — 자동 저장과 같은 길
+
 function isoOpenSaved(id){
   const w=(_cache.worksheets||[]).find(x=>x.id===id);
   if(!w){toast('찾지 못했어요');return;}
@@ -19277,14 +19402,17 @@ function isoOpenSaved(id){
   _isoUse={calls:0,in:0,out:0};
   swTab('t-data');switchDataTab('iso');
   const t=document.getElementById('iso-title');if(t)t.value=_isoTitle;
-  _isoPaintCfg();_isoRender();_isoCost();
+  _isoPaintCfg();_isoRender();_isoCost();_isoStatus('ok','저장됨 · 불러온 묶음');
 }
 function isoNew(){
+  if(_isoAutoT){clearTimeout(_isoAutoT);_isoAutoT=null;}
   _isoItems=[];_isoRowId='';_isoTitle='';_isoAnalysis=null;_isoUse={calls:0,in:0,out:0};
   _isoInfo={title:'',cat:'',grade:''};_isoCfg.qno='';
   const t=document.getElementById('iso-title');if(t)t.value='';
   const h=document.getElementById('iso-type-hint');if(h)h.textContent='';
   isoClearSrc();_isoPaintCfg();_isoRender();_isoCost();
+  try{idbSet(ISO_LAST_KEY,'');}catch(e){}   // 저장된 것은 지우지 않고 화면만 비운다
+  _isoStatus('','');
 }
 function isoOpenTab(){
   _isoLoadCfg();_isoPaintCfg();_isoRender();_isoCost();
@@ -19293,4 +19421,5 @@ function isoOpenTab(){
     st.textContent=_isoInfo.title?('가져온 시험: '+_isoInfo.title):'';
     st.style.display=_isoInfo.title?'':'none';
   }
+  _isoRestore();   // 탭을 닫았다 열어도 마지막 작업이 되살아난다
 }

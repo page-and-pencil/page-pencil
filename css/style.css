@@ -803,6 +803,8 @@ div.ig-like{cursor:default;}
 /* 자료 DB 탭 외부 스크롤 제거 — 내부 테이블/카드 그리드가 남은 높이를 채움 */
 #t-data.panel.active{display:flex;flex-direction:column;height:100%;overflow:hidden;box-sizing:border-box;}
 #dp-book,#dp-word,#dp-ws,#dp-master,#dp-class5{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+/* 자료실·동형 문제 칸은 안쪽 스크롤 칸이 없다 — 칸 자체가 남은 높이를 차지하고 그 안에서 스크롤 */
+#dp-bank,#dp-iso{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;}
 #t-data .sh,#t-data .lib-search-bar,
 #book-bulk-bar,#wdb-bulk-bar,
 #book-pager,#wdb-pager,#master-pager{flex-shrink:0;}
@@ -2969,3 +2971,9 @@ body{font-size:14.5px;line-height:1.65;}
 .eb-aufr{width:100%;height:72px;border:0;display:block;border-radius:10px;background:var(--cream2);}
 .eb-aunav{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
 .iso-nosave{font-size:12px;color:var(--slate2);line-height:1.6;}
+
+/* 동형 문제 — 자동 저장 상태 · 지문 길이 표시 */
+.iso-stat{font-size:11.5px;color:var(--slate2);white-space:nowrap;}
+.iso-stat.ok{color:var(--okt);}
+.iso-stat.err{color:var(--warnt);cursor:pointer;text-decoration:underline;}
+.iso-len{font-size:11px;font-weight:700;color:var(--warnt);background:var(--warnl);border-radius:6px;padding:1px 7px;margin-left:4px;}
