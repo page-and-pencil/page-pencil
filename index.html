@@ -797,7 +797,8 @@
           <button class="btn bo bsm" onclick="isoPrint('q')">🖨 문제지</button>
           <button class="btn bo bsm" onclick="isoPrint('a')">🖨 정답·해설지</button>
           <span style="flex:1"></span>
-          <button class="btn bt bsm" onclick="isoSave()">저장</button>
+          <span id="iso-nosave" class="iso-nosave" style="display:none">기출·출판사 원문 지문은 저장하지 않아요. 인쇄로만 쓰세요.</span>
+          <button class="btn bt bsm" id="iso-save" onclick="isoSave()">저장</button>
         </div>
       </div>
 

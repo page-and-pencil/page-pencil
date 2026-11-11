@@ -18083,7 +18083,7 @@ let _ebLoading=false,_ebNote='';
 const _ebFull=new Map();       // 상세를 연 행의 data 전체 (이 세션 동안 메모리에만)
 let _ebPage=1,_ebViewId='',_ebDetailId='';
 let _ebF={cat:'',series:'',level:'',grade:'',term:'',y1:'',y2:'',region:'',city:'',school:'',audio:false,only:'',q:''};
-let _ebSeq=null;               // 전체 이어 듣기 중인 번호
+let _ebAuIdx=-1,_ebAuList=[];  // 지금 열어 둔 드라이브 음원 (한 번에 하나)
 
 const _ebE=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const _ebA=x=>escAttr(_ebE(x));
@@ -18495,7 +18495,7 @@ function _ebPaintFav(){
 function ebDetailFav(){if(_ebDetailId)ebToggleFav(_ebDetailId);}
 async function ebOpenDetail(id){
   if(!ebMayUse())return;
-  _ebDetailId=id;_ebSeq=null;
+  _ebDetailId=id;_ebAuIdx=-1;_ebAuList=[];
   const row=(_ebRows||[]).find(r=>r.id===id),m=(row&&row.meta)||{};
   const t=document.getElementById('eb-d-title');if(t)t.textContent=m.title||'자료';
   const s=document.getElementById('eb-d-sub');
@@ -18539,17 +18539,20 @@ function _ebDetailHtml(d){
   if(etc.length)
     h+='<div class="eb-sec"><div class="eb-sec-t">기타 자료 '+etc.length+'개</div>'+fileList(etc)+'</div>';
   if(au.length||d.extAudio){
-    h+='<div class="eb-sec"><div class="eb-sec-t">듣기'+(au.length?(' '+au.length+'개'):'')+
-       (au.length>1?'<button class="btn bo bsm" style="margin-left:8px;padding:3px 10px;font-size:12px" onclick="ebPlayAll()">전체 이어 듣기</button>':'')+'</div>';
+    _ebAuList=au;_ebAuIdx=-1;
+    h+='<div class="eb-sec"><div class="eb-sec-t">듣기'+(au.length?(' '+au.length+'개'):'')+'</div>';
     if(d.extAudio)
       h+='<div class="eb-au"><div class="eb-au-n">바깥 음원 (EBS 등)</div>'+
          '<audio controls preload="none" src="'+_ebA(d.extAudio)+'" style="width:100%"></audio></div>';
-    au.forEach((a,i)=>{
-      h+='<div class="eb-au" id="eb-au-box-'+i+'"><div class="eb-au-n">'+_ebE(a.name||('음원 '+(i+1)))+
-         '<button class="eb-rep" title="이 음원만 반복" onclick="ebRepeat('+i+',this)">반복</button></div>'+
-         '<audio id="eb-au-'+i+'" controls preload="none" src="'+_ebA(ebAudioUrl(a.id))+'" style="width:100%" '+
-         'onerror="ebAudioFail('+i+',\''+escJsA(a.id)+'\')" onended="ebAudioEnded('+i+')"></audio></div>';
-    });
+    if(au.length){
+      // 드라이브 음원은 <audio> 로 직접 받으면 쿠키가 붙지 않아 막힌다(라이브 확인) —
+      // 처음부터 드라이브 재생기로 열고, 누른 것 하나만 띄운다.
+      h+='<div class="eb-aul">'+au.map((a,i)=>
+        '<div class="eb-aui"><button class="eb-aub" id="eb-aub-'+i+'" onclick="ebAuOpen('+i+')">'+
+          '<span class="eb-aup">▶</span><span class="eb-aun">'+_ebE(a.name||('음원 '+(i+1)))+'</span></button>'+
+          '<div class="eb-aubox" id="eb-aubox-'+i+'" style="display:none"></div></div>').join('')+'</div>';
+      h+='<div class="eb-note" style="margin-top:8px">드라이브 음원은 누르면 재생기가 열립니다 — 한 번에 하나만 열려요.</div>';
+    }
     if(d.audio&&d.audio.folderId)
       h+='<div style="margin-top:8px"><a class="btn bo bsm" href="'+_ebA(ebFolderUrl(d.audio.folderId))+'" target="_blank" rel="noopener">듣기 폴더 열기</a></div>';
     h+='</div>';
@@ -18567,40 +18570,33 @@ function _ebDetailHtml(d){
   h+='<div class="eb-note">자료 계정 <b>'+_ebE(ebAcct())+'</b> 으로 엽니다. 비공개 드라이브라 "권한이 필요합니다"가 뜨면 미리보기 창의 <b>새 탭에서 열기</b>로 그 계정에 로그인해 주세요. (설정 → 자료 계정)</div>';
   return h;
 }
-// mp3 가 막히면(그 계정으로 로그인돼 있지 않은 등) 드라이브 재생기로 바꿔 준다
-function ebAudioFail(i,fileId){
-  const box=document.getElementById('eb-au-box-'+i);if(!box)return;
-  const el=document.getElementById('eb-au-'+i);if(el)el.remove();
-  if(box.querySelector('iframe'))return;
-  const f=document.createElement('iframe');
-  f.src=ebPreviewUrl(fileId);f.width='100%';f.height='70';f.style.border='0';f.setAttribute('allow','autoplay');
-  box.appendChild(f);
-  const a=document.createElement('div');
-  a.className='eb-note';a.style.margin='4px 0 0';
-  a.innerHTML='바로 재생이 막혀 드라이브 재생기로 바꿨습니다. <a href="'+_ebA(ebViewUrl(fileId))+'" target="_blank" rel="noopener">새 탭에서 열기</a>';
-  box.appendChild(a);
+// 드라이브 음원 — 누른 것 하나만 드라이브 재생기로 연다
+// (라이브에서 drive.usercontent 의 mp3 는 쿠키가 붙지 않아 <audio> 로는 늘 막힌다)
+function ebAuClose(i){
+  const box=document.getElementById('eb-aubox-'+i);
+  if(box){box.innerHTML='';box.style.display='none';}
+  const b=document.getElementById('eb-aub-'+i);
+  if(b)b.classList.remove('on');
+  if(_ebAuIdx===i)_ebAuIdx=-1;
 }
-function ebRepeat(i,btn){
-  const el=document.getElementById('eb-au-'+i);if(!el)return;
-  el.loop=!el.loop;
-  if(btn)btn.classList.toggle('on',el.loop);
-  if(el.loop){_ebSeq=null;try{el.play();}catch(e){}}
-}
-function ebPlayAll(){
-  _ebSeq=0;
-  const el=document.getElementById('eb-au-0');
-  if(el){el.loop=false;try{el.play();}catch(e){}}
-}
-function ebAudioEnded(i){
-  if(_ebSeq===null)return;
-  const nx=document.getElementById('eb-au-'+(i+1));
-  if(!nx){_ebSeq=null;return;}
-  _ebSeq=i+1;
-  try{nx.scrollIntoView({block:'nearest'});nx.play();}catch(e){}
+function ebAuOpen(i){
+  if(_ebAuIdx>=0&&_ebAuIdx!==i)ebAuClose(_ebAuIdx);
+  if(_ebAuIdx===i){ebAuClose(i);return;}            // 같은 것을 다시 누르면 닫는다
+  const a=_ebAuList[i];if(!a)return;
+  const box=document.getElementById('eb-aubox-'+i);if(!box)return;
+  box.innerHTML='<iframe class="eb-aufr" src="'+_ebA(ebPreviewUrl(a.id))+'" allow="autoplay"></iframe>'+
+    '<div class="eb-aunav">'+
+    (i+1<_ebAuList.length?'<button class="btn bo bsm" onclick="ebAuOpen('+(i+1)+')">다음 문항 ▶</button>':'')+
+    '<a class="btn bo bsm" href="'+_ebA(ebViewUrl(a.id))+'" target="_blank" rel="noopener">새 탭에서 열기</a></div>';
+  box.style.display='';
+  const b=document.getElementById('eb-aub-'+i);if(b)b.classList.add('on');
+  _ebAuIdx=i;
+  try{box.scrollIntoView({block:'nearest'});}catch(e){}
 }
 function ebCloseDetail(){
-  _ebSeq=null;_ebDetailId='';
+  _ebAuIdx=-1;_ebAuList=[];_ebDetailId='';
   document.querySelectorAll('#eb-d-body audio').forEach(a=>{try{a.pause();}catch(e){}});
+  document.querySelectorAll('#eb-d-body .eb-aubox').forEach(b=>{b.innerHTML='';b.style.display='none';});  // 재생기를 닫는다
   closeM('m-eb-detail');
 }
 
@@ -18990,7 +18986,8 @@ async function _isoCreate(n,extra){
   let arr=_isoJson(txt);
   if(!Array.isArray(arr))arr=[arr];
   const sw=Number(_isoAnalysis&&_isoAnalysis.words)||0;
-  return arr.map(x=>{const it=_isoNorm(x,key);it.srcWords=sw;return it;});
+  const keep=(_isoCfg.passage==='keep');   // 기출·출판사 원문 지문 — 저장하지 않고 인쇄만
+  return arr.map(x=>{const it=_isoNorm(x,key);it.srcWords=sw;it.srcKeep=keep;return it;});
 }
 function _isoNorm(x,key){
   const essay=_isoIsEssay(key);
@@ -19118,6 +19115,9 @@ function _isoRender(){
     return;
   }
   if(foot)foot.style.display='';
+  const noSave=_isoItems.some(it=>it.srcKeep);          // ② 원본 지문 유지 — 인쇄만
+  const sb=document.getElementById('iso-save');if(sb)sb.style.display=noSave?'none':'';
+  const ns=document.getElementById('iso-nosave');if(ns)ns.style.display=noSave?'':'none';
   const dist={};_isoItems.forEach(it=>{if(it.choices.length)dist[it.answer]=(dist[it.answer]||0)+1;});
   const distTxt=Object.keys(dist).sort().map(k=>_isoCirc(Number(k))+' '+dist[k]).join(' · ');
   const head=document.getElementById('iso-head');
@@ -19231,6 +19231,7 @@ function isoPrint(kind){
 // ── 저장 · 다시 열기 ──────────────────────────────────────────────────────
 async function isoSave(){
   if(!_isoItems.length){toast('먼저 문항을 만들어 주세요');return;}
+  if(_isoItems.some(it=>it.srcKeep)){toast('기출·출판사 원문 지문은 저장하지 않아요 — 인쇄로만 쓰세요');return;}
   if(typeof ppSandbox==='function'&&ppSandbox()){toast('체험 모드에서는 저장하지 않아요');return;}
   const el=document.getElementById('iso-title');
   const title=String((el&&el.value)||'').trim()||((ISO_TYPES[_isoCfg.type]?ISO_TYPES[_isoCfg.type].n:'동형 문제')+' '+_isoItems.length+'문항');
