@@ -6491,6 +6491,29 @@ async function openWsView(wsId,asgnId,sid){
   }catch(e){}
   if(!w){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">워크시트를 불러오지 못했어요.<br>선생님께 말씀드려 주세요.</div>';return;}
   document.getElementById('wsv-title').textContent='🗒️ '+(w.title||'워크시트');
+  if(w.kind==='iso'){                                    // 동형 문제 — 문항만 보여 준다 (정답·해설은 숨김)
+    document.getElementById('wsv-sub').textContent=[w.gradeLevel,w.isoTypeName].filter(Boolean).join(' · ');
+    const esc2=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const circ=i=>'①②③④⑤⑥⑦'.charAt(i)||String(i+1);
+    const qs=(w.items||[]).map((it,i)=>
+      '<div class="wsv-sec"><div class="wsv-sec-t">'+(i+1)+'번</div>'+
+      '<p style="margin:0 0 6px;line-height:1.7;font-weight:600">'+esc2(it.stem||'')+'</p>'+
+      (it.passage?('<p style="margin:0 0 8px;line-height:1.85;white-space:pre-wrap">'+esc2(it.passage)+'</p>'):'')+
+      ((it.choices||[]).length
+        ?('<ol style="margin:0;padding:0;list-style:none">'+it.choices.map((c,j)=>
+            '<li style="margin:3px 0;line-height:1.7">'+circ(j)+' '+esc2(c)+'</li>').join('')+'</ol>')
+        :'<div style="border-bottom:1px solid var(--border);height:26px;margin-top:6px"></div>')+
+      '</div>').join('');
+    body.innerHTML='<div style="padding:12px 16px;font-size:15px;color:var(--navy)">'
+      +'<style>.wsv-sec{margin-bottom:16px}.wsv-sec-t{font-size:13px;font-weight:800;color:var(--teal);background:var(--tl);border-radius:7px;padding:5px 10px;margin-bottom:8px;display:inline-block}</style>'
+      +(qs||'<div style="text-align:center;color:var(--slate);padding:2rem">문항이 없어요.</div>')
+      +'<div style="font-size:12px;color:var(--slate);text-align:center;padding:8px 0">답은 공책이나 인쇄물에 쓰고, 다 풀면 아래 버튼을 눌러요 ✏️</div></div>';
+    const a2=(_cache.assignments||[]).find(x=>x.id===asgnId);
+    footer.innerHTML=(a2&&!a2.completedAt)
+      ?'<button class="btn bt" style="width:100%;border-radius:50px;padding:13px;font-weight:700" onclick="completeAssignment(\''+sid+'\',\''+asgnId+'\');closeM(\'m-ws-view\')">✓ 다 풀었어요!</button>'
+      :'<button class="btn bo" style="width:100%;border-radius:50px;padding:12px" onclick="closeM(\'m-ws-view\')">닫기</button>';
+    return;
+  }
   document.getElementById('wsv-sub').textContent=[w.gradeLevel,(w.passageType==='literature'?'문학':'정보글'),w.guidelineLanguage].filter(Boolean).join(' · ');
   const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const secTitle={summary:'📌 요약 인포그래픽',literal:'🌐 문장 해석',vocab:'📖 단어',comp:'❓ 이해 질문',thinking:'💭 생각해 보기',discussion:'💬 토론 질문',writing:'✍️ 글쓰기',grammar:'🔍 문법',textstructure:'🧱 글의 구조',literary:'🎭 문학 장치',character:'👤 인물 분석',plot:'📈 플롯',theme:'🗝️ 주제와 상징'};

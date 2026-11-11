@@ -271,7 +271,8 @@ async function listWorksheets() {
   const r = await fetch(`${SUPA_URL}/rest/v1/worksheets?select=*&order=updated_at.desc`, { headers: SUPA_HEADERS });
   if (!r.ok) throw new Error(r.status === 404 ? "worksheets 테이블이 없습니다 — supabase_worksheets_table.sql을 실행해 주세요." : `저장소 오류 (HTTP ${r.status})`);
   const rows = await r.json();
-  return { worksheets: rows.map(rowSummary) };
+  // 동형 문제(kind:'iso') 는 본 앱의 '동형 문제' 화면에서 여는 것이라 스튜디오 목록에서는 뺀다
+  return { worksheets: rows.filter((r2) => ((r2.data || {}).kind || "") !== "iso").map(rowSummary) };
 }
 
 async function getWorksheet(id) {

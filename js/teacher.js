@@ -6897,6 +6897,9 @@ document.addEventListener('paste',e=>{
     // 학생 패널 리딩로그 폼이 열려 있으면 우선
     const spForm=document.getElementById('sp-log-form');
     if(spForm&&spForm.style.display!=='none'&&spForm.offsetParent!==null){e.preventDefault();_pasteToFileInput('sp-log-file',img);return;}
+    // 자료 DB 의 동형 문제 탭이 열려 있으면 원본 이미지로 받는다
+    const isoP=document.getElementById('dp-iso');
+    if(isoP&&isoP.style.display!=='none'&&isoP.offsetParent!==null){e.preventDefault();isoAddImage(img);return;}
     if(document.getElementById('t-log')?.classList.contains('active')){e.preventDefault();_pasteToFileInput('lg-file',img);return;}
     if(document.getElementById('t-tst')?.classList.contains('active')){e.preventDefault();_pasteToFileInput('tst-file',img);return;}
   }catch(err){console.warn('paste router:',err);}
@@ -6937,12 +6940,15 @@ let _dataTab='tbook';
 function switchDataTab(tab){
   if(tab==='book')tab='tbook'; // 구 통합 키 호환
   _dataTab=tab;
-  ['master','book','word','ws','exam','bank'].forEach(id=>{const p=document.getElementById('dp-'+id);if(p)p.style.display='none';});
+  ['master','book','word','ws','exam','bank','iso'].forEach(id=>{const p=document.getElementById('dp-'+id);if(p)p.style.display='none';});
   // 탭 버튼 스타일 초기화
-  ['master','tbook','lib','word','ws','exam','bank'].forEach(t=>{const b=document.getElementById('dtab-'+t);if(b){b.style.color='var(--slate)';b.style.borderBottomColor='transparent';b.style.fontWeight='600';}});
+  ['master','tbook','lib','word','ws','exam','bank','iso'].forEach(t=>{const b=document.getElementById('dtab-'+t);if(b){b.style.color='var(--slate)';b.style.borderBottomColor='transparent';b.style.fontWeight='600';}});
   const act=document.getElementById('dtab-'+tab);
   if(act){act.style.color='var(--teal)';act.style.borderBottomColor='var(--teal)';act.style.fontWeight='700';}
-  if(tab==='bank'){
+  if(tab==='iso'){
+    const p=document.getElementById('dp-iso');if(p)p.style.display='';
+    isoOpenTab();
+  } else if(tab==='bank'){
     const p=document.getElementById('dp-bank');if(p)p.style.display='';
     ebOpenTab();
   } else if(tab==='exam'){
@@ -7013,6 +7019,23 @@ async function renderWsDB(refetch){
   }
   const typeKo=t=>t==='literature'?'문학':'정보글';
   grid.innerHTML=list.map(w=>{
+    if(w.kind==='iso'){                              // 동형 문제 — 스튜디오가 아니라 동형 화면에서 연다
+      const n=(w.items||[]).length;
+      const dt=w.createdAt?new Date(w.createdAt).toLocaleDateString():'';
+      return`<div class="bcard" onclick="isoOpenSaved('${escAttr(w.id)}')">
+        <div class="bcard-cover" style="background:var(--tl)">✏️</div>
+        <span class="bcard-type" style="color:var(--tealt)">동형 문제</span>
+        ${w.gradeLevel?`<span class="bcard-lvl">${escAttr(w.gradeLevel)}</span>`:''}
+        <div class="bcard-body">
+          <div class="bcard-title">${escAttr(w.title||'제목 없음')}</div>
+          <div class="bcard-meta">${escAttr(w.isoTypeName||'')}</div>
+          <div class="bcard-stats"><span>문항 <b>${n}</b></span>${dt?`<span>${dt}</span>`:''}</div>
+        </div>
+        <div class="bcard-acts">
+          <button onclick="event.stopPropagation();deleteWsDB('${escAttr(w.id)}')" style="color:var(--coral,var(--bad))">🗑 삭제</button>
+        </div>
+      </div>`;
+    }
     const secs=w.sections?Object.keys(w.sections).length:0;
     const date=w.createdAt?new Date(w.createdAt).toLocaleDateString():'';
     return`<div class="bcard" onclick="openWorksheetInStudio('${escAttr(w.id)}')">
@@ -18625,3 +18648,637 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
   ebPaintAcct();
 });
+
+// ══════════════════════════════════════════════════════════════════════════
+// 동형 문제 만들기 (iso*) — 기출 문항과 같은 유형·같은 출제 원리로 새 문항을 만든다
+//   · 원본(이미지·붙여넣은 글)은 claude-proxy 로만 보내고 어디에도 저장하지 않는다.
+//     저장되는 것은 만들어진 문항뿐이다.
+//   · 선생님 화면에만 있다 (학생·학부모·체험 모드에는 없다).
+//   · 듣기 유형은 대본으로 만든다 — 음원은 만들지 않는다.
+// ══════════════════════════════════════════════════════════════════════════
+const ISO_MODEL='claude-opus-4-8';        // 워크시트 스튜디오와 같은 모델 정책
+const ISO_MAX=10;                         // 한 번에 만들 수 있는 문항 수
+const ISO_CFG_KEY='pp_iso_cfg';
+
+// ── 유형 사전 ─────────────────────────────────────────────────────────────
+// n 이름 · g 묶음 · w 출제 원리(생성 프롬프트에 그대로 들어간다) · s 서술형
+const ISO_TYPES={
+  l_purpose  :{g:'듣기',n:'목적',w:'담화 첫머리에 상황을 깔고 중반 이후 "그래서 ~해 주세요" 자리에서 목적이 한 번만 드러난다. 오답은 배경에 나온 소재를 목적처럼 바꿔 쓴다.'},
+  l_opinion  :{g:'듣기',n:'의견',w:'두 사람 대화에서 한 사람이 같은 주장을 표현만 바꿔 두세 번 반복한다. 반복되는 쪽이 정답이다.'},
+  l_gist     :{g:'듣기',n:'요지',w:'한 사람의 담화(방송·강연)에서 처음과 끝에 같은 말이 다른 표현으로 놓인다.'},
+  l_pic      :{g:'듣기',n:'그림 불일치',w:'그림 속 사물의 수·위치·모양·무늬를 차례로 묘사하다 한 가지만 다르게 말한다.'},
+  l_todo     :{g:'듣기',n:'할 일',w:'대화 끝부분에서 화자가 직접 맡기로 한 행동 하나가 정답. 상대가 할 일이 함정이다.'},
+  l_pay      :{g:'듣기',n:'금액',w:'단가×개수에 할인이나 추가 비용을 한 번 더 얹는다. 할인을 빠뜨린 값이 오답으로 들어간다.'},
+  l_why      :{g:'듣기',n:'이유',w:'제안을 거절하는 쪽의 마지막 설명이 이유. 앞에서 지나가듯 말한 다른 사정이 함정이다.'},
+  l_not      :{g:'듣기',n:'언급하지 않은 것',w:'한 대상에 대해 네 가지 속성을 말하고 한 가지는 말하지 않는다.'},
+  l_mismatch :{g:'듣기',n:'내용 불일치',w:'안내 담화의 날짜·장소·비용·준비물 가운데 한 가지만 선택지에서 바꾼다.'},
+  l_table    :{g:'듣기',n:'도표(표) 고르기',w:'네다섯 조건을 차례로 걸러 하나만 남게 한다.'},
+  l_short    :{g:'듣기',n:'짧은 대화 응답',w:'마지막 말에 대한 자연스러운 한 문장 응답. 오답은 앞 문장에 어울리는 말이다.'},
+  l_long     :{g:'듣기',n:'긴 대화 응답',w:'상황이 쌓인 뒤 마지막 말에 답하는 한 문장. 바로 앞 문장의 요청·제안에 대답해야 한다.'},
+  l_situation:{g:'듣기',n:'상황에 맞는 말',w:'제3자가 상황을 설명한 뒤 "A가 B에게 할 말"을 고른다. 상황의 핵심 갈등을 푸는 말이 정답.'},
+  l_set      :{g:'듣기',n:'세트(주제·언급)',w:'한 담화로 주제 한 문항과 언급된 것 한 문항을 낸다. 주제는 담화 첫 문장에 둔다.'},
+
+  purpose    :{g:'읽기',n:'글의 목적',w:'편지·이메일 형식. 앞은 배경과 인사, 중반 이후 한 문장에서 목적이 드러난다. 오답은 배경에 나온 소재를 목적처럼 바꾼다.'},
+  mood       :{g:'읽기',n:'심경·분위기',w:'사건 전후로 감정이 한 번 뒤집힌다. 정답은 "A → B" 두 형용사 쌍이고, 오답은 앞쪽이나 뒤쪽 한쪽만 맞다.'},
+  claim      :{g:'읽기',n:'주장',w:'필자가 should·must·need to 로 한 번 못 박는다. 오답은 근거로 든 사실을 주장처럼 쓴다.'},
+  implicit   :{g:'읽기',n:'함축 의미',w:'밑줄 친 비유 표현을 글 전체의 주장으로 바꿔 말한 것이 정답. 오답은 비유를 글자 그대로 푼다.'},
+  gist       :{g:'읽기',n:'요지',w:'한국어 선택지. 글 전체가 말하려는 바를 한 문장으로. 오답은 한 단락만 맞다.'},
+  topic      :{g:'읽기',n:'주제',w:'영어 명사구 선택지. 다루는 범위까지 맞아야 한다. 범위가 넓거나 좁은 것이 오답.'},
+  title      :{g:'읽기',n:'제목',w:'주제를 함축적으로. 정답은 글 전체를 덮으면서 핵심어를 담는다. 오답은 지문 낱말을 재활용한다.'},
+  chart      :{g:'읽기',n:'도표',w:'표·그래프 수치를 문장으로 옮긴 다섯 문장 가운데 하나만 수치와 어긋나게 한다(비교급·배수·증감).'},
+  bio        :{g:'읽기',n:'내용 불일치(인물·대상)',w:'소개문의 연도·직업·업적 가운데 한 가지만 선택지에서 뒤집는다.'},
+  notice     :{g:'읽기',n:'안내문 일치/불일치',w:'행사 안내의 일시·대상·참가비·준비물 가운데 한 줄만 바꾼다. 안내문에 없는 내용은 정답이 될 수 없다.'},
+  grammar    :{g:'읽기',n:'어법',w:'밑줄 다섯 개 가운데 하나만 틀리게. 수 일치·시제·태·관계사·준동사·병렬 가운데에서 고르고, 틀린 자리는 문장 구조를 봐야 보이게 만든다.'},
+  vocab      :{g:'읽기',n:'어휘 쓰임',w:'문맥상 반대말로 바꿔 넣은 한 낱말이 정답. 나머지는 문맥에 맞는 말이다.'},
+  blank      :{g:'읽기',n:'빈칸 추론',w:'글의 핵심 주장을 다른 말로 바꾼 표현이 정답. 오답은 지문 낱말을 그대로 재활용한 함정이다. 빈칸은 주제문 자리에 둔다.'},
+  irrelevant :{g:'읽기',n:'무관한 문장',w:'같은 소재를 쓰지만 논지의 방향이 다른 문장을 하나 끼워 넣는다. 앞뒤 연결이 어색해 보이지 않게 쓴다.'},
+  order      :{g:'읽기',n:'글의 순서',w:'주어진 글 뒤에 (A)(B)(C). 지시어·연결어·정관사가 순서의 단서가 되게 한다.'},
+  insert     :{g:'읽기',n:'문장 삽입',w:'주어진 문장의 지시어·연결어가 가리키는 자리 하나만 자연스럽게. 그 자리 앞뒤에 논리 공백을 만들어 둔다.'},
+  summary    :{g:'읽기',n:'요약문 빈칸',w:'요약문 한 문장에 빈칸 (A)(B). 두 칸이 글의 원인과 결과를 각각 다른 말로 바꾼 표현이어야 한다.'},
+  long2      :{g:'읽기',n:'장문(제목·어휘)',w:'긴 지문 하나로 제목 한 문항과 문맥상 낱말 쓰임 한 문항을 낸다.'},
+  long3      :{g:'읽기',n:'장문(순서·지칭·내용)',w:'(A)~(D) 이야기 글로 순서·지칭 대상·내용 일치 세 문항을 한 지문에서 낸다.'},
+
+  m_grammar_pick :{g:'중등·내신',n:'어법 고르기',w:'네모 안 두 형태 가운데 맞는 것 고르기, 또는 밑줄 가운데 틀린 것 찾기. 교과서에서 배운 문법 항목에서만 낸다.'},
+  m_grammar_fix  :{g:'중등·내신',n:'어법 고쳐 쓰기',w:'틀린 부분을 찾아 바르게 고쳐 쓴다. 고칠 곳과 고치는 방법이 하나로 정해지게 만든다.',s:true},
+  m_vocab        :{g:'중등·내신',n:'어휘 쓰임',w:'문맥에 맞지 않는 낱말 하나. 반대말이나 혼동하기 쉬운 짝을 쓴다.'},
+  m_blank        :{g:'중등·내신',n:'빈칸(단어·구·문장)',w:'본문 흐름상 한 자리에만 들어갈 말. 연결어·대명사가 단서가 되게 한다.'},
+  m_order        :{g:'중등·내신',n:'순서 배열',w:'본문 문장을 섞어 순서 맞추기. 시간 표현·지시어가 단서가 된다.'},
+  m_insert       :{g:'중등·내신',n:'문장 삽입',w:'주어진 문장이 들어갈 자리 하나.'},
+  m_topic        :{g:'중등·내신',n:'주제·제목·요지',w:'본문이 말하려는 바 한 가지. 교과서 수준 어휘로 쓴다.'},
+  m_match        :{g:'중등·내신',n:'내용 일치',w:'본문에 나온 사실만 묻는다. 추측해야 하는 선택지는 넣지 않는다.'},
+  m_ref          :{g:'중등·내신',n:'지칭 추론',w:'밑줄 친 대명사가 가리키는 대상. 하나만 다르게 한다.'},
+  m_dialog       :{g:'중등·내신',n:'대화 응답',w:'교과서 의사소통 기능(제안·허락·길 묻기 등)에 맞는 응답.'},
+  m_write_cond   :{g:'중등·내신',n:'조건 영작',w:'주어진 낱말과 문법 조건을 모두 지켜 한 문장으로 쓴다. 조건을 분명히 적어 답이 하나로 나오게 한다.',s:true},
+  m_write_order  :{g:'중등·내신',n:'배열 영작',w:'주어진 낱말을 바른 순서로 배열한다. 답이 하나로만 나오게 낱말을 고른다.',s:true},
+  m_summary      :{g:'중등·내신',n:'서술형 요약',w:'본문을 정해진 낱말 수로 요약한다. 핵심어를 반드시 쓰게 한다.',s:true},
+  m_textbook     :{g:'중등·내신',n:'교과서 본문 변형',w:'본문 문장을 그대로 쓰되 어법·어휘·순서 가운데 한 곳만 바꿔 묻는다. 내신 대비용.'}
+};
+// 고등 전국 단위(2015학년도 이후 수능·모평·학평) 번호 → 유형
+const ISO_HS_NO={1:'l_purpose',2:'l_opinion',3:'l_gist',4:'l_pic',5:'l_todo',6:'l_pay',7:'l_why',8:'l_not',9:'l_mismatch',10:'l_table',
+  11:'l_short',12:'l_short',13:'l_long',14:'l_long',15:'l_situation',16:'l_set',17:'l_set',
+  18:'purpose',19:'mood',20:'claim',21:'implicit',22:'gist',23:'topic',24:'title',25:'chart',26:'bio',27:'notice',28:'notice',
+  29:'grammar',30:'vocab',31:'blank',32:'blank',33:'blank',34:'blank',35:'irrelevant',36:'order',37:'order',38:'insert',39:'insert',
+  40:'summary',41:'long2',42:'long2',43:'long3',44:'long3',45:'long3'};
+
+// ── 상태 ──────────────────────────────────────────────────────────────────
+let _isoImgs=[];          // [{mime,b64,name}] — 화면에만 들고 있다가 보내고 버린다 (저장 안 함)
+let _isoText='';          // 붙여넣은 원본 글 — 역시 저장하지 않는다
+let _isoInfo={title:'',cat:'',grade:''};   // 자료실에서 들고 온 시험 정보 (출처 표기에만 쓴다)
+let _isoItems=[];
+let _isoAnalysis=null;
+let _isoUse={calls:0,in:0,out:0};
+let _isoBusy=false,_isoRowId='',_isoTitle='';
+let _isoCfg={n:3,type:'',qno:'',diff:'same',grade:'고1',passage:'new',topic:'',tbId:'',unit:'',choices:0,rubric:true,cols:1};
+
+function isoMayUse(){
+  try{
+    if(typeof ppSandbox==='function'&&ppSandbox())return false;
+    const s=(typeof loadSession==='function')?loadSession():null;
+    return !!(s&&s.role==='teacher');
+  }catch(e){return false;}
+}
+function _isoSaveCfg(){try{localStorage.setItem(ISO_CFG_KEY,JSON.stringify(_isoCfg));}catch(e){}}
+function _isoLoadCfg(){try{const s=JSON.parse(localStorage.getItem(ISO_CFG_KEY)||'null');if(s&&typeof s==='object')_isoCfg={..._isoCfg,...s};}catch(e){}}
+function _isoTypeName(k){const t=ISO_TYPES[k];return t?(t.g+' · '+t.n):'';}
+function _isoIsEssay(k){return !!(ISO_TYPES[k]&&ISO_TYPES[k].s);}
+function _isoCirc(i){return '①②③④⑤⑥⑦'.charAt(i)||String(i+1);}
+
+// ── 원본 넣기 ─────────────────────────────────────────────────────────────
+function isoPickImgs(){const f=document.getElementById('iso-img-file');if(f)f.click();}
+async function isoImgFiles(ev){
+  const fs=[...((ev&&ev.target&&ev.target.files)||[])];
+  if(ev&&ev.target)ev.target.value='';
+  for(const f of fs)await isoAddImage(f);
+}
+async function isoAddImage(file){
+  if(!file)return;
+  if(file.type==='application/pdf'){
+    try{
+      const b64s=await pdfAllPagesToB64(file,4);
+      b64s.forEach((b,i)=>_isoImgs.push({mime:'image/jpeg',b64:b,name:(file.name||'PDF')+' '+(i+1)+'쪽'}));
+      _isoPaintSrc();
+    }catch(e){toast('PDF를 읽지 못했어요');}
+    return;
+  }
+  if(!file.type||!file.type.startsWith('image/')){toast('이미지 파일이 아니에요');return;}
+  if(typeof checkFileSize==='function'&&!checkFileSize(file,8))return;
+  if(_isoImgs.length>=6){toast('이미지는 6장까지예요');return;}
+  try{
+    const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(new Error('읽기 실패'));r.readAsDataURL(file);});
+    const m=String(dataUrl).match(/^data:(image\/[\w.+-]+);base64,(.+)$/s);
+    if(!m)throw new Error('형식');
+    _isoImgs.push({mime:m[1],b64:m[2],name:file.name||('이미지 '+(_isoImgs.length+1))});
+    _isoPaintSrc();
+  }catch(e){toast('이미지를 읽지 못했어요');}
+}
+function isoDelImage(i){_isoImgs.splice(i,1);_isoPaintSrc();}
+function isoClearSrc(){
+  _isoImgs=[];_isoText='';_isoAnalysis=null;
+  const t=document.getElementById('iso-text');if(t)t.value='';
+  _isoPaintSrc();
+}
+function isoTextChange(){const t=document.getElementById('iso-text');_isoText=t?t.value:'';_isoPaintSrc();}
+function _isoPaintSrc(){
+  const box=document.getElementById('iso-imgs');
+  if(box){
+    box.innerHTML=_isoImgs.map((im,i)=>
+      '<div class="iso-thumb"><img src="data:'+im.mime+';base64,'+im.b64+'" alt="">'+
+      '<button class="iso-thumb-x" title="빼기" onclick="isoDelImage('+i+')">×</button></div>').join('');
+    box.style.display=_isoImgs.length?'':'none';
+  }
+  const st=document.getElementById('iso-src-state');
+  if(st){
+    const bits=[];
+    if(_isoImgs.length)bits.push('이미지 '+_isoImgs.length+'장');
+    if((_isoText||'').trim())bits.push('붙여넣은 글 '+(_isoText.trim().length.toLocaleString())+'자');
+    if(!bits.length)bits.push('원본 없음 — 유형만 골라 만들 수 있어요');
+    st.textContent=bits.join(' · ');
+  }
+  const b=document.getElementById('iso-go');
+  if(b)b.disabled=_isoBusy||!(_isoImgs.length||(_isoText||'').trim()||_isoCfg.type);
+}
+// 자료실 미리보기에서 바로 들어오기
+function isoFromExam(){
+  const row=(_ebRows||[]).find(r=>r.id===_ebDetailId),m=(row&&row.meta)||{};
+  _isoInfo={title:String(m.title||''),cat:String(m.cat||''),grade:String(m.grade||m.level||'')};
+  if(m.grade)_isoCfg.grade=String(m.grade);
+  try{ebViewClose();ebCloseDetail();}catch(e){}
+  swTab('t-data');switchDataTab('iso');
+  toast('시험 정보를 가져왔어요 — 문항을 캡처해 Ctrl+V 로 붙여넣으세요');
+}
+function isoQnoChange(){
+  const el=document.getElementById('iso-qno');
+  _isoCfg.qno=el?String(el.value||'').trim():'';
+  const n=parseInt(_isoCfg.qno,10);
+  if(isFinite(n)&&ISO_HS_NO[n]){
+    _isoCfg.type=ISO_HS_NO[n];
+    const ts=document.getElementById('iso-type');if(ts)ts.value=_isoCfg.type;
+    const h=document.getElementById('iso-type-hint');
+    if(h)h.textContent=n+'번은 보통 「'+_isoTypeName(_isoCfg.type)+'」이에요 — 다르면 아래에서 바꾸세요.';
+  }
+  _isoSaveCfg();_isoPaintCfg();
+}
+
+// ── 설정 ──────────────────────────────────────────────────────────────────
+function _isoOpts(id,label,vals,cur){
+  const el=document.getElementById(id);if(!el)return;
+  el.innerHTML=['<option value="">'+_ebE(label)+'</option>'].concat(vals.map(v=>
+    '<option value="'+_ebA(v.v)+'"'+(String(cur)===String(v.v)?' selected':'')+'>'+_ebE(v.n)+'</option>')).join('');
+}
+function isoCfgChange(){
+  const v=id=>{const el=document.getElementById(id);return el?el.value:'';};
+  const c=id=>{const el=document.getElementById(id);return !!(el&&el.checked);};
+  _isoCfg.n=Math.max(1,Math.min(ISO_MAX,parseInt(v('iso-n'),10)||3));
+  _isoCfg.type=v('iso-type');_isoCfg.diff=v('iso-diff')||'same';_isoCfg.grade=v('iso-grade')||'고1';
+  _isoCfg.passage=v('iso-passage')||'new';_isoCfg.topic=v('iso-topic');
+  _isoCfg.tbId=v('iso-tb');_isoCfg.unit=v('iso-unit');
+  _isoCfg.choices=parseInt(v('iso-choices'),10)||0;
+  _isoCfg.rubric=c('iso-rubric');
+  _isoSaveCfg();_isoPaintCfg();
+}
+function _isoPaintCfg(){
+  const set=(id,val)=>{const el=document.getElementById(id);if(el&&el.value!==String(val))el.value=String(val);};
+  set('iso-n',_isoCfg.n);set('iso-diff',_isoCfg.diff);set('iso-grade',_isoCfg.grade);
+  set('iso-passage',_isoCfg.passage);set('iso-topic',_isoCfg.topic);set('iso-choices',_isoCfg.choices);set('iso-qno',_isoCfg.qno);
+  const r=document.getElementById('iso-rubric');if(r)r.checked=!!_isoCfg.rubric;
+  // 유형 칸
+  const ts=document.getElementById('iso-type');
+  if(ts&&!ts.options.length){
+    const groups={};Object.keys(ISO_TYPES).forEach(k=>{const t=ISO_TYPES[k];(groups[t.g]=groups[t.g]||[]).push({k:k,n:t.n});});
+    ts.innerHTML='<option value="">유형 고르기 (원본을 넣으면 자동으로 찾아요)</option>'+
+      Object.keys(groups).map(g=>'<optgroup label="'+_ebA(g)+'">'+
+        groups[g].map(x=>'<option value="'+_ebA(x.k)+'">'+_ebE(x.n)+'</option>').join('')+'</optgroup>').join('');
+  }
+  if(ts)ts.value=_isoCfg.type||'';
+  // 출제 원리 미리보기
+  const w=document.getElementById('iso-type-w');
+  if(w){
+    const t=ISO_TYPES[_isoCfg.type];
+    w.innerHTML=t?('<b>'+_ebE(t.n)+'</b> — '+_ebE(t.w)):'';
+    w.style.display=t?'':'none';
+  }
+  // 교재 본문 고르기
+  const bookRow=document.getElementById('iso-book-row');
+  if(bookRow)bookRow.style.display=(_isoCfg.passage==='book')?'':'none';
+  const topicRow=document.getElementById('iso-topic-row');
+  if(topicRow)topicRow.style.display=(_isoCfg.passage==='new')?'':'none';
+  if(_isoCfg.passage==='book'){
+    const tbs=(_cache.globalTextbooks||[]).filter(b=>b&&b.unitTexts&&Object.keys(b.unitTexts).some(u=>String(b.unitTexts[u]||'').trim())
+      &&!(typeof ppIsSongTb==='function'&&ppIsSongTb(b)));   // 노래 교재(가사)는 빼 둔다
+    const sel=document.getElementById('iso-tb');
+    if(sel&&sel.options.length!==tbs.length+1)
+      _isoOpts('iso-tb','교재 고르기',tbs.map(b=>({v:b.id,n:b.title||'(제목 없음)'})),_isoCfg.tbId);
+    else if(sel)sel.value=_isoCfg.tbId||'';
+    const tb=tbs.find(b=>b.id===_isoCfg.tbId);
+    const units=tb?Object.keys(tb.unitTexts||{}).filter(u=>String(tb.unitTexts[u]||'').trim()):[];
+    _isoOpts('iso-unit','단원 고르기',units.map(u=>({v:u,n:u+(tb.unitTitles&&tb.unitTitles[u]?(' '+tb.unitTitles[u]):'')})),_isoCfg.unit);
+    const prev=document.getElementById('iso-book-prev');
+    const txt=(tb&&_isoCfg.unit)?String(tb.unitTexts[_isoCfg.unit]||''):'';
+    if(prev){prev.textContent=txt?(txt.slice(0,160)+(txt.length>160?'…':'')):'';prev.style.display=txt?'':'none';}
+  }
+  // 서술형 채점 기준 칸은 서술형 유형일 때만
+  const rr=document.getElementById('iso-rubric-row');
+  if(rr)rr.style.display=_isoIsEssay(_isoCfg.type)?'':'none';
+  _isoPaintSrc();
+}
+function _isoBookText(){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===_isoCfg.tbId);
+  if(!tb||!_isoCfg.unit)return '';
+  return String((tb.unitTexts||{})[_isoCfg.unit]||'').trim();
+}
+
+// ── AI 호출 ───────────────────────────────────────────────────────────────
+function _isoStat(msg,pct){
+  const s=document.getElementById('iso-state');if(s)s.textContent=msg||'';
+  const b=document.getElementById('iso-bar');if(b)b.style.width=Math.max(0,Math.min(100,pct||0))+'%';
+  const w=document.getElementById('iso-prog');if(w)w.style.display=(msg?'':'none');
+}
+function _isoCost(){
+  const el=document.getElementById('iso-cost');if(!el)return;
+  if(!_isoUse.calls){el.textContent='';return;}
+  el.textContent='AI 호출 '+_isoUse.calls+'회 · 보낸 토큰 약 '+_isoUse.in.toLocaleString()+
+    ' · 받은 토큰 약 '+_isoUse.out.toLocaleString()+' ('+ISO_MODEL+')';
+}
+async function _isoCall(content,maxTok){
+  const d=await callClaudeProxy({model:ISO_MODEL,max_tokens:maxTok||8000,messages:[{role:'user',content:content}]});
+  try{
+    _isoUse.calls++;
+    _isoUse.in+=Number(d&&d.usage&&d.usage.input_tokens)||0;
+    _isoUse.out+=Number(d&&d.usage&&d.usage.output_tokens)||0;
+    _isoCost();
+  }catch(e){}
+  return String((d&&d.content&&d.content[0]&&d.content[0].text)||'');
+}
+function _isoJson(raw){
+  let s=String(raw||'').replace(/```json|```/g,'').trim();
+  const i=s.search(/[\[{]/);if(i>0)s=s.slice(i);
+  const j=Math.max(s.lastIndexOf('}'),s.lastIndexOf(']'));if(j>0)s=s.slice(0,j+1);
+  try{return JSON.parse(s);}catch(e){}
+  try{return JSON.parse(tryRepairJSON(s));}catch(e){}
+  throw new Error('AI 응답을 읽지 못했어요');
+}
+const ISO_RULES=
+ '공통 규칙\n'+
+ '- 사실 오류를 쓰지 않는다. 실존 인물·기관에 대한 없는 사실을 지어내지 않는다(가상 인물은 가상임이 드러나게).\n'+
+ '- 저작권이 있는 원문을 그대로 옮기지 않는다. 지문은 새로 쓴다.\n'+
+ '- 정답은 하나로만 정해져야 한다. 두 선택지가 모두 맞을 여지를 남기지 않는다.\n'+
+ '- 선택지는 길이를 비슷하게 맞춘다. 정답만 유독 길거나 짧지 않게 한다.\n'+
+ '- 해설은 한국어로 쓰고, 정답 근거가 되는 지문 문장을 큰따옴표로 인용한다. 네가 쓴 지문에 실제로 있는 문장만 인용한다.\n'+
+ '- 듣기 유형이면 음원 대신 대본(script)을 지문 자리에 쓴다.\n';
+function _isoItemShape(essay){
+  return essay
+    ? '{"stem":"발문(한국어)","passage":"지문 또는 조건(영어 지문은 영어로)","choices":[],"answerText":"모범 답안","rubric":"채점 기준(배점 포함)","explain":"해설(한국어)","intent":"출제 의도"}'
+    : '{"stem":"발문(한국어)","passage":"지문(영어)","choices":["①에 들어갈 말","②","③","④","⑤"],"answer":0,"explain":"해설(한국어, 근거 문장 인용)","intent":"출제 의도","wrong":["①이 답이 아닌 이유","②..."]}';
+}
+
+// 호출 1 — 원본 분석
+async function _isoAnalyze(){
+  const content=[];
+  _isoImgs.forEach(im=>content.push({type:'image',source:{type:'base64',media_type:im.mime,data:im.b64}}));
+  const keys=Object.keys(ISO_TYPES).map(k=>k+'='+ISO_TYPES[k].n).join(', ');
+  content.push({type:'text',text:
+    '아래는 한국 영어 시험의 문항입니다'+((_isoText||'').trim()?('(이미지 아래 글도 같은 문항입니다)'):'')+'. 분석해서 JSON 으로만 답하세요.\n'+
+    ((_isoText||'').trim()?('\n--- 원본 글 ---\n'+_isoText.trim()+'\n--- 끝 ---\n'):'')+
+    '\n{"type":"유형키","typeName":"유형 이름","stem":"발문","passage":"지문 원문","choices":["..."],"answer":0,'+
+    '"evidence":"정답 근거 문장","points":["출제 포인트"],"words":지문 단어 수,"level":"어휘 수준(예: 고1 수준)","distractors":"오답을 어떻게 만들었는지"}\n'+
+    '\n유형키는 다음 가운데 하나입니다: '+keys+'\n'+
+    '- answer 는 0 부터 센 정답 번호입니다. 정답을 알 수 없으면 -1.\n'+
+    '- 읽을 수 없는 항목은 빈 문자열로 둡니다. JSON 외의 글자는 쓰지 마세요.'});
+  const txt=await _isoCall(content,4000);
+  const a=_isoJson(txt);
+  if(a&&a.type&&!ISO_TYPES[a.type])a.type=_isoCfg.type||'';
+  return a;
+}
+// 호출 2 — 생성
+async function _isoCreate(n,extra){
+  const key=_isoCfg.type||(_isoAnalysis&&_isoAnalysis.type)||'';
+  const t=ISO_TYPES[key]||{n:'',w:''};
+  const essay=_isoIsEssay(key);
+  const diff={same:'원본과 같은 난이도',easy:'원본보다 한 단계 쉽게',hard:'원본보다 한 단계 어렵게'}[_isoCfg.diff]||'원본과 같은 난이도';
+  const lines=[];
+  lines.push('너는 한국 영어 시험 출제 경험이 많은 선생님이다. 아래 조건으로 새 문항 '+n+'개를 만들어 JSON 배열로만 답하라.');
+  lines.push('\n[유형] '+t.n+'\n[출제 원리] '+t.w);
+  if(_isoAnalysis){
+    lines.push('\n[원본 분석]\n'+JSON.stringify({
+      stem:_isoAnalysis.stem||'',choices:(_isoAnalysis.choices||[]).length,
+      words:_isoAnalysis.words||'',level:_isoAnalysis.level||'',
+      points:_isoAnalysis.points||[],distractors:_isoAnalysis.distractors||''
+    }));
+    lines.push('원본과 같은 발문 형식, 같은 선택지 수, 지문 길이는 원본의 ±10% 로 맞춘다.');
+  }
+  lines.push('\n[설정]');
+  lines.push('- 학년·수준: '+_isoCfg.grade+' 교육과정 어휘 수준 · '+diff);
+  if(_isoCfg.choices)lines.push('- 선택지 수: '+_isoCfg.choices+'개');
+  if(_isoCfg.passage==='keep'){
+    const p=(_isoAnalysis&&_isoAnalysis.passage)||'';
+    lines.push('- 지문: 아래 원본 지문을 그대로 두고 문항만 바꾼다(밑줄 위치·선택지·정답을 다르게). 내신 변형 문제 방식.');
+    if(p)lines.push('\n--- 원본 지문 ---\n'+p+'\n--- 끝 ---');
+  }else if(_isoCfg.passage==='book'){
+    const bt=_isoBookText();
+    lines.push('- 지문: 아래 교재 본문의 문장을 글자 그대로 쓴다. 낱말을 바꾸거나 문장을 새로 쓰거나 다시 풀어 쓰지 마라.');
+    lines.push('  네모·밑줄·빈칸 표시만 본문 위에 얹는다. 본문이 길면 이어지는 한 토막을 그대로 잘라 쓴다.');
+    lines.push('\n--- 교재 본문 ---\n'+bt+'\n--- 끝 ---');
+  }else{
+    lines.push('- 지문: 새로 쓴다.'+(_isoCfg.topic?(' 주제는 "'+_isoCfg.topic+'" 쪽으로.'):' 주제는 자유롭게 고르되 문항마다 다르게.'));
+  }
+  lines.push('- 정답 위치는 문항마다 고르게 흩어지게 한다(모두 같은 번호가 되지 않게).');
+  if(essay&&_isoCfg.rubric)lines.push('- 서술형이므로 채점 기준(배점 포함)을 반드시 쓴다.');
+  if(extra)lines.push('\n[다시 만드는 이유] '+extra);
+  lines.push('\n'+ISO_RULES);
+  lines.push('\n[출력 형식] 아래 모양의 객체 '+n+'개를 담은 JSON 배열. JSON 외의 글자는 쓰지 마라.\n'+_isoItemShape(essay));
+  const txt=await _isoCall([{type:'text',text:lines.join('\n')}],16000);
+  let arr=_isoJson(txt);
+  if(!Array.isArray(arr))arr=[arr];
+  const sw=Number(_isoAnalysis&&_isoAnalysis.words)||0;
+  return arr.map(x=>{const it=_isoNorm(x,key);it.srcWords=sw;return it;});
+}
+function _isoNorm(x,key){
+  const essay=_isoIsEssay(key);
+  const ch=Array.isArray(x.choices)?x.choices.map(c=>String(c==null?'':c)):[];
+  return {
+    id:uid(),type:key,typeName:_isoTypeName(key),
+    stem:String(x.stem||''),passage:String(x.passage||''),
+    choices:essay?[]:ch,
+    answer:essay?-1:(isFinite(Number(x.answer))?Math.max(0,Math.min(ch.length-1,Number(x.answer))):0),
+    answerText:String(x.answerText||''),rubric:String(x.rubric||''),
+    explain:String(x.explain||''),intent:String(x.intent||''),
+    wrong:Array.isArray(x.wrong)?x.wrong.map(String):[],
+    check:false,checkNote:''
+  };
+}
+// 호출 3 — 검증 (정답을 숨기고 다시 풀게 한다)
+async function _isoVerify(items){
+  const quiz=items.map((it,i)=>({
+    no:i+1,stem:it.stem,passage:it.passage,
+    choices:it.choices.map((c,j)=>_isoCirc(j)+' '+c)
+  }));
+  const txt=await _isoCall([{type:'text',text:
+    '아래 영어 문항을 학생처럼 풀어라. 정답은 주어지지 않았다. JSON 배열로만 답하라.\n'+
+    '- 문항은 모두 '+items.length+'개다. 반드시 '+items.length+'개의 객체를 돌려라.\n'+
+    '- 각 객체의 no 는 문제에 적힌 no 를 그대로 쓴다. 순서를 바꾸거나 빠뜨리지 마라.\n'+
+    '[{"no":1,"answer":0,"evidence":"그렇게 고른 근거가 되는 지문 문장","alt":true 또는 false,"why":"복수 정답이 될 수 있다면 그 이유"}]\n'+
+    '- answer 는 0 부터 센 번호다.\n- alt 는 다른 선택지도 정답이 될 수 있으면 true.\n- 서술형(선택지가 없는 문항)은 answer 를 -1 로 두고 evidence 에 모범 답안을 쓴다.\n'+
+    '- JSON 외의 글자는 쓰지 마라.\n\n'+JSON.stringify(quiz)}],8000);
+  const got=_isoJson(txt);
+  const by={};(Array.isArray(got)?got:[]).forEach(g=>{if(g&&isFinite(Number(g.no)))by[Number(g.no)]=g;});
+  items.forEach((it,i)=>{
+    const g=by[i+1];
+    if(!g){it.check=true;it.checkNote='검증 응답이 없어요 — 직접 확인해 주세요.';return;}
+    if(it.choices.length){
+      if(Number(g.answer)!==Number(it.answer)){
+        it.check=true;it.checkNote='AI가 다시 풀었을 때 '+_isoCirc(Number(g.answer))+'를 골랐어요. '+(g.why||g.evidence||'');
+      }else if(g.alt){
+        it.check=true;it.checkNote='복수 정답 가능성: '+(g.why||'');
+      }else{it.check=false;it.checkNote='';}
+    }else{
+      it.check=false;it.checkNote='';it.verifyAnswer=String(g.evidence||'');
+    }
+  });
+  return items;
+}
+
+// ── 만들기 ────────────────────────────────────────────────────────────────
+async function isoGenerate(){
+  if(_isoBusy)return;
+  if(!isoMayUse()){toast('선생님 화면에서만 쓸 수 있어요');return;}
+  const hasSrc=_isoImgs.length||(_isoText||'').trim();
+  if(!hasSrc&&!_isoCfg.type){toast('원본을 넣거나 유형을 골라 주세요');return;}
+  if(_isoCfg.passage==='book'&&!_isoBookText()){toast('교재와 단원을 고르면 본문을 씁니다');return;}
+  _isoBusy=true;_isoPaintSrc();
+  const btn=document.getElementById('iso-go');if(btn)btn.disabled=true;
+  try{
+    if(hasSrc){
+      _isoStat('① 원본을 분석하는 중…',12);
+      _isoAnalysis=await _isoAnalyze();
+      if(_isoAnalysis&&_isoAnalysis.type&&!_isoCfg.type){
+        _isoCfg.type=_isoAnalysis.type;
+        const ts=document.getElementById('iso-type');if(ts)ts.value=_isoCfg.type;
+        _isoSaveCfg();_isoPaintCfg();
+      }
+      _isoStat('① 분석 끝 — 「'+_isoTypeName(_isoCfg.type)+'」',35);
+    }else{_isoAnalysis=null;}
+    _isoStat('② 문항 '+_isoCfg.n+'개를 만드는 중…',45);
+    const made=await _isoCreate(_isoCfg.n,'');
+    _isoItems=made;_isoRender();                       // 검증 전이라도 먼저 보여 준다
+    _isoStat('③ 만든 문항을 다시 풀어 확인하는 중…',78);
+    try{await _isoVerify(_isoItems);}
+    catch(e){_isoItems.forEach(it=>{it.check=true;it.checkNote='검증을 하지 못했어요 — 직접 확인해 주세요.';});}
+    _isoRender();
+    _isoStat('',100);
+    const bad=_isoItems.filter(it=>it.check).length;
+    toast(bad?('문항 '+_isoItems.length+'개 — 확인 필요 '+bad+'개'):('문항 '+_isoItems.length+'개를 만들었어요 ✓'));
+  }catch(e){
+    console.warn('iso:',e);
+    _isoStat('',0);
+    toast('만들기 실패: '+((e&&e.message)||'알 수 없는 오류'));
+  }finally{
+    _isoBusy=false;
+    const b=document.getElementById('iso-go');if(b)b.disabled=false;
+    _isoPaintSrc();_isoRender();
+  }
+}
+async function isoRegen(i){
+  if(_isoBusy)return;
+  const old=_isoItems[i];if(!old)return;
+  _isoBusy=true;_isoRender();
+  try{
+    _isoStat('문항 '+(i+1)+'번을 다시 만드는 중…',40);
+    const why=old.check?('앞서 만든 문항에 이런 문제가 있었다: '+old.checkNote+' 같은 실수를 하지 마라.')
+                       :'앞서 만든 문항과 지문·정답이 겹치지 않게 다르게 만들어라.';
+    const made=await _isoCreate(1,why);
+    if(made&&made[0]){
+      _isoStat('다시 푼 결과를 확인하는 중…',75);
+      try{await _isoVerify(made);}catch(e){made[0].check=true;made[0].checkNote='검증을 하지 못했어요.';}
+      _isoItems[i]=made[0];
+    }
+    _isoStat('',100);
+  }catch(e){toast('다시 만들기 실패: '+((e&&e.message)||''));_isoStat('',0);}
+  finally{_isoBusy=false;_isoRender();}
+}
+function isoMove(i,d){
+  const j=i+d;if(j<0||j>=_isoItems.length)return;
+  const t=_isoItems[i];_isoItems[i]=_isoItems[j];_isoItems[j]=t;_isoRender();
+}
+function isoDel(i){_isoItems.splice(i,1);_isoRender();}
+function isoEdit(i,field,el,ci){
+  const it=_isoItems[i];if(!it)return;
+  const val=String(el.innerText||'').replace(/ /g,' ').trim();
+  if(field==='choice')it.choices[ci]=val;
+  else it[field]=val;
+}
+function isoSetAnswer(i,ci){const it=_isoItems[i];if(!it)return;it.answer=ci;it.check=false;it.checkNote='';_isoRender();}
+
+// ── 결과 화면 ─────────────────────────────────────────────────────────────
+function _isoRender(){
+  const box=document.getElementById('iso-list');if(!box)return;
+  const foot=document.getElementById('iso-foot');
+  if(!_isoItems.length){
+    box.innerHTML='<div class="iso-empty">아직 만든 문항이 없어요. 위에서 원본을 넣거나 유형을 고르고 <b>동형 문제 만들기</b>를 눌러 주세요.</div>';
+    if(foot)foot.style.display='none';
+    return;
+  }
+  if(foot)foot.style.display='';
+  const dist={};_isoItems.forEach(it=>{if(it.choices.length)dist[it.answer]=(dist[it.answer]||0)+1;});
+  const distTxt=Object.keys(dist).sort().map(k=>_isoCirc(Number(k))+' '+dist[k]).join(' · ');
+  const head=document.getElementById('iso-head');
+  if(head)head.textContent='문항 '+_isoItems.length+'개'+(distTxt?(' · 정답 분포 '+distTxt):'');
+  box.innerHTML=_isoItems.map((it,i)=>{
+    const essay=!it.choices.length;
+    const ed=(f,v,ph,ci)=>'<div class="iso-ed" contenteditable="true" data-ph="'+_ebA(ph||'')+'" '+
+      'onblur="isoEdit('+i+',\''+f+'\',this'+(ci===undefined?'':(','+ci))+')">'+_ebE(v)+'</div>';
+    let h='<div class="iso-card'+(it.check?' iso-warn':'')+'">';
+    h+='<div class="iso-card-h"><span class="iso-no">'+(i+1)+'</span>'+
+       '<span class="iso-tag">'+_ebE(it.typeName||'')+'</span>'+
+       (it.check?'<span class="iso-badge">확인 필요</span>':'')+
+       '<span style="flex:1"></span>'+
+       '<button class="iso-ic" title="위로" onclick="isoMove('+i+',-1)">↑</button>'+
+       '<button class="iso-ic" title="아래로" onclick="isoMove('+i+',1)">↓</button>'+
+       '<button class="iso-ic" title="다시 만들기" onclick="isoRegen('+i+')"'+(_isoBusy?' disabled':'')+'>↻</button>'+
+       '<button class="iso-ic iso-ic-d" title="삭제" onclick="isoDel('+i+')">×</button></div>';
+    if(it.check&&it.checkNote)h+='<div class="iso-note">'+_ebE(it.checkNote)+'</div>';
+    h+='<div class="iso-lbl">발문</div>'+ed('stem',it.stem,'발문');
+    if(it.passage)h+='<div class="iso-lbl">지문</div>'+ed('passage',it.passage,'지문');
+    if(!essay){
+      h+='<div class="iso-lbl">선택지 <span class="iso-hint">— 번호를 누르면 정답이 바뀌어요</span></div>';
+      h+='<div class="iso-ch">'+it.choices.map((c,ci)=>
+        '<div class="iso-chi'+(ci===it.answer?' on':'')+'">'+
+        '<button class="iso-chn" onclick="isoSetAnswer('+i+','+ci+')">'+_isoCirc(ci)+'</button>'+
+        ed('choice',c,'선택지',ci)+'</div>').join('')+'</div>';
+    }else{
+      h+='<div class="iso-lbl">모범 답안</div>'+ed('answerText',it.answerText,'모범 답안');
+      if(it.rubric||_isoCfg.rubric)h+='<div class="iso-lbl">채점 기준</div>'+ed('rubric',it.rubric,'채점 기준');
+    }
+    h+='<div class="iso-lbl">해설</div>'+ed('explain',it.explain,'해설');
+    const pw=String(it.passage||'').trim()?String(it.passage).trim().split(/\s+/).length:0;
+    if(pw){
+      const off=it.srcWords?Math.round((pw-it.srcWords)/it.srcWords*100):0;
+      h+='<div class="iso-meta">지문 '+pw+'단어'+(it.srcWords?(' · 원본 '+it.srcWords+'단어'+(Math.abs(off)>15?(' ('+(off>0?'+':'')+off+'%)'):'')):'')+'</div>';
+    }
+    if(it.intent)h+='<div class="iso-meta">출제 의도: '+_ebE(it.intent)+'</div>';
+    if(it.wrong&&it.wrong.length)h+='<div class="iso-meta">오답 해설: '+_ebE(it.wrong.join(' / '))+'</div>';
+    h+='</div>';
+    return h;
+  }).join('');
+}
+
+// ── 인쇄 ──────────────────────────────────────────────────────────────────
+function _isoSrcLabel(){
+  const bits=[];
+  if(_isoInfo.title)bits.push(_isoInfo.title);
+  if(_isoCfg.qno)bits.push(_isoCfg.qno+'번');
+  const t=ISO_TYPES[_isoCfg.type];
+  if(t)bits.push(t.n+' 유형');
+  if(_isoCfg.passage==='book'){
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.id===_isoCfg.tbId);
+    if(tb)bits.push(tb.title+(_isoCfg.unit?(' '+_isoCfg.unit):''));
+  }
+  return bits.join(' · ');
+}
+function isoPrint(kind){
+  if(!_isoItems.length){toast('먼저 문항을 만들어 주세요');return;}
+  const cols=parseInt((document.getElementById('iso-cols')||{}).value,10)||1;
+  const ans=(kind==='a');
+  const title=(_isoTitle||document.getElementById('iso-title')?.value||'동형 문제').trim()||'동형 문제';
+  const src=_isoSrcLabel();
+  const today=(typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);
+  const body=_isoItems.map((it,i)=>{
+    let h='<div class="q">';
+    h+='<div class="qs"><b>'+(i+1)+'.</b> '+_ebE(it.stem)+'</div>';
+    if(it.passage)h+='<div class="qp">'+_ebE(it.passage).replace(/\n/g,'<br>')+'</div>';
+    if(it.choices.length)h+='<ol class="qc">'+it.choices.map((c,ci)=>
+      '<li'+(ans&&ci===it.answer?' class="ok"':'')+'>'+_isoCirc(ci)+' '+_ebE(c)+'</li>').join('')+'</ol>';
+    else if(!ans)h+='<div class="qw"></div>';
+    if(ans){
+      h+='<div class="qa"><b>정답</b> '+(it.choices.length?_isoCirc(it.answer):_ebE(it.answerText||''))+'</div>';
+      if(it.rubric)h+='<div class="qa"><b>채점 기준</b> '+_ebE(it.rubric)+'</div>';
+      if(it.explain)h+='<div class="qa"><b>해설</b> '+_ebE(it.explain)+'</div>';
+      if(it.wrong&&it.wrong.length)h+='<div class="qa"><b>오답</b> '+_ebE(it.wrong.join(' / '))+'</div>';
+    }
+    h+='</div>';
+    return h;
+  }).join('');
+  const w=window.open('','_blank');
+  if(!w){toast('팝업이 막혀 있어요 — 허용해 주세요');return;}
+  w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>'+_ebE(title)+(ans?' — 정답·해설':'')+'</title><style>'+
+'@page{size:A4;margin:14mm 12mm;}'+
+'*{box-sizing:border-box}'+
+'body{font-family:"Malgun Gothic","맑은 고딕",system-ui,sans-serif;color:#111;margin:0;font-size:'+(cols===2?'10.5pt':'11pt')+';line-height:1.65}'+
+'h1{font-size:15pt;margin:0 0 2px}'+
+'.hd{border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:10px}'+
+'.hd .m{font-size:9.5pt;color:#444;display:flex;gap:14px;flex-wrap:wrap}'+
+'.hd .nm{margin-left:auto}'+
+'.src{font-size:9pt;color:#666;margin-top:3px}'+
+'.wrap{'+(cols===2?'column-count:2;column-gap:9mm;column-rule:1px solid #ddd;':'')+'}'+
+'.q{break-inside:avoid;page-break-inside:avoid;margin:0 0 13px}'+
+'.qs{margin-bottom:5px}'+
+'.qp{border:1px solid #bbb;padding:7px 9px;margin:5px 0;text-align:justify;background:#fafafa}'+
+'.qc{list-style:none;padding:0;margin:5px 0 0}'+
+'.qc li{margin:2px 0}'+
+'.qc li.ok{font-weight:700;background:#fff3b0}'+
+'.qw{border-bottom:1px solid #999;height:22px;margin:6px 0}'+
+'.qa{font-size:9.5pt;color:#333;margin-top:3px}'+
+'.noprint{position:fixed;top:10px;right:10px;padding:8px 14px;font-size:13px;cursor:pointer}'+
+'@media print{.noprint{display:none}}'+
+'</style></head><body>'+
+'<div class="hd"><h1>'+_ebE(title)+(ans?' — 정답·해설지':'')+'</h1>'+
+'<div class="m"><span>직결영어</span><span>'+_ebE(today)+'</span><span class="nm">이름 ______________</span></div>'+
+(src?('<div class="src">출처 · 유형: '+_ebE(src)+'</div>'):'')+'</div>'+
+'<div class="wrap">'+body+'</div>'+
+'<button class="noprint" onclick="print()">🖨 인쇄</button></body></html>');
+  w.document.close();
+}
+
+// ── 저장 · 다시 열기 ──────────────────────────────────────────────────────
+async function isoSave(){
+  if(!_isoItems.length){toast('먼저 문항을 만들어 주세요');return;}
+  if(typeof ppSandbox==='function'&&ppSandbox()){toast('체험 모드에서는 저장하지 않아요');return;}
+  const el=document.getElementById('iso-title');
+  const title=String((el&&el.value)||'').trim()||((ISO_TYPES[_isoCfg.type]?ISO_TYPES[_isoCfg.type].n:'동형 문제')+' '+_isoItems.length+'문항');
+  _isoTitle=title;
+  const id=_isoRowId||uid();
+  // 저장하는 것은 만들어진 문항뿐이다 — 올린 이미지와 붙여넣은 원본 글은 저장하지 않는다
+  const rec={
+    id:id,kind:'iso',title:title,createdAt:Date.now(),
+    gradeLevel:_isoCfg.grade,
+    isoType:_isoCfg.type,isoTypeName:_isoTypeName(_isoCfg.type),
+    source:{exam:_isoInfo.title||'',qno:_isoCfg.qno||'',passage:_isoCfg.passage,
+            book:_isoCfg.passage==='book'?_isoCfg.tbId:'',unit:_isoCfg.passage==='book'?_isoCfg.unit:''},
+    items:_isoItems.map(it=>({...it,check:undefined,checkNote:undefined,verifyAnswer:undefined})),
+    usage:{calls:_isoUse.calls,inTok:_isoUse.in,outTok:_isoUse.out,model:ISO_MODEL}
+  };
+  const ok=await supaUpsert('worksheets',id,rec).catch(()=>false);
+  if(!ok){toast('저장 실패 — 잠시 뒤 다시 해 주세요');return;}
+  _isoRowId=id;
+  _cache.worksheets=(_cache.worksheets||[]).filter(w=>w.id!==id).concat([{rowId:id,...rec}]);
+  try{renderWsDB();}catch(e){}
+  toast('저장했어요 ✓ — 자료 DB → 저장된 워크시트에서 다시 열 수 있어요');
+}
+function isoOpenSaved(id){
+  const w=(_cache.worksheets||[]).find(x=>x.id===id);
+  if(!w){toast('찾지 못했어요');return;}
+  _isoRowId=id;_isoTitle=w.title||'';
+  _isoItems=(w.items||[]).map(it=>({...it,check:false,checkNote:''}));
+  _isoCfg.type=w.isoType||_isoCfg.type;
+  _isoCfg.grade=w.gradeLevel||_isoCfg.grade;
+  _isoInfo={title:(w.source&&w.source.exam)||'',cat:'',grade:w.gradeLevel||''};
+  _isoCfg.qno=(w.source&&w.source.qno)||'';
+  _isoUse={calls:0,in:0,out:0};
+  swTab('t-data');switchDataTab('iso');
+  const t=document.getElementById('iso-title');if(t)t.value=_isoTitle;
+  _isoPaintCfg();_isoRender();_isoCost();
+}
+function isoNew(){
+  _isoItems=[];_isoRowId='';_isoTitle='';_isoAnalysis=null;_isoUse={calls:0,in:0,out:0};
+  _isoInfo={title:'',cat:'',grade:''};_isoCfg.qno='';
+  const t=document.getElementById('iso-title');if(t)t.value='';
+  const h=document.getElementById('iso-type-hint');if(h)h.textContent='';
+  isoClearSrc();_isoPaintCfg();_isoRender();_isoCost();
+}
+function isoOpenTab(){
+  _isoLoadCfg();_isoPaintCfg();_isoRender();_isoCost();
+  const st=document.getElementById('iso-exam');
+  if(st){
+    st.textContent=_isoInfo.title?('가져온 시험: '+_isoInfo.title):'';
+    st.style.display=_isoInfo.title?'':'none';
+  }
+}
