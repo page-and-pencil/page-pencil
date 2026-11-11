@@ -3021,3 +3021,16 @@ body{font-size:14.5px;line-height:1.65;}
   .ib-s-t{width:100%;}
   .ib-detail{position:static;}
 }
+
+/* 문제 은행 — 한 지문 묶음(setId) 카드 · 가져오기 메뉴 안내 */
+.ib-set-n{font-size:11.5px;font-weight:700;color:var(--warnt);background:var(--warnl);border-radius:6px;padding:2px 8px;}
+.ib-sub{margin-top:8px;border-top:1.5px solid var(--border);padding-top:6px;display:flex;flex-direction:column;gap:3px;}
+.ib-srow{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:8px;cursor:pointer;}
+.ib-srow:hover{background:var(--cream2);}
+.ib-srow.on{background:var(--tl);}
+.ib-sno{width:18px;height:18px;border-radius:var(--rpill);background:var(--slate2);color:var(--cream);font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ib-srow.on .ib-sno{background:var(--teal);}
+.ib-sstem{flex:1;min-width:0;font-size:12.5px;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ib-ic-s{width:20px;height:20px;font-size:10.5px;}
+.eb-menu .mi-hint{font-size:11px;color:var(--slate2);padding:5px 10px 2px;line-height:1.6;border-top:1.5px solid var(--border);margin-top:4px;}
+.eb-menu .mi-hint b{color:var(--navy);}

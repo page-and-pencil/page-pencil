@@ -19445,8 +19445,15 @@ async function isoOpenSaved(id){
   _isoLegacy=!(Array.isArray(w.itemIds)&&w.itemIds.length);   // 예전 묶음은 은행에 없다
   _isoItems=(w.items||[]).map(it=>({...it,check:false,checkNote:''}));
   if(!_isoLegacy&&typeof _ibFetchItems==='function'){
-    const got=await _ibFetchItems(w.itemIds);                 // 은행 쪽에서 고친 내용이 있으면 그것을 쓴다
-    if(got&&got.length)_isoItems=got;
+    // 은행 문항을 먼저 쓰고, 은행에 없는 것만 묶음 사본(items)으로 채운다.
+    // 이 묶음을 다시 저장하면 _isoRec 이 지금 화면의 문항으로 items 를 다시 쓴다 — 사본이 은행과 맞춰진다.
+    const got=await _ibFetchItems(w.itemIds);
+    if(got&&got.length){
+      const by={};got.forEach(it=>{by[it.id]=it;});
+      const old=(w.items||[]);
+      const merged=w.itemIds.map((id,i)=>by[id]||old.find(x=>x&&x.id===id)||old[i]).filter(Boolean);
+      if(merged.length)_isoItems=merged.map(it=>({...it,check:false,checkNote:''}));
+    }
   }
   _isoCfg.type=w.isoType||_isoCfg.type;
   _isoCfg.grade=w.gradeLevel||_isoCfg.grade;
@@ -19502,6 +19509,8 @@ const IB_SKILL_BY_TYPE={grammar:'grammar',m_grammar_pick:'grammar',m_grammar_fix
   vocab:'vocab',m_vocab:'vocab',m_write_cond:'write',m_write_order:'write',m_summary:'write',m_dialog:'listen'};
 // 정답률이 없을 때 쓰는 유형별 기본 난도
 const IB_DIFF_BY_TYPE={blank:4,implicit:4,order:4,insert:4,summary:4,grammar:4,irrelevant:3,vocab:3,
+  l_purpose:2,l_opinion:2,l_gist:2,l_pic:2,l_todo:2,l_why:2,l_not:2,l_mismatch:2,l_table:2,l_short:2,l_set:2,
+  l_pay:3,l_long:3,l_situation:3,                  // 듣기는 2, 금액·긴 대화 응답·상황에 맞는 말만 3
   title:3,topic:3,long2:3,long3:3,claim:2,gist:2,purpose:2,mood:2,chart:2,notice:2,bio:2,
   m_blank:3,m_order:3,m_insert:3,m_ref:3,m_topic:3,m_vocab:3,m_textbook:3,m_write_order:3,
   m_grammar_pick:4,m_grammar_fix:4,m_write_cond:4,m_summary:4,m_match:2,m_dialog:2};
@@ -19511,6 +19520,7 @@ let _ibStamps={},_ibAt=0,_ibMax='',_ibSrc='view',_ibLoading=false,_ibNote='';
 const _ibFull=new Map();       // 고른 문항의 data 전체 (이 세션 동안 메모리에만)
 let _ibPage=1,_ibSelId='',_ibEditing=null,_ibEditT=null,_ibEditState='';
 let _ibPick=new Set();         // 여러 개 고르기
+let _ibOpenSets=new Set();     // 펼쳐 둔 지문 묶음(setId)
 let _ibNoTable=false;          // item_bank 표가 아직 없다 (SQL 실행 전) — 쓰기를 멈춘다
 let _ibDeepIds=null;           // '본문까지 찾기' 결과 (서버가 찾아 준 id 들)
 let _ibF={skill:'',type:'',grade:'',diff:'',src:'',tbId:'',unit:'',checked:'',star:false,tag:'',q:''};
@@ -19896,6 +19906,84 @@ function _ibSrcLabel(s){
   if(s&&s.keep)bits.push('원문 지문');
   return bits.join(' · ');
 }
+// 같은 지문을 쓰는 문항(setId)은 한 카드로 접어 보여 준다 — 펼치면 문항별로 고칠 수 있다
+function _ibGroups(rows){
+  const out=[],by=new Map();
+  rows.forEach(r=>{
+    const sid=String((r.meta||{}).setId||'');
+    if(!sid){out.push({set:'',rows:[r]});return;}
+    if(by.has(sid)){by.get(sid).rows.push(r);return;}
+    const g={set:sid,rows:[r]};by.set(sid,g);out.push(g);
+  });
+  return out;
+}
+function ibSetToggle(sid,ev){
+  if(ev)ev.stopPropagation();
+  if(_ibOpenSets.has(sid))_ibOpenSets.delete(sid);else _ibOpenSets.add(sid);
+  renderItemList();
+}
+function ibSetBasket(sid,ev){
+  if(ev)ev.stopPropagation();
+  const rows=(_ibRows||[]).filter(r=>String((r.meta||{}).setId||'')===sid);
+  const b=ibBasket(),allIn=rows.length&&rows.every(r=>b.indexOf(r.id)>=0);
+  rows.forEach(r=>{const i=b.indexOf(r.id);if(allIn){if(i>=0)b.splice(i,1);}else if(i<0)b.push(r.id);});
+  _ibBasketSet(b);renderItemList();
+}
+function _ibBadges(m){
+  return '<span class="ib-tag">'+_ebE(_ibTypeLabel(m))+'</span>'+
+    (m.grade?'<span class="ib-g">'+_ebE(m.grade)+'</span>':'')+
+    '<span class="ib-dots" title="난도 '+(m.diff||3)+(m.diffSrc==='teacher'?' (선생님)':(m.diffSrc==='rate'?(' · 정답률 '+(m.rate||'')+'%'):''))+'">'+_ibDots(m.diff)+'</span>'+
+    (m.checked?'<span class="ib-ok">검수</span>':'');
+}
+function _ibItemBtns(r,small){
+  const m=r.meta||{},id=escJsA(r.id),inB=ibInBasket(r.id),c='ib-ic'+(small?' ib-ic-s':'');
+  return '<button class="'+c+(m.star?' on':'')+'" title="별표" onclick="ibStar(\''+id+'\',event)">'+(m.star?'★':'☆')+'</button>'+
+    '<button class="'+c+(inB?' on':'')+'" title="시험지 바구니에 담기" onclick="ibBasketToggle(\''+id+'\',event)">🧺</button>'+
+    '<button class="'+c+'" title="복제" onclick="ibDup(\''+id+'\',event)">⧉</button>'+
+    '<button class="'+c+'" title="비슷한 문항 만들기" onclick="ibSimilar(\''+id+'\',event)">✏️</button>'+
+    '<button class="'+c+' ib-ic-d" title="휴지통" onclick="ibTrash(\''+id+'\',event)">×</button>';
+}
+function _ibCardOne(r){
+  const m=r.meta||{},id=escJsA(r.id);
+  return '<div class="ib-card'+(_ibSelId===r.id?' on':'')+'" onclick="ibSelect(\''+id+'\')">'+
+    '<div class="ib-c-h">'+
+      '<input type="checkbox" class="ib-ck" '+(_ibPick.has(r.id)?'checked ':'')+'onclick="ibPick(\''+id+'\',event)">'+
+      _ibBadges(m)+'<span style="flex:1"></span>'+_ibItemBtns(r)+
+    '</div>'+
+    '<div class="ib-stem">'+_ebE(m.stem||'(발문 없음)')+'</div>'+
+    (m.preview?'<div class="ib-prev">'+_ebE(m.preview)+'</div>':'')+
+    '<div class="ib-src">'+_ebE(_ibSrcLabel(m.src))+(m.words?(' · '+m.words+'단어'):'')+'</div>'+
+  '</div>';
+}
+function _ibCardSet(g){
+  const open=_ibOpenSets.has(g.set),sid=escJsA(g.set);
+  const m=g.rows[0].meta||{};
+  let h='<div class="ib-card ib-set'+(g.rows.some(r=>_ibSelId===r.id)?' on':'')+'" onclick="ibSetToggle(\''+sid+'\',event)">'+
+    '<div class="ib-c-h">'+
+      '<button class="ib-ic" title="'+(open?'접기':'펼치기')+'" onclick="ibSetToggle(\''+sid+'\',event)">'+(open?'▾':'▸')+'</button>'+
+      _ibBadges(m)+
+      '<span class="ib-set-n">한 지문 · 문항 '+g.rows.length+'개</span>'+
+      '<span style="flex:1"></span>'+
+      '<button class="ib-ic" title="묶음 전체 담기" onclick="ibSetBasket(\''+sid+'\',event)">🧺</button>'+
+    '</div>'+
+    (m.preview?'<div class="ib-prev">'+_ebE(m.preview)+'</div>':'')+
+    '<div class="ib-src">'+_ebE(_ibSrcLabel(m.src))+(m.words?(' · '+m.words+'단어'):'')+'</div>';
+  if(open){
+    h+='<div class="ib-sub">'+g.rows.map((r,i)=>{
+      const mm=r.meta||{},id=escJsA(r.id);
+      return '<div class="ib-srow'+(_ibSelId===r.id?' on':'')+'" onclick="event.stopPropagation();ibSelect(\''+id+'\')">'+
+        '<input type="checkbox" class="ib-ck" '+(_ibPick.has(r.id)?'checked ':'')+'onclick="ibPick(\''+id+'\',event)">'+
+        '<span class="ib-sno">'+(mm.setOrder||(i+1))+'</span>'+
+        '<span class="ib-sstem">'+_ebE(mm.stem||'(발문 없음)')+'</span>'+
+        '<span class="ib-dots">'+_ibDots(mm.diff)+'</span>'+
+        _ibItemBtns(r,true)+'</div>';
+    }).join('')+'</div>';
+  }else{
+    h+='<div class="ib-stem">'+_ebE(m.stem||'(발문 없음)')+'</div>';
+  }
+  h+='</div>';
+  return h;
+}
 function renderItemList(){
   const box=document.getElementById('ib-list');if(!box)return;
   const cnt=document.getElementById('ib-count');
@@ -19905,32 +19993,14 @@ function renderItemList(){
       '아직 문항이 없습니다. <b>동형 문제</b>로 만들거나, <b>+ 문항 추가</b>·⋯ 메뉴의 <b>JSON 가져오기</b>로 넣어 주세요.')+'</div>';
     if(cnt)cnt.textContent='';_ibPaintBulk();return;
   }
-  const all=_ibFiltered(),show=all.slice(0,_ibPage*IB_PAGE);
+  const all=_ibFiltered();
   if(cnt)cnt.textContent=all.length.toLocaleString()+'개'+(all.length!==_ibRows.length?(' / 전체 '+_ibRows.length.toLocaleString()+'개'):'');
   if(!all.length){box.innerHTML='<div class="eb-empty">조건에 맞는 문항이 없습니다.</div>';_ibPaintBulk();return;}
-  let h=show.map(r=>{
-    const m=r.meta||{},id=escJsA(r.id),inB=ibInBasket(r.id);
-    return '<div class="ib-card'+(_ibSelId===r.id?' on':'')+'" onclick="ibSelect(\''+id+'\')">'+
-      '<div class="ib-c-h">'+
-        '<input type="checkbox" class="ib-ck" '+(_ibPick.has(r.id)?'checked ':'')+'onclick="ibPick(\''+id+'\',event)">'+
-        '<span class="ib-tag">'+_ebE(_ibTypeLabel(m))+'</span>'+
-        (m.grade?'<span class="ib-g">'+_ebE(m.grade)+'</span>':'')+
-        '<span class="ib-dots" title="난도 '+(m.diff||3)+(m.diffSrc==='teacher'?' (선생님)':(m.diffSrc==='rate'?(' · 정답률 '+(m.rate||'')+'%'):''))+'">'+_ibDots(m.diff)+'</span>'+
-        (m.checked?'<span class="ib-ok">검수</span>':'')+
-        '<span style="flex:1"></span>'+
-        '<button class="ib-ic'+(m.star?' on':'')+'" title="별표" onclick="ibStar(\''+id+'\',event)">'+(m.star?'★':'☆')+'</button>'+
-        '<button class="ib-ic'+(inB?' on':'')+'" title="시험지 바구니에 담기" onclick="ibBasketToggle(\''+id+'\',event)">🧺</button>'+
-        '<button class="ib-ic" title="복제" onclick="ibDup(\''+id+'\',event)">⧉</button>'+
-        '<button class="ib-ic" title="비슷한 문항 만들기" onclick="ibSimilar(\''+id+'\',event)">✏️</button>'+
-        '<button class="ib-ic ib-ic-d" title="휴지통" onclick="ibTrash(\''+id+'\',event)">×</button>'+
-      '</div>'+
-      '<div class="ib-stem">'+_ebE(m.stem||'(발문 없음)')+'</div>'+
-      (m.preview?'<div class="ib-prev">'+_ebE(m.preview)+'</div>':'')+
-      '<div class="ib-src">'+_ebE(_ibSrcLabel(m.src))+(m.words?(' · '+m.words+'단어'):'')+'</div>'+
-    '</div>';
-  }).join('');
-  if(all.length>show.length)
-    h+='<div style="text-align:center;padding:12px"><button class="btn bo bsm" onclick="_ibPage++;renderItemList()">더 보기 ('+show.length+' / '+all.length+')</button></div>';
+  const groups=_ibGroups(all),show=groups.slice(0,_ibPage*IB_PAGE);
+  const shown=show.reduce((n,g)=>n+g.rows.length,0);
+  let h=show.map(g=>(g.set&&g.rows.length>1)?_ibCardSet(g):_ibCardOne(g.rows[0])).join('');
+  if(groups.length>show.length)
+    h+='<div style="text-align:center;padding:12px"><button class="btn bo bsm" onclick="_ibPage++;renderItemList()">더 보기 ('+shown+' / '+all.length+')</button></div>';
   box.innerHTML=h;
   _ibPaintBulk();
 }
@@ -20170,44 +20240,66 @@ function ibParsePaste(){
   toast('칸을 채웠어요 — 확인하고 [지금 저장]을 눌러 주세요');
 }
 // ── JSON 가져오기 (Aside 가 만든 문항 파일) ───────────────────────────────
-function ibImportPick(){_ibMenuOut();const f=document.getElementById('ib-import-file');if(f)f.click();}
+// 가져오기 — 기본은 '새 문항만', 고르면 '같은 id 덮어쓰기'.
+// 덮어쓰기를 골라도 선생님이 손댄 문항(검수함·난도를 직접 고침·만든 뒤 고친 적 있음)은 건드리지 않는다.
+let _ibImportMode='skip';
+function ibImportPick(mode){
+  _ibMenuOut();
+  _ibImportMode=(mode==='over')?'over':'skip';
+  const f=document.getElementById('ib-import-file');if(f)f.click();
+}
+function _ibTeacherTouched(m){
+  if(!m)return false;
+  return !!m.checked||m.diffSrc==='teacher'||(Number(m.editedAt||0)>Number(m.createdAt||0));
+}
 async function ibImportFile(ev){
   const f=(ev&&ev.target&&ev.target.files&&ev.target.files[0])||null;
   if(ev&&ev.target)ev.target.value='';
   if(!f)return;
   if(!ibMayUse()){toast('선생님 화면에서만 쓸 수 있어요');return;}
-  const el=document.getElementById('ib-state');
   try{
     const raw=JSON.parse(await f.text());
     const arr=Array.isArray(raw)?raw:(Array.isArray(raw&&raw.items)?raw.items:null);
     if(!arr||!arr.length){toast('문항 배열이 없는 파일이에요');return;}
-    const have=new Set((_ibRows||[]).map(r=>r.id));
+    const byId=new Map((_ibRows||[]).map(r=>[r.id,r.meta||{}]));
+    const over=(_ibImportMode==='over');
     const now=Date.now();
-    const fresh=[],skipped=[];
+    const put=[];let nNew=0,nOver=0,nSkip=0,nKeep=0;
     arr.forEach(x=>{
       const d=_ibNorm(x,now);
-      if(have.has(d.id)){skipped.push(d.id);return;}      // id 가 같으면 건너뛴다 (덮어쓰지 않는다)
-      have.add(d.id);fresh.push(d);
+      const m=byId.get(d.id);
+      if(!m){byId.set(d.id,{});put.push(d);nNew++;return;}
+      if(!over){nSkip++;return;}
+      if(_ibTeacherTouched(m)){nSkip++;nKeep++;return;}   // 선생님이 손댄 문항은 지킨다
+      d.createdAt=Number(m.createdAt)||d.createdAt;       // 처음 만든 때는 그대로
+      put.push(d);nOver++;
     });
-    if(!fresh.length){toast('모두 이미 있는 문항이에요 ('+skipped.length+'개 건너뜀)');return;}
-    askConfirm('문항 가져오기','문항 '+fresh.length+'개를 넣을까요?\n'+
-      (skipped.length?('id 가 같은 '+skipped.length+'개는 건너뜁니다.\n'):'')+'200개씩 나눠 올립니다.',
-      '넣기','bt',()=>_ibImportGo(fresh,skipped.length));
+    if(!put.length){
+      toast('넣을 문항이 없어요 — '+nSkip+'개 건너뜀'+(nKeep?(' (손댄 문항 '+nKeep+'개 보호)'):''));
+      return;
+    }
+    askConfirm('문항 가져오기',
+      (over?'같은 id 는 덮어씁니다.\n':'같은 id 는 건너뜁니다.\n')+
+      '새로 넣음 '+nNew+' · 덮어씀 '+nOver+' · 건너뜀 '+nSkip+(nKeep?(' (손댄 문항 '+nKeep+'개 보호)'):'')+'\n'+
+      '200개씩 나눠 올립니다. 정답은 0부터(① = 0) 셉니다.',
+      '넣기','bt',()=>_ibImportGo(put,{nNew:nNew,nOver:nOver,nSkip:nSkip,nKeep:nKeep}));
   }catch(e){toast('읽지 못했어요: '+((e&&e.message)||''));}
 }
-async function _ibImportGo(fresh,nSkip){
+async function _ibImportGo(list,c){
   const el=document.getElementById('ib-state');
   let done=0;
-  for(let i=0;i<fresh.length;i+=200){                 // 200개씩 나눠 올린다
-    const part=fresh.slice(i,i+200);
-    if(el)el.textContent='올리는 중… '+(i+part.length)+'/'+fresh.length;
+  for(let i=0;i<list.length;i+=200){                 // 200개씩 나눠 올린다
+    const part=list.slice(i,i+200);
+    if(el)el.textContent='올리는 중… '+(i+part.length)+'/'+list.length;
     const ok=await _ibBulkUpsert(part).catch(()=>false);
     if(!ok){toast('올리다 멈췄어요 — '+done+'개까지 들어갔습니다');break;}
     done+=part.length;
-    part.forEach(d=>_ibMerge(_ibLightOf(d,d.id)));
+    part.forEach(d=>{_ibFull.set(d.id,d);_ibMerge(_ibLightOf(d,d.id));});
   }
   _ibPaintFilters();renderItemList();_ibStampIb();
-  toast('문항 '+done+'개를 넣었어요'+(nSkip?(' · '+nSkip+'개 건너뜀'):''));
+  const msg='새로 넣음 '+c.nNew+' · 덮어씀 '+c.nOver+' · 건너뜀 '+c.nSkip+
+    (c.nKeep?(' (손댄 문항 '+c.nKeep+'개 보호)'):'');
+  toast(done===list.length?msg:(msg+' — '+done+'개까지 들어갔습니다'));
 }
 // ── 탭 ────────────────────────────────────────────────────────────────────
 function ibMenu(ev){
