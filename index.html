@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261112g">
+<link rel="stylesheet" href="css/style.css?v=20261112h">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -1052,7 +1052,10 @@
         <div class="sh">
           <div><div class="st">저장된 워크시트</div><div class="ssub" id="ws-total"></div>
             <div style="font-size:12px;color:var(--slate);margin-top:2px">스튜디오에서 만들어 저장한 학습지 — 새로 만들려면 오른쪽 버튼(상단 ‘워크시트’ 탭과 같은 화면)</div></div>
-          <button class="btn bt bsm" onclick="swTab('t-worksheet')">＋ 새 워크시트 만들기</button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn bt bsm" onclick="lkOpen({},'','중1')">📘 학습 세트 만들기</button>
+            <button class="btn bo bsm" onclick="swTab('t-worksheet')">＋ 새 워크시트 만들기</button>
+          </div>
         </div>
         <div class="lib-search-bar">
           <input type="text" class="lib-search-input" id="ws-q" placeholder="제목 검색..." oninput="renderWsDB()">
@@ -1963,6 +1966,7 @@
               <button class="btn ba bsm" onclick="tuSaveUnitText()" style="white-space:nowrap">저장</button>
               <button class="btn bt bsm" onclick="tuExtractExamples()" style="white-space:nowrap">✨ 원문 예문 추출</button>
               <button class="btn bo bsm" onclick="wsPrintUnitSheet()" title="본문 문장별 품사·문장성분·해석 빈칸 워크시트를 만들어 인쇄" style="white-space:nowrap">🖨 문장 분석</button>
+              <button class="btn bo bsm" onclick="lkFromUnitEditor()" title="이 단원 본문으로 단어장·끊어 읽기·빈칸·순서·영작을 만듭니다" style="white-space:nowrap">📘 학습 세트</button>
               <button class="btn ba bsm" onclick="teacherSpeakText('tu-unit-text')" title="AI 낭독으로 미리듣기" style="white-space:nowrap"><i data-lucide="volume-2" width="15" height="15" style="vertical-align:-3px"></i> 미리듣기</button>
               <button class="btn bo bsm" onclick="stopSmartAudio()" style="white-space:nowrap">⏹</button>
             </div>
@@ -2925,8 +2929,8 @@
       <div class="lk-cfg">
         <div class="pb-a-row">
           <label class="iso-lb">교재</label>
-          <select class="filter-sel" id="lk-tb" onchange="_lkPaintUnits()"></select>
-          <select class="filter-sel" id="lk-unit" onchange="lkCfgChange()"></select>
+          <select class="filter-sel" id="lk-tb" onchange="lkTbPick()"></select>
+          <select class="filter-sel" id="lk-unit" onchange="lkUnitPick()"></select>
           <button class="btn bo bsm" onclick="lkFromBook()">본문 가져오기</button>
         </div>
         <div class="pb-a-row">
@@ -3011,7 +3015,7 @@
 <script src="js/utils.js?v=20261111b"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261111c"></script>
-<script src="js/teacher.js?v=20261112g"></script>
+<script src="js/teacher.js?v=20261112h"></script>
 <script src="js/student.js?v=20261112f"></script>
 <script src="js/parent.js?v=20261112e"></script>
 </body>

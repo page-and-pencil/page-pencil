@@ -21839,10 +21839,118 @@ const LK_PARTS=[
 const LK_GRADES=['초5','초6','중1','중2','중3','고1','고2','고3'];
 const LK_AUTO_MS=1500;
 const LK_DEV_KEY='pp_kit_dev';     // 원문 지문에서 시작한 세트는 기기에만
-const LK_STOP=new Set(('a an the and or but if of to in on at for with from by as is are was were be been being '+
-  'this that these those it its he she they them his her their you your we our i me my not no do does did done '+
-  'have has had will would can could should may might must there here when while because so than then them up out '+
-  'who whom which what how why all any some more most much many very just also too into over under about after before').split(' '));
+// 초등 기본 낱말 — 중1 이상에서는 단어장에서 뺀다 (NGSL·초등 교육과정 기본 어휘 수준)
+const LK_BASIC=new Set(('a an the and or but if of to in on at for with from by as is are was were be been being am '+
+'this that these those it its he she him her his hers they them their you your yours we our ours i me my mine '+
+'not no nor so too very just also only even still yet already always never often sometimes usually again once '+
+'do does did done doing have has had having will would can could shall should may might must need dare used '+
+'there here when where why how what which who whom whose while because since until though although unless '+
+'than then thus however therefore about above across after against along among around before behind below '+
+'beneath beside between beyond during except inside into near off onto out outside over past through throughout '+
+'toward towards under underneath up upon within without all any both each either every few many much more most '+
+'neither none other others same several some such own way ways thing things stuff kind kinds sort sorts '+
+'man men woman women boy boys girl girls child children people person friend friends family families mother '+
+'father mom dad parent parents brother brothers sister sisters baby son daughter teacher teachers student students '+
+'classmate classmates neighbor neighbors doctor nurse farmer cook chef driver singer dancer writer painter artist '+
+'scientist police officer king queen prince princess '+
+'home house room rooms kitchen bathroom bedroom door doors window windows wall walls floor roof garden yard '+
+'school schools class classes classroom library gym playground office shop shops store stores market mall '+
+'bank park zoo museum theater cinema restaurant cafe hospital church station airport bus train subway car cars '+
+'bike bikes taxi plane ship boat road roads street streets city cities town towns village country countries world '+
+'place places area areas building buildings bridge river sea ocean lake mountain mountains hill beach island '+
+'sky sun moon star stars cloud clouds rain snow wind weather season spring summer fall autumn winter '+
+'day days night nights morning afternoon evening today tomorrow yesterday week weeks month months year years '+
+'hour hours minute minutes second seconds time times date today o clock '+
+'monday tuesday wednesday thursday friday saturday sunday january february march april may june july august '+
+'september october november december '+
+'one two three four five six seven eight nine ten eleven twelve twenty thirty forty fifty hundred thousand '+
+'first second third last next number numbers '+
+'food foods water milk juice tea coffee bread rice soup meat fish chicken beef pork egg eggs fruit fruits apple '+
+'apples banana orange grape strawberry watermelon vegetable vegetables carrot potato tomato onion salad pizza '+
+'hamburger sandwich noodle noodles cake cookie candy chocolate ice cream sugar salt breakfast lunch dinner meal '+
+'snack dish dishes cup cups glass bottle plate spoon fork knife chopsticks '+
+'clothes shirt shirts pants dress skirt coat jacket hat cap shoes socks bag bags backpack umbrella glasses '+
+'book books notebook pencil pen eraser ruler paper papers desk desks chair chairs board computer phone camera '+
+'picture pictures photo photos map maps card cards letter letters word words sentence sentences story stories '+
+'song songs music movie movies game games ball soccer baseball basketball tennis swimming running sport sports '+
+'team teams club clubs party trip travel vacation holiday festival event concert show '+
+'body head hair face eye eyes ear ears nose mouth tooth teeth neck shoulder arm arms hand hands finger leg legs '+
+'foot feet heart skin voice '+
+'animal animals dog dogs cat cats bird birds rabbit mouse horse cow pig sheep tiger lion bear elephant monkey '+
+'fox wolf duck chicken frog snake insect bug butterfly bee ant spider tree trees flower flowers grass leaf leaves '+
+'plant plants seed forest garden '+
+'go goes going went gone come comes coming came get gets got getting give gives gave given take takes took taken '+
+'make makes made making see sees saw seen look looks looked looking watch watches watched hear hears heard '+
+'listen listens listened say says said tell tells told talk talks talked speak speaks spoke speaking ask asks '+
+'asked answer answers answered call calls called read reads write writes wrote written draw draws drew '+
+'play plays played playing run runs ran running walk walks walked jump jumps sit sits sat stand stands stood '+
+'sleep sleeps slept wake wakes woke eat eats ate eaten drink drinks drank cook cooks cooked buy buys bought '+
+'sell sells sold pay pays paid use uses used using open opens opened close closes closed start starts started '+
+'begin begins began stop stops stopped finish finishes finished help helps helped work works worked working '+
+'study studies studied learn learns learned teach teaches taught know knows knew known think thinks thought '+
+'feel feels felt want wants wanted like likes liked love loves loved hate need needs needed try tries tried '+
+'live lives lived leave leaves left stay stays stayed move moves moved put puts bring brings brought send sends '+
+'sent find finds found keep keeps kept hold holds held meet meets met wait waits waited turn turns turned '+
+'show shows showed shown wear wears wore clean cleans cleaned wash washes washed carry carries carried '+
+'build builds built grow grows grew change changes changed happen happens happened become becomes became '+
+'remember remembers forget forgets lose loses lost win wins won fly flies flew swim swims swam ride rides rode '+
+'drive drives drove climb climbs smile smiles laugh laughs cry cries worry worries enjoy enjoys enjoyed '+
+'hope hopes hoped wish wishes decide decides decided choose chooses chose plan plans planned practice practices '+
+'exercise exercises visit visits visited travel travels traveled '+
+'good better best bad worse worst big bigger biggest small smaller little large long longer short tall high low '+
+'old older new newer young younger fast faster slow slower early late later easy easier hard harder difficult '+
+'happy happier sad angry tired hungry thirsty sick fine well nice kind kindly pretty beautiful cute ugly clean '+
+'dirty hot cold warm cool wet dry bright dark light heavy strong weak rich poor busy free safe dangerous '+
+'important special different same similar favorite famous funny interesting boring exciting wonderful great '+
+'wrong right true false real sure ready quiet loud soft sweet delicious '+
+'red blue green yellow black white brown pink purple orange gray color colors colorful '+
+'yes ok okay please thank thanks sorry hello hi bye goodbye welcome sir madam mr mrs ms '+
+'lot lots bit many much some more less least about around almost together alone again back away down up over '+
+'under near far away inside outside '+
+'name names age years old life lives health money price cost dollar won free gift present letter email message '+
+'news idea ideas question questions answer problem problems reason reasons example examples point points '+
+'part parts side sides top bottom front middle end ends beginning center '+
+'art arts history math science english korean music pe subject subjects test tests exam homework lesson lessons '+
+'page pages line lines group groups member members '+
+'now soon ago maybe really probably perhaps anyway sure kind sort hello everyone everybody something anything nothing everything someone anyone nobody myself yourself himself herself itself ourselves themselves each other another every').split(/\s+/).filter(Boolean));
+// 모든 학년에서 빼는 말 (기능어) — 초등도 뺀다
+const LK_STOP=new Set(('a an the and or but if of to in on at for with from by as is are was were be been being am '+
+'this that these those it its he she him her his they them their you your we our i me my not no do does did '+
+'have has had will would can could should may might must there here when while because so than then up out '+
+'who whom which what how why all any some more most much many very just also too into over under about after '+
+'before one two three their them its his her she he you i we us my your our').split(/\s+/).filter(Boolean));
+// 불규칙 변화 — 원형 찾기에 쓴다 (작은 표)
+const LK_IRR={children:'child',men:'man',women:'woman',feet:'foot',teeth:'tooth',mice:'mouse',geese:'goose',
+  leaves:'leaf',lives:'life',knives:'knife',wolves:'wolf',shelves:'shelf',thieves:'thief',wives:'wife',
+  went:'go',gone:'go',came:'come',saw:'see',seen:'see',did:'do',done:'do',made:'make',took:'take',taken:'take',
+  gave:'give',given:'give',got:'get',gotten:'get',said:'say',told:'tell',thought:'think',brought:'bring',
+  bought:'buy',caught:'catch',taught:'teach',found:'find',felt:'feel',kept:'keep',left:'leave',lost:'lose',
+  met:'meet',paid:'pay',put:'put',ran:'run',sat:'sit',sold:'sell',sent:'send',slept:'sleep',spoke:'speak',
+  spoken:'speak',stood:'stand',took:'take',wore:'wear',worn:'wear',won:'win',wrote:'write',written:'write',
+  ate:'eat',eaten:'eat',drank:'drink',drunk:'drink',drove:'drive',driven:'drive',flew:'fly',flown:'fly',
+  grew:'grow',grown:'grow',knew:'know',known:'know',rode:'ride',ridden:'ride',rose:'rise',sang:'sing',
+  swam:'swim',threw:'throw',thrown:'throw',woke:'wake',began:'begin',begun:'begin',broke:'break',broken:'break',
+  chose:'choose',chosen:'choose',built:'build',heard:'hear',held:'hold',read:'read',hid:'hide',hidden:'hide',
+  better:'good',best:'good',worse:'bad',worst:'bad',was:'be',were:'be',been:'be',am:'be',is:'be',are:'be'};
+function _lkLemma(w){
+  const x=String(w||'').toLowerCase();
+  if(LK_IRR[x])return LK_IRR[x];
+  if(/[^aeiou]ies$/.test(x))return x.slice(0,-3)+'y';
+  if(/(ches|shes|sses|xes|zes)$/.test(x))return x.slice(0,-2);
+  if(/[^s]s$/.test(x)&&x.length>3)return x.slice(0,-1);
+  if(/ied$/.test(x))return x.slice(0,-3)+'y';
+  if(/ed$/.test(x)&&x.length>4){
+    const a=x.slice(0,-2);
+    if(/([^aeiou])\1$/.test(a))return a.slice(0,-1);
+    return /e$/.test(a)?a:(/[^aeiou]$/.test(a)?a:a+'e');
+  }
+  if(/ing$/.test(x)&&x.length>5){
+    const a=x.slice(0,-3);
+    if(/([^aeiou])\1$/.test(a))return a.slice(0,-1);
+    return /[^aeiou]$/.test(a)?a:a+'e';
+  }
+  return x;
+}
 let _lkKit=null,_lkSaveT=null,_lkSaving=false,_lkDirty=false,_lkState='',_lkWords=null,_lkUse={calls:0};
 let _lkAiBusy=false;
 
@@ -21854,17 +21962,80 @@ function _lkLv(g){
   return 'high';
 }
 function _lkE(x){return _ebE(x);}
-// ── 글 다루기 ────────────────────────────────────────────────────────────
-function _lkSentences(t){
-  return String(t||'').replace(/\s+/g,' ').trim()
-    .split(/(?<=[.!?])\s+(?=[A-Z"'“‘(])/).map(s=>s.trim()).filter(s=>s.length>1);
+// ── 글 나누기 ────────────────────────────────────────────────────────────
+// 교재 본문은 줄바꿈이 곧 문장 경계다. 마침표가 없는 첫 줄은 제목으로 떼어 낸다.
+// 화자 표기(Yuna: …)는 ppParseDialog 로 떼어 문장 앞에 두되 빈칸·배열에서는 뺀다.
+function _lkSplit(s){
+  return String(s||'').split(/(?<=[.!?])\s+(?=[A-Z"'“‘(])/).map(x=>x.trim()).filter(x=>x.length>1);
 }
-function _lkWordsOf(t){
-  const out=[],seen=new Set();
-  String(t||'').toLowerCase().replace(/[^a-z'\- ]/g,' ').split(/\s+/).forEach(w=>{
-    const x=w.replace(/^['-]+|['-]+$/g,'');
-    if(x.length<3||LK_STOP.has(x)||seen.has(x))return;
-    seen.add(x);out.push(x);
+function _lkParse(text){
+  const lines=String(text||'').replace(/\r/g,'').split(/\n+/).map(s=>s.trim()).filter(Boolean);
+  let title='';
+  if(lines.length>1&&!/[.!?…][")'’”]?$/.test(lines[0])&&lines[0].split(/\s+/).length<=12){
+    title=lines.shift();
+  }
+  const out=[];
+  const pd=(typeof ppParseDialog==='function')?ppParseDialog(lines.join('\n')):{dialog:false};
+  if(pd&&pd.dialog&&(pd.lines||[]).length){
+    pd.lines.forEach(l=>{
+      _lkSplit(l.text).forEach((s,i)=>out.push({text:s,spk:(i===0?String(l.spk||''):'')}));
+    });
+  }else{
+    lines.forEach(l=>{
+      const m=l.match(/^([A-Z][A-Za-z.'\s]{0,16}):\s+/);
+      const spk=m?m[1].trim():'';
+      const body=m?l.slice(m[0].length).trim():l;
+      _lkSplit(body).forEach((s,i)=>out.push({text:s,spk:(i===0?spk:'')}));
+    });
+  }
+  return {title:title,sents:out};
+}
+function _lkSentences(t){return _lkParse(t).sents.map(s=>s.text);}
+// 낱말 하나만 남긴다 — 곡선 따옴표를 펴고 줄임말·소유격 꼬리(can't·Banksy's)를 뗀다
+function _lkBareW(x){
+  return String(x||'').replace(/[‘’]/g,"'")
+    .replace(/'(s|t|re|ve|ll|d|m)$/i,'').replace(/'(s|t|re|ve|ll|d|m)\b/i,'')
+    .replace(/[^A-Za-z'-]/g,'').replace(/^[-']+|[-']+$/g,'');
+}
+// -ed·-ing 의 원형 복원은 애매하다 — 단어 DB 에 있는 꼴만 원형으로, 없으면 본문 꼴 그대로
+function _lkBaseW(low){
+  const lem=_lkLemma(low);
+  if(lem===low)return low;
+  if(!/(ed|ing)$/.test(low))return lem;            // 복수·불규칙은 그대로 원형
+  const db=_lkWordDb();
+  const cand=[lem,lem+'e',lem+lem.slice(-1)];
+  for(let i=0;i<cand.length;i++)if(db.has(cand[i]))return cand[i];
+  return low;
+}
+// 본문에 나온 순서대로 낱말 (고유명사·기능어·기본 낱말 거르기)
+function _lkWordsOf(t,lv){
+  const sents=_lkParse(t).sents.map(s=>s.text);
+  const out=[],seen=new Set(),caps={},lows={};
+  sents.forEach(s=>{
+    s.split(/\s+/).forEach((raw,i)=>{
+      const bare=_lkBareW(raw);
+      if(!bare)return;
+      const low=bare.toLowerCase(),lem=_lkLemma(low);
+      if(/^[A-Z]/.test(bare)){
+        if(i>0){caps[low]=(caps[low]||0)+1;caps[lem]=(caps[lem]||0)+1;}
+      }else if(/^[a-z]/.test(bare)){
+        lows[low]=(lows[low]||0)+1;lows[lem]=(lows[lem]||0)+1;
+      }
+    });
+  });
+  sents.forEach(s=>{
+    s.split(/\s+/).forEach(raw=>{
+      const bare=_lkBareW(raw);
+      if(bare.length<3)return;
+      const low=bare.toLowerCase(),lem=_lkLemma(low);
+      // 고유명사 — 소유격·복수 꼴(Banksy's→banksy)도 같은 낱말로 본다
+      if((caps[low]&&!lows[low])||(caps[lem]&&!lows[lem]))return;
+      const disp=_lkBaseW(low),key=_lkLemma(disp);
+      if(LK_STOP.has(low)||LK_STOP.has(lem)||LK_STOP.has(disp))return;
+      if(lv!=='elem'&&(LK_BASIC.has(low)||LK_BASIC.has(lem)||LK_BASIC.has(disp)))return;   // 중1 이상은 기본 낱말 제외
+      if(seen.has(key))return;
+      seen.add(key);out.push(disp);
+    });
   });
   return out;
 }
@@ -21877,98 +22048,184 @@ function _lkWordDb(force){
       (Array.isArray(arr)?arr:[]).forEach(w=>{
         const k=String((w&&w.word)||w||'').trim().toLowerCase();
         const ko=String((w&&w.ko)||'').trim();
-        if(k&&ko&&!m.has(k))m.set(k,{ko:ko,pos:String((w&&w.pos)||'')});
+        if(!k||!ko)return;
+        if(!m.has(k))m.set(k,{ko:ko,pos:String((w&&w.pos)||'')});
+        const lem=_lkLemma(k);
+        if(!m.has(lem))m.set(lem,{ko:ko,pos:String((w&&w.pos)||'')});
       });
     });
   });
   _lkWords=m;return m;
 }
 // ── 만들기 (코드만) ─────────────────────────────────────────────────────
-function _lkMakeVocab(text,max){
-  const db=_lkWordDb();
-  return _lkWordsOf(text).slice(0,max||20).map(w=>{
+// 그 단원 단어 목록이 있으면 본문에 나온 순서대로 그것부터, 모자라면 본문에서 더
+function _lkMakeVocab(text,max,unitWords){
+  const db=_lkWordDb(),lv=_lkLv(_lkKit&&_lkKit.grade);
+  const inText=_lkWordsOf(text,'elem');                 // 순서 기준 (거르기 전)
+  const order=new Map();inText.forEach((w,i)=>{const k=_lkLemma(w);if(!order.has(k))order.set(k,i);});
+  const out=[],seen=new Set();
+  const add=(word,ko,pos,from)=>{
+    const lem=_lkLemma(String(word).toLowerCase());
+    if(seen.has(lem)||out.length>=(max||20))return;
+    seen.add(lem);
+    out.push({word:String(word).toLowerCase(),ko:ko||'',pos:pos||'',from:from||''});
+  };
+  (Array.isArray(unitWords)?unitWords:[]).map(w=>typeof w==='string'?{word:w}:w)
+    .filter(w=>w&&w.word)
+    .sort((a,b)=>{
+      const ai=order.has(_lkLemma(String(a.word).toLowerCase()))?order.get(_lkLemma(String(a.word).toLowerCase())):9999;
+      const bi=order.has(_lkLemma(String(b.word).toLowerCase()))?order.get(_lkLemma(String(b.word).toLowerCase())):9999;
+      return ai-bi;
+    })
+    .forEach(w=>add(w.word,String(w.ko||''),String(w.pos||''),'unit'));
+  _lkWordsOf(text,lv).forEach(w=>{
     const hit=db.get(w);
-    return {word:w,ko:hit?hit.ko:'',pos:hit?hit.pos:'',from:hit?'db':''};
+    add(w,hit?hit.ko:'',hit?hit.pos:'',hit?'db':'');
   });
+  out.forEach(v=>{if(!v.ko){const hit=db.get(v.word)||db.get(_lkLemma(v.word));if(hit){v.ko=hit.ko;v.pos=v.pos||hit.pos;if(!v.from)v.from='db';}}});
+  return out;
 }
-// 끊어 읽기 — 쉼표·접속사·전치사·관계사 앞에서 끊는다 (규칙만)
-const LK_CHUNK=/\b(and|but|or|so|because|that|which|who|when|while|if|after|before|since|to|for|with|from|in|on|at|of|as|than)\b/g;
+// ── 끊어 읽기 ───────────────────────────────────────────────────────────
+const LK_CONJ=/^(and|but|so|or|because|when|while|if|although|though|since|before|after|until|unless|as)$/i;
+const LK_REL=/^(that|which|who|whom|whose|where|why|what)$/i;
+const LK_PREP=/^(in|on|at|for|with|from|by|to|of|about|into|over|under|through|during|between|among|around|across|like|without|within|near|behind|beyond|against|toward|towards|upon)$/i;
+const LK_NOCUT_TO=/^(going|used|have|has|had|want|wants|wanted|need|needs|needed|try|tries|tried|able|how|decided|decide|according|thanks|due|owing|prior|similar|next|close|up|back|ought|supposed|hope|hopes|hoped|plan|plans|planned|learn|learns|learned|like|likes|liked|love|loves|loved|start|starts|started|begin|begins|began|continue|continues|continued|seem|seems|seemed|forget|forgets|forgot|remember|remembers|remembered)$/i;
+const LK_NOCUT_OF=/^(one|lot|lots|kind|kinds|sort|sorts|plenty|couple|piece|pieces|bunch|none|all|some|most|many|much)$/i;
+const LK_VERB=/^(is|are|was|were|am|be|been|has|have|had|do|does|did|can|could|will|would|may|might|must|should|makes|make|made|comes|come|came|goes|go|went|looks|look|gives|give|takes|take|seems|seem|becomes|become|represents|represent|means|mean|shows|show|lives|live|lived|says|said|gets|get|got|keeps|keep|puts|put|wants|want|needs|need|likes|like|knows|know|thinks|think|calls|call|uses|use|paints|paint|painted|draws|draw|drew|stands|stand|stood|sits|sit|sat)$/i;
+const LK_SUBJ=/^(i|you|he|she|it|we|they|there|this|that|these|those|people)$/i;
+// 접속사 뒤가 절인가 — 바로 뒤가 주어꼴이거나 세 낱말 안에 동사가 있으면 절로 본다
+function _lkLeadsClause(w,i){
+  if(LK_SUBJ.test(_lkBareW(w[i+1]||'')))return true;
+  for(let k=i+1;k<=i+3&&k<w.length;k++)if(LK_VERB.test(_lkBareW(w[k])))return true;
+  return false;
+}
+// 한 문장을 끊어 읽기 토막으로 (규칙만)
+function _lkChunkOne(s){
+  const w=String(s||'').trim().split(/\s+/).filter(Boolean);
+  if(w.length<=6)return w.join(' ');
+  const cut=new Set();                                   // i 번째 낱말 '앞'에서 끊는다
+  for(let i=1;i<w.length;i++){
+    const bare=_lkBareW(w[i]);
+    const prev=_lkBareW(w[i-1]);
+    if(/[,;:]$/.test(w[i-1])){cut.add(i);continue;}      // 쉼표 뒤
+    // 접속사는 절을 이끌 때만 (and dots·and lively 같은 낱말 잇기에서는 안 끊는다)
+    if(LK_CONJ.test(bare)){if(w.length-i>=3&&_lkLeadsClause(w,i))cut.add(i);continue;}
+    if(LK_REL.test(bare)){if(i>=2&&w.length-i>=3)cut.add(i);continue;}
+    if(LK_PREP.test(bare)){
+      if(/^to$/i.test(bare)&&LK_NOCUT_TO.test(prev))continue;
+      if(/^of$/i.test(bare)&&LK_NOCUT_OF.test(prev))continue;
+      const rest=w.length-i;
+      if(rest>=3)cut.add(i);                             // 세 낱말 이상인 전치사구만
+      continue;
+    }
+  }
+  // 긴 주어(네 낱말 이상) 뒤 — 첫 동사 앞에서 한 번.
+  // 앞에서 이미 끊었거나, 앞에 동사·전치사·접속사가 있어 주어가 아니면 끊지 않는다
+  for(let i=4;i<Math.min(w.length,10);i++){
+    if(!LK_VERB.test(_lkBareW(w[i])))continue;
+    let early=false;cut.forEach(j=>{if(j<=i)early=true;});
+    if(early)break;
+    let pure=true;
+    for(let k=1;k<i;k++){
+      const b=_lkBareW(w[k]);
+      if(LK_VERB.test(b)||LK_PREP.test(b)||LK_CONJ.test(b)||LK_REL.test(b)){pure=false;break;}
+    }
+    if(pure)cut.add(i);
+    break;
+  }
+  // 한 낱말짜리 토막은 만들지 않는다 (문장 맨 앞의 'Today,' 같은 꼴만 둔다)
+  const keep=[...cut].sort((a,b)=>a-b).reduce((acc,j)=>{
+    const start=acc.length?acc[acc.length-1]:0;
+    if(j-start>=2||(start===0&&/[,;:]$/.test(w[j-1])))acc.push(j);
+    return acc;
+  },[]);
+  while(keep.length&&w.length-keep[keep.length-1]<2)keep.pop();
+  const marks=new Set(keep);
+  const parts=[];let cur=[];
+  w.forEach((x,i)=>{
+    if(i&&marks.has(i)&&cur.length){parts.push(cur.join(' '));cur=[];}
+    cur.push(x);
+  });
+  if(cur.length)parts.push(cur.join(' '));
+  return parts.filter(p=>String(p).trim()).join(' / ');   // 빈 조각이 생기지 않게
+}
 function _lkMakeChunks(text,koText){
   const ko=String(koText||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  return _lkSentences(text).map((s,i)=>{
-    let marked=s.replace(/,\s*/g,', / ');
-    let n=0;
-    marked=marked.replace(LK_CHUNK,m=>((++n)%1===0?'/ '+m:m));
-    marked=marked.replace(/\s*\/\s*/g,' / ').replace(/^\s*\/\s*/,'');
-    return {en:s,chunk:marked,ko:ko[i]||''};
-  });
+  const p=_lkParse(text);
+  return p.sents.map((s,i)=>({en:s.text,spk:s.spk||'',chunk:_lkChunkOne(s.text),ko:ko[i]||''}));
 }
-function _lkPick(n,total){                       // 고르게 흩어진 n 개 자리
+function _lkPick(n,total){
   const out=[];
   for(let i=0;i<n&&i<total;i++)out.push(Math.floor(i*total/n));
   return [...new Set(out)];
 }
-// 빈칸 본문 — 학년에 따라 단어·구·문장
+// 빈칸 본문 — 학년에 따라 낱말·구·문장 (화자 표기는 빈칸 대상에서 뺀다)
 function _lkMakeCloze(text,lv){
-  const sents=_lkSentences(text);
+  const p=_lkParse(text);
+  const sents=p.sents.map(s=>s.text);
+  const spks=p.sents.map(s=>s.spk||'');
+  const pre=i=>spks[i]?(spks[i]+': '):'';
   const blanks=[];
-  if(lv==='high'){                               // 문장 통째로
-    const idx=_lkPick(Math.min(3,Math.ceil(sents.length/3)),sents.length);
+  if(lv==='high'){
+    const idx=_lkPick(Math.min(3,Math.max(1,Math.ceil(sents.length/3))),sents.length);
     const out=sents.map((s,i)=>{
-      if(idx.indexOf(i)<0)return s;
+      if(idx.indexOf(i)<0)return pre(i)+s;
       blanks.push({no:blanks.length+1,answer:s});
-      return '( '+blanks.length+' ) ______________________________';
+      return pre(i)+'( '+blanks.length+' ) ______________________________';
     });
-    return {mode:'sentence',text:out.join(' '),blanks:blanks,choices:[]};
+    return {mode:'sentence',text:out.join('\n'),blanks:blanks,choices:[]};
   }
-  if(lv==='mid'){                                // 두세 낱말 묶음
-    const out=sents.map(s=>{
+  if(lv==='mid'){
+    const out=sents.map((s,i)=>{
       const ws=s.split(' ');
-      if(ws.length<6)return s;
+      if(ws.length<6)return pre(i)+s;
       const at=Math.max(1,Math.floor(ws.length/2)-1);
       const take=ws.slice(at,at+2).join(' ').replace(/[.,!?]$/,'');
-      if(!take)return s;
+      if(!take)return pre(i)+s;
       blanks.push({no:blanks.length+1,answer:take});
-      return ws.slice(0,at).join(' ')+' ( '+blanks.length+' ) '+ws.slice(at+2).join(' ');
+      return pre(i)+ws.slice(0,at).join(' ')+' ( '+blanks.length+' ) '+ws.slice(at+2).join(' ');
     });
-    return {mode:'phrase',text:out.join(' '),blanks:blanks,choices:[]};
+    return {mode:'phrase',text:out.join('\n'),blanks:blanks,choices:[]};
   }
-  const db=_lkWordDb();                          // 초등 — 낱말 + 보기 (한 문장에 한 칸씩)
+  const db=_lkWordDb();
   const used=new Set();
-  const out=sents.map(s=>{
-    if(blanks.length>=6)return s;
-    const cand=_lkWordsOf(s).filter(w=>!used.has(w));
-    if(!cand.length)return s;
+  const out=sents.map((s,i)=>{
+    if(blanks.length>=6)return pre(i)+s;
+    const cand=_lkWordsOf(s,'elem').filter(w=>!used.has(w));
+    if(!cand.length)return pre(i)+s;
     const w=cand[Math.min(cand.length-1,Math.floor(cand.length/2))];
-    const re=new RegExp('\\b'+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i');
-    if(!re.test(s))return s;
+    const re=new RegExp('\\b'+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\w*\\b','i');
+    if(!re.test(s))return pre(i)+s;
     used.add(w);
-    blanks.push({no:blanks.length+1,answer:w,ko:(db.get(w)||{}).ko||''});
-    return s.replace(re,'( '+blanks.length+' )');
-  }).join(' ');
+    let hit='';
+    const rep=s.replace(re,m=>{hit=m;return '( '+(blanks.length+1)+' )';});
+    blanks.push({no:blanks.length+1,answer:hit||w,ko:(db.get(w)||{}).ko||''});
+    return pre(i)+rep;
+  });
   const choices=blanks.map(b=>b.answer).sort(()=>0.5-Math.random());
-  return {mode:'word',text:out,blanks:blanks,choices:choices};
+  return {mode:'word',text:out.join('\n'),blanks:blanks,choices:choices};
 }
-// 문장 순서 배열
+// 문장 순서 — 문장을 자르지 않는다. 제목은 넣지 않는다.
 function _lkMakeOrder(text){
-  const sents=_lkSentences(text).slice(0,6);
+  const p=_lkParse(text);
+  const sents=p.sents.slice(0,6).map((s,i)=>(s.spk?(s.spk+': '):'')+s.text);
   if(sents.length<3)return null;
   const tag='ⓐⓑⓒⓓⓔⓕ';
-  const idx=sents.map((s,i)=>i);
-  const mixed=idx.slice().sort(()=>0.5-Math.random());
+  const mixed=sents.map((s,i)=>i).sort(()=>0.5-Math.random());
   return {lines:mixed.map((i,k)=>({tag:tag.charAt(k),en:sents[i],orig:i})),
     answer:mixed.map((i,k)=>({i:i,tag:tag.charAt(k)})).sort((a,b)=>a.i-b.i).map(x=>x.tag).join(' → ')};
 }
-// 영작 — 초·중1~2 는 배열, 중3 이상은 조건 영작
-function _lkMakeWrite(text,lv,koText){
+// 영작 — 초·중1~2 는 배열, 중3 이상은 조건 영작 (단원 문법 포인트가 있으면 조건에 넣는다)
+function _lkMakeWrite(text,lv,koText,patterns){
   const ko=String(koText||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  const sents=_lkSentences(text);
+  const p=_lkParse(text);
+  const sents=p.sents.map(s=>s.text);   // 화자 표기(Yuna:)는 빼고 문장만 쓴다
   const min=(lv==='elem')?4:7, max=(lv==='elem')?6:10;
   const wc=t=>String(t).replace(/[.,!?"']/g,'').split(' ').filter(Boolean).length;
   const cand=[];
   sents.forEach((s,i)=>{
     cand.push({s:s,i:i,n:wc(s),whole:true});
-    if(lv!=='high'&&wc(s)>max){                 // 긴 문장은 절로 잘라 길이를 맞춘다
+    if(lv!=='high'&&wc(s)>max){
       s.split(/,\s*|\s+(?=(?:and|but|so|because|that|which|when|before|after)\s)/i)
        .map(x=>String(x).replace(/^(and|but|so|because|that|which|when|before|after)\s+/i,'').trim().replace(/[.,]$/,''))
        .filter(x=>x&&wc(x)>=min&&wc(x)<=max)
@@ -21980,11 +22237,13 @@ function _lkMakeWrite(text,lv,koText){
   const take=(fit.length?fit:cand.filter(x=>x.whole)).filter(x=>{
     if(seen.has(x.i))return false;seen.add(x.i);return true;
   }).slice(0,4);
+  const pat=String(patterns||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean).slice(0,2);
   return {mode:(lv==='high'?'cond':'order'),items:take.map(x=>{
     const words=x.s.replace(/[.]$/,'').split(' ').filter(Boolean);
     return {ko:(x.whole?(ko[x.i]||''):''),answer:x.s,
       words:(lv==='high')?[]:words.slice().sort(()=>0.5-Math.random()),
-      cond:(lv==='high')?['낱말 '+words.length+'개 안팎으로 쓰기','본문에 나온 표현을 그대로 쓰기']:[]};
+      cond:(lv==='high')?(pat.length?pat.concat(['낱말 '+words.length+'개 안팎으로 쓰기'])
+                                    :['낱말 '+words.length+'개 안팎으로 쓰기','본문에 나온 표현을 그대로 쓰기']):[]};
   })};
 }
 
@@ -22020,6 +22279,10 @@ async function lkFromItem(id,ev){
   _lkRender();
 }
 // 교재 단원 본문에서 시작
+function lkTbPick(){                      // 교재를 바꾸면 단원 목록만 새로 그린다
+  if(_lkKit)_lkKit.src.unit='';
+  _lkPaintUnits(false);
+}
 function lkFromBook(){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===(document.getElementById('lk-tb')||{}).value);
   const unit=(document.getElementById('lk-unit')||{}).value||'';
@@ -22039,6 +22302,13 @@ function lkPasteText(){
   _lkKit.passage=String(t).trim();_lkKit.ko='';
   _lkRender();_lkAutoLater();
 }
+// 단원 칸은 여기서 다시 그리지 않는다 — 고른 값이 지워지던 버그
+function lkUnitPick(){
+  if(!_lkKit)return;
+  const u=(document.getElementById('lk-unit')||{}).value||'';
+  _lkKit.src.unit=u;
+  _lkAutoLater();
+}
 function lkCfgChange(){
   if(!_lkKit)return;
   const g=(document.getElementById('lk-grade')||{}).value;
@@ -22049,9 +22319,10 @@ function lkCfgChange(){
   });
   const t=(document.getElementById('lk-title')||{}).value;
   if(t!==undefined)_lkKit.title=t;
-  _lkPaintUnits();_lkAutoLater();
+  _lkAutoLater();
 }
-function _lkPaintUnits(){
+// 교재를 바꿨을 때만 단원 목록을 새로 그린다 (고른 단원은 지키고)
+function _lkPaintUnits(keepUnit){
   const tbs=(_cache.globalTextbooks||[]).filter(b=>b&&b.unitTexts&&Object.keys(b.unitTexts).some(u=>String(b.unitTexts[u]||'').trim())
     &&!(typeof ppIsSongTb==='function'&&ppIsSongTb(b)))
     .sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),'ko'));
@@ -22060,7 +22331,10 @@ function _lkPaintUnits(){
     _ebOptsIb('lk-tb','교재 고르기',tbs.map(b=>({v:b.id,n:b.title||'(제목 없음)'})),(_lkKit&&_lkKit.src.tbId)||'');
   const tb=tbs.find(b=>b.id===(sel&&sel.value));
   const units=tb?Object.keys(tb.unitTexts||{}).filter(u=>String(tb.unitTexts[u]||'').trim()):[];
-  _ebOptsIb('lk-unit','단원 고르기',units.map(u=>({v:u,n:u+((tb.unitTitles||{})[u]?(' '+tb.unitTitles[u]):'')})),(_lkKit&&_lkKit.src.unit)||'');
+  const ue=document.getElementById('lk-unit');
+  const cur=(keepUnit&&ue&&ue.value)?ue.value:((_lkKit&&_lkKit.src.unit)||'');
+  _ebOptsIb('lk-unit','단원 고르기',units.map(u=>({v:u,n:u+((tb.unitTitles||{})[u]?(' '+tb.unitTitles[u]):'')})),cur);
+  if(ue&&cur&&[...ue.options].some(o=>o.value===cur))ue.value=cur;
 }
 function _lkPaintCfg(){
   const g=document.getElementById('lk-grade');
@@ -22076,11 +22350,15 @@ function _lkPaintCfg(){
 function lkBuild(){
   if(!_lkKit||!String(_lkKit.passage||'').trim()){toast('먼저 지문을 넣어 주세요');return;}
   const lv=_lkLv(_lkKit.grade),w=_lkKit.want,p={};
-  if(w.vocab)p.vocab=_lkMakeVocab(_lkKit.passage,lv==='elem'?12:20);
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===_lkKit.src.tbId);
+  const uw=(tb&&(tb.units||{})[_lkKit.src.unit])||null;        // 그 단원 단어 목록
+  const pat=(tb&&(tb.unitPatterns||{})[_lkKit.src.unit])||'';   // 단원 문법 포인트
+  _lkKit.head=_lkParse(_lkKit.passage).title||'';               // 본문 제목 줄
+  if(w.vocab)p.vocab=_lkMakeVocab(_lkKit.passage,lv==='elem'?12:20,uw);
   if(w.chunk)p.chunk=_lkMakeChunks(_lkKit.passage,_lkKit.ko);
   if(w.cloze)p.cloze=_lkMakeCloze(_lkKit.passage,lv);
   if(w.order){const o=_lkMakeOrder(_lkKit.passage);if(o)p.order=o;}
-  if(w.write)p.write=_lkMakeWrite(_lkKit.passage,lv,_lkKit.ko);
+  if(w.write)p.write=_lkMakeWrite(_lkKit.passage,lv,_lkKit.ko,pat);
   if(w.comp&&_lkKit.parts&&_lkKit.parts.comp)p.comp=_lkKit.parts.comp;   // 이미 만든 문제는 지킨다
   _lkKit.parts=p;
   if(!_lkKit.title)_lkKit.title=(_lkKit.grade+' 학습 세트 '+_lkMMDD());
@@ -22285,9 +22563,11 @@ function _lkRender(){
   }
   if(p.chunk&&p.chunk.length)
     h+='<div class="lk-sec"><div class="lk-sec-t">끊어 읽기·해석 칸 '+p.chunk.length+'문장</div>'+
-      '<div class="lk-list">'+p.chunk.slice(0,4).map((c,i)=>'<div class="lk-row"><b>'+(i+1)+'</b> '+_lkE(c.chunk)+
-      (c.ko?('<i>'+_lkE(c.ko)+'</i>'):'<i class="lk-blank">해석 칸</i>')+'</div>').join('')+
-      (p.chunk.length>4?('<div class="iso-hint">… 모두 '+p.chunk.length+'문장</div>'):'')+'</div></div>';
+      '<div class="iso-hint">끊은 자리를 고치려면 눌러서 고쳐 주세요 (/ 로 끊어요)</div>'+
+      '<div class="lk-list">'+p.chunk.map((c,i)=>'<div class="lk-row"><b>'+(i+1)+'</b> '+
+      (c.spk?('<span class="lk-spk">'+_lkE(c.spk)+'</span>'):'')+
+      '<span class="lk-ed" contenteditable="true" onblur="lkChunkEdit('+i+',this)">'+_lkE(c.chunk)+'</span>'+
+      (c.ko?('<i>'+_lkE(c.ko)+'</i>'):'<i class="lk-blank">해석 칸</i>')+'</div>').join('')+'</div></div>';
   if(p.cloze&&(p.cloze.blanks||[]).length)
     h+='<div class="lk-sec"><div class="lk-sec-t">빈칸 본문 — '+
       ({word:'낱말',phrase:'구',sentence:'문장'}[p.cloze.mode]||'')+' '+p.cloze.blanks.length+'칸'+
@@ -22295,7 +22575,7 @@ function _lkRender(){
       '<div class="lk-pass">'+_lkE(String(p.cloze.text).slice(0,300))+(p.cloze.text.length>300?'…':'')+'</div></div>';
   if(p.order&&(p.order.lines||[]).length)
     h+='<div class="lk-sec"><div class="lk-sec-t">문장 순서 배열 '+p.order.lines.length+'문장</div>'+
-      '<div class="lk-list">'+p.order.lines.map(l=>'<div class="lk-row"><b>'+l.tag+'</b> '+_lkE(l.en.slice(0,70))+'</div>').join('')+
+      '<div class="lk-list">'+p.order.lines.map(l=>'<div class="lk-row lk-wrap"><b>'+l.tag+'</b> '+_lkE(l.en)+'</div>').join('')+
       '<div class="iso-hint">정답 '+_lkE(p.order.answer)+'</div></div></div>';
   if(p.write&&(p.write.items||[]).length)
     h+='<div class="lk-sec"><div class="lk-sec-t">'+(p.write.mode==='cond'?'조건 영작':'배열 영작')+' '+p.write.items.length+'문항</div>'+
@@ -22309,6 +22589,13 @@ function _lkRender(){
       '<i>정답 '+_isoCirc(c.answer)+'</i></div>').join('')+'</div>'):'<div class="iso-hint">아직 없어요 — 누를 때만 AI 를 부릅니다.</div>')+'</div>';
   box.innerHTML=h;
 }
+// 끊은 자리를 손으로 고친다 (고치면 자동 저장)
+function lkChunkEdit(i,el){
+  if(!_lkKit||!_lkKit.parts||!_lkKit.parts.chunk||!_lkKit.parts.chunk[i])return;
+  const v=String(el.innerText||'').replace(/\u00a0/g,' ').replace(/\s*\/\s*/g,' / ').trim();
+  _lkKit.parts.chunk[i].chunk=v;
+  _lkAutoLater();
+}
 // ── 인쇄 ─────────────────────────────────────────────────────────────────
 function lkPrint(ans){
   if(!_lkKit||!Object.keys(_lkKit.parts||{}).length){toast('먼저 만들어 주세요');return;}
@@ -22316,7 +22603,9 @@ function lkPrint(ans){
   const p=_lkKit.parts,title=_lkKit.title||'학습 세트';
   const today=(typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);
   const E=s=>_ebE(s);
+  const head=_lkKit.head||'';
   let b='<div class="hd"><h1>'+E(title)+(ans?' — 정답':'')+'</h1>'+
+    (head?('<div class="hdsub">'+E(head)+'</div>'):'')+
     '<div class="m"><span>직결영어</span><span>'+E(today)+'</span><span>'+E(_lkKit.grade)+'</span>'+
     '<span class="nm">이름 ______________</span></div></div><div class="wrap">';
   if(p.vocab&&p.vocab.length){
@@ -22326,7 +22615,7 @@ function lkPrint(ans){
   }
   if(p.chunk&&p.chunk.length){
     b+='<div class="sec"><h2>2. 끊어 읽기·해석</h2>'+p.chunk.map((c,i)=>
-      '<div class="q"><div class="qs"><b>'+(i+1)+'.</b> '+E(c.chunk)+'</div>'+
+      '<div class="q"><div class="qs"><b>'+(i+1)+'.</b> '+(c.spk?('<b>'+E(c.spk)+':</b> '):'')+E(c.chunk)+'</div>'+
       (ans?('<div class="qa">'+E(c.ko||c.en)+'</div>'):'<div class="qw"></div>')+'</div>').join('')+'</div>';
   }
   if(p.cloze&&(p.cloze.blanks||[]).length){
@@ -22364,6 +22653,7 @@ function lkPrint(ans){
     '.wrap{'+(cols===2?'column-count:2;column-gap:9mm;column-rule:1px solid #ddd;':'')+'}'+
     '.hd{border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:10px;column-span:all}'+
     '.hd h1{font-size:15pt;margin:0 0 2px}.hd .m{font-size:9.5pt;color:#444;display:flex;gap:14px}.hd .nm{margin-left:auto}'+
+    '.hdsub{font-size:11pt;font-weight:700;color:#333;margin:2px 0 4px}'+
     '.sec{break-inside:avoid-column;margin-bottom:14px}'+
     'h2{font-size:11.5pt;margin:0 0 6px;padding-bottom:3px;border-bottom:1px solid #999}'+
     '.q{break-inside:avoid;margin:0 0 9px}.qs{margin-bottom:3px}'+
@@ -22461,14 +22751,30 @@ function lkOpenBankUnit(tbId,unit){
     _ibPage=1;_ibSaveF();_ibPaintFilters();renderItemList();
   },400);
 }
-function lkFromUnit(tbId,unit){
+function lkFromUnit(tbId,unit,textOverride){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
-  const text=tb?String((tb.unitTexts||{})[unit]||'').trim():'';
+  const text=String(textOverride||(tb?((tb.unitTexts||{})[unit]||''):'')).trim();
   if(!text){toast('본문이 없어요');return;}
   lkOpen({kind:'book',itemId:'',tbId:tbId,unit:unit,keep:false},text,'중1');
-  _lkKit.ko=String((tb.unitSentKo||{})[unit]||'');
-  _lkKit.title=(tb.title||'교재')+' '+unit+' 학습 세트';
-  _lkPaintCfg();_lkRender();
+  if(tb){
+    _lkKit.ko=String((tb.unitSentKo||{})[unit]||'');
+    _lkKit.title=(tb.title||'교재')+' '+unit+' 학습 세트';
+  }
+  _lkPaintCfg();
+  const sel=document.getElementById('lk-tb');
+  if(sel){sel.value=tbId;_lkPaintUnits(false);}
+  const us=document.getElementById('lk-unit');
+  if(us&&[...us.options].some(o=>o.value===unit))us.value=unit;
+  _lkRender();
+}
+// 교재 단원 편집기에서 바로 (본문이 있는 단원만)
+function lkFromUnitEditor(){
+  const tbId=(document.getElementById('tu-tb-id')||{}).value||'';
+  const unit=(typeof _tuCurUnit!=='undefined'&&_tuCurUnit)?_tuCurUnit:'';
+  const txt=String((document.getElementById('tu-unit-text')||{}).value||'').trim();
+  if(!tbId||!unit){toast('단원을 먼저 골라 주세요');return;}
+  if(!txt){toast('이 단원에는 본문이 없어요');return;}
+  lkFromUnit(tbId,unit,txt);
 }
 // ── 선생님 홈 · 시험 대비 카드 ───────────────────────────────────────────
 function lkExamCard(){
