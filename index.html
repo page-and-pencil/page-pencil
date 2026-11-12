@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261112p">
+<link rel="stylesheet" href="css/style.css?v=20261113c">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -229,6 +229,10 @@
     <!-- 대시보드 -->
     <div id="t-dash" class="panel">
       <div id="dash-greet" style="margin-bottom:16px"></div>
+      <div style="margin-bottom:14px">
+        <button class="btn bt" onclick="mkGo()"><i data-lucide="sparkles" width="15" height="15" style="vertical-align:-3px"></i> 만들기</button>
+        <span style="font-size:12.5px;color:var(--text-muted);margin-left:8px">시험지·학습 세트·단어 시험지를 한 화면씩 따라가며</span>
+      </div>
       <div id="dash-stats" class="dash-stats" style="margin-bottom:14px"></div>
       <div class="dash-cols">
         <div class="dash-col-main">
@@ -654,8 +658,9 @@
         <button id="dtab-stage" onclick="switchDataTab('stage')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="bar-chart-3" width="15" height="15" style="vertical-align:-3px"></i> 수준표 <i class="wn-dot"></i></button>
         <button id="dtab-lib" onclick="switchDataTab('lib')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 원서</button>
         <button id="dtab-word" onclick="switchDataTab('word')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 어휘</button>
-        <button id="dtab-bank" onclick="switchDataTab('bank')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 자료실</button>
+        <button id="dtab-bank" onclick="switchDataTab('bank')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 기출 <i class="wn-dot"></i></button>
         <span class="dtg">문제·시험지</span>
+        <button id="dtab-make" onclick="switchDataTab('make')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="sparkles" width="15" height="15" style="vertical-align:-3px"></i> 만들기 <i class="wn-dot"></i></button>
         <button id="dtab-items" onclick="switchDataTab('items')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="library" width="15" height="15" style="vertical-align:-3px"></i> 문제 은행</button>
         <button id="dtab-paper" onclick="switchDataTab('paper')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="file-check" width="15" height="15" style="vertical-align:-3px"></i> 시험지 <i class="wn-dot"></i></button>
         <button id="dtab-iso" onclick="switchDataTab('iso')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="wand-2" width="15" height="15" style="vertical-align:-3px"></i> 동형 문제</button>
@@ -688,8 +693,9 @@
       <div id="dp-bank" style="display:none">
         <div class="sh">
           <div>
-            <div class="st"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 기출·자료실</div>
-            <div class="ssub"><span id="eb-count"></span> <span id="eb-state" class="eb-state"></span></div>
+            <div class="st"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 기출</div>
+            <div class="ssub"><span id="eb-count"></span> <span id="eb-state" class="eb-state"></span>
+              <span style="color:var(--text-muted)">· 교재·문제집 자료는 <b>교재</b> 탭의 [자료만 있는 책]에 있어요</span></div>
           </div>
           <div style="position:relative">
             <button class="btn bo bsm" onclick="ebMenu(event)" title="더 보기" aria-label="더 보기">⋯</button>
@@ -702,13 +708,14 @@
             <input type="file" id="eb-import-file" accept=".json,application/json" style="display:none" onchange="ebImportFile(event)">
           </div>
         </div>
+        <div id="eb-usebar" class="eb-uses"></div>
         <div class="eb-filters">
           <select class="filter-sel" id="eb-f-cat" onchange="ebFilterChange()"></select>
           <select class="filter-sel" id="eb-f-series" onchange="ebFilterChange()" style="display:none"></select>
           <select class="filter-sel" id="eb-f-level" onchange="ebFilterChange()"></select>
           <select class="filter-sel" id="eb-f-grade" onchange="ebFilterChange()"></select>
           <select class="filter-sel" id="eb-f-term" onchange="ebFilterChange()"></select>
-          <span class="eb-chk"><input type="number" class="eb-y" id="eb-f-y1" placeholder="연도" min="1990" max="2099" onchange="ebFilterChange()"> ~
+          <span class="eb-chk" id="eb-f-year-wrap"><input type="number" class="eb-y" id="eb-f-y1" placeholder="연도" min="1990" max="2099" onchange="ebFilterChange()"> ~
             <input type="number" class="eb-y" id="eb-f-y2" placeholder="연도" min="1990" max="2099" onchange="ebFilterChange()"></span>
           <select class="filter-sel" id="eb-f-region" onchange="ebFilterChange()"></select>
           <select class="filter-sel" id="eb-f-city" onchange="ebFilterChange()"></select>
@@ -840,6 +847,20 @@
       </div>
 
       <!-- 문제 은행 sub-panel (문항 한 개 = 한 줄 — 선생님 전용) -->
+      <!-- 만들기 시작 화면 (A1) -->
+      <div id="dp-make" style="display:none">
+        <div class="sh">
+          <div><div class="st"><i data-lucide="sparkles" width="15" height="15" style="vertical-align:-3px"></i> 만들기</div>
+          <div class="ss">무엇을 만들지 고르면, 한 화면에 하나씩 물어보고 끝에 인쇄까지 안내합니다</div></div>
+        </div>
+        <div id="mk-cards" class="mk-grid"></div>
+        <div id="mk-resume"></div>
+        <div class="mk-foot">
+          <button class="mk-link" onclick="switchDataTab('items')">문제 은행에서 직접 고르기</button>
+          <button class="mk-link" onclick="switchDataTab('ws')">저장된 것 보기</button>
+        </div>
+      </div>
+
       <div id="dp-items" style="display:none">
         <div class="sh">
           <div style="min-width:0">
@@ -870,21 +891,26 @@
           <!-- 왼쪽: 거르기 -->
           <div class="ib-side">
             <div class="ib-s-t">거르기</div>
+            <select class="filter-sel" id="ib-f-grade" onchange="ibFilterChange()"></select>
             <select class="filter-sel" id="ib-f-skill" onchange="ibFilterChange()"></select>
             <select class="filter-sel" id="ib-f-type" onchange="ibFilterChange()"></select>
-            <select class="filter-sel" id="ib-f-grade" onchange="ibFilterChange()"></select>
-            <select class="filter-sel" id="ib-f-diff" onchange="ibFilterChange()"></select>
-            <select class="filter-sel" id="ib-f-src" onchange="ibFilterChange()"></select>
-            <select class="filter-sel" id="ib-f-tb" onchange="ibFilterChange()"></select>
-            <select class="filter-sel" id="ib-f-unit" onchange="ibFilterChange()" style="display:none"></select>
-            <select class="filter-sel" id="ib-f-checked" onchange="ibFilterChange()"></select>
-            <select class="filter-sel" id="ib-f-tag" onchange="ibFilterChange()"></select>
-            <select class="filter-sel" id="ib-f-exam" onchange="ibFilterChange()" title="회차 — 같은 시험 20문항"></select>
-            <label class="iso-chk"><input type="checkbox" id="ib-f-star" onchange="ibFilterChange()"> 별표만</label>
-            <label class="iso-chk"><input type="checkbox" id="ib-f-warn" onchange="ibFilterChange()"> 검토 필요만</label>
             <input type="text" class="eb-q" id="ib-f-q" placeholder="발문·선택지 검색…" oninput="ibFilterChange()">
+            <details class="wz-more" id="ib-more-f">
+              <summary>자세히</summary>
+              <select class="filter-sel" id="ib-f-diff" onchange="ibFilterChange()"></select>
+              <select class="filter-sel" id="ib-f-src" onchange="ibFilterChange()"></select>
+              <select class="filter-sel" id="ib-f-tb" onchange="ibFilterChange()"></select>
+              <select class="filter-sel" id="ib-f-unit" onchange="ibFilterChange()" style="display:none"></select>
+              <select class="filter-sel" id="ib-f-checked" onchange="ibFilterChange()"></select>
+              <select class="filter-sel" id="ib-f-tag" onchange="ibFilterChange()"></select>
+              <select class="filter-sel" id="ib-f-exam" onchange="ibFilterChange()" title="회차 — 같은 시험 20문항"></select>
+              <label class="iso-chk"><input type="checkbox" id="ib-f-star" onchange="ibFilterChange()"> 별표만</label>
+              <label class="iso-chk"><input type="checkbox" id="ib-f-warn" onchange="ibFilterChange()"> 검토 필요만</label>
+              <div class="ib-s-row">
+                <button class="btn bo bsm" onclick="ibDeepSearch()" title="목록에 없는 지문 속까지 서버에서 찾습니다">본문까지 찾기</button>
+              </div>
+            </details>
             <div class="ib-s-row">
-              <button class="btn bo bsm" onclick="ibDeepSearch()" title="목록에 없는 지문 속까지 서버에서 찾습니다">본문까지 찾기</button>
               <button class="btn bo bsm" onclick="ibResetFilters()">초기화</button>
             </div>
           </div>
@@ -895,9 +921,10 @@
             <div id="ib-exambar" class="ib-bankchip" style="display:none"></div>
             <div id="ib-bulk" class="ib-bulk" style="display:none"></div>
             <div id="ib-list"></div>
+            <div id="ib-bskbar" class="ib-bskbar" style="display:none"></div>
           </div>
 
-          <!-- 오른쪽: 미리보기·고치기 -->
+          <!-- 오른쪽: 미리보기·고치기 (고르기 전에는 길잡이) -->
           <div class="ib-detail" id="ib-detail"></div>
         </div>
       </div>
@@ -998,6 +1025,18 @@
             <input type="file" id="bulk-audio-files" accept="audio/*" multiple style="display:none" onchange="previewBulkAudio(event)">
             <input type="file" id="bulk-text-files" accept=".txt" multiple style="display:none" onchange="previewBulkText(event)">
           </div>
+        </div>
+        <div id="tb-src" class="eb-uses" style="margin-bottom:10px">
+          <button id="tb-src-own" class="eb-use on" onclick="tbSetSrc('own')">등록 교재<small id="tb-src-own-n"></small></button>
+          <button id="tb-src-bank" class="eb-use" onclick="tbSetSrc('bank')">자료만 있는 책<small id="tb-bank-count"></small></button>
+        </div>
+        <div id="tb-bank-wrap" style="display:none">
+          <div id="tb-bank-uses" class="eb-uses" style="margin-bottom:8px"></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+            <select class="filter-sel" id="tb-bank-stage" onchange="tbBankSetStage(this.value)" title="수준 — 자료의 내용으로 잰 값"></select>
+            <input type="text" class="eb-q" id="tb-bank-q" placeholder="책·시리즈·출판사 검색…" oninput="tbBankSetQ(this.value)" style="flex:1;min-width:180px">
+          </div>
+          <div id="tb-bank-box"></div>
         </div>
         <div class="lib-search-bar">
           <input type="text" class="lib-search-input" id="book-q" placeholder="제목·시리즈·카테고리 검색..." oninput="bookPage=0;renderBookDB()">
@@ -1170,6 +1209,7 @@
                   <button class="chip" data-s="pencil_down" onclick="clTogSubj(this)"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> Pencil Down</button>
                 </div>
                 <div id="cl-subj-rows" class="sr-wrap"></div>
+                <div id="cl-acts" class="cl-acts"></div>
               </div>
             </div>
             <div style="margin-bottom:12px">
@@ -1835,6 +1875,15 @@
         </div>
         <div id="ec-board" class="ec-board"></div>
         <div id="ec-subj-rows" class="sr-wrap"></div>
+      </div>
+      <div class="f s2">
+        <label><i data-lucide="repeat" width="15" height="15" style="vertical-align:-3px"></i> 수업 때마다 하는 활동</label>
+        <div id="ec-acts" class="ec-acts"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
+          <button type="button" class="btn bo bsm" onclick="ecActAdd('readingn')">+ 리딩앤 원서 읽기</button>
+          <button type="button" class="btn bo bsm" onclick="ecActAdd('')">+ 직접 적기</button>
+          <span style="font-size:12px;color:var(--slate)">숙제가 아니라 <b>수업 중에 하는 일</b>이에요 — 수업일마다 진도 캘린더에 깔립니다</span>
+        </div>
       </div>
       <div class="f s2">
         <label><i data-lucide="gamepad-2" width="15" height="15" style="vertical-align:-3px"></i> 클래스5 (앱 자동 과제) <span style="font-size:12px;color:var(--slate);font-weight:400">책 1권 지정 → 매일 한 유닛씩 자동 할당</span></label>
@@ -2860,6 +2909,8 @@
       </div>
     </div>
 
+    <div id="pb-steps" class="pb-steps"></div>
+
     <div class="pb-body">
       <!-- 서식·머리말 -->
       <div class="pb-bar">
@@ -3082,6 +3133,25 @@
 </div>
 
 <!-- 기출·자료실: 카탈로그 가져오기 -->
+<!-- 만들기 마법사 (A2) — 한 화면에 결정 하나 -->
+<div id="m-wiz" class="mo">
+  <div class="mdl mdl-lg wz-mdl">
+    <div class="mh">
+      <div class="mt" id="wz-title">만들기</div>
+      <button class="bx" onclick="wzClose()">×</button>
+    </div>
+    <div id="wz-steps" class="wz-steps"></div>
+    <div id="wz-body" class="wz-body"></div>
+    <div class="wz-foot">
+      <button id="wz-back" class="btn bo bsm" onclick="wzBack()">이전</button>
+      <button id="wz-manual" class="mk-link" onclick="wzManual()">직접 고르기로 바꾸기</button>
+      <span style="flex:1"></span>
+      <span id="wz-note" class="wz-note"></span>
+      <button id="wz-next" class="btn bt" onclick="wzNext()">다음</button>
+    </div>
+  </div>
+</div>
+
 <div id="m-ib-shot" class="mo">
   <div class="mdl" style="max-width:560px">
     <div class="mh"><div class="mt">📸 캡처로 문항 추가</div><button class="bx" onclick="ibShotClose()">×</button></div>
@@ -3125,7 +3195,7 @@
 <script src="js/utils.js?v=20261112h"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261112b"></script>
-<script src="js/teacher.js?v=20261112t"></script>
+<script src="js/teacher.js?v=20261113d"></script>
 <script src="js/student.js?v=20261112h"></script>
 <script src="js/parent.js?v=20261112e"></script>
 </body>

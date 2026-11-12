@@ -3366,3 +3366,120 @@ span.pe-c{width:30px;flex-shrink:0;text-align:center;}
 .lk-ed:focus{border-color:var(--teal);background:var(--tl);}
 .lk-spk{font-size:11.5px;font-weight:700;color:var(--tealt);background:var(--tl);border-radius:5px;padding:1px 6px;margin-right:5px;}
 .lk-row.lk-wrap{white-space:normal;word-break:break-word;}
+
+/* ── 만들기 시작 화면 (A1) ───────────────────────────────── */
+.mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:12px;margin-top:4px;}
+.mk-card{position:relative;text-align:left;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-card);padding:16px 16px 14px;cursor:pointer;font-family:var(--fb);
+  transition:border-color .12s,box-shadow .12s,transform .12s;}
+.mk-card:hover{border-color:var(--teal);box-shadow:var(--sh);transform:translateY(-1px);}
+.mk-ic{font-size:26px;line-height:1;margin-bottom:8px;}
+.mk-t{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:3px;}
+.mk-d{font-size:13px;color:var(--slate);line-height:1.5;}
+.mk-s{display:inline-block;margin-top:9px;font-size:12px;font-weight:700;color:var(--teal);
+  background:var(--tl);border-radius:999px;padding:2px 9px;}
+.mk-ai{display:inline-block;margin-top:9px;margin-left:5px;font-size:12px;font-weight:700;
+  color:var(--warnt);background:var(--warnl);border-radius:999px;padding:2px 9px;}
+.mk-first{position:absolute;top:-9px;right:12px;font-size:11.5px;font-weight:700;color:#fff;
+  background:var(--coral);border-radius:999px;padding:3px 9px;box-shadow:var(--sh);}
+.mk-foot{display:flex;gap:14px;margin-top:18px;padding-top:12px;border-top:1px solid var(--border);}
+.mk-link{background:none;border:none;color:var(--slate);font-size:12.5px;cursor:pointer;
+  font-family:var(--fb);text-decoration:underline;padding:0;}
+.mk-link:hover{color:var(--teal);}
+.mk-res{margin-top:18px;}
+.mk-res-h{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:7px;}
+.mk-res-row{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--border);
+  border-radius:var(--rs);margin-bottom:6px;background:var(--surface);}
+.mk-res-nm{flex:1;font-size:13px;color:var(--navy);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mk-res-st{font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:var(--cream2);color:var(--slate);}
+.mk-res-st.on{background:var(--tl);color:var(--teal);}
+
+/* ── 마법사 (A2) ─────────────────────────────────────────── */
+.wz-mdl{max-width:min(96vw,760px);max-height:94vh;display:flex;flex-direction:column;}
+.wz-steps{display:flex;gap:6px;flex-wrap:wrap;margin:-6px 0 14px;}
+.wz-step{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--slate);
+  background:var(--cream2);border-radius:999px;padding:4px 11px 4px 5px;}
+.wz-step b{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;
+  border-radius:50%;background:var(--neutral);color:#fff;font-size:11.5px;}
+.wz-step.on{background:var(--tl);color:var(--teal);}
+.wz-step.on b{background:var(--teal);}
+.wz-step.done b{background:var(--okt);}
+.wz-body{flex:1;min-height:0;overflow-y:auto;}
+.wz-q{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.wz-hint{font-size:12.5px;color:var(--slate);margin-bottom:12px;line-height:1.55;}
+.wz-foot{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
+.wz-note{font-size:12.5px;color:var(--slate);}
+.wz-opts{display:flex;flex-wrap:wrap;gap:7px;}
+.wz-opt{font-family:var(--fb);font-size:13px;font-weight:600;color:var(--slate);background:var(--surface);
+  border:1px solid var(--border);border-radius:999px;padding:6px 13px;cursor:pointer;}
+.wz-opt.on{border-color:var(--teal);background:var(--tl);color:var(--teal);}
+.wz-opt small{font-weight:600;opacity:.75;margin-left:4px;}
+.wz-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:9px;}
+.wz-pick{text-align:left;font-family:var(--fb);background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--rs);padding:11px 12px;cursor:pointer;}
+.wz-pick.on{border-color:var(--teal);background:var(--tl);}
+.wz-pick-t{font-size:13.5px;font-weight:700;color:var(--navy);margin-bottom:3px;}
+.wz-pick-d{font-size:12px;color:var(--slate);line-height:1.5;}
+.wz-pick-new{display:inline-block;font-size:11px;font-weight:700;color:var(--teal);background:var(--tl);
+  border-radius:999px;padding:1px 7px;margin-left:5px;}
+.wz-row{display:flex;align-items:center;gap:9px;margin-bottom:9px;flex-wrap:wrap;}
+.wz-row label{font-size:13px;color:var(--slate);min-width:74px;}
+.wz-chk{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--navy);padding:7px 2px;}
+.wz-sum{background:var(--cream2);border-radius:var(--rs);padding:12px 14px;font-size:13px;
+  color:var(--navy);line-height:1.75;}
+.wz-sum b{color:var(--teal);}
+.wz-more{margin-top:10px;}
+.wz-more>summary{cursor:pointer;font-size:12.5px;color:var(--slate);font-weight:600;}
+.wz-done{text-align:center;padding:10px 0 2px;}
+.wz-done-ic{font-size:34px;}
+.wz-done-t{font-size:15.5px;font-weight:700;color:var(--navy);margin:6px 0 3px;}
+.wz-done-d{font-size:13px;color:var(--slate);line-height:1.6;}
+
+/* ── 문제 은행 길잡이 (A3) ───────────────────────────────── */
+.ib-guide{padding:22px 18px;text-align:center;color:var(--slate);font-size:13px;line-height:1.9;}
+.ib-guide b{color:var(--navy);}
+.ib-guide .ib-g-n{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;
+  border-radius:50%;background:var(--tl);color:var(--teal);font-size:11.5px;font-weight:700;margin-right:5px;}
+.ib-bskbar{display:flex;align-items:center;gap:10px;background:var(--tl);border-top:1px solid var(--teal);
+  padding:9px 13px;font-size:13.5px;font-weight:700;color:var(--teal);}
+.ib-bskbar .btn{margin-left:auto;}
+.ib-ic-l{display:inline-flex;align-items:center;gap:4px;width:auto;padding:0 8px;font-size:12px;font-weight:600;}
+.ib-more{position:relative;}
+.ib-more-m{position:absolute;right:0;top:26px;z-index:40;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--rs);box-shadow:var(--shlg);padding:4px;min-width:150px;}
+.ib-more-m button{display:block;width:100%;text-align:left;background:none;border:none;cursor:pointer;
+  font-family:var(--fb);font-size:12.5px;color:var(--navy);padding:7px 10px;border-radius:6px;}
+.ib-more-m button:hover{background:var(--cream2);}
+
+/* ── 시험지 창 단계 띠 (A3) ──────────────────────────────── */
+.pb-steps{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 12px;}
+@media(max-width:430px){
+  .mk-grid{grid-template-columns:1fr;}
+  .wz-cards{grid-template-columns:1fr;}
+  .wz-steps{gap:4px;}
+  .wz-step{font-size:11.5px;padding:3px 8px 3px 4px;}
+}
+
+/* ── 기출·교재 자료 용도 칩 (B) ──────────────────────────── */
+.eb-uses{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px;}
+.eb-use{font-family:var(--fb);font-size:12.5px;font-weight:600;color:var(--slate);background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--rpill);padding:5px 12px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:5px;}
+.eb-use:hover{border-color:var(--teal);}
+.eb-use.on{border-color:var(--teal);background:var(--tl);color:var(--teal);}
+.eb-use small{font-weight:700;opacity:.7;font-size:11.5px;}
+
+/* ── 수업 때마다 하는 활동 (C) ───────────────────────────── */
+.ec-acts{display:flex;flex-direction:column;gap:6px;}
+.ec-act{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.ec-act-nm{flex:1;min-width:140px;padding:6px 9px;border:1.5px solid var(--border);border-radius:var(--rs);
+  font-family:var(--fb);font-size:13px;}
+.ec-act-d{display:flex;gap:5px;flex-wrap:wrap;}
+.ec-act-d label{display:inline-flex;align-items:center;gap:3px;font-size:12px;color:var(--slate);cursor:pointer;}
+.ec-act-h{font-size:12px;color:var(--text-muted);}
+.pg-chip.pg-act{font-weight:700;}
+.pg-chip.pg-act.pg-dim{opacity:.45;}
+.cl-acts{margin-top:8px;}
+.cl-acts-h{font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:5px;}
+.cl-act{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--navy);margin-right:12px;cursor:pointer;}
+.dash-act{font-size:12.5px;color:var(--tealt);font-weight:600;margin:2px 0 5px;}
