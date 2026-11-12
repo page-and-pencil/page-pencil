@@ -84,7 +84,7 @@ const ok = (n, c, note) => { (c ? pass : fail).push(n + (note ? ' — ' + note :
 
   // ── (a)(b) 마법사 1 — 기출 한 회 ──
   const w1 = await page.evaluate(async () => {
-    wzOpen('exam');
+    await wzOpen('exam');
     const steps = [...document.querySelectorAll('#wz-steps .wz-step')].map(x => x.textContent.trim());
     const clsN = wzClasses().length;
     const auto = _wz.d.grade;             // 반 학생에서 가져온 기본 학년
@@ -138,7 +138,7 @@ const ok = (n, c, note) => { (c ? pass : fail).push(n + (note ? ' — ' + note :
   // ── (c) 직접 고르기로 바꾸기 ──
   const man = await page.evaluate(async () => {
     try { pbClose(); } catch (e) { }
-    wzOpen('exam'); await wzNext();
+    await wzOpen('exam'); await wzNext();
     wzSet('exam', '보기용 1회 중2 듣기');
     wzManual();
     await new Promise(r => setTimeout(r, 700));
@@ -149,8 +149,10 @@ const ok = (n, c, note) => { (c ? pass : fail).push(n + (note ? ' — ' + note :
   // ── (f) 유형 연습지 + 바꾸기 ──
   const w2 = await page.evaluate(async () => {
     _ibBasketSet([]);
-    wzOpen('drill');
+    await wzOpen('drill');
     const steps = [...document.querySelectorAll('#wz-steps .wz-step')].map(x => x.textContent.trim());
+    const autoG = _wz.d.grade;             // 반에서 가져온 학년
+    wzSet('grade', '중2');                  // 보기용 문항이 중2
     await wzNext();                        // 학년
     await new Promise(r => setTimeout(r, 100));
     const typeChips = document.querySelectorAll('#wz-body .wz-opt').length;
@@ -166,7 +168,7 @@ const ok = (n, c, note) => { (c ? pass : fail).push(n + (note ? ' — ' + note :
     await wzNext();                        // 만들기
     await new Promise(r => setTimeout(r, 1800));
     return {
-      steps, typeChips, n: before.length, changed: before[0] !== after[0],
+      steps, typeChips, autoG, n: before.length, changed: before[0] !== after[0],
       sameType: String(t0.type || '') === String(t1.type || ''),
       slots: (typeof _pbSlots !== 'undefined' ? _pbSlots.length : 0),
     };
@@ -180,13 +182,13 @@ const ok = (n, c, note) => { (c ? pass : fail).push(n + (note ? ' — ' + note :
   const w35 = await page.evaluate(async () => {
     try { pbClose(); } catch (e) { }
     const out = {};
-    wzOpen('kit');
+    await wzOpen('kit');
     out.kitSteps = [...document.querySelectorAll('#wz-steps .wz-step')].map(x => x.textContent.trim());
     out.kitBook = (_wz.d.tbId || '') ? 'ok' : '';
     for (let i = 0; i < 5 && _wz; i++) { await wzNext(); await new Promise(r => setTimeout(r, 260)); }
     out.kitOpen = /open/.test((document.getElementById('m-kit') || {}).className || '');
     try { closeM('m-kit'); } catch (e) { }
-    wzOpen('vocab');
+    await wzOpen('vocab');
     out.vocabSteps = [...document.querySelectorAll('#wz-steps .wz-step')].map(x => x.textContent.trim());
     for (let i = 0; i < 5 && _wz; i++) { await wzNext(); await new Promise(r => setTimeout(r, 260)); }
     out.vocabOpen = /open/.test((document.getElementById('m-vocab-paper') || {}).className || '');
@@ -212,7 +214,7 @@ const ok = (n, c, note) => { (c ? pass : fail).push(n + (note ? ' — ' + note :
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: out }] }) });
   });
   const w4 = await page.evaluate(async () => {
-    wzOpen('iso');
+    await wzOpen('iso');
     const steps = [...document.querySelectorAll('#wz-steps .wz-step')].map(x => x.textContent.trim());
     const picks = document.querySelectorAll('#wz-body .wz-pick').length;
     _wz.d.itemId = 'wz-t-0';
@@ -255,6 +257,71 @@ const ok = (n, c, note) => { (c ? pass : fail).push(n + (note ? ' — ' + note :
   ok('A3 오른쪽 빈 칸에 길잡이', ib.guide);
   ok('A3 카드 아이콘에 글자', ib.labels, ib.labelTxt);
   ok('A3 바구니 띠', ib.bar, ib.barTxt);
+
+  // ── [fix/wizard-1] 새로고침 직후에도 기기 보관 문항을 찾는다 ──
+  const cold = await page.evaluate(async () => {
+    try { closeM('m-wiz'); closeM('m-paper'); } catch (e) { }
+    // 새로고침 직후 모양으로 되돌린다 (목록은 아직 없다)
+    _ibRows = null; _ibMergeIdx = null; _ibStamps = {}; _ibAt = 0; _ibMax = ''; _ibDevIds = new Set();
+    const before = _ibRows;
+    const out = { before: before === null };
+    await wzOpen('exam');                   // 기다렸다가 그린다
+    out.examRows = (_ibRows || []).length;
+    wzSet('grade', '중2'); await wzNext();
+    await new Promise(r => setTimeout(r, 150));
+    out.examPicks = document.querySelectorAll('#wz-body .wz-pick').length;
+    try { wzClose(); } catch (e) { }
+    _ibRows = null; _ibMergeIdx = null; _ibStamps = {}; _ibAt = 0; _ibDevIds = new Set();
+    await wzOpen('drill');
+    out.drillRows = (_ibRows || []).length;
+    try { wzClose(); } catch (e) { }
+    _ibRows = null; _ibMergeIdx = null; _ibStamps = {}; _ibAt = 0; _ibDevIds = new Set();
+    await wzOpen('iso');
+    out.isoRows = (_ibRows || []).length;
+    out.isoPicks = document.querySelectorAll('#wz-body .wz-pick').length;
+    try { wzClose(); } catch (e) { }
+    return out;
+  });
+  ok('[1] 마법사 1 — 새로고침 직후에도 문항을 찾는다', cold.before && cold.examRows > 0 && cold.examPicks > 0,
+    '문항 ' + cold.examRows + '개 · 회차 ' + cold.examPicks + '개');
+  ok('[1] 마법사 2·4 도 먼저 불러온다', cold.drillRows > 0 && cold.isoRows > 0 && cold.isoPicks > 0,
+    '연습지 ' + cold.drillRows + '개 · 비슷한 문제 ' + cold.isoRows + '개(' + cold.isoPicks + '장)');
+
+  // ── [2] 학년 보기와 미리 고르기 ──
+  const gr = await page.evaluate(async () => {
+    const out = { grades: IB_GRADES.slice() };
+    // 반 학생을 초3 으로 바꿔 본다 (화면에만 — 저장하지 않는다)
+    const c = DB.classes()[0];
+    const stus = DB.stus().filter(s => !s.inactive && (c.studentIds || []).includes(s.id));
+    const was = stus.map(s => s.grade);
+    stus.forEach(s => { s.grade = '초3'; });
+    out.auto = wzGradeOf(c.id);
+    await wzOpen('exam');
+    out.picked = _wz.d.grade;
+    out.chipOn = (document.querySelector('#wz-body .wz-opt.on') || {}).textContent || '';
+    await wzNext();                          // 초3 회차는 없다
+    await new Promise(r => setTimeout(r, 150));
+    const body = (document.getElementById('wz-body') || {}).textContent || '';
+    out.none = body.indexOf('아직 없어요') >= 0;
+    out.near = body.replace(/\s+/g, ' ').match(/가까운 학년: ([가-힣0-9]+) 로 보기/);
+    out.near = out.near ? out.near[1] : '';
+    // 가까운 학년 단추를 누르면 그 학년으로
+    const btn = [...document.querySelectorAll('#wz-body .wz-opt')].find(b => /로 보기/.test(b.textContent));
+    if (btn) btn.click();
+    await new Promise(r => setTimeout(r, 150));
+    out.after = _wz.d.grade;
+    out.picks = document.querySelectorAll('#wz-body .wz-pick').length;
+    try { wzClose(); } catch (e) { }
+    stus.forEach((s, i) => { s.grade = was[i]; });
+    return out;
+  });
+  ok('[2] 학년에 초1~초4 가 있다',
+    ['초1', '초2', '초3', '초4'].every(g => gr.grades.indexOf(g) >= 0) && gr.grades.length === 12,
+    gr.grades.join(' '));
+  ok('[2] 초3 반이면 초3 이 미리 골라진다', gr.auto === '초3' && gr.picked === '초3' && /초3/.test(gr.chipOn),
+    '반에서 "' + gr.auto + '" · 고른 값 "' + gr.picked + '" · 칩 "' + gr.chipOn.trim() + '"');
+  ok('[2] 없으면 가까운 학년을 알려 준다', gr.none && gr.near === '중2', '안내 ' + (gr.none ? 'O' : 'X') + ' · 가까운 학년 "' + gr.near + '"');
+  ok('[2] 가까운 학년 단추가 듣는다', gr.after === gr.near && gr.picks > 0, gr.after + ' · 회차 ' + gr.picks + '개');
 
   await page.evaluate(async () => { try { await idbSet('pp_item_keep', []); } catch (e) { } });
   console.log('\n콘솔 오류 ' + errs.length + '건');
