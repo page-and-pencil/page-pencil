@@ -2341,8 +2341,12 @@ function ppTextLines(text){
       const r=ppStripSpeaker(t);
       return {line:i,text:r.text,spk:r.spk||'',label:r.label||''};
     }
-    const m=t.match(/^([A-Z][A-Za-z.'\s]{0,16}):\s+/);        // '이름: ' 은 대화문이 아니어도 뗀다
-    if(m)return {line:i,text:t.slice(m[0].length).trim(),spk:m[1].trim(),label:m[1].trim()};
+    // '이름: ' 은 대화문이 아니어도 뗀다. 단 'Note:'·'Vocabulary:' 같은 소제목은 화자가 아니다
+    // (두 낱말 이상이면 'Ms. Kemp' 처럼 이름으로 본다)
+    const m=t.match(/^([A-Z][A-Za-z.'\s]{0,16}):\s+/);
+    const lab=m?m[1].trim():'';
+    if(m&&(/\s/.test(lab)||!PP_SPK_SKIP.has(lab)))
+      return {line:i,text:t.slice(m[0].length).trim(),spk:lab,label:lab};
     return {line:i,text:t,spk:'',label:''};
   });
 }
