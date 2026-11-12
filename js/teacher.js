@@ -18133,6 +18133,53 @@ const EB_CATS=[
   {k:'bookdocs', g:'교재', n:'교재 단어·워크시트'},
   {k:'audiobook',g:'원서', n:'원서 오디오'}
 ];
+// ── 수준 (자료의 '내용' 으로 재어 둔 값) ─────────────────────
+// exam_bank 행에 들어 있다: stage(P0~H2, 없으면 못 잰 것) · stageG(추정 학년, 소수)
+// stageBy(text 지문 · list 낱말 목록 · phonics) · stageConf(high/mid/low) · stageWhy(못 잰 이유)
+// 뷰(exam_bank_index)의 meta 에 이 다섯이 들어와야 보인다 — supabase/exam_bank_stage.sql
+const EB_STAGES=[
+  {k:'P0',n:'파닉스'},{k:'P1',n:'초1~2'},{k:'P2',n:'초3~4'},{k:'P3',n:'초5~6'},
+  {k:'M1',n:'중1'},{k:'M2',n:'중2'},{k:'M3',n:'중3'},{k:'H1',n:'고1'},{k:'H2',n:'고2~3'}
+];
+const EB_STAGE_BY={text:'지문',list:'낱말 목록',phonics:'파닉스'};
+const EB_STAGE_CONF={high:'높음',mid:'보통',low:'낮음'};
+// 수준 → 학년 한 칸. 학습 세트·문제 은행의 학년 고르기 기본값에 쓴다.
+const EB_STAGE_GRADE={P0:'초1',P1:'초2',P2:'초4',P3:'초6',M1:'중1',M2:'중2',M3:'중3',H1:'고1',H2:'고2'};
+const EB_GRADE_ORDER=['초1','초2','초3','초4','초5','초6','중1','중2','중3','고1','고2','고3'];
+function ebStageName(k){const s=EB_STAGES.find(x=>x.k===String(k||'').toUpperCase());return s?s.n:'';}
+// 고르는 칸의 목록(list)을 주면 그 안에서 가장 가까운 학년으로 맞춘다
+// (학습 세트·문제 은행 학년 칸은 초5 부터라서 초1~초4 는 초5 로 붙는다)
+function ebStageGrade(stage,list){
+  const g=EB_STAGE_GRADE[String(stage||'').toUpperCase()]||'';
+  if(!g||!Array.isArray(list)||!list.length||list.indexOf(g)>=0)return g;
+  const i=EB_GRADE_ORDER.indexOf(g);let best='',bd=99;
+  list.forEach(x=>{const j=EB_GRADE_ORDER.indexOf(x);if(j<0)return;const d=Math.abs(j-i);if(d<bd){bd=d;best=x;}});
+  return best||g;
+}
+function _ebG1(g){
+  const n=Number(g);
+  return isFinite(n)?String(n.toFixed(1)).replace(/\.0$/,''):'';
+}
+// 카드에 붙는 작은 배지 — '중2 · 7.8'
+function _ebStageBadge(m){
+  if(!m)return '';
+  if(!m.stage)return m.stageWhy?'측정 안 됨':'';
+  const g=_ebG1(m.stageG);
+  return (ebStageName(m.stage)||String(m.stage))+(g?(' · '+g):'');
+}
+// 배지를 누르면 보이는 한 줄
+function ebStageLine(m){
+  if(!m)return '';
+  if(!m.stage)return m.stageWhy?('수준 측정 안 됨 — '+m.stageWhy):'';
+  const by=EB_STAGE_BY[String(m.stageBy||'')]||'',cf=EB_STAGE_CONF[String(m.stageConf||'')]||'',g=_ebG1(m.stageG);
+  return '내용 측정: '+(by?(by+'으로 재었어요'):'내용으로 재었어요')+
+    (g?(' · 추정 학년 '+g):'')+(cf?(' · 확신 '+cf):'');
+}
+function ebStageInfo(id,ev){
+  if(ev){ev.stopPropagation();ev.preventDefault();}
+  const r=(_ebRows||[]).find(x=>x.id===id);
+  toast(ebStageLine((r&&r.meta)||{})||'아직 수준을 재지 않았어요');
+}
 // 문서 종류 — k 값은 카탈로그 표기 그대로
 const EB_KIND={q:{n:'문제지',i:'file-text'},a:{n:'정답',i:'check'},s:{n:'해설',i:'info'},sc:{n:'듣기대본',i:'file-text'},etc:{n:'기타',i:'paperclip'}};
 const EB_KIND_ORDER=['q','a','s','sc','etc'];
@@ -18145,7 +18192,8 @@ let _ebSrc='view';             // 'view' = 가벼운 뷰 · 'table' = 뷰가 아
 let _ebLoading=false,_ebNote='';
 const _ebFull=new Map();       // 상세를 연 행의 data 전체 (이 세션 동안 메모리에만)
 let _ebPage=1,_ebViewId='',_ebDetailId='';
-let _ebF={cat:'',series:'',level:'',grade:'',term:'',y1:'',y2:'',region:'',city:'',school:'',audio:false,only:'',q:''};
+let _ebF={cat:'',series:'',level:'',grade:'',term:'',y1:'',y2:'',region:'',city:'',school:'',
+  stage:'',sort:'',audio:false,only:'',q:''};
 let _ebAuIdx=-1,_ebAuList=[];  // 지금 열어 둔 드라이브 음원 (한 번에 하나)
 let _ebAuLbl='다음 문항 ▶';     // 원서 오디오는 '다음 트랙'
 
@@ -18186,7 +18234,8 @@ function _ebLight(row){
   const fs=Array.isArray(d.files)?d.files:[];
   const au=(d.audio&&Array.isArray(d.audio.files))?d.audio.files:[];
   const meta={};
-  ['cat','title','path','note','level','grade','term','school','region','city','year','month','round','series','_deleted']
+  ['cat','title','path','note','level','grade','term','school','region','city','year','month','round','series',
+   'stage','stageG','stageBy','stageConf','stageWhy','_deleted']
     .forEach(k=>{const v=d[k];if(v!==''&&v!==null&&v!==undefined)meta[k]=v;});
   return {id:row.id,updated_at:row.updated_at,meta:meta,nfiles:fs.length,
     kinds:[...new Set(fs.map(f=>(f&&f.k)||'').filter(Boolean))].sort().join(','),
@@ -18236,7 +18285,9 @@ async function _ebFetchByIds(ids){     // 50개 이하
   if(!r.ok)return null;
   return r.rows.map(x=>{const L=_ebLight(x);_ebFull.set(x.id,x.data);return L;});
 }
-async function _ebSave(){try{await idbSet(EB_IDX_KEY,{v:1,src:_ebSrc,rows:_ebRows,stamps:_ebStamps,at:_ebAt,max:_ebMax});}catch(e){}}
+// v:2 = meta 에 수준(stage)이 들어간 뒤. 옛 캐시는 버리고 한 번 통째로 다시 받는다
+const EB_SNAP_V=2;
+async function _ebSave(){try{await idbSet(EB_IDX_KEY,{v:EB_SNAP_V,src:_ebSrc,rows:_ebRows,stamps:_ebStamps,at:_ebAt,max:_ebMax});}catch(e){}}
 function _ebMaxOf(rows){let m='';rows.forEach(x=>{const u=String((x&&x.updated_at)||'');if(u>m)m=u;});return m;}
 // 바뀐 게 있는지 가장 싸게 보는 법 — 맨 끝 한 줄과 전체 개수만 (헤더로 온다, 몇십 바이트)
 async function _ebProbe(){
@@ -18260,7 +18311,7 @@ async function ebLoad(force){
   try{
     if(_ebRows===null){
       const snap=await idbGet(EB_IDX_KEY);
-      if(snap&&Array.isArray(snap.rows)&&snap.rows.length){
+      if(snap&&snap.v===EB_SNAP_V&&Array.isArray(snap.rows)&&snap.rows.length){
         _ebRows=snap.rows;_ebStamps=snap.stamps||{};_ebAt=snap.at||0;_ebSrc=snap.src||'view';_ebMax=snap.max||'';
       }
     }
@@ -18332,13 +18383,15 @@ function ebFilterChange(){
   _ebF.cat=v('eb-f-cat');_ebF.series=v('eb-f-series');_ebF.level=v('eb-f-level');_ebF.grade=v('eb-f-grade');_ebF.term=v('eb-f-term');
   _ebF.y1=v('eb-f-y1');_ebF.y2=v('eb-f-y2');
   _ebF.region=v('eb-f-region');_ebF.city=v('eb-f-city');_ebF.school=v('eb-f-school');
+  _ebF.stage=v('eb-f-stage');_ebF.sort=v('eb-f-sort');
   const a=document.getElementById('eb-f-audio');_ebF.audio=!!(a&&a.checked);
   _ebF.q=v('eb-f-q');
   _ebPage=1;_ebPaintSeries();_ebSaveF();renderBankList();
 }
 function ebOnly(kind){_ebF.only=(_ebF.only===kind?'':kind);_ebPage=1;_ebSaveF();_ebPaintFilters();renderBankList();}
 function ebResetFilters(){
-  _ebF={cat:'',series:'',level:'',grade:'',term:'',y1:'',y2:'',region:'',city:'',school:'',audio:false,only:'',q:''};
+  _ebF={cat:'',series:'',level:'',grade:'',term:'',y1:'',y2:'',region:'',city:'',school:'',
+    stage:'',sort:'',audio:false,only:'',q:''};
   _ebPage=1;_ebSaveF();_ebPaintFilters();renderBankList();
 }
 function _ebCatName(k){const c=EB_CATS.find(x=>x.k===k);return c?c.n:(k||'');}
@@ -18355,6 +18408,11 @@ function _ebMatch(r){
   if(_ebF.region&&String(m.region||'')!==_ebF.region)return false;
   if(_ebF.city&&String(m.city||'')!==_ebF.city)return false;
   if(_ebF.school&&String(m.school||'')!==_ebF.school)return false;
+  if(_ebF.stage){
+    const st=String(m.stage||'');
+    if(_ebF.stage==='none'){if(st)return false;}                 // '측정 안 됨' 만 보기
+    else if(st!==_ebF.stage)return false;
+  }
   if(_ebF.audio&&!(r.naudio>0||r.extaud))return false;
   const y=_ebNum(m.year),y1=_ebNum(_ebF.y1),y2=_ebNum(_ebF.y2);
   if(y1!==null&&(y===null||y<y1))return false;
@@ -18368,6 +18426,18 @@ function _ebMatch(r){
 }
 function _ebFiltered(){
   const rows=(_ebRows||[]).filter(r=>_ebAlive(r)&&_ebMatch(r));
+  if(_ebF.sort==='stage'){
+    // 같은 시리즈 안에서 추정 학년(stageG) 순 — 시리즈 없는 것은 뒤로, 수준 없는 것은 그 안에서 뒤로
+    rows.sort((a,b)=>{
+      const am=a.meta||{},bm=b.meta||{};
+      const as=String(am.series||''),bs=String(bm.series||'');
+      if(as!==bs)return (as?0:1)-(bs?0:1)||as.localeCompare(bs,'ko');
+      const ag=_ebNum(am.stageG),bg=_ebNum(bm.stageG);
+      if(ag!==bg)return (ag===null?1:0)-(bg===null?1:0)||((ag||0)-(bg||0));
+      return String(am.title||'').localeCompare(String(bm.title||''),'ko',{numeric:true});
+    });
+    return rows;
+  }
   rows.sort((a,b)=>{
     const ay=_ebNum((a.meta||{}).year),by=_ebNum((b.meta||{}).year);
     if(ay!==by)return (by===null?-1:by)-(ay===null?-1:ay);          // 연도 내림차순, 연도 없는 것은 뒤로
@@ -18394,6 +18464,24 @@ function _ebPaintSeries(){
   el.style.display='';
   _ebOpts('eb-f-series','시리즈 전체',vals.map(v=>({v:v,n:v})),_ebF.series);
 }
+// 수준 칸·정렬 칸 — 수준은 뷰에 들어와 있을 때만 보여 준다
+function _ebPaintStage(){
+  const el=document.getElementById('eb-f-stage'),rows=(_ebRows||[]);
+  if(el){
+    if(!rows.some(r=>(r.meta||{}).stage)){
+      el.style.display='none';el.innerHTML='';
+      if(rows.length)_ebF.stage='';
+    }else{
+      el.style.display='';
+      const have=new Set(rows.map(r=>String((r.meta||{}).stage||'')).filter(Boolean));
+      const vals=EB_STAGES.filter(s=>have.has(s.k)).map(s=>({v:s.k,n:s.k+' · '+s.n}));
+      const none=rows.filter(r=>!(r.meta||{}).stage).length;
+      if(none)vals.push({v:'none',n:'측정 안 됨 '+none.toLocaleString()+'개'});
+      _ebOpts('eb-f-stage','수준 전체',vals,_ebF.stage);
+    }
+  }
+  _ebOpts('eb-f-sort','최신순',[{v:'stage',n:'시리즈 · 추정 학년순'}],_ebF.sort);
+}
 function _ebPaintFilters(){
   const rows=(_ebRows||[]);
   const uniq=k=>[...new Set(rows.map(r=>String((r.meta||{})[k]||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
@@ -18408,6 +18496,7 @@ function _ebPaintFilters(){
   _ebOpts('eb-f-region','지역',uniq('region').map(v=>({v:v,n:v})),_ebF.region);
   _ebOpts('eb-f-city','시·군',uniq('city').map(v=>({v:v,n:v})),_ebF.city);
   _ebOpts('eb-f-school','학교',uniq('school').map(v=>({v:v,n:v})),_ebF.school);
+  _ebPaintStage();
   const set=(id,v)=>{const el=document.getElementById(id);if(el&&el.value!==v)el.value=v;};
   set('eb-f-y1',_ebF.y1);set('eb-f-y2',_ebF.y2);set('eb-f-q',_ebF.q);
   const a=document.getElementById('eb-f-audio');if(a)a.checked=!!_ebF.audio;
@@ -18424,14 +18513,18 @@ function _ebKindPills(r){
   else if(r.extaud)h+='<span class="eb-pill eb-pill-on">듣기 링크</span>';
   return h;
 }
-function _ebBadges(m){
+function _ebBadges(m,id){
   const b=[];
   if(m.cat)b.push(_ebCatName(m.cat));
   if(m.grade)b.push(m.grade);else if(m.level)b.push(m.level);
   if(m.year)b.push(String(m.year)+(m.month?('.'+m.month):'')+(m.round?(' '+m.round+'회'):''));
   if(m.term)b.push(m.term);
   if(m.school)b.push(m.school);
-  return b.map(x=>'<span class="eb-badge">'+_ebE(x)+'</span>').join('');
+  // 수준 배지는 맨 앞에 — 누르면 어떻게 재었는지 한 줄
+  const sb=_ebStageBadge(m);
+  const h=sb?('<button type="button" class="eb-badge eb-stage'+(m.stage?'':' off')+'" title="눌러서 어떻게 재었는지 보기"'+
+    ' onclick="ebStageInfo(\''+escJsA(id||'')+'\',event)">'+_ebE(sb)+'</button>'):'';
+  return h+b.map(x=>'<span class="eb-badge">'+_ebE(x)+'</span>').join('');
 }
 function renderBankList(){
   const box=document.getElementById('eb-list');if(!box)return;
@@ -18451,7 +18544,7 @@ function renderBankList(){
     return '<div class="eb-row" onclick="ebOpenDetail(\''+escJsA(r.id)+'\')">'+
       '<button class="eb-star'+(fav?' on':'')+'" title="즐겨찾기" onclick="ebToggleFav(\''+escJsA(r.id)+'\',event)">'+(fav?'★':'☆')+'</button>'+
       '<div class="eb-main"><div class="eb-title">'+_ebE(m.title||'(제목 없음)')+'</div>'+
-      '<div class="eb-sub">'+_ebBadges(m)+(m.path?'<span class="eb-path">'+_ebE(m.path)+'</span>':'')+'</div></div>'+
+      '<div class="eb-sub">'+_ebBadges(m,r.id)+(m.path?'<span class="eb-path">'+_ebE(m.path)+'</span>':'')+'</div></div>'+
       '<div class="eb-kinds">'+_ebKindPills(r)+'</div></div>';
   }).join('');
   if(all.length>show.length)
@@ -18627,7 +18720,11 @@ function _ebDetailHtml(d){
       hAu+='<div style="margin-top:8px"><a class="btn bo bsm" href="'+_ebA(ebFolderUrl(d.audio.folderId))+'" target="_blank" rel="noopener">듣기 폴더 열기</a></div>';
     hAu+='</div>';
   }
-  let h=auFirst?(hAu+hDoc):(hDoc+hAu);   // 원서면 듣기가 먼저
+  let h='';
+  const sl=ebStageLine(d);               // 수준을 어떻게 재었는지 한 줄
+  if(sl)h+='<div class="eb-note eb-stage-note">'+
+    (d.stage?('<b>'+_ebE(ebStageName(d.stage)||d.stage)+'</b> · '):'')+_ebE(sl)+'</div>';
+  h+=auFirst?(hAu+hDoc):(hDoc+hAu);     // 원서면 듣기가 먼저
   if(d.note)h+='<div class="eb-sec"><div class="eb-sec-t">메모</div><div class="eb-memo">'+_ebE(d.note)+'</div></div>';
   h+='<div class="eb-sec" style="display:flex;gap:8px;flex-wrap:wrap">';
   if(d.folderId)h+='<a class="btn bo bsm" href="'+_ebA(ebFolderUrl(d.folderId))+'" target="_blank" rel="noopener"><i data-lucide="folder" width="15" height="15" style="vertical-align:-3px"></i> 드라이브 폴더 열기</a>';
@@ -18867,8 +18964,10 @@ function _isoPaintSrc(){
 // 자료실 미리보기에서 바로 들어오기
 function isoFromExam(){
   const row=(_ebRows||[]).find(r=>r.id===_ebDetailId),m=(row&&row.meta)||{};
-  _isoInfo={title:String(m.title||''),cat:String(m.cat||''),grade:String(m.grade||m.level||'')};
+  const sg=ebStageGrade(m.stage,IB_GRADES);        // 학년이 없으면 내용으로 잰 수준으로
+  _isoInfo={title:String(m.title||''),cat:String(m.cat||''),grade:String(m.grade||m.level||sg||'')};
   if(m.grade)_isoCfg.grade=String(m.grade);
+  else if(sg)_isoCfg.grade=sg;
   try{ebViewClose();ebCloseDetail();}catch(e){}
   swTab('t-data');switchDataTab('iso');
   toast('시험 정보를 가져왔어요 — 문항을 캡처해 Ctrl+V 로 붙여넣으세요');
@@ -21979,30 +22078,30 @@ function _lkE(x){return _ebE(x);}
 // ── 글 나누기 ────────────────────────────────────────────────────────────
 // 교재 본문은 줄바꿈이 곧 문장 경계다. 마침표가 없는 첫 줄은 제목으로 떼어 낸다.
 // 화자 표기(Yuna: …)는 ppParseDialog 로 떼어 문장 앞에 두되 빈칸·배열에서는 뺀다.
+// 문장 나누기는 문장 학습과 같은 분리기를 쓴다 — 약어(Dr. Mr.)·소수점(3.5)·따옴표를 안다
+// ('a man came to Dr. Schofield's house.' 가 'Dr.' 에서 잘려 해석이 비던 것을 고침)
 function _lkSplit(s){
-  return String(s||'').split(/(?<=[.!?])\s+(?=[A-Z"'“‘(])/).map(x=>x.trim()).filter(x=>x.length>1);
+  const out=(typeof _sentSplitText==='function')?_sentSplitText(s)
+    :String(s||'').split(/(?<=[.!?])\s+(?=[A-Z"'“‘(])/);
+  return out.map(x=>String(x).trim()).filter(x=>x.length>1);
 }
+// 문장마다 **원래 줄 번호(line)** 와 그 줄 안에서 몇 번째 문장인지(si·n) 를 달아 둔다.
+// 줄별 해석(unitSentKo) 은 본문 줄과 1:1 이라, 해석은 문장 번호가 아니라 이 줄 번호로 찾아야 한다.
 function _lkParse(text){
-  const lines=String(text||'').replace(/\r/g,'').split(/\n+/).map(s=>s.trim()).filter(Boolean);
-  let title='';
-  if(lines.length>1&&!/[.!?…][")'’”]?$/.test(lines[0])&&lines[0].split(/\s+/).length<=12){
-    title=lines.shift();
+  const all=ppTextLines(text);
+  let title='',titleLine=-1;
+  if(all.length>1){
+    const f=String(all[0].text||'').trim();
+    // 화자 표기가 붙은 줄은 제목이 아니다
+    if(!all[0].spk&&f&&!/[.!?…][")'’”]?$/.test(f)&&f.split(/\s+/).length<=12){title=f;titleLine=all[0].line;}
   }
   const out=[];
-  const pd=(typeof ppParseDialog==='function')?ppParseDialog(lines.join('\n')):{dialog:false};
-  if(pd&&pd.dialog&&(pd.lines||[]).length){
-    pd.lines.forEach(l=>{
-      _lkSplit(l.text).forEach((s,i)=>out.push({text:s,spk:(i===0?String(l.spk||''):'')}));
-    });
-  }else{
-    lines.forEach(l=>{
-      const m=l.match(/^([A-Z][A-Za-z.'\s]{0,16}):\s+/);
-      const spk=m?m[1].trim():'';
-      const body=m?l.slice(m[0].length).trim():l;
-      _lkSplit(body).forEach((s,i)=>out.push({text:s,spk:(i===0?spk:'')}));
-    });
-  }
-  return {title:title,sents:out};
+  all.forEach(L=>{
+    if(L.line===titleLine)return;
+    const ss=_lkSplit(L.text);
+    ss.forEach((s,i)=>out.push({text:s,spk:(i===0?String(L.spk||''):''),line:L.line,si:i,n:ss.length}));
+  });
+  return {title:title,titleLine:titleLine,sents:out};
 }
 function _lkSentences(t){return _lkParse(t).sents.map(s=>s.text);}
 // 낱말 하나만 남긴다 — 곡선 따옴표를 펴고 줄임말·소유격 꼬리(can't·Banksy's)를 뗀다
@@ -22164,9 +22263,9 @@ function _lkChunkOne(s){
   return parts.filter(p=>String(p).trim()).join(' / ');   // 빈 조각이 생기지 않게
 }
 function _lkMakeChunks(text,koText){
-  const ko=String(koText||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const ko=ppKoLines(koText);
   const p=_lkParse(text);
-  return p.sents.map((s,i)=>({en:s.text,spk:s.spk||'',chunk:_lkChunkOne(s.text),ko:ko[i]||''}));
+  return p.sents.map(s=>({en:s.text,spk:s.spk||'',chunk:_lkChunkOne(s.text),ko:ppKoAt(ko,s.line,s.si,s.n)}));
 }
 function _lkPick(n,total){
   const out=[];
@@ -22231,19 +22330,20 @@ function _lkMakeOrder(text){
 }
 // 영작 — 초·중1~2 는 배열, 중3 이상은 조건 영작 (단원 문법 포인트가 있으면 조건에 넣는다)
 function _lkMakeWrite(text,lv,koText,patterns){
-  const ko=String(koText||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const ko=ppKoLines(koText);
   const p=_lkParse(text);
   const sents=p.sents.map(s=>s.text);   // 화자 표기(Yuna:)는 빼고 문장만 쓴다
   const min=(lv==='elem')?4:7, max=(lv==='elem')?6:10;
   const wc=t=>String(t).replace(/[.,!?"']/g,'').split(' ').filter(Boolean).length;
   const cand=[];
   sents.forEach((s,i)=>{
-    cand.push({s:s,i:i,n:wc(s),whole:true});
+    const src=p.sents[i];
+    cand.push({s:s,i:i,src:src,n:wc(s),whole:true});
     if(lv!=='high'&&wc(s)>max){
       s.split(/,\s*|\s+(?=(?:and|but|so|because|that|which|when|before|after)\s)/i)
        .map(x=>String(x).replace(/^(and|but|so|because|that|which|when|before|after)\s+/i,'').trim().replace(/[.,]$/,''))
        .filter(x=>x&&wc(x)>=min&&wc(x)<=max)
-       .forEach(x=>cand.push({s:x,i:i,n:wc(x),whole:false}));
+       .forEach(x=>cand.push({s:x,i:i,src:src,n:wc(x),whole:false}));
     }
   });
   const fit=cand.filter(x=>lv==='high'?(x.whole&&x.n>=6):(x.n>=min&&x.n<=max));
@@ -22254,7 +22354,7 @@ function _lkMakeWrite(text,lv,koText,patterns){
   const pat=String(patterns||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean).slice(0,2);
   return {mode:(lv==='high'?'cond':'order'),items:take.map(x=>{
     const words=x.s.replace(/[.]$/,'').split(' ').filter(Boolean);
-    return {ko:(x.whole?(ko[x.i]||''):''),answer:x.s,
+    return {ko:(x.whole?ppKoAt(ko,x.src.line,x.src.si,x.src.n):''),answer:x.s,
       words:(lv==='high')?[]:words.slice().sort(()=>0.5-Math.random()),
       cond:(lv==='high')?(pat.length?pat.concat(['낱말 '+words.length+'개 안팎으로 쓰기'])
                                     :['낱말 '+words.length+'개 안팎으로 쓰기','본문에 나온 표현을 그대로 쓰기']):[]};
@@ -22264,7 +22364,7 @@ function _lkMakeWrite(text,lv,koText,patterns){
 // ── 학습 세트 화면 ───────────────────────────────────────────────────────
 function _lkNew(src,passage,grade){
   const now=Date.now();
-  return {id:uid(),kind:'kit',title:'',grade:grade||'중1',
+  return {id:uid(),kind:'kit',title:'',grade:grade||'중1',head:'',headKo:'',
     src:Object.assign({kind:'paste',itemId:'',tbId:'',unit:'',keep:false},src||{}),
     passage:String(passage||''),ko:'',
     want:{vocab:true,chunk:true,cloze:true,order:true,write:true,comp:false},
@@ -22367,7 +22467,9 @@ function lkBuild(){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===_lkKit.src.tbId);
   const uw=(tb&&(tb.units||{})[_lkKit.src.unit])||null;        // 그 단원 단어 목록
   const pat=(tb&&(tb.unitPatterns||{})[_lkKit.src.unit])||'';   // 단원 문법 포인트
-  _lkKit.head=_lkParse(_lkKit.passage).title||'';               // 본문 제목 줄
+  const _pr=_lkParse(_lkKit.passage);
+  _lkKit.head=_pr.title||'';                                    // 본문 제목 줄
+  _lkKit.headKo=(_pr.titleLine>=0)?(ppKoLines(_lkKit.ko)[_pr.titleLine]||''):'';   // 제목 줄의 해석은 머리에만
   if(w.vocab)p.vocab=_lkMakeVocab(_lkKit.passage,lv==='elem'?12:20,uw);
   if(w.chunk)p.chunk=_lkMakeChunks(_lkKit.passage,_lkKit.ko);
   if(w.cloze)p.cloze=_lkMakeCloze(_lkKit.passage,lv);
@@ -22564,7 +22666,11 @@ function _lkRender(){
     ' · '+_lkE(_lkKit.grade)+' · 지문 '+String(_lkKit.passage||'').trim().split(/\s+/).filter(Boolean).length+'단어</div>';
   if(!String(_lkKit.passage||'').trim())
     h+='<div class="eb-empty">위에서 지문을 넣어 주세요 — 문제 은행 문항·교재 단원·붙여넣기 셋 중 하나면 돼요.</div>';
-  else h+='<div class="lk-pass">'+_lkE(String(_lkKit.passage).slice(0,400))+(_lkKit.passage.length>400?'…':'')+'</div>';
+  else{
+    if(_lkKit.head)h+='<div class="lk-head">'+_lkE(_lkKit.head)+
+      (_lkKit.headKo?('<i>'+_lkE(_lkKit.headKo)+'</i>'):'')+'</div>';
+    h+='<div class="lk-pass">'+_lkE(String(_lkKit.passage).slice(0,400))+(_lkKit.passage.length>400?'…':'')+'</div>';
+  }
   const p=_lkKit.parts||{};
   if(p.vocab&&p.vocab.length){
     const miss=p.vocab.filter(v=>!v.ko).length;
@@ -22617,9 +22723,9 @@ function lkPrint(ans){
   const p=_lkKit.parts,title=_lkKit.title||'학습 세트';
   const today=(typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);
   const E=s=>_ebE(s);
-  const head=_lkKit.head||'';
+  const head=_lkKit.head||'',headKo=_lkKit.headKo||'';
   let b='<div class="hd"><h1>'+E(title)+(ans?' — 정답':'')+'</h1>'+
-    (head?('<div class="hdsub">'+E(head)+'</div>'):'')+
+    (head?('<div class="hdsub">'+E(head)+(headKo?('<span class="hdko">'+E(headKo)+'</span>'):'')+'</div>'):'')+
     '<div class="m"><span>직결영어</span><span>'+E(today)+'</span><span>'+E(_lkKit.grade)+'</span>'+
     '<span class="nm">이름 ______________</span></div></div><div class="wrap">';
   if(p.vocab&&p.vocab.length){
@@ -22668,6 +22774,7 @@ function lkPrint(ans){
     '.hd{border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:10px;column-span:all}'+
     '.hd h1{font-size:15pt;margin:0 0 2px}.hd .m{font-size:9.5pt;color:#444;display:flex;gap:14px}.hd .nm{margin-left:auto}'+
     '.hdsub{font-size:11pt;font-weight:700;color:#333;margin:2px 0 4px}'+
+    '.hdsub .hdko{font-weight:400;color:#555;margin-left:8px;font-size:10pt}'+
     '.sec{break-inside:avoid-column;margin-bottom:14px}'+
     'h2{font-size:11.5pt;margin:0 0 6px;padding-bottom:3px;border-bottom:1px solid #999}'+
     '.q{break-inside:avoid;margin:0 0 9px}.qs{margin-bottom:3px}'+
