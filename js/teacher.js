@@ -1791,7 +1791,7 @@ async function loadStuPanel(sid){
 
   // ── 과제 탭 (선생님: 숙제 할당 + 제출 확인) ──
   const sHws=ppLive(_cache.homeworks).filter(h=>h.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  setTimeout(()=>{try{irWeakCard(sid,'stu-weak-card');}catch(e){}},0);   // 유형별 약점 (최근 5회)
+  setTimeout(()=>{try{irWeakCard(sid,'stu-weak-card');irPaintAsgnScores();}catch(e){}},0);   // 약점 카드 · 과제 옆 점수
   const sAssigns=ppLive(_cache.assignments).filter(a=>a.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const unread=sHws.filter(h=>!h.checked).length;
   const tomorrowStr=(()=>{ // 마감 기본값: 다음 실제 수업일(휴강 제외), 클래스 없으면 내일
@@ -1867,7 +1867,7 @@ async function loadStuPanel(sid){
       return `<div id="asgn-row-${a.id}" style="padding:8px 0;border-bottom:1px solid var(--border)${completed?';opacity:.72':''}">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1">
-            <div style="font-size:12px;color:${overdue?'var(--red)':'var(--slate)'};font-family:var(--fm)">${(typeof ppTrackChipHtml==='function')?ppTrackChipHtml(a.track):''}${a.date||''}${a.due?' · 마감 '+a.due:''}${completed?' · 완료 '+(a.completedAt||'').slice(0,10):''}</div>
+            <div style="font-size:12px;color:${overdue?'var(--red)':'var(--slate)'};font-family:var(--fm)">${(typeof ppTrackChipHtml==='function')?ppTrackChipHtml(a.track):''}${a.date||''}${a.due?' · 마감 '+a.due:''}${completed?' · 완료 '+(a.completedAt||'').slice(0,10):''}${a.paperId?`<span data-asg-paper="${escAttr(a.paperId)}" data-asg-sid="${escAttr(sid)}"></span>`:''}</div>
             <div style="font-size:13px;font-weight:700;margin-top:2px">${
               a.type==='reading'?`${_catPill('원서')}${[a.bookTitle,a.range].filter(Boolean).join(' · ')||'원서 읽기'}`:
               a.type==='vocab'?`${_catPill('어휘')}${(a.words||[]).length?'단어: '+(a.words||[]).join(', '):(a.range||a.bookTitle||'단어 학습')}`:
@@ -11708,7 +11708,7 @@ function showAssignDateDetail(dateStr){
       <div style="display:flex;gap:8px;align-items:flex-start">
         <span style="font-weight:700;font-size:14px;min-width:48px">${s?.name||'—'}</span>
         <div style="flex:1;font-size:13px">${doneNow?'✅ ':''}${cat?`<span style="color:var(--teal)">[${cat}]</span> `:''}${[book,a.range].filter(Boolean).join(' · ')}
-          <div style="font-size:12px;color:var(--slate);margin-top:2px">출처: ${asgSrcLabel(a)} · ${a.date||''} 할당</div>
+          <div style="font-size:12px;color:var(--slate);margin-top:2px">출처: ${asgSrcLabel(a)} · ${a.date||''} 할당${a.paperId?`<span data-asg-paper="${escAttr(a.paperId)}" data-asg-sid="${escAttr(a.sid||'')}"></span>`:''}</div>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0">${btns}</div>
       </div>
@@ -21190,6 +21190,7 @@ function _pbPaintCfgUI(){
 // ⚠️ 학생은 item_bank 를 읽지 못한다. 그래서 보낼 때 문항 사본을 worksheets 에 만든다
 //    (해설·오답 해설은 사본에 넣지 않고, 제출한 뒤에 따로 받는 _sol 줄에 둔다).
 const IR_SKILL_N={read:'읽기',listen:'듣기',grammar:'어법',vocab:'어휘',write:'쓰기'};
+let _irNoTable=false;           // item_results 표가 아직 없다 (SQL 실행 전) — 세션 안에서만 선다
 let _irRows=new Map();          // paperId → 결과 줄 배열 (선생님 화면)
 let _irSid=new Map();           // sid → 최근 결과 줄
 function _irNow(){return (typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);}
@@ -21198,6 +21199,7 @@ async function irByPaper(paperId,force){
   if(!paperId)return [];
   if(!force&&_irRows.has(paperId))return _irRows.get(paperId);
   const r=await _ebGet('item_results?select=id,sid,data&data->>paperId=eq.'+encodeURIComponent(paperId)+'&limit=500');
+  if(!r.ok&&r.status===404)_irNoTable=true;
   const rows=r.ok?r.rows.map(_irRow).filter(x=>!x._deleted):[];
   _irRows.set(paperId,rows);
   return rows;
@@ -21210,6 +21212,18 @@ async function irBySid(sid,n){
   const rows=r.ok?r.rows.map(_irRow).filter(x=>!x._deleted):[];
   _irSid.set(sid,rows);
   return rows;
+}
+// 결과 한 줄 저장 — sid 를 늘 함께 보낸다(학생·학부모 정책이 sid 로 걸린다)
+async function irPut(rowId,data,sid){
+  if(_irNoTable)return false;
+  if(!sid){console.warn('item_results: sid 없이 저장하려 함');return false;}
+  const ok=await supaUpsert('item_results',rowId,data,sid).catch(e=>{
+    if(String((e&&e.message)||'').indexOf('404')>=0){
+      _irNoTable=true;
+      toast('시험지 결과 표가 아직 없어요 — supabase/item_results.sql 을 실행해 주세요');
+    }
+    return false;});
+  return !!ok;
 }
 function irForget(paperId,sid){
   if(paperId)_irRows.delete(paperId);
@@ -21298,8 +21312,16 @@ function _pbSentItems(){
       setId:d.setId||'',setOrder:d.setOrder||null,points:_pbPt(d.id)};
   });
 }
-async function pbSendGo(){
+function pbSendGo(){
   if(!_pbSendIds.length){toast('학생을 골라 주세요');return;}
+  // 듣기 문항은 앱에 음원이 없다 — 대본만 있고 들려줄 수 없으니 먼저 알린다
+  const nL=_pbSentItems().filter(it=>String(it.script||'').trim()||String(it.skill||'')==='listen').length;
+  if(nL)askConfirm('듣기 문항이 있어요',
+    '듣기 문항 '+nL+'개는 음원이 없어요. 수업 시간에 들려주거나 빼고 보내세요.\n'+
+    '대본은 학생이 제출한 뒤에만 보입니다.','그래도 보내기','bt',()=>_pbSendGo2());
+  else _pbSendGo2();
+}
+async function _pbSendGo2(){
   if(typeof ppSandbox==='function'&&ppSandbox()){toast('체험 모드에서는 보내지 않아요');return;}
   const due=(document.getElementById('pbs-due')||{}).value||_irNow();
   const btn=document.getElementById('pbs-go');if(btn)btn.disabled=true;
@@ -21463,7 +21485,7 @@ async function peSave(){
       const t=await irAsTest(r.sid,rec);
       if(t)rec.testId=t;
     }
-    if(await supaUpsert('item_results',rec.id,rec,r.sid).catch(()=>false))n++;
+    if(await irPut(rec.id,rec,r.sid))n++;
   }
   irForget(_pbPaper.id);
   if(btn)btn.disabled=false;
@@ -21471,19 +21493,25 @@ async function peSave(){
   toast('답 '+n+'명분을 넣었어요');
   pbResults();
 }
-// '자체 시험으로 기록' — tests 줄로도 남겨 기존 점수 추이에 들어가게 한다
+// '자체 시험으로 기록' — tests 줄로도 남겨 기존 점수 추이에 들어가게 한다.
+// 영역(bySkill)을 그 표의 네 칸에 그대로 나눠 넣는다. 서술형(write)은 넣을 칸이 없어 빼고,
+// 시험 종류는 '자체'(testKind 를 넣지 않으면 자체다).
 async function irAsTest(sid,rec){
   if(!sid||String(sid).indexOf('diag_')===0)return '';
-  const t={id:uid(),sid:sid,date:rec.date,
-    vocabCorrect:0,vocabTotal:0,
-    grammarCorrect:rec.score,grammarTotal:rec.total,
-    wrongWords:[],title:rec.title,src:'paper',paperId:rec.paperId};
+  const by=rec.bySkill||{};
+  const g=k=>Array.isArray(by[k])?by[k]:[0,0];
+  const t={id:uid(),sid:sid,date:rec.date,attempt:1,absent:false,
+    vocabCorrect:g('vocab')[0],    vocabTotal:g('vocab')[1],
+    grammarCorrect:g('grammar')[0],grammarTotal:g('grammar')[1],
+    readingCorrect:g('read')[0],   readingTotal:g('read')[1],
+    listeningCorrect:g('listen')[0],listeningTotal:g('listen')[1],
+    allWords:[],wrongWords:[],
+    title:rec.title,src:'paper',paperId:rec.paperId,cmt:''};
   const ok=await supaUpsert('tests',t.id,t,sid).catch(()=>false);
   if(!ok)return '';
   if(_cache.tests)_cache.tests.unshift(t);
   return t.id;
 }
-
 // ── 결과 보기 ────────────────────────────────────────────────────────────
 let _prRows=[],_prPaper=null,_prItems=[];
 async function pbResults(){
@@ -21513,14 +21541,24 @@ function _prRender(){
   let h='<div class="pr-sec-t">학생별</div><div class="pr-tbl">';
   h+='<div class="pr-row pr-head"><span class="pr-nm">학생</span><span class="pr-sc">점수</span>'+
      '<span class="pr-bar">영역별</span><span class="pr-ac">약점 유형</span><span class="pr-bt"></span></div>';
-  _prRows.slice().sort((a,b)=>(b.score||0)-(a.score||0)).forEach(r=>{
+  // 같은 학생이 여러 번 풀었으면 가장 최근 것만 보이고 몇 회째인지 적는다
+  const byStu=new Map();
+  _prRows.forEach(r=>{
+    const k=r.sid||r.rowId;
+    const cur=byStu.get(k);
+    if(!cur){byStu.set(k,{row:r,n:1});return;}
+    cur.n++;
+    if((r.submittedAt||0)>(cur.row.submittedAt||0))cur.row=r;
+  });
+  [...byStu.values()].sort((a,b)=>(b.row.score||0)-(a.row.score||0)).forEach(({row:r,n:tries})=>{
     const weak=Object.keys(r.byType||{}).filter(t=>{const v=r.byType[t];return v[1]>0&&irPct(v[0],v[1])<60;})
       .map(t=>(ISO_TYPES[t]?ISO_TYPES[t].n:t)).slice(0,3);
     const sk=Object.keys(r.bySkill||{}).map(k=>{
       const v=r.bySkill[k];return (IR_SKILL_N[k]||k)+' '+irPct(v[0],v[1])+'%';}).join(' · ');
     const ungraded=Object.keys(r.correct||{}).filter(k=>r.correct[k]===null).length;
     h+='<div class="pr-row"><span class="pr-nm">'+_ebE(_prName(r))+
-      (r.mode==='paper'?'<i class="pr-m">종이</i>':'<i class="pr-m">앱</i>')+'</span>'+
+      (r.mode==='paper'?'<i class="pr-m">종이</i>':'<i class="pr-m">앱</i>')+
+      (tries>1?('<i class="pr-m">'+tries+'회째</i>'):'')+'</span>'+
       '<span class="pr-sc"><b>'+(r.score||0)+'</b>/'+(r.total||0)+
         (r.pointsTotal?(' <i>'+(r.points||0)+'점</i>'):'')+'</span>'+
       '<span class="pr-bar">'+_ebE(sk||'-')+'</span>'+
@@ -21528,6 +21566,8 @@ function _prRender(){
       '<span class="pr-bt">'+
         (ungraded?('<button class="btn bo bsm" onclick="prGradeOpen(\''+escJsA(r.rowId)+'\')">서술형 채점 '+ungraded+'</button>'):'')+
         '<button class="btn bo bsm" onclick="prWeakPaper(\''+escJsA(r.rowId)+'\')">틀린 유형 연습</button>'+
+        (r.sid&&r.mode==='app'?('<button class="btn bo bsm" onclick="prAllowRetry(\''+escJsA(r.sid)+'\')">다시 풀기 열기</button>'):'')+
+        '<button class="ib-ic ib-ic-d" title="이 줄을 휴지통으로" onclick="prTrash(\''+escJsA(r.rowId)+'\')">×</button>'+
       '</span></div>';
   });
   h+='</div>';
@@ -21559,6 +21599,26 @@ function _prRender(){
     '<span class="iso-hint">켜면 tests 줄로도 남아 점수 추이에 들어가요 (기본 꺼짐)</span></div>';
   box.innerHTML=h;
 }
+// 다시 풀기 열기 — 과제의 retry 를 켠다 (학생 화면에 '다시 풀기' 가 보인다)
+async function prAllowRetry(sid){
+  const a=(_cache.assignments||[]).find(x=>x&&x.sid===sid&&x.paperId===_prPaper.id);
+  if(!a){toast('이 학생의 과제를 찾지 못했어요');return;}
+  a.retry=true;
+  const ok=await supaUpsert('assignments',a.id,a,sid).catch(()=>false);
+  toast(ok?'다시 풀 수 있게 열었어요 — 학생 화면에 단추가 생겨요':'열지 못했어요');
+}
+// 잘못 넣은 줄은 휴지통으로 (하드 삭제 대신 _deleted 표식)
+function prTrash(rowId){
+  const r=_prRows.find(x=>x.rowId===rowId);if(!r)return;
+  askConfirm('결과 삭제',_prName(r)+' 의 결과를 휴지통으로 보낼까요?\n30일 뒤 자동으로 지워집니다.','삭제','bd',async()=>{
+    const {rowId:_x,...data}=r;
+    const ok=await irPut(rowId,{...data,_deleted:true,_deletedAt:new Date().toISOString()},r.sid);
+    if(!ok){toast('삭제 실패 — 잠시 뒤 다시 해 주세요');return;}
+    _prRows=_prRows.filter(x=>x.rowId!==rowId);
+    irForget(_prPaper.id,r.sid);
+    _prRender();toast('휴지통으로 보냈어요');
+  });
+}
 // 서술형 채점 — 선생님이 맞음·틀림을 누른다 (자동 채점 없음)
 let _prGradeId='';
 function prGradeOpen(rowId){
@@ -21589,7 +21649,7 @@ async function prGradeSave(){
   Object.assign(r,{correct:g.correct,score:g.score,total:g.total,points:g.points,
     pointsTotal:g.pointsTotal,byType:g.byType,bySkill:g.bySkill,gradedAt:Date.now()});
   const {rowId,...data}=r;
-  const ok=await supaUpsert('item_results',rowId,data,r.sid).catch(()=>false);
+  const ok=await irPut(rowId,data,r.sid);
   toast(ok?'채점을 저장했어요':'저장 실패 — 잠시 뒤 다시 해 주세요');
   irForget(_prPaper.id,r.sid);
   _prRender();
@@ -21600,7 +21660,7 @@ async function prAsTestAll(on){
   for(const r of _prRows){
     if(r.testId||r.name)continue;
     const t=await irAsTest(r.sid,r);
-    if(t){r.testId=t;const {rowId,...data}=r;await supaUpsert('item_results',rowId,data,r.sid).catch(()=>false);n++;}
+    if(t){r.testId=t;const {rowId,...data}=r;await irPut(rowId,data,r.sid);n++;}
   }
   toast(n?('자체 시험으로 '+n+'명 기록했어요'):'이미 기록돼 있어요');
 }
@@ -21683,6 +21743,22 @@ function prPrintDiag(){
     '.cmt{margin-top:18px}.cmt .line{border-bottom:1px solid #999;height:30px;margin-top:6px}'+
     '.noprint{position:fixed;bottom:14px;right:14px;padding:9px 16px;font-size:13px;cursor:pointer}'+
     '@media print{.noprint{display:none}}', body);
+}
+// 과제 완료 표시 옆에 점수를 적는다 (알림은 보내지 않는다)
+async function irPaintAsgnScores(){
+  const els=[...document.querySelectorAll('[data-asg-paper]')].filter(e=>!e.textContent);
+  if(!els.length)return;
+  const sids=[...new Set(els.map(e=>e.getAttribute('data-asg-sid')).filter(Boolean))];
+  const all={};
+  for(const sid of sids)all[sid]=await irBySid(sid,20);
+  els.forEach(el=>{
+    const pid=el.getAttribute('data-asg-paper'),sid=el.getAttribute('data-asg-sid');
+    const list=(all[sid]||[]).filter(r=>r.paperId===pid).sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
+    if(!list.length)return;
+    const r=list[0];
+    el.textContent=' · 점수 '+(r.score||0)+'/'+(r.total||0)+(list.length>1?(' ('+list.length+'회째)'):'');
+    el.style.color='var(--tealt)';el.style.fontWeight='700';
+  });
 }
 // ── 학생 상세의 '유형별 약점' 카드 (최근 5회 누적) ──────────────────────
 async function irWeakCard(sid,elId){

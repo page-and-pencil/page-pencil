@@ -3141,3 +3141,7 @@ span.pe-c{width:30px;flex-shrink:0;text-align:center;}
   .pr-ac,.pr-ty{width:auto;}
   .pr-bt{margin-left:auto;}
 }
+
+/* 확인 창은 늘 맨 위로 — openM 이 모든 모달에 z-index 9999 를 주므로,
+   모달 안에서 띄운 확인 창이 그 모달 뒤에 숨는 일이 있었다 (시험지 창에서 보내기 확인). */
+#m-confirm{z-index:10050 !important;}

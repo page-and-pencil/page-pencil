@@ -6569,7 +6569,7 @@ async function psOpen(w,asgnId,sid){
 async function psFindResult(w,sid){
   try{
     const u=`${SUPA_URL}/rest/v1/item_results?sid=eq.${encodeURIComponent(sid)}`+
-      `&data->>sentId=eq.${encodeURIComponent(w.id)}&select=id,data&limit=1`;
+      `&data->>sentId=eq.${encodeURIComponent(w.id)}&select=id,data&order=updated_at.desc&limit=1`;
     const r=await fetch(u,{headers:SUPA_HEADERS});
     if(!r.ok)return null;
     const rows=await r.json();
@@ -6604,6 +6604,8 @@ function psPaint(){
     h+='<div class="ps-q" id="ps-q-'+i+'"><div class="ps-no">'+(i+1)+'</div>'+
       '<div class="ps-stem">'+_psE(it.stem||'')+'</div>';
     if(!sid&&it.passage)h+='<div class="ps-p">'+_psE(it.passage)+'</div>';
+    // 듣기 대본(it.script)은 푸는 동안 보여 주지 않는다 — 제출한 뒤 결과에서만 보인다
+    if(it.script&&!it.passage)h+='<div class="ps-listen">🎧 듣기 문항 — 선생님이 들려주세요</div>';
     if((it.choices||[]).length){
       h+='<div class="ps-ch">'+it.choices.map((c,j)=>
         '<button class="ps-c'+(_psAns[it.id]===j?' on':'')+'" id="ps-c-'+i+'-'+j+'" onclick="psPick('+i+','+j+')">'+
@@ -6714,10 +6716,19 @@ function psPaintResult(){
         '<div class="ps-c'+(j===it.answer?' ok':'')+(j===mine?' mine':'')+'">'+
         '<span class="ps-cn">'+_psCirc(j)+'</span><span class="ps-ct">'+_psE(c)+'</span>'+
         (j===it.answer?'<span class="ps-tag">정답</span>':(j===mine?'<span class="ps-tag mine">내 답</span>':''))+'</div>').join('')+'</div>'+
+      (it.script?'<div class="ps-ex"><b>듣기 대본</b> '+_psE(it.script)+'</div>':'')+
       (s.explain?'<div class="ps-ex"><b>해설</b> '+_psE(s.explain)+'</div>':'')+
       ((s.wrong||[]).length?'<div class="ps-ex2">'+_psE(s.wrong.join(' / '))+'</div>':'')+
       '</div>';
   });
+  // 듣기 대본은 제출한 뒤에만 — 맞힌 문항도 다시 읽어 볼 수 있게 모아 준다
+  const scripts=items.filter(it=>String(it.script||'').trim());
+  if(scripts.length){
+    h+='<div class="ps-sc-t">🎧 듣기 대본</div>';
+    scripts.forEach(it=>{
+      h+='<div class="ps-ex"><b>'+(items.indexOf(it)+1)+'번</b> '+_psE(it.script)+'</div>';
+    });
+  }
   h+='</div>';
   body.innerHTML=h;
   const a=(_cache.assignments||[]).find(x=>x.id===_psAsgn);
@@ -6756,4 +6767,6 @@ const PS_CSS=
  '.ps-wrong .ps-no{background:var(--warn)}'+
  '.ps-ex{font-size:13.5px;color:var(--slate);line-height:1.7;margin-top:8px;background:var(--cream2);border-radius:10px;padding:9px 11px}'+
  '.ps-ex b{color:var(--navy)}'+
- '.ps-ex2{font-size:12.5px;color:var(--slate2);line-height:1.6;margin-top:4px}';
+ '.ps-ex2{font-size:12.5px;color:var(--slate2);line-height:1.6;margin-top:4px}'+
+ '.ps-listen{font-size:13px;color:var(--tealt);background:var(--tl);border-radius:10px;padding:9px 11px;margin-bottom:8px}'+
+ '.ps-sc-t{font-size:14px;font-weight:800;color:var(--navy);margin:18px 0 8px}';
