@@ -7813,9 +7813,10 @@ let _bhTab='home',_bhUnit='';
 function openBookHome(tbId,tab){
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
   if(!tb){toast('교재를 찾지 못했어요');return;}
-  _bhTab=tab||'home';_bhUnit='';
-  openTbookUnits(tbId);
-  tbdTab(_bhTab);
+  const want=tab||'home';
+  _bhUnit='';
+  openTbookUnits(tbId);     // 창을 열고 칸을 채운다 (이 안에서 tbdTab('units') 이 돈다)
+  tbdTab(want);             // 그 뒤에 열고 싶은 탭으로
 }
 function _bhPane(id){return document.getElementById('tbd-pane-'+id);}
 function bhRender(tab){
@@ -7836,7 +7837,10 @@ function _bhHomeHtml(tb){
   const cls=tbClassRows(tb);
   const hw=((typeof _cache!=='undefined')?(_cache.assignments||[]):[])
     .filter(a=>a&&!a._deleted&&a.bookId===tb.id&&(typeof hwIsBookFlow!=='function'||hwIsBookFlow(a)));
-  const pill=(n,lbl,go)=>'<span class="bh-pill'+(n?'':' off')+'"'+(n&&go?' onclick="'+go+'" style="cursor:pointer"':'')+'><b>'+n+'</b>'+lbl+'</span>';
+  const pill=(n,lbl,go,note)=>'<span class="bh-pill'+(n?'':' off')+'"'+(note?(' title="'+_ebA(note)+'"'):'')
+    +(n&&go?' onclick="'+go+'" style="cursor:pointer"':'')+'><b>'+(note&&!n?'…':n)+'</b>'+lbl+'</span>';
+  const ebReady=(typeof _ebRows!=='undefined'&&_ebRows&&_ebRows.length);
+  const ibReady=(typeof _ibRows!=='undefined'&&_ibRows&&_ibRows.length);
   const nameOf=sid=>{const s2=DB.stus().find(x=>x.id===sid);return s2?s2.name:'';};
   return '<div class="bh-wrap">'
     +'<div class="bh-head"><div class="bh-t">'+_ebE(tb.title||'')+'</div>'
@@ -7847,7 +7851,8 @@ function _bhHomeHtml(tb){
       +pill(c.texts,'본문',"tbdTab('text')")+pill(c.ko,'해석',"tbdTab('text')")
       +pill(c.audio,'음원',"tbdTab('audio')")+pill(c.scripts,'듣기 대본',"tbdTab('text')")
       +pill(c.patterns,'문형',"tbdTab('units')")
-      +pill(c.bank,'자료실 파일',"tbdTab('bank')")+pill(c.items,'문항',"tbdTab('items')")
+      +pill(c.bank,'자료실 파일',"tbdTab('bank')",ebReady?'':'자료실을 아직 안 받았어요 — 자료실 탭을 한 번 열면 세어 줍니다')
+      +pill(c.items,'문항',"tbdTab('items')",ibReady?'':'문제 은행을 아직 안 받았어요 — 문제 은행 탭을 한 번 열면 세어 줍니다')
     +'</div>'
     +'<div class="bh-sec"><div class="bh-sec-t">어느 반이 어디까지</div>'
       +(cls.length?cls.map(r=>'<div class="bh-row"><span class="bh-cls">'+_ebE(r.name)+'</span>'
@@ -19382,6 +19387,7 @@ async function _ebNotesLoad(){
   }catch(e){}
 }
 function ebNoteSet(id,text){
+  if(typeof ppSandbox==='function'&&ppSandbox())return;   // 체험 모드에서는 남기지 않는다
   const n=ebNotes();
   const t=String(text||'').trim().slice(0,200);
   if(t)n[id]=t;else delete n[id];
@@ -19659,10 +19665,15 @@ function renderStageTable(){
   const head='<div class="stg-row stg-h" style="grid-template-columns:96px repeat('+STG_COLS.length+','+colW+')">'
     +'<div class="stg-c stg-hd"></div>'
     +STG_COLS.map(k=>'<div class="stg-c stg-hd">'+_ebE((typeof ebStageName==='function')?(ebStageName(k)||k):k)+'<em>'+k+'</em></div>').join('')+'</div>';
+  // 아홉 칸·영역 어디에도 못 든 책이 있으면 '그 밖' 줄로 (한 권도 조용히 사라지지 않게)
+  const placed=new Set();
+  rows.forEach(r=>r.books.forEach(b=>{if(STG_COLS.indexOf(String(b.stage))>=0)placed.add(b.id);}));
+  const rest=withStage.filter(b=>!placed.has(b.id));
+  if(rest.length)rows.push({k:'etc',n:'그 밖',books:rest});
   const bodyRows=rows.filter(r=>r.books.length).map(r=>
     '<div class="stg-row" style="grid-template-columns:96px repeat('+STG_COLS.length+','+colW+')">'
     +'<div class="stg-c stg-sd">'+_ebE(r.n)+'</div>'
-    +STG_COLS.map(k=>'<div class="stg-c">'+cell(r.books,k)+'</div>').join('')+'</div>').join('');
+    +STG_COLS.map(k=>'<div class="stg-c">'+(r.k==='etc'?(k===STG_COLS[0]?r.books.map(b=>'<button class="stg-b" title="'+_ebA(b.title+' — 수준 '+(b.stage||'?'))+'" onclick="openBookHome(\''+escJsA(b.id)+'\')">'+_ebE(b.title)+'</button>').join(''):''):cell(r.books,k))+'</div>').join('')+'</div>').join('');
   let bankRow='';
   if(withBank){
     const keys=Object.keys(bankCells);
@@ -19695,17 +19706,28 @@ function _ebRegistered(r){
   return (_cache.globalTextbooks||[]).find(b=>b&&!b._deleted&&(
     (Array.isArray(b.bankIds)&&b.bankIds.indexOf(r.id)>=0)||(t&&nrm(b.title)===t)))||null;
 }
+const EB_BOOK_CATS=['publisher','elt','bookaudio','bookdocs','audiobook'];
 function renderBankBooks(all){
   const box=document.getElementById('eb-list');if(!box)return;
+  // 기출 시험지는 '책' 이 아니다 — 교재·원서 자료만 묶는다
+  const books=all.filter(r=>EB_BOOK_CATS.indexOf(String((r.meta||{}).cat||''))>=0);
+  const skipped=all.length-books.length;
+  if(!books.length){
+    box.innerHTML='<div class="eb-empty">이 조건에 교재 자료가 없습니다 — 책으로 보기는 <b>교재·원서 자료</b>만 묶어요'
+      +(skipped?(' (기출 '+skipped.toLocaleString()+'줄은 목록 보기에서)'):'')+'</div>';
+    return;
+  }
   const pub={};
-  all.forEach(r=>{
+  books.forEach(r=>{
     const m=r.meta||{};
     const p=(m.series||'(출판사 없음)');
     const sk=_ebBookKey(m.title);
     ((pub[p]=pub[p]||{})[sk]=pub[p][sk]||[]).push(r);
   });
   const keys=Object.keys(pub).sort((a,b)=>a.localeCompare(b,'ko'));
-  box.innerHTML=keys.map(p=>{
+  box.innerHTML='<div class="eb-note" style="margin-bottom:8px">교재·원서 자료 '+books.length.toLocaleString()+'줄을 출판사 → 시리즈 → 책으로 묶었습니다'
+    +(skipped?(' · 기출 '+skipped.toLocaleString()+'줄은 [목록] 에서 보세요'):'')+'</div>'
+    +keys.map(p=>{
     const sers=pub[p];
     const n=Object.values(sers).reduce((t,a)=>t+a.length,0);
     const body=Object.keys(sers).sort((a,b)=>a.localeCompare(b,'ko',{numeric:true})).map(sk=>{
@@ -20069,6 +20091,26 @@ const ISO_CFG_KEY='pp_iso_cfg';
 // ── 유형 사전 ─────────────────────────────────────────────────────────────
 // n 이름 · g 묶음 · w 출제 원리(생성 프롬프트에 그대로 들어간다) · s 서술형
 const ISO_TYPES={
+  // ── 중학 듣기평가(시·도 교육청) 유형 — 가져온 문항을 분류하려고 둔다.
+  //    동형 만들기 목록에는 넣지 않는다(iso:false): 음원이 있어야 하는 문항이라 새로 만들 수 없다.
+  ml_pick    :{g:'듣기',n:'그림 고르기',iso:false,w:''},
+  ml_detail  :{g:'듣기',n:'세부 정보',iso:false,w:''},
+  ml_topic   :{g:'듣기',n:'주제·화제',iso:false,w:''},
+  ml_place   :{g:'듣기',n:'장소',iso:false,w:''},
+  ml_time    :{g:'듣기',n:'시각·날짜',iso:false,w:''},
+  ml_feeling :{g:'듣기',n:'심정',iso:false,w:''},
+  ml_request :{g:'듣기',n:'부탁한 일',iso:false,w:''},
+  ml_suggest :{g:'듣기',n:'제안한 일',iso:false,w:''},
+  ml_intent  :{g:'듣기',n:'말의 의도',iso:false,w:''},
+  ml_job     :{g:'듣기',n:'직업·장래 희망',iso:false,w:''},
+  ml_relation:{g:'듣기',n:'두 사람의 관계',iso:false,w:''},
+  ml_weather :{g:'듣기',n:'날씨',iso:false,w:''},
+  ml_transport:{g:'듣기',n:'교통수단',iso:false,w:''},
+  ml_location:{g:'듣기',n:'위치',iso:false,w:''},
+  ml_proverb :{g:'듣기',n:'속담',iso:false,w:''},
+  ml_advice  :{g:'듣기',n:'충고',iso:false,w:''},
+  ml_unnatural:{g:'듣기',n:'어색한 대화',iso:false,w:''},
+  ml_picdialog:{g:'듣기',n:'그림 상황에 맞는 대화',iso:false,w:''},
   l_purpose  :{g:'듣기',n:'목적',w:'담화 첫머리에 상황을 깔고 중반 이후 "그래서 ~해 주세요" 자리에서 목적이 한 번만 드러난다. 오답은 배경에 나온 소재를 목적처럼 바꿔 쓴다.'},
   l_opinion  :{g:'듣기',n:'의견',w:'두 사람 대화에서 한 사람이 같은 주장을 표현만 바꿔 두세 번 반복한다. 반복되는 쪽이 정답이다.'},
   l_gist     :{g:'듣기',n:'요지',w:'한 사람의 담화(방송·강연)에서 처음과 끝에 같은 말이 다른 표현으로 놓인다.'},
@@ -20252,7 +20294,9 @@ function _isoPaintCfg(){
   // 유형 칸
   const ts=document.getElementById('iso-type');
   if(ts&&!ts.options.length){
-    const groups={};Object.keys(ISO_TYPES).forEach(k=>{const t=ISO_TYPES[k];(groups[t.g]=groups[t.g]||[]).push({k:k,n:t.n});});
+    const groups={};Object.keys(ISO_TYPES).forEach(k=>{const t=ISO_TYPES[k];
+      if(t.iso===false)return;                       // 음원이 있어야 하는 유형은 새로 만들 수 없다
+      (groups[t.g]=groups[t.g]||[]).push({k:k,n:t.n});});
     ts.innerHTML='<option value="">유형 고르기 (원본을 넣으면 자동으로 찾아요)</option>'+
       Object.keys(groups).map(g=>'<optgroup label="'+_ebA(g)+'">'+
         groups[g].map(x=>'<option value="'+_ebA(x.k)+'">'+_ebE(x.n)+'</option>').join('')+'</optgroup>').join('');
@@ -21009,6 +21053,9 @@ const IB_SKILL_BY_TYPE={grammar:'grammar',m_grammar_pick:'grammar',m_grammar_fix
 const IB_DIFF_BY_TYPE={blank:4,implicit:4,order:4,insert:4,summary:4,grammar:4,irrelevant:3,vocab:3,
   l_purpose:2,l_opinion:2,l_gist:2,l_pic:2,l_todo:2,l_why:2,l_not:2,l_mismatch:2,l_table:2,l_short:2,l_set:2,
   l_pay:3,l_long:3,l_situation:3,                  // 듣기는 2, 금액·긴 대화 응답·상황에 맞는 말만 3
+  ml_pick:2,ml_detail:2,ml_topic:2,ml_place:2,ml_time:2,ml_feeling:2,ml_request:2,ml_suggest:2,
+  ml_intent:2,ml_job:2,ml_relation:2,ml_weather:2,ml_transport:2,ml_location:2,ml_proverb:2,
+  ml_advice:2,ml_unnatural:2,ml_picdialog:2,       // 중학 듣기평가는 기본 난도 2
   title:3,topic:3,long2:3,long3:3,claim:2,gist:2,purpose:2,mood:2,chart:2,notice:2,bio:2,
   m_blank:3,m_order:3,m_insert:3,m_ref:3,m_topic:3,m_vocab:3,m_textbook:3,m_write_order:3,
   m_grammar_pick:4,m_grammar_fix:4,m_write_cond:4,m_summary:4,m_match:2,m_dialog:2};
@@ -21022,7 +21069,7 @@ let _ibOpenSets=new Set();     // 펼쳐 둔 지문 묶음(setId)
 let _ibNoTable=false;          // item_bank 표가 아직 없다 (SQL 실행 전) — 쓰기를 멈춘다
 let _ibDeepIds=null;           // '본문까지 찾기' 결과 (서버가 찾아 준 id 들)
 let _ibF={skill:'',type:'',grade:'',diff:'',src:'',tbId:'',unit:'',checked:'',star:false,tag:'',q:'',
-  bankId:'',bankName:'',warn:false};   // bankId = 자료실 줄 하나로 걸러 보기
+  bankId:'',bankName:'',warn:false,exam:''};   // bankId = 자료실 줄 하나로 · exam = 회차로
 
 function ibMayUse(){
   try{
@@ -21071,7 +21118,12 @@ function _ibNorm(x,now){
     diff:_ibNum(o.diff)||dd.diff,diffSrc:String(o.diffSrc||dd.diffSrc),
     rate:rate,points:points,
     stem:String(o.stem||''),passage:passage,
-    choices:ch,answer:isFinite(Number(o.answer))?Number(o.answer):(ch.length?0:-1),
+    // 정답 미확인은 **-1 그대로** 둔다. 전에는 null·빈 값이 0(①)이 되어 틀린 정답이 박혔다.
+    choices:ch,answer:(o.answer===null||o.answer===undefined||o.answer==='')?-1:(isFinite(Number(o.answer))?Number(o.answer):-1),
+    // 보기가 음원에만 있는 문항 — 문제지에는 번호만, 정답·해설·대본에는 글까지 찍는다
+    scriptOptions:Array.isArray(o.scriptOptions)?o.scriptOptions.map(x=>String(x==null?'':x)):[],
+    sharedStem:String(o.sharedStem||''),
+    year:_ibNum(o.year),round:_ibNum(o.round),
     answerText:String(o.answerText||''),rubric:String(o.rubric||''),
     explain:String(o.explain||''),wrong:Array.isArray(o.wrong)?o.wrong.map(String):[],
     script:String(o.script||''),
@@ -21114,6 +21166,8 @@ function _ibLightOf(d,id,at){                       // data 전체 → 목록용
     words:d.words,src:d.src,tags:d.tags,setId:d.setId,setOrder:d.setOrder,
     star:d.star||null,checked:d.checked||null,note:d.note,createdAt:d.createdAt,editedAt:d.editedAt,
     hasImage:d.hasImage||undefined,warn:d.warn||undefined,
+    scriptOptions:(d.scriptOptions||[]).length?d.scriptOptions:undefined,
+    sharedStem:d.sharedStem||undefined,year:d.year||undefined,round:d.round||undefined,
     hasPassage:!!String(d.passage||''),hasScript:!!String(d.script||''),_deleted:d._deleted||undefined}};
 }
 // 문항의 id 는 **행 id** 가 진짜다. REST 로 바로 넣은 행이나 가져온 파일에는
@@ -21314,9 +21368,13 @@ function ibBasketToggle(id,ev){
   const b=ibBasket(),i=b.indexOf(id);
   if(i>=0)b.splice(i,1);
   else{
+    const m=((_ibRows||[]).find(x=>x.id===id)||{}).meta||{};
+    // 정답을 확인하지 못한 문항은 시험지에 담지 않는다 (채점이 틀어진다)
+    if(Number(m.answer)<0&&((m.choices||[]).length||(m.scriptOptions||[]).length)){
+      toast('정답 미확인 문항이라 시험지에 담을 수 없어요 — 정답을 먼저 넣어 주세요');return;
+    }
     b.push(id);
     // 그림 문항은 글자만 인쇄된다 — 한 번만 알린다
-    const m=((_ibRows||[]).find(x=>x.id===id)||{}).meta||{};
     if(m.hasImage&&!_ibPicNoted){_ibPicNoted=true;toast('그림 문항이 담겼어요 — 그림은 원본에서 오려 붙여야 합니다');}
   }
   _ibBasketSet(b);renderItemList();
@@ -21338,14 +21396,14 @@ function ibFilterChange(){
   const v=id=>{const el=document.getElementById(id);return el?el.value:'';};
   _ibF.skill=v('ib-f-skill');_ibF.type=v('ib-f-type');_ibF.grade=v('ib-f-grade');
   _ibF.diff=v('ib-f-diff');_ibF.src=v('ib-f-src');_ibF.tbId=v('ib-f-tb');_ibF.unit=v('ib-f-unit');
-  _ibF.checked=v('ib-f-checked');_ibF.tag=v('ib-f-tag');_ibF.q=v('ib-f-q');
+  _ibF.checked=v('ib-f-checked');_ibF.tag=v('ib-f-tag');_ibF.q=v('ib-f-q');_ibF.exam=v('ib-f-exam');
   const st=document.getElementById('ib-f-star');_ibF.star=!!(st&&st.checked);
   const wn=document.getElementById('ib-f-warn');_ibF.warn=!!(wn&&wn.checked);
   _ibDeepIds=null;_ibPage=1;_ibSaveF();_ibPaintUnits();renderItemList();
 }
 function ibResetFilters(){
   _ibF={skill:'',type:'',grade:'',diff:'',src:'',tbId:'',unit:'',checked:'',star:false,tag:'',q:'',
-    bankId:'',bankName:'',warn:false};
+    bankId:'',bankName:'',warn:false,exam:''};
   _ibDeepIds=null;_ibPage=1;_ibSaveF();_ibPaintFilters();renderItemList();
 }
 function _ibTypeVals(){
@@ -21386,6 +21444,44 @@ function _ibPaintBank(){
   el.innerHTML='<span class="ib-bc-t">📁 '+_ebE(_ibF.bankName||'이 자료')+'</span>'+
     '<button class="ib-bx" title="이 자료 거르기 풀기" onclick="ibClearBank()">×</button>';
 }
+// [C1] 회차 — src.exam 이 같은 20문항이 한 회차다. 음원은 회차마다 파일 하나.
+function _ibExams(){
+  const by={};
+  (_ibRows||[]).forEach(r=>{
+    const sc=(r.meta||{}).src||{};
+    const e=String(sc.exam||'');if(!e)return;
+    const g=by[e]||(by[e]={n:0,audio:sc.audioId||'',bad:0});
+    g.n++;
+    if(Number((r.meta||{}).answer)<0)g.bad++;
+    if(sc.audioId&&!g.audio)g.audio=sc.audioId;
+  });
+  return by;
+}
+function ibExamBar(){
+  const el=document.getElementById('ib-exambar');if(!el)return;
+  const e=_ibF.exam||'';
+  if(!e){el.style.display='none';el.innerHTML='';return;}
+  const g=_ibExams()[e]||{n:0,audio:''};
+  el.style.display='';
+  el.innerHTML='<span class="ib-bc-t">🎧 '+_ebE(e)+' · '+g.n+'문항'+(g.audio?' · 음원 1개':'')+'</span>'
+    +'<button class="btn bt bxxs" onclick="ibExamToBasket()">회차 통째로 시험지에 담기</button>'
+    +(g.bad?'<span class="pb-warn">정답 미확인 '+g.bad+'개는 빠집니다</span>':'')
+    +'<button class="ib-bx" title="회차 거르기 풀기" onclick="ibSetExam(\'\')">×</button>';
+}
+function ibSetExam(e){_ibF.exam=e||'';_ibPage=1;_ibSaveF();_ibPaintFilters();renderItemList();}
+function ibExamToBasket(){
+  const e=_ibF.exam||'';if(!e)return;
+  const rows=(_ibRows||[]).filter(r=>String(((r.meta||{}).src||{}).exam||'')===e)
+    .sort((a,b)=>(Number(((a.meta||{}).src||{}).qno)||0)-(Number(((b.meta||{}).src||{}).qno)||0));
+  const b=ibBasket();let add=0,skip=0;
+  rows.forEach(r=>{
+    const m=r.meta||{};
+    if(Number(m.answer)<0&&((m.choices||[]).length||(m.scriptOptions||[]).length)){skip++;return;}
+    if(b.indexOf(r.id)<0){b.push(r.id);add++;}
+  });
+  _ibBasketSet(b);renderItemList();
+  toast(e+' '+add+'문항을 담았어요'+(skip?(' · 정답 미확인 '+skip+'개 제외'):'')+' — 음원은 회차 하나로 이어 듣습니다');
+}
 function ibClearBank(){_ibF.bankId='';_ibF.bankName='';_ibPage=1;_ibSaveF();_ibPaintBank();renderItemList();}
 // 이 자료에서 나온 문항 수 (서버 + 기기 보관분을 함께 센다 — 목록 줄 하나에 둘 다 들어 있다)
 function ibCountForBank(bankId){
@@ -21408,12 +21504,15 @@ function _ibPaintFilters(){
   _ebOptsIb('ib-f-diff','난도 전체',[1,2,3,4,5].map(d=>({v:d,n:'난도 '+d+' '+_ibDots(d)})),_ibF.diff);
   _ebOptsIb('ib-f-src','출처 전체',IB_SRCS.filter(s=>rows.some(r=>((r.meta||{}).src||{}).kind===s.k)).map(s=>({v:s.k,n:s.n})),_ibF.src);
   _ebOptsIb('ib-f-checked','검수 전체',[{v:'y',n:'검수함'},{v:'n',n:'검수 전'}],_ibF.checked);
+  {const ex=_ibExams();
+   _ebOptsIb('ib-f-exam','회차 전체',Object.keys(ex).sort((a,b)=>b.localeCompare(a,'ko',{numeric:true}))
+     .map(k=>({v:k,n:k+' ('+ex[k].n+')'})),_ibF.exam);}
   const tags=[...new Set(rows.flatMap(r=>((r.meta||{}).tags)||[]))].sort((a,b)=>a.localeCompare(b,'ko'));
   _ebOptsIb('ib-f-tag','태그 전체',tags.map(t=>({v:t,n:t})),_ibF.tag);
   const st=document.getElementById('ib-f-star');if(st)st.checked=!!_ibF.star;
   const wn=document.getElementById('ib-f-warn');if(wn)wn.checked=!!_ibF.warn;
   const q=document.getElementById('ib-f-q');if(q&&q.value!==_ibF.q)q.value=_ibF.q;
-  _ibPaintBank();_ibPaintUnits();_ibPaintBasket();
+  _ibPaintBank();ibExamBar();_ibPaintUnits();_ibPaintBasket();
 }
 // 영역이 비어 있는 줄(앱 밖에서 넣은 행)은 유형으로 따진다
 function _ibTypeLabel(m){return String((m&&m.typeName)||_isoTypeName(String((m&&m.type)||''))||(m&&m.type)||'');}
@@ -21433,6 +21532,7 @@ function _ibMatch(r){
   if(_ibF.star&&!m.star)return false;
   if(_ibF.warn&&!m.warn)return false;
   if(_ibF.bankId&&String(s.bankId||'')!==_ibF.bankId)return false;
+  if(_ibF.exam&&String(s.exam||'')!==_ibF.exam)return false;
   if(_ibF.tag&&(m.tags||[]).indexOf(_ibF.tag)<0)return false;
   if(_ibDeepIds&&!_ibDeepIds.has(r.id))return false;
   const q=String(_ibF.q||'').trim().toLowerCase();
@@ -21504,6 +21604,8 @@ function _ibBadges(m){
     // 정답률은 난도 점의 설명에만 있었다 — 글자로도 보여 준다
     (isFinite(rate)&&rate>0?'<span class="ib-rate" title="그 시험의 정답률">정답률 '+Math.round(rate)+'%</span>':'')+
     (m.hasImage?'<span class="ib-pic" title="그림이 있어야 풀리는 문항 — 보기는 원본에서 봅니다">그림 문항</span>':'')+
+    ((Number(m.answer)<0&&((m.choices||[]).length||(m.scriptOptions||[]).length))?'<span class="ib-warn2" title="정답을 확인하지 못한 문항 — 시험지에 담을 수 없습니다">정답 미확인</span>':'')+
+    ((m.scriptOptions||[]).length?'<span class="ib-pic" title="보기가 음원에만 있는 문항 — 문제지에는 번호만 찍습니다">음원 보기</span>':'')+
     (m.warn?'<span class="ib-warn2" title="'+_ebA(m.warn)+'">검토 필요</span>':'')+
     (m.checked?'<span class="ib-ok">검수</span>':'');
 }
@@ -21637,8 +21739,14 @@ function _ibPaintBulk(){
 }
 function ibBulkBasket(){
   const b=ibBasket();
-  _ibPick.forEach(id=>{if(b.indexOf(id)<0)b.push(id);});
-  _ibBasketSet(b);renderItemList();toast(_ibPick.size+'개를 바구니에 담았어요');
+  let skip=0;
+  _ibPick.forEach(id=>{
+    const m=((_ibRows||[]).find(x=>x.id===id)||{}).meta||{};
+    if(Number(m.answer)<0&&((m.choices||[]).length||(m.scriptOptions||[]).length)){skip++;return;}
+    if(b.indexOf(id)<0)b.push(id);
+  });
+  _ibBasketSet(b);renderItemList();
+  toast((_ibPick.size-skip)+'개를 바구니에 담았어요'+(skip?(' · 정답 미확인 '+skip+'개는 뺐어요'):''));
 }
 async function ibBulkTag(){
   const t=prompt('붙일 태그 (쉼표로 여러 개 — 예: 1학기중간, 어려움)');
@@ -22455,6 +22563,20 @@ function _pbRowBtns(i){
     '<button class="ib-ic" title="아래로" onclick="pbMove('+i+',1)">↓</button>'+
     '<button class="ib-ic ib-ic-d" title="빼기" onclick="pbDel('+i+')">×</button>';
 }
+// [C1] 이 시험지의 듣기 음원 — **한 회차를 통째로** 담았을 때만 하나로 붙인다.
+// 낱개로 섞은 시험지에는 붙이지 않는다(음원이 맞지 않는다).
+function _pbAudioOf(){
+  const ids=_pbSlots.filter(s=>s.id).map(s=>s.id);
+  if(ids.length<2)return null;
+  let exam='',audio='',ok=true;
+  ids.forEach(id=>{
+    const d=_pbD(id),sc=(d&&d.src)||{};
+    if(!sc.exam||!sc.audioId){ok=false;return;}
+    if(!exam){exam=sc.exam;audio=sc.audioId;}
+    else if(sc.exam!==exam||sc.audioId!==audio)ok=false;
+  });
+  return (ok&&exam&&audio)?{exam:exam,audioId:audio}:null;
+}
 function _pbSummary(){
   const el=document.getElementById('pb-sum');if(!el)return;
   const ids=_pbSlots.filter(s=>s.id).map(s=>s.id);
@@ -22469,7 +22591,9 @@ function _pbSummary(){
       warn='<span class="pb-warn">정답이 '+_isoCirc(Number(top))+'에 몰려 있어요 ('+dist[top]+'/'+n5+') — 순서를 바꾸거나 다른 문항으로 바꿔 보세요</span>';
   }
   const distTxt=Object.keys(dist).sort().map(k=>_isoCirc(Number(k))+' '+dist[k]).join(' · ');
-  el.innerHTML='문항 <b>'+ids.length+'</b>개'+(total?(' · 배점 <b>'+total+'</b>점'):'')+
+  const au=_pbAudioOf();
+  const auHtml=au?(' · <button class="btn bo bxxs" title="'+_ebA(au.exam+' 듣기 음원 — 처음부터 끝까지 한 파일')+'" onclick="ebView(\''+escJsA(au.audioId)+'\',\''+escJsA(au.exam)+' 듣기\')">🎧 듣기 음원 (회차 1개)</button>'):'';
+  el.innerHTML='문항 <b>'+ids.length+'</b>개'+(total?(' · 배점 <b>'+total+'</b>점'):'')+auHtml+
     (empty?(' · 비어 있음 '+empty+'칸'):'')+(distTxt?(' · 정답 분포 '+distTxt):'')+warn;
 }
 // ── 자동 구성 ────────────────────────────────────────────────────────────
@@ -22630,10 +22754,18 @@ function _pbGroupRuns(rows){
   return runs;
 }
 function _pbChoices(d,ans){
+  // [C1] 보기가 음원에만 있는 문항 — 문제지에는 **번호만**, 정답·해설·대본에는 글까지
+  if(!(d.choices||[]).length&&(d.scriptOptions||[]).length){
+    if(!ans)return '<ol class="qc qc-num">'+d.scriptOptions.map((c,ci)=>'<li>'+_pbCirc(ci)+'</li>').join('')+'</ol>';
+    return '<ol class="qc">'+d.scriptOptions.map((c,ci)=>
+      '<li'+(ci===d.answer?' class="ok"':'')+'>'+_pbCirc(ci)+' '+_pbEsc(c)+'</li>').join('')+'</ol>';
+  }
   if(!(d.choices||[]).length)return '';
   return '<ol class="qc">'+d.choices.map((c,ci)=>
     '<li'+(ans&&ci===d.answer?' class="ok"':'')+'>'+_pbCirc(ci)+' '+_pbEsc(c)+'</li>').join('')+'</ol>';
 }
+// 그 문항의 보기 수 (음원 보기도 센다) — OMR 칸 수를 맞춘다
+function _pbOptN(d){return ((d&&d.choices||[]).length)||((d&&d.scriptOptions||[]).length)||5;}
 function _pbQuestion(r,no,o){
   const d=r.d;
   if(!d)return '<div class="q blank"><div class="qs"><b>'+no+'.</b> (비어 있음'+
@@ -22644,7 +22776,7 @@ function _pbQuestion(r,no,o){
   else h+='<div class="qs"><b>'+no+'.</b>'+(o.showPts&&pts>=3?' <b>[3점]</b>':'')+'</div>';
   if(!o.noPassage&&d.passage)h+='<div class="qp">'+_pbEsc(d.passage).replace(/\n/g,'<br>')+'</div>';
   h+=_pbChoices(d,false);
-  if(!(d.choices||[]).length)h+='<div class="qw"></div>';        // 서술형 답란
+  if(!(d.choices||[]).length&&!(d.scriptOptions||[]).length)h+='<div class="qw"></div>';        // 서술형 답란
   else if(o.essayLine)h+='<div class="qw2"></div>';
   if(o.memo)h+='<div class="qmemo"></div>';                      // 학습지 풀이 칸
   h+='</div>';
@@ -22819,9 +22951,15 @@ function pbPrint(what){
     let b='<h2 style="font-size:13pt;margin:0 0 4px">'+_pbEsc(title)+' — 답안지</h2>'+
       '<div style="font-size:9.5pt;color:#555;margin-bottom:8px">'+_pbEsc(hd.school||'')+
       ' · 이름 ____________ · 반 ______ · 번호 ______</div><div style="display:flex;gap:10px;flex-wrap:wrap">';
+    // [C1] 보기가 4개인 문항은 칸도 4개
+    const maxN=Math.max.apply(null,rows.map(r=>_pbOptN(r.d)).concat([5]));
     cols.forEach(col=>{
-      b+='<table class="at omr"><tr><th>번호</th><th>① ② ③ ④ ⑤</th></tr>'+
-        col.map(no=>'<tr><td>'+no+'</td><td style="letter-spacing:7px">○ ○ ○ ○ ○</td></tr>').join('')+'</table>';
+      b+='<table class="at omr"><tr><th>번호</th><th>'+Array.from({length:maxN},(_,i)=>_pbCirc(i)).join(' ')+'</th></tr>'+
+        col.map(no=>{
+          const d=(rows[no-1]||{}).d;
+          const n=_pbOptN(d);
+          return '<tr><td>'+no+'</td><td style="letter-spacing:7px">'+Array.from({length:n},()=>'○').join(' ')+'</td></tr>';
+        }).join('')+'</table>';
     });
     b+='</div>';
     _pbOpenPrint(title+' 답안지','@page{size:A4;margin:14mm}'+_pbCss('worksheet'),b);

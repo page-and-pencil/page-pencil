@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261112n">
+<link rel="stylesheet" href="css/style.css?v=20261112o">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -879,6 +879,7 @@
             <select class="filter-sel" id="ib-f-unit" onchange="ibFilterChange()" style="display:none"></select>
             <select class="filter-sel" id="ib-f-checked" onchange="ibFilterChange()"></select>
             <select class="filter-sel" id="ib-f-tag" onchange="ibFilterChange()"></select>
+            <select class="filter-sel" id="ib-f-exam" onchange="ibFilterChange()" title="회차 — 같은 시험 20문항"></select>
             <label class="iso-chk"><input type="checkbox" id="ib-f-star" onchange="ibFilterChange()"> 별표만</label>
             <label class="iso-chk"><input type="checkbox" id="ib-f-warn" onchange="ibFilterChange()"> 검토 필요만</label>
             <input type="text" class="eb-q" id="ib-f-q" placeholder="발문·선택지 검색…" oninput="ibFilterChange()">
@@ -891,6 +892,7 @@
           <!-- 가운데: 문항 카드 -->
           <div class="ib-mid">
             <div id="ib-bankchip" class="ib-bankchip" style="display:none"></div>
+            <div id="ib-exambar" class="ib-bankchip" style="display:none"></div>
             <div id="ib-bulk" class="ib-bulk" style="display:none"></div>
             <div id="ib-list"></div>
           </div>
@@ -3122,8 +3124,8 @@
 
 <script src="js/utils.js?v=20261112f"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261112a"></script>
-<script src="js/teacher.js?v=20261112p"></script>
+<script src="js/db.js?v=20261112b"></script>
+<script src="js/teacher.js?v=20261112q"></script>
 <script src="js/student.js?v=20261112h"></script>
 <script src="js/parent.js?v=20261112e"></script>
 </body>

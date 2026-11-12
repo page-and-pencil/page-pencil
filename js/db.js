@@ -554,6 +554,7 @@ async function supaGetSetting(key){
   }
 }
 async function supaSetSetting(key,value){
+  if(PP_SANDBOX){_sbNote('settings','set '+key);return true;}   // 체험 모드 — 설정도 저장하지 않는다
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),15000);
   try{

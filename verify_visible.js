@@ -54,6 +54,11 @@ function makeCtx() {
     tbCounts,tbBankRows,tbStageBadge,tbStageLine,tbClassRows,openBookHome,bhRender,tbdTab,
     renderStageTable,STG_COLS,STG_AREAS,PP_WHATSNEW,PP_FEATURES,switchDataTab,renderBankBooks,_ebRegistered,
     hasFn:n=>typeof globalThis[n]==='function',
+    ISO_TYPES,IB_DIFF_BY_TYPE,_ibNorm,_ibLightOf,_ibBadges,ibBasket,ibBasketToggle,_ibBasketSet,
+    _pbChoices,_pbOptN,_pbAudioOf,_ibExams,ibExamToBasket,_pbSummary,
+    setSlots:(slots,full)=>{_pbSlots=slots;(full||[]).forEach(d=>{_ibFull.set(d.id,d);_pbData.set(d.id,d);});_pbPaper={title:'t',header:{}};},
+    isoList:()=>Object.keys(ISO_TYPES).filter(k=>ISO_TYPES[k].iso!==false),
+    setF2:f=>{Object.assign(_ibF,f);},
     setEb:rows=>{_ebRows=rows;},
     setIb:rows=>{_ibRows=rows;},
     getLive:()=>{const today=ppToday();const act=new Set(DB.stus().filter(s=>!s.inactive).map(s=>s.id));
@@ -303,6 +308,92 @@ const ok = (name, cond, note) => {
     ok('Ctrl+K 기능 이름의 go 도 실제 함수', bad2.length === 0, bad2.map(f => f.n).join(',') || A.PP_FEATURES.length + '개');
     ok("'수준표'·'시험지'·'학습 세트' 가 들어 있다",
       ['수준표', '시험지', '학습 세트', '문제 은행', '숙제 이어서 내기'].every(n => A.PP_FEATURES.some(f => f.n === n)));
+  }
+
+  console.log('\n(j) 정답 미확인(-1) 유지와 시험지 막기');
+  {
+    const n1 = A._ibNorm({ id: 'm1', type: 'ml_detail', stem: '듣고 고르시오', choices: ['1', '2', '3', '4'], answer: null });
+    ok('answer null → -1', n1.answer === -1, String(n1.answer));
+    ok("answer '' → -1", A._ibNorm({ id: 'm2', stem: 'x', choices: ['a', 'b'], answer: '' }).answer === -1);
+    ok('answer 0 은 그대로 0', A._ibNorm({ id: 'm3', stem: 'x', choices: ['a', 'b'], answer: 0 }).answer === 0);
+    ok('answer 3 도 그대로', A._ibNorm({ id: 'm4', stem: 'x', choices: ['a', 'b', 'c', 'd'], answer: 3 }).answer === 3);
+    const light = A._ibLightOf(n1, n1.id);
+    ok("카드에 '정답 미확인' 표시", A._ibBadges(light.meta).indexOf('정답 미확인') >= 0);
+    A.setIb([light]);
+    A.sb.localStorage.setItem('pp_item_basket', '[]');
+    A.ibBasketToggle('m1');
+    ok('시험지 바구니에 담기지 않는다', A.ibBasket().length === 0, A.ibBasket().length + '개');
+    const good = A._ibLightOf(A._ibNorm({ id: 'm5', stem: 'x', choices: ['a', 'b', 'c', 'd'], answer: 1 }), 'm5');
+    A.setIb([light, good]);
+    A.ibBasketToggle('m5');
+    ok('정답이 있는 문항은 담긴다', A.ibBasket().length === 1, A.ibBasket().join(','));
+  }
+
+  console.log('\n(k) 보기 4개 · 중학 듣기평가 유형');
+  {
+    const ml = ['ml_pick', 'ml_detail', 'ml_topic', 'ml_place', 'ml_time', 'ml_feeling', 'ml_request', 'ml_suggest',
+      'ml_intent', 'ml_job', 'ml_relation', 'ml_weather', 'ml_transport', 'ml_location', 'ml_proverb',
+      'ml_advice', 'ml_unnatural', 'ml_picdialog'];
+    ok('유형 18가지가 모두 있다', ml.every(k => A.ISO_TYPES[k] && A.ISO_TYPES[k].g === '듣기'), ml.length + '종');
+    ok('동형 만들기 목록에는 없다', ml.every(k => A.isoList().indexOf(k) < 0), A.isoList().length + '종만 만들 수 있다');
+    ok('난도 기본값 2', ml.every(k => A.IB_DIFF_BY_TYPE[k] === 2));
+    const d4 = A._ibNorm({ id: 'c4', type: 'ml_detail', stem: 'x', choices: ['①답', '②', '③', '④'], answer: 2, points: 2 });
+    ok('보기 4개가 그대로 들어온다', d4.choices.length === 4 && d4.answer === 2);
+    ok('난도는 유형 기본값', d4.diff === 2 && d4.diffSrc === 'rule', d4.diff + '/' + d4.diffSrc);
+    const html = A._pbChoices(d4, false);
+    ok('문제지에 보기 4개', (html.match(/<li/g) || []).length === 4);
+    ok('정답 표시는 정답지에만', A._pbChoices(d4, true).indexOf('class="ok"') >= 0 && html.indexOf('class="ok"') < 0);
+    ok('OMR 칸 수 = 보기 수', A._pbOptN(d4) === 4, String(A._pbOptN(d4)));
+  }
+
+  console.log('\n(l) scriptOptions — 문제지에는 번호만');
+  {
+    const d = A._ibNorm({
+      id: 'so1', type: 'ml_intent', stem: '남자의 마지막 말에 이어질 응답으로 알맞은 것은?',
+      script: 'W: ... M: ...', scriptOptions: ['Sure, I will.', 'No, thanks.', 'See you then.', 'I am sorry.', 'That is right.'],
+      answer: 2, sharedStem: '다음을 듣고 물음에 답하시오', year: 2024, round: 2,
+    });
+    ok('scriptOptions 를 받는다', d.scriptOptions.length === 5, d.scriptOptions.length + '개');
+    ok('sharedStem·year·round 도 받는다', d.sharedStem && d.year === 2024 && d.round === 2);
+    const q = A._pbChoices(d, false), a = A._pbChoices(d, true);
+    ok('문제지에는 번호만', q.indexOf('Sure, I will') < 0 && (q.match(/<li/g) || []).length === 5 && q.indexOf('qc-num') >= 0);
+    ok('정답·해설에는 글까지', a.indexOf('Sure, I will') >= 0 && a.indexOf('class="ok"') >= 0);
+    ok('보기 수도 5로 센다', A._pbOptN(d) === 5);
+    const lm = A._ibLightOf(d, d.id);
+    ok('목록 줄에도 실린다', (lm.meta.scriptOptions || []).length === 5 && lm.meta.year === 2024);
+  }
+
+  console.log('\n(m) 회차 통째로 담기 — 20문항·음원 1개');
+  {
+    const rows = [];
+    for (let i = 1; i <= 20; i++) {
+      rows.push(A._ibLightOf(A._ibNorm({
+        id: 'ex-lmid-2024-2-m2-' + i, type: 'ml_detail', stem: '문항 ' + i,
+        choices: ['a', 'b', 'c', 'd'], answer: (i % 4),
+        src: { kind: 'exam', exam: '2024년 2회 중2 듣기', qno: String(i), audioId: 'au-2024-2-m2', bankId: 'bk1' },
+      }), 'ex-lmid-2024-2-m2-' + i));
+    }
+    // 다른 회차 한 문항 (섞이지 않는지)
+    rows.push(A._ibLightOf(A._ibNorm({ id: 'other-1', type: 'ml_detail', stem: '다른 회차', choices: ['a', 'b'], answer: 0,
+      src: { kind: 'exam', exam: '2023년 1회 중2 듣기', qno: '1', audioId: 'au-2023-1' } }), 'other-1'));
+    A.setIb(rows);
+    const ex = A._ibExams();
+    ok('회차로 묶인다', ex['2024년 2회 중2 듣기'] && ex['2024년 2회 중2 듣기'].n === 20, Object.keys(ex).length + '회차');
+    ok('회차 음원은 하나', ex['2024년 2회 중2 듣기'].audio === 'au-2024-2-m2');
+    A.sb.localStorage.setItem('pp_item_basket', '[]');
+    A.setF2({ exam: '2024년 2회 중2 듣기' });
+    A.ibExamToBasket();
+    const b = A.ibBasket();
+    ok('20문항이 번호 순으로 담긴다', b.length === 20 && b[0].endsWith('-1') && b[19].endsWith('-20'), b.length + '개');
+    ok('다른 회차는 섞이지 않는다', b.indexOf('other-1') < 0);
+    // 시험지에 음원 하나
+    const full = b.map(id => A.sb.__app ? null : null);
+    A.setSlots(b.map(id => ({ id: id })), rows.map(r => Object.assign({ id: r.id }, r.meta, { src: r.meta.src })));
+    const au = A._pbAudioOf();
+    ok('시험지에 음원 한 개가 붙는다', !!au && au.audioId === 'au-2024-2-m2', au ? au.exam : '없음');
+    // 낱개로 섞으면 붙이지 않는다
+    A.setSlots([{ id: b[0] }, { id: 'other-1' }], rows.map(r => Object.assign({ id: r.id }, r.meta, { src: r.meta.src })));
+    ok('낱개로 섞은 시험지에는 음원을 붙이지 않는다', A._pbAudioOf() === null);
   }
 
   console.log('\n' + (fail ? '❌' : '✅') + ' 통과 ' + pass + ' / 실패 ' + fail + '\n');

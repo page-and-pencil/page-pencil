@@ -1493,6 +1493,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
   line-height:1;padding:4px 5px;color:var(--slate);flex-shrink:0;transition:background .12s,border-color .12s;}
 .tb-fix:hover{background:var(--tl);border-color:var(--teal);}
 .tb-acts{display:flex;gap:4px;justify-content:flex-end;align-items:center;}
+.qc-num li{display:inline-block;margin-right:18px;}
 /* [B4] 자료실 — 책으로 보기 */
 .ebb{border:1px solid var(--border);border-radius:var(--rs);margin-bottom:8px;background:#fff;}
 .ebb-h{display:flex;gap:10px;align-items:center;padding:9px 12px;cursor:pointer;font-size:13.5px;color:var(--navy);}
