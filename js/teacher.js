@@ -7012,6 +7012,7 @@ async function renderWsDB(refetch){
   const q=(document.getElementById('ws-q')?.value||'').trim().toLowerCase();
   let devPapers=[];
   try{devPapers=(await _pbDevAll()).map(p=>({...p,_dev:true}));}catch(e){}   // 원문 지문이 든 시험지(기기 보관)
+  try{const kk=await idbGet('pp_kit_dev');if(Array.isArray(kk))devPapers=devPapers.concat(kk.map(k=>({...k,_dev:true})));}catch(e){}
   let list=[..._cache.worksheets,...devPapers]
     .filter(w=>w&&w.kind!=='paperSent'&&w.kind!=='paperSol')   // 학생에게 보낸 사본·해설 줄은 목록에 띄우지 않는다
     .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
@@ -7028,6 +7029,23 @@ async function renderWsDB(refetch){
   }
   const typeKo=t=>t==='literature'?'문학':'정보글';
   grid.innerHTML=list.map(w=>{
+    if(w.kind==='kit'){                              // 학습 세트
+      const n=Object.keys(w.parts||{}).length;
+      const dt=w.createdAt?new Date(w.createdAt).toLocaleDateString():'';
+      return`<div class="bcard" onclick="lkOpenSaved('${escAttr(w.id)}')">
+        <div class="bcard-cover" style="background:var(--tl)">📘</div>
+        <span class="bcard-type" style="color:var(--tealt)">학습 세트${w._dev?' · 이 기기':''}</span>
+        ${w.grade?`<span class="bcard-lvl">${escAttr(w.grade)}</span>`:''}
+        <div class="bcard-body">
+          <div class="bcard-title">${escAttr(w.title||'제목 없음')}</div>
+          <div class="bcard-meta">${escAttr((w.src&&w.src.unit)||'')}</div>
+          <div class="bcard-stats"><span>자료 <b>${n}</b>종</span>${dt?`<span>${dt}</span>`:''}</div>
+        </div>
+        <div class="bcard-acts">
+          ${w._dev?'':`<button onclick="event.stopPropagation();deleteWsDB('${escAttr(w.id)}')" style="color:var(--coral,var(--bad))">🗑 삭제</button>`}
+        </div>
+      </div>`;
+    }
     if(w.kind==='paper'){                            // 시험지 — 시험지 편집 화면에서 연다
       const n=(w.itemIds||[]).length;
       const fm=(PB_FORMATS.find(x=>x.k===w.format)||{}).n||'시험지';
@@ -9929,6 +9947,7 @@ async function saveReportDraftOnly(){
 // ── DASHBOARD ──
 function renderDash(){
   purgeOldTrash(); // 30일 지난 휴지통 항목 정리 (세션당 1회, 비동기)
+  setTimeout(()=>{try{lkExamCard();}catch(e){}},0);   // 시험 대비 카드 (D-28부터)
   const stus=DB.stus().filter(s=>!s.inactive);
   const les=DB.less();
   const tsts=DB.tsts();
@@ -18915,7 +18934,9 @@ function _isoPaintCfg(){
   if(rr)rr.style.display=_isoIsEssay(_isoCfg.type)?'':'none';
   _isoPaintSrc();
 }
+let _isoBookOverride='';            // 학습 세트가 넘겨 준 본문 (있으면 이걸 쓴다)
 function _isoBookText(){
+  if(_isoBookOverride)return _isoBookOverride;
   const tb=(_cache.globalTextbooks||[]).find(b=>b.id===_isoCfg.tbId);
   if(!tb||!_isoCfg.unit)return '';
   return String((tb.unitTexts||{})[_isoCfg.unit]||'').trim();
@@ -19979,6 +20000,7 @@ function _ibItemBtns(r,small){
     '<button class="'+c+(inB?' on':'')+'" title="시험지 바구니에 담기" onclick="ibBasketToggle(\''+id+'\',event)">🧺</button>'+
     '<button class="'+c+'" title="복제" onclick="ibDup(\''+id+'\',event)">⧉</button>'+
     '<button class="'+c+'" title="비슷한 문항 만들기" onclick="ibSimilar(\''+id+'\',event)">✏️</button>'+
+    '<button class="'+c+'" title="이 지문으로 학습 세트 만들기" onclick="lkFromItem(\''+id+'\',event)">📘</button>'+
     '<button class="'+c+' ib-ic-d" title="휴지통" onclick="ibTrash(\''+id+'\',event)">×</button>';
 }
 function _ibCardOne(r){
@@ -21801,3 +21823,725 @@ async function irWeakCard(sid,elId){
         '<span class="ir-w-p">'+p+'% ('+agg[t][0]+'/'+agg[t][1]+')</span></div>';
     }).join('')+'</div>';
 }
+
+// ══ 학습 세트 (지문 하나 → 수업 자료 묶음) ═══════════════════════════════
+// 지문 하나를 받아 단어장·끊어 읽기·빈칸 본문·문장 순서·영작·내용 확인 문제를 만든다.
+// ⚠️ 빈칸·순서·영작은 **코드로만** 만든다. AI 는 ① 뜻이 없는 단어 채우기 ② 내용 확인 문제,
+//    두 곳에서 **단추를 눌렀을 때만** 부르고, 누르기 전에 호출 수를 먼저 보여 준다.
+const LK_PARTS=[
+  {k:'vocab', n:'단어장',            ai:true },
+  {k:'chunk', n:'끊어 읽기·해석 칸',  ai:false},
+  {k:'cloze', n:'빈칸 본문',          ai:false},
+  {k:'order', n:'문장 순서 배열',      ai:false},
+  {k:'write', n:'영작',               ai:false},
+  {k:'comp',  n:'내용 확인 문제',      ai:true }
+];
+const LK_GRADES=['초5','초6','중1','중2','중3','고1','고2','고3'];
+const LK_AUTO_MS=1500;
+const LK_DEV_KEY='pp_kit_dev';     // 원문 지문에서 시작한 세트는 기기에만
+const LK_STOP=new Set(('a an the and or but if of to in on at for with from by as is are was were be been being '+
+  'this that these those it its he she they them his her their you your we our i me my not no do does did done '+
+  'have has had will would can could should may might must there here when while because so than then them up out '+
+  'who whom which what how why all any some more most much many very just also too into over under about after before').split(' '));
+let _lkKit=null,_lkSaveT=null,_lkSaving=false,_lkDirty=false,_lkState='',_lkWords=null,_lkUse={calls:0};
+let _lkAiBusy=false;
+
+function lkMayUse(){return (typeof ibMayUse==='function')?ibMayUse():false;}
+function _lkLv(g){
+  const s=String(g||'');
+  if(/^초/.test(s))return 'elem';
+  if(/^중[12]$/.test(s))return 'mid';
+  return 'high';
+}
+function _lkE(x){return _ebE(x);}
+// ── 글 다루기 ────────────────────────────────────────────────────────────
+function _lkSentences(t){
+  return String(t||'').replace(/\s+/g,' ').trim()
+    .split(/(?<=[.!?])\s+(?=[A-Z"'“‘(])/).map(s=>s.trim()).filter(s=>s.length>1);
+}
+function _lkWordsOf(t){
+  const out=[],seen=new Set();
+  String(t||'').toLowerCase().replace(/[^a-z'\- ]/g,' ').split(/\s+/).forEach(w=>{
+    const x=w.replace(/^['-]+|['-]+$/g,'');
+    if(x.length<3||LK_STOP.has(x)||seen.has(x))return;
+    seen.add(x);out.push(x);
+  });
+  return out;
+}
+// 앱 단어 DB(global_textbooks 의 units) 에 있는 뜻을 먼저 쓴다
+function _lkWordDb(force){
+  if(_lkWords&&!force)return _lkWords;
+  const m=new Map();
+  (_cache.globalTextbooks||[]).forEach(b=>{
+    Object.values((b&&b.units)||{}).forEach(arr=>{
+      (Array.isArray(arr)?arr:[]).forEach(w=>{
+        const k=String((w&&w.word)||w||'').trim().toLowerCase();
+        const ko=String((w&&w.ko)||'').trim();
+        if(k&&ko&&!m.has(k))m.set(k,{ko:ko,pos:String((w&&w.pos)||'')});
+      });
+    });
+  });
+  _lkWords=m;return m;
+}
+// ── 만들기 (코드만) ─────────────────────────────────────────────────────
+function _lkMakeVocab(text,max){
+  const db=_lkWordDb();
+  return _lkWordsOf(text).slice(0,max||20).map(w=>{
+    const hit=db.get(w);
+    return {word:w,ko:hit?hit.ko:'',pos:hit?hit.pos:'',from:hit?'db':''};
+  });
+}
+// 끊어 읽기 — 쉼표·접속사·전치사·관계사 앞에서 끊는다 (규칙만)
+const LK_CHUNK=/\b(and|but|or|so|because|that|which|who|when|while|if|after|before|since|to|for|with|from|in|on|at|of|as|than)\b/g;
+function _lkMakeChunks(text,koText){
+  const ko=String(koText||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  return _lkSentences(text).map((s,i)=>{
+    let marked=s.replace(/,\s*/g,', / ');
+    let n=0;
+    marked=marked.replace(LK_CHUNK,m=>((++n)%1===0?'/ '+m:m));
+    marked=marked.replace(/\s*\/\s*/g,' / ').replace(/^\s*\/\s*/,'');
+    return {en:s,chunk:marked,ko:ko[i]||''};
+  });
+}
+function _lkPick(n,total){                       // 고르게 흩어진 n 개 자리
+  const out=[];
+  for(let i=0;i<n&&i<total;i++)out.push(Math.floor(i*total/n));
+  return [...new Set(out)];
+}
+// 빈칸 본문 — 학년에 따라 단어·구·문장
+function _lkMakeCloze(text,lv){
+  const sents=_lkSentences(text);
+  const blanks=[];
+  if(lv==='high'){                               // 문장 통째로
+    const idx=_lkPick(Math.min(3,Math.ceil(sents.length/3)),sents.length);
+    const out=sents.map((s,i)=>{
+      if(idx.indexOf(i)<0)return s;
+      blanks.push({no:blanks.length+1,answer:s});
+      return '( '+blanks.length+' ) ______________________________';
+    });
+    return {mode:'sentence',text:out.join(' '),blanks:blanks,choices:[]};
+  }
+  if(lv==='mid'){                                // 두세 낱말 묶음
+    const out=sents.map(s=>{
+      const ws=s.split(' ');
+      if(ws.length<6)return s;
+      const at=Math.max(1,Math.floor(ws.length/2)-1);
+      const take=ws.slice(at,at+2).join(' ').replace(/[.,!?]$/,'');
+      if(!take)return s;
+      blanks.push({no:blanks.length+1,answer:take});
+      return ws.slice(0,at).join(' ')+' ( '+blanks.length+' ) '+ws.slice(at+2).join(' ');
+    });
+    return {mode:'phrase',text:out.join(' '),blanks:blanks,choices:[]};
+  }
+  const db=_lkWordDb();                          // 초등 — 낱말 + 보기 (한 문장에 한 칸씩)
+  const used=new Set();
+  const out=sents.map(s=>{
+    if(blanks.length>=6)return s;
+    const cand=_lkWordsOf(s).filter(w=>!used.has(w));
+    if(!cand.length)return s;
+    const w=cand[Math.min(cand.length-1,Math.floor(cand.length/2))];
+    const re=new RegExp('\\b'+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i');
+    if(!re.test(s))return s;
+    used.add(w);
+    blanks.push({no:blanks.length+1,answer:w,ko:(db.get(w)||{}).ko||''});
+    return s.replace(re,'( '+blanks.length+' )');
+  }).join(' ');
+  const choices=blanks.map(b=>b.answer).sort(()=>0.5-Math.random());
+  return {mode:'word',text:out,blanks:blanks,choices:choices};
+}
+// 문장 순서 배열
+function _lkMakeOrder(text){
+  const sents=_lkSentences(text).slice(0,6);
+  if(sents.length<3)return null;
+  const tag='ⓐⓑⓒⓓⓔⓕ';
+  const idx=sents.map((s,i)=>i);
+  const mixed=idx.slice().sort(()=>0.5-Math.random());
+  return {lines:mixed.map((i,k)=>({tag:tag.charAt(k),en:sents[i],orig:i})),
+    answer:mixed.map((i,k)=>({i:i,tag:tag.charAt(k)})).sort((a,b)=>a.i-b.i).map(x=>x.tag).join(' → ')};
+}
+// 영작 — 초·중1~2 는 배열, 중3 이상은 조건 영작
+function _lkMakeWrite(text,lv,koText){
+  const ko=String(koText||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const sents=_lkSentences(text);
+  const min=(lv==='elem')?4:7, max=(lv==='elem')?6:10;
+  const wc=t=>String(t).replace(/[.,!?"']/g,'').split(' ').filter(Boolean).length;
+  const cand=[];
+  sents.forEach((s,i)=>{
+    cand.push({s:s,i:i,n:wc(s),whole:true});
+    if(lv!=='high'&&wc(s)>max){                 // 긴 문장은 절로 잘라 길이를 맞춘다
+      s.split(/,\s*|\s+(?=(?:and|but|so|because|that|which|when|before|after)\s)/i)
+       .map(x=>String(x).replace(/^(and|but|so|because|that|which|when|before|after)\s+/i,'').trim().replace(/[.,]$/,''))
+       .filter(x=>x&&wc(x)>=min&&wc(x)<=max)
+       .forEach(x=>cand.push({s:x,i:i,n:wc(x),whole:false}));
+    }
+  });
+  const fit=cand.filter(x=>lv==='high'?(x.whole&&x.n>=6):(x.n>=min&&x.n<=max));
+  const seen=new Set();
+  const take=(fit.length?fit:cand.filter(x=>x.whole)).filter(x=>{
+    if(seen.has(x.i))return false;seen.add(x.i);return true;
+  }).slice(0,4);
+  return {mode:(lv==='high'?'cond':'order'),items:take.map(x=>{
+    const words=x.s.replace(/[.]$/,'').split(' ').filter(Boolean);
+    return {ko:(x.whole?(ko[x.i]||''):''),answer:x.s,
+      words:(lv==='high')?[]:words.slice().sort(()=>0.5-Math.random()),
+      cond:(lv==='high')?['낱말 '+words.length+'개 안팎으로 쓰기','본문에 나온 표현을 그대로 쓰기']:[]};
+  })};
+}
+
+// ── 학습 세트 화면 ───────────────────────────────────────────────────────
+function _lkNew(src,passage,grade){
+  const now=Date.now();
+  return {id:uid(),kind:'kit',title:'',grade:grade||'중1',
+    src:Object.assign({kind:'paste',itemId:'',tbId:'',unit:'',keep:false},src||{}),
+    passage:String(passage||''),ko:'',
+    want:{vocab:true,chunk:true,cloze:true,order:true,write:true,comp:false},
+    parts:{},itemIds:[],createdAt:now,editedAt:now};
+}
+function lkOpen(src,passage,grade){
+  if(!lkMayUse()){toast('선생님 화면에서만 쓸 수 있어요');return;}
+  if(_lkSaveT){clearTimeout(_lkSaveT);_lkSaveT=null;}   // 앞 세트의 저장 대기를 끈다
+  _lkDirty=false;
+  _lkKit=_lkNew(src,passage,grade);
+  _lkState='';
+  _lkPaintCfg();_lkRender();
+  openM('m-kit');
+}
+// 문제 은행 문항의 지문에서 시작
+async function lkFromItem(id,ev){
+  if(ev)ev.stopPropagation();
+  const d=await _ibFullRow(id);
+  if(!d){toast('문항을 불러오지 못했어요');return;}
+  const text=String(d.passage||d.script||'').trim();
+  if(!text){toast('이 문항에는 지문이 없어요');return;}
+  lkOpen({kind:(d.src&&d.src.tbId)?'book':'item',itemId:id,
+    tbId:(d.src&&d.src.tbId)||'',unit:(d.src&&d.src.unit)||'',
+    keep:!!(d.src&&d.src.keep)},text,d.grade||'중1');
+  _lkKit.title=(d.typeName||'문항')+' 지문 학습 세트';
+  _lkRender();
+}
+// 교재 단원 본문에서 시작
+function lkFromBook(){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===(document.getElementById('lk-tb')||{}).value);
+  const unit=(document.getElementById('lk-unit')||{}).value||'';
+  const text=tb?String((tb.unitTexts||{})[unit]||'').trim():'';
+  if(!text){toast('교재와 단원을 고르면 본문을 씁니다');return;}
+  _lkKit.src={kind:'book',itemId:'',tbId:tb.id,unit:unit,keep:false};
+  _lkKit.passage=text;
+  _lkKit.ko=String((tb.unitSentKo||{})[unit]||'');
+  if(!_lkKit.title)_lkKit.title=(tb.title||'교재')+' '+unit+' 학습 세트';
+  _lkRender();_lkAutoLater();
+  toast('본문을 가져왔어요'+(_lkKit.ko?' (문장 해석도 있어요)':''));
+}
+function lkPasteText(){
+  const t=(document.getElementById('lk-paste')||{}).value||'';
+  if(!String(t).trim()){toast('글을 붙여넣어 주세요');return;}
+  _lkKit.src={kind:'paste',itemId:'',tbId:'',unit:'',keep:false};
+  _lkKit.passage=String(t).trim();_lkKit.ko='';
+  _lkRender();_lkAutoLater();
+}
+function lkCfgChange(){
+  if(!_lkKit)return;
+  const g=(document.getElementById('lk-grade')||{}).value;
+  if(g)_lkKit.grade=g;
+  LK_PARTS.forEach(p=>{
+    const el=document.getElementById('lk-w-'+p.k);
+    if(el)_lkKit.want[p.k]=!!el.checked;
+  });
+  const t=(document.getElementById('lk-title')||{}).value;
+  if(t!==undefined)_lkKit.title=t;
+  _lkPaintUnits();_lkAutoLater();
+}
+function _lkPaintUnits(){
+  const tbs=(_cache.globalTextbooks||[]).filter(b=>b&&b.unitTexts&&Object.keys(b.unitTexts).some(u=>String(b.unitTexts[u]||'').trim())
+    &&!(typeof ppIsSongTb==='function'&&ppIsSongTb(b)))
+    .sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),'ko'));
+  const sel=document.getElementById('lk-tb');
+  if(sel&&sel.options.length!==tbs.length+1)
+    _ebOptsIb('lk-tb','교재 고르기',tbs.map(b=>({v:b.id,n:b.title||'(제목 없음)'})),(_lkKit&&_lkKit.src.tbId)||'');
+  const tb=tbs.find(b=>b.id===(sel&&sel.value));
+  const units=tb?Object.keys(tb.unitTexts||{}).filter(u=>String(tb.unitTexts[u]||'').trim()):[];
+  _ebOptsIb('lk-unit','단원 고르기',units.map(u=>({v:u,n:u+((tb.unitTitles||{})[u]?(' '+tb.unitTitles[u]):'')})),(_lkKit&&_lkKit.src.unit)||'');
+}
+function _lkPaintCfg(){
+  const g=document.getElementById('lk-grade');
+  if(g&&!g.options.length)_ebOptsIb('lk-grade','학년',LK_GRADES.map(x=>({v:x,n:x})),(_lkKit&&_lkKit.grade)||'중1');
+  if(g&&_lkKit)g.value=_lkKit.grade;
+  LK_PARTS.forEach(p=>{
+    const el=document.getElementById('lk-w-'+p.k);
+    if(el&&_lkKit)el.checked=!!_lkKit.want[p.k];
+  });
+  _lkPaintUnits();
+}
+// ── 만들기 ───────────────────────────────────────────────────────────────
+function lkBuild(){
+  if(!_lkKit||!String(_lkKit.passage||'').trim()){toast('먼저 지문을 넣어 주세요');return;}
+  const lv=_lkLv(_lkKit.grade),w=_lkKit.want,p={};
+  if(w.vocab)p.vocab=_lkMakeVocab(_lkKit.passage,lv==='elem'?12:20);
+  if(w.chunk)p.chunk=_lkMakeChunks(_lkKit.passage,_lkKit.ko);
+  if(w.cloze)p.cloze=_lkMakeCloze(_lkKit.passage,lv);
+  if(w.order){const o=_lkMakeOrder(_lkKit.passage);if(o)p.order=o;}
+  if(w.write)p.write=_lkMakeWrite(_lkKit.passage,lv,_lkKit.ko);
+  if(w.comp&&_lkKit.parts&&_lkKit.parts.comp)p.comp=_lkKit.parts.comp;   // 이미 만든 문제는 지킨다
+  _lkKit.parts=p;
+  if(!_lkKit.title)_lkKit.title=(_lkKit.grade+' 학습 세트 '+_lkMMDD());
+  _lkRender();_lkAutoLater();
+  toast('학습 세트를 만들었어요 — AI 없이 만든 부분입니다');
+}
+function _lkMMDD(){const d=new Date(),p=x=>('0'+x).slice(-2);return p(d.getMonth()+1)+'-'+p(d.getDate());}
+// 뜻이 없는 단어만 AI 로 — 누르기 전에 호출 수를 보여 준다
+function lkFillMeanings(){
+  if(!_lkKit||!(_lkKit.parts.vocab||[]).length){toast('먼저 단어장을 만들어 주세요');return;}
+  const miss=_lkKit.parts.vocab.filter(v=>!v.ko);
+  if(!miss.length){toast('뜻이 비어 있는 단어가 없어요 👍');return;}
+  const calls=Math.ceil(miss.length/30);
+  askConfirm('뜻이 없는 단어 채우기',
+    '뜻이 없는 단어 '+miss.length+'개\nAI 호출 약 '+calls+'회 (한 번에 30개씩)\n\n'+
+    '누르지 않으면 뜻 칸은 빈칸으로 둡니다.','AI 로 채우기','bt',()=>_lkFillGo(miss));
+}
+async function _lkFillGo(miss){
+  if(_lkAiBusy)return;
+  _lkAiBusy=true;
+  const el=document.getElementById('lk-ai-state');
+  try{
+    for(let i=0;i<miss.length;i+=30){
+      const part=miss.slice(i,i+30);
+      if(el)el.textContent='뜻을 채우는 중… '+(i+part.length)+'/'+miss.length;
+      const txt=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:2000,
+        messages:[{role:'user',content:[{type:'text',text:
+          '아래 영어 낱말의 뜻을 한국어로 짧게 적어라. 사전에 있는 뜻만 쓰고 지어내지 마라.\n'+
+          'JSON 객체 하나로만 답하라: {"word":"뜻(품사)"} 모양.\n\n'+part.map(v=>v.word).join(', ')}]}]});
+      _lkUse.calls++;
+      const raw=String((txt&&txt.content&&txt.content[0]&&txt.content[0].text)||'');
+      let got={};try{got=_isoJson(raw);}catch(e){}
+      part.forEach(v=>{
+        const k=Object.keys(got).find(x=>String(x).toLowerCase()===v.word);
+        if(k&&got[k]){v.ko=String(got[k]).trim();v.from='ai';}
+      });
+    }
+    if(el)el.textContent='';
+    _lkRender();_lkAutoLater();
+    toast('뜻을 채웠어요 (AI 호출 '+_lkUse.calls+'회)');
+  }catch(e){if(el)el.textContent='';toast('뜻 채우기 실패: '+((e&&e.message)||''));}
+  _lkAiBusy=false;
+}
+// 내용 확인 문제 — 동형 생성(교재 본문 그대로)을 쓴다
+function lkMakeComp(){
+  if(!_lkKit||!String(_lkKit.passage||'').trim()){toast('먼저 지문을 넣어 주세요');return;}
+  const n=Math.max(1,Math.min(5,parseInt((document.getElementById('lk-comp-n')||{}).value,10)||3));
+  askConfirm('내용 확인 문제 만들기',
+    '본문을 글자 그대로 두고 문항 '+n+'개를 만듭니다.\nAI 호출 약 2회 (만들기 1 + 다시 풀어 확인 1)',
+    '만들기','bt',()=>_lkCompGo(n));
+}
+async function _lkCompGo(n){
+  if(_lkAiBusy)return;
+  _lkAiBusy=true;
+  const el=document.getElementById('lk-ai-state');
+  if(el)el.textContent='내용 확인 문제 '+n+'개를 만드는 중…';
+  const keepCfg=JSON.parse(JSON.stringify(_isoCfg));
+  try{
+    _isoBookOverride=_lkKit.passage;
+    _isoCfg.type=_isoCfg.type||'m_match';
+    _isoCfg.n=n;_isoCfg.passage='book';_isoCfg.grade=_lkKit.grade;
+    _isoAnalysis=null;
+    const items=await _isoCreate(n,'내용을 제대로 읽었는지 확인하는 문항으로 만든다.');
+    try{await _isoVerify(items);}catch(e){}
+    _lkKit.parts.comp=items.map(it=>({id:it.id,stem:it.stem,choices:(it.choices||[]).slice(),
+      answer:it.answer,explain:it.explain||'',type:it.type||'m_match',typeName:it.typeName||''}));
+    _lkKit.want.comp=true;
+    const cb=document.getElementById('lk-w-comp');if(cb)cb.checked=true;
+    _lkRender();_lkAutoLater();
+    toast('내용 확인 문제 '+_lkKit.parts.comp.length+'개를 만들었어요');
+  }catch(e){toast('만들지 못했어요: '+((e&&e.message)||''));}
+  _isoBookOverride='';_isoCfg=keepCfg;
+  if(el)el.textContent='';
+  _lkAiBusy=false;
+}
+// ── 저장 ─────────────────────────────────────────────────────────────────
+function _lkStatus(k,m){
+  _lkState=m||'';
+  const el=document.getElementById('lk-stat');
+  if(el){el.className='iso-stat'+(k?(' '+k):'');el.textContent=_lkState;
+    el.onclick=(k==='err')?(()=>_lkSave(true)):null;}
+}
+function _lkAutoLater(){
+  if(_lkSaveT)clearTimeout(_lkSaveT);
+  if(!_lkKit||!Object.keys(_lkKit.parts||{}).length){_lkStatus('','');return;}
+  _lkStatus('','저장 대기…');
+  _lkSaveT=setTimeout(()=>{_lkSaveT=null;_lkSave(false);},LK_AUTO_MS);
+}
+async function _lkSave(manual){
+  if(_lkSaveT){clearTimeout(_lkSaveT);_lkSaveT=null;}
+  if(!_lkKit)return false;
+  if(!Object.keys(_lkKit.parts||{}).length){_lkStatus('','');if(manual)toast('먼저 만들어 주세요');return false;}
+  if(typeof ppSandbox==='function'&&ppSandbox()){_lkStatus('','체험 모드 — 저장하지 않아요');return false;}
+  if(_lkSaving){
+    if(!manual){_lkDirty=true;return false;}
+    for(let i=0;i<30&&_lkSaving;i++)await new Promise(r=>setTimeout(r,100));   // [지금 저장]은 앞 저장을 기다린다
+    if(_lkSaving){_lkDirty=true;return false;}
+  }
+  _lkSaving=true;
+  _lkKit.editedAt=Date.now();
+  if(!_lkKit.title)_lkKit.title=_lkKit.grade+' 학습 세트 '+_lkMMDD();
+  let ok=false;
+  try{
+    if(_lkKit.src.keep){                       // 원문 지문에서 시작한 세트는 기기에만
+      const l=(await idbGet(LK_DEV_KEY))||[];
+      const list=(Array.isArray(l)?l:[]).filter(x=>x&&x.id!==_lkKit.id);
+      list.unshift(_lkKit);
+      await idbSet(LK_DEV_KEY,list.slice(0,30));
+      ok=true;_lkStatus('ok','이 기기에만 보관돼요 (원문 지문) · '+_isoHHMM());
+    }else{
+      _lkStatus('','저장 중…');
+      ok=!!(await supaUpsert('worksheets',_lkKit.id,_lkKit).catch(()=>false));
+      if(ok){
+        _cache.worksheets=(_cache.worksheets||[]).filter(w=>w.id!==_lkKit.id).concat([{rowId:_lkKit.id,..._lkKit}]);
+        _lkStatus('ok','저장됨 '+_isoHHMM());
+        if(manual)toast('저장했어요 ✓ — 자료 DB → 저장된 워크시트에서 다시 열 수 있어요');
+      }else{_lkStatus('err','저장 실패 · 다시 저장');}
+    }
+  }catch(e){_lkStatus('err','저장 실패 · 다시 저장');}
+  _lkSaving=false;
+  if(_lkDirty){_lkDirty=false;_lkAutoLater();}
+  return ok;
+}
+function lkSaveNow(){return _lkSave(true);}
+async function lkOpenSaved(id){
+  if(!lkMayUse())return;
+  let k=(_cache.worksheets||[]).find(w=>w&&w.id===id&&w.kind==='kit');
+  if(!k){const l=(await idbGet(LK_DEV_KEY))||[];k=(Array.isArray(l)?l:[]).find(x=>x&&x.id===id);}
+  if(!k){toast('학습 세트를 찾지 못했어요');return;}
+  _lkKit=JSON.parse(JSON.stringify(k));
+  _lkKit.want=_lkKit.want||{};_lkKit.parts=_lkKit.parts||{};
+  _lkState='저장됨 · 불러온 세트';
+  _lkPaintCfg();_lkRender();
+  openM('m-kit');
+}
+function lkClose(){
+  if(_lkSaveT){clearTimeout(_lkSaveT);_lkSaveT=null;_lkSave(false);}
+  closeM('m-kit');
+}
+// ── 문제 은행에 넣기 ─────────────────────────────────────────────────────
+async function lkToBank(){
+  if(!_lkKit){return;}
+  if(typeof ppSandbox==='function'&&ppSandbox()){toast('체험 모드에서는 저장하지 않아요');return;}
+  const src={kind:'book',tbId:_lkKit.src.tbId||'',unit:_lkKit.src.unit||'',keep:!!_lkKit.src.keep,
+    exam:'',qno:'',isoFrom:_lkKit.src.itemId||''};
+  const mk=o=>_ibNorm(Object.assign({grade:_lkKit.grade,src:src},o));
+  const list=[];
+  const p=_lkKit.parts||{};
+  if(p.cloze&&(p.cloze.blanks||[]).length)
+    list.push(mk({type:'m_blank',stem:'빈칸에 알맞은 말을 쓰시오.',passage:p.cloze.text,
+      choices:[],answer:-1,answerText:p.cloze.blanks.map(b=>b.no+'. '+b.answer).join(' / ')}));
+  if(p.order&&(p.order.lines||[]).length)
+    list.push(mk({type:'m_order',stem:'다음 문장을 알맞은 순서로 배열하시오.',
+      passage:p.order.lines.map(l=>l.tag+' '+l.en).join('\n'),choices:[],answer:-1,answerText:p.order.answer}));
+  (p.write&&p.write.items||[]).forEach(w=>{
+    list.push(mk(p.write.mode==='cond'
+      ?{type:'m_write_cond',stem:'조건에 맞게 영어로 쓰시오. '+(w.cond||[]).join(' · '),
+        passage:w.ko||'',choices:[],answer:-1,answerText:w.answer,rubric:'조건 충족 2점 · 어순 2점 · 철자 1점'}
+      :{type:'m_write_order',stem:'주어진 낱말을 바르게 배열하시오.',
+        passage:(w.ko?w.ko+'\n':'')+(w.words||[]).join(' / '),choices:[],answer:-1,answerText:w.answer}));
+  });
+  (p.comp||[]).forEach(c=>{
+    list.push(mk({id:c.id,type:c.type||'m_match',stem:c.stem,passage:_lkKit.passage,
+      choices:(c.choices||[]).slice(),answer:c.answer,explain:c.explain||''}));
+  });
+  if(!list.length){toast('은행에 넣을 문항이 없어요');return;}
+  let ok=0,dev=0;
+  for(const d of list){
+    const r=await ibPutItem(d,true).catch(()=>false);
+    if(r==='device')dev++;else if(r)ok++;
+  }
+  _lkKit.itemIds=[...new Set((_lkKit.itemIds||[]).concat(list.map(d=>d.id)))];
+  _lkAutoLater();
+  if(typeof renderItemList==='function'){try{_ibPaintFilters();renderItemList();}catch(e){}}
+  toast('문항 '+(ok+dev)+'개를 문제 은행에 넣었어요'+(dev?(' (원문 지문 '+dev+'개는 이 기기에만)'):''));
+}
+
+// ── 미리보기 ─────────────────────────────────────────────────────────────
+function _lkRender(){
+  const box=document.getElementById('lk-body');if(!box)return;
+  const t=document.getElementById('lk-title');
+  if(t&&_lkKit&&t.value!==_lkKit.title)t.value=_lkKit.title||'';
+  const st=document.getElementById('lk-stat');if(st)st.textContent=_lkState;
+  if(!_lkKit){box.innerHTML='';return;}
+  const src=_lkKit.src||{};
+  const srcTxt=src.kind==='book'?('교재 본문'+(src.unit?(' · '+src.unit):''))
+    :src.kind==='item'?'문제 은행 문항의 지문':'붙여넣은 글';
+  let h='<div class="lk-src">'+_lkE(srcTxt)+(src.keep?' <b>· 원문 지문 (이 기기에만 보관)</b>':'')+
+    ' · '+_lkE(_lkKit.grade)+' · 지문 '+String(_lkKit.passage||'').trim().split(/\s+/).filter(Boolean).length+'단어</div>';
+  if(!String(_lkKit.passage||'').trim())
+    h+='<div class="eb-empty">위에서 지문을 넣어 주세요 — 문제 은행 문항·교재 단원·붙여넣기 셋 중 하나면 돼요.</div>';
+  else h+='<div class="lk-pass">'+_lkE(String(_lkKit.passage).slice(0,400))+(_lkKit.passage.length>400?'…':'')+'</div>';
+  const p=_lkKit.parts||{};
+  if(p.vocab&&p.vocab.length){
+    const miss=p.vocab.filter(v=>!v.ko).length;
+    h+='<div class="lk-sec"><div class="lk-sec-t">단어장 '+p.vocab.length+'개'+
+      (miss?(' <span class="pb-warn">뜻 없음 '+miss+'개</span>'):'')+
+      ' <button class="btn bo bsm" onclick="lkFillMeanings()">AI 로 뜻 채우기</button>'+
+      '<span class="iso-hint" id="lk-ai-state"></span></div>'+
+      '<div class="lk-words">'+p.vocab.map(v=>'<span class="lk-w'+(v.ko?'':' no')+'">'+_lkE(v.word)+
+      (v.ko?('<i>'+_lkE(v.ko)+'</i>'):'<i>—</i>')+(v.from==='db'?'<b title="앱 단어 DB">DB</b>':(v.from==='ai'?'<b title="AI 로 채움">AI</b>':''))+'</span>').join('')+'</div></div>';
+  }
+  if(p.chunk&&p.chunk.length)
+    h+='<div class="lk-sec"><div class="lk-sec-t">끊어 읽기·해석 칸 '+p.chunk.length+'문장</div>'+
+      '<div class="lk-list">'+p.chunk.slice(0,4).map((c,i)=>'<div class="lk-row"><b>'+(i+1)+'</b> '+_lkE(c.chunk)+
+      (c.ko?('<i>'+_lkE(c.ko)+'</i>'):'<i class="lk-blank">해석 칸</i>')+'</div>').join('')+
+      (p.chunk.length>4?('<div class="iso-hint">… 모두 '+p.chunk.length+'문장</div>'):'')+'</div></div>';
+  if(p.cloze&&(p.cloze.blanks||[]).length)
+    h+='<div class="lk-sec"><div class="lk-sec-t">빈칸 본문 — '+
+      ({word:'낱말',phrase:'구',sentence:'문장'}[p.cloze.mode]||'')+' '+p.cloze.blanks.length+'칸'+
+      ((p.cloze.choices||[]).length?' · 보기 있음':'')+'</div>'+
+      '<div class="lk-pass">'+_lkE(String(p.cloze.text).slice(0,300))+(p.cloze.text.length>300?'…':'')+'</div></div>';
+  if(p.order&&(p.order.lines||[]).length)
+    h+='<div class="lk-sec"><div class="lk-sec-t">문장 순서 배열 '+p.order.lines.length+'문장</div>'+
+      '<div class="lk-list">'+p.order.lines.map(l=>'<div class="lk-row"><b>'+l.tag+'</b> '+_lkE(l.en.slice(0,70))+'</div>').join('')+
+      '<div class="iso-hint">정답 '+_lkE(p.order.answer)+'</div></div></div>';
+  if(p.write&&(p.write.items||[]).length)
+    h+='<div class="lk-sec"><div class="lk-sec-t">'+(p.write.mode==='cond'?'조건 영작':'배열 영작')+' '+p.write.items.length+'문항</div>'+
+      '<div class="lk-list">'+p.write.items.map((w,i)=>'<div class="lk-row"><b>'+(i+1)+'</b> '+
+      (w.ko?_lkE(w.ko)+' ':'')+(p.write.mode==='cond'?('<i>'+_lkE((w.cond||[]).join(' · '))+'</i>'):('<i>'+_lkE((w.words||[]).join(' / '))+'</i>'))+'</div>').join('')+'</div></div>';
+  h+='<div class="lk-sec"><div class="lk-sec-t">내용 확인 문제'+((p.comp||[]).length?(' '+p.comp.length+'개'):'')+
+    ' <input type="number" class="iso-num" id="lk-comp-n" min="1" max="5" value="3" style="width:64px">'+
+    '<button class="btn bo bsm" onclick="lkMakeComp()">AI 로 만들기</button>'+
+    '<span class="iso-hint">AI 호출 약 2회</span></div>'+
+    ((p.comp||[]).length?('<div class="lk-list">'+p.comp.map((c,i)=>'<div class="lk-row"><b>'+(i+1)+'</b> '+_lkE(c.stem)+
+      '<i>정답 '+_isoCirc(c.answer)+'</i></div>').join('')+'</div>'):'<div class="iso-hint">아직 없어요 — 누를 때만 AI 를 부릅니다.</div>')+'</div>';
+  box.innerHTML=h;
+}
+// ── 인쇄 ─────────────────────────────────────────────────────────────────
+function lkPrint(ans){
+  if(!_lkKit||!Object.keys(_lkKit.parts||{}).length){toast('먼저 만들어 주세요');return;}
+  const cols=parseInt((document.getElementById('lk-cols')||{}).value,10)||1;
+  const p=_lkKit.parts,title=_lkKit.title||'학습 세트';
+  const today=(typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);
+  const E=s=>_ebE(s);
+  let b='<div class="hd"><h1>'+E(title)+(ans?' — 정답':'')+'</h1>'+
+    '<div class="m"><span>직결영어</span><span>'+E(today)+'</span><span>'+E(_lkKit.grade)+'</span>'+
+    '<span class="nm">이름 ______________</span></div></div><div class="wrap">';
+  if(p.vocab&&p.vocab.length){
+    b+='<div class="sec"><h2>1. 단어</h2><table class="vt">'+
+      p.vocab.map((v,i)=>'<tr><td class="n">'+(i+1)+'</td><td class="w">'+E(v.word)+'</td><td class="k">'+
+      (ans?E(v.ko||''):'')+'</td></tr>').join('')+'</table></div>';
+  }
+  if(p.chunk&&p.chunk.length){
+    b+='<div class="sec"><h2>2. 끊어 읽기·해석</h2>'+p.chunk.map((c,i)=>
+      '<div class="q"><div class="qs"><b>'+(i+1)+'.</b> '+E(c.chunk)+'</div>'+
+      (ans?('<div class="qa">'+E(c.ko||c.en)+'</div>'):'<div class="qw"></div>')+'</div>').join('')+'</div>';
+  }
+  if(p.cloze&&(p.cloze.blanks||[]).length){
+    b+='<div class="sec"><h2>3. 빈칸 채우기</h2>'+
+      ((p.cloze.choices||[]).length?('<div class="box">보기 · '+p.cloze.choices.map(E).join(' / ')+'</div>'):'')+
+      '<div class="qp">'+E(p.cloze.text).replace(/\n/g,'<br>')+'</div>'+
+      (ans?('<div class="qa">'+p.cloze.blanks.map(x=>x.no+'. '+E(x.answer)).join(' · ')+'</div>'):'')+'</div>';
+  }
+  if(p.order&&(p.order.lines||[]).length){
+    b+='<div class="sec"><h2>4. 문장 순서</h2>'+p.order.lines.map(l=>
+      '<div class="q"><div class="qs"><b>'+l.tag+'</b> '+E(l.en)+'</div></div>').join('')+
+      '<div class="qw2">순서: ______________________</div>'+
+      (ans?('<div class="qa">정답 '+E(p.order.answer)+'</div>'):'')+'</div>';
+  }
+  if(p.write&&(p.write.items||[]).length){
+    b+='<div class="sec"><h2>5. '+(p.write.mode==='cond'?'조건 영작':'배열 영작')+'</h2>'+
+      p.write.items.map((w,i)=>'<div class="q"><div class="qs"><b>'+(i+1)+'.</b> '+
+      (w.ko?E(w.ko):'')+'</div>'+
+      (p.write.mode==='cond'?('<div class="box">조건 · '+(w.cond||[]).map(E).join(' / ')+'</div>')
+                            :('<div class="box">'+(w.words||[]).map(E).join(' / ')+'</div>'))+
+      (ans?('<div class="qa">'+E(w.answer)+'</div>'):'<div class="qw"></div>')+'</div>').join('')+'</div>';
+  }
+  if((p.comp||[]).length){
+    b+='<div class="sec"><h2>6. 내용 확인</h2>'+p.comp.map((c,i)=>
+      '<div class="q"><div class="qs"><b>'+(i+1)+'.</b> '+E(c.stem)+'</div>'+
+      ((c.choices||[]).length?('<ol class="qc">'+c.choices.map((x,j)=>
+        '<li'+(ans&&j===c.answer?' class="ok"':'')+'>'+_isoCirc(j)+' '+E(x)+'</li>').join('')+'</ol>'):'')+
+      (ans&&c.explain?('<div class="qa">'+E(c.explain)+'</div>'):'')+'</div>').join('')+'</div>';
+  }
+  b+='</div>';
+  _pbOpenPrint(title+(ans?' 정답':''),
+    '@page{size:A4;margin:14mm 12mm 16mm;@bottom-center{content:"직결영어 · '+
+      String(title).replace(/["\\]/g,' ')+'  " counter(page);font-size:8.5pt;color:#555;}}'+
+    '*{box-sizing:border-box}body{font-family:"Malgun Gothic","맑은 고딕",system-ui,sans-serif;color:#111;margin:0;font-size:10.5pt;line-height:1.7}'+
+    '.wrap{'+(cols===2?'column-count:2;column-gap:9mm;column-rule:1px solid #ddd;':'')+'}'+
+    '.hd{border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:10px;column-span:all}'+
+    '.hd h1{font-size:15pt;margin:0 0 2px}.hd .m{font-size:9.5pt;color:#444;display:flex;gap:14px}.hd .nm{margin-left:auto}'+
+    '.sec{break-inside:avoid-column;margin-bottom:14px}'+
+    'h2{font-size:11.5pt;margin:0 0 6px;padding-bottom:3px;border-bottom:1px solid #999}'+
+    '.q{break-inside:avoid;margin:0 0 9px}.qs{margin-bottom:3px}'+
+    '.qp{border:1px solid #bbb;padding:7px 9px;margin:5px 0;background:#fafafa;text-align:justify}'+
+    '.box{border:1px dashed #999;padding:5px 8px;margin:4px 0;font-size:9.5pt;background:#fcfcfc}'+
+    '.qw{border-bottom:1px solid #999;height:20px;margin:4px 0}'+
+    '.qw2{margin:6px 0;font-size:10pt}'+
+    '.qa{font-size:9.5pt;color:#1b5e4a;margin-top:2px}'+
+    '.qc{list-style:none;padding:0;margin:3px 0 0}.qc li{margin:2px 0}.qc li.ok{font-weight:700;background:#fff3b0}'+
+    '.vt{width:100%;border-collapse:collapse;font-size:10pt}'+
+    '.vt td{border-bottom:1px solid #ddd;padding:3px 4px}'+
+    '.vt .n{width:22px;color:#888}.vt .w{width:40%;font-weight:600}.vt .k{color:#333}'+
+    '.noprint{position:fixed;bottom:14px;right:14px;padding:9px 16px;font-size:13px;cursor:pointer;z-index:9;'+
+      'border:1px solid #888;border-radius:6px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)}'+
+    '@media print{.noprint{display:none}}', b);
+}
+
+// ── 수업 기록 · 이 단원 자료 ─────────────────────────────────────────────
+// 자료실 줄은 **이미 기기에 받아 둔 것(_ibRows·_ebRows 캐시)** 만 쓴다 — 이 묶음 때문에 새로 받지 않는다.
+function _lkEbMatch(title,unit){
+  if(!Array.isArray(_ebRows)||!_ebRows.length)return [];
+  const t=String(title||'').trim();
+  if(!t)return [];
+  const key=t.toLowerCase().replace(/\s+/g,' ');
+  const head=key.split(' ')[0];
+  return _ebRows.filter(r=>{
+    const m=r.meta||{};
+    const hay=((m.title||'')+' '+(m.series||'')+' '+(m.path||'')).toLowerCase();
+    if(hay.indexOf(key)>=0)return true;
+    return head.length>=4&&hay.indexOf(head)>=0;
+  }).slice(0,30);
+}
+function _lkUnitRows(){
+  const rows=[...document.querySelectorAll('#subj-rows .sr')];   // addSRowTo 가 만드는 줄
+  const out=[];
+  const pick=(r,f)=>{
+    const els=[...r.querySelectorAll('[data-f="'+f+'"]')];
+    for(const e of els){const v=String(e.value||'').trim();if(v&&v!=='__other__')return v;}
+    return '';
+  };
+  rows.forEach(r=>{
+    const title=pick(r,'book'),unit=pick(r,'unit');
+    if(title)out.push({title:title,unit:unit});
+  });
+  const seen=new Set();
+  return out.filter(x=>{const k=x.title+'|'+x.unit;if(seen.has(k))return false;seen.add(k);return true;});
+}
+function lkUnitMats(){
+  const box=document.getElementById('lk-unit-mats');if(!box)return;
+  if(!lkMayUse()){box.innerHTML='';return;}
+  const picks=_lkUnitRows();
+  if(!picks.length){box.innerHTML='';return;}
+  let h='';
+  picks.forEach(pk=>{
+    const tb=(_cache.globalTextbooks||[]).find(b=>b&&!b._deleted&&String(b.title||'')===pk.title);
+    const eb=_lkEbMatch(pk.title,pk.unit);
+    const nItem=(_ibRows||[]).filter(r=>{
+      const s=(r.meta||{}).src||{};
+      if(tb&&s.tbId===tb.id)return !pk.unit||String(s.unit||'')===pk.unit;
+      return false;
+    }).length;
+    const kits=(_cache.worksheets||[]).filter(w=>w&&w.kind==='kit'&&w.src&&tb&&w.src.tbId===tb.id&&(!pk.unit||w.src.unit===pk.unit));
+    if(!eb.length&&!nItem&&!kits.length)return;
+    h+='<div class="lk-mat"><div class="lk-mat-t">'+_lkE(pk.title)+(pk.unit?(' · '+_lkE(pk.unit)):'')+' 자료</div>';
+    if(eb.length){
+      h+='<div class="lk-mat-r"><span class="lk-mat-k">자료실</span>'+
+        eb.slice(0,5).map(r=>'<button class="lk-chip" onclick="ebOpenDetail(\''+escJsA(r.id)+'\')">'+
+          _lkE((r.meta||{}).title||'자료')+'</button>').join('')+
+        (eb.length>5?('<button class="lk-chip more" onclick="lkMoreEb(\''+escJsA(pk.title)+'\')">더 보기 '+(eb.length-5)+'</button>'):'')+'</div>';
+    }
+    if(nItem)
+      h+='<div class="lk-mat-r"><span class="lk-mat-k">문제 은행</span>'+
+        '<button class="lk-chip" onclick="lkOpenBankUnit(\''+escJsA(tb?tb.id:'')+'\',\''+escJsA(pk.unit)+'\')">이 단원 문항 '+nItem+'개</button></div>';
+    if(kits.length)
+      h+='<div class="lk-mat-r"><span class="lk-mat-k">학습 세트</span>'+
+        kits.slice(0,4).map(k=>'<button class="lk-chip" onclick="lkOpenSaved(\''+escJsA(k.id)+'\')">'+_lkE(k.title||'세트')+'</button>').join('')+'</div>';
+    if(tb&&String((tb.unitTexts||{})[pk.unit]||'').trim())
+      h+='<div class="lk-mat-r"><span class="lk-mat-k">본문</span>'+
+        '<button class="lk-chip go" onclick="lkFromUnit(\''+escJsA(tb.id)+'\',\''+escJsA(pk.unit)+'\')">학습 세트 만들기</button></div>';
+    h+='</div>';
+  });
+  box.innerHTML=h;
+}
+function lkMoreEb(title){
+  swTab('t-data');switchDataTab('bank');
+  setTimeout(()=>{
+    const q=document.getElementById('eb-f-q');
+    if(q){q.value=title;ebFilterChange();}
+  },300);
+}
+function lkOpenBankUnit(tbId,unit){
+  swTab('t-data');switchDataTab('items');
+  setTimeout(()=>{
+    _ibF.tbId=tbId||'';_ibF.unit=unit||'';_ibF.q='';
+    _ibPage=1;_ibSaveF();_ibPaintFilters();renderItemList();
+  },400);
+}
+function lkFromUnit(tbId,unit){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  const text=tb?String((tb.unitTexts||{})[unit]||'').trim():'';
+  if(!text){toast('본문이 없어요');return;}
+  lkOpen({kind:'book',itemId:'',tbId:tbId,unit:unit,keep:false},text,'중1');
+  _lkKit.ko=String((tb.unitSentKo||{})[unit]||'');
+  _lkKit.title=(tb.title||'교재')+' '+unit+' 학습 세트';
+  _lkPaintCfg();_lkRender();
+}
+// ── 선생님 홈 · 시험 대비 카드 ───────────────────────────────────────────
+function lkExamCard(){
+  const box=document.getElementById('dash-exam-prep');if(!box)return;
+  if(!lkMayUse()){box.innerHTML='';return;}
+  const exams=(typeof DB.exams==='function'?DB.exams():[]).filter(e=>e&&!e._deleted&&!e.noExam&&e.examDate);
+  if(!exams.length){box.innerHTML='';return;}
+  const today=(typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);
+  const days=(typeof ppJgPrepDays==='function')?ppJgPrepDays():28;
+  const near=exams.map(e=>{
+    const d=(typeof ppDaysUntil==='function')?ppDaysUntil(e.examDate):null;
+    return {e:e,d:d};
+  }).filter(x=>x.d!==null&&x.d>=0&&x.d<=days).sort((a,b)=>a.d-b.d).slice(0,3);
+  if(!near.length){box.innerHTML='';return;}
+  let h='';
+  near.forEach(({e,d})=>{
+    const eb=(Array.isArray(_ebRows)?_ebRows:[]).filter(r=>{
+      const m=r.meta||{};
+      return String(m.school||'')&&String(e.school||'')&&String(m.school).indexOf(String(e.school).replace(/학교$/,''))>=0;
+    }).slice(0,5);
+    const tbs=((e.scope||{}).textbooks||[]);
+    let nItem=0;
+    tbs.forEach(t=>{
+      nItem+=(_ibRows||[]).filter(r=>{
+        const s=(r.meta||{}).src||{};
+        if(!t.bookId||s.tbId!==t.bookId)return false;
+        return !(t.units||[]).length||(t.units||[]).indexOf(String(s.unit||''))>=0;
+      }).length;
+    });
+    h+='<div class="card lk-exam"><div class="ch"><span class="ct">📝 시험 대비 — '+_lkE(e.school||'')+' '+_lkE(e.grade||'')+'</span>'+
+      '<span class="lk-dday">D-'+d+'</span></div><div class="cb">'+
+      '<div class="lk-exam-m">'+_lkE(e.examDate||'')+' · '+_lkE(String(e.year||''))+'년 '+_lkE(String(e.semester||''))+'학기 '+_lkE(String(e.round||''))+'회</div>';
+    if(eb.length)
+      h+='<div class="lk-mat-r"><span class="lk-mat-k">학교 기출</span>'+
+        eb.map(r=>'<button class="lk-chip" onclick="swTab(\'t-data\');switchDataTab(\'bank\');setTimeout(()=>ebOpenDetail(\''+escJsA(r.id)+'\'),400)">'+
+          _lkE((r.meta||{}).title||'자료')+'</button>').join('')+'</div>';
+    h+='<div class="lk-mat-r"><span class="lk-mat-k">범위 문항</span>'+
+      '<span class="lk-chip plain">'+nItem+'개</span>'+
+      (nItem?('<button class="lk-chip go" onclick="lkExamPaper(\''+escJsA(e.id)+'\')">범위 문항으로 시험지 만들기</button>')
+            :'<span class="iso-hint">은행에 이 범위 문항이 아직 없어요</span>')+'</div>';
+    if((e.scope||{}).extra&&e.scope.extra.length)
+      h+='<div class="lk-exam-m">그 밖 범위 · '+_lkE(e.scope.extra.join(', '))+'</div>';
+    h+='</div></div>';
+  });
+  box.innerHTML=h;
+}
+// 범위(교재·단원)를 자동 구성 조건에 채워서 시험지 편집을 연다
+async function lkExamPaper(examId){
+  const e=(typeof DB.exams==='function'?DB.exams():[]).find(x=>x&&x.id===examId);
+  if(!e)return;
+  const t=((e.scope||{}).textbooks||[])[0]||{};
+  await pbOpen(['__none__']).catch(()=>{});
+  _pbPaper=_pbNewPaper([]);
+  _pbSlots=[];
+  _pbPaper.title=(e.school||'')+' '+(e.grade||'')+' '+(e.year||'')+'-'+(e.semester||'')+' 대비';
+  _pbPaper.header.exam=_pbPaper.title;
+  _pbCfg.tbId=t.bookId||'';
+  _pbCfg.unit=((t.units||[])[0])||'';
+  _pbCfg.frame='middle25';
+  _pbUsageClear();_pbPaintCfgUI();
+  const det=document.getElementById('pb-auto');if(det)det.open=true;
+  _pbRender();
+  openM('m-paper');
+  toast('범위 조건을 채워 뒀어요 — [은행에서 채우기] 를 눌러 주세요');
+}
+
+// 수업 기록의 교재·단원을 고치면 '이 단원 자료' 를 다시 그린다
+document.addEventListener('DOMContentLoaded',()=>{
+  const host=document.getElementById('subj-rows');
+  if(!host)return;
+  let t=null;
+  ['change','input'].forEach(ev=>host.addEventListener(ev,()=>{
+    if(t)clearTimeout(t);
+    t=setTimeout(()=>{t=null;try{lkUnitMats();}catch(e){}},400);
+  }));
+});
