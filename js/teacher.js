@@ -6967,6 +6967,7 @@ const PP_WHATSNEW=[
  {date:'2026-11-13',title:'수업 때마다 하는 활동 — 리딩앤 원서 읽기를 수업일마다 캘린더에',where:'클래스 → 클래스 수정 → 수업 때마다 하는 활동',tab:'t-class',go:['renderClassTab']},
  {date:'2026-11-13',title:"'자료실'이 '기출'로 — 용도 칩(수능·내신·듣기평가·성취도·고입)",where:'교재·문제 → 기출',tab:'t-data',go:['switchDataTab','bank']},
  {date:'2026-11-13',title:'교재·문제집 자료는 교재 탭의 [자료만 있는 책]으로',where:'교재·문제 → 교재',tab:'t-data',go:['switchDataTab','tbook']},
+ {date:'2026-11-14',title:'만들기 — 새로고침 직후에도 문항을 찾고, 학년은 초1부터',where:'교재·문제 → 만들기',tab:'t-data',go:['switchDataTab','make']},
  {date:'2026-11-13',title:'만들기 — 다섯 가지를 한 화면에 하나씩 물어보고 인쇄까지',where:'교재·문제 → 만들기 (대시보드에도 단추)',tab:'t-data',go:['switchDataTab','make']},
  {date:'2026-11-12',title:"기기에만 둔 동형 묶음도 '저장된 것'에 — '이 기기' 표시와 함께",where:'교재·문제 → 저장된 것',tab:'t-data',go:['switchDataTab','ws']},
  {date:'2026-11-12',title:'책 홈 — 한 책의 단어·본문·해석·음원·자료·문항을 한 곳에서',where:'교재·문제 → 교재 → 책 이름',tab:'t-data',go:['switchDataTab','tbook']},
@@ -21422,7 +21423,7 @@ const IB_DEV_KEY='pp_item_keep';     // 원문 지문 문항은 기기에만 (�
 const ITEM_KEEP_SERVER=false;
 const IB_SKILLS=[{k:'read',n:'읽기'},{k:'listen',n:'듣기'},{k:'grammar',n:'어법'},{k:'vocab',n:'어휘'},{k:'write',n:'쓰기'}];
 const IB_SRCS=[{k:'iso',n:'동형'},{k:'exam',n:'기출'},{k:'book',n:'교재'},{k:'manual',n:'직접'}];
-const IB_GRADES=['초5','초6','중1','중2','중3','고1','고2','고3'];
+const IB_GRADES=['초1','초2','초3','초4','초5','초6','중1','중2','중3','고1','고2','고3'];
 // 유형키 → 영역 (나머지는 ISO_TYPES 의 묶음으로 정한다)
 const IB_SKILL_BY_TYPE={grammar:'grammar',m_grammar_pick:'grammar',m_grammar_fix:'grammar',
   vocab:'vocab',m_vocab:'vocab',m_write_cond:'write',m_write_order:'write',m_summary:'write',m_dialog:'listen'};
@@ -25274,13 +25275,48 @@ function mkRenderResume(){
 // steps: [{t:'단계 이름', q:'물음', hint:'설명', body:()=>html, read:()=>bool|string}]
 //   read 가 문자열을 주면 그 말을 띄우고 멈춘다. body 는 늘 d(=_wz.d)를 보고 그린다.
 let _wz=null;
-function wzOpen(key,seed){
+// 마법사가 쓰는 목록을 **먼저** 받아 둔다.
+// 새로고침 직후에는 _ibRows 가 null 이라, 바로 그리면 '가진 회차가 없어요' 로 보였다.
+//   items  문제 은행 (기기 보관분까지 — ibLoad 안에서 _ibDevSync 가 합친다)
+//   bank   자료실 (책에 딸린 자료)
+//   books  교재 DB (부팅 때 이미 받아 둔다 — 비어 있을 때만 기다린다)
+const WZ_NEEDS={exam:['items'],drill:['items'],iso:['items'],kit:['books'],vocab:['books']};
+async function wzPrepare(needs){
+  for(const n of (needs||[])){
+    try{
+      if(n==='items'){
+        if(!Array.isArray(_ibRows)||!_ibRows.length){if(typeof ibLoad==='function')await ibLoad();}
+        else if(typeof _ibDevSync==='function')await _ibDevSync();
+      }else if(n==='bank'){
+        if(!Array.isArray(_ebRows)||!_ebRows.length){if(typeof ebLoad==='function')await ebLoad(false);}
+      }else if(n==='books'){
+        if(!((_cache.globalTextbooks||[]).length)&&typeof loadAllData==='function')await loadAllData();
+      }
+    }catch(e){}
+  }
+}
+function wzLoading(msg){
+  const t=document.getElementById('wz-title');if(t&&_wz)t.textContent=_wz.title;
+  const sb=document.getElementById('wz-steps');if(sb)sb.innerHTML='';
+  const body=document.getElementById('wz-body');
+  if(body)body.innerHTML='<div class="ib-guide">'+_ebE(msg||'불러오는 중…')+'</div>';
+  ['wz-back','wz-next','wz-manual'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  const note=document.getElementById('wz-note');if(note)note.textContent='';
+}
+async function wzOpen(key,seed){
   if(!mkMayUse()){toast('선생님 화면에서만 쓸 수 있어요');return;}
   const mk=MK_WIZ[key];if(!mk){toast('아직 준비 중이에요');return;}
-  _wz={key:key,title:mk.title,d:Object.assign({},mk.init?mk.init():{},seed||{}),i:0,steps:[]};
-  _wz.steps=mk.steps();
+  _wz={key:key,title:mk.title,d:{},i:0,steps:[],loading:true};
   mkFirstClear();
   openM('m-wiz');
+  const needs=WZ_NEEDS[key]||[];
+  if(needs.length)wzLoading(needs.indexOf('items')>=0?'문항을 불러오는 중…':'교재를 불러오는 중…');
+  await wzPrepare(needs);
+  if(!_wz||_wz.key!==key)return;                 // 그 사이에 닫았거나 다른 마법사를 열었다
+  _wz.d=Object.assign({},mk.init?mk.init():{},seed||{});
+  _wz.steps=mk.steps();
+  _wz.loading=false;
+  ['wz-back','wz-next','wz-manual'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
   wzRender();
 }
 function wzClose(){closeM('m-wiz');_wz=null;try{mkRenderResume();}catch(e){}}
@@ -25382,8 +25418,31 @@ async function wzNeedBank(){
 function wzRowsFor(d){
   const rows=(_ibRows||[]).filter(_ibAlive);
   if(!d.grade)return rows;
-  const g=rows.filter(r=>String((r.meta||{}).grade||'')===d.grade);
-  return g.length?g:rows;        // 그 학년 문항이 없으면 학년을 풀어서 보여 준다
+  return rows.filter(r=>String((r.meta||{}).grade||'')===d.grade);
+}
+// 그 학년에 쓸 것이 있는 가장 가까운 학년 (IB_GRADES 차례로 한 칸씩 넓혀 본다)
+function wzNearBy(d,want,count){
+  const g=String(want||'').trim();
+  if(!g)return '';
+  const i=IB_GRADES.indexOf(g);
+  if(i<0)return '';
+  for(let step=1;step<IB_GRADES.length;step++){
+    for(const j of [i-step,i+step]){
+      if(j<0||j>=IB_GRADES.length)continue;
+      if(count(Object.assign({},d,{grade:IB_GRADES[j]}))>0)return IB_GRADES[j];
+    }
+  }
+  return '';
+}
+// '…학년 회차는 아직 없어요' 안내 한 덩이
+function wzNoneHtml(d,near,what){
+  return '<div class="ib-guide">'+
+    '<div><b>'+_ebE(d.grade||'이 학년')+' '+_ebE(what||'자료')+'는 아직 없어요</b></div>'+
+    (near?('<div style="margin-top:10px">가까운 학년: '+
+      '<button class="wz-opt" onclick="wzSet(\'grade\',\''+escJsA(near)+'\')">'+_ebE(near)+' 로 보기</button>'+
+      '<button class="wz-opt" onclick="wzSet(\'grade\',\'\')">학년 안 가리기</button></div>')
+      :'<div style="margin-top:10px"><button class="wz-opt" onclick="wzSet(\'grade\',\'\')">학년 안 가리고 보기</button></div>')+
+  '</div>';
 }
 // 회차를 묶어서 (안 쓴 것 먼저, 최근 것 먼저)
 function wzExamList(d){
@@ -25501,7 +25560,7 @@ const MK_WIZ={
        body:d=>{
          const kinds=wzExamKinds(d);
          const list=wzExamList(d);
-         if(!list.length)return '<div class="ib-guide">이 학년으로 가진 회차가 없어요. 위에서 학년을 넓혀 보세요.</div>';
+         if(!list.length)return wzNoneHtml(d,wzNearBy(d,d.grade,x=>wzExamList(x).length),'회차');
          return (kinds.length>1?wzOpts('kind',[{v:'',n:'모두'}].concat(kinds),d.kind)+'<div style="height:10px"></div>':'')+
            '<div class="wz-cards">'+list.slice(0,40).map(g=>
              '<button class="wz-pick'+(d.exam===g.e?' on':'')+'" onclick="wzSet(\'exam\',\''+escJsA(g.e)+'\')">'+
@@ -25547,7 +25606,7 @@ const MK_WIZ={
          const weak=wzWeakTypes();
          const list=wzTypeCounts(d);
          if(!list.length)return wzOpts('skill',[{v:'',n:'모든 영역'}].concat(WZ_SKILLS),d.skill)+
-           '<div class="ib-guide">이 조건으로 가진 문항이 없어요.</div>';
+           wzNoneHtml(d,wzNearBy(d,d.grade,x=>wzTypeCounts(x).length),'문항');
          const top=weak.filter(t=>list.some(x=>x.v===t));
          return wzOpts('skill',[{v:'',n:'모든 영역'}].concat(WZ_SKILLS),d.skill)+
            '<div style="height:12px"></div>'+
@@ -25658,7 +25717,7 @@ const MK_WIZ={
        hint:'문제 은행에서 하나 고르면 가장 빠릅니다. 캡처로 하려면 동형 문제 화면에서 붙여넣으세요.',
        body:d=>{
          const rows=(_ibRows||[]).filter(_ibAlive).filter(r=>!_ibNoAnswer(r.meta||{})).slice(0,24);
-         if(!rows.length)return '<div class="ib-guide">문제 은행이 비어 있어요. 동형 문제 화면에서 캡처로 시작하세요.</div>';
+         if(!rows.length)return '<div class="ib-guide">문제 은행이 비어 있어요. 동형 문제 화면에서 <b>캡처로 문항 추가</b>로 시작하세요.</div>';
          if(!d.itemId)d.itemId=rows[0].id;
          return '<div class="wz-cards">'+rows.map(r=>{
            const m=r.meta||{};
