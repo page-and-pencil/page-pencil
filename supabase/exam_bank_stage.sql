@@ -34,7 +34,14 @@ select
     'year',   (nullif(b.data->>'year',''))::numeric,
     'month',  (nullif(b.data->>'month',''))::numeric,
     'round',  (nullif(b.data->>'round',''))::numeric,
-    -- ↓ 여기부터가 이번에 더한 것 (수준)
+    -- ↓ 2026-11-12 더한 것 (갈래·용도) — '기출' 탭과 '교재' 탭을 가르는 기준
+    --   origin  exam 진짜 기출 · book 교재·문제집 · story 원서 오디오 · doc 참고 자료
+    --   use     exam 쪽: 수능 · 내신 · 듣기평가 · 성취도·진단 · 고입
+    --           book 쪽: 일반 · 수능 대비 · 내신 대비 · 듣기평가 대비 · 공인시험
+    --   없는 줄은 앱이 cat 으로 추정해서 띄운다(사라지지 않는다).
+    'origin',    nullif(b.data->>'origin',''),
+    'use',       nullif(b.data->>'use',''),
+    -- ↓ 여기부터가 그 앞에 더한 것 (수준)
     'stage',     nullif(b.data->>'stage',''),
     'stageG',    (nullif(b.data->>'stageG',''))::numeric,
     'stageBy',   nullif(b.data->>'stageBy',''),

@@ -1,3 +1,4 @@
+require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
 // Page & Pencil — '다음 교재 하나로 잇기' 점검 (node verify_link.js)
 //
 // 교재 흐름(commonMaterials)과 교재형 숙제를 **함께** 맞추는 길을 확인한다.
@@ -14,7 +15,7 @@ const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
 const G = require('./verify_guard');   // 실제 서버 쓰기 막음 장치
-const ROOT = __dirname;
+const ROOT = path.resolve(__dirname, '..');
 
 function mkEl(id) {
   return {

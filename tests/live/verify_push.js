@@ -1,8 +1,11 @@
+// ⚠ 이 도구는 **실제 서버에 씁니다**(push_subs 시험 행을 넣었다 바로 지웁니다).
+//   그래서 tests/run.js 가 돌리는 검사 목록에 들어가지 않습니다.
+//   손으로만, 원장이 시켰을 때만 돌립니다: node tests/live/verify_push.js
 // Page & Pencil — 푸시 알림 설정 끝까지 점검 (읽기 전용 + 시험 행은 즉시 정리)
 //   node verify_push.js            : 점검만
 //   node verify_push.js --send     : 실제 발송까지 시험 (구독한 기기에 알림이 갑니다)
 const fs = require('fs');
-const db = fs.readFileSync('js/db.js', 'utf8');
+const db = fs.readFileSync(require('path').resolve(__dirname, '..', '..', 'js', 'db.js'), 'utf8');
 const URL_ = db.match(/const SUPA_URL='([^']+)'/)[1];
 const KEY = db.match(/const SUPA_KEY='([^']+)'/)[1];
 const H = { apikey: KEY, Authorization: 'Bearer ' + KEY };

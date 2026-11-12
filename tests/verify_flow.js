@@ -1,3 +1,4 @@
+require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
 // Page & Pencil — '같은 사실은 한 곳에서' 점검 (node verify_flow.js)
 //
 // 숙제·진도 판정이 화면마다 어긋나던 것을 공용 함수로 모았다(utils.js hwState·ppFlow 등).
@@ -9,7 +10,7 @@ const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
 const G = require('./verify_guard');   // 실제 서버 쓰기 막음 장치
-const ROOT = __dirname;
+const ROOT = path.resolve(__dirname, '..');
 
 // ── 아주 작은 DOM 흉내 (화면 함수가 멈추지 않을 만큼만) ──
 function mkEl(id) {

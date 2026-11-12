@@ -1,3 +1,4 @@
+require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
 // Page & Pencil — '설정한 것이 보이는가' 점검 (node verify_visible.js)
 //
 // 가짜 데이터만 쓴다 — 네트워크도, 실제 학생 데이터도 쓰지 않는다.
@@ -9,7 +10,7 @@ const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
 const G = require('./verify_guard');   // 실제 서버 쓰기 막음 장치
-const ROOT = __dirname;
+const ROOT = path.resolve(__dirname, '..');
 
 function mkEl(id) {
   return {

@@ -1,0 +1,40 @@
+require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+// 로그인 1회당 전송량 — 교재를 다시 받지 않는지 확인 (읽기만)
+const path=require('path');const fs=require('fs');
+const ROOT=require('path').resolve(__dirname, '..');
+const {chromium}=require(path.join(ROOT,'node_modules','playwright'));
+const dbs=fs.readFileSync(ROOT+'/js/db.js','utf8');
+const U=dbs.match(/const SUPA_URL='([^']+)'/)[1];
+const K=dbs.match(/const SUPA_KEY='([^']+)'/)[1];
+(async()=>{
+  const srows=await (await fetch(U+'/rest/v1/students?select=*&limit=60',{headers:{apikey:K,Authorization:'Bearer '+K}})).json();
+  const stus=srows.map(r=>({id:r.id,...(r.data||{})})).filter(s=>!s.inactive&&!s._deleted);
+  const stu=stus[0];
+  const browser=await chromium.launch({channel:'chrome',headless:true});
+  const ctx=await browser.newContext({viewport:{width:390,height:844},locale:'ko-KR'});
+  const page=await ctx.newPage();
+  let bytes=0,marks=[];
+  const per={};
+  page.on('requestfinished',async req=>{try{const s=await req.sizes();if(/\/rest\/v1\//.test(req.url())){const t=req.url().split('/rest/v1/')[1].split('?')[0];per[t]=(per[t]||0)+(s.responseBodySize||0);bytes+=s.responseBodySize||0;}}catch(e){}});
+  await page.route('**/functions/v1/login',r=>{const b=JSON.parse(r.request().postData()||'{}');
+    if(b.probe)return r.fulfill({status:200,contentType:'application/json',body:'{"ok":true,"ready":true}'});
+    const hit=stus.filter(s=>String(s.pin||'')===String(b.pin||''));
+    if(hit.length!==1)return r.fulfill({status:401,contentType:'application/json',body:'{"error":{"message":"x"}}'});
+    return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({access_token:'FAKE.student.T',refresh_token:'RT',expires_in:3600,sid:hit[0].id,name:hit[0].name})});});
+  await page.route('**/rest/v1/students_safe**',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(stus.filter(s=>s.id===stu.id).map(s=>({id:s.id,data:{...s,pin:undefined},updated_at:new Date().toISOString()})))}));
+  await page.route('**/rest/v1/**',r=>(r.request().method()==='GET'||r.request().method()==='HEAD')?r.continue():r.fulfill({status:200,body:'[]'}));
+  await page.goto('http://127.0.0.1:5500/index.html',{waitUntil:'domcontentloaded',timeout:90000});
+  await page.waitForTimeout(2500);
+  marks.push(['첫 화면(로그인 전)',bytes]);
+  await page.evaluate(async pin=>{landRole('student');document.getElementById('land-spin').value=pin;await landStudentSubmit();await new Promise(x=>setTimeout(x,6000));},stu.pin);
+  marks.push(['1회차 로그인 누적',bytes]);
+  await page.evaluate(async ()=>{clearSession();show('s-land');await new Promise(x=>setTimeout(x,500));});
+  const b2=bytes;
+  await page.evaluate(async pin=>{landRole('student');document.getElementById('land-spin').value=pin;await landStudentSubmit();await new Promise(x=>setTimeout(x,6000));},stu.pin);
+  marks.push(['2회차 로그인(같은 페이지)',bytes-b2]);
+  marks.forEach(([k,v])=>console.log('  '+k.padEnd(26)+(v/1024).toFixed(1)+' KB'));
+  const tb=await page.evaluate(()=>({tb:(_cache.globalTextbooks||[]).length,lib:(_cache.library||[]).length,stamps:Object.keys(_cache._tbStamps||{}).length,stu:(_cache.students||[]).length,les:(_cache.lessons||[]).length}));
+  console.log('  캐시: 교재 '+tb.tb+'권 · 원서 '+tb.lib+'권 · stamps '+tb.stamps+' · 학생 '+tb.stu+'명 · 수업 '+tb.les+'건');
+  console.log('  테이블별: '+Object.entries(per).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>k+' '+(v/1024).toFixed(0)+'KB').join(' · '));
+  await browser.close();
+})();
