@@ -325,8 +325,10 @@ const ok = (name, cond, note) => {
     ok('어디에 있는지도 적는다', A.PP_WHATSNEW.every(x => x.where && x.title));
     const bad2 = A.PP_FEATURES.filter(f => !A.hasFn((f.go || [])[0]));
     ok('Ctrl+K 기능 이름의 go 도 실제 함수', bad2.length === 0, bad2.map(f => f.n).join(',') || A.PP_FEATURES.length + '개');
-    ok("'수준표'·'시험지'·'학습 세트' 가 들어 있다",
-      ['수준표', '시험지', '학습 세트', '문제 은행', '숙제 이어서 내기'].every(n => A.PP_FEATURES.some(f => f.n === n)));
+    // '수준표' 는 2026-11-14 '커리큘럼 지도'(라이브러리 안)로 이름이 바뀌었다 — 옛 이름으로도 찾히게 k 에 남겼다
+    ok("'커리큘럼 지도'·'시험지'·'학습 세트' 가 들어 있다",
+      ['커리큘럼 지도', '시험지', '학습 세트', '문제 은행', '숙제 이어서 내기'].every(n => A.PP_FEATURES.some(f => f.n === n))
+      && A.PP_FEATURES.some(f => String(f.k || '').indexOf('수준표') >= 0));
   }
 
   console.log('\n(j) 정답 미확인(-1) 유지와 시험지 막기');
