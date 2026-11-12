@@ -3082,3 +3082,66 @@ body{font-size:14.5px;line-height:1.65;}
   .pb-pt{order:3;}
   .pb-acts{order:4;margin-left:auto;}
 }
+
+/* ── 시험지 보내기 · 답 입력 · 결과 ──────────────────────────── */
+.pbs-body,.pe-body{display:flex;flex-direction:column;gap:10px;min-height:0;}
+#m-paper-entry .mdl-xl,#m-paper-result .mdl-xl{max-width:min(96vw,1100px);height:min(94vh,900px);display:flex;flex-direction:column;overflow:hidden;}
+#m-paper-entry .mh,#m-paper-result .mh{flex-shrink:0;}
+.pe-body{flex:1;min-height:0;}
+.pbs-list{display:flex;flex-wrap:wrap;gap:6px;max-height:40vh;overflow-y:auto;border:1.5px solid var(--border);border-radius:12px;padding:10px;background:var(--cream);}
+.pbs-s{display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--navy);border:1.5px solid var(--border);border-radius:var(--rpill);padding:5px 11px;background:var(--cream2);cursor:pointer;}
+.pbs-s:hover{border-color:var(--teal);}
+.pe-grid{flex:1;min-height:0;overflow:auto;border:1.5px solid var(--border);border-radius:12px;background:var(--cream);padding:8px;}
+.pe-row{display:flex;gap:3px;align-items:center;margin-bottom:4px;white-space:nowrap;}
+.pe-head{position:sticky;top:-8px;background:var(--cream);padding:4px 0;font-size:11.5px;font-weight:700;color:var(--slate);z-index:1;}
+.pe-nm{width:92px;flex-shrink:0;font-size:12.5px;color:var(--navy);overflow:hidden;text-overflow:ellipsis;}
+.pe-nm i{font-size:10.5px;color:var(--warnt);font-style:normal;background:var(--warnl);border-radius:5px;padding:1px 5px;}
+input.pe-c{width:30px;flex-shrink:0;text-align:center;padding:5px 2px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--fm,var(--fb));font-size:13px;color:var(--navy);background:var(--cream2);outline:none;}
+input.pe-c:focus{border-color:var(--teal);background:var(--tl);}
+span.pe-c{width:30px;flex-shrink:0;text-align:center;}
+.pe-sc{width:54px;flex-shrink:0;text-align:center;font-size:12.5px;font-weight:700;color:var(--tealt);}
+.pe-x{width:22px;flex-shrink:0;border:none;background:none;color:var(--slate2);cursor:pointer;font-size:14px;font-family:var(--fb);}
+.pr-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+.pr-sec-t{font-size:13px;font-weight:700;color:var(--navy);margin-top:6px;}
+.pr-tbl{border:1.5px solid var(--border);border-radius:12px;background:var(--cream);padding:6px;overflow-x:auto;}
+.pr-row{display:flex;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--navy);}
+.pr-row:last-child{border-bottom:none;}
+.pr-head{font-size:11.5px;font-weight:700;color:var(--slate);}
+.pr-nm{width:120px;flex-shrink:0;}
+.pr-nm .pr-m{font-size:10.5px;font-style:normal;color:var(--slate2);background:var(--cream2);border-radius:5px;padding:1px 5px;margin-left:4px;}
+.pr-sc{width:90px;flex-shrink:0;}
+.pr-sc i{font-style:normal;color:var(--slate2);}
+.pr-bar{flex:1;min-width:0;color:var(--slate);overflow:hidden;text-overflow:ellipsis;}
+.pr-ac{width:160px;flex-shrink:0;color:var(--warnt);}
+.pr-ac i{font-style:normal;color:var(--slate2);}
+.pr-bt{display:flex;gap:4px;flex-shrink:0;}
+.pr-no{width:38px;flex-shrink:0;}
+.pr-ty{width:150px;flex-shrink:0;color:var(--slate);overflow:hidden;text-overflow:ellipsis;}
+.pr-rt{width:170px;flex-shrink:0;display:flex;align-items:center;gap:6px;}
+.pr-wa{flex:1;min-width:0;color:var(--warnt);}
+.pr-gauge{display:inline-block;width:70px;height:7px;border-radius:5px;background:var(--border);overflow:hidden;flex-shrink:0;}
+.pr-gauge i{display:block;height:100%;background:var(--teal);}
+.pr-gauge.low i{background:var(--warn);}
+.pr-foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1.5px solid var(--border);padding-top:10px;margin-top:4px;}
+.pr-g{border:1.5px solid var(--border);border-radius:12px;background:var(--cream);padding:10px 12px;margin-bottom:8px;}
+.pr-g-q{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:6px;}
+.pr-g-a{font-size:13px;color:var(--slate);background:var(--cream2);border-radius:8px;padding:8px 10px;line-height:1.7;}
+.pr-g-a i{color:var(--slate2);}
+.pr-g-b{display:flex;gap:6px;margin-top:8px;}
+.ir-weak{border:1.5px solid var(--border);border-radius:14px;background:var(--cream);padding:12px 14px;margin-top:10px;}
+.ir-weak-t{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px;}
+.ir-w-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12.5px;}
+.ir-w-n{width:110px;flex-shrink:0;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ir-w-p{color:var(--slate);font-size:11.5px;}
+@media(max-width:560px){
+  #m-paper-entry,#m-paper-result{padding:0;}
+  #m-paper-entry .mdl-xl,#m-paper-result .mdl-xl{max-width:100%;width:100%;height:100%;max-height:100%;border-radius:0;}
+  .pr-row{flex-wrap:wrap;}
+  .pr-nm{width:100%;}
+  .pr-ac,.pr-ty{width:auto;}
+  .pr-bt{margin-left:auto;}
+}
+
+/* 확인 창은 늘 맨 위로 — openM 이 모든 모달에 z-index 9999 를 주므로,
+   모달 안에서 띄운 확인 창이 그 모달 뒤에 숨는 일이 있었다 (시험지 창에서 보내기 확인). */
+#m-confirm{z-index:10050 !important;}

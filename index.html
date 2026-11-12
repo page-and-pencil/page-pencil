@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261112c">
+<link rel="stylesheet" href="css/style.css?v=20261112e">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -2790,6 +2790,10 @@
         <input type="text" class="pb-in pb-in-w" id="pb-h-exam" onchange="pbHeader('exam',this.value)" placeholder="2026학년도 1학기 중간고사">
         <label class="iso-lb">날짜</label>
         <input type="date" class="pb-in" id="pb-h-date" onchange="pbHeader('date',this.value)">
+        <label class="iso-lb">용도</label>
+        <select class="filter-sel" id="pb-purpose" onchange="pbSetPurpose(this.value)">
+          <option value="">보통</option><option value="diag">진단</option>
+        </select>
       </div>
 
       <!-- 자동 구성 -->
@@ -2826,6 +2830,10 @@
       <div id="pb-list" class="pb-list"></div>
 
       <div class="pb-foot">
+        <button class="btn bt bsm" onclick="pbSend()">📤 학생에게 보내기</button>
+        <button class="btn bo bsm" onclick="pbEntry()">✍️ 답 입력</button>
+        <button class="btn bo bsm" onclick="pbResults()">📊 결과</button>
+        <span style="flex:1 0 100%"></span>
         <span class="iso-lb">인쇄</span>
         <button class="btn bt bsm" onclick="pbPrint('q')">🖨 문제지</button>
         <button class="btn bo bsm" onclick="pbPrint('ans')">정답표</button>
@@ -2834,6 +2842,66 @@
         <button class="btn bo bsm" onclick="pbPrint('omr')">답안지(OMR)</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- 시험지 → 학생에게 보내기 -->
+<div id="m-paper-send" class="mo">
+  <div class="mdl">
+    <div class="mh"><div class="mt">학생에게 보내기</div><button class="bx" onclick="closeM('m-paper-send')">×</button></div>
+    <div class="pbs-body">
+      <div class="pb-a-row">
+        <label class="iso-lb">반</label>
+        <select class="filter-sel" id="pbs-class" onchange="_pbSendPaint()"></select>
+        <button class="btn bo bsm" onclick="pbSendAll()">모두 고르기</button>
+        <span class="iso-hint" id="pbs-n">아직 고르지 않음</span>
+      </div>
+      <div id="pbs-list" class="pbs-list"></div>
+      <div class="pb-a-row">
+        <label class="iso-lb">마감일</label>
+        <input type="date" class="pb-in" id="pbs-due">
+      </div>
+      <div class="iso-safe">보낸 시험지에는 <b>해설·오답 해설이 들어가지 않아요</b>. 학생이 제출한 뒤에만 보입니다.
+        다시 풀기는 선생님이 과제에서 풀어 줄 때만 됩니다.</div>
+      <div class="pb-a-row" style="justify-content:flex-end">
+        <button class="btn bo bsm" onclick="closeM('m-paper-send')">취소</button>
+        <button class="btn bt bsm" id="pbs-go" onclick="pbSendGo()">보내기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 시험지 → 종이로 푼 답 넣기 -->
+<div id="m-paper-entry" class="mo">
+  <div class="mdl mdl-xl">
+    <div class="mh">
+      <div style="min-width:0"><div class="mt">답 입력</div><div class="iso-hint" id="pe-title"></div></div>
+      <button class="bx" onclick="closeM('m-paper-entry')">×</button>
+    </div>
+    <div class="pe-body">
+      <div class="pb-a-row">
+        <select class="filter-sel" id="pe-class"></select>
+        <button class="btn bo bsm" onclick="peAddClass()">반 전체 넣기</button>
+        <button class="btn bo bsm" onclick="peAddStudent()">학생 한 명</button>
+        <span id="pe-diag" style="display:none"><button class="btn bo bsm" onclick="peAddDiag()">＋ 진단 응시자</button></span>
+        <label class="iso-lb">푼 날</label><input type="date" class="pb-in" id="pe-date">
+      </div>
+      <div class="iso-hint">칸에서 <b>1~5</b> 를 누르면 바로 들어가고 다음 칸으로 넘어갑니다 · <b>0</b> 은 무응답 · Enter·Tab 으로도 이동</div>
+      <div id="pe-grid" class="pe-grid"></div>
+      <div class="pb-a-row" style="justify-content:flex-end">
+        <label class="iso-chk"><input type="checkbox" id="pe-astest"> 자체 시험으로 기록</label>
+        <button class="btn bo bsm" onclick="closeM('m-paper-entry')">취소</button>
+        <button class="btn bt bsm" id="pe-save" onclick="peSave()">채점해서 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 시험지 → 결과 -->
+<div id="m-paper-result" class="mo">
+  <div class="mdl mdl-xl">
+    <div class="mh"><div class="mt" id="pr-title">결과</div><button class="bx" onclick="closeM('m-paper-result')">×</button></div>
+    <div id="pr-body" class="pr-body"></div>
   </div>
 </div>
 
@@ -2886,8 +2954,8 @@
 <script src="js/utils.js?v=20261111b"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261111c"></script>
-<script src="js/teacher.js?v=20261112d"></script>
-<script src="js/student.js?v=20261111e"></script>
-<script src="js/parent.js?v=20261111b"></script>
+<script src="js/teacher.js?v=20261112e"></script>
+<script src="js/student.js?v=20261112e"></script>
+<script src="js/parent.js?v=20261112e"></script>
 </body>
 </html>
