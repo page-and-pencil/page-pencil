@@ -19738,6 +19738,17 @@ function _ebOpts(id,label,vals,cur){
   el.innerHTML=['<option value="">'+_ebE(label)+'</option>'].concat(vals.map(v=>
     '<option value="'+_ebA(v.v)+'"'+(String(cur)===String(v.v)?' selected':'')+'>'+_ebE(v.n)+'</option>')).join('');
 }
+// 구분(cat) 칸은 지금 보고 있는 갈래의 것만 — 기출 탭에 교재 구분이 섞여 보이지 않게
+function _ebCatsForOrigin(){
+  const o=_ebF.origin;
+  const by={};
+  (_ebRows||[]).filter(_ebAlive).forEach(r=>{
+    const m=r.meta||{};
+    if(o&&o!=='all'&&ebOrigin(m)!==o)return;
+    const c=String(m.cat||'');if(c)by[c]=(by[c]||0)+1;
+  });
+  return EB_CATS.filter(c=>by[c.k]).map(c=>({v:c.k,n:c.n+' ('+by[c.k]+')'}));
+}
 // 시리즈 칸은 그 구분에 시리즈가 있을 때만 (출판사 자료에만 들어 있다)
 function _ebPaintSeries(){
   const el=document.getElementById('eb-f-series');if(!el)return;
@@ -19767,7 +19778,9 @@ function _ebPaintStage(){
   _ebOpts('eb-f-sort','최신순',[{v:'stage',n:'시리즈 · 추정 학년순'}],_ebF.sort);
 }
 function _ebPaintFilters(){
-  const rows=(_ebRows||[]);
+  // 지금 보고 있는 갈래(기출/교재/원서) 줄만 보고 칸을 채운다 — 쓸 수 없는 값이 뜨지 않게
+  const _o=_ebF.origin;
+  const rows=(_ebRows||[]).filter(r=>!_o||_o==='all'||ebOrigin(r.meta||{})===_o);
   const uniq=k=>[...new Set(rows.map(r=>String((r.meta||{})[k]||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
   const cats=[...new Set(rows.map(r=>String((r.meta||{}).cat||'')).filter(Boolean))];
   const catVals=EB_CATS.filter(c=>cats.indexOf(c.k)>=0).map(c=>({v:c.k,n:c.g+' · '+c.n}))
