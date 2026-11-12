@@ -1963,6 +1963,8 @@ function ppBookShortMap(tbs){
 // 285권을 한 표에 늘어놓으면 '필수' 가 세 번, 'Discover 1.1'(Discovery 가 잘림)처럼 나온다.
 function ppBookLabel(tb){
   const isObj=tb&&typeof tb==='object';
+  const nick=isObj?String(tb.nick||'').trim():'';
+  if(nick)return nick;                                 // 선생님이 적어 둔 별칭이 가장 먼저
   const title=String(isObj?(tb.title||''):(tb||'')).trim();
   if(!title)return '';
   if(title.length<=14)return title;                    // 짧으면 그대로가 가장 분명하다

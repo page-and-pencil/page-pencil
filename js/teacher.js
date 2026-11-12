@@ -7127,6 +7127,15 @@ async function renderWsDB(refetch){
   let devPapers=[];
   try{devPapers=(await _pbDevAll()).map(p=>({...p,_dev:true}));}catch(e){}   // 원문 지문이 든 시험지(기기 보관)
   try{const kk=await idbGet('pp_kit_dev');if(Array.isArray(kk))devPapers=devPapers.concat(kk.map(k=>({...k,_dev:true})));}catch(e){}
+  // 기기에만 둔 동형 묶음(원문 지문) — 서버 목록에 없으니 여기서 합쳐야 보인다
+  try{
+    const iso=await idbGet(ISO_DEV_KEY);
+    if(Array.isArray(iso))devPapers=devPapers.concat(
+      iso.filter(x=>x&&x.deviceOnly&&x.id).map(x=>({...x,kind:'iso',_dev:true,
+        createdAt:x.createdAt||x.savedAt||0})));
+  }catch(e){}
+  {const srvIds=new Set((_cache.worksheets||[]).map(w=>w&&w.id));
+   devPapers=devPapers.filter(w=>w&&!srvIds.has(w.id));}       // 서버에도 있는 줄은 한 번만
   let list=[..._cache.worksheets,...devPapers]
     .filter(w=>w&&w.kind!=='paperSent'&&w.kind!=='paperSol')   // 학생에게 보낸 사본·해설 줄은 목록에 띄우지 않는다
     .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
@@ -7186,7 +7195,7 @@ async function renderWsDB(refetch){
       const dt=w.createdAt?new Date(w.createdAt).toLocaleDateString():'';
       return`<div class="bcard" onclick="isoOpenSaved('${escAttr(w.id)}')">
         <div class="bcard-cover" style="background:var(--tl)">✏️</div>
-        <span class="bcard-type" style="color:var(--tealt)">동형 문제</span>
+        <span class="bcard-type" style="color:var(--tealt)">동형 문제${w._dev?' · 이 기기':''}</span>
         ${w.gradeLevel?`<span class="bcard-lvl">${escAttr(w.gradeLevel)}</span>`:''}
         <div class="bcard-body">
           <div class="bcard-title">${escAttr(w.title||'제목 없음')}</div>
@@ -7194,7 +7203,7 @@ async function renderWsDB(refetch){
           <div class="bcard-stats"><span>문항 <b>${n}</b></span>${dt?`<span>${dt}</span>`:''}</div>
         </div>
         <div class="bcard-acts">
-          <button onclick="event.stopPropagation();deleteWsDB('${escAttr(w.id)}')" style="color:var(--coral,var(--bad))">🗑 삭제</button>
+          ${w._dev?'':`<button onclick="event.stopPropagation();deleteWsDB('${escAttr(w.id)}')" style="color:var(--coral,var(--bad))">🗑 삭제</button>`}
         </div>
       </div>`;
     }
@@ -21475,7 +21484,7 @@ function ibFilterChange(){
   _ibF.checked=v('ib-f-checked');_ibF.tag=v('ib-f-tag');_ibF.q=v('ib-f-q');_ibF.exam=v('ib-f-exam');
   const st=document.getElementById('ib-f-star');_ibF.star=!!(st&&st.checked);
   const wn=document.getElementById('ib-f-warn');_ibF.warn=!!(wn&&wn.checked);
-  _ibDeepIds=null;_ibPage=1;_ibSaveF();_ibPaintUnits();renderItemList();
+  _ibDeepIds=null;_ibPage=1;_ibSaveF();_ibPaintUnits();ibExamBar();renderItemList();
 }
 function ibResetFilters(){
   _ibF={skill:'',type:'',grade:'',diff:'',src:'',tbId:'',unit:'',checked:'',star:false,tag:'',q:'',
@@ -21544,7 +21553,11 @@ function ibExamBar(){
     +(g.bad?'<span class="pb-warn">정답 미확인 '+g.bad+'개는 빠집니다</span>':'')
     +'<button class="ib-bx" title="회차 거르기 풀기" onclick="ibSetExam(\'\')">×</button>';
 }
-function ibSetExam(e){_ibF.exam=e||'';_ibPage=1;_ibSaveF();_ibPaintFilters();renderItemList();}
+function ibSetExam(e){
+  _ibF.exam=e||'';_ibPage=1;_ibSaveF();
+  const el=document.getElementById('ib-f-exam');if(el&&el.value!==_ibF.exam)el.value=_ibF.exam;
+  ibExamBar();renderItemList();
+}
 function ibExamToBasket(){
   const e=_ibF.exam||'';if(!e)return;
   const rows=(_ibRows||[]).filter(r=>String(((r.meta||{}).src||{}).exam||'')===e)
@@ -21779,6 +21792,7 @@ function renderItemList(){
     h+='<div style="text-align:center;padding:12px"><button class="btn bo bsm" onclick="_ibPage++;renderItemList()">더 보기 ('+shown+' / '+all.length+')</button></div>';
   box.innerHTML=h;
   _ibPaintBulk();
+  ibExamBar();        // 회차를 고른 그 자리에서 '회차 통째로 담기' 띠가 보이게
 }
 function _ibStampIb(){
   const el=document.getElementById('ib-state');if(!el)return;
