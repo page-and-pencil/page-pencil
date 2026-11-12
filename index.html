@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261112l">
+<link rel="stylesheet" href="css/style.css?v=20261112m">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -1167,6 +1167,7 @@
         <button class="btn bt bsm" onclick="openAssignModal('')">+ 과제 할당</button>
       </div>
       <div id="assign-stats" class="dash-stats" style="margin-bottom:14px"></div>
+      <div id="assign-live"></div>
       <div class="card" style="margin-bottom:1rem">
         <div class="ch">
           <span class="ct" style="cursor:pointer" onclick="toggleAssignCal()"><i data-lucide="calendar" width="15" height="15" style="vertical-align:-3px"></i> 숙제 캘린더 <span id="assign-cal-arrow" style="font-size:10.5px;color:var(--teal)">▾ 접기</span></span>
@@ -1917,6 +1918,8 @@
         </div>
         <div class="f" id="tbook-grade-f" style="display:none"><label>대상학년</label><input type="text" id="tbook-grade" placeholder="예: 초3-4, 중1, 고1-2"></div>
         <div class="f"><label>총 유닛 수</label><input type="number" id="tbook-total-units" placeholder="0" min="0" style="width:100%"></div>
+        <div class="f s2"><label>달력에 쓸 짧은 이름 <span style="font-weight:400;font-size:11.5px;color:var(--slate)">— 비우면 자동으로 줄입니다</span></label>
+          <input type="text" id="tbook-nick" maxlength="12" placeholder="예: 보카앤스토리" style="width:100%;box-sizing:border-box"></div>
         <div class="f s2"><label>표지 이미지 <span style="font-size:10.5px;font-weight:400;text-transform:none;letter-spacing:0">(수정 시 붙여넣기 즉시 저장)</span></label>
           <div style="display:flex;gap:10px;align-items:center">
             <div id="tbook-cover-prev" style="width:56px;height:76px;border-radius:8px;border:1px solid var(--border);background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex-shrink:0"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i></div>
@@ -3062,10 +3065,10 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261112e"></script>
+<script src="js/utils.js?v=20261112f"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261112a"></script>
-<script src="js/teacher.js?v=20261112n"></script>
+<script src="js/teacher.js?v=20261112o"></script>
 <script src="js/student.js?v=20261112h"></script>
 <script src="js/parent.js?v=20261112e"></script>
 </body>

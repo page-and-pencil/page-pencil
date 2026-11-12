@@ -5257,13 +5257,14 @@ async function saveTbook(){
   const category=document.getElementById('tbook-category')?.value||'';
   const grade=document.getElementById('tbook-grade')?.value.trim()||'';
   const totalUnits=parseInt(document.getElementById('tbook-total-units')?.value)||0;
+  const nick=document.getElementById('tbook-nick')?.value.trim()||'';   // [A1] 달력에 쓸 짧은 이름
   const editId=document.getElementById('tbook-edit-id')?.value||'';
   try{
     if(editId){
       // 수정 모드: 기존 units 유지
       const existing=(_cache.globalTextbooks||[]).find(b=>b.id===editId)||{};
       const oldSeries=existing.series||'';
-      const tb={...existing,type:'textbook',title,publisher,series,level,category,grade,totalUnits};
+      const tb={...existing,type:'textbook',title,publisher,series,level,category,grade,totalUnits,nick};
       await supaUpsert('global_textbooks',editId,tb,null);
       const idx=_cache.globalTextbooks.findIndex(b=>b.id===editId);
       if(idx>=0)_cache.globalTextbooks[idx]=tb;
@@ -5283,7 +5284,7 @@ async function saveTbook(){
       }
     }else{
       // 추가 모드
-      const tb={id:uid(),type:'textbook',title,publisher,series,level,category,grade,totalUnits,coverUrl:_tbAddCover||''};
+      const tb={id:uid(),type:'textbook',title,publisher,series,level,category,grade,totalUnits,nick,coverUrl:_tbAddCover||''};
       await supaUpsert('global_textbooks',tb.id,tb,null);
       if(!_cache.globalTextbooks)_cache.globalTextbooks=[];
       _cache.globalTextbooks.push(tb);
@@ -5292,7 +5293,8 @@ async function saveTbook(){
     }
     renderTbookTable();renderBookDB();renderMasterDB();updateTbookDatalist();
     closeM('m-tbook-detail');
-    ['tbook-title','tbook-publisher','tbook-series','tbook-level','tbook-edit-id','tbook-grade','tbook-total-units'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    ['tbook-title','tbook-publisher','tbook-series','tbook-level','tbook-edit-id','tbook-grade','tbook-total-units','tbook-nick'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    _pgShortCache={};
     const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display='none';
     const catEl=document.getElementById('tbook-category');if(catEl)catEl.value='';
     document.getElementById('tbook-modal-title').textContent='교재 추가';
@@ -5328,6 +5330,8 @@ function openTbookUnits(tbId){
   document.getElementById('tbook-category').value=tb.category||'';
   document.getElementById('tbook-grade').value=tb.grade||'';
   document.getElementById('tbook-total-units').value=tb.totalUnits||'';
+  {const nk=document.getElementById('tbook-nick');
+   if(nk){nk.value=tb.nick||'';nk.placeholder=((typeof ppBookShort==='function')?ppBookShort({title:tb.title||''}):'')||'짧은 이름';}}
   document.getElementById('tbook-modal-title').textContent=tb.title||'단원 단어 관리';
   document.getElementById('tbook-submit-btn').textContent='저장';
   const delBtnU=document.getElementById('tbd-del-btn');if(delBtnU)delBtnU.style.display='';
@@ -6870,7 +6874,7 @@ function tbookCoverClear(){
 const _enterSubmitMap={
   'tu-en':'tuAddWord','tu-ko':'tuAddWord','tu-ex':'tuAddWord',
   'elib-wrd-en':'elibAddWord','elib-wrd-ko':'elibAddWord','elib-wrd-ex':'elibAddWord',
-  'tbook-title':'saveTbook','tbook-publisher':'saveTbook','tbook-series':'saveTbook','tbook-level':'saveTbook','tbook-grade':'saveTbook','tbook-total-units':'saveTbook',
+  'tbook-title':'saveTbook','tbook-publisher':'saveTbook','tbook-series':'saveTbook','tbook-level':'saveTbook','tbook-grade':'saveTbook','tbook-total-units':'saveTbook','tbook-nick':'saveTbook',
   'lib-title':'addLib','lib-series':'addLib','lib-ar':'addLib','lib-pages':'addLib','lib-pub':'addLib','lib-desc':'addLib',
   'elib-title':'updLib','elib-series':'updLib','elib-ar':'updLib','elib-pages':'updLib','elib-pub':'updLib'
 };
@@ -11832,35 +11836,9 @@ function renderAssignCal(){
   const firstDay=new Date(year,month,1).getDay();
   const daysInMonth=new Date(year,month+1,0).getDate();
   const todayStr=ppToday();
-  // ① 이 학생의 실제 과제 → 날짜별 칩 (스케줄형은 각 날짜, 일반형은 마감일)
-  // 진도 캘린더와 같은 시각 언어: 아이콘 없이 과목색+단원 라벨, 완료된 반복분은 ✓ 한 글자로 압축
-  const byDate={};
-  ppLive(_cache.assignments).forEach(a=>{
-    if(a.sid!==sid)return;
-    if((a.schedule||[]).length){
-      a.schedule.forEach(sc=>{
-        if(!sc.date||!sc.date.startsWith(ym))return;
-        const isRecur=a.category==='recur';
-        const app=_hwAppOf(a,sc);
-        (byDate[sc.date]=byDate[sc.date]||[]).push({
-          ord:app?15:(isRecur?10:20),
-          app:app?app.k:'',
-          color:app?_PG_C5_COLOR:(isRecur?'#2F7D63':_PG_C5_COLOR),
-          label:app?app.lbl:(sc.unit||sc.book||a.bookTitle||''),
-          tip:`${asgSrcLabel(a)} — ${[a.bookTitle&&a.bookTitle!==sc.book?a.bookTitle:'',sc.book,sc.unit].filter(Boolean).join(' · ')}`,
-          done:!!sc.done,by:sc.doneBy||''});
-      });
-    }else if(a.due&&a.due.startsWith(ym)){
-      const appD=_hwAppOf(a,null);
-      (byDate[a.due]=byDate[a.due]||[]).push({
-        ord:appD?15:30,
-        app:appD?appD.k:'',
-        color:appD?_PG_C5_COLOR:(_PG_CAT_COLORS[a.category]||'var(--text-muted)'),
-        label:appD?appD.lbl:([a.bookTitle||a.text||'',a.range].filter(Boolean).join(' ').trim()||'과제'),
-        tip:`${asgSrcLabel(a)} — ${[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')} (마감 ${a.due})`,
-        done:!!a.completedAt});
-    }
-  });
+  // ① 이 학생의 실제 과제 → 날짜별 칩
+  // [A2] 진도 캘린더와 **같은 칩**(_pgHwChips)을 쓴다 — 이름·색·모양이 두 화면에서 같다
+  const byDate=_pgHwChips(sid,ym);
   // 같은 날 같은 앱 숙제가 둘 이상이면 한 칩으로 묶는다.
   // (예: '리딩앤' 반복 숙제와 '주말 원서 읽기' 반복 숙제 — 아이는 같은 앱에서 한 번 하는 일이다)
   Object.keys(byDate).forEach(d=>{
@@ -11898,8 +11876,9 @@ function renderAssignCal(){
     // 할당된 과제 — 과목 우선순위 정렬(반복→클래스5→단건), 완료된 반복·자동분은 ✓만 (과거가 조용해지고 앞으로 할 것이 잘 보임)
     (byDate[ds]||[]).slice().sort((a,b)=>a.ord-b.ord).forEach(x=>{
       const compact=x.done&&x.ord<30; // 완료된 스케줄형(반복·클래스5)
-      const lbl=compact?'✓':escAttr(String(x.label).length>12?String(x.label).slice(0,12)+'…':x.label)+(x.done?' ✓':'');
-      chips+=`<span class="pg-chip rec${compact?' hw-done':''}" style="--pgc:${x.color}${x.done?';opacity:.55':''}" title="${escAttr(x.tip+(x.done?' · '+((typeof ppDoneWord==='function')?ppDoneWord(x.by):'제출완료'):''))}" onclick="event.stopPropagation();showAssignDateDetail('${ds}')">${lbl}</span>`;
+      const lbl=compact?'✓':escAttr(String(x.label).length>20?String(x.label).slice(0,20)+'…':x.label)+(x.done?' ✓':'');
+      const dim=(_alFocus&&x.aid!==_alFocus)?' pg-dim':'';   // [A3] 목록에서 고른 과제만 진하게
+      chips+=`<span class="pg-chip rec pg-hw${compact?' hw-done':''}${dim}" style="--pgc:${x.color}${x.done?';opacity:.55':''}" title="${escAttr(x.tip+(x.done?' · '+((typeof ppDoneWord==='function')?ppDoneWord(x.by):'제출완료'):''))}" onclick="event.stopPropagation();showAssignDateDetail('${ds}')">${lbl}</span>`;
     });
     // 미할당 수업 연계 숙제 제안 (점선=예정, 진도 캘린더와 동일)
     (hwBy[ds]||[]).filter(h=>!h.assigned).forEach(hw=>{
@@ -12155,15 +12134,16 @@ function renderAssignStats(){
       `${_nameOf(x.a.sid)} · ${String(x.a.bookTitle||x.a.text||x.a.range||'과제').slice(0,22)} — ${x.st.overdueRows14}일`)
     .join('\n')+(list.length>12?`\n… 외 ${list.length-12}건`:'');
   const unchecked=ppLive(_cache.homeworks).filter(h=>h.submitted&&!h.checked).length;
-  const card=(lbl,ico,icoCls,num,unit,subColor,tip)=>`<div class="dash-stat"${tip?` title="${escAttr(tip)}"`:''}>
+  // [A3] 카드를 누르면 아래 '진행 중인 과제' 목록이 그 조건으로 걸러진다
+  const card=(lbl,ico,icoCls,num,unit,subColor,tip,fk)=>`<div class="dash-stat${fk!==undefined?' dash-stat-c':''}${(fk!==undefined&&_alFilter===fk)?' on':''}"${tip?` title="${escAttr(tip)}"`:''}${fk!==undefined?` onclick="alSetFilter('${fk}')"`:''}>
     <div class="dash-stat-top"><span class="dash-stat-lbl">${lbl}</span><span class="dash-stat-ico ${icoCls}">${ico}</span></div>
     <div class="dash-stat-num"${subColor?` style="color:${subColor}"`:''}>${num}${unit?`<small> ${unit}</small>`:''}</div>
   </div>`;
   el.innerHTML=
-    card('진행 중','📋','',pending.length,'건','','아직 끝나지 않은 과제 (일정형은 모든 날을 끝내면 빠집니다)')
-    +card('오늘 마감','⏰',dueToday.length?'st-amber':'',dueToday.length,'건',dueToday.length?'var(--tealt)':'','오늘 몫이 아직 안 끝난 과제')
+    card('진행 중','📋','',pending.length,'건','','아직 끝나지 않은 과제 (일정형은 모든 날을 끝내면 빠집니다) · 누르면 아래 목록이 걸러집니다','')
+    +card('오늘 마감','⏰',dueToday.length?'st-amber':'',dueToday.length,'건',dueToday.length?'var(--tealt)':'','오늘 몫이 아직 안 끝난 과제 · 누르면 아래 목록이 걸러집니다','today')
     +card('미제출(지남)','⚠️',late.length?'st-amber':'',late.length,'건',late.length?'var(--warnt)':'',
-      late.length?('최근 2주 안에 밀린 날이 있는 과제\n'+tipOf(late)):'밀린 과제가 없습니다')
+      (late.length?('최근 2주 안에 밀린 날이 있는 과제\n'+tipOf(late)):'밀린 과제가 없습니다')+'\n누르면 아래 목록이 걸러집니다','late')
     +card('확인 대기','📥',unchecked?'st-green':'',unchecked,'건',unchecked?'var(--okt)':'','학생이 올린 숙제 중 아직 확인하지 않은 것');
 }
 // ── 학습기록 리셋 (P6) ──
@@ -12184,9 +12164,113 @@ async function hwResetProgress(asgnId){
     if(typeof currentSpStuId!=='undefined'&&currentSpStuId===a.sid)loadStuPanel(a.sid);
   });
 }
+// ── [A3] 진행 중인 과제 목록 ────────────────────────────────
+// 달력 칩만으로는 '지금 무엇이 도는가' 를 알 수 없었다 — 과제마다 한 줄로 모아 본다.
+let _alFilter='',_alFocus='',_alDoneOpen=false;
+function alSetFilter(k){_alFilter=(_alFilter===k?'':k);renderAssignLive();renderAssignStats();}
+function alFocus(aid){_alFocus=(_alFocus===aid?'':aid);renderAssignLive();renderAssignCal();}
+function alDoneToggle(){_alDoneOpen=!_alDoneOpen;renderAssignLive();}
+function _alKind(a){
+  if(typeof hwIsBookFlow==='function'&&hwIsBookFlow(a))return '교재형';
+  const app=_hwAppOf(a,(a.schedule||[])[0]||null);
+  if(app)return app.lbl;
+  if(a.category==='class5')return '클래스5';
+  if(a.category==='recur')return '반복';
+  return '단건';
+}
+// 교재형이면 **책 진도**(수업+숙제 합산), 아니면 일정 진행
+function _alProgress(a,st){
+  if(typeof hwIsBookFlow==='function'&&hwIsBookFlow(a)){
+    const tb=(_cache.globalTextbooks||[]).find(b=>b.id===a.bookId);
+    const c=DB.classes().find(x=>x.active!==false&&(x.studentIds||[]).includes(a.sid));
+    if(tb&&c){
+      const keys=tbUnitKeys(tb),rec=_pgLastRec(c.id,tb);
+      if(keys.length)return {done:(rec?rec.idx+1:0),total:keys.length,what:'책'};
+    }
+  }
+  return {done:st.doneCount,total:st.total,what:'일정'};
+}
+// 진도 보드 → 과제 탭의 그 과제 (강조해서 연다)
+function pgGoAssign(sid,aid){
+  swTab('t-assign');
+  setTimeout(()=>{
+    try{
+      const sel=document.getElementById('assign-filter-stu');if(sel)sel.value=sid;
+      if(typeof _hwCalStuId!=='undefined')_hwCalStuId=sid;
+      _alFilter='';_alFocus=aid;
+      renderAssignTab();renderAssignCal();
+      document.getElementById('assign-live')?.scrollIntoView({block:'center'});
+    }catch(e){}
+  },220);
+}
+function renderAssignLive(){
+  const el=document.getElementById('assign-live');if(!el)return;
+  const today=ppToday();
+  const actIds=new Set(DB.stus().filter(s=>!s.inactive).map(s=>s.id));
+  const fStu=document.getElementById('assign-filter-stu')?.value||'';
+  const rows=DB.assigns().filter(a=>actIds.has(a.sid)&&(!fStu||a.sid===fStu))
+    .map(a=>({a:a,st:hwState(a,today)}));
+  const live=rows.filter(x=>!x.st.finished);
+  const fin=rows.filter(x=>x.st.finished);
+  let show=live;
+  if(_alFilter==='today')show=live.filter(x=>x.st.todayPending);
+  else if(_alFilter==='late')show=live.filter(x=>x.st.overdueRows14>0);
+  const nameOf=sid=>{const s2=DB.stus().find(x=>x.id===sid);return s2?s2.name:'';};
+  const multi=new Set(rows.map(x=>x.a.sid)).size>1;
+  const line=x=>{
+    const a=x.a,st=x.st;
+    const sh=pgShortTitle('',a.bookTitle||'',a.bookId||'')||a.bookTitle||a.text||a.range||'과제';
+    const pr=_alProgress(a,st);
+    const pct=pr.total?Math.round(pr.done/pr.total*100):0;
+    const sch=_hwSchedOf(a)||[];
+    const nx=sch.find(r=>r&&!r.done&&r.date>=today)||sch.find(r=>r&&!r.done);
+    const rule=(typeof ppHwRuleLabel==='function')?ppHwRuleLabel(a):'';
+    const on=_alFocus===a.id;
+    return '<div class="al-row'+(on?' on':'')+'" onclick="alFocus(\''+escJsA(a.id)+'\')" title="달력에서 이 과제만 진하게 보기">'
+      +'<span class="al-nm">'+escAttr(sh)+(multi?'<em>'+escAttr(nameOf(a.sid))+'</em>':'')+'</span>'
+      +'<span class="al-kind">'+escAttr(_alKind(a))+'</span>'
+      +'<span class="al-rule">'+escAttr(rule||'-')+'</span>'
+      +'<span class="al-bar" title="'+pr.what+' 진도 '+pr.done+'/'+pr.total+'"><i style="width:'+pct+'%"></i></span>'
+      +'<span class="al-num">'+pr.done+'<em>/'+pr.total+'</em></span>'
+      +'<span class="al-next">'+(nx?(escAttr(String(nx.date||'').slice(5).replace('-','/'))+' '+escAttr(nx.unit||nx.book||'')):'<span style="opacity:.5">남은 몫 없음</span>')+'</span>'
+      +'<span class="al-end">'+(st.lastDate?('~'+escAttr(st.lastDate.slice(5).replace('-','/'))):'-')+'</span>'
+      +'<span class="al-late">'+(st.overdueRows14?('<b>'+st.overdueRows14+'일</b>'):'<span style="opacity:.4">0</span>')+'</span>'
+      +'<span class="al-act">'
+        +'<button class="btn bo bxxs" title="날짜별 일정 보기·고치기" onclick="event.stopPropagation();openEditAssignModal(\''+escJsA(a.id)+'\')">일정</button>'
+        +'<button class="btn bo bxxs" title="이 학생의 숙제 탭으로" onclick="event.stopPropagation();openStuPanelTab(\''+escJsA(a.sid)+'\',\'sp-hw\')">수정</button>'
+      +'</span></div>';
+  };
+  const head='<div class="al-row al-head">'
+    +'<span class="al-nm">과제</span><span class="al-kind">종류</span><span class="al-rule">요일</span>'
+    +'<span class="al-bar"></span><span class="al-num">진행</span><span class="al-next">다음 몫</span>'
+    +'<span class="al-end">끝나는 날</span><span class="al-late">밀린 날</span><span class="al-act"></span></div>';
+  const fl=[['','진행 중 '+live.length],['today','오늘 몫 '+live.filter(x=>x.st.todayPending).length],
+            ['late','밀림 '+live.filter(x=>x.st.overdueRows14>0).length]];
+  let h='<div class="card al-card"><div class="ch"><span class="ct">'+(luIcon('list-checks',16)||'')+' 진행 중인 과제</span>'
+    +'<span class="al-fl">'+fl.map(([k,n])=>'<button class="btn '+(_alFilter===k?'bt':'bo')+' bxxs" onclick="alSetFilter(\''+k+'\')">'+n+'</button>').join('')+'</span>'
+    +(_alFocus?'<button class="btn bo bxxs" onclick="alFocus(\'\')">강조 끄기</button>':'')+'</div><div class="cb al-body">';
+  if(!show.length)h+='<div class="eb-empty" style="padding:14px">'+(live.length?'이 조건에 맞는 과제가 없어요':'지금 도는 과제가 없습니다')+'</div>';
+  else{
+    h+=head;
+    if(multi){
+      const by={};show.forEach(x=>{(by[x.a.sid]=by[x.a.sid]||[]).push(x);});
+      Object.keys(by).forEach(sid=>{
+        h+='<div class="al-stu">'+escAttr(nameOf(sid))+' <em>'+by[sid].length+'건</em></div>'+by[sid].map(line).join('');
+      });
+    }else h+=show.map(line).join('');
+  }
+  if(fin.length){
+    h+='<div class="al-done"><button class="btn bo bxxs" onclick="alDoneToggle()">끝난 과제 '+fin.length+'건 '+(_alDoneOpen?'▴':'▾')+'</button>'
+      +(_alDoneOpen?('<div class="al-done-b">'+head+fin.map(line).join('')+'</div>'):'')+'</div>';
+  }
+  h+='</div></div>';
+  el.innerHTML=h;
+  try{lucide.createIcons();}catch(e){}
+}
 function renderAssignTab(){
   recurAutoMaintain(); // 자동 진행 숙제의 밀린 단원을 먼저 재배치
   renderAssignStats();
+  renderAssignLive();
   const el=document.getElementById('assign-list');if(!el)return;
   const filterStu=document.getElementById('assign-filter-stu')?.value||'';
   const stus=DB.stus().filter(s=>!s.inactive);
@@ -14070,6 +14154,33 @@ const _pgYmd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+S
 // 과목(카테고리)별 칩 색 — 과목 pill(spill) 색 계열과 통일. 원서는 보라 한 색.
 const _PG_CAT_COLORS={phonics:'#0EA5E9',vocab:'#1D4ED8',grammar:'#5B21B6',reading:'var(--okt)',listening:'#D97706',writing:'#DB2777',naesin:'#EA580C'};
 const _PG_ORT_COLOR='#7C3AED';
+// [A1] 반의 교재 흐름 안에서 겹치지 않는 짧은 책 이름 — 모든 칩이 이걸 쓴다
+let _pgShortCache={};
+function _pgShortOf(classId){
+  const c=DB.classes().find(x=>x.id===classId);
+  const key=classId+'|'+(c?Object.keys(c.commonMaterials||{}).join(','):'');
+  const e=_pgShortCache[key];
+  if(e&&Date.now()-e.at<30000)return e.map;
+  const tbs=Object.values((c&&c.commonMaterials)||{}).map(m=>_pgTbOf(m)).filter(Boolean);
+  const map=(typeof ppBookShortMap==='function')?ppBookShortMap(tbs):{};
+  _pgShortCache[key]={at:Date.now(),map:map};
+  return map;
+}
+// 흐름 밖 책도 짧은 이름을 받는다
+function pgShort(classId,tb){
+  if(!tb)return '';
+  const m=classId?_pgShortOf(classId):null;
+  return (m&&m[tb.id])||((typeof ppBookShort==='function')?ppBookShort(tb):String(tb.title||''));
+}
+function pgShortTitle(classId,title,bookId){
+  const tb=_pgTbOf({book:title,bookId:bookId||''});
+  return tb?pgShort(classId,tb):((typeof ppBookShort==='function')?ppBookShort(String(title||'')):String(title||''));
+}
+// 교재의 영역 키 (색을 영역 색으로 통일하기 위해)
+function pgAreaOfTb(tb){
+  if(!tb)return '';
+  return Object.keys(_CAT_KO).find(k=>_CAT_KO[k]===tb.category)||'';
+}
 function _pgNorm(x){return String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');}
 // 'unit1' vs 'unit1newfriends' 표기 차이 흡수 — 숫자 경계 보호로 unit11 오매칭 방지
 function _pgUMatch(a,b){
@@ -14577,10 +14688,16 @@ function _pgComposePlan(classId,c,uptoDate){
             if(!d||d>uptoDate)return;
             (byDay[d]=byDay[d]||[]).push(s2.unit);
           });
-          vPins.forEach(pn=>(byDay[pn.date]=byDay[pn.date]||[]).push(pn.unit));
-          Object.entries(byDay).forEach(([d,units])=>{ // 같은 날 여러 유닛 = 개별 칩 (한 유닛씩 따로 조정)
-            units.forEach(u=>(ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:u,color:b.color,title:b.tb.title,s:b.s}));
+          // [A4] 과제로 도는 책은 달력에 단원을 **한 번만** 쓴다(숙제 칩).
+          // 수업일에는 그 사이 나간 몫을 묶어 '숙제 확인' 칩 하나만 둔다 —
+          // 전에는 같은 'Day 5' 가 숙제 칩(금)과 수업 예정 칩(화)으로 두 번 보여
+          // 과제로 도는 책인지 수업으로 나가는 책인지 알 수 없었다.
+          Object.entries(byDay).forEach(([d,units])=>{
+            (ghostBy[d]=ghostBy[d]||[]).push({tbId:b.tb.id,unit:units.join(', '),units:units.slice(),
+              check:true,color:b.color,title:b.tb.title,s:b.s});
           });
+          // 선생님이 '이 날 수업에서 나간다'고 날짜를 박아 둔 단원(핀)은 지금처럼 예정 칩
+          vPins.forEach(pn=>(ghostBy[pn.date]=ghostBy[pn.date]||[]).push({tbId:b.tb.id,unit:pn.unit,color:b.color,title:b.tb.title,s:b.s}));
           // 다음 교재는 이 반복 숙제가 끝난 다음 날부터 (남은 단원이 있을 때만)
           if(remain.size){const last=(sch[sch.length-1]||{}).date||'';if(last&&_addDay(last)>cursor)cursor=_addDay(last);}
         }
@@ -15361,15 +15478,29 @@ function _pgTrackBoardHtml(classId){
       const modeCls=t.mode==='hw'?'hw':t.mode==='alt'?'alt':'cls';
       const eta=cur.eta||'';
       const next=t.books[t.nowIdx+1];
+      // [A5] 과제로 도는 줄 — 숙제의 요일과 다음 몫을 한 줄로
+      let hwLine='';
+      if(cur.hwId){
+        const hwA=(_cache.assignments||[]).find(x=>x&&x.id===cur.hwId);
+        if(hwA){
+          const st=hwState(hwA);
+          const sch=_hwSchedOf(hwA)||[];
+          const nx=sch.find(r=>r&&!r.done&&r.date>=today)||sch.find(r=>r&&!r.done);
+          hwLine=`<div class="tb-hwline" title="과제 탭에서 이 과제를 봅니다" onclick="event.stopPropagation();pgGoAssign('${escJsA(hwA.sid)}','${escJsA(hwA.id)}')">`
+            +`📕 숙제 ${escAttr((typeof ppHwRuleLabel==='function')?ppHwRuleLabel(hwA):'')}`
+            +(nx?` · 다음 ${escAttr(String(nx.date||'').slice(5).replace('-','/'))} ${escAttr(nx.unit||'')}`:' · 남은 몫 없음')
+            +(st.overdueRows14?` · <b>밀림 ${st.overdueRows14}일</b>`:'')+`</div>`;
+        }
+      }
       tr.push(`<div class="tb-track">
         <span class="tb-mode ${modeCls}">${mode}</span>
         <span class="tb-book" title="${escAttr(cur.tb.title)}">${escAttr(cur.tb.title)}</span>
         <span class="tb-bar" title="${done}/${total}과"><i style="width:${pct}%;background:${color}"></i></span>
         <span class="tb-num">${done}<em>/${total}</em></span>
         <span class="tb-eta">${eta?'~'+eta.slice(5).replace('-','/'):'<span style="opacity:.5">1년 내 미완</span>'}</span>
-        <span class="tb-next">${next?'다음 '+escAttr(next.tb.title):'<span class="tb-end">다음 교재 없음</span>'}</span>
+        <span class="tb-next">${next?'다음 '+escAttr(pgShort(classId,next.tb)):'<span class="tb-end">다음 교재 없음</span>'}</span>
         <span class="tb-acts">${(t.mode==='hw'&&!cur.hwId&&sid0)?`<button class="tb-fix tb-hw" title="이 책 숙제를 이어서 냅니다 — 미리 보고 한 번에" onclick="hwContinueOpen('${sid0}','${cur.tb.id}','${escJsA(cur.nextUnit||'')}')">📕 숙제</button>`:''}<button class="tb-fix" title="진도 수정 — 어디까지 끝냈는지 직접 맞추기" onclick="pgEditProgress('${classId}','${cur.tb.id}')">✏️</button></span>
-      </div>`);
+      </div>${hwLine}`);
     });
     if(!tr.length)return;
     rows.push(`<div class="tb-row">
@@ -15400,6 +15531,9 @@ function _pgTrackBoardHtml(classId){
 // 반환: {날짜:[{ord,color,label,tip,done,aid,sched,kind}]}  kind: 'recur'|'class5'|'single'
 function _pgHwChips(sid,ym){
   const out={};
+  // [A2] 칩은 어디서나 '[짧은 이름] 단원' · 색은 영역 색 (종류는 모양으로 가른다)
+  const _cls=DB.classes().find(c=>c.active!==false&&(c.studentIds||[]).includes(sid));
+  const _cid=_cls?_cls.id:'';
   (_cache.assignments||[]).forEach(a=>{
     if(a._deleted||a.sid!==sid)return;
     const sch=_hwSchedOf(a);
@@ -15408,10 +15542,13 @@ function _pgHwChips(sid,ym){
       sch.forEach(sc=>{
         if(!sc.date||(ym&&!sc.date.startsWith(ym)))return;
         const app=_hwAppOf(a,sc);
+        const _tb=_pgTbOf({bookId:a.bookId||'',book:sc.book||a.bookTitle||''});
+        const _area=pgAreaOfTb(_tb);
+        const _sh=_tb?pgShort(_cid,_tb):'';
         (out[sc.date]=out[sc.date]||[]).push({
-          ord:app?15:(isRecur?10:20),kind:(app||!isRecur)?'class5':'recur',aid:a.id,sched:true,
-          color:app?_PG_C5_COLOR:(isRecur?'#2F7D63':_PG_C5_COLOR),
-          label:app?app.lbl:(sc.unit||sc.book||a.bookTitle||''),
+          ord:app?15:(isRecur?10:20),kind:(app||!isRecur)?'class5':'recur',aid:a.id,sched:true,app:app?app.k:'',
+          color:(_PG_CAT_COLORS[_area]||(app?_PG_C5_COLOR:(isRecur?'#2F7D63':_PG_C5_COLOR))),
+          label:(app?(app.lbl+' '):'')+((typeof ppChipLabel==='function')?ppChipLabel(_tb,sc.unit||sc.book||'',_sh):(sc.unit||sc.book||a.bookTitle||'')),
           tip:`${asgSrcLabel(a)} — ${[a.bookTitle&&a.bookTitle!==sc.book?a.bookTitle:'',sc.book,sc.unit].filter(Boolean).join(' · ')}`,
           done:!!sc.done,by:sc.doneBy||''});
       });
@@ -15419,10 +15556,11 @@ function _pgHwChips(sid,ym){
     }
     const due=a.due||'';
     if(!due||(ym&&!due.startsWith(ym)))return;
+    const _tb1=_pgTbOf({bookId:a.bookId||'',book:a.bookTitle||''});
     (out[due]=out[due]||[]).push({
-      ord:30,kind:'single',aid:a.id,sched:false,
-      color:_PG_CAT_COLORS[a.category]||'var(--text-muted)',
-      label:[a.bookTitle||a.text||'',a.range].filter(Boolean).join(' ').trim()||'과제',
+      ord:30,kind:'single',aid:a.id,sched:false,app:(_hwAppOf(a,null)||{}).k||'',
+      color:_PG_CAT_COLORS[pgAreaOfTb(_tb1)]||_PG_CAT_COLORS[a.category]||'var(--text-muted)',
+      label:[(_tb1?pgShort(_cid,_tb1):(a.bookTitle||a.text||'')),a.range].filter(Boolean).join(' ').trim()||'과제',
       tip:`${asgSrcLabel(a)} — ${[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')} (마감 ${due})`,
       done:!!a.completedAt,by:a.completedBy||''});
   });
@@ -15507,7 +15645,8 @@ function _pgCalHtml(classId){
     const _prio=k=>({vocab:10,phonics:20,grammar:30,listening:40,writing:50,naesin:60,reading:70}[String(k||'').replace(/_\d+$/,'')]??65);
     let chips=Object.values(recBy[ds]||{}).sort((a,b)=>_prio(a.cat)-_prio(b.cat)).map(e=>{
       const us=[...e.units];
-      return`<span class="${recCls} has-x" style="--pgc:${colorOf(e.tbId,e.cat)}" title="${escAttr((SLBL[e.cat]?SLBL[e.cat]+' · ':'')+e.book+(us.length?' — '+us.join(', '):'')+futTip+' · 우클릭=메뉴, ✕=이 진도만 지우기')}" oncontextmenu="pgChipMenu(event,'rec','${classId}','${ds}','${escAttr(e.tbId||'')}','','')" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">${us.length?us.join(', '):'✓'}<i class="pg-x" title="이 진도만 지우기" onclick="pgRecMatDel(event,'${classId}','${ds}','${escAttr(e.tbId||'')}','${escJsA(e.book)}')">✕</i></span>`;
+      const sh=pgShortTitle(classId,e.book,e.tbId);                 // [A2] 기록 칩에도 책 이름
+      return`<span class="${recCls} has-x" style="--pgc:${colorOf(e.tbId,e.cat)}" title="${escAttr((SLBL[e.cat]?SLBL[e.cat]+' · ':'')+e.book+(us.length?' — '+us.join(', '):'')+futTip+' · 우클릭=메뉴, ✕=이 진도만 지우기')}" oncontextmenu="pgChipMenu(event,'rec','${classId}','${ds}','${escAttr(e.tbId||'')}','','')" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">${sh?escAttr(sh)+' ':''}${us.length?us.join(', '):'✓'}<i class="pg-x" title="이 진도만 지우기" onclick="pgRecMatDel(event,'${classId}','${ds}','${escAttr(e.tbId||'')}','${escJsA(e.book)}')">✕</i></span>`;
     }).join('');
     chips+=[...(ortRecBy[ds]||[])].map(t=>
       `<span class="${recCls}" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr('원서 — '+t+(ortGroupOf(t)?' ('+ortGroupOf(t)+')':'')+' · 클릭=AR·완독 편집')}" onclick="event.stopPropagation();pgOrtRecEdit('${classId}','${escJsA(t)}','${ds}')">📗 ${t}</span>`
@@ -15516,9 +15655,16 @@ function _pgCalHtml(classId){
       `<span class="${recCls} has-x" style="--pgc:#7B1FA2" title="${escAttr('Pencil Down — '+t+futTip+' · 우클릭=메뉴, ✕=이 기록만 지우기')}" oncontextmenu="pgChipMenu(event,'rec','${classId}','${ds}','','${escJsA(t)}')" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">✏️ ${t}<i class="pg-x" title="이 기록만 지우기" onclick="pgRecMatDel(event,'${classId}','${ds}','','${escJsA(t)}')">✕</i></span>`
     ).join('');
     if(!chips&&lessonDates.has(ds))chips=`<span class="${recCls}" style="--pgc:var(--neutral)" onclick="event.stopPropagation();openClassLessonEdit('${classId}','${ds}')">수업</span>`;
-    chips+=(ghostBy[ds]||[]).slice().sort((a,b)=>_prio(a.s)-_prio(b.s)).map(g=>
-      `<span class="pg-chip ghost has-x" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (끌어서 이동 · 더블클릭=기록 확정 · 우클릭=메뉴 · ✕=이 날에서 빼기)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" oncontextmenu="pgChipMenu(event,'ghost','${classId}','${ds}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escJsA(g.unit)}','${ds}','${escJsA(g.s)}')">${g.unit}<i class="pg-x" title="이 날에서 빼기" onclick="pgChipSkip(event,'${classId}','${g.tbId}','${ds}','${escJsA(g.title)}')">✕</i></span>`
-    ).join('');
+    chips+=(ghostBy[ds]||[]).slice().sort((a,b)=>_prio(a.s)-_prio(b.s)).map(g=>{
+      const sh=pgShortTitle(classId,g.title,g.tbId);
+      if(g.check){  // [A4] 숙제로 나간 몫을 수업에서 확인하는 칩 (옮기거나 빼지 않는다)
+        const us=g.units||[g.unit];
+        const lastU=us[us.length-1];
+        const lbl=(sh?sh+' ':'')+'확인 '+(us.length>1?(us[0]+'~'+lastU):us[0]);
+        return `<span class="pg-chip ghost pg-hwcheck" style="--pgc:${g.color}" title="${escAttr(g.title+' — 숙제로 나간 '+us.join(', ')+' 를 이 수업에서 확인합니다 (클릭=수업 기록 창에 채워 열기 · 더블클릭=기록 확정)')}" onclick="event.stopPropagation();openClassLesson('${classId}','${ds}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escJsA(lastU)}','${ds}','${escJsA(g.s)}')">📕 ${escAttr(lbl)}</span>`;
+      }
+      return `<span class="pg-chip ghost has-x" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (끌어서 이동 · 더블클릭=기록 확정 · 우클릭=메뉴 · ✕=이 날에서 빼기)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" oncontextmenu="pgChipMenu(event,'ghost','${classId}','${ds}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escJsA(g.unit)}','${ds}','${escJsA(g.s)}')">${sh?escAttr(sh)+' ':''}${g.unit}<i class="pg-x" title="이 날에서 빼기" onclick="pgChipSkip(event,'${classId}','${g.tbId}','${ds}','${escJsA(g.title)}')">✕</i></span>`;
+    }).join('');
     chips+=(ortGhostBy[ds]||[]).map(g=>
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr((clsStus.length>1?g.name+' — ':'')+g.title+(ortGroupOf(g.title)?' · '+ortGroupOf(g.title):'')+' (원서 예정 — 끌어서 옮기기, 더블클릭=읽음 기록)')}" ondragstart="pgDragStart(event,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" ondblclick="pgOrtDbl(event,'${classId}','${g.sid}','${escJsA(g.title)}','${ds}')">📗 ${clsStus.length>1?g.name+'·':''}${g.title}</span>`
     ).join('');
@@ -15532,13 +15678,14 @@ function _pgCalHtml(classId){
       const isC5=x.kind==='class5';
       if(isC5?!LY.c5:!LY.hw)return;
       const compact=x.done&&x.sched;
-      const lbl=compact?'✓':escAttr(String(x.label).length>12?String(x.label).slice(0,12)+'…':x.label)+(x.done?' ✓':'');
+      const lbl=compact?'✓':escAttr(String(x.label).length>20?String(x.label).slice(0,20)+'…':x.label)+(x.done?' ✓':'');
       chips+=`<span class="pg-chip rec pg-hw${compact?' hw-done':''} has-x" style="--pgc:${x.color}${x.done?';opacity:.55':''}" title="${escAttr('📕 숙제 · '+x.tip+(x.done?' · '+((typeof ppDoneWord==='function')?ppDoneWord(x.by):'제출완료')+(x.by&&x.by!=='lesson'?'('+(_PG_HW_BY[x.by]||x.by)+')':''):'')+' · 클릭=완료 토글, ✕=이 숙제 지우기')}" onclick="event.stopPropagation();pgHwToggle('${classId}','${x.aid}','${ds}',${x.sched})">${lbl}<i class="pg-x" title="이 숙제 지우기" onclick="pgHwDel(event,'${classId}','${x.aid}','${ds}',${x.sched})">✕</i></span>`;
     });
     // 아직 할당 전 수업 연계 숙제 제안 (점선 📕)
     if(LY.hw)(hwPlan[ds]||[]).filter(h=>!h.assigned).forEach(hw=>{
       const col=_PG_CAT_COLORS[hw.subject]||'var(--text-muted)';
-      chips+=`<span class="pg-chip pg-hw ghost" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=할당·취소 선택)')}" onclick="hwChipMenu(event,'${classId}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">${hw.unit}</span>`;
+      const shh=pgShortTitle(classId,hw.book,hw.bookId);
+      chips+=`<span class="pg-chip pg-hw ghost" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=할당·취소 선택)')}" onclick="hwChipMenu(event,'${classId}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">${shh?escAttr(shh)+' ':''}${hw.unit}</span>`;
     });
     const isSkip=skipSet.has(ds);
     const skipMark=isSkip?`<span class="pg-skip-mark" title="수업 안 함 (휴강·결석) — 이후 진도가 하루씩 밀렸어요. 누르면 되돌리기">🚫 수업 안 함</span>`:'';
@@ -15580,11 +15727,12 @@ function _pgCalHtml(classId){
     </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
     <div class="pp-key">
-      <span class="pp-key-i"><i class="pp-sw rec"></i>기록</span>
-      <span class="pp-key-i"><i class="pp-sw gho"></i>예정</span>
+      <span class="pp-key-i"><i class="pp-sw rec"></i>기록(채움)</span>
+      <span class="pp-key-i"><i class="pp-sw gho"></i>예정(점선)</span>
       <span class="pp-key-i"><i class="pp-sw om"></i>옆 달</span>
-      ${LY.hw?`<span class="pp-key-i"><i class="pp-sw" style="background:#2F7D63"></i>반복 숙제</span>`:''}
-      ${LY.c5?`<span class="pp-key-i"><i class="pp-sw" style="background:${_PG_C5_COLOR}"></i>클래스5·리딩앤</span>`:''}
+      ${LY.hw?`<span class="pp-key-i">📕 숙제</span><span class="pp-key-i">📕 …확인 = 숙제로 나간 몫을 수업에서 확인</span>`:''}
+      ${LY.c5?`<span class="pp-key-i">🎮 클래스5·리딩앤</span>`:''}
+      <span class="pp-key-i" title="색은 영역(어휘·리딩·리스닝·어법)으로 통일했습니다">색 = 영역</span>
       <span class="pp-key-sp"></span>
       <span class="pp-key-d">끌어서 이동 · ✕로 빼기 · 우클릭 메뉴</span>
     </div>
