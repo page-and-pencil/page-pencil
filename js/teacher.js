@@ -19636,6 +19636,13 @@ function _ibLightOf(d,id,at){                       // data 전체 → 목록용
     star:d.star||null,checked:d.checked||null,note:d.note,createdAt:d.createdAt,editedAt:d.editedAt,
     hasPassage:!!String(d.passage||''),hasScript:!!String(d.script||''),_deleted:d._deleted||undefined}};
 }
+// 문항의 id 는 **행 id** 가 진짜다. REST 로 바로 넣은 행이나 가져온 파일에는
+// data 안에 id 가 없을 수 있고, 있어도 행 id 와 다를 수 있다 — 받는 쪽에서 늘 덮어쓴다.
+function _ibWithId(data,rowId){
+  if(!data||!rowId)return data||null;
+  if(data.id!==rowId)data.id=rowId;
+  return data;
+}
 function _ibAlive(r){return !!r&&!(r.meta&&r.meta._deleted);}
 async function _ibFetchAll(){
   const PAGE=1000;let out=[],off=0;
@@ -19656,7 +19663,7 @@ async function _ibFetchAll(){
       return null;
     }
     if(_ibSrc==='view')out=out.concat(r.rows.filter(_ibAlive));
-    else r.rows.forEach(x=>{const L=_ibLightOf(x.data||{},x.id,x.updated_at);if(_ibAlive(L)){out.push(L);_ibFull.set(x.id,x.data);}});
+    else r.rows.forEach(x=>{const L=_ibLightOf(x.data||{},x.id,x.updated_at);if(_ibAlive(L)){out.push(L);_ibFull.set(x.id,_ibWithId(x.data,x.id));}});
     if(r.rows.length<PAGE)return out;
     off+=PAGE;
   }
@@ -19677,7 +19684,7 @@ async function _ibFetchByIds(ids){
   if(_ibSrc==='view'){const r=await _ebGet('item_bank_index?'+IB_SEL+'&id=in.('+q+')');return r.ok?r.rows:null;}
   const r=await _ebGet('item_bank?select=id,updated_at,data&id=in.('+q+')');
   if(!r.ok)return null;
-  return r.rows.map(x=>{_ibFull.set(x.id,x.data);return _ibLightOf(x.data||{},x.id,x.updated_at);});
+  return r.rows.map(x=>{_ibFull.set(x.id,_ibWithId(x.data,x.id));return _ibLightOf(x.data||{},x.id,x.updated_at);});
 }
 async function _ibProbe(){
   try{
@@ -19733,11 +19740,11 @@ async function ibLoad(force){
   finally{_ibLoading=false;}
 }
 async function _ibFullRow(id){
-  if(_ibFull.has(id))return _ibFull.get(id);
+  if(_ibFull.has(id))return _ibWithId(_ibFull.get(id),id);
   const dev=await _ibDevGet(id);                     // 기기에만 있는 원문 지문 문항
-  if(dev){_ibFull.set(id,dev);return dev;}
+  if(dev){_ibWithId(dev,id);_ibFull.set(id,dev);return dev;}
   const r=await _ebGet('item_bank?select=data&id=eq.'+encodeURIComponent(id));
-  const d=(r.ok&&r.rows[0]&&r.rows[0].data)||null;
+  const d=_ibWithId((r.ok&&r.rows[0]&&r.rows[0].data)||null,id);
   if(d)_ibFull.set(id,d);
   return d;
 }
@@ -20389,17 +20396,17 @@ async function _ibFetchItems(ids){
   if(!want.length)return [];
   const got=new Map();
   const dev=await _ibDevAll();
-  dev.forEach(d=>{if(d&&want.indexOf(d.id)>=0)got.set(d.id,d);});
+  dev.forEach(d=>{if(d&&want.indexOf(d.id)>=0)got.set(d.id,d);});   // 기기 보관분은 만들 때 id 를 넣는다
   const rest=want.filter(id=>!got.has(id));
   for(let i=0;i<rest.length;i+=50){
     const q=rest.slice(i,i+50).map(encodeURIComponent).join(',');
     const r=await _ebGet('item_bank?select=id,data&id=in.('+q+')');
     if(!r.ok)return null;
-    r.rows.forEach(x=>{if(x&&x.data&&!x.data._deleted)got.set(x.id,x.data);});
+    r.rows.forEach(x=>{if(x&&x.data&&!x.data._deleted)got.set(x.id,_ibWithId(x.data,x.id));});
   }
   const out=[];
   want.forEach(id=>{const d=got.get(id);if(!d)return;
-    out.push({id:d.id,type:d.type,typeName:d.typeName,stem:d.stem,passage:d.passage,
+    out.push({id:id,type:d.type,typeName:d.typeName,stem:d.stem,passage:d.passage,   // 행 id 를 쓴다
       choices:(d.choices||[]).slice(),answer:d.answer,answerText:d.answerText,rubric:d.rubric,
       explain:d.explain,intent:'',wrong:(d.wrong||[]).slice(),
       srcWords:d.words||0,srcKeep:!!(d.src&&d.src.keep),createdAt:d.createdAt,
@@ -20450,7 +20457,7 @@ function _ibGuessType(stem){
 async function _ibFetchData(ids){
   const want=[...new Set((ids||[]).filter(Boolean))];
   const out=new Map();
-  want.forEach(id=>{if(_ibFull.has(id))out.set(id,_ibFull.get(id));});
+  want.forEach(id=>{if(_ibFull.has(id))out.set(id,_ibWithId(_ibFull.get(id),id));});
   if(out.size<want.length){
     const dev=await _ibDevAll();
     dev.forEach(d=>{if(d&&want.indexOf(d.id)>=0&&!out.has(d.id))out.set(d.id,d);});
@@ -20460,7 +20467,7 @@ async function _ibFetchData(ids){
     const q=rest.slice(i,i+50).map(encodeURIComponent).join(',');
     const r=await _ebGet('item_bank?select=id,data&id=in.('+q+')');
     if(!r.ok)break;
-    r.rows.forEach(x=>{if(x&&x.data&&!x.data._deleted){out.set(x.id,x.data);_ibFull.set(x.id,x.data);}});
+    r.rows.forEach(x=>{if(x&&x.data&&!x.data._deleted){const d=_ibWithId(x.data,x.id);out.set(x.id,d);_ibFull.set(x.id,d);}});
   }
   return out;
 }
@@ -20553,7 +20560,7 @@ async function _pbLoadData(ids){
   const got=(typeof _ibFetchData==='function')?await _ibFetchData(want):null;
   if(got)got.forEach((v,k)=>_pbData.set(k,v));
 }
-function _pbD(id){return _pbData.get(id)||null;}
+function _pbD(id){return _ibWithId(_pbData.get(id)||null,id);}
 // 지문을 같이 쓰는 문항(setId)은 늘 붙어 다닌다
 function _pbSetOf(s){const d=s&&s.id?_pbD(s.id):null;return d?String(d.setId||''):'';}
 function _pbSortSets(){
@@ -21216,6 +21223,9 @@ async function irBySid(sid,n){
 // 결과 한 줄 저장 — sid 를 늘 함께 보낸다(학생·학부모 정책이 sid 로 걸린다)
 async function irPut(rowId,data,sid){
   if(_irNoTable)return false;
+  if(irBadKeys(data&&data.answers)||irBadKeys(data&&data.correct)){
+    toast('문항 번호를 찾지 못했어요 — 저장하지 않았습니다');return false;
+  }
   if(!sid){console.warn('item_results: sid 없이 저장하려 함');return false;}
   const ok=await supaUpsert('item_results',rowId,data,sid).catch(e=>{
     if(String((e&&e.message)||'').indexOf('404')>=0){
@@ -21255,6 +21265,10 @@ function irGrade(items,answers,prev){
   return {correct,score,total,points:pts,pointsTotal:ptsTotal,byType,bySkill};
 }
 function irPct(a,b){return b?Math.round(a/b*100):0;}
+// 문항 id 를 못 찾으면 'undefined' 같은 키로 저장돼 점수가 0 이 된다 — 아예 저장하지 않는다
+function irBadKeys(o){
+  return Object.keys(o||{}).some(k=>k===''||k==='undefined'||k==='null');
+}
 
 // ── 학생에게 보내기 ──────────────────────────────────────────────────────
 let _pbSendIds=[];
@@ -21306,10 +21320,11 @@ function pbSendAll(){
 function _pbSentItems(){
   return _pbSlots.filter(s=>s.id).map(s=>{
     const d=_pbD(s.id)||{};
-    return {id:d.id,type:d.type||'',typeName:_ibTypeLabel(d),skill:d.skill||_ibSkillOf(d.type||''),
+    // id 는 칸에 적힌 행 id 를 그대로 쓴다 (data 안의 id 가 없거나 달라도 안전하다)
+    return {id:s.id,type:d.type||'',typeName:_ibTypeLabel(d),skill:d.skill||_ibSkillOf(d.type||''),
       stem:d.stem||'',passage:d.passage||'',script:d.script||'',
       choices:(d.choices||[]).slice(),answer:d.answer,
-      setId:d.setId||'',setOrder:d.setOrder||null,points:_pbPt(d.id)};
+      setId:d.setId||'',setOrder:d.setOrder||null,points:_pbPt(s.id)};
   });
 }
 function pbSendGo(){
@@ -21473,6 +21488,10 @@ async function peSave(){
   const asTest=!!(document.getElementById('pe-astest')||{}).checked;
   const btn=document.getElementById('pe-save');if(btn)btn.disabled=true;
   let n=0;
+  if(_peItems.some(it=>!it.id)||irBadKeys(_peAnsMap(_peRows[0]||{ans:[]}))){
+    if(btn)btn.disabled=false;
+    toast('문항 번호를 찾지 못했어요 — 시험지를 닫았다 다시 열어 주세요');return;
+  }
   for(const r of _peRows){
     const ans=_peAnsMap(r);
     const g=irGrade(_peItems,ans);
