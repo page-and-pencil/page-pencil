@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261112b">
+<link rel="stylesheet" href="css/style.css?v=20261112c">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -2758,6 +2758,84 @@
 </div>
 
 <!-- 기출·자료실: 자료 한 건 (선생님 전용) -->
+<!-- 시험지 만들기 (문제 은행 바구니 → 편집 → 인쇄) -->
+<div id="m-paper" class="mo">
+  <div class="mdl mdl-xl pb-modal">
+    <div class="mh">
+      <div style="min-width:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="mt">시험지 만들기</div>
+        <input type="text" id="pb-title" class="iso-title" placeholder="시험지 이름 (비우면 알아서 붙여요)" oninput="pbTitleChange(this.value)">
+        <span id="pb-stat" class="iso-stat"></span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+        <button class="btn bo bsm" onclick="pbSaveNow()">지금 저장</button>
+        <button class="bx" onclick="pbClose()">×</button>
+      </div>
+    </div>
+
+    <div class="pb-body">
+      <!-- 서식·머리말 -->
+      <div class="pb-bar">
+        <label class="iso-lb">서식</label>
+        <select class="filter-sel" id="pb-format" onchange="pbSetFormat(this.value)">
+          <option value="suneung">수능형 (A4 2단)</option>
+          <option value="naesin">내신형 (머리표·서술형 답란)</option>
+          <option value="worksheet">학습지 (1단·메모 여백)</option>
+          <option value="mini">숙제 미니</option>
+        </select>
+        <label class="iso-lb">학원</label>
+        <input type="text" class="pb-in" id="pb-h-school" onchange="pbHeader('school',this.value)" placeholder="직결영어">
+        <label class="iso-lb">시험 이름</label>
+        <input type="text" class="pb-in pb-in-w" id="pb-h-exam" onchange="pbHeader('exam',this.value)" placeholder="2026학년도 1학기 중간고사">
+        <label class="iso-lb">날짜</label>
+        <input type="date" class="pb-in" id="pb-h-date" onchange="pbHeader('date',this.value)">
+      </div>
+
+      <!-- 자동 구성 -->
+      <details class="pb-auto" id="pb-auto">
+        <summary>자동 구성 — 틀과 조건으로 은행에서 채우기</summary>
+        <div class="pb-a-row">
+          <label class="iso-lb">틀</label>
+          <select class="filter-sel" id="pb-frame" onchange="pbCfgChange()"></select>
+          <span id="pb-focus-row" style="display:none"><label class="iso-lb">유형</label>
+            <select class="filter-sel" id="pb-focus" onchange="pbCfgChange()"></select></span>
+        </div>
+        <div id="pb-custom" class="pb-custom" style="display:none"></div>
+        <div class="pb-a-row">
+          <label class="iso-lb">학년</label><select class="filter-sel" id="pb-grade" onchange="pbCfgChange()"></select>
+          <label class="iso-lb">난도</label>
+          <select class="filter-sel" id="pb-dmin" onchange="pbCfgChange()"></select>
+          <span class="iso-hint">~</span>
+          <select class="filter-sel" id="pb-dmax" onchange="pbCfgChange()"></select>
+          <label class="iso-lb">출처</label><select class="filter-sel" id="pb-src" onchange="pbCfgChange()"></select>
+        </div>
+        <div class="pb-a-row">
+          <label class="iso-lb">교재</label><select class="filter-sel" id="pb-tb" onchange="pbCfgChange()"></select>
+          <select class="filter-sel" id="pb-unit" onchange="pbCfgChange()" style="display:none"></select>
+          <label class="iso-chk"><input type="checkbox" id="pb-unused" checked onchange="pbCfgChange()"> 안 쓴 문항 먼저</label>
+        </div>
+        <div class="pb-a-row">
+          <button class="btn bt bsm" onclick="pbCompose()">은행에서 채우기</button>
+          <button class="btn bo bsm" onclick="pbFillAI()">✏️ 동형으로 채우기</button>
+          <span class="iso-hint" id="pb-ai-state"></span>
+        </div>
+      </details>
+
+      <div id="pb-sum" class="pb-sum"></div>
+      <div id="pb-list" class="pb-list"></div>
+
+      <div class="pb-foot">
+        <span class="iso-lb">인쇄</span>
+        <button class="btn bt bsm" onclick="pbPrint('q')">🖨 문제지</button>
+        <button class="btn bo bsm" onclick="pbPrint('ans')">정답표</button>
+        <button class="btn bo bsm" onclick="pbPrint('sol')">정답·해설지</button>
+        <button class="btn bo bsm" onclick="pbPrint('script')">듣기 대본</button>
+        <button class="btn bo bsm" onclick="pbPrint('omr')">답안지(OMR)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="m-eb-detail" class="mo">
   <div class="mdl mdl-xl eb-modal">
     <div class="mh">
@@ -2807,7 +2885,7 @@
 <script src="js/utils.js?v=20261111b"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261111c"></script>
-<script src="js/teacher.js?v=20261112b"></script>
+<script src="js/teacher.js?v=20261112c"></script>
 <script src="js/student.js?v=20261111e"></script>
 <script src="js/parent.js?v=20261111b"></script>
 </body>
