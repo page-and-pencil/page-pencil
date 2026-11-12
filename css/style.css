@@ -3191,3 +3191,9 @@ span.pe-c{width:30px;flex-shrink:0;text-align:center;}
   .lk-chip{max-width:150px;}
   .lk-mat-k{width:100%;}
 }
+
+/* 학습 세트 — 끊어 읽기 고치기 · 화자 표기 · 인쇄 제목 줄 */
+.lk-ed{display:inline-block;min-width:60%;border-bottom:1px dashed var(--border);outline:none;padding:1px 2px;}
+.lk-ed:focus{border-color:var(--teal);background:var(--tl);}
+.lk-spk{font-size:11.5px;font-weight:700;color:var(--tealt);background:var(--tl);border-radius:5px;padding:1px 6px;margin-right:5px;}
+.lk-row.lk-wrap{white-space:normal;word-break:break-word;}
