@@ -886,7 +886,7 @@ function renderAssignmentTab(sid){
       // 자동 진행 숙제는 못 한 날의 단원을 오늘부터로 밀어서 표시 (저장은 선생님 앱이 담당)
       const sched=_hwSchedOf(a);
       const isRecur=a.category==='recur'||a.type==='recur';
-      const mkTbl=rows=>`<div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--cream)"><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">날짜</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">${isRecur?'숙제':'교재'}</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">유닛</th></tr></thead><tbody>${rows.map(r=>`<tr style="${r.date===today?'background:var(--okl);font-weight:700':''}${r.done?';opacity:.55':''}"><td style="padding:3px 6px;border-bottom:1px solid var(--border);white-space:nowrap">${(r.date||'').slice(5).replace('-','/')}${r.done?' ✅':''}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.book||''}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.unit||''}</td></tr>`).join('')}</tbody></table></div>`;
+      const mkTbl=rows=>`<div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--cream)"><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">날짜</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">${isRecur?'숙제':'교재'}</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">유닛</th></tr></thead><tbody>${rows.map(r=>`<tr style="${r.date===today?'background:var(--okl);font-weight:700':''}${r.done?';opacity:.55':''}"><td style="padding:3px 6px;border-bottom:1px solid var(--border);white-space:nowrap">${(r.date||'').slice(5).replace('-','/')}${r.done?(r.doneBy==='lesson'?' <span style="font-size:10px;color:var(--teal)" title="수업에서 함">수업</span>':' ✅'):''}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.book||''}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.unit||''}</td></tr>`).join('')}</tbody></table></div>`;
       const upcoming=sched.filter(r=>(r.date||'')>=today);
       const shown=upcoming.length?upcoming.slice(0,7):sched.slice(-3);
       const tbl=mkTbl(shown)
@@ -1475,7 +1475,9 @@ function renderMemCard(el){
       const tbWord=tuNormWords(tb.units?.[card.srcUnit]||[]).find(w=>(w.word||'').toLowerCase()===card.word.toLowerCase());
       if(tbWord?.example&&tbWord.example!==card.example){
         card.example=tbWord.example;card.exampleSrc='book';
-        supaUpsert('vocab_cards',card.id,card,card.sid).catch(()=>{});
+        // 화면을 여는 길에서 저절로 나가는 저장 — 기기 캐시로 부팅한 첫 그리기에서는 화면에만 쓴다
+        if(typeof ppServerFresh!=='function'||ppServerFresh())
+          supaUpsert('vocab_cards',card.id,card,card.sid).catch(()=>{});
         const ci=(_cache.vocab_cards||[]).findIndex(c=>c.id===card.id);
         if(ci>=0)_cache.vocab_cards[ci]={...card};
       }
@@ -4118,6 +4120,7 @@ function renderStudentHome(sid){
           ${qNo?`<span class="quest-no">퀘스트 ${qNo}</span>`:''}
           <div style="display:flex;align-items:center;font-size:15px;font-weight:700;color:var(--navy)"><span class="hw-ico">${icon}</span>${title}</div>
           ${detail?`<div style="font-size:13px;color:var(--slate);margin-top:3px">${detail}</div>`:''}
+          ${done&&sc.doneBy==='lesson'?`<div style="font-size:12px;color:var(--tealt);margin-top:3px">✔ ${(typeof ppDoneWord==='function')?ppDoneWord('lesson'):'수업에서 함'}</div>`:''}
           ${isVocabAuto&&!done?`<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><button class="btn bo bsm" style="border-radius:50px;padding:8px 14px" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button></div><div style="font-size:12.5px;color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
           ${(()=>{ // 외부 앱에서 하는 숙제(리딩앤·클래스5·오토보카)는 그 앱으로 바로 보낸다
             if(isVocabAuto||done)return '';

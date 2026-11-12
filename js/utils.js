@@ -245,19 +245,24 @@ function classSchedStr(c){
 }
 
 // ── CUSTOM CONFIRM ──
-let _confirmCb=null;
-function askConfirm(title,msg,okLabel,okCls,cb){
+let _confirmCb=null,_confirmCancelCb=null;
+// cancelCb 는 뒤에 붙인 선택 인자 — 취소도 알아야 하는 곳이 생겼다(규칙으로 바꿀까요?)
+function askConfirm(title,msg,okLabel,okCls,cb,cancelCb){
   document.getElementById('confirm-title').textContent=title;
   document.getElementById('confirm-msg').textContent=msg;
   const btn=document.getElementById('confirm-ok-btn');
   btn.textContent=okLabel||'확인';
   btn.className='btn '+(okCls||'bd')+' ';
   btn.style.flex='1';
-  _confirmCb=cb;
+  _confirmCb=cb;_confirmCancelCb=cancelCb||null;
   openM('m-confirm');
 }
-function confirmOk(){closeM('m-confirm');if(_confirmCb)_confirmCb();_confirmCb=null;}
-function confirmCancel(){closeM('m-confirm');_confirmCb=null;}
+function confirmOk(){closeM('m-confirm');const f=_confirmCb;_confirmCb=null;_confirmCancelCb=null;if(f)f();}
+function confirmCancel(){closeM('m-confirm');const f=_confirmCancelCb;_confirmCb=null;_confirmCancelCb=null;if(f)f();}
+// 예/아니오를 기다려야 하는 곳 — 저장 도중에 물어볼 때 쓴다
+function ppAskYesNo(title,msg,okLabel,okCls){
+  return new Promise(res=>{askConfirm(title,msg,okLabel,okCls,()=>res(true),()=>res(false));});
+}
 
 // ── SCREENS ──
 // 화면 전환 — View Transitions 로 부드럽게 교차. 지원 안 하면 그대로 즉시 전환(동작 동일).
@@ -1726,33 +1731,70 @@ function ppFlowNowBooks(flow){
 // ── 반복 숙제 이름표 ────────────────────────────────────────
 // 규칙 글자(recurRule)를 그대로 쓰면 '월·화·수·금으로 손수 고친 숙제'가 계속 '수업 없는 날'로 보인다.
 // 일정의 **실제 요일**로 만들고, 규칙과 실제가 맞을 때만 규칙 이름을 쓴다.
-const PP_RULE_NAME={noclass:'수업 없는 날',class:'수업 있는 날',daily:'매일',weekday:'평일',weekend:'주말'};
-function ppHwDows(a){
-  const DOWS=['일','월','화','수','목','금','토'];
+const PP_RULE_NAME={noclass:'수업 없는 날',class:'수업 있는 날',daily:'매일',weekday:'평일',weekend:'주말',custom:'고른 요일'};
+const PP_DOWS=['일','월','화','수','목','금','토'];
+const PP_DOW_ORDER=['월','화','수','목','금','토','일'];
+// 반복 규칙 하나 — '이 날짜가 그 규칙에 드는가'. 전에는 같은 판정이 세 곳(일정 생성·재배치·규칙 대조)에
+// 따로 적혀 있어서, 규칙을 하나 더할 때마다 한 곳이 빠졌다(주말만이 매일로 돌던 버그).
+//  rule 'custom' = 선생님이 고른 요일(a.recurDays). 등록된 휴강일은 기본으로 빼고,
+//  '수업 없는 날에도 내기'(a.recurSkipOk)를 고르면 휴강일에도 낸다 — 방학처럼 수업이 없는 기간용.
+function ppRuleHit(rule,d,ds,cls,a){
+  const dow=PP_DOWS[d.getDay()];
+  const days=(cls&&cls.days)||[];
+  const skip=(cls&&cls.skipSet)||new Set((cls&&cls.skipDates)||[]);
+  const extra=(cls&&cls.extraSet)||new Set((cls&&cls.extraDates)||[]);
+  const isCls=(days.indexOf(dow)>=0||extra.has(ds))&&!skip.has(ds);
+  if(rule==='noclass')return !isCls;
+  if(rule==='class')return isCls;
+  if(rule==='weekday')return dow!=='토'&&dow!=='일';
+  if(rule==='weekend')return dow==='토'||dow==='일';
+  if(rule==='custom'){
+    const pick=(a&&a.recurDays)||[];
+    if(!pick.length||pick.indexOf(dow)<0)return false;
+    return !(skip.has(ds)&&!(a&&a.recurSkipOk));
+  }
+  return true;                                    // daily
+}
+function ppRuleLabelOf(rule,days,skipOk){
+  if(rule==='custom'){
+    const d=(days||[]).slice().sort((x,y)=>PP_DOW_ORDER.indexOf(x)-PP_DOW_ORDER.indexOf(y));
+    return (d.length===7?'매일':(d.join('·')||'고른 요일'))+(skipOk?' · 휴강일에도':'');
+  }
+  return PP_RULE_NAME[rule||'']||'';
+}
+// 요일 이름표는 **오늘부터 4주 안**의 날짜로 만든다.
+// 일정 전체를 모으면, 평소 월·화·수·금이고 방학 한 달만 매일인 숙제가 늘 '매일'로 보였다.
+// 앞으로 4주 안에 줄이 없으면 가장 가까운 4주를 쓴다(끝난 숙제의 이름표도 읽히게).
+function ppHwDows(a,opts){
+  const o=opts||{};
+  const sch=(_hwSchedOf(a)||[]).filter(s=>s&&s.date).slice().sort((x,y)=>String(x.date).localeCompare(String(y.date)));
+  if(!sch.length)return '';
+  const today=o.today||((typeof ppToday==='function')?ppToday():'');
+  const win=o.days||28;
+  const sft=(ds,n)=>(typeof ppShiftDate==='function')?ppShiftDate(ds,n):ds;
+  let use=today?sch.filter(s=>s.date>=today&&s.date<=sft(today,win)):[];
+  if(!use.length&&today){
+    const fut=sch.filter(s=>s.date>=today);
+    if(fut.length)use=sch.filter(s=>s.date>=fut[0].date&&s.date<=sft(fut[0].date,win));
+    else{const last=sch[sch.length-1].date;use=sch.filter(s=>s.date>=sft(last,-win)&&s.date<=last);}
+  }
+  if(!use.length)use=sch;
   const set=new Set();
-  (_hwSchedOf(a)||[]).forEach(s=>{if(s&&s.date)set.add(new Date(s.date+'T12:00:00').getDay());});
+  use.forEach(s=>set.add(PP_DOWS[new Date(s.date+'T12:00:00').getDay()]));
   if(!set.size)return '';
   if(set.size===7)return '매일';
-  return [1,2,3,4,5,6,0].filter(d=>set.has(d)).map(d=>DOWS[d]).join('·');
+  return PP_DOW_ORDER.filter(d=>set.has(d)).join('·');
 }
+// 완료 표시의 말 한 곳 — 수업에서 나간 몫은 아이가 제출한 것이 아니다 (선생님·학생·학부모 화면 공통)
+function ppDoneWord(by){return String(by||'')==='lesson'?'수업에서 함':'제출완료';}
 // 일정이 규칙 그대로인가 — 규칙에 맞는 날이 모두 있고, 규칙에 어긋나는 날이 없어야 한다
 function ppHwMatchesRule(a){
   const rule=a&&a.recurRule;
   if(!rule||!PP_RULE_NAME[rule])return false;
-  const sch=(_hwSchedOf(a)||[]).filter(s=>s&&s.date);
+  const sch=(_hwSchedOf(a)||[]).filter(s=>s&&s.date).slice().sort((x,y)=>String(x.date).localeCompare(String(y.date)));
   if(sch.length<2)return false;
   const cls=(typeof DB!=='undefined'?DB.classes():[]).find(c=>c.active!==false&&(c.studentIds||[]).includes(a.sid));
-  const days=(cls&&cls.days)||[],skip=new Set((cls&&cls.skipDates)||[]),extra=new Set((cls&&cls.extraDates)||[]);
-  const DOWS=['일','월','화','수','목','금','토'];
-  const ok=(d,ds)=>{
-    const dow=DOWS[d.getDay()];
-    const isCls=(days.includes(dow)||extra.has(ds))&&!skip.has(ds);
-    if(rule==='noclass')return !isCls;
-    if(rule==='class')return isCls;
-    if(rule==='weekday')return dow!=='토'&&dow!=='일';
-    if(rule==='weekend')return dow==='토'||dow==='일';
-    return true;                                   // daily
-  };
+  const ok=(d,ds)=>ppRuleHit(rule,d,ds,cls,a);
   const have=new Set(sch.map(s=>s.date));
   const first=sch[0].date,last=sch[sch.length-1].date;
   const d=new Date(first+'T12:00:00');
@@ -1766,9 +1808,23 @@ function ppHwMatchesRule(a){
 }
 function ppHwRuleLabel(a){
   if(!a)return '';
+  if(a.recurRule==='custom')return ppRuleLabelOf('custom',a.recurDays,a.recurSkipOk)||ppHwDows(a);
   const nm=PP_RULE_NAME[a.recurRule||'']||'';
   if(nm&&ppHwMatchesRule(a))return nm;
   return ppHwDows(a)||nm;
+}
+// 손으로 고친 일정이 규칙 하나로 설명되는가 → {rule,days,skipOk} 아니면 null.
+// 설명되면 '규칙으로 바꾸고 자동 밀림을 유지할까요?'를 물어볼 수 있다(auto 를 말없이 끄지 않기 위해).
+function ppHwRuleInfer(a){
+  if(!a||!(a.schedule||[]).length)return null;
+  const probe=(rule,days,skipOk)=>{
+    const t=Object.assign({},a,{recurRule:rule,recurDays:days||[],recurSkipOk:!!skipOk,auto:false,noUnitSync:true});
+    return ppHwMatchesRule(t)?{rule:rule,days:(days||[]).slice(),skipOk:!!skipOk}:null;
+  };
+  const dows=new Set((a.schedule||[]).filter(s=>s&&s.date).map(s=>PP_DOWS[new Date(s.date+'T12:00:00').getDay()]));
+  const pick=PP_DOW_ORDER.filter(d=>dows.has(d));
+  return probe('daily')||probe('weekday')||probe('weekend')||probe('noclass')||probe('class')
+    ||probe('custom',pick,false)||probe('custom',pick,true)||null;
 }
 // ── 과제 탭 배너 ────────────────────────────────────────────
 // '다음 교재를 고르세요' 가 다음 책 숙제가 한창 도는 중에도 떠 있었다(auto 인 숙제만 봤다).
@@ -1779,6 +1835,7 @@ function ppHwRuleLabel(a){
 function ppHwBanner(sid){
   const flow=ppFlowForStudent(sid);
   const out=[];
+  const _today=(typeof ppToday==='function')?ppToday():'';
   if(flow.length){
     flow.forEach(area=>{
       // 같은 영역에 아직 도는 과제 줄이 있으면, 끝난 줄을 두고 '다음 교재'로 보채지 않는다
@@ -1794,18 +1851,31 @@ function ppHwBanner(sid){
           return;
         }
         const hw=t.now.hwId?(_cache.assignments||[]).find(x=>x&&x.id===t.now.hwId):null;
-        if(hw&&!hwState(hw).finished)return;           // 숙제가 돌고 있다 — 알릴 것 없음
+        const _need=(bk,prev,soon)=>{
+          out.push({kind:'need-hw',area:area.area,key:bk.key,soon:!!soon,
+            tbId:bk.tb.id,title:bk.tb.title,unit:bk.nextUnit||'',
+            rule:(prev&&prev.recurRule)||'',days:prev?ppHwDows(prev):'',
+            skipOk:!!(prev&&prev.recurSkipOk),prevId:prev?prev.id:'',
+            prevTitle:prev?(prev.bookTitle||''):'',prevEnd:prev?hwState(prev).lastDate:'',
+            doneIdx:bk.doneIdx,total:bk.total});
+        };
         // 직전 교재형 숙제의 반복 방식을 그대로 이어 쓴다
         let prev=null;
         for(let i=t.nowIdx-1;i>=0&&!prev;i--){
           const p=t.books[i];
           prev=p.hwId?(_cache.assignments||[]).find(x=>x&&x.id===p.hwId):null;
         }
+        if(hw&&!hwState(hw).finished){
+          // 지금 책 숙제가 돌고 있다 — 끝이 3일 안이면 **다음 책**을 미리 알린다
+          // (끝난 뒤에 알리면 그 사이 숙제 없는 날이 생긴다)
+          const st=hwState(hw);
+          const nx=t.books[t.nowIdx+1];
+          const soonDay=(typeof ppShiftDate==='function')?ppShiftDate(_today,3):'';
+          if(nx&&!nx.hwId&&st.lastDate&&soonDay&&st.lastDate<=soonDay)_need(nx,hw,true);
+          return;
+        }
         if(!prev&&hw)prev=hw;
-        out.push({kind:'need-hw',area:area.area,key:t.now.key,
-          tbId:t.now.tb.id,title:t.now.tb.title,unit:t.now.nextUnit||'',
-          rule:(prev&&prev.recurRule)||'',days:prev?ppHwDows(prev):'',
-          doneIdx:t.now.doneIdx,total:t.now.total});
+        _need(t.now,prev,false);
       });
     });
     return out;
@@ -1818,6 +1888,67 @@ function ppHwBanner(sid){
       rule:last.recurRule||'',days:ppHwDows(last)});
   }
   return out;
+}
+
+// ── [1] 숙제 이어서 내기 — 미리 보기 한 벌 ───────────────────
+// '다음 교재'를 정하는 길이 셋(진도 보드·과제 탭 배너·과제 창)이었고 서로 몰랐다.
+// 어느 길로 들어와도 이 한 함수가 '무엇을·언제부터·어떤 요일로' 를 계산하고,
+// 화면은 그 값을 보여 주기만 한다. 저장은 사람이 [이대로 내기]를 눌렀을 때만 한다.
+function _ppPrevBookHw(sids,tb){
+  const want=new Set(Array.isArray(sids)?sids:[sids]);
+  const list=((typeof _cache!=='undefined')?(_cache.assignments||[]):[])
+    .filter(a=>a&&!a._deleted&&want.has(a.sid)&&hwIsBookFlow(a)&&(a.schedule||[]).length
+      &&!(tb&&(a.bookId===tb.id||ppNormUnit(a.bookTitle)===ppNormUnit(tb.title))));
+  list.sort((x,y)=>String(y.due||'').localeCompare(String(x.due||'')));
+  return list[0]||null;
+}
+// opts: {unit,rule,days,skipOk,start,prev}
+function ppHwNextPlan(sid,tbId,opts){
+  const o=opts||{};
+  const tbs=(typeof _cache!=='undefined')?(_cache.globalTextbooks||[]):[];
+  const tb=tbs.find(b=>b&&b.id===tbId);
+  if(!tb)return null;
+  const keys=(typeof tbUnitKeys==='function')?tbUnitKeys(tb):[];
+  if(!keys.length)return null;
+  const cls=(typeof DB!=='undefined'?DB.classes():[]).find(c=>c.active!==false&&(c.studentIds||[]).includes(sid))||null;
+  const sids=cls?((cls.studentIds||[]).filter(x=>{
+    const st=((typeof DB!=='undefined'&&DB.stus)?DB.stus():[]).find(y=>y.id===x);
+    return !st||!st.inactive;
+  })):[sid];
+  // 시작 단원 — 수업이 이미 나간 다음 단원 (없으면 첫 단원)
+  let unit=o.unit||'';
+  if(!unit&&cls){const r=ppLastRec(cls.id,tb);unit=keys[((r?r.idx:-1))+1]||'';}
+  if(!unit)unit=keys[0];
+  const prev=o.prev||_ppPrevBookHw(sids.length?sids:[sid],tb);
+  const rule=o.rule||(prev&&prev.recurRule)||'noclass';
+  const days=(o.days&&o.days.length)?o.days.slice():((prev&&prev.recurDays)||[]).slice();
+  const skipOk=(o.skipOk!==undefined)?!!o.skipOk:!!(prev&&prev.recurSkipOk);
+  const today=(typeof ppToday==='function')?ppToday():'';
+  const sft=(ds,n)=>(typeof ppShiftDate==='function')?ppShiftDate(ds,n):ds;
+  const prevEnd=prev?(hwState(prev).lastDate||''):'';
+  const start=o.start||((prevEnd&&prevEnd>=today)?sft(prevEnd,1):today);
+  const rows=(typeof buildRecurSchedule==='function')?buildRecurSchedule({rule:rule,start:start,end:'',
+    clsDays:cls&&cls.days,skipDates:cls&&cls.skipDates,extraDates:cls&&cls.extraDates,
+    recurDays:days,recurSkipOk:skipOk,tb:tb,startUnit:unit}):[];
+  return {tbId:tb.id,title:tb.title,unit:unit,rule:rule,days:days,skipOk:skipOk,
+    ruleLabel:ppRuleLabelOf(rule,days,skipOk),
+    start:(rows[0]&&rows[0].date)||start,end:(rows.length?rows[rows.length-1].date:''),
+    n:rows.length,rows:rows,fromUnitIdx:keys.indexOf(unit),total:keys.length,
+    prevId:prev?prev.id:'',prevTitle:prev?(prev.bookTitle||''):'',prevEnd:prevEnd,
+    classId:cls?cls.id:'',sids:sids.length?sids:[sid]};
+}
+// ── [4] 남은 단원이 Review 류뿐인 책 ─────────────────────────
+// 'Review 4' 하나가 남아 영원히 '지금 책'으로 걸려 있는 일을 알린다. 자동으로 넘기지는 않는다.
+const PP_UNIT_REVIEW_RE=/^\s*(review|test|\ubcf5\uc2b5|\ub9ac\ubdf0)/i;  // 단원 이름이 Review/Test 로 시작
+function ppReviewOnlyLeft(classId,tb,doneIdx){
+  if(!tb)return null;
+  const keys=(typeof tbUnitKeys==='function')?tbUnitKeys(tb):[];
+  if(!keys.length)return null;
+  const di=(doneIdx===undefined||doneIdx===null)?((ppLastRec(classId,tb)||{idx:-1}).idx):doneIdx;
+  const left=keys.slice(di+1);
+  if(!left.length||left.length>6)return null;
+  if(!left.every(k=>PP_UNIT_REVIEW_RE.test(String(k))))return null;
+  return {left:left,n:left.length,lastDone:keys[di]||''};
 }
 
 // ── 교재 여정 ────────────────────────────────────────────────
@@ -2987,6 +3118,74 @@ function ppApplyUnitSync(a){
   if(ns.length&&ns[ns.length-1].date)a.due=ns[ns.length-1].date;
   return true;
 }
+// ── [0] 옛 스냅샷으로 서버를 덮어쓰지 않기 ───────────────────
+// 화면은 기기 스냅샷(pp_cache_v2)으로 먼저 부팅한다. 그 캐시의 일정이 옛것이면,
+// 화면을 열 때 저절로 도는 맞춤(recurAutoMaintain)이 그 옛 줄을 통째로 저장해
+// 그 사이 다른 기기에서 학생이 체크한 줄을 지운다. 그래서 저장 직전에
+// **그 과제 한 줄을 서버에서 다시 읽어** 합치고, 서버 줄을 기준으로 다시 계산한다.
+//
+// 사람이 체크한 줄(PP_DONE_REAL)은 날짜+단원이 같은 줄에 그대로 옮긴다.
+// (단원이 맞는 줄이 없으면 같은 날짜의 아직 빈 줄로)
+function ppMergeSchedChecks(baseSched,fromSched){
+  const out=(baseSched||[]).map(s=>Object.assign({},s));
+  (fromSched||[]).forEach(r=>{
+    if(!r||!r.done||PP_DONE_REAL.indexOf(String(r.doneBy||''))<0)return;
+    let t=out.find(x=>x&&x.date===r.date&&_ppUnitSame(ppNormUnit(x.unit),ppNormUnit(r.unit)));
+    if(!t)t=out.find(x=>x&&x.date===r.date&&!x.done);
+    if(t&&!t.done){t.done=true;t.doneBy=r.doneBy;if(r.doneAt)t.doneAt=r.doneAt;}
+  });
+  return out;
+}
+// 서버 줄(srv)을 기준으로, 화면 줄(mine)에만 있는 사람 체크를 옮겨 합친 과제 한 벌.
+// schedulePrev·schedulePrevAt 은 **서버에 이미 있으면 덮어쓰지 않는다**(되돌릴 기준점을 잃지 않게).
+function ppAssignMerge(srv,mine){
+  const base=Object.assign({},srv);
+  base.schedule=ppMergeSchedChecks(srv&&srv.schedule,mine&&mine.schedule);
+  if(srv&&srv.schedulePrev){
+    base.schedulePrev=srv.schedulePrev;
+    if(srv.schedulePrevAt)base.schedulePrevAt=srv.schedulePrevAt;
+  }else if(mine&&mine.schedulePrev){
+    base.schedulePrev=mine.schedulePrev.map(x=>Object.assign({},x));
+    base.schedulePrevAt=mine.schedulePrevAt||new Date().toISOString();
+  }
+  if((srv&&srv.noUnitSync)||(mine&&mine.noUnitSync))base.noUnitSync=true;
+  return base;
+}
+function _ppSchedSame(x,y){
+  const a=x||[],b=y||[];
+  if(a.length!==b.length)return false;
+  return a.every((s,i)=>{const o=b[i];
+    return !!o&&String(s.date||'')===String(o.date||'')&&String(s.unit||'')===String(o.unit||'')
+      &&String(s.book||'')===String(o.book||'')&&!!s.done===!!o.done&&String(s.doneBy||'')===String(o.doneBy||'');});
+}
+// 화면을 열 때 저절로 하는 과제 저장은 여기로만 한다.
+//  · 스냅샷으로 부팅한 첫 그리기(서버에서 아직 안 받음) → 저장하지 않는다('nofresh')
+//  · 서버 줄을 다시 읽어 합치고, recompute(그 과제) 로 다시 계산한 뒤
+//    서버와 같으면 저장하지 않는다('nochange')
+// 반환: 'saved' | 'nochange' | 'nofresh'
+async function ppSaveAssignMerged(a,recompute){
+  if(!a||!a.id)return 'nochange';
+  if(typeof ppServerFresh==='function'&&!ppServerFresh())return 'nofresh';
+  const sid=a.sid;
+  const row=(typeof ppFetchRow==='function')?await ppFetchRow('assignments',a.id):null;
+  const srv=(row&&row.data)?row.data:null;
+  if(srv){
+    if(srv._deleted)return 'nochange';            // 휴지통에 간 과제를 되살리지 않는다
+    const base=ppAssignMerge(srv,a);
+    if(typeof recompute==='function')recompute(base);
+    const same=_ppSchedSame(base.schedule,srv.schedule)
+      &&String(base.due||'')===String(srv.due||'')
+      &&!!base.noUnitSync===!!srv.noUnitSync
+      &&!!base.schedulePrev===!!srv.schedulePrev;
+    // 화면도 서버 기준으로 맞춘다 — 옛 스냅샷이 남아 다음 그리기에서 또 어긋나지 않게
+    Object.keys(a).forEach(k=>{if(!(k in base))delete a[k];});
+    Object.assign(a,base);
+    if(!a.sid&&sid)a.sid=sid;
+    if(same)return 'nochange';
+  }
+  await supaUpsert('assignments',a.id,a,sid);
+  return 'saved';
+}
 // 자동 진행 반복 숙제(auto)의 스케줄을 **고정 시작일(a.date)** 기준으로 조밀하게 다시 깐다.
 // 시작일부터 반복 규칙(noclass/class/daily)에 맞는 모든 날에 단원을 1개씩 순서대로 배치 —
 // 휴강·수업 없는 날이 새로 생겨도, 지나간 날이어도 그 날짜의 단원이 사라지지 않는다(과거 미완료 = 밀린 숙제로 남음).
@@ -3017,16 +3216,8 @@ function recurRebase(a){
   const skip=new Set(cls?.skipDates||[]);
   const extra=new Set(cls?.extraDates||[]); // 추가 수업일 (특강 매일 수업)
   const rule=a.recurRule||'noclass';
-  const DOWS=['일','월','화','수','목','금','토'];
-  const ok=(d,ds)=>{
-    const dow=DOWS[d.getDay()];
-    const isCls=(days.includes(dow)||extra.has(ds))&&!skip.has(ds);
-    if(rule==='noclass')return !isCls;
-    if(rule==='class')return isCls;
-    if(rule==='weekday')return dow!=='토'&&dow!=='일';
-    if(rule==='weekend')return dow==='토'||dow==='일';
-    return true;
-  };
+  const _rcls={days:days,skipSet:skip,extraSet:extra};
+  const ok=(d,ds)=>ppRuleHit(rule,d,ds,_rcls,a);
   const doneUnits=new Set(a.schedule.filter(s=>s.done).map(s=>String(s.unit||'')));
   // 누가 완료했는지(doneBy)도 단원 기준으로 따라간다 — 이걸 잃으면 '수업으로 처리된 몫'이
   // 다음 재계산 때 '학생이 한 것'으로 바뀌어 도장이 잘못 찍힌다 (2026-11-08)
