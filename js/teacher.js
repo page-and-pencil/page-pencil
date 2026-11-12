@@ -6964,6 +6964,7 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-12',title:"기기에만 둔 동형 묶음도 '저장된 것'에 — '이 기기' 표시와 함께",where:'교재·문제 → 저장된 것',tab:'t-data',go:['switchDataTab','ws']},
  {date:'2026-11-12',title:'책 홈 — 한 책의 단어·본문·해석·음원·자료·문항을 한 곳에서',where:'교재·문제 → 교재 → 책 이름',tab:'t-data',go:['switchDataTab','tbook']},
  {date:'2026-11-12',title:'수준표 — 교재를 실제 내용으로 재어 수준별로 늘어놓았어요',where:'교재·문제 → 수준표',tab:'t-data',go:['switchDataTab','stage']},
  {date:'2026-11-12',title:'자료실 책으로 보기 — 출판사 → 시리즈 → 책으로 묶어서',where:'교재·문제 → 자료실',tab:'t-data',go:['switchDataTab','bank']},
@@ -7127,15 +7128,25 @@ async function renderWsDB(refetch){
   let devPapers=[];
   try{devPapers=(await _pbDevAll()).map(p=>({...p,_dev:true}));}catch(e){}   // 원문 지문이 든 시험지(기기 보관)
   try{const kk=await idbGet('pp_kit_dev');if(Array.isArray(kk))devPapers=devPapers.concat(kk.map(k=>({...k,_dev:true})));}catch(e){}
+  // 기기에만 둔 동형 묶음(원문 지문) — 서버 목록에 없으니 여기서 합쳐야 보인다
+  try{
+    const iso=await idbGet(ISO_DEV_KEY);
+    if(Array.isArray(iso))devPapers=devPapers.concat(
+      iso.filter(x=>x&&x.deviceOnly&&x.id).map(x=>({...x,kind:'iso',_dev:true,
+        createdAt:x.createdAt||x.savedAt||0})));
+  }catch(e){}
+  {const srvIds=new Set((_cache.worksheets||[]).map(w=>w&&w.id));
+   devPapers=devPapers.filter(w=>w&&!srvIds.has(w.id));}       // 서버에도 있는 줄은 한 번만
   let list=[..._cache.worksheets,...devPapers]
     .filter(w=>w&&w.kind!=='paperSent'&&w.kind!=='paperSol')   // 학생에게 보낸 사본·해설 줄은 목록에 띄우지 않는다
     .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   // [B5] 시험지 탭·학습 세트 탭은 같은 목록을 종류로 걸러 쓴다
   if(_wsKind==='paper')list=list.filter(w=>w.kind==='paper');
   else if(_wsKind==='kit')list=list.filter(w=>w.kind==='kit');
+  const shown=list.length,shownDev=list.filter(w=>w&&w._dev).length;   // 머리 숫자는 화면에 그린 줄 수와 같게
   if(q)list=list.filter(w=>(w.title||'').toLowerCase().includes(q));
   const total=document.getElementById('ws-total');
-  if(total)total.textContent=`${_cache.worksheets.length}개 저장됨`;
+  if(total)total.textContent=`${shown}개 저장됨`+(shownDev?` (이 기기에만 ${shownDev}개)`:'');
   if(!list.length){
     grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:34px 16px;color:var(--slate)">
       <div style="font-size:34px;margin-bottom:8px">🗒️</div>
@@ -7186,7 +7197,7 @@ async function renderWsDB(refetch){
       const dt=w.createdAt?new Date(w.createdAt).toLocaleDateString():'';
       return`<div class="bcard" onclick="isoOpenSaved('${escAttr(w.id)}')">
         <div class="bcard-cover" style="background:var(--tl)">✏️</div>
-        <span class="bcard-type" style="color:var(--tealt)">동형 문제</span>
+        <span class="bcard-type" style="color:var(--tealt)">동형 문제${w._dev?' · 이 기기':''}</span>
         ${w.gradeLevel?`<span class="bcard-lvl">${escAttr(w.gradeLevel)}</span>`:''}
         <div class="bcard-body">
           <div class="bcard-title">${escAttr(w.title||'제목 없음')}</div>
@@ -7194,7 +7205,7 @@ async function renderWsDB(refetch){
           <div class="bcard-stats"><span>문항 <b>${n}</b></span>${dt?`<span>${dt}</span>`:''}</div>
         </div>
         <div class="bcard-acts">
-          <button onclick="event.stopPropagation();deleteWsDB('${escAttr(w.id)}')" style="color:var(--coral,var(--bad))">🗑 삭제</button>
+          ${w._dev?'':`<button onclick="event.stopPropagation();deleteWsDB('${escAttr(w.id)}')" style="color:var(--coral,var(--bad))">🗑 삭제</button>`}
         </div>
       </div>`;
     }
@@ -20351,7 +20362,7 @@ function _isoPaintCfg(){
   const w=document.getElementById('iso-type-w');
   if(w){
     const t=ISO_TYPES[_isoCfg.type];
-    w.innerHTML=t?('<b>'+_ebE(t.n)+'</b> — '+_ebE(t.w)):'';
+    w.innerHTML=t?('<b>'+_ebE(t.n)+'</b> — '+_ebE(t.w||'(이 유형은 음원이 있어야 해서 새로 만들 수 없어요)')):'';
     w.style.display=t?'':'none';
   }
   // 교재 본문 고르기
@@ -20555,7 +20566,7 @@ async function _isoCreate(n,extra){
   const diff={same:'원본과 같은 난이도',easy:'원본보다 한 단계 쉽게',hard:'원본보다 한 단계 어렵게'}[_isoCfg.diff]||'원본과 같은 난이도';
   const lines=[];
   lines.push('너는 한국 영어 시험 출제 경험이 많은 선생님이다. 아래 조건으로 새 문항 '+n+'개를 만들어 JSON 배열로만 답하라.');
-  lines.push('\n[유형] '+t.n+'\n[출제 원리] '+t.w);
+  lines.push('\n[유형] '+t.n+'\n[출제 원리] '+(t.w||(t.n?(t.n+' 유형의 전형적인 출제 방식을 그대로 따른다.'):'')));
   if(_isoAnalysis){
     lines.push('\n[원본 분석]\n'+JSON.stringify({
       stem:_isoAnalysis.stem||'',choices:(_isoAnalysis.choices||[]).length,
@@ -20655,7 +20666,8 @@ async function isoGenerate(){
     if(hasSrc){
       _isoStat('① 원본을 분석하는 중…',12);
       _isoAnalysis=await _isoAnalyze();
-      if(_isoAnalysis&&_isoAnalysis.type&&!_isoCfg.type){
+      if(_isoAnalysis&&_isoAnalysis.type&&!_isoCfg.type
+         &&(ISO_TYPES[_isoAnalysis.type]||{}).iso!==false){   // 음원 유형은 새로 만들 수 없다
         _isoCfg.type=_isoAnalysis.type;
         const ts=document.getElementById('iso-type');if(ts)ts.value=_isoCfg.type;
         _isoSaveCfg();_isoPaintCfg();
@@ -21475,7 +21487,7 @@ function ibFilterChange(){
   _ibF.checked=v('ib-f-checked');_ibF.tag=v('ib-f-tag');_ibF.q=v('ib-f-q');_ibF.exam=v('ib-f-exam');
   const st=document.getElementById('ib-f-star');_ibF.star=!!(st&&st.checked);
   const wn=document.getElementById('ib-f-warn');_ibF.warn=!!(wn&&wn.checked);
-  _ibDeepIds=null;_ibPage=1;_ibSaveF();_ibPaintUnits();renderItemList();
+  _ibDeepIds=null;_ibPage=1;_ibSaveF();_ibPaintUnits();ibExamBar();renderItemList();
 }
 function ibResetFilters(){
   _ibF={skill:'',type:'',grade:'',diff:'',src:'',tbId:'',unit:'',checked:'',star:false,tag:'',q:'',
@@ -21544,7 +21556,11 @@ function ibExamBar(){
     +(g.bad?'<span class="pb-warn">정답 미확인 '+g.bad+'개는 빠집니다</span>':'')
     +'<button class="ib-bx" title="회차 거르기 풀기" onclick="ibSetExam(\'\')">×</button>';
 }
-function ibSetExam(e){_ibF.exam=e||'';_ibPage=1;_ibSaveF();_ibPaintFilters();renderItemList();}
+function ibSetExam(e){
+  _ibF.exam=e||'';_ibPage=1;_ibSaveF();
+  const el=document.getElementById('ib-f-exam');if(el&&el.value!==_ibF.exam)el.value=_ibF.exam;
+  ibExamBar();renderItemList();
+}
 function ibExamToBasket(){
   const e=_ibF.exam||'';if(!e)return;
   const rows=(_ibRows||[]).filter(r=>String(((r.meta||{}).src||{}).exam||'')===e)
@@ -21779,6 +21795,7 @@ function renderItemList(){
     h+='<div style="text-align:center;padding:12px"><button class="btn bo bsm" onclick="_ibPage++;renderItemList()">더 보기 ('+shown+' / '+all.length+')</button></div>';
   box.innerHTML=h;
   _ibPaintBulk();
+  ibExamBar();        // 회차를 고른 그 자리에서 '회차 통째로 담기' 띠가 보이게
 }
 function _ibStampIb(){
   const el=document.getElementById('ib-state');if(!el)return;
@@ -22771,13 +22788,19 @@ async function pbCompose(){
 }
 // '동형으로 채우기' — 누를 때만 AI 를 부른다
 function pbFillAI(){
-  const empties=_pbSlots.map((s,i)=>({s:s,i:i})).filter(x=>x.s.empty&&x.s.type);
-  if(!empties.length){toast('비어 있는 칸이 없어요');return;}
+  const all=_pbSlots.map((s,i)=>({s:s,i:i})).filter(x=>x.s.empty&&x.s.type);
+  // 음원이 있어야 하는 유형(듣기)은 새로 만들 수 없다 — 은행에서 가져와야 한다
+  const noMake=all.filter(x=>(ISO_TYPES[x.s.type]||{}).iso===false).length;
+  const empties=all.filter(x=>(ISO_TYPES[x.s.type]||{}).iso!==false);
+  if(!empties.length){
+    toast(noMake?'비어 있는 칸이 모두 듣기 유형이라 새로 만들 수 없어요 (은행에서 가져오세요)':'비어 있는 칸이 없어요');return;
+  }
   const byType={};empties.forEach(x=>{byType[x.s.type]=(byType[x.s.type]||0)+1;});
   const groups=Object.keys(byType);
   const calls=groups.length*2;                 // 유형마다 만들기 1 + 다시 풀어 확인 1
   askConfirm('동형으로 채우기',
     '비어 있는 '+empties.length+'칸을 유형 '+groups.length+'가지로 나눠 만듭니다.\n'+
+    (noMake?('듣기 '+noMake+'칸은 음원이 있어야 해서 빼고 만들어요.\n'):'')+
     'AI 호출 약 '+calls+'회 (유형마다 만들기 1 + 확인 1)\n'+
     groups.map(k=>'· '+(ISO_TYPES[k]?ISO_TYPES[k].n:k)+' '+byType[k]+'개').join('\n'),
     '만들기','bt',()=>_pbFillAIGo(byType));

@@ -69,6 +69,9 @@ function makeCtx() {
     getRows:()=>_ibRows||[],
     resetF:()=>ibResetFilters(),
     dbg:async()=>({may:ibMayUse(),dev:(await _ibDevAll()).length,rows:(_ibRows||[]).length,ids:_ibDevIds.size}),
+    ibFilterChange,ibSetExam,ibExamBar,renderWsDB,setWs:w=>{_cache.worksheets=w;},
+    pbFillAI,setPbSlots:s=>{_pbSlots=s;},onToast:f=>{toast=f;},onConfirm:f=>{askConfirm=f;},
+    setWsKind:k=>{_wsKind=k;},
     setEb:rows=>{_ebRows=rows;},
     setIb:rows=>{_ibRows=rows;},
     getLive:()=>{const today=ppToday();const act=new Set(DB.stus().filter(s=>!s.inactive).map(s=>s.id));
@@ -489,6 +492,88 @@ const ok = (name, cond, note) => {
     ok("'Discovery' 가 잘리지 않는다", lm.l6 === 'Discovery 1.1', lm.l6);
     ok("'필수' 두 권이 갈린다", lm.l1 !== lm.l2 && lm.l1.length <= 16, lm.l1 + ' / ' + lm.l2);
     ok('12자 안팎', vals.every(v => v.length <= 16), vals.map(v => v.length).join(','));
+  }
+
+  console.log('\n(p) 회차 띠 · 기기 보관 동형 묶음 · 별칭');
+  {
+    // [1] 회차를 고르면 그 자리에서 띠가 뜬다
+    const rows = [];
+    for (let i = 1; i <= 20; i++)rows.push(A._ibLightOf(A._ibNorm({
+      id: 'r-' + i, type: 'ml_detail', stem: '문항 ' + i, choices: ['a', 'b', 'c', 'd'], answer: i % 4,
+      src: { kind: 'exam', exam: '2024년 3회 중2 듣기', qno: String(i), audioId: 'au-3' },
+    }), 'r-' + i));
+    A.setIb(rows); A.resetF();
+    const bar = EL('ib-exambar');
+    bar.style.display = 'none'; bar.innerHTML = '';
+    EL('ib-f-exam').value = '2024년 3회 중2 듣기';
+    A.ibFilterChange();
+    ok('회차를 고르면 띠가 바로 보인다', bar.style.display !== 'none' && String(bar.innerHTML).indexOf('회차 통째로') >= 0,
+      String(bar.innerHTML).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60));
+    ok('띠에 문항 수와 음원이 적힌다', String(bar.innerHTML).indexOf('20문항') >= 0 && String(bar.innerHTML).indexOf('음원 1개') >= 0);
+    EL('ib-f-exam').value = '';
+    A.ibFilterChange();
+    ok("'회차 전체'로 돌리면 사라진다", bar.style.display === 'none', bar.style.display || '(빈 값)');
+    // ibSetExam 으로 걸어도 똑같다
+    A.ibSetExam('2024년 3회 중2 듣기');
+    ok('ibSetExam 으로 걸어도 띠가 뜬다', bar.style.display !== 'none');
+    A.ibSetExam('');
+    ok('ibSetExam 으로 풀어도 사라진다', bar.style.display === 'none');
+
+    // [2] 기기에만 둔 동형 묶음이 '저장된 것' 에 나온다
+    IDB.set('pp_iso_sets', [
+      { id: 'iso-dev-1', kind: 'iso', title: '보기용 동형 묶음', deviceOnly: true, savedAt: Date.now(), items: [{ id: 'x' }, { id: 'y' }], isoTypeName: '읽기 · 빈칸' },
+      { id: 'iso-dev-2', kind: 'iso', title: '서버에도 있는 묶음', deviceOnly: true, savedAt: Date.now(), items: [{ id: 'z' }] },
+      { id: 'iso-cache', kind: 'iso', title: '되살리기용 사본', deviceOnly: false, savedAt: Date.now(), items: [] },
+    ]);
+    IDB.set('pp_paper_dev', []);
+    IDB.set('pp_kit_dev', []);
+    A.setWs([{ id: 'iso-dev-2', kind: 'iso', title: '서버에도 있는 묶음', items: [{ id: 'z' }], createdAt: Date.now() }]);
+    A.setWsKind('');                      // '저장된 것' 탭 (앞 검사에서 시험지·학습 세트 탭을 거쳤다)
+    await A.renderWsDB(false);
+    const ws = String(EL('ws-cards').innerHTML || '');
+    ok('기기에만 둔 동형 묶음이 보인다', ws.indexOf('보기용 동형 묶음') >= 0);
+    ok("'이 기기' 표시가 붙는다", ws.indexOf('동형 문제 · 이 기기') >= 0);
+    ok('되살리기용 사본(deviceOnly 아님)은 안 나온다', ws.indexOf('되살리기용 사본') < 0);
+    ok('서버에도 있는 묶음은 한 번만', (ws.match(/서버에도 있는 묶음/g) || []).length === 1,
+      (ws.match(/서버에도 있는 묶음/g) || []).length + '번');
+    const wtot = String(EL('ws-total').textContent || '');
+    ok('머리 숫자가 그린 줄 수와 같다', wtot.indexOf('2개 저장됨') === 0 && wtot.indexOf('이 기기에만 1개') > 0, wtot);
+    IDB.delete('pp_iso_sets');
+
+    // [3] 별칭을 수준표·'다음 교재' 이름에도 먼저
+    ok('별칭이 가장 먼저', A.ppBookLabel({ id: 'n1', title: '1200 Words for Tests Starters 1', series: '1200 Words for Tests', nick: '1200 S1' }) === '1200 S1');
+    const nmap = A.ppBookLabelMap([
+      { id: 'n1', title: '1200 Words for Tests Starters 1', series: '1200 Words for Tests', nick: '1200 S1' },
+      { id: 'n2', title: '1200 Words for Tests Starters 2', series: '1200 Words for Tests' },
+    ]);
+    ok('별칭을 쓴 책과 자동 이름이 안 겹친다', nmap.n1 === '1200 S1' && nmap.n2 !== nmap.n1, nmap.n1 + ' / ' + nmap.n2);
+    reset({ books: [Object.assign(BOOK('nk', '아주 긴 교재 이름 보카앤스토리 심화', 4), { nick: '보카심화', stage: 'P3', stageG: 6 })] });
+    ok('pgLabel 도 별칭을 쓴다', A.pgLabel(A.cache.globalTextbooks[0]) === '보카심화', A.pgLabel(A.cache.globalTextbooks[0]));
+  }
+
+  console.log('\n(q) 음원이 있어야 하는 유형은 동형으로 만들지 않는다');
+  {
+    const mk = Object.values(A.ISO_TYPES).filter(t => t.iso !== false);
+    ok('만들 수 있는 유형은 모두 출제 원리가 있다',
+      mk.every(t => t.w && t.w.length > 10), mk.length + '종 가운데 ' + mk.filter(t => !(t.w && t.w.length > 10)).length + '종이 비었다');
+    const ml = Object.keys(A.ISO_TYPES).filter(k => A.ISO_TYPES[k].iso === false);
+    ok('음원 유형은 만들기 목록에서 빠진다', ml.length > 0 && A.isoList().every(k => ml.indexOf(k) < 0), '음원 유형 ' + ml.length + '종');
+    let said = '', asked = null;
+    A.onToast(m => { said = String(m || ''); });
+    A.onConfirm((t, m, ok2, cls, cb) => { asked = { t: t, m: String(m || '') }; });
+    // 듣기 칸만 비어 있으면 AI 를 부르지 않는다
+    A.setPbSlots([{ empty: true, type: ml[0] }, { empty: true, type: ml[1] || ml[0] }]);
+    A.pbFillAI();
+    ok('듣기 칸만 비면 만들지 않고 알려 준다', asked === null && said.indexOf('듣기') >= 0, said);
+    // 섞여 있으면 듣기 칸은 빼고 센다
+    said = ''; asked = null;
+    A.setPbSlots([{ empty: true, type: ml[0] }, { empty: true, type: 'blank' }, { empty: true, type: 'blank' }]);
+    A.pbFillAI();
+    ok('섞여 있으면 듣기 칸은 빼고 센다',
+      !!asked && asked.m.indexOf('비어 있는 2칸') >= 0 && asked.m.indexOf('듣기 1칸') >= 0,
+      asked ? asked.m.replace(/\n/g, ' / ') : '(안 물어봄)');
+    A.onToast(() => { }); A.onConfirm(() => { });
+    A.setPbSlots([]);
   }
 
   console.log('\n' + G.guardLine());
