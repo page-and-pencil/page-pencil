@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261112e">
+<link rel="stylesheet" href="css/style.css?v=20261112g">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -232,6 +232,7 @@
       <div id="dash-stats" class="dash-stats" style="margin-bottom:14px"></div>
       <div class="dash-cols">
         <div class="dash-col-main">
+          <div id="dash-exam-prep" style="margin-bottom:12px"></div>
           <div id="dash-today" style="margin-bottom:12px"></div>
           <div id="dash-monthly" style="margin-bottom:12px"></div>
           <div id="dash-weekheat" style="margin-bottom:12px"></div>
@@ -384,6 +385,7 @@
               <button type="button" class="btn ba bsm" style="font-size:12px;padding:3px 10px" onclick="addSRowTo('subj-rows','_book')"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> + 원서</button>
             </div>
             <div id="subj-rows" class="sr-wrap"></div>
+            <div id="lk-unit-mats" class="lk-mats"></div>
           </div>
           <div class="f"><label>선생님 코멘트</label>
             <div id="cmt-chips-host" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div>
@@ -2905,6 +2907,61 @@
   </div>
 </div>
 
+<!-- 학습 세트 (지문 하나 → 단어장·끊어 읽기·빈칸·순서·영작·내용 확인) -->
+<div id="m-kit" class="mo">
+  <div class="mdl mdl-xl">
+    <div class="mh">
+      <div style="min-width:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="mt">학습 세트 만들기</div>
+        <input type="text" id="lk-title" class="iso-title" placeholder="세트 이름 (비우면 알아서 붙여요)" oninput="lkCfgChange()">
+        <span id="lk-stat" class="iso-stat"></span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+        <button class="btn bo bsm" onclick="lkSaveNow()">지금 저장</button>
+        <button class="bx" onclick="lkClose()">×</button>
+      </div>
+    </div>
+    <div class="lk-wrap">
+      <div class="lk-cfg">
+        <div class="pb-a-row">
+          <label class="iso-lb">교재</label>
+          <select class="filter-sel" id="lk-tb" onchange="_lkPaintUnits()"></select>
+          <select class="filter-sel" id="lk-unit" onchange="lkCfgChange()"></select>
+          <button class="btn bo bsm" onclick="lkFromBook()">본문 가져오기</button>
+        </div>
+        <div class="pb-a-row">
+          <textarea id="lk-paste" class="iso-text" rows="2" placeholder="또는 지문을 붙여넣기"></textarea>
+          <button class="btn bo bsm" onclick="lkPasteText()">이 글 쓰기</button>
+        </div>
+        <div class="pb-a-row">
+          <label class="iso-lb">학년</label>
+          <select class="filter-sel" id="lk-grade" onchange="lkCfgChange()"></select>
+          <span class="iso-hint">초5~6 낱말 빈칸·보기 있음 · 중1~2 구 빈칸·배열 7~10단어 · 중3 이상 문장 빈칸·조건 영작</span>
+        </div>
+        <div class="pb-a-row lk-want">
+          <label class="iso-chk"><input type="checkbox" id="lk-w-vocab" checked onchange="lkCfgChange()"> 단어장</label>
+          <label class="iso-chk"><input type="checkbox" id="lk-w-chunk" checked onchange="lkCfgChange()"> 끊어 읽기·해석</label>
+          <label class="iso-chk"><input type="checkbox" id="lk-w-cloze" checked onchange="lkCfgChange()"> 빈칸 본문</label>
+          <label class="iso-chk"><input type="checkbox" id="lk-w-order" checked onchange="lkCfgChange()"> 문장 순서</label>
+          <label class="iso-chk"><input type="checkbox" id="lk-w-write" checked onchange="lkCfgChange()"> 영작</label>
+          <label class="iso-chk"><input type="checkbox" id="lk-w-comp" onchange="lkCfgChange()"> 내용 확인 (AI)</label>
+          <button class="btn bt bsm" onclick="lkBuild()">만들기</button>
+          <span class="iso-hint">만들기는 AI 를 쓰지 않아요</span>
+        </div>
+      </div>
+      <div id="lk-body" class="lk-body"></div>
+      <div class="pb-foot">
+        <label class="iso-lb">인쇄 단</label>
+        <select class="filter-sel" id="lk-cols"><option value="1">A4 1단</option><option value="2">A4 2단</option></select>
+        <button class="btn bt bsm" onclick="lkPrint(false)">🖨 학습지</button>
+        <button class="btn bo bsm" onclick="lkPrint(true)">🖨 정답지</button>
+        <span style="flex:1"></span>
+        <button class="btn bo bsm" onclick="lkToBank()">📥 문제 은행에 넣기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="m-eb-detail" class="mo">
   <div class="mdl mdl-xl eb-modal">
     <div class="mh">
@@ -2954,7 +3011,7 @@
 <script src="js/utils.js?v=20261111b"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261111c"></script>
-<script src="js/teacher.js?v=20261112f"></script>
+<script src="js/teacher.js?v=20261112g"></script>
 <script src="js/student.js?v=20261112f"></script>
 <script src="js/parent.js?v=20261112e"></script>
 </body>
