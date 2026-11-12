@@ -6960,17 +6960,104 @@ function clearColF(key){
   document.querySelectorAll(`#${key}-colf-row input, #${key}-colf-row select`).forEach(el=>el.value='');
 }
 
+// ══ [B6] 새로 생긴 것 ═════════════════════════════════════════════════════
+// 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
+// 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
+const PP_WHATSNEW=[
+ {date:'2026-11-13',title:'책 홈 — 한 책의 단어·본문·해석·음원·자료·문항을 한 곳에서',where:'교재·문제 → 교재 → 책 이름',tab:'t-data',go:['switchDataTab','tbook']},
+ {date:'2026-11-13',title:'수준표 — 교재를 실제 내용으로 재어 수준별로 늘어놓았어요',where:'교재·문제 → 수준표',tab:'t-data',go:['switchDataTab','stage']},
+ {date:'2026-11-13',title:'자료실 책으로 보기 — 출판사 → 시리즈 → 책으로 묶어서',where:'교재·문제 → 자료실',tab:'t-data',go:['switchDataTab','bank']},
+ {date:'2026-11-13',title:'진행 중인 과제 목록 — 지금 도는 숙제를 한 줄씩',where:'과제 탭',tab:'t-assign',go:['renderAssignTab']},
+ {date:'2026-11-13',title:"달력 칩에 책 이름 — '보카앤스토리 Day 5' 로 읽힌다",where:'과제 탭 · 클래스 진도 캘린더',tab:'t-assign',go:['renderAssignCal']},
+ {date:'2026-11-12',title:'숙제 이어서 내기 — 다음 교재 숙제를 미리 보고 한 번에',where:'과제 탭 배너 · 진도 보드',tab:'t-assign',go:['renderAssignTab']},
+ {date:'2026-11-12',title:'교재 흐름 점검 — 숙제 없는 줄·흐름 밖 숙제를 한 곳에서',where:'클래스 → 진도 보드',tab:'t-class',go:['renderClassTab']},
+ {date:'2026-11-12',title:'요일 직접 고르기 — 반복 숙제를 고른 요일에만',where:'과제 할당 → 반복 숙제',tab:'t-assign',go:['renderAssignTab']},
+ {date:'2026-11-12',title:'캡처로 문항 추가 — 자료 한 줄에서 캡처로 문항 1개',where:'교재·문제 → 자료실 → 자료 열기',tab:'t-data',go:['switchDataTab','bank']},
+ {date:'2026-11-12',title:'내 교재 묶음 — 우리 반 교재와 같은 시리즈 자료만',where:'교재·문제 → 자료실',tab:'t-data',go:['switchDataTab','bank']},
+ {date:'2026-11-12',title:'자료실 수준 거르기 — 자료를 내용으로 재어 학년으로 고른다',where:'교재·문제 → 자료실',tab:'t-data',go:['switchDataTab','bank']},
+ {date:'2026-11-11',title:'학습 세트 — 지문 하나로 수업 자료 한 묶음',where:'교재·문제 → 학습 세트',tab:'t-data',go:['switchDataTab','kit']},
+ {date:'2026-11-10',title:'시험지 만들기 — 문제 은행에서 골라 네 가지 서식으로 인쇄',where:'교재·문제 → 시험지',tab:'t-data',go:['switchDataTab','paper']},
+ {date:'2026-11-10',title:'풀기와 채점 — 학생이 푼 결과를 문항별로 본다',where:'교재·문제 → 시험지',tab:'t-data',go:['switchDataTab','paper']},
+ {date:'2026-11-09',title:'문제 은행 — 문항 하나하나를 모아 두고 꺼내 쓴다',where:'교재·문제 → 문제 은행',tab:'t-data',go:['switchDataTab','items']},
+ {date:'2026-11-09',title:'동형 문제 — 기출 한 문항으로 같은 유형의 새 문항',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
+ {date:'2026-11-09',title:'자료실 — 드라이브 자료 7,500줄을 앱에서 찾는다',where:'교재·문제 → 자료실',tab:'t-data',go:['switchDataTab','bank']},
+];
+const WN_KEY='pp_whatsnew_seen';
+function wnSeen(){try{return JSON.parse(localStorage.getItem(WN_KEY)||'[]')||[];}catch(e){return [];}}
+function wnKeyOf(x){return x.date+'|'+x.title;}
+function wnIsNew(x){return wnSeen().indexOf(wnKeyOf(x))<0;}
+function wnMark(k){
+  try{const l=wnSeen();if(l.indexOf(k)<0)l.push(k);localStorage.setItem(WN_KEY,JSON.stringify(l));}catch(e){}
+}
+function wnMarkAll(){
+  try{localStorage.setItem(WN_KEY,JSON.stringify(PP_WHATSNEW.map(wnKeyOf)));}catch(e){}
+  renderWhatsNew();renderSettingsWhatsNew();
+}
+function wnGo(i){
+  const x=PP_WHATSNEW[i];if(!x)return;
+  wnMark(wnKeyOf(x));
+  try{closeM('m-settings');}catch(e){}
+  if(x.tab&&typeof swTab==='function')swTab(x.tab);
+  const fn=(x.go||[])[0],args=(x.go||[]).slice(1);
+  setTimeout(()=>{try{if(typeof window[fn]==='function')window[fn].apply(null,args);}catch(e){console.warn('wnGo:',e);}},220);
+  renderWhatsNew();
+}
+// 14일 안에 생긴 기능에는 작은 NEW 점
+function wnDot(title){
+  const x=PP_WHATSNEW.find(w=>w.title.indexOf(title)===0||title&&w.title.indexOf(title)>=0);
+  if(!x)return '';
+  const d=new Date(x.date+'T00:00:00'),now=new Date();
+  if((now-d)/86400000>14)return '';
+  return '<i class="wn-dot" title="새로 생긴 기능"></i>';
+}
+function renderWhatsNew(){
+  const el=document.getElementById('dash-whatsnew');if(!el)return;
+  const list=PP_WHATSNEW.filter(wnIsNew);
+  if(!list.length){el.innerHTML='';return;}
+  el.innerHTML='<div class="card wn-card"><div class="ch"><span class="ct">'+(luIcon('sparkles',16)||'✨')+' 새로 생긴 것 <b style="color:var(--teal)">'+list.length+'개</b></span>'
+    +'<button class="btn bo bxxs" onclick="wnMarkAll()">모두 확인</button></div>'
+    +'<div class="cb wn-body">'+list.slice(0,6).map(x=>{
+      const i=PP_WHATSNEW.indexOf(x);
+      return '<div class="wn-row"><span class="wn-d">'+_ebE(x.date.slice(5).replace('-','/'))+'</span>'
+        +'<span class="wn-t"><b>'+_ebE(x.title)+'</b><em>'+_ebE(x.where||'')+'</em></span>'
+        +'<button class="btn bt bxxs" onclick="wnGo('+i+')">가 보기</button>'
+        +'<button class="btn bo bxxs" title="이 줄은 접어 두기" onclick="wnMark(\''+escJsA(wnKeyOf(x))+'\');renderWhatsNew()">✓</button></div>';
+    }).join('')
+    +(list.length>6?'<div class="wn-more">외 '+(list.length-6)+'개 · 설정에서 전체 보기</div>':'')
+    +'</div></div>';
+  try{lucide.createIcons();}catch(e){}
+}
+function renderSettingsWhatsNew(){
+  const el=document.getElementById('cfg-whatsnew');if(!el)return;
+  el.innerHTML=PP_WHATSNEW.map((x,i)=>'<div class="wn-row"><span class="wn-d">'+_ebE(x.date)+'</span>'
+    +'<span class="wn-t"><b>'+_ebE(x.title)+'</b><em>'+_ebE(x.where||'')+'</em></span>'
+    +'<button class="btn bo bxxs" onclick="wnGo('+i+')">가 보기</button></div>').join('')
+    +'<div style="margin-top:8px"><button class="btn bo bsm" onclick="wnMarkAll()">모두 확인으로 표시</button></div>';
+}
+
 // ── 자료 DB 통합 탭 ──
 let _dataTab='tbook';
 function switchDataTab(tab){
   if(tab==='book')tab='tbook'; // 구 통합 키 호환
   _dataTab=tab;
-  ['master','book','word','ws','exam','bank','iso','items'].forEach(id=>{const p=document.getElementById('dp-'+id);if(p)p.style.display='none';});
+  ['master','book','word','ws','exam','bank','iso','items','stage'].forEach(id=>{const p=document.getElementById('dp-'+id);if(p)p.style.display='none';});
   // 탭 버튼 스타일 초기화
-  ['master','tbook','lib','word','ws','exam','bank','iso','items'].forEach(t=>{const b=document.getElementById('dtab-'+t);if(b){b.style.color='var(--slate)';b.style.borderBottomColor='transparent';b.style.fontWeight='600';}});
+  ['master','tbook','lib','word','ws','exam','bank','iso','items','stage','paper','kit'].forEach(t=>{const b=document.getElementById('dtab-'+t);if(b){b.style.color='var(--slate)';b.style.borderBottomColor='transparent';b.style.fontWeight='600';}});
   const act=document.getElementById('dtab-'+tab);
   if(act){act.style.color='var(--teal)';act.style.borderBottomColor='var(--teal)';act.style.fontWeight='700';}
-  if(tab==='items'){
+  if(tab==='stage'){
+    const p=document.getElementById('dp-stage');if(p)p.style.display='';
+    renderStageTable();
+  } else if(tab==='paper'||tab==='kit'){
+    const p=document.getElementById('dp-ws');if(p)p.style.display='';
+    _wsKind=(tab==='paper')?'paper':'kit';
+    const ttl=document.getElementById('ws-db-title');
+    if(ttl)ttl.textContent=(tab==='paper')?'시험지':'학습 세트';
+    const nb=document.getElementById('ws-new-btn');
+    if(nb){nb.style.display='';nb.textContent=(tab==='paper')?'+ 새 시험지':'+ 새 학습 세트';
+      nb.onclick=()=>{if(tab==='paper'){if(typeof pbOpen==='function')pbOpen();}else{if(typeof lkOpen==='function')lkOpen({},'','');}};}
+    renderWsDB(true);
+  } else if(tab==='items'){
     const p=document.getElementById('dp-items');if(p)p.style.display='';
     ibOpenTab();
   } else if(tab==='iso'){
@@ -6989,6 +7076,9 @@ function switchDataTab(tab){
     renderMasterDB();
   } else if(tab==='ws'){
     const p=document.getElementById('dp-ws');if(p)p.style.display='';
+    _wsKind='';
+    const ttl=document.getElementById('ws-db-title');if(ttl)ttl.textContent='저장된 것';
+    const nb=document.getElementById('ws-new-btn');if(nb)nb.style.display='none';
     renderWsDB(true);
   } else if(tab==='tbook'||tab==='lib'){
     const p=document.getElementById('dp-book');if(p)p.style.display='';
@@ -7026,6 +7116,7 @@ async function ensureWorksheets(refetch){
   }catch(e){_cache.worksheets=_cache.worksheets||[];}
   return _cache.worksheets;
 }
+let _wsKind='';
 async function renderWsDB(refetch){
   const grid=document.getElementById('ws-cards');if(!grid)return;
   if(refetch||!_cache.worksheets){
@@ -7039,6 +7130,9 @@ async function renderWsDB(refetch){
   let list=[..._cache.worksheets,...devPapers]
     .filter(w=>w&&w.kind!=='paperSent'&&w.kind!=='paperSol')   // 학생에게 보낸 사본·해설 줄은 목록에 띄우지 않는다
     .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  // [B5] 시험지 탭·학습 세트 탭은 같은 목록을 종류로 걸러 쓴다
+  if(_wsKind==='paper')list=list.filter(w=>w.kind==='paper');
+  else if(_wsKind==='kit')list=list.filter(w=>w.kind==='kit');
   if(q)list=list.filter(w=>(w.title||'').toLowerCase().includes(q));
   const total=document.getElementById('ws-total');
   if(total)total.textContent=`${_cache.worksheets.length}개 저장됨`;
@@ -7138,7 +7232,35 @@ async function deleteWsDB(id){
 
 // ── 책 DB (마스터: 교재+원서 통합) ──
 let _bookDBFilter='',bookPage=0;
+// [B2] 교재 목록 거르기 — 수준·영역·우리 반·본문
+let _tbF={stage:'',area:'',mine:false,text:false,sort:''};
+function tbFilterChange(){
+  const v=id=>{const el=document.getElementById(id);return el?el.value:'';};
+  const ck=id=>{const el=document.getElementById(id);return !!(el&&el.checked);};
+  _tbF={stage:v('tbf-stage'),area:v('tbf-area'),mine:ck('tbf-mine'),text:ck('tbf-text'),sort:v('tbf-sort')};
+  bookPage=0;renderBookDB();
+}
+function _tbMineIds(){
+  const out=new Set();
+  DB.classes().filter(c=>c.active!==false).forEach(c=>{
+    Object.values(c.commonMaterials||{}).forEach(m=>{const tb=_pgTbOf(m);if(tb)out.add(tb.id);});
+  });
+  return out;
+}
+function _tbPaintFilters(){
+  const st=document.getElementById('tbf-stage');
+  if(st&&!st.dataset.filled){
+    st.dataset.filled='1';
+    st.innerHTML='<option value="">수준 전체</option>'+STG_COLS.map(k=>'<option value="'+k+'">'+_ebE((typeof ebStageName==='function')?(ebStageName(k)||k):k)+'</option>').join('')+'<option value="none">못 잼</option>';
+  }
+  const ar=document.getElementById('tbf-area');
+  if(ar&&!ar.dataset.filled){
+    ar.dataset.filled='1';
+    ar.innerHTML='<option value="">영역 전체</option>'+STG_AREAS.map(([k,n])=>'<option value="'+k+'">'+n+'</option>').join('');
+  }
+}
 function renderBookDB(){
+  _tbPaintFilters();
   const q=(document.getElementById('book-q')?.value||'').toLowerCase();
   const pageSize=parseInt(document.getElementById('book-per-page')?.value||'50');
   const tbooks=(_cache.globalTextbooks||[]).map(b=>({...b,_bt:'textbook'}));
@@ -7151,6 +7273,19 @@ function renderBookDB(){
     (b.category||'').toLowerCase().includes(q)||
     (b.publisher||'').toLowerCase().includes(q)
   );
+  // [B2] 수준·영역·우리 반·본문 거르기 (교재 탭에서만)
+  if(_bookDBFilter==='textbook'){
+    const mine=_tbF.mine?_tbMineIds():null;
+    all=all.filter(b=>{
+      if(_tbF.stage==='none'){if(b.stage)return false;}
+      else if(_tbF.stage&&String(b.stage||'')!==_tbF.stage)return false;
+      if(_tbF.area&&_stgTbArea(b)!==_tbF.area)return false;
+      if(mine&&!mine.has(b.id))return false;
+      if(_tbF.text&&!(b.unitTexts&&Object.values(b.unitTexts).some(v=>String(v||'').trim())))return false;
+      return true;
+    });
+    if(_tbF.sort==='stage')all=all.slice().sort((x,y)=>(Number(x.stageG)||99)-(Number(y.stageG)||99)||String(x.title||'').localeCompare(String(y.title||''),'ko'));
+  }
   // 열별 필터
   ensureColFilterRow('book-tbody','book',
     `<th></th>${colFilterCell('book','_bt','','typeSel')}${colFilterCell('book','title','제목')}${colFilterCell('book','meta','시리즈/카테고리')}${colFilterCell('book','level','레벨')}${colFilterCell('book','unitCnt','유닛수')}${colFilterCell('book','wordCnt','단어수')}<th></th>`);
@@ -7242,7 +7377,7 @@ function _bserCard(b){
   const isTb=b._bt==='textbook';
   const wordCnt=isTb?Object.values(b.units||{}).reduce((s,a)=>s+(Array.isArray(a)?a.length:0),0):(b.vocab?.length||0);
   const hasTxt=isTb&&b.unitTexts&&!Array.isArray(b.unitTexts)&&Object.values(b.unitTexts).some(v=>v);
-  const openFn=isTb?`openTbookUnits('${b.id}')`:`openEditLib('${b.id}')`;
+  const openFn=isTb?`openBookHome('${b.id}')`:`openEditLib('${b.id}')`;
   const sk=seriesKeyOf(b);
   let short=String(b.title||'');
   if(sk&&sk!=='단권·기타'&&short.toLowerCase().indexOf(sk.toLowerCase())===0&&short.length>sk.length)short=short.slice(sk.length).trim();
@@ -7254,7 +7389,7 @@ function _bserCard(b){
       ?`<img src="${b.coverUrl}" loading="lazy" onerror="this.style.display='none'">`
       :`<span class="bser-cv-ph" style="background:${pal[0]};color:${pal[1]}">${escAttr(short&&short.length<=8?short:(isTb?'\uD83D\uDCDA':'\uD83D\uDCD7'))}</span>`}</div>
     <div class="bser-ct">${escAttr(b.title||'')}</div>
-    <div class="bser-cb">${wordCnt?`단어 ${wordCnt}`:'<span class="mz">단어 —</span>'}${hasTxt?' · 원문✓':''}${!isTb&&b.audioUrl?' · \uD83C\uDFA7':''}</div>
+    <div class="bser-cb">${isTb?(tbStageBadge(b,true)||''):''}${wordCnt?` 단어 ${wordCnt}`:' <span class="mz">단어 —</span>'}${hasTxt?' · 본문':''}${isTb&&b.unitAudio&&Object.keys(b.unitAudio).length?' · 🎧':''}${isTb&&b.unitSentKo&&Object.keys(b.unitSentKo).length?' · 해석':''}${!isTb&&b.audioUrl?' · \uD83C\uDFA7':''}</div>
   </div>`;
 }
 function renderBookSeries(all,q){
@@ -7609,17 +7744,252 @@ function jumpToBookVocab(id,type){
     wdbPage=0;renderWordDB();
   },60);
 }
+// ══ [B1] 책 홈 ════════════════════════════════════════════════════════════
+// 교재 줄에는 '단어 96 · 원문✓' 만 나왔다. 본문·음원·해석·자료실 파일·문항이 다 들어 있는데
+// 볼 곳이 없었다. 책 하나를 열면 **들어 있는 것 전부**와 **이 책으로 할 수 있는 것**이 보인다.
+const TB_STAGE_BY={text:'본문으로 쟀어요',list:'단어 목록으로 쟀어요',phonics:'파닉스 교재로 봤어요'};
+const TB_STAGE_SRC={app:'앱에 든 본문·단어',bank:'자료실 파일'};
+const TB_STAGE_CONF={high:'확신 높음',mid:'확신 보통',low:'확신 낮음'};
+// 수준 배지 — 자료실과 같은 이름표(ebStageName)를 쓴다
+function tbStageBadge(tb,small){
+  const st=String((tb&&tb.stage)||'');
+  if(!st)return small?'':'<span class="tb-stg none">수준 미측정</span>';
+  const nm=(typeof ebStageName==='function')?(ebStageName(st)||st):st;
+  const g=Number(tb.stageG);
+  return '<span class="tb-stg'+(tb.stageConf==='low'?' low':'')+'" title="'+_ebA(tbStageLine(tb))+'">'
+    +_ebE(nm)+(isFinite(g)?' · '+g.toFixed(1):'')+'</span>';
+}
+function tbStageLine(tb){
+  if(!tb)return '';
+  if(!tb.stage)return String(tb.stageWhy||'재지 못했어요 — 본문도 단어 목록도 없습니다');
+  const bits=[];
+  bits.push(TB_STAGE_BY[String(tb.stageBy||'')]||'내용으로 쟀어요');
+  if(tb.stageSrc)bits.push(TB_STAGE_SRC[String(tb.stageSrc)]||String(tb.stageSrc));
+  if(isFinite(Number(tb.stageG)))bits.push('추정 학년 '+Number(tb.stageG).toFixed(1));
+  if(tb.stageConf)bits.push(TB_STAGE_CONF[String(tb.stageConf)]||String(tb.stageConf));
+  const alt=tb.stageAlt;
+  if(alt&&isFinite(Number(alt.g)))
+    bits.push((TB_STAGE_SRC[String(alt.src||'')]||'다른 쪽')+'로는 '+Number(alt.g).toFixed(1));
+  return bits.join(' · ');
+}
+// 들어 있는 것 — 숫자는 실제 데이터에서 센다
+function tbCounts(tb){
+  const u=tb&&tb.units||{};
+  const keys=(typeof tbUnitKeys==='function')?tbUnitKeys(tb):Object.keys(u);
+  const nz=o=>Object.keys(o||{}).filter(k=>String((o||{})[k]||'').trim()).length;
+  const words=Object.values(u).reduce((n,a)=>n+(Array.isArray(a)?a.length:0),0);
+  const items=((typeof _ibRows!=='undefined'&&_ibRows)||[]).filter(r=>String(((r.meta||{}).src||{}).tbId||'')===String(tb&&tb.id||'')).length;
+  return {units:keys.length,words:words,texts:nz(tb&&tb.unitTexts),ko:nz(tb&&tb.unitSentKo),
+    audio:nz(tb&&tb.unitAudio),scripts:Object.keys((tb&&tb.unitScripts)||{}).length,
+    patterns:nz(tb&&tb.unitPatterns),bank:tbBankRows(tb).length,items:items};
+}
+// 이 책의 자료실 줄 — **bankIds 를 먼저** 쓰고, 없을 때만 이름 맞추기로 간다
+function tbBankRows(tb){
+  if(!tb)return [];
+  const rows=(typeof _ebRows!=='undefined'&&_ebRows)?_ebRows:[];
+  if(!rows.length)return [];
+  const ids=Array.isArray(tb.bankIds)?tb.bankIds.filter(Boolean):[];
+  if(ids.length){const set=new Set(ids);return rows.filter(r=>set.has(r.id));}
+  const nrm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+  const t=nrm(tb.title);
+  if(t.length<4)return [];
+  return rows.filter(r=>{const m=r.meta||{};return nrm(m.title)===t||nrm(m.title).indexOf(t)===0;});
+}
+// 이 책을 쓰는 반과 어디까지 (ppFlow)
+function tbClassRows(tb){
+  const out=[];
+  ((typeof DB!=='undefined')?DB.classes():[]).filter(c=>c.active!==false).forEach(c=>{
+    ((typeof ppFlow==='function')?ppFlow(c.id):[]).forEach(ar=>(ar.tracks||[]).forEach(t=>{
+      (t.books||[]).forEach(b=>{
+        if(!b.tb||b.tb.id!==tb.id)return;
+        out.push({cls:c,name:c.name,state:b.state,done:b.doneIdx+1,total:b.total,mode:t.mode,hwId:b.hwId,next:b.nextUnit});
+      });
+    }));
+  });
+  return out;
+}
+let _bhTab='home',_bhUnit='';
+// 어디서든 책 이름을 누르면 이 책 홈이 열린다
+function openBookHome(tbId,tab){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===tbId);
+  if(!tb){toast('교재를 찾지 못했어요');return;}
+  _bhTab=tab||'home';_bhUnit='';
+  openTbookUnits(tbId);
+  tbdTab(_bhTab);
+}
+function _bhPane(id){return document.getElementById('tbd-pane-'+id);}
+function bhRender(tab){
+  const id=document.getElementById('tbook-edit-id')?.value||'';
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===id);
+  const box=_bhPane(tab);if(!box)return;
+  if(!tb){box.innerHTML='<div class="eb-empty">교재를 먼저 저장해 주세요.</div>';return;}
+  if(tab==='home')box.innerHTML=_bhHomeHtml(tb);
+  else if(tab==='text')box.innerHTML=_bhTextHtml(tb);
+  else if(tab==='audio')box.innerHTML=_bhAudioHtml(tb);
+  else if(tab==='bank')box.innerHTML=_bhBankHtml(tb);
+  else if(tab==='items')box.innerHTML=_bhItemsHtml(tb);
+  else if(tab==='make')box.innerHTML=_bhMakeHtml(tb);
+  try{lucide.createIcons();}catch(e){}
+}
+function _bhHomeHtml(tb){
+  const c=tbCounts(tb);
+  const cls=tbClassRows(tb);
+  const hw=((typeof _cache!=='undefined')?(_cache.assignments||[]):[])
+    .filter(a=>a&&!a._deleted&&a.bookId===tb.id&&(typeof hwIsBookFlow!=='function'||hwIsBookFlow(a)));
+  const pill=(n,lbl,go)=>'<span class="bh-pill'+(n?'':' off')+'"'+(n&&go?' onclick="'+go+'" style="cursor:pointer"':'')+'><b>'+n+'</b>'+lbl+'</span>';
+  const nameOf=sid=>{const s2=DB.stus().find(x=>x.id===sid);return s2?s2.name:'';};
+  return '<div class="bh-wrap">'
+    +'<div class="bh-head"><div class="bh-t">'+_ebE(tb.title||'')+'</div>'
+      +'<div class="bh-sub">'+[tb.publisher,tb.series,tb.category,(typeof ppBookShort==='function')?('짧은 이름 '+ppBookShort(tb)):''].filter(Boolean).map(_ebE).join(' · ')+'</div></div>'
+    +'<div class="bh-stage">'+tbStageBadge(tb)+'<span class="bh-why">'+_ebE(tbStageLine(tb))+'</span></div>'
+    +'<div class="bh-pills">'
+      +pill(c.words,'단어',"tbdTab('units')")+pill(c.units,'단원',"tbdTab('units')")
+      +pill(c.texts,'본문',"tbdTab('text')")+pill(c.ko,'해석',"tbdTab('text')")
+      +pill(c.audio,'음원',"tbdTab('audio')")+pill(c.scripts,'듣기 대본',"tbdTab('text')")
+      +pill(c.patterns,'문형',"tbdTab('units')")
+      +pill(c.bank,'자료실 파일',"tbdTab('bank')")+pill(c.items,'문항',"tbdTab('items')")
+    +'</div>'
+    +'<div class="bh-sec"><div class="bh-sec-t">어느 반이 어디까지</div>'
+      +(cls.length?cls.map(r=>'<div class="bh-row"><span class="bh-cls">'+_ebE(r.name)+'</span>'
+        +'<span class="bh-st '+r.state+'">'+({done:'끝냄',now:'지금',next:'앞으로'}[r.state]||'')+'</span>'
+        +'<span class="bh-num">'+(r.state==='next'?'-':(r.done+' / '+r.total+'과'))+'</span>'
+        +'<span class="bh-mode">'+({hw:'과제 줄',class:'수업 줄',alt:'교대',perClass:'매 수업'}[r.mode]||'')+'</span>'
+        +'<button class="btn bo bxxs" onclick="closeM(\'m-tbook-detail\');swTab(\'t-class\');setTimeout(()=>openClsDetail(\''+r.cls.id+'\'),200)">진도 보드</button></div>').join('')
+        :'<div class="bh-none">아직 이 책을 쓰는 반이 없어요</div>')
+    +'</div>'
+    +'<div class="bh-sec"><div class="bh-sec-t">이 책으로 도는 숙제</div>'
+      +(hw.length?hw.map(a=>{
+          const st=(typeof hwState==='function')?hwState(a):{doneCount:0,total:0};
+          return '<div class="bh-row"><span class="bh-cls">'+_ebE(nameOf(a.sid))+'</span>'
+            +'<span class="bh-mode">'+_ebE((typeof ppHwRuleLabel==='function')?ppHwRuleLabel(a):'')+'</span>'
+            +'<span class="bh-num">'+st.doneCount+' / '+st.total+'일</span>'
+            +'<button class="btn bo bxxs" onclick="closeM(\'m-tbook-detail\');pgGoAssign(\''+escJsA(a.sid)+'\',\''+escJsA(a.id)+'\')">과제 탭</button></div>';
+        }).join('')
+        :'<div class="bh-none">이 책으로 도는 교재형 숙제가 없어요</div>')
+    +'</div></div>';
+}
+function _bhUnitSel(tb,fn){
+  const keys=(typeof tbUnitKeys==='function')?tbUnitKeys(tb):Object.keys(tb.units||{});
+  if(!_bhUnit||keys.indexOf(_bhUnit)<0)_bhUnit=keys[0]||'';
+  return '<select class="filter-sel" onchange="_bhUnit=this.value;'+fn+'">'
+    +keys.map(k=>'<option value="'+_ebA(k)+'"'+(k===_bhUnit?' selected':'')+'>'+_ebE(k)+((tb.unitTitles||{})[k]?' — '+_ebE(tb.unitTitles[k]):'')+'</option>').join('')+'</select>';
+}
+function _bhTextHtml(tb){
+  const u=_bhUnit||((typeof tbUnitKeys==='function')?tbUnitKeys(tb):Object.keys(tb.units||{}))[0]||'';
+  const en=String((tb.unitTexts||{})[u]||'');
+  const ko=String((tb.unitSentKo||{})[u]||'');
+  const sc=(tb.unitScripts||{})[u];
+  const el=en.replace(/\r/g,'').split('\n');
+  const kl=ko.replace(/\r/g,'').split('\n');
+  const n=Math.max(el.length,ko?kl.length:0);
+  let rows='';
+  for(let i=0;i<n;i++){
+    if(!String(el[i]||'').trim()&&!String(kl[i]||'').trim())continue;
+    rows+='<div class="bh-tr"><span class="bh-tn">'+(i+1)+'</span><span class="bh-te">'+_ebE(el[i]||'')+'</span>'
+      +'<span class="bh-tk">'+_ebE(ko?(kl[i]||''):'')+'</span></div>';
+  }
+  return '<div class="bh-wrap"><div class="bh-bar">'+_bhUnitSel(tb,"bhRender('text')")
+    +'<span class="iso-hint">본문 '+el.filter(x=>x.trim()).length+'줄'+(ko?(' · 해석 '+kl.filter(x=>x.trim()).length+'줄'):' · 해석 없음')+'</span>'
+    +'<span style="flex:1"></span>'
+    +'<button class="btn bo bsm" onclick="tbdTab(\'units\')">본문 고치기</button></div>'
+    +(rows?('<div class="bh-text">'+rows+'</div>'):'<div class="bh-none">이 단원에는 본문이 없어요 — 단원·단어 탭에서 넣을 수 있어요</div>')
+    +(sc?('<div class="bh-sec"><div class="bh-sec-t">듣기 대본</div>'
+       +(Array.isArray(sc)?sc:[{label:'',text:String(sc)}]).map(x=>'<div class="bh-script"><b>'+_ebE(x.label||'')+'</b><pre>'+_ebE(x.text||'')+'</pre></div>').join('')+'</div>'):'')
+    +'</div>';
+}
+function _bhAudioHtml(tb){
+  const keys=(typeof tbUnitKeys==='function')?tbUnitKeys(tb):Object.keys(tb.units||{});
+  const au=tb.unitAudio||{};
+  const rows=keys.filter(k=>String(au[k]||'').trim());
+  if(!rows.length)return '<div class="bh-none">등록된 음원이 없어요 — 단원·단어 탭에서 넣거나, 자료 탭의 자료실 음원을 쓰세요</div>';
+  return '<div class="bh-wrap">'+rows.map(k=>'<div class="bh-au"><span class="bh-au-n">'+_ebE(k)
+    +((tb.unitTitles||{})[k]?' <em>'+_ebE(tb.unitTitles[k])+'</em>':'')+'</span>'
+    +'<audio controls preload="none" src="'+_ebA(au[k])+'"></audio></div>').join('')+'</div>';
+}
+function _bhBankHtml(tb){
+  const rows=tbBankRows(tb);
+  const how=(Array.isArray(tb.bankIds)&&tb.bankIds.length)?'자료실 줄 id(bankIds)로 이었습니다':'이름이 같은 자료를 찾았습니다';
+  if(!rows.length)return '<div class="bh-none">이 책과 이어진 자료실 줄이 없어요'
+    +((typeof _ebRows==='undefined'||!_ebRows||!_ebRows.length)?' (자료실을 아직 안 받았습니다 — 자료실 탭을 한 번 열어 주세요)':'')+'</div>';
+  return '<div class="bh-wrap"><div class="iso-hint" style="margin-bottom:8px">'+_ebE(how)+' · '+rows.length+'줄</div>'
+    +rows.map(r=>{const m=r.meta||{};
+      return '<div class="bh-row bh-bank" onclick="ebOpenDetail(\''+escJsA(r.id)+'\')">'
+        +'<span class="bh-cls">'+_ebE(m.title||'(제목 없음)')+'</span>'
+        +'<span class="bh-mode">'+_ebE([m.series,m.path].filter(Boolean).join(' · ').slice(0,46))+'</span>'
+        +'<span class="bh-num">'+(r.nfiles||0)+'개'+(r.naudio?(' · 듣기 '+r.naudio):'')+'</span>'
+        +'<button class="btn bo bxxs" onclick="event.stopPropagation();ebOpenDetail(\''+escJsA(r.id)+'\')">열기</button></div>';
+    }).join('')+'</div>';
+}
+function _bhItemsHtml(tb){
+  const rows=((typeof _ibRows!=='undefined'&&_ibRows)||[]).filter(r=>String(((r.meta||{}).src||{}).tbId||'')===tb.id);
+  if(!rows.length)return '<div class="bh-none">이 책에서 나온 문항이 없어요 — 만들기 탭의 [동형 문제]로 만들 수 있어요</div>';
+  return '<div class="bh-wrap">'+rows.slice(0,60).map(r=>{const m=r.meta||{};
+    return '<div class="bh-row"><span class="bh-cls">'+_ebE(String(m.stem||'(발문 없음)').slice(0,54))+'</span>'
+      +'<span class="bh-mode">'+_ebE(_ibTypeLabel(m))+'</span>'
+      +'<span class="bh-num">'+_ebE(((m.src||{}).unit)||'')+'</span>'
+      +'<button class="btn bo bxxs" onclick="closeM(\'m-tbook-detail\');swTab(\'t-data\');switchDataTab(\'items\');setTimeout(()=>ibSelect(\''+escJsA(r.id)+'\'),250)">열기</button></div>';
+  }).join('')+(rows.length>60?'<div class="iso-hint">… 외 '+(rows.length-60)+'개</div>':'')+'</div>';
+}
+function _bhMakeHtml(tb){
+  const u=_bhUnit||'';
+  const btn=(lbl,sub,fn)=>'<button class="bh-make" onclick="'+fn+'"><b>'+lbl+'</b><em>'+sub+'</em></button>';
+  return '<div class="bh-wrap"><div class="bh-bar">'+_bhUnitSel(tb,"bhRender('make')")
+    +'<span class="iso-hint">고른 단원이 미리 채워집니다</span></div><div class="bh-makes">'
+    +btn('📘 학습 세트','지문 하나로 수업 자료 한 묶음',"bhMake('kit')")
+    +btn('✏️ 동형 문제','이 책 본문으로 새 문항 만들기',"bhMake('iso')")
+    +btn('🧾 시험지','문제 은행에서 골라 시험지로',"bhMake('paper')")
+    +btn('📝 단어 시험지','이 단원 단어로 종이 시험지',"bhMake('vocab')")
+    +'</div></div>';
+}
+function bhMake(kind){
+  const id=document.getElementById('tbook-edit-id')?.value||'';
+  const tb=(_cache.globalTextbooks||[]).find(b=>b.id===id);if(!tb)return;
+  const u=_bhUnit||'';
+  closeM('m-tbook-detail');
+  if(kind==='kit'){
+    if(typeof lkOpen==='function'){lkOpen({},'', '');setTimeout(()=>{
+      const t=document.getElementById('lk-tb'),un=document.getElementById('lk-unit');
+      if(t){t.value=tb.id;t.dispatchEvent(new Event('change'));}
+      setTimeout(()=>{if(un&&u){un.value=u;un.dispatchEvent(new Event('change'));}},250);
+    },250);}
+    return;
+  }
+  if(kind==='iso'){
+    swTab('t-data');switchDataTab('iso');
+    setTimeout(()=>{
+      try{
+        const ts=document.getElementById('iso-src');if(ts){ts.value='book';if(typeof isoSrcChange==='function')isoSrcChange();}
+        const bs=document.getElementById('iso-book');if(bs){bs.value=tb.id;if(typeof isoBookChange==='function')isoBookChange();}
+        const us=document.getElementById('iso-unit');if(us&&u){us.value=u;}
+      }catch(e){}
+      toast('이 책으로 동형 문제를 만들 수 있어요');
+    },300);
+    return;
+  }
+  if(kind==='paper'){
+    swTab('t-data');switchDataTab('items');
+    setTimeout(()=>{try{_ibF.tbId=tb.id;_ibF.unit=u||'';_ibPage=1;_ibSaveF();_ibPaintFilters();renderItemList();}catch(e){}},300);
+    toast('이 책 문항만 걸러 뒀어요 — 바구니에 담아 시험지로 만드세요');
+    return;
+  }
+  if(kind==='vocab'){
+    if(typeof openVocabPaper==='function'){openVocabPaper('');setTimeout(()=>{
+      try{const b=document.getElementById('vp-book');if(b){b.value=tb.id;b.dispatchEvent(new Event('change'));}
+        setTimeout(()=>{const un=document.getElementById('vp-unit');if(un&&u){un.value=u;un.dispatchEvent(new Event('change'));}},250);}catch(e){}
+    },250);}
+    else toast('단어 시험지는 학생 화면에서 만들 수 있어요');
+  }
+}
+const TBD_TABS=['home','info','units','text','audio','bank','items','make'];
 function tbdTab(tab){
-  const infoPane=document.getElementById('tbd-pane-info');
-  const unitsPane=document.getElementById('tbd-pane-units');
-  if(infoPane)infoPane.style.display=tab==='info'?'':'none';
-  if(unitsPane)unitsPane.style.display=tab==='units'?'':'none';
-  const infoBtn=document.getElementById('tbd-tab-info');
-  const unitsBtn=document.getElementById('tbd-tab-units');
+  if(TBD_TABS.indexOf(tab)<0)tab='info';
+  _bhTab=tab;
+  TBD_TABS.forEach(k=>{const p=document.getElementById('tbd-pane-'+k);if(p)p.style.display=(k===tab)?'':'none';});
   const on='color:var(--teal);border-bottom-color:var(--teal);font-weight:700';
   const off='color:var(--slate);border-bottom-color:transparent;font-weight:600';
-  if(infoBtn)infoBtn.style.cssText=`padding:8px 16px;font-size:13px;border:none;background:none;cursor:pointer;margin-bottom:-2px;font-family:var(--fb);${tab==='info'?on:off}`;
-  if(unitsBtn)unitsBtn.style.cssText=`padding:8px 16px;font-size:13px;border:none;background:none;cursor:pointer;margin-bottom:-2px;font-family:var(--fb);${tab==='units'?on:off}`;
+  TBD_TABS.forEach(k=>{const b=document.getElementById('tbd-tab-'+k);
+    if(b)b.style.cssText='padding:8px 13px;font-size:13px;border:none;background:none;cursor:pointer;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;'+(k===tab?on:off);});
+  if(['home','text','audio','bank','items','make'].indexOf(tab)>=0){bhRender(tab);return;}
   if(tab==='units'){
     const id=document.getElementById('tbook-edit-id')?.value;
     if(id&&id!==document.getElementById('tu-tb-id')?.value){
@@ -10985,6 +11355,7 @@ function resetThresholds(){
   toast('기본값으로 되돌렸습니다 — 저장을 눌러야 적용됩니다');
 }
 function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonStus,reportPendingStus,thisMonth){
+  try{renderWhatsNew();}catch(e){}
   const el=document.getElementById('dash-actions');if(!el)return;
   const items=[];
   const _today=ppToday();
@@ -18333,6 +18704,24 @@ async function saveClassLesson(){
 
 // ── 전역 검색 (Ctrl+K) — 학생·클래스·교재·원서를 한 번에 찾아 바로 이동 ──
 let _gsIdx=0,_gsItems=[];
+// Ctrl+K 로 찾는 기능 이름
+const PP_FEATURES=[
+  {n:'수준표',k:'레벨 stage',w:'교재·문제 → 수준표',tab:'t-data',go:['switchDataTab','stage']},
+  {n:'시험지',k:'paper 인쇄',w:'교재·문제 → 시험지',tab:'t-data',go:['switchDataTab','paper']},
+  {n:'학습 세트',k:'kit 워크시트',w:'교재·문제 → 학습 세트',tab:'t-data',go:['switchDataTab','kit']},
+  {n:'문제 은행',k:'item bank 문항',w:'교재·문제 → 문제 은행',tab:'t-data',go:['switchDataTab','items']},
+  {n:'동형 문제',k:'iso 변형',w:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
+  {n:'자료실',k:'기출 드라이브 bank',w:'교재·문제 → 자료실',tab:'t-data',go:['switchDataTab','bank']},
+  {n:'교재',k:'책 textbook',w:'교재·문제 → 교재',tab:'t-data',go:['switchDataTab','tbook']},
+  {n:'원서',k:'library 리딩',w:'교재·문제 → 원서',tab:'t-data',go:['switchDataTab','lib']},
+  {n:'어휘 DB',k:'단어 word',w:'교재·문제 → 어휘',tab:'t-data',go:['switchDataTab','word']},
+  {n:'시험 일정',k:'exam 내신',w:'교재·문제 → 시험 일정',tab:'t-data',go:['switchDataTab','exam']},
+  {n:'백업·일괄',k:'backup master',w:'교재·문제 → 백업·일괄',tab:'t-data',go:['switchDataTab','master']},
+  {n:'숙제 이어서 내기',k:'다음 교재 숙제',w:'과제 탭 배너 · 진도 보드',tab:'t-assign',go:['renderAssignTab']},
+  {n:'진행 중인 과제',k:'숙제 목록',w:'과제 탭',tab:'t-assign',go:['renderAssignTab']},
+  {n:'교재 흐름 점검',k:'진도 보드 점검',w:'클래스 → 진도 보드',tab:'t-class',go:['renderClassTab']},
+  {n:'새로 생긴 것',k:'whatsnew 업데이트',w:'대시보드',tab:'t-dash',go:['renderDash']},
+];
 function openGlobalSearch(){
   openM('m-gsearch');
   const q=document.getElementById('gs-q');
@@ -18366,6 +18755,12 @@ function gsRender(){
       .forEach(b=>push('📚',b.title+(b.level?` (${b.level})`:''),b.category||'교재',()=>openTbookUnits(b.id)));
     (_cache.library||[]).filter(b=>N(b.title).includes(q)||N(b.series).includes(q)).slice(0,6)
       .forEach(b=>push('📖',b.title,[(b.series||'원서'),(b.arLevel||b.ar)?'AR '+(b.arLevel||b.ar):''].filter(Boolean).join(' · '),()=>openEditLib(b.id)));
+    // [B6] 기능 이름으로도 찾는다 ('수준표', '시험지', '학습 세트' …)
+    PP_FEATURES.filter(f=>N(f.n).includes(q)||N(f.k||'').includes(q)).slice(0,6)
+      .forEach(f=>push('⚡',f.n,f.w||'기능',()=>{
+        if(f.tab)swTab(f.tab);
+        setTimeout(()=>{try{if(typeof window[f.go[0]]==='function')window[f.go[0]].apply(null,f.go.slice(1));}catch(e){}},220);
+      }));
     // 자료실 줄 — 선생님 화면에서만
     if(typeof ebMayUse==='function'&&ebMayUse()){
       (_ebRows||[]).filter(r=>{const m=r.meta||{};
@@ -19184,6 +19579,173 @@ function _ebBadges(m,id){
     ' onclick="ebStageInfo(\''+escJsA(id||'')+'\',event)">'+_ebE(sb)+'</button>'):'';
   return h+b.map(x=>'<span class="eb-badge">'+_ebE(x)+'</span>').join('');
 }
+// ══ [B3] 수준표 ═══════════════════════════════════════════════════════════
+// 수준은 자료실 거르기 칸과 배지에만 있었다. 가로 P0~H2, 세로 영역(또는 시리즈)으로
+// 모아 두면 '우리 반이 지금 어디에 있고 다음이 무엇인지' 가 한눈에 보인다.
+const STG_COLS=['P0','P1','P2','P3','M1','M2','M3','H1','H2'];
+const STG_AREAS=[['phonics','파닉스'],['vocab','어휘'],['reading','리딩'],['listening','리스닝'],['grammar','어법'],['writing','라이팅'],['naesin','내신']];
+function stgHow(){
+  askConfirm('수준은 어떻게 쟀나',
+    '책 이름이나 출판사 레벨이 아니라 **실제 내용**을 재어 정했습니다.'+String.fromCharCode(10)+String.fromCharCode(10)
+    +'· 본문이 있으면 본문의 낱말 난도·문장 길이로 (가장 믿을 만합니다)'+String.fromCharCode(10)
+    +'· 본문이 없으면 등록된 단어 목록으로'+String.fromCharCode(10)
+    +'· 파닉스 교재는 따로 P0 으로'+String.fromCharCode(10)+String.fromCharCode(10)
+    +'앱에 든 내용으로 잰 값과 자료실 파일로 잰 값이 다르면 책 홈에 둘 다 적어 둡니다.'+String.fromCharCode(10)
+    +'확신 낮음으로 표시된 책은 잴 거리가 적었다는 뜻이에요.','알겠어요','bt',()=>{});
+}
+function _stgTbArea(tb){
+  const k=pgAreaOfTb(tb);
+  return k||'reading';
+}
+function renderStageTable(){
+  const body=document.getElementById('stg-body');if(!body)return;
+  // 반 고르기
+  const cs=document.getElementById('stg-cls');
+  if(cs&&!cs.dataset.filled){
+    cs.dataset.filled='1';
+    cs.innerHTML='<option value="">반 고르기 (우리 반 표시)</option>'
+      +DB.classes().filter(c=>c.active!==false).map(c=>'<option value="'+_ebA(c.id)+'">'+_ebE(c.name)+'</option>').join('');
+  }
+  const cid=cs?cs.value:'';
+  const axis=document.getElementById('stg-axis')?.value||'area';
+  const withBank=!!(document.getElementById('stg-bank')||{}).checked;
+  const tbs=(_cache.globalTextbooks||[]).filter(b=>b&&!b._deleted&&b.type!=='library'&&(b.units||b.unitTexts));
+  const nowIds=new Set(),flowIds=new Set();
+  if(cid)((typeof ppFlow==='function')?ppFlow(cid):[]).forEach(ar=>(ar.tracks||[]).forEach(t=>{
+    if(t.now)nowIds.add(t.now.tb.id);
+    (t.books||[]).forEach(b=>flowIds.add(b.tb.id));
+  }));
+  const withStage=tbs.filter(b=>b.stage);
+  const sub=document.getElementById('stg-sub');
+  if(sub)sub.textContent='등록 교재 '+tbs.length+'권 중 '+withStage.length+'권을 재었습니다'
+    +(tbs.length-withStage.length?(' · 못 잰 '+(tbs.length-withStage.length)+'권은 맨 아래'):'');
+  // 세로 축
+  let rows;
+  if(axis==='area')rows=STG_AREAS.map(([k,n])=>({k:k,n:n,books:withStage.filter(b=>_stgTbArea(b)===k)}));
+  else{
+    const by={};
+    withStage.forEach(b=>{const k=(b.series||'').trim()||seriesKeyOf({...b,_bt:'textbook'})||'단권';(by[k]=by[k]||[]).push(b);});
+    rows=Object.keys(by).sort((a,b)=>a.localeCompare(b,'ko')).map(k=>({k:k,n:k,books:by[k]}));
+  }
+  // 자료실 교재도 보기 — 시리즈 단위로 접어서 얹는다
+  const bankCells={};
+  if(withBank&&typeof _ebRows!=='undefined'&&_ebRows){
+    const have=new Set(tbs.map(b=>String(b.title||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'')));
+    _ebRows.forEach(r=>{
+      const m=r.meta||{};
+      if(!m.stage||!m.title)return;
+      if(String(m.cat||'').indexOf('book')<0&&String(m.cat||'').indexOf('text')<0&&!m.series)return;
+      const nrm=String(m.title).toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+      if(have.has(nrm))return;                       // 등록 교재와 같은 책은 빼고
+      const ser=(m.series||'기타')+' · '+String(m.title).replace(/\s*\d+(?:[.\-]\d+)*\s*$/,'').trim();
+      const key=m.stage+'|'+ser;
+      (bankCells[key]=bankCells[key]||{n:0,ser:ser,id:r.id});
+      bankCells[key].n++;
+    });
+  }
+  const cell=(books,stage)=>{
+    let h=books.filter(b=>b.stage===stage)
+      .sort((a,b)=>(Number(a.stageG)||99)-(Number(b.stageG)||99))
+      .map(b=>{
+        const cls=nowIds.has(b.id)?' now':(flowIds.has(b.id)?' flow':'');
+        const mark=nowIds.has(b.id)?'● ':(flowIds.has(b.id)?'○ ':'');
+        return '<button class="stg-b'+cls+'" title="'+_ebA(b.title+' — '+tbStageLine(b))+'" onclick="openBookHome(\''+escJsA(b.id)+'\')">'
+          +mark+_ebE((typeof ppBookShort==='function')?ppBookShort(b):b.title)
+          +(isFinite(Number(b.stageG))?'<em>'+Number(b.stageG).toFixed(1)+'</em>':'')+'</button>';
+      }).join('');
+    return h;
+  };
+  const colW='minmax(118px,1fr)';
+  const head='<div class="stg-row stg-h" style="grid-template-columns:96px repeat('+STG_COLS.length+','+colW+')">'
+    +'<div class="stg-c stg-hd"></div>'
+    +STG_COLS.map(k=>'<div class="stg-c stg-hd">'+_ebE((typeof ebStageName==='function')?(ebStageName(k)||k):k)+'<em>'+k+'</em></div>').join('')+'</div>';
+  const bodyRows=rows.filter(r=>r.books.length).map(r=>
+    '<div class="stg-row" style="grid-template-columns:96px repeat('+STG_COLS.length+','+colW+')">'
+    +'<div class="stg-c stg-sd">'+_ebE(r.n)+'</div>'
+    +STG_COLS.map(k=>'<div class="stg-c">'+cell(r.books,k)+'</div>').join('')+'</div>').join('');
+  let bankRow='';
+  if(withBank){
+    const keys=Object.keys(bankCells);
+    bankRow='<div class="stg-row" style="grid-template-columns:96px repeat('+STG_COLS.length+','+colW+')">'
+      +'<div class="stg-c stg-sd">자료실<br><span style="font-weight:400;font-size:10.5px;color:var(--slate)">등록 안 한 책</span></div>'
+      +STG_COLS.map(k=>'<div class="stg-c">'+keys.filter(x=>x.indexOf(k+'|')===0)
+        .sort((a,b)=>bankCells[b].n-bankCells[a].n).slice(0,14)
+        .map(x=>'<button class="stg-b bank" title="자료실에서 열기" onclick="switchDataTab(\'bank\');setTimeout(()=>ebOpenDetail(\''+escJsA(bankCells[x].id)+'\'),250)">'
+          +_ebE(bankCells[x].ser.slice(0,18))+'<em>'+bankCells[x].n+'권</em></button>').join('')+'</div>').join('')+'</div>';
+  }
+  const miss=tbs.filter(b=>!b.stage);
+  body.innerHTML='<div class="stg-grid">'+head+bodyRows+bankRow+'</div>'
+    +(miss.length?('<div class="eb-note" style="margin-top:10px">못 잰 교재 '+miss.length+'권 — '
+      +miss.slice(0,12).map(b=>'<button class="stg-b" style="display:inline-block;width:auto;margin:2px" onclick="openBookHome(\''+escJsA(b.id)+'\')">'+_ebE(b.title)+'</button>').join('')
+      +(miss.length>12?(' 외 '+(miss.length-12)+'권'):'')+'</div>'):'')
+    +'<div class="eb-note" style="margin-top:8px">● 우리 반이 지금 하는 책 · ○ 교재 흐름에 있는 책 · 숫자는 추정 학년</div>';
+}
+// ══ [B4] 자료실 — 책으로 보기 ═════════════════════════════════════════════
+let _ebView=(function(){try{return localStorage.getItem('pp_eb_view')||'list';}catch(e){return 'list';}})();
+function ebSetView(v){
+  _ebView=v;try{localStorage.setItem('pp_eb_view',v);}catch(e){}
+  ['list','book'].forEach(k=>{const b=document.getElementById('ebview-'+k);if(b)b.classList.toggle('seg-on',k===v);});
+  renderBankList();
+}
+function _ebBookKey(title){return String(title||'').replace(/\s*\d+(?:[.\-]\d+)*\s*$/,'').trim()||String(title||'');}
+function _ebRegistered(r){
+  const m=r.meta||{};
+  const nrm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+  const t=nrm(m.title);
+  return (_cache.globalTextbooks||[]).find(b=>b&&!b._deleted&&(
+    (Array.isArray(b.bankIds)&&b.bankIds.indexOf(r.id)>=0)||(t&&nrm(b.title)===t)))||null;
+}
+function renderBankBooks(all){
+  const box=document.getElementById('eb-list');if(!box)return;
+  const pub={};
+  all.forEach(r=>{
+    const m=r.meta||{};
+    const p=(m.series||'(출판사 없음)');
+    const sk=_ebBookKey(m.title);
+    ((pub[p]=pub[p]||{})[sk]=pub[p][sk]||[]).push(r);
+  });
+  const keys=Object.keys(pub).sort((a,b)=>a.localeCompare(b,'ko'));
+  box.innerHTML=keys.map(p=>{
+    const sers=pub[p];
+    const n=Object.values(sers).reduce((t,a)=>t+a.length,0);
+    const body=Object.keys(sers).sort((a,b)=>a.localeCompare(b,'ko',{numeric:true})).map(sk=>{
+      const arr=sers[sk].slice().sort((a,b)=>String((a.meta||{}).title||'').localeCompare(String((b.meta||{}).title||''),'ko',{numeric:true}));
+      return '<div class="ebb-ser"><div class="ebb-ser-t">'+_ebE(sk)+' <span>'+arr.length+'권</span></div>'
+        +arr.map(r=>{
+          const m=r.meta||{},reg=_ebRegistered(r);
+          return '<div class="ebb-row">'
+            +'<span class="ebb-t" onclick="ebOpenDetail(\''+escJsA(r.id)+'\')">'+_ebE(m.title||'')+'</span>'
+            +(m.stage?('<span class="tb-stg" title="'+_ebA((typeof ebStageLine==='function')?ebStageLine(m):'')+'">'+_ebE((typeof ebStageName==='function')?(ebStageName(m.stage)||m.stage):m.stage)+'</span>'):'<span class="tb-stg none">미측정</span>')
+            +'<span class="ebb-n">'+(r.nfiles||0)+'개'+((r.naudio>0||r.extaud)?' · 🎧':'')+'</span>'
+            +(reg?('<button class="btn bo bxxs" title="등록된 교재 — 책 홈 열기" onclick="openBookHome(\''+escJsA(reg.id)+'\')">등록됨 ✓</button>')
+                 :('<button class="btn bo bxxs" onclick="ebRegisterBook(\''+escJsA(r.id)+'\')">교재로 등록</button>'))
+            +'</div>';
+        }).join('')+'</div>';
+    }).join('');
+    return '<details class="ebb"><summary class="ebb-h"><b>'+_ebE(p)+'</b><span>'+Object.keys(sers).length+'시리즈 · '+n+'권</span></summary>'
+      +'<div class="ebb-b">'+body+'</div></details>';
+  }).join('');
+}
+// 자료실 줄을 교재로 등록 — 칸만 채워 열고, 저장은 선생님이 누른다
+function ebRegisterBook(rowId){
+  const r=(_ebRows||[]).find(x=>x.id===rowId);if(!r)return;
+  const m=r.meta||{};
+  try{ebCloseDetail();}catch(e){}
+  openTbookAdd();
+  setTimeout(()=>{
+    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
+    set('tbook-title',m.title||'');
+    set('tbook-publisher',m.series||'');
+    set('tbook-series',_ebBookKey(m.title));
+    set('tbook-level',m.grade||m.level||'');
+    const cat=document.getElementById('tbook-category');
+    if(cat&&!cat.value){
+      const g=String(m.stage||'');
+      cat.value=/^P0$/.test(g)?'파닉스':'리딩';
+    }
+    toast('칸을 채워 뒀어요 — 확인하고 [추가]를 눌러 주세요');
+  },120);
+}
 function renderBankList(){
   const box=document.getElementById('eb-list');if(!box)return;
   const cnt=document.getElementById('eb-count');
@@ -19197,6 +19759,7 @@ function renderBankList(){
   const show=all.slice(0,_ebPage*EB_PAGE);
   if(cnt)cnt.textContent=all.length.toLocaleString()+'개'+(all.length!==_ebRows.length?(' / 전체 '+_ebRows.length.toLocaleString()+'개'):'');
   if(!all.length){box.innerHTML='<div class="eb-empty">조건에 맞는 자료가 없습니다.</div>';return;}
+  if(_ebView==='book'){renderBankBooks(all);return;}   // [B4] 출판사 → 시리즈 → 책
   let h=show.map(r=>{
     const m=r.meta||{},fav=ebIsFav(r.id);
     return '<div class="eb-row" onclick="ebOpenDetail(\''+escJsA(r.id)+'\')">'+

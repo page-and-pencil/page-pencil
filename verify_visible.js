@@ -51,6 +51,11 @@ function makeCtx() {
     ppBookShort,ppBookShortMap,ppChipLabel,ppMonthMetrics,hwDayStatus,hwState,hwIsBookFlow,
     _pgComposePlan,_pgShortOf,pgShort,pgShortTitle,pgAreaOfTb,_pgHwChips,_hwSchedOf,
     renderAssignLive,renderAssignStats,_alProgress,_alKind,
+    tbCounts,tbBankRows,tbStageBadge,tbStageLine,tbClassRows,openBookHome,bhRender,tbdTab,
+    renderStageTable,STG_COLS,STG_AREAS,PP_WHATSNEW,PP_FEATURES,switchDataTab,renderBankBooks,_ebRegistered,
+    hasFn:n=>typeof globalThis[n]==='function',
+    setEb:rows=>{_ebRows=rows;},
+    setIb:rows=>{_ibRows=rows;},
     getLive:()=>{const today=ppToday();const act=new Set(DB.stus().filter(s=>!s.inactive).map(s=>s.id));
       const rows=DB.assigns().filter(a=>act.has(a.sid)).map(a=>({a:a,st:hwState(a,today)}));
       return {live:rows.filter(x=>!x.st.finished).length,done:rows.filter(x=>x.st.finished).length,
@@ -60,6 +65,7 @@ function makeCtx() {
   return Object.assign(sb.__app, { els: els, sb: sb });
 }
 const A = makeCtx();
+const EL = id => A.sb.document.getElementById(id);
 A.sb.localStorage.setItem('pp_session', JSON.stringify({ role: 'teacher' }));
 const TODAY = A.ppToday();
 const D = n => A.ppShiftDate(TODAY, n);
@@ -177,7 +183,7 @@ const ok = (name, cond, note) => {
     let threw = '';
     try { A.renderAssignLive(); A.renderAssignStats(); } catch (e) { threw = String(e && e.message); }
     ok('목록·카드가 그려진다', !threw, threw || 'ok');
-    const html = String(A.els['assign-live'].innerHTML || '');
+    const html = String(EL('assign-live').innerHTML || '');
     ok('목록에 과제 이름이 보인다', html.indexOf('테스트 어휘') >= 0 || html.indexOf(A.ppBookShort(V)) >= 0);
     ok("끝난 과제는 접어 둔다", html.indexOf('끝난 과제 1건') >= 0, (html.match(/끝난 과제 \d건/) || [''])[0]);
     const pr = A._alProgress(A.cache.assignments[0], A.hwState(A.cache.assignments[0], TODAY));
@@ -205,6 +211,98 @@ const ok = (name, cond, note) => {
     ok('수업에서 나간 몫은 세지 않는다', tot === rows.length - lessonN, '전체 ' + rows.length + ' · 수업 처리 ' + lessonN + ' · 센 것 ' + tot);
     const html2 = (typeof A.ppMonthMetrics === 'function') ? '' : '';
     ok('기간과 식을 설명에 적는다', String(A.sb.ppMetricsHtml ? A.sb.ppMetricsHtml(mx) : '').indexOf('날마다 낸 숙제 몫') >= 0 || true);
+  }
+
+  console.log("\n(e) 책 홈의 '들어 있는 것' 숫자");
+  {
+    const tb = {
+      id: 'bh1', title: '테스트 리딩 북 2', category: '리딩', series: 'Test Reading',
+      units: { 'Unit 1': [{ word: 'a' }, { word: 'b' }], 'Unit 2': [{ word: 'c' }], 'Unit 3': [] },
+      unitTexts: { 'Unit 1': 'Hello there.', 'Unit 2': '' }, unitSentKo: { 'Unit 1': '안녕하세요.' },
+      unitAudio: { 'Unit 1': 'http://x/a.mp3', 'Unit 2': 'http://x/b.mp3' },
+      unitScripts: { 'Unit 1': [{ label: 'A', text: 'script' }] }, unitPatterns: { 'Unit 2': 'I am ~' },
+      bankIds: ['bank-x'], stage: 'P3', stageG: 6.1, stageBy: 'text', stageConf: 'high', stageSrc: 'app',
+      stageAlt: { g: 6.6, by: 'text', src: 'bank' },
+    };
+    reset({ books: [tb], mats: { reading: { book: tb.title, bookId: tb.id, run: 'class' } },
+      lessons: [LESSON(D(-3), 'reading', tb, 'Unit 1')] });
+    A.setEb([{ id: 'bank-x', meta: { title: '아주 다른 이름의 자료', series: '다락원' }, nfiles: 3, naudio: 1 },
+             { id: 'bank-y', meta: { title: '테스트 리딩 북 2', series: '다락원' }, nfiles: 2 }]);
+    A.setIb([{ id: 'i1', meta: { src: { tbId: 'bh1' }, stem: '문항 1' } },
+             { id: 'i2', meta: { src: { tbId: 'other' }, stem: '남의 문항' } }]);
+    const c = A.tbCounts(tb);
+    ok('단어 수', c.words === 3, c.words + '개');
+    ok('단원 수', c.units === 3, c.units + '개');
+    ok('본문 있는 단원', c.texts === 1, c.texts + '개');
+    ok('해석 있는 단원', c.ko === 1, c.ko + '개');
+    ok('음원', c.audio === 2, c.audio + '개');
+    ok('듣기 대본', c.scripts === 1, c.scripts + '개');
+    ok('문형', c.patterns === 1, c.patterns + '개');
+    ok('이 책 문항만', c.items === 1, c.items + '개');
+    ok('수준 배지와 근거 한 줄', A.tbStageBadge(tb).indexOf('초5~6') >= 0 && /본문으로 쟀어요/.test(A.tbStageLine(tb)),
+      A.tbStageLine(tb));
+    ok('다른 쪽 측정값도 적는다', A.tbStageLine(tb).indexOf('6.6') >= 0);
+    const cr = A.tbClassRows(tb);
+    ok('어느 반이 어디까지 (ppFlow)', cr.length === 1 && cr[0].done === 1 && cr[0].total === 3,
+      cr.length ? (cr[0].done + '/' + cr[0].total + ' ' + cr[0].state) : '없음');
+    let threw = '';
+    try { EL('tbook-edit-id').value = tb.id; ['home', 'text', 'audio', 'bank', 'items', 'make'].forEach(t => A.bhRender(t)); } catch (e) { threw = String(e && e.message); }
+    ok('책 홈 모든 탭이 그려진다', !threw, threw || 'ok');
+    ok('개요에 들어 있는 것이 보인다', String(EL('tbd-pane-home').innerHTML).indexOf('자료실 파일') >= 0);
+  }
+
+  console.log('\n(g) bankIds 가 있으면 이름 맞추기를 쓰지 않는다');
+  {
+    const tb = A.cache.globalTextbooks[0];
+    const rows = A.tbBankRows(tb);
+    ok('bankIds 가 가리키는 줄만', rows.length === 1 && rows[0].id === 'bank-x', rows.map(r => r.id).join(','));
+    const tb2 = Object.assign({}, tb, { bankIds: [] });
+    const rows2 = A.tbBankRows(tb2);
+    ok('bankIds 가 없으면 이름으로 찾는다', rows2.length === 1 && rows2[0].id === 'bank-y', rows2.map(r => r.id).join(','));
+  }
+
+  console.log('\n(f) 수준표 칸의 책 수 = stage 있는 책 수');
+  {
+    const mk = (i, st, g, cat) => ({ id: 'sb' + i, title: '수준책 ' + i, category: cat, units: { 'U1': [{ word: 'x' }] }, stage: st, stageG: g });
+    const books = [mk(1, 'P1', 2.1, '어휘'), mk(2, 'P3', 6.0, '리딩'), mk(3, 'M1', 7.2, '리딩'),
+      mk(4, 'M2', 8.1, '어법'), mk(5, 'H1', 10.3, '리스닝'), mk(6, 'P0', 1.0, '파닉스'),
+      mk(7, 'M3', 9.4, '내신'), mk(8, 'P2', 4.2, '라이팅'), { id: 'sb9', title: '못 잰 책', category: '리딩', units: { 'U1': [] } }];
+    reset({ books: books, mats: { reading: { book: books[1].title, bookId: books[1].id } } });
+    A.setEb([]);
+    A.renderStageTable();
+    const html = String(EL('stg-body').innerHTML || '');
+    const n = (html.match(/class="stg-b/g) || []).length;
+    const withStage = books.filter(b => b.stage).length;
+    ok('칸에 놓인 책 수 = 수준 있는 책 수 + 못 잰 책 단추', n === withStage + 1, n + ' / ' + (withStage + 1));
+    ok('아홉 칸이 모두 있다', (html.match(/stg-hd/g) || []).length === A.STG_COLS.length + 1, (html.match(/stg-hd/g) || []).length + '칸');
+    ok('못 잰 책은 따로 적는다', html.indexOf('못 잰 교재 1권') >= 0);
+    ok('우리 반 표시 자리', html.indexOf('우리 반이 지금 하는 책') >= 0);
+  }
+
+  console.log('\n(h) 옛 길이 그대로 열린다');
+  {
+    const olds = ['openTbookUnits', 'openEditTbook', 'openEditLib', 'renderBookDB', 'renderWsDB', 'switchDataTab',
+      'ebOpenTab', 'ibOpenTab', 'isoOpenTab', 'renderExamList', 'renderMasterDB', 'renderWordDB',
+      'pbOpen', 'lkOpen', 'openGlobalSearch', 'gsRender', 'renderAssignCal', 'renderAssignTab'];
+    const miss = olds.filter(n => !A.hasFn(n));
+    ok('옛 함수가 모두 있다', miss.length === 0, miss.join(',') || olds.length + '개');
+    const tabs = ['tbook', 'book', 'lib', 'word', 'ws', 'exam', 'bank', 'iso', 'items', 'master', 'stage', 'paper', 'kit'];
+    let bad = '';
+    tabs.forEach(t => { try { A.switchDataTab(t); } catch (e) { bad += t + '(' + (e && e.message) + ') '; } });
+    ok('옛 탭 키와 새 탭 키가 모두 열린다', !bad, bad || tabs.join(','));
+  }
+
+  console.log('\n(i) PP_WHATSNEW · Ctrl+K 기능 이름');
+  {
+    const bad = A.PP_WHATSNEW.filter(x => !x.go || !A.hasFn(x.go[0]));
+    ok('go 가 전부 실제 함수', bad.length === 0, bad.map(x => (x.go || [])[0]).join(',') || A.PP_WHATSNEW.length + '줄');
+    ok('2026-11-09 이후가 모두 들어 있다', A.PP_WHATSNEW.every(x => x.date >= '2026-11-09'),
+      A.PP_WHATSNEW.map(x => x.date).sort()[0]);
+    ok('어디에 있는지도 적는다', A.PP_WHATSNEW.every(x => x.where && x.title));
+    const bad2 = A.PP_FEATURES.filter(f => !A.hasFn((f.go || [])[0]));
+    ok('Ctrl+K 기능 이름의 go 도 실제 함수', bad2.length === 0, bad2.map(f => f.n).join(',') || A.PP_FEATURES.length + '개');
+    ok("'수준표'·'시험지'·'학습 세트' 가 들어 있다",
+      ['수준표', '시험지', '학습 세트', '문제 은행', '숙제 이어서 내기'].every(n => A.PP_FEATURES.some(f => f.n === n)));
   }
 
   console.log('\n' + (fail ? '❌' : '✅') + ' 통과 ' + pass + ' / 실패 ' + fail + '\n');

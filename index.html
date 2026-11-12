@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261112m">
+<link rel="stylesheet" href="css/style.css?v=20261112n">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -219,7 +219,7 @@
       <button class="ntab active" data-tab="t-stu" onclick="swTab('t-stu')"><span class="ntab-ico"><i data-lucide="graduation-cap" width="18" height="18"></i></span><span class="ntab-lbl">학생</span></button>
       <button class="ntab" data-tab="t-assign" onclick="swTab('t-assign')"><span class="ntab-ico"><i data-lucide="clipboard-list" width="18" height="18"></i></span><span class="ntab-lbl">과제</span></button>
       <button class="ntab" data-tab="t-tst" onclick="swTab('t-tst')"><span class="ntab-ico"><i data-lucide="flask-conical" width="18" height="18"></i></span><span class="ntab-lbl">테스트</span></button>
-      <button class="ntab" data-tab="t-data" onclick="swTab('t-data')"><span class="ntab-ico"><i data-lucide="database" width="18" height="18"></i></span><span class="ntab-lbl">자료 DB</span></button>
+      <button class="ntab" data-tab="t-data" onclick="swTab('t-data')"><span class="ntab-ico"><i data-lucide="database" width="18" height="18"></i></span><span class="ntab-lbl">교재·문제</span></button>
       <button class="ntab" data-tab="t-worksheet" onclick="swTab('t-worksheet')" title="AI 리딩 워크시트 생성"><span class="ntab-ico"><i data-lucide="file-text" width="18" height="18"></i></span><span class="ntab-lbl">워크시트</span></button>
       <div class="t-sidebar-spacer"></div>
       <button class="ntab" data-tab="t-cfg" onclick="swTab('t-cfg')"><span class="ntab-ico"><i data-lucide="settings" width="18" height="18"></i></span><span class="ntab-lbl">설정</span></button>
@@ -232,6 +232,7 @@
       <div id="dash-stats" class="dash-stats" style="margin-bottom:14px"></div>
       <div class="dash-cols">
         <div class="dash-col-main">
+          <div id="dash-whatsnew" style="margin-bottom:12px"></div>
           <div id="dash-exam-prep" style="margin-bottom:12px"></div>
           <div id="dash-today" style="margin-bottom:12px"></div>
           <div id="dash-monthly" style="margin-bottom:12px"></div>
@@ -647,16 +648,40 @@
     <!-- 자료 DB (교재 + 원서 + 단어 통합) -->
     <div id="t-data" class="panel">
       <!-- Sub-tab 네비게이션 -->
-      <div class="dtabs">
-        <button id="dtab-tbook" onclick="switchDataTab('tbook')" style="padding:8px 16px;font-size:14px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 교재</button>
-        <button id="dtab-lib" onclick="switchDataTab('lib')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 원서</button>
-        <button id="dtab-word" onclick="switchDataTab('word')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 어휘</button>
-        <button id="dtab-ws" onclick="switchDataTab('ws')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 저장된 워크시트</button>
-        <button id="dtab-iso" onclick="switchDataTab('iso')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="wand-2" width="15" height="15" style="vertical-align:-3px"></i> 동형 문제</button>
-        <button id="dtab-items" onclick="switchDataTab('items')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="library" width="15" height="15" style="vertical-align:-3px"></i> 문제 은행</button>
-        <button id="dtab-exam" onclick="switchDataTab('exam')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="calendar-days" width="15" height="15" style="vertical-align:-3px"></i> 시험 일정</button>
-        <button id="dtab-master" onclick="switchDataTab('master')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="wrench" width="15" height="15" style="vertical-align:-3px"></i> 백업·일괄</button>
-        <button id="dtab-bank" onclick="switchDataTab('bank')" style="padding:8px 16px;font-size:14px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 자료실</button>
+      <div class="dtabs dtabs-g">
+        <span class="dtg">교재·자료</span>
+        <button id="dtab-tbook" onclick="switchDataTab('tbook')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:700;color:var(--teal)"><i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 교재</button>
+        <button id="dtab-stage" onclick="switchDataTab('stage')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="bar-chart-3" width="15" height="15" style="vertical-align:-3px"></i> 수준표 <i class="wn-dot"></i></button>
+        <button id="dtab-lib" onclick="switchDataTab('lib')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 원서</button>
+        <button id="dtab-word" onclick="switchDataTab('word')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 어휘</button>
+        <button id="dtab-bank" onclick="switchDataTab('bank')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 자료실</button>
+        <span class="dtg">문제·시험지</span>
+        <button id="dtab-items" onclick="switchDataTab('items')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="library" width="15" height="15" style="vertical-align:-3px"></i> 문제 은행</button>
+        <button id="dtab-paper" onclick="switchDataTab('paper')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="file-check" width="15" height="15" style="vertical-align:-3px"></i> 시험지 <i class="wn-dot"></i></button>
+        <button id="dtab-iso" onclick="switchDataTab('iso')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="wand-2" width="15" height="15" style="vertical-align:-3px"></i> 동형 문제</button>
+        <button id="dtab-kit" onclick="switchDataTab('kit')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="book-marked" width="15" height="15" style="vertical-align:-3px"></i> 학습 세트 <i class="wn-dot"></i></button>
+        <button id="dtab-ws" onclick="switchDataTab('ws')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 저장된 것</button>
+        <span class="dtg">관리</span>
+        <button id="dtab-exam" onclick="switchDataTab('exam')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="calendar-days" width="15" height="15" style="vertical-align:-3px"></i> 시험 일정</button>
+        <button id="dtab-master" onclick="switchDataTab('master')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="wrench" width="15" height="15" style="vertical-align:-3px"></i> 백업·일괄</button>
+      </div>
+
+      <!-- 수준표 sub-panel -->
+      <div id="dp-stage" style="display:none">
+        <div class="sh">
+          <div><div class="st"><i data-lucide="bar-chart-3" width="15" height="15" style="vertical-align:-3px"></i> 수준표</div>
+            <div class="ssub" id="stg-sub"></div></div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select class="filter-sel" id="stg-cls" onchange="renderStageTable()"></select>
+            <select class="filter-sel" id="stg-axis" onchange="renderStageTable()">
+              <option value="area">세로: 영역</option><option value="series">세로: 시리즈</option>
+            </select>
+            <label class="eb-chk"><input type="checkbox" id="stg-bank" onchange="renderStageTable()"> 자료실 교재도 보기</label>
+          </div>
+        </div>
+        <div class="eb-note" style="margin-bottom:10px">책 이름이나 출판사 레벨이 아니라 <b>실제 본문과 단어를 재서</b> 정했습니다.
+          <button class="btn bo bxxs" onclick="stgHow()">어떻게 쟀나</button></div>
+        <div id="stg-body"></div>
       </div>
 
       <!-- 기출·자료실 sub-panel (드라이브 자료 — 선생님 전용) -->
@@ -692,6 +717,10 @@
           <select class="filter-sel" id="eb-f-sort" onchange="ebFilterChange()" title="정렬"></select>
           <label class="eb-chk"><input type="checkbox" id="eb-f-audio" onchange="ebFilterChange()"> 듣기 있음</label>
           <input type="text" class="eb-q" id="eb-f-q" placeholder="제목·학교·폴더 검색…" oninput="ebFilterChange()">
+          <span class="seg" style="flex-shrink:0">
+            <button id="ebview-list" class="seg-on" onclick="ebSetView('list')" title="한 줄씩 보기">☰ 목록</button>
+            <button id="ebview-book" onclick="ebSetView('book')" title="출판사 → 시리즈 → 책으로 묶어 보기">▤ 책으로 보기</button>
+          </span>
           <button class="btn bo bsm" id="eb-only-mine" onclick="ebOnly('mine')">내 교재</button>
           <button class="btn bo bsm" id="eb-only-fav" onclick="ebOnly('fav')">즐겨찾기 0</button>
           <button class="btn bo bsm" id="eb-only-recent" onclick="ebOnly('recent')">최근 본 0</button>
@@ -975,6 +1004,13 @@
             <button id="bookview-card" onclick="setBookView('card')" title="카드 보기">▦ 카드</button>
             <button id="bookview-table" onclick="setBookView('table')" title="표 보기">☰ 표</button>
           </div>
+          <select class="filter-sel" id="tbf-stage" onchange="tbFilterChange()" title="수준 — 책의 실제 내용으로 잰 값"></select>
+          <select class="filter-sel" id="tbf-area" onchange="tbFilterChange()" title="영역"></select>
+          <select class="filter-sel" id="tbf-sort" onchange="tbFilterChange()" title="정렬">
+            <option value="">기본 순</option><option value="stage">수준순</option>
+          </select>
+          <label class="eb-chk"><input type="checkbox" id="tbf-mine" onchange="tbFilterChange()"> 우리 반 교재만</label>
+          <label class="eb-chk"><input type="checkbox" id="tbf-text" onchange="tbFilterChange()"> 본문 있는 것만</label>
           <select class="filter-sel" id="book-per-page" onchange="bookPage=0;renderBookDB()">
             <option value="25">25개</option><option value="50" selected>50개</option><option value="100">100개</option><option value="500">500개</option>
           </select>
@@ -1058,9 +1094,10 @@
       <!-- 워크시트 sub-panel (스튜디오에서 저장한 워크시트) -->
       <div id="dp-ws" style="display:none">
         <div class="sh">
-          <div><div class="st">저장된 워크시트</div><div class="ssub" id="ws-total"></div>
+          <div><div class="st" id="ws-db-title">저장된 것</div><div class="ssub" id="ws-total"></div>
             <div style="font-size:12px;color:var(--slate);margin-top:2px">스튜디오에서 만들어 저장한 학습지 — 새로 만들려면 오른쪽 버튼(상단 ‘워크시트’ 탭과 같은 화면)</div></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn bt bsm" id="ws-new-btn" style="display:none">+ 새로 만들기</button>
             <button class="btn bt bsm" onclick="lkOpen({},'','중1')">📘 학습 세트 만들기</button>
             <button class="btn bo bsm" onclick="swTab('t-worksheet')">＋ 새 워크시트 만들기</button>
           </div>
@@ -1195,6 +1232,12 @@
 
       <!-- 로그인 방식 (서버 이전 병행 기간 확인용) -->
       <div id="auth-mode-row" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--slate);margin:-4px 0 12px"></div>
+
+      <!-- 새로 생긴 것 (전체) -->
+      <div class="card" style="margin-bottom:1rem">
+        <div class="ch"><span class="ct"><i data-lucide="sparkles" width="15" height="15" style="vertical-align:-3px"></i> 새로 생긴 것</span></div>
+        <div class="cb" id="cfg-whatsnew" style="padding:6px 10px 10px"></div>
+      </div>
 
       <!-- 홈 신호 기준값 -->
       <div class="card" style="margin-bottom:1rem">
@@ -1897,10 +1940,22 @@
       <button class="bx" onclick="if(_tuCurUnit)tuSaveUnitText(true);closeM('m-tbook-detail')">×</button>
     </div>
     <input type="hidden" id="tbook-edit-id">
-    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px;flex-shrink:0">
-      <button id="tbd-tab-info" onclick="tbdTab('info')" style="padding:8px 16px;font-size:13px;font-weight:700;color:var(--teal);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb)">기본 정보</button>
-      <button id="tbd-tab-units" onclick="tbdTab('units')" style="padding:8px 16px;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb)">&#128218; 단원&#183;단어 <span id="tbd-unit-cnt" style="font-size:10.5px"></span></button>
+    <div class="tbd-tabs" style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px;flex-shrink:0;overflow-x:auto">
+      <button id="tbd-tab-home" onclick="tbdTab('home')" style="padding:8px 13px;font-size:13px;border:none;background:none;cursor:pointer;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;color:var(--slate);border-bottom:2px solid transparent;font-weight:600">&#127968; 개요</button>
+      <button id="tbd-tab-info" onclick="tbdTab('info')" style="padding:8px 13px;font-size:13px;border:none;background:none;cursor:pointer;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;color:var(--teal);border-bottom:2px solid var(--teal);font-weight:700">기본 정보</button>
+      <button id="tbd-tab-units" onclick="tbdTab('units')" style="padding:8px 13px;font-size:13px;border:none;background:none;cursor:pointer;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;color:var(--slate);border-bottom:2px solid transparent;font-weight:600">&#128218; 단원&#183;단어 <span id="tbd-unit-cnt" style="font-size:10.5px"></span></button>
+      <button id="tbd-tab-text" onclick="tbdTab('text')" style="padding:8px 13px;font-size:13px;border:none;background:none;cursor:pointer;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;color:var(--slate);border-bottom:2px solid transparent;font-weight:600">&#128196; 본문&#183;해석</button>
+      <button id="tbd-tab-audio" onclick="tbdTab('audio')" style="padding:8px 13px;font-size:13px;border:none;background:none;cursor:pointer;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;color:var(--slate);border-bottom:2px solid transparent;font-weight:600">&#127911; 음원</button>
+      <button id="tbd-tab-bank" onclick="tbdTab('bank')" style="padding:8px 13px;font-size:13px;border:none;background:none;cursor:pointer;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;color:var(--slate);border-bottom:2px solid transparent;font-weight:600">&#128193; 자료</button>
+      <button id="tbd-tab-items" onclick="tbdTab('items')" style="padding:8px 13px;font-size:13px;border:none;background:none;cursor:pointer;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;color:var(--slate);border-bottom:2px solid transparent;font-weight:600">&#128221; 문항</button>
+      <button id="tbd-tab-make" onclick="tbdTab('make')" style="padding:8px 13px;font-size:13px;border:none;background:none;cursor:pointer;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;color:var(--slate);border-bottom:2px solid transparent;font-weight:600">&#10024; 만들기</button>
     </div>
+    <div id="tbd-pane-home" style="display:none"></div>
+    <div id="tbd-pane-text" style="display:none"></div>
+    <div id="tbd-pane-audio" style="display:none"></div>
+    <div id="tbd-pane-bank" style="display:none"></div>
+    <div id="tbd-pane-items" style="display:none"></div>
+    <div id="tbd-pane-make" style="display:none"></div>
     <!-- 기본 정보 탭 -->
     <div id="tbd-pane-info">
       <div class="fg">
@@ -3068,7 +3123,7 @@
 <script src="js/utils.js?v=20261112f"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261112a"></script>
-<script src="js/teacher.js?v=20261112o"></script>
+<script src="js/teacher.js?v=20261112p"></script>
 <script src="js/student.js?v=20261112h"></script>
 <script src="js/parent.js?v=20261112e"></script>
 </body>
