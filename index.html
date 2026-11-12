@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261113c">
+<link rel="stylesheet" href="css/style.css?v=20261114a">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -654,8 +654,8 @@
       <!-- Sub-tab 네비게이션 -->
       <div class="dtabs dtabs-g">
         <span class="dtg">교재·자료</span>
+        <button id="dtab-library" onclick="switchDataTab('library')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="library-big" width="15" height="15" style="vertical-align:-3px"></i> 라이브러리 <i class="wn-dot"></i></button>
         <button id="dtab-tbook" onclick="switchDataTab('tbook')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:700;color:var(--teal)"><i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 교재</button>
-        <button id="dtab-stage" onclick="switchDataTab('stage')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="bar-chart-3" width="15" height="15" style="vertical-align:-3px"></i> 수준표 <i class="wn-dot"></i></button>
         <button id="dtab-lib" onclick="switchDataTab('lib')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 원서</button>
         <button id="dtab-word" onclick="switchDataTab('word')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 어휘</button>
         <button id="dtab-bank" onclick="switchDataTab('bank')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 기출 <i class="wn-dot"></i></button>
@@ -669,6 +669,54 @@
         <span class="dtg">관리</span>
         <button id="dtab-exam" onclick="switchDataTab('exam')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="calendar-days" width="15" height="15" style="vertical-align:-3px"></i> 시험 일정</button>
         <button id="dtab-master" onclick="switchDataTab('master')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="wrench" width="15" height="15" style="vertical-align:-3px"></i> 백업·일괄</button>
+      </div>
+
+      <!-- 라이브러리 sub-panel (선생님 전용) -->
+      <div id="dp-library" style="display:none">
+        <div class="sh">
+          <div style="min-width:0">
+            <div class="st"><i data-lucide="library-big" width="15" height="15" style="vertical-align:-3px"></i> 라이브러리</div>
+            <div class="ssub"><span id="lib-count"></span> <span id="lib-state" class="eb-state"></span>
+              <span style="color:var(--text-muted)">· 국내외 영어 교재를 찾고 열어 보고 커리큘럼을 짭니다</span></div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <span class="seg" style="flex-shrink:0">
+              <button id="lib-v-browse" class="seg-on on" onclick="libSetView('browse')" title="표지로 둘러보기">▦ 둘러보기</button>
+              <button id="lib-v-map" onclick="libSetView('map')" title="수준 × 영역 지도">▤ 커리큘럼 지도</button>
+            </span>
+            <button class="btn bo bsm" onclick="libRefresh()">지금 최신화</button>
+          </div>
+        </div>
+
+        <div id="lib-p-browse">
+          <div class="eb-filters">
+            <select class="filter-sel" id="lib-f-target" onchange="libFilterChange()"></select>
+            <select class="filter-sel" id="lib-f-area" onchange="libFilterChange()"></select>
+            <select class="filter-sel" id="lib-f-stage" onchange="libFilterChange()" title="수준 — 책 내용으로 잰 값"></select>
+            <select class="filter-sel" id="lib-f-pub" onchange="libFilterChange()"></select>
+            <select class="filter-sel" id="lib-f-use" onchange="libFilterChange()"></select>
+            <label class="eb-chk"><input type="checkbox" id="lib-f-bank" onchange="libFilterChange()"> 자료 있음</label>
+            <label class="eb-chk"><input type="checkbox" id="lib-f-text" onchange="libFilterChange()"> 본문 있음</label>
+            <label class="eb-chk"><input type="checkbox" id="lib-f-mine" onchange="libFilterChange()"> 우리 반 교재</label>
+            <label class="eb-chk"><input type="checkbox" id="lib-f-staged" onchange="libFilterChange()"> 수준 잰 책만</label>
+            <label class="eb-chk" title="학교 교과서별 평가문제집 — 많아서 기본으로 접어 둡니다"><input type="checkbox" id="lib-f-naesin" onchange="libFilterChange()"> 내신 문제집도 보기 <span id="lib-naesin-n" style="color:var(--text-muted)"></span></label>
+            <input type="text" class="eb-q" id="lib-f-q" placeholder="제목·시리즈·출판사… (목차·본문도 함께 찾아요)" oninput="libQInput(this.value)">
+            <button class="btn bo bsm" onclick="libResetFilters()">초기화</button>
+          </div>
+          <div id="lib-deep" class="lib-deep" style="display:none"></div>
+          <div id="lib-grid" class="lib-grid"></div>
+        </div>
+
+        <div id="lib-p-map" style="display:none">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <select class="filter-sel" id="lib-map-cls" onchange="libMapClsChange(this.value)"></select>
+            <span style="font-size:12.5px;color:var(--slate)">표지를 <b>끌어서</b> 아래 칸에 놓으면 그 반의 다음 교재로 들어갑니다</span>
+          </div>
+          <div id="lib-map-note" style="font-size:12.5px;color:var(--text-muted);margin-bottom:8px"></div>
+          <div id="lib-map"></div>
+          <div id="lib-map-drop" class="lib-drop" style="display:none"
+               ondragover="libMapOver(event)" ondrop="libMapDrop(event)">여기에 놓으면 <b>다음 교재</b>로 넣습니다</div>
+        </div>
       </div>
 
       <!-- 수준표 sub-panel -->
@@ -765,6 +813,7 @@
             <input type="file" id="iso-img-file" accept="image/*,application/pdf" multiple style="display:none" onchange="isoImgFiles(event)">
             <div id="iso-imgs" class="iso-imgs" style="display:none"></div>
             <textarea id="iso-text" class="iso-text" rows="4" placeholder="또는 문항·지문을 글로 붙여넣기" oninput="isoTextChange()"></textarea>
+            <button class="btn bo bsm" onclick="libPickOpen('iso')" title="라이브러리의 교재 본문에서 고릅니다">📕 교재에서 가져오기</button>
             <div class="iso-row">
               <input type="number" id="iso-qno" class="iso-qno" placeholder="문항 번호" min="1" max="45" onchange="isoQnoChange()">
               <select class="filter-sel" id="iso-type" onchange="isoCfgChange()"></select>
@@ -3066,6 +3115,7 @@
         </div>
         <div class="pb-a-row">
           <textarea id="lk-paste" class="iso-text" rows="2" placeholder="또는 지문을 붙여넣기"></textarea>
+          <button class="btn bo bsm" onclick="libPickOpen('kit')" title="라이브러리의 교재 본문에서 고릅니다">📕 교재에서 가져오기</button>
           <button class="btn bo bsm" onclick="lkPasteText()">이 글 쓰기</button>
         </div>
         <div class="pb-a-row">
@@ -3152,6 +3202,31 @@
   </div>
 </div>
 
+<!-- 라이브러리 — 책 한 권 -->
+<div id="m-lib-book" class="mo">
+  <div class="mdl mdl-xl">
+    <div class="mh">
+      <div style="min-width:0">
+        <div class="mt" id="libb-title">책</div>
+        <div class="ssub" id="libb-sub"></div>
+      </div>
+      <button class="bx" onclick="closeM('m-lib-book')">×</button>
+    </div>
+    <div id="libb-tabs" class="tbd-tabs"></div>
+    <div id="libb-body" class="libb-body"></div>
+  </div>
+</div>
+
+<!-- 라이브러리 — 교재에서 가져오기 -->
+<div id="m-lib-pick" class="mo">
+  <div class="mdl" style="max-width:640px">
+    <div class="mh"><div class="mt">교재에서 가져오기</div><button class="bx" onclick="closeM('m-lib-pick')">×</button></div>
+    <div class="pp-note" style="cursor:default">책 이름·단원·본문에 있는 말로 찾습니다. 고른 본문이 지문 칸에 들어가고, 만든 자료에 <b>어느 책 몇 단원</b>에서 왔는지 남습니다.</div>
+    <input type="text" class="eb-q" id="libp-q" placeholder="예: Unit 3 / recycling / Reading Expert" oninput="libPickInput(this.value)" style="width:100%;margin:8px 0">
+    <div id="libp-body" class="lib-deep" style="max-height:52vh;overflow-y:auto"></div>
+  </div>
+</div>
+
 <div id="m-ib-shot" class="mo">
   <div class="mdl" style="max-width:560px">
     <div class="mh"><div class="mt">📸 캡처로 문항 추가</div><button class="bx" onclick="ibShotClose()">×</button></div>
@@ -3195,7 +3270,7 @@
 <script src="js/utils.js?v=20261112h"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261112b"></script>
-<script src="js/teacher.js?v=20261114b"></script>
+<script src="js/teacher.js?v=20261114c"></script>
 <script src="js/student.js?v=20261112h"></script>
 <script src="js/parent.js?v=20261112e"></script>
 </body>
