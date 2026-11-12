@@ -1966,7 +1966,7 @@ function ppBookLabel(tb){
   const title=String(isObj?(tb.title||''):(tb||'')).trim();
   if(!title)return '';
   if(title.length<=14)return title;                    // 짧으면 그대로가 가장 분명하다
-  const ser=isObj?String(tb.series||'').trim():'';
+  const ser=(isObj?String(tb.series||''):'').replace(/[^A-Za-z0-9가-힣\s]/g,' ').replace(/\s+/g,' ').trim();
   const nrm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
   let head='';
   if(ser){
