@@ -8,6 +8,7 @@
 const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
+const G = require('./verify_guard');   // 실제 서버 쓰기 막음 장치
 const ROOT = __dirname;
 
 function mkEl(id) {
@@ -33,7 +34,7 @@ function makeCtx() {
     console, document: doc, localStorage: store(), sessionStorage: store(),
     navigator: { userAgent: 'node' }, location: { href: '', search: '', pathname: '/' },
     setTimeout, clearTimeout, setInterval, clearInterval,
-    fetch: async () => ({ ok: false, status: 0, headers: { get: () => null }, json: async () => ({}), text: async () => '' }),
+    fetch: G.guardFetch(),                     // 실제 서버에 쓰려 하면 그 자리에서 멈춘다
     alert() { }, confirm() { return false; }, requestAnimationFrame(f) { return setTimeout(f, 0); },
     URL: { createObjectURL: () => 'blob:stub', revokeObjectURL() { } },
     URLSearchParams, AbortController, TextEncoder, TextDecoder, Blob,
@@ -59,6 +60,15 @@ function makeCtx() {
     setSlots:(slots,full)=>{_pbSlots=slots;(full||[]).forEach(d=>{_ibFull.set(d.id,d);_pbData.set(d.id,d);});_pbPaper={title:'t',header:{}};},
     isoList:()=>Object.keys(ISO_TYPES).filter(k=>ISO_TYPES[k].iso!==false),
     setF2:f=>{Object.assign(_ibF,f);},
+    ibLoad,_ibDevSync,_ibSrvCount,_ibTypeVals,ppBookLabel,ppBookLabelMap,pgLabel,renderItemList,
+    setFetchAll:fn=>{_ibFetchAll=fn;},setStamp:fn=>{_ibStampRows=fn;},setProbe:fn=>{_ibProbe=fn;},
+    setById:fn=>{_ibFetchByIds=fn;},
+    resetIb:()=>{_ibRows=null;_ibMergeIdx=null;_ibStamps={};_ibAt=0;_ibMax='';_ibFull.clear();_ibDevIds=new Set();},
+    devIds:()=>[..._ibDevIds],
+    setIdb:(g,st)=>{idbGet=g;idbSet=st;},
+    getRows:()=>_ibRows||[],
+    resetF:()=>ibResetFilters(),
+    dbg:async()=>({may:ibMayUse(),dev:(await _ibDevAll()).length,rows:(_ibRows||[]).length,ids:_ibDevIds.size}),
     setEb:rows=>{_ebRows=rows;},
     setIb:rows=>{_ibRows=rows;},
     getLive:()=>{const today=ppToday();const act=new Set(DB.stus().filter(s=>!s.inactive).map(s=>s.id));
@@ -71,6 +81,11 @@ function makeCtx() {
 }
 const A = makeCtx();
 const EL = id => A.sb.document.getElementById(id);
+// 기기 보관(IndexedDB) 흉내
+const IDB = new Map();
+A.sb.IDBX = IDB;
+A.setIdb(async k => (IDB.has(k) ? JSON.parse(JSON.stringify(IDB.get(k))) : null),
+  async (k, v) => { IDB.set(k, JSON.parse(JSON.stringify(v))); return true; });
 A.sb.localStorage.setItem('pp_session', JSON.stringify({ role: 'teacher' }));
 const TODAY = A.ppToday();
 const D = n => A.ppShiftDate(TODAY, n);
@@ -396,6 +411,87 @@ const ok = (name, cond, note) => {
     ok('낱개로 섞은 시험지에는 음원을 붙이지 않는다', A._pbAudioOf() === null);
   }
 
-  console.log('\n' + (fail ? '❌' : '✅') + ' 통과 ' + pass + ' / 실패 ' + fail + '\n');
+  console.log('\n(n) 기기 보관 문항이 목록에서 사라지지 않는다');
+  {
+    // 기기 2,160 + 서버 0
+    const dev = [];
+    for (let i = 1; i <= 2160; i++)dev.push(A._ibNorm({
+      id: 'ex-lmid-2024-' + i, type: 'ml_detail', stem: '듣기 문항 ' + i,
+      script: 'script ' + i, choices: ['a', 'b', 'c', 'd'], answer: i % 4,
+      src: { kind: 'exam', exam: '2024년 ' + ((i % 108) + 1) + '회', qno: String((i % 20) + 1), audioId: 'au' + (i % 108), keep: true },
+    }));
+    IDB.set('pp_item_keep', dev);
+    let srv = [];
+    A.setFetchAll(async () => srv.slice());
+    A.setStamp(async () => srv.map(r => ({ id: r.id, updated_at: r.updated_at })));
+    A.setProbe(async () => ({ total: srv.length, max: srv.map(r => r.updated_at).sort().pop() || '' }));
+    A.setById(async ids => srv.filter(r => ids.indexOf(r.id) >= 0));
+    A.sb.localStorage.setItem('pp_session', JSON.stringify({ role: 'teacher' }));
+    A.resetIb(); IDB.delete('pp_item_bank_v1');
+    await new Promise(r => setTimeout(r, 50));   // 앞 검사에서 걸어 둔 받기가 끝나기를 기다린다
+    await A.ibLoad(true);
+    ok('새로고침해도 2,160개', A.getRows().length === 2160, A.getRows().length + '개');
+    ok('기기 보관 id 를 알고 있다', A.devIds().length === 2160);
+    ok('서버 줄은 0으로 센다', A._ibSrvCount() === 0, A._ibSrvCount() + '개');
+    await A.ibLoad(true);
+    ok('[지금 최신화] 해도 2,160개', A.getRows().length === 2160, A.getRows().length + '개');
+    // 거르기 칸·회차에도 들어간다
+    A.resetF();
+    ok('회차로 묶인다 (기기 보관분 포함)', Object.keys(A._ibExams()).length === 108, Object.keys(A._ibExams()).length + '회차');
+    ok('유형 칸에도 나온다', A._ibTypeVals().some(v => v.v === 'ml_detail'));
+    ok('카드에 "이 기기에만"', A._ibBadges((A.getRows()[0] || {}).meta || {}).indexOf('이 기기에만') >= 0);
+    // 서버 3개가 생기면 2,163개
+    const now = new Date().toISOString();
+    srv = [1, 2, 3].map(i => A._ibLightOf(A._ibNorm({ id: 'srv-' + i, type: 'blank', stem: '서버 문항 ' + i, passage: 'p', choices: ['a', 'b'], answer: 0 }), 'srv-' + i, now));
+    await A.ibLoad(true);
+    ok('서버 3개가 생기면 2,163개', A.getRows().length === 2163, A.getRows().length + '개');
+    ok('서버 줄은 3으로 센다', A._ibSrvCount() === 3);
+    // 서버 줄이 지워지면 그 줄만 빠진다
+    srv = srv.slice(0, 1);
+    await A.ibLoad(true);
+    ok('서버 줄이 지워지면 그 줄만 빠진다', A.getRows().length === 2161 && A.devIds().length === 2160, A.getRows().length + '개');
+    ok('기기 보관분은 그대로', A.getRows().filter(r => (r.meta || {}).dev).length === 2160);
+    IDB.delete('pp_item_keep'); A.resetIb();
+  }
+
+  console.log('\n(o) 막음 장치 · 이름 규칙');
+  {
+    G.guardStrict(false);
+    const before = G.guardReport().blocked.length;
+    ok('실제 주소로 쓰려 하면 막는다', G.guardCheck('POST', 'https://x.supabase.co/rest/v1/item_bank') === 'block');
+    ok('읽기는 지나간다', G.guardCheck('GET', 'https://x.supabase.co/rest/v1/item_bank') === 'ok');
+    ok('막은 기록이 남는다', G.guardReport().blocked.length === before + 1, G.guardLine());
+    G.guardStrict(true);G.guardClear();        // 점검으로 생긴 기록은 지운다
+    // [3] 교재가 아닌 숙제 이름은 줄이지 않는다
+    const V = BOOK('tn', '테스트 어휘 교재', 6);
+    reset({ books: [V], mats: { vocab: { book: V.title, bookId: V.id, run: 'hw' } },
+      assigns: [
+        HW('h1', V, [{ date: D(0), book: V.title, unit: 'Day 1' }]),
+        Object.assign(HW('h2', V, [{ date: D(0), book: '리딩앤 원서 읽기', unit: '' }]), { bookId: '', bookTitle: '리딩앤 원서 읽기' }),
+        Object.assign(HW('h3', V, [{ date: D(0), book: '앱으로 단어 20개 학습', unit: '' }]), { bookId: '', bookTitle: '앱으로 단어 20개 학습' }),
+      ] });
+    A.renderAssignLive();
+    const html = String(EL('assign-live').innerHTML || '');
+    ok("'리딩앤 원서 읽기' 가 그대로", html.indexOf('리딩앤 원서 읽기') >= 0);
+    ok("'앱으로 단어 20개 학습' 도 그대로", html.indexOf('앱으로 단어 20개 학습') >= 0);
+    ok('교재형만 짧은 이름', html.indexOf(A.ppBookShort(V)) >= 0, A.ppBookShort(V));
+    // [4] 흐름 밖에서 겹치지 않는 이름
+    const many = [
+      { id: 'l1', title: '능률VOCA 필수', series: '능률VOCA' }, { id: 'l2', title: '워드마스터 필수', series: '워드마스터' },
+      { id: 'l3', title: '천일문 마스터', series: '천일문' }, { id: 'l4', title: '30-word READING 1', series: 'Word READING' },
+      { id: 'l5', title: '30-word READING 2', series: 'Word READING' }, { id: 'l6', title: 'Discovery 1.1', series: 'Discovery' },
+      { id: 'l7', title: '1200 Words for Tests Starters 1', series: '1200 Words for Tests' },
+      { id: 'l8', title: '1200 Words for Tests Starters 2', series: '1200 Words for Tests' },
+    ];
+    const lm = A.ppBookLabelMap(many);
+    const vals = Object.values(lm);
+    ok('전 교재에서 겹치지 않는다', new Set(vals).size === vals.length, vals.join(' / '));
+    ok("'Discovery' 가 잘리지 않는다", lm.l6 === 'Discovery 1.1', lm.l6);
+    ok("'필수' 두 권이 갈린다", lm.l1 !== lm.l2 && lm.l1.length <= 16, lm.l1 + ' / ' + lm.l2);
+    ok('12자 안팎', vals.every(v => v.length <= 16), vals.map(v => v.length).join(','));
+  }
+
+  console.log('\n' + G.guardLine());
+  console.log((fail ? '❌' : '✅') + ' 통과 ' + pass + ' / 실패 ' + fail + '\n');
   process.exit(fail ? 1 : 0);
 })();

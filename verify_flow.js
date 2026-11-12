@@ -8,6 +8,7 @@
 const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
+const G = require('./verify_guard');   // 실제 서버 쓰기 막음 장치
 const ROOT = __dirname;
 
 // ── 아주 작은 DOM 흉내 (화면 함수가 멈추지 않을 만큼만) ──
@@ -35,7 +36,7 @@ function makeCtx() {
     console, document: doc, localStorage: store(), sessionStorage: store(),
     navigator: { userAgent: 'node' }, location: { href: '', search: '', pathname: '/' },
     setTimeout, clearTimeout, setInterval, clearInterval,
-    fetch: async () => ({ ok: false, status: 0, headers: { get: () => null }, json: async () => ({}), text: async () => '' }),
+    fetch: G.guardFetch(),                     // 실제 서버에 쓰려 하면 그 자리에서 멈춘다
     alert() { }, confirm() { return false; }, requestAnimationFrame(f) { return setTimeout(f, 0); },
     URL, URLSearchParams, AbortController, TextEncoder, TextDecoder,
     btoa: s => Buffer.from(s, 'binary').toString('base64'), atob: s => Buffer.from(s, 'base64').toString('binary'),
@@ -309,5 +310,6 @@ console.log('\n추가2. 끝난 과제 줄 옆에서 다른 과제 줄이 돌고 
   ok('도는 줄이 없으면 다음 교재를 알린다', bn2.length === 1 && bn2[0].kind === 'pick-next', bn2.map(x => x.kind + ':' + x.title).join(','));
 }
 
+console.log('\n' + G.guardLine());
 console.log('\n' + (fail ? '❌' : '✅') + ' 통과 ' + pass + ' / 실패 ' + fail);
 process.exit(fail ? 1 : 0);

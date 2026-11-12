@@ -13,6 +13,7 @@
 const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
+const G = require('./verify_guard');   // 실제 서버 쓰기 막음 장치
 const ROOT = __dirname;
 
 function mkEl(id) {
@@ -38,7 +39,7 @@ function makeCtx() {
     console, document: doc, localStorage: store(), sessionStorage: store(),
     navigator: { userAgent: 'node' }, location: { href: '', search: '', pathname: '/' },
     setTimeout, clearTimeout, setInterval, clearInterval,
-    fetch: async () => ({ ok: false, status: 0, headers: { get: () => null }, json: async () => ({}), text: async () => '' }),
+    fetch: G.guardFetch(),                     // 실제 서버에 쓰려 하면 그 자리에서 멈춘다
     alert() { }, confirm() { return false; }, requestAnimationFrame(f) { return setTimeout(f, 0); },
     URL, URLSearchParams, AbortController, TextEncoder, TextDecoder,
     btoa: s => Buffer.from(s, 'binary').toString('base64'), atob: s => Buffer.from(s, 'base64').toString('binary'),
@@ -483,6 +484,7 @@ const kinds = ch => ch.map(x => x.kind).join(',');
     ok("학생·선생님 체크 → 제출완료", A.ppDoneWord('student') === '제출완료' && A.ppDoneWord('teacher') === '제출완료');
   }
 
-  console.log('\n' + (fail ? '❌' : '✅') + ' 통과 ' + pass + ' / 실패 ' + fail + '\n');
+  console.log('\n' + G.guardLine());
+  console.log((fail ? '❌' : '✅') + ' 통과 ' + pass + ' / 실패 ' + fail + '\n');
   process.exit(fail ? 1 : 0);
 })();

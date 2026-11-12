@@ -1958,6 +1958,55 @@ function ppBookShortMap(tbs){
   });
   return out;
 }
+// 전 교재에서 겹치지 않는 이름 — **흐름 밖**(수준표·'다음 교재')에서 쓴다.
+// 달력 칩의 ppBookShort 는 '같은 반 흐름 안에서만' 겹치지 않으면 되지만,
+// 285권을 한 표에 늘어놓으면 '필수' 가 세 번, 'Discover 1.1'(Discovery 가 잘림)처럼 나온다.
+function ppBookLabel(tb){
+  const isObj=tb&&typeof tb==='object';
+  const title=String(isObj?(tb.title||''):(tb||'')).trim();
+  if(!title)return '';
+  if(title.length<=14)return title;                    // 짧으면 그대로가 가장 분명하다
+  const ser=isObj?String(tb.series||'').trim():'';
+  const nrm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+  let head='';
+  if(ser){
+    if(/[가-힣]/.test(ser))head=ser.replace(/\s+/g,'').slice(0,4);
+    else{
+      const w=ser.split(/\s+/).filter(Boolean);
+      head=(w[0]||'').slice(0,5)+w.slice(1).map(x=>x.charAt(0).toUpperCase()).join('').slice(0,3);
+    }
+  }
+  const serSet=new Set(ser.split(/\s+/).map(nrm).filter(Boolean));
+  let tail=title.split(/\s+/).filter(x=>x&&!serSet.has(nrm(x)));
+  if(!tail.length)tail=[title.split(/\s+/).pop()];
+  let out=((head?head+' ':'')+tail.join(' ')).trim();
+  if(out.length>14){
+    const t2=tail.map(x=>/[0-9]/.test(x)
+      ?x.replace(/[^0-9.\-]/g,'').replace(/^[.\-]+|[.\-]+$/g,'')
+      :(x.length>4?x.charAt(0).toUpperCase():x)).filter(Boolean);
+    const allNum=t2.every(x=>/^[0-9.\-]+$/.test(x));
+    out=((head?head+' ':'')+(allNum?t2.join('-'):t2.join(' '))).trim();
+  }
+  if(out.length>16)out=out.slice(0,16).trim();
+  return out||title.slice(0,14);
+}
+// 전 교재에서 겹치지 않게 (겹치면 권 번호를 덧붙인다)
+function ppBookLabelMap(tbs){
+  const out={},used={};
+  (tbs||[]).filter(b=>b&&b.id).forEach(tb=>{
+    let s=ppBookLabel(tb)||String(tb.title||'').slice(0,14);
+    if(used[s]){
+      used[s]++;
+      const tail=(String(tb.title||'').match(/([0-9]+(?:[.\-][0-9]+)*)\s*$/)||[])[1]||String(used[s]);
+      let cand=s+' '+tail,g=0;
+      const taken=new Set(Object.values(out));
+      while(taken.has(cand)&&g++<9)cand=cand+'·';
+      s=cand;
+    }else used[s]=1;
+    out[tb.id]=s;
+  });
+  return out;
+}
 // 칩 한 칸의 글자 — '[짧은 이름] 단원'
 function ppChipLabel(tb,unit,short){
   const sh=short||ppBookShort(tb);

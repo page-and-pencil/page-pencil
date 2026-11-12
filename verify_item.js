@@ -11,6 +11,7 @@
 const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
+const G = require('./verify_guard');   // 실제 서버 쓰기 막음 장치
 const ROOT = __dirname;
 
 function mkEl(id) {
@@ -37,7 +38,7 @@ function makeCtx() {
     console, document: doc, localStorage: store(), sessionStorage: store(),
     navigator: { userAgent: 'node' }, location: { href: '', search: '', pathname: '/' },
     setTimeout, clearTimeout, setInterval, clearInterval,
-    fetch: async () => ({ ok: false, status: 0, headers: { get: () => null }, json: async () => ({}), text: async () => '' }),
+    fetch: G.guardFetch(),                     // 실제 서버에 쓰려 하면 그 자리에서 멈춘다
     alert() { }, confirm() { return false; }, requestAnimationFrame(f) { return setTimeout(f, 0); },
     URL: { createObjectURL: () => 'blob:stub', revokeObjectURL() { } },
     URLSearchParams, AbortController, TextEncoder, TextDecoder, Blob,
@@ -252,6 +253,7 @@ async function runImport(arr, mode) {
       '제목줄 ' + t1.titleLine + ' · 첫 문장줄 ' + t1.sents[0].line);
   }
 
-  console.log('\n' + (fail ? '❌' : '✅') + ' 통과 ' + pass + ' / 실패 ' + fail + '\n');
+  console.log('\n' + G.guardLine());
+  console.log((fail ? '❌' : '✅') + ' 통과 ' + pass + ' / 실패 ' + fail + '\n');
   process.exit(fail ? 1 : 0);
 })();

@@ -5294,7 +5294,7 @@ async function saveTbook(){
     renderTbookTable();renderBookDB();renderMasterDB();updateTbookDatalist();
     closeM('m-tbook-detail');
     ['tbook-title','tbook-publisher','tbook-series','tbook-level','tbook-edit-id','tbook-grade','tbook-total-units','tbook-nick'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-    _pgShortCache={};
+    _pgShortCache={};_pgLabelCache=null;
     const gf=document.getElementById('tbook-grade-f');if(gf)gf.style.display='none';
     const catEl=document.getElementById('tbook-category');if(catEl)catEl.value='';
     document.getElementById('tbook-modal-title').textContent='교재 추가';
@@ -6964,11 +6964,11 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
- {date:'2026-11-13',title:'책 홈 — 한 책의 단어·본문·해석·음원·자료·문항을 한 곳에서',where:'교재·문제 → 교재 → 책 이름',tab:'t-data',go:['switchDataTab','tbook']},
- {date:'2026-11-13',title:'수준표 — 교재를 실제 내용으로 재어 수준별로 늘어놓았어요',where:'교재·문제 → 수준표',tab:'t-data',go:['switchDataTab','stage']},
- {date:'2026-11-13',title:'자료실 책으로 보기 — 출판사 → 시리즈 → 책으로 묶어서',where:'교재·문제 → 자료실',tab:'t-data',go:['switchDataTab','bank']},
- {date:'2026-11-13',title:'진행 중인 과제 목록 — 지금 도는 숙제를 한 줄씩',where:'과제 탭',tab:'t-assign',go:['renderAssignTab']},
- {date:'2026-11-13',title:"달력 칩에 책 이름 — '보카앤스토리 Day 5' 로 읽힌다",where:'과제 탭 · 클래스 진도 캘린더',tab:'t-assign',go:['renderAssignCal']},
+ {date:'2026-11-12',title:'책 홈 — 한 책의 단어·본문·해석·음원·자료·문항을 한 곳에서',where:'교재·문제 → 교재 → 책 이름',tab:'t-data',go:['switchDataTab','tbook']},
+ {date:'2026-11-12',title:'수준표 — 교재를 실제 내용으로 재어 수준별로 늘어놓았어요',where:'교재·문제 → 수준표',tab:'t-data',go:['switchDataTab','stage']},
+ {date:'2026-11-12',title:'자료실 책으로 보기 — 출판사 → 시리즈 → 책으로 묶어서',where:'교재·문제 → 자료실',tab:'t-data',go:['switchDataTab','bank']},
+ {date:'2026-11-12',title:'진행 중인 과제 목록 — 지금 도는 숙제를 한 줄씩',where:'과제 탭',tab:'t-assign',go:['renderAssignTab']},
+ {date:'2026-11-12',title:"달력 칩에 책 이름 — '보카앤스토리 Day 5' 로 읽힌다",where:'과제 탭 · 클래스 진도 캘린더',tab:'t-assign',go:['renderAssignCal']},
  {date:'2026-11-12',title:'숙제 이어서 내기 — 다음 교재 숙제를 미리 보고 한 번에',where:'과제 탭 배너 · 진도 보드',tab:'t-assign',go:['renderAssignTab']},
  {date:'2026-11-12',title:'교재 흐름 점검 — 숙제 없는 줄·흐름 밖 숙제를 한 곳에서',where:'클래스 → 진도 보드',tab:'t-class',go:['renderClassTab']},
  {date:'2026-11-12',title:'요일 직접 고르기 — 반복 숙제를 고른 요일에만',where:'과제 할당 → 반복 숙제',tab:'t-assign',go:['renderAssignTab']},
@@ -7419,6 +7419,18 @@ function renderBookSeries(all,q){
     const filled=books.filter(b=>b._bt==='textbook'
       ?Object.values(b.units||{}).some(a2=>Array.isArray(a2)&&a2.length)
       :(b.vocab||[]).length).length;
+    // [7] 수준 범위와 들어 있는 것 — 줄만 보고도 무엇이 든 시리즈인지 알 수 있게
+    const stg=books.map(b=>String(b.stage||'')).filter(s2=>STG_COLS.indexOf(s2)>=0)
+      .sort((x,y)=>STG_COLS.indexOf(x)-STG_COLS.indexOf(y));
+    const stgHtml=stg.length
+      ?('<span class="bser-stg">'+_ebE(ebStageName(stg[0])||stg[0])
+        +(stg[stg.length-1]!==stg[0]?(' → '+_ebE(ebStageName(stg[stg.length-1])||stg[stg.length-1])):'')+'</span>')
+      :'';
+    const nz=(b,k)=>Object.keys((b&&b[k])||{}).filter(u2=>String(b[k][u2]||'').trim()).length;
+    const sum={txt:0,au:0,ko:0};
+    books.filter(b=>b._bt==='textbook').forEach(b=>{sum.txt+=nz(b,'unitTexts');sum.au+=nz(b,'unitAudio');sum.ko+=nz(b,'unitSentKo');});
+    const hasHtml='<span class="bser-has">단어 '+filled+'/'+books.length
+      +(sum.txt?(' · 본문 '+sum.txt):'')+(sum.au?(' · 음원 '+sum.au):'')+(sum.ko?(' · 해석 '+sum.ko):'')+'</span>';
     const rep=books.find(b=>b.coverUrl);
     const body=subKeys.map(k=>{
       const arr=sub.get(k).slice().sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),undefined,{numeric:true}));
@@ -7431,7 +7443,7 @@ function renderBookSeries(all,q){
         <span class="bser-name">${escAttr(f)}</span>
         <span class="bser-cnt">${books.length}권</span>
         ${cats.slice(0,3).map(c=>`<span class="bser-cat">${escAttr(c)}</span>`).join('')}
-        <span class="bser-fill" title="단어가 등록된 권수">단어 ${filled}/${books.length}</span>
+        ${stgHtml}${hasHtml}
       </summary>
       <div class="bser-body">${body}</div>
     </details>`;
@@ -7851,7 +7863,7 @@ function _bhHomeHtml(tb){
       +pill(c.texts,'본문',"tbdTab('text')")+pill(c.ko,'해석',"tbdTab('text')")
       +pill(c.audio,'음원',"tbdTab('audio')")+pill(c.scripts,'듣기 대본',"tbdTab('text')")
       +pill(c.patterns,'문형',"tbdTab('units')")
-      +pill(c.bank,'자료실 파일',"tbdTab('bank')",ebReady?'':'자료실을 아직 안 받았어요 — 자료실 탭을 한 번 열면 세어 줍니다')
+      +pill(c.bank,'자료실 파일',"tbdTab('bank')",ebReady?'':'자료실을 받는 중이에요 — 자료 탭을 열면 받아 옵니다')
       +pill(c.items,'문항',"tbdTab('items')",ibReady?'':'문제 은행을 아직 안 받았어요 — 문제 은행 탭을 한 번 열면 세어 줍니다')
     +'</div>'
     +'<div class="bh-sec"><div class="bh-sec-t">어느 반이 어디까지</div>'
@@ -7911,11 +7923,21 @@ function _bhAudioHtml(tb){
     +((tb.unitTitles||{})[k]?' <em>'+_ebE(tb.unitTitles[k])+'</em>':'')+'</span>'
     +'<audio controls preload="none" src="'+_ebA(au[k])+'"></audio></div>').join('')+'</div>';
 }
+let _bhBankLoading=false;
 function _bhBankHtml(tb){
+  // 자료실을 아직 안 받았으면 **여기서 받는다** (받는 동안 '불러오는 중')
+  if((typeof _ebRows==='undefined'||!_ebRows||!_ebRows.length)&&typeof ebLoad==='function'){
+    if(!_bhBankLoading){
+      _bhBankLoading=true;
+      ebLoad(false).then(()=>{_bhBankLoading=false;
+        try{if(_bhTab==='bank')bhRender('bank');if(_bhTab==='home')bhRender('home');}catch(e){}
+      }).catch(()=>{_bhBankLoading=false;});
+    }
+    return '<div class="bh-none">자료실을 불러오는 중…</div>';
+  }
   const rows=tbBankRows(tb);
   const how=(Array.isArray(tb.bankIds)&&tb.bankIds.length)?'자료실 줄 id(bankIds)로 이었습니다':'이름이 같은 자료를 찾았습니다';
-  if(!rows.length)return '<div class="bh-none">이 책과 이어진 자료실 줄이 없어요'
-    +((typeof _ebRows==='undefined'||!_ebRows||!_ebRows.length)?' (자료실을 아직 안 받았습니다 — 자료실 탭을 한 번 열어 주세요)':'')+'</div>';
+  if(!rows.length)return '<div class="bh-none">이 책과 이어진 자료실 줄이 없어요</div>';
   return '<div class="bh-wrap"><div class="iso-hint" style="margin-bottom:8px">'+_ebE(how)+' · '+rows.length+'줄</div>'
     +rows.map(r=>{const m=r.meta||{};
       return '<div class="bh-row bh-bank" onclick="ebOpenDetail(\''+escJsA(r.id)+'\')">'
@@ -12270,10 +12292,10 @@ function renderAssignCal(){
       <button class="btn bo bxxs" onclick="assignCalMonth(1)">▶</button>
       ${hwPending&&stCls?`<button class="btn bt bxxs" title="배운 단원 복습 숙제를 반 전체에게 한 번에" onclick="pgAssignAllHomework('${stCls.id}')">📕 숙제 일괄</button>`:''}
       <span style="flex:1"></span>
-      <span class="pg-lg"><i style="background:#2F7D63"></i>반복·자동</span>
+${_PG_AREA_KEY_HTML().replace(/pp-key-i/g,'pg-lg')}
       <span class="pg-lg"><i style="background:${_PG_C5_COLOR}"></i>앱 숙제(클래스5·리딩앤)</span>
-      <span class="pg-lg"><i style="background:var(--text-muted)"></i>마감 과제</span>
       <span class="pg-lg" title="점선=아직 할당 전 제안"><i style="background:#fff;border:1.5px dashed var(--neutral)"></i>제안</span>
+      <span class="pg-lg" title="칩 색은 그 책의 영역입니다 — 종류는 모양(채움=기록·점선=예정·📕=숙제)으로 가릅니다" style="font-weight:700">색 = 영역</span>
     </div>
     ${banners.map(bn=>bn.kind==='pick-next'
       ?`<div style="${_bnStyle}">📚 <b>${escAttr(bn.title)}</b> 단원을 전부 끝냈어요! 다음 교재를 고르면 같은 방식으로 이어서 할당됩니다. <button class="btn bt bxxs" onclick="openRecurNext('${sid}')">다음 교재 선택</button></div>`
@@ -12595,7 +12617,10 @@ function renderAssignLive(){
   const multi=new Set(rows.map(x=>x.a.sid)).size>1;
   const line=x=>{
     const a=x.a,st=x.st;
-    const sh=pgShortTitle('',a.bookTitle||'',a.bookId||'')||a.bookTitle||a.text||a.range||'과제';
+    // 짧은 이름은 **교재형 숙제에만** — '리딩앤 원서 읽기' 가 '읽기' 로 줄던 것
+    const sh=((typeof hwIsBookFlow==='function'&&hwIsBookFlow(a))
+      ?(pgShortTitle('',a.bookTitle||'',a.bookId||'')||a.bookTitle||'')
+      :'')||a.bookTitle||a.text||a.range||'과제';
     const pr=_alProgress(a,st);
     const pct=pr.total?Math.round(pr.done/pr.total*100):0;
     const sch=_hwSchedOf(a)||[];
@@ -14542,6 +14567,17 @@ function _pgShortOf(classId){
   _pgShortCache[key]={at:Date.now(),map:map};
   return map;
 }
+// 전 교재에서 겹치지 않는 이름 (수준표·'다음 교재') — 30초 동안 한 번만 만든다
+let _pgLabelCache=null,_pgLabelAt=0;
+function pgLabel(tb){
+  if(!tb)return '';
+  if(!_pgLabelCache||Date.now()-_pgLabelAt>30000){
+    _pgLabelCache=(typeof ppBookLabelMap==='function')
+      ?ppBookLabelMap((_cache.globalTextbooks||[]).filter(b=>b&&!b._deleted)):{};
+    _pgLabelAt=Date.now();
+  }
+  return _pgLabelCache[tb.id]||((typeof ppBookLabel==='function')?ppBookLabel(tb):String(tb.title||''));
+}
 // 흐름 밖 책도 짧은 이름을 받는다
 function pgShort(classId,tb){
   if(!tb)return '';
@@ -15874,7 +15910,7 @@ function _pgTrackBoardHtml(classId){
         <span class="tb-bar" title="${done}/${total}과"><i style="width:${pct}%;background:${color}"></i></span>
         <span class="tb-num">${done}<em>/${total}</em></span>
         <span class="tb-eta">${eta?'~'+eta.slice(5).replace('-','/'):'<span style="opacity:.5">1년 내 미완</span>'}</span>
-        <span class="tb-next">${next?'다음 '+escAttr(pgShort(classId,next.tb)):'<span class="tb-end">다음 교재 없음</span>'}</span>
+        <span class="tb-next">${next?'다음 '+escAttr(pgLabel(next.tb)):'<span class="tb-end">다음 교재 없음</span>'}</span>
         <span class="tb-acts">${(t.mode==='hw'&&!cur.hwId&&sid0)?`<button class="tb-fix tb-hw" title="이 책 숙제를 이어서 냅니다 — 미리 보고 한 번에" onclick="hwContinueOpen('${sid0}','${cur.tb.id}','${escJsA(cur.nextUnit||'')}')">📕 숙제</button>`:''}<button class="tb-fix" title="진도 수정 — 어디까지 끝냈는지 직접 맞추기" onclick="pgEditProgress('${classId}','${cur.tb.id}')">✏️</button></span>
       </div>${hwLine}`);
     });
@@ -15963,6 +15999,11 @@ function pgLayerToggle(k,classId){
 // 숙제 레이어를 볼 학생 (여러 명이면 고를 수 있게)
 let _pgHwStuId='';
 function pgHwStuPick(sid,classId){_pgHwStuId=sid;renderClsLessons(classId);}
+// 범례의 영역 색 조각 (색=영역, 모양=종류 라는 규칙을 눈으로 보이게)
+function _PG_AREA_KEY_HTML(){
+  return [['vocab','어휘'],['reading','리딩'],['listening','리스닝'],['grammar','어법'],['phonics','파닉스']]
+    .map(([k,n])=>'<span class="pp-key-i"><i class="pp-sw" style="background:'+(_PG_CAT_COLORS[k]||'')+'"></i>'+n+'</span>').join('');
+}
 function _pgCalHtml(classId){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return'';
   const todayStr=ppToday();
@@ -16106,9 +16147,11 @@ function _pgCalHtml(classId){
       <span class="pp-key-i"><i class="pp-sw rec"></i>기록(채움)</span>
       <span class="pp-key-i"><i class="pp-sw gho"></i>예정(점선)</span>
       <span class="pp-key-i"><i class="pp-sw om"></i>옆 달</span>
-      ${LY.hw?`<span class="pp-key-i">📕 숙제</span><span class="pp-key-i">📕 …확인 = 숙제로 나간 몫을 수업에서 확인</span>`:''}
+      ${LY.hw?`<span class="pp-key-i">📕 숙제 (채움)</span><span class="pp-key-i">📕 …확인 = 숙제로 나간 몫을 수업에서 확인 (점선)</span>`:''}
       ${LY.c5?`<span class="pp-key-i">🎮 클래스5·리딩앤</span>`:''}
-      <span class="pp-key-i" title="색은 영역(어휘·리딩·리스닝·어법)으로 통일했습니다">색 = 영역</span>
+      <span class="pp-key-sp"></span>
+      <span class="pp-key-i" title="칩 색은 그 책의 영역입니다 — 종류는 색이 아니라 모양으로 가릅니다">색 = 영역</span>
+      ${_PG_AREA_KEY_HTML()}
       <span class="pp-key-sp"></span>
       <span class="pp-key-d">끌어서 이동 · ✕로 빼기 · 우클릭 메뉴</span>
     </div>
@@ -19609,8 +19652,10 @@ function renderStageTable(){
   const cs=document.getElementById('stg-cls');
   if(cs&&!cs.dataset.filled){
     cs.dataset.filled='1';
+    const cls=DB.classes().filter(c=>c.active!==false);
     cs.innerHTML='<option value="">반 고르기 (우리 반 표시)</option>'
-      +DB.classes().filter(c=>c.active!==false).map(c=>'<option value="'+_ebA(c.id)+'">'+_ebE(c.name)+'</option>').join('');
+      +cls.map(c=>'<option value="'+_ebA(c.id)+'">'+_ebE(c.name)+'</option>').join('');
+    if(cls.length===1)cs.value=cls[0].id;          // 반이 하나뿐이면 눌러 보지 않아도 ●○ 가 보이게
   }
   const cid=cs?cs.value:'';
   const axis=document.getElementById('stg-axis')?.value||'area';
@@ -19656,7 +19701,7 @@ function renderStageTable(){
         const cls=nowIds.has(b.id)?' now':(flowIds.has(b.id)?' flow':'');
         const mark=nowIds.has(b.id)?'● ':(flowIds.has(b.id)?'○ ':'');
         return '<button class="stg-b'+cls+'" title="'+_ebA(b.title+' — '+tbStageLine(b))+'" onclick="openBookHome(\''+escJsA(b.id)+'\')">'
-          +mark+_ebE((typeof ppBookShort==='function')?ppBookShort(b):b.title)
+          +mark+_ebE(pgLabel(b))
           +(isFinite(Number(b.stageG))?'<em>'+Number(b.stageG).toFixed(1)+'</em>':'')+'</button>';
       }).join('');
     return h;
@@ -21243,23 +21288,26 @@ async function ibLoad(force){
       const snap=await idbGet(IB_IDX_KEY);
       if(snap&&Array.isArray(snap.rows)){_ibRows=snap.rows;_ibMergeIdx=null;_ibStamps=snap.stamps||{};_ibAt=snap.at||0;_ibSrc=snap.src||'view';_ibMax=snap.max||'';}
     }
-    const have=!!(_ibRows&&_ibRows.length);
-    if(have&&!force&&(Date.now()-_ibAt)<IB_FRESH_MS)return false;
+    const devAdd=await _ibDevSync();                 // 기기 보관분 먼저 합친다
+    const have=_ibSrvCount()>0;                      // '서버 줄을 받은 적이 있나' 로 판단 (기기 보관분은 세지 않는다)
+    if(have&&!force&&(Date.now()-_ibAt)<IB_FRESH_MS)return !!devAdd;
     if(!have){
       const all=await _ibFetchAll();
-      if(!all)return false;
+      if(!all)return !!devAdd;                       // 서버를 못 받아도 기기 보관분은 보여 준다
       _ibRows=all;_ibMergeIdx=null;_ibStamps=_ibStampsOf(all);_ibMax=_ibMaxOf(all);_ibAt=Date.now();
+      await _ibDevSync();                            // 서버 줄로 갈아 끼운 뒤 다시 합친다
       await _ibSave();return true;
     }
     const pr=await _ibProbe();                       // 끝 한 줄·개수만 (몇십 바이트)
-    if(pr&&pr.max&&pr.max===_ibMax&&pr.total!==null&&pr.total===_ibRows.length){_ibAt=Date.now();await _ibSave();return false;}
+    if(pr&&pr.max&&pr.max===_ibMax&&pr.total!==null&&pr.total===_ibSrvCount()){_ibAt=Date.now();await _ibSave();return !!devAdd;}
     const st=await _ibStampRows();
     if(!st)return false;
     const live=new Set(st.map(x=>x&&x.id));
     const changed=st.filter(x=>x&&x.id&&String(_ibStamps[x.id]||'')!==String(x.updated_at||'')).map(x=>x.id);
-    const gone=_ibRows.filter(r=>!live.has(r.id)).map(r=>r.id);
+    // 기기 보관 줄은 서버에 없어도 '사라진 줄' 이 아니다
+    const gone=_ibRows.filter(r=>!live.has(r.id)&&!_ibDevIds.has(r.id)).map(r=>r.id);
     _ibAt=Date.now();
-    if(!changed.length&&!gone.length){await _ibSave();return false;}
+    if(!changed.length&&!gone.length){await _ibSave();return !!devAdd;}
     const byId=new Map(_ibRows.map(r=>[r.id,r]));
     gone.forEach(id=>{byId.delete(id);_ibFull.delete(id);});
     for(let i=0;i<changed.length;i+=50){
@@ -21268,11 +21316,38 @@ async function ibLoad(force){
       part.forEach(x=>{_ibFull.delete(x.id);if(_ibAlive(x))byId.set(x.id,x);else byId.delete(x.id);});
     }
     _ibRows=[...byId.values()];_ibMergeIdx=null;_ibStamps=_ibStampsOf(st);_ibMax=_ibMaxOf(st);
+    await _ibDevSync();                              // 받아 온 줄과 기기 보관분을 다시 합친다
     await _ibSave();
     return true;
   }catch(e){return false;}
   finally{_ibLoading=false;}
 }
+// ── [1] 기기 보관분(pp_item_keep)을 목록에 합친다 ───────────────────────
+// 목록(_ibRows)을 **서버 줄로만** 만들던 탓에, 서버에 없는 기기 보관 문항은
+// [지금 최신화]·새로고침 때 '사라진 줄(gone)' 로 몰려 통째로 지워졌다.
+// (중학 듣기평가 2,160문항이 가져온 직후에만 보이고 새로고침하면 0개가 되던 것)
+let _ibDevIds=new Set();
+async function _ibDevSync(){
+  const l=await _ibDevAll();
+  _ibDevIds=new Set(l.map(d=>d&&d.id).filter(Boolean));
+  if(!Array.isArray(_ibRows))_ibRows=[];
+  const have=new Map(_ibRows.map((r,i)=>[r.id,i]));
+  let add=0;
+  l.forEach(d=>{
+    if(!d||!d.id)return;
+    if(have.has(d.id)){
+      const r=_ibRows[have.get(d.id)];
+      if(r&&r.meta)r.meta.dev=true;                 // '이 기기에만' 표시
+      return;
+    }
+    const row=_ibLightOf(d,d.id);
+    row.meta.dev=true;
+    _ibRows.push(row);add++;
+  });
+  if(add)_ibMergeIdx=null;
+  return add;
+}
+function _ibSrvCount(){return (_ibRows||[]).filter(r=>!_ibDevIds.has(r.id)).length;}
 async function _ibFullRow(id){
   if(_ibFull.has(id))return _ibWithId(_ibFull.get(id),id);
   const dev=await _ibDevGet(id);                     // 기기에만 있는 원문 지문 문항
@@ -21308,6 +21383,7 @@ async function ibPutItem(d,quiet){
   const row=_ibLightOf(d,d.id,new Date(now).toISOString());
   if(_ibDevOnly(d)){
     await _ibDevPut(d);_ibFull.set(d.id,d);
+    row.meta.dev=true;_ibDevIds.add(d.id);
     _ibMerge(row);
     if(!quiet)toast('원문 지문 문항이라 이 기기에만 보관했어요');
     return 'device';
@@ -21353,7 +21429,7 @@ async function _ibTrashGo(d){
     const ok=await supaUpsert('item_bank',id,{...d,_deleted:true,_deletedAt:new Date().toISOString()}).catch(()=>false);
     if(!ok){toast('삭제 실패 — 잠시 뒤 다시 해 주세요');return;}
   }
-  _ibRows=(_ibRows||[]).filter(r=>r.id!==id);_ibMergeIdx=null;_ibFull.delete(id);_ibPick.delete(id);
+  _ibRows=(_ibRows||[]).filter(r=>r.id!==id);_ibMergeIdx=null;_ibFull.delete(id);_ibPick.delete(id);_ibDevIds.delete(id);
   if(_ibSelId===id){_ibSelId='';_ibEditing=null;}
   _ibSave();renderItemList();_ibRenderDetail();
   toast('휴지통으로 보냈어요');
@@ -21607,6 +21683,7 @@ function _ibBadges(m){
     ((Number(m.answer)<0&&((m.choices||[]).length||(m.scriptOptions||[]).length))?'<span class="ib-warn2" title="정답을 확인하지 못한 문항 — 시험지에 담을 수 없습니다">정답 미확인</span>':'')+
     ((m.scriptOptions||[]).length?'<span class="ib-pic" title="보기가 음원에만 있는 문항 — 문제지에는 번호만 찍습니다">음원 보기</span>':'')+
     (m.warn?'<span class="ib-warn2" title="'+_ebA(m.warn)+'">검토 필요</span>':'')+
+    (m.dev?'<span class="ib-dev" title="서버에 올리지 않고 이 기기에만 보관한 문항 (기출·출판사 원문) — ⋯ 메뉴의 백업 내보내기로 지켜 주세요">이 기기에만</span>':'')+
     (m.checked?'<span class="ib-ok">검수</span>':'');
 }
 // 그 문항의 원본 파일 — 자료실 미리보기로 (src.page 가 있으면 그 쪽으로)
@@ -22094,7 +22171,8 @@ async function _ibImportGo(list,devList,c){
       const ok=await _ibDevPutMany(part);
       if(!ok){failAt=done;break;}
       done+=part.length;
-      part.forEach(d=>{_ibFull.set(d.id,d);_ibMerge(_ibLightOf(d,d.id),true);});
+      part.forEach(d=>{_ibFull.set(d.id,d);_ibDevIds.add(d.id);
+        const lr=_ibLightOf(d,d.id);lr.meta.dev=true;_ibMerge(lr,true);});
       _ibProgSet(done,total,'이 기기에 보관하는 중… '+done.toLocaleString()+' / '+total.toLocaleString());
       await _ibYield();
     }
