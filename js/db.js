@@ -431,6 +431,16 @@ async function supaFetch(table,params='',silent=false){
     throw e;
   }
 }
+// 그 행 하나만 서버에서 다시 읽는다 — 저장 직전 '서버에 지금 무엇이 있나'를 확인할 때.
+// 실패하면 null (네트워크가 끊겼다고 저장을 막지는 않는다 — 부르는 쪽이 판단한다)
+async function ppFetchRow(table,id){
+  try{
+    const r=await ppFetch(SUPA_URL+'/rest/v1/'+table+'?id=eq.'+encodeURIComponent(id)+'&select=id,data,sid,updated_at',{headers:SUPA_HEADERS});
+    if(!r.ok)return null;
+    const rows=await r.json();
+    return (rows&&rows[0])?rows[0]:null;
+  }catch(e){return null;}
+}
 // 1000행 초과 테이블을 페이지 단위로 전체 로드 (PostgREST 기본 max-rows=1000 우회)
 async function supaFetchAll(table,silent=false){
   const PAGE=1000;
@@ -636,6 +646,12 @@ function _snapSave(){
 }
 
 let _bgRefreshing=false,_lastLoadAt=0;
+// 화면은 IndexedDB 스냅샷(pp_cache_v2)으로 먼저 부팅한다. 그 캐시는 옛것일 수 있다 —
+// 그대로 다시 저장하면 그 사이 다른 기기에서 생긴 변화(학생이 체크한 줄)를 지운다.
+// 그래서 '이번 페이지에서 과제를 서버에서 실제로 받았는가'를 적어 두고,
+// 화면을 열 때 저절로 하는 저장은 **그 뒤에만** 한다.
+let _srvFreshAt=0;
+function ppServerFresh(){return _srvFreshAt>0;}
 // 앱이 다시 화면에 돌아오면(폰 PWA 재개·탭 전환 복귀) 지난 데이터를 조용히 최신화
 // — 선생님이 과제·수업을 등록해도, 이미 열려 있던 학생·학부모 화면에 반영되지 않던 문제 해결
 //
@@ -828,6 +844,8 @@ async function loadAllData(bg,force){
     // (첫 로드는 캐시가 비어 있으니 적용하지 않는다)
     const _staleByWrite=!!bg&&(_lastWriteAt>_loadStart||_pendingWrites>0);
     if(_staleByWrite)console.warn('저장과 겹친 새로고침 — 이번 회차는 캐시를 유지합니다');
+    // 과제를 서버에서 실제로 받은 회차만 '서버 기준'으로 인정한다 (스냅샷 부팅은 아니다)
+    if(!_staleByWrite&&res[tables.indexOf('assignments')].status==='fulfilled')_srvFreshAt=Date.now();
     const keep=(cur,rows)=>(_staleByWrite||rows===null)?(cur||[]):(rows||[]).map(r=>(r.data||r)).filter(d=>d&&!d._deleted);
     _cache.students=keep(_cache.students,stus);
     _cache.lessons=keep(_cache.lessons,les);

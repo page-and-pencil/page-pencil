@@ -1461,6 +1461,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
   .tb-eta{grid-column:1/3;text-align:left;}
   .tb-next{grid-column:1/3;}
   .tb-fix{grid-column:3;justify-self:end;}
+  .tb-acts{grid-column:3;justify-self:end;}
   .tb-hint{display:none;}
 }
 .tb-end{color:var(--warnt);}
@@ -1491,6 +1492,14 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .tb-fix{border:1px solid var(--border);background:#fff;border-radius:7px;cursor:pointer;font-size:11px;
   line-height:1;padding:4px 5px;color:var(--slate);flex-shrink:0;transition:background .12s,border-color .12s;}
 .tb-fix:hover{background:var(--tl);border-color:var(--teal);}
+.tb-acts{display:flex;gap:4px;justify-content:flex-end;align-items:center;}
+.tb-fix.tb-hw{color:var(--tealt);border-color:var(--teal);font-weight:700;}
+/* 반복 요일 직접 고르기 */
+.rc-dow-row{display:flex;gap:4px;flex-wrap:wrap;}
+.rc-dow{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;color:var(--navy);
+  border:1.5px solid var(--border);border-radius:var(--rs);padding:5px 8px;background:var(--cream);cursor:pointer;}
+.rc-dow:has(input:checked){border-color:var(--teal);background:var(--tl);color:var(--tealt);}
+.rc-dow input{accent-color:var(--teal);margin:0;}
 @media(max-width:700px){
   .tb-chk-r{grid-template-columns:20px 52px 1fr;gap:5px 8px;}
   .tb-chk-a{grid-column:2/4;}

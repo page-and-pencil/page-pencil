@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261112j">
+<link rel="stylesheet" href="css/style.css?v=20261112k">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -1730,6 +1730,18 @@
     </div>
   </div>
 </div>
+<div id="m-hw-next" class="mo">
+  <div class="mdl" style="max-width:480px">
+    <div class="mh"><div class="mt">📕 숙제 이어서 내기</div><button class="bx" onclick="closeM('m-hw-next')">×</button></div>
+    <div class="pp-note" style="cursor:default">이 내용으로 교재형 반복 숙제를 냅니다. 못 한 날의 단원은 버리지 않고 다음 가능한 날로 밀려요.</div>
+    <div id="hwnext-body" style="margin:6px 0 14px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn bo" style="flex:1" onclick="closeM('m-hw-next')">취소</button>
+      <button class="btn bo" style="flex:1.2" onclick="hwContinuePick()">직접 고치기</button>
+      <button class="btn bt" style="flex:1.4" id="hwnext-save" onclick="hwContinueSave()">이대로 내기</button>
+    </div>
+  </div>
+</div>
 <div id="m-edit-class" class="mo" data-protect>
   <div class="mdl">
     <div class="mh"><div class="mt" id="edit-class-title">클래스 만들기</div><button class="bx" onclick="closeM('m-edit-class')">×</button></div>
@@ -3014,11 +3026,11 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261112c"></script>
+<script src="js/utils.js?v=20261112d"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261111c"></script>
-<script src="js/teacher.js?v=20261112l"></script>
-<script src="js/student.js?v=20261112g"></script>
+<script src="js/db.js?v=20261112a"></script>
+<script src="js/teacher.js?v=20261112m"></script>
+<script src="js/student.js?v=20261112h"></script>
 <script src="js/parent.js?v=20261112e"></script>
 </body>
 </html>
