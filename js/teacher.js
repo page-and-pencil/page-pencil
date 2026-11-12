@@ -6964,6 +6964,7 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-13',title:'만들기 — 다섯 가지를 한 화면에 하나씩 물어보고 인쇄까지',where:'교재·문제 → 만들기 (대시보드에도 단추)',tab:'t-data',go:['switchDataTab','make']},
  {date:'2026-11-12',title:"기기에만 둔 동형 묶음도 '저장된 것'에 — '이 기기' 표시와 함께",where:'교재·문제 → 저장된 것',tab:'t-data',go:['switchDataTab','ws']},
  {date:'2026-11-12',title:'책 홈 — 한 책의 단어·본문·해석·음원·자료·문항을 한 곳에서',where:'교재·문제 → 교재 → 책 이름',tab:'t-data',go:['switchDataTab','tbook']},
  {date:'2026-11-12',title:'수준표 — 교재를 실제 내용으로 재어 수준별로 늘어놓았어요',where:'교재·문제 → 수준표',tab:'t-data',go:['switchDataTab','stage']},
@@ -7041,12 +7042,15 @@ let _dataTab='tbook';
 function switchDataTab(tab){
   if(tab==='book')tab='tbook'; // 구 통합 키 호환
   _dataTab=tab;
-  ['master','book','word','ws','exam','bank','iso','items','stage'].forEach(id=>{const p=document.getElementById('dp-'+id);if(p)p.style.display='none';});
+  ['master','book','word','ws','exam','bank','iso','items','stage','make'].forEach(id=>{const p=document.getElementById('dp-'+id);if(p)p.style.display='none';});
   // 탭 버튼 스타일 초기화
-  ['master','tbook','lib','word','ws','exam','bank','iso','items','stage','paper','kit'].forEach(t=>{const b=document.getElementById('dtab-'+t);if(b){b.style.color='var(--slate)';b.style.borderBottomColor='transparent';b.style.fontWeight='600';}});
+  ['master','tbook','lib','word','ws','exam','bank','iso','items','stage','paper','kit','make'].forEach(t=>{const b=document.getElementById('dtab-'+t);if(b){b.style.color='var(--slate)';b.style.borderBottomColor='transparent';b.style.fontWeight='600';}});
   const act=document.getElementById('dtab-'+tab);
   if(act){act.style.color='var(--teal)';act.style.borderBottomColor='var(--teal)';act.style.fontWeight='700';}
-  if(tab==='stage'){
+  if(tab==='make'){
+    const p=document.getElementById('dp-make');if(p)p.style.display='';
+    mkOpenTab();
+  } else if(tab==='stage'){
     const p=document.getElementById('dp-stage');if(p)p.style.display='';
     renderStageTable();
   } else if(tab==='paper'||tab==='kit'){
@@ -11497,6 +11501,8 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
         action:`swTab('t-class');setTimeout(()=>{try{openClsDetail('${c.id}')}catch(e){}},200)`});
     });
   }
+  // 우선순위 4.9: 인쇄만 하고 답을 안 넣은 시험지 · 답은 넣었는데 결과를 안 본 시험지
+  try{pbTodoRows().forEach(r=>items.push(r));}catch(e){}
   // 우선순위 5: 월별 리포트 미발송 (이달 1~7일은 준비 기간, 8일부터 알림)
   const today=new Date();
   if(today.getDate()>=1&&(reportPendingStus||[]).length>0){
@@ -21136,6 +21142,22 @@ function ibMayUse(){
   }catch(e){return false;}
 }
 // ── 문항 모양 ─────────────────────────────────────────────────────────────
+// 정답을 모르는 **객관식**만 '정답 미확인'이다.
+// 서답형(answer -1 + 모범 답 answerText, 또는 서답형 유형)은 정답이 있는 문항이다 —
+// 2019 학업성취도 회차에서 서답형이 '정답 미확인'으로 빠지던 것을 여기서 막는다.
+function _ibNoAnswer(m){
+  if(!m)return false;
+  if(Number(m.answer)>=0)return false;
+  if(String(m.answerText||'').trim())return false;        // 모범 답이 있다 = 서답형
+  if(typeof _isoIsEssay==='function'&&_isoIsEssay(String(m.type||'')))return false;
+  return !!((m.choices||[]).length||(m.scriptOptions||[]).length);
+}
+function _ibIsEssay(m){
+  if(!m)return false;
+  if(String(m.answerText||'').trim())return true;
+  if(typeof _isoIsEssay==='function'&&_isoIsEssay(String(m.type||'')))return true;
+  return Number(m.answer)<0&&!((m.choices||[]).length||(m.scriptOptions||[]).length);
+}
 function _ibSkillOf(type){
   if(IB_SKILL_BY_TYPE[type])return IB_SKILL_BY_TYPE[type];
   const t=ISO_TYPES[type];
@@ -21225,6 +21247,7 @@ function _ibLightOf(d,id,at){                       // data 전체 → 목록용
     hasImage:d.hasImage||undefined,warn:d.warn||undefined,
     scriptOptions:(d.scriptOptions||[]).length?d.scriptOptions:undefined,
     sharedStem:d.sharedStem||undefined,year:d.year||undefined,round:d.round||undefined,
+    answerText:String(d.answerText||'').trim()?'1':undefined,   // 모범 답이 있는 서답형 표식 (글자는 싣지 않는다)
     hasPassage:!!String(d.passage||''),hasScript:!!String(d.script||''),_deleted:d._deleted||undefined}};
 }
 // 문항의 id 는 **행 id** 가 진짜다. REST 로 바로 넣은 행이나 가져온 파일에는
@@ -21458,7 +21481,7 @@ function ibBasketToggle(id,ev){
   else{
     const m=((_ibRows||[]).find(x=>x.id===id)||{}).meta||{};
     // 정답을 확인하지 못한 문항은 시험지에 담지 않는다 (채점이 틀어진다)
-    if(Number(m.answer)<0&&((m.choices||[]).length||(m.scriptOptions||[]).length)){
+    if(_ibNoAnswer(m)){
       toast('정답 미확인 문항이라 시험지에 담을 수 없어요 — 정답을 먼저 넣어 주세요');return;
     }
     b.push(id);
@@ -21540,7 +21563,7 @@ function _ibExams(){
     const e=String(sc.exam||'');if(!e)return;
     const g=by[e]||(by[e]={n:0,audio:sc.audioId||'',bad:0});
     g.n++;
-    if(Number((r.meta||{}).answer)<0)g.bad++;
+    if(_ibNoAnswer(r.meta||{}))g.bad++;
     if(sc.audioId&&!g.audio)g.audio=sc.audioId;
   });
   return by;
@@ -21568,7 +21591,7 @@ function ibExamToBasket(){
   const b=ibBasket();let add=0,skip=0;
   rows.forEach(r=>{
     const m=r.meta||{};
-    if(Number(m.answer)<0&&((m.choices||[]).length||(m.scriptOptions||[]).length)){skip++;return;}
+    if(_ibNoAnswer(m)){skip++;return;}
     if(b.indexOf(r.id)<0){b.push(r.id);add++;}
   });
   _ibBasketSet(b);renderItemList();
@@ -21696,7 +21719,8 @@ function _ibBadges(m){
     // 정답률은 난도 점의 설명에만 있었다 — 글자로도 보여 준다
     (isFinite(rate)&&rate>0?'<span class="ib-rate" title="그 시험의 정답률">정답률 '+Math.round(rate)+'%</span>':'')+
     (m.hasImage?'<span class="ib-pic" title="그림이 있어야 풀리는 문항 — 보기는 원본에서 봅니다">그림 문항</span>':'')+
-    ((Number(m.answer)<0&&((m.choices||[]).length||(m.scriptOptions||[]).length))?'<span class="ib-warn2" title="정답을 확인하지 못한 문항 — 시험지에 담을 수 없습니다">정답 미확인</span>':'')+
+    (_ibNoAnswer(m)?'<span class="ib-warn2" title="정답을 확인하지 못한 문항 — 시험지에 담을 수 없습니다">정답 미확인</span>':'')+
+    ((_ibIsEssay(m)&&Number(m.answer)<0)?'<span class="ib-ok" title="답을 쓰는 문항 — 문제지에 답란, 정답지에 모범 답이 찍힙니다">서답형</span>':'')+
     ((m.scriptOptions||[]).length?'<span class="ib-pic" title="보기가 음원에만 있는 문항 — 문제지에는 번호만 찍습니다">음원 보기</span>':'')+
     (m.warn?'<span class="ib-warn2" title="'+_ebA(m.warn)+'">검토 필요</span>':'')+
     (m.dev?'<span class="ib-dev" title="서버에 올리지 않고 이 기기에만 보관한 문항 (기출·출판사 원문) — ⋯ 메뉴의 백업 내보내기로 지켜 주세요">이 기기에만</span>':'')+
@@ -21725,14 +21749,29 @@ function _ibItemBtns(r,small){
   // 그림 문항은 보기 칸이 쓸모없다 — 원본 보기를 맨 앞에 둔다
   const srcBtn=sc.fileId?('<button class="'+c+(m.hasImage?' ib-ic-pic':'')+'" title="원본 보기'+(sc.page?(' ('+sc.page+'쪽)'):'')+'" onclick="ibOpenSrcFile(\''+id+'\',event)">📄</button>'):'';
   const auBtn=sc.audioId?('<button class="'+c+'" title="음원 듣기" onclick="ibPlayAudio(\''+id+'\',event)">🎧</button>'):'';
+  // 자주 쓰는 것에는 글자를 붙인다 — 아이콘만으로는 무엇인지 알 수 없었다
+  const lbl=' ib-ic-l';
   return (m.hasImage?srcBtn:'')+auBtn+
     '<button class="'+c+(m.star?' on':'')+'" title="별표" onclick="ibStar(\''+id+'\',event)">'+(m.star?'★':'☆')+'</button>'+
-    '<button class="'+c+(inB?' on':'')+'" title="시험지 바구니에 담기" onclick="ibBasketToggle(\''+id+'\',event)">🧺</button>'+
-    '<button class="'+c+'" title="복제" onclick="ibDup(\''+id+'\',event)">⧉</button>'+
-    '<button class="'+c+'" title="비슷한 문항 만들기" onclick="ibSimilar(\''+id+'\',event)">✏️</button>'+
-    '<button class="'+c+'" title="이 지문으로 학습 세트 만들기" onclick="lkFromItem(\''+id+'\',event)">📘</button>'+
+    '<button class="'+c+lbl+(inB?' on':'')+'" title="시험지 바구니에 담기" onclick="ibBasketToggle(\''+id+'\',event)">🧺 '+(inB?'담음':'담기')+'</button>'+
+    '<button class="'+c+lbl+'" title="고치기" onclick="ibSelect(\''+id+'\')">✏️ 고치기</button>'+
     (m.hasImage?'':srcBtn)+
-    '<button class="'+c+' ib-ic-d" title="휴지통" onclick="ibTrash(\''+id+'\',event)">×</button>';
+    '<span class="ib-more"><button class="'+c+'" title="더 보기" onclick="ibCardMenu(\''+id+'\',event)">⋯</button></span>';
+}
+// 덜 쓰는 것은 ⋯ 안으로 (복제·학습 세트·비슷한 문항·휴지통)
+function ibCardMenu(id,ev){
+  if(ev)ev.stopPropagation();
+  document.querySelectorAll('.ib-more-m').forEach(x=>x.remove());
+  const host=ev&&ev.currentTarget&&ev.currentTarget.parentNode;if(!host)return;
+  const m=document.createElement('div');
+  m.className='ib-more-m';
+  m.innerHTML='<button onclick="ibSimilar(\''+escJsA(id)+'\',event)">비슷한 문항 만들기</button>'+
+    '<button onclick="lkFromItem(\''+escJsA(id)+'\',event)">이 지문으로 학습 세트</button>'+
+    '<button onclick="ibDup(\''+escJsA(id)+'\',event)">복제</button>'+
+    '<button onclick="ibTrash(\''+escJsA(id)+'\',event)" style="color:var(--coral)">휴지통으로</button>';
+  host.appendChild(m);
+  const close=e=>{if(!m.contains(e.target)){m.remove();document.removeEventListener('click',close);}};
+  setTimeout(()=>document.addEventListener('click',close),0);
 }
 function _ibCardOne(r){
   const m=r.meta||{},id=escJsA(r.id);
@@ -21796,6 +21835,25 @@ function renderItemList(){
   box.innerHTML=h;
   _ibPaintBulk();
   ibExamBar();        // 회차를 고른 그 자리에서 '회차 통째로 담기' 띠가 보이게
+  ibGuide();          // 오른쪽 빈 칸 길잡이 · 아래 바구니 띠
+}
+// 오른쪽 칸이 비어 있으면 '무엇을 누르면 되는지'를 적어 둔다
+function ibGuide(){
+  const d=document.getElementById('ib-detail');
+  if(d&&!_ibSelId)d.innerHTML='<div class="ib-guide">'+
+    '<div><span class="ib-g-n">1</span> 가운데에서 <b>문항</b>을 고릅니다</div>'+
+    '<div><span class="ib-g-n">2</span> 카드의 <b>[🧺 담기]</b>를 누릅니다</div>'+
+    '<div><span class="ib-g-n">3</span> 아래 <b>[시험지 만들기]</b></div>'+
+    '<div style="margin-top:12px"><button class="btn bo bsm" onclick="switchDataTab(\'make\')">따라가며 만들기</button></div>'+
+  '</div>';
+  const bar=document.getElementById('ib-bskbar');
+  if(bar){
+    const n=ibBasket().length;
+    bar.style.display=n?'':'none';
+    if(n)bar.innerHTML='🧺 바구니 '+n+'개'+
+      '<button class="btn bt bsm" onclick="pbOpen()">시험지 만들기</button>'+
+      '<button class="btn bo bsm" onclick="ibBasketClear()">비우기</button>';
+  }
 }
 function _ibStampIb(){
   const el=document.getElementById('ib-state');if(!el)return;
@@ -21836,7 +21894,7 @@ function ibBulkBasket(){
   let skip=0;
   _ibPick.forEach(id=>{
     const m=((_ibRows||[]).find(x=>x.id===id)||{}).meta||{};
-    if(Number(m.answer)<0&&((m.choices||[]).length||(m.scriptOptions||[]).length)){skip++;return;}
+    if(_ibNoAnswer(m)){skip++;return;}
     if(b.indexOf(id)<0)b.push(id);
   });
   _ibBasketSet(b);renderItemList();
@@ -22404,6 +22462,7 @@ async function pbOpen(ids){
   _pbSlots=list.map(id=>({id:id}));
   _pbState='';
   _pbUsageClear();_pbPaintCfgUI();
+  _pbStep='items';
   openM('m-paper');
   _pbRender('불러오는 중…');
   await _pbLoadData(list);
@@ -22610,7 +22669,62 @@ function _pbUsage(){
 function _pbUsageClear(){_pbUse=null;}
 function ibUsedCount(id){return _pbUsage().get(id)||0;}
 // ── 화면 ─────────────────────────────────────────────────────────────────
+// 시험지 창 단계 띠 — 지금 어디고 다음이 무엇인지
+const PB_STEPS=[{k:'items',t:'문항'},{k:'format',t:'서식'},{k:'preview',t:'미리보기'},{k:'print',t:'인쇄·보내기'}];
+let _pbStep='items';
+function pbStep(k){
+  _pbStep=k;pbPaintSteps();
+  const map={format:'pb-format',preview:'pb-prev',print:'pb-print'};
+  const el=document.getElementById(map[k]||'');
+  if(el&&el.scrollIntoView)try{el.scrollIntoView({block:'nearest'});}catch(e){}
+}
+function pbPaintSteps(){
+  const el=document.getElementById('pb-steps');if(!el)return;
+  const i=Math.max(0,PB_STEPS.findIndex(s=>s.k===_pbStep));
+  el.innerHTML=PB_STEPS.map((s,j)=>
+    '<button class="wz-step'+(j===i?' on':(j<i?' done':''))+'" onclick="pbStep(\''+s.k+'\')">'+
+      '<b>'+(j<i?'✓':(j+1))+'</b>'+s.t+'</button>').join('');
+}
+// 시험지 한 장이 어디까지 왔는지 (만드는 중 · 인쇄함 · 답 입력함 · 결과 봄)
+function pbStatusOf(p){
+  if(!p)return {k:'draft',label:'만드는 중',next:'이어서 만들기'};
+  let n=0;
+  try{n=(typeof _irRows!=='undefined'&&_irRows&&_irRows.get)?((_irRows.get(p.id)||[]).length):0;}catch(e){n=0;}
+  if(p.resultSeenAt)return {k:'done',label:'결과 봄',next:'다시 보기'};
+  if(n||p.scoredAt)return {k:'scored',label:'답 입력함',next:'결과 보기'};
+  if(p.printedAt)return {k:'printed',label:'인쇄함',next:'답 입력'};
+  return {k:'draft',label:'만드는 중',next:'이어서 만들기'};
+}
+// 대시보드 '바로 할 일' 에 들어갈 시험지 줄 — 인쇄만 한 것·답만 넣은 것
+function pbTodoRows(){
+  const out=[];
+  (_cache.worksheets||[]).filter(w=>w&&w.kind==='paper'&&!w._deleted).forEach(p=>{
+    let st=null;try{st=pbStatusOf(p);}catch(e){return;}
+    if(!st||(st.k!=='printed'&&st.k!=='scored'))return;
+    out.push({icon:(typeof luIcon==='function')?luIcon(st.k==='printed'?'pencil-line':'bar-chart-3',15):'',
+      chip:'',k:st.k,
+      text:(p.title||'시험지')+' — '+(st.k==='printed'?'답 입력':'결과 보기'),
+      label:st.next,
+      action:"pbOpenSaved('"+escJsA(p.id)+"')"});
+  });
+  return out;
+}
+// 시험지 한 장에 표식을 적는다 (인쇄함·답 입력함·결과 봄) — 체험 모드는 적지 않는다
+async function pbTouch(paperId,patch){
+  if(!paperId||!patch)return false;
+  if(typeof ppSandbox==='function'&&ppSandbox())return false;
+  let p=(_cache.worksheets||[]).find(w=>w&&w.id===paperId);
+  if(p)Object.assign(p,patch);
+  if(_pbPaper&&_pbPaper.id===paperId)Object.assign(_pbPaper,patch);
+  if(!p)p=_pbPaper&&_pbPaper.id===paperId?_pbPaper:null;
+  if(!p)return false;
+  const {rowId,...data}=p;
+  try{await supaUpsert('worksheets',paperId,data);}catch(e){return false;}
+  try{if(typeof renderDashActions==='function'&&document.getElementById('dash-actions'))renderDashActions();}catch(e){}
+  return true;
+}
 function _pbRender(msg){
+  try{pbPaintSteps();}catch(e){}
   const box=document.getElementById('pb-list');if(!box)return;
   const t=document.getElementById('pb-title');
   if(t&&t.value!==(_pbPaper?_pbPaper.title:''))t.value=(_pbPaper&&_pbPaper.title)||'';
@@ -22993,7 +23107,21 @@ function _pbOpenPrint(title,css,body){
   w.document.close();
   return true;
 }
+function _pbMarkPrinted(){
+  try{
+    if(!_pbPaper)return;
+    if(typeof ppSandbox==='function'&&ppSandbox())return;
+    if(_pbPaper.printedAt)return;
+    _pbStep='print';pbPaintSteps();
+    pbTouch(_pbPaper.id,{printedAt:new Date().toISOString()});
+    toast('인쇄했어요 — 답을 받으면 대시보드 \'바로 할 일\'에서 입력하세요');
+  }catch(e){}
+}
 function pbPrint(what){
+  _pbMarkPrinted();
+  return _pbPrintGo(what);
+}
+function _pbPrintGo(what){
   if(!_pbPaper||!_pbSlots.length){toast('먼저 문항을 담아 주세요');return;}
   const fmt=_pbPaper.format||'suneung';
   const title=_pbPaper.title||'시험지';
@@ -23135,6 +23263,10 @@ async function irBySid(sid,n){
 }
 // 결과 한 줄 저장 — sid 를 늘 함께 보낸다(학생·학부모 정책이 sid 로 걸린다)
 async function irPut(rowId,data,sid){
+  try{if(data&&data.paperId&&!data._deleted)pbTouch(data.paperId,{scoredAt:new Date().toISOString()});}catch(e){}
+  return _irPutGo(rowId,data,sid);
+}
+async function _irPutGo(rowId,data,sid){
   if(_irNoTable)return false;
   if(irBadKeys(data&&data.answers)||irBadKeys(data&&data.correct)){
     toast('문항 번호를 찾지 못했어요 — 저장하지 않았습니다');return false;
@@ -23457,6 +23589,7 @@ async function pbResults(){
   openM('m-paper-result');
   _prRows=await irByPaper(_prPaper.id,true);
   _prRender();
+  if(_prRows.length)pbTouch(_prPaper.id,{resultSeenAt:new Date().toISOString()});
 }
 function _prName(r){
   if(r.name)return r.name+' (진단)';
@@ -24766,3 +24899,608 @@ document.addEventListener('DOMContentLoaded',()=>{
     t=setTimeout(()=>{t=null;try{lkUnitMats();}catch(e){}},400);
   }));
 });
+
+// ══ 만들기 — 따라가기만 하면 되는 길 (A) ═══════════════════════════════════
+// 한 화면에 결정 하나. 위에 단계 띠, 아래에 [이전][다음].
+// 기본값을 채워 두고 '다음'만 눌러도 쓸 만한 결과가 나온다.
+// 끝은 늘 **지금 쓰던 화면**(시험지 창·학습 세트·동형·단어 시험지)으로 넘긴다 —
+// 새로 만들지 않고 이미 있는 것을 채워서 연다. 그래야 인쇄·저장·보내기가 그대로 돈다.
+function mkMayUse(){return (typeof ibMayUse==='function')?ibMayUse():false;}
+const MK_FIRST_KEY='pp_make_first_v1';          // 처음 한 번 길잡이 (이 기기만 기억)
+function mkFirstDone(){try{return localStorage.getItem(MK_FIRST_KEY)==='1';}catch(e){return true;}}
+function mkFirstClear(){try{localStorage.setItem(MK_FIRST_KEY,'1');}catch(e){}}
+
+const MK_CARDS=[
+  {k:'exam', ic:'📄', t:'기출 한 회 그대로 보기', d:'듣기평가·학업성취도 한 회차를 통째로', n:3},
+  {k:'drill',ic:'🎯', t:'유형 골라 연습지',       d:'약한 유형만 모아서',                 n:4},
+  {k:'kit',  ic:'📘', t:'교재 단원 학습 세트',     d:'지금 배우는 단원으로',               n:3},
+  {k:'iso',  ic:'✏️', t:'비슷한 문제 만들기',      d:'문항 하나로 같은 유형 새 문항',       n:3, ai:true},
+  {k:'vocab',ic:'🔤', t:'단어 시험지',            d:'교재 단원 단어로',                   n:3},
+];
+
+function mkGo(){swTab('t-data');setTimeout(()=>{try{switchDataTab('make');}catch(e){}},80);}
+function mkOpenTab(){
+  const box=document.getElementById('mk-cards');if(!box)return;
+  if(!mkMayUse()){box.innerHTML='<div class="ib-guide">선생님 화면에서만 쓸 수 있어요</div>';return;}
+  const first=!mkFirstDone();
+  box.innerHTML=MK_CARDS.map((c,i)=>
+    '<button class="mk-card" onclick="wzOpen(\''+c.k+'\')">'+
+      ((first&&i===0)?'<span class="mk-first">여기부터 해 보세요</span>':'')+
+      '<div class="mk-ic">'+c.ic+'</div>'+
+      '<div class="mk-t">'+_ebE(c.t)+'</div>'+
+      '<div class="mk-d">'+_ebE(c.d)+'</div>'+
+      '<span class="mk-s">'+c.n+'단계</span>'+
+      (c.ai?'<span class="mk-ai">AI 사용</span>':'')+
+    '</button>').join('');
+  mkRenderResume();
+}
+// '이어서 하기' — 만들다 만 것 · 인쇄만 하고 답을 안 넣은 것 · 결과를 안 본 것
+function mkResumeRows(){
+  const out=[];
+  const papers=(_cache.worksheets||[]).filter(w=>w&&w.kind==='paper'&&!w._deleted);
+  papers.forEach(p=>{
+    const st=(typeof pbStatusOf==='function')?pbStatusOf(p):{k:'draft',label:'만드는 중'};
+    out.push({id:p.id,nm:p.title||'이름 없는 시험지',st:st,at:p.editedAt||p.createdAt||0,go:"pbOpenSaved('"+escJsA(p.id)+"')"});
+  });
+  return out.sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,5);
+}
+function mkRenderResume(){
+  const el=document.getElementById('mk-resume');if(!el)return;
+  let rows=[];try{rows=mkResumeRows();}catch(e){rows=[];}
+  if(!rows.length){el.innerHTML='';return;}
+  el.innerHTML='<div class="mk-res"><div class="mk-res-h">이어서 하기</div>'+
+    rows.map(r=>'<div class="mk-res-row">'+
+      '<span class="mk-res-st'+(r.st.next?' on':'')+'">'+_ebE(r.st.label)+'</span>'+
+      '<span class="mk-res-nm">'+_ebE(r.nm)+'</span>'+
+      '<button class="btn bo bxxs" onclick="'+r.go+'">'+_ebE(r.st.next||'열기')+'</button>'+
+    '</div>').join('')+'</div>';
+}
+
+// ── 마법사 틀 (ppWizard) ────────────────────────────────────────────────
+// steps: [{t:'단계 이름', q:'물음', hint:'설명', body:()=>html, read:()=>bool|string}]
+//   read 가 문자열을 주면 그 말을 띄우고 멈춘다. body 는 늘 d(=_wz.d)를 보고 그린다.
+let _wz=null;
+function wzOpen(key,seed){
+  if(!mkMayUse()){toast('선생님 화면에서만 쓸 수 있어요');return;}
+  const mk=MK_WIZ[key];if(!mk){toast('아직 준비 중이에요');return;}
+  _wz={key:key,title:mk.title,d:Object.assign({},mk.init?mk.init():{},seed||{}),i:0,steps:[]};
+  _wz.steps=mk.steps();
+  mkFirstClear();
+  openM('m-wiz');
+  wzRender();
+}
+function wzClose(){closeM('m-wiz');_wz=null;try{mkRenderResume();}catch(e){}}
+function wzStep(){return _wz?_wz.steps[_wz.i]:null;}
+function wzRender(){
+  if(!_wz)return;
+  const t=document.getElementById('wz-title');if(t)t.textContent=_wz.title;
+  const sb=document.getElementById('wz-steps');
+  if(sb)sb.innerHTML=_wz.steps.map((s,i)=>
+    '<span class="wz-step'+(i===_wz.i?' on':(i<_wz.i?' done':''))+'"><b>'+(i<_wz.i?'✓':(i+1))+'</b>'+_ebE(s.t)+'</span>').join('');
+  const st=wzStep();
+  const body=document.getElementById('wz-body');
+  if(body&&st)body.innerHTML='<div class="wz-q">'+_ebE(st.q||'')+'</div>'+
+    (st.hint?'<div class="wz-hint">'+st.hint+'</div>':'')+(st.body?st.body(_wz.d):'');
+  const back=document.getElementById('wz-back');
+  if(back)back.style.display=_wz.i>0?'':'none';
+  const nx=document.getElementById('wz-next');
+  if(nx)nx.textContent=(_wz.i>=_wz.steps.length-1)?(st&&st.okLabel||'만들기'):'다음';
+  const note=document.getElementById('wz-note');
+  if(note)note.textContent=(st&&st.note)?st.note(_wz.d):'';
+  const man=document.getElementById('wz-manual');
+  if(man)man.style.display=(MK_WIZ[_wz.key]&&MK_WIZ[_wz.key].manual)?'':'none';
+  if(st&&st.after)try{st.after(_wz.d);}catch(e){}
+}
+function wzBack(){if(!_wz)return;if(_wz.i>0){_wz.i--;wzRender();}}
+async function wzNext(){
+  if(!_wz)return;
+  const st=wzStep();if(!st)return;
+  if(st.read){
+    let r=true;try{r=st.read(_wz.d);}catch(e){r=String((e&&e.message)||'잘못됐어요');}
+    if(typeof r==='string'){toast(r);return;}
+    if(r===false)return;
+  }
+  if(_wz.i<_wz.steps.length-1){_wz.i++;wzRender();return;}
+  const mk=MK_WIZ[_wz.key];
+  const d=_wz.d;
+  wzClose();
+  try{await mk.finish(d);}catch(e){toast('만들지 못했어요 — '+((e&&e.message)||''));}
+}
+function wzManual(){
+  if(!_wz)return;
+  const mk=MK_WIZ[_wz.key];if(!mk||!mk.manual)return;
+  const d=_wz.d;wzClose();
+  try{mk.manual(d);}catch(e){}
+}
+// 마법사 안에서 쓰는 작은 것들
+function wzSet(k,v,repaint){
+  if(!_wz)return;
+  _wz.d[k]=v;
+  if(k!=='ids')_wz.d.ids=null;          // 조건이 바뀌면 다시 뽑는다
+  if(repaint!==false)wzRender();
+}
+function wzToggle(k,v){
+  if(!_wz)return;
+  const a=_wz.d[k]=_wz.d[k]||[];
+  const i=a.indexOf(v);if(i>=0)a.splice(i,1);else a.push(v);
+  _wz.d.ids=null;                        // 조건이 바뀌면 다시 뽑는다
+  wzRender();
+}
+function wzOpts(k,list,cur){
+  return '<div class="wz-opts">'+list.map(o=>
+    '<button class="wz-opt'+(String(cur)===String(o.v)?' on':'')+'" onclick="wzSet(\''+k+'\',\''+escJsA(String(o.v))+'\')">'+
+      _ebE(o.n)+(o.s?'<small>'+_ebE(o.s)+'</small>':'')+'</button>').join('')+'</div>';
+}
+function wzMulti(k,list,cur){
+  const set=new Set((cur||[]).map(String));
+  return '<div class="wz-opts">'+list.map(o=>
+    '<button class="wz-opt'+(set.has(String(o.v))?' on':'')+'" onclick="wzToggle(\''+k+'\',\''+escJsA(String(o.v))+'\')">'+
+      _ebE(o.n)+(o.s?'<small>'+_ebE(o.s)+'</small>':'')+'</button>').join('')+'</div>';
+}
+function wzSum(rows){
+  return '<div class="wz-sum">'+rows.filter(Boolean).map(r=>'· '+r).join('<br>')+'</div>';
+}
+// 반 — 하나면 묻지 않는다
+function wzClasses(){try{return DB.classes().filter(c=>c.active!==false);}catch(e){return [];}}
+function wzOneClass(){const cs=wzClasses();return cs.length===1?cs[0]:null;}
+// 그 반 학생·지금 교재에서 학년을 짐작한다
+function wzGradeOf(classId){
+  try{
+    const c=wzClasses().find(x=>x.id===classId)||wzClasses()[0];
+    if(!c)return '';
+    const stus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
+    const g=stus.map(s=>String(s.grade||'').trim()).filter(Boolean);
+    if(g.length){const by={};g.forEach(x=>by[x]=(by[x]||0)+1);
+      return Object.keys(by).sort((a,b)=>by[b]-by[a])[0];}
+  }catch(e){}
+  return '';
+}
+
+// ── 마법사 다섯 ────────────────────────────────────────────────────────
+const WZ_SKILLS=[{v:'listen',n:'듣기'},{v:'read',n:'읽기'},{v:'grammar',n:'어법'},{v:'vocab',n:'어휘'},{v:'write',n:'쓰기'}];
+// 문제 은행이 비어 있으면 받아 온다 (목록만 — 본문은 받지 않는다)
+async function wzNeedBank(){
+  if(Array.isArray(_ibRows)&&_ibRows.length)return true;
+  if(typeof ibLoad!=='function')return false;
+  try{await ibLoad();}catch(e){}
+  return Array.isArray(_ibRows)&&_ibRows.length>0;
+}
+function wzRowsFor(d){
+  const rows=(_ibRows||[]).filter(_ibAlive);
+  if(!d.grade)return rows;
+  const g=rows.filter(r=>String((r.meta||{}).grade||'')===d.grade);
+  return g.length?g:rows;        // 그 학년 문항이 없으면 학년을 풀어서 보여 준다
+}
+// 회차를 묶어서 (안 쓴 것 먼저, 최근 것 먼저)
+function wzExamList(d){
+  const used=new Set();
+  (_cache.worksheets||[]).forEach(w=>{if(w&&w.examName)used.add(String(w.examName));});
+  const by={};
+  wzRowsFor(d).forEach(r=>{
+    const sc=(r.meta||{}).src||{};
+    const e=String(sc.exam||'');if(!e)return;
+    const g=by[e]||(by[e]={e:e,n:0,audio:'',bad:0,kind:wzExamKind(e)});
+    g.n++;if(sc.audioId&&!g.audio)g.audio=sc.audioId;
+    if(_ibNoAnswer((r.meta||{})))g.bad++;
+  });
+  let list=Object.values(by);
+  if(d.kind)list=list.filter(g=>g.kind===d.kind);
+  return list.sort((a,b)=>(used.has(a.e)?1:0)-(used.has(b.e)?1:0)||b.e.localeCompare(a.e,'ko'))
+    .map(g=>Object.assign(g,{used:used.has(g.e)}));
+}
+function wzExamKind(e){
+  const s=String(e||'');
+  if(/듣기/.test(s))return '듣기평가';
+  if(/성취도|진단/.test(s))return '학업성취도';
+  if(/모평|수능|학평|학력/.test(s))return '수능·학평';
+  return '그 밖';
+}
+function wzExamKinds(d){
+  const by={};
+  const k0=d.kind;d.kind='';
+  wzExamList(d).forEach(g=>{by[g.kind]=(by[g.kind]||0)+1;});
+  d.kind=k0;
+  return Object.keys(by).sort().map(k=>({v:k,n:k,s:by[k]+'회'}));
+}
+// 그 회차의 문항 id (번호 순, 정답 없는 객관식은 뺀다)
+function wzExamIds(e){
+  return (_ibRows||[]).filter(_ibAlive)
+    .filter(r=>String(((r.meta||{}).src||{}).exam||'')===e&&!_ibNoAnswer(r.meta||{}))
+    .sort((a,b)=>(Number(((a.meta||{}).src||{}).qno)||0)-(Number(((b.meta||{}).src||{}).qno)||0))
+    .map(r=>r.id);
+}
+// 유형별 가진 문항 수
+function wzTypeCounts(d){
+  const by={};
+  wzRowsFor(d).forEach(r=>{
+    const m=r.meta||{};if(_ibNoAnswer(m))return;
+    const t=String(m.type||'');if(!t)return;
+    if(d.skill&&_ibSkillOf(t)!==d.skill)return;
+    by[t]=(by[t]||0)+1;
+  });
+  return Object.keys(by).sort((a,b)=>by[b]-by[a])
+    .map(t=>({v:t,n:(ISO_TYPES[t]?ISO_TYPES[t].n:t),s:by[t]+'개'}));
+}
+// 지난 시험에서 많이 틀린 유형 (결과가 있으면)
+function wzWeakTypes(){
+  try{
+    if(typeof ppWeakTypes==='function')return ppWeakTypes()||[];
+  }catch(e){}
+  return [];
+}
+// 고른 유형으로 문항 뽑기 (난도 섞기 기본)
+function wzPickItems(d){
+  const want=Number(d.n)||10;
+  const types=(d.types||[]);
+  const pool={};
+  wzRowsFor(d).forEach(r=>{
+    const m=r.meta||{};if(_ibNoAnswer(m))return;
+    const t=String(m.type||'');
+    if(types.length&&types.indexOf(t)<0)return;
+    if(!types.length&&d.skill&&_ibSkillOf(t)!==d.skill)return;
+    (pool[t]=pool[t]||[]).push(r);
+  });
+  const keys=Object.keys(pool);
+  if(!keys.length)return [];
+  keys.forEach(k=>pool[k].sort((a,b)=>wzDiffSort(a,b,d.diff)));
+  const out=[];let i=0;
+  while(out.length<want){
+    const k=keys[i%keys.length];i++;
+    if(i>want*keys.length+50)break;
+    const r=pool[k].shift();
+    if(r)out.push(r.id);
+    if(keys.every(x=>!pool[x].length))break;
+  }
+  return out;
+}
+function wzDiffSort(a,b,mode){
+  const da=Number((a.meta||{}).diff)||3,db=Number((b.meta||{}).diff)||3;
+  if(mode==='easy')return da-db;
+  if(mode==='hard')return db-da;
+  return ((da===3?0:1)-(db===3?0:1))||(da-db);   // 섞기 — 보통부터
+}
+// 같은 유형의 다른 문항 (A 검사 (f))
+function wzSwap(idx){
+  if(!_wz||!_wz.d.ids)return;
+  const ids=_wz.d.ids,cur=ids[idx];
+  const m=((_ibRows||[]).find(r=>r.id===cur)||{}).meta||{};
+  const t=String(m.type||'');
+  const used=new Set(ids);
+  const alt=wzRowsFor(_wz.d).find(r=>{
+    const mm=r.meta||{};
+    return !used.has(r.id)&&String(mm.type||'')===t&&!_ibNoAnswer(mm);
+  });
+  if(!alt){toast('같은 유형의 다른 문항이 더 없어요');return;}
+  ids[idx]=alt.id;_wz.d.ids=ids;wzRender();
+}
+
+const MK_WIZ={
+  // ① 기출 한 회 그대로 ───────────────────────────────────────────────
+  exam:{
+    title:'기출 한 회 그대로 보기',
+    init(){const c=wzOneClass();return {grade:wzGradeOf(c?c.id:''),kind:'',exam:''};},
+    manual(d){switchDataTab('items');if(d.exam&&typeof ibSetExam==='function')setTimeout(()=>ibSetExam(d.exam),400);},
+    steps(){return [
+      {t:'학년',q:'몇 학년 문제인가요?',hint:'반 학생들의 학년으로 미리 골라 뒀어요. 바꿀 수 있어요.',
+       body:d=>wzOpts('grade',[{v:'',n:'학년 안 가림'}].concat(IB_GRADES.map(g=>({v:g,n:g}))),d.grade)},
+      {t:'회차',q:'어느 회차를 쓸까요?',hint:'아직 안 쓴 회차를 먼저 보여 줍니다.',
+       body:d=>{
+         const kinds=wzExamKinds(d);
+         const list=wzExamList(d);
+         if(!list.length)return '<div class="ib-guide">이 학년으로 가진 회차가 없어요. 위에서 학년을 넓혀 보세요.</div>';
+         return (kinds.length>1?wzOpts('kind',[{v:'',n:'모두'}].concat(kinds),d.kind)+'<div style="height:10px"></div>':'')+
+           '<div class="wz-cards">'+list.slice(0,40).map(g=>
+             '<button class="wz-pick'+(d.exam===g.e?' on':'')+'" onclick="wzSet(\'exam\',\''+escJsA(g.e)+'\')">'+
+               '<div class="wz-pick-t">'+_ebE(g.e)+(g.used?'':'<span class="wz-pick-new">안 씀</span>')+'</div>'+
+               '<div class="wz-pick-d">'+g.n+'문항'+(g.audio?' · 음원 있음':'')+
+                 (g.bad?(' · 정답 모르는 문항 '+g.bad+'개'):' · 정답 다 있음')+'</div>'+
+             '</button>').join('')+'</div>';
+       },
+       read:d=>d.exam?true:'회차를 하나 골라 주세요'},
+      {t:'확인',q:'이대로 만들까요?',okLabel:'시험지 만들기',
+       hint:'만들면 시험지 창이 열립니다. 거기서 인쇄하거나 학생에게 보낼 수 있어요.',
+       body:d=>{
+         const ids=wzExamIds(d.exam);d.ids=ids;
+         const g=wzExamList(d).find(x=>x.e===d.exam)||{};
+         return wzSum([
+           '회차 <b>'+_ebE(d.exam)+'</b>',
+           '문항 <b>'+ids.length+'개</b>'+(g.bad?(' (정답을 모르는 '+g.bad+'개는 뺐어요)'):''),
+           g.audio?'음원 <b>하나로 이어 듣기</b>':'음원 없음',
+           d.grade?('학년 <b>'+_ebE(d.grade)+'</b>'):'학년 안 가림',
+         ]);
+       },
+       read:d=>(d.ids&&d.ids.length)?true:'담을 문항이 없어요'},
+    ];},
+    async finish(d){
+      _ibBasketSet(d.ids.slice());
+      await pbOpen(d.ids.slice());
+      if(_pbPaper){_pbPaper.title=d.exam;_pbPaper.header=_pbPaper.header||{};_pbPaper.header.exam=d.exam;_pbPaper.examName=d.exam;}
+      try{_pbRender();}catch(e){}
+      toast('시험지 창을 열었어요 — 미리보기를 보고 [인쇄]를 누르세요');
+    },
+  },
+
+  // ② 유형 골라 연습지 ────────────────────────────────────────────────
+  drill:{
+    title:'유형 골라 연습지',
+    init(){const c=wzOneClass();return {grade:wzGradeOf(c?c.id:''),skill:'',types:[],n:10,diff:'mix'};},
+    manual(d){switchDataTab('items');},
+    steps(){return [
+      {t:'학년',q:'몇 학년 연습지인가요?',hint:'반 학생들의 학년으로 미리 골라 뒀어요.',
+       body:d=>wzOpts('grade',[{v:'',n:'학년 안 가림'}].concat(IB_GRADES.map(g=>({v:g,n:g}))),d.grade)},
+      {t:'유형',q:'어떤 유형을 연습할까요?',hint:'여러 개 골라도 됩니다. 칸의 숫자는 가진 문항 수예요.',
+       body:d=>{
+         const weak=wzWeakTypes();
+         const list=wzTypeCounts(d);
+         if(!list.length)return wzOpts('skill',[{v:'',n:'모든 영역'}].concat(WZ_SKILLS),d.skill)+
+           '<div class="ib-guide">이 조건으로 가진 문항이 없어요.</div>';
+         const top=weak.filter(t=>list.some(x=>x.v===t));
+         return wzOpts('skill',[{v:'',n:'모든 영역'}].concat(WZ_SKILLS),d.skill)+
+           '<div style="height:12px"></div>'+
+           (top.length?('<div class="wz-hint">지난 시험에서 많이 틀린 유형</div>'+
+             wzMulti('types',top.map(t=>({v:t,n:(ISO_TYPES[t]?ISO_TYPES[t].n:t),s:'추천'})),d.types)+
+             '<div style="height:12px"></div>'):'')+
+           wzMulti('types',list.slice(0,24),d.types);
+       }},
+      {t:'문항 수',q:'몇 문제로, 어느 정도 어렵게?',hint:'고르지 않으면 10문제 · 난도 섞기로 만듭니다.',
+       body:d=>'<div class="wz-row"><label>문항 수</label>'+
+           wzOpts('n',[{v:10,n:'10문제'},{v:15,n:'15문제'},{v:20,n:'20문제'}],d.n)+'</div>'+
+         '<div class="wz-row"><label>난도</label>'+
+           wzOpts('diff',[{v:'mix',n:'섞기'},{v:'easy',n:'쉬움부터'},{v:'hard',n:'어려움부터'}],d.diff)+'</div>',
+       read:d=>{d.ids=wzPickItems(d);return true;}},   // 여기서 한 번만 뽑는다 ([바꾸기]가 덮어쓰이지 않게)
+      {t:'확인',q:'이 문항들로 할까요?',okLabel:'시험지 만들기',
+       hint:'마음에 안 드는 문항은 [바꾸기]로 같은 유형의 다른 문항으로 바꿀 수 있어요.',
+       body:d=>{
+         if(!d.ids||!d.ids.length)d.ids=wzPickItems(d);
+         if(!d.ids.length)return '<div class="ib-guide">뽑을 문항이 없어요. 앞 단계에서 유형을 넓혀 주세요.</div>';
+         return wzSum(['문항 <b>'+d.ids.length+'개</b>',d.grade?('학년 <b>'+_ebE(d.grade)+'</b>'):'학년 안 가림'])+
+           '<div style="height:10px"></div>'+
+           d.ids.map((id,i)=>{
+             const m=((_ibRows||[]).find(r=>r.id===id)||{}).meta||{};
+             return '<div class="mk-res-row">'+
+               '<span class="mk-res-st">'+_ebE(_ibTypeLabel(m)||'문항')+'</span>'+
+               '<span class="mk-res-nm">'+_ebE(String(m.stem||'').slice(0,60))+'</span>'+
+               '<button class="btn bo bxxs" onclick="wzSwap('+i+')">바꾸기</button>'+
+             '</div>';
+           }).join('');
+       },
+       read:d=>(d.ids&&d.ids.length)?true:'뽑을 문항이 없어요'},
+    ];},
+    async finish(d){
+      _ibBasketSet(d.ids.slice());
+      await pbOpen(d.ids.slice());
+      toast('시험지 창을 열었어요 — 미리보기를 보고 [인쇄]를 누르세요');
+    },
+  },
+
+  // ③ 교재 단원 학습 세트 ─────────────────────────────────────────────
+  kit:{
+    title:'교재 단원 학습 세트',
+    init(){
+      const c=wzOneClass()||wzClasses()[0]||null;
+      const d={classId:c?c.id:'',parts:['word','chunk','trans','blank','write']};
+      Object.assign(d,wzKitGuess(d.classId));
+      return d;
+    },
+    manual(d){if(typeof lkOpen==='function')lkOpen({},'',d.grade||'');},
+    steps(){
+      const many=wzClasses().length>1;
+      const steps=[];
+      if(many)steps.push({t:'반',q:'어느 반인가요?',hint:'반을 고르면 지금 배우는 책과 다음 단원이 채워집니다.',
+        body:d=>wzOpts('classId',wzClasses().map(c=>({v:c.id,n:c.name})),d.classId),
+        read:d=>{if(!d.classId)return '반을 골라 주세요';Object.assign(d,wzKitGuess(d.classId));return true;}});
+      steps.push({t:'책·단원',q:'어느 책, 어느 단원으로 할까요?',
+        hint:'지금 반이 하는 책과 다음 단원을 미리 넣어 뒀어요.',
+        body:d=>'<div class="wz-row"><label>책</label><select id="wz-kit-book" class="inp" style="flex:1;min-width:180px" onchange="wzKitBook(this.value)">'+
+            wzKitBooks(d).map(b=>'<option value="'+_ebA(b.id)+'"'+(b.id===d.tbId?' selected':'')+'>'+_ebE(b.nm)+'</option>').join('')+
+          '</select></div>'+
+          '<div class="wz-row"><label>단원</label><select id="wz-kit-unit" class="inp" style="flex:1;min-width:180px" onchange="wzSet(\'unit\',this.value,false)">'+
+            wzKitUnits(d).map(u=>'<option value="'+_ebA(u)+'"'+(u===d.unit?' selected':'')+'>'+_ebE(u)+'</option>').join('')+
+          '</select></div>',
+        read:d=>{
+          const b=document.getElementById('wz-kit-book'),u=document.getElementById('wz-kit-unit');
+          if(b)d.tbId=b.value;if(u)d.unit=u.value;
+          return d.tbId?true:'책을 골라 주세요';
+        }});
+      steps.push({t:'넣을 것',q:'무엇을 넣을까요?',hint:'기본은 전부 넣습니다. 필요 없는 것만 꺼 주세요.',
+        body:d=>wzMulti('parts',[{v:'word',n:'단어'},{v:'chunk',n:'끊어 읽기'},{v:'trans',n:'해석'},
+          {v:'blank',n:'빈칸'},{v:'write',n:'영작'}],d.parts),
+        read:d=>(d.parts&&d.parts.length)?true:'하나는 넣어야 해요'});
+      steps.push({t:'확인',q:'이대로 만들까요?',okLabel:'학습 세트 만들기',
+        hint:'만들면 학습 세트 창이 열립니다. 거기서 인쇄할 수 있어요.',
+        body:d=>wzSum(['책 <b>'+_ebE(wzKitBookName(d))+'</b>','단원 <b>'+_ebE(d.unit||'(전체)')+'</b>',
+          '넣을 것 <b>'+(d.parts||[]).length+'가지</b>'])});
+      return steps;
+    },
+    async finish(d){
+      // 본문이 있으면 그 본문으로, 없으면 빈 학습 세트 창을 연다
+      try{if(typeof lkFromUnit==='function'&&d.tbId)lkFromUnit(d.tbId,d.unit||'');}catch(e){}
+      const el=document.getElementById('m-kit');
+      if(!el||!/open/.test(el.className||'')){
+        if(typeof lkOpen==='function')lkOpen({},'',d.grade||'');
+      }
+      if(Array.isArray(d.parts)&&typeof _lkKit==='object'&&_lkKit){
+        try{
+          const on=new Set(d.parts);
+          const map={word:'lk-w-vocab',chunk:'lk-w-chunk',trans:'lk-w-chunk',blank:'lk-w-cloze',write:'lk-w-write'};
+          Object.keys(map).forEach(k=>{
+            const cb=document.getElementById(map[k]);
+            if(cb&&!on.has(k)&&k!=='trans')cb.checked=false;
+          });
+          if(typeof lkCfgChange==='function')lkCfgChange();
+        }catch(e){}
+      }
+      toast('학습 세트 창을 열었어요 — 미리보기를 보고 [인쇄]를 누르세요');
+    },
+  },
+
+  // ④ 비슷한 문제 만들기 ──────────────────────────────────────────────
+  iso:{
+    title:'비슷한 문제 만들기',
+    init(){return {src:'bank',itemId:'',n:3};},
+    manual(d){switchDataTab('iso');},
+    steps(){return [
+      {t:'원본',q:'무엇과 비슷하게 만들까요?',
+       hint:'문제 은행에서 하나 고르면 가장 빠릅니다. 캡처로 하려면 동형 문제 화면에서 붙여넣으세요.',
+       body:d=>{
+         const rows=(_ibRows||[]).filter(_ibAlive).filter(r=>!_ibNoAnswer(r.meta||{})).slice(0,24);
+         if(!rows.length)return '<div class="ib-guide">문제 은행이 비어 있어요. 동형 문제 화면에서 캡처로 시작하세요.</div>';
+         if(!d.itemId)d.itemId=rows[0].id;
+         return '<div class="wz-cards">'+rows.map(r=>{
+           const m=r.meta||{};
+           return '<button class="wz-pick'+(d.itemId===r.id?' on':'')+'" onclick="wzSet(\'itemId\',\''+escJsA(r.id)+'\')">'+
+             '<div class="wz-pick-t">'+_ebE(_ibTypeLabel(m)||'문항')+'</div>'+
+             '<div class="wz-pick-d">'+_ebE(String(m.stem||'').slice(0,54))+'</div>'+
+           '</button>';
+         }).join('')+'</div>';
+       },
+       read:d=>d.itemId?true:'문항을 하나 골라 주세요'},
+      {t:'몇 문제',q:'몇 문제를 만들까요?',
+       hint:'만들 때와 다시 풀어 확인할 때, 두 번 AI 를 부릅니다. 단추를 누를 때만 부릅니다.',
+       body:d=>{
+         const m=((_ibRows||[]).find(r=>r.id===d.itemId)||{}).meta||{};
+         d.type=String(m.type||'');
+         return wzSum(['유형 <b>'+_ebE(_ibTypeLabel(m)||'(모름)')+'</b> — 자동으로 잡았어요'])+
+           '<div style="height:10px"></div>'+
+           '<div class="wz-row"><label>문항 수</label>'+wzOpts('n',[{v:3,n:'3문제'},{v:5,n:'5문제'},{v:10,n:'10문제'}],d.n)+'</div>';
+       },
+       note:d=>'AI 를 2회 부릅니다',
+       read:d=>{
+         if(!d.type)return '이 문항은 유형을 몰라서 비슷한 문제를 만들 수 없어요';
+         if((ISO_TYPES[d.type]||{}).iso===false)return '음원이 있어야 하는 유형이라 새로 만들 수 없어요';
+         return true;
+       }},
+      {t:'만들기',q:'이대로 만들까요?',okLabel:'만들기 (AI 2회)',
+       hint:'만들면 동형 문제 화면이 열리고, 거기서 고치고 인쇄할 수 있어요.',
+       body:d=>wzSum(['유형 <b>'+_ebE(ISO_TYPES[d.type]?ISO_TYPES[d.type].n:d.type)+'</b>',
+         '문항 <b>'+d.n+'개</b>','AI 호출 <b>2회</b> (만들기 1 · 다시 풀어 확인 1)'])},
+    ];},
+    async finish(d){
+      switchDataTab('iso');
+      await new Promise(r=>setTimeout(r,120));
+      try{
+        _isoCfg.type=d.type;_isoCfg.n=Number(d.n)||3;_isoCfg.passage='new';
+        if(typeof _isoPaintCfg==='function')_isoPaintCfg();
+        if(typeof isoGenerate==='function')await isoGenerate();
+      }catch(e){toast('만들지 못했어요 — '+((e&&e.message)||''));}
+    },
+  },
+
+  // ⑤ 단어 시험지 ────────────────────────────────────────────────────
+  vocab:{
+    title:'단어 시험지',
+    init(){
+      const c=wzOneClass()||wzClasses()[0]||null;
+      const d={classId:c?c.id:'',mode:'mix',n:20};
+      Object.assign(d,wzKitGuess(d.classId,'어휘'));
+      return d;
+    },
+    manual(d){const s=wzFirstStu(d.classId);if(typeof openVocabPaper==='function'){openM('m-vocab-paper');openVocabPaper(s);}},
+    steps(){
+      const many=wzClasses().length>1;
+      const steps=[];
+      if(many)steps.push({t:'반',q:'어느 반인가요?',
+        body:d=>wzOpts('classId',wzClasses().map(c=>({v:c.id,n:c.name})),d.classId),
+        read:d=>{if(!d.classId)return '반을 골라 주세요';Object.assign(d,wzKitGuess(d.classId,'어휘'));return true;}});
+      steps.push({t:'책·단원',q:'어느 단원 단어로 할까요?',hint:'지금 하는 어휘 교재와 단원을 미리 넣어 뒀어요.',
+        body:d=>'<div class="wz-row"><label>책</label><select id="wz-vp-book" class="inp" style="flex:1;min-width:180px" onchange="wzKitBook(this.value)">'+
+            wzKitBooks(d).map(b=>'<option value="'+_ebA(b.id)+'"'+(b.id===d.tbId?' selected':'')+'>'+_ebE(b.nm)+'</option>').join('')+
+          '</select></div>'+
+          '<div class="wz-row"><label>단원</label><select id="wz-vp-unit" class="inp" style="flex:1;min-width:180px" onchange="wzSet(\'unit\',this.value,false)">'+
+            wzKitUnits(d).map(u=>'<option value="'+_ebA(u)+'"'+(u===d.unit?' selected':'')+'>'+_ebE(u)+'</option>').join('')+
+          '</select></div>',
+        read:d=>{
+          const b=document.getElementById('wz-vp-book'),u=document.getElementById('wz-vp-unit');  // 마법사 안의 칸
+          if(b)d.tbId=b.value;if(u)d.unit=u.value;
+          return d.tbId?true:'책을 골라 주세요';
+        }});
+      steps.push({t:'방식',q:'어떤 방식으로 낼까요?',hint:'고르지 않으면 섞기 · 20문제로 만듭니다.',
+        body:d=>'<div class="wz-row"><label>방식</label>'+
+            wzOpts('mode',[{v:'mix',n:'섞기'},{v:'mean',n:'뜻 쓰기'},{v:'word',n:'영어 쓰기'}],d.mode)+'</div>'+
+          '<div class="wz-row"><label>문항 수</label>'+wzOpts('n',[{v:10,n:'10개'},{v:20,n:'20개'},{v:30,n:'30개'}],d.n)+'</div>'});
+      steps.push({t:'확인',q:'이대로 만들까요?',okLabel:'단어 시험지 만들기',
+        hint:'만들면 단어 시험지 창이 열립니다. 거기서 인쇄할 수 있어요.',
+        body:d=>wzSum(['책 <b>'+_ebE(wzKitBookName(d))+'</b>','단원 <b>'+_ebE(d.unit||'(전체)')+'</b>',
+          '방식 <b>'+({mix:'섞기',mean:'뜻 쓰기',word:'영어 쓰기'}[d.mode]||'섞기')+'</b>','문항 <b>'+d.n+'개</b>'])});
+      return steps;
+    },
+    async finish(d){
+      const sid=wzFirstStu(d.classId);
+      if(typeof openVocabPaper!=='function'){toast('단어 시험지를 열 수 없어요');return;}
+      openM('m-vocab-paper');
+      openVocabPaper(sid);
+      try{
+        const sel=document.getElementById('vp-book');if(sel&&d.tbId){sel.value=d.tbId;sel.dispatchEvent(new Event('change'));}
+        await new Promise(r=>setTimeout(r,80));
+        const us=document.getElementById('vp-units');
+        if(us&&d.unit)[...us.options].forEach(o=>{o.selected=(o.value===d.unit);});
+        const nn=document.getElementById('vp-new');if(nn)nn.value=d.n;
+      }catch(e){}
+      toast('단어 시험지 창을 열었어요 — [만들기]를 누르면 미리보기가 나옵니다');
+    },
+  },
+};
+
+// ── 마법사가 쓰는 교재·단원 짐작 ────────────────────────────────────────
+function wzKitGuess(classId,wantCat){
+  const out={tbId:'',unit:'',grade:''};
+  const _hasText=b=>b&&Object.keys(b.unitTexts||{}).some(k=>String((b.unitTexts||{})[k]||'').trim());
+  const _first=()=>{
+    const all=(_cache.globalTextbooks||[]).filter(x=>x&&!x._deleted&&(tbUnitKeys(x)||[]).length);
+    const b=(wantCat?null:all.find(_hasText))||all[0];
+    if(b){
+      const units=tbUnitKeys(b)||[];
+      out.tbId=b.id;
+      out.unit=units.find(u=>String((b.unitTexts||{})[u]||'').trim())||units[0]||'';
+    }
+    return out;
+  };
+  try{
+    const c=wzClasses().find(x=>x.id===classId);
+    if(!c)return _first();
+    out.grade=wzGradeOf(classId);
+    const mats=(typeof _pgActiveMats==='function')?_pgActiveMats(classId,c,{}):{};
+    const list=Object.values(mats||{}).filter(Boolean);
+    let pick=null;
+    if(wantCat){
+      pick=list.find(m=>{const tb=_pgTbOf(m);return tb&&String(tb.category||'')===wantCat;});
+    }
+    if(!pick)pick=list.find(m=>_pgTbOf(m));
+    let tb=pick?_pgTbOf(pick):null;
+    if(!tb)return _first();
+    out.tbId=tb.id;
+    const units=tbUnitKeys(tb)||[];
+    const done=String(pick.unit||'');
+    const i=units.indexOf(done);
+    out.unit=(i>=0&&units[i+1])?units[i+1]:(done||units[0]||'');
+  }catch(e){}
+  return out;
+}
+function wzKitBooks(d){
+  const all=(_cache.globalTextbooks||[]).filter(b=>b&&!b._deleted&&(tbUnitKeys(b)||[]).length);
+  const map=(typeof ppBookLabelMap==='function')?ppBookLabelMap(all):{};
+  return all.map(b=>({id:b.id,nm:(map[b.id]||b.title||b.id)})).sort((a,b)=>a.nm.localeCompare(b.nm,'ko'));
+}
+function wzKitUnits(d){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b&&b.id===d.tbId);
+  return tb?(tbUnitKeys(tb)||[]):[];
+}
+function wzKitBookName(d){
+  const tb=(_cache.globalTextbooks||[]).find(b=>b&&b.id===d.tbId);
+  return tb?((typeof ppBookLabel==='function'?ppBookLabel(tb):'')||tb.title||''):'';
+}
+function wzKitBook(id){
+  if(!_wz)return;
+  _wz.d.tbId=id;
+  const units=wzKitUnits(_wz.d);
+  _wz.d.unit=units[0]||'';
+  wzRender();
+}
+function wzFirstStu(classId){
+  try{
+    const c=wzClasses().find(x=>x.id===classId)||wzClasses()[0];
+    const s=DB.stus().filter(x=>!x.inactive&&(!c||(c.studentIds||[]).includes(x.id)))[0];
+    return s?s.id:'';
+  }catch(e){return '';}
+}
+
