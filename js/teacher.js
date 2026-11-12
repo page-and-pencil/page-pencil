@@ -2941,10 +2941,15 @@ function _mergeMatsKeepKeys(oldMats,newMats){
   });
   return out;
 }
+// 칸이 들고 있던 키를 그대로 지킨다.
+// 전에는 채워진 칸만 1번부터 다시 번호를 매겨, 앞 칸을 비워 두면 vocab_5 가 vocab 으로
+// 바뀌었다 — 그 기록이 가리키던 교재 자리(체인 다섯째 권)가 첫째 권으로 바뀐다.
+// 같은 키가 겹칠 때만(체인 '+' 로 같은 과목을 더했을 때) 빈 번호를 찾아 붙인다.
 function getSMatsFrom(wrapperId){
-  const r={};const counts={};
+  const r={},picked=[],used=new Set();
   document.querySelectorAll('#'+wrapperId+' .sr').forEach(row=>{
-    const baseS=row.dataset.s.replace(/_\d+$/,'');
+    const raw=String(row.dataset.s||'');
+    const baseS=raw.replace(/_\d+$/,'');
     const bkEl=row.querySelector('[data-f="book"]');
     const b=bkEl.value.trim();
     const units=[...row.querySelectorAll('[data-f="unit"]')].map(el=>el.value.trim()).filter(Boolean);
@@ -2954,8 +2959,17 @@ function getSMatsFrom(wrapperId){
     const days=daysEl?[...daysEl.querySelectorAll('.pg-day-chip.on')].map(x=>x.dataset.d):null;
     const runEl=row.querySelector('[data-f="run"]');
     const run=runEl?String(runEl.value||''):'';
-    if(b||u){counts[baseS]=(counts[baseS]||0)+1;const key=counts[baseS]===1?baseS:`${baseS}_${counts[baseS]}`;r[key]={book:b,unit:u,...(bkId&&{bookId:bkId}),...(days&&days.length&&days.length<7?{days}:{}),...(run&&{run})};};
+    if(b||u)picked.push({raw:raw,base:baseS||raw,key:'',
+      v:{book:b,unit:u,...(bkId&&{bookId:bkId}),...(days&&days.length&&days.length<7?{days}:{}),...(run&&{run})}});
   });
+  picked.forEach(x=>{if(x.raw&&!used.has(x.raw)){x.key=x.raw;used.add(x.raw);}});
+  picked.forEach(x=>{
+    if(x.key)return;
+    let k=x.base,n=2;
+    while(used.has(k))k=x.base+'_'+(n++);
+    x.key=k;used.add(k);
+  });
+  picked.forEach(x=>{r[x.key]=x.v;});
   return r;
 }
 function getSMats(){return getSMatsFrom('subj-rows');}
