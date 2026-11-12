@@ -7037,7 +7037,8 @@ async function renderWsDB(refetch){
           <div class="bcard-stats"><span>문항 <b>${n}</b></span>${dt?`<span>${dt}</span>`:''}</div>
         </div>
         <div class="bcard-acts">
-          ${w._dev?'':`<button onclick="event.stopPropagation();deleteWsDB('${escAttr(w.id)}')" style="color:var(--coral,var(--bad))">🗑 삭제</button>`}
+          ${w._dev?`<button onclick="pbDevDelete('${escAttr(w.id)}',event)" style="color:var(--coral,var(--bad))">🗑 삭제</button>`
+                  :`<button onclick="event.stopPropagation();deleteWsDB('${escAttr(w.id)}')" style="color:var(--coral,var(--bad))">🗑 삭제</button>`}
         </div>
       </div>`;
     }
@@ -20591,6 +20592,13 @@ function pbDel(i){
   _pbSlots.splice(a,b-a+1);
   _pbRender();_pbAutoLater();
 }
+// 배점 — 시험지에 적어 둔 값 > 문항에 적힌 배점 > 2점
+function _pbPt(id){
+  const p=(_pbPaper&&_pbPaper.points)||{};
+  if(p[id]!==undefined&&p[id]!==''&&p[id]!==null)return Number(p[id])||0;
+  const d=_pbD(id),n=Number(d&&d.points);
+  return (isFinite(n)&&n>0)?n:2;
+}
 function pbPoints(i,v){
   const s=_pbSlots[i];if(!s||!s.id)return;
   const n=Number(v);
@@ -20676,6 +20684,27 @@ async function _pbSave(manual){
   return ok;
 }
 function pbSaveNow(){return _pbSave(true);}
+// 복제 — 지금 시험지를 그대로 둔 채 사본을 새로 만든다
+async function pbDuplicate(){
+  if(!_pbPaper||!_pbSlots.filter(s=>s.id).length){toast('먼저 문항을 담아 주세요');return;}
+  if(_pbSaveT){clearTimeout(_pbSaveT);_pbSaveT=null;await _pbSave(false);}
+  const now=Date.now();
+  _pbPaper={..._pbPaper,id:uid(),title:(_pbPaper.title||'시험지')+' (복사본)',createdAt:now,editedAt:now};
+  const t=document.getElementById('pb-title');if(t)t.value=_pbPaper.title;
+  const ok=await _pbSave(true);
+  _pbRender();
+  if(ok&&typeof renderWsDB==='function')renderWsDB();
+}
+// 기기에만 보관된 시험지 지우기 (서버 줄은 종전대로 deleteWsDB 가 맡는다)
+function pbDevDelete(id,ev){
+  if(ev)ev.stopPropagation();
+  askConfirm('시험지 삭제','이 기기에 보관된 시험지를 지울까요?\n되돌릴 수 없어요.','삭제','bd',async()=>{
+    try{const l=(await _pbDevAll()).filter(x=>x&&x.id!==id);await idbSet(PB_DEV_KEY,l);}catch(e){}
+    if(_pbPaper&&_pbPaper.id===id){closeM('m-paper');_pbPaper=null;_pbSlots=[];}
+    toast('지웠어요');
+    if(typeof renderWsDB==='function')renderWsDB();
+  });
+}
 // ── 사용 기록 (시험지 줄에서 센다 — 문항 줄은 건드리지 않는다) ──────────
 let _pbUse=null;
 function _pbUsage(){
@@ -20716,7 +20745,7 @@ function _pbRender(msg){
     if(!d)return '<div class="pb-row"><span class="pb-no">'+no+'</span><div class="pb-main"><div class="pb-stem">(문항을 불러오지 못했어요)</div></div><div class="pb-acts">'+_pbRowBtns(i)+'</div></div>';
     const set=String(d.setId||'');
     const first=set&&(i===0||_pbSetOf(_pbSlots[i-1])!==set);
-    const pts=(_pbPaper.points||{})[s.id]||'';
+    const pts=_pbPt(s.id);
     return (first?'<div class="pb-setline">한 지문 묶음 — 아래 문항은 붙어 다녀요</div>':'')+
       '<div class="pb-row'+(set?' pb-inset':'')+'" draggable="true" '+
         'ondragstart="pbDragStart('+i+',event)" ondragover="pbDragOver(event)" ondrop="pbDrop('+i+',event)">'+
@@ -20740,7 +20769,7 @@ function _pbSummary(){
   const el=document.getElementById('pb-sum');if(!el)return;
   const ids=_pbSlots.filter(s=>s.id).map(s=>s.id);
   const empty=_pbSlots.filter(s=>s.empty).length;
-  let total=0;ids.forEach(id=>{total+=Number((_pbPaper.points||{})[id])||0;});
+  let total=0;ids.forEach(id=>{total+=_pbPt(id);});
   const dist={};let n5=0;
   ids.forEach(id=>{const d=_pbD(id);if(!d||!(d.choices||[]).length)return;n5++;dist[d.answer]=(dist[d.answer]||0)+1;});
   let warn='';
@@ -20750,8 +20779,8 @@ function _pbSummary(){
       warn='<span class="pb-warn">정답이 '+_isoCirc(Number(top))+'에 몰려 있어요 ('+dist[top]+'/'+n5+') — 순서를 바꾸거나 다른 문항으로 바꿔 보세요</span>';
   }
   const distTxt=Object.keys(dist).sort().map(k=>_isoCirc(Number(k))+' '+dist[k]).join(' · ');
-  el.innerHTML='문항 <b>'+ids.length+'</b>개'+(empty?(' · 비어 있음 '+empty+'칸'):'')+
-    (total?(' · 배점 합계 '+total+'점'):'')+(distTxt?(' · 정답 분포 '+distTxt):'')+warn;
+  el.innerHTML='문항 <b>'+ids.length+'</b>개'+(total?(' · 배점 <b>'+total+'</b>점'):'')+
+    (empty?(' · 비어 있음 '+empty+'칸'):'')+(distTxt?(' · 정답 분포 '+distTxt):'')+warn;
 }
 // ── 자동 구성 ────────────────────────────────────────────────────────────
 function _pbFrames(){try{return JSON.parse(localStorage.getItem(PB_FRAMES_KEY)||'null')||{};}catch(e){return {};}}
@@ -20801,6 +20830,10 @@ function _pbWantTypes(){                       // 틀 → 채울 유형 목록
   Object.keys(my).forEach(k=>{for(let i=0;i<my[k];i++)a.push(k);});
   return a;
 }
+function _pbSetRows(sid){                      // 같은 지문 묶음의 문항을 순서대로
+  return (_ibRows||[]).filter(r=>String((r.meta||{}).setId||'')===sid)
+    .sort((a,b)=>Number((a.meta||{}).setOrder||0)-Number((b.meta||{}).setOrder||0));
+}
 function _pbPick(type,used){                   // 조건에 맞는 문항 하나 고르기
   const rows=(_ibRows||[]).filter(r=>{
     const m=r.meta||{},s=m.src||{};
@@ -20823,13 +20856,22 @@ async function pbCompose(){
   const want=_pbWantTypes();
   if(!want.length){toast('틀을 고르거나 유형을 정해 주세요');return;}
   _pbUsageClear();
-  const used=new Set(_pbSlots.filter(s=>s.id).map(s=>s.id));
+  const used=new Set();                        // 자동 구성은 시험지를 새로 짜므로 앞의 문항에 매이지 않는다
   const slots=[],need=[];
-  want.forEach(t=>{
+  for(let i=0;i<want.length;i++){
+    const t=want[i];
     const r=_pbPick(t,used);
-    if(r){used.add(r.id);slots.push({id:r.id});}
-    else{slots.push({empty:true,type:t});need.push(t);}
-  });
+    if(!r){slots.push({empty:true,type:t});need.push(t);continue;}
+    const sid=String((r.meta||{}).setId||'');
+    if(sid){                                   // 장문처럼 지문을 같이 쓰는 묶음은 통째로
+      const block=_pbSetRows(sid).filter(x=>!used.has(x.id));
+      block.forEach(x=>{used.add(x.id);slots.push({id:x.id});});
+      let skip=block.length-1;                 // 묶음이 먹은 만큼 같은 유형 칸을 건너뛴다
+      while(skip>0&&i+1<want.length&&want[i+1]===t){i++;skip--;}
+      continue;
+    }
+    used.add(r.id);slots.push({id:r.id});
+  }
   _pbSlots=slots;
   await _pbLoadData(slots.filter(s=>s.id).map(s=>s.id));
   _pbSortSets();_pbRender();_pbAutoLater();
@@ -20906,7 +20948,7 @@ function _pbQuestion(r,no,o){
   const d=r.d;
   if(!d)return '<div class="q blank"><div class="qs"><b>'+no+'.</b> (비어 있음'+
     (r.s.type?(' — '+_pbEsc(_isoTypeName(r.s.type)||r.s.type)):'')+')</div></div>';
-  const pts=Number((_pbPaper.points||{})[d.id])||0;
+  const pts=_pbPt(d.id);
   let h='<div class="q">';
   if(!o.noStem)h+='<div class="qs"><b>'+no+'.</b> '+_pbEsc(d.stem||'')+(o.showPts&&pts>=3?' <b>[3점]</b>':'')+'</div>';
   else h+='<div class="qs"><b>'+no+'.</b>'+(o.showPts&&pts>=3?' <b>[3점]</b>':'')+'</div>';
@@ -20964,7 +21006,12 @@ function _pbHeadHtml(fmt){
 }
 function _pbCss(fmt){
   const two=(fmt==='suneung'||fmt==='naesin');
-  return '@page{size:A4;margin:'+(fmt==='suneung'?'12mm 10mm 18mm':'14mm 12mm')+';}'+
+  const hd=(_pbPaper&&_pbPaper.header)||{};
+  // 쪽 번호는 @page 여백 상자로 (크롬 131+). 바닥에 빈 상자를 두지 않는다.
+  const foot=[hd.school||'',hd.exam||(_pbPaper&&_pbPaper.title)||''].filter(Boolean).join(' · ')
+    .replace(/[\\\\"]/g,' ');
+  return '@page{size:A4;margin:'+(fmt==='suneung'?'12mm 10mm 16mm':'14mm 12mm 16mm')+';'+
+    '@bottom-center{content:\"'+foot+'  \" counter(page);font-size:8.5pt;color:#555;}}'+
   '*{box-sizing:border-box}'+
   'body{font-family:"Malgun Gothic","맑은 고딕",system-ui,sans-serif;color:#111;margin:0;'+
     'font-size:'+(fmt==='suneung'?'10pt':fmt==='mini'?'11pt':'10.5pt')+';line-height:1.62}'+
@@ -20999,8 +21046,6 @@ function _pbCss(fmt){
   '.wh-m .nm{margin-left:auto}'+
   '.memo-col{position:fixed;top:30mm;right:8mm;width:30mm;height:240mm;border-left:1px dashed #bbb;padding-left:3mm;text-align:center;'+
     'font-size:8.5pt;color:#999}'+
-  '.foot{position:fixed;bottom:6mm;left:0;right:0;text-align:center;font-size:9pt}'+
-  '.foot .bx{display:inline-block;border:1px solid #111;padding:1px 14px;margin-left:6px}'+
   '.confirm{border:1.5px solid #111;padding:9px 12px;margin-top:14px;font-size:9.5pt;break-inside:avoid}'+
   '.confirm b{display:block;margin-bottom:3px}'+
   '.mini-ans{margin-top:16px;border-top:1px dashed #999;padding-top:6px;font-size:8.5pt;color:#444}'+
@@ -21012,7 +21057,8 @@ function _pbCss(fmt){
   '.sol .a{color:#111;font-weight:700}'+
   '.sol .e{font-size:9.5pt;color:#333;margin-top:2px}'+
   '.omr td{height:22px}'+
-  '.noprint{position:fixed;top:10px;right:10px;padding:8px 14px;font-size:13px;cursor:pointer;z-index:9}'+
+  '.noprint{position:fixed;bottom:14px;right:14px;padding:9px 16px;font-size:13px;cursor:pointer;z-index:9;'+
+    'border:1px solid #888;border-radius:6px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)}'+
   '@media print{.noprint{display:none}}';
 }
 function _pbOpenPrint(title,css,body){
@@ -21042,7 +21088,7 @@ function pbPrint(what){
         col.map(c=>{
           const d=c.r.d;
           const a=(d.choices||[]).length?_pbCirc(d.answer):'서술형';
-          const p=Number((_pbPaper.points||{})[d.id])||'';
+          const p=_pbPt(d.id);
           return '<tr><td>'+c.no+'</td><td>'+a+'</td><td>'+p+'</td></tr>';
         }).join('')+'</table>';
     });
@@ -21100,8 +21146,7 @@ function pbPrint(what){
   }
   b+='</div>';
   if(fmt==='suneung')
-    b+='<div class="confirm"><b>확인 사항</b>답안지의 해당란에 성명과 수험 번호를 정확히 썼는지 확인하시오.</div>'+
-       '<div class="foot">'+_pbEsc(hd.school||'')+' 영어 영역 <span class="bx">쪽</span></div>';
+    b+='<div class="confirm"><b>확인 사항</b>답안지의 해당란에 성명과 수험 번호를 정확히 썼는지 확인하시오.</div>';
   if(fmt==='worksheet')b+='<div class="memo-col">메모</div>';
   _pbOpenPrint(title,_pbCss(fmt),b);
 }
