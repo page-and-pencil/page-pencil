@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261113a">
+<link rel="stylesheet" href="css/style.css?v=20261113b">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -658,7 +658,7 @@
         <button id="dtab-stage" onclick="switchDataTab('stage')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="bar-chart-3" width="15" height="15" style="vertical-align:-3px"></i> 수준표 <i class="wn-dot"></i></button>
         <button id="dtab-lib" onclick="switchDataTab('lib')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 원서</button>
         <button id="dtab-word" onclick="switchDataTab('word')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 어휘</button>
-        <button id="dtab-bank" onclick="switchDataTab('bank')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 자료실</button>
+        <button id="dtab-bank" onclick="switchDataTab('bank')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 기출 <i class="wn-dot"></i></button>
         <span class="dtg">문제·시험지</span>
         <button id="dtab-make" onclick="switchDataTab('make')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="sparkles" width="15" height="15" style="vertical-align:-3px"></i> 만들기 <i class="wn-dot"></i></button>
         <button id="dtab-items" onclick="switchDataTab('items')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="library" width="15" height="15" style="vertical-align:-3px"></i> 문제 은행</button>
@@ -691,6 +691,7 @@
 
       <!-- 기출·자료실 sub-panel (드라이브 자료 — 선생님 전용) -->
       <div id="dp-bank" style="display:none">
+        <div id="eb-usebar" class="eb-uses"></div>
         <div class="sh">
           <div>
             <div class="st"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 기출·자료실</div>
@@ -713,7 +714,7 @@
           <select class="filter-sel" id="eb-f-level" onchange="ebFilterChange()"></select>
           <select class="filter-sel" id="eb-f-grade" onchange="ebFilterChange()"></select>
           <select class="filter-sel" id="eb-f-term" onchange="ebFilterChange()"></select>
-          <span class="eb-chk"><input type="number" class="eb-y" id="eb-f-y1" placeholder="연도" min="1990" max="2099" onchange="ebFilterChange()"> ~
+          <span class="eb-chk" id="eb-f-year-wrap"><input type="number" class="eb-y" id="eb-f-y1" placeholder="연도" min="1990" max="2099" onchange="ebFilterChange()"> ~
             <input type="number" class="eb-y" id="eb-f-y2" placeholder="연도" min="1990" max="2099" onchange="ebFilterChange()"></span>
           <select class="filter-sel" id="eb-f-region" onchange="ebFilterChange()"></select>
           <select class="filter-sel" id="eb-f-city" onchange="ebFilterChange()"></select>
@@ -1023,6 +1024,14 @@
             <input type="file" id="bulk-audio-files" accept="audio/*" multiple style="display:none" onchange="previewBulkAudio(event)">
             <input type="file" id="bulk-text-files" accept=".txt" multiple style="display:none" onchange="previewBulkText(event)">
           </div>
+        </div>
+        <div id="tb-src" class="eb-uses" style="margin-bottom:10px">
+          <button id="tb-src-own" class="eb-use on" onclick="tbSetSrc('own')">등록 교재<small id="tb-src-own-n"></small></button>
+          <button id="tb-src-bank" class="eb-use" onclick="tbSetSrc('bank')">자료만 있는 책<small id="tb-bank-count"></small></button>
+        </div>
+        <div id="tb-bank-wrap" style="display:none">
+          <div id="tb-bank-uses" class="eb-uses" style="margin-bottom:8px"></div>
+          <div id="tb-bank-box"></div>
         </div>
         <div class="lib-search-bar">
           <input type="text" class="lib-search-input" id="book-q" placeholder="제목·시리즈·카테고리 검색..." oninput="bookPage=0;renderBookDB()">
@@ -3171,7 +3180,7 @@
 <script src="js/utils.js?v=20261112h"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261112b"></script>
-<script src="js/teacher.js?v=20261113a"></script>
+<script src="js/teacher.js?v=20261113b"></script>
 <script src="js/student.js?v=20261112h"></script>
 <script src="js/parent.js?v=20261112e"></script>
 </body>

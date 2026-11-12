@@ -6964,6 +6964,8 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-13',title:"'자료실'이 '기출'로 — 용도 칩(수능·내신·듣기평가·성취도·고입)",where:'교재·문제 → 기출',tab:'t-data',go:['switchDataTab','bank']},
+ {date:'2026-11-13',title:'교재·문제집 자료는 교재 탭의 [자료만 있는 책]으로',where:'교재·문제 → 교재',tab:'t-data',go:['switchDataTab','tbook']},
  {date:'2026-11-13',title:'만들기 — 다섯 가지를 한 화면에 하나씩 물어보고 인쇄까지',where:'교재·문제 → 만들기 (대시보드에도 단추)',tab:'t-data',go:['switchDataTab','make']},
  {date:'2026-11-12',title:"기기에만 둔 동형 묶음도 '저장된 것'에 — '이 기기' 표시와 함께",where:'교재·문제 → 저장된 것',tab:'t-data',go:['switchDataTab','ws']},
  {date:'2026-11-12',title:'책 홈 — 한 책의 단어·본문·해석·음원·자료·문항을 한 곳에서',where:'교재·문제 → 교재 → 책 이름',tab:'t-data',go:['switchDataTab','tbook']},
@@ -7095,6 +7097,10 @@ function switchDataTab(tab){
     const secL=document.getElementById('book-io-sec-lib');if(secL)secL.style.display=isTb?'none':'';
     _bookDBFilter=isTb?'textbook':'library';
     bookPage=0;renderBookDB();
+    const src=document.getElementById('tb-src');
+    if(src)src.style.display=isTb?'':'none';         // 전환은 교재 쪽에만
+    if(isTb){try{tbPaintSrcCount();tbSetSrc(_tbSrc);}catch(e){}}
+    else{const w=document.getElementById('tb-bank-wrap');if(w)w.style.display='none';}
   } else if(tab==='word'){
     const p=document.getElementById('dp-word');if(p)p.style.display='';
     wdbPage=0;renderWordDB();
@@ -7493,7 +7499,7 @@ function renderBookCards(paged){
       <div class="bcard-body">
         <div class="bcard-title">${escAttr(b.title||'제목 없음')}</div>
         <div class="bcard-meta">${meta}</div>
-        <div class="bcard-stats">${unitCnt?`<span>${isTb?'유닛':'챕터'} <b>${unitCnt}</b></span>`:''}${wordCnt?`<span>단어 <b>${wordCnt}</b></span>`:''}</div>
+        <div class="bcard-stats">${unitCnt?`<span>${isTb?'유닛':'챕터'} <b>${unitCnt}</b></span>`:''}${wordCnt?`<span>단어 <b>${wordCnt}</b></span>`:''}${(!isTb&&ebStoryAudio(b.title))?`<span>오디오 <b>${ebStoryAudio(b.title)}</b>개</span>`:''}</div>
       </div>
     </div>`;
   }).join('');
@@ -19178,6 +19184,56 @@ const EB_CATS=[
   {k:'bookdocs', g:'교재', n:'교재 단어·워크시트'},
   {k:'audiobook',g:'원서', n:'원서 오디오'}
 ];
+// ── 갈래(origin)와 용도(use) — '기출' 과 '교재 자료' 를 가르는 기준 ──────
+// 2026-11-12 서버에서 모든 줄에 넣었다(뷰 meta 에도 실린다 — supabase/exam_bank_stage.sql).
+//   origin  exam 진짜 기출 · book 교재·문제집 · story 원서 오디오 · doc 참고 자료
+//   use     exam 쪽: 수능 · 내신 · 듣기평가 · 성취도·진단 · 고입
+//           book 쪽: 일반 · 수능 대비 · 내신 대비 · 듣기평가 대비 · 공인시험
+// 나중에 들어온 줄에 둘이 없을 수 있다 — 그때는 cat 으로 **짐작해서** 보여 준다(사라지지 않게).
+const EB_ORIGIN_BY_CAT={
+  suneung:'exam',mopyeong:'exam',hakpyeong:'exam',listen:'exam',naea:'exam',
+  edu:'exam',school:'exam',goip:'exam',
+  basic:'doc',research:'doc',
+  publisher:'book',elt:'book',bookaudio:'book',bookdocs:'book',
+  audiobook:'story'
+};
+const EB_USE_BY_CAT={
+  suneung:'수능',mopyeong:'수능',hakpyeong:'수능',
+  listen:'듣기평가',naea:'성취도·진단',edu:'성취도·진단',
+  school:'내신',goip:'고입'
+};
+function ebOrigin(m){
+  const o=String((m||{}).origin||'').trim();
+  if(o)return o;
+  return EB_ORIGIN_BY_CAT[String((m||{}).cat||'')]||'book';   // 모르면 교재 쪽에 둔다 (사라지지 않게)
+}
+function ebUse(m){
+  const u=String((m||{}).use||'').trim();
+  if(u)return u;
+  const c=String((m||{}).cat||'');
+  return EB_USE_BY_CAT[c]||(ebOrigin(m)==='book'?'일반':'');
+}
+// 기출 탭의 용도 칩
+const EB_EXAM_USES=[
+  {v:'수능',       n:'수능',        d:'수능·모평·학평'},
+  {v:'내신',       n:'내신',        d:'학교 정기고사'},
+  {v:'듣기평가',   n:'듣기평가',    d:'영어듣기능력평가'},
+  {v:'성취도·진단',n:'성취도·진단', d:'학업성취도·시도교육청'},
+  {v:'고입',       n:'고입',        d:'고입선발고사'}
+];
+// 용도마다 쓸모 있는 거르기만 남긴다
+const EB_USE_FILTERS={
+  '수능':['year','month','grade'],
+  '내신':['region','city','school','grade','term'],
+  '듣기평가':['year','grade'],
+  '성취도·진단':['year','grade'],
+  '고입':['year','region'],
+  '참고 자료':[],
+  '':['year','grade']
+};
+// 교재 자료 쪽 용도
+const EB_BOOK_USES=['일반','수능 대비','내신 대비','듣기평가 대비','공인시험'];
+
 // ── 수준 (자료의 '내용' 으로 재어 둔 값) ─────────────────────
 // exam_bank 행에 들어 있다: stage(P0~H2, 없으면 못 잰 것) · stageG(추정 학년, 소수)
 // stageBy(text 지문 · list 낱말 목록 · phonics) · stageConf(high/mid/low) · stageWhy(못 잰 이유)
@@ -19238,7 +19294,9 @@ let _ebLoading=false,_ebNote='';
 const _ebFull=new Map();       // 상세를 연 행의 data 전체 (이 세션 동안 메모리에만)
 let _ebPage=1,_ebViewId='',_ebDetailId='';
 let _ebF={cat:'',series:'',level:'',grade:'',term:'',y1:'',y2:'',region:'',city:'',school:'',
-  stage:'',sort:'',audio:false,only:'',q:''};
+  stage:'',sort:'',audio:false,only:'',q:'',origin:'exam',use:''};
+// origin 은 **화면이 정한다**: 기출 탭은 'exam', 교재 탭의 '자료만 있는 책' 은 'book',
+// 원서 탭은 'story'. 즐겨찾기·최근 본·Ctrl+K·[원본 보기] 처럼 줄을 바로 여는 길은 가르지 않는다.
 let _ebAuIdx=-1,_ebAuList=[];  // 지금 열어 둔 드라이브 음원 (한 번에 하나)
 let _ebAuLbl='다음 문항 ▶';     // 원서 오디오는 '다음 트랙'
 
@@ -19516,6 +19574,8 @@ function _ebMatch(r){
   if(_ebF.only==='fav'&&!ebIsFav(r.id))return false;
   if(_ebF.only==='recent'&&ebRecents().indexOf(r.id)<0)return false;
   if(_ebF.only==='mine'&&!_ebIsMine(m))return false;
+  if(_ebF.origin&&_ebF.origin!=='all'&&ebOrigin(m)!==_ebF.origin)return false;
+  if(_ebF.use&&ebUse(m)!==_ebF.use)return false;
   if(_ebF.cat&&String(m.cat||'')!==_ebF.cat)return false;
   if(_ebF.series&&String(m.series||'')!==_ebF.series)return false;
   if(_ebF.level&&String(m.level||'')!==_ebF.level)return false;
@@ -19769,10 +19829,84 @@ function _ebRegistered(r){
     (Array.isArray(b.bankIds)&&b.bankIds.indexOf(r.id)>=0)||(t&&nrm(b.title)===t)))||null;
 }
 const EB_BOOK_CATS=['publisher','elt','bookaudio','bookdocs','audiobook'];
-function renderBankBooks(all){
-  const box=document.getElementById('eb-list');if(!box)return;
+// 원서 한 권에 딸린 오디오 줄 수 (exam_bank 의 origin:'story')
+let _ebStoryIdx=null;
+function _ebStoryKey(t){return String(t||'').toLowerCase().replace(/[^a-z0-9가-힣]+/g,'');}
+function ebStoryAudio(title){
+  const k=_ebStoryKey(title);
+  if(!k||k.length<3)return 0;
+  if(!_ebStoryIdx){
+    _ebStoryIdx=[];
+    (_ebRows||[]).filter(r=>_ebAlive(r)&&ebOrigin(r.meta||{})==='story').forEach(r=>{
+      const m=r.meta||{};
+      _ebStoryIdx.push({k:_ebStoryKey(m.title),n:(r.naudio||0)||1});
+    });
+  }
+  let n=0;
+  _ebStoryIdx.forEach(x=>{if(x.k&&(x.k.indexOf(k)>=0||k.indexOf(x.k)>=0))n+=x.n;});
+  return n;
+}
+// 교재 탭: [등록 교재] ↔ [자료만 있는 책]
+let _tbSrc='own';
+function tbSetSrc(v){
+  _tbSrc=(v==='bank')?'bank':'own';
+  const on=(id,yes)=>{const el=document.getElementById(id);if(el)el.classList.toggle('on',!!yes);};
+  on('tb-src-own',_tbSrc==='own');on('tb-src-bank',_tbSrc==='bank');
+  const show=(sel,yes)=>document.querySelectorAll(sel).forEach(el=>{el.style.display=yes?'':'none';});
+  show('#dp-book .lib-search-bar',_tbSrc==='own');
+  ['book-series','book-cards','book-table-wrap','book-pager','book-bulk-bar'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.dataset.tbHide=(_tbSrc==='bank')?'1':'';
+  });
+  if(_tbSrc==='bank'){
+    ['book-series','book-cards','book-table-wrap','book-pager','book-bulk-bar'].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.style.display='none';});
+  }else{
+    try{renderBookDB();}catch(e){}
+  }
+  const w=document.getElementById('tb-bank-wrap');if(w)w.style.display=(_tbSrc==='bank')?'':'none';
+  if(_tbSrc==='bank')renderTbookBank();
+}
+function tbPaintSrcCount(){
+  const el=document.getElementById('tb-src-own-n');
+  if(el)el.textContent=String((_cache.globalTextbooks||[]).filter(b=>b&&!b._deleted).length);
+  const b=document.getElementById('tb-bank-count');
+  if(b&&_ebRows)b.textContent=String((_ebRows||[]).filter(r=>_ebAlive(r)&&ebOrigin(r.meta||{})==='book').length);
+}
+// 교재 탭 안에서 보는 '자료만 있는 책' — exam_bank 의 origin:'book' 줄을 출판사 → 시리즈 → 책으로
+let _tbBankUse='';
+function tbBankSetUse(v){_tbBankUse=v||'';renderTbookBank();}
+function tbBankRowsAll(){
+  return (_ebRows||[]).filter(r=>_ebAlive(r)&&ebOrigin(r.meta||{})==='book'
+    &&(!_tbBankUse||ebUse(r.meta||{})===_tbBankUse));
+}
+function renderTbookBank(){
+  const box=document.getElementById('tb-bank-box');if(!box)return;
+  if(!ebMayUse()){box.innerHTML='<div class="eb-empty">선생님 화면에서만 보입니다.</div>';return;}
+  if(!_ebRows||!_ebRows.length){
+    box.innerHTML='<div class="eb-empty">'+(_ebLoading?'자료를 불러오는 중…':'아직 받아 온 자료가 없습니다.')+'</div>';
+    if(!_ebLoading&&typeof ebLoad==='function')ebLoad(false).then(()=>renderTbookBank());
+    return;
+  }
+  const rows=tbBankRowsAll();
+  const bar=document.getElementById('tb-bank-uses');
+  if(bar){
+    const by={};tbBankRowsAll.call&&(_ebRows||[]).filter(r=>_ebAlive(r)&&ebOrigin(r.meta||{})==='book')
+      .forEach(r=>{const u=ebUse(r.meta||{});by[u]=(by[u]||0)+1;});
+    const chip=(v,n,c)=>'<button class="eb-use'+(_tbBankUse===v?' on':'')+'" onclick="tbBankSetUse(\''+escJsA(v)+'\')">'+
+      _ebE(n)+(c?'<small>'+c.toLocaleString()+'</small>':'')+'</button>';
+    bar.innerHTML=chip('','전체',Object.values(by).reduce((a,b)=>a+b,0))+
+      EB_BOOK_USES.map(u=>chip(u,u,by[u]||0)).join('');
+  }
+  const cnt=document.getElementById('tb-bank-count');
+  if(cnt)cnt.textContent=rows.length.toLocaleString()+'줄';
+  renderBankBooks(rows,'tb-bank-box');
+}
+function renderBankBooks(all,boxId){
+  const box=document.getElementById(boxId||'eb-list');if(!box)return;
   // 기출 시험지는 '책' 이 아니다 — 교재·원서 자료만 묶는다
-  const books=all.filter(r=>EB_BOOK_CATS.indexOf(String((r.meta||{}).cat||''))>=0);
+  const books=all.filter(r=>EB_BOOK_CATS.indexOf(String((r.meta||{}).cat||''))>=0
+    ||ebOrigin(r.meta||{})==='book');
   const skipped=all.length-books.length;
   if(!books.length){
     box.innerHTML='<div class="eb-empty">이 조건에 교재 자료가 없습니다 — 책으로 보기는 <b>교재·원서 자료</b>만 묶어요'
@@ -19865,13 +19999,50 @@ function _ebStamp(){
   el.textContent=mins<1?'방금 최신화':(mins<60?mins+'분 전 최신화':Math.round(mins/60)+'시간 전 최신화');
 }
 // 탭을 열 때 — 캐시가 있으면 먼저 그리고, 필요할 때만 받는다
+// 용도 칩 — 줄 수를 세어 붙인다
+function _ebUseCounts(origin){
+  const by={};
+  (_ebRows||[]).filter(_ebAlive).forEach(r=>{
+    const m=r.meta||{};
+    if(ebOrigin(m)!==origin)return;
+    const u=ebUse(m);if(!u)return;
+    by[u]=(by[u]||0)+1;
+  });
+  return by;
+}
+function ebUseBar(){
+  const el=document.getElementById('eb-usebar');if(!el)return;
+  const by=_ebUseCounts('exam'),doc=(_ebRows||[]).filter(r=>_ebAlive(r)&&ebOrigin(r.meta||{})==='doc').length;
+  const chip=(v,n,d,cnt)=>'<button class="eb-use'+(_ebF.use===v&&_ebF.origin!=='doc'?' on':'')+'" title="'+_ebA(d||'')+'" '+
+    'onclick="ebSetUse(\''+escJsA(v)+'\')">'+_ebE(n)+(cnt?'<small>'+cnt.toLocaleString()+'</small>':'')+'</button>';
+  el.innerHTML=chip('','전체','기출 전체',Object.values(by).reduce((a,b)=>a+b,0))+
+    EB_EXAM_USES.map(u=>chip(u.v,u.n,u.d,by[u.v]||0)).join('')+
+    (doc?('<button class="eb-use'+(_ebF.origin==='doc'?' on':'')+'" title="기초학력·연구 자료" onclick="ebSetUse(\'__doc\')">참고 자료<small>'+doc+'</small></button>'):'');
+}
+function ebSetUse(v){
+  if(v==='__doc'){_ebF.origin='doc';_ebF.use='';}
+  else{_ebF.origin='exam';_ebF.use=v||'';}
+  _ebF.cat='';_ebPage=1;_ebSaveF();
+  ebUseBar();_ebPaintFilters();_ebPaintUseFilters();renderBankList();
+}
+// 고른 용도에 맞는 거르기만 남긴다
+function _ebPaintUseFilters(){
+  const want=EB_USE_FILTERS[_ebF.origin==='doc'?'참고 자료':(_ebF.use||'')]||[];
+  const map={year:'eb-f-year-wrap',grade:'eb-f-grade',term:'eb-f-term',
+    region:'eb-f-region',city:'eb-f-city',school:'eb-f-school'};
+  Object.keys(map).forEach(k=>{
+    const el=document.getElementById(map[k]);
+    if(el)el.style.display=(!_ebF.use||want.indexOf(k)>=0)?'':'none';
+  });
+}
 function ebOpenTab(){
-  _ebLoadF();_ebPaintFilters();renderBankList();
+  if(_ebF.origin!=='exam'&&_ebF.origin!=='doc'){_ebF.origin='exam';_ebF.use='';}
+  _ebLoadF();_ebPaintFilters();ebUseBar();_ebPaintUseFilters();renderBankList();
   _ebNotesLoad();                      // 선생님 설정에 적어 둔 메모 (세션당 한 번)
   const st=document.getElementById('eb-state');
   if(st&&!(_ebRows&&_ebRows.length))st.textContent='불러오는 중…';
   ebLoad(false).then(()=>{
-    _ebPaintFilters();
+    _ebPaintFilters();ebUseBar();_ebPaintUseFilters();
     renderBankList();_ebStamp();
   });
 }
@@ -19886,7 +20057,7 @@ async function ebRefresh(){
 async function ebCacheClear(){
   _ebMenuOut();
   try{await idbDel(EB_IDX_KEY);}catch(e){}
-  _ebRows=null;_ebStamps={};_ebAt=0;_ebMax='';_ebFull.clear();
+  _ebRows=null;_ebStamps={};_ebAt=0;_ebMax='';_ebFull.clear();_ebStoryIdx=null;
   renderBankList();
   await ebLoad(true);_ebPaintFilters();renderBankList();_ebStamp();
 }

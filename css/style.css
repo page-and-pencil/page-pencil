@@ -3459,3 +3459,12 @@ span.pe-c{width:30px;flex-shrink:0;text-align:center;}
   .wz-steps{gap:4px;}
   .wz-step{font-size:11.5px;padding:3px 8px 3px 4px;}
 }
+
+/* ── 기출·교재 자료 용도 칩 (B) ──────────────────────────── */
+.eb-uses{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px;}
+.eb-use{font-family:var(--fb);font-size:12.5px;font-weight:600;color:var(--slate);background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--rpill);padding:5px 12px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:5px;}
+.eb-use:hover{border-color:var(--teal);}
+.eb-use.on{border-color:var(--teal);background:var(--tl);color:var(--teal);}
+.eb-use small{font-weight:700;opacity:.7;font-size:11.5px;}
