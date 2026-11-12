@@ -1493,6 +1493,22 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
   line-height:1;padding:4px 5px;color:var(--slate);flex-shrink:0;transition:background .12s,border-color .12s;}
 .tb-fix:hover{background:var(--tl);border-color:var(--teal);}
 .tb-acts{display:flex;gap:4px;justify-content:flex-end;align-items:center;}
+/* 문제 은행 — 정답률·그림 문항·검토 필요·자료 칩 */
+.ib-rate{font-size:10.5px;font-weight:700;color:var(--tealt);background:var(--tl);border-radius:6px;padding:1px 6px;}
+.ib-pic{font-size:10.5px;font-weight:700;color:#92400E;background:#FEF3C7;border-radius:6px;padding:1px 6px;}
+.ib-warn2{font-size:10.5px;font-weight:700;color:var(--coral);background:#FEE2E2;border-radius:6px;padding:1px 6px;}
+.ib-ic-pic{border-color:#FCD34D;background:#FFFBEB;}
+.ib-bankchip{display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:6px 10px;border:1.5px solid var(--teal);
+  border-radius:var(--rs);background:var(--tl);font-size:12.5px;color:var(--navy);}
+.ib-bc-t{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ib-script summary{list-style:none;}
+.ib-script summary::-webkit-details-marker{display:none;}
+/* 자료실 — 내 메모 */
+.eb-mymemo{font-size:11.5px;color:var(--tealt);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.eb-memo-in{width:100%;box-sizing:border-box;padding:7px 9px;border:1.5px solid var(--border);border-radius:var(--rs);
+  font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);outline:none;}
+.eb-memo-in:focus{border-color:var(--teal);}
+.eb-items{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .tb-fix.tb-hw{color:var(--tealt);border-color:var(--teal);font-weight:700;}
 /* 반복 요일 직접 고르기 */
 .rc-dow-row{display:flex;gap:4px;flex-wrap:wrap;}

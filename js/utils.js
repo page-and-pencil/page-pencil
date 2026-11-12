@@ -260,6 +260,7 @@ function askConfirm(title,msg,okLabel,okCls,cb,cancelCb){
 function confirmOk(){closeM('m-confirm');const f=_confirmCb;_confirmCb=null;_confirmCancelCb=null;if(f)f();}
 function confirmCancel(){closeM('m-confirm');const f=_confirmCancelCb;_confirmCb=null;_confirmCancelCb=null;if(f)f();}
 // 예/아니오를 기다려야 하는 곳 — 저장 도중에 물어볼 때 쓴다
+function ppConfirmPending(){return !!_confirmCb;}
 function ppAskYesNo(title,msg,okLabel,okCls){
   return new Promise(res=>{askConfirm(title,msg,okLabel,okCls,()=>res(true),()=>res(false));});
 }
