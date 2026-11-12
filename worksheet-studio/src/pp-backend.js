@@ -272,7 +272,9 @@ async function listWorksheets() {
   if (!r.ok) throw new Error(r.status === 404 ? "worksheets 테이블이 없습니다 — supabase_worksheets_table.sql을 실행해 주세요." : `저장소 오류 (HTTP ${r.status})`);
   const rows = await r.json();
   // 동형 문제(kind:'iso') 는 본 앱의 '동형 문제' 화면에서 여는 것이라 스튜디오 목록에서는 뺀다
-  return { worksheets: rows.filter((r2) => ((r2.data || {}).kind || "") !== "iso").map(rowSummary) };
+  // 스튜디오 목록에는 스튜디오가 만든 워크시트만 — 동형 문제·시험지·보낸 사본은 본 앱에서 연다
+  const STUDIO_OK = ["", "worksheet"];
+  return { worksheets: rows.filter((r2) => STUDIO_OK.includes((r2.data || {}).kind || "")).map(rowSummary) };
 }
 
 async function getWorksheet(id) {

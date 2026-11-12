@@ -1791,6 +1791,7 @@ async function loadStuPanel(sid){
 
   // ── 과제 탭 (선생님: 숙제 할당 + 제출 확인) ──
   const sHws=ppLive(_cache.homeworks).filter(h=>h.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  setTimeout(()=>{try{irWeakCard(sid,'stu-weak-card');}catch(e){}},0);   // 유형별 약점 (최근 5회)
   const sAssigns=ppLive(_cache.assignments).filter(a=>a.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const unread=sHws.filter(h=>!h.checked).length;
   const tomorrowStr=(()=>{ // 마감 기본값: 다음 실제 수업일(휴강 제외), 클래스 없으면 내일
@@ -1853,6 +1854,7 @@ async function loadStuPanel(sid){
     <div id="asgn-extra-${sid}"></div>
     <button class="btn bt bsm" style="width:100%" onclick="saveStudentAssign('${sid}')">할당</button>
   </div>
+  <div id="stu-weak-card"></div>
   <div class="div-line"></div>
   ${sAssigns.length?`<div style="margin-bottom:8px">
     <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px">할당된 숙제 (${sAssigns.length}건)</div>
@@ -7010,7 +7012,9 @@ async function renderWsDB(refetch){
   const q=(document.getElementById('ws-q')?.value||'').trim().toLowerCase();
   let devPapers=[];
   try{devPapers=(await _pbDevAll()).map(p=>({...p,_dev:true}));}catch(e){}   // 원문 지문이 든 시험지(기기 보관)
-  let list=[..._cache.worksheets,...devPapers].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  let list=[..._cache.worksheets,...devPapers]
+    .filter(w=>w&&w.kind!=='paperSent'&&w.kind!=='paperSol')   // 학생에게 보낸 사본·해설 줄은 목록에 띄우지 않는다
+    .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   if(q)list=list.filter(w=>(w.title||'').toLowerCase().includes(q));
   const total=document.getElementById('ws-total');
   if(total)total.textContent=`${_cache.worksheets.length}개 저장됨`;
@@ -20496,6 +20500,7 @@ function _pbNewPaper(ids){
   const now=Date.now();
   return {id:uid(),kind:'paper',title:'',format:'suneung',itemIds:(ids||[]).slice(),
     slots:null,points:{},
+    purpose:'',
     header:{school:'직결영어',exam:'',date:_pbToday(),grade:'',cls:'',no:'',name:''},
     createdAt:now,editedAt:now};
 }
@@ -20528,6 +20533,7 @@ async function pbOpenSaved(id){
   _pbPaper=JSON.parse(JSON.stringify(p));
   _pbPaper.points=_pbPaper.points||{};
   _pbPaper.header=Object.assign({school:'직결영어',exam:'',date:_pbToday(),grade:'',cls:'',no:'',name:''},_pbPaper.header||{});
+  _pbPaper.purpose=_pbPaper.purpose||'';
   _pbSlots=Array.isArray(_pbPaper.slots)&&_pbPaper.slots.length?_pbPaper.slots.map(s=>({...s}))
     :(_pbPaper.itemIds||[]).map(x=>({id:x}));
   _pbState='저장됨 · 불러온 시험지';
@@ -20609,6 +20615,7 @@ function pbPoints(i,v){
 function pbTitleChange(v){_pbPaper.title=String(v||'');_pbAutoLater();}
 function pbHeader(f,v){_pbPaper.header[f]=String(v||'');_pbAutoLater();}
 function pbSetFormat(v){_pbPaper.format=v||'suneung';_pbRender();_pbAutoLater();}
+function pbSetPurpose(v){_pbPaper.purpose=v||'';_pbRender();_pbAutoLater();}   // '' 보통 · diag 진단
 // 끌어 옮기기 (넓은 화면)
 function pbDragStart(i,ev){_pbDrag=i;try{ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain',String(i));}catch(e){}}
 function pbDragOver(ev){ev.preventDefault();}
@@ -20725,6 +20732,8 @@ function _pbRender(msg){
   if(t&&t.value!==(_pbPaper?_pbPaper.title:''))t.value=(_pbPaper&&_pbPaper.title)||'';
   const fs=document.getElementById('pb-format');
   if(fs)fs.value=(_pbPaper&&_pbPaper.format)||'suneung';
+  const pu=document.getElementById('pb-purpose');
+  if(pu)pu.value=(_pbPaper&&_pbPaper.purpose)||'';
   ['school','exam','date'].forEach(f=>{
     const el=document.getElementById('pb-h-'+f);
     if(el&&_pbPaper)el.value=(_pbPaper.header||{})[f]||'';
@@ -21173,4 +21182,527 @@ function _pbPaintCfgUI(){
   const fr=document.getElementById('pb-focus-row');
   if(fr)fr.style.display=(_pbCfg.frame==='focus10'||_pbCfg.frame==='custom')?'':'none';
   _pbPaintCustom();
+}
+
+// ══ 시험지 풀이 결과 (item_results) ══════════════════════════════════════
+// 한 줄 = 한 학생이 한 시험지를 한 번 푼 기록. 점수와 고른 번호만 담는다.
+// ⚠️ 채점은 전부 코드 규칙으로 한다 — 여기서 AI 를 부르지 않는다.
+// ⚠️ 학생은 item_bank 를 읽지 못한다. 그래서 보낼 때 문항 사본을 worksheets 에 만든다
+//    (해설·오답 해설은 사본에 넣지 않고, 제출한 뒤에 따로 받는 _sol 줄에 둔다).
+const IR_SKILL_N={read:'읽기',listen:'듣기',grammar:'어법',vocab:'어휘',write:'쓰기'};
+let _irRows=new Map();          // paperId → 결과 줄 배열 (선생님 화면)
+let _irSid=new Map();           // sid → 최근 결과 줄
+function _irNow(){return (typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);}
+function _irRow(x){return {rowId:x.id,sid:x.sid||'',...(x.data||{})};}
+async function irByPaper(paperId,force){
+  if(!paperId)return [];
+  if(!force&&_irRows.has(paperId))return _irRows.get(paperId);
+  const r=await _ebGet('item_results?select=id,sid,data&data->>paperId=eq.'+encodeURIComponent(paperId)+'&limit=500');
+  const rows=r.ok?r.rows.map(_irRow).filter(x=>!x._deleted):[];
+  _irRows.set(paperId,rows);
+  return rows;
+}
+async function irBySid(sid,n){
+  if(!sid)return [];
+  if(_irSid.has(sid))return _irSid.get(sid);
+  const r=await _ebGet('item_results?select=id,sid,data&sid=eq.'+encodeURIComponent(sid)+
+    '&order=updated_at.desc&limit='+(n||10));
+  const rows=r.ok?r.rows.map(_irRow).filter(x=>!x._deleted):[];
+  _irSid.set(sid,rows);
+  return rows;
+}
+function irForget(paperId,sid){
+  if(paperId)_irRows.delete(paperId);
+  if(sid)_irSid.delete(sid);
+}
+// ── 채점 (코드 규칙만) ───────────────────────────────────────────────────
+// items: [{id,type,skill,choices,answer,points}] · answers: {id: 고른 번호 또는 쓴 글}
+function irGrade(items,answers,prev){
+  const correct={},byType={},bySkill={};
+  let score=0,total=0,pts=0,ptsTotal=0;
+  (items||[]).forEach(it=>{
+    const a=answers?answers[it.id]:undefined;
+    const mc=(it.choices||[]).length>0;
+    let ok=null;
+    if(mc)ok=(a===null||a===undefined||a==='')?false:(Number(a)===Number(it.answer));
+    else ok=(prev&&prev[it.id]!==undefined)?prev[it.id]:null;   // 서술형은 선생님이 누를 때까지 null
+    correct[it.id]=ok;
+    const t=String(it.type||''),sk=String(it.skill||_ibSkillOf(t));
+    if(!byType[t])byType[t]=[0,0];
+    if(!bySkill[sk])bySkill[sk]=[0,0];
+    ptsTotal+=Number(it.points)||0;
+    if(ok!==null){                      // 아직 안 매긴 문항은 집계에 넣지 않는다
+      total++;byType[t][1]++;bySkill[sk][1]++;
+      if(ok){score++;byType[t][0]++;bySkill[sk][0]++;pts+=Number(it.points)||0;}
+    }
+  });
+  Object.keys(byType).forEach(k=>{if(!byType[k][1])delete byType[k];});
+  Object.keys(bySkill).forEach(k=>{if(!bySkill[k][1])delete bySkill[k];});
+  return {correct,score,total,points:pts,pointsTotal:ptsTotal,byType,bySkill};
+}
+function irPct(a,b){return b?Math.round(a/b*100):0;}
+
+// ── 학생에게 보내기 ──────────────────────────────────────────────────────
+let _pbSendIds=[];
+function pbSend(){
+  if(!pbMayUse())return;
+  if(!_pbPaper||!_pbSlots.filter(s=>s.id).length){toast('먼저 문항을 담아 주세요');return;}
+  if(_pbKeep()){
+    askConfirm('보낼 수 없어요',
+      '기출·출판사 원문 지문이 든 문항이 들어 있어요.\n원문 지문은 서버에 올리지 않기로 되어 있어서(ITEM_KEEP_SERVER=false) 지금은 학생에게 보낼 수 없습니다.\n인쇄해서 나눠 주세요.',
+      '알겠어요','bo',()=>{});
+    return;
+  }
+  _pbSendIds=[];
+  const due=document.getElementById('pbs-due');
+  if(due&&!due.value){const d=new Date();d.setDate(d.getDate()+3);due.value=d.toISOString().slice(0,10);}
+  _pbSendPaint();
+  openM('m-paper-send');
+}
+function _pbSendPaint(){
+  const box=document.getElementById('pbs-list');if(!box)return;
+  const cls=(typeof DB!=='undefined'&&DB.classes)?DB.classes().filter(c=>c&&c.active!==false):[];
+  const studs=ppLive(_cache.students||[]).filter(s=>s&&s.active!==false);
+  const sel=document.getElementById('pbs-class');
+  if(sel&&sel.options.length<=1)
+    _ebOptsIb('pbs-class','반 전체',cls.map(c=>({v:c.id,n:c.name||c.title||'반'})),'');
+  const cid=(sel&&sel.value)||'';
+  const inClass=cid?new Set(((cls.find(c=>c.id===cid)||{}).studentIds||(cls.find(c=>c.id===cid)||{}).sids||[])):null;
+  const list=studs.filter(s=>!inClass||inClass.has(s.id));
+  box.innerHTML=list.length?list.map(s=>
+    '<label class="pbs-s"><input type="checkbox" value="'+_ebA(s.id)+'" '+(_pbSendIds.indexOf(s.id)>=0?'checked ':'')+
+    'onchange="_pbSendTick(this)"> '+_ebE(s.name||'학생')+'</label>').join('')
+    :'<div class="eb-empty">학생이 없어요.</div>';
+  const n=document.getElementById('pbs-n');
+  if(n)n.textContent=_pbSendIds.length?(_pbSendIds.length+'명 고름'):'아직 고르지 않음';
+}
+function _pbSendTick(el){
+  const id=el.value;
+  const i=_pbSendIds.indexOf(id);
+  if(el.checked){if(i<0)_pbSendIds.push(id);}else if(i>=0)_pbSendIds.splice(i,1);
+  const n=document.getElementById('pbs-n');
+  if(n)n.textContent=_pbSendIds.length?(_pbSendIds.length+'명 고름'):'아직 고르지 않음';
+}
+function pbSendAll(){
+  const on=[...document.querySelectorAll('#pbs-list input[type=checkbox]')];
+  const every=on.length&&on.every(c=>c.checked);
+  on.forEach(c=>{c.checked=!every;_pbSendTick(c);});
+}
+// 보낼 때 만드는 사본 — 해설·오답 해설은 넣지 않는다
+function _pbSentItems(){
+  return _pbSlots.filter(s=>s.id).map(s=>{
+    const d=_pbD(s.id)||{};
+    return {id:d.id,type:d.type||'',typeName:_ibTypeLabel(d),skill:d.skill||_ibSkillOf(d.type||''),
+      stem:d.stem||'',passage:d.passage||'',script:d.script||'',
+      choices:(d.choices||[]).slice(),answer:d.answer,
+      setId:d.setId||'',setOrder:d.setOrder||null,points:_pbPt(d.id)};
+  });
+}
+async function pbSendGo(){
+  if(!_pbSendIds.length){toast('학생을 골라 주세요');return;}
+  if(typeof ppSandbox==='function'&&ppSandbox()){toast('체험 모드에서는 보내지 않아요');return;}
+  const due=(document.getElementById('pbs-due')||{}).value||_irNow();
+  const btn=document.getElementById('pbs-go');if(btn)btn.disabled=true;
+  try{
+    await _pbSave(false);                                  // 보내기 전에 시험지를 저장해 둔다
+    const items=_pbSentItems();
+    const sentId='ws'+uid();
+    const sent={id:sentId,kind:'paperSent',paperId:_pbPaper.id,title:_pbPaper.title||'시험지',
+      format:_pbPaper.format||'suneung',purpose:_pbPaper.purpose||'',
+      items:items,createdAt:Date.now()};
+    const sol={id:sentId+'_sol',kind:'paperSol',paperId:_pbPaper.id,createdAt:Date.now(),
+      items:items.map(it=>{const d=_pbD(it.id)||{};
+        return {id:it.id,explain:d.explain||'',wrong:(d.wrong||[]).slice(),
+                answerText:d.answerText||'',rubric:d.rubric||''};})};
+    if(!await supaUpsert('worksheets',sent.id,sent).catch(()=>false))throw new Error('사본 저장 실패');
+    await supaUpsert('worksheets',sol.id,sol).catch(()=>false);
+    const today=_irNow();
+    let n=0;
+    for(const sid of _pbSendIds){
+      const a={id:uid(),sid:sid,type:'worksheet',category:'worksheet',date:today,due:due,
+        wsId:sentId,bookTitle:sent.title,gradeLevel:'',paper:true,paperId:_pbPaper.id};
+      if(await supaUpsert('assignments',a.id,a,sid).catch(()=>false)){
+        if(!_cache.assignments)_cache.assignments=[];
+        _cache.assignments.unshift(a);n++;
+      }
+    }
+    _pbPaper.sentIds=(_pbPaper.sentIds||[]).concat([sentId]);
+    await _pbSave(false);
+    closeM('m-paper-send');
+    toast('학생 '+n+'명에게 보냈어요 — 마감 '+due);
+  }catch(e){toast('보내지 못했어요: '+((e&&e.message)||''));}
+  if(btn)btn.disabled=false;
+}
+
+// ── 종이로 푼 답 넣기 ────────────────────────────────────────────────────
+// 1~5 키를 누르면 바로 들어가고 다음 칸으로 넘어간다 (0 은 무응답).
+// 진단(purpose:'diag')이면 재원생이 아닌 이름만으로도 넣는다.
+let _peRows=[];        // [{sid,name,ans:[...]}]
+let _peItems=[];
+function pbEntry(){
+  if(!pbMayUse())return;
+  const ids=_pbSlots.filter(s=>s.id).map(s=>s.id);
+  if(!ids.length){toast('먼저 문항을 담아 주세요');return;}
+  _peItems=_pbSentItems();
+  _peRows=[];
+  const sel=document.getElementById('pe-class');
+  const cls=(typeof DB!=='undefined'&&DB.classes)?DB.classes().filter(c=>c&&c.active!==false):[];
+  if(sel&&sel.options.length<=1)_ebOptsIb('pe-class','학생 고르기…',cls.map(c=>({v:c.id,n:c.name||c.title||'반'})),'');
+  const t=document.getElementById('pe-title');
+  if(t)t.textContent=(_pbPaper.title||'시험지')+' · '+_peItems.length+'문항'+
+    (_pbPaper.purpose==='diag'?' · 진단':'');
+  const dd=document.getElementById('pe-date');if(dd&&!dd.value)dd.value=_irNow();
+  const dg=document.getElementById('pe-diag');if(dg)dg.style.display=(_pbPaper.purpose==='diag')?'':'none';
+  _peRender();
+  openM('m-paper-entry');
+}
+function peAddClass(){
+  const cid=(document.getElementById('pe-class')||{}).value||'';
+  if(!cid){toast('반을 골라 주세요');return;}
+  const cls=((typeof DB!=='undefined'&&DB.classes)?DB.classes():[]).find(c=>c.id===cid);
+  const ids=(cls&&(cls.studentIds||cls.sids))||[];
+  const studs=ppLive(_cache.students||[]);
+  ids.forEach(sid=>{
+    if(_peRows.some(r=>r.sid===sid))return;
+    const s=studs.find(x=>x.id===sid);
+    _peRows.push({sid:sid,name:(s&&s.name)||'학생',ans:_peItems.map(()=>null)});
+  });
+  _peRender();
+}
+function peAddStudent(){
+  const studs=ppLive(_cache.students||[]).filter(s=>s&&s.active!==false);
+  const names=studs.map(s=>s.name).join(', ');
+  const v=prompt('학생 이름을 넣어 주세요\n('+names.slice(0,120)+(names.length>120?'…':'')+')');
+  if(!v)return;
+  const s=studs.find(x=>String(x.name||'').trim()===String(v).trim());
+  if(!s){toast('그 이름의 학생을 찾지 못했어요');return;}
+  if(_peRows.some(r=>r.sid===s.id)){toast('이미 있어요');return;}
+  _peRows.push({sid:s.id,name:s.name,ans:_peItems.map(()=>null)});
+  _peRender();
+}
+function peAddDiag(){                       // 진단 — 이름만 받는다 (연락처는 받지 않는다)
+  const v=prompt('이름 (재원생이 아니어도 됩니다 — 이름만 받습니다)');
+  if(!v||!String(v).trim())return;
+  _peRows.push({sid:'diag_'+uid(),name:String(v).trim(),diag:true,ans:_peItems.map(()=>null)});
+  _peRender();
+}
+function peDelRow(i){_peRows.splice(i,1);_peRender();}
+function _peRender(){
+  const box=document.getElementById('pe-grid');if(!box)return;
+  if(!_peRows.length){
+    box.innerHTML='<div class="eb-empty">위에서 반이나 학생을 골라 줄을 만들어 주세요.</div>';
+    return;
+  }
+  const head='<div class="pe-row pe-head"><span class="pe-nm">학생</span>'+
+    _peItems.map((it,j)=>'<span class="pe-c">'+(j+1)+'</span>').join('')+'<span class="pe-sc">점수</span><span class="pe-x"></span></div>';
+  box.innerHTML=head+_peRows.map((r,i)=>{
+    const g=irGrade(_peItems,_peAnsMap(r));
+    return '<div class="pe-row"><span class="pe-nm">'+_ebE(r.name)+(r.diag?' <i>진단</i>':'')+'</span>'+
+      _peItems.map((it,j)=>{
+        const mc=(it.choices||[]).length>0;
+        return '<input class="pe-c" id="pe-'+i+'-'+j+'" value="'+_ebA(r.ans[j]===null||r.ans[j]===undefined?'':(mc?(Number(r.ans[j])+1):r.ans[j]))+'" '+
+          'inputmode="numeric" maxlength="'+(mc?1:12)+'" '+
+          'onkeydown="peKey(event,'+i+','+j+')" oninput="peIn(this,'+i+','+j+')" '+
+          (mc?'':'placeholder="글"')+'>';
+      }).join('')+
+      '<span class="pe-sc">'+g.score+'/'+g.total+'</span>'+
+      '<button class="pe-x" onclick="peDelRow('+i+')">×</button></div>';
+  }).join('');
+}
+function _peAnsMap(r){
+  const m={};
+  _peItems.forEach((it,j)=>{m[it.id]=r.ans[j];});
+  return m;
+}
+function peIn(el,i,j){
+  const it=_peItems[j],r=_peRows[i];if(!it||!r)return;
+  const mc=(it.choices||[]).length>0;
+  if(mc){
+    const v=String(el.value||'').replace(/[^0-5]/g,'').slice(-1);
+    el.value=v;
+    r.ans[j]=(v===''||v==='0')?null:(Number(v)-1);
+    if(v)_peNext(i,j);
+  }else r.ans[j]=String(el.value||'');
+  _peScore(i);
+}
+function peKey(e,i,j){
+  if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();_peNext(i,j);return;}
+  if(e.key==='Backspace'&&!e.target.value){e.preventDefault();_peNext(i,j,-1);}
+}
+function _peNext(i,j,d){
+  const step=d||1;
+  let ni=i,nj=j+step;
+  if(nj>=_peItems.length){ni=i+1;nj=0;}
+  if(nj<0){ni=i-1;nj=_peItems.length-1;}
+  const el=document.getElementById('pe-'+ni+'-'+nj);
+  if(el){el.focus();try{el.select();}catch(e){}}
+}
+function _peScore(i){
+  const r=_peRows[i];if(!r)return;
+  const g=irGrade(_peItems,_peAnsMap(r));
+  const row=document.querySelectorAll('#pe-grid .pe-row')[i+1];
+  const sc=row&&row.querySelector('.pe-sc');
+  if(sc)sc.textContent=g.score+'/'+g.total;
+}
+async function peSave(){
+  if(!_peRows.length){toast('넣을 줄이 없어요');return;}
+  if(typeof ppSandbox==='function'&&ppSandbox()){toast('체험 모드에서는 저장하지 않아요');return;}
+  const date=(document.getElementById('pe-date')||{}).value||_irNow();
+  const asTest=!!(document.getElementById('pe-astest')||{}).checked;
+  const btn=document.getElementById('pe-save');if(btn)btn.disabled=true;
+  let n=0;
+  for(const r of _peRows){
+    const ans=_peAnsMap(r);
+    const g=irGrade(_peItems,ans);
+    const rec={id:uid(),paperId:_pbPaper.id,sentId:'',title:_pbPaper.title||'시험지',date:date,
+      mode:'paper',purpose:_pbPaper.purpose||'',name:r.diag?r.name:'',
+      answers:ans,correct:g.correct,score:g.score,total:g.total,
+      points:g.points,pointsTotal:g.pointsTotal,byType:g.byType,bySkill:g.bySkill,
+      submittedAt:Date.now()};
+    if(asTest&&!r.diag){
+      const t=await irAsTest(r.sid,rec);
+      if(t)rec.testId=t;
+    }
+    if(await supaUpsert('item_results',rec.id,rec,r.sid).catch(()=>false))n++;
+  }
+  irForget(_pbPaper.id);
+  if(btn)btn.disabled=false;
+  closeM('m-paper-entry');
+  toast('답 '+n+'명분을 넣었어요');
+  pbResults();
+}
+// '자체 시험으로 기록' — tests 줄로도 남겨 기존 점수 추이에 들어가게 한다
+async function irAsTest(sid,rec){
+  if(!sid||String(sid).indexOf('diag_')===0)return '';
+  const t={id:uid(),sid:sid,date:rec.date,
+    vocabCorrect:0,vocabTotal:0,
+    grammarCorrect:rec.score,grammarTotal:rec.total,
+    wrongWords:[],title:rec.title,src:'paper',paperId:rec.paperId};
+  const ok=await supaUpsert('tests',t.id,t,sid).catch(()=>false);
+  if(!ok)return '';
+  if(_cache.tests)_cache.tests.unshift(t);
+  return t.id;
+}
+
+// ── 결과 보기 ────────────────────────────────────────────────────────────
+let _prRows=[],_prPaper=null,_prItems=[];
+async function pbResults(){
+  if(!pbMayUse())return;
+  if(!_pbPaper){toast('시험지를 먼저 열어 주세요');return;}
+  _prPaper=_pbPaper;_prItems=_pbSentItems();
+  const t=document.getElementById('pr-title');
+  if(t)t.textContent=(_prPaper.title||'시험지')+' · 결과';
+  const box=document.getElementById('pr-body');
+  if(box)box.innerHTML='<div class="eb-empty">불러오는 중…</div>';
+  openM('m-paper-result');
+  _prRows=await irByPaper(_prPaper.id,true);
+  _prRender();
+}
+function _prName(r){
+  if(r.name)return r.name+' (진단)';
+  const s=(_cache.students||[]).find(x=>x.id===r.sid);
+  return (s&&s.name)||'학생';
+}
+function _prRender(){
+  const box=document.getElementById('pr-body');if(!box)return;
+  if(!_prRows.length){
+    box.innerHTML='<div class="eb-empty">아직 푼 사람이 없어요. <b>답 입력</b>으로 종이 답을 넣거나, <b>학생에게 보내기</b>로 과제를 주세요.</div>';
+    return;
+  }
+  // ① 학생별
+  let h='<div class="pr-sec-t">학생별</div><div class="pr-tbl">';
+  h+='<div class="pr-row pr-head"><span class="pr-nm">학생</span><span class="pr-sc">점수</span>'+
+     '<span class="pr-bar">영역별</span><span class="pr-ac">약점 유형</span><span class="pr-bt"></span></div>';
+  _prRows.slice().sort((a,b)=>(b.score||0)-(a.score||0)).forEach(r=>{
+    const weak=Object.keys(r.byType||{}).filter(t=>{const v=r.byType[t];return v[1]>0&&irPct(v[0],v[1])<60;})
+      .map(t=>(ISO_TYPES[t]?ISO_TYPES[t].n:t)).slice(0,3);
+    const sk=Object.keys(r.bySkill||{}).map(k=>{
+      const v=r.bySkill[k];return (IR_SKILL_N[k]||k)+' '+irPct(v[0],v[1])+'%';}).join(' · ');
+    const ungraded=Object.keys(r.correct||{}).filter(k=>r.correct[k]===null).length;
+    h+='<div class="pr-row"><span class="pr-nm">'+_ebE(_prName(r))+
+      (r.mode==='paper'?'<i class="pr-m">종이</i>':'<i class="pr-m">앱</i>')+'</span>'+
+      '<span class="pr-sc"><b>'+(r.score||0)+'</b>/'+(r.total||0)+
+        (r.pointsTotal?(' <i>'+(r.points||0)+'점</i>'):'')+'</span>'+
+      '<span class="pr-bar">'+_ebE(sk||'-')+'</span>'+
+      '<span class="pr-ac">'+(weak.length?_ebE(weak.join(', ')):'<i>없음</i>')+'</span>'+
+      '<span class="pr-bt">'+
+        (ungraded?('<button class="btn bo bsm" onclick="prGradeOpen(\''+escJsA(r.rowId)+'\')">서술형 채점 '+ungraded+'</button>'):'')+
+        '<button class="btn bo bsm" onclick="prWeakPaper(\''+escJsA(r.rowId)+'\')">틀린 유형 연습</button>'+
+      '</span></div>';
+  });
+  h+='</div>';
+  // ② 문항별
+  h+='<div class="pr-sec-t">문항별 정답률</div><div class="pr-tbl">';
+  h+='<div class="pr-row pr-head"><span class="pr-no">번호</span><span class="pr-ty">유형</span>'+
+     '<span class="pr-rt">정답률</span><span class="pr-wa">많이 고른 오답</span></div>';
+  _prItems.forEach((it,i)=>{
+    let ok=0,n=0;const pick={};
+    _prRows.forEach(r=>{
+      const c=(r.correct||{})[it.id];
+      if(c===null||c===undefined)return;
+      n++;if(c)ok++;
+      const a=(r.answers||{})[it.id];
+      if(!c&&a!==null&&a!==undefined&&a!=='')pick[a]=(pick[a]||0)+1;
+    });
+    const worst=Object.keys(pick).sort((a,b)=>pick[b]-pick[a])[0];
+    const rate=irPct(ok,n);
+    h+='<div class="pr-row"><span class="pr-no">'+(i+1)+'</span>'+
+      '<span class="pr-ty">'+_ebE(it.typeName||it.type||'')+'</span>'+
+      '<span class="pr-rt"><span class="pr-gauge"><i style="width:'+rate+'%"></i></span>'+rate+'% ('+ok+'/'+n+')</span>'+
+      '<span class="pr-wa">'+(worst!==undefined?(((it.choices||[]).length?_isoCirc(Number(worst)):_ebE(String(worst).slice(0,14)))+' '+pick[worst]+'명'):'-')+'</span></div>';
+  });
+  h+='</div>';
+  h+='<div class="pr-foot">'+
+    (_prPaper.purpose==='diag'?'<button class="btn bt bsm" onclick="prPrintDiag()">🖨 진단 결과지</button>':'')+
+    '<button class="btn bo bsm" onclick="prPrintTable()">🖨 결과 표</button>'+
+    '<label class="iso-chk"><input type="checkbox" id="pr-astest" onchange="prAsTestAll(this.checked)"> 자체 시험으로 기록</label>'+
+    '<span class="iso-hint">켜면 tests 줄로도 남아 점수 추이에 들어가요 (기본 꺼짐)</span></div>';
+  box.innerHTML=h;
+}
+// 서술형 채점 — 선생님이 맞음·틀림을 누른다 (자동 채점 없음)
+let _prGradeId='';
+function prGradeOpen(rowId){
+  const r=_prRows.find(x=>x.rowId===rowId);if(!r)return;
+  _prGradeId=rowId;
+  const box=document.getElementById('pr-body');if(!box)return;
+  const list=_prItems.filter(it=>!(it.choices||[]).length);
+  box.innerHTML='<div class="pr-sec-t">'+_ebE(_prName(r))+' — 서술형 채점</div>'+
+    list.map((it,i)=>{
+      const a=(r.answers||{})[it.id];
+      const c=(r.correct||{})[it.id];
+      return '<div class="pr-g"><div class="pr-g-q">'+(_prItems.indexOf(it)+1)+'. '+_ebE(it.stem||'')+'</div>'+
+        '<div class="pr-g-a">'+(a?_ebE(String(a)):'<i>답을 쓰지 않았어요</i>')+'</div>'+
+        '<div class="pr-g-b"><button class="btn '+(c===true?'bt':'bo')+' bsm" onclick="prMark(\''+escJsA(it.id)+'\',true)">맞음</button>'+
+        '<button class="btn '+(c===false?'bd':'bo')+' bsm" onclick="prMark(\''+escJsA(it.id)+'\',false)">틀림</button></div></div>';
+    }).join('')+
+    '<div class="pr-foot"><button class="btn bt bsm" onclick="prGradeSave()">채점 저장</button>'+
+    '<button class="btn bo bsm" onclick="_prRender()">돌아가기</button></div>';
+}
+function prMark(itemId,ok){
+  const r=_prRows.find(x=>x.rowId===_prGradeId);if(!r)return;
+  r.correct=r.correct||{};r.correct[itemId]=ok;
+  prGradeOpen(_prGradeId);
+}
+async function prGradeSave(){
+  const r=_prRows.find(x=>x.rowId===_prGradeId);if(!r)return;
+  const g=irGrade(_prItems,r.answers||{},r.correct||{});
+  Object.assign(r,{correct:g.correct,score:g.score,total:g.total,points:g.points,
+    pointsTotal:g.pointsTotal,byType:g.byType,bySkill:g.bySkill,gradedAt:Date.now()});
+  const {rowId,...data}=r;
+  const ok=await supaUpsert('item_results',rowId,data,r.sid).catch(()=>false);
+  toast(ok?'채점을 저장했어요':'저장 실패 — 잠시 뒤 다시 해 주세요');
+  irForget(_prPaper.id,r.sid);
+  _prRender();
+}
+async function prAsTestAll(on){
+  if(!on)return;
+  let n=0;
+  for(const r of _prRows){
+    if(r.testId||r.name)continue;
+    const t=await irAsTest(r.sid,r);
+    if(t){r.testId=t;const {rowId,...data}=r;await supaUpsert('item_results',rowId,data,r.sid).catch(()=>false);n++;}
+  }
+  toast(n?('자체 시험으로 '+n+'명 기록했어요'):'이미 기록돼 있어요');
+}
+// ── 틀린 유형 연습 묶음 (AI 없음) ───────────────────────────────────────
+async function prWeakPaper(rowId){
+  const r=_prRows.find(x=>x.rowId===rowId);if(!r)return;
+  const weak=Object.keys(r.byType||{}).filter(t=>{const v=r.byType[t];return v[1]>0&&irPct(v[0],v[1])<60;});
+  if(!weak.length){toast('틀린 유형이 없어요 👍');return;}
+  const done=new Set(Object.keys(r.answers||{}));
+  const picked=[],missing=[];
+  weak.forEach(t=>{
+    const rows=(_ibRows||[]).filter(x=>String((x.meta||{}).type||'')===t&&!done.has(x.id)&&!picked.some(p=>p.id===x.id));
+    if(_pbCfg&&_pbCfg.unused)rows.sort((a,b)=>ibUsedCount(a.id)-ibUsedCount(b.id));
+    const take=rows.slice(0,3);
+    if(!take.length){missing.push(t);return;}
+    take.forEach(x=>picked.push({id:x.id}));
+  });
+  if(!picked.length){
+    askConfirm('연습 묶음을 만들지 못했어요',
+      '틀린 유형('+weak.map(t=>ISO_TYPES[t]?ISO_TYPES[t].n:t).join(', ')+')에 쓸 문항이 은행에 없어요.\n동형 문제 탭에서 만들어 주세요.',
+      '동형으로 만들기','bt',()=>{closeM('m-paper-result');closeM('m-paper');switchDataTab('iso');
+        _isoCfg.type=weak[0];_isoPaintCfg();toast('유형을 「'+(ISO_TYPES[weak[0]]?ISO_TYPES[weak[0]].n:weak[0])+'」로 맞춰 뒀어요');});
+    return;
+  }
+  const name=_prName(r).replace(/ \(진단\)$/,'');
+  closeM('m-paper-result');
+  _pbPaper=_pbNewPaper(picked.map(p=>p.id));
+  _pbPaper.title=name+' 틀린 유형 연습 '+picked.length+'문항';
+  _pbPaper.format='worksheet';
+  _pbSlots=picked.slice();
+  _pbState='';
+  _pbUsageClear();_pbPaintCfgUI();
+  _pbRender('불러오는 중…');
+  await _pbLoadData(picked.map(p=>p.id));
+  _pbSortSets();_pbRender();_pbAutoLater();
+  toast('연습 묶음 '+picked.length+'문항을 만들었어요'+(missing.length?(' · 은행에 없는 유형 '+missing.length+'가지는 뺐어요'):''));
+}
+// ── 인쇄 ─────────────────────────────────────────────────────────────────
+function prPrintTable(){
+  if(!_prRows.length){toast('결과가 없어요');return;}
+  const hdr=_prItems.map((it,i)=>'<th>'+(i+1)+'</th>').join('');
+  const rows=_prRows.map(r=>'<tr><td class="nm">'+_pbEsc(_prName(r))+'</td>'+
+    _prItems.map(it=>{const c=(r.correct||{})[it.id];
+      return '<td class="'+(c===true?'o':c===false?'x':'')+'">'+(c===true?'○':c===false?'×':'-')+'</td>';}).join('')+
+    '<td><b>'+(r.score||0)+'</b>/'+(r.total||0)+'</td></tr>').join('');
+  _pbOpenPrint((_prPaper.title||'시험지')+' 결과',
+    '@page{size:A4 landscape;margin:12mm}body{font-family:"Malgun Gothic",sans-serif;font-size:10pt}'+
+    'table{border-collapse:collapse;width:100%}th,td{border:1px solid #333;padding:3px 5px;text-align:center}'+
+    'td.nm{text-align:left;white-space:nowrap}td.o{color:#0a0}td.x{color:#c00;font-weight:700}'+
+    'h2{font-size:14pt;margin:0 0 8px}'+
+    '.noprint{position:fixed;bottom:14px;right:14px;padding:9px 16px;font-size:13px;cursor:pointer}'+
+    '@media print{.noprint{display:none}}',
+    '<h2>'+_pbEsc(_prPaper.title||'시험지')+' — 결과 표</h2>'+
+    '<table><tr><th>학생</th>'+hdr+'<th>점수</th></tr>'+rows+'</table>');
+}
+// 진단 결과지 — 이름·점수·유형별 정답률·한 줄 의견 칸 (연락처는 받지 않는다)
+function prPrintDiag(){
+  const list=_prRows.filter(r=>r.purpose==='diag'||r.name);
+  if(!list.length){toast('진단으로 넣은 답이 없어요');return;}
+  const body=list.map(r=>{
+    const types=Object.keys(r.byType||{}).map(t=>{
+      const v=r.byType[t];
+      return '<tr><td>'+_pbEsc(ISO_TYPES[t]?ISO_TYPES[t].n:t)+'</td><td>'+v[0]+' / '+v[1]+'</td><td>'+irPct(v[0],v[1])+'%</td></tr>';
+    }).join('');
+    const sk=Object.keys(r.bySkill||{}).map(k=>(IR_SKILL_N[k]||k)+' '+irPct(r.bySkill[k][0],r.bySkill[k][1])+'%').join(' · ');
+    return '<div class="sheet"><h2>'+_pbEsc(r.name||_prName(r))+' 진단 결과</h2>'+
+      '<div class="meta">'+_pbEsc(_prPaper.title||'')+' · '+_pbEsc(r.date||'')+' · 직결영어</div>'+
+      '<div class="big">'+(r.score||0)+' / '+(r.total||0)+'<span>  ('+irPct(r.score,r.total)+'%)</span></div>'+
+      '<div class="meta">'+_pbEsc(sk)+'</div>'+
+      '<table><tr><th>유형</th><th>맞은 수</th><th>정답률</th></tr>'+types+'</table>'+
+      '<div class="cmt"><b>선생님 의견</b><div class="line"></div></div></div>';
+  }).join('');
+  _pbOpenPrint('진단 결과지',
+    '@page{size:A4;margin:16mm}body{font-family:"Malgun Gothic",sans-serif;font-size:11pt;margin:0}'+
+    '.sheet{page-break-after:always}h2{font-size:17pt;margin:0 0 4px}'+
+    '.meta{font-size:10pt;color:#555;margin-bottom:10px}'+
+    '.big{font-size:26pt;font-weight:800;margin:10px 0}.big span{font-size:12pt;font-weight:400;color:#555}'+
+    'table{border-collapse:collapse;width:100%;margin-top:10px}th,td{border:1px solid #333;padding:5px 8px;text-align:center}'+
+    'th{background:#f0f0f0}td:first-child{text-align:left}'+
+    '.cmt{margin-top:18px}.cmt .line{border-bottom:1px solid #999;height:30px;margin-top:6px}'+
+    '.noprint{position:fixed;bottom:14px;right:14px;padding:9px 16px;font-size:13px;cursor:pointer}'+
+    '@media print{.noprint{display:none}}', body);
+}
+// ── 학생 상세의 '유형별 약점' 카드 (최근 5회 누적) ──────────────────────
+async function irWeakCard(sid,elId){
+  const el=document.getElementById(elId);if(!el)return;
+  const rows=(await irBySid(sid,5)).slice(0,5);
+  if(!rows.length){el.innerHTML='';return;}
+  const agg={};
+  rows.forEach(r=>Object.keys(r.byType||{}).forEach(t=>{
+    const v=r.byType[t];
+    if(!agg[t])agg[t]=[0,0];
+    agg[t][0]+=v[0];agg[t][1]+=v[1];
+  }));
+  const list=Object.keys(agg).filter(t=>agg[t][1]>=5)      // 문항 5개 미만 유형은 숨긴다
+    .sort((a,b)=>irPct(agg[a][0],agg[a][1])-irPct(agg[b][0],agg[b][1]));
+  if(!list.length){el.innerHTML='';return;}
+  el.innerHTML='<div class="ir-weak"><div class="ir-weak-t">유형별 약점 <span class="iso-hint">— 최근 '+rows.length+'회 · 문항 5개 이상인 유형만</span></div>'+
+    list.slice(0,6).map(t=>{
+      const p=irPct(agg[t][0],agg[t][1]);
+      return '<div class="ir-w-row"><span class="ir-w-n">'+_ebE(ISO_TYPES[t]?ISO_TYPES[t].n:t)+'</span>'+
+        '<span class="pr-gauge'+(p<60?' low':'')+'"><i style="width:'+p+'%"></i></span>'+
+        '<span class="ir-w-p">'+p+'% ('+agg[t][0]+'/'+agg[t][1]+')</span></div>';
+    }).join('')+'</div>';
 }

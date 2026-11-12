@@ -6491,6 +6491,10 @@ async function openWsView(wsId,asgnId,sid){
   }catch(e){}
   if(!w){body.innerHTML='<div style="padding:2rem;text-align:center;color:var(--slate);font-size:14px">워크시트를 불러오지 못했어요.<br>선생님께 말씀드려 주세요.</div>';return;}
   document.getElementById('wsv-title').textContent='🗒️ '+(w.title||'워크시트');
+  if(w.kind==='paperSent'){                              // 선생님이 보낸 시험지 — 앱에서 푼다
+    await psOpen(w,asgnId,sid);
+    return;
+  }
   if(w.kind==='iso'){                                    // 동형 문제 — 문항만 보여 준다 (정답·해설은 숨김)
     document.getElementById('wsv-sub').textContent=[w.gradeLevel,w.isoTypeName].filter(Boolean).join(' · ');
     const esc2=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -6548,3 +6552,208 @@ async function openWsView(wsId,asgnId,sid){
     ?'<button class="btn bt" style="width:100%;border-radius:50px;padding:13px;font-weight:700" onclick="completeAssignment(\''+sid+'\',\''+asgnId+'\');closeM(\'m-ws-view\')">✓ 다 풀었어요!</button>'
     :'<button class="btn bo" style="width:100%;border-radius:50px;padding:12px" onclick="closeM(\'m-ws-view\')">닫기</button>';
 }
+
+// ══ 시험지 풀기 (선생님이 보낸 시험지) ════════════════════════════════════
+// 문항 사본에는 해설이 없다. 제출한 뒤에만 해설 줄(_sol)을 따로 받아 보여 준다.
+// 채점은 코드 규칙으로만 한다(AI 없음). 서술형은 답만 받고 선생님이 매긴다.
+let _psW=null,_psAsgn='',_psSid='',_psAns={},_psRes=null,_psSol=null;
+const _psCirc=i=>'①②③④⑤⑥⑦'.charAt(i)||String(i+1);
+const _psE=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function _psItems(){return (_psW&&_psW.items)||[];}
+async function psOpen(w,asgnId,sid){
+  _psW=w;_psAsgn=asgnId;_psSid=sid;_psAns={};_psRes=null;_psSol=null;
+  const prev=await psFindResult(w,sid);
+  if(prev){_psRes=prev;_psAns=prev.answers||{};await psLoadSol();psPaintResult();return;}
+  psPaint();
+}
+async function psFindResult(w,sid){
+  try{
+    const u=`${SUPA_URL}/rest/v1/item_results?sid=eq.${encodeURIComponent(sid)}`+
+      `&data->>sentId=eq.${encodeURIComponent(w.id)}&select=id,data&limit=1`;
+    const r=await fetch(u,{headers:SUPA_HEADERS});
+    if(!r.ok)return null;
+    const rows=await r.json();
+    if(!rows||!rows.length)return null;
+    return {rowId:rows[0].id,...(rows[0].data||{})};
+  }catch(e){return null;}
+}
+async function psLoadSol(){
+  if(_psSol||!_psW)return;
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/worksheets?id=eq.${encodeURIComponent(_psW.id+'_sol')}&limit=1`,
+      {headers:{...SUPA_HEADERS,Accept:'application/vnd.pgrst.object+json'}});
+    if(r.ok)_psSol=(await r.json())?.data||null;
+  }catch(e){}
+}
+// ── 풀기 화면 — 한 쪽에 모아 푼다 (지문 묶음은 지문 한 번) ───────────────
+function psPaint(){
+  const body=document.getElementById('wsv-body'),footer=document.getElementById('wsv-footer');
+  if(!body)return;
+  document.getElementById('wsv-sub').textContent='문항 '+_psItems().length+'개 · 번호를 눌러 답을 골라요';
+  const items=_psItems();
+  let h='<div class="ps-wrap">',lastSet='';
+  items.forEach((it,i)=>{
+    const sid=String(it.setId||'');
+    if(sid&&sid!==lastSet){
+      const n=items.filter(x=>String(x.setId||'')===sid).length;
+      const from=i+1;
+      h+='<div class="ps-grp">['+from+'~'+(from+n-1)+'] 다음 글을 읽고 물음에 답하세요</div>';
+      if(it.passage)h+='<div class="ps-p">'+_psE(it.passage)+'</div>';
+    }
+    lastSet=sid;
+    h+='<div class="ps-q" id="ps-q-'+i+'"><div class="ps-no">'+(i+1)+'</div>'+
+      '<div class="ps-stem">'+_psE(it.stem||'')+'</div>';
+    if(!sid&&it.passage)h+='<div class="ps-p">'+_psE(it.passage)+'</div>';
+    if((it.choices||[]).length){
+      h+='<div class="ps-ch">'+it.choices.map((c,j)=>
+        '<button class="ps-c'+(_psAns[it.id]===j?' on':'')+'" id="ps-c-'+i+'-'+j+'" onclick="psPick('+i+','+j+')">'+
+        '<span class="ps-cn">'+_psCirc(j)+'</span><span class="ps-ct">'+_psE(c)+'</span></button>').join('')+'</div>';
+    }else{
+      h+='<textarea class="ps-t" id="ps-t-'+i+'" rows="3" placeholder="답을 써요" oninput="psType('+i+',this.value)">'+
+        _psE(_psAns[it.id]||'')+'</textarea>';
+    }
+    h+='</div>';
+  });
+  h+='</div>';
+  body.innerHTML='<style>'+PS_CSS+'</style>'+h;
+  footer.innerHTML='<button class="btn bt" id="ps-submit" style="width:100%;border-radius:50px;padding:13px;font-weight:700" '+
+    'onclick="psSubmit()">제출하기</button>';
+  psCount();
+}
+function psPick(i,j){
+  const it=_psItems()[i];if(!it)return;
+  _psAns[it.id]=(_psAns[it.id]===j)?null:j;
+  const box=document.getElementById('ps-q-'+i);
+  if(box)box.querySelectorAll('.ps-c').forEach((b,k)=>b.classList.toggle('on',_psAns[it.id]===k));
+  psCount();
+}
+function psType(i,v){
+  const it=_psItems()[i];if(!it)return;
+  _psAns[it.id]=String(v||'');
+  psCount();
+}
+function _psBlank(){
+  return _psItems().filter(it=>{
+    const a=_psAns[it.id];
+    return a===null||a===undefined||a==='';
+  }).length;
+}
+function psCount(){
+  const b=document.getElementById('ps-submit');if(!b)return;
+  const n=_psBlank();
+  b.textContent=n?('제출하기 — 안 푼 문항 '+n+'개'):'제출하기';
+}
+async function psSubmit(){
+  const n=_psBlank();
+  const go=()=>psSubmitGo();
+  if(n)askConfirm('제출할까요?','아직 안 푼 문항이 '+n+'개 있어요.\n제출하면 고칠 수 없어요.','제출','bt',go);
+  else askConfirm('제출할까요?','제출하면 고칠 수 없어요.','제출','bt',go);
+}
+async function psSubmitGo(){
+  const b=document.getElementById('ps-submit');if(b)b.disabled=true;
+  const items=_psItems();
+  const g=psGrade(items,_psAns);
+  const today=(typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);
+  const rec={id:uid(),paperId:_psW.paperId||'',sentId:_psW.id,title:_psW.title||'시험지',date:today,
+    mode:'app',purpose:_psW.purpose||'',name:'',
+    answers:_psAns,correct:g.correct,score:g.score,total:g.total,
+    points:g.points,pointsTotal:g.pointsTotal,byType:g.byType,bySkill:g.bySkill,
+    submittedAt:Date.now()};
+  const ok=await supaUpsert('item_results',rec.id,rec,_psSid).catch(()=>false);
+  if(!ok){toast('제출하지 못했어요 — 잠시 뒤 다시 눌러 주세요');if(b)b.disabled=false;return;}
+  _psRes={rowId:rec.id,...rec};
+  try{await completeAssignment(_psSid,_psAsgn);}catch(e){}
+  await psLoadSol();
+  psPaintResult();
+  toast('제출했어요! 점수 '+g.score+'/'+g.total);
+}
+// 채점 — 객관식만 (서술형은 null 로 두고 선생님이 매긴다)
+function psGrade(items,answers){
+  const correct={},byType={},bySkill={};
+  let score=0,total=0,pts=0,ptsTotal=0;
+  (items||[]).forEach(it=>{
+    const a=answers?answers[it.id]:undefined;
+    const mc=(it.choices||[]).length>0;
+    const ok=mc?((a===null||a===undefined||a==='')?false:(Number(a)===Number(it.answer))):null;
+    correct[it.id]=ok;
+    const t=String(it.type||''),sk=String(it.skill||'read');
+    if(!byType[t])byType[t]=[0,0];
+    if(!bySkill[sk])bySkill[sk]=[0,0];
+    ptsTotal+=Number(it.points)||0;
+    if(ok!==null){                      // 아직 안 매긴 문항(서술형)은 집계에 넣지 않는다
+      total++;byType[t][1]++;bySkill[sk][1]++;
+      if(ok){score++;byType[t][0]++;bySkill[sk][0]++;pts+=Number(it.points)||0;}
+    }
+  });
+  Object.keys(byType).forEach(k=>{if(!byType[k][1])delete byType[k];});
+  Object.keys(bySkill).forEach(k=>{if(!bySkill[k][1])delete bySkill[k];});
+  return {correct,score,total,points:pts,pointsTotal:ptsTotal,byType,bySkill};
+}
+// ── 결과 화면 — 점수와 틀린 문항·해설 ───────────────────────────────────
+function psPaintResult(){
+  const body=document.getElementById('wsv-body'),footer=document.getElementById('wsv-footer');
+  if(!body||!_psRes)return;
+  const items=_psItems();
+  const r=_psRes;
+  const pct=r.total?Math.round(r.score/r.total*100):0;
+  const wrong=items.filter(it=>r.correct&&r.correct[it.id]===false);
+  const essay=items.filter(it=>!(it.choices||[]).length);
+  const sol=id=>((_psSol&&_psSol.items)||[]).find(x=>x.id===id)||{};
+  let h='<style>'+PS_CSS+'</style><div class="ps-wrap">';
+  h+='<div class="ps-score"><div class="ps-s-n">'+r.score+' <span>/ '+r.total+'</span></div>'+
+     '<div class="ps-s-p">'+pct+'%</div>'+
+     (essay.length?'<div class="ps-s-m">서술형 '+essay.length+'개는 선생님이 봐 주실 거예요</div>':'')+'</div>';
+  if(!wrong.length)h+='<div class="ps-good">객관식을 다 맞혔어요! 🎉</div>';
+  wrong.forEach(it=>{
+    const i=items.indexOf(it),s=sol(it.id);
+    const mine=r.answers[it.id];
+    h+='<div class="ps-q ps-wrong"><div class="ps-no">'+(i+1)+'</div>'+
+      '<div class="ps-stem">'+_psE(it.stem||'')+'</div>'+
+      (it.passage?'<div class="ps-p">'+_psE(it.passage)+'</div>':'')+
+      '<div class="ps-ch">'+(it.choices||[]).map((c,j)=>
+        '<div class="ps-c'+(j===it.answer?' ok':'')+(j===mine?' mine':'')+'">'+
+        '<span class="ps-cn">'+_psCirc(j)+'</span><span class="ps-ct">'+_psE(c)+'</span>'+
+        (j===it.answer?'<span class="ps-tag">정답</span>':(j===mine?'<span class="ps-tag mine">내 답</span>':''))+'</div>').join('')+'</div>'+
+      (s.explain?'<div class="ps-ex"><b>해설</b> '+_psE(s.explain)+'</div>':'')+
+      ((s.wrong||[]).length?'<div class="ps-ex2">'+_psE(s.wrong.join(' / '))+'</div>':'')+
+      '</div>';
+  });
+  h+='</div>';
+  body.innerHTML=h;
+  const a=(_cache.assignments||[]).find(x=>x.id===_psAsgn);
+  const retry=!!(a&&a.retry);
+  footer.innerHTML=(retry?'<button class="btn bo" style="flex:1;border-radius:50px;padding:12px" onclick="psRetry()">다시 풀기</button>':'')+
+    '<button class="btn bt" style="flex:1;border-radius:50px;padding:12px" onclick="closeM(\'m-ws-view\')">닫기</button>';
+  footer.style.display='flex';footer.style.gap='8px';
+}
+function psRetry(){                       // 선생님이 풀어 줬을 때만 보인다
+  const a=(_cache.assignments||[]).find(x=>x.id===_psAsgn);
+  if(!a||!a.retry){toast('선생님이 다시 풀기를 열어 주셔야 해요');return;}
+  _psAns={};_psRes=null;psPaint();
+}
+const PS_CSS=
+ '.ps-wrap{padding:12px 16px;font-size:15px;color:var(--navy)}'+
+ '.ps-grp{font-size:13px;font-weight:800;color:var(--teal);background:var(--tl);border-radius:8px;padding:6px 10px;margin:14px 0 8px}'+
+ '.ps-q{margin-bottom:18px;position:relative}'+
+ '.ps-no{width:26px;height:26px;border-radius:50px;background:var(--navy);color:var(--cream);font-size:13px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;margin-bottom:6px}'+
+ '.ps-stem{font-weight:700;line-height:1.7;margin-bottom:6px}'+
+ '.ps-p{line-height:1.85;white-space:pre-wrap;background:var(--cream2);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:14.5px}'+
+ '.ps-ch{display:flex;flex-direction:column;gap:6px}'+
+ '.ps-c{display:flex;gap:8px;align-items:flex-start;text-align:left;width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream);font-family:var(--fb);font-size:14.5px;color:var(--navy);cursor:pointer;line-height:1.6}'+
+ '.ps-c.on{border-color:var(--teal);background:var(--tl);font-weight:700}'+
+ '.ps-c.ok{border-color:var(--ok);background:var(--okl)}'+
+ '.ps-c.mine{border-color:var(--warn)}'+
+ '.ps-cn{flex-shrink:0;font-weight:700}'+
+ '.ps-ct{flex:1;min-width:0}'+
+ '.ps-tag{font-size:11px;font-weight:700;color:var(--okt);background:var(--cream);border-radius:6px;padding:1px 7px;align-self:center}'+
+ '.ps-tag.mine{color:var(--warnt)}'+
+ '.ps-t{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:12px;font-family:var(--fb);font-size:15px;color:var(--navy);background:var(--cream2);outline:none;line-height:1.7}'+
+ '.ps-score{text-align:center;padding:18px 10px;background:var(--tl);border-radius:14px;margin-bottom:16px}'+
+ '.ps-s-n{font-size:34px;font-weight:800;color:var(--navy)}.ps-s-n span{font-size:18px;color:var(--slate)}'+
+ '.ps-s-p{font-size:15px;color:var(--tealt);font-weight:700}'+
+ '.ps-s-m{font-size:12.5px;color:var(--slate);margin-top:6px}'+
+ '.ps-good{text-align:center;color:var(--okt);font-weight:700;padding:14px}'+
+ '.ps-wrong .ps-no{background:var(--warn)}'+
+ '.ps-ex{font-size:13.5px;color:var(--slate);line-height:1.7;margin-top:8px;background:var(--cream2);border-radius:10px;padding:9px 11px}'+
+ '.ps-ex b{color:var(--navy)}'+
+ '.ps-ex2{font-size:12.5px;color:var(--slate2);line-height:1.6;margin-top:4px}';

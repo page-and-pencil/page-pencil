@@ -447,6 +447,10 @@ async function loadParent(sid){
   const timeline=renderGrowthTimeline(sid);
   if(timeline) blocks+=timeline;
 
+  // 시험지 결과 — 점수와 영역 요약만 (문항 원문은 보이지 않는다)
+  blocks+='<div id="pp-paper-card"></div>';
+  setTimeout(()=>{try{ppPaperCard(sid);}catch(e){}},0);
+
   // 블록 C — 최근 테스트
   // 점수 카드는 '응시한' 시험만 본다. 미응시만 있으면 카드 자체를 띄우지 않는다.
   let _scoreBlocks=0;                 // ①자체 ②내신 ③모의고사 ④NELT 중 실제로 그린 수
@@ -1168,3 +1172,38 @@ function renderGrowthTimeline(sid){
   </div>`;
 }
 
+// ── 시험지 결과 (학부모) ─────────────────────────────────────────────────
+// 점수와 영역(읽기·듣기·어법·어휘·쓰기) 요약만 보여 준다. 문항 원문·해설은 보이지 않는다.
+const PP_SKILL_N={read:'읽기',listen:'듣기',grammar:'어법',vocab:'어휘',write:'쓰기'};
+async function ppPaperCard(sid){
+  const el=document.getElementById('pp-paper-card');if(!el)return;
+  let rows=[];
+  try{
+    const u=SUPA_URL+'/rest/v1/item_results?sid=eq.'+encodeURIComponent(sid)+
+      '&select=id,data&order=updated_at.desc&limit=5';
+    const r=await fetch(u,{headers:SUPA_HEADERS});
+    if(r.ok)rows=(await r.json()).map(x=>x.data||{}).filter(d=>d&&!d._deleted&&d.total);
+  }catch(e){}
+  if(!rows.length){el.innerHTML='';return;}
+  const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const pc=(a,b)=>b?Math.round(a/b*100):0;
+  const last=rows[0];
+  const sk=Object.keys(last.bySkill||{}).filter(k=>(last.bySkill[k]||[0,0])[1]>0);
+  el.innerHTML='<div class="pp-card" style="margin-bottom:14px">'+
+    '<div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:2px">📄 시험지 결과</div>'+
+    '<div style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px">'+esc(last.title||'')+' · '+esc(last.date||'')+'</div>'+
+    '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">'+
+      '<span style="font-size:30px;font-weight:800;color:var(--navy);font-family:var(--fd)">'+pc(last.score,last.total)+'%</span>'+
+      '<span style="font-size:13px;color:var(--text-muted)">'+(last.score||0)+' / '+(last.total||0)+'문항</span></div>'+
+    (sk.length?('<div style="display:flex;flex-direction:column;gap:7px">'+sk.map(k=>{
+      const v=last.bySkill[k],p=pc(v[0],v[1]);
+      return '<div style="display:flex;align-items:center;gap:8px;font-size:13px">'+
+        '<span style="width:40px;color:var(--text-muted)">'+(PP_SKILL_N[k]||k)+'</span>'+
+        '<span style="flex:1;height:8px;border-radius:5px;background:rgba(0,0,0,.07);overflow:hidden">'+
+        '<span style="display:block;height:100%;width:'+p+'%;background:'+(p>=70?'var(--ok)':p>=50?'var(--accent)':'var(--warn)')+'"></span></span>'+
+        '<span style="width:42px;text-align:right;font-weight:700;color:var(--navy)">'+p+'%</span></div>';
+    }).join('')+'</div>'):'')+
+    (rows.length>1?('<div style="font-size:12.5px;color:var(--text-muted);margin-top:10px">최근 '+rows.length+'회 평균 '+
+      Math.round(rows.reduce((a,x)=>a+pc(x.score,x.total),0)/rows.length)+'%</div>'):'')+
+  '</div>';
+}
