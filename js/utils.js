@@ -2524,7 +2524,7 @@ const SENT_CLOZE_MAX=2;     // 한 문장에 빈칸은 최대 2개
 // 본문을 문장으로 나눈다. (?<=[.!?])\s+ 만으로는 아래가 잘못 잘린다:
 //   약어(Mr. Mrs. Ms. Dr. St. e.g. i.e.) · 소수점(3.5) · 따옴표 안 문장("Hi!" she said.) · 말줄임표(...)
 // 규칙: 끝맺음표 뒤가 '공백 + 대문자/따옴표/숫자' 일 때만 자르고, 위 네 경우는 넘어간다.
-const _SENT_ABBR=/(?:^|[\s("'“‘])(mr|mrs|ms|mx|dr|st|prof|rev|jr|sr|vs|no|fig|approx|etc|e\.g|i\.e|a\.m|p\.m)$/i;
+const _SENT_ABBR=/(?:^|[\s("'“‘])(mr|mrs|ms|mx|dr|st|mt|prof|rev|jr|sr|vs|no|fig|approx|etc|e\.g|i\.e|a\.m|p\.m)$/i;
 function _sentSplitText(text){
   const t=String(text==null?'':text).replace(/\s+/g,' ').trim();
   if(!t)return [];
@@ -2577,10 +2577,73 @@ function _sentSplitKo(line){
   return {en,ko};
 }
 function _sentWords(en){return String(en==null?'':en).trim().split(/\s+/).filter(Boolean);}
-// 선생님이 교재 편집기에 넣은 줄별 해석 — 문장 줄 번호로 맞춘다
+// ── 본문 줄 ↔ 줄별 해석 (unitTexts ↔ unitSentKo) ─────────────
+// 두 글은 **줄 단위로 1:1** 이고, 첫 줄(제목)의 해석도 들어 있다.
+// 그래서 문장은 '원래 줄 번호' 를 들고 다니고, 해석은 그 번호로 찾는다.
+// 문장 번호(몇 번째 문장인가)로 찾으면 ① 제목을 뗀 만큼 ② 한 줄에 두 문장인 만큼 해석이 밀린다.
+function ppKoLines(koText){
+  return String(koText==null?'':koText).replace(/\r/g,'').split('\n').map(s=>s.trim());
+}
+// 우리말 한 줄을 문장으로 나눈다 — 약어(Dr. Money)·소수점·말줄임표는 넘어간다.
+// _sentSplitText 는 '끝맺음표 뒤가 대문자' 를 보므로 한글에는 쓸 수 없다.
+function ppKoSents(koLine){
+  const t=String(koLine==null?'':koLine).trim();
+  if(!t)return [];
+  const out=[];let start=0;
+  for(let i=0;i<t.length;i++){
+    const c=t[i];
+    if(c!=='.'&&c!=='!'&&c!=='?')continue;
+    let j=i;while(j+1<t.length&&/[.!?]/.test(t[j+1]))j++;
+    if(/^\.{2,}$/.test(t.slice(i,j+1))){i=j;continue;}                              // 말줄임표
+    let k=j;while(k+1<t.length&&/["'’”)\]]/.test(t[k+1]))k++;                       // 닫는 따옴표까지
+    if(c==='.'&&/\d$/.test(t.slice(0,i))&&/^\d/.test(t.slice(j+1))){i=k;continue;}  // 소수점 3.5
+    if(c==='.'&&_SENT_ABBR.test(t.slice(start,i))){i=k;continue;}                   // Dr. Mr. Ms.
+    if(!/^\s/.test(t.slice(k+1))){i=k;continue;}                                    // 바로 붙어 있으면 경계가 아니다
+    out.push(t.slice(start,k+1).trim());start=k+1;i=k;
+  }
+  const tail=t.slice(start).trim();if(tail)out.push(tail);
+  return out.filter(Boolean);
+}
+// 한 줄이 영어 두 문장 이상이면 우리말도 나눠 짝을 맞춘다.
+// 문장 수가 같으면 그대로, 우리말이 더 잘게 나뉘면 앞에서부터 고르게 묶고,
+// 우리말이 한 덩어리면 첫 문장에만 붙인다(없는 해석을 지어 붙이지 않는다).
+function ppKoAt(koLines,line,si,n){
+  const raw=String((koLines||[])[line]||'').trim();
+  if(!raw)return '';
+  if(!(n>1))return raw;
+  const parts=ppKoSents(raw);
+  if(parts.length===n)return parts[si]||'';
+  if(parts.length>n){
+    const per=parts.length/n;
+    return parts.slice(Math.round(si*per),Math.round((si+1)*per)).join(' ')||'';
+  }
+  return si===0?raw:'';
+}
+// 본문을 줄로 나눈다 — 빈 줄은 빼지만 **원래 줄 번호(line)** 는 지킨다.
+// 화자 표기는 그 글이 대화문일 때만 뗀다 ('A Chinese state…' 가 답(A) 으로 잘리지 않게).
+function ppTextLines(text){
+  const raw=String(text==null?'':text).replace(/\r/g,'').split('\n');
+  const idx=[];raw.forEach((s,i)=>{if(String(s).trim())idx.push(i);});
+  const body=idx.map(i=>raw[i].trim());
+  const dlg=(typeof ppParseDialog==='function')?!!ppParseDialog(body.join('\n')).dialog:false;
+  return idx.map((i,k)=>{
+    const t=body[k];
+    if(dlg&&typeof ppStripSpeaker==='function'){
+      const r=ppStripSpeaker(t);
+      return {line:i,text:r.text,spk:r.spk||'',label:r.label||''};
+    }
+    // '이름: ' 은 대화문이 아니어도 뗀다. 단 'Note:'·'Vocabulary:' 같은 소제목은 화자가 아니다
+    // (두 낱말 이상이면 'Ms. Kemp' 처럼 이름으로 본다)
+    const m=t.match(/^([A-Z][A-Za-z.'\s]{0,16}):\s+/);
+    const lab=m?m[1].trim():'';
+    if(m&&(/\s/.test(lab)||!PP_SPK_SKIP.has(lab)))
+      return {line:i,text:t.slice(m[0].length).trim(),spk:lab,label:lab};
+    return {line:i,text:t,spk:'',label:''};
+  });
+}
+// 선생님이 교재 편집기에 넣은 줄별 해석 — 본문 줄 번호로 맞춘다
 function _sentKoLines(tb,unitKey){
-  const raw=(tb&&tb.unitSentKo&&tb.unitSentKo[unitKey])||'';
-  return String(raw).split('\n').map(s=>s.trim());
+  return ppKoLines((tb&&tb.unitSentKo&&tb.unitSentKo[unitKey])||'');
 }
 function sentLines(tb,unitKey0){
   if(!tb)return [];
@@ -2589,18 +2652,23 @@ function sentLines(tb,unitKey0){
   // 대화문이면 화자 라벨을 떼고 화자는 따로 들고 간다 (타일·스펠·빈칸에 라벨이 들어가지 않게)
   let rows=[];
   if(pat){
+    // 패턴 줄은 그 줄 안에 해석이 붙어 있다(' — ' 뒤). unitSentKo 는 본문 줄에 매인 것이라 여기서는 쓰지 않는다.
     const d=ppParseDialog(pat);
     const src=d.dialog?d.lines:pat.split('\n').map(l=>({spk:'',label:'',text:l.trim()})).filter(x=>x.text);
     src.forEach(l=>{const r=_sentSplitKo(l.text);rows.push({en:r.en,ko:r.ko,spk:l.spk||'',label:l.label||''});});
   }else{
-    const d=ppParseDialog((tb.unitTexts&&tb.unitTexts[unitKey])||'');
-    d.lines.forEach(l=>{
-      _sentSplitText(l.text).forEach(s=>{const r=_sentSplitKo(s);rows.push({en:r.en,ko:r.ko,spk:l.spk||'',label:l.label||''});});
+    // 본문은 줄 번호를 들고 다닌다 — 해석은 그 줄 번호로 찾는다
+    const ko=_sentKoLines(tb,unitKey);
+    ppTextLines((tb.unitTexts&&tb.unitTexts[unitKey])||'').forEach(L=>{
+      const ss=_sentSplitText(L.text);
+      ss.forEach((s,k)=>{
+        const r=_sentSplitKo(s);
+        rows.push({en:r.en,ko:r.ko||ppKoAt(ko,L.line,k,ss.length),spk:L.spk||'',label:L.label||''});
+      });
     });
   }
-  const ko=_sentKoLines(tb,unitKey);
   return rows
-    .map((r,i)=>({en:r.en,ko:r.ko||ko[i]||'',spk:r.spk||'',label:r.label||''}))
+    .map(r=>({en:r.en,ko:r.ko||'',spk:r.spk||'',label:r.label||''}))
     .filter(r=>r.en&&_sentWords(r.en).length>=SENT_MIN_WORDS);
 }
 // 이번에 할 10문장 묶음. 긴 본문은 다음에 열면 그 뒤 10문장부터, 끝까지 가면 앞으로 돌아온다.
