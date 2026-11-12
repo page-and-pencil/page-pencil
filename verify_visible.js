@@ -70,6 +70,7 @@ function makeCtx() {
     resetF:()=>ibResetFilters(),
     dbg:async()=>({may:ibMayUse(),dev:(await _ibDevAll()).length,rows:(_ibRows||[]).length,ids:_ibDevIds.size}),
     ibFilterChange,ibSetExam,ibExamBar,renderWsDB,setWs:w=>{_cache.worksheets=w;},
+    pbFillAI,setPbSlots:s=>{_pbSlots=s;},onToast:f=>{toast=f;},onConfirm:f=>{askConfirm=f;},
     setWsKind:k=>{_wsKind=k;},
     setEb:rows=>{_ebRows=rows;},
     setIb:rows=>{_ibRows=rows;},
@@ -535,6 +536,8 @@ const ok = (name, cond, note) => {
     ok('되살리기용 사본(deviceOnly 아님)은 안 나온다', ws.indexOf('되살리기용 사본') < 0);
     ok('서버에도 있는 묶음은 한 번만', (ws.match(/서버에도 있는 묶음/g) || []).length === 1,
       (ws.match(/서버에도 있는 묶음/g) || []).length + '번');
+    const wtot = String(EL('ws-total').textContent || '');
+    ok('머리 숫자가 그린 줄 수와 같다', wtot.indexOf('2개 저장됨') === 0 && wtot.indexOf('이 기기에만 1개') > 0, wtot);
     IDB.delete('pp_iso_sets');
 
     // [3] 별칭을 수준표·'다음 교재' 이름에도 먼저
@@ -546,6 +549,31 @@ const ok = (name, cond, note) => {
     ok('별칭을 쓴 책과 자동 이름이 안 겹친다', nmap.n1 === '1200 S1' && nmap.n2 !== nmap.n1, nmap.n1 + ' / ' + nmap.n2);
     reset({ books: [Object.assign(BOOK('nk', '아주 긴 교재 이름 보카앤스토리 심화', 4), { nick: '보카심화', stage: 'P3', stageG: 6 })] });
     ok('pgLabel 도 별칭을 쓴다', A.pgLabel(A.cache.globalTextbooks[0]) === '보카심화', A.pgLabel(A.cache.globalTextbooks[0]));
+  }
+
+  console.log('\n(q) 음원이 있어야 하는 유형은 동형으로 만들지 않는다');
+  {
+    const mk = Object.values(A.ISO_TYPES).filter(t => t.iso !== false);
+    ok('만들 수 있는 유형은 모두 출제 원리가 있다',
+      mk.every(t => t.w && t.w.length > 10), mk.length + '종 가운데 ' + mk.filter(t => !(t.w && t.w.length > 10)).length + '종이 비었다');
+    const ml = Object.keys(A.ISO_TYPES).filter(k => A.ISO_TYPES[k].iso === false);
+    ok('음원 유형은 만들기 목록에서 빠진다', ml.length > 0 && A.isoList().every(k => ml.indexOf(k) < 0), '음원 유형 ' + ml.length + '종');
+    let said = '', asked = null;
+    A.onToast(m => { said = String(m || ''); });
+    A.onConfirm((t, m, ok2, cls, cb) => { asked = { t: t, m: String(m || '') }; });
+    // 듣기 칸만 비어 있으면 AI 를 부르지 않는다
+    A.setPbSlots([{ empty: true, type: ml[0] }, { empty: true, type: ml[1] || ml[0] }]);
+    A.pbFillAI();
+    ok('듣기 칸만 비면 만들지 않고 알려 준다', asked === null && said.indexOf('듣기') >= 0, said);
+    // 섞여 있으면 듣기 칸은 빼고 센다
+    said = ''; asked = null;
+    A.setPbSlots([{ empty: true, type: ml[0] }, { empty: true, type: 'blank' }, { empty: true, type: 'blank' }]);
+    A.pbFillAI();
+    ok('섞여 있으면 듣기 칸은 빼고 센다',
+      !!asked && asked.m.indexOf('비어 있는 2칸') >= 0 && asked.m.indexOf('듣기 1칸') >= 0,
+      asked ? asked.m.replace(/\n/g, ' / ') : '(안 물어봄)');
+    A.onToast(() => { }); A.onConfirm(() => { });
+    A.setPbSlots([]);
   }
 
   console.log('\n' + G.guardLine());
