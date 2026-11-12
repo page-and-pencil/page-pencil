@@ -698,6 +698,8 @@
             <label class="eb-chk"><input type="checkbox" id="lib-f-bank" onchange="libFilterChange()"> 자료 있음</label>
             <label class="eb-chk"><input type="checkbox" id="lib-f-text" onchange="libFilterChange()"> 본문 있음</label>
             <label class="eb-chk"><input type="checkbox" id="lib-f-mine" onchange="libFilterChange()"> 우리 반 교재</label>
+            <label class="eb-chk"><input type="checkbox" id="lib-f-staged" onchange="libFilterChange()"> 수준 잰 책만</label>
+            <label class="eb-chk" title="학교 교과서별 평가문제집 — 많아서 기본으로 접어 둡니다"><input type="checkbox" id="lib-f-naesin" onchange="libFilterChange()"> 내신 문제집도 보기 <span id="lib-naesin-n" style="color:var(--text-muted)"></span></label>
             <input type="text" class="eb-q" id="lib-f-q" placeholder="제목·시리즈·출판사… (목차·본문도 함께 찾아요)" oninput="libQInput(this.value)">
             <button class="btn bo bsm" onclick="libResetFilters()">초기화</button>
           </div>
@@ -710,6 +712,7 @@
             <select class="filter-sel" id="lib-map-cls" onchange="libMapClsChange(this.value)"></select>
             <span style="font-size:12.5px;color:var(--slate)">표지를 <b>끌어서</b> 아래 칸에 놓으면 그 반의 다음 교재로 들어갑니다</span>
           </div>
+          <div id="lib-map-note" style="font-size:12.5px;color:var(--text-muted);margin-bottom:8px"></div>
           <div id="lib-map"></div>
           <div id="lib-map-drop" class="lib-drop" style="display:none"
                ondragover="libMapOver(event)" ondrop="libMapDrop(event)">여기에 놓으면 <b>다음 교재</b>로 넣습니다</div>

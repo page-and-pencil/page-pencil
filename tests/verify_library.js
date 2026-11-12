@@ -31,16 +31,27 @@ function mkRows(n) {
       meta: {
         key: 'k' + i, publisher: pub, series: ser, title: ser + ' ' + ((i % 6) + 1),
         volume: String((i % 6) + 1), pubLevel: 'Level ' + ((i % 6) + 1),
-        target: TARGETS[i % TARGETS.length], area: area, use: USES[i % USES.length],
+        target: (i % 9 === 0) ? undefined : TARGETS[i % TARGETS.length], area: area,
+        use: (i % 4 === 0) ? '내신 대비' : USES[(i % 3) ? ((i + 1) % 3) : 0],
         isbn: '978' + (1000000000 + i), year: 2018 + (i % 8), pages: 120 + (i % 80),
         price: 12000 + (i % 10) * 500,
         cover: (i % 3 === 0) ? '' : ('https://example.invalid/cover/' + i + '.jpg'),
-        stage: st, stageG: 1 + (i % 9) + 0.4, stageBy: 'text', stageConf: 'high',
+        stage: (i % 7 === 0) ? st : undefined, stageG: (i % 7 === 0) ? (1 + (i % 9) + 0.4) : undefined,
+        stageBy: 'text', stageConf: 'high',
         seriesKey: 'sk' + (i % 40), seriesOrder: (i % 6) + 1,
         tbId: (i % 50 === 0) ? ('tb' + i) : undefined,
-        bankIds: (i % 4 === 0) ? ['bk' + i] : undefined,
+        bankIds: (i % 6 === 0) ? ['bk' + i] : undefined,
+        outOfPrint: (i % 97 === 0) ? true : undefined,
+        kind: (i % 23 === 0) ? '원서' : undefined,
+        tocImage: (i % 11 === 0) ? ('https://example.invalid/toc/' + i + '.jpg') : undefined,
+        detailImage: (i % 13 === 0) ? ('https://example.invalid/d/' + i + '.jpg') : undefined,
+        previewImages: (i % 13 === 0) ? ['https://example.invalid/p1.jpg', 'https://example.invalid/p2.jpg'] : undefined,
+        previewUrl: (i % 17 === 0) ? ('https://example.invalid/ebook/' + i) : undefined,
+        authors: (i % 5 === 0) ? '보기용 글쓴이' : undefined,
+        teacherMaterials: (i % 19 === 0) ? 3 : undefined,
       },
-      ntoc: (i % 5) ? 8 : 0, hassample: i % 7 === 0, nbank: (i % 4 === 0) ? 1 : 0, ntext: (i % 2) ? 3 : 0,
+      ntoc: (i % 5) ? 8 : 0, hassample: i % 7 === 0, nbank: (i % 6 === 0) ? 1 : 0, ntext: (i % 2) ? 3 : 0,
+      hastocimg: (i % 11 === 0), haspreview: (i % 17 === 0),
     });
   }
   return out;
@@ -52,7 +63,7 @@ function mkRows(n) {
   await ctx.addInitScript(() => { try { localStorage.setItem('pp_session', JSON.stringify({ role: 'teacher' })); } catch (e) { } });
   const page = await ctx.newPage();
 
-  const N = 10000;
+  const N = 20500;
   const ROWS = mkRows(N);
   let libHits = 0, searchHits = 0;
   const posts = [];
@@ -107,7 +118,8 @@ function mkRows(n) {
       : rows;
     return r.fulfill({
       status: 200, contentType: 'application/json',
-      headers: { 'content-range': '0-0/' + ROWS.length },
+      headers: { 'content-range': '0-0/' + ROWS.length,
+        'access-control-allow-origin': '*', 'access-control-expose-headers': 'content-range' },
       body: JSON.stringify(body),
     });
   });
@@ -125,6 +137,16 @@ function mkRows(n) {
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
   });
 
+  // 그림 요청을 센다 (탭을 열기 전에는 받지 않아야 한다)
+  const imgHits = { toc: 0, detail: 0, cover: 0 };
+  await page.route('**example.invalid/**', r => {
+    const u = r.request().url();
+    if (u.indexOf('/toc/') >= 0) imgHits.toc++;
+    else if (u.indexOf('/d/') >= 0 || u.indexOf('/p1') >= 0 || u.indexOf('/p2') >= 0) imgHits.detail++;
+    else imgHits.cover++;
+    return r.fulfill({ status: 200, contentType: 'image/gif',
+      body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64') });
+  });
   const errs = [];
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push(m.text().slice(0, 150)); });
   page.on('pageerror', e => errs.push('PAGEERROR ' + String(e.message).slice(0, 150)));
@@ -135,10 +157,24 @@ function mkRows(n) {
 
   // ── (a) 1만 줄 ────────────────────────────────────────────────
   const big = await page.evaluate(async () => {
+    swTab('t-data'); switchDataTab('library');          // 탭이 먼저 한 번 받는다
+    for (let i = 0; i < 100 && _libLoading; i++) await new Promise(r => setTimeout(r, 100));
     try { await idbSet('pp_lib_books_v1', null); } catch (e) { }
     _libRows = null; _libStamps = {}; _libAt = 0; _libMax = '';
+    renderLibrary();
     const t0 = performance.now();
+    window.__cnt = await _libCount();
+    // 받는 동안 — 첫 카드가 언제 그려지는지, 숫자가 오르는지
+    window.__first = 0; window.__prog = [];
+    const tick = setInterval(() => {
+      const n = document.querySelectorAll('#lib-grid .lib-card').length;
+      if (n && !window.__first) window.__first = Math.round(performance.now() - t0);
+      const t = (document.getElementById('lib-state') || {}).textContent || '';
+      const m = t.match(/받는 중 ([\d,]+)/);
+      if (m) window.__prog.push(+m[1].replace(/,/g, ''));
+    }, 60);
     await libLoad(true);
+    clearInterval(tick);
     const tLoad = performance.now() - t0;
     swTab('t-data'); switchDataTab('library');
     await new Promise(r => setTimeout(r, 200));
@@ -147,14 +183,20 @@ function mkRows(n) {
     const tDraw = performance.now() - t1;
     const mem = (performance.memory && performance.memory.usedJSHeapSize) ? Math.round(performance.memory.usedJSHeapSize / 1048576) : -1;
     return {
-      n: (_libRows || []).length, tLoad: Math.round(tLoad), tDraw: Math.round(tDraw), mem,
+      n: (_libRows || []).length, cnt: window.__cnt, tLoad: Math.round(tLoad), tDraw: Math.round(tDraw), mem,
+      first: window.__first, prog: window.__prog.slice(),
       cards: document.querySelectorAll('#lib-grid .lib-card').length,
       count: (document.getElementById('lib-count') || {}).textContent || '',
     };
   });
-  ok('(a) 1만 줄을 받는다', big.n === N, big.n.toLocaleString() + '줄 · 받기 ' + big.tLoad + 'ms');
+  ok('(a) 2만 줄을 받는다', big.n === N, big.n.toLocaleString() + '줄 · 센 수 ' + big.cnt + ' · 받기 ' + big.tLoad + 'ms');
   ok('(a) 그리기는 한 쪽씩', big.cards === 60 && big.tDraw < 1500, '카드 ' + big.cards + '장 · 그리기 ' + big.tDraw + 'ms');
-  ok('(a) 머리 숫자', /10,000권/.test(big.count), big.count);
+  ok('[2] 첫 쪽이 2초 안에 그려진다', big.first > 0 && big.first < 2000, big.first + 'ms');
+  ok('[2] 받는 중 숫자가 오른다',
+    big.prog.length >= 2 && big.prog[big.prog.length - 1] > big.prog[0] && big.prog.every((v, i) => i === 0 || v >= big.prog[i - 1]),
+    big.prog.length + '번 — ' + big.prog[0] + ' → ' + big.prog[big.prog.length - 1]);
+  ok('(a) 머리 숫자 — 접은 내신은 빼고 센다',
+    /전체 20,500권/.test(big.count) && /^10,250권/.test(big.count.trim()), big.count);
   console.log('      메모리 ' + (big.mem < 0 ? '(못 잼)' : big.mem + 'MB'));
 
   const filt = await page.evaluate(async () => {
@@ -173,13 +215,30 @@ function mkRows(n) {
     chk('lib-f-bank', false); chk('lib-f-text', true); libFilterChange();
     const e = libFiltered().length, eBad = libFiltered().filter(r => !(r.ntext > 0)).length;
     chk('lib-f-text', false); libResetFilters();
-    return { a, b, c, cBad, d, dBad, e, eBad, all: libFiltered().length };
+    const folded = libFiltered().length;
+    // 내신 문제집도 보기
+    chk('lib-f-naesin', true); libFilterChange();
+    const open = libFiltered().length;
+    const naesin = (_libRows || []).filter(r => String((r.meta || {}).use || '') === '내신 대비').length;
+    chk('lib-f-naesin', false); libFilterChange();
+    // 수준 잰 책만 · 대상 모름
+    chk('lib-f-staged', true); libFilterChange();
+    const staged = libFiltered().length, stagedBad = libFiltered().filter(r => !(r.meta || {}).stage).length;
+    chk('lib-f-staged', false);
+    set('lib-f-target', 'none'); libFilterChange();
+    const noTg = libFiltered().length, noTgBad = libFiltered().filter(r => (r.meta || {}).target).length;
+    libResetFilters();
+    return { a, b, c, cBad, d, dBad, e, eBad, all: libFiltered().length, folded, open, naesin, staged, stagedBad, noTg, noTgBad };
   });
   ok('(a) 거르기 조합이 겹쳐 듣는다', filt.a > filt.b && filt.b > filt.c && filt.cBad === 0,
-    '대상 ' + filt.a + ' → +영역 ' + filt.b + ' → +수준 ' + filt.c);
+    '대상 ' + filt.a + ' → +영역 ' + filt.b + ' → +수준 ' + filt.c); 
   ok('(a) 자료 있음 · 본문 있음', filt.dBad === 0 && filt.eBad === 0 && filt.d > 0 && filt.e > 0,
     '자료 ' + filt.d + '권 · 본문 ' + filt.e + '권');
-  ok('(a) 초기화하면 다 돌아온다', filt.all === N, filt.all.toLocaleString() + '권');
+  ok('(a) 초기화하면 접은 상태로 돌아온다', filt.all === filt.folded, filt.all.toLocaleString() + '권 (내신 접음)');
+  ok('[3] 내신 문제집을 켜고 끌 때 수가 맞는다', filt.open === filt.folded + filt.naesin && filt.open === N,
+    '접음 ' + filt.folded.toLocaleString() + ' + 내신 ' + filt.naesin.toLocaleString() + ' = ' + filt.open.toLocaleString());
+  ok('[3] 수준 잰 책만', filt.stagedBad === 0 && filt.staged > 0, filt.staged.toLocaleString() + '권');
+  ok('[3] 대상 모름', filt.noTgBad === 0 && filt.noTg > 0, filt.noTg.toLocaleString() + '권');
 
   // ── (b) lib_search ───────────────────────────────────────────
   const deep = await page.evaluate(async () => {
@@ -201,21 +260,28 @@ function mkRows(n) {
 
   // ── (c) 표지 ─────────────────────────────────────────────────
   const cover = await page.evaluate(async () => {
-    renderLibrary();
+    // 주소가 없는 책을 골라 띄운다 (정렬 탓에 첫 쪽에 안 올 수 있다)
+    const noCov = (_libRows || []).find(r => !((r.meta || {}).cover) && String((r.meta || {}).use || '') !== '내신 대비');
+    _libF.q = (noCov.meta.title || '');
+    libPaintFilters(); renderLibrary();
     await new Promise(r => setTimeout(r, 400));
     const cards = [...document.querySelectorAll('#lib-grid .lib-card')];
-    const noCover = cards.find(c => !c.querySelector('img'));
+    const noCover = cards.find(c => !c.querySelector('img')) || null;
     const withImg = cards.find(c => c.querySelector('img'));
     const img = withImg ? withImg.querySelector('img') : null;
+    _libF.q = ''; libPaintFilters();
     return {
       fbAlways: cards.every(c => !!c.querySelector('.lib-cv-fb')),
       noCoverHasFb: !!(noCover && noCover.querySelector('.lib-cv-fb')),
       brokenHidden: img ? (img.style.display === 'none' || !img.classList.contains('on')) : null,
       letters: noCover ? (noCover.querySelector('.lib-cv-fb b') || {}).textContent : '',
+      nNo: cards.filter(c => !c.querySelector('img')).length,
+      pure: /<img/.test(libCoverHtml({ title: '표지 없는 책' })) === false && /lib-cv-fb/.test(libCoverHtml({ title: '표지 없는 책' })),
     };
   });
-  ok('(c) 표지가 없으면 글자 표지', cover.noCoverHasFb && !!cover.letters, '글자 "' + cover.letters + '"');
-  ok('(c) 이미지가 안 열려도 글자 표지가 남는다', cover.fbAlways && cover.brokenHidden !== false);
+  ok('(c) 표지가 없으면 글자 표지', cover.pure && cover.noCoverHasFb && !!cover.letters,
+    '글자 "' + cover.letters + '" · 주소 없는 카드 ' + cover.nNo + '장');
+  ok('(c) 이미지가 열려도 글자 표지가 뒤에 깔려 있다', cover.fbAlways);
 
   // ── (e) 책 한 권 ─────────────────────────────────────────────
   const bk = await page.evaluate(async () => {
@@ -244,6 +310,44 @@ function mkRows(n) {
   ok('(e) 목차·본문 줄 수도 같다', bk.toc === bk.want.toc && bk.units === bk.want.text,
     '목차 ' + bk.toc + '줄 · 단원 ' + bk.units + '개 · 본문 ' + bk.texts + '덩이');
   ok('(e) 개요에 수준 근거와 시리즈', bk.stage && bk.series);
+
+  // ── [4] 목차 그림 · 소개 그림은 열 때만 ──────────────────────
+  const pic = await page.evaluate(async () => {
+    try { closeM('m-lib-book'); } catch (e) { }
+    const row = (_libRows || []).find(r => r.hastocimg && !r.ntoc);
+    const want = row ? row.id : '';
+    return { want, has: !!row };
+  });
+  const beforeToc = imgHits.toc, beforeDetail = imgHits.detail;
+  const toc = await page.evaluate(async (id) => {
+    await libOpenBook(id);
+    await new Promise(r => setTimeout(r, 700));
+    const openedOnHome = !!document.querySelector('#libb-body .libb-tocimg img');
+    libTab('toc');
+    await new Promise(r => setTimeout(r, 600));
+    const img = document.querySelector('#libb-body .libb-tocimg img');
+    const n = [...document.querySelectorAll('#libb-tabs .tbd-tab')].find(x => x.textContent.indexOf('목차') === 0);
+    const detailOpen = !!document.querySelector('#libb-pics img');
+    return { openedOnHome, hasImg: !!img, tocNum: n ? (n.querySelector('i') || {}).textContent : '', detailOpen };
+  }, pic.want);
+  await wait(500);
+  ok('[4] 목차 글이 없고 그림이 있으면 그림', toc.hasImg && toc.tocNum === '1', '목차 탭 숫자 "' + toc.tocNum + '"');
+  ok('[4] 목차 그림은 탭을 열기 전에는 안 받는다', beforeToc === 0 && imgHits.toc > 0,
+    '열기 전 ' + beforeToc + '건 · 연 뒤 ' + imgHits.toc + '건');
+  ok('[4] 소개 그림은 접어 두고 안 받는다', !toc.detailOpen && imgHits.detail === beforeDetail,
+    '소개 그림 요청 ' + (imgHits.detail - beforeDetail) + '건');
+  const det = await page.evaluate(async () => {
+    libTab('home');
+    await new Promise(r => setTimeout(r, 400));
+    const d = document.querySelector('#libb-body details.wz-more');
+    if (!d) return { none: true };
+    d.open = true; libPicsToggle(d);
+    await new Promise(r => setTimeout(r, 600));
+    return { n: document.querySelectorAll('#libb-pics img').length };
+  });
+  await wait(500);
+  ok('[4] 펼치면 그때 받는다', det.none || (det.n > 0 && imgHits.detail > beforeDetail),
+    det.none ? '(이 책엔 소개 그림 없음)' : (det.n + '장 · 요청 ' + (imgHits.detail - beforeDetail) + '건'));
 
   // ── (f) 교재에서 가져오기 ────────────────────────────────────
   const imp = await page.evaluate(async () => {

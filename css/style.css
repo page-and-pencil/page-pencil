@@ -3556,3 +3556,13 @@ span.pe-c{width:30px;flex-shrink:0;text-align:center;}
   .lib-deep-t{max-width:none;}
   .lib-deep-row{flex-wrap:wrap;}
 }
+.lib-card .lib-nost{background:transparent;color:var(--neutral);border:1px dashed var(--border);}
+.lib-card .lib-oop,.libb-tags .lib-oop{background:var(--warnl);color:var(--warnt);}
+.lib-card .lib-kind,.libb-tags .lib-kind{background:#F3E8FF;color:#7B1FA2;}
+.libb-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
+.libb-tags span{font-size:11.5px;font-weight:700;border-radius:var(--rpill);padding:2px 9px;
+  background:var(--cream2);color:var(--slate);}
+.libb-tags .lib-tm{background:var(--tl);color:var(--teal);}
+.libb-pics{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+.libb-pics img{width:100%;max-width:560px;border-radius:var(--rs);border:1px solid var(--border);}
+.libb-tocimg img{width:100%;max-width:620px;border-radius:var(--rs);border:1px solid var(--border);margin-top:8px;}

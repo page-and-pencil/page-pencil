@@ -6964,7 +6964,8 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
- {date:'2026-11-14',title:'라이브러리 — 국내외 교재를 한곳에서 찾고 열어 보고 커리큘럼을 짭니다',where:'교재·문제 → 라이브러리',tab:'t-data',go:['switchDataTab','library']},
+ {date:'2026-11-14',title:'라이브러리 — 국내외 교재 2만 권을 한곳에서 찾고 열어 보고 커리큘럼을 짭니다',where:'교재·문제 → 라이브러리',tab:'t-data',go:['switchDataTab','library']},
+ {date:'2026-11-14',title:'라이브러리 — 목차 그림·출판사 미리보기, 수준 잰 책만 보기, 내신 문제집 접기',where:'교재·문제 → 라이브러리',tab:'t-data',go:['switchDataTab','library']},
  {date:'2026-11-13',title:'수업 때마다 하는 활동 — 리딩앤 원서 읽기를 수업일마다 캘린더에',where:'클래스 → 클래스 수정 → 수업 때마다 하는 활동',tab:'t-class',go:['renderClassTab']},
  {date:'2026-11-13',title:"'자료실'이 '기출'로 — 용도 칩(수능·내신·듣기평가·성취도·고입)",where:'교재·문제 → 기출',tab:'t-data',go:['switchDataTab','bank']},
  {date:'2026-11-13',title:'교재·문제집 자료는 교재 탭의 [자료만 있는 책]으로',where:'교재·문제 → 교재',tab:'t-data',go:['switchDataTab','tbook']},
@@ -25911,7 +25912,19 @@ function wzFirstStu(classId){
 const LIB_IDX_KEY='pp_lib_books_v1';
 const LIB_SNAP_V=1;
 const LIB_FRESH_MS=12*60*60*1000;
-const LIB_SEL='select=id,updated_at,meta,ntoc,hassample,nbank,ntext';
+// 뷰에 hastocimg·haspreview 가 아직 없을 수 있다 (2026-11-14 에 더한 열).
+// 400 이 오면 옛 열만으로 한 번 더 받는다 — 뷰를 다시 만들기 전에도 돌아가게.
+const LIB_SEL_NEW='select=id,updated_at,meta,ntoc,hassample,nbank,ntext,hastocimg,haspreview';
+const LIB_SEL_OLD='select=id,updated_at,meta,ntoc,hassample,nbank,ntext';
+let LIB_SEL=LIB_SEL_NEW;
+async function _libGetRows(q){
+  let r=await _ebGet(q.replace('%SEL%',LIB_SEL));
+  if(!r.ok&&(r.status===400||r.status===406)&&LIB_SEL!==LIB_SEL_OLD){
+    LIB_SEL=LIB_SEL_OLD;                      // 옛 뷰 — 새 열 없이 받는다
+    r=await _ebGet(q.replace('%SEL%',LIB_SEL));
+  }
+  return r;
+}
 const LIB_TARGETS=['유아','초등','중등','고등','성인'];
 const LIB_AREAS=['리딩','리스닝','문법','어휘','쓰기','말하기','파닉스','종합','내신','수능','시험'];
 const LIB_USES=['일반','수능 대비','내신 대비','듣기평가 대비','공인시험'];
@@ -25920,7 +25933,10 @@ let _libFull=new Map();              // 책 한 권의 data 전체 (연 책만)
 let _libTextCache=new Map();         // bookId → lib_text 줄들
 let _libPage=1;
 const LIB_PAGE=60;
-let _libF={target:'',area:'',stage:'',pub:'',use:'',q:'',bank:false,text:false,mine:false};
+// naesin:false = 학교 교과서별 평가문제집(use '내신 대비', 약 4,800권)을 접어 둔다.
+// staged:true = 수준을 잰 책만. target 'none' = 대상이 빈 책.
+let _libF={target:'',area:'',stage:'',pub:'',use:'',q:'',bank:false,text:false,mine:false,
+  staged:false,naesin:false};
 
 // 선생님 화면에서만. 학생·학부모 화면과 체험 모드는 **부르지도 않는다**.
 function libMayUse(){
@@ -25935,20 +25951,77 @@ function _libStampsOf(rows){const o={};(rows||[]).forEach(r=>{if(r&&r.id)o[r.id]
 function _libMaxOf(rows){let m='';(rows||[]).forEach(r=>{const u=String(r&&r.updated_at||'');if(u>m)m=u;});return m;}
 async function _libSave(){try{await idbSet(LIB_IDX_KEY,{v:LIB_SNAP_V,rows:_libRows,stamps:_libStamps,at:_libAt,max:_libMax});}catch(e){}}
 
-async function _libFetchAll(){
-  const PAGE=1000;let out=[],off=0;
-  while(true){
-    const r=await _ebGet('lib_books_index?'+LIB_SEL+'&limit='+PAGE+'&offset='+off+'&order=id');
+// 개수를 못 셀 때 — 한 쪽씩, 짧은 쪽이 나오면 끝
+async function _libFetchSeq(PAGE,onPage){
+  let out=[],off=0;
+  for(let i=0;i<60;i++){
+    const r=await _libGetRows('lib_books_index?%SEL%&limit='+PAGE+'&offset='+off+'&order=id');
     if(!r.ok){
       if(r.status===404){_libNote='라이브러리 표가 아직 없습니다 — supabase/library.sql 을 실행해 주세요.';return [];}
-      return null;
+      return out.length?out:null;
     }
     out=out.concat(r.rows);
+    _libProg(out.length,0);
+    if(onPage)try{onPage(r.rows,i,0);}catch(e){}
     if(r.rows.length<PAGE)break;
     off+=PAGE;
-    if(off>60000)break;
   }
   return out;
+}
+// 전체 쪽 수를 먼저 센다 (줄은 안 받는다)
+async function _libCount(){
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/lib_books_index?select=id&limit=1',
+      {headers:{...SUPA_HEADERS,'Prefer':'count=exact','Range':'0-0'}});
+    if(!r.ok)return r.status===404?-404:null;
+    const cr=r.headers.get('content-range')||'';
+    const n=Number((cr.split('/')[1]||''));
+    return isFinite(n)?n:null;
+  }catch(e){return null;}
+}
+function _libProg(got,total){
+  _libGot=got;_libTotal=total;
+  const el=document.getElementById('lib-state');
+  if(el)el.textContent=total?('교재 목록을 받는 중 '+got.toLocaleString()+' / '+total.toLocaleString()):'교재 목록을 받는 중…';
+}
+let _libGot=0,_libTotal=0;
+// 처음 받기 — 2만 줄이면 21쪽이다. **받은 쪽부터 그린다** (다 받을 때까지 빈 화면이면 안 된다).
+// 3개씩 동시에 받고, 실패한 쪽은 그 쪽만 다시 받는다.
+async function _libFetchAll(onPage){
+  const PAGE=1000,JOBS=3;
+  const total=await _libCount();
+  if(total===-404){_libNote='라이브러리 표가 아직 없습니다 — supabase/library.sql 을 실행해 주세요.';return [];}
+  // 개수를 못 세면(헤더가 막힌 서버) 한 쪽씩 끝까지 — 그래도 받은 쪽부터 그린다
+  if(!(total&&total>0))return _libFetchSeq(PAGE,onPage);
+  const pages=Math.ceil(total/PAGE);
+  _libProg(0,total||0);
+  const out=new Array(pages).fill(null);
+  let got=0,dead=false;
+  const one=async p=>{
+    for(let tryN=0;tryN<3;tryN++){                 // 실패하면 그 쪽만 다시
+      const r=await _libGetRows('lib_books_index?%SEL%&limit='+PAGE+'&offset='+(p*PAGE)+'&order=id');
+      if(r.ok){
+        out[p]=r.rows;got+=r.rows.length;
+        _libProg(got,total||0);
+        if(onPage)try{onPage(r.rows,p,pages);}catch(e){}
+        return true;
+      }
+      if(r.status===404){_libNote='라이브러리 표가 아직 없습니다 — supabase/library.sql 을 실행해 주세요.';dead=true;return false;}
+      await new Promise(x=>setTimeout(x,400*(tryN+1)));
+    }
+    return false;
+  };
+  const q=[];for(let p=0;p<pages;p++)q.push(p);
+  let bad=false;
+  const workers=Array.from({length:Math.min(JOBS,q.length)},async()=>{
+    while(q.length&&!dead){const p=q.shift();if(!(await one(p)))bad=true;}
+  });
+  await Promise.all(workers);
+  if(dead)return [];
+  if(bad&&out.every(x=>x===null))return null;      // 아무것도 못 받았다 — 그대로 둔다
+  const rows=[].concat(...out.filter(Boolean));
+  if(bad)_libNote='일부 쪽을 받지 못했습니다 — [지금 최신화]로 다시 받아 주세요.';
+  return rows;
 }
 async function _libStampRows(){
   const PAGE=1000;let out=[],off=0;
@@ -25965,7 +26038,7 @@ async function _libStampRows(){
 async function _libFetchByIds(ids){
   if(!ids.length)return [];
   const q=ids.map(x=>'"'+String(x).replace(/"/g,'')+'"').join(',');
-  const r=await _ebGet('lib_books_index?'+LIB_SEL+'&id=in.('+q+')');
+  const r=await _libGetRows('lib_books_index?%SEL%&id=in.('+q+')');
   return r.ok?r.rows:null;
 }
 async function _libProbe(){
@@ -25990,8 +26063,19 @@ async function libLoad(force){
     const have=!!(_libRows&&_libRows.length);
     if(have&&!force&&(Date.now()-_libAt)<LIB_FRESH_MS)return false;
     if(!have){
-      const all=await _libFetchAll();
-      if(!all)return false;
+      _libRows=[];                                   // 받은 쪽부터 그린다
+      let paint=0;
+      const all=await _libFetchAll((rows)=>{
+        _libRows=_libRows.concat(rows);
+        if(++paint<=3||paint%4===0){                 // 너무 자주 다시 그리지 않는다
+          try{libPaintFilters();renderLibrary();}catch(e){}
+        }
+      });
+      if(!all||!all.length){
+        if(!all)_libRows=null;
+        try{renderLibrary();}catch(e){}
+        return false;
+      }
       _libRows=all;_libStamps=_libStampsOf(all);_libMax=_libMaxOf(all);_libAt=Date.now();
       await _libSave();return true;
     }
@@ -26055,7 +26139,11 @@ async function libSearch(q,lim){
 // ── 거르기 ──────────────────────────────────────────────────────────────
 function _libMatch(r){
   const m=r.meta||{};
-  if(_libF.target&&String(m.target||'')!==_libF.target)return false;
+  // 내신 문제집은 기본으로 접어 둔다 — 한 출판사 책이 4,800권이라 둘러보기를 덮는다
+  if(!_libF.naesin&&_libF.use!=='내신 대비'&&String(m.use||'')==='내신 대비')return false;
+  if(_libF.staged&&!String(m.stage||''))return false;
+  if(_libF.target==='none'){if(String(m.target||''))return false;}
+  else if(_libF.target&&String(m.target||'')!==_libF.target)return false;
   if(_libF.area&&String(m.area||'')!==_libF.area)return false;
   if(_libF.use&&String(m.use||'')!==_libF.use)return false;
   if(_libF.pub&&String(m.publisher||'')!==_libF.pub)return false;
@@ -26074,9 +26162,19 @@ function _libMatch(r){
   }
   return true;
 }
+// 쓸모 있는 것부터: 우리 자료가 붙은 책 → 수준 잰 책 → 나머지. 절판은 맨 뒤.
+function _libRank(r){
+  const m=r.meta||{};
+  if(m.outOfPrint)return 9;
+  if((r.nbank||0)>0||(r.ntext||0)>0||m.tbId)return 0;
+  if(m.stage)return 1;
+  return 2;
+}
 function libFiltered(){
   const rows=(_libRows||[]).filter(r=>_libAlive(r)&&_libMatch(r));
   rows.sort((a,b)=>{
+    const ra=_libRank(a),rb=_libRank(b);
+    if(ra!==rb)return ra-rb;
     const am=a.meta||{},bm=b.meta||{};
     const as=String(am.seriesKey||am.series||''),bs=String(bm.seriesKey||bm.series||'');
     if(as!==bs)return as.localeCompare(bs,'ko');
@@ -26136,12 +26234,15 @@ function libStamp(){
 function libPaintFilters(){
   const rows=(_libRows||[]).filter(_libAlive);
   const uniq=k=>[...new Set(rows.map(r=>String((r.meta||{})[k]||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
-  const opt=(id,label,vals,cur)=>{
+  const opt=(id,label,vals,cur,lbl)=>{
     const el=document.getElementById(id);if(!el)return;
     el.innerHTML='<option value="">'+_ebE(label)+'</option>'+vals.map(v=>
-      '<option value="'+_ebA(v)+'"'+(String(cur)===String(v)?' selected':'')+'>'+_ebE(v)+'</option>').join('');
+      '<option value="'+_ebA(v)+'"'+(String(cur)===String(v)?' selected':'')+'>'+
+      _ebE(lbl?lbl(v):v)+'</option>').join('');
   };
-  opt('lib-f-target','대상 전체',LIB_TARGETS.filter(v=>rows.some(r=>(r.meta||{}).target===v)),_libF.target);
+  const tgs=LIB_TARGETS.filter(v=>rows.some(r=>(r.meta||{}).target===v));
+  const noTg=rows.some(r=>!String((r.meta||{}).target||''));
+  opt('lib-f-target','대상 전체',tgs.concat(noTg?['none']:[]),_libF.target,v=>v==='none'?'대상 모름':v);
   opt('lib-f-area','영역 전체',LIB_AREAS.filter(v=>rows.some(r=>(r.meta||{}).area===v)),_libF.area);
   opt('lib-f-use','용도 전체',LIB_USES.filter(v=>rows.some(r=>(r.meta||{}).use===v)),_libF.use);
   opt('lib-f-pub','출판사 전체',uniq('publisher'),_libF.pub);
@@ -26153,7 +26254,10 @@ function libPaintFilters(){
   }
   if(st)st.value=_libF.stage;
   const q=document.getElementById('lib-f-q');if(q&&q.value!==_libF.q)q.value=_libF.q;
-  ['bank','text','mine'].forEach(k=>{const c=document.getElementById('lib-f-'+k);if(c)c.checked=!!_libF[k];});
+  ['bank','text','mine','staged','naesin'].forEach(k=>{const c=document.getElementById('lib-f-'+k);if(c)c.checked=!!_libF[k];});
+  // 접어 둔 내신 문제집이 몇 권인지 알려 준다
+  const nb=document.getElementById('lib-naesin-n');
+  if(nb)nb.textContent=rows.filter(r=>String((r.meta||{}).use||'')==='내신 대비').length.toLocaleString();
 }
 function libFilterChange(){
   const v=id=>(document.getElementById(id)||{}).value||'';
@@ -26161,6 +26265,7 @@ function libFilterChange(){
   _libF.target=v('lib-f-target');_libF.area=v('lib-f-area');_libF.use=v('lib-f-use');
   _libF.pub=v('lib-f-pub');_libF.stage=v('lib-f-stage');
   _libF.bank=c('lib-f-bank');_libF.text=c('lib-f-text');_libF.mine=c('lib-f-mine');
+  _libF.staged=c('lib-f-staged');_libF.naesin=c('lib-f-naesin');
   _libPage=1;_libDeep=null;
   renderLibrary();
 }
@@ -26201,7 +26306,10 @@ function renderLibrary(){
       '<span class="lib-t">'+_ebE(m.title||'(제목 없음)')+'</span>'+
       '<span class="lib-m">'+_ebE([m.publisher,m.pubLevel||m.volume].filter(Boolean).join(' · '))+'</span>'+
       '<span class="lib-b">'+
-        (m.stage?'<i class="lib-st">'+_ebE(typeof ebStageName==='function'?(ebStageName(m.stage)||m.stage):m.stage)+'</i>':'')+
+        (m.stage?('<i class="lib-st">'+_ebE(typeof ebStageName==='function'?(ebStageName(m.stage)||m.stage):m.stage)+'</i>')
+                :'<i class="lib-nost" title="아직 내용으로 재지 않은 책">수준 안 잼</i>')+
+        (m.kind==='원서'?'<i class="lib-kind">원서</i>':'')+
+        (m.outOfPrint?'<i class="lib-oop" title="절판">절판</i>':'')+
         (r.nbank?'<i class="lib-bk" title="이어 붙인 자료">자료 '+r.nbank+'</i>':'')+
         (r.ntext?'<i class="lib-tx" title="본문 조각">본문 '+r.ntext+'</i>':'')+
         (m.tbId?'<i class="lib-mine" title="우리 반 교재로 등록됨">등록</i>':'')+
@@ -26230,7 +26338,8 @@ function libDeepBar(){
     }).join('');
 }
 function libResetFilters(){
-  _libF={target:'',area:'',stage:'',pub:'',use:'',q:'',bank:false,text:false,mine:false};
+  _libF={target:'',area:'',stage:'',pub:'',use:'',q:'',bank:false,text:false,mine:false,
+    staged:false,naesin:false};
   _libPage=1;_libDeep=null;libPaintFilters();renderLibrary();
 }
 async function libRefresh(){
@@ -26256,8 +26365,13 @@ function renderLibMap(){
       cs.map(c=>'<option value="'+_ebA(c.id)+'">'+_ebE(c.name)+'</option>').join('');
   }
   if(sel)sel.value=_libMapCls;
-  const rows=(_libRows||[]).filter(r=>_libAlive(r)&&_libMatch(r));
-  if(!rows.length){box.innerHTML='<div class="eb-empty">보여 줄 책이 없습니다.</div>';return;}
+  // 지도는 **수준을 잰 책만** 놓는다 (수준이 빈 책이 훨씬 많다)
+  const all=(_libRows||[]).filter(r=>_libAlive(r)&&_libMatch(r));
+  const rows=all.filter(r=>String((r.meta||{}).stage||''));
+  const note=document.getElementById('lib-map-note');
+  if(note)note.textContent='수준을 잰 '+rows.length.toLocaleString()+'권만 보입니다'+
+    (all.length>rows.length?(' (수준 안 잰 '+(all.length-rows.length).toLocaleString()+'권은 둘러보기에서)'):'');
+  if(!rows.length){box.innerHTML='<div class="eb-empty">수준을 잰 책이 없습니다.</div>';return;}
   // 반의 지금·흐름 책 (등록 교재 id 로 잇는다)
   const nowIds=new Set(),flowIds=new Set();
   if(_libMapCls){
@@ -26364,7 +26478,8 @@ function libBookRender(msg){
   if(sub)sub.textContent=[m.publisher,m.series,m.pubLevel,m.year?(m.year+'년'):''].filter(Boolean).join(' · ');
   const bar=document.getElementById('libb-tabs');
   if(bar)bar.innerHTML=LIB_TABS.map(x=>{
-    const n=x.k==='toc'?((_libBook&&(_libBook.toc||[]).length)||(_libBookRow&&_libBookRow.ntoc)||0)
+    const n=x.k==='toc'?(((_libBook&&(_libBook.toc||[]).length)||(_libBookRow&&_libBookRow.ntoc)||0)
+        ||(((_libBook&&_libBook.tocImage)||m.tocImage||(_libBookRow&&_libBookRow.hastocimg))?1:0))
       :x.k==='text'?((_libRows4.length)||(_libBookRow&&_libBookRow.ntext)||0)
       :x.k==='bank'?(((_libBook&&_libBook.bankIds)||(m.bankIds)||[]).length):0;
     return '<button class="tbd-tab'+(_libTab===x.k?' on':'')+'" onclick="libTab(\''+x.k+'\')">'+
@@ -26391,7 +26506,13 @@ function _libHomeHtml(){
   return '<div class="libb-home">'+
     '<div class="libb-cv">'+libCoverHtml(m,'lg')+'</div>'+
     '<div class="libb-info">'+
+      '<div class="libb-tags">'+
+        (m.kind==='원서'?'<span class="lib-kind">원서</span>':'')+
+        (m.outOfPrint?'<span class="lib-oop">절판</span>':'')+
+        (Number(m.teacherMaterials)>0?('<span class="lib-tm">출판사 사이트 교사 자료 '+Number(m.teacherMaterials)+'개</span>'):'')+
+      '</div>'+
       (d.desc?'<p class="libb-desc">'+_ebE(String(d.desc).slice(0,600))+'</p>':'')+
+      ((d.authors||m.authors)?('<div class="libb-kv"><b>글</b><span>'+_ebE(d.authors||m.authors)+'</span></div>'):'')+
       '<div class="libb-kv"><b>출판사 표기</b><span>'+_ebE([m.target,m.pubLevel,m.area].filter(Boolean).join(' · ')||'—')+'</span></div>'+
       '<div class="libb-kv"><b>우리가 잰 수준</b><span>'+_ebE(libStageLine(m))+'</span></div>'+
       '<div class="libb-kv"><b>구성</b><span>'+_ebE((d.components||m.components||[]).join(' · ')||'—')+'</span></div>'+
@@ -26401,29 +26522,62 @@ function _libHomeHtml(){
         (m.tbId?('<button class="btn bo bsm" onclick="openBookHome(\''+escJsA(m.tbId)+'\')">등록 교재 열기</button>')
                :('<button class="btn bt bsm" onclick="libToTextbook()">수업 교재로 등록</button>'))+
         '<button class="btn bo bsm" onclick="libTab(\'text\')">본문 보기</button>'+
+        ((d.previewUrl||m.previewUrl)?('<a class="btn bo bsm" target="_blank" rel="noopener" href="'+_ebA(d.previewUrl||m.previewUrl)+'">출판사 미리보기 열기</a>'):'')+
+        (m.url?('<a class="btn bo bsm" target="_blank" rel="noopener" href="'+_ebA(m.url)+'">책 소개 열기</a>'):'')+
       '</div>'+
     '</div>'+
+    _libPicsHtml(d,m)+
     (sameSeries.length?('<div class="libb-sec"><h4>같은 시리즈</h4><div class="lib-chips">'+sameSeries.map(chip).join('')+'</div></div>'):'')+
     (mine.length?('<div class="libb-sec"><h4>비슷한 수준의 '+_ebE(m.area||'같은 영역')+' 책</h4><div class="lib-chips">'+mine.map(chip).join('')+'</div></div>'):'')+
   '</div>';
 }
+// 출판사 소개 그림 — **누를 때만** 불러온다 (처음부터 받으면 느리고 전송량이 는다)
+let _libPicsOn=false;
+function _libPicsHtml(d,m){
+  const pics=[].concat(d.detailImage||m.detailImage||[],
+    Array.isArray(d.previewImages||m.previewImages)?(d.previewImages||m.previewImages):[])
+    .filter(x=>typeof x==='string'&&x);
+  if(!pics.length)return '';
+  return '<div class="libb-sec"><details class="wz-more" '+(_libPicsOn?'open':'')+' ontoggle="libPicsToggle(this)">'+
+    '<summary>출판사 소개 그림 '+pics.length+'장</summary>'+
+    '<div id="libb-pics" class="libb-pics" data-pics="'+_ebA(JSON.stringify(pics))+'">'+
+      (_libPicsOn?pics.map(u=>'<img loading="lazy" src="'+_ebA(u)+'" alt="">').join(''):'')+
+    '</div></details></div>';
+}
+function libPicsToggle(el){
+  _libPicsOn=!!(el&&el.open);
+  const box=document.getElementById('libb-pics');if(!box)return;
+  if(!_libPicsOn){box.innerHTML='';return;}
+  if(box.children.length)return;
+  let pics=[];try{pics=JSON.parse(box.dataset.pics||'[]');}catch(e){}
+  box.innerHTML=pics.map(u=>'<img loading="lazy" src="'+_ebA(u)+'" alt="">').join('');
+}
 function _libTocHtml(){
-  const toc=(_libBook&&_libBook.toc)||[];
-  if(!toc.length)return '<div class="eb-empty">목차가 아직 없습니다.</div>';
-  return '<ol class="libb-toc">'+toc.map(x=>'<li><b>'+_ebE(String(x.no||''))+'</b> '+_ebE(x.title||'')+'</li>').join('')+'</ol>';
+  const d=_libBook||{},m=(_libBookRow&&_libBookRow.meta)||d;
+  const toc=d.toc||[];
+  if(toc.length)return '<ol class="libb-toc">'+toc.map(x=>'<li><b>'+_ebE(String(x.no||''))+'</b> '+_ebE(x.title||'')+'</li>').join('')+'</ol>';
+  const img=d.tocImage||m.tocImage||'';
+  if(img)return '<div class="libb-tocimg"><div class="pp-note" style="cursor:default">목차 글이 없어 출판사 목차 <b>그림</b>을 보여 줍니다.</div>'+
+    '<img loading="lazy" src="'+_ebA(img)+'" alt="목차 그림"></div>';
+  return '<div class="eb-empty">목차가 아직 없습니다.</div>';
 }
 function _libTextHtml(){
   if(!_libRows4.length)return '<div class="eb-empty">본문이 아직 없습니다. (lib_text)</div>';
-  const units=[...new Set(_libRows4.map(r=>String(r.unit||'')))];
+  // PDF 에서 뽑은 글은 단원이 빈 조각이 많다 — '단원 모름' 으로 묶어 맨 뒤에 둔다
+  const named=[...new Set(_libRows4.map(r=>String(r.unit||'')).filter(Boolean))];
+  const hasNo=_libRows4.some(r=>!String(r.unit||''));
+  const units=named.concat(hasNo?['__none']:[]);
   const cur=_libUnit&&units.indexOf(_libUnit)>=0?_libUnit:units[0];
   _libUnit=cur;
-  const rows=_libRows4.filter(r=>String(r.unit||'')===cur);
+  const rows=(cur==='__none')?_libRows4.filter(r=>!String(r.unit||''))
+                             :_libRows4.filter(r=>String(r.unit||'')===cur);
   const KIND={passage:'본문',script:'대본',vocab:'낱말',sample:'맛보기',toc:'목차'};
+  const uLbl=u=>u==='__none'?('단원 모름 ('+_libRows4.filter(r=>!String(r.unit||'')).length+')'):u;
   return '<div class="libb-units">'+units.map(u=>'<button class="wz-opt'+(u===cur?' on':'')+'" onclick="libUnit(\''+escJsA(u)+'\')">'+
-      _ebE(u||'(단원 없음)')+'</button>').join('')+'</div>'+
+      _ebE(uLbl(u))+'</button>').join('')+'</div>'+
     rows.map(r=>'<div class="libb-text">'+
       '<div class="libb-text-h"><span class="lib-deep-k">'+_ebE(KIND[r.kind]||r.kind)+'</span>'+
-        (r.words?('<span class="libb-w">'+r.words+'낱말</span>'):'')+
+        '<span class="libb-w">'+(r.words?(r.words+'낱말'):(String(r.text||'').trim().split(/\s+/).filter(Boolean).length+'낱말'))+'</span>'+
         '<span style="flex:1"></span>'+
         '<button class="btn bo bxxs" onclick="libUseText(\''+escJsA(r.id)+'\')">이 본문으로 만들기</button>'+
       '</div>'+

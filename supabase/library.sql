@@ -65,7 +65,37 @@ create index if not exists lib_books_upd_idx    on public.lib_books (updated_at)
 --   "_deleted": true                   -- 휴지통
 -- }
 
--- ══ 2. 목록용 뷰 ═══════════════════════════════════════════
+-- ══ 2. lib_text ════════════════════════════════════════════
+-- ⚠️ 뷰(lib_books_index)의 ntext 가 이 표를 보므로 **뷰보다 먼저** 만듭니다.
+--    순서가 바뀌면 relation "public.lib_text" does not exist 로 멈춥니다.
+-- 책의 글 조각. id 는 '책id|단원|조각번호' 로 만들어 같은 조각을 두 번 넣지 않습니다.
+create table if not exists public.lib_text (
+  id          text primary key,
+  book_id     text not null,
+  unit        text,
+  kind        text not null default 'passage',   -- passage 본문 | script 대본 | vocab 낱말 | sample 맛보기 | toc 목차
+  text        text not null default '',
+  words       int,
+  src         jsonb,                             -- {"fileId":"1Xyz…","page":3,"bankId":"1AbC…"}
+  updated_at  timestamptz not null default now()
+);
+create index if not exists lib_text_book_idx on public.lib_text (book_id);
+create index if not exists lib_text_kind_idx on public.lib_text (kind);
+create index if not exists lib_text_upd_idx  on public.lib_text (updated_at);
+
+-- 낱말 찾기 — 영어 본문이라 'simple' 로 충분합니다(한국어 형태소 사전이 없어도 됨)
+alter table public.lib_text
+  add column if not exists tsv tsvector
+  generated always as (to_tsvector('simple', coalesce(unit,'') || ' ' || coalesce(text,''))) stored;
+create index if not exists lib_text_tsv_idx on public.lib_text using gin (tsv);
+
+-- 토막 글자 찾기(부분 일치) — pg_trgm 이 없으면 만듭니다
+create extension if not exists pg_trgm;
+create index if not exists lib_text_trgm_idx on public.lib_text using gin (text gin_trgm_ops);
+create index if not exists lib_books_title_trgm_idx
+  on public.lib_books using gin ((coalesce(data->>'title','') || ' ' || coalesce(data->>'series','')) gin_trgm_ops);
+
+-- ══ 3. 목록용 뷰 ═══════════════════════════════════════════
 -- 목록에는 소개 글·목차·맛보기가 필요 없습니다(한 줄에서 가장 무거운 부분).
 -- 그 셋을 뺀 가벼운 meta 를 주고, 책 한 권을 열 때만 그 줄의 data 전체를 받습니다.
 --   ntoc     목차 줄 수 · hasSample 맛보기 있음 · nbank 이어 붙인 자료 수
@@ -100,11 +130,18 @@ select
     'seriesOrder', (nullif(b.data->>'seriesOrder',''))::numeric,
     'components',  case when jsonb_typeof(b.data->'components')='array' then b.data->'components' else null end,
     'sources',     case when jsonb_typeof(b.data->'sources')='array'    then b.data->'sources'    else null end,
-    'bankIds',     case when jsonb_typeof(b.data->'bankIds')='array'    then b.data->'bankIds'    else null end
+    'bankIds',     case when jsonb_typeof(b.data->'bankIds')='array'    then b.data->'bankIds'    else null end,
+    -- ↓ 2026-11-14 더한 것 — 목록 카드에서 바로 쓰는 값
+    'kind',        nullif(b.data->>'kind',''),                      -- '원서' 배지
+    'outOfPrint',  case when (b.data->>'outOfPrint')='true' then true else null end,
+    'authors',     nullif(b.data->>'authors',''),
+    'teacherMaterials', (nullif(b.data->>'teacherMaterials',''))::numeric
   )) as meta,
   coalesce(jsonb_array_length(case when jsonb_typeof(b.data->'toc')='array'
                                    then b.data->'toc' else '[]'::jsonb end),0) as ntoc,
   (coalesce(b.data->>'sample','') <> '') as hassample,
+  (coalesce(b.data->>'tocImage','') <> '') as hastocimg,     -- 목차 '그림' 만 있는 책 (목록에서 알 수 있게)
+  (coalesce(b.data->>'previewUrl','') <> '') as haspreview,
   coalesce(jsonb_array_length(case when jsonb_typeof(b.data->'bankIds')='array'
                                    then b.data->'bankIds' else '[]'::jsonb end),0) as nbank,
   (select count(*) from public.lib_text t where t.book_id = b.id) as ntext
@@ -113,34 +150,6 @@ where coalesce(b.data->>'_deleted','') = '';
 
 -- 뷰가 부른 사람의 권한을 따르게 (Postgres 15+). 이 줄에서 오류가 나면 지우고 실행하세요.
 alter view public.lib_books_index set (security_invoker = on);
-
--- ══ 3. lib_text ════════════════════════════════════════════
--- 책의 글 조각. id 는 '책id|단원|조각번호' 로 만들어 같은 조각을 두 번 넣지 않습니다.
-create table if not exists public.lib_text (
-  id          text primary key,
-  book_id     text not null,
-  unit        text,
-  kind        text not null default 'passage',   -- passage 본문 | script 대본 | vocab 낱말 | sample 맛보기 | toc 목차
-  text        text not null default '',
-  words       int,
-  src         jsonb,                             -- {"fileId":"1Xyz…","page":3,"bankId":"1AbC…"}
-  updated_at  timestamptz not null default now()
-);
-create index if not exists lib_text_book_idx on public.lib_text (book_id);
-create index if not exists lib_text_kind_idx on public.lib_text (kind);
-create index if not exists lib_text_upd_idx  on public.lib_text (updated_at);
-
--- 낱말 찾기 — 영어 본문이라 'simple' 로 충분합니다(한국어 형태소 사전이 없어도 됨)
-alter table public.lib_text
-  add column if not exists tsv tsvector
-  generated always as (to_tsvector('simple', coalesce(unit,'') || ' ' || coalesce(text,''))) stored;
-create index if not exists lib_text_tsv_idx on public.lib_text using gin (tsv);
-
--- 토막 글자 찾기(부분 일치) — pg_trgm 이 없으면 만듭니다
-create extension if not exists pg_trgm;
-create index if not exists lib_text_trgm_idx on public.lib_text using gin (text gin_trgm_ops);
-create index if not exists lib_books_title_trgm_idx
-  on public.lib_books using gin ((coalesce(data->>'title','') || ' ' || coalesce(data->>'series','')) gin_trgm_ops);
 
 -- ══ 4. 찾기 함수 ═══════════════════════════════════════════
 -- 제목·시리즈·목차(lib_books)와 본문(lib_text)을 **함께** 찾아 점수순으로 돌려줍니다.
@@ -205,6 +214,11 @@ as $$
   order by r.score desc, r.book_id, r.unit
   limit greatest(1, coalesce(lim, 30));
 $$;
+
+-- ── 2026-11-14: 뷰만 다시 만들 때 ───────────────────────────
+-- 위 'create or replace view public.lib_books_index' 블록만 다시 실행하면 됩니다.
+-- 표·데이터는 건드리지 않습니다. (meta 에 kind·outOfPrint·authors·teacherMaterials,
+--  열에 hastocimg·haspreview 를 더했습니다.)
 
 -- ══ 5. RLS ═════════════════════════════════════════════════
 -- 라이브러리는 **선생님 전용**입니다. 학생·학부모 화면은 이 표를 부르지도 않습니다.
