@@ -567,16 +567,28 @@ function ppMonthMetrics(stu,month){
   const les=((typeof DB.less==='function')?DB.less():[]).filter(l=>l&&l.sid===stu.id&&inM(l.date));
   const counted=les.filter(l=>!['teacher_cancel','holiday'].includes(l.att||''));
   const attended=counted.filter(l=>(l.att||'normal')!=='absent').length;
-  const hw=((typeof DB.assigns==='function')?DB.assigns():[])
-    .filter(a=>a&&!a._deleted&&a.sid===stu.id&&inM(a.due||a.date));
-  const hwDone=hw.filter(a=>a.completedAt||(typeof hwFinished==='function'&&hwFinished(a))).length;
+  // [A6] 숙제 완료율 — **날짜별 '그 날 몫'** 으로 센다(hwDayStatus). 다른 화면(주간 현황·도장)과 같은 기준.
+  // 전에는 '마감일이 이번 달인 과제' 를 셌다 — 일정형 숙제 한 건이 30일치여도 1건으로 잡혀
+  // 10/15 처럼 다른 화면과 다른 숫자가 나왔다. 수업에서 나간 몫(doneBy:'lesson')은 애초에 빠진다.
+  const _mToday=(typeof ppToday==='function')?ppToday():'';
+  let _hwDone=0,_hwTot=0,_hwDays=0;
+  if(typeof hwDayStatus==='function'){
+    for(let d=1;d<=31;d++){
+      const ds=m+'-'+String(d).padStart(2,'0');
+      if(_mToday&&ds>_mToday)break;
+      const st=hwDayStatus(stu.id,ds);
+      if(st.total){_hwTot+=st.total;_hwDone+=st.done;_hwDays++;}
+    }
+  }
+  const hw={length:_hwTot,days:_hwDays};
+  const hwDone=_hwDone;
   const tsts=((typeof DB.tsts==='function')?DB.tsts():[]).filter(t=>t&&t.sid===stu.id&&inM(t.date));
   const vAvg=(typeof ppAvgPct==='function')?ppAvgPct(tsts,'vocab'):null;
   const vN=(typeof ppScored==='function')?ppScored(tsts,'vocab').length:0;
   return {
     month:m,
     att:  counted.length?{pct:Math.round(attended/counted.length*100),done:attended,total:counted.length}:null,
-    hw:   hw.length?{pct:Math.round(hwDone/hw.length*100),done:hwDone,total:hw.length}:null,
+    hw:   hw.length?{pct:Math.round(hwDone/hw.length*100),done:hwDone,total:hw.length,days:hw.days}:null,
     vocab:(vAvg==null)?null:{pct:vAvg,total:vN},
   };
 }
@@ -587,7 +599,12 @@ function ppMetricsHtml(mx){
   const cell=(k)=>{
     const v=mx[k];
     const sub=v?(k==='vocab'?('시험 '+v.total+'회'):(v.done+'/'+v.total)):'기록 없음';
-    return '<div class="rm-c"><div class="rm-l">'+PP_METRIC_LBL[k]+'</div>'
+    // 무엇을 어떻게 셌는지 — 숫자가 화면마다 다르게 보이지 않게 식을 적어 둔다
+    const tip=k==='hw'
+      ?(v?(mx.month+' 1일부터 오늘까지 날마다 낸 숙제 몫 '+v.total+'개 중 '+v.done+'개 완료 ('+(v.days||0)+'일)'
+          +String.fromCharCode(10)+'수업에서 나간 몫은 세지 않습니다'):'이번 달에 낸 숙제가 없습니다')
+      :(k==='att'?(mx.month+' 수업 중 출석 (휴강·선생님 취소 제외)'):(mx.month+' 시험 평균 (미응시 제외)'));
+    return '<div class="rm-c" title="'+String(tip).replace(/"/g,'&quot;')+'"><div class="rm-l">'+PP_METRIC_LBL[k]+'</div>'
       +'<div class="rm-v">'+(v?v.pct+'%':'—')+'</div><div class="rm-s">'+sub+'</div></div>';
   };
   return '<div class="rep-metrics">'+['att','hw','vocab'].map(cell).join('')+'</div>';
@@ -1889,6 +1906,63 @@ function ppHwBanner(sid){
       rule:last.recurRule||'',days:ppHwDows(last)});
   }
   return out;
+}
+
+// ── [A1] 달력에 쓸 짧은 책 이름 ─────────────────────────────
+// 칩에 'Day 5' 만 적히면 어느 책인지 알 수 없다. 모든 칩을 '[짧은 이름] 단원' 으로 쓴다.
+// 선생님이 교재 기본 정보에 적어 둔 별칭(tb.nick)이 가장 먼저다.
+const PP_SHORT_HEAD=/^(초등|중등|고등|중학|고교|기초|New|NEW)\s+/;
+const PP_SHORT_FN=new Set(['for','the','of','and','to','in','on','a','an','with','your','my']);
+function ppBookShort(tb){
+  const isObj=tb&&typeof tb==='object';
+  const nick=isObj?String(tb.nick||'').trim():'';
+  if(nick)return nick;
+  let t=String(isObj?(tb.title||''):(tb||'')).trim();
+  if(!t)return '';
+  if(t.length<=8)return t;
+  // 레벨 꼬리 ('Starters 1' · '2.2' · 'Level 3')
+  let lv='';
+  const m=t.match(/\s(?:(starters?|level|lv|book|grade|step|stage)\s*)?([0-9]+(?:[.\-][0-9]+)*)\s*$/i);
+  if(m){lv=(m[1]?m[1].charAt(0).toUpperCase():'')+m[2];t=t.slice(0,m.index).trim();}
+  t=t.replace(PP_SHORT_HEAD,'').trim();
+  let head=t;
+  if(t.length>8){
+    const parts=t.split(/\s+/).filter(Boolean);
+    if(/[가-힣]/.test(t)){
+      head=parts[parts.length-1];                       // 한글은 끝말이 그 책의 이름이다
+      if(head.length>9)head=head.slice(0,9);
+    }else{
+      const num=/^[0-9]+$/.test(parts[0])?parts.shift():'';
+      if(parts.length===1&&!num)head=parts[0].slice(0,8);          // 한 낱말이면 머리글자 대신 앞 8글자
+      else{
+        const ini=parts.filter(w=>!PP_SHORT_FN.has(w.toLowerCase())).map(w=>w.charAt(0).toUpperCase()).join('').slice(0,4);
+        head=(num+ini)||t.slice(0,8);
+      }
+    }
+  }
+  return (head+(lv?' '+lv:'')).trim();
+}
+// 한 묶음(반의 교재 흐름) 안에서 겹치지 않는 짧은 이름 {교재id: 짧은 이름}
+function ppBookShortMap(tbs){
+  const out={},used={};
+  (tbs||[]).filter(b=>b&&b.id).forEach(tb=>{
+    let s=ppBookShort(tb)||String(tb.title||'').slice(0,8);
+    if(used[s]){
+      used[s]++;
+      const tail=(String(tb.title||'').match(/([0-9]+(?:[.\-][0-9]+)*)\s*$/)||[])[1]||String(used[s]);
+      let cand=s+' '+tail,g=0;
+      while(Object.values(out).indexOf(cand)>=0&&g++<9)cand=cand+'·';
+      s=cand;
+    }else used[s]=1;
+    out[tb.id]=s;
+  });
+  return out;
+}
+// 칩 한 칸의 글자 — '[짧은 이름] 단원'
+function ppChipLabel(tb,unit,short){
+  const sh=short||ppBookShort(tb);
+  const u=String(unit||'').trim();
+  return (sh?sh+(u?' ':''):'')+u;
 }
 
 // ── [1] 숙제 이어서 내기 — 미리 보기 한 벌 ───────────────────
