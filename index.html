@@ -869,6 +869,7 @@
             </div>
             <div class="iso-row" style="margin-top:4px">
               <button class="btn bt" id="iso-go" onclick="isoGenerate()">✏️ 동형 문제 만들기</button>
+              <button class="btn bo bsm" onclick="isoCardsOpen(0)" title="기출을 읽고 만든 유형 설계 카드 10장 (읽기 전용)">📐 설계 카드</button>
               <span class="iso-hint">AI 호출 3번 (분석 → 생성 → 다시 풀어 확인)</span>
             </div>
           </div>
@@ -881,6 +882,8 @@
 
         <div id="iso-list"></div>
 
+        <div id="iso-cardres" class="icr" style="display:none"></div>
+        <div id="iso-log"></div>
         <div id="iso-foot" class="iso-foot" style="display:none">
           <label class="iso-lb">인쇄 단</label>
           <select class="filter-sel" id="iso-cols">
@@ -3227,6 +3230,21 @@
   </div>
 </div>
 
+<!-- 동형 — 유형 설계 카드 (읽기 전용) -->
+<div id="m-iso-cards" class="mo">
+  <div class="mdl mdl-xl">
+    <div class="mh">
+      <div style="min-width:0">
+        <div class="mt">📐 유형 설계 카드</div>
+        <div class="ssub">기출을 읽고 만든 카드입니다. 여기서는 보기만 합니다.</div>
+      </div>
+      <button class="bx" onclick="closeM('m-iso-cards')">×</button>
+    </div>
+    <div id="isoc-tabs" class="libb-units"></div>
+    <div id="isoc-body" class="libb-body"></div>
+  </div>
+</div>
+
 <div id="m-ib-shot" class="mo">
   <div class="mdl" style="max-width:560px">
     <div class="mh"><div class="mt">📸 캡처로 문항 추가</div><button class="bx" onclick="ibShotClose()">×</button></div>
@@ -3270,7 +3288,8 @@
 <script src="js/utils.js?v=20261112h"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261112b"></script>
-<script src="js/teacher.js?v=20261114c"></script>
+<script src="js/iso_cards.js?v=20261114a"></script>
+<script src="js/teacher.js?v=20261114d"></script>
 <script src="js/student.js?v=20261112h"></script>
 <script src="js/parent.js?v=20261112e"></script>
 </body>
