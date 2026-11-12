@@ -3566,3 +3566,34 @@ span.pe-c{width:30px;flex-shrink:0;text-align:center;}
 .libb-pics{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
 .libb-pics img{width:100%;max-width:560px;border-radius:var(--rs);border:1px solid var(--border);}
 .libb-tocimg img{width:100%;max-width:620px;border-radius:var(--rs);border:1px solid var(--border);margin-top:8px;}
+
+/* ── 동형 설계 카드 결과 ─────────────────────────────────── */
+.icr{margin:12px 0;}
+.icr-top{font-size:13.5px;color:var(--navy);margin-bottom:10px;}
+.icr-dim{font-size:12px;color:var(--text-muted);font-weight:600;}
+.icr-card{border:1px solid var(--border);border-radius:var(--rs);padding:11px 13px;margin-bottom:9px;}
+.icr-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
+.icr-q{font-size:13px;font-weight:700;color:var(--navy);}
+.icr-st{font-size:11.5px;font-weight:700;border-radius:var(--rpill);padding:2px 9px;}
+.icr-ok{background:var(--okl);color:var(--okt);}
+.icr-warn{background:var(--warnl);color:var(--warnt);}
+.icr-bad{background:var(--cream2);color:var(--slate);}
+.icr-why{font-size:12.5px;color:var(--warnt);margin-bottom:5px;}
+.icr-body{font-size:12.5px;color:var(--slate);line-height:1.7;white-space:pre-wrap;
+  max-height:140px;overflow:auto;background:var(--cream2);border-radius:var(--rs);padding:8px 10px;}
+.icr-ch{margin:8px 0 4px;padding-left:20px;font-size:13px;color:var(--navy);}
+.icr-ch li.on{font-weight:700;color:var(--teal);}
+.icr-ch em{display:block;font-style:normal;font-size:11.5px;color:var(--text-muted);}
+.icr-ev{font-size:12px;color:var(--slate);margin:4px 0;}
+.icr-rs{font-size:12.5px;color:var(--navy);padding:4px 0;}
+.icr-t{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;}
+.icr-t th,.icr-t td{border:1px solid var(--border);padding:4px 7px;text-align:left;color:var(--navy);}
+.icr-t th{background:var(--cream2);font-weight:700;}
+.icr-t tr.icr-bad td{background:var(--warnl);}
+.icr-t tr.icr-warn td{color:var(--warnt);}
+.isoc-why{font-size:13px;color:var(--slate);line-height:1.7;margin-bottom:10px;}
+#isoc-body h4{font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 6px;}
+.isoc-ul{margin:0;padding-left:20px;font-size:12.5px;color:var(--navy);line-height:1.75;}
+.isoc-p{font-size:12.5px;color:var(--slate);line-height:1.7;margin:0;}
+.isoc-ex{font-size:12.5px;margin-bottom:5px;}
+.isoc-no{color:var(--text-muted);font-size:12px;}
