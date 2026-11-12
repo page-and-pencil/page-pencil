@@ -6654,6 +6654,10 @@ async function psSubmit(){
 async function psSubmitGo(){
   const b=document.getElementById('ps-submit');if(b)b.disabled=true;
   const items=_psItems();
+  // 문항 번호가 없으면 'undefined' 키로 저장돼 점수가 0 이 된다 — 아예 보내지 않는다
+  if(items.some(it=>!it||!it.id)||Object.keys(_psAns).some(k=>k===''||k==='undefined'||k==='null')){
+    toast('문항 번호를 찾지 못했어요 — 선생님께 말씀해 주세요');if(b)b.disabled=false;return;
+  }
   const g=psGrade(items,_psAns);
   const today=(typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);
   const rec={id:uid(),paperId:_psW.paperId||'',sentId:_psW.id,title:_psW.title||'시험지',date:today,
