@@ -3468,3 +3468,18 @@ span.pe-c{width:30px;flex-shrink:0;text-align:center;}
 .eb-use:hover{border-color:var(--teal);}
 .eb-use.on{border-color:var(--teal);background:var(--tl);color:var(--teal);}
 .eb-use small{font-weight:700;opacity:.7;font-size:11.5px;}
+
+/* ── 수업 때마다 하는 활동 (C) ───────────────────────────── */
+.ec-acts{display:flex;flex-direction:column;gap:6px;}
+.ec-act{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.ec-act-nm{flex:1;min-width:140px;padding:6px 9px;border:1.5px solid var(--border);border-radius:var(--rs);
+  font-family:var(--fb);font-size:13px;}
+.ec-act-d{display:flex;gap:5px;flex-wrap:wrap;}
+.ec-act-d label{display:inline-flex;align-items:center;gap:3px;font-size:12px;color:var(--slate);cursor:pointer;}
+.ec-act-h{font-size:12px;color:var(--text-muted);}
+.pg-chip.pg-act{font-weight:700;}
+.pg-chip.pg-act.pg-dim{opacity:.45;}
+.cl-acts{margin-top:8px;}
+.cl-acts-h{font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:5px;}
+.cl-act{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--navy);margin-right:12px;cursor:pointer;}
+.dash-act{font-size:12.5px;color:var(--tealt);font-weight:600;margin:2px 0 5px;}

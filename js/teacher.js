@@ -6964,6 +6964,7 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-13',title:'수업 때마다 하는 활동 — 리딩앤 원서 읽기를 수업일마다 캘린더에',where:'클래스 → 클래스 수정 → 수업 때마다 하는 활동',tab:'t-class',go:['renderClassTab']},
  {date:'2026-11-13',title:"'자료실'이 '기출'로 — 용도 칩(수능·내신·듣기평가·성취도·고입)",where:'교재·문제 → 기출',tab:'t-data',go:['switchDataTab','bank']},
  {date:'2026-11-13',title:'교재·문제집 자료는 교재 탭의 [자료만 있는 책]으로',where:'교재·문제 → 교재',tab:'t-data',go:['switchDataTab','tbook']},
  {date:'2026-11-13',title:'만들기 — 다섯 가지를 한 화면에 하나씩 물어보고 인쇄까지',where:'교재·문제 → 만들기 (대시보드에도 단추)',tab:'t-data',go:['switchDataTab','make']},
@@ -11161,6 +11162,8 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
               ?`<button class="btn bo bsm w84" style="font-size:12px;flex-shrink:0" onclick="openClassLessonEdit('${c.id}','${todayStr}')">수정</button>`
               :`<button class="btn bt bsm w84" style="font-size:12px;flex-shrink:0" onclick="openClassLesson('${c.id}','${todayStr}')">기록하기</button>`}
           </div>
+          ${(typeof pgActsOn==='function'?pgActsOn(c,todayStr,true,new Set(c.skipDates||[])):[]).map(a=>
+            `<div class="dash-act">📗 ${escAttr(a.label)}</div>`).join('')}
           ${stuRows||`<span style="font-size:13px;color:var(--slate)">학생 없음</span>`}
         </div>
       </div>`;
@@ -15359,6 +15362,64 @@ function _pgComposePlan(classId,c,uptoDate){
   });
   return {books,clsStus,singDates,singBy,ghostBy,ortGhostBy,skipSet};
 }
+// ── 수업 때마다 하는 활동 (c.classActs) ────────────────────────────────
+// 리딩앤으로 원서를 읽는 반처럼, **수업 날마다 하는 일**을 캘린더에 깔아 둔다.
+// 숙제가 아니다 — 숙제 완료율·밀린 날에 넣지 않는다(C5).
+//   c.classActs = [{id,label,days}]   days 가 비면 모든 수업일
+const PP_ACT_PRESETS=[{id:'readingn',label:'리딩앤 원서 읽기',ort:true}];
+function pgActsOf(c){
+  return (c&&Array.isArray(c.classActs)?c.classActs:[]).filter(a=>a&&a.id&&a.label);
+}
+// 그 날 할 활동 (휴강이면 없음, 보강이면 있음 — 수업일 판정은 부르는 쪽이 넘긴다)
+function pgActsOn(c,ds,isClassDay,skipSet){
+  if(!isClassDay)return [];
+  if(skipSet&&skipSet.has&&skipSet.has(ds))return [];
+  const dow=_PG_DOW[new Date(ds+'T12:00:00').getDay()];
+  return pgActsOf(c).filter(a=>!(Array.isArray(a.days)&&a.days.length)||a.days.indexOf(dow)>=0);
+}
+// 그 날 그 활동을 했는가 — 수업 기록의 체크(l.acts) 또는 원서 기록으로 본다
+function pgActDone(classId,ds,act,ortTitles){
+  const l=(_cache.lessons||[]).find(x=>x&&x.classId===classId&&x.date===ds&&!x._deleted);
+  if(l&&Array.isArray(l.acts)&&l.acts.indexOf(act.id)>=0)return {done:true,why:''};
+  const pre=PP_ACT_PRESETS.find(p=>p.id===act.id);
+  if(pre&&pre.ort&&ortTitles&&ortTitles.size)return {done:true,why:[...ortTitles].join(', ')};
+  return {done:false,why:''};
+}
+// 수업 기록 창 — 그날 예정에 활동이 있으면 체크된 채로 뜬다 (C3)
+function clActsRender(classId,ds){
+  const el=document.getElementById('cl-acts');if(!el)return;
+  const c=DB.classes().find(x=>x.id===classId);
+  if(!c){el.innerHTML='';return;}
+  const dow=_PG_DOW[new Date((ds||ppToday())+'T12:00:00').getDay()];
+  const isDay=(c.days||[]).includes(dow)||((c.extraDates||[]).indexOf(ds)>=0);
+  const acts=pgActsOn(c,ds||ppToday(),isDay||true,new Set(c.skipDates||[]));
+  if(!acts.length){el.innerHTML='';return;}
+  const l=(_cache.lessons||[]).find(x=>x&&x.classId===classId&&x.date===ds&&!x._deleted);
+  const have=new Set((l&&Array.isArray(l.acts))?l.acts:acts.map(a=>a.id));   // 예정이면 켜 둔다
+  el.innerHTML='<div class="cl-acts-h">수업 때마다 하는 활동</div>'+acts.map(a=>
+    '<label class="cl-act"><input type="checkbox" data-act="'+escAttr(a.id)+'"'+(have.has(a.id)?' checked':'')+'> '+
+    escAttr(a.label)+'</label>').join('');
+}
+function clActsPickedNow(){
+  return [...document.querySelectorAll('#cl-acts input[data-act]')].filter(x=>x.checked).map(x=>x.dataset.act);
+}
+// 칩을 눌러 '했다/안 했다' — 그 날 수업 기록에 적는다 (숙제와 섞이지 않는다)
+async function pgActToggle(classId,ds,actId){
+  if(typeof ppSandbox==='function'&&ppSandbox()){toast('체험 모드에서는 저장하지 않아요');return;}
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  const act=pgActsOf(c).find(a=>a.id===actId);if(!act)return;
+  let l=(_cache.lessons||[]).find(x=>x&&x.classId===classId&&x.date===ds&&!x._deleted);
+  if(!l){toast('그 날 수업 기록이 아직 없어요 — 수업 기록을 먼저 만들어 주세요');return;}
+  const have=Array.isArray(l.acts)?l.acts.slice():[];
+  const i=have.indexOf(actId);
+  if(i>=0)have.splice(i,1);else have.push(actId);
+  l.acts=have;
+  const {rowId,...data}=l;
+  const ok=await supaUpsert('lessons',l.id,data).catch(()=>false);
+  if(!ok){toast('저장하지 못했어요');return;}
+  toast(act.label+(i>=0?' 표시를 지웠어요':' 했다고 적었어요'));
+  try{renderClsLessons(classId);}catch(e){}
+}
 // 수업 기록 폼: 다음 단원 자동 채움 (손으로 고친 값·수정 모드는 건드리지 않음)
 function _pgAutoFillRow(sr){
   const idEl=document.getElementById('cl-class-id');
@@ -16105,6 +16166,16 @@ function _pgCalHtml(classId){
       }
       return `<span class="pg-chip ghost has-x" draggable="true" style="--pgc:${g.color}" title="${escAttr(g.title+' — '+g.unit+' (끌어서 이동 · 더블클릭=기록 확정 · 우클릭=메뉴 · ✕=이 날에서 빼기)')}" ondragstart="pgDragStart(event,'${classId}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" oncontextmenu="pgChipMenu(event,'ghost','${classId}','${ds}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${g.tbId}','${escJsA(g.unit)}','${escJsA(g.s)}')" ondblclick="pgGhostDbl(event,'${classId}','${g.tbId}','${escJsA(g.unit)}','${ds}','${escJsA(g.s)}')">${sh?escAttr(sh)+' ':''}${g.unit}<i class="pg-x" title="이 날에서 빼기" onclick="pgChipSkip(event,'${classId}','${g.tbId}','${ds}','${escJsA(g.title)}')">✕</i></span>`;
     }).join('');
+    // 수업 때마다 하는 활동 (C2) — 예정은 점선, 기록이 있으면 채움, 지난 날 기록 없으면 흐리게
+    if(LY.prog)pgActsOn(c,ds,isClassDay,skipSet).forEach(a=>{
+      const st=pgActDone(classId,ds,a,ortRecBy[ds]);
+      const past=!st.done&&ds<todayStr;
+      const tip=a.label+(st.done?(' — 함'+(st.why?(' · '+st.why):'')):(past?' — 기록 없음':' — 이 수업에 합니다'))
+        +' (숙제가 아니라 수업 활동이에요)';
+      chips+=`<span class="pg-chip ${st.done?'rec':'ghost'} pg-act${past?' pg-dim':''}" style="--pgc:${_PG_ORT_COLOR}" `
+        +`title="${escAttr(tip)}" onclick="event.stopPropagation();pgActToggle('${classId}','${ds}','${escJsA(a.id)}')">`
+        +`📗 ${escAttr(a.label)}${st.done&&st.why?' ✓':(st.done?' ✓':'')}</span>`;
+    });
     chips+=(ortGhostBy[ds]||[]).map(g=>
       `<span class="pg-chip ghost" draggable="true" style="--pgc:${_PG_ORT_COLOR}" title="${escAttr((clsStus.length>1?g.name+' — ':'')+g.title+(ortGroupOf(g.title)?' · '+ortGroupOf(g.title):'')+' (원서 예정 — 끌어서 옮기기, 더블클릭=읽음 기록)')}" ondragstart="pgDragStart(event,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','ort:${g.sid}','${escJsA(g.title)}')" ondblclick="pgOrtDbl(event,'${classId}','${g.sid}','${escJsA(g.title)}','${ds}')">📗 ${clsStus.length>1?g.name+'·':''}${g.title}</span>`
     ).join('');
@@ -17134,6 +17205,37 @@ function pgAssignAllHomework(classId){
 }
 
 let _ecStuIds=[];
+// ── 수업 때마다 하는 활동 (C1) ─────────────────────────────────────────
+let _ecActs=[];
+function ecActRender(){
+  const el=document.getElementById('ec-acts');if(!el)return;
+  if(!_ecActs.length){el.innerHTML='<div style="font-size:12.5px;color:var(--slate)">아직 없어요 — 아래 단추로 더하세요</div>';return;}
+  const DOWS=['월','화','수','목','금','토','일'];
+  el.innerHTML=_ecActs.map((a,i)=>
+    '<div class="ec-act">'+
+      '<input type="text" class="ec-act-nm" value="'+escAttr(a.label||'')+'" placeholder="활동 이름" oninput="ecActName('+i+',this.value)">'+
+      '<span class="ec-act-d">'+DOWS.map(d=>
+        '<label><input type="checkbox" '+((a.days||[]).indexOf(d)>=0?'checked':'')+' onchange="ecActDay('+i+',\''+d+'\',this.checked)">'+d+'</label>').join('')+
+      '</span>'+
+      '<span class="ec-act-h">'+((a.days||[]).length?'':'모든 수업일')+'</span>'+
+      '<button type="button" class="btn-xr" onclick="ecActDel('+i+')">×</button>'+
+    '</div>').join('');
+}
+function ecActAdd(preset){
+  const p=PP_ACT_PRESETS.find(x=>x.id===preset);
+  if(p&&_ecActs.some(a=>a.id===p.id)){toast('이미 있어요');return;}
+  _ecActs.push(p?{id:p.id,label:p.label,days:[]}:{id:'act'+Date.now().toString(36),label:'',days:[]});
+  ecActRender();
+}
+function ecActName(i,v){if(_ecActs[i])_ecActs[i].label=v;}
+function ecActDay(i,d,on){
+  if(!_ecActs[i])return;
+  const ds=_ecActs[i].days=_ecActs[i].days||[];
+  const j=ds.indexOf(d);
+  if(on&&j<0)ds.push(d);else if(!on&&j>=0)ds.splice(j,1);
+  ecActRender();
+}
+function ecActDel(i){_ecActs.splice(i,1);ecActRender();}
 const ecSubjs=new Set();
 function ecTogSubj(el){
   const s=el.dataset.s;
@@ -17328,6 +17430,8 @@ function openEditClass(id=null){
   const dhw=document.getElementById('ec-dailyhw');if(dhw)dhw.value=(c?.dailyHw||[]).join('\n');
   const ahw=document.getElementById('ec-autohw');if(ahw)ahw.checked=!(c&&c.autoHw===false); // 기본 켜짐
   _ecStuIds=c?[...(c.studentIds||[])]:[];
+  _ecActs=c&&Array.isArray(c.classActs)?JSON.parse(JSON.stringify(c.classActs)):[];
+  ecActRender();
   ecRenderTags();
   document.getElementById('ec-stu-search').value='';
   document.getElementById('ec-stu-dropdown').style.display='none';
@@ -17388,6 +17492,8 @@ async function saveClass(){
   }
   const time=timeStart; // 기존 호환성 유지
   const studentIds=[..._ecStuIds];
+  const classActs=_ecActs.map(a=>({id:a.id,label:String(a.label||'').trim(),days:(a.days||[]).slice()}))
+    .filter(a=>a.id&&a.label);
   const existingId=document.getElementById('ec-id').value;
   const id=existingId||uid();
   const existing=DB.classes().find(x=>x.id===id);
@@ -17436,7 +17542,7 @@ async function saveClass(){
   }
   const dailyHw=(document.getElementById('ec-dailyhw')?.value||'').split('\n').map(x=>x.trim()).filter(Boolean);
   const autoHw=document.getElementById('ec-autohw')?document.getElementById('ec-autohw').checked:true; // 수업 연계 숙제 자동 제안
-  const c={...(existing||{}),id,name,days,time,timeStart,timeEnd,dayTimes,studentIds,commonMaterials,class5,dailyHw,autoHw,active:true};
+  const c={...(existing||{}),id,name,days,time,timeStart,timeEnd,dayTimes,studentIds,commonMaterials,class5,classActs,dailyHw,autoHw,active:true};
   await supaUpsert('classes',id,c,null);
   if(!_cache.globalClasses)_cache.globalClasses=[];
   const idx=_cache.globalClasses.findIndex(x=>x.id===id);
@@ -17618,6 +17724,7 @@ const _CL_PROG_CHIPS_HTML=['완독','진행 중'].map(v=>`<button type="button" 
 function clUpdateDaySub(){
   const c=DB.classes().find(x=>x.id===document.getElementById('cl-class-id').value);if(!c)return;
   const d=document.getElementById('cl-date').value||ppToday();
+  try{clActsRender(c.id,d);}catch(e){}            // 그날 예정의 활동 줄 (C3·C4)
   const day=['일','월','화','수','목','금','토'][new Date(d+'T00:00:00').getDay()];
   const timeStr=classTimeStr(c,day);
   document.getElementById('cl-modal-sub').textContent=classSchedStr(c)+(timeStr&&(c.dayTimes&&Object.keys(c.dayTimes).length)?` — ${day}요일 ${timeStr}`:'');
@@ -18614,6 +18721,7 @@ async function saveClassLesson(){
       indCmt:row.querySelector('.cl-ind-cmt')?.value.trim()||'',
       previewCmt:_pvEl?.dataset?.cmt||'',previewSrc:_pvEl?.dataset?.src||''});
   });
+  const _clActsPicked=(typeof clActsPickedNow==='function')?clActsPickedNow():[];   // 수업 활동 체크 (C3)
   // 과제 rows 수집
   const collectHwRows=sel=>[...document.querySelectorAll(sel)]
     .filter(row=>row.closest('.cl-hw-date-group')?.dataset.skip!=='true')
@@ -18705,7 +18813,7 @@ async function saveClassLesson(){
       const stuCmt=(existing&&existing.cmt===cmt&&existing.stuCmt)
         ? existing.stuCmt
         : (String(cmt||'').trim()&&!_away ? (await polishStuCmt_teacher(cmt,_mt,_stuName)||'') : (existing?(existing.stuCmt||''):''));
-      const les={id:existing?existing.id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:matsForStu,cmt,polishedCmt,classId,...(stuCmt?{stuCmt}:{})};
+      const les={id:existing?existing.id:uid(),sid:d.sid,date,grade:d.grade,att:d.att,materials:matsForStu,cmt,polishedCmt,classId,...(stuCmt?{stuCmt}:{}),...(_clActsPicked.length?{acts:_clActsPicked}:{})};
       await supaUpsert('lessons',les.id,les,d.sid);
       if(existing){const li=_cache.lessons.findIndex(l=>l.id===existing.id);if(li>=0)_cache.lessons[li]=les;else _cache.lessons.unshift(les);}
       else _cache.lessons.unshift(les);
