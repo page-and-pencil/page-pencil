@@ -7008,7 +7008,9 @@ async function renderWsDB(refetch){
     await ensureWorksheets(true);
   }
   const q=(document.getElementById('ws-q')?.value||'').trim().toLowerCase();
-  let list=[..._cache.worksheets].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  let devPapers=[];
+  try{devPapers=(await _pbDevAll()).map(p=>({...p,_dev:true}));}catch(e){}   // 원문 지문이 든 시험지(기기 보관)
+  let list=[..._cache.worksheets,...devPapers].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   if(q)list=list.filter(w=>(w.title||'').toLowerCase().includes(q));
   const total=document.getElementById('ws-total');
   if(total)total.textContent=`${_cache.worksheets.length}개 저장됨`;
@@ -7022,6 +7024,23 @@ async function renderWsDB(refetch){
   }
   const typeKo=t=>t==='literature'?'문학':'정보글';
   grid.innerHTML=list.map(w=>{
+    if(w.kind==='paper'){                            // 시험지 — 시험지 편집 화면에서 연다
+      const n=(w.itemIds||[]).length;
+      const fm=(PB_FORMATS.find(x=>x.k===w.format)||{}).n||'시험지';
+      const dt=w.createdAt?new Date(w.createdAt).toLocaleDateString():'';
+      return`<div class="bcard" onclick="pbOpenSaved('${escAttr(w.id)}')">
+        <div class="bcard-cover" style="background:var(--warnl)">📄</div>
+        <span class="bcard-type" style="color:var(--warnt)">시험지${w._dev?' · 이 기기':''}</span>
+        <div class="bcard-body">
+          <div class="bcard-title">${escAttr(w.title||'제목 없음')}</div>
+          <div class="bcard-meta">${escAttr(fm)}</div>
+          <div class="bcard-stats"><span>문항 <b>${n}</b></span>${dt?`<span>${dt}</span>`:''}</div>
+        </div>
+        <div class="bcard-acts">
+          ${w._dev?'':`<button onclick="event.stopPropagation();deleteWsDB('${escAttr(w.id)}')" style="color:var(--coral,var(--bad))">🗑 삭제</button>`}
+        </div>
+      </div>`;
+    }
     if(w.kind==='iso'){                              // 동형 문제 — 스튜디오가 아니라 동형 화면에서 연다
       const n=(w.items||[]).length;
       const dt=w.createdAt?new Date(w.createdAt).toLocaleDateString():'';
@@ -19792,8 +19811,11 @@ function ibBasketClear(){_ibBasketSet([]);renderItemList();toast('바구니를 �
 function _ibPaintBasket(){
   const el=document.getElementById('ib-basket');if(!el)return;
   const n=ibBasket().length;
-  el.innerHTML='🧺 바구니 '+n+'개'+(n?' <button class="ib-bx" onclick="ibBasketClear()" title="비우기">×</button>':'');
+  el.innerHTML='🧺 바구니 '+n+'개'+(n?' <button class="ib-bx" onclick="event.stopPropagation();ibBasketClear()" title="비우기">×</button>':'');
   el.className='ib-basket'+(n?' on':'');
+  el.onclick=n?(()=>pbOpen()):null;                 // 누르면 시험지 편집
+  el.style.cursor=n?'pointer':'';
+  el.title=n?'시험지 만들기':'';
 }
 // ── 거르기 ────────────────────────────────────────────────────────────────
 function _ibSaveF(){try{localStorage.setItem(IB_F_KEY,JSON.stringify(_ibF));}catch(e){}}
@@ -19821,8 +19843,12 @@ function _ibTypeVals(){
   return out;
 }
 function _ibPaintUnits(){
-  const tbs=(_cache.globalTextbooks||[]).filter(b=>b&&b.id);
+  // 은행에 문항이 있는 교재만, 가나다·ABC 순 (교재가 300권이라 전부 띄우면 못 고른다)
+  const used=new Set((_ibRows||[]).map(r=>String(((r.meta||{}).src||{}).tbId||'')).filter(Boolean));
+  const tbs=(_cache.globalTextbooks||[]).filter(b=>b&&b.id&&used.has(b.id))
+    .sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),'ko'));
   const sel=document.getElementById('ib-f-tb');
+  if(sel)sel.style.display=tbs.length?'':'none';
   if(sel&&sel.options.length!==tbs.length+1)
     _ebOptsIb('ib-f-tb','교재 전체',tbs.map(b=>({v:b.id,n:b.title||'(제목 없음)'})),_ibF.tbId);
   else if(sel)sel.value=_ibF.tbId||'';
@@ -19952,7 +19978,8 @@ function _ibCardOne(r){
     '</div>'+
     '<div class="ib-stem">'+_ebE(m.stem||'(발문 없음)')+'</div>'+
     (m.preview?'<div class="ib-prev">'+_ebE(m.preview)+'</div>':'')+
-    '<div class="ib-src">'+_ebE(_ibSrcLabel(m.src))+(m.words?(' · '+m.words+'단어'):'')+'</div>'+
+    '<div class="ib-src">'+_ebE(_ibSrcLabel(m.src))+(m.words?(' · '+m.words+'단어'):'')+
+      ((typeof ibUsedCount==='function'&&ibUsedCount(r.id))?(' · 사용 '+ibUsedCount(r.id)+'회'):'')+'</div>'+
   '</div>';
 }
 function _ibCardSet(g){
@@ -20095,6 +20122,11 @@ function _ibRenderDetail(msg){
     '<label class="iso-chk"><input type="checkbox" '+(d.checked?'checked':'')+' onchange="ibItemMeta(\'checked\',this.checked)"> 검수함</label>'+
     '<label class="iso-chk"><input type="checkbox" '+(d.star?'checked':'')+' onchange="ibItemMeta(\'star\',this.checked)"> 별표</label>'+
   '</div>';
+  h+='<div class="ib-d-row">'+
+    '<select class="filter-sel" onchange="ibItemMeta(\'type\',this.value)">'+_ibTypeOptions(d.type)+'</select>'+
+    (d.type?'<span class="iso-hint">'+_ebE(IB_SKILLS.filter(s=>s.k===d.skill).map(s=>s.n)[0]||'')+'</span>'
+           :'<span class="pb-warn">유형을 골라 주세요</span>')+
+  '</div>';
   h+='<div class="ib-d-row"><span class="iso-hint">'+_ebE(_ibTypeLabel(d))+' · '+_ebE(_ibSrcLabel(d.src))+
      (d.diffSrc?(' · 난도 '+({rate:'정답률',rule:'유형 규칙',teacher:'선생님'}[d.diffSrc]||d.diffSrc)):'')+'</span></div>';
   h+='<div class="iso-lbl">발문</div>'+ed('stem',d.stem,'발문');
@@ -20129,7 +20161,13 @@ function ibItemEdit(field,el,ci){
 function ibItemAnswer(ci){if(!_ibEditing)return;_ibEditing.answer=ci;_ibRenderDetail();_ibEditLater();}
 function ibItemMeta(field,val){
   if(!_ibEditing)return;
-  if(field==='diff'){_ibEditing.diff=Number(val)||3;_ibEditing.diffSrc='teacher';}
+  if(field==='type'){
+    _ibEditing.type=String(val||'');
+    _ibEditing.typeName=_isoTypeName(_ibEditing.type);
+    _ibEditing.skill=_ibSkillOf(_ibEditing.type);
+    _ibRenderDetail();
+  }
+  else if(field==='diff'){_ibEditing.diff=Number(val)||3;_ibEditing.diffSrc='teacher';}
   else if(field==='checked'||field==='star')_ibEditing[field]=!!val;
   else _ibEditing[field]=val;
   _ibEditLater();
@@ -20236,8 +20274,14 @@ function ibParsePaste(){
   if(ans>=0)d.answer=ans;
   if(exp)d.explain=exp;
   d.words=String(d.passage||'').trim()?d.passage.trim().split(/\s+/).length:null;
+  let guessed='';
+  if(!d.type){                                       // 발문으로 유형을 찍어 준다 (규칙만)
+    const g=_ibGuessType(d.stem);
+    if(g){d.type=g;d.typeName=_isoTypeName(g);d.skill=_ibSkillOf(g);guessed=ISO_TYPES[g].n;}
+  }
   _ibRenderDetail();
-  toast('칸을 채웠어요 — 확인하고 [지금 저장]을 눌러 주세요');
+  toast('칸을 채웠어요'+(guessed?(' · 유형은 「'+guessed+'」로 찍어 뒀어요'):' — 유형을 골라 주세요')+
+    ' — 확인하고 [지금 저장]을 눌러 주세요');
 }
 // ── JSON 가져오기 (Aside 가 만든 문항 파일) ───────────────────────────────
 // 가져오기 — 기본은 '새 문항만', 고르면 '같은 id 덮어쓰기'.
@@ -20314,6 +20358,9 @@ function ibOpenTab(){
   const st=document.getElementById('ib-state');
   if(st&&!(_ibRows&&_ibRows.length))st.textContent='불러오는 중…';
   ibLoad(false).then(()=>{_ibPaintFilters();renderItemList();_ibStampIb();});
+  // '사용 n회' 는 시험지(worksheets kind:'paper') 줄에서 센다 — 문항 줄은 건드리지 않는다
+  if(typeof ensureWorksheets==='function')
+    ensureWorksheets().then(()=>{if(typeof _pbUsageClear==='function')_pbUsageClear();renderItemList();}).catch(()=>{});
 }
 async function ibRefresh(){
   _ibMenuOut();
@@ -20353,4 +20400,732 @@ async function _ibFetchItems(ids){
       srcWords:d.words||0,srcKeep:!!(d.src&&d.src.keep),createdAt:d.createdAt,
       check:false,checkNote:''});});
   return out;
+}
+// ── 문제 은행 보완 (유형 고르기·유형 추정·교재 거르기·여러 줄 받기) ─────
+// 유형 고르기 칸 (ISO_TYPES 묶음 그대로)
+function _ibTypeOptions(cur){
+  const groups={};
+  Object.keys(ISO_TYPES).forEach(k=>{const t=ISO_TYPES[k];(groups[t.g]=groups[t.g]||[]).push({k:k,n:t.n});});
+  return '<option value="">유형 고르기</option>'+Object.keys(groups).map(g=>
+    '<optgroup label="'+_ebA(g)+'">'+groups[g].map(x=>
+      '<option value="'+_ebA(x.k)+'"'+(String(cur||'')===x.k?' selected':'')+'>'+_ebE(x.n)+'</option>').join('')+
+    '</optgroup>').join('');
+}
+// 발문으로 유형을 추정한다 — 규칙만, AI 를 부르지 않는다. 위에서부터 먼저 맞는 것을 쓴다.
+const IB_GUESS=[
+  [/목적으로|글을 쓴 목적/,'purpose'],
+  [/심경|분위기/,'mood'],
+  [/주장으로|주장하는 바/,'claim'],
+  [/함축|밑줄 친[^]*의미(하는)?|의미하는 바/,'implicit'],
+  [/요지로/,'gist'],
+  [/주제로/,'topic'],
+  [/제목으로/,'title'],
+  [/도표|다음 표의/,'chart'],
+  [/어법/,'grammar'],
+  [/낱말의 쓰임|어휘의 쓰임|문맥상 (낱말|어휘)/,'vocab'],
+  [/대화의 빈칸|응답으로 가장 적절한|이어질 말로/,'l_short'],
+  [/빈칸에 들어갈|빈칸 \(A\)/,'blank'],
+  [/전체 흐름과|무관한 문장/,'irrelevant'],
+  [/글의 순서로|이어질 글의 순서/,'order'],
+  [/주어진 문장이 들어가기|문장이 들어가기에/,'insert'],
+  [/요약문/,'summary'],
+  [/안내문|안내(에 관한)? 내용/,'notice'],
+  [/내용과 일치하지 않는|내용으로 적절하지 않은|일치하지 않는 것은/,'bio'],
+  [/가리키는 대상|지칭하는 대상/,'m_ref'],
+  [/조건에 맞게|조건에 맞도록|조건에 따라/,'m_write_cond'],
+  [/배열하여|순서대로 배열|바르게 배열/,'m_write_order'],
+  [/한 문장으로 요약|요약하여 쓰시오/,'m_summary']
+];
+function _ibGuessType(stem){
+  const s=String(stem||'');
+  for(let i=0;i<IB_GUESS.length;i++)if(IB_GUESS[i][0].test(s))return IB_GUESS[i][1];
+  return '';
+}
+// 문항 여러 개를 본문까지 한 번에 받는다 (기기 보관 → 메모리 → 서버 순서로)
+async function _ibFetchData(ids){
+  const want=[...new Set((ids||[]).filter(Boolean))];
+  const out=new Map();
+  want.forEach(id=>{if(_ibFull.has(id))out.set(id,_ibFull.get(id));});
+  if(out.size<want.length){
+    const dev=await _ibDevAll();
+    dev.forEach(d=>{if(d&&want.indexOf(d.id)>=0&&!out.has(d.id))out.set(d.id,d);});
+  }
+  const rest=want.filter(id=>!out.has(id));
+  for(let i=0;i<rest.length;i+=50){
+    const q=rest.slice(i,i+50).map(encodeURIComponent).join(',');
+    const r=await _ebGet('item_bank?select=id,data&id=in.('+q+')');
+    if(!r.ok)break;
+    r.rows.forEach(x=>{if(x&&x.data&&!x.data._deleted){out.set(x.id,x.data);_ibFull.set(x.id,x.data);}});
+  }
+  return out;
+}
+
+// ══ 시험지 만들기 (worksheets kind:'paper') ═══════════════════════════════
+// 바구니에 담은 문항을 늘어놓고 순서·배점을 정해 인쇄한다.
+// 시험지 줄에는 **문항 id 만** 둔다(내용은 문제 은행에 한 벌만 있다).
+// ⚠️ AI 는 '동형으로 채우기' 를 눌렀을 때만 부른다. 화면을 열거나 저장할 때는 부르지 않는다.
+const PB_DEV_KEY='pp_paper_dev';       // 원문 지문이 든 시험지 — 기기에만
+const PB_FRAMES_KEY='pp_paper_frames'; // 직접 만든 틀 — 기기에만
+const PB_AUTO_MS=1500;
+const PB_FORMATS=[
+  {k:'suneung',  n:'수능형 (A4 2단)'},
+  {k:'naesin',   n:'내신형 (머리표·서술형 답란)'},
+  {k:'worksheet',n:'학습지 (1단·메모 여백)'},
+  {k:'mini',     n:'숙제 미니'}
+];
+// 자동 구성 틀 — 유형 순서(수능)나 유형별 개수(내신)
+const PB_FRAME_SUNEUNG=(function(){const a=[];for(let n=18;n<=45;n++)if(ISO_HS_NO[n])a.push(ISO_HS_NO[n]);return a;})();
+const PB_FRAME_MIDDLE=[['m_topic',3],['m_match',3],['m_blank',4],['m_grammar_pick',3],['m_vocab',2],
+  ['m_order',2],['m_insert',2],['m_ref',2],['m_dialog',2],['m_write_cond',2]];
+const PB_FRAMES=[
+  {k:'suneung28',n:'수능·학평 읽기 28문항 (18~45번 순서)'},
+  {k:'middle25', n:'중학 내신 25문항'},
+  {k:'focus10',  n:'유형 집중 10문항'},
+  {k:'custom',   n:'직접 만든 틀'}
+];
+let _pbPaper=null;            // 지금 고치는 시험지 줄
+let _pbSlots=[];              // 화면 줄 — {id:'…'} 또는 {empty:true,type:'blank'}
+let _pbData=new Map();        // 문항 id → data 전체
+let _pbSaveT=null,_pbSaving=false,_pbState='',_pbDrag=-1,_pbDev=false;
+let _pbCfg={frame:'suneung28',focus:'',grade:'',dMin:1,dMax:5,src:'',tbId:'',unit:'',unused:true};
+
+function pbMayUse(){return (typeof ibMayUse==='function')?ibMayUse():false;}
+function _pbToday(){return (typeof ppToday==='function')?ppToday():new Date().toISOString().slice(0,10);}
+function _pbNewPaper(ids){
+  const now=Date.now();
+  return {id:uid(),kind:'paper',title:'',format:'suneung',itemIds:(ids||[]).slice(),
+    slots:null,points:{},
+    header:{school:'직결영어',exam:'',date:_pbToday(),grade:'',cls:'',no:'',name:''},
+    createdAt:now,editedAt:now};
+}
+// ── 기기 보관 (원문 지문이 든 시험지) ────────────────────────────────────
+async function _pbDevAll(){try{const l=await idbGet(PB_DEV_KEY);return Array.isArray(l)?l:[];}catch(e){return [];}}
+async function _pbDevPut(p){
+  try{const l=(await _pbDevAll()).filter(x=>x&&x.id!==p.id);l.unshift(p);await idbSet(PB_DEV_KEY,l.slice(0,50));}catch(e){}
+}
+async function _pbDevGet(id){const l=await _pbDevAll();return l.find(x=>x&&x.id===id)||null;}
+
+// ── 열기·닫기 ────────────────────────────────────────────────────────────
+async function pbOpen(ids){
+  if(!pbMayUse()){toast('선생님 화면에서만 쓸 수 있어요');return;}
+  const list=(ids&&ids.length)?ids:ibBasket();
+  if(!list.length){toast('먼저 문항을 바구니에 담아 주세요');return;}
+  _pbPaper=_pbNewPaper(list);
+  _pbSlots=list.map(id=>({id:id}));
+  _pbState='';
+  _pbUsageClear();_pbPaintCfgUI();
+  openM('m-paper');
+  _pbRender('불러오는 중…');
+  await _pbLoadData(list);
+  _pbSortSets();_pbRender();
+}
+async function pbOpenSaved(id){
+  if(!pbMayUse())return;
+  let p=(_cache.worksheets||[]).find(w=>w&&w.id===id&&w.kind==='paper');
+  if(!p)p=await _pbDevGet(id);
+  if(!p){toast('시험지를 찾지 못했어요');return;}
+  _pbPaper=JSON.parse(JSON.stringify(p));
+  _pbPaper.points=_pbPaper.points||{};
+  _pbPaper.header=Object.assign({school:'직결영어',exam:'',date:_pbToday(),grade:'',cls:'',no:'',name:''},_pbPaper.header||{});
+  _pbSlots=Array.isArray(_pbPaper.slots)&&_pbPaper.slots.length?_pbPaper.slots.map(s=>({...s}))
+    :(_pbPaper.itemIds||[]).map(x=>({id:x}));
+  _pbState='저장됨 · 불러온 시험지';
+  _pbUsageClear();_pbPaintCfgUI();
+  openM('m-paper');
+  _pbRender('불러오는 중…');
+  await _pbLoadData(_pbSlots.filter(s=>s.id).map(s=>s.id));
+  _pbRender();
+}
+function pbClose(){
+  if(_pbSaveT){clearTimeout(_pbSaveT);_pbSaveT=null;_pbSave(false);}
+  closeM('m-paper');
+}
+async function _pbLoadData(ids){
+  const want=(ids||[]).filter(id=>id&&!_pbData.has(id));
+  if(!want.length)return;
+  const got=(typeof _ibFetchData==='function')?await _ibFetchData(want):null;
+  if(got)got.forEach((v,k)=>_pbData.set(k,v));
+}
+function _pbD(id){return _pbData.get(id)||null;}
+// 지문을 같이 쓰는 문항(setId)은 늘 붙어 다닌다
+function _pbSetOf(s){const d=s&&s.id?_pbD(s.id):null;return d?String(d.setId||''):'';}
+function _pbSortSets(){
+  const out=[],seen=new Set();
+  _pbSlots.forEach(s=>{
+    const k=_pbSetOf(s);
+    if(!k){out.push(s);return;}
+    if(seen.has(k))return;
+    seen.add(k);
+    const block=_pbSlots.filter(x=>_pbSetOf(x)===k)
+      .sort((a,b)=>Number((_pbD(a.id)||{}).setOrder||0)-Number((_pbD(b.id)||{}).setOrder||0));
+    block.forEach(x=>out.push(x));
+  });
+  _pbSlots=out;
+}
+function _pbBlock(i){                      // i 가 속한 묶음의 [시작,끝]
+  const k=_pbSetOf(_pbSlots[i]);
+  if(!k)return [i,i];
+  let a=i,b=i;
+  while(a>0&&_pbSetOf(_pbSlots[a-1])===k)a--;
+  while(b<_pbSlots.length-1&&_pbSetOf(_pbSlots[b+1])===k)b++;
+  return [a,b];
+}
+// ── 고치기 ───────────────────────────────────────────────────────────────
+function pbMove(i,d){
+  const [a,b]=_pbBlock(i);
+  const block=_pbSlots.slice(a,b+1);
+  const rest=_pbSlots.slice(0,a).concat(_pbSlots.slice(b+1));
+  let at=a;
+  if(d<0){                                  // 앞 묶음 앞으로
+    if(a===0)return;
+    const [pa]=_pbBlock(a-1);at=pa;
+  }else{
+    if(b===_pbSlots.length-1)return;
+    const [,nb]=_pbBlock(b+1);at=nb-block.length+1;
+  }
+  rest.splice(at,0,...block);
+  _pbSlots=rest;_pbRender();_pbAutoLater();
+}
+function pbDel(i){
+  const [a,b]=_pbBlock(i);
+  _pbSlots.splice(a,b-a+1);
+  _pbRender();_pbAutoLater();
+}
+function pbPoints(i,v){
+  const s=_pbSlots[i];if(!s||!s.id)return;
+  const n=Number(v);
+  if(!_pbPaper.points)_pbPaper.points={};
+  if(n>0)_pbPaper.points[s.id]=n;else delete _pbPaper.points[s.id];
+  _pbRender();_pbAutoLater();
+}
+function pbTitleChange(v){_pbPaper.title=String(v||'');_pbAutoLater();}
+function pbHeader(f,v){_pbPaper.header[f]=String(v||'');_pbAutoLater();}
+function pbSetFormat(v){_pbPaper.format=v||'suneung';_pbRender();_pbAutoLater();}
+// 끌어 옮기기 (넓은 화면)
+function pbDragStart(i,ev){_pbDrag=i;try{ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain',String(i));}catch(e){}}
+function pbDragOver(ev){ev.preventDefault();}
+function pbDrop(i,ev){
+  ev.preventDefault();
+  if(_pbDrag<0||_pbDrag===i)return;
+  const [a,b]=_pbBlock(_pbDrag);
+  const block=_pbSlots.slice(a,b+1);
+  const rest=_pbSlots.slice(0,a).concat(_pbSlots.slice(b+1));
+  const target=_pbSlots[i];
+  let at=rest.indexOf(target);
+  if(at<0)at=rest.length;
+  rest.splice(at,0,...block);
+  _pbSlots=rest;_pbDrag=-1;_pbSortSets();_pbRender();_pbAutoLater();
+}
+// ── 저장 ─────────────────────────────────────────────────────────────────
+function _pbKeep(){return _pbSlots.some(s=>{const d=s.id?_pbD(s.id):null;return !!(d&&d.src&&d.src.keep);});}
+function _pbStatus(k,m){
+  _pbState=m||'';
+  const el=document.getElementById('pb-stat');
+  if(el){el.className='iso-stat'+(k?(' '+k):'');el.textContent=_pbState;
+    el.onclick=(k==='err')?(()=>_pbSave(true)):null;}
+}
+function _pbAutoLater(){
+  if(_pbSaveT)clearTimeout(_pbSaveT);
+  if(!_pbSlots.filter(s=>s.id).length){_pbStatus('','');return;}   // 빈 시험지는 저장하지 않는다
+  _pbStatus('','저장 대기…');
+  _pbSaveT=setTimeout(()=>{_pbSaveT=null;_pbSave(false);},PB_AUTO_MS);
+}
+function _pbAutoTitle(){
+  const f=(PB_FORMATS.find(x=>x.k===_pbPaper.format)||{}).n||'시험지';
+  const n=_pbSlots.filter(s=>s.id).length;
+  const d=new Date();const p=x=>('0'+x).slice(-2);
+  return f.split(' ')[0]+' '+n+'문항 · '+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+async function _pbSave(manual){
+  if(_pbSaveT){clearTimeout(_pbSaveT);_pbSaveT=null;}
+  if(!_pbPaper)return false;
+  const ids=_pbSlots.filter(s=>s.id).map(s=>s.id);
+  if(!ids.length){_pbStatus('','');if(manual)toast('먼저 문항을 담아 주세요');return false;}
+  if(typeof ppSandbox==='function'&&ppSandbox()){_pbStatus('','체험 모드 — 저장하지 않아요');return false;}
+  if(_pbSaving)return false;
+  _pbSaving=true;
+  const now=Date.now();
+  if(!_pbPaper.title)_pbPaper.title=_pbAutoTitle();
+  const ti=document.getElementById('pb-title');if(ti&&!ti.value)ti.value=_pbPaper.title;
+  _pbPaper.itemIds=ids;
+  _pbPaper.slots=_pbSlots.map(s=>s.id?{id:s.id}:{empty:true,type:s.type||''});
+  _pbPaper.editedAt=now;
+  if(!_pbPaper.createdAt)_pbPaper.createdAt=now;
+  const keep=_pbKeep();
+  let ok=false;
+  try{
+    if(keep){                                  // 원문 지문이 든 시험지 — 기기에만
+      await _pbDevPut(_pbPaper);ok=true;_pbDev=true;
+      _pbStatus('ok','이 시험지는 이 기기에만 보관돼요 (원문 지문) · '+_isoHHMM());
+      if(manual)toast('원문 지문이 들어 있어 이 기기에만 보관했어요');
+    }else{
+      _pbStatus('','저장 중…');
+      ok=!!(await supaUpsert('worksheets',_pbPaper.id,_pbPaper).catch(()=>false));
+      if(ok){
+        _pbDev=false;
+        _cache.worksheets=(_cache.worksheets||[]).filter(w=>w.id!==_pbPaper.id).concat([{rowId:_pbPaper.id,..._pbPaper}]);
+        _pbStatus('ok','저장됨 '+_isoHHMM());
+        if(manual)toast('저장했어요 ✓ — 자료 DB → 저장된 워크시트에서 다시 열 수 있어요');
+      }else{
+        _pbStatus('err','저장 실패 · 다시 저장');
+        if(manual)toast('저장 실패 — 잠시 뒤 다시 해 주세요');
+      }
+    }
+  }catch(e){_pbStatus('err','저장 실패 · 다시 저장');}
+  _pbSaving=false;
+  return ok;
+}
+function pbSaveNow(){return _pbSave(true);}
+// ── 사용 기록 (시험지 줄에서 센다 — 문항 줄은 건드리지 않는다) ──────────
+let _pbUse=null;
+function _pbUsage(){
+  if(_pbUse)return _pbUse;
+  const m=new Map();
+  (_cache.worksheets||[]).forEach(w=>{
+    if(!w||w.kind!=='paper')return;
+    (w.itemIds||[]).forEach(id=>m.set(id,(m.get(id)||0)+1));
+  });
+  _pbUse=m;return m;
+}
+function _pbUsageClear(){_pbUse=null;}
+function ibUsedCount(id){return _pbUsage().get(id)||0;}
+// ── 화면 ─────────────────────────────────────────────────────────────────
+function _pbRender(msg){
+  const box=document.getElementById('pb-list');if(!box)return;
+  const t=document.getElementById('pb-title');
+  if(t&&t.value!==(_pbPaper?_pbPaper.title:''))t.value=(_pbPaper&&_pbPaper.title)||'';
+  const fs=document.getElementById('pb-format');
+  if(fs)fs.value=(_pbPaper&&_pbPaper.format)||'suneung';
+  ['school','exam','date'].forEach(f=>{
+    const el=document.getElementById('pb-h-'+f);
+    if(el&&_pbPaper)el.value=(_pbPaper.header||{})[f]||'';
+  });
+  const st=document.getElementById('pb-stat');if(st)st.textContent=_pbState;
+  if(msg){box.innerHTML='<div class="eb-empty">'+_ebE(msg)+'</div>';return;}
+  if(!_pbSlots.length){box.innerHTML='<div class="eb-empty">문항이 없습니다. 아래 <b>자동 구성</b>으로 채우거나 문제 은행에서 담아 주세요.</div>';_pbSummary();return;}
+  let no=0;
+  box.innerHTML=_pbSlots.map((s,i)=>{
+    no++;
+    if(s.empty){
+      return '<div class="pb-row pb-empty"><span class="pb-no">'+no+'</span>'+
+        '<div class="pb-main"><div class="pb-stem">비어 있음 — '+_ebE(_isoTypeName(s.type)||s.type||'유형 없음')+'</div>'+
+        '<div class="pb-sub">은행에 맞는 문항이 없어요. 아래 <b>동형으로 채우기</b>를 누르면 만들 수 있어요.</div></div>'+
+        '<div class="pb-acts">'+_pbRowBtns(i)+'</div></div>';
+    }
+    const d=_pbD(s.id);
+    if(!d)return '<div class="pb-row"><span class="pb-no">'+no+'</span><div class="pb-main"><div class="pb-stem">(문항을 불러오지 못했어요)</div></div><div class="pb-acts">'+_pbRowBtns(i)+'</div></div>';
+    const set=String(d.setId||'');
+    const first=set&&(i===0||_pbSetOf(_pbSlots[i-1])!==set);
+    const pts=(_pbPaper.points||{})[s.id]||'';
+    return (first?'<div class="pb-setline">한 지문 묶음 — 아래 문항은 붙어 다녀요</div>':'')+
+      '<div class="pb-row'+(set?' pb-inset':'')+'" draggable="true" '+
+        'ondragstart="pbDragStart('+i+',event)" ondragover="pbDragOver(event)" ondrop="pbDrop('+i+',event)">'+
+      '<span class="pb-grip" title="끌어서 옮기기">⠿</span>'+
+      '<span class="pb-no">'+no+'</span>'+
+      '<div class="pb-main"><div class="pb-stem">'+_ebE(d.stem||'(발문 없음)')+'</div>'+
+      '<div class="pb-sub">'+_ebE(_ibTypeLabel(d))+(d.grade?(' · '+_ebE(d.grade)):'')+' · 난도 '+(d.diff||3)+
+      ' · '+_ebE(_ibSrcLabel(d.src))+'</div></div>'+
+      '<label class="pb-pt">배점 <input type="number" min="0" max="10" step="0.5" value="'+_ebA(pts)+'" '+
+        'onchange="pbPoints('+i+',this.value)" onclick="event.stopPropagation()"></label>'+
+      '<div class="pb-acts">'+_pbRowBtns(i)+'</div></div>';
+  }).join('');
+  _pbSummary();
+}
+function _pbRowBtns(i){
+  return '<button class="ib-ic" title="위로" onclick="pbMove('+i+',-1)">↑</button>'+
+    '<button class="ib-ic" title="아래로" onclick="pbMove('+i+',1)">↓</button>'+
+    '<button class="ib-ic ib-ic-d" title="빼기" onclick="pbDel('+i+')">×</button>';
+}
+function _pbSummary(){
+  const el=document.getElementById('pb-sum');if(!el)return;
+  const ids=_pbSlots.filter(s=>s.id).map(s=>s.id);
+  const empty=_pbSlots.filter(s=>s.empty).length;
+  let total=0;ids.forEach(id=>{total+=Number((_pbPaper.points||{})[id])||0;});
+  const dist={};let n5=0;
+  ids.forEach(id=>{const d=_pbD(id);if(!d||!(d.choices||[]).length)return;n5++;dist[d.answer]=(dist[d.answer]||0)+1;});
+  let warn='';
+  if(n5>=3){
+    const top=Object.keys(dist).sort((a,b)=>dist[b]-dist[a])[0];
+    if(top!==undefined&&dist[top]/n5>0.4)
+      warn='<span class="pb-warn">정답이 '+_isoCirc(Number(top))+'에 몰려 있어요 ('+dist[top]+'/'+n5+') — 순서를 바꾸거나 다른 문항으로 바꿔 보세요</span>';
+  }
+  const distTxt=Object.keys(dist).sort().map(k=>_isoCirc(Number(k))+' '+dist[k]).join(' · ');
+  el.innerHTML='문항 <b>'+ids.length+'</b>개'+(empty?(' · 비어 있음 '+empty+'칸'):'')+
+    (total?(' · 배점 합계 '+total+'점'):'')+(distTxt?(' · 정답 분포 '+distTxt):'')+warn;
+}
+// ── 자동 구성 ────────────────────────────────────────────────────────────
+function _pbFrames(){try{return JSON.parse(localStorage.getItem(PB_FRAMES_KEY)||'null')||{};}catch(e){return {};}}
+function _pbFrameSave(o){try{localStorage.setItem(PB_FRAMES_KEY,JSON.stringify(o));}catch(e){}}
+function pbCfgChange(){
+  const v=id=>{const el=document.getElementById(id);return el?el.value:'';};
+  _pbCfg.frame=v('pb-frame')||'suneung28';
+  _pbCfg.focus=v('pb-focus');
+  _pbCfg.grade=v('pb-grade');
+  _pbCfg.dMin=Number(v('pb-dmin'))||1;_pbCfg.dMax=Number(v('pb-dmax'))||5;
+  _pbCfg.src=v('pb-src');_pbCfg.tbId=v('pb-tb');_pbCfg.unit=v('pb-unit');
+  const u=document.getElementById('pb-unused');_pbCfg.unused=!!(u&&u.checked);
+  const fr=document.getElementById('pb-focus-row');
+  if(fr)fr.style.display=(_pbCfg.frame==='focus10'||_pbCfg.frame==='custom')?'':'none';
+  _pbPaintCustom();
+}
+function _pbPaintCustom(){
+  const box=document.getElementById('pb-custom');if(!box)return;
+  if(_pbCfg.frame!=='custom'){box.style.display='none';return;}
+  box.style.display='';
+  const f=_pbFrames().my||{};
+  const keys=Object.keys(f).filter(k=>ISO_TYPES[k]);
+  box.innerHTML='<div class="pb-c-t">직접 만든 틀 <span class="iso-hint">— 유형을 고르고 개수를 넣으면 기기에 저장돼요</span></div>'+
+    '<div class="pb-c-list">'+(keys.length?keys.map(k=>
+      '<span class="pb-chip">'+_ebE(ISO_TYPES[k].n)+' '+f[k]+'개 '+
+      '<button onclick="pbCustomSet(\''+escJsA(k)+'\',0)">×</button></span>').join(''):'<span class="iso-hint">아직 없어요</span>')+'</div>'+
+    '<div class="pb-c-add"><select class="filter-sel" id="pb-c-type">'+_ibTypeOptions('')+'</select>'+
+    '<input type="number" class="iso-num" id="pb-c-n" min="1" max="20" value="2">'+
+    '<button class="btn bo bsm" onclick="pbCustomAdd()">더하기</button></div>';
+}
+function pbCustomAdd(){
+  const t=(document.getElementById('pb-c-type')||{}).value||'';
+  const n=Number((document.getElementById('pb-c-n')||{}).value)||0;
+  if(!t||!n){toast('유형과 개수를 넣어 주세요');return;}
+  pbCustomSet(t,n);
+}
+function pbCustomSet(k,n){
+  const all=_pbFrames();const my=all.my||{};
+  if(n>0)my[k]=n;else delete my[k];
+  all.my=my;_pbFrameSave(all);_pbPaintCustom();
+}
+function _pbWantTypes(){                       // 틀 → 채울 유형 목록
+  if(_pbCfg.frame==='suneung28')return PB_FRAME_SUNEUNG.slice();
+  if(_pbCfg.frame==='middle25'){const a=[];PB_FRAME_MIDDLE.forEach(([k,n])=>{for(let i=0;i<n;i++)a.push(k);});return a;}
+  if(_pbCfg.frame==='focus10'){const k=_pbCfg.focus||'';return k?Array.from({length:10},()=>k):[];}
+  const my=_pbFrames().my||{};const a=[];
+  Object.keys(my).forEach(k=>{for(let i=0;i<my[k];i++)a.push(k);});
+  return a;
+}
+function _pbPick(type,used){                   // 조건에 맞는 문항 하나 고르기
+  const rows=(_ibRows||[]).filter(r=>{
+    const m=r.meta||{},s=m.src||{};
+    if(used.has(r.id))return false;
+    if(String(m.type||'')!==type)return false;
+    if(_pbCfg.grade&&String(m.grade||'')!==_pbCfg.grade)return false;
+    const d=Number(m.diff)||3;
+    if(d<_pbCfg.dMin||d>_pbCfg.dMax)return false;
+    if(_pbCfg.src&&String(s.kind||'')!==_pbCfg.src)return false;
+    if(_pbCfg.tbId&&String(s.tbId||'')!==_pbCfg.tbId)return false;
+    if(_pbCfg.unit&&String(s.unit||'')!==_pbCfg.unit)return false;
+    return true;
+  });
+  if(!rows.length)return null;
+  if(_pbCfg.unused)rows.sort((a,b)=>(ibUsedCount(a.id)-ibUsedCount(b.id))||((b.meta.editedAt||0)-(a.meta.editedAt||0)));
+  return rows[0];
+}
+async function pbCompose(){
+  if(!pbMayUse())return;
+  const want=_pbWantTypes();
+  if(!want.length){toast('틀을 고르거나 유형을 정해 주세요');return;}
+  _pbUsageClear();
+  const used=new Set(_pbSlots.filter(s=>s.id).map(s=>s.id));
+  const slots=[],need=[];
+  want.forEach(t=>{
+    const r=_pbPick(t,used);
+    if(r){used.add(r.id);slots.push({id:r.id});}
+    else{slots.push({empty:true,type:t});need.push(t);}
+  });
+  _pbSlots=slots;
+  await _pbLoadData(slots.filter(s=>s.id).map(s=>s.id));
+  _pbSortSets();_pbRender();_pbAutoLater();
+  toast('은행에서 '+(slots.length-need.length)+'문항을 채웠어요'+(need.length?(' · 비어 있음 '+need.length+'칸'):''));
+}
+// '동형으로 채우기' — 누를 때만 AI 를 부른다
+function pbFillAI(){
+  const empties=_pbSlots.map((s,i)=>({s:s,i:i})).filter(x=>x.s.empty&&x.s.type);
+  if(!empties.length){toast('비어 있는 칸이 없어요');return;}
+  const byType={};empties.forEach(x=>{byType[x.s.type]=(byType[x.s.type]||0)+1;});
+  const groups=Object.keys(byType);
+  const calls=groups.length*2;                 // 유형마다 만들기 1 + 다시 풀어 확인 1
+  askConfirm('동형으로 채우기',
+    '비어 있는 '+empties.length+'칸을 유형 '+groups.length+'가지로 나눠 만듭니다.\n'+
+    'AI 호출 약 '+calls+'회 (유형마다 만들기 1 + 확인 1)\n'+
+    groups.map(k=>'· '+(ISO_TYPES[k]?ISO_TYPES[k].n:k)+' '+byType[k]+'개').join('\n'),
+    '만들기','bt',()=>_pbFillAIGo(byType));
+}
+async function _pbFillAIGo(byType){
+  const keys=Object.keys(byType);
+  const el=document.getElementById('pb-ai-state');
+  let made=0;
+  for(const k of keys){
+    if(el)el.textContent='「'+(ISO_TYPES[k]?ISO_TYPES[k].n:k)+'」 '+byType[k]+'개를 만드는 중…';
+    const keepCfg=JSON.parse(JSON.stringify(_isoCfg));
+    _isoCfg.type=k;_isoCfg.n=byType[k];_isoCfg.passage='new';
+    if(_pbCfg.grade)_isoCfg.grade=_pbCfg.grade;
+    _isoAnalysis=null;
+    try{
+      const items=await _isoCreate(byType[k],'');
+      try{await _isoVerify(items);}catch(e){}
+      for(const it of items){
+        const d=_ibFromIso(it,_isoCfg,{title:'',cat:'',grade:''},'',0);
+        const r=await ibPutItem(d,true).catch(()=>false);
+        if(!r)continue;
+        const at=_pbSlots.findIndex(s=>s.empty&&s.type===k);
+        if(at>=0)_pbSlots[at]={id:d.id};else _pbSlots.push({id:d.id});
+        _pbData.set(d.id,d);made++;
+      }
+    }catch(e){toast('「'+(ISO_TYPES[k]?ISO_TYPES[k].n:k)+'」 만들기 실패: '+((e&&e.message)||''));}
+    _isoCfg=keepCfg;
+  }
+  if(el)el.textContent='';
+  _pbSortSets();_pbRender();_pbAutoLater();
+  if(typeof renderItemList==='function'){_ibPaintFilters();renderItemList();}
+  toast('동형으로 '+made+'문항을 채웠어요');
+}
+// ── 인쇄 (새 탭) ─────────────────────────────────────────────────────────
+// 서식 4종 + 같이 찍는 것 4종. 동형 문제의 isoPrint 와 같은 방식이다.
+const PB_CONFIRM='이 문제지는 지금부터 풀 수 있습니다. 문제지에 성명과 수험 번호를 정확히 적어 넣으시오.';
+function _pbEsc(s){return _ebE(s);}
+function _pbCirc(i){return _isoCirc(i);}
+function _pbRows(){                       // 인쇄할 줄 (비어 있는 칸도 자리를 지킨다)
+  return _pbSlots.map(s=>({s:s,d:s.id?_pbD(s.id):null}));
+}
+// 이어지는 같은 묶음·같은 발문은 하나의 지시문으로 묶는다 ([31~34] 다음 빈칸에…)
+function _pbGroupRuns(rows){
+  const runs=[];
+  rows.forEach(r=>{
+    const d=r.d;
+    const key=d?(String(d.setId||'')?('S'+d.setId):('T'+d.type+'|'+String(d.stem||'').trim())):'';
+    const prev=runs[runs.length-1];
+    if(prev&&key&&prev.key===key)prev.rows.push(r);
+    else runs.push({key:key,rows:[r]});
+  });
+  return runs;
+}
+function _pbChoices(d,ans){
+  if(!(d.choices||[]).length)return '';
+  return '<ol class="qc">'+d.choices.map((c,ci)=>
+    '<li'+(ans&&ci===d.answer?' class="ok"':'')+'>'+_pbCirc(ci)+' '+_pbEsc(c)+'</li>').join('')+'</ol>';
+}
+function _pbQuestion(r,no,o){
+  const d=r.d;
+  if(!d)return '<div class="q blank"><div class="qs"><b>'+no+'.</b> (비어 있음'+
+    (r.s.type?(' — '+_pbEsc(_isoTypeName(r.s.type)||r.s.type)):'')+')</div></div>';
+  const pts=Number((_pbPaper.points||{})[d.id])||0;
+  let h='<div class="q">';
+  if(!o.noStem)h+='<div class="qs"><b>'+no+'.</b> '+_pbEsc(d.stem||'')+(o.showPts&&pts>=3?' <b>[3점]</b>':'')+'</div>';
+  else h+='<div class="qs"><b>'+no+'.</b>'+(o.showPts&&pts>=3?' <b>[3점]</b>':'')+'</div>';
+  if(!o.noPassage&&d.passage)h+='<div class="qp">'+_pbEsc(d.passage).replace(/\n/g,'<br>')+'</div>';
+  h+=_pbChoices(d,false);
+  if(!(d.choices||[]).length)h+='<div class="qw"></div>';        // 서술형 답란
+  else if(o.essayLine)h+='<div class="qw2"></div>';
+  if(o.memo)h+='<div class="qmemo"></div>';                      // 학습지 풀이 칸
+  h+='</div>';
+  return h;
+}
+function _pbBody(fmt){
+  const rows=_pbRows(),runs=_pbGroupRuns(rows);
+  const o={showPts:(fmt==='suneung'),memo:(fmt==='worksheet'),essayLine:(fmt==='naesin')};
+  let no=0,h='';
+  runs.forEach(run=>{
+    const n=run.rows.length,from=no+1,to=no+n;
+    const d0=run.rows[0].d;
+    if(n>1&&d0&&String(d0.setId||'')){                           // 한 지문 묶음
+      h+='<div class="grp">['+from+'~'+to+'] 다음 글을 읽고 물음에 답하시오.</div>';
+      if(d0.passage)h+='<div class="qp grp-p">'+_pbEsc(d0.passage).replace(/\n/g,'<br>')+'</div>';
+      run.rows.forEach(r=>{no++;h+=_pbQuestion(r,no,Object.assign({},o,{noPassage:true}));});
+      return;
+    }
+    if(n>1&&d0&&String(d0.stem||'').trim()){                     // 발문이 같은 문항이 이어질 때
+      h+='<div class="grp">['+from+'~'+to+'] '+_pbEsc(d0.stem)+'</div>';
+      run.rows.forEach(r=>{no++;h+=_pbQuestion(r,no,Object.assign({},o,{noStem:true}));});
+      return;
+    }
+    run.rows.forEach(r=>{no++;h+=_pbQuestion(r,no,o);});
+  });
+  return h;
+}
+function _pbHeadHtml(fmt){
+  const hd=_pbPaper.header||{};
+  const title=_pbPaper.title||'시험지';
+  if(fmt==='suneung'){
+    return '<div class="sh-bar"><div class="sh-t">영어 영역</div>'+
+      '<div class="sh-m">'+_pbEsc(hd.exam||title)+'</div>'+
+      '<div class="sh-n">성명 <span class="ul"></span> 수험 번호 <span class="ul"></span></div></div>';
+  }
+  if(fmt==='naesin'){
+    const y=String(hd.date||'').slice(0,4);
+    return '<table class="nh"><tr>'+
+      '<td class="k">학년도·학기</td><td>'+_pbEsc(y?(y+'학년도'):'')+' '+_pbEsc(hd.grade||'')+'</td>'+
+      '<td class="k">고사명</td><td>'+_pbEsc(hd.exam||title)+'</td>'+
+      '<td class="k">과목</td><td>영어</td></tr><tr>'+
+      '<td class="k">학년</td><td class="bl"></td><td class="k">반</td><td class="bl"></td>'+
+      '<td class="k">번호·이름</td><td class="bl"></td></tr></table>'+
+      '<div class="nh-sub">'+_pbEsc(hd.school||'')+(hd.date?(' · '+_pbEsc(hd.date)):'')+'</div>';
+  }
+  return '<div class="wh"><div class="wh-t">'+_pbEsc(title)+'</div>'+
+    '<div class="wh-m"><span>'+_pbEsc(hd.school||'')+'</span><span>'+_pbEsc(hd.date||'')+'</span>'+
+    '<span class="nm">이름 ______________</span></div></div>';
+}
+function _pbCss(fmt){
+  const two=(fmt==='suneung'||fmt==='naesin');
+  return '@page{size:A4;margin:'+(fmt==='suneung'?'12mm 10mm 18mm':'14mm 12mm')+';}'+
+  '*{box-sizing:border-box}'+
+  'body{font-family:"Malgun Gothic","맑은 고딕",system-ui,sans-serif;color:#111;margin:0;'+
+    'font-size:'+(fmt==='suneung'?'10pt':fmt==='mini'?'11pt':'10.5pt')+';line-height:1.62}'+
+  '.wrap{'+(two?'column-count:2;column-gap:8mm;column-rule:1px solid #bbb;':'')+
+    (fmt==='worksheet'?'padding-right:34mm;':'')+'}'+
+  '.q{break-inside:avoid;page-break-inside:avoid;margin:0 0 12px}'+
+  '.q.blank{border:1px dashed #999;padding:8px;color:#777}'+
+  '.qs{margin-bottom:4px}'+
+  '.qs b{font-weight:800}'+
+  '.qp{border:1px solid #bbb;padding:7px 9px;margin:5px 0;text-align:justify;background:#fafafa}'+
+  '.grp{font-weight:700;margin:10px 0 4px;border-left:3px solid #111;padding-left:6px}'+
+  '.grp-p{margin-bottom:8px}'+
+  '.qc{list-style:none;padding:0;margin:4px 0 0}'+
+  '.qc li{margin:2px 0}'+
+  '.qc li.ok{font-weight:700;background:#fff3b0}'+
+  '.qw{border-bottom:1px solid #999;height:22px;margin:6px 0}'+
+  '.qw2{border:1px solid #ccc;height:34px;margin:6px 0}'+
+  '.qmemo{height:48px;border-bottom:1px dotted #ccc;margin:6px 0}'+
+  '.sh-bar{display:flex;align-items:baseline;gap:10px;border-bottom:3px double #111;padding-bottom:5px;margin-bottom:9px;column-span:all}'+
+  '.sh-t{font-size:17pt;font-weight:800;letter-spacing:.1em}'+
+  '.sh-m{font-size:10pt;color:#333;flex:1}'+
+  '.sh-n{font-size:9.5pt}'+
+  '.ul{display:inline-block;width:52px;border-bottom:1px solid #111}'+
+  '.nh{width:100%;border-collapse:collapse;margin-bottom:8px;column-span:all;font-size:9.5pt}'+
+  '.nh td{border:1px solid #111;padding:4px 7px}'+
+  '.nh .k{background:#f0f0f0;font-weight:700;white-space:nowrap;width:1%}'+
+  '.nh .bl{min-width:60px}'+
+  '.nh-sub{font-size:9pt;color:#555;margin-bottom:8px;column-span:all}'+
+  '.wh{border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:10px}'+
+  '.wh-t{font-size:14pt;font-weight:800}'+
+  '.wh-m{font-size:9.5pt;color:#444;display:flex;gap:14px;margin-top:3px}'+
+  '.wh-m .nm{margin-left:auto}'+
+  '.memo-col{position:fixed;top:30mm;right:8mm;width:30mm;height:240mm;border-left:1px dashed #bbb;padding-left:3mm;text-align:center;'+
+    'font-size:8.5pt;color:#999}'+
+  '.foot{position:fixed;bottom:6mm;left:0;right:0;text-align:center;font-size:9pt}'+
+  '.foot .bx{display:inline-block;border:1px solid #111;padding:1px 14px;margin-left:6px}'+
+  '.confirm{border:1.5px solid #111;padding:9px 12px;margin-top:14px;font-size:9.5pt;break-inside:avoid}'+
+  '.confirm b{display:block;margin-bottom:3px}'+
+  '.mini-ans{margin-top:16px;border-top:1px dashed #999;padding-top:6px;font-size:8.5pt;color:#444}'+
+  '.at{width:100%;border-collapse:collapse;font-size:10pt;margin-top:8px}'+
+  '.at td,.at th{border:1px solid #111;padding:4px 6px;text-align:center}'+
+  '.at th{background:#f0f0f0}'+
+  '.sol{break-inside:avoid;margin:0 0 10px;border-bottom:1px dotted #ccc;padding-bottom:6px}'+
+  '.sol .n{font-weight:800}'+
+  '.sol .a{color:#111;font-weight:700}'+
+  '.sol .e{font-size:9.5pt;color:#333;margin-top:2px}'+
+  '.omr td{height:22px}'+
+  '.noprint{position:fixed;top:10px;right:10px;padding:8px 14px;font-size:13px;cursor:pointer;z-index:9}'+
+  '@media print{.noprint{display:none}}';
+}
+function _pbOpenPrint(title,css,body){
+  const w=window.open('','_blank');
+  if(!w){toast('팝업이 막혀 있어요 — 허용해 주세요');return false;}
+  w.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>'+_pbEsc(title)+'</title>'+
+    '<style>'+css+'</style></head><body>'+body+
+    '<button class="noprint" onclick="print()">🖨 인쇄</button></body></html>');
+  w.document.close();
+  return true;
+}
+function pbPrint(what){
+  if(!_pbPaper||!_pbSlots.length){toast('먼저 문항을 담아 주세요');return;}
+  const fmt=_pbPaper.format||'suneung';
+  const title=_pbPaper.title||'시험지';
+  const hd=_pbPaper.header||{};
+  const rows=_pbRows();
+  const withId=rows.filter(r=>r.d);
+  if(what==='ans'){                                   // 정답표 (수능 정답표 모양)
+    const per=10,cols=[];
+    for(let i=0;i<withId.length;i+=per)cols.push(withId.slice(i,i+per).map((r,j)=>({no:i+j+1,r:r})));
+    let b='<h2 style="font-size:13pt;margin:0 0 6px">'+_pbEsc(title)+' — 정답표</h2>'+
+      '<div style="font-size:9.5pt;color:#555">'+_pbEsc(hd.school||'')+(hd.date?(' · '+_pbEsc(hd.date)):'')+'</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">';
+    cols.forEach(col=>{
+      b+='<table class="at"><tr><th>번호</th><th>정답</th><th>배점</th></tr>'+
+        col.map(c=>{
+          const d=c.r.d;
+          const a=(d.choices||[]).length?_pbCirc(d.answer):'서술형';
+          const p=Number((_pbPaper.points||{})[d.id])||'';
+          return '<tr><td>'+c.no+'</td><td>'+a+'</td><td>'+p+'</td></tr>';
+        }).join('')+'</table>';
+    });
+    b+='</div>';
+    _pbOpenPrint(title+' 정답표','@page{size:A4;margin:14mm}'+_pbCss('worksheet'),b);
+    return;
+  }
+  if(what==='sol'){                                   // 정답·해설지
+    let b='<h2 style="font-size:13pt;margin:0 0 8px">'+_pbEsc(title)+' — 정답·해설</h2>';
+    let no=0;
+    rows.forEach(r=>{no++;const d=r.d;if(!d)return;
+      const a=(d.choices||[]).length?_pbCirc(d.answer):_pbEsc(d.answerText||'');
+      b+='<div class="sol"><span class="n">'+no+'.</span> <span class="a">정답 '+a+'</span>'+
+        (d.rubric?('<div class="e"><b>채점 기준</b> '+_pbEsc(d.rubric)+'</div>'):'')+
+        (d.explain?('<div class="e">'+_pbEsc(d.explain)+'</div>'):'')+
+        ((d.wrong||[]).length?('<div class="e"><b>오답</b> '+_pbEsc(d.wrong.join(' / '))+'</div>'):'')+
+        '</div>';
+    });
+    _pbOpenPrint(title+' 정답·해설','@page{size:A4;margin:14mm}'+_pbCss('worksheet'),b);
+    return;
+  }
+  if(what==='script'){                                // 듣기 대본
+    const has=rows.filter(r=>r.d&&String(r.d.script||'').trim());
+    if(!has.length){toast('듣기 대본이 있는 문항이 없어요');return;}
+    let b='<h2 style="font-size:13pt;margin:0 0 8px">'+_pbEsc(title)+' — 듣기 대본</h2>';
+    let no=0;
+    rows.forEach(r=>{no++;if(!r.d||!String(r.d.script||'').trim())return;
+      b+='<div class="sol"><span class="n">'+no+'.</span> <div class="e">'+
+        _pbEsc(r.d.script).replace(/\n/g,'<br>')+'</div></div>';
+    });
+    _pbOpenPrint(title+' 듣기 대본','@page{size:A4;margin:14mm}'+_pbCss('worksheet'),b);
+    return;
+  }
+  if(what==='omr'){                                   // OMR 답안지
+    const n=rows.length;
+    const per=20,cols=[];
+    for(let i=0;i<n;i+=per)cols.push(Array.from({length:Math.min(per,n-i)},(_,j)=>i+j+1));
+    let b='<h2 style="font-size:13pt;margin:0 0 4px">'+_pbEsc(title)+' — 답안지</h2>'+
+      '<div style="font-size:9.5pt;color:#555;margin-bottom:8px">'+_pbEsc(hd.school||'')+
+      ' · 이름 ____________ · 반 ______ · 번호 ______</div><div style="display:flex;gap:10px;flex-wrap:wrap">';
+    cols.forEach(col=>{
+      b+='<table class="at omr"><tr><th>번호</th><th>① ② ③ ④ ⑤</th></tr>'+
+        col.map(no=>'<tr><td>'+no+'</td><td style="letter-spacing:7px">○ ○ ○ ○ ○</td></tr>').join('')+'</table>';
+    });
+    b+='</div>';
+    _pbOpenPrint(title+' 답안지','@page{size:A4;margin:14mm}'+_pbCss('worksheet'),b);
+    return;
+  }
+  // 문제지
+  let b=_pbHeadHtml(fmt)+'<div class="wrap">'+_pbBody(fmt);
+  if(fmt==='mini'){
+    let no=0;const pairs=[];
+    rows.forEach(r=>{no++;if(!r.d)return;pairs.push(no+'.'+((r.d.choices||[]).length?_pbCirc(r.d.answer):'서술형'));});
+    b+='<div class="mini-ans"><b>정답</b> '+pairs.join('  ')+'</div>';
+  }
+  b+='</div>';
+  if(fmt==='suneung')
+    b+='<div class="confirm"><b>확인 사항</b>답안지의 해당란에 성명과 수험 번호를 정확히 썼는지 확인하시오.</div>'+
+       '<div class="foot">'+_pbEsc(hd.school||'')+' 영어 영역 <span class="bx">쪽</span></div>';
+  if(fmt==='worksheet')b+='<div class="memo-col">메모</div>';
+  _pbOpenPrint(title,_pbCss(fmt),b);
+}
+
+// 시험지 편집 화면을 열 때 칸들을 채운다
+function _pbPaintCfgUI(){
+  _ebOptsIb('pb-frame','틀 고르기',PB_FRAMES.map(f=>({v:f.k,n:f.n})),_pbCfg.frame);
+  const fo=document.getElementById('pb-focus');if(fo)fo.innerHTML=_ibTypeOptions(_pbCfg.focus);
+  _ebOptsIb('pb-grade','학년 전체',IB_GRADES.map(g=>({v:g,n:g})),_pbCfg.grade);
+  _ebOptsIb('pb-dmin','1',[1,2,3,4,5].map(d=>({v:d,n:'난도 '+d})),_pbCfg.dMin);
+  _ebOptsIb('pb-dmax','5',[1,2,3,4,5].map(d=>({v:d,n:'난도 '+d})),_pbCfg.dMax);
+  const dn=document.getElementById('pb-dmin');if(dn)dn.value=String(_pbCfg.dMin);
+  const dx=document.getElementById('pb-dmax');if(dx)dx.value=String(_pbCfg.dMax);
+  _ebOptsIb('pb-src','출처 전체',IB_SRCS.map(s=>({v:s.k,n:s.n})),_pbCfg.src);
+  const used=new Set((_ibRows||[]).map(r=>String(((r.meta||{}).src||{}).tbId||'')).filter(Boolean));
+  const tbs=(_cache.globalTextbooks||[]).filter(b=>b&&b.id&&used.has(b.id))
+    .sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),'ko'));
+  _ebOptsIb('pb-tb','교재 전체',tbs.map(b=>({v:b.id,n:b.title||'(제목 없음)'})),_pbCfg.tbId);
+  const tb=tbs.find(b=>b.id===_pbCfg.tbId);
+  const units=tb?Object.keys(tb.unitTexts||tb.units||{}):[];
+  const ue=document.getElementById('pb-unit');
+  if(ue){ue.style.display=units.length?'':'none';_ebOptsIb('pb-unit','단원 전체',units.map(u=>({v:u,n:u})),_pbCfg.unit);}
+  const u=document.getElementById('pb-unused');if(u)u.checked=!!_pbCfg.unused;
+  const fr=document.getElementById('pb-focus-row');
+  if(fr)fr.style.display=(_pbCfg.frame==='focus10'||_pbCfg.frame==='custom')?'':'none';
+  _pbPaintCustom();
 }
