@@ -464,7 +464,7 @@ function renderStudentLibrary(sid){
   const _asgDone={};   // _n(교재명) → { 과제에 적힌 단원 문자열: 끝낸 날짜(최신) }
   ppLive(_cache.assignments).forEach(a=>{
     if(a.sid!==sid)return;
-    const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):(a.schedule||[]);
+    const sch=_hwSchedOf(a);
     (sch||[]).forEach(sc=>{
       if(!sc||!sc.done)return;
       const book=sc.book||a.bookTitle||'',unit=sc.unit||'';
@@ -841,7 +841,7 @@ function renderAssignmentTab(sid){
   const _schedCov=new Set();
   (_cache.assignments||[]).forEach(a=>{
     if(a._deleted||a.sid!==sid||!(a.schedule||[]).length)return;
-    const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+    const sch=_hwSchedOf(a);
     sch.forEach(s=>_schedCov.add(_hwKeyNorm((s.book||a.bookTitle||'')+'|'+(s.unit||'')+'|'+(s.date||''))));
   });
   // ppLive — 휴지통 행은 그리지 않는다 (2026-11-08)
@@ -884,7 +884,7 @@ function renderAssignmentTab(sid){
       // 날짜별 스케줄 과제 (클래스5·반복 숙제) — 오늘부터 7일만 보여주고 전체는 접기
       const today=ppToday();
       // 자동 진행 숙제는 못 한 날의 단원을 오늘부터로 밀어서 표시 (저장은 선생님 앱이 담당)
-      const sched=(typeof recurRebase==='function'?recurRebase(a):null)||a.schedule||[];
+      const sched=_hwSchedOf(a);
       const isRecur=a.category==='recur'||a.type==='recur';
       const mkTbl=rows=>`<div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--cream)"><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">날짜</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">${isRecur?'숙제':'교재'}</th><th style="padding:4px 6px;text-align:left;border-bottom:1px solid var(--border)">유닛</th></tr></thead><tbody>${rows.map(r=>`<tr style="${r.date===today?'background:var(--okl);font-weight:700':''}${r.done?';opacity:.55':''}"><td style="padding:3px 6px;border-bottom:1px solid var(--border);white-space:nowrap">${(r.date||'').slice(5).replace('-','/')}${r.done?' ✅':''}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.book||''}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border)">${r.unit||''}</td></tr>`).join('')}</tbody></table></div>`;
       const upcoming=sched.filter(r=>(r.date||'')>=today);
@@ -3379,7 +3379,7 @@ function ppTodayAllDone(sid){
   const t=ppToday();let n=0;
   for(const a of (_cache.assignments||[])){
     if(a.sid!==sid||a._deleted)continue;
-    if((a.schedule||[]).length){const sc=a.schedule.find(x=>x.date===t);if(sc){n++;if(!sc.done)return false;}}
+    if((a.schedule||[]).length){const sc=_hwSchedOf(a).find(x=>x.date===t);if(sc){n++;if(!sc.done)return false;}}
     else if((a.due||a.date)===t){n++;if(!a.completedAt)return false;}
   }
   return n>0;
@@ -3597,8 +3597,10 @@ async function uncompleteAssignment(sid,asgnId){
 // 매일 스케줄 숙제(클래스5·반복)의 오늘 몫 체크 — 그 날짜 항목에 done 표시 (선생님 캘린더 ✓와 같은 데이터)
 async function completeSchedDay(sid,asgnId,ds){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
+  // 자동 진행 재배치 + 교재형 단원 맞춤을 반영한 뒤 체크 (선생님 앱과 같은 규칙)
+  if(typeof ppApplyUnitSync==='function')ppApplyUnitSync(a);   // 교재형: 직전 일정 한 벌을 남기고 단원만 맞춤
   const reb=(typeof recurRebase==='function')?recurRebase(a):null;
-  if(reb)a.schedule=reb; // 자동 진행: 밀린 스케줄 반영 후 체크 (선생님 앱과 같은 규칙)
+  if(reb)a.schedule=reb;
   const sc=(a.schedule||[]).find(s=>s.date===ds);if(!sc||sc.done)return;
   sc.done=true;sc.doneBy='student';sc.doneAt=new Date().toISOString();
   const card=document.getElementById('sch-card-'+asgnId+'-'+ds);
@@ -3964,7 +3966,7 @@ function renderStudentHome(sid){
   const streak=getStreak(sid);
   const allBooks=[...DB.libs()];
   // 매일 반복·클래스5 숙제를 요일별 항목으로 펼침 (단어 숙제가 매일 눈에 띄도록)
-  const _schedOf=a=>{const r=(typeof recurRebase==='function')?recurRebase(a):null;return r||a.schedule||[];};
+  const _schedOf=a=>_hwSchedOf(a);
   const regAssigns=allAssigns.filter(a=>!(a.schedule||[]).length);
   const schedAssigns=allAssigns.filter(a=>(a.schedule||[]).length);
   const dayItems=ds=>{

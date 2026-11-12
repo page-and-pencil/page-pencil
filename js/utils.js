@@ -21,57 +21,90 @@ function vocativeOf(name){
   if(!hangul)return n;                       // 영문 이름 등은 조사를 붙이지 않는다
   return n+(((last-0xAC00)%28)!==0?'아':'야');
 }
-// ── 숙제가 끝났는가 ──
-// completedAt 만 보면 '일정이 전부 끝난 반복 숙제'를 놓친다. 실제로 요즘 초등 영단어 1이
-// 24/24 완료인데 completedAt 이 없어 학부모 화면에 '남음'으로 세졌다.
-// 일정형(반복·클래스5)은 남은 일정이 하나도 없으면 끝난 것으로 본다.
-function hwFinished(a){
-  if(!a)return true;
-  if(a.completedAt)return true;
-  const sch=a.schedule;
-  if(Array.isArray(sch)&&sch.length)return sch.every(s=>s&&s.done);
-  return false;
-}
-// '지금 남은 숙제' 로 셀 때 쓰는 기준.
-// 반복 숙제는 몇 달치 일정이 한 건에 들어 있어, hwFinished 로만 보면 마지막 날까지 영원히
-// '안 끝난 숙제 1건' 으로 남는다. 오늘 몫이 끝났으면(또는 오늘 몫이 없으면) 남은 것으로 세지 않는다.
-// 그 숙제의 '지금 일정' — 자동 진행 반복은 학생 화면과 같은 재계산본을 본다.
-// (학부모 화면이 원본 schedule 을 보고 학생 화면이 재계산본을 봐서 서로 다르게 보이던 문제)
+// ── 숙제 판정은 여기 한 곳에서 ────────────────────────────────
+// 같은 사실(끝났나·밀렸나·오늘 몫이 남았나)을 화면마다 따로 계산하다 서로 어긋났다.
+// 화면은 아래 두 함수만 부르고 직접 세지 않는다.
+//
+// hwIsBookFlow(a) = '교재를 따라가는 숙제'인가. **auto 와 무관하다.**
+//   a.auto 의 뜻은 이제 하나뿐이다 — '날짜를 규칙대로 자동으로 다시 깐다'.
+//   선생님이 일정을 손으로 고치면 auto 는 꺼지지만, 그래도 교재를 따라가는 숙제인 건 그대로다.
+function hwIsBookFlow(a){return !!a&&a.category==='recur'&&!!a.bookId;}
+// 그 숙제의 '지금 일정'
+//  · auto 반복: 날짜까지 규칙대로 다시 깐 재계산본 (recurRebase)
+//  · 교재형(auto 아님): 날짜는 그대로 두고 수업 진도에 맞춰 단원만 맞춘 것 (ppHwUnitSync)
+// 학생·학부모·선생님 화면이 모두 이걸 본다 (서로 다른 걸 보던 문제).
 function _hwSchedOf(a){
   if(!a)return [];
   const sch=a.schedule||[];
   if(a.category==='recur'&&a.auto&&typeof recurRebase==='function')return recurRebase(a)||sch;
+  if(hwIsBookFlow(a)&&typeof ppHwUnitSync==='function')return ppHwUnitSync(a)||sch;
   return sch;
 }
-function hwPendingNow(a,todayStr){
-  if(!a||a._deleted)return false;
-  if(a.completedAt)return false;
+// 보여 줄 때 세는 '밀린 날' 창 — 7월부터 쌓인 74일은 사실이지만 손쓸 수 없는 숫자라 최근 2주만 센다
+const PP_OVERDUE_WIN=14;
+// 숙제 하나의 상태를 한 번에 — 화면은 이 값만 쓴다
+//   finished        끝났나 (일정형은 모든 줄 done · 단건은 completedAt)
+//   total/doneCount 일정 줄 수 / 끝낸 줄 수 (단건은 1 / 0~1)
+//   todayRow        오늘 몫 줄 (없으면 null)
+//   todayPending    오늘 몫이 아직 안 끝났나
+//   overdueRows     지난 날 중 안 한 줄 수 (수업으로 처리된 몫은 뺀다)
+//   overdueRows14   그중 최근 2주치
+//   lessonDoneCount 수업으로 처리된 줄 수
+//   lastDate        마지막 날짜
+function hwState(a,todayStr){
   const today=todayStr||((typeof ppToday==='function')?ppToday():'');
+  const st={finished:false,scheduled:false,total:0,doneCount:0,todayRow:null,todayPending:false,
+    overdueRows:0,overdueRows14:0,lessonDoneCount:0,lastDate:'',sched:[]};
+  if(!a)return st;
+  const from=(typeof ppShiftDate==='function')?ppShiftDate(today,-PP_OVERDUE_WIN):'';
   const sch=_hwSchedOf(a);
   if(Array.isArray(sch)&&sch.length){
-    // **오늘 몫** 만 본다 — 학생 화면의 '오늘 퀘스트' 와 같은 기준 (2026-11-08).
-    // 전에는 지난 날 중 하나만 비어도 학부모 화면에 계속 '남은 숙제' 로 떠서,
-    // 학생은 오늘 것을 다 했는데 학부모 화면에는 체크가 안 된 것처럼 보였다.
-    // 밀린 날은 hwOverdueDays 로 따로 알린다.
-    const todayRow=sch.find(s=>s&&s.date===today);
-    return todayRow?!todayRow.done:false;
+    st.scheduled=true;st.sched=sch;st.total=sch.length;
+    sch.forEach(s=>{
+      if(!s)return;
+      const d=String(s.date||'');
+      if(d>st.lastDate)st.lastDate=d;
+      if(s.done){st.doneCount++;if(s.doneBy==='lesson')st.lessonDoneCount++;}
+      if(d===today&&!st.todayRow)st.todayRow=s;
+      if(d&&d<today&&!s.done&&s.doneBy!=='lesson'){
+        st.overdueRows++;
+        if(!from||d>=from)st.overdueRows14++;
+      }
+    });
+    // 일정형은 **완료 도장(completedAt)이 안 찍힌다** — 줄이 다 끝났으면 끝난 것이다
+    st.finished=!!a.completedAt||st.doneCount>=st.total;
+    st.todayPending=st.todayRow?!st.todayRow.done:false;
+  }else{
+    st.total=1;st.lastDate=String(a.due||a.date||'');
+    st.finished=!!a.completedAt;
+    st.doneCount=st.finished?1:0;
+    st.todayPending=!st.finished&&st.lastDate===today;
+    if(!st.finished&&a.due&&a.due<today){st.overdueRows=1;if(!from||a.due>=from)st.overdueRows14=1;}
   }
-  return true;                             // 단건은 종전대로 — 완료 전이면 남은 것
+  return st;
+}
+// ↓ 아래 셋은 부르는 쪽이 많아 이름을 남긴다. 속은 전부 hwState 다.
+function hwFinished(a){
+  if(!a)return true;
+  return hwState(a).finished;
+}
+// '지금 남은 숙제' 로 셀 때 쓰는 기준 — 일정형은 **오늘 몫**만 본다.
+// (지난 날 하나만 비어도 학부모 화면에 계속 '남은 숙제'로 뜨던 문제. 밀린 날은 hwOverdueDays 로 따로 알린다)
+function hwPendingNow(a,todayStr){
+  if(!a||a._deleted||a.completedAt)return false;
+  const st=hwState(a,todayStr);
+  return st.scheduled?st.todayPending:true;   // 단건은 종전대로 — 완료 전이면 남은 것
 }
 // 오늘 이전에 안 한 칸 수 (밀린 숙제). 수업으로 처리된 몫은 빼고 센다.
-// winDays 를 주면 그 기간 안에서만 센다 —
-// 7월부터 쌓인 '밀린 74일' 은 사실이지만 학부모에게는 손쓸 수 없는 숫자라,
-// 보여 줄 때는 최근 2주(PP_OVERDUE_WIN)만 센다.
-const PP_OVERDUE_WIN=14;
 function hwOverdueDays(a,todayStr,winDays){
   if(!a||a._deleted||a.completedAt)return 0;
+  const st=hwState(a,todayStr);
+  if(!(winDays>0))return st.overdueRows;
+  if(winDays===PP_OVERDUE_WIN)return st.overdueRows14;
   const today=todayStr||((typeof ppToday==='function')?ppToday():'');
-  const from=(winDays>0&&typeof ppShiftDate==='function')?ppShiftDate(today,-winDays):'';
-  const sch=_hwSchedOf(a);
-  if(!Array.isArray(sch)||!sch.length){
-    return (a.due&&a.due<today&&(!from||a.due>=from))?1:0;   // 단건은 마감이 지났으면 1
-  }
-  return sch.filter(s=>s&&s.date&&s.date<today&&(!from||s.date>=from)&&!s.done&&s.doneBy!=='lesson').length;
+  const from=(typeof ppShiftDate==='function')?ppShiftDate(today,-winDays):'';
+  if(!st.scheduled)return (a.due&&a.due<today&&(!from||a.due>=from))?1:0;
+  return st.sched.filter(s=>s&&s.date&&s.date<today&&(!from||s.date>=from)&&!s.done&&s.doneBy!=='lesson').length;
 }
 function ppToday(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 // 임의 Date를 로컬 YYYY-MM-DD로 포맷
@@ -1007,7 +1040,8 @@ function ppQuizSet(sid){
     return cards.filter(c=>want.has(String(c.word||'').toLowerCase().trim()));
   };
   // ① 오늘 마감인 단어 숙제
-  const asgs=((typeof ppLive==='function')?ppLive(_cache.assignments):(_cache.assignments||[])).filter(a=>a.sid===sid&&!a.completedAt);
+  const asgs=((typeof ppLive==='function')?ppLive(_cache.assignments):(_cache.assignments||[]))
+    .filter(a=>a.sid===sid&&!hwFinished(a));
   for(const a of asgs){
     if(!Array.isArray(a.words)||!a.words.length)continue;
     const due=String(a.due||a.date||'').slice(0,10);
@@ -1520,7 +1554,7 @@ function ppStudentSignals(stu,todayStr){
     .filter(a=>a&&!a._deleted&&a.sid===stu.id&&a.due&&a.due<today)
     .sort((a,b)=>(b.due||'').localeCompare(a.due||''))
     .slice(0,th.hwRecentN);
-  const undone=asg.filter(a=>!a.completedAt&&!(typeof hwFinished==='function'&&hwFinished(a))).length;
+  const undone=asg.filter(a=>!hwFinished(a)).length;
   if(asg.length>=th.hwRecentN&&undone>=th.hwMissM)
     reasons.push({k:'hw',t:'최근 '+asg.length+'회 중 숙제 미완 '+undone+'회'});
 
@@ -1566,6 +1600,225 @@ function ppStudentSignals(stu,todayStr){
   return {level,reasons,missing:miss};
 }
 
+
+// ── 교재 흐름 (ppFlow) — '지금 어느 책을 어디까지' 의 단 하나의 판정 ──────────
+// 같은 사실을 진도 보드·교재 여정·대시보드·수업 기록 창이 각자 계산하다 서로 달라졌다.
+// 판정은 여기 한 곳에서 하고, 화면은 불러다 쓰기만 한다.
+//
+//  영역(vocab·reading…) → 줄(track) → 책 배열
+//  줄(track)  : 같은 영역 안에서 **동시에** 도는 흐름. mat.run 이 있는 책이 새 줄을 시작한다.
+//  '지금' 책  : 그 줄에서 아직 안 끝난 첫 책 (진도 보드와 같은 판정)
+//  진행 숫자  : 어디서나 (doneIdx+1)/total 하나로 쓴다
+function ppTbOf(mat){
+  if(!mat||(!mat.book&&!mat.bookId))return null;
+  const tbs=(typeof _cache!=='undefined')?(_cache.globalTextbooks||[]):[];
+  return (mat.bookId?tbs.find(b=>b.id===mat.bookId):null)||tbs.find(b=>b.title===mat.book)||null;
+}
+// 이 클래스에서 그 교재의 마지막 기록 {idx,date} — **가장 멀리 나간 단원** 기준(복습 기록에 되감기지 않게).
+// c.doneUpto[교재id] = 선생님이 진도 보드에서 직접 지정한 '여기까지 끝냄'
+function ppLastRec(classId,tb){
+  if(!tb)return null;
+  let best=null;
+  const today=(typeof ppToday==='function')?ppToday():'';
+  const idxOf=(u,date)=>(typeof ppUnitIdxCtx==='function')
+    ?ppUnitIdxCtx(tb,u,{classId:classId,date:date})
+    :((typeof ppUnitIdx==='function')?ppUnitIdx(tb,u):-1);
+  (typeof _cache!=='undefined'?(_cache.lessons||[]):[]).forEach(l=>{
+    if(!l||l._deleted||l.classId!==classId||!l.materials)return;
+    if((l.date||'')>today)return;
+    Object.values(l.materials).forEach(m=>{
+      if(!m||!m.book)return;
+      if(m.bookId?m.bookId!==tb.id:m.book!==tb.title)return;
+      const idx=idxOf(m.unit,l.date);
+      if(idx<0)return;
+      if(!best||idx>best.idx||(idx===best.idx&&(l.date||'')>best.date))best={idx:idx,date:l.date||''};
+    });
+  });
+  const c=(typeof DB!=='undefined'?DB.classes():[]).find(x=>x.id===classId);
+  const du=((c&&c.doneUpto)||{})[tb.id];
+  if(du){
+    const i=(typeof ppUnitIdx==='function')?ppUnitIdx(tb,du):-1;
+    if(i>=0&&(!best||i>best.idx))best={idx:i,date:today,manual:true};
+  }
+  return best;
+}
+// 같은 영역의 책 목록을 '동시에 도는 줄'로 나눈다 (mat.run 이 새 줄을 연다)
+function ppTracksOf(group){
+  const out=[];
+  let cur=null;
+  (group||[]).forEach(b=>{
+    const run=(b.mat&&b.mat.run)||'';
+    if(!cur||run){cur={run:run,books:[]};out.push(cur);}
+    cur.books.push(b);
+  });
+  return out;
+}
+// 이 책의 **교재형 숙제** (auto 여부와 무관). 없으면 null.
+// bookId 로 찾고, 없으면 제목으로. 다른 숙제의 schedule[].book 은 보지 않는다(오판의 원인).
+function ppBookHw(sids,tb){
+  if(!tb)return null;
+  const want=new Set(Array.isArray(sids)?sids:[sids]);
+  const list=(typeof _cache!=='undefined')?(_cache.assignments||[]):[];
+  return list.find(a=>a&&!a._deleted&&want.has(a.sid)&&hwIsBookFlow(a)
+    &&(a.bookId===tb.id||ppNormUnit(a.bookTitle)===ppNormUnit(tb.title)))||null;
+}
+const PP_FLOW_ORDER=['vocab','phonics','grammar','reading','listening','writing','naesin'];
+// opts: {sid} 그 학생의 숙제로 hwId 를 찾는다 · {etaBy} {교재id:예상완료일} (진도 캘린더가 계산해 넘긴다)
+function ppFlow(classId,opts){
+  const o=opts||{};
+  const c=(typeof DB!=='undefined'?DB.classes():[]).find(x=>x.id===classId);
+  if(!c)return [];
+  const sids=o.sid?[o.sid]:((c.studentIds||[]).slice());
+  const books=Object.entries(c.commonMaterials||{})
+    .map(([s,mat])=>({s:s,mat:mat,tb:ppTbOf(mat)}))
+    .filter(e=>e.tb&&(typeof tbUnitKeys==='function')&&tbUnitKeys(e.tb).length);
+  const groups={};
+  books.forEach(b=>{
+    const base=b.s.replace(/_\d+$/,'');
+    const gk=base==='naesin'?b.s:base;     // 내신은 여러 교재 병행 — 체인이 아니라 각자
+    (groups[gk]=groups[gk]||[]).push(b);
+  });
+  const gkeys=Object.keys(groups).sort((x,y)=>{
+    const i=k=>{const n=PP_FLOW_ORDER.indexOf(k.replace(/_\d+$/,''));return n<0?99:n;};
+    return i(x)-i(y)||String(x).localeCompare(String(y));
+  });
+  return gkeys.map(gk=>{
+    const base=gk.replace(/_\d+$/,'');
+    const tracks=ppTracksOf(groups[gk]).map(t=>{
+      const fin=b=>{const r=ppLastRec(classId,b.tb);const k=tbUnitKeys(b.tb);return !!(r&&k.length&&r.idx>=k.length-1);};
+      // 교대(alt)는 이 줄에 '아직 안 끝난 alt 트랙'이 둘 이상일 때만 실제로 돈다
+      const altNames=new Set();
+      t.books.forEach(b=>{const nm=b.mat&&b.mat.alt;if(nm&&!fin(b))altNames.add(nm);});
+      let nowIdx=-1;
+      for(let i=0;i<t.books.length;i++){if(!fin(t.books[i])){nowIdx=i;break;}}
+      const cur=nowIdx>=0?t.books[nowIdx]:null;
+      const altOn=altNames.size>1&&!!(cur&&cur.mat&&cur.mat.alt);
+      const mode=t.run==='hw'?'hw':t.run==='class'?'class'
+        :altOn?'alt':(cur&&cur.mat&&cur.mat.perClass)?'perClass'
+        :(base==='vocab'?'hw':'class');
+      const bks=t.books.map((b,i)=>{
+        const keys=tbUnitKeys(b.tb);
+        const rec=ppLastRec(classId,b.tb);
+        const doneIdx=rec?rec.idx:-1;
+        const hw=ppBookHw(sids,b.tb);
+        return {key:b.s,tb:b.tb,mat:b.mat,
+          state:(nowIdx<0||i<nowIdx)?'done':(i===nowIdx?'now':'next'),
+          doneIdx:doneIdx,total:keys.length,nextUnit:keys[doneIdx+1]||'',
+          mode:mode,hwId:hw?hw.id:null,eta:(o.etaBy&&o.etaBy[b.tb.id])||''};
+      });
+      return {run:t.run||'',mode:mode,books:bks,nowIdx:nowIdx,now:nowIdx>=0?bks[nowIdx]:null};
+    });
+    return {area:base,key:gk,label:(typeof SLBL!=='undefined'?(SLBL[base]||base):base),tracks:tracks};
+  });
+}
+// 그 학생이 속한 반의 흐름 (학생·학부모 화면용). 반이 없으면 []
+function ppFlowForStudent(sid,opts){
+  const c=(typeof DB!=='undefined'?DB.classes():[]).find(x=>x.active!==false&&(x.studentIds||[]).includes(sid));
+  if(!c)return [];
+  return ppFlow(c.id,Object.assign({sid:sid},opts||{}));
+}
+// 흐름의 모든 '지금' 책 (영역 상관없이) — 줄이 둘이면 둘 다
+function ppFlowNowBooks(flow){
+  const out=[];
+  (flow||[]).forEach(a=>(a.tracks||[]).forEach(t=>{if(t.now)out.push(Object.assign({area:a.area,label:a.label},t.now));}));
+  return out;
+}
+// ── 반복 숙제 이름표 ────────────────────────────────────────
+// 규칙 글자(recurRule)를 그대로 쓰면 '월·화·수·금으로 손수 고친 숙제'가 계속 '수업 없는 날'로 보인다.
+// 일정의 **실제 요일**로 만들고, 규칙과 실제가 맞을 때만 규칙 이름을 쓴다.
+const PP_RULE_NAME={noclass:'수업 없는 날',class:'수업 있는 날',daily:'매일',weekday:'평일',weekend:'주말'};
+function ppHwDows(a){
+  const DOWS=['일','월','화','수','목','금','토'];
+  const set=new Set();
+  (_hwSchedOf(a)||[]).forEach(s=>{if(s&&s.date)set.add(new Date(s.date+'T12:00:00').getDay());});
+  if(!set.size)return '';
+  if(set.size===7)return '매일';
+  return [1,2,3,4,5,6,0].filter(d=>set.has(d)).map(d=>DOWS[d]).join('·');
+}
+// 일정이 규칙 그대로인가 — 규칙에 맞는 날이 모두 있고, 규칙에 어긋나는 날이 없어야 한다
+function ppHwMatchesRule(a){
+  const rule=a&&a.recurRule;
+  if(!rule||!PP_RULE_NAME[rule])return false;
+  const sch=(_hwSchedOf(a)||[]).filter(s=>s&&s.date);
+  if(sch.length<2)return false;
+  const cls=(typeof DB!=='undefined'?DB.classes():[]).find(c=>c.active!==false&&(c.studentIds||[]).includes(a.sid));
+  const days=(cls&&cls.days)||[],skip=new Set((cls&&cls.skipDates)||[]),extra=new Set((cls&&cls.extraDates)||[]);
+  const DOWS=['일','월','화','수','목','금','토'];
+  const ok=(d,ds)=>{
+    const dow=DOWS[d.getDay()];
+    const isCls=(days.includes(dow)||extra.has(ds))&&!skip.has(ds);
+    if(rule==='noclass')return !isCls;
+    if(rule==='class')return isCls;
+    if(rule==='weekday')return dow!=='토'&&dow!=='일';
+    if(rule==='weekend')return dow==='토'||dow==='일';
+    return true;                                   // daily
+  };
+  const have=new Set(sch.map(s=>s.date));
+  const first=sch[0].date,last=sch[sch.length-1].date;
+  const d=new Date(first+'T12:00:00');
+  for(let i=0;i<400;i++){
+    const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(ds>last)break;
+    if(ok(d,ds)!==have.has(ds))return false;
+    d.setDate(d.getDate()+1);
+  }
+  return true;
+}
+function ppHwRuleLabel(a){
+  if(!a)return '';
+  const nm=PP_RULE_NAME[a.recurRule||'']||'';
+  if(nm&&ppHwMatchesRule(a))return nm;
+  return ppHwDows(a)||nm;
+}
+// ── 과제 탭 배너 ────────────────────────────────────────────
+// '다음 교재를 고르세요' 가 다음 책 숙제가 한창 도는 중에도 떠 있었다(auto 인 숙제만 봤다).
+// 이제 반의 **과제로 도는 줄**을 보고 판정한다.
+//   none      알릴 것 없음
+//   need-hw   지금 책에 교재형 숙제가 아직 없다 → 숙제 내기
+//   pick-next 줄의 책을 전부 끝냈다 → 다음 교재 고르기
+function ppHwBanner(sid){
+  const flow=ppFlowForStudent(sid);
+  const out=[];
+  if(flow.length){
+    flow.forEach(area=>{
+      // 같은 영역에 아직 도는 과제 줄이 있으면, 끝난 줄을 두고 '다음 교재'로 보채지 않는다
+      // (선생님이 이미 새 줄로 옮겨 간 것이다. 끝난 줄은 진도 보드의 '마름' 점검이 따로 알린다)
+      const liveHw=(area.tracks||[]).some(t=>t.mode==='hw'&&t.now);
+      (area.tracks||[]).forEach(t=>{
+        if(t.mode!=='hw')return;                       // 과제로 도는 줄만
+        if(!t.now){                                    // 줄의 모든 책을 끝냈다
+          if(liveHw)return;
+          const last=t.books[t.books.length-1];
+          if(last)out.push({kind:'pick-next',area:area.area,key:last.key,
+            tbId:last.tb.id,title:last.tb.title,unit:'',rule:'',days:''});
+          return;
+        }
+        const hw=t.now.hwId?(_cache.assignments||[]).find(x=>x&&x.id===t.now.hwId):null;
+        if(hw&&!hwState(hw).finished)return;           // 숙제가 돌고 있다 — 알릴 것 없음
+        // 직전 교재형 숙제의 반복 방식을 그대로 이어 쓴다
+        let prev=null;
+        for(let i=t.nowIdx-1;i>=0&&!prev;i--){
+          const p=t.books[i];
+          prev=p.hwId?(_cache.assignments||[]).find(x=>x&&x.id===p.hwId):null;
+        }
+        if(!prev&&hw)prev=hw;
+        out.push({kind:'need-hw',area:area.area,key:t.now.key,
+          tbId:t.now.tb.id,title:t.now.tb.title,unit:t.now.nextUnit||'',
+          rule:(prev&&prev.recurRule)||'',days:prev?ppHwDows(prev):'',
+          doneIdx:t.now.doneIdx,total:t.now.total});
+      });
+    });
+    return out;
+  }
+  // 반이 없는 학생 — 종전 방식(그 학생의 교재형 숙제만 본다). auto 조건만 hwIsBookFlow 로 바꿨다
+  const mine=(_cache.assignments||[]).filter(a=>a&&!a._deleted&&a.sid===sid&&hwIsBookFlow(a)&&(a.schedule||[]).length);
+  if(mine.length&&mine.every(a=>hwState(a).finished)){
+    const last=mine.slice().sort((x,y)=>String(y.due||'').localeCompare(String(x.due||'')))[0];
+    out.push({kind:'pick-next',area:'',key:'',tbId:last.bookId||'',title:last.bookTitle||'',unit:'',
+      rule:last.recurRule||'',days:ppHwDows(last)});
+  }
+  return out;
+}
 
 // ── 교재 여정 ────────────────────────────────────────────────
 // 끝낸 교재 / 지금 하는 교재 / 앞으로 할 교재를 영역별로 한 줄에 꿴다.
@@ -1629,6 +1882,16 @@ function ppBookPath(sid,cid){
     });
   });
 
+  // '지금·다음' 판정과 진행 숫자는 **공용 ppFlow** 로 — 진도 보드와 같은 값을 쓴다.
+  // (전에는 '최근 45일 안에 기록이 있으면 지금' + 기록한 단원 **개수**로 세어,
+  //  다 끝낸 책이 '지금'으로 나오고 보드와 숫자가 달랐다. 반이 없는 학생만 종전 방식.)
+  const flowCls=(DB.classes()||[]).find(c=>c.active!==false&&(cid?c.id===cid:((c.studentIds||c.sids||[]).some(x=>sidSet.has(x)))));
+  const flowBy={};
+  if(flowCls&&typeof ppFlow==='function'){
+    ppFlow(flowCls.id,(!Array.isArray(sid))?{sid:sid}:{}).forEach(a=>{
+      flowBy[a.area]=(flowBy[a.area]||[]).concat(a.tracks||[]);
+    });
+  }
   const out=[];
   PP_AREAS.forEach(([area,label])=>{
     const CAT2AREA={'리딩':'reading','리스닝':'listening','어법':'grammar','어휘':'vocab','파닉스':'vocab'};
@@ -1642,15 +1905,42 @@ function ppBookPath(sid,cid){
         first:e.first,last:e.last,
         state:e.manual?'done':((e.last>=cutoff)?'now':((total&&n/total>=0.95)?'done':'past'))};
     }).sort((a,b)=>(a.last||'').localeCompare(b.last||''));
-    // 진행 중인 것이 하나도 없으면 가장 최근 것을 지금으로 본다
-    if(mine.length&&!mine.some(x=>x.state==='now'))mine[mine.length-1].state='now';
     const doneIds=new Set(mine.map(x=>x.id));
     const doneTitles=new Set(mine.map(x=>x.title));
-    const next=plan.filter(p=>p.area===area)
+    const planNext=plan.filter(p=>p.area===area)
       .filter(p=>!(p.bookId&&doneIds.has(p.bookId))&&!doneTitles.has(p.book))
       .map(p=>({title:p.book,bookId:p.bookId,total:totalOf(byId[p.bookId])}));
-    if(!mine.length&&!next.length)return;
-    out.push({area,label,past:mine.filter(x=>x.state!=='now'),now:mine.filter(x=>x.state==='now'),next});
+    const tracks=flowBy[area];
+    if(tracks&&tracks.length){
+      // 줄이 둘이면 **지금 책도 둘** (과제로 도는 책과 수업에서 나가는 책)
+      const byId2={},nowIds=new Set(),nowList=[],nextList=[];
+      tracks.forEach(t=>(t.books||[]).forEach(b=>{byId2[b.tb.id]=b;if(b.state==='next')nextList.push({title:b.tb.title,bookId:b.tb.id,total:b.total});}));
+      tracks.forEach(t=>{
+        if(!t.now)return;
+        const b=t.now,prev=mine.find(x=>x.id===b.tb.id)||{};
+        const n=b.doneIdx+1;
+        nowIds.add(b.tb.id);
+        nowList.push({id:b.tb.id,title:b.tb.title,total:b.total,n:n,manual:!!prev.manual,mode:b.mode,
+          pct:b.total?Math.min(100,Math.round(n/b.total*100)):null,
+          first:prev.first||'',last:prev.last||'',state:'now'});
+      });
+      const past=mine.filter(x=>!nowIds.has(x.id)).map(x=>{
+        const f=byId2[x.id];
+        if(!f)return {...x,state:x.state==='now'?'past':x.state};
+        const n=f.doneIdx+1;
+        return {...x,n:n,total:f.total||x.total,
+          pct:f.total?Math.min(100,Math.round(n/f.total*100)):x.pct,
+          state:(x.manual||f.state==='done')?'done':'past'};
+      });
+      const next=nextList.length?nextList:planNext;
+      if(!past.length&&!nowList.length&&!next.length)return;
+      out.push({area,label,past,now:nowList,next});
+      return;
+    }
+    // 반(흐름)이 없는 학생 — 종전 방식: 최근 45일 안에 기록이 있으면 지금, 없으면 가장 최근 책
+    if(mine.length&&!mine.some(x=>x.state==='now'))mine[mine.length-1].state='now';
+    if(!mine.length&&!planNext.length)return;
+    out.push({area,label,past:mine.filter(x=>x.state!=='now'),now:mine.filter(x=>x.state==='now'),next:planNext});
   });
   return out;
 }
@@ -1706,15 +1996,16 @@ function ppBookPathLineHtml(sid,cid){
   const path=(typeof ppBookPath==='function')?ppBookPath(sid,cid):[];
   if(!path.length)return '';
   const esc=(t)=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // 한 영역에 줄이 둘이면 **두 권 다** 보여 준다 (과제로 도는 책이 빠져 보이던 문제)
   return '<div class="bpl">'+path.map(a=>{
     const col=PP_AREA_COLOR[a.area]||'#5A6B7B';
-    const x=a.now[0];
-    if(!x)return '';
-    const pct=x.pct==null?0:x.pct;
-    return '<div class="bpl-r"><span class="pp-area-dot" style="background:'+col+'"></span>'
-      +'<span class="bpl-t">'+esc(x.title)+'</span>'
-      +'<span class="bpl-b"><span style="width:'+pct+'%;background:'+col+'"></span></span>'
-      +'<span class="bpl-n">'+x.n+'/'+(x.total||'?')+'</span></div>';
+    return (a.now||[]).map(x=>{
+      const pct=x.pct==null?0:x.pct;
+      return '<div class="bpl-r"><span class="pp-area-dot" style="background:'+col+'"></span>'
+        +'<span class="bpl-t">'+esc(x.title)+'</span>'
+        +'<span class="bpl-b"><span style="width:'+pct+'%;background:'+col+'"></span></span>'
+        +'<span class="bpl-n">'+x.n+'/'+(x.total||'?')+'</span></div>';
+    }).join('');
   }).join('')+'</div>';
 }
 
@@ -2537,6 +2828,97 @@ function skipDatesLbl(dates){
   }
   return groups.map(([a,b])=>a===b?skipDateLbl(a):`${skipDateLbl(a)}~${skipDateLbl(b)}`).join(', ');
 }
+// ── 교재 진도와 숙제 맞추기 (공용) ────────────────────────────
+// 단원 이름 비교용 정규화 — 'Unit 1' 과 'unit1' 과 'UNIT 1 Hello' 를 같은 것으로 본다
+function ppNormUnit(s){return String(s||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');}
+function _ppUnitSame(x,y){
+  if(!x||!y)return false;
+  if(x===y)return true;
+  const p=(q,r)=>q.startsWith(r)&&!/^\d/.test(q.slice(r.length));   // unit1 vs unit11 오매칭 방지
+  return p(x,y)||p(y,x);
+}
+// 이 숙제의 책을 **수업에서 이미 나간 단원들** (정규화 키 Set). 못 재면 null.
+// 기준은 진도 보드와 같다 — 수업 기록의 가장 멀리 나간 단원 + 선생님이 지정한 doneUpto.
+function ppCoveredUnits(a,tb,keys){
+  if(!a||!tb||!Array.isArray(keys)||!keys.length)return null;
+  const cls=(typeof DB!=='undefined'?DB.classes():[]).find(c=>c.active!==false&&(c.studentIds||[]).includes(a.sid));
+  if(!cls)return null;
+  const today=(typeof ppToday==='function')?ppToday():'';
+  let maxIdx=-1;
+  (typeof _cache!=='undefined'?(_cache.lessons||[]):[]).forEach(l=>{
+    if(!l||l._deleted||l.classId!==cls.id||!l.materials||(l.date||'')>today)return;
+    Object.values(l.materials).forEach(m=>{
+      if(!m||(m.bookId?m.bookId!==tb.id:ppNormUnit(m.book)!==ppNormUnit(tb.title)))return;
+      String(m.unit||'').split(',').forEach(u=>{
+        const un=ppNormUnit(u);if(!un)return;
+        const idx=keys.findIndex(k=>_ppUnitSame(ppNormUnit(k),un));
+        if(idx>maxIdx)maxIdx=idx;
+      });
+    });
+  });
+  const du=((cls.doneUpto||{})[tb.id]||'');
+  if(du){const di=keys.findIndex(k=>_ppUnitSame(ppNormUnit(k),ppNormUnit(du)));if(di>maxIdx)maxIdx=di;}
+  return maxIdx>=0?new Set(keys.slice(0,maxIdx+1).map(ppNormUnit)):null;
+}
+// 교재형 숙제를 수업 진도에 맞춘다 — **날짜는 선생님이 정한 그대로, 단원만** 맞춘다.
+//  · 지난 날 줄 중 수업에서 이미 나간 단원 → done(doneBy:'lesson'). 밀린 숙제로 남지 않게.
+//  · 오늘 이후 줄 → 이미 나간 단원을 빼고 뒤 단원을 앞으로 당긴다. 날짜 목록은 그대로,
+//    끝에서 남는 날짜만 줄어든다.
+//  · 학생·선생님이 체크한 줄(doneBy student/teacher/…)은 **절대 건드리지 않는다**.
+// auto 숙제는 recurRebase 가 날짜까지 다시 깔므로 여기서 다루지 않는다.
+// 바뀐 새 schedule 배열, 바꿀 게 없으면 null.
+function ppHwUnitSync(a){
+  if(!hwIsBookFlow(a)||a.auto||a.noUnitSync)return null;
+  const sch=a.schedule||[];
+  if(!sch.length)return null;
+  const tb=(typeof _cache!=='undefined'?(_cache.globalTextbooks||[]):[]).find(b=>b.id===a.bookId);
+  const keys=(tb&&typeof tbUnitKeys==='function')?tbUnitKeys(tb):[];
+  const covered=ppCoveredUnits(a,tb,keys);
+  if(!covered)return null;
+  const today=(typeof ppToday==='function')?ppToday():'';
+  const real=s=>!!s&&!!s.done&&PP_DONE_REAL.includes(String(s.doneBy||''));   // 사람이 체크한 줄
+  const out=sch.map(s=>({...s}));
+  // ① 지난 날 줄 — 수업에서 나간 단원이면 수업 처리로 완료
+  out.forEach(s=>{
+    if(!s||!s.date||s.done||s.date>=today)return;
+    if(covered.has(ppNormUnit(s.unit))){s.done=true;s.doneBy='lesson';}
+  });
+  // ② 오늘 이후 줄 — 나간 단원을 빼고 뒤 단원을 앞으로
+  const slots=[],units=[];
+  out.forEach((s,i)=>{
+    if(!s||!s.date||s.date<today||real(s))return;
+    slots.push(i);units.push(String(s.unit||''));
+  });
+  const taken=new Set(out.filter(real).map(s=>ppNormUnit(s.unit)));
+  const keep=units.filter(u=>!covered.has(ppNormUnit(u))&&!taken.has(ppNormUnit(u)));
+  const slotAt=new Map();slots.forEach((i,k)=>slotAt.set(i,k));
+  const res=[];
+  out.forEach((s,i)=>{
+    if(!slotAt.has(i)){res.push(s);return;}
+    const k=slotAt.get(i);
+    if(k<keep.length)res.push({...s,unit:keep[k]});
+    // 남는 날짜(k>=keep.length)는 끝에서 줄어든다
+  });
+  if(!res.length)return null;
+  const same=res.length===sch.length&&res.every((s,i)=>{
+    const o=sch[i];
+    return o&&o.date===s.date&&String(o.unit||'')===String(s.unit||'')&&!!o.done===!!s.done&&(o.doneBy||'')===(s.doneBy||'');
+  });
+  return same?null:res;
+}
+// 맞춘 결과를 과제에 적어 넣는다. 처음 고쳐 쓸 때 **직전 일정 한 벌**을 남긴다(되돌리기용).
+// 저장은 부르는 쪽이 한다. 바뀌었으면 true.
+function ppApplyUnitSync(a){
+  const ns=(typeof ppHwUnitSync==='function')?ppHwUnitSync(a):null;
+  if(!ns)return false;
+  if(!a.schedulePrev){
+    a.schedulePrev=(a.schedule||[]).map(s=>({...s}));
+    a.schedulePrevAt=new Date().toISOString();
+  }
+  a.schedule=ns;
+  if(ns.length&&ns[ns.length-1].date)a.due=ns[ns.length-1].date;
+  return true;
+}
 // 자동 진행 반복 숙제(auto)의 스케줄을 **고정 시작일(a.date)** 기준으로 조밀하게 다시 깐다.
 // 시작일부터 반복 규칙(noclass/class/daily)에 맞는 모든 날에 단원을 1개씩 순서대로 배치 —
 // 휴강·수업 없는 날이 새로 생겨도, 지나간 날이어도 그 날짜의 단원이 사라지지 않는다(과거 미완료 = 밀린 숙제로 남음).
@@ -2584,28 +2966,10 @@ function recurRebase(a){
   a.schedule.forEach(s=>{if(s.done&&s.doneBy)doneByUnit[String(s.unit||'')]=s.doneBy;});
   // 수업 진도 동기화 준비 — 이 학생 클래스의 수업 기록에서 이 책의 최대 진도 단원 인덱스를 찾고,
   // 그 이하 단원 전체를 '수업에서 이미 나간 단원' 집합으로 만든다 (표기 차이는 문자·숫자만 남겨 비교)
-  const nrm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
-  const um=(x,y)=>{if(!x||!y)return false;if(x===y)return true;const p=(q,r)=>q.startsWith(r)&&!/^\d/.test(q.slice(r.length));return p(x,y)||p(y,x);};
+  const nrm=ppNormUnit;
   const _today=(typeof ppToday==='function')?ppToday():'';
-  let covered=null;
-  if(keys&&cls&&_today){
-    let maxIdx=-1;
-    (typeof _cache!=='undefined'?(_cache.lessons||[]):[]).forEach(l=>{
-      if(l._deleted||l.classId!==cls.id||!l.materials||(l.date||'')>_today)return;
-      Object.values(l.materials).forEach(m=>{
-        if(!m||(m.bookId?m.bookId!==a.bookId:nrm(m.book)!==nrm(bookTitle)))return;
-        String(m.unit||'').split(',').forEach(u=>{
-          const un=nrm(u);if(!un)return;
-          const idx=keys.findIndex(k=>um(nrm(k),un));
-          if(idx>maxIdx)maxIdx=idx;
-        });
-      });
-    });
-    // 선생님이 진도 보드에서 직접 지정한 '여기까지 끝냄'도 같은 기준으로 반영 (teacher.js _pgLastRec와 짝)
-    const _du=((cls.doneUpto||{})[a.bookId]||'');
-    if(_du){const di=keys.findIndex(k=>um(nrm(k),nrm(_du)));if(di>maxIdx)maxIdx=di;}
-    if(maxIdx>=0)covered=new Set(keys.slice(0,maxIdx+1).map(nrm));
-  }
+  // 수업에서 이미 나간 단원 — 판정은 공용 ppCoveredUnits 하나로 (진도 보드·교재형 숙제와 같은 기준)
+  const covered=(keys&&cls)?ppCoveredUnits(a,tb,keys):null;
   const res=[];
   const d=new Date(startDate+'T12:00:00');
   let i=0,guard=0;
@@ -2639,7 +3003,7 @@ function schedItemsOn(sid,ds){
   const out=[];
   (typeof _cache!=='undefined'?(_cache.assignments||[]):[]).forEach(a=>{
     if(a._deleted||a.sid!==sid||!(a.schedule||[]).length)return;
-    const sch=(a.category==='recur'&&a.auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+    const sch=_hwSchedOf(a);
     sch.forEach(s=>{if(s.date===ds)out.push({book:s.book||a.bookTitle||'',unit:s.unit||''});});
   });
   return out;
@@ -2678,7 +3042,7 @@ function hwDayStatus(sid,ds){
     if(a._deleted||a.sid!==sid)return;
     if((a.schedule||[]).length){
       const _auto=a.category==='recur'&&!!a.auto;
-      const sch=(_auto&&typeof recurRebase==='function')?(recurRebase(a)||a.schedule):a.schedule;
+      const sch=_hwSchedOf(a);          // 자동 진행 재계산 + 교재형 단원 맞춤까지 같은 결과를 본다
       sch.forEach(s=>{
         if(s.date!==ds)return;
         // 수업으로 처리된 몫은 '그 날 할 일'에서도 뺀다 (학생에게 낸 숙제가 아니게 됐으므로)
@@ -2976,14 +3340,18 @@ function dailyVocabPick(sid,today,limit){
 }
 // 이 학생에게 그 책이 반복(recur)·클래스5 숙제로 이미 배정돼 있는가.
 // 자체 진행 숙제 책(예: 단어가 읽기다 — 매일 1과씩 나감)은 수업 복습 제안 대상이 아님 (이미 진도로 나가는 걸 또 제안하던 문제).
+// ⚠️ 반복(recur)은 **그 숙제의 책**(bookTitle/bookId)만 본다.
+// 전에는 schedule[].book 까지 봐서, 다른 숙제(온라인 복습 등)의 일정에 그 책 이름이 적혀 있으면
+// '이 책은 숙제로 돌고 있다'고 잘못 답했다 — 그 때문에 책 한 권이 예정에서 통째로 빠졌다.
+// 클래스5는 책이 스케줄 항목에만 있으므로 그때만 스케줄을 본다.
 function bookIsRecurHw(sid,book){
   const b=_hwKeyNorm(book);
   if(!b)return false;
   return (typeof _cache!=='undefined'?(_cache.assignments||[]):[]).some(a=>{
     if(a._deleted||a.sid!==sid)return false;
-    if(a.category!=='recur'&&a.category!=='class5')return false;
-    if(_hwKeyNorm(a.bookTitle)===b)return true;           // recur는 bookTitle에 실제 책
-    return (a.schedule||[]).some(s=>_hwKeyNorm(s.book)===b); // class5 등은 스케줄 항목 s.book에 실제 책
+    if(a.category==='recur')return _hwKeyNorm(a.bookTitle)===b;
+    if(a.category!=='class5')return false;
+    return (a.schedule||[]).some(s=>_hwKeyNorm(s.book)===b);
   });
 }
 // 교재 단원 키 목록 — 사용자 지정 순서(unitOrder) 우선, 나머지는 이름 숫자 정렬
