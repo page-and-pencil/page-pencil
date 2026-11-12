@@ -19995,11 +19995,26 @@ function tbPaintSrcCount(){
   if(b&&_ebRows)b.textContent=String((_ebRows||[]).filter(r=>_ebAlive(r)&&ebOrigin(r.meta||{})==='book').length);
 }
 // 교재 탭 안에서 보는 '자료만 있는 책' — exam_bank 의 origin:'book' 줄을 출판사 → 시리즈 → 책으로
-let _tbBankUse='';
+let _tbBankUse='',_tbBankStage='',_tbBankQ='';
 function tbBankSetUse(v){_tbBankUse=v||'';renderTbookBank();}
+function tbBankSetStage(v){_tbBankStage=v||'';renderTbookBank();}
+function tbBankSetQ(v){_tbBankQ=String(v||'').trim().toLowerCase();renderTbookBank();}
 function tbBankRowsAll(){
-  return (_ebRows||[]).filter(r=>_ebAlive(r)&&ebOrigin(r.meta||{})==='book'
-    &&(!_tbBankUse||ebUse(r.meta||{})===_tbBankUse));
+  return (_ebRows||[]).filter(r=>{
+    if(!_ebAlive(r)||ebOrigin(r.meta||{})!=='book')return false;
+    const m=r.meta||{};
+    if(_tbBankUse&&ebUse(m)!==_tbBankUse)return false;
+    if(_tbBankStage){
+      const st=String(m.stage||'');
+      if(_tbBankStage==='none'){if(st)return false;}
+      else if(st!==_tbBankStage)return false;
+    }
+    if(_tbBankQ){
+      const hay=[m.title,m.series,m.path,m.note].join(' ').toLowerCase();
+      if(_tbBankQ.split(/\s+/).some(w=>w&&hay.indexOf(w)<0))return false;
+    }
+    return true;
+  });
 }
 function renderTbookBank(){
   const box=document.getElementById('tb-bank-box');if(!box)return;
@@ -20019,6 +20034,13 @@ function renderTbookBank(){
     bar.innerHTML=chip('','전체',Object.values(by).reduce((a,b)=>a+b,0))+
       EB_BOOK_USES.map(u=>chip(u,u,by[u]||0)).join('');
   }
+  const sel=document.getElementById('tb-bank-stage');
+  if(sel&&!sel.options.length){
+    sel.innerHTML='<option value="">수준 전체</option>'+
+      EB_STAGES.map(x=>'<option value="'+x.k+'">'+_ebE(x.n+' ('+x.k+')')+'</option>').join('')+
+      '<option value="none">측정 안 됨</option>';
+  }
+  if(sel&&sel.value!==_tbBankStage)sel.value=_tbBankStage;
   const cnt=document.getElementById('tb-bank-count');
   if(cnt)cnt.textContent=rows.length.toLocaleString()+'줄';
   renderBankBooks(rows,'tb-bank-box');

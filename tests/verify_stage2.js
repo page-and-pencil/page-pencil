@@ -303,11 +303,13 @@ const say = s => { lines.push(String(s)); console.log(String(s)); };
   // 거르기·정렬이 실제로 듣는가
   const filt = await page.evaluate(() => {
     const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('change')); };
-    set('eb-f-stage', 'M2');
-    const a = _ebFiltered();
-    set('eb-f-stage', 'none');
-    const b = _ebFiltered();
-    set('eb-f-stage', '');
+    // 수준은 교재 자료의 값이다 — 2026-11-13 '자료만 있는 책'(교재 탭)으로 옮겼다.
+    // 기출 탭(_ebF.origin==='exam')에서는 교재 줄이 안 보이므로 거기서 잰다.
+    tbBankSetStage('M2');
+    const a = tbBankRowsAll();
+    tbBankSetStage('none');
+    const b = tbBankRowsAll();
+    tbBankSetStage('');
     set('eb-f-sort', 'stage');
     const c = _ebFiltered().slice(0, 400);
     set('eb-f-sort', '');
@@ -329,7 +331,7 @@ const say = s => { lines.push(String(s)); console.log(String(s)); };
       ser: c.slice(0, 8).map(r => (r.meta.series || '(시리즈 없음)') + ' / ' + (r.meta.stage || '—') + ' ' + (r.meta.stageG == null ? '' : r.meta.stageG) + ' / ' + r.meta.title)
     };
   });
-  ok('수준으로 거르기 — M2 만 나온다', filt.m2 > 0 && filt.m2bad === 0, 'M2 ' + filt.m2.toLocaleString() + '개 · 섞임 ' + filt.m2bad);
+  ok('수준으로 거르기 — M2 만 나온다 (교재 탭 · 자료만 있는 책)', filt.m2 > 0 && filt.m2bad === 0, 'M2 ' + filt.m2.toLocaleString() + '개 · 섞임 ' + filt.m2bad);
   ok("'측정 안 됨' 으로 거르기", filt.none > 0 && filt.nonebad === 0, '측정 안 됨 ' + filt.none.toLocaleString() + '개 · 섞임 ' + filt.nonebad);
   ok('시리즈 안에서 추정 학년 순으로 정렬된다', filt.sorted === 0, '앞 400줄에서 뒤바뀜 ' + filt.sorted + '곳');
   say('');
@@ -339,15 +341,20 @@ const say = s => { lines.push(String(s)); console.log(String(s)); };
   // 배지 누르면 한 줄 (토스트)
   const toastTxt = await page.evaluate(async () => {
     const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('change')); };
+    // 배지는 목록 줄에 붙는다 — 교재 줄을 한 번 보여 주고 누른다
+    const was = _ebF.origin; _ebF.origin = 'all';
     set('eb-f-stage', 'M2');
     await new Promise(r => setTimeout(r, 300));
     const b = document.querySelector('#eb-list .eb-badge.eb-stage');
+    if (!b) { _ebF.origin = was; set('eb-f-stage', ''); }
     if (!b) return { btn: '', toast: '' };
     const t = b.textContent;
     b.click();
     await new Promise(r => setTimeout(r, 300));
     const el = document.getElementById('toast') || document.querySelector('.toast');
-    return { btn: t, toast: el ? String(el.textContent || '').trim() : '' };
+    const out = { btn: t, toast: el ? String(el.textContent || '').trim() : '' };
+    _ebF.origin = was; set('eb-f-stage', '');
+    return out;
   });
   ok('카드의 수준 배지를 누르면 한 줄이 뜬다', /내용 측정/.test(toastTxt.toast), '배지 "' + toastTxt.btn + '" → ' + toastTxt.toast);
 

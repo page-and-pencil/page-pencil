@@ -1032,6 +1032,10 @@
         </div>
         <div id="tb-bank-wrap" style="display:none">
           <div id="tb-bank-uses" class="eb-uses" style="margin-bottom:8px"></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+            <select class="filter-sel" id="tb-bank-stage" onchange="tbBankSetStage(this.value)" title="수준 — 자료의 내용으로 잰 값"></select>
+            <input type="text" class="eb-q" id="tb-bank-q" placeholder="책·시리즈·출판사 검색…" oninput="tbBankSetQ(this.value)" style="flex:1;min-width:180px">
+          </div>
           <div id="tb-bank-box"></div>
         </div>
         <div class="lib-search-bar">
@@ -3191,7 +3195,7 @@
 <script src="js/utils.js?v=20261112h"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261112b"></script>
-<script src="js/teacher.js?v=20261113c"></script>
+<script src="js/teacher.js?v=20261113d"></script>
 <script src="js/student.js?v=20261112h"></script>
 <script src="js/parent.js?v=20261112e"></script>
 </body>
