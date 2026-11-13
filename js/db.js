@@ -226,6 +226,143 @@ const SUPA_HEADERS={
   'Prefer':'return=minimal',
 };
 
+
+// ── 서버 제한 (무료 한도 초과) ────────────────────────────────────────
+// 2026-11-15 ~ 11/27 쯤, 한도를 넘은 프로젝트는 요청을 막는다. 막히는 꼴은 셋 가운데 하나다 —
+// 모든 요청에 402 · 읽기만 되고 쓰기만 실패 · 프로젝트 일시 정지(연결 실패·5xx).
+// 그때 '자료가 없는 것' 처럼 보이거나 '저장된 것' 처럼 보이면 안 된다.
+//   · 알아채기: 402 한 번, 또는 잇따른 5xx·연결 실패 세 번 → 제한 중
+//   · 제한 중에는 **아무 요청도 보내지 않는다**. 10분에 한 번 가벼운 요청 하나로만 다시 본다.
+//   · 읽기는 기기 스냅샷으로 열고, 쓰기는 막고 알린다. 쌓아 두었다 보내지 않는다(겹쳐 쓰기 위험).
+const PP_LIMIT_WHEN = '11/27쯤';
+const PP_LIMIT_PROBE_MS = 10 * 60 * 1000;
+const PP_LIMIT_KEY = 'pp_limited_at';
+let _ppLim = null, _ppLimStreak = 0, _ppLimProbeAt = 0, _ppLimProbing = false, _ppLimTimer = 0, _ppLimToastAt = 0;
+function ppLimited(){ return !!_ppLim; }
+function ppLimitAt(){ return _ppLim ? _ppLim.at : 0; }
+function ppLimitWhy(){ return _ppLim ? _ppLim.why : ''; }
+function ppLimitSaveMsg(){ return '서버 점검 중이라 저장되지 않아요 — ' + PP_LIMIT_WHEN + ' 풀려요'; }
+function ppLimitAiMsg(){ return '서버 점검 중이라 AI·음성을 쓸 수 없어요 — ' + PP_LIMIT_WHEN + ' 풀려요'; }
+function ppLimitOn(why){
+  if(_ppLim)return;
+  _ppLim = { at: Date.now(), why: String(why || '402') };
+  try{ localStorage.setItem(PP_LIMIT_KEY, String(_ppLim.at)); }catch(e){}
+  try{ console.warn('서버 제한 중으로 봅니다 (' + _ppLim.why + ') — 요청을 보내지 않습니다'); }catch(e){}
+  if(!_ppLimTimer)_ppLimTimer = setInterval(()=>{ ppLimitProbe(); }, PP_LIMIT_PROBE_MS);
+  try{ ppLimitPaint(); }catch(e){}
+}
+function ppLimitOff(){
+  if(!_ppLim)return;
+  _ppLim = null; _ppLimStreak = 0;
+  if(_ppLimTimer){ clearInterval(_ppLimTimer); _ppLimTimer = 0; }
+  try{ localStorage.removeItem(PP_LIMIT_KEY); }catch(e){}
+  try{ ppLimitPaint(); }catch(e){}
+  try{ const el = document.getElementById('pp-limit-screen'); if(el)el.remove(); }catch(e){}
+}
+// 저장·삭제·체크를 누르는 곳에서 맨 먼저 부른다 — true 면 아무것도 하지 않고 돌아간다
+function ppBlockWrite(){
+  if(!ppLimited())return false;
+  const now = Date.now();
+  if(now - _ppLimToastAt > 1200){ _ppLimToastAt = now; try{ toast(ppLimitSaveMsg()); }catch(e){} }
+  return true;
+}
+// 10분에 한 번, 가장 가벼운 요청 하나로 풀렸는지 본다 (감싸지 않은 fetch 로 보낸다)
+async function ppLimitProbe(){
+  if(_ppLimProbing)return !ppLimited();
+  if(!_ppLim)return true;
+  const now = Date.now();
+  if(_ppLimProbeAt && now - _ppLimProbeAt < 30 * 1000)return false;   // 너무 자주 묻지 않는다
+  _ppLimProbing = true; _ppLimProbeAt = now;
+  try{
+    const r = await _ppRawFetch(SUPA_URL + '/rest/v1/settings?select=key&limit=1',
+      { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY } });
+    if(r && r.ok){ ppLimitOff(); return true; }
+    return false;
+  }catch(e){ return false; }
+  finally{ _ppLimProbing = false; _ppLimProbeAt = Date.now(); }
+}
+// 우리 서버로 가는 길은 여럿이다(ppFetch·직접 fetch·엣지 함수·로그인). 한 곳에서 보려고 fetch 를 감싼다.
+const _ppRawFetch = (typeof fetch === 'function') ? fetch.bind(typeof window !== 'undefined' ? window : globalThis) : null;
+function _ppOurs(u){ const x = String(u || ''); return !!SUPA_URL && x.indexOf(SUPA_URL) === 0; }
+function _ppLimitReply(){
+  return new Response(JSON.stringify({ message: '서버 점검 중입니다 (한도 초과)', code: 'pp_limited' }),
+    { status: 402, headers: { 'Content-Type': 'application/json' } });
+}
+if(_ppRawFetch && typeof window !== 'undefined'){
+  window.fetch = async function(u, o){
+    const url = (u && u.url) || String(u || '');
+    if(!_ppOurs(url))return _ppRawFetch(u, o);
+    if(_ppLim)return _ppLimitReply();                 // 제한 중 — 보내지 않는다
+    try{
+      const r = await _ppRawFetch(u, o);
+      if(r.status === 402)ppLimitOn('402');
+      else if(r.status >= 500){ if(++_ppLimStreak >= 3)ppLimitOn('5xx ' + r.status); }
+      else { _ppLimStreak = 0; }
+      return r;
+    }catch(e){
+      if(++_ppLimStreak >= 3)ppLimitOn('연결 실패');
+      throw e;
+    }
+  };
+}
+// 앞서 막힌 적이 있으면(한 시간 안) 켜 둔 채로 시작한다 — 열자마자 열다섯 번 보내지 않게.
+// 부팅할 때 한 번만 다시 묻는다 (loadAllDataFast).
+try{
+  const _at = +(localStorage.getItem(PP_LIMIT_KEY) || 0);
+  if(_at && Date.now() - _at < 60 * 60 * 1000){ _ppLim = { at: _at, why: '앞서 막힘' }; }
+  else if(_at){ localStorage.removeItem(PP_LIMIT_KEY); }
+}catch(e){}
+
+// ── 알리는 띠·안내 화면 ────────────────────────────────────────────────
+const PP_LIMIT_BAR = {
+  's-teacher': '서버 한도 초과로 지금은 보기만 됩니다(' + PP_LIMIT_WHEN + ' 풀림). 수업 기록은 따로 적어 두세요.',
+  's-student': '앱 점검 중이에요(' + PP_LIMIT_WHEN + '까지). 숙제는 선생님이 따로 알려 드려요.',
+  's-parent': '앱 점검 중입니다(' + PP_LIMIT_WHEN + '까지). 수업 내용은 선생님이 따로 알려 드립니다.',
+};
+// AI·음성 단추 (제한 중에는 꺼 둔다)
+const PP_LIMIT_AI_FN = /isoGenerate|isoCardGo|tuMakeUnitAudio|ppMakeAudio|aiPolish|lesAiPolish/;
+function ppLimitPaint(){
+  if(typeof document === 'undefined')return;
+  const on = ppLimited();
+  try{ document.body.classList.toggle('pp-limited', on); }catch(e){}
+  Object.keys(PP_LIMIT_BAR).forEach(id=>{
+    const sc = document.getElementById(id); if(!sc)return;
+    let bar = sc.querySelector(':scope > .pp-limit-bar');
+    if(!on){ if(bar)bar.remove(); return; }
+    if(!bar){
+      bar = document.createElement('div');
+      bar.className = 'pp-limit-bar';
+      sc.insertBefore(bar, sc.firstChild);
+    }
+    bar.textContent = PP_LIMIT_BAR[id];
+  });
+  // AI·음성 단추 · 저장 단추
+  try{
+    document.querySelectorAll('button[onclick]').forEach(b=>{
+      const oc = b.getAttribute('onclick') || '';
+      const isSave = (typeof PP_LIMIT_SAVE_FN !== 'undefined') && PP_LIMIT_SAVE_FN.test(oc);
+      if(!PP_LIMIT_AI_FN.test(oc) && !isSave)return;
+      if(on){ b.dataset.ppLimOff = '1'; b.disabled = true; b.title = isSave ? ppLimitSaveMsg() : ppLimitAiMsg(); }
+      else if(b.dataset.ppLimOff){ delete b.dataset.ppLimOff; b.disabled = false; b.title = ''; }
+    });
+  }catch(e){}
+}
+// 스냅샷도 없을 때 보여 주는 한 화면 (닫을 수 없다)
+function ppLimitScreen(){
+  if(typeof document === 'undefined')return;
+  if(document.getElementById('pp-limit-screen'))return;
+  const d = document.createElement('div');
+  d.id = 'pp-limit-screen';
+  d.className = 'pp-limit-screen';
+  d.innerHTML = '<div class="pp-limit-box">' +
+    '<div class="pp-limit-emoji">🛠️</div>' +
+    '<div class="pp-limit-t">서버 점검 중입니다</div>' +
+    '<div class="pp-limit-s">서버 한도가 차서 ' + PP_LIMIT_WHEN + '까지 자료를 받아올 수 없어요.<br>' +
+    '이 기기에 받아 둔 자료가 있으면 그대로 보실 수 있고, 저장은 풀린 뒤에 됩니다.</div>' +
+    '<div class="pp-limit-s2">수업 기록은 종이에 적어 두세요. 풀리면 저절로 돌아옵니다.</div></div>';
+  document.body.appendChild(d);
+}
+
 // ── 어휘 레벨 조회 헬퍼 ──
 const DOLCH_LABEL={pk:'Dolch Pre-K',k:'Dolch K',g1:'Dolch 1',g2:'Dolch 2',g3:'Dolch 3'};
 function getWordLevel(word){
@@ -397,6 +534,7 @@ async function sbSetSettings(key,value){
 // '불러오지 못했습니다'가 떠서 선생님이 무슨 일인지 알 수 없었다.
 function handleSupaError(status,kind){
   const w=kind==='write';
+  if(status===402){toast(ppLimitSaveMsg());return true;}   // 한도 초과 — 저장되지 않았다고 알린다
   if(status===401||status===403){
     toast(w?'저장 권한이 없습니다. 로그인 상태를 확인해 주세요.':'인증 오류입니다. Supabase RLS 정책을 확인해 주세요.');
     return true;
@@ -470,6 +608,7 @@ async function supaFetchAll(table,silent=false){
 let _lastWriteAt=0,_pendingWrites=0;
 async function supaUpsert(table,id,dataObj,sid=null,timeoutMs=15000){
   if(PP_SANDBOX){_sbNote(table,'upsert '+id);return true;}   // 체험 모드 — 저장하지 않는다
+  if(ppBlockWrite())return false;                            // 서버 제한 중 — 보내지도, 쌓아 두지도 않는다
   _pendingWrites++;_lastWriteAt=Date.now();
   try{ return await _supaUpsert(table,id,dataObj,sid,timeoutMs); }
   finally{ _pendingWrites--;_lastWriteAt=Date.now(); }
@@ -494,6 +633,7 @@ async function _supaUpsert(table,id,dataObj,sid=null,timeoutMs=15000){
 }
 async function supaDelete(table,id){
   if(PP_SANDBOX){_sbNote(table,'delete '+id);return true;}
+  if(ppBlockWrite())return false;
   _pendingWrites++;_lastWriteAt=Date.now();
   try{ return await _supaDelete(table,id); }
   finally{ _pendingWrites--;_lastWriteAt=Date.now(); }
@@ -514,6 +654,7 @@ async function _supaDelete(table,id){
 }
 async function supaDeleteWhere(table,jsonKey,value){
   if(PP_SANDBOX){_sbNote(table,'deleteWhere '+jsonKey);return true;}
+  if(ppBlockWrite())return false;
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),15000);
   try{
@@ -531,6 +672,7 @@ async function supaDeleteWhere(table,jsonKey,value){
 // 휴지통(soft delete): 행을 지우는 대신 _deleted 표식으로 보관.
 // 로드 시 필터로 숨겨지고, 백업·일괄 탭 휴지통에서 복원 가능. 30일 후 자동 영구 삭제.
 async function supaTrash(table,cacheArr,id){
+  if(ppBlockWrite())return false;
   const obj=(cacheArr||[]).find(x=>x&&x.id===id);
   if(!obj)return supaDelete(table,id); // 캐시에 없으면 종전대로 하드 삭제
   return supaUpsert(table,id,{...obj,_deleted:true,_deletedAt:new Date().toISOString()},obj.sid||null);
@@ -639,6 +781,7 @@ function _snapSanitize(cache){
 }
 function _snapSave(){
   if(PP_SANDBOX)return;        // 체험 중 캐시는 기기에 남기지 않는다
+  if(ppLimited())return;       // 서버 제한 중 — 반쯤 빈 캐시를 기기에 굳히지 않는다
   try{
     const src=_snapSanitize(_cache);
     const snap=(typeof structuredClone==='function')?structuredClone(src):JSON.parse(JSON.stringify(src));
@@ -688,6 +831,8 @@ function _scheduleSnapSave(){ // 쓰기 후 스냅샷 저장 (2.5초 디바운�
 async function loadAllDataFast(force){
   if(_cache.students.length)return;
   if(!force&&!ppMayLoad())return;              // 로그인 전에는 받지 않는다
+  // 앞서 막혔다고 적혀 있으면 **가벼운 요청 하나로** 먼저 확인한다 (풀렸으면 그대로 받는다)
+  if(ppLimited())await ppLimitProbe();
   try{
     const snap=await idbGet('pp_cache_v2');
     // 스냅샷은 '그 로그인 그대로일 때만' 쓴다. 역할이나 학생 id 가 다르면 버리고 전체를 받는다.
@@ -697,6 +842,7 @@ async function loadAllDataFast(force){
       &&((snap.cache.lessons||[]).length||(snap.cache.globalTextbooks||[]).length); // 학생만 있고 나머지 빈 스냅샷 = 오염 의심 → 전체 로드
     if(_snapOk){
       Object.assign(_cache,snap.cache);
+      if(ppLimited()){try{ppLimitPaint();}catch(e){}return;}   // 제한 중 — 기기에 있는 것으로 연다
       if(!_bgRefreshing){
         _bgRefreshing=true;
         loadAllData(true).then(()=>{_bgRefreshing=false;_afterBgRefresh();}).catch(()=>{_bgRefreshing=false;});
@@ -905,7 +1051,8 @@ async function loadAllData(bg,force){
     try{const bt=await supaGetSetting('bmThresholds');if(bt)_cache.settings.bmThresholds=bt;}catch(e){}
     try{const cc=await supaGetSetting('cmtChips');if(cc){_cache.settings.cmtChips=cc;DB.s('cmtChips',cc);}else{const lcc=DB.g('cmtChips');if(lcc)_cache.settings.cmtChips=lcc;}}catch(e){const lcc=DB.g('cmtChips');if(lcc)_cache.settings.cmtChips=lcc;}
     // 진단: 학생 0명으로 로드가 끝나면 테이블별 상태를 화면에 표시 (원인 즉시 파악)
-    if(!bg&&_cache.students.length===0){
+    if(!bg&&_cache.students.length===0&&ppLimited()){ppLimitScreen();}
+    else if(!bg&&_cache.students.length===0){
       try{
         const stat=tables.map((t,i)=>t+':'+(res[i].status==='fulfilled'?(((res[i].value)||[]).length+'행'):'실패')).join(' · ');
         const firstErr=res.find(r=>r.status==='rejected');
@@ -924,6 +1071,9 @@ async function loadAllData(bg,force){
   }catch(e){
     console.error('loadAllData:',e);
     if(bg)return; // 백그라운드 갱신 실패는 조용히 (스냅샷 데이터로 계속 사용)
+    // 서버 제한(402·일시 정지)이면 '못 불러왔다' 가 아니라 '점검 중' 한 화면을 보인다 —
+    // 빈 목록·무한 로딩·'자료가 없습니다' 가 나오면 안 된다
+    if(ppLimited()){ppLimitScreen();try{ppLimitPaint();}catch(e){}return;}
     const currentScreen=document.querySelector('.screen.active')?.id;
     if(['s-land','s-stupin','s-pin'].includes(currentScreen))return;
     const retryDiv=document.createElement('div');
@@ -1000,6 +1150,7 @@ async function ppProbeAiProxy(){
   }catch(e){}
 }
 async function callClaudeProxy(body){
+  if(ppLimited()){try{toast(ppLimitAiMsg());}catch(e){}throw new Error(ppLimitAiMsg());}
   // 서버 시크릿(ANTHROPIC_API_KEY) 우선 — 로컬에 키가 있으면 하위 호환으로만 동봉
   // 'proxy' 는 실제 키가 아니라 '서버에 있다' 는 표식이므로 보내지 않는다
   const apiKey=DB.api();

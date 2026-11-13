@@ -49,6 +49,7 @@ const TESTS = {
   'verify_item.js': { g: 'core', w: 'Page & Pencil — 자료실·문제 은행 잇기 점검 (node verify_item.js)' },
   'verify_itemid.js': { g: 'core', w: '문항 id 가 ’행 id’ 로 들어오는지 — data 안에 id 가 없는 문항으로만 확인한다 (가짜 서버)' },
   'verify_kspell.js': { g: 'retired', w: 'P2 뜻 쓰기(kspell) 검증. 더미 학생만.', why: '더미 학생·교재 줄을 **실제 서버에 넣어** 확인하는 방식 — 읽기까지 막은 뒤로는 돌 수 없다. 가짜 표로 다시 써야 한다' },
+  'verify_limited.js': { g: 'core', w: '서버 제한(402·읽기만 됨·일시 정지) — 띠·보기 전용·기기 자료로 열기' },
   'verify_library.js': { g: 'core', w: '라이브러리 (lib_books · lib_text) — 가짜 데이터만. 출판사 원문·학생 데이터는 쓰지 않는다.' },
   'verify_link.js': { g: 'core', w: 'Page & Pencil — ’다음 교재 하나로 잇기’ 점검 (node verify_link.js)' },
   'verify_live_eb.js': { g: 'live', w: '라이브 확인 — 배포된 페이지가 진짜 Supabase 뷰에서 자료실을 받아오는지 (읽기만 한다)', why: '실제 서버·배포된 페이지를 읽어야 한다 (PP_ALLOW_LIVE_READ=1)' },

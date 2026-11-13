@@ -3672,3 +3672,19 @@ span.pe-c{width:30px;flex-shrink:0;text-align:center;}
 .icr-fix i{display:block;font-style:normal;color:var(--text-muted);}
 .icr-fix select{font-size:11.5px;padding:2px 4px;border:1px solid var(--border);
   border-radius:8px;background:var(--surface);color:var(--navy);max-width:200px;}
+
+/* 서버 제한(한도 초과) — 띠·안내 줄·안내 화면 */
+.pp-limit-bar{flex:none;background:var(--warn);color:var(--warnt);font-size:12.5px;font-weight:700;
+  padding:9px 14px;text-align:center;line-height:1.45;border-bottom:1px solid var(--border);}
+.pp-limit-note{background:var(--warn);color:var(--warnt);font-size:12px;font-weight:700;
+  padding:8px 12px;border-radius:10px;margin:0 0 10px;line-height:1.45;}
+.pp-limit-screen{position:fixed;inset:0;z-index:100000;background:#0F304A;
+  display:flex;align-items:center;justify-content:center;padding:20px;}
+.pp-limit-box{background:var(--card);border-radius:18px;padding:28px 22px;max-width:360px;width:100%;
+  text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.25);}
+.pp-limit-emoji{font-size:38px;margin-bottom:10px;}
+.pp-limit-t{font-size:17px;font-weight:800;color:var(--navy);margin-bottom:8px;}
+.pp-limit-s{font-size:13px;color:var(--slate);line-height:1.6;}
+.pp-limit-s2{font-size:12.5px;color:var(--text-muted);line-height:1.6;margin-top:12px;}
+/* 제한 중에 꺼 둔 단추는 꺼져 보여야 한다 */
+button[data-pp-lim-off]{opacity:.42 !important;filter:grayscale(.4);cursor:not-allowed !important;}

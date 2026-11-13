@@ -157,6 +157,11 @@ let vocabStudyMode='daily';
 let vocabStarOnly=false;    // ⭐ 별표 단어만 학습
 let vocabChunkAll=false;    // 구간으로 나누지 않고 한 번에
 function openVocabStudy(mode){
+  // 학습 기록은 서버에 남아야 한다 — 제한 중에는 시작하지 않는다 (했다가 사라지지 않게)
+  if(typeof ppLimited==='function'&&ppLimited()){
+    try{toast('서버 점검 중이라 학습 기록이 저장되지 않아요 — 풀린 뒤에 해 주세요');}catch(e){}
+    return;
+  }
   if(vocabStudyMode!==mode){try{sessionStorage.removeItem('deckState_'+currentStudentSid);}catch(e){}}
   vocabStudyMode=mode;
   swStuTab('st-vocab');
@@ -210,6 +215,7 @@ async function checkStudentPin(){
       return;
     }
   }
+  if(typeof ppLimited==='function'&&ppLimited()){ppLimitScreen();return;}
   // ② 폴백 — 지금까지의 방식 (브라우저에서 대조)
   if(typeof PP_AUTH_FALLBACK!=='undefined'&&PP_AUTH_FALLBACK===false){
     _stuPinFail(err,'로그인 서버에 연결하지 못했어요. 잠시 뒤 다시 해 볼까요?');
@@ -2436,6 +2442,10 @@ function _qzOpts(card,field){
   return opts;
 }
 function openVocabQuiz(sid,opts){
+  if(typeof ppLimited==='function'&&ppLimited()){
+    try{toast('서버 점검 중이라 학습 기록이 저장되지 않아요 — 풀린 뒤에 해 주세요');}catch(e){}
+    return;
+  }
   const o=opts||{};
   const set=o.set||ppQuizSet(sid);
   if(!set||!set.cards||set.cards.length<2){toast('퀴즈를 낼 단어가 모자라요');return;}
@@ -3566,6 +3576,7 @@ function _wkBump(delta){
   }
 }
 async function completeAssignment(sid,asgnId){
+  if(typeof ppBlockWrite==='function'&&ppBlockWrite())return;   // 서버 제한 중 — 체크가 됐다 사라지지 않게 처음부터 막는다
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
   if(a.completedAt)return; // 더블클릭·중복 호출 가드
   a.completedAt=new Date().toISOString();a.completedBy='student';
@@ -3577,7 +3588,14 @@ async function completeAssignment(sid,asgnId){
     if(cb){cb.classList.add('checked');cb.textContent='✓';cb.setAttribute('onclick',`uncompleteAssignment('${sid}','${asgnId}')`);cb.title='클릭: 완료 취소';}
     _wkBump(1);
   }
-  await supaUpsert('assignments',asgnId,a,sid);
+  let _asgOk=false;
+  try{ _asgOk=await supaUpsert('assignments',asgnId,a,sid); }catch(e){ _asgOk=false; }
+  // 저장되지 않았으면(서버 제한) 체크를 되돌린다 — 됐다가 사라지는 일이 없게
+  if(_asgOk===false&&typeof ppLimited==='function'&&ppLimited()){
+    delete a.completedAt;delete a.completedBy;
+    try{toast(ppLimitSaveMsg());}catch(e2){}
+    renderStudentHome(sid);return;
+  }
   updateStreak(sid,(a.due||a.date||'').slice(0,10)||ppToday());   // 도장은 숙제 날짜에
   checkNewBadges(currentStudentSid);
   _hwChRefresh(sid); // 도장 챌린지 갱신 (도장·달성 축하 포함)
@@ -3588,6 +3606,7 @@ async function completeAssignment(sid,asgnId){
 }
 
 async function uncompleteAssignment(sid,asgnId){
+  if(typeof ppBlockWrite==='function'&&ppBlockWrite())return;
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a||!a.completedAt)return;
   askConfirm('완료 취소','이 과제의 완료 표시를 취소할까요?\n(실수로 체크했을 때 되돌리는 기능이에요)','되돌리기','bd',async()=>{
     delete a.completedAt;
@@ -3598,6 +3617,7 @@ async function uncompleteAssignment(sid,asgnId){
 }
 // 매일 스케줄 숙제(클래스5·반복)의 오늘 몫 체크 — 그 날짜 항목에 done 표시 (선생님 캘린더 ✓와 같은 데이터)
 async function completeSchedDay(sid,asgnId,ds){
+  if(typeof ppBlockWrite==='function'&&ppBlockWrite())return;
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
   // 자동 진행 재배치 + 교재형 단원 맞춤을 반영한 뒤 체크 (선생님 앱과 같은 규칙)
   if(typeof ppApplyUnitSync==='function')ppApplyUnitSync(a);   // 교재형: 직전 일정 한 벌을 남기고 단원만 맞춤
@@ -3612,8 +3632,15 @@ async function completeSchedDay(sid,asgnId,ds){
     if(cb){cb.classList.add('checked');cb.textContent='✓';cb.setAttribute('onclick',`uncompleteSchedDay('${sid}','${asgnId}','${ds}')`);cb.title='클릭: 완료 취소';}
     _wkBump(1);
   }
-  try{await supaUpsert('assignments',asgnId,a,sid);}
-  catch(e){console.error('completeSchedDay:',e);toast('저장 실패 — 네트워크를 확인해 주세요');}
+  let _schOk=false;
+  try{ _schOk=await supaUpsert('assignments',asgnId,a,sid); }
+  catch(e){_schOk=false;console.error('completeSchedDay:',e);}
+  if(_schOk===false&&typeof ppLimited==='function'&&ppLimited()){
+    delete sc.done;delete sc.doneBy;delete sc.doneAt;
+    try{toast(ppLimitSaveMsg());}catch(e2){}
+    renderStudentHome(sid);return;
+  }
+  if(_schOk===false)toast('저장 실패 — 네트워크를 확인해 주세요');
   // 학습 도장·스트릭에도 반영 — 누른 날이 아니라 '그 숙제 날짜'에 (2026-11-07)
   updateStreak(sid,ds);
   _hwChRefresh(sid); // 도장 챌린지 갱신 (도장·달성 축하 포함)
@@ -3633,6 +3660,7 @@ function _stuRerenderHome(sid){
   }catch(e){console.warn('홈 다시 그리기 실패:',e);}
 }
 async function uncompleteSchedDay(sid,asgnId,ds){
+  if(typeof ppBlockWrite==='function'&&ppBlockWrite())return;
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a)return;
   const sc=(a.schedule||[]).find(s=>s.date===ds);if(!sc||!sc.done)return;
   askConfirm('완료 취소','오늘 몫의 완료 표시를 취소할까요?','되돌리기','bd',async()=>{
