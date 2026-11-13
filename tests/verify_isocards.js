@@ -577,6 +577,90 @@ function mkItem(i, over) {
   ok('[5] 한국어 2자 차이까지는 봐준다', lenT.near.ok === true, lenT.near.got);
   ok('[5] 영어 1낱말 차이까지는 봐준다', lenT.en.ok === true, lenT.en.got);
 
+  // ══ fix/iso-cards-5 — 자주 쓰인 굳은 응답 ═════════════════════════
+  const stockT = await page.evaluate(() => {
+    const card = isoCardOf('l_long');
+    const st = card.stock || {};
+    // 7번 칸 오답 하나의 보기 글만 바꿔 가며 본다
+    const run = seventh => {
+      const it = {
+        type: 'l_long', grade: '중2',
+        stem: '대화를 듣고, 여자의 마지막 말에 대한 남자의 응답으로 가장 적절한 것을 고르시오.',
+        passage: '', script: ['W: ' + 'river '.repeat(45).trim() + '.', 'M: ________'].join('\n'),
+        choices: ['Sure, I will call her now', 'I lost my camera last week',
+          'The poster is already on the wall', seventh, 'Sounds good.'],
+        answer: 0,
+        distractors: [
+          { index: 1, kind: '1. 화자·인물 혼동', why: 'x' },
+          { index: 2, kind: '5. 대본 소재 재활용', why: 'x' },
+          { index: 3, kind: '7. 장면 밖 말(굳은 인사말·맞장구)', why: 'x' },
+          { index: 4, kind: '7. 장면 밖 말(그 밖의 일상 문장)', why: 'x' },
+        ],
+      };
+      const r = isoCheckItem(it, card, '중2', {});
+      const f = (r.list || []).find(c => c.name === '7번 칸 오답') || {};
+      return { ok: f.ok, got: f.got || '', miss: (r.stockMiss || []).length, block: !r.ok, waits: (r.waits || []).length };
+    };
+    return {
+      has: !!card.stock, nWhole: (st.whole || []).length, nOpen: (st.openers || []).length,
+      // 7번 칸 둘 가운데 하나(⑤ Sounds good.)는 늘 굳은 응답이고, ④ 만 바꿔 본다
+      whole: run('That’s too bad.'),
+      opener: run('Okay, I’ll bring my umbrella tomorrow.'),
+      plain: run('The game starts at seven.'),
+      // 곧은 따옴표로 써도 같게 본다
+      straight: isoIsStock("That's too bad.", st) && isoIsStock('That’s too bad.', st),
+      curlyOpen: isoIsStock("Don't worry. I can wait here.", st),
+      no: isoIsStock('The game starts at seven.', st),
+    };
+  });
+  ok('[5카드] l_long 카드에 stock 이 있다', stockT.has && stockT.nWhole === 16 && stockT.nOpen === 10,
+    '그대로 쓰는 말 ' + stockT.nWhole + '개 · 말머리 ' + stockT.nOpen + '개');
+  ok('[5카드] 굳은 응답 그대로면 알림 없음', stockT.whole.ok === true && stockT.whole.miss === 0, stockT.whole.got);
+  ok('[5카드] 말머리로 시작하면 알림 없음', stockT.opener.ok === true && stockT.opener.miss === 0, stockT.opener.got);
+  ok('[5카드] 굳은 응답이 아니면 알림',
+    stockT.plain.ok === false && stockT.plain.miss === 1 && /The game starts at seven/.test(stockT.plain.got),
+    stockT.plain.got);
+  ok('[5카드] 알리기만 한다 — 막지도 대기로 보내지도 않는다',
+    stockT.plain.block === false && stockT.plain.waits === 0,
+    '막기 ' + stockT.plain.block + ' · 확인 대기 ' + stockT.plain.waits);
+  ok('[5카드] 굽은 따옴표와 곧은 따옴표를 같게 본다',
+    stockT.straight === true && stockT.curlyOpen === true && stockT.no === false);
+
+  // 틀 · 설계 카드 보기
+  const stockUi = await page.evaluate(async () => {
+    const p = isoMakePrompt({
+      card: isoCardOf('l_long'), grade: '중2', n: 3, slots: [2, 0, 1], diff: 'same',
+      source: 'new', sourceText: '', exemplars: [], avoid: [],
+    });
+    const q = isoMakePrompt({
+      card: isoCardOf('l_todo'), grade: '중2', n: 3, slots: [2, 0, 1], diff: 'same',
+      source: 'new', sourceText: '', exemplars: [], avoid: [],
+    });
+    const i = (ISO_CARDS.cards || []).findIndex(c => c.type === 'l_long');
+    isoCardsOpen(i);
+    await new Promise(r => setTimeout(r, 400));
+    const h = [...document.querySelectorAll('#isoc-body h4')].find(e => /자주 쓰인 굳은 응답/.test(e.textContent));
+    const mixH = [...document.querySelectorAll('#isoc-body h4')].find(e => /오답 넷의 구성/.test(e.textContent));
+    const chips = [...document.querySelectorAll('#isoc-body .isoc-chip')].map(e => e.textContent);
+    const over = Math.round(document.documentElement.scrollWidth - window.innerWidth);
+    const ver = (document.querySelector('#isoc-body .pp-note') || {}).textContent || '';
+    try { closeM('m-iso-cards'); } catch (e) { }
+    return {
+      inPrompt: /CARD\.stock 이 있으면 CARD\.stock\.how 를 따릅니다/.test(p),
+      // stock 이 없는 카드에도 같은 줄이 가지만 '있으면' 이라고 적혀 있다
+      sameLine: /CARD\.stock 이 있으면/.test(q),
+      stockJson: /"stock"/.test(p) && !/"stock"/.test(q),
+      found: !!h, afterMix: !!(h && mixH && (mixH.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING)),
+      chips: chips.length, first: chips[0] || '', opener: chips[16] || '', over, ver,
+    };
+  });
+  ok('[5카드] 만들기 틀에 stock 줄', stockUi.inPrompt === true && stockUi.sameLine === true);
+  ok('[5카드] 카드 JSON 이 통째로 실려 stock 도 같이 간다', stockUi.stockJson === true);
+  ok('[5카드] 설계 카드 보기에 칩으로 나온다 (오답 넷의 구성 아래)',
+    stockUi.found && stockUi.afterMix && stockUi.chips === 26,
+    '칩 ' + stockUi.chips + '개 · 첫 칩 "' + stockUi.first + '" · 말머리 첫 칩 "' + stockUi.opener + '"');
+  ok('[5카드] 카드 판이 v5', /review-20261114-pilot3-repo/.test(stockUi.ver), stockUi.ver.slice(0, 44));
+
   // ── [6] 통과한 문항을 한 번에 넣기 (진짜 흐름) ──
   AI.calls = []; AI.makeBad = 0; AI.right = {}; AI.resolve = null;
   // 다섯 가운데 하나만 오답 종류를 엉뚱하게 적어 확인 대기로 보낸다

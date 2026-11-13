@@ -3653,3 +3653,10 @@ span.pe-c{width:30px;flex-shrink:0;text-align:center;}
 .icr-mix{font-size:12px;color:var(--muted);margin:2px 0 4px;}
 .icr-mix.icr-mixbad{color:var(--warnt);}
 .icr-bulk{margin:6px 0 2px;}
+
+/* 설계 카드 — 자주 쓰인 굳은 응답 칩 */
+.isoc-chips{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:4px 0 8px;}
+.isoc-chips>b{font-size:12px;color:var(--slate2);margin-right:3px;}
+.isoc-chip{display:inline-block;font-size:12px;padding:3px 9px;border-radius:var(--rpill);
+  background:var(--surface);color:var(--slate);border:1px solid var(--border);white-space:nowrap;}
+.isoc-chip2{background:var(--tl);color:var(--teal);border-color:var(--teal);}
