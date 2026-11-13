@@ -6964,6 +6964,7 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-14',title:'동형 문제 — 설계 카드에 자주 쓰인 굳은 응답이 들어갔습니다',where:'교재·문제 → 동형 문제 ([설계 카드])',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'동형 문제 — 오답 종류·구성을 카드로 보고, 통과한 문항을 한 번에 넣습니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'동형 문제 — 정답 자리를 앱이 맞추고, 깨진 응답도 살려 씁니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'라이브러리·만들기 칸이 아래로 내려갑니다',where:'교재·문제 → 라이브러리',tab:'t-data',go:['switchDataTab','library']},
@@ -27037,6 +27038,34 @@ function isoMixCheck(kinds,mix){
   return {ok:!why.length,line:line,why:why,counts:cnt};
 }
 
+// ── 자주 쓰인 굳은 응답 (카드의 stock) ───────────────────────────────
+// 7번 칸('장면 밖 말') 오답은 누구나 쓰는 굳은 말이어야 자연스럽다.
+// whole 의 표현을 그대로 쓰거나 openers 로 시작하면 된다. 아니면 알리기만 한다(막지 않는다).
+function _isoFlatQ(s){                     // 굽은 따옴표와 곧은 따옴표를 같게 본다
+  return String(s||'').replace(/[‘’ʼ]/g,"'").replace(/[“”]/g,'"')
+    .replace(/\s+/g,' ').trim();
+}
+function isoIsStock(text,stock){
+  const t=_isoFlatQ(text).toLowerCase();
+  if(!t)return false;
+  const bare=x=>String(x||'').replace(/[.!?,;:]+$/,'').trim();   // 끝의 문장 부호는 떼고 견준다
+  const whole=((stock&&stock.whole)||[]).map(x=>_isoFlatQ(x).toLowerCase());
+  if(whole.some(w=>w&&(t===w||bare(t)===bare(w))))return true;
+  // 말머리는 'Okay.' 처럼 적혀 있지만 'Okay, I will …' 로도 쓴다 —
+  // 끝 부호를 뗀 말이 앞에 오고 그 뒤가 글자가 아니면 말머리로 본다
+  const ops=((stock&&stock.openers)||[]).map(x=>bare(_isoFlatQ(x).toLowerCase())).filter(Boolean);
+  return ops.some(o=>t.indexOf(o)===0&&!/[a-z0-9]/.test(t.charAt(o.length)));
+}
+// 7번 칸 오답 가운데 굳은 응답이 아닌 것들
+function isoStockMiss(it,card){
+  const stock=card&&card.stock;
+  if(!stock)return [];
+  const ch=(it.choices||[]).map(x=>String(x||''));
+  return (it.distractors||[]).filter(d=>isoKindKey(d.kind)==='#7')
+    .map(d=>ch[Number(d.index)]||'')
+    .filter(x=>x.trim()&&!isoIsStock(x,stock));
+}
+
 // ── 정답 자리 (앱이 정한다) ────────────────────────────────────────────
 // 보기 순서가 글에 묶인 유형 — 옮기지 않는다 (옮기면 글과 어긋난다)
 const ISO_FIXED_ORDER=['l_not','m_match','m_order'];
@@ -27257,7 +27286,7 @@ function isoMakePrompt(o){
   L.push('3. 정답 근거를 CARD.answerLocus 가 말하는 자리에 둡니다.');
   L.push('4. 발문은 CARD.stemPatterns 가운데 GRADE 와 형식에 맞는 것을 고르고 EXEMPLARS 의 발문 말투를 따릅니다.');
   L.push('5. 정답 보기를 쓰고 ANSWER_SLOTS 의 자리에 둡니다. 보기 순서가 글의 순서로 정해지는 유형(l_not, m_match, m_order)은 정답 자리를 먼저 정한 뒤 지문·대본을 짭니다.');
-  L.push('6. 오답을 씁니다. 오답마다 CARD.distractors 의 kind 하나를 붙입니다. kind 는 배열의 위에서부터 처음 맞는 칸입니다. share 가 null 인 칸과 "그 밖" 칸은 CARD.limits 가 허락할 때만 씁니다. CARD.mix 가 있으면 오답 넷의 kind 구성을 그 need 와 limit 에 맞춥니다.');
+  L.push('6. 오답을 씁니다. 오답마다 CARD.distractors 의 kind 하나를 붙입니다. kind 는 배열의 위에서부터 처음 맞는 칸입니다. share 가 null 인 칸과 "그 밖" 칸은 CARD.limits 가 허락할 때만 씁니다. CARD.mix 가 있으면 오답 넷의 kind 구성을 그 need 와 limit 에 맞춥니다. CARD.stock 이 있으면 CARD.stock.how 를 따릅니다.');
   L.push('7. DIFFICULTY 가 "상"이면 CARD.harder 에서 두 가지 이상, "하"이면 CARD.easier 에서 두 가지 이상을 적용하고 어느 것을 썼는지 applied 에 적습니다. "중"이면 EXEMPLARS 수준을 따릅니다.');
   L.push('8. CARD.traps 를 하나씩 대조해 해당하는 것이 없는지 보고, CARD.checks 를 모두 통과하는지 확인합니다. 통과하지 못한 항목이 있으면 고친 뒤에 내보냅니다.');
   L.push('');
@@ -27399,7 +27428,7 @@ function _isoChk(list,ok,level,name,got,want,msg){
 function _isoKoLen(s){return String(s||'').replace(/\s/g,'').length;}
 function _isoHasKo(s){return /[가-힣]/.test(String(s||''));}
 function isoCheckItem(it,card,grade,ctx){
-  const C=[];const o=ctx||{};let mixOut=null;
+  const C=[];const o=ctx||{};let mixOut=null,stockMiss=null;
   const type=String(it.type||card.type||'');
   const body=String(it.script||'')||String(it.passage||'');
   // 빈 칸·공백만 있는 보기는 먼저 걷어내고 센다
@@ -27475,6 +27504,14 @@ function isoCheckItem(it,card,grade,ctx){
       _isoChk(C,!lost.length,'wait','오답 kind',
         lost.length?('카드에서 찾지 못한 것 '+lost.length+'개 — '+lost.map(x=>x.slice(0,18)).join(' / ')):'모두 카드의 칸',
         '카드의 칸 가운데 하나','오답 종류를 카드에서 찾지 못했어요');
+      // 카드에 stock 이 있으면 7번 칸 오답이 굳은 응답인지 본다 (알리기만)
+      if(card.stock){
+        const miss=isoStockMiss(it,card);
+        _isoChk(C,!miss.length,'warn','7번 칸 오답',
+          miss.length?('굳은 응답이 아닌 것 '+miss.length+'개 — '+miss.map(x=>x.slice(0,24)).join(' / ')):'모두 굳은 응답',
+          'stock.whole 그대로이거나 stock.openers 로 시작');
+        if(miss.length)stockMiss=miss;
+      }
       // 카드에 mix 가 있으면 오답 넷의 구성까지 본다
       if(card.mix){
         const mx=isoMixCheck((it.distractors||[]).map(d=>d.kind),card.mix);
@@ -27588,7 +27625,7 @@ function isoCheckItem(it,card,grade,ctx){
   const blocked=C.filter(c=>c.level==='block'&&!c.ok);
   // 확인 대기로 보내는 점검 (버리지 않는다)
   const waits=C.filter(c=>c.level==='wait'&&!c.ok).map(c=>c.msg||(c.name+' — '+c.got));
-  return {list:C,blocked:blocked,ok:blocked.length===0,waits:waits,mix:mixOut,
+  return {list:C,blocked:blocked,ok:blocked.length===0,waits:waits,mix:mixOut,stockMiss:stockMiss,
     why:blocked.map(c=>c.name+' — '+c.got+' (기준 '+c.want+')')};
 }
 // 묶음 전체: 정답 자리
@@ -27815,6 +27852,9 @@ function isoCardRender(){
       ((it.soft||[]).length?('<div class="icr-soft">'+(it.soft||[]).map(_ebE).join(' · ')+'</div>'):'')+
       ((it.checks&&it.checks.mix&&it.checks.mix.line)?
         ('<div class="icr-mix'+(it.checks.mix.ok?'':' icr-mixbad')+'">오답 구성 '+_ebE(it.checks.mix.line)+'</div>'):'')+
+      ((it.checks&&(it.checks.stockMiss||[]).length)?
+        ('<div class="icr-mix icr-mixbad">7번 칸 오답이 굳은 응답이 아니에요 — '+
+          _ebE((it.checks.stockMiss||[]).map(x=>x.slice(0,30)).join(' / '))+'</div>'):'')+
       '<div class="icr-body">'+_ebE(String(it.script||it.passage||'').slice(0,400))+'</div>'+
       ((it.choices||[]).length?('<ol class="icr-ch">'+(it.choices||[]).map((c,i)=>
         '<li'+(i===Number(it.answer)?' class="on"':'')+'>'+_ebE(c)+
@@ -28030,6 +28070,13 @@ function isoCardsPaint(){
       ((c.mix.limit||[]).map(r=>'<tr><td>'+_ebE([].concat(r.kindStartsWith||[]).join(' · '))+'</td>'+
         '<td>'+_ebE('합쳐 '+r.max+'개까지')+'</td><td>'+_ebE(r.why||'')+'</td></tr>').join(''))+
       '</table>'):'')+
+    (c.stock?('<h4>자주 쓰인 굳은 응답</h4>'+
+      '<p class="isoc-p">'+_ebE(c.stock.what||'')+'</p>'+
+      '<div class="isoc-chips"><b>그대로 쓰는 말</b>'+
+        ((c.stock.whole||[]).map(x=>'<span class="isoc-chip">'+_ebE(x)+'</span>').join(''))+'</div>'+
+      '<div class="isoc-chips"><b>말머리</b>'+
+        ((c.stock.openers||[]).map(x=>'<span class="isoc-chip isoc-chip2">'+_ebE(x)+'</span>').join(''))+'</div>'+
+      '<p class="isoc-p">'+_ebE(c.stock.how||'')+'</p>'):'')+
     '<h4>난도 올리기</h4>'+li(c.harder)+'<h4>난도 내리기</h4>'+li(c.easier)+
     '<h4>함정</h4>'+li(c.traps)+'<h4>점검 목록</h4>'+li(c.checks)+
     '<h4>본보기 기출</h4>'+Object.entries(c.exemplars||{}).map(([g,ids])=>
