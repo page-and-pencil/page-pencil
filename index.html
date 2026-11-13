@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261114b">
+<link rel="stylesheet" href="css/style.css?v=20261114c">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -838,6 +838,8 @@
           <!-- 2단계: 설정 -->
           <div class="iso-step">
             <div class="iso-step-t">2 · 설정</div>
+            <div id="iso-cardbar" class="iso-cardbar" style="display:none"></div>
+            <div id="iso-type-hint2" class="iso-hint2" style="display:none"></div>
             <div class="iso-row">
               <label class="iso-lb">개수</label>
               <input type="number" id="iso-n" class="iso-num" min="1" max="10" value="3" onchange="isoCfgChange()">
@@ -853,6 +855,7 @@
                 <option>고1</option><option>고2</option><option>고3</option>
               </select>
             </div>
+            <div id="iso-grade-note" class="iso-hint2" style="display:none"></div>
             <div class="iso-row">
               <label class="iso-lb">지문</label>
               <select class="filter-sel" id="iso-passage" onchange="isoCfgChange()">
@@ -880,7 +883,7 @@
             <div class="iso-row" style="margin-top:4px">
               <button class="btn bt" id="iso-go" onclick="isoGenerate()">✏️ 동형 문제 만들기</button>
               <button class="btn bo bsm" onclick="isoCardsOpen(0)" title="기출을 읽고 만든 유형 설계 카드 10장 (읽기 전용)">📐 설계 카드</button>
-              <span class="iso-hint">AI 호출 3번 (분석 → 생성 → 다시 풀어 확인)</span>
+              <span class="iso-hint" id="iso-callhint">AI 호출 3번 (분석 → 생성 → 다시 풀어 확인)</span>
             </div>
           </div>
         </div>
@@ -3299,7 +3302,7 @@
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261112b"></script>
 <script src="js/iso_cards.js?v=20261114a"></script>
-<script src="js/teacher.js?v=20261114e"></script>
+<script src="js/teacher.js?v=20261114f"></script>
 <script src="js/student.js?v=20261112h"></script>
 <script src="js/parent.js?v=20261112e"></script>
 </body>

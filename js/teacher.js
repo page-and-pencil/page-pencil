@@ -6964,6 +6964,7 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-14',title:'동형 문제 — 카드가 있는 유형이면 설정 칸이 카드용으로 바뀝니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'동형 문제 — 유형 설계 카드와 본보기 기출로 만들고, 자동 점검·다시 풀기로 거릅니다',where:'교재·문제 → 동형 문제 ([설계 카드])',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'라이브러리 — 국내외 교재 2만 권을 한곳에서 찾고 열어 보고 커리큘럼을 짭니다',where:'교재·문제 → 라이브러리',tab:'t-data',go:['switchDataTab','library']},
  {date:'2026-11-14',title:'라이브러리 — 표지 있는 책부터, 절판 빼기·원서만·시리즈 묶어 보기',where:'교재·문제 → 라이브러리',tab:'t-data',go:['switchDataTab','library']},
@@ -20675,11 +20676,16 @@ function _isoOpts(id,label,vals,cur){
   el.innerHTML=['<option value="">'+_ebE(label)+'</option>'].concat(vals.map(v=>
     '<option value="'+_ebA(v.v)+'"'+(String(cur)===String(v.v)?' selected':'')+'>'+_ebE(v.n)+'</option>')).join('');
 }
+let _isoLastType='';
 function isoCfgChange(){
   const v=id=>{const el=document.getElementById(id);return el?el.value:'';};
   const c=id=>{const el=document.getElementById(id);return !!(el&&el.checked);};
   _isoCfg.n=Math.max(1,Math.min(ISO_MAX,parseInt(v('iso-n'),10)||3));
   _isoCfg.type=v('iso-type');_isoCfg.diff=v('iso-diff')||'same';_isoCfg.grade=v('iso-grade')||'고1';
+  // 유형을 바꾸면 지문 고르기를 '새로 쓰기' 로 되돌린다
+  // (읽기 유형에서 고른 교재 본문이 듣기 유형으로 따라가 대본 대신 넘어갔다)
+  if(_isoLastType&&_isoCfg.type!==_isoLastType)_isoCfg.passage='new';
+  _isoLastType=_isoCfg.type;
   _isoCfg.passage=v('iso-passage')||'new';_isoCfg.topic=v('iso-topic');
   _isoCfg.tbId=v('iso-tb');_isoCfg.unit=v('iso-unit');
   _isoCfg.choices=parseInt(v('iso-choices'),10)||0;
@@ -20709,6 +20715,7 @@ function _isoPaintCfg(){
     w.innerHTML=t?('<b>'+_ebE(t.n)+'</b> — '+_ebE(t.w||'(이 유형은 음원이 있어야 해서 새로 만들 수 없어요)')):'';
     w.style.display=t?'':'none';
   }
+  isoPaintCardCfg();
   // 교재 본문 고르기
   const bookRow=document.getElementById('iso-book-row');
   if(bookRow)bookRow.style.display=(_isoCfg.passage==='book')?'':'none';
@@ -27039,6 +27046,82 @@ function isoMaxRun(a,b){
   return best;
 }
 
+// 설정 칸을 카드용으로 바꿔 그린다 (카드가 있고 원본이 없을 때)
+function isoPaintCardCfg(){
+  const card=isoCardOf(_isoCfg.type);
+  const on=isoCardMode()&&!!card;
+  const show=(id,yes)=>{const el=document.getElementById(id);if(el)el.style.display=yes?'':'none';};
+  // 맨 위 배지
+  const bg=document.getElementById('iso-cardbar');
+  if(bg){
+    if(on){
+      bg.style.display='';
+      bg.innerHTML='<span class="iso-cardb">📐 설계 카드로 만듭니다 · <b>'+_ebE(card.name||card.type)+'</b></span>'+
+        '<button class="btn bo bxxs" onclick="isoCardsOpen('+(ISO_CARDS.cards||[]).findIndex(c=>c.type===card.type)+')">카드 보기</button>'+
+        (card.limits?('<details class="wz-more" style="width:100%"><summary>이 카드를 믿을 수 있는 범위</summary>'+
+          '<div class="isoc-p">'+_ebE(card.limits)+'</div></details>'):'');
+    }else{bg.style.display='none';bg.innerHTML='';}
+  }
+  // 카드가 없는 유형이면 한 줄만
+  const hint=document.getElementById('iso-type-hint2');
+  if(hint){
+    const no=_isoCfg.type&&!card;
+    hint.style.display=no?'':'none';
+    hint.textContent=no?'이 유형은 설계 카드가 아직 없어요 — 지금 방식으로 만듭니다':'';
+  }
+  // 학년 칸 — 카드에 있는 학년만
+  const gs=document.getElementById('iso-grade');
+  if(gs){
+    const want=on?isoCardGrades(card):['초5','초6','중1','중2','중3','고1','고2','고3'];
+    const have=[...gs.options].map(o=>o.value||o.textContent);
+    if(have.join(',')!==want.join(',')){
+      gs.innerHTML=want.map(g=>'<option value="'+_ebA(g)+'">'+_ebE(g)+'</option>').join('');
+      if(want.indexOf(_isoCfg.grade)<0){_isoCfg.grade=want[0]||'';}
+    }
+    gs.value=_isoCfg.grade||'';
+  }
+  const gn=document.getElementById('iso-grade-note');
+  if(gn){
+    const guessed=on&&isoCardGuessed(card,_isoCfg.grade);
+    gn.style.display=guessed?'':'none';
+    gn.textContent=guessed?'이 학년 값은 기출 실측이 없어 추정입니다':'';
+  }
+  // 난이도 이름 (값은 그대로)
+  const ds=document.getElementById('iso-diff');
+  if(ds){
+    const lbl=on?{same:'중',easy:'하',hard:'상'}:{same:'원본과 같게',easy:'한 단계 쉽게',hard:'한 단계 어렵게'};
+    [...ds.options].forEach(o=>{if(lbl[o.value])o.textContent=lbl[o.value];});
+  }
+  // 지문 칸 — 듣기면 '새로 쓰기' 만
+  const ps=document.getElementById('iso-passage');
+  if(ps){
+    const listen=on&&isoCardListening(card.type);
+    [...ps.options].forEach(o=>{
+      const hide=on&&((o.value==='keep')||(listen&&o.value==='book'));
+      o.hidden=hide;o.disabled=hide;
+      if(on&&o.value==='book')o.textContent='교재에서 가져온 본문';
+      if(on&&o.value==='new')o.textContent='새로 쓰기';
+      if(!on&&o.value==='book')o.textContent='앱 교재 본문 쓰기';
+      if(!on&&o.value==='new')o.textContent='새 지문으로';
+    });
+    if(on&&(listen||ps.value==='keep')&&_isoCfg.passage!=='new'){_isoCfg.passage='new';ps.value='new';}
+  }
+  // 선택지 칸은 카드가 정한다 (5개 고정 · m_summary 는 서답형)
+  const ch=document.getElementById('iso-choices');
+  if(ch&&ch.parentNode){
+    const lb=[...ch.parentNode.querySelectorAll('.iso-lb')].find(x=>x.textContent.indexOf('선택지')>=0);
+    ch.style.display=on?'none':'';
+    if(lb)lb.style.display=on?'none':'';
+  }
+  // 단추 옆 글 — 예상 호출 수
+  const hintBtn=document.getElementById('iso-callhint');
+  if(hintBtn){
+    if(on){
+      const p=isoPlanCalls(Math.max(1,Math.min(5,Number(_isoCfg.n)||3)));
+      hintBtn.textContent='AI 호출 '+p.total+'번 (만들기 1 + 다시 풀기 '+p.resolve+')';
+    }else hintBtn.textContent='AI 호출 3번 (분석 → 생성 → 다시 풀어 확인)';
+  }
+}
 // ── 1. 만들기 틀 (Aside 가 준 글 그대로, {{ }} 자리만 앱이 채운다) ──────
 function isoMakePrompt(o){
   const card=o.card,grade=o.grade,n=o.n,type=card.type;
@@ -27371,6 +27454,13 @@ const ISO_LOG_KEY='pp_iso_log_v1';
 let _isoCardRun=null;
 let _isoShotSeed=null;          // 캡처로 들어왔을 때의 원본 문항 (본보기 1번 자리)          // {card,grade,diff,n,slots,exIds,items,calls,plannedCalls}
 function isoCardCanUse(type){return !!isoCardOf(type);}
+// 카드 길로 가는 때 = 카드가 있고 원본(캡처·붙여 넣은 글)이 없을 때
+function isoCardMode(){
+  const hasSrc=(_isoImgs&&_isoImgs.length)||String(_isoText||'').trim();
+  return !hasSrc&&isoCardCanUse(_isoCfg.type);
+}
+// 듣기 카드 유형은 대본을 새로 쓴다 — 교재 본문을 넘기지 않는다
+function isoCardListening(type){return /^(l_|ml_)/.test(String(type||''));}
 // 예상 호출 수 — 만들기 1 + 다시 풀기 n
 function isoPlanCalls(n){return {make:1,resolve:Number(n)||0,total:1+(Number(n)||0)};}
 function isoCardGo(){
@@ -27419,9 +27509,12 @@ async function _isoCardRun2(card,grade,n){
     run.slots=slots;
     // 만들기 1회
     _isoStat('② 문항 '+n+'개를 만드는 중… (AI 1/'+plan.total+')',35);
-    const src=(_isoCfg.passage==='book')?(_isoBookText()||''):'';
+    // 듣기 유형은 대본을 새로 쓴다 — 교재 본문은 넘기지 않는다
+    const src=(_isoCfg.passage==='book'&&!isoCardListening(card.type))?(_isoBookText()||''):'';
+    const avoid=await isoRecentTopics(card.type,10);
+    run.avoid=avoid;
     const prompt=isoMakePrompt({card:card,grade:grade,n:n,slots:slots,diff:_isoCfg.diff,
-      source:src?'text':'new',sourceText:src,exemplars:bodies,avoid:[]});
+      source:src?'text':'new',sourceText:src,exemplars:bodies,avoid:avoid});
     let made=null,retried=false;
     for(let t=0;t<2;t++){
       const raw=await _isoCall([{type:'text',text:prompt}],8000);
@@ -27589,12 +27682,29 @@ function _isoResSum(it){
 }
 
 // ── 만든 기록 (기기에만) ───────────────────────────────────────────────
+// 같은 유형의 최근 소재 (AI 에게 '이건 피해 주세요' 로 넘긴다)
+async function isoRecentTopics(type,n){
+  try{
+    const a=(await idbGet(ISO_LOG_KEY))||[];
+    const out=[];
+    (Array.isArray(a)?a:[]).forEach(r=>{
+      if(out.length>=(n||10))return;
+      if(String(r.type||'')!==String(type||''))return;
+      (r.topics||[]).forEach(t=>{if(out.length<(n||10)&&t&&out.indexOf(t)<0)out.push(t);});
+    });
+    return out;
+  }catch(e){return [];}
+}
 async function isoLogPush(run){
   try{
     const a=(await idbGet(ISO_LOG_KEY))||[];
     const why={};(run.dropped||[]).forEach(it=>{(it.why||['알 수 없음']).forEach(w=>{
       const k=String(w).split(' — ')[0];why[k]=(why[k]||0)+1;});});
+    const topics=(run.items||[]).map(it=>String(it.script||it.passage||'')
+      .replace(/^[MW]\s*:/gm,' ').replace(/\s+/g,' ').trim().split(/(?<=[.!?])\s/)[0]||'')
+      .map(x=>x.slice(0,60)).filter(Boolean);
     const row={at:run.at||Date.now(),type:(run.card||{}).type||'',name:(run.card||{}).name||'',
+      topics:topics.slice(0,5),
       grade:run.grade,diff:run.diff,n:run.n,
       pass:(run.items||[]).filter(x=>x.state==='pass').length,
       wait:(run.items||[]).filter(x=>x.state==='wait').length,
