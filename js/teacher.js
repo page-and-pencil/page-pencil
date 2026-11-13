@@ -6964,6 +6964,8 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-14',title:'동형 문제 — 정답 자리를 앱이 맞추고, 깨진 응답도 살려 씁니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
+ {date:'2026-11-14',title:'라이브러리·만들기 칸이 아래로 내려갑니다',where:'교재·문제 → 라이브러리',tab:'t-data',go:['switchDataTab','library']},
  {date:'2026-11-14',title:'동형 문제 — 카드가 있는 유형이면 설정 칸이 카드용으로 바뀝니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'동형 문제 — 유형 설계 카드와 본보기 기출로 만들고, 자동 점검·다시 풀기로 거릅니다',where:'교재·문제 → 동형 문제 ([설계 카드])',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'라이브러리 — 국내외 교재 2만 권을 한곳에서 찾고 열어 보고 커리큘럼을 짭니다',where:'교재·문제 → 라이브러리',tab:'t-data',go:['switchDataTab','library']},
@@ -26340,12 +26342,23 @@ function libStageLine(m){
 // ── A. 둘러보기 ─────────────────────────────────────────────────────────
 let _libView='browse';                 // browse | map
 let _libSearchT=null,_libDeep=null;    // 깊은 찾기(lib_search) 결과
+// 거르기 칸과 **지금 보고 있는 쪽**을 함께 다시 그린다
+function libRepaint(){
+  try{libPaintFilters();}catch(e){}
+  try{if(_libView==='map')renderLibMap();else renderLibrary();}catch(e){}
+}
 function libOpenTab(){
   const box=document.getElementById('lib-grid');
   if(!libMayUse()){if(box)box.innerHTML='<div class="eb-empty">선생님 화면에서만 보입니다.</div>';return;}
   libSetView(_libView,true);
-  libPaintFilters();renderLibrary();
-  libLoad(false).then(ch=>{if(ch||!(_libRows||[]).length){libPaintFilters();renderLibrary();}libStamp();});
+  const was=(_libRows||[]).length;            // 그리기 전에 가진 줄 수
+  libRepaint();
+  libLoad(false).then(ch=>{
+    // 기기 목록을 읽어 채워졌으면 '바뀐 것 없음(false)' 이어도 반드시 다시 그린다
+    // (전에는 ch 가 false 면 안 그려서 '아직 책이 없습니다' 가 그대로 남았다)
+    if(ch||was!==(_libRows||[]).length||!(_libRows||[]).length)libRepaint();
+    libStamp();
+  });
 }
 function libSetView(v,quiet){
   _libView=(v==='map')?'map':'browse';
@@ -26965,6 +26978,36 @@ async function isoExemplarBodies(ids){
 }
 
 // ── 정답 자리 (앱이 정한다) ────────────────────────────────────────────
+// 보기 순서가 글에 묶인 유형 — 옮기지 않는다 (옮기면 글과 어긋난다)
+const ISO_FIXED_ORDER=['l_not','m_match','m_order'];
+function isoFreeOrder(type){return ISO_FIXED_ORDER.indexOf(String(type||''))<0;}
+const _ISO_NUM=['①','②','③','④','⑤'];
+// 정답 보기를 want 자리로 옮기고, 오답 index·해설의 번호까지 따라 바꾼다
+function isoMoveAnswer(it,want){
+  const ch=(it.choices||[]).slice();
+  const from=Number(it.answer);
+  if(!ch.length||!(from>=0&&from<ch.length)||!(want>=0&&want<ch.length)||from===want)return it;
+  const moved=ch.slice();
+  const [pick]=moved.splice(from,1);
+  moved.splice(want,0,pick);
+  // 옛 자리 → 새 자리
+  const map={};
+  ch.forEach((c,i)=>{map[i]=moved.indexOf(c);});
+  it.choices=moved;it.answer=want;
+  it.distractors=(it.distractors||[]).map(d=>Object.assign({},d,{index:map[Number(d.index)]!=null?map[Number(d.index)]:d.index}));
+  // 해설·근거의 번호 표현은 지우고 보기 글로 바꿔 적는다 (번호를 그대로 두면 어긋난다)
+  const fix=txt=>{
+    let x=String(txt||'');
+    if(!x)return x;
+    _ISO_NUM.forEach((sym,i)=>{x=x.split(sym).join('「'+String(ch[i]||'').slice(0,24)+'」');});
+    x=x.replace(/([1-5])\s*번/g,(m,d)=>'「'+String(ch[Number(d)-1]||'').slice(0,24)+'」');
+    return x;
+  };
+  it.explanation=fix(it.explanation);
+  it.distractors=(it.distractors||[]).map(d=>Object.assign({},d,{why:fix(d.why)}));
+  it.movedAnswer={from:from,to:want};
+  return it;
+}
 const ISO_SLOT_KEY='pp_iso_slots_v1';          // 최근 정답 번호 (기기 기록)
 async function _isoSlotHist(){
   try{const a=await idbGet(ISO_SLOT_KEY);return Array.isArray(a)?a:[];}catch(e){return [];}
@@ -27141,6 +27184,7 @@ function isoMakePrompt(o){
   L.push('6. DIFFICULTY: '+diff);
   L.push('7. ANSWER_SLOTS: 문항마다 정답을 둘 자리 '+slots+' (0부터 셉니다. 앱이 CARD.answerSpread.rule 에 맞춰 정해 줍니다.)');
   L.push('8. AVOID: 최근에 쓴 소재 목록 '+JSON.stringify(o.avoid||[]));
+  if(!isoFreeOrder(type))L.push('   ANSWER_SLOTS 의 자리와 answer 가 다르면 그 문항은 버려집니다.');
   L.push('');
   L.push('[만드는 순서]');
   L.push('1. CARD.limits 와 CARD.doNot 을 먼저 읽습니다. 다른 칸과 부딪치면 이 두 칸을 따릅니다.');
@@ -27161,6 +27205,7 @@ function isoMakePrompt(o){
   L.push('- 한국어 보기는 EXEMPLARS 의 말끝(~하기, ~하려고, 명사구)을 따릅니다.');
   L.push('- 실제 인물, 상표, 학교 이름을 쓰지 않습니다. AVOID 의 소재를 피합니다.');
   L.push('- 카드에 (추론)이라고 적힌 값은 범위를 넘지 않는 선에서만 씁니다.');
+  if(Number(n)>=3)L.push('- 이 묶음 안에서 CARD.stemPatterns 의 형식을 두 가지 이상 섞습니다.');
   L.push('- JSON 만 내보냅니다. 설명 문장을 앞뒤에 붙이지 않습니다.');
   L.push('');
   L.push('[출력 JSON]');
@@ -27219,7 +27264,7 @@ function isoResolvePrompt(it,grade){
   L.push('[할 일]');
   L.push('1. 지문·대본 전체를 보고 풉니다. 보기마다 맞는지 틀린지와 근거 문장을 적습니다.');
   L.push('2. 정답으로 볼 수 있는 보기가 둘 이상이면 모두 적습니다. 하나도 없으면 그렇게 적습니다.');
-  L.push('3. 지문·대본을 가리고 발문과 보기만으로 답을 골라 봅니다. 고를 수 있으면 무엇으로 골랐는지 적습니다(길이, 말끝, 상식, 보기끼리의 관계).');
+  L.push('3. 지문·대본을 가리고 발문과 보기만으로 답을 골라 봅니다. 고를 수 있으면 무엇으로 골랐는지 적습니다(길이, 말끝, 상식, 보기끼리의 관계). 고른 답이 얼마나 확실한지 0~1 로 적습니다. 짐작이면 0.5 아래로 적습니다.');
   L.push('4. type 이 l_long 이면 대본의 마지막 말만 보고도 풀어 봅니다. type 이 m_blank 또는 m_summary 이면 빈칸이 있는 문장만 보고도 풀어 봅니다.');
   L.push('5. 발문·지문·보기에서 어색한 영어, 틀린 한국어, 학년에 어려운 낱말을 적습니다.');
   L.push('');
@@ -27230,7 +27275,7 @@ function isoResolvePrompt(it,grade){
   L.push(' "perChoice": [{"index": 0, "verdict": "맞음 | 틀림 | 애매함", "evidence": "근거 문장 또는 \'근거 없음\'"}],');
   L.push(' "alsoPossible": [1],');
   L.push(' "noAnswer": false,');
-  L.push(' "solvableWithoutText": {"answer": null, "by": ""},');
+  L.push(' "solvableWithoutText": {"answer": null, "by": "", "confidence": 0.0},');
   L.push(' "solvableFromLastLineOnly": {"answer": null, "note": ""},');
   L.push(' "writtenAnswer": "서답형일 때 쓴 답",');
   L.push(' "languageIssues": [],');
@@ -27244,7 +27289,7 @@ function isoResolvePrompt(it,grade){
 }
 // 받는 쪽 규칙 (틀 2절 아래의 '코드' 규칙 그대로)
 function isoResolveVerdict(it,r){
-  const out={state:'pass',why:[],lower:false};
+  const out={state:'pass',why:[],lower:false,soft:[]};
   if(!r){out.state='wait';out.why.push('다시 풀지 못했어요 — 직접 확인해 주세요');return out;}
   const essay=Number(it.answer)<0;
   if(essay){
@@ -27260,8 +27305,12 @@ function isoResolveVerdict(it,r){
   if(isFinite(conf)&&conf<0.8){out.state='wait';out.why.push('확신도가 낮아요 ('+conf+')');}
   const sw=r.solvableWithoutText||{};
   if(sw.answer!==null&&sw.answer!==undefined&&Number(sw.answer)===Number(it.answer)){
-    out.state=(out.state==='drop')?'drop':'wait';
-    out.why.push('지문 없이도 풀려요'+(sw.by?(' — '+sw.by):''));
+    const sc=Number(sw.confidence);
+    // 짐작 수준(0.7 미만)이면 통과시키고 알리기만 한다 — 근거가 약한 것까지 대기로 두니 9/22 가 걸렸다
+    if(!isFinite(sc)||sc>=0.7){
+      out.state=(out.state==='drop')?'drop':'wait';
+      out.why.push('지문 없이도 풀려요'+(sw.by?(' — '+sw.by):'')+(isFinite(sc)?(' · 확신도 '+sc):''));
+    }else out.soft=['보기만으로 짐작될 수 있어요 (낮음 '+sc+(sw.by?(' · '+sw.by):'')+')'];
   }
   const sl=r.solvableFromLastLineOnly||{};
   if(sl.answer!==null&&sl.answer!==undefined&&Number(sl.answer)===Number(it.answer))out.lower=true;
@@ -27279,7 +27328,8 @@ function isoCheckItem(it,card,grade,ctx){
   const C=[];const o=ctx||{};
   const type=String(it.type||card.type||'');
   const body=String(it.script||'')||String(it.passage||'');
-  const ch=(it.choices||[]).map(x=>String(x||''));
+  // 빈 칸·공백만 있는 보기는 먼저 걷어내고 센다
+  const ch=(it.choices||[]).map(x=>String(x||'')).filter(x=>x.trim());
   const essay=type==='m_summary';
   const pf=isoProfile(body);
   const bg=(card.byGrade||{})[String(grade||'')]||{};
@@ -27297,7 +27347,12 @@ function isoCheckItem(it,card,grade,ctx){
   // 낱말 수
   if(Array.isArray(bg.words)&&bg.words.length===2){
     const lo=Math.floor(bg.words[0]*0.9),hi=Math.ceil(bg.words[1]*1.1);
-    _isoChk(C,pf.words>=lo&&pf.words<=hi,'block','낱말 수',pf.words+'낱말',lo+'~'+hi+'낱말');
+    const lo2=Math.floor(lo*0.9),hi2=Math.ceil(hi*1.1);
+    // 막는 선의 바깥으로 10% 이내면 알리기 (51낱말·79낱말짜리 멀쩡한 문항이 버려졌다)
+    const inSoft=pf.words>=lo2&&pf.words<=hi2;
+    if(pf.words>=lo&&pf.words<=hi)_isoChk(C,true,'warn','낱말 수',pf.words+'낱말',lo+'~'+hi+'낱말');
+    else _isoChk(C,inSoft,inSoft?'warn':'block','낱말 수',pf.words+'낱말',
+      lo+'~'+hi+'낱말'+(inSoft?' (조금 벗어남 — '+lo2+'~'+hi2+' 안)':''));
   }
   // 평균 문장 길이 · 어휘 띠 (알리기)
   if(bg.msl)_isoChk(C,pf.msl<=Number(bg.msl)+2,'warn','평균 문장 길이',pf.msl,'카드 값 '+bg.msl+' 안팎');
@@ -27311,8 +27366,9 @@ function isoCheckItem(it,card,grade,ctx){
     const mx=Math.max(...lens),mn=Math.min(...lens);
     _isoChk(C,true,'info','보기 길이',(en?'낱말':'글자')+' '+mn+'~'+mx,'유형 기준');
     const a=Number(it.answer);
-    _isoChk(C,!(lens[a]===mx&&lens.filter(v=>v===mx).length===1),'warn','정답만 김',
-      lens[a]+(en?'낱말':'자'),'정답이 혼자 가장 길지 않기');
+    // 가장 긴 보기와 길이가 같으면 걸리지 않는다 — 혼자 가장 길 때만
+    const alone=(lens[a]===mx)&&(lens.filter(v=>v===mx).length===1);
+    _isoChk(C,!alone,'warn','정답만 김',lens[a]+(en?'낱말':'자')+' (가장 긴 것 '+mx+')','정답이 혼자 가장 길지 않기');
     const runs=ch.map(x=>isoMaxRun(x,body));
     const lim={m_topic:3,m_blank:2,l_long:2,m_match:5}[type];
     if(lim){
@@ -27366,9 +27422,10 @@ function isoCheckItem(it,card,grade,ctx){
   if(type==='l_todo'){
     _isoChk(C,!/(한 일|아닌 것|날짜|시각)/.test(String(it.stem||'')),'block','발문',
       String(it.stem||'').slice(0,30),"'한 일'·'아닌 것'·'날짜'·'시각' 없음");
-    const tail=String(it.script||'').split(/\r?\n/).slice(-3).join(' ');
-    _isoChk(C,/(I'?ll|I will|Let me|Let'?s|I'?m going to|Okay|Sure)/i.test(tail),'warn','맡는 말',
-      /(I'?ll|Let)/i.test(tail)?'있음':'없음','마지막 세 줄에 맡는 말');
+    // 굽은 따옴표(’)를 곧은 것으로 바꾼 뒤 찾는다 — I’ll 을 못 찾아 '없음' 으로 나왔다
+    const tail=String(it.script||'').replace(/[\u2018\u2019\u02BC]/g,"'").split(/\r?\n/).slice(-3).join(' ');
+    const has=/(I'?ll|I will|Let me|Let'?s|I'?m going to|Okay|Sure)/i.test(tail);
+    _isoChk(C,has,'warn','맡는 말',has?'있음':'없음','마지막 세 줄에 맡는 말');
     if(ch.length===5)_isoChk(C,ch.every(x=>/기$/.test(x.trim())),'warn','보기 꼴',
       ch.every(x=>/기$/.test(x.trim()))?'모두 ~기':'섞임',"모두 '~기'");
   }
@@ -27451,6 +27508,37 @@ function isoCheckBatch(items){
 
 // ── 만들기 흐름 (카드가 있는 유형) ────────────────────────────────────
 const ISO_LOG_KEY='pp_iso_log_v1';
+// [5] 깨진 응답 살리기 — ```json 울타리, 끝의 쉼표, 잘린 마지막 문항을 고쳐서 쓴다.
+//     잘린 문항만 버리고 나머지는 살린다. 그래도 안 되면 부르는 쪽에서 한 번 더 부른다.
+function isoRepairJson(raw){
+  let t=String(raw||'').replace(/```+\s*json/gi,'```').replace(/```/g,'').trim();
+  const i=t.search(/[\[{]/);if(i>0)t=t.slice(i);
+  try{return {ok:true,data:JSON.parse(t),how:'그대로'};}catch(e){}
+  // 끝의 쉼표
+  let t2=t.replace(/,\s*([}\]])/g,'$1');
+  try{return {ok:true,data:JSON.parse(t2),how:'끝 쉼표를 지움'};}catch(e){}
+  // 마지막 문항이 잘렸다 — items 배열에서 온전한 덩이만 남긴다
+  const m=t.match(/"items"\s*:\s*\[/);
+  if(m){
+    const start=t.indexOf('[',m.index);
+    let depth=0,cut=-1,inStr=false,esc=false;
+    for(let k=start;k<t.length;k++){
+      const c=t[k];
+      if(inStr){if(esc)esc=false;else if(c==='\\')esc=true;else if(c==='"')inStr=false;continue;}
+      if(c==='"'){inStr=true;continue;}
+      if(c==='{')depth++;
+      else if(c==='}'){depth--;if(depth===0)cut=k;}
+    }
+    if(cut>start){
+      const fixed=t.slice(0,cut+1)+']}';
+      try{
+        const d=JSON.parse(fixed);
+        return {ok:true,data:d,how:'잘린 마지막 문항을 버리고 살림'};
+      }catch(e){}
+    }
+  }
+  return {ok:false,data:null,how:''};
+}
 let _isoCardRun=null;
 let _isoShotSeed=null;          // 캡처로 들어왔을 때의 원본 문항 (본보기 1번 자리)          // {card,grade,diff,n,slots,exIds,items,calls,plannedCalls}
 function isoCardCanUse(type){return !!isoCardOf(type);}
@@ -27519,18 +27607,34 @@ async function _isoCardRun2(card,grade,n){
     for(let t=0;t<2;t++){
       const raw=await _isoCall([{type:'text',text:prompt}],8000);
       run.calls++;
-      try{made=_isoJson(raw);break;}
-      catch(e){
-        if(t===1)throw e;
-        retried=true;run.planned++;
-        _isoStat('② JSON 이 깨져 한 번만 더 부릅니다 (AI '+(run.calls+1)+'/'+run.planned+')',40);
+      const rep=isoRepairJson(raw);
+      if(rep.ok){
+        made=rep.data;
+        if(rep.how!=='그대로')run.repaired=rep.how;
+        break;
       }
+      // 살리지 못했다 — 앞뒤 300자를 남겨 '만든 기록' 에서 볼 수 있게 한다
+      (run.broken=run.broken||[]).push({
+        head:String(raw||'').slice(0,300),
+        tail:String(raw||'').slice(-300),len:String(raw||'').length});
+      if(t===1)throw new Error('AI 응답을 읽지 못했어요');
+      retried=true;run.planned++;
+      _isoStat('② 응답이 깨져 한 번만 더 부릅니다 (AI '+(run.calls+1)+'/'+run.planned+')',40);
     }
     run.retried=retried;
     let items=(made&&Array.isArray(made.items))?made.items:[];
     items=items.slice(0,n).map((x,i)=>Object.assign({},x,{
       id:uid(),type:card.type,grade:grade,
+      // 빈 보기 칸을 먼저 걷어낸다 (5개 뒤에 빈 칸이 붙어 와 '보기 7개' 로 버려지던 것)
+      choices:(x.choices||[]).map(c=>String(c==null?'':c)).filter(c=>c.trim()),
       answer:Number(x.answer!=null?x.answer:(slots[i]!=null?slots[i]:0))}));
+    // [1] 보기 순서가 자유로운 유형은 **앱이** 정답을 요청한 자리로 옮긴다
+    items.forEach((it,i)=>{
+      const want=slots[i];
+      if(want==null)return;
+      if(isoFreeOrder(card.type))isoMoveAnswer(it,want);
+      else if(Number(it.answer)!==want)it.slotMiss=want;   // 묶인 순서는 옮기지 않고 표시만
+    });
     // 코드 자동 점검
     _isoStat('③ 코드로 점검하는 중…',55);
     const bankTexts=_isoExRows(card.type,'').slice(0,12)
@@ -27556,7 +27660,10 @@ async function _isoCardRun2(card,grade,n){
       }catch(e){run.calls++;}
       it.resolve=r;
       const v=isoResolveVerdict(it,r);
-      it.state=v.state;it.why=v.why;
+      it.state=v.state;it.why=v.why;it.soft=v.soft||[];
+      if(it.slotMiss!=null&&it.state==='pass'){
+        it.state='wait';it.why=(it.why||[]).concat(['정답 자리가 요청과 달라요 (요청 '+(it.slotMiss+1)+'번 · 받은 '+(Number(it.answer)+1)+'번)']);
+      }
       if(v.lower)it.loweredDiff=true;
       if(v.state==='drop')run.dropped.push(it);
     }
@@ -27603,6 +27710,7 @@ function isoCardRender(){
           '<button class="btn bo bxxs" onclick="isoCardDrop(\''+escJsA(it.id)+'\')">버리기</button>'):'')+
       '</div>'+
       ((it.why||[]).length?('<div class="icr-why">'+(it.why||[]).map(_ebE).join(' · ')+'</div>'):'')+
+      ((it.soft||[]).length?('<div class="icr-soft">'+(it.soft||[]).map(_ebE).join(' · ')+'</div>'):'')+
       '<div class="icr-body">'+_ebE(String(it.script||it.passage||'').slice(0,400))+'</div>'+
       ((it.choices||[]).length?('<ol class="icr-ch">'+(it.choices||[]).map((c,i)=>
         '<li'+(i===Number(it.answer)?' class="on"':'')+'>'+_ebE(c)+
@@ -27627,12 +27735,19 @@ function isoCardRender(){
       ' · 버림 '+dead.length+
       ' <span class="icr-dim">AI '+run.calls+'회'+(run.retried?' (JSON 재시도 1회 포함)':'')+
       ' · 본보기 '+(run.exIds||[]).length+'개 ('+_ebE(run.exHow||'')+')'+
-      ' · 정답 자리 '+(run.slots||[]).map(x=>x+1).join('·')+'</span>'+
+      ' · 정답 자리 '+(run.slots||[]).map(x=>x+1).join('·')+
+      ' → 만든 것 '+_isoSpread(run.items)+'</span>'+
       (run.batch&&!run.batch.ok?('<div class="icr-why">'+_ebE(run.batch.note)+'</div>'):'')+
     '</div>'+
     live.map(one).join('')+
     (dead.length?('<details class="wz-more" '+(_isoDropOpen?'open':'')+'><summary>버린 것 '+dead.length+'개 보기</summary>'+
       dead.map(one).join('')+'</details>'):'');
+}
+// 만든 문항의 정답 번호 분포 (① 1 ② 1 …)
+function _isoSpread(items){
+  const c=[0,0,0,0,0];
+  (items||[]).forEach(it=>{const a=Number(it.answer);if(a>=0&&a<5)c[a]++;});
+  return _ISO_NUM.map((s,i)=>s+' '+c[i]).join(' ');
 }
 function _isoCardItem(id){return ((_isoCardRun||{}).items||[]).find(x=>x.id===id);}
 function isoCardDrop(id){
@@ -27703,8 +27818,16 @@ async function isoLogPush(run){
     const topics=(run.items||[]).map(it=>String(it.script||it.passage||'')
       .replace(/^[MW]\s*:/gm,' ').replace(/\s+/g,' ').trim().split(/(?<=[.!?])\s/)[0]||'')
       .map(x=>x.slice(0,60)).filter(Boolean);
+    // [6] 형식 — 발문에서 뽑은 말 (전화·방송·방문 …)
+    const FORMS=[['전화',/전화|Telephone|Cell phone/i],['방송',/방송|안내 방송|announcement/i],
+      ['방문',/방문|찾아/],['문자·메시지',/문자|메시지/],['대화',/대화/],['담화',/담화|말하는/]];
+    const forms=[...new Set((run.items||[]).map(it=>{
+      const t=String(it.stem||'')+' '+String(it.script||it.passage||'').slice(0,120);
+      const f=FORMS.find(x=>x[1].test(t));return f?f[0]:'';
+    }).filter(Boolean))];
     const row={at:run.at||Date.now(),type:(run.card||{}).type||'',name:(run.card||{}).name||'',
-      topics:topics.slice(0,5),
+      topics:topics.slice(0,5),forms:forms,
+      broken:(run.broken||[]).slice(0,2),repaired:run.repaired||'',
       grade:run.grade,diff:run.diff,n:run.n,
       pass:(run.items||[]).filter(x=>x.state==='pass').length,
       wait:(run.items||[]).filter(x=>x.state==='wait').length,
@@ -27722,7 +27845,14 @@ async function isoLogRender(){
     a.slice(0,20).map(r=>'<tr><td>'+new Date(r.at).toLocaleDateString()+'</td><td>'+_ebE(r.name||r.type)+'</td>'+
       '<td>'+_ebE(r.grade||'')+'</td><td>'+({easy:'하',same:'중',hard:'상'}[r.diff]||r.diff||'')+'</td>'+
       '<td>'+r.n+'</td><td>'+r.pass+'</td><td>'+r.wait+'</td><td title="'+_ebA(Object.entries(r.why||{}).map(x=>x[0]+' '+x[1]).join(' · '))+'">'+r.drop+'</td>'+
-      '<td>'+r.calls+'</td></tr>').join('')+'</table></details>';
+      '<td>'+r.calls+(r.repaired?('<i title="'+_ebA(r.repaired)+'">*</i>'):'')+'</td></tr>'+
+      ((r.topics||[]).length||(r.broken||[]).length?('<tr><td colspan="9" class="icr-logx">'+
+        ((r.forms||[]).length?('<b>형식</b> '+_ebE((r.forms||[]).join(' · '))+' · '):'')+
+        ((r.topics||[]).length?('<b>소재</b> '+_ebE((r.topics||[]).join(' / ').slice(0,160))):'')+
+        ((r.broken||[]).length?('<details class="wz-more"><summary>깨진 응답 '+(r.broken||[]).length+'개 보기</summary>'+
+          (r.broken||[]).map(b=>'<div class="icr-raw"><b>앞 300자</b><pre>'+_ebE(b.head)+'</pre>'+
+            '<b>끝 300자</b><pre>'+_ebE(b.tail)+'</pre></div>').join('')+'</details>'):'')+
+      '</td></tr>'):'')).join('')+'</table></details>';
 }
 
 // ── 설계 카드 보기 (읽기 전용) ─────────────────────────────────────────
@@ -27759,6 +27889,7 @@ function isoCardsPaint(){
                  :('<span class="isoc-no">'+_ebE(id)+' (은행에 없음)</span>');
       }).join(' ')+'</div>').join('')+
     '<h4>한계</h4><p class="isoc-p">'+_ebE(c.limits||'')+'</p>'+
+    (c.pilot?('<h4>시험해 본 결과</h4><p class="isoc-p">'+_ebE(c.pilot)+'</p>'):'')+
     '<h4>하지 말 것</h4>'+li(c.doNot)+
     '<div class="pp-note" style="cursor:default">카드 판 '+_ebE(ISO_CARDS.version||'')+' · 읽기 전용입니다. 고치려면 원본 카드 파일을 고쳐 다시 옮깁니다.</div>';
 }

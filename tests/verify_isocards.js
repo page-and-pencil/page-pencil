@@ -14,7 +14,7 @@ const KINDS = ['1. 화자·인물 혼동', '2. 반대·부정 뒤집기', '3. �
 function mkItem(i, over) {
   return Object.assign({
     type: 'l_long', grade: '중2',
-    stem: '대화를 듣고, 여자의 마지막 말에 대한 남자의 응답으로 가장 적절한 것을 고르시오.',
+    stem: '대화를 듣고, 여자의 마지막 말에 대한 남자의 응답으로 가장 적절한 것을 고르시오. (' + i + ')',
     passage: '', script: ['W: Hi Minsu, did you finish the science poster for our class today?',
       'M: Not yet. I still need a few more clear photos of the river near my small town.',
       'W: My cousin took many pictures of that river last summer during her long trip.',
@@ -52,11 +52,30 @@ function mkItem(i, over) {
     let out;
     if (kind === 'make') {
       if (AI.makeBad > 0) { AI.makeBad--; out = '이건 JSON 이 아닙니다 {{{'; }
-      else out = JSON.stringify({ items: AI.items || [mkItem(0)] });
+      else {
+        const items = AI.items || [mkItem(0)];
+        // 문항마다 '정답 글' 을 적어 둔다 — 앱이 정답을 다른 자리로 옮겨도 다시 풀기가 따라갈 수 있게
+        AI.right = AI.right || {};
+        items.forEach(it => { AI.right[String(it.stem || '')] = String((it.choices || [])[Number(it.answer)] || ''); });
+        out = JSON.stringify({ items });
+      }
     } else {
       const n = AI.calls.filter(c => c.kind === 'resolve').length - 1;
       const list = AI.resolve || [];
-      out = JSON.stringify(list[n] || { answer: 0, confidence: 0.95, perChoice: [], alsoPossible: [], noAnswer: false, solvableWithoutText: { answer: null, by: '' }, solvableFromLastLineOnly: { answer: null, note: '' }, writtenAnswer: '', languageIssues: [], hardWords: [] });
+      // 앱이 정답을 다른 자리로 옮기므로, 보낸 보기에서 **정답 글**을 찾아 그 자리를 답한다
+      let idx = 0;
+      try {
+        const body = (JSON.parse(txt) || []).map(x => x.text || '').join(String.fromCharCode(10));
+        const m = body.match(/\[ITEM\]\s*([\s\S]+)$/);
+        const item = m ? JSON.parse(m[1].trim()) : null;
+        const want = (AI.right || {})[String((item || {}).stem || '')] || AI.rightText || '';
+        if (item && Array.isArray(item.choices) && want) {
+          const k = item.choices.findIndex(c => String(c).trim() === String(want).trim());
+          if (k >= 0) idx = k;
+        }
+      } catch (e) { }
+      const base = { answer: idx, confidence: 0.95, perChoice: [], alsoPossible: [], noAnswer: false, solvableWithoutText: { answer: null, by: '' }, solvableFromLastLineOnly: { answer: null, note: '' }, writtenAnswer: '', languageIssues: [], hardWords: [] };
+      out = JSON.stringify(list[n] ? Object.assign({}, base, list[n], (list[n].answer === undefined ? { answer: idx } : {})) : base);
     }
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: out }], usage: { input_tokens: 10, output_tokens: 10 } }) });
   });
@@ -139,7 +158,7 @@ function mkItem(i, over) {
   // ── 예상 호출 수 = 실제 호출 수 ──
   AI.calls = []; AI.makeBad = 0;
   AI.items = [0, 1, 2].map(i => mkItem(i, { answer: [2, 0, 4][i] }));
-  AI.resolve = [2, 0, 4].map(a => ({ answer: a, confidence: 0.95, alsoPossible: [], noAnswer: false, solvableWithoutText: { answer: null, by: '' }, solvableFromLastLineOnly: { answer: null, note: '' } }));
+  AI.resolve = [0, 1, 2].map(() => ({ confidence: 0.95, alsoPossible: [], noAnswer: false, solvableWithoutText: { answer: null, by: '' }, solvableFromLastLineOnly: { answer: null, note: '' } }));
   const run1 = await page.evaluate(async () => {
     _isoCfg.n = 3;
     const plan = isoPlanCalls(3);
@@ -150,13 +169,17 @@ function mkItem(i, over) {
     await new Promise(r => setTimeout(r, 400));
     askConfirm = realAsk;
     const run = _isoCardRun || {};
-    return { plan: plan.total, asked: asked || '', calls: run.calls, states: (run.items || []).map(x => x.state), slots: run.slots };
+    return { plan: plan.total, asked: asked || '', calls: run.calls,
+      states: (run.items || []).map(x => x.state), slots: run.slots,
+      why: (run.items || []).map(x => (x.why || []).join('|')),
+      ans: (run.items || []).map(x => x.answer) };
   });
   const madeCalls = AI.calls.length;
   ok('예상 호출 수를 먼저 보여 준다', /모두 4회/.test(run1.asked), run1.asked.split('\n').filter(x => /AI 호출/.test(x))[0] || '');
   ok('예상 4회 = 실제 4회', run1.plan === 4 && run1.calls === 4 && madeCalls === 4,
     '예상 ' + run1.plan + ' · 앱이 센 ' + run1.calls + ' · 실제 ' + madeCalls);
-  ok('세 문항 모두 통과', run1.states.join(',') === 'pass,pass,pass', run1.states.join(','));
+  ok('세 문항 모두 통과', run1.states.join(',') === 'pass,pass,pass',
+    run1.states.join(',') + ' · 정답 ' + run1.ans.join(',') + ' · 자리 ' + (run1.slots || []).join(',') + ' · ' + run1.why.join(' // '));
 
   // JSON 재시도 1회 → 5회
   AI.calls = []; AI.makeBad = 1;
@@ -236,7 +259,7 @@ function mkItem(i, over) {
   // ── 막기에 걸린 문항은 다시 풀기를 부르지 않는다 ──
   AI.calls = []; AI.makeBad = 0;
   AI.items = [mkItem(0, { answer: 0 }), mkItem(1, { choices: ['a', 'b', 'c', 'd'] }), mkItem(2, { answer: 4 })];
-  AI.resolve = [{ answer: 0, confidence: 0.95, alsoPossible: [] }, { answer: 4, confidence: 0.95, alsoPossible: [] }];
+  AI.resolve = [{ confidence: 0.95, alsoPossible: [] }, { confidence: 0.95, alsoPossible: [] }];
   const run3 = await page.evaluate(async () => {
     const realAsk = askConfirm; askConfirm = (t, m, l, c, cb) => cb();
     _isoCardRun = null; _isoCfg.n = 3; isoCardGo();
@@ -260,7 +283,7 @@ function mkItem(i, over) {
 
   // ── 문제 은행에 넣기 ──
   AI.calls = []; AI.items = [mkItem(0, { answer: 0 })];
-  AI.resolve = [{ answer: 0, confidence: 0.95, alsoPossible: [] }];
+  AI.resolve = [{ confidence: 0.95, alsoPossible: [] }];
   const bank = await page.evaluate(async () => {
     const realAsk = askConfirm; askConfirm = (t, m, l, c, cb) => cb();
     _isoCardRun = null; _isoCfg.n = 1; _isoCfg.passage = 'new'; isoCardGo();
@@ -281,6 +304,139 @@ function mkItem(i, over) {
     bank.src1 && bank.src1.card === 'l_long' && /review-/.test(String(bank.src1.cardVer)) && (bank.src1.exemplars || []).length === 2,
     JSON.stringify({ card: bank.src1.card, ver: bank.src1.cardVer, ex: (bank.src1.exemplars || []).length, checks: !!bank.src1.checks, resolve: !!bank.src1.resolve }));
   ok('교재 지문으로 만든 문항은 서버로 가지 않는다', bank.keep2 === true, 'src.keep=' + bank.keep2);
+
+  // ── [1] 정답 자리를 앱이 맞춘다 ──────────────────────────────
+  AI.calls = []; AI.makeBad = 0; AI.right = {};
+  AI.items = [0, 1, 2, 3, 4].map(i => mkItem(i, { answer: 0 }));   // 가짜 AI 가 모두 ① 로 준다
+  AI.resolve = null;
+  const slotRun = await page.evaluate(async () => {
+    try { await idbSet('pp_iso_slots_v1', []); } catch (e) { }
+    _isoCfg.type = 'l_long'; _isoCfg.grade = '중2'; _isoCfg.n = 5; _isoCfg.passage = 'new';
+    const realAsk = askConfirm; askConfirm = (t, m, l, c, cb) => cb();
+    _isoCardRun = null; isoCardGo();
+    for (let i = 0; i < 200 && (!_isoCardRun || !(_isoCardRun.items || []).length); i++) await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 500));
+    askConfirm = realAsk;
+    const run = _isoCardRun || {};
+    const its = run.items || [];
+    return {
+      slots: run.slots, ans: its.map(x => Number(x.answer)),
+      // 정답 보기 글이 옮긴 자리에 있는가
+      rightText: its.every(x => String((x.choices || [])[Number(x.answer)] || '') === 'Sure, I will call her now'),
+      // 오답 kind 가 보기와 함께 옮겨졌는가 (정답 자리에는 오답이 없어야 한다)
+      kindOk: its.every(x => !(x.distractors || []).some(d => Number(d.index) === Number(x.answer))),
+      kindN: its.every(x => (x.distractors || []).length === 4),
+      // 해설에 번호가 남아 있지 않은가
+      noNum: its.every(x => !/[①②③④⑤]|[1-5]\s*번/.test(String(x.explanation || ''))),
+      states: its.map(x => x.state),
+      head: (document.querySelector('#iso-cardres .icr-top') || {}).textContent || '',
+    };
+  });
+  ok('[1] 자유 순서 유형 — 정답 자리가 ANSWER_SLOTS 와 같다',
+    slotRun.ans.join(',') === (slotRun.slots || []).join(','), '자리 ' + (slotRun.slots || []).join('·') + ' · 받은 ' + slotRun.ans.join('·'));
+  ok('[1] 정답 보기 글이 옮긴 자리에 있다', slotRun.rightText);
+  ok('[1] 오답 kind 와 해설이 어긋나지 않는다', slotRun.kindOk && slotRun.kindN && slotRun.noNum,
+    '정답 자리에 오답 없음 ' + slotRun.kindOk + ' · 오답 4개 ' + slotRun.kindN + ' · 해설에 번호 없음 ' + slotRun.noNum);
+  ok('[1] 머리줄에 정답 자리 분포', /① \d+ ② \d+ ③ \d+ ④ \d+ ⑤ \d+/.test(slotRun.head),
+    (slotRun.head.match(/→ 만든 것 (.*)$/) || [])[1] || slotRun.head.slice(-40));
+
+  // 묶인 순서 유형 — 옮기지 않고 확인 대기 (앱이 하는 그대로를 그 자리에서 잰다)
+  const fixedOrder = await page.evaluate(() => {
+    const mk = () => ({
+      type: 'l_not', answer: 0, choices: ['이름', '나이', '취미', '사는 곳', '좋아하는 색'],
+      distractors: [1, 2, 3, 4].map(k => ({ index: k, kind: 'k' + k, why: 'w' })),
+      explanation: '①이 정답입니다.',
+    });
+    const want = 3;
+    // 묶인 순서
+    const fixed = mk(); const beforeF = fixed.choices.join('|');
+    if (isoFreeOrder(fixed.type)) isoMoveAnswer(fixed, want); else fixed.slotMiss = want;
+    let st = isoResolveVerdict({ answer: fixed.answer, answerText: '' },
+      { answer: fixed.answer, confidence: 0.95, alsoPossible: [], noAnswer: false }).state;
+    if (fixed.slotMiss != null && st === 'pass') st = 'wait';
+    // 자유 순서 (견줌)
+    const free = mk(); free.type = 'l_long'; const beforeL = free.choices.join('|');
+    if (isoFreeOrder(free.type)) isoMoveAnswer(free, want); else free.slotMiss = want;
+    return {
+      fixedIs: isoFreeOrder('l_not'), freeIs: isoFreeOrder('l_long'),
+      beforeF, afterF: fixed.choices.join('|'), ansF: fixed.answer, missF: fixed.slotMiss, stateF: st,
+      beforeL, afterL: free.choices.join('|'), ansL: free.answer,
+      explL: free.explanation,
+    };
+  });
+  ok('[1] 묶인 순서 유형은 보기를 옮기지 않는다',
+    fixedOrder.fixedIs === false && fixedOrder.afterF === fixedOrder.beforeF && fixedOrder.ansF === 0,
+    '보기 ' + (fixedOrder.afterF === fixedOrder.beforeF ? '그대로' : '바뀜') + ' · 정답 ' + (fixedOrder.ansF + 1) + '번');
+  ok('[1] 자리가 다르면 확인 대기', fixedOrder.missF === 3 && fixedOrder.stateF === 'wait',
+    '요청 4번 · 받은 ' + (fixedOrder.ansF + 1) + '번 → ' + fixedOrder.stateF);
+  ok('[1] 자유 순서는 옮기고 해설의 번호도 바꾼다',
+    fixedOrder.freeIs === true && fixedOrder.ansL === 3 && fixedOrder.afterL !== fixedOrder.beforeL &&
+    !/[①②③④⑤]/.test(fixedOrder.explL),
+    '정답 ' + (fixedOrder.ansL + 1) + '번 · 해설 "' + fixedOrder.explL + '"');
+
+  // ── [2] 점검 고치기 ──────────────────────────────────────────
+  const chk2 = await page.evaluate(() => {
+    const KINDS = ['1. 화자·인물 혼동', '2. 반대·부정 뒤집기', '3. 시점 어긋남', '4. 부분만 맞음'];
+    const run = (type, over, grade) => {
+      const base = {
+        type: type, grade: grade || '중2', stem: '대화를 듣고 할 일을 고르시오.',
+        script: ['M: ' + 'river '.repeat(55).trim() + '.', 'W: I’ll go to the store right now.'].join('\n'),
+        passage: '', choices: ['가게 가기', '숙제 하기', '전화 걸기', '청소 하기', '책 읽기'],
+        answer: 0, distractors: [1, 2, 3, 4].map(k => ({ index: k, kind: KINDS[k - 1], why: 'x' })),
+      };
+      const it = Object.assign({}, base, over || {});
+      const r = isoCheckItem(it, isoCardOf(type), it.grade, {});
+      const f = n => (r.list || []).find(c => c.name === n) || {};
+      return { ok: r.ok, bad: r.blocked.map(b => b.name), f: f };
+    };
+    const todo = run('l_todo');
+    const empty = run('l_todo', { choices: ['가게 가기', '숙제 하기', '전화 걸기', '청소 하기', '책 읽기', '', '  '] });
+    const card = isoCardOf('l_long'), w = (card.byGrade['중2'] || {}).words;
+    const lo = Math.floor(w[0] * 0.9);
+    const near = run('l_long', { script: 'M: ' + 'river '.repeat(lo - 1).trim() + '.\nW: ________', choices: ['a b c', 'd e f', 'g h i', 'j k l', 'm n o'] });
+    const far = run('l_long', { script: 'M: ' + 'river '.repeat(20).trim() + '.\nW: ________', choices: ['a b c', 'd e f', 'g h i', 'j k l', 'm n o'] });
+    const tie = run('l_todo', { choices: ['가게에 가기요요', '숙제를 하기요요', '전화 걸기', '청소 하기', '책 읽기'], answer: 0 });
+    return {
+      todoHas: todo.f('맡는 말').got, todoOk: todo.f('맡는 말').ok,
+      emptyGot: empty.f('형식').got, emptyOk: empty.f('형식').ok,
+      nearLevel: near.f('낱말 수').level, nearGot: near.f('낱말 수').got, nearBlocked: near.bad.indexOf('낱말 수') >= 0,
+      farLevel: far.f('낱말 수').level, farBlocked: far.bad.indexOf('낱말 수') >= 0,
+      tieOk: tie.f('정답만 김').ok, tieGot: tie.f('정답만 김').got,
+      want: w,
+    };
+  });
+  ok('[2] 굽은 따옴표 I’ll 로 맡는 말을 찾는다', chk2.todoOk && chk2.todoHas === '있음', chk2.todoHas);
+  ok('[2] 빈 보기 2개가 붙어 와도 5개로 센다', chk2.emptyOk && /보기 5개/.test(chk2.emptyGot), chk2.emptyGot);
+  ok('[2] 조금 벗어난 낱말 수는 알리기', chk2.nearLevel === 'warn' && !chk2.nearBlocked,
+    chk2.nearGot + ' (기준 ' + (chk2.want || []).join('~') + ')');
+  ok('[2] 많이 벗어나면 막기', chk2.farLevel === 'block' && chk2.farBlocked);
+  ok('[2] 정답이 가장 긴 보기와 같으면 걸리지 않는다', chk2.tieOk, chk2.tieGot);
+
+  // ── [3] 지문 없이 풀림 — 확신도로 가른다 ──
+  const soft = await page.evaluate(() => {
+    const it = { answer: 2, answerText: '' };
+    const base = { answer: 2, confidence: 0.95, alsoPossible: [], noAnswer: false, solvableFromLastLineOnly: { answer: null, note: '' } };
+    const v = sw => isoResolveVerdict(it, Object.assign({}, base, { solvableWithoutText: sw }));
+    const a = v({ answer: 2, by: '길이', confidence: 0.5 });
+    const b = v({ answer: 2, by: '길이', confidence: 0.8 });
+    return { lowState: a.state, lowSoft: (a.soft || []).join(''), highState: b.state };
+  });
+  ok('[3] 확신도 0.5 면 통과 + 알리기', soft.lowState === 'pass' && /짐작될 수 있어요/.test(soft.lowSoft), soft.lowSoft);
+  ok('[3] 확신도 0.8 이면 확인 대기', soft.highState === 'wait');
+
+  // ── [5] 깨진 응답 살리기 ──
+  const rep = await page.evaluate(() => {
+    const good = '{"items":[{"stem":"ㄱ"},{"stem":"ㄴ"}]}';
+    const fence = '```json\n' + good + '\n```';
+    const comma = '{"items":[{"stem":"ㄱ"},{"stem":"ㄴ"},]}';
+    const cut = '{"items":[{"stem":"ㄱ","choices":["a","b"]},{"stem":"ㄴ","choi';
+    const r = x => { const o = isoRepairJson(x); return o.ok ? ((o.data.items || []).length + '개 · ' + o.how) : '못 살림'; };
+    return { fence: r(fence), comma: r(comma), cut: r(cut), junk: r('이건 JSON 이 아닙니다 {{{') };
+  });
+  ok('[5] ```json 울타리를 벗긴다', /2개/.test(rep.fence), rep.fence);
+  ok('[5] 끝의 쉼표를 고친다', /2개/.test(rep.comma), rep.comma);
+  ok('[5] 잘린 마지막 문항만 버리고 살린다', /1개/.test(rep.cut), rep.cut);
+  ok('[5] 그래도 안 되면 못 살림', rep.junk === '못 살림', rep.junk);
 
   // ── [1] 카드용 설정 칸 ───────────────────────────────────────
   const cfg = await page.evaluate(async () => {
@@ -332,7 +488,7 @@ function mkItem(i, over) {
   // ── [2] 듣기면 SOURCE 는 늘 '새로 쓰기' ──────────────────────
   ok('[2] 듣기 유형이면 교재 본문 고르기가 없다', cfg.passOpts.join(',') === 'new', cfg.passOpts.join(','));
   AI.calls = []; AI.items = [mkItem(0, { answer: 0 })];
-  AI.resolve = [{ answer: 0, confidence: 0.95, alsoPossible: [] }];
+  AI.resolve = [{ confidence: 0.95, alsoPossible: [] }];
   const listen = await page.evaluate(async () => {
     // 읽기 유형에서 교재 본문을 고른 뒤 듣기 유형으로 바꾼다 (라이브에서 본 자리)
     const tb = (_cache.globalTextbooks || []).find(b => b && b.unitTexts &&
@@ -385,7 +541,7 @@ function mkItem(i, over) {
 
   // ── [4] 소재와 AVOID ─────────────────────────────────────────
   AI.calls = []; AI.items = [mkItem(0, { answer: 0 })];
-  AI.resolve = [{ answer: 0, confidence: 0.95, alsoPossible: [] }];
+  AI.resolve = [{ confidence: 0.95, alsoPossible: [] }];
   const avoid = await page.evaluate(async () => {
     try { await idbSet('pp_iso_log_v1', []); } catch (e) { }
     _isoCfg.type = 'l_long'; _isoCfg.grade = '중2'; _isoCfg.n = 1; _isoCfg.passage = 'new';
