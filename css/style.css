@@ -3597,3 +3597,21 @@ span.pe-c{width:30px;flex-shrink:0;text-align:center;}
 .isoc-p{font-size:12.5px;color:var(--slate);line-height:1.7;margin:0;}
 .isoc-ex{font-size:12.5px;margin-bottom:5px;}
 .isoc-no{color:var(--text-muted);font-size:12px;}
+
+/* ── 라이브러리 2차 (fix/library-3) ──────────────────────── */
+/* 책 한 권 창의 탭 — 앱의 다른 탭(밑줄형)과 같은 모양 */
+.tbd-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px;
+  flex-shrink:0;overflow-x:auto;}
+.tbd-tab{padding:8px 13px;font-size:13px;border:none;background:none;cursor:pointer;
+  margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate);
+  border-bottom:2px solid transparent;display:inline-flex;align-items:center;gap:5px;}
+.tbd-tab:hover{color:var(--navy);}
+.tbd-tab.on{color:var(--teal);border-bottom-color:var(--teal);font-weight:700;}
+.tbd-tab i{font-style:normal;font-size:11px;font-weight:700;border-radius:var(--rpill);
+  padding:1px 6px;background:var(--cream2);color:var(--slate);}
+.tbd-tab.on i{background:var(--tl);color:var(--teal);}
+.lib-card .lib-nser{background:var(--tl);color:var(--teal);}
+.lib-card.lib-ser .lib-cv{box-shadow:3px 3px 0 -1px var(--surface),4px 4px 0 -1px var(--border),
+  6px 6px 0 -1px var(--surface),7px 7px 0 -1px var(--border);}
+.lib-card.lib-inser{outline:1px dashed var(--teal);outline-offset:3px;border-radius:var(--rs);}
+.lib-deep-t i{font-style:normal;color:var(--slate);font-weight:600;}

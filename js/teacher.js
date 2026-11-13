@@ -6966,6 +6966,7 @@ function clearColF(key){
 const PP_WHATSNEW=[
  {date:'2026-11-14',title:'동형 문제 — 유형 설계 카드와 본보기 기출로 만들고, 자동 점검·다시 풀기로 거릅니다',where:'교재·문제 → 동형 문제 ([설계 카드])',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'라이브러리 — 국내외 교재 2만 권을 한곳에서 찾고 열어 보고 커리큘럼을 짭니다',where:'교재·문제 → 라이브러리',tab:'t-data',go:['switchDataTab','library']},
+ {date:'2026-11-14',title:'라이브러리 — 표지 있는 책부터, 절판 빼기·원서만·시리즈 묶어 보기',where:'교재·문제 → 라이브러리',tab:'t-data',go:['switchDataTab','library']},
  {date:'2026-11-14',title:'라이브러리 — 목차 그림·출판사 미리보기, 수준 잰 책만 보기, 내신 문제집 접기',where:'교재·문제 → 라이브러리',tab:'t-data',go:['switchDataTab','library']},
  {date:'2026-11-13',title:'수업 때마다 하는 활동 — 리딩앤 원서 읽기를 수업일마다 캘린더에',where:'클래스 → 클래스 수정 → 수업 때마다 하는 활동',tab:'t-class',go:['renderClassTab']},
  {date:'2026-11-13',title:"'자료실'이 '기출'로 — 용도 칩(수능·내신·듣기평가·성취도·고입)",where:'교재·문제 → 기출',tab:'t-data',go:['switchDataTab','bank']},
@@ -25954,8 +25955,11 @@ let _libPage=1;
 const LIB_PAGE=60;
 // naesin:false = 학교 교과서별 평가문제집(use '내신 대비', 약 4,800권)을 접어 둔다.
 // staged:true = 수준을 잰 책만. target 'none' = 대상이 빈 책.
+// story='원서·리더스만' · noOop='절판 빼기'(기본 켬) · toc='목차 있는 책'
+// sort='' 우리 자료 있는 책 먼저(기본) | series | stage | year
+// group=시리즈로 묶어 보기(기본 끔)
 let _libF={target:'',area:'',stage:'',pub:'',use:'',q:'',bank:false,text:false,mine:false,
-  staged:false,naesin:false};
+  staged:false,naesin:false,story:false,noOop:true,toc:false,sort:'',group:false};
 
 // 선생님 화면에서만. 학생·학부모 화면과 체험 모드는 **부르지도 않는다**.
 function libMayUse(){
@@ -25988,15 +25992,26 @@ async function _libFetchSeq(PAGE,onPage){
   return out;
 }
 // 전체 쪽 수를 먼저 센다 (줄은 안 받는다)
-async function _libCount(){
+// 개수 세기. exact 를 먼저 쓴다 — Aside 가 색인을 넣은 뒤 0.25초면 돌아온다.
+// planned 는 플래너 어림값이라 32,462줄에서 162 로 나온다(쪽 수를 이걸로 잡으면 한 쪽만 받는다).
+// exact 가 실패(500·시간 초과)하면 estimated → planned 로 내려가고, 그래도 안 되면 null 이다.
+async function _libCountWith(how){
   try{
     const r=await fetch(SUPA_URL+'/rest/v1/lib_books_index?select=id&limit=1',
-      {headers:{...SUPA_HEADERS,'Prefer':'count=exact','Range':'0-0'}});
+      {headers:{...SUPA_HEADERS,'Prefer':'count='+how,'Range':'0-0'}});
     if(!r.ok)return r.status===404?-404:null;
     const cr=r.headers.get('content-range')||'';
     const n=Number((cr.split('/')[1]||''));
     return isFinite(n)?n:null;
   }catch(e){return null;}
+}
+async function _libCount(){
+  for(const how of ['exact','estimated','planned']){
+    const n=await _libCountWith(how);
+    if(n===-404)return -404;
+    if(n!==null&&n>0)return n;
+  }
+  return null;
 }
 function _libProg(got,total){
   _libGot=got;_libTotal=total;
@@ -26016,6 +26031,7 @@ async function _libFetchAll(onPage){
   _libProg(0,total||0);
   const out=new Array(pages).fill(null);
   let got=0,dead=false;
+  const _ebGet0=(PAGE,p)=>_libGetRows('lib_books_index?%SEL%&limit='+PAGE+'&offset='+(p*PAGE)+'&order=id');
   const one=async p=>{
     for(let tryN=0;tryN<3;tryN++){                 // 실패하면 그 쪽만 다시
       const r=await _libGetRows('lib_books_index?%SEL%&limit='+PAGE+'&offset='+(p*PAGE)+'&order=id');
@@ -26038,16 +26054,33 @@ async function _libFetchAll(onPage){
   await Promise.all(workers);
   if(dead)return [];
   if(bad&&out.every(x=>x===null))return null;      // 아무것도 못 받았다 — 그대로 둔다
-  const rows=[].concat(...out.filter(Boolean));
+  let rows=[].concat(...out.filter(Boolean));
   if(bad)_libNote='일부 쪽을 받지 못했습니다 — [지금 최신화]로 다시 받아 주세요.';
+  // 개수가 모자라게 세졌을 수 있다 — 마지막 쪽이 꽉 찼으면 짧은 쪽이 나올 때까지 더 받는다
+  if(!bad&&out.length&&(out[out.length-1]||[]).length===PAGE){
+    for(let p=pages;p<pages+40;p++){
+      const r=await _ebGet0(PAGE,p);
+      if(!r||!r.ok)break;
+      rows=rows.concat(r.rows);got+=r.rows.length;_libProg(got,Math.max(total||0,got));
+      if(onPage)try{onPage(r.rows,p,0);}catch(e){}
+      if(r.rows.length<PAGE)break;
+    }
+  }
   return rows;
 }
-async function _libStampRows(){
-  const PAGE=1000;let out=[],off=0;
+// PostgREST 가 한 쪽을 1000줄로 끊는다(limit=10000 을 줘도 1000줄만 온다).
+// 그래서 많이 바뀐 것은 **개수 차이**로 먼저 알아채고(_libProbe), 이 목록은 조금 바뀐 때만 쓴다.
+async function _libStampRows(stop){
+  const PAGE=1000;let out=[],off=0,changed=0;
   while(true){
     const r=await _ebGet('lib_books_index?select=id,updated_at&limit='+PAGE+'&offset='+off+'&order=id');
     if(!r.ok)return null;
     out=out.concat(r.rows);
+    if(stop){
+      // 바뀐 줄이 벌써 기준을 넘었으면 더 받지 않는다 — 어차피 통째로 다시 받는다
+      r.rows.forEach(x=>{if(x&&x.id&&String(_libStamps[x.id]||'')!==String(x.updated_at||''))changed++;});
+      if(changed>stop)return {big:true,changed:changed};
+    }
     if(r.rows.length<PAGE)break;
     off+=PAGE;
     if(off>60000)break;
@@ -26060,15 +26093,18 @@ async function _libFetchByIds(ids){
   const r=await _libGetRows('lib_books_index?%SEL%&id=in.('+q+')');
   return r.ok?r.rows:null;
 }
+// 끝 한 줄과 개수만 본다. 실패(500·시간 초과)해도 **받는 길은 계속 간다** — 한 줄로 알리기만.
 async function _libProbe(){
   const r=await fetch(SUPA_URL+'/rest/v1/lib_books_index?select=id,updated_at&order=updated_at.desc&limit=1',
-    {headers:{...SUPA_HEADERS,'Prefer':'count=exact','Range':'0-0'}}).catch(()=>null);
-  if(!r||!r.ok)return null;
+    {headers:{...SUPA_HEADERS,'Prefer':'count=planned','Range':'0-0'}}).catch(()=>null);
+  if(!r||!r.ok){_libProbeBad=true;return null;}
+  _libProbeBad=false;
   const rows=await r.json().catch(()=>[]);
   const cr=r.headers.get('content-range')||'';
   const total=cr.indexOf('/')>=0?Number(cr.split('/')[1]):null;
   return {max:(rows[0]||{}).updated_at||'',total:isFinite(total)?total:null};
 }
+let _libProbeBad=false;
 async function libLoad(force){
   if(!libMayUse()||_libLoading)return false;
   _libLoading=true;
@@ -26081,34 +26117,34 @@ async function libLoad(force){
     }
     const have=!!(_libRows&&_libRows.length);
     if(have&&!force&&(Date.now()-_libAt)<LIB_FRESH_MS)return false;
-    if(!have){
-      _libRows=[];                                   // 받은 쪽부터 그린다
-      let paint=0;
-      const all=await _libFetchAll((rows)=>{
-        _libRows=_libRows.concat(rows);
-        if(++paint<=3||paint%4===0){                 // 너무 자주 다시 그리지 않는다
-          try{libPaintFilters();renderLibrary();}catch(e){}
-        }
-      });
-      if(!all||!all.length){
-        if(!all)_libRows=null;
-        try{renderLibrary();}catch(e){}
-        return false;
-      }
-      _libRows=all;_libStamps=_libStampsOf(all);_libMax=_libMaxOf(all);_libAt=Date.now();
-      await _libSave();return true;
-    }
+    if(!have)return await _libFull_(false);
     const pr=await _libProbe();
     if(pr&&pr.max&&pr.max===_libMax&&pr.total!==null&&pr.total===_libRows.length){
       _libAt=Date.now();await _libSave();return false;
     }
-    const st=await _libStampRows();
-    if(!st||!st.length)return false;
+    // 개수가 많이 달라졌으면 **도장 목록을 받지 않고** 바로 통째로 다시 받는다
+    // (도장 목록도 1000줄씩이라 3만 줄이면 33번이다 — 받을 것을 두 번 받게 된다)
+    if(pr&&pr.total!==null){
+      const gap=Math.abs(pr.total-_libRows.length);
+      if(gap>LIB_BIG_CHANGE||gap>_libRows.length*0.3)return await _libFull_(true);
+    }
+    const st=await _libStampRows(LIB_BIG_CHANGE);
+    if(!st)return false;                              // 못 받았다 — 기기 목록을 그대로 둔다
+    if(st.big)return await _libFull_(true);           // 벌써 많이 바뀌었다 — 통째로
+    if(!st.length){                                   // 서버가 정말 0줄이라고 답했다
+      _libRows=[];_libStamps={};_libMax='';_libAt=Date.now();
+      await _libSave();try{renderLibrary();}catch(e){}
+      return true;
+    }
     const live=new Set(st.map(x=>x&&x.id));
     const changed=st.filter(x=>x&&x.id&&String(_libStamps[x.id]||'')!==String(x.updated_at||'')).map(x=>x.id);
     const gone=_libRows.filter(r=>!live.has(r.id)).map(r=>r.id);
     _libAt=Date.now();
     if(!changed.length&&!gone.length){await _libSave();return false;}
+    // 많이 바뀌었으면 50개씩 받지 않고 **통째로 다시 받는다**
+    // (3만 줄이 바뀌면 50개씩은 600번 넘게 불러야 한다 — 라이브에서 70초를 기다려도 안 끝났다)
+    const moved=changed.length+gone.length;
+    if(moved>LIB_BIG_CHANGE||moved>_libRows.length*0.3)return await _libFull_(true);
     const byId=new Map(_libRows.map(r=>[r.id,r]));
     gone.forEach(id=>{byId.delete(id);_libFull.delete(id);});
     for(let i=0;i<changed.length;i+=50){
@@ -26121,6 +26157,36 @@ async function libLoad(force){
     return true;
   }catch(e){return false;}
   finally{_libLoading=false;}
+}
+// 통째로 받기. keepOld 면 다 받을 때까지 **기기에 있던 목록을 그대로 보여 준다**
+// (빈 화면·'책이 없습니다' 는 서버가 정말 0줄이라고 답했을 때만).
+const LIB_BIG_CHANGE=1000;
+async function _libFull_(keepOld){
+  const old=keepOld?(_libRows||[]).slice():null;
+  let got=[],paint=0;
+  if(!keepOld)_libRows=[];                             // 처음이면 받은 쪽부터 그린다
+  const all=await _libFetchAll(rows=>{
+    got=got.concat(rows);
+    if(!keepOld){
+      _libRows=got.slice();
+      if(++paint<=3||paint%4===0){try{libPaintFilters();renderLibrary();}catch(e){}}
+    }
+  });
+  if(!all){                                            // 못 받았다
+    if(keepOld)_libRows=old;                           // 옛 목록을 되돌린다
+    else _libRows=null;
+    try{renderLibrary();}catch(e){}
+    return false;
+  }
+  if(!all.length&&keepOld){                            // 0줄로 보이면 옛 목록을 지키고 알린다
+    _libRows=old;_libNote='서버에서 목록을 받지 못했어요 — [지금 최신화]로 다시 받아 주세요.';
+    try{renderLibrary();libStamp();}catch(e){}
+    return false;
+  }
+  _libRows=all;_libStamps=_libStampsOf(all);_libMax=_libMaxOf(all);_libAt=Date.now();
+  await _libSave();
+  try{libPaintFilters();renderLibrary();}catch(e){}
+  return true;
 }
 // 책 한 권의 data 전체 (소개·목차·맛보기)
 async function libFullRow(id){
@@ -26171,6 +26237,9 @@ function _libMatch(r){
     if(_libF.stage==='none'){if(st)return false;}
     else if(st!==_libF.stage)return false;
   }
+  if(_libF.story&&!/^(원서|리더스)$/.test(String(m.kind||'')))return false;
+  if(_libF.noOop&&m.outOfPrint)return false;
+  if(_libF.toc&&!((r.ntoc>0)||r.hastocimg))return false;
   if(_libF.bank&&!(r.nbank>0))return false;
   if(_libF.text&&!(r.ntext>0))return false;
   if(_libF.mine&&!m.tbId)return false;
@@ -26181,28 +26250,65 @@ function _libMatch(r){
   }
   return true;
 }
-// 쓸모 있는 것부터: 우리 자료가 붙은 책 → 수준 잰 책 → 나머지. 절판은 맨 뒤.
+// 쓸모 있는 것부터. 표지가 있어야 둘러볼 수 있으므로 표지를 먼저 본다.
+//   0 표지 있고 우리 자료 있는 책 · 1 표지 있고 수준 잰 책 · 2 표지 있는 책 · 3 표지 없는 책
+//   절판은 각 묶음의 뒤로 (+0.5)
 function _libRank(r){
   const m=r.meta||{};
-  if(m.outOfPrint)return 9;
-  if((r.nbank||0)>0||(r.ntext||0)>0||m.tbId)return 0;
-  if(m.stage)return 1;
-  return 2;
+  const cov=!!String(m.cover||'').trim();
+  const ours=((r.nbank||0)>0||(r.ntext||0)>0||m.tbId);
+  let k=cov?(ours?0:(m.stage?1:2)):3;
+  if(m.outOfPrint)k+=0.5;
+  return k;
+}
+function _libBySeries(a,b){
+  const am=a.meta||{},bm=b.meta||{};
+  const as=String(am.seriesKey||am.series||''),bs=String(bm.seriesKey||bm.series||'');
+  if(as!==bs)return as.localeCompare(bs,'ko');
+  const ao=Number(am.seriesOrder),bo=Number(bm.seriesOrder);
+  if(isFinite(ao)&&isFinite(bo)&&ao!==bo)return ao-bo;
+  return String(am.title||'').localeCompare(String(bm.title||''),'ko',{numeric:true});
 }
 function libFiltered(){
   const rows=(_libRows||[]).filter(r=>_libAlive(r)&&_libMatch(r));
-  rows.sort((a,b)=>{
+  const how=_libF.sort||'';
+  if(how==='series')rows.sort(_libBySeries);
+  else if(how==='stage')rows.sort((a,b)=>{
+    const ag=Number((a.meta||{}).stageG),bg=Number((b.meta||{}).stageG);
+    const aa=isFinite(ag)?ag:999,bb=isFinite(bg)?bg:999;
+    return (aa-bb)||_libBySeries(a,b);
+  });
+  else if(how==='year')rows.sort((a,b)=>{
+    const ay=Number((a.meta||{}).year)||0,by=Number((b.meta||{}).year)||0;
+    return (by-ay)||_libBySeries(a,b);
+  });
+  else rows.sort((a,b)=>{
     const ra=_libRank(a),rb=_libRank(b);
     if(ra!==rb)return ra-rb;
-    const am=a.meta||{},bm=b.meta||{};
-    const as=String(am.seriesKey||am.series||''),bs=String(bm.seriesKey||bm.series||'');
-    if(as!==bs)return as.localeCompare(bs,'ko');
-    const ao=Number(am.seriesOrder),bo=Number(bm.seriesOrder);
-    if(isFinite(ao)&&isFinite(bo)&&ao!==bo)return ao-bo;
-    return String(am.title||'').localeCompare(String(bm.title||''),'ko',{numeric:true});
+    return _libBySeries(a,b);
   });
   return rows;
 }
+// [4] 같은 시리즈 4권 이상이면 표지 한 장 + 'n권' 으로 접는다
+const LIB_GROUP_MIN=4;
+let _libOpenSeries='';
+function libGroupRows(rows){
+  if(!_libF.group)return rows.map(r=>({r:r}));
+  const by={};
+  rows.forEach(r=>{const k=String((r.meta||{}).seriesKey||'');if(k)(by[k]=by[k]||[]).push(r);});
+  const out=[],done=new Set();
+  rows.forEach(r=>{
+    const k=String((r.meta||{}).seriesKey||'');
+    const g=k?by[k]:null;
+    if(!g||g.length<LIB_GROUP_MIN){out.push({r:r});return;}
+    if(done.has(k))return;
+    done.add(k);
+    if(_libOpenSeries===k)g.slice().sort(_libBySeries).forEach(x=>out.push({r:x,inSeries:k}));
+    else out.push({r:g[0],series:k,n:g.length});
+  });
+  return out;
+}
+function libOpenSeries(k){_libOpenSeries=(_libOpenSeries===k)?'':k;_libPage=1;renderLibrary();}
 // 표지 — 이미지가 안 열리면 제목 글자 표지로 바꾼다
 function libCoverHtml(m,cls){
   const t=String(m.title||m.series||'').trim();
@@ -26245,6 +26351,7 @@ function libSetView(v,quiet){
 }
 function libStamp(){
   const el=document.getElementById('lib-state');if(!el)return;
+  if(_libProbeBad&&!_libLoading){el.textContent='서버가 느려 개수를 확인하지 못했어요 — 목록은 그대로 받았습니다';return;}
   if(_libNote){el.textContent=_libNote;return;}
   if(!_libAt){el.textContent='';return;}
   const mins=Math.max(0,Math.round((Date.now()-_libAt)/60000));
@@ -26273,7 +26380,9 @@ function libPaintFilters(){
   }
   if(st)st.value=_libF.stage;
   const q=document.getElementById('lib-f-q');if(q&&q.value!==_libF.q)q.value=_libF.q;
-  ['bank','text','mine','staged','naesin'].forEach(k=>{const c=document.getElementById('lib-f-'+k);if(c)c.checked=!!_libF[k];});
+  ['bank','text','mine','staged','naesin','story','noOop','toc','group'].forEach(k=>{
+    const c=document.getElementById('lib-f-'+k);if(c)c.checked=!!_libF[k];});
+  const so=document.getElementById('lib-f-sort');if(so)so.value=_libF.sort||'';
   // 접어 둔 내신 문제집이 몇 권인지 알려 준다
   const nb=document.getElementById('lib-naesin-n');
   if(nb)nb.textContent=rows.filter(r=>String((r.meta||{}).use||'')==='내신 대비').length.toLocaleString();
@@ -26285,6 +26394,8 @@ function libFilterChange(){
   _libF.pub=v('lib-f-pub');_libF.stage=v('lib-f-stage');
   _libF.bank=c('lib-f-bank');_libF.text=c('lib-f-text');_libF.mine=c('lib-f-mine');
   _libF.staged=c('lib-f-staged');_libF.naesin=c('lib-f-naesin');
+  _libF.story=c('lib-f-story');_libF.noOop=c('lib-f-noOop');_libF.toc=c('lib-f-toc');
+  _libF.group=c('lib-f-group');_libF.sort=v('lib-f-sort');
   _libPage=1;_libDeep=null;
   renderLibrary();
 }
@@ -26308,19 +26419,29 @@ function renderLibrary(){
   if(!libMayUse()){box.innerHTML='<div class="eb-empty">선생님 화면에서만 보입니다.</div>';return;}
   const cnt=document.getElementById('lib-count');
   if(!_libRows||!_libRows.length){
-    box.innerHTML='<div class="eb-empty">'+(_libLoading?'라이브러리를 불러오는 중…':
+    box.innerHTML='<div class="eb-empty">'+(_libLoading?
+      ('교재 목록을 받는 중…'+(_libTotal?(' '+_libGot.toLocaleString()+' / '+_libTotal.toLocaleString()):'')):
       (_libNote||'아직 책이 없습니다 — supabase/library.sql 을 실행하고 책을 넣어 주세요.'))+'</div>';
     if(cnt)cnt.textContent='';
     libDeepBar();return;
   }
-  const all=libFiltered();
+  const flat=libFiltered();
+  const all=libGroupRows(flat);
   const show=all.slice(0,_libPage*LIB_PAGE);
-  if(cnt)cnt.textContent=all.length.toLocaleString()+'권'+(all.length!==_libRows.length?(' / 전체 '+_libRows.length.toLocaleString()+'권'):'');
+  const oop=_libF.noOop?(_libRows||[]).filter(r=>_libAlive(r)&&(r.meta||{}).outOfPrint).length:0;
+  if(cnt)cnt.textContent=flat.length.toLocaleString()+'권'+
+    (flat.length!==_libRows.length?(' / 전체 '+_libRows.length.toLocaleString()+'권'):'')+
+    (oop?(' · 절판 '+oop.toLocaleString()+'권 숨김'):'')+
+    (_libF.group?(' · 시리즈로 묶음'):'');
   libDeepBar();
   if(!all.length){box.innerHTML='<div class="eb-empty">조건에 맞는 책이 없습니다.</div>';return;}
-  box.innerHTML=show.map(r=>{
-    const m=r.meta||{};
-    return '<button class="lib-card" onclick="libOpenBook(\''+escJsA(r.id)+'\')" title="'+_ebA((m.title||'')+' — '+libStageLine(m))+'">'+
+  box.innerHTML=show.map(g=>{
+    const r=g.r||g,m=r.meta||{};
+    if(g.series)return '<button class="lib-card lib-ser" onclick="libOpenSeries(\''+escJsA(g.series)+'\')" title="'+_ebA((m.series||'')+' — '+g.n+'권')+'">'+
+      libCoverHtml(m)+'<span class="lib-t">'+_ebE(m.series||m.title||'')+'</span>'+
+      '<span class="lib-m">'+_ebE(m.publisher||'')+'</span>'+
+      '<span class="lib-b"><i class="lib-nser">'+g.n+'권 묶음</i></span></button>';
+    return '<button class="lib-card'+(g.inSeries?' lib-inser':'')+'" onclick="libOpenBook(\''+escJsA(r.id)+'\')" title="'+_ebA((m.title||'')+' — '+libStageLine(m))+'">'+
       libCoverHtml(m)+
       '<span class="lib-t">'+_ebE(m.title||'(제목 없음)')+'</span>'+
       '<span class="lib-m">'+_ebE([m.publisher,m.pubLevel||m.volume].filter(Boolean).join(' · '))+'</span>'+
@@ -26349,16 +26470,23 @@ function libDeepBar(){
     rows.map(x=>{
       const b=byId.get(x.book_id),m=(b&&b.meta)||{};
       const kind={title:'제목',series:'시리즈',toc:'목차',passage:'본문',script:'대본',vocab:'낱말',sample:'맛보기'}[x.kind]||x.kind;
+      const isBook=(x.kind==='title'||x.kind==='series');
+      const title=String(m.title||x.book_id||'');
+      // 제목 줄은 '제목 · 출판사 · 수준', 본문 줄은 '책 제목 › 단원' + 찾은 자리
+      // (전에는 제목이 오른쪽 칸에도 그대로 나와 같은 글이 두 번 보였다)
+      const right=isBook
+        ? [m.publisher,m.stage?(typeof ebStageName==='function'?ebStageName(m.stage):m.stage):''].filter(Boolean).join(' · ')
+        : String(x.snippet||'').replace(/\s+/g,' ').trim().slice(0,110);
       return '<button class="lib-deep-row" onclick="libOpenBook(\''+escJsA(x.book_id)+'\',\''+escJsA(x.unit||'')+'\')">'+
         '<span class="lib-deep-k">'+_ebE(kind)+'</span>'+
-        '<span class="lib-deep-t">'+_ebE(m.title||x.book_id)+(x.unit?(' · '+_ebE(x.unit)):'')+'</span>'+
-        '<span class="lib-deep-s">'+_ebE(String(x.snippet||'').replace(/\s+/g,' ').slice(0,110))+'</span>'+
+        '<span class="lib-deep-t">'+_ebE(title)+(x.unit?('<i> › '+_ebE(x.unit)+'</i>'):'')+'</span>'+
+        '<span class="lib-deep-s">'+_ebE(right)+'</span>'+
       '</button>';
     }).join('');
 }
 function libResetFilters(){
   _libF={target:'',area:'',stage:'',pub:'',use:'',q:'',bank:false,text:false,mine:false,
-    staged:false,naesin:false};
+    staged:false,naesin:false,story:false,noOop:true,toc:false,sort:'',group:false};
   _libPage=1;_libDeep=null;libPaintFilters();renderLibrary();
 }
 async function libRefresh(){

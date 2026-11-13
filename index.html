@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261114a">
+<link rel="stylesheet" href="css/style.css?v=20261114b">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -700,6 +700,16 @@
             <label class="eb-chk"><input type="checkbox" id="lib-f-mine" onchange="libFilterChange()"> 우리 반 교재</label>
             <label class="eb-chk"><input type="checkbox" id="lib-f-staged" onchange="libFilterChange()"> 수준 잰 책만</label>
             <label class="eb-chk" title="학교 교과서별 평가문제집 — 많아서 기본으로 접어 둡니다"><input type="checkbox" id="lib-f-naesin" onchange="libFilterChange()"> 내신 문제집도 보기 <span id="lib-naesin-n" style="color:var(--text-muted)"></span></label>
+            <label class="eb-chk"><input type="checkbox" id="lib-f-story" onchange="libFilterChange()"> 원서·리더스만</label>
+            <label class="eb-chk"><input type="checkbox" id="lib-f-noOop" checked onchange="libFilterChange()"> 절판 빼기</label>
+            <label class="eb-chk" title="목차 글이나 목차 그림이 있는 책"><input type="checkbox" id="lib-f-toc" onchange="libFilterChange()"> 목차 있는 책</label>
+            <label class="eb-chk" title="같은 시리즈 4권 이상을 표지 한 장으로 접습니다"><input type="checkbox" id="lib-f-group" onchange="libFilterChange()"> 시리즈로 묶어 보기</label>
+            <select class="filter-sel" id="lib-f-sort" onchange="libFilterChange()" title="정렬">
+              <option value="">우리 자료 있는 책 먼저</option>
+              <option value="series">시리즈순</option>
+              <option value="stage">수준순</option>
+              <option value="year">새 책순</option>
+            </select>
             <input type="text" class="eb-q" id="lib-f-q" placeholder="제목·시리즈·출판사… (목차·본문도 함께 찾아요)" oninput="libQInput(this.value)">
             <button class="btn bo bsm" onclick="libResetFilters()">초기화</button>
           </div>
@@ -3289,7 +3299,7 @@
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261112b"></script>
 <script src="js/iso_cards.js?v=20261114a"></script>
-<script src="js/teacher.js?v=20261114d"></script>
+<script src="js/teacher.js?v=20261114e"></script>
 <script src="js/student.js?v=20261112h"></script>
 <script src="js/parent.js?v=20261112e"></script>
 </body>

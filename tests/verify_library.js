@@ -36,13 +36,13 @@ function mkRows(n) {
         isbn: '978' + (1000000000 + i), year: 2018 + (i % 8), pages: 120 + (i % 80),
         price: 12000 + (i % 10) * 500,
         cover: (i % 3 === 0) ? '' : ('https://example.invalid/cover/' + i + '.jpg'),
+        kind: (i % 23 === 0) ? '원서' : ((i % 29 === 0) ? '리더스' : undefined),
         stage: (i % 7 === 0) ? st : undefined, stageG: (i % 7 === 0) ? (1 + (i % 9) + 0.4) : undefined,
         stageBy: 'text', stageConf: 'high',
         seriesKey: 'sk' + (i % 40), seriesOrder: (i % 6) + 1,
         tbId: (i % 50 === 0) ? ('tb' + i) : undefined,
         bankIds: (i % 6 === 0) ? ['bk' + i] : undefined,
         outOfPrint: (i % 97 === 0) ? true : undefined,
-        kind: (i % 23 === 0) ? '원서' : undefined,
         tocImage: (i % 11 === 0) ? ('https://example.invalid/toc/' + i + '.jpg') : undefined,
         detailImage: (i % 13 === 0) ? ('https://example.invalid/d/' + i + '.jpg') : undefined,
         previewImages: (i % 13 === 0) ? ['https://example.invalid/p1.jpg', 'https://example.invalid/p2.jpg'] : undefined,
@@ -65,7 +65,7 @@ function mkRows(n) {
 
   const N = 20500;
   const ROWS = mkRows(N);
-  let libHits = 0, searchHits = 0;
+  let libHits = 0, searchHits = 0, probe500 = false;
   const posts = [];
   // 그 밖의 쓰기는 가짜로 받아 준다
   await page.route('**/rest/v1/**', r => {
@@ -111,6 +111,7 @@ function mkRows(n) {
       const want = new Set(idIn.slice(4, -1).replace(/"/g, '').split(','));
       rows = ROWS.filter(x => want.has(x.id));
     } else if (u.searchParams.get('order') === 'updated_at.desc') {
+      if (probe500) return r.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"canceling statement due to statement timeout"}' });
       rows = ROWS.slice(-1);
     } else rows = ROWS.slice(off, off + lim);
     const body = (sel === 'id,updated_at')
@@ -195,8 +196,8 @@ function mkRows(n) {
   ok('[2] 받는 중 숫자가 오른다',
     big.prog.length >= 2 && big.prog[big.prog.length - 1] > big.prog[0] && big.prog.every((v, i) => i === 0 || v >= big.prog[i - 1]),
     big.prog.length + '번 — ' + big.prog[0] + ' → ' + big.prog[big.prog.length - 1]);
-  ok('(a) 머리 숫자 — 접은 내신은 빼고 센다',
-    /전체 20,500권/.test(big.count) && /^10,250권/.test(big.count.trim()), big.count);
+  ok('(a) 머리 숫자 — 접은 내신·뺀 절판을 빼고 센다',
+    /전체 20,500권/.test(big.count) && /절판 .*권 숨김/.test(big.count), big.count);
   console.log('      메모리 ' + (big.mem < 0 ? '(못 잼)' : big.mem + 'MB'));
 
   const filt = await page.evaluate(async () => {
@@ -219,7 +220,8 @@ function mkRows(n) {
     // 내신 문제집도 보기
     chk('lib-f-naesin', true); libFilterChange();
     const open = libFiltered().length;
-    const naesin = (_libRows || []).filter(r => String((r.meta || {}).use || '') === '내신 대비').length;
+    const naesin = (_libRows || []).filter(r => String((r.meta || {}).use || '') === '내신 대비'
+      && !(r.meta || {}).outOfPrint).length;
     chk('lib-f-naesin', false); libFilterChange();
     // 수준 잰 책만 · 대상 모름
     chk('lib-f-staged', true); libFilterChange();
@@ -235,7 +237,7 @@ function mkRows(n) {
   ok('(a) 자료 있음 · 본문 있음', filt.dBad === 0 && filt.eBad === 0 && filt.d > 0 && filt.e > 0,
     '자료 ' + filt.d + '권 · 본문 ' + filt.e + '권');
   ok('(a) 초기화하면 접은 상태로 돌아온다', filt.all === filt.folded, filt.all.toLocaleString() + '권 (내신 접음)');
-  ok('[3] 내신 문제집을 켜고 끌 때 수가 맞는다', filt.open === filt.folded + filt.naesin && filt.open === N,
+  ok('[3] 내신 문제집을 켜고 끌 때 수가 맞는다', filt.open === filt.folded + filt.naesin,
     '접음 ' + filt.folded.toLocaleString() + ' + 내신 ' + filt.naesin.toLocaleString() + ' = ' + filt.open.toLocaleString());
   ok('[3] 수준 잰 책만', filt.stagedBad === 0 && filt.staged > 0, filt.staged.toLocaleString() + '권');
   ok('[3] 대상 모름', filt.noTgBad === 0 && filt.noTg > 0, filt.noTg.toLocaleString() + '권');
@@ -310,6 +312,139 @@ function mkRows(n) {
   ok('(e) 목차·본문 줄 수도 같다', bk.toc === bk.want.toc && bk.units === bk.want.text,
     '목차 ' + bk.toc + '줄 · 단원 ' + bk.units + '개 · 본문 ' + bk.texts + '덩이');
   ok('(e) 개요에 수준 근거와 시리즈', bk.stage && bk.series);
+
+  // ── [1] 많이 바뀌었을 때 통째로 다시 받기 ────────────────────
+  const reqs0 = libHits;
+  const bigRe = await page.evaluate(async () => {
+    // 기기에 옛 목록 2만 줄을 둔다 (id 가 서버와 60% 다르다)
+    const old = (_libRows || []).slice(0, 20000).map((r, i) =>
+      (i % 10 < 6) ? Object.assign({}, r, { id: 'old-' + i, updated_at: '2026-01-01T00:00:00Z' }) : r);
+    _libRows = old; _libStamps = {}; old.forEach(r => { _libStamps[r.id] = r.updated_at; });
+    _libMax = '2026-01-01T00:00:00Z'; _libAt = Date.now() - 99999999;
+    await idbSet('pp_lib_books_v1', { v: 1, rows: old, stamps: _libStamps, at: _libAt, max: _libMax });
+    window.__seen = [];
+    const tick = setInterval(() => { window.__seen.push((_libRows || []).length); }, 120);
+    const ch = await libLoad(true);
+    clearInterval(tick);
+    const mid = window.__seen.filter(n => n > 0).length;
+    return { ch, before: old.length, after: (_libRows || []).length, seen: window.__seen.slice(0, 40), midOk: mid === window.__seen.length };
+  });
+  const reqsBig = libHits - reqs0;
+  ok('[1] 많이 바뀌면 통째로 다시 받는다', bigRe.after === N, '옛 ' + bigRe.before.toLocaleString() + ' → ' + bigRe.after.toLocaleString());
+  ok('[1] 받는 동안 옛 목록이 보인다 (빈 화면 없음)', bigRe.midOk, '빈 적 ' + bigRe.seen.filter(n => !n).length + '번');
+  ok('[1] 요청 수가 40번을 넘지 않는다', reqsBig <= 40, reqsBig + '번');
+
+  probe500 = true;
+  const probe = await page.evaluate(async () => {
+    _libAt = Date.now() - 99999999;
+    const n0 = (_libRows || []).length;
+    const ch = await libLoad(true);
+    const note = (document.getElementById('lib-state') || {}).textContent || '';
+    return { n0, n1: (_libRows || []).length, note, bad: _libProbeBad };
+  });
+  probe500 = false;
+  ok('[1] _libProbe 가 500 이어도 목록을 받는다', probe.n1 === N && probe.bad === true,
+    probe.n0 + ' → ' + probe.n1 + ' · 알림 "' + String(probe.note).slice(0, 40) + '"');
+
+  // ── [2][3][4] 정렬·거르기·시리즈 ──────────────────────────────
+  const look = await page.evaluate(async () => {
+    libResetFilters();
+    await new Promise(r => setTimeout(r, 300));
+    const cards = [...document.querySelectorAll('#lib-grid .lib-card')];
+    const first = cards.slice(0, 60);
+    const noCover = first.filter(c => !c.querySelector('img')).length;
+    // 절판 빼기
+    const on = libFiltered().length;
+    const oop = (_libRows || []).filter(r => (r.meta || {}).outOfPrint
+      && String((r.meta || {}).use || '') !== '내신 대비').length;
+    const chk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = v; };
+    chk('lib-f-noOop', false); libFilterChange();
+    const off = libFiltered().length;
+    const cnt = (document.getElementById('lib-count') || {}).textContent || '';
+    chk('lib-f-noOop', true); libFilterChange();
+    const cntHide = (document.getElementById('lib-count') || {}).textContent || '';
+    // 원서·리더스만 · 목차 있는 책
+    chk('lib-f-story', true); libFilterChange();
+    const story = libFiltered().length, storyBad = libFiltered().filter(r => !/^(원서|리더스)$/.test(String((r.meta || {}).kind || ''))).length;
+    chk('lib-f-story', false); chk('lib-f-toc', true); libFilterChange();
+    const toc = libFiltered().length, tocBad = libFiltered().filter(r => !((r.ntoc > 0) || r.hastocimg)).length;
+    chk('lib-f-toc', false); libFilterChange();
+    // 시리즈 묶어 보기
+    const flat = libFiltered().length;
+    chk('lib-f-group', true); libFilterChange();
+    const grouped = libGroupRows(libFiltered());
+    const packs = grouped.filter(g => g.series);
+    const inPacks = packs.reduce((a, g) => a + g.n, 0);
+    const opened = (() => { libOpenSeries(packs[0] ? packs[0].series : ''); const g2 = libGroupRows(libFiltered()); return g2.filter(x => x.inSeries).length; })();
+    libOpenSeries(packs[0] ? packs[0].series : '');
+    chk('lib-f-group', false); libFilterChange();
+    // 정렬 고르기
+    const sel = document.getElementById('lib-f-sort');
+    const sorts = sel ? [...sel.options].map(o => o.value) : [];
+    sel.value = 'year'; libFilterChange();
+    const yrs = libFiltered().slice(0, 30).map(r => Number((r.meta || {}).year) || 0);
+    sel.value = ''; libFilterChange();
+    return {
+      noCover, on, off, oop, cnt, cntHide, story, storyBad, toc, tocBad,
+      flat, packN: packs.length, inPacks, opened, firstPack: packs[0] ? packs[0].n : 0,
+      sorts, yrOk: yrs.every((v, i) => i === 0 || yrs[i - 1] >= v),
+    };
+  });
+  ok('[2] 첫 60장이 모두 표지 있는 책', look.noCover === 0, '표지 없는 카드 ' + look.noCover + '장');
+  ok('[2] 정렬 고르기 네 가지', look.sorts.join(',') === ',series,stage,year' && look.yrOk, look.sorts.join('/'));
+  ok('[3] 절판 빼기를 켜고 끌 때 수가 맞는다', look.off === look.on + look.oop && /절판 .*권 숨김/.test(look.cntHide) && !/숨김/.test(look.cnt),
+    '켬 ' + look.on.toLocaleString() + ' + 절판 ' + look.oop + ' = 끔 ' + look.off.toLocaleString());
+  ok('[3] 원서·리더스만 · 목차 있는 책', look.storyBad === 0 && look.tocBad === 0 && look.story > 0 && look.toc > 0,
+    '원서·리더스 ' + look.story + '권 · 목차 ' + look.toc.toLocaleString() + '권');
+  ok('[4] 시리즈 접기·펴기 수가 맞는다',
+    look.packN > 0 && look.firstPack >= 4 && look.opened === look.firstPack,
+    '묶음 ' + look.packN + '개 · 첫 묶음 ' + look.firstPack + '권 · 펴면 ' + look.opened + '장');
+
+  // ── [5] 찾기 줄 ──
+  const deep2 = await page.evaluate(async () => {
+    libQInput('sample');
+    await new Promise(r => setTimeout(r, 900));
+    const rows = [...document.querySelectorAll('#lib-deep .lib-deep-row')].map(x => ({
+      t: (x.querySelector('.lib-deep-t') || {}).textContent || '',
+      s: (x.querySelector('.lib-deep-s') || {}).textContent || '',
+    }));
+    libQInput('');
+    return rows;
+  });
+  ok('[5] 제목 줄에 같은 글이 두 번 나오지 않는다',
+    deep2.length === 3 && deep2[0].t && deep2[0].s.indexOf(deep2[0].t) < 0,
+    '제목 "' + deep2[0].t + '" · 오른쪽 "' + deep2[0].s + '"');
+
+  // ── [7] 대상 전체면 대상 빈 책도 보인다 ──
+  const tgt = await page.evaluate(() => {
+    libResetFilters();
+    const all = libFiltered();
+    const noTg = all.filter(r => !String((r.meta || {}).target || '')).length;
+    return { all: all.length, noTg };
+  });
+  ok('[7] 대상 전체면 대상 빈 책도 그대로 보인다', tgt.noTg > 0, '대상 빈 책 ' + tgt.noTg.toLocaleString() + '권이 보인다');
+
+  // ── [6] 책 한 권 탭 모양 ──
+  const tabs = await page.evaluate(async () => {
+    const row = (_libRows || []).find(r => r.ntext > 0 && r.ntoc > 0) || _libRows[1];
+    await libOpenBook(row.id);
+    await new Promise(r => setTimeout(r, 700));
+    const b = document.querySelector('#libb-tabs .tbd-tab');
+    const on = document.querySelector('#libb-tabs .tbd-tab.on');
+    const cs = b ? getComputedStyle(b) : null;
+    const cso = on ? getComputedStyle(on) : null;
+    const box = getComputedStyle(document.getElementById('libb-tabs'));
+    const i = document.querySelector('#libb-tabs .tbd-tab i');
+    const csi = i ? getComputedStyle(i) : null;
+    try { closeM('m-lib-book'); } catch (e) { }
+    return {
+      underline: box.borderBottomWidth, onColor: cso ? cso.borderBottomColor : '',
+      plain: cs ? (cs.borderTopWidth + '/' + cs.backgroundColor) : '',
+      italic: csi ? csi.fontStyle : '',
+    };
+  });
+  ok('[6] 탭이 앱의 밑줄형과 같은 모양', tabs.underline === '2px' && tabs.italic === 'normal' && /^0px/.test(tabs.plain),
+    '아래 선 ' + tabs.underline + ' · 숫자 기울임 ' + tabs.italic + ' · 테두리 ' + tabs.plain);
 
   // ── [4] 목차 그림 · 소개 그림은 열 때만 ──────────────────────
   const pic = await page.evaluate(async () => {
