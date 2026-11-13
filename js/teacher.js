@@ -6964,6 +6964,7 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-14',title:'동형 문제 — 오답 종류·구성을 카드로 보고, 통과한 문항을 한 번에 넣습니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'동형 문제 — 정답 자리를 앱이 맞추고, 깨진 응답도 살려 씁니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'라이브러리·만들기 칸이 아래로 내려갑니다',where:'교재·문제 → 라이브러리',tab:'t-data',go:['switchDataTab','library']},
  {date:'2026-11-14',title:'동형 문제 — 카드가 있는 유형이면 설정 칸이 카드용으로 바뀝니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
@@ -26977,6 +26978,65 @@ async function isoExemplarBodies(ids){
   return out;
 }
 
+// ── 오답 kind 를 카드의 칸으로 맞추기 ─────────────────────────────────
+// AI 가 적은 kind 는 카드 글과 한 글자씩 같지 않다
+// ('7. 장면 밖 말(굳은 인사말·맞장구)' ↔ '7. 장면 밖 말(굳은 인사말·맞장구 35.7%, …)').
+// 글자 그대로 견주면 멀쩡한 문항이 버려진다 — 다음 잣대로 '같은 칸'을 찾는다.
+//   · 대괄호 머리가 같으면 같은 칸 ('[틀린 진술 3]', '[맞는 진술]')
+//   · 맨 앞 번호가 같으면 같은 칸 ('7.')
+//   · 번호가 없으면 공백·괄호 안 글을 뺀 앞 6자가 같으면 같은 칸
+function isoKindKey(k){
+  const s=String(k||'').trim();
+  if(!s)return '';
+  const b=/^\[([^\]]+)\]/.exec(s);
+  if(b)return '['+b[1].replace(/\s+/g,' ').trim()+']';
+  const n=/^(\d+)\s*[.．]/.exec(s);
+  if(n)return '#'+n[1];
+  return '~'+s.replace(/\([^)]*\)/g,'').replace(/\s+/g,'').slice(0,6);
+}
+// 카드의 kind 목록에서 같은 칸을 찾아 **카드의 글**을 돌려준다. 못 찾으면 ''
+function isoKindMatch(got,cardKinds){
+  const key=isoKindKey(got);
+  if(!key)return '';
+  const hit=(cardKinds||[]).find(k=>isoKindKey(k)===key);
+  return hit||'';
+}
+// 그 카드가 '칸 목록'을 가진 유형인가 (번호·대괄호가 하나라도 있어야 한다).
+// m_order·m_summary 처럼 칸이 없는 카드는 kind 를 견주지 않는다.
+function isoKindCells(card){
+  return ((card&&card.distractors)||[]).map(d=>String(d.kind||''))
+    .filter(k=>/^[#\[]/.test(isoKindKey(k)));
+}
+// ── 오답 넷의 구성 (카드의 mix) ───────────────────────────────────────
+// need = '이 칸이 몇 개 이상', limit = '이 칸들을 합쳐 몇 개까지'.
+// 넘기면 버리지 않고 확인 대기로 보낸다.
+function _isoMixLabel(key){
+  if(/^#/.test(key))return key.slice(1)+'번';
+  if(/^\[/.test(key))return key;
+  return key.slice(1);
+}
+function isoMixCheck(kinds,mix){
+  const cnt={};
+  (kinds||[]).forEach(k=>{const key=isoKindKey(k);if(key)cnt[key]=(cnt[key]||0)+1;});
+  const line=Object.keys(cnt).sort((a,b)=>(cnt[b]-cnt[a])||(a<b?-1:1))
+    .map(k=>_isoMixLabel(k)+' '+cnt[k]).join(' · ');
+  const why=[];
+  const keysOf=v=>(Array.isArray(v)?v:[v]).map(x=>isoKindKey(x)).filter(Boolean);
+  ((mix&&mix.need)||[]).forEach(r=>{
+    const ks=keysOf(r.kindStartsWith);
+    const got=ks.reduce((a,k)=>a+(cnt[k]||0),0);
+    if(got<Number(r.min||0))
+      why.push('오답 구성이 카드와 달라요 ('+ks.map(_isoMixLabel).join('·')+' 칸 '+got+'개 / '+r.min+'개 이상)');
+  });
+  ((mix&&mix.limit)||[]).forEach(r=>{
+    const ks=keysOf(r.kindStartsWith);
+    const got=ks.reduce((a,k)=>a+(cnt[k]||0),0);
+    if(got>Number(r.max||0))
+      why.push('오답 구성이 카드와 달라요 ('+ks.map(_isoMixLabel).join('·')+' 칸 '+got+'개 / '+r.max+'개까지)');
+  });
+  return {ok:!why.length,line:line,why:why,counts:cnt};
+}
+
 // ── 정답 자리 (앱이 정한다) ────────────────────────────────────────────
 // 보기 순서가 글에 묶인 유형 — 옮기지 않는다 (옮기면 글과 어긋난다)
 const ISO_FIXED_ORDER=['l_not','m_match','m_order'];
@@ -27182,9 +27242,14 @@ function isoMakePrompt(o){
   L.push('4. EXEMPLARS: 본보기 기출 2문항 (CARD.exemplars["'+grade+'"], 없으면 가장 가까운 학년의 것). stem, script 또는 passage, choices, answer 가 들어 있습니다.');
   L.push('5. SOURCE: '+src);
   L.push('6. DIFFICULTY: '+diff);
-  L.push('7. ANSWER_SLOTS: 문항마다 정답을 둘 자리 '+slots+' (0부터 셉니다. 앱이 CARD.answerSpread.rule 에 맞춰 정해 줍니다.)');
+  // 보기 순서가 글에 묶인 유형은 자리를 **문항별 줄**로 적어 준다 (묶음 배열은 잘 지켜지지 않았다)
+  if(isoFreeOrder(type))
+    L.push('7. ANSWER_SLOTS: 문항마다 정답을 둘 자리 '+slots+' (0부터 셉니다. 앱이 CARD.answerSpread.rule 에 맞춰 정해 줍니다.)');
+  else
+    L.push('7. ANSWER_SLOTS: '+(o.slots||[]).map((v,i)=>'문항 '+(i+1)+' → 정답 '+(_ISO_NUM[v]||(v+1)))
+      .join(' / ')+'  (앱이 CARD.answerSpread.rule 에 맞춰 정해 줍니다.)');
   L.push('8. AVOID: 최근에 쓴 소재 목록 '+JSON.stringify(o.avoid||[]));
-  if(!isoFreeOrder(type))L.push('   ANSWER_SLOTS 의 자리와 answer 가 다르면 그 문항은 버려집니다.');
+  if(!isoFreeOrder(type))L.push('   ANSWER_SLOTS 의 자리와 answer 가 다르면 그 문항은 결과에 그대로 알립니다.');
   L.push('');
   L.push('[만드는 순서]');
   L.push('1. CARD.limits 와 CARD.doNot 을 먼저 읽습니다. 다른 칸과 부딪치면 이 두 칸을 따릅니다.');
@@ -27192,7 +27257,7 @@ function isoMakePrompt(o){
   L.push('3. 정답 근거를 CARD.answerLocus 가 말하는 자리에 둡니다.');
   L.push('4. 발문은 CARD.stemPatterns 가운데 GRADE 와 형식에 맞는 것을 고르고 EXEMPLARS 의 발문 말투를 따릅니다.');
   L.push('5. 정답 보기를 쓰고 ANSWER_SLOTS 의 자리에 둡니다. 보기 순서가 글의 순서로 정해지는 유형(l_not, m_match, m_order)은 정답 자리를 먼저 정한 뒤 지문·대본을 짭니다.');
-  L.push('6. 오답을 씁니다. 오답마다 CARD.distractors 의 kind 하나를 붙입니다. kind 는 배열의 위에서부터 처음 맞는 칸입니다. share 가 null 인 칸과 "그 밖" 칸은 CARD.limits 가 허락할 때만 씁니다.');
+  L.push('6. 오답을 씁니다. 오답마다 CARD.distractors 의 kind 하나를 붙입니다. kind 는 배열의 위에서부터 처음 맞는 칸입니다. share 가 null 인 칸과 "그 밖" 칸은 CARD.limits 가 허락할 때만 씁니다. CARD.mix 가 있으면 오답 넷의 kind 구성을 그 need 와 limit 에 맞춥니다.');
   L.push('7. DIFFICULTY 가 "상"이면 CARD.harder 에서 두 가지 이상, "하"이면 CARD.easier 에서 두 가지 이상을 적용하고 어느 것을 썼는지 applied 에 적습니다. "중"이면 EXEMPLARS 수준을 따릅니다.');
   L.push('8. CARD.traps 를 하나씩 대조해 해당하는 것이 없는지 보고, CARD.checks 를 모두 통과하는지 확인합니다. 통과하지 못한 항목이 있으면 고친 뒤에 내보냅니다.');
   L.push('');
@@ -27266,7 +27331,7 @@ function isoResolvePrompt(it,grade){
   L.push('2. 정답으로 볼 수 있는 보기가 둘 이상이면 모두 적습니다. 하나도 없으면 그렇게 적습니다.');
   L.push('3. 지문·대본을 가리고 발문과 보기만으로 답을 골라 봅니다. 고를 수 있으면 무엇으로 골랐는지 적습니다(길이, 말끝, 상식, 보기끼리의 관계). 고른 답이 얼마나 확실한지 0~1 로 적습니다. 짐작이면 0.5 아래로 적습니다.');
   L.push('4. type 이 l_long 이면 대본의 마지막 말만 보고도 풀어 봅니다. type 이 m_blank 또는 m_summary 이면 빈칸이 있는 문장만 보고도 풀어 봅니다.');
-  L.push('5. 발문·지문·보기에서 어색한 영어, 틀린 한국어, 학년에 어려운 낱말을 적습니다.');
+  L.push('5. 발문·지문·보기에서 어색한 영어, 틀린 한국어, 학년에 어려운 낱말을 적습니다. 지문·대본 안에서 누가 무엇을 가졌는지, 누가 했는지, 때와 장소가 앞뒤로 어긋나는 곳이 있으면 inconsistencies 에 적습니다.');
   L.push('');
   L.push('[출력 JSON]');
   L.push('{');
@@ -27279,7 +27344,8 @@ function isoResolvePrompt(it,grade){
   L.push(' "solvableFromLastLineOnly": {"answer": null, "note": ""},');
   L.push(' "writtenAnswer": "서답형일 때 쓴 답",');
   L.push(' "languageIssues": [],');
-  L.push(' "hardWords": []');
+  L.push(' "hardWords": [],');
+  L.push(' "inconsistencies": []');
   L.push('}');
   L.push('answer 는 0부터 세고, 서답형이면 -1 입니다. confidence 는 0~1 입니다. alsoPossible 은 정답이 둘일 수 있는 보기의 번호이고 없으면 [] 입니다.');
   L.push('');
@@ -27312,6 +27378,12 @@ function isoResolveVerdict(it,r){
       out.why.push('지문 없이도 풀려요'+(sw.by?(' — '+sw.by):'')+(isFinite(sc)?(' · 확신도 '+sc):''));
     }else out.soft=['보기만으로 짐작될 수 있어요 (낮음 '+sc+(sw.by?(' · '+sw.by):'')+')'];
   }
+  // 지문·대본 앞뒤가 안 맞는 곳을 적어 왔다 — 버리지 않고 확인 대기
+  const inc=(r.inconsistencies||[]).map(x=>typeof x==='string'?x:JSON.stringify(x)).filter(Boolean);
+  if(inc.length){
+    out.state=(out.state==='drop')?'drop':'wait';
+    out.why.push('대본 앞뒤가 안 맞을 수 있어요 — '+inc.slice(0,2).join(' · '));
+  }
   const sl=r.solvableFromLastLineOnly||{};
   if(sl.answer!==null&&sl.answer!==undefined&&Number(sl.answer)===Number(it.answer))out.lower=true;
   return out;
@@ -27319,13 +27391,15 @@ function isoResolveVerdict(it,r){
 
 // ── 3. 자동 점검 (AI 없이 코드로) ──────────────────────────────────────
 // 막기 = 걸리면 버린다 (다시 풀기를 부르지 않는다) · 알리기 = 표시만 한다
-function _isoChk(list,ok,level,name,got,want){
-  list.push({ok:!!ok,level:level,name:name,got:String(got==null?'':got),want:String(want==null?'':want)});
+// level 'wait' = 걸리면 버리지 않고 확인 대기로 보낸다 (msg 를 그대로 보여 준다)
+function _isoChk(list,ok,level,name,got,want,msg){
+  list.push({ok:!!ok,level:level,name:name,got:String(got==null?'':got),want:String(want==null?'':want),
+    msg:String(msg==null?'':msg)});
 }
 function _isoKoLen(s){return String(s||'').replace(/\s/g,'').length;}
 function _isoHasKo(s){return /[가-힣]/.test(String(s||''));}
 function isoCheckItem(it,card,grade,ctx){
-  const C=[];const o=ctx||{};
+  const C=[];const o=ctx||{};let mixOut=null;
   const type=String(it.type||card.type||'');
   const body=String(it.script||'')||String(it.passage||'');
   // 빈 칸·공백만 있는 보기는 먼저 걷어내고 센다
@@ -27366,9 +27440,16 @@ function isoCheckItem(it,card,grade,ctx){
     const mx=Math.max(...lens),mn=Math.min(...lens);
     _isoChk(C,true,'info','보기 길이',(en?'낱말':'글자')+' '+mn+'~'+mx,'유형 기준');
     const a=Number(it.answer);
-    // 가장 긴 보기와 길이가 같으면 걸리지 않는다 — 혼자 가장 길 때만
-    const alone=(lens[a]===mx)&&(lens.filter(v=>v===mx).length===1);
-    _isoChk(C,!alone,'warn','정답만 김',lens[a]+(en?'낱말':'자')+' (가장 긴 것 '+mx+')','정답이 혼자 가장 길지 않기');
+    // 정답이 **혼자** 가장 길 때만, 그것도 한국어 2자·영어 1낱말을 넘게 길 때만 건다.
+    // (길이가 같은데 걸린 것이 5번 있었다 — '정답만 김 17자 (가장 긴 것 17)')
+    const rest=lens.filter((v,i)=>i!==a);
+    const next=rest.length?Math.max(...rest):0;
+    const gap=lens[a]-next;
+    const tol=en?1:2;
+    const alone=gap>tol;
+    _isoChk(C,!alone,'warn','정답만 김',
+      '정답 '+lens[a]+(en?'낱말':'자')+' · 다음으로 긴 보기 '+next+(en?'낱말':'자'),
+      '정답이 혼자 가장 길지 않기 ('+(en?'1낱말':'2자')+' 차이까지)');
     const runs=ch.map(x=>isoMaxRun(x,body));
     const lim={m_topic:3,m_blank:2,l_long:2,m_match:5}[type];
     if(lim){
@@ -27380,12 +27461,28 @@ function isoCheckItem(it,card,grade,ctx){
     const dot=new Set(ch.map(x=>/[.。]$/.test(x.trim()))).size>1;
     _isoChk(C,!mixed&&!dot,'warn','보기 꼴 통일',(mixed?'한국어·영어 섞임 ':'')+(dot?'마침표 섞임':'')||'통일',
       '한 문항 안에서 통일');
-    // 오답 kind
-    const kinds=(card.distractors||[]).map(d=>String(d.kind||''));
+    // 오답 kind — 글자 그대로가 아니라 '같은 칸' 으로 견준다
+    const cells=isoKindCells(card);
     const got=(it.distractors||[]).map(d=>String(d.kind||''));
-    const bad=got.filter(k=>k&&kinds.indexOf(k)<0&&!/^\[/.test(k));
-    _isoChk(C,got.length===4&&bad.length===0,'block','오답 kind',
-      got.length+'개'+(bad.length?(' · 목록 밖 '+bad.length+'개'):''),'오답 넷 모두 · 카드 목록 안');
+    if(cells.length){
+      const lost=[];
+      (it.distractors||[]).forEach(d=>{
+        const hit=isoKindMatch(d.kind,cells);
+        if(hit){if(hit!==d.kind){d.kindRaw=String(d.kind||'');d.kind=hit;}}
+        else if(String(d.kind||'').trim())lost.push(String(d.kind||''));
+      });
+      _isoChk(C,got.length===4,'block','오답 kind 수',got.length+'개','오답 넷 모두');
+      _isoChk(C,!lost.length,'wait','오답 kind',
+        lost.length?('카드에서 찾지 못한 것 '+lost.length+'개 — '+lost.map(x=>x.slice(0,18)).join(' / ')):'모두 카드의 칸',
+        '카드의 칸 가운데 하나','오답 종류를 카드에서 찾지 못했어요');
+      // 카드에 mix 가 있으면 오답 넷의 구성까지 본다
+      if(card.mix){
+        const mx=isoMixCheck((it.distractors||[]).map(d=>d.kind),card.mix);
+        mixOut=mx;
+        _isoChk(C,mx.ok,'wait','오답 넷의 구성',mx.line||'(없음)',
+          String((card.mix||{}).rule||'카드의 need·limit'),mx.why[0]||'');
+      }
+    }
   }
   // 본보기 베끼기
   if((o.exemplarTexts||[]).length){
@@ -27489,7 +27586,9 @@ function isoCheckItem(it,card,grade,ctx){
     }
   }
   const blocked=C.filter(c=>c.level==='block'&&!c.ok);
-  return {list:C,blocked:blocked,ok:blocked.length===0,
+  // 확인 대기로 보내는 점검 (버리지 않는다)
+  const waits=C.filter(c=>c.level==='wait'&&!c.ok).map(c=>c.msg||(c.name+' — '+c.got));
+  return {list:C,blocked:blocked,ok:blocked.length===0,waits:waits,mix:mixOut,
     why:blocked.map(c=>c.name+' — '+c.got+' (기준 '+c.want+')')};
 }
 // 묶음 전체: 정답 자리
@@ -27661,9 +27760,12 @@ async function _isoCardRun2(card,grade,n){
       it.resolve=r;
       const v=isoResolveVerdict(it,r);
       it.state=v.state;it.why=v.why;it.soft=v.soft||[];
-      if(it.slotMiss!=null&&it.state==='pass'){
-        it.state='wait';it.why=(it.why||[]).concat(['정답 자리가 요청과 달라요 (요청 '+(it.slotMiss+1)+'번 · 받은 '+(Number(it.answer)+1)+'번)']);
-      }
+      // [3] 묶인 순서 유형은 자리가 달라도 통과시키고 알리기만 한다 (문항 자체는 멀쩡했다)
+      if(it.slotMiss!=null)
+        it.soft=(it.soft||[]).concat(['정답 자리 '+(_ISO_NUM[Number(it.answer)]||'')+' · 요청은 '+(_ISO_NUM[it.slotMiss]||'')]);
+      // 코드 점검이 '확인 대기' 로 보낸 것 (오답 kind 를 못 찾음 · 오답 구성이 카드와 다름)
+      const cw=(it.checks&&it.checks.waits)||[];
+      if(cw.length&&it.state!=='drop'){it.state='wait';it.why=(it.why||[]).concat(cw);}
       if(v.lower)it.loweredDiff=true;
       if(v.state==='drop')run.dropped.push(it);
     }
@@ -27697,7 +27799,7 @@ function isoCardRender(){
   const dead=run.items.filter(it=>it.state==='drop');
   const chk=c=>'<tr class="'+(c.ok?'':(c.level==='block'?'icr-bad':'icr-warn'))+'">'+
     '<td>'+_ebE(c.name)+'</td><td>'+_ebE(c.got)+'</td><td>'+_ebE(c.want)+'</td>'+
-    '<td>'+(c.level==='block'?'막기':(c.level==='warn'?'알리기':'보기'))+'</td></tr>';
+    '<td>'+(c.level==='block'?'막기':(c.level==='wait'?'확인':(c.level==='warn'?'알리기':'보기')))+'</td></tr>';
   const one=it=>{
     const st=ISO_STATE[it.state]||ISO_STATE.wait;
     const r=it.resolve||{};
@@ -27711,6 +27813,8 @@ function isoCardRender(){
       '</div>'+
       ((it.why||[]).length?('<div class="icr-why">'+(it.why||[]).map(_ebE).join(' · ')+'</div>'):'')+
       ((it.soft||[]).length?('<div class="icr-soft">'+(it.soft||[]).map(_ebE).join(' · ')+'</div>'):'')+
+      ((it.checks&&it.checks.mix&&it.checks.mix.line)?
+        ('<div class="icr-mix'+(it.checks.mix.ok?'':' icr-mixbad')+'">오답 구성 '+_ebE(it.checks.mix.line)+'</div>'):'')+
       '<div class="icr-body">'+_ebE(String(it.script||it.passage||'').slice(0,400))+'</div>'+
       ((it.choices||[]).length?('<ol class="icr-ch">'+(it.choices||[]).map((c,i)=>
         '<li'+(i===Number(it.answer)?' class="on"':'')+'>'+_ebE(c)+
@@ -27729,19 +27833,34 @@ function isoCardRender(){
         '</div></details>'):'')+
     '</div>';
   };
+  const nPass=run.items.filter(x=>x.state==='pass').length;
+  const nAdd=run.items.filter(x=>x.state==='pass'&&!x.inBank).length;
+  const nWait=run.items.filter(x=>x.state==='wait').length;
+  const skew=_isoSkew(run.items);
   box.innerHTML='<div class="icr-top">'+
-      '<b>만든 결과</b> 통과 '+run.items.filter(x=>x.state==='pass').length+
-      ' · 확인 대기 '+run.items.filter(x=>x.state==='wait').length+
+      '<b>만든 결과</b> 통과 '+nPass+
+      ' · 확인 대기 '+nWait+
       ' · 버림 '+dead.length+
       ' <span class="icr-dim">AI '+run.calls+'회'+(run.retried?' (JSON 재시도 1회 포함)':'')+
       ' · 본보기 '+(run.exIds||[]).length+'개 ('+_ebE(run.exHow||'')+')'+
       ' · 정답 자리 '+(run.slots||[]).map(x=>x+1).join('·')+
       ' → 만든 것 '+_isoSpread(run.items)+'</span>'+
-      (run.batch&&!run.batch.ok?('<div class="icr-why">'+_ebE(run.batch.note)+'</div>'):'')+
+      (nAdd?('<div class="icr-bulk"><button class="btn bp bxs" onclick="isoCardToBankAll()">통과한 '+nAdd+'문항 문제 은행에 넣기</button></div>'):'')+
+      (skew?('<div class="icr-why">'+_ebE(skew)+'</div>')
+           :(run.batch&&!run.batch.ok?('<div class="icr-why">'+_ebE(run.batch.note)+'</div>'):''))+
     '</div>'+
     live.map(one).join('')+
     (dead.length?('<details class="wz-more" '+(_isoDropOpen?'open':'')+'><summary>버린 것 '+dead.length+'개 보기</summary>'+
       dead.map(one).join('')+'</details>'):'');
+}
+// 한 번호에 60% 넘게 몰렸으면 머리줄에 알린다 (묶인 순서 유형은 자리를 옮기지 못한다)
+function _isoSkew(items){
+  const a=(items||[]).map(it=>Number(it.answer)).filter(v=>v>=0&&v<5);
+  if(a.length<3)return '';
+  const cnt=[0,0,0,0,0];a.forEach(v=>cnt[v]++);
+  const top=Math.max(...cnt);
+  if(top<=a.length*0.6)return '';
+  return '정답이 '+(_ISO_NUM[cnt.indexOf(top)]||'')+'에 몰렸어요 — 넣기 전에 몇 문항을 빼거나 다시 만들어 주세요';
 }
 // 만든 문항의 정답 번호 분포 (① 1 ② 1 …)
 function _isoSpread(items){
@@ -27763,9 +27882,28 @@ function isoCardEdit(id){
   try{_isoRender();}catch(e){}
   toast('아래 문항 목록에서 고칠 수 있어요');
 }
+// 통과한 것만 한 번에 넣기 (문항마다 누르지 않아도 되게)
+function isoCardToBankAll(){
+  if(!isoMayUse()){toast('선생님 화면에서만 쓸 수 있어요');return;}
+  const run=_isoCardRun||{};
+  const pass=(run.items||[]).filter(it=>it.state==='pass'&&!it.inBank);
+  const wait=(run.items||[]).filter(it=>it.state==='wait').length;
+  if(!pass.length){toast('넣을 통과 문항이 없어요');return;}
+  askConfirm('문제 은행에 넣기',
+    '통과 '+pass.length+'문항을 넣습니다. 확인 대기 '+wait+'문항은 그대로 둡니다.',
+    '넣기','bp',async()=>{
+      let ok=0,dev=0;
+      for(let i=0;i<pass.length;i++){
+        const r=await _isoBankOne(pass[i]);
+        if(r==='device'){dev++;ok++;}else if(r)ok++;
+      }
+      isoCardRender();
+      toast('문제 은행에 '+ok+'문항 넣었어요'+(dev?(' (원문 지문 '+dev+'문항은 이 기기에만)'):'')+' ✓');
+    });
+}
 // 문제 은행에 넣기 — 어떤 카드로, 어떤 본보기로 만들었는지 남긴다
-async function isoCardToBank(id){
-  const it=_isoCardItem(id);if(!it)return;
+async function _isoBankOne(it){
+  if(!it)return false;
   const run=_isoCardRun||{};
   const keep=!!(_isoCfg.passage==='book');          // 교재 본문으로 만든 것은 기기에만
   const d=_ibNorm({
@@ -27779,8 +27917,14 @@ async function isoCardToBank(id){
       checks:_isoChkSum(it),resolve:_isoResSum(it)},
   });
   const ok=await ibPutItem(d,true).catch(()=>false);
+  if(ok)it.inBank=true;
+  return ok;
+}
+async function isoCardToBank(id){
+  const it=_isoCardItem(id);if(!it)return;
+  const ok=await _isoBankOne(it);
   toast(ok==='device'?'원문 지문이라 이 기기에만 넣었어요':(ok?'문제 은행에 넣었어요 ✓':'넣지 못했어요'));
-  if(ok){it.inBank=true;isoCardRender();}
+  if(ok)isoCardRender();
 }
 function _isoChkSum(it){
   const L=(it.checks&&it.checks.list)||[];
@@ -27880,6 +28024,12 @@ function isoCardsPaint(){
     '<h4>정답 근거 자리</h4><p class="isoc-p">'+_ebE(c.answerLocus||'')+'</p>'+
     '<h4>오답 방식</h4><table class="icr-t"><tr><th>kind</th><th>비율</th><th>어떻게</th></tr>'+
       (c.distractors||[]).map(d=>'<tr><td>'+_ebE(d.kind||'')+'</td><td>'+(d.share==null?'—':d.share+'%')+'</td><td>'+_ebE(d.how||'')+'</td></tr>').join('')+'</table>'+
+    (c.mix?('<h4>오답 넷의 구성</h4><table class="icr-t"><tr><th>칸</th><th>몇 개</th><th>왜</th></tr>'+
+      ((c.mix.need||[]).map(r=>'<tr><td>'+_ebE([].concat(r.kindStartsWith||[]).join(' · '))+'</td>'+
+        '<td>'+_ebE(r.min+'개 이상')+'</td><td>'+_ebE(r.why||'')+'</td></tr>').join(''))+
+      ((c.mix.limit||[]).map(r=>'<tr><td>'+_ebE([].concat(r.kindStartsWith||[]).join(' · '))+'</td>'+
+        '<td>'+_ebE('합쳐 '+r.max+'개까지')+'</td><td>'+_ebE(r.why||'')+'</td></tr>').join(''))+
+      '</table>'):'')+
     '<h4>난도 올리기</h4>'+li(c.harder)+'<h4>난도 내리기</h4>'+li(c.easier)+
     '<h4>함정</h4>'+li(c.traps)+'<h4>점검 목록</h4>'+li(c.checks)+
     '<h4>본보기 기출</h4>'+Object.entries(c.exemplars||{}).map(([g,ids])=>
