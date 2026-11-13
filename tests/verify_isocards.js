@@ -10,7 +10,9 @@ const ok = (n, c, note) => { (c ? pass : fail).push(n); console.log((c ? '  OK  
 // ── 가짜 AI ────────────────────────────────────────────────────────────
 // 보낸 글을 그대로 받아 두고(요청 검사), 시킨 대로 답을 만든다.
 let AI = { calls: [], makeBad: 0, items: null, resolve: null };
-const KINDS = ['1. 화자·인물 혼동', '2. 반대·부정 뒤집기', '3. 시점 어긋남', '4. 부분만 맞음'];
+// l_long 카드의 mix 를 만족하는 구성 (7번 둘 · 2·3번 없음). 줄여 쓴 7번도 일부러 섞는다.
+const KINDS = ['1. 화자·인물 혼동', '5. 대본 소재 재활용',
+  '7. 장면 밖 말(굳은 인사말·맞장구)', '7. 장면 밖 말(그 밖의 일상 문장)'];
 function mkItem(i, over) {
   return Object.assign({
     type: 'l_long', grade: '중2',
@@ -353,13 +355,14 @@ function mkItem(i, over) {
     if (isoFreeOrder(fixed.type)) isoMoveAnswer(fixed, want); else fixed.slotMiss = want;
     let st = isoResolveVerdict({ answer: fixed.answer, answerText: '' },
       { answer: fixed.answer, confidence: 0.95, alsoPossible: [], noAnswer: false }).state;
-    if (fixed.slotMiss != null && st === 'pass') st = 'wait';
+    let soft = [];
+    if (fixed.slotMiss != null) soft = ['정답 자리 ' + _ISO_NUM[Number(fixed.answer)] + ' · 요청은 ' + _ISO_NUM[fixed.slotMiss]];
     // 자유 순서 (견줌)
     const free = mk(); free.type = 'l_long'; const beforeL = free.choices.join('|');
     if (isoFreeOrder(free.type)) isoMoveAnswer(free, want); else free.slotMiss = want;
     return {
       fixedIs: isoFreeOrder('l_not'), freeIs: isoFreeOrder('l_long'),
-      beforeF, afterF: fixed.choices.join('|'), ansF: fixed.answer, missF: fixed.slotMiss, stateF: st,
+      beforeF, afterF: fixed.choices.join('|'), ansF: fixed.answer, missF: fixed.slotMiss, stateF: st, softF: soft.join(''),
       beforeL, afterL: free.choices.join('|'), ansL: free.answer,
       explL: free.explanation,
     };
@@ -367,8 +370,9 @@ function mkItem(i, over) {
   ok('[1] 묶인 순서 유형은 보기를 옮기지 않는다',
     fixedOrder.fixedIs === false && fixedOrder.afterF === fixedOrder.beforeF && fixedOrder.ansF === 0,
     '보기 ' + (fixedOrder.afterF === fixedOrder.beforeF ? '그대로' : '바뀜') + ' · 정답 ' + (fixedOrder.ansF + 1) + '번');
-  ok('[1] 자리가 다르면 확인 대기', fixedOrder.missF === 3 && fixedOrder.stateF === 'wait',
-    '요청 4번 · 받은 ' + (fixedOrder.ansF + 1) + '번 → ' + fixedOrder.stateF);
+  ok('[3] 자리가 달라도 통과 + 알리기', fixedOrder.missF === 3 && fixedOrder.stateF === 'pass' &&
+    /정답 자리 ① · 요청은 ④/.test(fixedOrder.softF),
+    '요청 4번 · 받은 ' + (fixedOrder.ansF + 1) + '번 → ' + fixedOrder.stateF + ' · ' + fixedOrder.softF);
   ok('[1] 자유 순서는 옮기고 해설의 번호도 바꾼다',
     fixedOrder.freeIs === true && fixedOrder.ansL === 3 && fixedOrder.afterL !== fixedOrder.beforeL &&
     !/[①②③④⑤]/.test(fixedOrder.explL),
@@ -437,6 +441,191 @@ function mkItem(i, over) {
   ok('[5] 끝의 쉼표를 고친다', /2개/.test(rep.comma), rep.comma);
   ok('[5] 잘린 마지막 문항만 버리고 살린다', /1개/.test(rep.cut), rep.cut);
   ok('[5] 그래도 안 되면 못 살림', rep.junk === '못 살림', rep.junk);
+
+  // ══ fix/iso-cards-4 ═══════════════════════════════════════════════
+  // ── [1] 오답 kind 를 글자 그대로 견주지 않는다 ──
+  const kindT = await page.evaluate(() => {
+    const card = isoCardOf('l_long');
+    const mk = kinds => ({
+      type: 'l_long', grade: '중2',
+      stem: '대화를 듣고, 여자의 마지막 말에 대한 남자의 응답으로 가장 적절한 것을 고르시오.',
+      passage: '', script: ['W: ' + 'river '.repeat(45).trim() + '.', 'M: ________'].join('\n'),
+      choices: ['a b c d', 'e f g h', 'i j k l', 'm n o p', 'q r s t'], answer: 0,
+      distractors: kinds.map((k, i) => ({ index: i + 1, kind: k, why: 'x' })),
+    });
+    const run = kinds => {
+      const it = mk(kinds);
+      const r = isoCheckItem(it, card, '중2', {});
+      const f = n => (r.list || []).find(c => c.name === n) || {};
+      return {
+        ok: r.ok, waits: r.waits || [], mix: r.mix || {},
+        kinds: (it.distractors || []).map(d => d.kind),
+        raw: (it.distractors || []).map(d => d.kindRaw || ''),
+        kindRow: f('오답 kind').got || '', mixRow: f('오답 넷의 구성').got || '',
+      };
+    };
+    const good = run(['1. 화자·인물 혼동', '5. 대본 소재 재활용',
+      '7. 장면 밖 말(굳은 인사말·맞장구)', '7. 장면 밖 말(그 밖의 일상 문장)']);
+    const junk = run(['1. 화자·인물 혼동', '5. 대본 소재 재활용',
+      '7. 장면 밖 말(맞장구)', '엉뚱하게 지어낸 종류']);
+    const one7 = run(['1. 화자·인물 혼동', '5. 대본 소재 재활용',
+      '6. 같은 장면에서 나올 법한 말', '7. 장면 밖 말(맞장구)']);
+    const two23 = run(['2. 반대·부정 뒤집기', '3. 시점 어긋남',
+      '7. 장면 밖 말(ㄱ)', '7. 장면 밖 말(ㄴ)']);
+    return {
+      good, junk, one7, two23,
+      br: isoKindMatch('[틀린 진술 3] 숫자를 바꿔 읽기', isoKindCells(isoCardOf('m_match'))),
+      brOther: isoKindMatch('[맞는 진술] 다른 말로 바꾼 진술', isoKindCells(isoCardOf('m_match'))),
+      noCells: isoKindCells(isoCardOf('m_order')).length,
+      cells: isoKindCells(card).length,
+    };
+  });
+  ok('[1] 줄여 쓴 7번 kind 를 카드의 7번 칸으로 받는다',
+    kindT.good.ok && !kindT.good.waits.length && /^7\. 장면 밖 말\(굳은 인사말·맞장구 /.test(kindT.good.kinds[2] || ''),
+    '받은 글 "' + String(kindT.good.kinds[2] || '').slice(0, 34) + '…"');
+  ok('[1] 바꾸기 전 글을 kindRaw 에 남긴다', /굳은 인사말·맞장구\)$/.test(kindT.good.raw[2] || ''), kindT.good.raw[2] || '(없음)');
+  ok('[1] 대괄호 머리로도 찾는다', /^\[틀린 진술 3\]/.test(kindT.br) && /^\[맞는 진술\]/.test(kindT.brOther),
+    String(kindT.br).slice(0, 20) + ' · ' + String(kindT.brOther).slice(0, 14));
+  ok('[1] 번호가 없는 엉뚱한 글이면 확인 대기(버림 아님)',
+    kindT.junk.ok === true && kindT.junk.waits.some(w => /오답 종류를 카드에서 찾지 못했어요/.test(w)),
+    '막기 ' + (kindT.junk.ok ? '아님' : '걸림') + ' · ' + (kindT.junk.waits[0] || ''));
+  ok('[1] 칸이 없는 카드(m_order)는 kind 를 견주지 않는다', kindT.noCells === 0 && kindT.cells === 7,
+    'm_order 칸 ' + kindT.noCells + ' · l_long 칸 ' + kindT.cells);
+
+  // ── [2] 카드의 mix 를 코드로 점검한다 ──
+  ok('[2] 7번 칸 2개면 통과', kindT.good.mix.ok === true && !kindT.good.waits.length, kindT.good.mix.line || '');
+  ok('[2] 7번 칸 1개면 확인 대기',
+    kindT.one7.ok === true && kindT.one7.waits.some(w => /7번 칸 1개 \/ 2개 이상/.test(w)),
+    kindT.one7.waits.join(' · '));
+  ok('[2] 2번+3번 칸이 2개면 확인 대기',
+    kindT.two23.ok === true && kindT.two23.waits.some(w => /2번·3번 칸 2개 \/ 1개까지/.test(w)),
+    kindT.two23.waits.join(' · '));
+  ok('[2] 결과에 오답 구성 한 줄', /7번 2/.test(kindT.good.mix.line || ''), kindT.good.mix.line || '');
+
+  // ── [2]·[3] 만들기 틀 ──
+  const pr = await page.evaluate(() => {
+    const one = t => isoMakePrompt({
+      card: isoCardOf(t), grade: '중2', n: 3, slots: [2, 0, 1], diff: 'same',
+      source: 'new', sourceText: '', exemplars: [], avoid: [],
+    });
+    const fixed = one('l_not'), free = one('l_long');
+    const line = p => (p.match(/^7\. ANSWER_SLOTS.*$/m) || [''])[0];
+    return {
+      fixed: line(fixed), free: line(free),
+      mixLine: /CARD\.mix 가 있으면 오답 넷의 kind 구성을/.test(free),
+      keep5: /보기 순서가 글의 순서로 정해지는 유형\(l_not, m_match, m_order\)은 정답 자리를 먼저 정한 뒤/.test(fixed),
+      noDrop: /그 문항은 버려집니다/.test(fixed),
+    };
+  });
+  ok('[3] 묶인 순서 유형은 문항별 줄로 보낸다',
+    /문항 1 → 정답 ③/.test(pr.fixed) && /문항 2 → 정답 ①/.test(pr.fixed) && /문항 3 → 정답 ②/.test(pr.fixed),
+    pr.fixed.slice(0, 64));
+  ok('[3] 자유 순서는 묶음 배열 그대로', /\[2,0,1\]/.test(pr.free.replace(/\s/g, '')), pr.free.slice(0, 54));
+  ok('[3] 5번 줄은 그대로 두고, 버린다는 말은 뺀다', pr.keep5 === true && pr.noDrop === false);
+  ok('[2] 틀의 6번에 mix 한 줄', pr.mixLine === true);
+
+  // ── [3] 한 번호에 몰림 ──
+  const skew = await page.evaluate(() => ({
+    four: _isoSkew([2, 2, 2, 2, 0].map(a => ({ answer: a }))),
+    flat: _isoSkew([0, 1, 2, 3, 4].map(a => ({ answer: a }))),
+    three: _isoSkew([2, 2, 0].map(a => ({ answer: a }))),
+  }));
+  ok('[3] 5문항 가운데 4문항이 같은 번호면 머리줄 알림',
+    /정답이 ③에 몰렸어요/.test(skew.four) && /빼거나 다시 만들어/.test(skew.four), skew.four);
+  ok('[3] 고르게 퍼졌으면 알리지 않는다', skew.flat === '' && /몰렸어요/.test(skew.three));
+
+  // ── [4] 앞뒤 안 맞는 대본 ──
+  const inc = await page.evaluate(() => {
+    const p = isoResolvePrompt({ type: 'l_long', stem: 's', passage: '', script: 'x', choices: ['a', 'b', 'c', 'd', 'e'] }, '중2');
+    const base = { answer: 0, confidence: 0.95, alsoPossible: [], noAnswer: false };
+    const v = r => isoResolveVerdict({ answer: 0, answerText: '' }, Object.assign({}, base, r));
+    const bad = v({ inconsistencies: ['책 주인이 대화 중에 바뀐다'] });
+    return {
+      line: /앞뒤로 어긋나는 곳이 있으면 inconsistencies 에 적습니다/.test(p),
+      field: /"inconsistencies": \[\]/.test(p),
+      state: bad.state, why: (bad.why || []).join(' '),
+      none: v({ inconsistencies: [] }).state,
+    };
+  });
+  ok('[4] 다시 풀기 틀에 한 줄과 칸', inc.line === true && inc.field === true);
+  ok('[4] 어긋난 곳이 있으면 확인 대기', inc.state === 'wait' && /대본 앞뒤가 안 맞을 수 있어요/.test(inc.why),
+    inc.why.slice(0, 48));
+  ok('[4] 없으면 그대로 통과', inc.none === 'pass');
+
+  // ── [5] 정답만 김 ──
+  const lenT = await page.evaluate(() => {
+    const card = isoCardOf('l_todo');
+    const run = chs => {
+      const it = {
+        type: 'l_todo', grade: '중2', stem: '대화를 듣고, 남자가 할 일로 가장 적절한 것을 고르시오.',
+        script: 'M: ' + 'river '.repeat(55).trim() + '.\nW: I’ll go now.', passage: '',
+        choices: chs, answer: 0, distractors: [1, 2, 3, 4].map(k => ({ index: k, kind: '1. 발문의 사람이 맡지 않은 행동', why: 'x' })),
+      };
+      const f = (isoCheckItem(it, card, '중2', {}).list || []).find(c => c.name === '정답만 김') || {};
+      return { ok: f.ok, got: f.got || '' };
+    };
+    const K = (n, c) => (c || '가').repeat(n);
+    return {
+      tie: run([K(17), K(17, '나'), K(13, '다'), K(12, '라'), K(11, '마')]),
+      over: run([K(20), K(13, '나'), K(12, '다'), K(11, '라'), K(10, '마')]),
+      near: run([K(15), K(13, '나'), K(12, '다'), K(11, '라'), K(10, '마')]),
+      en: run(['a b c d e f', 'g h i j k', 'l m n o p', 'q r s t u', 'v w x y z']),
+    };
+  });
+  ok('[5] 정답 17자·다음 17자면 안 걸린다', lenT.tie.ok === true, lenT.tie.got);
+  ok('[5] 정답 20자·다음 13자면 걸린다', lenT.over.ok === false && /정답 20자 · 다음으로 긴 보기 13자/.test(lenT.over.got), lenT.over.got);
+  ok('[5] 한국어 2자 차이까지는 봐준다', lenT.near.ok === true, lenT.near.got);
+  ok('[5] 영어 1낱말 차이까지는 봐준다', lenT.en.ok === true, lenT.en.got);
+
+  // ── [6] 통과한 문항을 한 번에 넣기 (진짜 흐름) ──
+  AI.calls = []; AI.makeBad = 0; AI.right = {}; AI.resolve = null;
+  // 다섯 가운데 하나만 오답 종류를 엉뚱하게 적어 확인 대기로 보낸다
+  AI.items = [0, 1, 2, 3, 4].map(i => mkItem(i, i === 4 ? {
+    distractors: [1, 2, 3, 4].map(k => ({ index: k, kind: k === 4 ? '엉뚱하게 지어낸 종류' : KINDS[k - 1], why: 'x' })),
+  } : {}));
+  const postsBefore = posts.length;
+  const bulk = await page.evaluate(async () => {
+    try { await idbSet('pp_iso_slots_v1', []); } catch (e) { }
+    _isoCfg.type = 'l_long'; _isoCfg.grade = '중2'; _isoCfg.n = 5; _isoCfg.passage = 'new';
+    const realAsk = askConfirm;
+    askConfirm = (t, m, l, c, cb) => cb();
+    _isoCardRun = null; isoCardGo();
+    for (let i = 0; i < 200 && (!_isoCardRun || !(_isoCardRun.items || []).length); i++) await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 600));
+    const its = (_isoCardRun || {}).items || [];
+    const nPass = its.filter(x => x.state === 'pass').length;
+    const nWait = its.filter(x => x.state === 'wait').length;
+    const btn = [...document.querySelectorAll('#iso-cardres .icr-bulk button')][0];
+    const label = btn ? btn.textContent.replace(/\s+/g, ' ').trim() : '(없음)';
+    const mixLine = (document.querySelector('#iso-cardres .icr-mix') || {}).textContent || '';
+    // 묻는 말을 붙잡아 둔다
+    let asked = '';
+    askConfirm = (t, m, l, c, cb) => { asked = String(m || ''); cb(); };
+    isoCardToBankAll();
+    for (let i = 0; i < 120 && its.filter(x => x.inBank).length < nPass; i++) await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 400));
+    askConfirm = realAsk;
+    return {
+      nPass, nWait, label, mixLine, asked,
+      inPass: its.filter(x => x.state === 'pass' && x.inBank).length,
+      inWait: its.filter(x => x.state === 'wait' && x.inBank).length,
+      waitWhy: (its.find(x => x.state === 'wait') || {}).why || [],
+    };
+  });
+  const postsAfter = posts.filter(x => /item_bank/.test(x)).length;
+  ok('[6] 머리줄에 [통과한 n문항 문제 은행에 넣기]',
+    new RegExp('통과한 ' + bulk.nPass + '문항 문제 은행에 넣기').test(bulk.label), bulk.label);
+  ok('[6] 묻는 말에 통과·확인 대기 수',
+    new RegExp('통과 ' + bulk.nPass + '문항을 넣습니다').test(bulk.asked) &&
+    new RegExp('확인 대기 ' + bulk.nWait + '문항은 그대로 둡니다').test(bulk.asked), bulk.asked);
+  ok('[6] 통과한 것만 들어간다', bulk.nPass === 4 && bulk.nWait === 1 && bulk.inPass === 4 && bulk.inWait === 0,
+    '통과 ' + bulk.nPass + '(넣음 ' + bulk.inPass + ') · 확인 대기 ' + bulk.nWait + '(넣음 ' + bulk.inWait + ')');
+  ok('[6] 엉뚱한 kind 하나가 그 문항만 확인 대기로 보냈다',
+    (bulk.waitWhy || []).some(w => /오답 종류를 카드에서 찾지 못했어요/.test(w)), (bulk.waitWhy || []).join(' · '));
+  ok('[2] 결과 카드에 오답 구성 줄', /^오답 구성 .*7번 2/.test(bulk.mixLine.replace(/\s+/g, ' ').trim()), bulk.mixLine.trim());
+  ok('[6] 쓰기는 가짜 서버로만 나갔다', postsAfter >= 4 && posts.length > postsBefore,
+    'item_bank 쓰기 ' + postsAfter + '건 (전부 가짜)');
+
 
   // ── [1] 카드용 설정 칸 ───────────────────────────────────────
   const cfg = await page.evaluate(async () => {
