@@ -6964,6 +6964,7 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-14',title:'동형 문제 — 오답 구성에 걸린 보기를 그 자리에서 고쳐 통과로 바꿉니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'동형 문제 — 정답을 보기 글로 받아 번호 어긋남을 바로잡습니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'문제 은행 — AI 가 만든 문항에 「설계 카드로 만듦」 꼬리표와 거르기',where:'교재·문제 → 문제 은행',tab:'t-data',go:['switchDataTab','ib']},
  {date:'2026-11-14',title:'동형 문제 — 설계 카드에 자주 쓰인 굳은 응답이 들어갔습니다',where:'교재·문제 → 동형 문제 ([설계 카드])',tab:'t-data',go:['switchDataTab','iso']},
@@ -21095,6 +21096,10 @@ function isoEdit(i,field,el,ci){
   const val=String(el.innerText||'').replace(/ /g,' ').trim();
   if(field==='choice')it.choices[ci]=val;
   else it[field]=val;
+  // 설계 카드로 만든 문항이면 고친 뒤 오답 구성을 다시 잰다 (AI 는 부르지 않는다)
+  if(((_isoCardRun||{}).items||[]).indexOf(it)>=0){
+    try{isoMixRecheck(it);isoCardRender();}catch(e){}
+  }
   _isoAutoLater();
 }
 function isoSetAnswer(i,ci){const it=_isoItems[i];if(!it)return;it.answer=ci;it.check=false;it.checkNote='';_isoRender();_isoAutoLater();}
@@ -27055,6 +27060,52 @@ function isoMixCheck(kinds,mix){
   });
   return {ok:!why.length,line:line,why:why,counts:cnt};
 }
+// 칸 이름에서 번호·대괄호를 떼고 말만 ('4. 글과 무관한 말' → '글과 무관한 말')
+function _isoCellName(kind){
+  return String(kind||'').replace(/^\s*\d+\s*[.．]\s*/,'').replace(/^\s*\[[^\]]*\]\s*/,'').trim();
+}
+// limit 를 넘긴 칸에 든 보기 자리 — 바꿀 보기가 그것들이다
+function isoMixBad(it,card){
+  const mix=(card||{}).mix,out=[];
+  if(!mix)return out;
+  const cnt={};
+  ((it||{}).distractors||[]).forEach(d=>{const k=isoKindKey(d.kind);if(k)cnt[k]=(cnt[k]||0)+1;});
+  const keysOf=v=>(Array.isArray(v)?v:[v]).map(x=>isoKindKey(x)).filter(Boolean);
+  (mix.limit||[]).forEach(r=>{
+    const ks=keysOf(r.kindStartsWith);
+    const got=ks.reduce((a,k)=>a+(cnt[k]||0),0);
+    if(got<=Number(r.max||0))return;
+    ((it||{}).distractors||[]).forEach(d=>{
+      if(ks.indexOf(isoKindKey(d.kind))<0)return;
+      out.push({index:Number(d.index),cell:_isoMixLabel(isoKindKey(d.kind)),
+        name:_isoCellName(d.kind),why:String(r.why||''),max:Number(r.max||0),got:got});
+    });
+  });
+  return out;
+}
+// 보기·칸을 고친 뒤 오답 구성을 **다시 재고** 통과로 바꾼다 (AI 는 부르지 않는다)
+function isoMixRecheck(it){
+  const run=_isoCardRun||{};
+  const card=run.card||(typeof isoCardOf==='function'?isoCardOf(it&&it.type):null);
+  if(!it||!it.checks||!card||!card.mix)return false;
+  const mx=isoMixCheck((it.distractors||[]).map(d=>d.kind),card.mix);
+  it.checks.mix=mx;
+  (it.checks.list||[]).forEach(c=>{
+    if(c.name!=='오답 넷의 구성')return;
+    c.ok=mx.ok;c.got=mx.line||'(없음)';c.msg=mx.why[0]||'';
+  });
+  it.checks.waits=(it.checks.list||[]).filter(c=>c.level==='wait'&&!c.ok)
+    .map(c=>c.msg||(c.name+' — '+c.got));
+  if(it.waitMixOnly&&mx.ok&&it.state==='wait'){
+    it.state='pass';it.why=[];it.waitMixOnly=false;it.mixFixed=true;
+    it.soft=(it.soft||[]).concat(['선생님이 오답 구성을 고쳐 통과로 바꿨어요']);
+    return true;
+  }
+  if(it.mixFixed&&!mx.ok&&it.state==='pass'){     // 다시 어긋났다 — 되돌린다
+    it.state='wait';it.why=(mx.why||[]).slice(0,1);it.waitMixOnly=true;
+  }
+  return false;
+}
 
 // ── 서답형 답 견주기 ─────────────────────────────────────────────────
 // '(1) pollen (2) protect' 와 '(1) Pollen (2) protect.' 는 같은 답이다.
@@ -27116,6 +27167,41 @@ function isoFormatPlan(card,grade,n){
   for(let i=0;i<n;i++)out.push(f[i%f.length]);
   return out;
 }
+// 형식 줄에는 **발문 글만** 보낸다 — 대괄호 머리 '[사건 순서, 19번]' 와 끝 괄호 설명
+// '(요약문 두 칸, 6문항)' 을 떼지 않으니 AI 가 그 말을 발문 끝에 그대로 옮겨 적었다.
+function _isoFmtText(p){
+  return String(p||'').replace(/^\s*\[[^\]]*\]\s*/,'').replace(/\s*[（(][^（）()]*[）)]\s*$/,'').trim();
+}
+function _isoTok(x){return String(x||'').replace(/[·,]/g,' ').split(/\s+/).filter(Boolean);}
+// 그 형식을 부르는 '이름' 들 (대괄호 머리 · 끝 괄호 설명에서 숫자 낱말을 뺀 것)
+function _isoFmtNames(p){
+  const s=String(p||''),out=[];
+  const add=t=>String(t||'').split(/[.。]/).forEach(part=>{
+    const v=_isoTok(part).filter(w=>!/\d/.test(w)).join(' ').replace(/[,·]+$/,'').trim();
+    if(v.length>=2)out.push(v);
+  });
+  const b=/^\s*\[([^\]]*)\]/.exec(s);if(b)add(b[1]);
+  const t=/[（(]([^（）()]*)[）)]\s*$/.exec(s);if(t)add(t[1]);
+  return out;
+}
+// 받은 발문 끝의 괄호 꼬리가 형식 이름과 같으면 뗀다
+function isoStripFmtTail(stem,pattern){
+  const s=String(stem||'').trim();
+  const m=/[（(]([^（）()]{1,24})[）)]\s*$/.exec(s);
+  if(!m)return {stem:s,cut:''};
+  const tail=String(m[1]).trim();
+  if(!tail||/\d/.test(tail))return {stem:s,cut:''};
+  const tt=_isoTok(tail);
+  const hit=_isoFmtNames(pattern).some(nm=>{
+    const nt=_isoTok(nm);
+    if(!nt.length||!tt.length)return false;
+    if(nt.join('')===tt.join(''))return true;
+    const same=tt.filter(x=>nt.indexOf(x)>=0).length;
+    return same>=2&&same>=Math.ceil(tt.length/2);
+  });
+  if(!hit)return {stem:s,cut:''};
+  return {stem:s.slice(0,m.index).replace(/\s+$/,''),cut:tail};
+}
 
 // ── 정답을 '번호' 가 아니라 '보기 글' 로 받는다 ───────────────────────
 // 문항별 자리를 ③ 꼴로 보내자 AI 가 answer 를 1부터 세어 적는 일이 생겼다
@@ -27141,11 +27227,12 @@ const ISO_ORDER_SET=['(A)-(C)-(B)','(B)-(A)-(C)','(B)-(C)-(A)','(C)-(A)-(B)','(C
 function _isoOrderKey(s){                    // 줄표 모양·띄어쓰기를 없애고 견준다
   return String(s||'').replace(/[－‐-―−-]/g,'-').replace(/\s+/g,'').toUpperCase();
 }
-// 'B-C-A' → 묶음에서의 자리 (없으면 -1)
-function isoOrderAnswer(order){
-  const k=_isoOrderKey(order).replace(/[()]/g,'');
-  if(!k)return -1;
-  return ISO_ORDER_SET.findIndex(x=>_isoOrderKey(x).replace(/[()]/g,'')===k);
+// 자리(0~4) → 그 자리 묶음의 꼬리표 차례 ('(C)-(A)-(B)' → ['C','A','B'])
+function isoOrderLetters(slot){
+  const set=ISO_ORDER_SET[Number(slot)];
+  if(!set)return null;
+  const L=String(set).match(/[ABC]/g)||[];
+  return L.length===3?L:null;
 }
 
 // ── 자주 쓰인 굳은 응답 (카드의 stock) ───────────────────────────────
@@ -27217,18 +27304,23 @@ async function _isoSlotPush(list){
     await idbSet(ISO_SLOT_KEY,a.concat(list||[]).slice(-60));
   }catch(e){}
 }
-// 묶음 안에서 겹치지 않게, 최근 20문항에서 적게 나온 번호부터
-function isoAnswerSlots(n,hist){
+// 묶음 안에서 겹치지 않게, 최근 20문항에서 적게 나온 번호부터.
+// CARD.slotAvoid 에 든 자리는 **요청하지 않는다** — l_not 의 ① 처럼 실제 시험에 거의 없는
+// 자리는 AI 가 억지로 맞추다 문항을 버리게 된다 (131문항 중 2문항).
+function isoAnswerSlots(n,hist,avoid){
   const N=5,cnt=[0,0,0,0,0];
   (hist||[]).slice(-20).forEach(v=>{const i=Number(v);if(i>=0&&i<N)cnt[i]++;});
+  const skip=(avoid||[]).map(Number).filter(v=>v>=0&&v<N);
+  let pool=[0,1,2,3,4].filter(v=>skip.indexOf(v)<0);
+  if(!pool.length)pool=[0,1,2,3,4];
   const out=[];
   for(let k=0;k<n;k++){
-    const order=[0,1,2,3,4].sort((a,b)=>(cnt[a]-cnt[b])||(a-b));
+    const order=pool.slice().sort((a,b)=>(cnt[a]-cnt[b])||(a-b));
     let pick=order[0];
     // 같은 번호가 세 번 잇따르지 않게
-    if(out.length>=2&&out[out.length-1]===pick&&out[out.length-2]===pick)pick=order[1];
-    // 묶음의 40% 를 넘지 않게
-    const lim=Math.max(1,Math.floor(n*0.4));
+    if(out.length>=2&&out[out.length-1]===pick&&out[out.length-2]===pick&&order[1]!=null)pick=order[1];
+    // 묶음의 40% 를 넘지 않게 (쓸 자리가 줄면 그만큼 올려 준다)
+    const lim=Math.max(1,Math.floor(n*0.4),Math.ceil(n/pool.length));
     const used=out.filter(x=>x===pick).length;
     if(used>=lim){const alt=order.find(x=>out.filter(y=>y===x).length<lim);if(alt!==undefined)pick=alt;}
     out.push(pick);cnt[pick]++;
@@ -27447,8 +27539,10 @@ function isoMakePrompt(o){
     L.push('7. ANSWER_SLOTS: '+(o.slots||[]).map((v,i)=>'문항 '+(i+1)+' → 정답 '+(_ISO_NUM[v]||(v+1))+' (answer '+v+')')
       .join(' / ')+'  (앱이 CARD.answerSpread.rule 에 맞춰 정해 줍니다.)');
   L.push('8. AVOID: 최근에 쓴 소재 목록 '+JSON.stringify(o.avoid||[]));
-  if((o.formats||[]).length)
-    L.push('9. FORMATS: '+(o.formats||[]).map((f,i)=>'문항 '+(i+1)+' → '+f).join(' / '));
+  if((o.formats||[]).length){
+    L.push('9. FORMATS: '+(o.formats||[]).map((f,i)=>'문항 '+(i+1)+' → '+_isoFmtText(f)).join(' / '));
+    L.push('   FORMATS 의 글은 발문입니다. 형식 이름이나 괄호 설명을 발문에 덧붙이지 않습니다.');
+  }
   if(!isoFreeOrder(type))L.push('   ANSWER_SLOTS 의 자리와 answer 가 다르면 그 문항은 결과에 그대로 알립니다.');
   L.push('');
   L.push('[만드는 순서]');
@@ -27501,10 +27595,11 @@ function isoMakePrompt(o){
   L.push(' ]');
   L.push('}');
   if(type==='m_order'){
-    L.push('m_order 는 choices 를 '+JSON.stringify(ISO_ORDER_SET)+' 로 그대로 적고, 바른 차례를 "correctOrder" 에 "B-C-A" 꼴로 적습니다. (A)-(B)-(C) 가 답이 되는 문항은 만들지 않습니다.');
-    L.push('   "correctOrder": "B-C-A"');
+    L.push('m_order 는 (A)(B)(C) 를 붙이지 않습니다. 이어질 글 세 덩이(사건 순서형이면 사건 세 개)를 **일어나는 순서대로** chunks 에 적습니다. choices·answer·correctOrder 는 적지 않습니다 — 앱이 ANSWER_SLOTS 의 자리가 정답이 되도록 세 덩이에 (A)(B)(C) 를 붙이고 보기 다섯을 채웁니다.');
+    L.push('   "chunks": ["일어난 순서 첫째 덩이", "둘째 덩이", "셋째 덩이"]');
+    L.push('   passage 에는 (A)~(C) 앞에 오는 글만 넣습니다(사건 순서형은 영어 본문, 글 순서형은 주어진 글). 덩이 안에 (A)·(B)·(C) 를 적으면 그 문항은 버립니다.');
   }
-  L.push('distractors 는 정답이 아닌 보기 네 개 모두를 적습니다(m_summary 는 빈 배열). l_not 은 정답 항목에 CARD.distractors 의 [정답 만들기] kind 를 answerKind 로 따로 적고, 오답 넷의 kind 는 "[오답 넷] 대본에서 실제로 언급된 항목"으로 통일하며 why 에 근거 문장을 적습니다. m_match 는 발문이 \'일치하지 않는\'이면 정답에 [틀린 진술] kind 를 answerKind 로, 오답 넷에 "[맞는 진술]"을 붙입니다. m_order 는 kind 를 "순열"로 적고 why 에 어디서 말이 끊기는지 적습니다.');
+  L.push('distractors 는 정답이 아닌 보기 네 개 모두를 적습니다(m_summary 는 빈 배열). l_not 은 정답 항목에 CARD.distractors 의 [정답 만들기] kind 를 answerKind 로 따로 적고, 오답 넷의 kind 는 "[오답 넷] 대본에서 실제로 언급된 항목"으로 통일하며 why 에 근거 문장을 적습니다. m_match 는 발문이 \'일치하지 않는\'이면 정답에 [틀린 진술] kind 를 answerKind 로, 오답 넷에 "[맞는 진술]"을 붙입니다. m_order 는 보기를 앱이 채우므로 distractors 를 적지 않습니다(빈 배열).');
   L.push('');
   L.push('[CARD]');
   L.push(JSON.stringify(card));
@@ -27533,18 +27628,21 @@ function isoApplyAnswerText(it){
   }
   return it;
 }
-// m_order — 보기 다섯은 앱이 채우고 correctOrder 로 자리를 정한다
-function isoApplyOrder(it){
-  const want=String(it.correctOrder||'').trim();
-  const k=isoOrderAnswer(want);
-  const plain=_isoOrderKey(want).replace(/[()]/g,'');
-  if(plain==='A-B-C'){it.orderBad='(A)-(B)-(C)';return it;}   // 카드 doNot
-  if(k<0){it.orderBad=want||'(없음)';return it;}
-  const got=(it.choices||[]).map(_isoOrderKey);
-  const same=got.length===5&&ISO_ORDER_SET.every((v,i)=>got[i]===_isoOrderKey(v));
-  if(!same)it.orderSwapped=true;
+// m_order — AI 는 덩이 셋(chunks)만 일어난 순서대로 준다.
+// (A)(B)(C) 꼬리표·보기 다섯·정답 자리는 **앱이** 붙인다. 그러면 요청한 자리가 늘 정답이 된다.
+// (AI 에게 correctOrder 를 적게 하니 5문항이 모두 (B)로 시작하고 요청 자리를 하나도 안 따랐다)
+function isoApplyChunks(it,want){
+  const k=Number(want);
+  const letters=isoOrderLetters(k);
+  const ch=(it.chunks||[]).map(x=>String(x==null?'':x).trim()).filter(x=>x);
+  if(!letters){it.orderBad='정답 자리 '+want;return it;}
+  if(ch.length!==3){it.orderBad='덩이 '+ch.length+'개';return it;}
+  if(ch.some(x=>/[（(]\s*[ABC]\s*[）)]/.test(x))){it.orderBad='덩이 안에 (A)·(B)·(C) 가 들어 있음';return it;}
+  const by={};letters.forEach((L,i)=>{by[L]=ch[i];});     // 첫째 덩이가 묶음의 첫 꼬리표
+  const lead=String(it.passage||'').replace(/[（(]\s*[ABC]\s*[）)]/g,'').replace(/\s+$/,'').trim();
+  it.passage=(lead?(lead+'\n\n'):'')+['A','B','C'].map(L=>'('+L+') '+by[L]).join('\n');
   it.choices=ISO_ORDER_SET.slice();
-  it.answer=k;it.orderSet=true;
+  it.answer=k;it.orderSet=true;it.orderMade=ISO_ORDER_SET[k];
   // 보기 묶음을 앱이 채웠으므로 AI 가 적은 오답 자리는 어긋날 수 있다 — 정답 자리의 것은 뺀다
   it.distractors=(it.distractors||[]).filter(d=>Number(d.index)!==k);
   return it;
@@ -27653,8 +27751,8 @@ function isoCheckItem(it,card,grade,ctx){
     _isoChk(C,ch.length===0&&String(it.answerText||'').trim(),'block','형식',
       '보기 '+ch.length+'개 · 인정 답안 '+(String(it.answerText||'').trim()?'있음':'없음'),'보기 0개 · 인정 답안 있음');
   }else{
-    if(it.orderBad)_isoChk(C,false,'block','바른 차례',
-      String(it.orderBad),'(A)-(B)-(C) 말고 다섯 묶음 가운데 하나');
+    if(it.orderBad)_isoChk(C,false,'block','덩이 셋',
+      String(it.orderBad),'(A)·(B)·(C) 가 없는 덩이 셋');
     if(it.answerTextMiss)_isoChk(C,false,'wait','정답 보기 글',
       String(it.answerTextMiss).slice(0,40),'보기 다섯 가운데 하나와 같아야 함',
       '정답 보기 글을 보기에서 찾지 못했어요');
@@ -27832,6 +27930,10 @@ function isoCheckItem(it,card,grade,ctx){
     _isoChk(C,cnt.every(x=>x===1),'block','덩어리 표시',cnt.join('·'),'(A)(B)(C) 각각 한 번');
   }
   if(type==='m_summary'){
+    // 요약문(빈칸 문장)이 아예 없이 지문만 온 것 — 다시 풀기가 '요약문이 없다' 고 답했다
+    const nSlot=(_isoAnsSlots(it.answerText)||['']).length;
+    const nBlank=(String(it.passage||'').match(/_{3,}/g)||[]).length;
+    _isoChk(C,nBlank===nSlot,'block','요약문 빈칸',nBlank+'개',nSlot+'개 (인정 답안의 칸 수)');
     const need=/본문에서 찾아/.test(String(it.stem||''));
     if(need){
       const ws=isoWords(it.answerText||'');
@@ -27947,7 +28049,7 @@ async function _isoCardRun2(card,grade,n){
     const exTexts=bodies.map(b=>b.script||b.passage||'');
     // 정답 자리
     const hist=await _isoSlotHist();
-    const slots=isoAnswerSlots(n,hist);
+    const slots=isoAnswerSlots(n,hist,card.slotAvoid||[]);
     run.slots=slots;
     // 만들기 1회
     _isoStat('② 문항 '+n+'개를 만드는 중… (AI 1/'+plan.total+')',35);
@@ -27984,8 +28086,13 @@ async function _isoCardRun2(card,grade,n){
       // 빈 보기 칸을 먼저 걷어낸다 (5개 뒤에 빈 칸이 붙어 와 '보기 7개' 로 버려지던 것)
       choices:(x.choices||[]).map(c=>String(c==null?'':c)).filter(c=>c.trim()),
       answer:Number(x.answer!=null?x.answer:(slots[i]!=null?slots[i]:0))}));
-    // [1] m_order 는 보기 묶음을 앱이 채우고 correctOrder 로 자리를 정한다
-    if(card.type==='m_order')items.forEach(it=>isoApplyOrder(it));
+    // [3] 형식 이름을 발문 끝에 옮겨 적은 괄호 꼬리를 뗀다
+    if((formats||[]).length)items.forEach((it,i)=>{
+      const c=isoStripFmtTail(it.stem,formats[i]||'');
+      if(c.cut){it.stem=c.stem;it.stemTailCut=c.cut;}
+    });
+    // [1] m_order 는 덩이 셋에 앱이 (A)(B)(C) 를 붙이고 요청한 자리를 정답으로 만든다
+    if(card.type==='m_order')items.forEach((it,i)=>isoApplyChunks(it,slots[i]!=null?slots[i]:0));
     // [1] 정답은 번호가 아니라 **보기 글**로 받는다 — 어긋나면 글을 따른다
     items.forEach(it=>{if(it.type!=='m_order'||!it.orderSet)isoApplyAnswerText(it);});
     // [1] 보기 순서가 자유로운 유형은 **앱이** 정답을 요청한 자리로 옮긴다
@@ -28026,14 +28133,20 @@ async function _isoCardRun2(card,grade,n){
         it.soft=(it.soft||[]).concat(['AI 가 적은 번호 '+
           (_ISO_NUM[it.answerFixed.from]||('answer '+it.answerFixed.from+' — 보기 밖'))+
           ' → 보기 글로 '+(_ISO_NUM[it.answerFixed.to]||'')]);
-      if(it.orderSwapped)
-        it.soft=(it.soft||[]).concat(['보기 묶음을 카드의 고정 묶음으로 바꿨어요']);
+      if(it.stemTailCut)
+        it.soft=(it.soft||[]).concat(['발문 끝의 「'+it.stemTailCut+'」 를 뗐어요 (형식 이름)']);
+      if(it.orderMade)
+        it.soft=(it.soft||[]).concat(['덩이 셋에 (A)(B)(C) 를 붙여 지문을 짰어요 — 정답 '+
+          (_ISO_NUM[Number(it.answer)]||'')+' '+it.orderMade]);
       // [3] 묶인 순서 유형은 자리가 달라도 통과시키고 알리기만 한다 (문항 자체는 멀쩡했다)
       if(it.slotMiss!=null)
         it.soft=(it.soft||[]).concat(['정답 자리 '+(_ISO_NUM[Number(it.answer)]||'')+' · 요청은 '+(_ISO_NUM[it.slotMiss]||'')]);
       // 코드 점검이 '확인 대기' 로 보낸 것 (오답 kind 를 못 찾음 · 오답 구성이 카드와 다름)
       const cw=(it.checks&&it.checks.waits)||[];
       if(cw.length&&it.state!=='drop'){it.state='wait';it.why=(it.why||[]).concat(cw);}
+      // [4] 확인 대기 이유가 오답 구성(mix) 하나뿐이면 그 보기만 고쳐 통과로 바꿀 수 있다
+      it.waitMixOnly=(it.state==='wait'&&(v.why||[]).length===0&&cw.length===1&&
+        !!(it.checks&&it.checks.mix&&!it.checks.mix.ok));
       if(v.lower)it.loweredDiff=true;
       if(v.state==='drop')run.dropped.push(it);
     }
@@ -28071,6 +28184,23 @@ function isoCardRender(){
   const one=it=>{
     const st=ISO_STATE[it.state]||ISO_STATE.wait;
     const r=it.resolve||{};
+    // [4] mix 만 어긴 문항 — 걸린 보기 옆에 '이 보기 고치기' 와 칸 고르기를 둔다
+    const bad={};let cells=[];
+    if(it.waitMixOnly){
+      const cd=(run&&run.card)||{};
+      cells=isoKindCells(cd);
+      isoMixBad(it,cd).forEach(b=>{bad[b.index]=b;});
+    }
+    const fixRow=i=>{
+      const b=bad[i];if(!b)return '';
+      return '<div class="icr-fix"><span>'+_ebE('이 보기가 '+b.cell+' 칸 — '+b.name)+
+        (b.why?('<i>'+_ebE(b.why)+'</i>'):'')+'</span>'+
+        '<button class="btn bo bxxs" onclick="isoFixChoice(\''+escJsA(it.id)+'\','+i+')">이 보기 고치기</button>'+
+        (cells.length?('<select onchange="isoSetCell(\''+escJsA(it.id)+'\','+i+',this.value)">'+
+          '<option value="">칸 바꾸기…</option>'+
+          cells.map(k=>'<option value="'+_ebA(k)+'">'+_ebE(_isoCellName(k))+'</option>').join('')+
+          '</select>'):'')+'</div>';
+    };
     return '<div class="icr-card">'+
       '<div class="icr-h"><span class="icr-st icr-'+st.c+'">'+st.n+'</span>'+
         '<span class="icr-q">'+_ebE(String(it.stem||'').slice(0,60))+'</span>'+
@@ -28092,6 +28222,7 @@ function isoCardRender(){
         ((it.distractors||[]).find(d=>Number(d.index)===i)?
           ('<em>'+_ebE((it.distractors||[]).find(d=>Number(d.index)===i).kind||'')+' — '+
            _ebE((it.distractors||[]).find(d=>Number(d.index)===i).why||'')+'</em>'):'')+
+        fixRow(i)+
         '</li>').join('')+'</ol>'):'')+
       (it.evidence?('<div class="icr-ev">근거: '+_ebE(it.evidence)+'</div>'):'')+
       '<details class="wz-more"><summary>자동 점검</summary><table class="icr-t">'+
@@ -28148,6 +28279,32 @@ function isoCardDrop(id){
   _isoCardRun.dropped.push(it);
   _isoItems=(_isoCardRun.items||[]).filter(x=>x.state!=='drop');
   isoCardRender();
+}
+// 걸린 보기를 기존 고치기 창(아래 문항 목록)에서 그 자리에 초점을 두고 연다
+function isoFixChoice(id,ci){
+  const it=_isoCardItem(id);if(!it)return;
+  _isoItems=((_isoCardRun||{}).items||[]).filter(x=>x.state!=='drop');
+  try{_isoRender();}catch(e){}
+  const i=_isoItems.indexOf(it);
+  setTimeout(()=>{
+    const box=document.getElementById('iso-list');if(!box||i<0)return;
+    const cd=box.children[i];if(!cd)return;
+    cd.scrollIntoView({block:'center'});
+    const ed=cd.querySelectorAll('.iso-ch .iso-ed')[Number(ci)];
+    if(ed){ed.focus();try{document.getSelection().selectAllChildren(ed);}catch(e){}}
+  },60);
+  toast('보기를 고치고 칸을 다시 고르면 오답 구성을 다시 잽니다');
+}
+// 그 보기의 칸(kind)을 바꾼다 — 오답 구성을 다시 잰다
+function isoSetCell(id,ci,kind){
+  const it=_isoCardItem(id);if(!it||!String(kind||'').trim())return;
+  const d=(it.distractors||[]).find(x=>Number(x.index)===Number(ci));
+  if(d)d.kind=String(kind);
+  else (it.distractors=it.distractors||[]).push({index:Number(ci),kind:String(kind),why:''});
+  const now=isoMixRecheck(it);
+  _isoItems=((_isoCardRun||{}).items||[]).filter(x=>x.state!=='drop');
+  isoCardRender();
+  toast(now?'오답 구성이 맞아 통과로 바꿨어요 ✓':('오답 구성 '+(((it.checks||{}).mix||{}).line||'')));
 }
 function isoCardEdit(id){
   const it=_isoCardItem(id);if(!it)return;
@@ -28295,6 +28452,12 @@ function isoCardsPaint(){
       grades.map(([g,b])=>'<tr><td>'+_ebE(g)+'</td><td>'+((b.words||[]).join('~')||'—')+'</td><td>'+(b.med||'—')+'</td>'+
         '<td>'+(b.msl||'—')+'</td><td>'+_ebE(b.vocab||'')+'</td><td>'+_ebE(b.note||'')+'</td></tr>').join('')+'</table>'+
     '<h4>정답 근거 자리</h4><p class="isoc-p">'+_ebE(c.answerLocus||'')+'</p>'+
+    ((c.answerSpread||c.slotAvoid)?('<h4>정답 자리</h4><p class="isoc-p">'+
+      _ebE((c.answerSpread||{}).rule||'')+
+      ((c.answerSpread||{}).actual?('<br><span class="icr-dim">'+_ebE(c.answerSpread.actual)+'</span>'):'')+
+      ((c.slotAvoid||[]).length?('<br><b>앱이 요청하지 않는 자리</b> '+
+        _ebE((c.slotAvoid||[]).map(v=>_ISO_NUM[Number(v)]||('['+v+']')).join('·'))+
+        (c.slotWhy?(' — '+_ebE(c.slotWhy)):'')):'')+'</p>'):'')+
     '<h4>오답 방식</h4><table class="icr-t"><tr><th>kind</th><th>비율</th><th>어떻게</th></tr>'+
       (c.distractors||[]).map(d=>'<tr><td>'+_ebE(d.kind||'')+'</td><td>'+(d.share==null?'—':d.share+'%')+'</td><td>'+_ebE(d.how||'')+'</td></tr>').join('')+'</table>'+
     (c.mix?('<h4>오답 넷의 구성</h4><table class="icr-t"><tr><th>칸</th><th>몇 개</th><th>왜</th></tr>'+
