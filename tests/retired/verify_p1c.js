@@ -1,7 +1,7 @@
-require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+require('../_guard_assert');                 // 막음 장치 없이는 돌지 않는다
 // 일부만 풀고 결과로 간 경우 — 안 푼 카드가 바뀌지 않는지, 저장 건수가 줄었는지
 const path=require('path'),fs=require('fs');
-const ROOT=require('path').resolve(__dirname, '..');
+const ROOT=require('path').resolve(__dirname, '..', '..');
 const {chromium}=require(path.join(ROOT,'node_modules','playwright'));
 const SID='p1dummy0001';
 const dbs=fs.readFileSync(ROOT+'/js/db.js','utf8');

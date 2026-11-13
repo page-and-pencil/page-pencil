@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 // ① 마감일 없는 반복 숙제 ② 캘린더에서 리딩앤·원서읽기 한 칩 ③ 클래스5 색 복구. 실DB 쓰기 차단.
 const path = require('path');
 const fs = require('fs');
@@ -26,7 +27,7 @@ const say = (p, l, e) => { if (!p) fails++; console.log((p ? 'OK  ' : 'FAIL') + 
     if (m === 'GET' || m === 'HEAD') return r.continue();
     writes++; return r.fulfill({ status: 200, body: '[]' });
   });
-  const BASE = 'file:///' + encodeURI(ROOT + '/index.html');
+  const BASE = pageUrl();
   await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 90000 });
   await page.waitForFunction(() => { try { return (_cache.students || []).length > 0; } catch (e) { return false; } }, null, { timeout: 90000 });
   await page.waitForTimeout(4000);

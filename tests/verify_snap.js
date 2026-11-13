@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 // 스냅샷 부팅 — 역할·학생이 바뀔 때 다른 사람 데이터가 보이지 않는지, 로그아웃이 스냅샷을 지우는지,
 // 스냅샷 부팅 뒤에도 학생 단어장·원서 본문 데이터가 온전한지. 한 컨텍스트(= 한 기기) 안에서 확인.
 // 실DB 쓰기는 전부 차단.
@@ -40,7 +41,7 @@ const kb = b => b >= 1048576 ? (b / 1048576).toFixed(2) + 'MB' : (b / 1024).toFi
     const m = r.request().method();
     return (m === 'GET' || m === 'HEAD') ? r.continue() : r.fulfill({ status: 200, body: '[]' });
   });
-  const BASE = 'file:///' + encodeURI(ROOT + '/index.html');
+  const BASE = pageUrl();
 
   // 세션을 심고 다시 열기 — 부팅 동안 화면에 뜬 이름을 50ms 마다 모은다(한순간도 놓치지 않게)
   const boot = async (sess, watchSel) => {

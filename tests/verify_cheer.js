@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 const path=require('path'),fs=require('fs');
 const ROOT=require('path').resolve(__dirname, '..');
 const {chromium}=require(path.join(ROOT,'node_modules','playwright'));
@@ -16,7 +17,7 @@ const U=dbs.match(/const SUPA_URL='([^']+)'/)[1],K=dbs.match(/const SUPA_KEY='([
     return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({content:[{text:'오늘도 잘했어! 내일도 이렇게 하자 👍'}]})});});
   await p.route('**/rest/v1/**',r=>{const m=r.request().method();if(m==='GET'||m==='HEAD')return r.continue();
     writes.push(m+' '+r.request().url().split('/rest/v1/')[1].split('?')[0]);return r.fulfill({status:200,body:'[]'});});
-  await p.goto('file:///'+encodeURI(ROOT+'/index.html'),{waitUntil:'domcontentloaded',timeout:90000});
+  await p.goto(pageUrl(),{waitUntil:'domcontentloaded',timeout:90000});
   await p.waitForFunction(()=>{try{return (_cache.students||[]).length>0;}catch(e){return false;}},null,{timeout:90000});
   await p.waitForTimeout(4000);
   const r=await p.evaluate(async(sid)=>{

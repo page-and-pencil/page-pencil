@@ -1,7 +1,7 @@
-require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+require('../_guard_assert');                 // 막음 장치 없이는 돌지 않는다
 // 밀린 항목 11가지 점검 — 전부 더미 데이터 + 가짜 서버 (실DB·실AI 안 씀)
 const path = require('path');
-const ROOT = require('path').resolve(__dirname, '..');
+const ROOT = require('path').resolve(__dirname, '..', '..');
 const SCR = (process.env.PP_TEST_OUT || require('os').tmpdir());
 const { chromium } = require(path.join(ROOT, 'node_modules', 'playwright'));
 const F = require(SCR + '/fake_server.js');

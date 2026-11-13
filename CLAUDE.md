@@ -55,10 +55,17 @@
 
 ## 검사 (tests/)
 - 검사 스크립트는 **반드시 `tests/` 안에** 둔다. 임시 폴더에 두지 않는다.
-- 돌리는 길은 하나: `node tests/run.js` (이름을 붙이면 그것만 — `node tests/run.js iso`)
+- 돌리는 길은 하나: `node tests/run.js` (묶음 이름이나 검사 이름을 붙이면 그것만 — `node tests/run.js iso`)
 - 모든 검사는 막음 장치를 거친다 — 첫 줄에 `require('./_guard_assert');`.
   없는 파일이 하나라도 있으면 run.js 가 **아무것도 돌리지 않는다**.
-- 브라우저 검사는 진짜 앱 → 진짜 Supabase 를 본다. 쓰기를 흉내 내야 하면 그 표에 가짜 서버를 끼운다.
+- **검사와 캡처는 실제 서버(Supabase)를 읽지 않는다.** 앱이 뜨는 데 필요한 줄은 `tests/fixtures/db.json` 의
+  가짜 표에서 답한다(막음 장치가 읽기까지 막는다). 전송량이 2026-11-13 기준 14.61GB / 5GB 이고 11/15 부터 제한이다.
+- **실제 서버를 읽는 확인은 `live` 묶음뿐이다** — `PP_ALLOW_LIVE_READ=1 node tests/run.js live --jobs 1`,
+  원장이 시킬 때만. 그 밖에 실제로 나가는 요청은 run.js 끝줄의 '줄 수 전후' 확인 8건뿐이다.
+- 새 검사도 **가짜 표로 짠다**. 쓰기를 흉내 내야 하면 그 표를 `tests/_fake.js` 의 `fakeTables` 로 끼운다.
   안 끼우면 막음 장치가 잡는다(2026-11-12 item_bank 에 검사 문항이 들어간 사고 — `tests/README.md`).
+- 묶음은 넷이다(core·live·legacy·retired). `node tests/run.js` 는 **core 만** 돌린다. 묶음표는 `tests/_groups.js`.
+- **2026-11-27 까지는 `PP_SKIP_COUNTS=1 node tests/run.js`** (실제 서버 요청 0건). 한도 초과로 11/15~11/27 에는
+  줄 수 확인마저 402 로 막힐 수 있는데, 막혀도 검사는 실패로 치지 않는다.
 - 검사 파일에 실제 학생 이름·id·연락처, 기출 원문, 키 값을 넣지 않는다.
 - `tests/live/` 는 실제 서버에 쓰는 도구다. run.js 가 돌리지 않고, 손으로만 돌린다.

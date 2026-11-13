@@ -12,6 +12,16 @@
 //                  (앱이 뜰 때 하는 '살아 있나' 확인까지 멈추면 아무 검사도 못 돈다).
 // 어느 쪽이든 요청은 **실제로 나가지 않는다**.
 let _writes = [], _calls = [], _strict = true, _fake = false;
+// 읽기도 막는다 (2026-11-13 전송량 14.61GB/5GB · 11/15 부터 프로젝트 제한).
+//   fake = 가짜 표에서 답한 읽기 · block = 표에 없어 404 로 막은 읽기 · live = 실제로 나간 읽기
+let _readsBlocked = [], _readsFake = 0, _readsLive = 0;
+function guardAllowLive() { return process.env.PP_ALLOW_LIVE_READ === '1'; }
+function guardRead(url, how) {
+  if (how === 'fake') { _readsFake++; return 'fake'; }
+  if (how === 'live') { _readsLive++; return 'live'; }
+  _readsBlocked.push((String(url || '').split('/v1/')[1] || String(url || '')).split('?')[0]);
+  return 'block';
+}
 function guardFake(on) { _fake = !!on; }
 function guardStrict(on) { _strict = !!on; }   // false = 멈추지 않고 기록만 (장치 자체 점검용)
 function guardKind(url) {
@@ -57,13 +67,18 @@ function guardRoute(route, opts) {
     body: JSON.stringify({ message: '검사 중에는 실제 서버에 쓸 수 없습니다 (verify_guard)' })
   });
 }
-function guardReport() { return { blocked: _writes.slice(), calls: _calls.slice(), fake: _fake }; }
-function guardClear() { _writes = []; _calls = []; }   // 장치 자체를 점검한 뒤 기록을 지운다
+function guardReport() {
+  return { blocked: _writes.slice(), calls: _calls.slice(), fake: _fake,
+    readsBlocked: _readsBlocked.slice(), readsFake: _readsFake, readsLive: _readsLive };
+}
+function guardClear() { _writes = []; _calls = []; _readsBlocked = []; _readsFake = 0; _readsLive = 0; }   // 장치 자체를 점검한 뒤 기록을 지운다
 function guardLine() {
   const r = guardReport();
   return '막음 장치: 실제 서버 쓰기 ' + r.blocked.length + '건' +
     (r.blocked.length ? (' (' + r.blocked.slice(0, 6).join(', ') + ')') : '') +
     (r.calls.length ? (' · 막은 바깥 호출 ' + r.calls.length + '건') : '') +
+    ' · 읽기 가짜 ' + r.readsFake + '건 · 막은 읽기 ' + r.readsBlocked.length + '건' +
+    (r.readsLive ? (' · 실제 읽기 ' + r.readsLive + '건(PP_ALLOW_LIVE_READ)') : '') +
     (r.fake ? ' · 가짜 서버 끼움' : '');
 }
-module.exports = { guardCheck, guardFetch, guardRoute, guardReport, guardFake, guardStrict, guardLine, guardClear, guardKind };
+module.exports = { guardCheck, guardFetch, guardRoute, guardReport, guardFake, guardStrict, guardLine, guardClear, guardKind, guardRead, guardAllowLive };

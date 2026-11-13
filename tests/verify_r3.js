@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 // 프롬프트 5~8 수정 검증. 실DB 쓰기 전부 차단.
 const path = require('path');
 const fs = require('fs');
@@ -31,7 +32,7 @@ const say = (p, l, e) => { if (!p) fails++; console.log((p ? 'OK  ' : 'FAIL') + 
   });
 
   // ───── 5-A: QR 링크로 들어오면 주소에서 pin·role 이 지워지는가 ─────
-  const qr = 'file:///' + encodeURI(ROOT + '/index.html') + '?pin=' + encodeURIComponent(stu.pin || '0000') + '&role=student';
+  const qr = pageUrl() + '?pin=' + encodeURIComponent(stu.pin || '0000') + '&role=student';
   await page.goto(qr, { waitUntil: 'domcontentloaded', timeout: 90000 });
   await page.waitForTimeout(6000);
   const url1 = page.url();
@@ -40,7 +41,7 @@ const say = (p, l, e) => { if (!p) fails++; console.log((p ? 'OK  ' : 'FAIL') + 
 
   // 세션을 선생님으로
   await page.evaluate(() => { try { localStorage.setItem('pp_session', JSON.stringify({ role: 'teacher' })); } catch (e) { } });
-  await page.goto('file:///' + encodeURI(ROOT + '/index.html'), { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await page.goto(pageUrl(), { waitUntil: 'domcontentloaded', timeout: 90000 });
   await page.waitForFunction(() => { try { return (_cache.students || []).length > 0; } catch (e) { return false; } }, null, { timeout: 90000 });
   await page.waitForTimeout(4500);
 

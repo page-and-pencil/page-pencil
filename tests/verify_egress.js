@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 // egress 다이어트 동작 검증 — 교재 라이트 동기화의 정상·예외 경로. 쓰기는 전부 차단.
 const path = require('path');
 const fs = require('fs');
@@ -59,7 +60,7 @@ const kb = b => b >= 1048576 ? (b / 1048576).toFixed(2) + 'MB' : (b / 1024).toFi
   };
 
   // ── 콜드 로드 ──
-  await page.goto('file:///' + encodeURI(ROOT + '/index.html'), { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await page.goto(pageUrl(), { waitUntil: 'domcontentloaded', timeout: 90000 });
   await page.waitForFunction(() => { try { return (_cache.students || []).length > 0; } catch (e) { return false; } }, null, { timeout: 90000 });
   await page.waitForTimeout(7000);
   const cold = await state();

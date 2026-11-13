@@ -1,0 +1,313 @@
+{
+ "_why": "검사용 가짜 서버 표. 실제 학생 이름·id·연락처·기출 원문은 들어가지 않는다. tests/_fake.js 가 읽는다.",
+ "students": [
+  {
+   "id": "fx-stu-1",
+   "updated_at": "2026-11-01T00:00:00.000Z",
+   "data": {
+    "id": "fx-stu-1",
+    "name": "가온",
+    "school": "보기중학교",
+    "grade": "중1",
+    "cls": "fx-cls-1",
+    "pin": "0001",
+    "phone": "",
+    "parentPhone": "",
+    "start": "2026-03-02",
+    "memo": "보기용",
+    "fee": 0,
+    "payday": 1,
+    "payments": [],
+    "qrToken": ""
+   }
+  },
+  {
+   "id": "fx-stu-2",
+   "updated_at": "2026-11-01T00:00:00.000Z",
+   "data": {
+    "id": "fx-stu-2",
+    "name": "나봄",
+    "school": "보기중학교",
+    "grade": "중2",
+    "cls": "fx-cls-1",
+    "pin": "0002",
+    "phone": "",
+    "parentPhone": "",
+    "start": "2026-03-02",
+    "memo": "보기용",
+    "fee": 0,
+    "payday": 1,
+    "payments": [],
+    "qrToken": ""
+   }
+  },
+  {
+   "id": "fx-stu-3",
+   "updated_at": "2026-11-01T00:00:00.000Z",
+   "data": {
+    "id": "fx-stu-3",
+    "name": "다온",
+    "school": "예시고등학교",
+    "grade": "고1",
+    "cls": "fx-cls-2",
+    "pin": "0003",
+    "phone": "",
+    "parentPhone": "",
+    "start": "2026-03-02",
+    "memo": "보기용",
+    "fee": 0,
+    "payday": 1,
+    "payments": [],
+    "qrToken": ""
+   }
+  }
+ ],
+ "classes": [
+  {
+   "id": "fx-cls-1",
+   "updated_at": "2026-11-01T00:00:00.000Z",
+   "data": {
+    "id": "fx-cls-1",
+    "name": "보기반 A",
+    "days": [
+     "월",
+     "수"
+    ],
+    "time": "17:00",
+    "studentIds": [
+     "fx-stu-1",
+     "fx-stu-2"
+    ],
+    "active": true
+   }
+  },
+  {
+   "id": "fx-cls-2",
+   "updated_at": "2026-11-01T00:00:00.000Z",
+   "data": {
+    "id": "fx-cls-2",
+    "name": "보기반 B",
+    "days": [
+     "화",
+     "목"
+    ],
+    "time": "19:00",
+    "studentIds": [
+     "fx-stu-3"
+    ],
+    "active": true
+   }
+  }
+ ],
+ "global_textbooks": [
+  {
+   "id": "fx-tb-1",
+   "updated_at": "2026-11-01T00:00:00.000Z",
+   "data": {
+    "id": "fx-tb-1",
+    "type": "textbook",
+    "title": "보기 리딩 1",
+    "cat": "리딩",
+    "publisher": "보기출판",
+    "units": {
+     "Unit 1": [
+      {
+       "word": "curious",
+       "ko": "호기심 있는",
+       "pos": "adj",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      },
+      {
+       "word": "forest",
+       "ko": "숲",
+       "pos": "n",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      }
+     ],
+     "Unit 2": [
+      {
+       "word": "protect",
+       "ko": "보호하다",
+       "pos": "v",
+       "example": "",
+       "en_def": "",
+       "v2": "protected",
+       "v3": "protected"
+      }
+     ],
+     "Unit 3": [
+      {
+       "word": "reader",
+       "ko": "독자",
+       "pos": "n",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      },
+      {
+       "word": "writer",
+       "ko": "작가",
+       "pos": "n",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      },
+      {
+       "word": "idea",
+       "ko": "생각",
+       "pos": "n",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      },
+      {
+       "word": "habit",
+       "ko": "습관",
+       "pos": "n",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      },
+      {
+       "word": "memory",
+       "ko": "기억",
+       "pos": "n",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      },
+      {
+       "word": "shelf",
+       "ko": "책장",
+       "pos": "n",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      },
+      {
+       "word": "judge",
+       "ko": "판단하다",
+       "pos": "v",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      },
+      {
+       "word": "compare",
+       "ko": "견주다",
+       "pos": "v",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      },
+      {
+       "word": "quiet",
+       "ko": "조용한",
+       "pos": "adj",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      },
+      {
+       "word": "careful",
+       "ko": "신중한",
+       "pos": "adj",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      },
+      {
+       "word": "widely",
+       "ko": "널리",
+       "pos": "adv",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      },
+      {
+       "word": "grow",
+       "ko": "자라다",
+       "pos": "v",
+       "example": "",
+       "en_def": "",
+       "v2": "",
+       "v3": ""
+      }
+     ]
+    },
+    "category": "리딩",
+    "level": ""
+   }
+  },
+  {
+   "id": "fx-tb-2",
+   "updated_at": "2026-11-01T00:00:00.000Z",
+   "data": {
+    "id": "fx-tb-2",
+    "type": "library",
+    "title": "보기 원서 A",
+    "level": "AR 2.0",
+    "ortSeq": 1,
+    "units": {}
+   }
+  }
+ ],
+ "lessons": [],
+ "tests": [],
+ "readings": [],
+ "logs": [],
+ "notices": [],
+ "homeworks": [],
+ "assignments": [],
+ "textbooks": [],
+ "messages": [],
+ "monthly_reports": [],
+ "exam_schedules": [],
+ "counsels": [],
+ "vocab_cards": [],
+ "worksheets": [],
+ "item_bank": [],
+ "item_bank_index": [],
+ "item_results": [],
+ "exam_bank": [],
+ "exam_bank_index": [],
+ "lib_books": [],
+ "lib_text": [],
+ "push_subs": [],
+ "library": [],
+ "_settings": {
+  "acct": {
+   "name": "보기 학원",
+   "phone": ""
+  },
+  "cloud": {
+   "name": "drwys3bkz",
+   "preset": "pp_unsigned"
+  }
+ },
+ "tts_cache": [],
+ "audio_cache": [],
+ "song_lyrics": [],
+ "push_log": [],
+ "item_sets": [],
+ "drill_sets": [],
+ "papers": [],
+ "kits": []
+}

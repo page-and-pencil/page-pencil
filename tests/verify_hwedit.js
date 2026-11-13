@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 // 숙제 자유 수정 검증 — 날짜별 일정 줄 수정·삭제·추가, 완료 표시 보존, 구분 직접 입력.
 // 실DB 쓰기는 전부 차단(화면·캐시만).
 const path = require('path');
@@ -27,7 +28,7 @@ const say = (p, l, e) => { if (!p) fails++; console.log((p ? 'OK  ' : 'FAIL') + 
     if (m === 'GET' || m === 'HEAD') return r.continue();
     writes++; return r.fulfill({ status: 200, body: '[]' });
   });
-  const BASE = 'file:///' + encodeURI(ROOT + '/index.html');
+  const BASE = pageUrl();
   await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 90000 });
   await page.waitForFunction(() => { try { return (_cache.students || []).length > 0; } catch (e) { return false; } }, null, { timeout: 90000 });
   await page.waitForTimeout(4000);

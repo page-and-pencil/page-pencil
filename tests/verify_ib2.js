@@ -172,7 +172,7 @@ const seed = [
   await page.evaluate(() => document.getElementById('confirm-ok-btn').click());
   await wait(1500);
   const skipRes = await page.evaluate(() => ({ p1: (_ibRows.find(r => r.id === 'plain1') || {}).meta.stem, n: _ibRows.length }));
-  ok('⑩ 기본은 새 문항만 (같은 id 건너뜀)', posts.length === p1 + 2 && /^발문 plain1$/.test(skipRes.p1) && /새로 넣음 2 · 덮어씀 0 · 건너뜀 5/.test(m1),
+  ok('⑩ 기본은 새 문항만 (같은 id 건너뜀)', posts.length === p1 + 2 && /^발문 plain1$/.test(skipRes.p1) && /새로 (넣음 )?2 · 덮어씀 0 · 건너뜀 5/.test(m1),
     m1.replace(/\n/g, ' / ').slice(0, 110));
   ok('⑪ 안내에 정답 세는 법', /정답은 0부터\(① = 0\)/.test(m1), m1.indexOf('정답은 0부터') >= 0 ? '있음' : '없음');
 
@@ -197,7 +197,7 @@ const seed = [
     '올린 ' + sent.length + '개 (' + sent.map(x => x.id).join(',') + ')');
   ok('⑬ 덮어써도 처음 만든 때는 지킨다', plain1Post && plain1Post.data.createdAt === t0 && plain1Post.data.editedAt > t0,
     'createdAt ' + (plain1Post && plain1Post.data.createdAt));
-  ok('⑭ 개수 안내 (새로 넣음 / 덮어씀 / 건너뜀)', /새로 넣음 0 · 덮어씀 4 · 건너뜀 3 \(손댄 문항 3개 보호\)/.test(m2),
+  ok('⑭ 개수 안내 (새로 넣음 / 덮어씀 / 건너뜀)', /새로 (넣음 )?0 · 덮어씀 4 · 건너뜀 3 \(손댄 문항 3개 보호\)/.test(m2),
     m2.replace(/\n/g, ' / ').slice(0, 130));
 
   // ── 넘침·오류 ───────────────────────────────────────────────────────

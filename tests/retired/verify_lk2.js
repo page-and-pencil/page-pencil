@@ -1,8 +1,8 @@
-require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+require('../_guard_assert');                 // 막음 장치 없이는 돌지 않는다
 // 학습 세트 다듬기 확인 — 실제 '중학영어 2 (동아 윤정미) Lesson 5' 본문으로
 const path = require('path');
 const fs = require('fs');
-const ROOT = require('path').resolve(__dirname, '..');
+const ROOT = require('path').resolve(__dirname, '..', '..');
 const SCR = (process.env.PP_TEST_OUT || require('os').tmpdir());
 const { chromium } = require(path.join(ROOT, 'node_modules', 'playwright'));
 const wait = ms => new Promise(r => setTimeout(r, ms));

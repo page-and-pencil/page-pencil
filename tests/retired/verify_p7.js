@@ -1,7 +1,7 @@
-require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+require('../_guard_assert');                 // 막음 장치 없이는 돌지 않는다
 // P7 문장 학습 검증. 더미 학생·더미 교재만 건드린다. 실학생은 읽기만.
 const path = require('path'), fs = require('fs');
-const ROOT = require('path').resolve(__dirname, '..');
+const ROOT = require('path').resolve(__dirname, '..', '..');
 const { chromium } = require(path.join(ROOT, 'node_modules', 'playwright'));
 const SP = ((process.env.PP_TEST_OUT || require('os').tmpdir()) + '/');
 const D = require(SP + 'p7_dummy.js');

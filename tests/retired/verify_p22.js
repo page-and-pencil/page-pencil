@@ -1,7 +1,7 @@
-require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+require('../_guard_assert');                 // 막음 장치 없이는 돌지 않는다
 // P2-2·P2-3 검증. 교재 편집기는 더미 교재로만, 실학생은 보기만.
 const path = require('path');
-const ROOT = require('path').resolve(__dirname, '..');
+const ROOT = require('path').resolve(__dirname, '..', '..');
 const { chromium } = require(path.join(ROOT, 'node_modules', 'playwright'));
 const TBID = 'p2dummytb01';
 const SID = (process.env.PP_REAL_SID || '');
