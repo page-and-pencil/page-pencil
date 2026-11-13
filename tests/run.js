@@ -22,6 +22,8 @@
 //   · 검사는 실제 서버를 **읽지도 않는다**. 앱이 뜨는 데 필요한 줄은 tests/fixtures/db.json 에서 가짜로 답한다.
 //   · 실제로 나가는 요청은 이 파일이 재는 '줄 수 전후' 확인뿐이다(표 4개 × 앞뒤 = 8건).
 //   · live 묶음만 PP_ALLOW_LIVE_READ=1 로 실제 서버를 읽는다 — 원장이 시킬 때만.
+//   · 11/15~11/27 은 그 8건마저 402 로 막힐 수 있다. 못 읽어도 검사를 실패로 치지 않고,
+//     PP_SKIP_COUNTS=1 이면 아예 묻지 않는다(실제 서버 요청 0건) — 그동안은 이것을 기본으로 쓴다.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -167,7 +169,8 @@ function runOne(f, again) {
   if (unknown.length) console.log('※ 묶음 표에 없는 검사 ' + unknown.length + '개 — tests/_groups.js 에 한 줄 적어 주세요: ' + unknown.join(', '));
   const t0 = Date.now();
   const before = await RC.snapshot();
-  console.log('\n돌리기 전 줄 수 — ' + RC.line(before) + '\n');
+  console.log('\n돌리기 전 줄 수 — ' + RC.line(before) +
+    (RC.failed(before) ? ' — 검사 결과로만 가립니다' : '') + '\n');
 
   const q = list.slice();
   const workers = Array.from({ length: Math.min(JOBS, q.length) }, async () => {
@@ -179,7 +182,11 @@ function runOne(f, again) {
   const d = RC.diff(before, after);
   const mins = Math.round((Date.now() - t0) / 1000);
   console.log('\n돌린 뒤 줄 수   — ' + RC.line(after));
-  console.log(d.length ? ('🛑 줄 수가 바뀌었습니다: ' + d.join(', ')) : '✅ 줄 수 그대로 — 실제 서버에 아무것도 넣지 않았습니다');
+  const rowOk = !RC.skipped(after) && !RC.failed(after) && !RC.skipped(before) && !RC.failed(before);
+  console.log(d.length ? ('🛑 줄 수가 바뀌었습니다: ' + d.join(', '))
+    : (rowOk ? '✅ 줄 수 그대로 — 실제 서버에 아무것도 넣지 않았습니다'
+      : '· 줄 수는 ' + (RC.skipped(after) ? '묻지 않았습니다' : '확인하지 못했습니다') +
+        ' — 막은 쓰기 수로 가립니다 (아래)'));
 
   const bad = RESULT.filter(r => !r.ok);
   const leak = RESULT.filter(r => r.blocked > 0);
@@ -206,12 +213,14 @@ function runOne(f, again) {
   const sum = k => RESULT.reduce((a, r) => a + (r[k] || 0), 0);
   const rowReqs = RC.TABLES.length * 2;                 // 줄 수 확인(앞뒤) — 이것만 실제로 나간다
   const liveReads = sum('readsLive');
+  const asked = RC.skipped(after) ? 0 : rowReqs;        // 줄 수를 물어본 횟수(402 라도 요청은 나간다)
+  const rowWord = RC.skipped(after) ? '줄 수 확인 안 함(PP_SKIP_COUNTS=1)'
+    : (RC.failed(after) || RC.failed(before) ? ('줄 수 확인 못 함(' + ((after._fail) || (before._fail)) + ')')
+      : (d.length ? ('줄 수 바뀜(' + d.join(', ') + ')') : ('줄 수 전후 같음(' + RC.line(after) + ')')));
   console.log('\n' + label + ' ' + (RESULT.length - bad.length) + '/' + RESULT.length + ' 통과 · ' +
-    '실제 서버 요청 ' + (rowReqs + liveReads) + '건(읽기 ' + (rowReqs + liveReads) + ' · 쓰기 0)' +
-    (liveReads ? (' — 줄 수 확인 ' + rowReqs + ' · live 읽기 ' + liveReads) : ' — 줄 수 확인뿐') + ' · ' +
+    '실제 서버 요청 ' + (asked + liveReads) + '건(읽기 ' + (asked + liveReads) + ' · 쓰기 0)' +
+    (liveReads ? (' — 줄 수 확인 ' + asked + ' · live 읽기 ' + liveReads) : (asked ? ' — 줄 수 확인뿐' : '')) + ' · ' +
     '가짜로 답한 읽기 ' + sum('readsFake') + '건 · 막은 읽기 ' + sum('readsBlocked') + '건 · ' +
-    '막은 쓰기 ' + sum('blocked') + '건 · ' +
-    (d.length ? ('줄 수 바뀜(' + d.join(', ') + ')') : ('줄 수 전후 같음(' + RC.line(after) + ')')) +
-    ' · ' + mins + '초');
+    '막은 쓰기 ' + sum('blocked') + '건 · ' + rowWord + ' · ' + mins + '초');
   process.exit(leak.length || nog.length || d.length || bad.length ? 2 : 0);
 })();

@@ -65,5 +65,7 @@
 - 새 검사도 **가짜 표로 짠다**. 쓰기를 흉내 내야 하면 그 표를 `tests/_fake.js` 의 `fakeTables` 로 끼운다.
   안 끼우면 막음 장치가 잡는다(2026-11-12 item_bank 에 검사 문항이 들어간 사고 — `tests/README.md`).
 - 묶음은 넷이다(core·live·legacy·retired). `node tests/run.js` 는 **core 만** 돌린다. 묶음표는 `tests/_groups.js`.
+- **2026-11-27 까지는 `PP_SKIP_COUNTS=1 node tests/run.js`** (실제 서버 요청 0건). 한도 초과로 11/15~11/27 에는
+  줄 수 확인마저 402 로 막힐 수 있는데, 막혀도 검사는 실패로 치지 않는다.
 - 검사 파일에 실제 학생 이름·id·연락처, 기출 원문, 키 값을 넣지 않는다.
 - `tests/live/` 는 실제 서버에 쓰는 도구다. run.js 가 돌리지 않고, 손으로만 돌린다.

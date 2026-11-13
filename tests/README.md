@@ -4,6 +4,10 @@
 > **2. 실제 서버를 읽는 확인은 `live` 묶음뿐이다** — `PP_ALLOW_LIVE_READ=1 node tests/run.js live --jobs 1`, 원장이 시킬 때만.
 > **3. 그 밖에 실제로 나가는 요청은 끝줄의 '줄 수 전후' 확인 8건뿐이다.** 끝줄이 그 수를 적어 준다.
 >
+> **2026-11-27 까지는 `PP_SKIP_COUNTS=1 node tests/run.js` 를 기본으로 쓴다**(실제 서버 요청 0건).
+> 한도를 넘어 11/15~11/27 에는 그 8건마저 402 로 막힐 수 있다. 막혀도 검사는 실패로 치지 않고,
+> 끝줄에 '줄 수 확인 못 함(서버 제한 402)' 이라고만 적는다 — 통과·실패는 검사 결과로만 가린다.
+>
 > 왜: 2026-11-13 전송량이 한 주기에 **14.61GB / 5GB**(11/6 에는 6.47GB), 대시보드에 '11/15 부터 프로젝트 제한' 경고.
 > 검사 한 번이 진짜 앱 → 진짜 Supabase 를 열어 몇 MB 씩 받아 갔다.
 
@@ -34,7 +38,8 @@
 ## 어떻게 돌리나
 
 ```
-node tests/run.js                 # core 만 — 배포 때마다 돌리는 것
+PP_SKIP_COUNTS=1 node tests/run.js  # core 만 (11/27 까지는 이렇게 — 실제 서버 요청 0건)
+node tests/run.js                 # core 만 — 배포 때마다 돌리는 것 (줄 수 확인 8건 포함)
 node tests/run.js live            # 실제 서버를 읽는 검사 (한 번에 하나 · 500 이면 한 번 더)
 node tests/run.js legacy          # 고치면 쓸 수 있는 옛 검사 (기본으로 돌지 않는다)
 node tests/run.js all             # core + live + legacy

@@ -75,7 +75,10 @@ const say = (p, l, e) => { if (!p) fails++; console.log((p ? 'OK  ' : 'FAIL') + 
   {
     const { ctx, page, state } = await mkCtx();
     await page.goto('http://127.0.0.1:5500/index.html', { waitUntil: 'domcontentloaded', timeout: 90000 });
-    await page.waitForTimeout(2500);
+    // 2.5초만 기다리면 셋을 한꺼번에 돌릴 때(--jobs 3) 아직 앱이 안 떠 있다 — 뜰 때까지 기다린다
+    await page.waitForFunction(() => typeof landRole === 'function' && typeof ppSession === 'function',
+      null, { timeout: 60000 });        // #land-spin 은 landRole('student') 를 부른 뒤에 생긴다
+    await page.waitForTimeout(800);
     const before = state.gets.length;
     const r = await page.evaluate(async (pin) => {
       landRole('student');
@@ -106,7 +109,10 @@ const say = (p, l, e) => { if (!p) fails++; console.log((p ? 'OK  ' : 'FAIL') + 
   {
     const { ctx, page, state } = await mkCtx();
     await page.goto('http://127.0.0.1:5500/index.html', { waitUntil: 'domcontentloaded', timeout: 90000 });
-    await page.waitForTimeout(2500);
+    // 2.5초만 기다리면 셋을 한꺼번에 돌릴 때(--jobs 3) 아직 앱이 안 떠 있다 — 뜰 때까지 기다린다
+    await page.waitForFunction(() => typeof landRole === 'function' && typeof ppSession === 'function',
+      null, { timeout: 60000 });        // #land-spin 은 landRole('student') 를 부른 뒤에 생긴다
+    await page.waitForTimeout(800);
     // 첫 화면에서 포커스·타이머가 돌아도 받지 않아야 한다
     await page.evaluate(() => { window.dispatchEvent(new Event('focus')); document.dispatchEvent(new Event('visibilitychange')); });
     await page.waitForTimeout(1200);
@@ -165,7 +171,10 @@ const say = (p, l, e) => { if (!p) fails++; console.log((p ? 'OK  ' : 'FAIL') + 
   {
     const { ctx, page, state } = await mkCtx();
     await page.goto('http://127.0.0.1:5500/index.html', { waitUntil: 'domcontentloaded', timeout: 90000 });
-    await page.waitForTimeout(2500);
+    // 2.5초만 기다리면 셋을 한꺼번에 돌릴 때(--jobs 3) 아직 앱이 안 떠 있다 — 뜰 때까지 기다린다
+    await page.waitForFunction(() => typeof landRole === 'function' && typeof ppSession === 'function',
+      null, { timeout: 60000 });        // #land-spin 은 landRole('student') 를 부른 뒤에 생긴다
+    await page.waitForTimeout(800);
     const r = await page.evaluate(async (o) => {
       landRole('student');
       document.getElementById('land-spin').value = o.pin;
@@ -208,7 +217,9 @@ const say = (p, l, e) => { if (!p) fails++; console.log((p ? 'OK  ' : 'FAIL') + 
     const { ctx, page, state } = await mkCtx();
     await ctx.addInitScript(() => { try { localStorage.setItem('pp_session', JSON.stringify({ role: 'teacher' })); } catch (e) { } });
     await page.goto('http://127.0.0.1:5500/index.html', { waitUntil: 'domcontentloaded', timeout: 90000 });
-    await page.waitForTimeout(4000);
+    await page.waitForFunction(() => typeof landRole === 'function' && typeof ppSession === 'function',
+      null, { timeout: 60000 });
+    await page.waitForTimeout(1200);
     const now = await page.evaluate(() => ({ screen: (document.querySelector('.screen.active') || {}).id, fb: PP_AUTH_FALLBACK }));
     say(now.fb === true, 'PP_AUTH_FALLBACK 는 true 그대로(3단계 전)', String(now.fb));
     say(now.screen === 's-teacher', '병행 기간에는 pp_session 만으로도 선생님 화면', now.screen);
