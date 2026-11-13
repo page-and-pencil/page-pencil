@@ -282,6 +282,135 @@ function mkItem(i, over) {
     JSON.stringify({ card: bank.src1.card, ver: bank.src1.cardVer, ex: (bank.src1.exemplars || []).length, checks: !!bank.src1.checks, resolve: !!bank.src1.resolve }));
   ok('교재 지문으로 만든 문항은 서버로 가지 않는다', bank.keep2 === true, 'src.keep=' + bank.keep2);
 
+  // ── [1] 카드용 설정 칸 ───────────────────────────────────────
+  const cfg = await page.evaluate(async () => {
+    switchDataTab('iso');
+    await new Promise(r => setTimeout(r, 400));
+    _isoText = ''; _isoImgs = [];
+    _isoCfg.type = 'l_todo'; _isoCfg.grade = '중1'; _isoCfg.n = 3; _isoCfg.passage = 'new';
+    _isoPaintCfg();
+    await new Promise(r => setTimeout(r, 200));
+    const bar = document.getElementById('iso-cardbar');
+    const gs = document.getElementById('iso-grade');
+    const ds = document.getElementById('iso-diff');
+    const ps = document.getElementById('iso-passage');
+    const ch = document.getElementById('iso-choices');
+    const hint = document.getElementById('iso-callhint');
+    const card = isoCardOf('l_todo');
+    const out = {
+      badge: bar.style.display !== 'none' && /설계 카드로 만듭니다/.test(bar.textContent),
+      cardName: /할 일/.test(bar.textContent),
+      limits: /믿을 수 있는 범위/.test(bar.textContent),
+      grades: [...gs.options].map(o => o.value),
+      cardGrades: isoCardGrades(card),
+      diff: [...ds.options].map(o => o.textContent).join('/'),
+      diffVals: [...ds.options].map(o => o.value).join('/'),
+      choicesHidden: ch.style.display === 'none',
+      hint3: hint.textContent,
+      passOpts: [...ps.options].filter(o => !o.hidden).map(o => o.value),
+    };
+    // 개수를 바꾸면 단추 옆 글도 바뀐다
+    _isoCfg.n = 5; _isoPaintCfg();
+    out.hint5 = hint.textContent;
+    // (추론) 학년 알림
+    const gq = isoCardGrades(card).find(g => isoCardGuessed(card, g));
+    if (gq) { _isoCfg.grade = gq; _isoPaintCfg(); }
+    out.guessShown = (document.getElementById('iso-grade-note') || {}).style.display !== 'none';
+    out.guessGrade = gq || '';
+    _isoCfg.n = 3; _isoCfg.grade = '중1'; _isoPaintCfg();
+    return out;
+  });
+  ok('[1] 설계 카드 배지와 카드 이름·한계', cfg.badge && cfg.cardName && cfg.limits);
+  ok('[1] 학년은 카드에 있는 것만', cfg.grades.join(',') === cfg.cardGrades.join(','), cfg.grades.join(' '));
+  ok('[1] 난이도 이름이 하·중·상 (값은 그대로)',
+    cfg.diff === '중/하/상' && cfg.diffVals === 'same/easy/hard', cfg.diff + ' · ' + cfg.diffVals);
+  ok('[1] 선택지 칸은 숨긴다', cfg.choicesHidden);
+  ok('[1] 단추 옆 글 = 예상 호출 수', /AI 호출 4번 \(만들기 1 \+ 다시 풀기 3\)/.test(cfg.hint3) &&
+    /AI 호출 6번 \(만들기 1 \+ 다시 풀기 5\)/.test(cfg.hint5), cfg.hint3 + ' → ' + cfg.hint5);
+  ok('[1] (추론) 학년이면 알린다', !cfg.guessGrade || cfg.guessShown, '추론 학년 ' + (cfg.guessGrade || '(없음)'));
+
+  // ── [2] 듣기면 SOURCE 는 늘 '새로 쓰기' ──────────────────────
+  ok('[2] 듣기 유형이면 교재 본문 고르기가 없다', cfg.passOpts.join(',') === 'new', cfg.passOpts.join(','));
+  AI.calls = []; AI.items = [mkItem(0, { answer: 0 })];
+  AI.resolve = [{ answer: 0, confidence: 0.95, alsoPossible: [] }];
+  const listen = await page.evaluate(async () => {
+    // 읽기 유형에서 교재 본문을 고른 뒤 듣기 유형으로 바꾼다 (라이브에서 본 자리)
+    const tb = (_cache.globalTextbooks || []).find(b => b && b.unitTexts &&
+      Object.keys(b.unitTexts).some(u => String(b.unitTexts[u] || '').trim()));
+    const unit = tb ? Object.keys(tb.unitTexts).find(u => String(tb.unitTexts[u] || '').trim()) : '';
+    _isoCfg.type = 'm_blank'; _isoCfg.passage = 'book'; _isoCfg.tbId = tb ? tb.id : ''; _isoCfg.unit = unit;
+    const head = (typeof _isoBookText === 'function' ? (_isoBookText() || '') : '').slice(0, 24);
+    // 화면에서 유형만 바꾼다
+    const ts = document.getElementById('iso-type'); ts.value = 'l_todo';
+    isoCfgChange();
+    const afterPick = _isoCfg.passage;
+    _isoCfg.grade = '중1'; _isoCfg.n = 1;
+    const realAsk = askConfirm; askConfirm = (t, m, l, c, cb) => cb();
+    _isoCardRun = null; isoCardGo();
+    for (let i = 0; i < 160 && (!_isoCardRun || !(_isoCardRun.items || []).length); i++) await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 300));
+    askConfirm = realAsk;
+    return { afterPick, head };
+  });
+  const mk = AI.calls.find(c => c.kind === 'make') || { txt: '' };
+  // txt 는 content 배열을 JSON 으로 적은 것이다 — 글을 되살려서 본다
+  const mkText = (() => { try { return (JSON.parse(mk.txt) || []).map(x => x.text || '').join(String.fromCharCode(10)); } catch (e) { return mk.txt; } })();
+  const srcLine = ((mkText.match(/^5\. SOURCE: (.*)$/m) || [])[1] || '').trim();
+  ok('[2] 유형을 바꾸면 지문이 새로 쓰기로 돌아온다', listen.afterPick === 'new', '바꾼 뒤 "' + listen.afterPick + '"');
+  ok('[2] 듣기 유형의 SOURCE 는 늘 새로 쓰기',
+    /새로 쓰기/.test(srcLine) && (!listen.head || mkText.indexOf(listen.head) < 0),
+    'SOURCE "' + srcLine.slice(0, 20) + '"');
+
+  // ── [3] 카드 없는 유형 ──
+  const plainCfg = await page.evaluate(async () => {
+    _isoCfg.type = 'l_pay'; _isoPaintCfg();
+    await new Promise(r => setTimeout(r, 150));
+    const bar = document.getElementById('iso-cardbar');
+    const h2 = document.getElementById('iso-type-hint2');
+    const ds = document.getElementById('iso-diff');
+    const ch = document.getElementById('iso-choices');
+    const ps = document.getElementById('iso-passage');
+    return {
+      barOff: bar.style.display === 'none',
+      note: h2.style.display !== 'none' && /설계 카드가 아직 없어요/.test(h2.textContent),
+      diff: [...ds.options].map(o => o.textContent).join('/'),
+      choices: ch.style.display !== 'none',
+      passOpts: [...ps.options].filter(o => !o.hidden).map(o => o.value).join(','),
+    };
+  });
+  ok('[3] 카드 없는 유형이면 옛 화면 그대로', plainCfg.barOff && plainCfg.choices &&
+    plainCfg.diff === '원본과 같게/한 단계 쉽게/한 단계 어렵게' && plainCfg.passOpts === 'new,keep,book',
+    plainCfg.diff);
+  ok('[3] 카드가 없다고 한 줄 알린다', plainCfg.note);
+
+  // ── [4] 소재와 AVOID ─────────────────────────────────────────
+  AI.calls = []; AI.items = [mkItem(0, { answer: 0 })];
+  AI.resolve = [{ answer: 0, confidence: 0.95, alsoPossible: [] }];
+  const avoid = await page.evaluate(async () => {
+    try { await idbSet('pp_iso_log_v1', []); } catch (e) { }
+    _isoCfg.type = 'l_long'; _isoCfg.grade = '중2'; _isoCfg.n = 1; _isoCfg.passage = 'new';
+    const realAsk = askConfirm; askConfirm = (t, m, l, c, cb) => cb();
+    _isoCardRun = null; isoCardGo();
+    for (let i = 0; i < 160 && (!_isoCardRun || !(_isoCardRun.items || []).length); i++) await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 400));
+    const log1 = (await idbGet('pp_iso_log_v1')) || [];
+    const topics = await isoRecentTopics('l_long', 10);
+    // 한 번 더 만들면 앞 묶음 소재가 AVOID 로 간다
+    _isoCardRun = null; isoCardGo();
+    for (let i = 0; i < 160 && (!_isoCardRun || !(_isoCardRun.items || []).length); i++) await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 300));
+    askConfirm = realAsk;
+    return { topics, logTopics: (log1[0] || {}).topics || [], sent: (_isoCardRun || {}).avoid || [] };
+  });
+  const mk2 = AI.calls.filter(c => c.kind === 'make');
+  const lastMake = mk2[mk2.length - 1] || { txt: '' };
+  const lastText = (() => { try { return (JSON.parse(lastMake.txt) || []).map(x => x.text || '').join(String.fromCharCode(10)); } catch (e) { return lastMake.txt; } })();
+  ok('[4] 만든 기록에 소재 한 줄이 남는다', avoid.logTopics.length > 0 && avoid.logTopics[0].length <= 60,
+    '"' + (avoid.logTopics[0] || '').slice(0, 40) + '"');
+  ok('[4] 앞 묶음 소재가 AVOID 로 간다',
+    avoid.sent.length > 0 && lastText.indexOf(avoid.sent[0].slice(0, 15)) >= 0,
+    'AVOID ' + avoid.sent.length + '개');
+
   // ── 설계 카드 보기 ──
   const view = await page.evaluate(async () => {
     isoCardsOpen(0);
