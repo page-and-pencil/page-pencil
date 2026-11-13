@@ -49,7 +49,8 @@ function mkItem(i, over) {
     let b = {}; try { b = JSON.parse(r.request().postData() || '{}'); } catch (e) { }
     if (!b.model) return r.fulfill({ status: 400, contentType: 'application/json', body: '{}' });
     const txt = String(((b.messages || [])[0] || {}).content ? JSON.stringify(b.messages[0].content) : '');
-    const kind = /다시 풀기|처음 보는 눈으로/.test(txt) ? 'resolve' : 'make';
+    // 가름은 **만들기 틀에만 있는 머리말**로 한다 (카드 pilot 글에 '다시 풀기' 가 들어 있다)
+    const kind = /\[만드는 순서\]/.test(txt) ? 'make' : 'resolve';
     AI.calls.push({ kind, txt });
     let out;
     if (kind === 'make') {
@@ -74,6 +75,16 @@ function mkItem(i, over) {
         if (item && Array.isArray(item.choices) && want) {
           const k = item.choices.findIndex(c => String(c).trim() === String(want).trim());
           if (k >= 0) idx = k;
+        }
+        // m_order — 앱이 (A)(B)(C) 를 붙인 지문에서 '일어난 순서' 를 읽어 답한다
+        if (item && String(item.type) === 'm_order') {
+          const got = {}; const re = /\(([ABC])\)\s*([^\n]+)/g; let x;
+          while ((x = re.exec(String(item.passage || '')))) got[x[1]] = x[2].trim();
+          const src = (AI.items || []).find(y => String(y.stem || '') === String(item.stem || ''));
+          const seq = ((src || {}).chunks || []).map(c => ['A', 'B', 'C'].find(L => got[L] === String(c).trim()) || '?');
+          const key = '(' + seq.join(')-(') + ')';
+          const k2 = (item.choices || []).findIndex(c => String(c).replace(/\s/g, '') === key);
+          if (k2 >= 0) idx = k2;
         }
       } catch (e) { }
       const base = { answer: idx, confidence: 0.95, perChoice: [], alsoPossible: [], noAnswer: false, solvableWithoutText: { answer: null, by: '' }, solvableFromLastLineOnly: { answer: null, note: '' }, writtenAnswer: '', languageIssues: [], hardWords: [] };
@@ -659,7 +670,7 @@ function mkItem(i, over) {
   ok('[5카드] 설계 카드 보기에 칩으로 나온다 (오답 넷의 구성 아래)',
     stockUi.found && stockUi.afterMix && stockUi.chips === 26,
     '칩 ' + stockUi.chips + '개 · 첫 칩 "' + stockUi.first + '" · 말머리 첫 칩 "' + stockUi.opener + '"');
-  ok('[5카드] 카드 판이 v6', /review-20261114-pilot4-repo/.test(stockUi.ver), stockUi.ver.slice(0, 44));
+  ok('[7카드] 카드 판이 v7', /review-20261114-pilot5-repo/.test(stockUi.ver), stockUi.ver.slice(0, 44));
 
   // ══ fix/iso-cards-6 ═══════════════════════════════════════════════
   // ── [1] 정답을 보기 글로 받는다 ──
@@ -704,48 +715,49 @@ function mkItem(i, over) {
     ansChk.ok === true && ansChk.waits.some(w => /정답 보기 글을 보기에서 찾지 못했어요/.test(w)),
     '막기 ' + (ansChk.ok ? '아님' : '걸림') + ' · ' + (ansChk.waits.join(' · ')));
 
-  // ── [1] m_order ──
+  // ── [7-2] m_order — AI 는 덩이 셋만, (A)(B)(C) 는 앱이 ──
   const ISO_ORDER_SET_JOIN = '(A)-(C)-(B)|(B)-(A)-(C)|(B)-(C)-(A)|(C)-(A)-(B)|(C)-(B)-(A)';
-  const ordT = await page.evaluate(() => {
-    const SET = ISO_ORDER_SET.slice();
-    const run = o => { const it = Object.assign({ type: 'm_order', choices: SET.slice() }, o); isoApplyOrder(it); return it; };
-    const good = run({ correctOrder: 'B-C-A', answer: 0 });
-    const full = run({ correctOrder: 'B-C-A', choices: ['(A) － (C) － (B)', '(B) － (A) － (C)', '(B) － (C) － (A)', '(C) － (A) － (B)', '(C) － (B) － (A)'] });
-    const wrongSet = run({ correctOrder: 'C-A-B', choices: ['(A)-(B)-(C)', 'x', 'y', 'z', 'w'] });
-    const abc = run({ correctOrder: 'A-B-C' });
-    const none = run({ correctOrder: '' });
+  const CH3 = ['지호는 공원에서 친구를 만났다.', '두 사람은 벤치에 앉아 이야기했다.', '지호는 저녁에 집으로 돌아왔다.'];
+  const ordT = await page.evaluate(C3 => {
+    const mk = o => Object.assign({ type: 'm_order', passage: '지호는 아침 일찍 공원에 갔다.', chunks: C3.slice() }, o || {});
+    const run = (slot, o) => { const it = mk(o); isoApplyChunks(it, slot); return it; };
+    const pick = t => { const re = /\(([ABC])\)\s*([^\n]+)/g; const o = {}; let x; while ((x = re.exec(String(t || '')))) o[x[1]] = x[2].trim(); return o; };
+    const s3 = run(3), s1 = run(1);
     return {
-      good: { a: good.answer, set: (good.choices || []).join('|'), sw: !!good.orderSwapped },
-      full: { a: full.answer, set: (full.choices || []).join('|'), sw: !!full.orderSwapped },
-      wrongSet: { a: wrongSet.answer, sw: !!wrongSet.orderSwapped, set: (wrongSet.choices || []).join('|') },
-      abc: abc.orderBad || '', none: none.orderBad || '',
-      key: _isoOrderKey('(A) － (C) — (B)'),
+      a3: s3.answer, set3: (s3.choices || []).join('|'), made3: s3.orderMade || '',
+      map3: pick(s3.passage), lead3: String(s3.passage || '').split('\n')[0],
+      a1: s1.answer, map1: pick(s1.passage),
+      two: run(0, { chunks: C3.slice(0, 2) }).orderBad || '',
+      lab: run(0, { chunks: ['(A) 가', '나', '다'] }).orderBad || '',
+      letters: (isoOrderLetters(3) || []).join(''),
     };
-  });
-  ok('[6-1] correctOrder B-C-A → 정답 ③ · 보기는 카드 묶음',
-    ordT.good.a === 2 && ordT.good.set === ISO_ORDER_SET_JOIN && ordT.good.sw === false,
-    '정답 ' + (ordT.good.a + 1) + '번');
-  ok('[6-1] 전각 줄표·띄어쓰기로 와도 같게 본다',
-    ordT.full.a === 2 && ordT.full.sw === false && ordT.full.set === ISO_ORDER_SET_JOIN,
-    '줄표 정리 "' + ordT.key + '"');
-  ok('[6-1] 묶음이 다르면 앱 묶음으로 바꾸고 알린다',
-    ordT.wrongSet.a === 3 && ordT.wrongSet.sw === true && ordT.wrongSet.set === ISO_ORDER_SET_JOIN);
-  ok('[6-1] A-B-C 는 버린다', ordT.abc === '(A)-(B)-(C)' && ordT.none === '(없음)', ordT.abc + ' · ' + ordT.none);
+  }, CH3);
+  ok('[7-2] 자리 4 → 정답 ④ (C)-(A)-(B) · 보기는 카드 묶음',
+    ordT.a3 === 3 && ordT.made3 === '(C)-(A)-(B)' && ordT.set3 === ISO_ORDER_SET_JOIN && ordT.letters === 'CAB',
+    '정답 ' + (ordT.a3 + 1) + '번 · ' + ordT.made3);
+  ok('[7-2] 지문의 (A) 는 둘째 덩이 · (B) 는 셋째 · (C) 는 첫째',
+    ordT.map3.A === CH3[1] && ordT.map3.B === CH3[2] && ordT.map3.C === CH3[0],
+    '(A) ' + String(ordT.map3.A || '').slice(0, 14) + ' / (C) ' + String(ordT.map3.C || '').slice(0, 14));
+  ok('[7-2] 앞에 오는 글은 그대로 두고 그 아래 늘어놓는다', /공원에 갔다/.test(ordT.lead3), ordT.lead3.slice(0, 22));
+  ok('[7-2] 자리 2 → (B)-(A)-(C)',
+    ordT.a1 === 1 && ordT.map1.B === CH3[0] && ordT.map1.A === CH3[1] && ordT.map1.C === CH3[2]);
+  ok('[7-2] 덩이가 셋이 아니면 버린다', /덩이 2개/.test(ordT.two), ordT.two);
+  ok('[7-2] 덩이 안에 (A) 가 있으면 버린다', /덩이 안에/.test(ordT.lab), ordT.lab);
 
   const ordChk = await page.evaluate(() => {
     const card = isoCardOf('m_order');
     const it = { type: 'm_order', grade: '중2', stem: '다음 글의 내용에 따라 (A)~(C)를 일어난 순서대로 배열한 것은?',
       passage: '서두 (A) 가 (B) 나 (C) 다', script: '', choices: ISO_ORDER_SET.slice(), answer: 2,
-      distractors: [0, 1, 3, 4].map(k => ({ index: k, kind: '순열', why: 'x' })), orderBad: '(A)-(B)-(C)' };
+      distractors: [0, 1, 3, 4].map(k => ({ index: k, kind: '순열', why: 'x' })), orderBad: '덩이 2개' };
     const r = isoCheckItem(it, card, '중2', {});
-    const f = (r.list || []).find(c => c.name === '바른 차례') || {};
+    const f = (r.list || []).find(c => c.name === '덩이 셋') || {};
     const it2 = Object.assign({}, it, { orderBad: null, choices: ['(A) － (C) － (B)', '(B) － (A) － (C)', '(B) － (C) － (A)', '(C) － (A) － (B)', '(C) － (B) － (A)'] });
     const r2 = isoCheckItem(it2, card, '중2', {});
     const f2 = (r2.list || []).find(c => c.name === '보기 묶음') || {};
-    return { bad: f.ok === false && !r.ok, dash: f2.ok };
+    return { bad: f.ok === false && !r.ok, got: f.got || '', dash: f2.ok };
   });
-  ok('[6-1] A-B-C 는 막기로 걸린다', ordChk.bad === true);
-  ok('[6-1] 전각 줄표 보기 묶음은 더는 걸리지 않는다', ordChk.dash === true);
+  ok('[7-2] 덩이가 어긋나면 막기로 걸린다', ordChk.bad === true, ordChk.got);
+  ok('[7-2] 전각 줄표 보기 묶음은 걸리지 않는다', ordChk.dash === true);
 
   // ── [2] 굳은 틀은 세지 않는다 ──
   const copyT = await page.evaluate(() => {
@@ -838,6 +850,195 @@ function mkItem(i, over) {
     '중3 요청 → ' + fmtT.far);
   ok('[6-4] 그래서 남은 형식이 둘뿐이면 돌림을 만들지 않는다', fmtT.farPlan === null);
   ok('[6-4] 형식이 3개 미만이면 돌림을 만들지 않는다', fmtT.noPlan === null);
+
+  // ── [7-1] 카드가 피하라는 정답 자리는 요청하지 않는다 ──
+  const avoidT = await page.evaluate(() => {
+    const card = isoCardOf('l_not');
+    const five = isoAnswerSlots(5, [], card.slotAvoid || []);
+    const cnt = {}; five.forEach(v => cnt[v] = (cnt[v] || 0) + 1);
+    return {
+      avoid: (card.slotAvoid || []).slice(), why: String(card.slotWhy || ''),
+      five, has0: five.indexOf(0) >= 0, top: Math.max.apply(null, Object.keys(cnt).map(k => cnt[k])),
+      none: isoAnswerSlots(3, [], [0, 1, 2, 3, 4]),
+      plain: isoAnswerSlots(5, []).length,
+    };
+  });
+  ok('[7-1] l_not 카드에 slotAvoid·slotWhy 가 들어 있다',
+    avoidT.avoid.join(',') === '0' && avoidT.why.length > 10, '피할 자리 ' + avoidT.avoid.map(x => x + 1).join('·'));
+  ok('[7-1] 5문항을 시켜도 요청 자리에 ① 이 없다',
+    avoidT.has0 === false && avoidT.five.length === 5, avoidT.five.map(x => x + 1).join('·'));
+  ok('[7-1] 자리가 줄어도 한 자리에 몰지 않는다', avoidT.top <= 2, '가장 많은 자리 ' + avoidT.top + '번');
+  ok('[7-1] 다 피하라고 하면 다섯 자리를 그대로 쓴다', avoidT.none.length === 3 && avoidT.plain === 5);
+
+  const avoidView = await page.evaluate(async () => {
+    const i = ((ISO_CARDS || {}).cards || []).findIndex(c => c.type === 'l_not');
+    isoCardsOpen(i);
+    await new Promise(r => setTimeout(r, 400));
+    const t = (document.getElementById('isoc-body') || {}).textContent || '';
+    try { closeM('m-iso-cards'); } catch (e) { }
+    return { head: t.indexOf('정답 자리') >= 0, ask: t.indexOf('앱이 요청하지 않는 자리') >= 0, why: t.indexOf('131문항') >= 0 };
+  });
+  ok('[7-1] 설계 카드 보기의 정답 자리 칸에 왜 피하는지 한 줄',
+    avoidView.head && avoidView.ask && avoidView.why);
+
+  // ── [7-2] m_order 흐름 — 5문항의 정답 자리가 요청과 모두 같다 ──
+  const ORD_LEAD = ' woke up early on Saturday and packed a small backpack for the day. '
+    + 'She wanted to finish her science project before lunch, so she left the house at eight. '
+    + 'On the way she saw her friend near the park gate, and they talked about the photos they still needed. '
+    + 'Later they walked together to the library and borrowed three books about rivers and birds.';
+  const ORD_CH = ['그 아이는 가방을 메고 집을 나섰다.', '그 아이는 공원에서 친구를 만났다.', '두 사람은 함께 도서관으로 걸어갔다.'];
+  AI.calls = []; AI.right = {}; AI.resolve = null;
+  AI.items = ['Mina', 'Soyun', 'Haru', 'Nari', 'Jiho'].map((nm, i) => ({
+    type: 'm_order', grade: '중2',
+    stem: '다음 글의 내용에 따라 (A)~(C)를 일어난 순서대로 배열한 것은? (' + i + ')',
+    passage: nm + ORD_LEAD, script: '', chunks: ORD_CH.slice(),
+    answerText: '', explanation: '글에 적힌 차례대로 놓는다.', evidence: '', keyword: '', answerKind: '',
+    distractors: [], applied: [], selfCheck: { checksPassed: true, trapsFound: [] }, warnings: [],
+  }));
+  const ordRun = await page.evaluate(async () => {
+    _isoCfg.type = 'm_order'; _isoCfg.grade = '중2'; _isoCfg.n = 5; _isoCfg.passage = 'new'; _isoCfg.diff = 'same';
+    const realAsk = askConfirm; askConfirm = (t, m, l, c, cb) => cb();
+    _isoCardRun = null; isoCardGo();
+    for (let i = 0; i < 300 && (!_isoCardRun || !(_isoCardRun.items || []).length); i++) await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 500));
+    askConfirm = realAsk;
+    const run = _isoCardRun || {};
+    return {
+      slots: (run.slots || []).slice(), answers: (run.items || []).map(x => Number(x.answer)),
+      states: (run.items || []).map(x => x.state),
+      sets: (run.items || []).map(x => (x.choices || []).join('|')),
+      abc: (run.items || []).map(x => ['(A)', '(B)', '(C)'].map(k => String(x.passage || '').split(k).length - 1).join('')),
+      top: String(((document.querySelector('#iso-cardres .icr-top') || {}).textContent || '')).replace(/\s+/g, ' ').trim(),
+      soft: (run.items || []).map(x => (x.soft || []).join(' / ')),
+    };
+  });
+  ok('[7-2] 5문항의 정답 자리가 요청과 모두 같다',
+    ordRun.answers.length === 5 && ordRun.answers.join(',') === ordRun.slots.join(','),
+    '요청 ' + ordRun.slots.map(x => x + 1).join('·') + ' → 만든 것 ' + ordRun.answers.map(x => x + 1).join('·'));
+  ok('[7-2] 보기 묶음은 다섯 모두 카드의 고정 묶음', ordRun.sets.every(x => x === ISO_ORDER_SET_JOIN));
+  ok('[7-2] 지문에 (A)(B)(C) 가 각각 한 번', ordRun.abc.every(x => x === '111'), ordRun.abc.join(' '));
+  ok('[7-2] 다섯 모두 통과하고, 무엇을 짰는지 알린다',
+    ordRun.states.every(x => x === 'pass') && ordRun.soft.every(x => /\(A\)\(B\)\(C\) 를 붙여/.test(x)),
+    ordRun.states.join(','));
+  ok('[7-2] 머리줄에 정답 자리 분포가 보인다', /정답 자리/.test(ordRun.top) && /만든 것/.test(ordRun.top),
+    ordRun.top.slice(0, 110));
+
+  // ── [7-3] m_summary — 요약문이 빠지면 막기 · 발문 끝 형식 이름 떼기 ──
+  const sumT = await page.evaluate(() => {
+    const p = (isoCardOf('m_summary') || {}).stemPatterns || [];
+    return {
+      t1: isoStripFmtTail('다음 글을 읽고, 빈칸 (1)과 (2)에 적절한 말을 본문에서 찾아 각각 한 단어로 쓰시오. (요약문 두 칸)', p[0]),
+      t2: isoStripFmtTail('다음 글을 대화로 바꾸어 쓸 때, 빈칸에 알맞은 단어를 쓰시오. (대화로 바꿔 쓰기)', p[2]),
+      keep: isoStripFmtTail('다음 글을 읽고 빈칸에 알맞은 말을 쓰시오. (3점)', p[0]),
+      text: _isoFmtText(p[0]), names: _isoFmtNames(p[0]).join(' / '),
+    };
+  });
+  ok('[7-3] 발문 끝의 형식 이름 꼬리를 뗀다',
+    sumT.t1.cut === '요약문 두 칸' && !/[）)]\s*$/.test(sumT.t1.stem) && /\(1\)과 \(2\)/.test(sumT.t1.stem),
+    '뗀 것 「' + sumT.t1.cut + '」 · 남은 끝 "' + sumT.t1.stem.slice(-10) + '"');
+  ok('[7-3] 말이 조금 달라도 같은 형식이면 뗀다', sumT.t2.cut === '대화로 바꿔 쓰기', '뗀 것 「' + sumT.t2.cut + '」');
+  ok('[7-3] 형식 이름이 아닌 꼬리는 그대로 둔다', sumT.keep.cut === '' && /\(3점\)/.test(sumT.keep.stem));
+  ok('[7-3] FORMATS 에는 대괄호 머리·끝 괄호를 뺀 발문만 보낸다',
+    !/^\[/.test(sumT.text) && !/[）)]\s*$/.test(sumT.text) && /요약문 두 칸/.test(sumT.names),
+    sumT.text.slice(0, 44) + ' | 이름 ' + sumT.names.slice(0, 30));
+
+  const SUM_BODY = 'Bees visit many flowers every morning to find food for their young. '
+    + 'While they move from one flower to another, yellow pollen sticks to their legs and bodies. '
+    + 'The pollen travels with them and helps new fruits and seeds grow in gardens and farms. '
+    + 'Scientists say that people should protect bees because our food depends on this quiet work.';
+  const SUM_LINE = '\n\nIn short, bees carry ________ between flowers, so we must ________ them.';
+  const sumItem = over => Object.assign({
+    type: 'm_summary', grade: '중2',
+    stem: '다음 글을 읽고, 내용과 일치하도록 빈칸 (1)과 (2)에 적절한 말을 본문에서 찾아 각각 한 단어로 쓰시오. (요약문 두 칸)',
+    passage: SUM_BODY + SUM_LINE, script: '', choices: [], answer: -1,
+    answerText: '(1) pollen (2) protect', explanation: '요약문의 두 칸은 본문 낱말이다.',
+    evidence: '', keyword: '', answerKind: '', distractors: [],
+    applied: [], selfCheck: { checksPassed: true, trapsFound: [] }, warnings: [],
+  }, over || {});
+  const sumRun = async () => page.evaluate(async () => {
+    _isoCfg.type = 'm_summary'; _isoCfg.grade = '중2'; _isoCfg.n = 1; _isoCfg.passage = 'new'; _isoCfg.diff = 'same';
+    const realAsk = askConfirm; askConfirm = (t, m, l, c, cb) => cb();
+    _isoCardRun = null; isoCardGo();
+    for (let i = 0; i < 260 && (!_isoCardRun || !(_isoCardRun.items || []).length); i++) await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 400));
+    askConfirm = realAsk;
+    const it = ((_isoCardRun || {}).items || [])[0] || {};
+    const blank = ((it.checks || {}).list || []).find(c => c.name === '요약문 빈칸') || {};
+    return { state: it.state, stem: String(it.stem || ''), cut: it.stemTailCut || '',
+      why: (it.why || []).join(' · '), blank: { ok: blank.ok, got: blank.got || '', want: blank.want || '' } };
+  });
+  AI.calls = []; AI.right = {}; AI.resolve = [{ confidence: 0.95, alsoPossible: [] }];
+  AI.items = [sumItem()];
+  const sumGood = await sumRun();
+  const sumResolve1 = AI.calls.filter(c => c.kind === 'resolve').length;
+  ok('[7-3] 요약문 두 칸이 있으면 통과하고 발문 꼬리가 떨어진다',
+    sumGood.state === 'pass' && sumGood.cut === '요약문 두 칸' && !/[（(]요약문/.test(sumGood.stem) && sumResolve1 === 1,
+    '발문 "…' + sumGood.stem.slice(-14) + '" · 다시 풀기 ' + sumResolve1 + '회');
+  AI.calls = []; AI.right = {};
+  AI.items = [sumItem({ passage: SUM_BODY })];
+  const sumBad = await sumRun();
+  const sumResolve2 = AI.calls.filter(c => c.kind === 'resolve').length;
+  ok('[7-3] 요약문(빈칸)이 없으면 다시 풀기를 부르지 않고 버린다',
+    sumBad.state === 'drop' && /요약문 빈칸/.test(sumBad.why) && sumResolve2 === 0,
+    sumBad.blank.got + ' / 기준 ' + sumBad.blank.want + ' · 다시 풀기 ' + sumResolve2 + '회');
+
+  // ── [7-4] mix 만 어긴 문항은 그 보기를 고쳐 통과로 바꾼다 (AI 0회) ──
+  const BADK = ['2. 반대·부정 뒤집기', '3. 시점 어긋남',
+    '7. 장면 밖 말(굳은 인사말·맞장구)', '7. 장면 밖 말(그 밖의 일상 문장)'];
+  AI.calls = []; AI.right = {}; AI.resolve = [{ confidence: 0.95, alsoPossible: [] }];
+  AI.items = [mkItem(0, { answer: 0,
+    distractors: [1, 2, 3, 4].map((k, i) => ({ index: k, kind: BADK[i], why: '대화 내용과 어긋난다' })) })];
+  const fixA = await page.evaluate(async () => {
+    _isoCfg.type = 'l_long'; _isoCfg.grade = '중2'; _isoCfg.n = 1; _isoCfg.passage = 'new'; _isoCfg.diff = 'same';
+    const realAsk = askConfirm; askConfirm = (t, m, l, c, cb) => cb();
+    _isoCardRun = null; isoCardGo();
+    for (let i = 0; i < 260 && (!_isoCardRun || !(_isoCardRun.items || []).length); i++) await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 400));
+    askConfirm = realAsk;
+    const it = ((_isoCardRun || {}).items || [])[0] || {};
+    const html = (document.getElementById('iso-cardres') || {}).innerHTML || '';
+    return { state: it.state, mixOnly: !!it.waitMixOnly, why: (it.why || []).join(' · '),
+      bad: isoMixBad(it, (_isoCardRun || {}).card).map(b => b.index + ':' + b.cell),
+      line: /이 보기가 2번 칸 — 반대·부정 뒤집기/.test(html), btn: (html.match(/이 보기 고치기/g) || []).length,
+      sel: (html.match(/칸 바꾸기…/g) || []).length };
+  });
+  ok('[7-4] mix 만 어기면 확인 대기이고 걸린 보기를 짚는다',
+    fixA.state === 'wait' && fixA.mixOnly === true && fixA.bad.length === 2 && fixA.line && fixA.btn === 2 && fixA.sel === 2,
+    fixA.bad.join(' / ') + ' · ' + fixA.why);
+  const callsBeforeFix = AI.calls.length;
+  const fixB = await page.evaluate(async () => {
+    const it = ((_isoCardRun || {}).items || [])[0] || {};
+    isoFixChoice(it.id, 2);
+    await new Promise(r => setTimeout(r, 200));
+    const ae = document.activeElement || {};
+    return { cls: String(ae.className || ''), txt: String(ae.innerText || '').slice(0, 24),
+      list: !!document.querySelector('#iso-list .iso-ch .iso-ed') };
+  });
+  ok('[7-4] [이 보기 고치기] 가 고치기 창의 그 보기에 초점을 둔다',
+    /iso-ed/.test(fixB.cls) && fixB.list === true, '초점 "' + fixB.txt + '"');
+  const fixC = await page.evaluate(async () => {
+    const it = ((_isoCardRun || {}).items || [])[0] || {};
+    const b = isoMixBad(it, (_isoCardRun || {}).card)[0];
+    isoSetCell(it.id, b.index, '1. 화자·인물 혼동');
+    await new Promise(r => setTimeout(r, 200));
+    const html = (document.getElementById('iso-cardres') || {}).innerHTML || '';
+    return { state: it.state, mix: ((it.checks || {}).mix || {}).ok, line: ((it.checks || {}).mix || {}).line || '',
+      waits: ((it.checks || {}).waits || []).length, why: (it.why || []).length,
+      soft: (it.soft || []).join(' / '), btn: (html.match(/이 보기 고치기/g) || []).length,
+      add: /문항 문제 은행에 넣기/.test(html) };
+  });
+  ok('[7-4] 칸을 고치면 오답 구성을 다시 재고 통과로 바꾼다',
+    fixC.state === 'pass' && fixC.mix === true && fixC.waits === 0 && fixC.why === 0,
+    fixC.line + ' · ' + fixC.soft.slice(-28));
+  ok('[7-4] AI 는 부르지 않는다', AI.calls.length === callsBeforeFix, 'AI ' + AI.calls.length + '회 (고치기 전 ' + callsBeforeFix + '회)');
+  ok('[7-4] 통과로 바뀌면 걸린 표시가 사라지고 넣기 단추가 생긴다', fixC.btn === 0 && fixC.add === true);
+  const fixD = await page.evaluate(async () => {
+    const it = ((_isoCardRun || {}).items || [])[0] || {};
+    isoSetCell(it.id, 1, '2. 반대·부정 뒤집기');     // 고친 자리를 되돌리면 다시 어긋난다
+    await new Promise(r => setTimeout(r, 150));
+    return { state: it.state, mixOnly: !!it.waitMixOnly };
+  });
+  ok('[7-4] 다시 어긋나면 확인 대기로 되돌린다', fixD.state === 'wait' && fixD.mixOnly === true);
 
   // ── [6] 문제 은행 목록 ──
   const ibT = await page.evaluate(() => {

@@ -3665,3 +3665,10 @@ span.pe-c{width:30px;flex-shrink:0;text-align:center;}
 .ib-tags{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0 2px;}
 .ib-tag{font-size:11px;padding:2px 7px;border-radius:var(--rpill);
   background:var(--surface);color:var(--slate);border:1px solid var(--border);}
+
+/* 동형 결과 — 오답 구성에 걸린 보기 고치기 */
+.icr-fix{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:3px 0 5px;
+  font-size:11.5px;color:var(--warnt);}
+.icr-fix i{display:block;font-style:normal;color:var(--text-muted);}
+.icr-fix select{font-size:11.5px;padding:2px 4px;border:1px solid var(--border);
+  border-radius:8px;background:var(--surface);color:var(--navy);max-width:200px;}
