@@ -50,6 +50,32 @@ function serve(route) {
   });
 }
 
+// 글자와 바탕의 대비 (WCAG) — 4.5 아래면 읽히지 않는다
+const CONTRAST_FN = () => {
+  window.__ppLum = c => {
+    const n = String(c || '').match(/[\d.]+/g) || [0, 0, 0];
+    const [r, g, b] = n.slice(0, 3).map(Number).map(v => v / 255)
+      .map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  window.__ppBg = el => {
+    let n = el;
+    while (n && n.nodeType === 1) {
+      const c = getComputedStyle(n).backgroundColor;
+      if (c && !/rgba\(0,\s*0,\s*0,\s*0\)|transparent/.test(c)) return c;
+      n = n.parentElement;
+    }
+    return 'rgb(255, 255, 255)';
+  };
+  window.__ppRatio = sel => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    const a = window.__ppLum(getComputedStyle(el).color), b = window.__ppLum(window.__ppBg(el));
+    const hi = Math.max(a, b), lo = Math.min(a, b);
+    return Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100;
+  };
+};
+
 async function makePage(browser, opts) {
   const o = opts || {};
   const ctx = await browser.newContext({ viewport: o.vp || { width: 1440, height: 950 }, locale: 'ko-KR' });
@@ -163,6 +189,30 @@ async function seedSnap(page, role, sid) {
         try { closeM('m-confirm'); } catch (e) { }
         return { dis: !!(btn && btn.disabled), note, ran };
       });
+      // 띠·안내 줄의 글자와 바탕 대비 (320px 에서 두 줄이 되어도 같다)
+      const con = await page.evaluate(async fn => {
+        eval('(' + fn + ')()');
+        askConfirm('수업 기록 삭제', '이 수업 기록을 삭제할까요?', '삭제', 'bd', () => { });
+        await new Promise(r => setTimeout(r, 300));
+        const bar = document.querySelector('.screen.active .pp-limit-bar');
+        return { bar: window.__ppRatio('.screen.active .pp-limit-bar'), note: window.__ppRatio('#m-confirm .pp-limit-note'),
+          lines: bar ? Math.round(bar.getBoundingClientRect().height) : 0 };
+      }, CONTRAST_FN.toString());
+      await page.setViewportSize({ width: 320, height: 760 });
+      await wait(400);
+      const con320 = await page.evaluate(() => {
+        const bar = document.querySelector('.screen.active .pp-limit-bar');
+        return { bar: window.__ppRatio('.screen.active .pp-limit-bar'),
+          h: bar ? Math.round(bar.getBoundingClientRect().height) : 0,
+          cut: bar ? (bar.scrollHeight - bar.clientHeight) : -1 };
+      });
+      await page.setViewportSize({ width: 1440, height: 950 });
+      await page.evaluate(() => { try { closeM('m-confirm'); } catch (e) { } });
+      ok('[4] 띠·안내 줄의 글자와 바탕 대비가 4.5 이상',
+        con.bar >= 4.5 && con.note >= 4.5 && con320.bar >= 4.5,
+        '띠 ' + con.bar + ':1 · 안내 줄 ' + con.note + ':1 · 320px 띠 ' + con320.bar + ':1');
+      ok('[4] 320px 에서 두 줄이 되어도 잘리지 않는다', con320.cut <= 0 && con320.h >= 30,
+        '높이 ' + con320.h + 'px · 잘림 ' + con320.cut + 'px');
       ok('[3] 삭제 확인 창의 [삭제] 가 꺼지고 한 줄이 뜬다',
         cf.dis === true && /저장되지 않아요/.test(cf.note) && cf.ran === false, '"' + cf.note.slice(0, 28) + '"');
     }
@@ -195,6 +245,14 @@ async function seedSnap(page, role, sid) {
       stus: (_cache.students || []).length,
       empty: document.body.innerText.indexOf('자료가 없습니다') >= 0,
     }));
+    const conS = await page.evaluate(fn => {
+      eval('(' + fn + ')()');
+      return { t: window.__ppRatio('#pp-limit-screen .pp-limit-t'), s: window.__ppRatio('#pp-limit-screen .pp-limit-s'),
+        s2: window.__ppRatio('#pp-limit-screen .pp-limit-s2') };
+    }, CONTRAST_FN.toString());
+    ok('[4] 안내 화면의 글자 대비도 4.5 이상',
+      conS.t >= 4.5 && conS.s >= 4.5 && conS.s2 >= 4.5,
+      '제목 ' + conS.t + ':1 · 본문 ' + conS.s + ':1 · 아래줄 ' + conS.s2 + ':1');
     ok('[2] 스냅샷이 없으면 안내 한 화면만 보인다',
       st.limScreen === true && st.stus === 0 && st.empty === false, '"' + st.txt.replace(/\s+/g, ' ').slice(0, 40) + '"');
     await ctx.close();
