@@ -3660,3 +3660,8 @@ span.pe-c{width:30px;flex-shrink:0;text-align:center;}
 .isoc-chip{display:inline-block;font-size:12px;padding:3px 9px;border-radius:var(--rpill);
   background:var(--surface);color:var(--slate);border:1px solid var(--border);white-space:nowrap;}
 .isoc-chip2{background:var(--tl);color:var(--teal);border-color:var(--teal);}
+
+/* 문제 은행 카드 — 꼬리 칩 */
+.ib-tags{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0 2px;}
+.ib-tag{font-size:11px;padding:2px 7px;border-radius:var(--rpill);
+  background:var(--surface);color:var(--slate);border:1px solid var(--border);}
