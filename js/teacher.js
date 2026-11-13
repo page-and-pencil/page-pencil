@@ -23,6 +23,7 @@ async function checkPw(inputId='pw-in',errId='pw-err'){
   const v=(inEl?.value||'').trim();
   // ① 서버 로그인(Supabase Auth) 먼저 — 계정이 아직 없거나 비밀번호가 다르면 null 이 온다.
   //    그때는 지금까지 쓰던 settings.pw 비교로 폴백한다 (병행 기간, AUTH_PLAN 5-2단계).
+  if(typeof ppLimited==='function'&&ppLimited()&&!DB.pw()){ppLimitScreen();return;}   // 서버도 기기도 대조할 것이 없다
   if(v&&typeof ppLoginTeacher==='function'){
     const t=await ppLoginTeacher(PP_TEACHER_EMAIL,v);
     if(t){
@@ -369,7 +370,11 @@ function swTab(id){
   if(id==='t-tbooks')renderTbookTable();
   if(id==='t-data')switchDataTab(_dataTab||'tbook');
   if(id==='t-stu')setTimeout(autoSelectFirstStu,0);
-  if(id==='t-worksheet'){const f=document.getElementById('ws-frame');if(f&&!f.getAttribute('src'))f.setAttribute('src','studio/index.html');}
+  if(id==='t-worksheet'){
+    // 워크시트 스튜디오는 AI 를 부른다 — 제한 중에는 열지 않는다
+    if(typeof ppLimited==='function'&&ppLimited()){toast(ppLimitAiMsg());return;}
+    const f=document.getElementById('ws-frame');if(f&&!f.getAttribute('src'))f.setAttribute('src','studio/index.html');
+  }
   if(id==='t-cfg'){
     if(typeof renderThresholdSettings==='function')renderThresholdSettings();
     const c=DB.cld();document.getElementById('cfg-cld-name').value=c.name||'';document.getElementById('cfg-cld-preset').value=c.preset||'';
@@ -3111,6 +3116,7 @@ function _resetRubric(){
 }
 // ── LESSONS ──
 async function saveLes(){
+  if(typeof ppBlockWrite==='function'&&ppBlockWrite())return;   // 서버 제한 중 — 화면·캐시도 바꾸지 않는다
   if(_saving['saveLes'])return; _saving['saveLes']=true;
   try{
   const sid=document.getElementById('ls-stu').value;if(!sid){toast('학생을 선택해 주세요');return;}
@@ -3143,7 +3149,10 @@ async function saveLes(){
   const _sStuGrade=(_sStu&&(_sStu.grade||_sStu.lv))||'';
   const _rubric=getRubricData();
   const newLes={id:uid(),sid,date:document.getElementById('ls-date').value,grade:_sStuGrade,att:document.getElementById('ls-att').value,materials:mats,cmt:rawCmt,polishedCmt,stuCmt,...(_rubric?{rubric:_rubric}:{})};
-  await supaUpsert('lessons',newLes.id,newLes,sid);
+  let _lesOk=false;
+  try{ _lesOk=await supaUpsert('lessons',newLes.id,newLes,sid); }catch(e){ _lesOk=false; }
+  // 서버 제한 중이면 저장되지 않았다 — 화면도 _cache 도 바꾸지 않는다
+  if(_lesOk===false&&typeof ppLimited==='function'&&ppLimited()){try{toast(ppLimitSaveMsg());}catch(e2){}return;}
   _cache.lessons.unshift(newLes);
   (async()=>{
     await addUnitWordsToVocab(sid,newLes.materials,newLes.date).catch(e=>console.error('vocab sync:',e));
@@ -6964,6 +6973,7 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-14',title:'서버가 막혀도 기기에 남은 자료를 볼 수 있어요 — 저장은 풀린 뒤에',where:'모든 화면',tab:'t-dash',go:['swTab','t-dash']},
  {date:'2026-11-14',title:'동형 문제 — 오답 구성에 걸린 보기를 그 자리에서 고쳐 통과로 바꿉니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'동형 문제 — 정답을 보기 글로 받아 번호 어긋남을 바로잡습니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'문제 은행 — AI 가 만든 문항에 「설계 카드로 만듦」 꼬리표와 거르기',where:'교재·문제 → 문제 은행',tab:'t-data',go:['switchDataTab','ib']},

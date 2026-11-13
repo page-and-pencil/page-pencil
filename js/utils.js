@@ -2349,6 +2349,8 @@ function show(id){
     const el=document.getElementById(id);
     if(el)el.classList.add('active');
     window.scrollTo(0,0);
+    // 서버 제한 중이면 역할 화면 맨 위에 띠를 둔다 (닫을 수 없다)
+    try{ if(typeof ppLimitPaint==='function')ppLimitPaint(); }catch(e){}
   };
   const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   // 탭이 백그라운드면 브라우저가 전환을 중단시킨다
@@ -2491,6 +2493,8 @@ async function landStudentSubmit(){
     }
     setErr('');
   }
+  // 서버 제한(한도 초과)이면 폴백도 자료를 받아야 하므로 안내 한 화면만 보인다
+  if(typeof ppLimited==='function'&&ppLimited()){ppLimitScreen();setErr('');return;}
   // ② 폴백 — 지금까지의 방식 (브라우저에서 대조)
   if(typeof PP_AUTH_FALLBACK!=='undefined'&&PP_AUTH_FALLBACK===false){
     setErr('로그인 서버에 연결하지 못했어요. 잠시 뒤 다시 해 볼까요?');return;
@@ -2536,7 +2540,36 @@ function startConsult(){
 
 // ── UTILS ──
 function escU(u){return(u||'').replace(/'/g,"\\'");}
-function openM(id){const m=document.getElementById(id);if(m){m.style.removeProperty('display');m.classList.add('open');m.style.zIndex='9999';}}
+function openM(id){const m=document.getElementById(id);if(m){m.style.removeProperty('display');m.classList.add('open');m.style.zIndex='9999';ppLimitModal(m);}}
+// 서버 제한 중에는 창 맨 위에 한 줄을 띄우고 [저장] 류 단추를 꺼 둔다 (입력은 그대로 할 수 있다)
+const PP_LIMIT_SAVE_RE=/저장|등록|추가|삭제|보내기|할당|배정|내보내기|올리기|복원/;
+// 창 밖(탭 화면)에 있는 저장 단추들 — 이름으로 정확히 집는다
+const PP_LIMIT_SAVE_FN=/^(saveLes|saveTst|saveRd|saveLog|saveEditLog|saveClass|saveClassLesson|saveCounsel|saveExam|saveModalAssignment|saveNeltResult|saveQuickPay|saveQuickTbook|saveTbook|saveAcct|saveApiKey|saveCld|saveElevenCfg|saveKakaoContact|saveThresholds|saveAndSendReport|saveReportDraftOnly)\s*\(/;
+function ppLimitModal(m){
+  if(!m)return;
+  const on=(typeof ppLimited==='function')&&ppLimited();
+  // 안내 줄은 겉의 덮개가 아니라 **창 상자 안** 맨 위에 넣는다
+  const body=m.querySelector('.mdl')||m.firstElementChild||m;
+  let note=body.querySelector(':scope > .pp-limit-note');
+  if(on){
+    if(!note){
+      note=document.createElement('div');
+      note.className='pp-limit-note';
+      note.textContent=(typeof ppLimitSaveMsg==='function')?ppLimitSaveMsg():'서버 점검 중이라 저장되지 않아요';
+      body.insertBefore(note,body.firstChild);
+    }
+    m.querySelectorAll('button').forEach(b=>{
+      const t=(b.textContent||'').trim();
+      if(!PP_LIMIT_SAVE_RE.test(t))return;
+      if(b.disabled&&!b.dataset.ppLimOff)return;        // 원래 꺼져 있던 단추는 그대로 둔다
+      b.dataset.ppLimOff='1';b.disabled=true;
+      b.title=(typeof ppLimitSaveMsg==='function')?ppLimitSaveMsg():'';
+    });
+  }else{
+    if(note)note.remove();
+    m.querySelectorAll('button[data-pp-lim-off]').forEach(b=>{delete b.dataset.ppLimOff;b.disabled=false;b.title='';});
+  }
+}
 function closeM(id){
   if(id==='m-unit-read'&&typeof ppSongDestroy==='function')ppSongDestroy();   // 노래 플레이어 정리
   const m=document.getElementById(id);
