@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 // 시험지 다듬기 확인 — 배점·쪽 번호(PDF)·인쇄 단추 자리·장문 묶음·복제/기기 삭제
 const path = require('path');
 const fs = require('fs');
@@ -125,7 +126,7 @@ function pdfStreams(buf) {
 
   // PDF 로 뽑아 쪽 번호가 실제로 찍히는지 본다
   const p2 = await ctx.newPage();
-  await p2.goto('file:///' + (SCR + '/polish_suneung.html').replace(/\\/g, '/'));
+  await p2.goto(fileUrl(SCR + '/polish_suneung.html'));
   await wait(600);
   const pdfPath = SCR + '/polish_suneung.pdf';
   await p2.pdf({ path: pdfPath, preferCSSPageSize: true, printBackground: true });
@@ -133,7 +134,7 @@ function pdfStreams(buf) {
   const ctrlPath = SCR + '/polish_ctrl.html';
   fs.writeFileSync(ctrlPath, html.replace(/@bottom-center\{[^}]*\}/, ''), 'utf8');
   const p3 = await ctx.newPage();
-  await p3.goto('file:///' + ctrlPath.replace(/\\/g, '/'));
+  await p3.goto(fileUrl(ctrlPath));
   await wait(400);
   await p3.pdf({ path: SCR + '/polish_ctrl.pdf', preferCSSPageSize: true, printBackground: true });
   const rawOn = fs.readFileSync(pdfPath), rawOff = fs.readFileSync(SCR + '/polish_ctrl.pdf');
@@ -181,7 +182,7 @@ function pdfStreams(buf) {
   // ── 3) 화면용 [인쇄] 단추가 머리말을 가리지 않는다 ─────────────────
   const p5 = await ctx.newPage();
   await p5.setViewportSize({ width: 900, height: 1100 });
-  await p5.goto('file:///' + (SCR + '/polish_suneung.html').replace(/\\/g, '/'));
+  await p5.goto(fileUrl(SCR + '/polish_suneung.html'));
   await wait(400);
   const hit = await p5.evaluate(() => {
     const b = document.querySelector('.noprint').getBoundingClientRect();

@@ -5,12 +5,12 @@ const fs = require('fs');
 const ROOT = require('path').resolve(__dirname, '..');
 const SCR = (process.env.PP_TEST_OUT || require('os').tmpdir());
 const { chromium } = require(path.join(ROOT, 'node_modules', 'playwright'));
-const CAT = (process.env.PP_EXAM_CATALOG || '');
+const { examCatalog, catalogPath, isFake } = require('./_catalog');
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const pass = [], fail = [];
 const ok = (n, c, note) => (c ? pass : fail).push(n + (note ? ' — ' + note : ''));
 
-const all = JSON.parse(fs.readFileSync(CAT, 'utf8'));
+const all = examCatalog();                    // 없으면 tests/fixtures 의 가짜 30줄
 const now = new Date().toISOString();
 const DB = new Map(all.map(r => [r.id, { id: r.id, data: r.data, updated_at: now }]));
 const META = ['cat', 'title', 'path', 'note', 'level', 'grade', 'term', 'school', 'region', 'city', 'series', 'year', 'month', 'round'];

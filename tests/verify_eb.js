@@ -5,7 +5,7 @@ const fs = require('fs');
 const ROOT = require('path').resolve(__dirname, '..');
 const SCR = (process.env.PP_TEST_OUT || require('os').tmpdir());
 const { chromium } = require(path.join(ROOT, 'node_modules', 'playwright'));
-const CAT = (process.env.PP_EXAM_CATALOG || '');
+const { examCatalog, catalogPath, isFake } = require('./_catalog');
 const wait = ms => new Promise(r => setTimeout(r, ms));
 let pass = 0, fail = 0;
 function say(ok, what, detail) {
@@ -14,7 +14,7 @@ function say(ok, what, detail) {
 }
 
 // ── 표본 30행 (듣기 있는 것·학교 정기고사·EBS 링크가 섞이도록 고른다)
-const all = JSON.parse(fs.readFileSync(CAT, 'utf8'));
+const all = examCatalog();                    // 없으면 tests/fixtures 의 가짜 30줄
 const pick = [];
 const want = [
   r => (r.data.audio && (r.data.audio.files || []).length > 5),       // 드라이브 mp3 많은 것

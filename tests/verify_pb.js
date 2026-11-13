@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 // 시험지 만들기 + 문제 은행 보완 — 전부 가짜 서버. AI 는 부르지 않는다.
 const path = require('path');
 const fs = require('fs');
@@ -211,7 +212,7 @@ seed.push(mk('keep1', { id: 'keep1', stem: '원문 지문 문항', src: { kind: 
     const p2 = await ctx.newPage();
     await p2.emulateMedia({ media: 'print' });
     await p2.setViewportSize({ width: 820, height: 1160 });
-    await p2.goto('file:///' + f.replace(/\\/g, '/'));
+    await p2.goto(fileUrl(f));
     await wait(500);
     await p2.screenshot({ path: SCR + '/pb_print_' + FMT[i][0] + '.png' });
     await p2.close();

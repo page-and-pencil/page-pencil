@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 // 실제로 '칠해진' 파랑·남색·보라만 찾는다 — 계산된 스타일 기준. 소스에 남아 있어도 덮여 있으면 제외.
 // 동시에 초록 배경 위 글자 대비를 재서 4.5:1 미만을 보고한다. 실DB 쓰기 차단.
 const path = require('path');
@@ -54,7 +55,7 @@ const SCAN = () => {
   const srows = await (await fetch(U + '/rest/v1/students?select=*&limit=20', { headers: { apikey: K, Authorization: 'Bearer ' + K } })).json();
   const stu = srows.map(r => ({ id: r.id, ...(r.data || {}) })).filter(s => !s.inactive && !s._deleted)[0];
   const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--mute-audio'] });
-  const BASE = 'file:///' + encodeURI(ROOT + '/index.html');
+  const BASE = pageUrl();
   const allBlues = [], allLow = [];
   for (const [role, label] of [[null, '진입 화면'], ['teacher', '선생님 대시보드'], ['student', '학생 화면'], ['parent', '학부모 화면']]) {
     for (const w of [320, 390, 1440]) {

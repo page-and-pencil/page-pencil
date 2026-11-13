@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 // 학습 목표 제거 · 학습 방향 유지 확인. 실DB 쓰기 차단.
 const path=require('path'),fs=require('fs');
 const ROOT=require('path').resolve(__dirname, '..');
@@ -19,7 +20,7 @@ let fails=0;const say=(p,l,e)=>{if(!p)fails++;console.log((p?'OK  ':'FAIL')+' '+
     p.on('console',m=>{if(m.type()==='error')errs.push(role+' console: '+m.text().slice(0,120));});
     p.on('request',r=>{if(/learning_goals/.test(r.url()))reqs.push(role);});
     await p.route('**/rest/v1/**',r=>{const m=r.request().method();return (m==='GET'||m==='HEAD')?r.continue():r.fulfill({status:200,body:'[]'});});
-    await p.goto('file:///'+encodeURI(ROOT+'/index.html'),{waitUntil:'domcontentloaded',timeout:90000});
+    await p.goto(pageUrl(),{waitUntil:'domcontentloaded',timeout:90000});
     await p.waitForFunction(()=>{try{return (_cache.students||[]).length>0;}catch(e){return false;}},null,{timeout:90000});
     await p.waitForTimeout(4500);
     const r=await p.evaluate(async(o)=>{

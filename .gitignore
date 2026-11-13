@@ -4,3 +4,6 @@ VAPID_KEYS_LOCAL.txt
 SUPABASE_TOKEN_LOCAL.txt
 design_shots/
 node_modules/
+
+# 검사가 남긴 그림 (저장소에 넣지 않는다 — 찌끼는 PP_TEST_OUT 아래로)
+tests/shots/

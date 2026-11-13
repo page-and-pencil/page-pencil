@@ -1,4 +1,5 @@
-require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+require('./_guard_assert');
+const { fakeTables } = require('./_fake');                 // 막음 장치 없이는 돌지 않는다
 // 동형 문제 — 화면·흐름 확인 (AI 는 가짜 응답으로, 저장도 가짜로 — 진짜 돈·DB를 쓰지 않는다)
 const path = require('path');
 const ROOT = require('path').resolve(__dirname, '..');
@@ -57,11 +58,9 @@ const mkItems = (n, essay) => Array.from({ length: n }, (_, i) => essay ? ({
       body: JSON.stringify({ content: [{ type: 'text', text: out }], usage: { input_tokens: 1234, output_tokens: 2345 } })
     });
   });
-  await page.route('**/rest/v1/worksheets**', async r => {
-    const m = r.request().method();
-    if (m === 'POST') { try { saved = JSON.parse(r.request().postData() || '{}'); } catch (e) { } return r.fulfill({ status: 201, body: '' }); }
-    if (m === 'DELETE') return r.fulfill({ status: 204, body: '' });
-    return r.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  // 쓰는 표는 **모두** 가짜로 끼운다 — worksheets 만 끼웠다가 item_bank 가 실제 서버로 나간 적이 있다
+  const fake = await fakeTables(page, ['worksheets', 'item_bank', 'item_bank_index'], {
+    on: (table, m, body) => { if (table === 'worksheets' && m === 'POST') saved = body; },
   });
   const errs = [];
   page.on('console', m => { if (m.type() === 'error') errs.push(m.text().slice(0, 160)); });
@@ -202,7 +201,8 @@ const mkItems = (n, essay) => Array.from({ length: n }, (_, i) => essay ? ({
   ok('⑮ 넘침 0 (1440·390·320)', o1440 === 0 && o390 === 0 && o320 === 0, [o1440, o390, o320].join(' / '));
 
   const skip = /youtube|ytimg|google|doubleclick|gstatic|compute-pressure|not attached|dictionaryapi|lrclib|favicon|usercontent/i;
-  const mine = errs.filter(e => !skip.test(e) && e.indexOf('400') < 0);
+  // 실제 서버가 가끔 500 을 돌려준다(읽기) — 망 쪽 실패는 앱 오류로 세지 않는다
+  const mine = errs.filter(e => !skip.test(e) && e.indexOf('400') < 0 && !/Failed to load resource/.test(e));
   ok('⑯ 콘솔 오류 0', mine.length === 0, mine.slice(0, 3).join(' | ') || '0');
 
   console.log('\n통과 ' + pass.length + ' / 실패 ' + fail.length);

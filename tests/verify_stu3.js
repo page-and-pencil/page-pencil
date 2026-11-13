@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 // 조건 3 — 스냅샷 부팅 뒤에도 학생 단어장 3단계와 원서 듣기 본문이 온전한지.
 // 같은 항목을 '전체 로드 부팅' 과 '스냅샷 부팅' 에서 재서 비교한다. 실DB 쓰기 차단.
 const path = require('path');
@@ -26,7 +27,7 @@ const say = (p, l, e) => { if (!p) fails++; console.log((p ? 'OK  ' : 'FAIL') + 
     const m = r.request().method();
     return (m === 'GET' || m === 'HEAD') ? r.continue() : r.fulfill({ status: 200, body: '[]' });
   });
-  const BASE = 'file:///' + encodeURI(ROOT + '/index.html');
+  const BASE = pageUrl();
   await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 90000 });
   await page.evaluate(s => localStorage.setItem('pp_session', JSON.stringify({ role: 'student', sid: s })), sid);
 

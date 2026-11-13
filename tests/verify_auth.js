@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 // B-2 병행 로그인 검증. 실DB 쓰기 전부 차단. login 함수는 가짜로 응답한다.
 const path = require('path');
 const fs = require('fs');
@@ -60,7 +61,7 @@ const say = (p, l, e) => { if (!p) fails++; console.log((p ? 'OK  ' : 'FAIL') + 
 
   global.__sid = stu.id; global.__name = stu.name;
   await page.addInitScript(() => { try { localStorage.setItem('pp_session', JSON.stringify({ role: 'teacher' })); } catch (e) { } });
-  await page.goto('file:///' + encodeURI(ROOT + '/index.html'), { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await page.goto(pageUrl(), { waitUntil: 'domcontentloaded', timeout: 90000 });
   await page.waitForFunction(() => { try { return (_cache.students || []).length > 0; } catch (e) { return false; } }, null, { timeout: 90000 });
   await page.waitForTimeout(4500);
 

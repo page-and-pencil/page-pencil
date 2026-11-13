@@ -1,7 +1,7 @@
-require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+require('../_guard_assert');                 // 막음 장치 없이는 돌지 않는다
 // P5 복습 게임 검증. 더미 학생(p1dummy0001)만 건드린다.
 const path = require('path'), fs = require('fs');
-const ROOT = require('path').resolve(__dirname, '..');
+const ROOT = require('path').resolve(__dirname, '..', '..');
 const { chromium } = require(path.join(ROOT, 'node_modules', 'playwright'));
 const SID = 'p1dummy0001';
 const dbs = fs.readFileSync(ROOT + '/js/db.js', 'utf8');

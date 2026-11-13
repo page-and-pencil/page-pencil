@@ -1,7 +1,7 @@
-require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+require('../_guard_assert');                 // 막음 장치 없이는 돌지 않는다
 // feat/song-player 확인 — 선생님 화면에서 노래 모드. 가사 글자는 찍지 않는다(줄 수만).
 const path = require('path'), fs = require('fs');
-const ROOT = require('path').resolve(__dirname, '..');
+const ROOT = require('path').resolve(__dirname, '..', '..');
 const SP = ((process.env.PP_TEST_OUT || require('os').tmpdir()) + '/');
 const { chromium } = require(path.join(ROOT, 'node_modules', 'playwright'));
 const REAL_TB = 'singtogetherc096ob', DUMMY_TB = 'songdummy001', UNIT = 'Sing';

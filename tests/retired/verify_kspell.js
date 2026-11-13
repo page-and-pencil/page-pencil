@@ -1,7 +1,7 @@
-require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+require('../_guard_assert');                 // 막음 장치 없이는 돌지 않는다
 // P2 뜻 쓰기(kspell) 검증. 더미 학생만.
 const path = require('path'), fs = require('fs');
-const ROOT = require('path').resolve(__dirname, '..');
+const ROOT = require('path').resolve(__dirname, '..', '..');
 const { chromium } = require(path.join(ROOT, 'node_modules', 'playwright'));
 const SID = 'p1dummy0001';
 let fails = 0;

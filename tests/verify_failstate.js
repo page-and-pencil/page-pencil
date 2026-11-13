@@ -1,4 +1,5 @@
-require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+require('./_guard_assert');
+const { fakeTables } = require('./_fake');                 // 막음 장치 없이는 돌지 않는다
 // 저장 실패 상태 — '저장 실패 · 다시 저장' 이 뜨고, 눌러서 다시 저장하면 되살아난다
 const path = require('path');
 const ROOT = require('path').resolve(__dirname, '..');
@@ -13,10 +14,13 @@ const ok = (n, c, note) => (c ? pass : fail).push(n + (note ? ' — ' + note : '
   await ctx.addInitScript(() => { try { localStorage.setItem('pp_session', JSON.stringify({ role: 'teacher' })); } catch (e) { } });
   const page = await ctx.newPage();
   let mode = 'fail', posts = 0;
-  await page.route('**/rest/v1/worksheets**', r => {
-    if (r.request().method() !== 'POST') return r.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    posts++;
-    return mode === 'fail' ? r.fulfill({ status: 500, body: '{"message":"boom"}' }) : r.fulfill({ status: 201, body: '' });
+  // 쓰는 표는 **모두** 가짜로 (item_bank 까지) — 저장 실패를 흉내 내는 것은 worksheets 뿐이다
+  const fake = await fakeTables(page, ['worksheets', 'item_bank', 'item_bank_index'], {
+    on: (table, m, body, r) => {
+      if (table !== 'worksheets' || m !== 'POST') return null;
+      posts++;
+      return mode === 'fail' ? r.fulfill({ status: 500, body: '{"message":"boom"}' }) : null;
+    },
   });
   await page.goto('http://localhost:5500/index.html', { waitUntil: 'domcontentloaded', timeout: 90000 });
   await page.waitForFunction(() => { try { return (_cache.students || []).length > 0; } catch (e) { return false; } }, null, { timeout: 150000 });
@@ -42,7 +46,8 @@ const ok = (n, c, note) => (c ? pass : fail).push(n + (note ? ' — ' + note : '
   await page.evaluate(() => document.getElementById('iso-stat').click());
   await wait(1200);
   const s2 = await page.evaluate(() => document.getElementById('iso-stat').textContent);
-  ok('③ 눌러서 다시 저장하면 저장됨', /^저장됨 \d\d:\d\d$/.test(s2) && posts >= 2, '"' + s2 + '"');
+  // 저장됨 뒤에 '· 은행 n문항' 이 붙게 바뀌었다 (앱 쪽 변화)
+  ok('③ 눌러서 다시 저장하면 저장됨', /^저장됨 \d\d:\d\d( · .+)?$/.test(s2) && posts >= 2, '"' + s2 + '"');
 
   console.log('\nPOST ' + posts + '회(전부 가짜)');
   console.log('통과 ' + pass.length + ' / 실패 ' + fail.length);

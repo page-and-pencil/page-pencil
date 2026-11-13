@@ -1,8 +1,8 @@
-require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+require('../_guard_assert');                 // 막음 장치 없이는 돌지 않는다
 // 단어 탭 외부 호출 검증. 실데이터 저장 0. 외부 요청은 전부 가로채서 센다.
 // node verify_meta.js before|after   (before = main 코드, after = 이 브랜치)
 const path = require('path'), fs = require('fs');
-const ROOT = require('path').resolve(__dirname, '..');
+const ROOT = require('path').resolve(__dirname, '..', '..');
 const { chromium } = require(path.join(ROOT, 'node_modules', 'playwright'));
 const SP = ((process.env.PP_TEST_OUT || require('os').tmpdir()) + '/');
 const D = require(SP + 'meta_dummy.js');

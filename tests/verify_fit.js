@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 // 이번에 바꾼 UI 네 곳의 가로 넘침 측정 (320 / 390 / 1440). 실DB 쓰기 차단.
 const path = require('path');
 const fs = require('fs');
@@ -24,7 +25,7 @@ let bad = 0;
     await page.route('**/functions/v1/claude-proxy', r =>
       r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: '좋아요' }] }) }));
     await page.route('**/rest/v1/**', r => (r.request().method() === 'GET' || r.request().method() === 'HEAD') ? r.continue() : r.fulfill({ status: 200, body: '[]' }));
-    await page.goto('file:///' + encodeURI(ROOT + '/index.html'), { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await page.goto(pageUrl(), { waitUntil: 'domcontentloaded', timeout: 90000 });
     await page.waitForFunction(() => { try { return (_cache.students || []).length > 0; } catch (e) { return false; } }, null, { timeout: 90000 });
     await page.waitForTimeout(4000);
     console.log('\n══ ' + vp.w + 'px');

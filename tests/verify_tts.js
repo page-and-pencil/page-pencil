@@ -1,4 +1,5 @@
 require('./_guard_assert');                 // 막음 장치 없이는 돌지 않는다
+const { pageUrl, fileUrl } = require('./_page');
 // 2-1 tts-proxy 경로 검증. 실DB 쓰기·실제 ElevenLabs·Cloudinary 호출 전부 차단.
 const path = require('path');
 const fs = require('fs');
@@ -35,7 +36,7 @@ const MP3 = Buffer.from('//uQZAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMD
     writes.push(m + ' ' + r.request().url().split('/rest/v1/')[1].split('?')[0]);
     return r.fulfill({ status: 200, body: '[]' });
   });
-  await page.goto('file:///' + encodeURI(ROOT + '/index.html'), { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await page.goto(pageUrl(), { waitUntil: 'domcontentloaded', timeout: 90000 });
   await page.waitForFunction(() => { try { return (_cache.students || []).length > 0; } catch (e) { return false; } }, null, { timeout: 90000 });
   await page.waitForTimeout(4500);
 
