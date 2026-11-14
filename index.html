@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261114k">
+<link rel="stylesheet" href="css/style.css?v=20261114l">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -196,10 +196,18 @@
     <button class="stutab active" data-tab="st-home" onclick="swStuTab('st-home')"><span class="snav-ico"><i data-lucide="home" width="22" height="22"></i></span><span class="snav-lbl">오늘</span></button>
     <button class="stutab" data-tab="st-vocab" onclick="swStuTab('st-vocab')"><span class="snav-ico"><i data-lucide="layers" width="22" height="22"></i></span><span class="snav-lbl">단어</span></button>
     <button class="stutab" data-tab="st-library" onclick="swStuTab('st-library')"><span class="snav-ico"><i data-lucide="rotate-ccw" width="22" height="22"></i></span><span class="snav-lbl">복습</span></button>
-    <button class="stutab" onclick="openExtApp('class5')"><span class="snav-ico"><i data-lucide="gamepad-2" width="22" height="22"></i></span><span class="snav-lbl" style="display:flex;align-items:center;gap:2px">클래스5<i data-lucide="arrow-up-right" width="9" height="9"></i></span></button>
-    <button class="stutab" onclick="openExtApp('autovoca')"><span class="snav-ico"><i data-lucide="book-open" width="22" height="22"></i></span><span class="snav-lbl" style="display:flex;align-items:center;gap:2px">오토보카<i data-lucide="arrow-up-right" width="9" height="9"></i></span></button>
-    <button class="stutab" onclick="openExtApp('readingn')"><span class="snav-ico"><i data-lucide="book-open-text" width="22" height="22"></i></span><span class="snav-lbl" style="display:flex;align-items:center;gap:2px">리딩앤<i data-lucide="arrow-up-right" width="9" height="9"></i></span></button>
+    <button class="stutab" id="stu-nav-ext" onclick="openExtSheet()"><span class="snav-ico"><i data-lucide="grid-2x2" width="22" height="22"></i></span><span class="snav-lbl" style="display:flex;align-items:center;gap:2px">다른 앱<i data-lucide="arrow-up-right" width="9" height="9"></i></span></button>
   </nav>
+  <!-- 바깥 앱 셋 — 아래에서 올라오는 창 (아래 메뉴를 네 칸으로 줄이고 여기 모았다) -->
+  <div id="m-extapps" class="pp-sheet" style="display:none" onclick="if(event.target===this)closeExtSheet()">
+    <div class="pp-sheet-box">
+      <div class="pp-sheet-h">다른 앱으로 가기</div>
+      <button class="pp-sheet-b" onclick="extSheetGo('class5')"><span class="pp-sheet-i">🎮</span><span><b>클래스5</b><i>단어 게임 · 퀴즈</i></span><span class="pp-sheet-go">→</span></button>
+      <button class="pp-sheet-b" onclick="extSheetGo('autovoca')"><span class="pp-sheet-i">📒</span><span><b>오토보카</b><i>영어 단어 자동 암기</i></span><span class="pp-sheet-go">→</span></button>
+      <button class="pp-sheet-b" onclick="extSheetGo('readingn')"><span class="pp-sheet-i">📗</span><span><b>리딩앤</b><i>원서 읽기 · 듣기</i></span><span class="pp-sheet-go">→</span></button>
+      <button class="btn bo pp-sheet-x" onclick="closeExtSheet()">닫기</button>
+    </div>
+  </div>
 </div>
 
 <!-- TEACHER APP -->
@@ -1538,6 +1546,7 @@
     <span class="stu-push-t"><i data-lucide="bell" width="15" height="15" style="vertical-align:-3px"></i> 숙제 알림</span>
     <span class="stu-push-d">확인 중…</span>
     <button class="btn bo bsm stu-push-b" onclick="ppPushToggle()">켜기</button>
+    <button class="pp-push-x" onclick="ppPushNudgeClose()" title="30일 동안 권하지 않아요">닫기</button>
   </div>
   <div id="pp-push-help" style="margin:0 1.25rem"></div>
   <!-- 숨겨진 캘린더 요소 (renderCalendar 함수 호환) -->
@@ -1547,7 +1556,7 @@
   <div id="pp-body" style="padding:1.25rem;display:flex;flex-direction:column;gap:12px"></div>
   <nav class="stu-bottomnav">
     <button class="stutab active" data-ppnav="les" onclick="ppNav(this,'les')"><span class="snav-ico"><i data-lucide="book-open" width="22" height="22"></i></span><span class="snav-lbl">수업</span></button>
-    <button class="stutab" data-ppnav="score" onclick="ppNav(this,'score')"><span class="snav-ico"><i data-lucide="trending-up" width="22" height="22"></i></span><span class="snav-lbl">점수</span></button>
+    <button class="stutab" data-ppnav="score" onclick="ppNav(this,'score')"><span class="snav-ico"><i data-lucide="trending-up" width="22" height="22"></i></span><span class="snav-lbl">성장</span></button>
     <button class="stutab" data-ppnav="msg" onclick="ppNav(this,'msg')"><span class="snav-ico"><i data-lucide="message-circle" width="22" height="22"></i></span><span class="snav-lbl">메시지</span></button>
     <button class="stutab" data-ppnav="pay" onclick="ppNav(this,'pay')"><span class="snav-ico"><i data-lucide="credit-card" width="22" height="22"></i></span><span class="snav-lbl">결제</span></button>
   </nav>
@@ -3306,8 +3315,8 @@
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261114a"></script>
 <script src="js/iso_cards.js?v=20261114f"></script>
-<script src="js/teacher.js?v=20261114n"></script>
-<script src="js/student.js?v=20261114b"></script>
-<script src="js/parent.js?v=20261114a"></script>
+<script src="js/teacher.js?v=20261114o"></script>
+<script src="js/student.js?v=20261114c"></script>
+<script src="js/parent.js?v=20261114b"></script>
 </body>
 </html>
