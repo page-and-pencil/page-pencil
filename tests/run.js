@@ -6,7 +6,9 @@
 //   node tests/run.js all             — core + live + legacy
 //   node tests/run.js iso item        — 이름에 그 글자가 든 것만 (묶음을 가리지 않는다)
 //   node tests/run.js --list          — 묶음별 목록만
-//   node tests/run.js --jobs 4        — 한 번에 몇 개씩 (기본 3, live 는 늘 1)
+//   node tests/run.js --jobs 4        — 한 번에 몇 개씩 (기본 2, live 는 늘 1)
+//                                        3 이상이면 verify_acts·verify_auth2 가 180초를 기다리다
+//                                        헛되이 시간 초과된다 (2026-11-14 확인 — 앱 코드와 무관)
 //   node tests/run.js --timeout 300   — 한 검사의 제한 시간(초, 기본 240)
 //
 // 묶음은 tests/_groups.js 에 적는다 (README 의 표도 거기서 나온다 — node tests/run.js --readme).
@@ -103,7 +105,7 @@ if (hasLive && process.env.PP_ALLOW_LIVE_READ !== '1') {
   console.log('※ live 검사 ' + list.filter(f => groupOf(f) === 'live').length + '개는 건너뜁니다 (PP_ALLOW_LIVE_READ=1 이 아닙니다)');
   for (let i = list.length - 1; i >= 0; i--) if (groupOf(list[i]) === 'live') list.splice(i, 1);
 }
-const JOBS = onlyLive ? 1 : Math.max(1, +flag('jobs', 3));
+const JOBS = onlyLive ? 1 : Math.max(1, +flag('jobs', 2));
 
 const RESULT = [];
 function runOne(f, again) {

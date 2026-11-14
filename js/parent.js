@@ -1,9 +1,27 @@
 // ── PARENT VIEW ──
 let pC={};
 // 학부모 하단 내비: 단일 스크롤 내 섹션 이동 / 메시지 모달
+// 권유 줄은 수업 탭에서만 보인다 — 모든 탭 맨 위에 늘 있어 닫을 수도 없었다 (2026-11-14)
+function _ppNudgeOff(){
+  try{const u=localStorage.getItem('pp_pushnudge_off_'+currentParentSid)||'';return !!(u&&u>=ppToday());}catch(e){return false;}
+}
+function ppPushNudgeClose(){
+  try{localStorage.setItem('pp_pushnudge_off_'+currentParentSid,ppShiftDate(ppToday(),30));}catch(e){}
+  const r=document.getElementById('pp-push-row');if(r)r.style.display='none';
+  const h=document.getElementById('pp-push-help');if(h)h.innerHTML='';
+  try{toast('30일 동안 권하지 않아요 — 켜고 끄는 자리는 「학습 기록 모아보기」 안에 있어요');}catch(e){}
+}
+function _ppNudgePaint(target){
+  const r=document.getElementById('pp-push-row');if(!r)return;
+  const on=(target||'les')==='les'&&!_ppNudgeOff();
+  r.style.display=on?'':'none';
+  const h=document.getElementById('pp-push-help');
+  if(h&&!on)h.innerHTML='';
+}
 function ppNav(btn,target){
   document.querySelectorAll('#s-parent .stu-bottomnav .stutab').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
+  _ppNudgePaint(target);
   document.querySelectorAll('#pp-body .pp-tab').forEach(t=>{t.style.display=(t.dataset.pptab===target)?'':'none';});
   window.scrollTo({top:0,behavior:'auto'});
   if(target==='score'&&pC&&pC.trend){try{pC.trend.resize();}catch(e){}}
@@ -14,6 +32,10 @@ function ppNav(btn,target){
 function parentAreaGrowth(sid){
   const tsts=DB.tsts().filter(t=>t.sid===sid&&((typeof ppTestKindOf!=='function')||ppTestKindOf(t)==='inhouse'))
     .sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
+  // 테스트가 하나도 없으면 카드를 그리지 않는다 — 과제 완료율로 채워 네 영역이 모두
+  // '통과 100%' 로 나가던 것(같은 때 수업 탭에는 밀린 숙제가 있었다, 2026-11-14)
+  const _scored=tsts.filter(t=>!t.absent&&((t.vocabTotal||0)+(t.grammarTotal||0)+(t.readingTotal||0)+(t.listeningTotal||0))>0);
+  if(!_scored.length)return '';
   const assigns=DB.assigns().filter(a=>a.sid===sid);
   const avg=arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;
   const testAvg=(corr,tot)=>avg(tsts.filter(t=>!t.absent&&t[tot]>0).map(t=>pct(t[corr],t[tot])));
@@ -236,6 +258,19 @@ function plShowAll(){
   const les=DB.less().filter(l=>l.sid===currentParentSid);
   wrap.outerHTML=parentLessonList(les,true);
 }
+// 권유 줄을 닫아도 켜고 끄는 자리는 남는다 — '학습 기록 모아보기' 안의 한 줄 (2026-11-14)
+async function _ppPushMini(){
+  const row=document.getElementById('pp-push-mini');if(!row)return;
+  const d=row.querySelector('.pp-push-mini-s'),b=row.querySelector('button');
+  if(!d||!b)return;
+  if(typeof ppPushSupported!=='function'||!ppPushSupported()){
+    d.textContent='이 기기에서는 받을 수 없어요';b.style.display='none';return;
+  }
+  const st=await ppPushState();
+  if(st.on){d.textContent='켜짐';b.textContent='끄기';b.className='btn bo bxxs';}
+  else if(st.perm==='denied'){d.textContent='차단돼 있어요';b.textContent='다시 시도';b.className='btn bo bxxs';}
+  else{d.textContent='꺼짐';b.textContent='켜기';b.className='btn bt bxxs';}
+}
 // ── 숙제 알림(서버 푸시) — 학부모 폰 ──
 // 아이가 오늘 숙제를 안 했으면 저녁에 알려준다. 앱을 닫아도 오므로 로컬 타이머와 다르다.
 async function ppPushToggle(){
@@ -270,6 +305,8 @@ async function ppPushToggle(){
 async function _ppPushRow(){
   const row=document.getElementById('pp-push-row');if(!row)return;
   const help0=document.getElementById('pp-push-help');
+  const _lesOn=(()=>{const b=document.querySelector('#s-parent .stu-bottomnav .stutab.active');return !b||(b.dataset.ppnav||'les')==='les';})();
+  if(_ppNudgeOff()||!_lesOn){row.style.display='none';if(help0)help0.innerHTML='';_ppPushMini();return;}
   if(typeof ppPushSupported!=='function'||!ppPushSupported()){
     // 아이폰 Safari처럼 푸시를 못 쓰는 환경 — 숨기지 말고 '어떻게 하면 되는지'를 보여준다
     row.style.display='';
@@ -298,6 +335,7 @@ async function _ppPushRow(){
     d.textContent=nm+ppJosa(nm,'이','가')+' 숙제를 안 한 날 저녁에 알려드려요';
     b.textContent='켜기';b.className='btn bt bsm stu-push-b';row.classList.remove('on');
   }
+  _ppPushMini();
 }
 async function loadParent(sid){
   currentParentSid=sid;
@@ -326,6 +364,10 @@ async function loadParent(sid){
   const lastMonthStr=lastMonthD.getFullYear()+'-'+String(lastMonthD.getMonth()+1).padStart(2,'0');
   const thisMonthLes=les.filter(l=>l.date&&l.date.startsWith(thisMonthStr)&&l.att!=='absent');
   const lastMonthLes=les.filter(l=>l.date&&l.date.startsWith(lastMonthStr)&&l.att!=='absent');
+  // 달이 끝나기 전에 지난달 '전체' 와 견주면 늘 모자란 것처럼 보인다 — 같은 날짜까지만 센다 (2026-11-14)
+  const _dayNow=ppToday().slice(8,10);
+  const _toDate=rows=>rows.filter(r=>(r.date||'').slice(8,10)<=_dayNow).length;
+  const lastMonthLesToDate=_toDate(lastMonthLes);
   const lesChange=thisMonthLes.length-lastMonthLes.length;
   const absentThisMonth=les.filter(l=>l.date&&l.date.startsWith(thisMonthStr)&&(l.att==='absent'||l.att==='late'));
   const progPct=Math.min(100,Math.round(thisMonthLes.length/8*100));
@@ -346,7 +388,9 @@ async function loadParent(sid){
   if(newLesCount)notifItems.push(`수업 기록 ${newLesCount}건`);
   if(newTstCount)notifItems.push(`테스트 ${newTstCount}건`);
   if(pendingCount)notifItems.push(`미완료 숙제 ${pendingCount}개`);
-  if(notifItems.length)blocks+=`<div style="background:var(--bg),rgba(27,94,74,.15));border:1px solid rgba(27,94,74,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--tealt)">${luIcon('sparkles',14)||''} 새 업데이트: ${notifItems.join(' · ')}</div>`;
+  // 줄·카드마다 바로 붙이지 않고 변수에 담았다가 아래에서 순서대로 놓는다 (2026-11-14):
+  // 공지 → 새 업데이트 → 숙제 → 최근 수업 → 한 달 요약 → 단계 안내 → 이번 달 현황 → 이전 기록
+  const notifHtml=notifItems.length?`<div style="background:var(--bg),rgba(27,94,74,.15));border:1px solid rgba(27,94,74,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--tealt)">${luIcon('sparkles',14)||''} 새 업데이트: ${notifItems.join(' · ')}</div>`:'';
   localStorage.setItem(lastVisitKey,todayIso);
 
   // ── 숙제 (수업 탭 맨 위) ─────────────────────────────────────
@@ -359,6 +403,16 @@ async function loadParent(sid){
   const _hwLbl=a=>{
     if(a.category==='vocab'&&(a.words||[]).length)return (a.words||[]).slice(0,3).join(', ')+(a.words.length>3?` 외 ${a.words.length-3}개`:'');
     return a.bookTitle||a.text||a.title||a.range||'과제';
+  };
+  // '앱으로 단어 20개 학습 앱으로 단어 20개 학습' 처럼 같은 말이 두 번 나오던 것 — 한 번만 적는다
+  const _hwSub=(lbl,parts)=>{
+    const nm=x=>String(x==null?'':x).replace(/\s+/g,'').toLowerCase();
+    const L=nm(lbl),seen=[];
+    return parts.filter(Boolean).filter(p=>{
+      const n=nm(p);
+      if(!n||n===L||L.includes(n)||n.includes(L)||seen.includes(n))return false;
+      seen.push(n);return true;
+    }).join(' · ');
   };
   const hwCardHtml=(()=>{
     const todayD=ppToday();
@@ -374,13 +428,13 @@ async function loadParent(sid){
     const allDone=td.length>0&&tDone>=td.length;
     const head=td.length
       ?(allDone?'<span style="font-size:12px;color:var(--okt);font-weight:700">오늘 몫 완료 ✓</span>'
-               :`<span style="font-size:12.5px;color:var(--coral);font-weight:700">오늘 숙제 ${tDone}/${td.length}</span>`)
-      :(assigns.length?`<span style="font-size:12px;color:var(--coral);font-weight:700">남은 숙제 ${assigns.length}개</span>`
+               :`<span style="font-size:12.5px;color:var(--badt);font-weight:700">오늘 숙제 ${tDone}/${td.length}</span>`)
+      :(assigns.length?`<span style="font-size:12px;color:var(--badt);font-weight:700">남은 숙제 ${assigns.length}개</span>`
                       :'<span style="font-size:12px;color:var(--slate);font-weight:700">오늘 숙제 없어요</span>');
     const tdRow=x=>{
-      const sub=[x.sc&&x.sc.book,x.sc&&x.sc.unit,!x.sc&&x.a.range].filter(Boolean).join(' · ');
+      const sub=_hwSub(_hwLbl(x.a),[x.sc&&x.sc.book,x.sc&&x.sc.unit,!x.sc&&x.a.range]);
       return `<div style="display:flex;align-items:baseline;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);font-size:14px;line-height:1.5">
-        <span style="flex-shrink:0;font-size:13px;color:${x.done?'var(--okt)':'var(--coral)'};font-weight:700">${x.done?'✓':'·'}</span>
+        <span style="flex-shrink:0;font-size:13px;color:${x.done?'var(--okt)':'var(--badt)'};font-weight:700">${x.done?'✓':'·'}</span>
         <span style="min-width:0;color:${x.done?'var(--slate)':'var(--navy)'};${x.done?'text-decoration:line-through':''}">${escAttr(_hwLbl(x.a))}${sub?` <span class="p-dim">${escAttr(sub)}</span>`:''}</span>
       </div>`;
     };
@@ -409,6 +463,7 @@ async function loadParent(sid){
   })();
 
   // 히어로 요약 카드 (이번 달 + 3종 통계) — 시안
+  let heroHtml='';
   {
     // 부르는 이름은 학생 화면과 같은 함수로 — 세 글자 이상만 성을 떼고, 두 글자는 그대로 (givenNameOf)
     // 전에는 여기서 첫 글자를 늘 떼어 '연은'·'은은' 처럼 이름이 아닌 말이 나갔다
@@ -429,7 +484,7 @@ async function loadParent(sid){
     else if(lesChange>0)summary='꾸준히 나오며 잘 성장하고 있어요.';
     else if(avgScore!=null&&avgScore>=80)summary='이번 달도 안정적으로 잘 해주고 있어요.';
     else summary='이번 달도 성실하게 함께하고 있어요.';
-    blocks+=`<div style="background:var(--bg);border:1px solid rgba(27,94,74,.18);border-radius:16px;padding:18px;margin-bottom:14px">
+    heroHtml=`<div style="background:var(--bg);border:1px solid rgba(27,94,74,.18);border-radius:16px;padding:18px;margin-bottom:14px">
       <div style="font-size:13.5px;color:var(--tealt);font-weight:700;margin-bottom:3px">${today.getMonth()+1}월 한 달, ${givenName}${josa(givenName)}</div>
       <div style="font-size:16px;font-weight:700;color:var(--text);line-height:1.55;margin-bottom:14px">${summary}</div>
       <div style="display:flex;gap:10px">
@@ -442,8 +497,9 @@ async function loadParent(sid){
 
   // 휴강 예정 안내 — 선생님이 캘린더에 휴강 표시하면 자동 노출
   const upSkips=(typeof stuUpcomingSkips==='function')?stuUpcomingSkips(sid):[];
+  let skipHtml='';
   if(upSkips.length){
-    blocks+=`<div class="card">
+    skipHtml=`<div class="card">
       <div class="ch"><span class="ct">${luIcon('megaphone',16)}휴강 안내</span></div>
       <div class="cb" style="padding:12px 16px">
         <div style="font-size:14px;color:var(--navy);line-height:1.85"><b>${skipDatesLbl(upSkips)}</b>은 수업이 없습니다. 과제는 평소처럼 챙겨봐 주시면 감사하겠습니다 🙏</div>
@@ -451,17 +507,16 @@ async function loadParent(sid){
     </div>`;
   }
   // 블록 A0 — 지금 어느 기간인가 (학생 화면과 같은 판정에서 읽는다)
+  let trackHtml='';
   {const tl=(typeof ppTrackLineHtml==='function')?ppTrackLineHtml(s,true):'';
-   if(tl)blocks+=`<div class="card"><div class="cb" style="padding:4px 14px">${tl}</div></div>`;}
-
-  // 숙제 — 학부모가 가장 먼저 찾는 카드라 '최근 수업' 보다 위에 둔다 (2026-11-14)
-  blocks+=hwCardHtml;
+   if(tl)trackHtml=`<div class="card"><div class="cb" style="padding:4px 14px">${tl}</div></div>`;}
 
   // 블록 A — 최근 수업 (가장 최근이 '수업 안 함'이면 안 한 사실을 안내)
+  let recentHtml='';
   const skipDate=stuRecentSkip(sid,latLes?.date||'');
   if(skipDate){
     const md=`${Number(skipDate.slice(5,7))}월 ${Number(skipDate.slice(8,10))}일`;
-    blocks+=`<div class="card">
+    recentHtml=`<div class="card">
       <div class="ch"><span class="ct">${luIcon('pin',16)}최근 수업</span><span class="mono" class="p-dim">${skipDate}</span></div>
       <div class="cb" style="padding:12px 16px">
         <div style="font-size:14px;color:var(--navy);line-height:1.85">${md}은 사정이 있어 <b>수업을 진행하지 못했습니다.</b> 다음 수업에서 뵙겠습니다 ${luIcon('smile',15)||''}<br>수업은 못 했지만, 내주신 과제는 잊지 않고 챙겨봐 주시면 감사하겠습니다.</div>
@@ -472,7 +527,7 @@ async function loadParent(sid){
     const polished=latLes.polishedCmt||latLes.cmt||'';
     const ackKey='parentAck_'+sid+'_'+latLes.id;
     const isAcked=!!localStorage.getItem(ackKey);
-    blocks+=`<div class="card">
+    recentHtml=`<div class="card">
       <div class="ch"><span class="ct">${luIcon('pin',16)}최근 수업</span><span class="mono" class="p-dim">${latLes.date||''}</span></div>
       <div class="cb" style="padding:12px 16px">
         ${(typeof ppAttAway==='function'&&ppAttAway(latLes.att))
@@ -493,17 +548,21 @@ async function loadParent(sid){
   }
 
   // 블록 B — 이번 달 현황
-  blocks+=`<div class="card">
+  const monthHtml=`<div class="card">
     <div class="ch"><span class="ct">${luIcon('calendar-days',16)}이번 달 현황</span></div>
     <div class="cb" style="padding:12px 16px">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:16px;font-weight:700">수업 ${thisMonthLes.length}회</span>
-        ${(lesChange!==0&&Number(ppToday().slice(8,10))>=8)?`<span style="font-size:13px;color:${lesChange>0?'var(--teal)':'var(--coral)'}">${lesChange>0?'▲':'▼'}${Math.abs(lesChange)} 지난달 대비</span>`:''}
+        ${lastMonthLes.length?`<span style="font-size:13px;color:var(--text-muted)">지난달 이맘때 ${lastMonthLesToDate}회</span>`:''}
       </div>
       <div class="p-prog-bar"><div class="p-prog-fill" style="width:${progPct}%"></div></div>
       ${absentThisMonth.length?`<div style="font-size:12px;color:var(--slate);margin-top:6px">출결 이상 ${absentThisMonth.length}회 (결석/지각)</div>`:''}
     </div>
   </div>`;
+
+  // ── 수업 탭 순서 (2026-11-14 원장 지시) ──
+  // 숙제가 390x780 첫 화면 끝에서 시작하던 것을 맨 위로 올렸다. 요약·단계 안내는 그 아래.
+  blocks+=skipHtml+notifHtml+hwCardHtml+recentHtml+heroHtml+trackHtml+monthHtml;
 
   // 이전 수업 기록 카드 리스트 (시안)
   blocks+=parentLessonList(les);
@@ -627,10 +686,11 @@ async function loadParent(sid){
     const showStats=totalVocab>0||rds.length>0;
     let statsRow='';
     if(showStats){
-      const statItem=(val,lbl,sub)=>`<div style="flex:1;text-align:center;padding:8px 6px;background:rgba(27,94,74,.06);border-radius:8px"><div style="font-size:20px;font-weight:700;color:var(--teal)">${val}</div><div style="font-size:12px;color:var(--slate);margin-top:2px">${lbl}</div>${sub?`<div style="font-size:9.5px;color:rgba(0,0,0,.3)">${sub}</div>`:''}</div>`;
+      // 작은 글이 rgba(0,0,0,.3)(2.2:1) 이라 읽히지 않았다 — 토큰 색으로 올렸다 (2026-11-14)
+      const statItem=(val,lbl,sub)=>`<div style="flex:1;text-align:center;padding:8px 6px;background:rgba(27,94,74,.06);border-radius:8px"><div style="font-size:20px;font-weight:700;color:var(--teal)">${val}</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">${lbl}</div>${sub?`<div style="font-size:11px;color:var(--text-muted);margin-top:1px;line-height:1.35">${sub}</div>`:''}</div>`;
       const items=[];
-      if(totalVocab>0)items.push(statItem(masteredVocab,'단어 마스터',totalVocab+'개 중'));
-      if(rds.length>0)items.push(statItem(booksThisMonth,'이번 달 독서'+(bkChg>0?' ▲'+bkChg:bkChg<0?' ▼'+Math.abs(bkChg):''),''));
+      if(totalVocab>0)items.push(statItem(masteredVocab,'단어 마스터',totalVocab+'개 중 · 세 번 맞힌 단어'));
+      if(rds.length>0)items.push(statItem(booksThisMonth,'이번 달 독서',rds.filter(r=>(r.date||'').startsWith(lastMonthStr)&&(r.date||'').slice(8,10)<=_dayNow).length+'권 · 지난달 이맘때'));
       if(rds.length>0)items.push(statItem(rds.length,'누적 독서',''));
       statsRow=`<div style="display:flex;gap:10px;${showChart?'margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)':''}">${items.join('')}</div>`;
     }
@@ -683,12 +743,15 @@ async function loadParent(sid){
       </div>
     </div>`;
   }
+  // 권유 줄을 닫아도 켜고 끄는 자리는 남는다 — 접히는 묶음이 없을 때는 맨 아래 한 줄로 (2026-11-14)
+  const _pushMini=`<div class="pp-push-mini" id="pp-push-mini"><span>${luIcon('bell',14)||'🔔'} 숙제 알림</span><span class="pp-push-mini-s">확인 중…</span><button class="btn bo bxxs" onclick="ppPushToggle()">켜기</button></div>`;
   if(blocks.length>_archFrom){
     blocks=blocks.slice(0,_archFrom)
       +`<details class="pp-fold"><summary class="pp-fold-sum">${luIcon('book-open',15)||''} 학습 기록 모아보기 <span style="font-weight:400;color:var(--slate)">읽은 책 · 리딩로그 · 뱃지</span></summary><div class="pp-fold-body">`
       +blocks.slice(_archFrom)
+      +_pushMini
       +`</div></details>`;
-  }
+  }else blocks+=_pushMini;
 
   // 블록 I — 결제 안내
   const payments=s.payments||[];
@@ -975,13 +1038,14 @@ function renderArBadge(arData){
   else if(last>=3.5)peer=' · 초등 중상';
   else if(last>=2.0)peer=' · 초등 중급';
   else peer=' · 초등 기초';
+  // 'AR 추이 ↑ 0.3 (0.1→0.4)' 는 설명 없이 읽히지 않았다 — 무엇의 숫자인지 적는다 (2026-11-14)
   return `<div class="ar-trend">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-      <span style="font-size:13px;color:var(--slate)">AR 추이</span>
-      <span class="ar-badge ${cls}">${arrow} ${Math.abs(diff)} (${first}→${last})</span>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+      <span style="font-size:13px;color:var(--text-muted)">읽는 책 수준(AR)</span>
+      <span class="ar-badge ${cls}">${first} → ${last}</span>
     </div>
     <div style="font-size:13px;font-weight:600;color:var(--navy)">${context}${peer}</div>
-    <div style="font-size:12px;color:var(--slate);margin-top:2px">총 ${arData.length}권 · ${months}개월간</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px">AR 지수가 있는 책 ${arData.length}권 기준 · ${months}개월</div>
   </div>`;
 }
 

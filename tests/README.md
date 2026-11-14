@@ -112,6 +112,7 @@ core 29/29 통과 · 실제 서버 쓰기 0건 · 줄 수 전후 같음(item_ban
 | `verify_split` | core | 기출과 교재 나누기 (B) — 가짜 자료줄만 쓴다. 실제 기출 원문은 쓰지 않는다. |  |
 | `verify_tts` | core | 2-1 tts-proxy 경로 검증. 실DB 쓰기·실제 ElevenLabs·Cloudinary 호출 전부 차단. |  |
 | `verify_ux1` | core | 학부모 수업 탭·빈 탭 · 학생 인사 · 공지 보이는 기간 · 수업 기록 [저장하기] — 가짜 서버만 |  |
+| `verify_ux2` | core | 학생 인사·보상·주간 띠·아래 메뉴·단어 탭·복습 탭 · 학부모 수업 탭 순서·알림 권유·지난달 견주기·성장 탭·글자 대비 — 가짜 서버만 |  |
 | `verify_visible` | core | Page & Pencil — ’설정한 것이 보이는가’ 점검 (node verify_visible.js) |  |
 | `verify_live_eb` | live | 라이브 확인 — 배포된 페이지가 진짜 Supabase 뷰에서 자료실을 받아오는지 (읽기만 한다) | 실제 서버·배포된 페이지를 읽어야 한다 (PP_ALLOW_LIVE_READ=1) |
 | `verify_live_fix3` | live | 라이브 확인 — 자료실 듣기(드라이브 재생기 하나씩) · 동형 탭 (AI 는 부르지 않는다) | 실제 서버·배포된 페이지를 읽어야 한다 (PP_ALLOW_LIVE_READ=1) |

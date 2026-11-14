@@ -102,6 +102,7 @@ const TESTS = {
   'verify_trim.js': { g: 'legacy', w: '[1] 학생 화면 완료 숙제 제거 · [2] 번호 없는 Review 연결. 실데이터 쓰기 0.', why: '가짜 자료로는 안 맞는다 — page.evaluate: TypeError: Cannot read properties of undefined (reading' },
   'verify_tts.js': { g: 'core', w: '2-1 tts-proxy 경로 검증. 실DB 쓰기·실제 ElevenLabs·Cloudinary 호출 전부 차단.' },
   'verify_ux1.js': { g: 'core', w: '학부모 수업 탭·빈 탭 · 학생 인사 · 공지 보이는 기간 · 수업 기록 [저장하기] — 가짜 서버만' },
+  'verify_ux2.js': { g: 'core', w: '학생 인사·보상·주간 띠·아래 메뉴·단어 탭·복습 탭 · 학부모 수업 탭 순서·알림 권유·지난달 견주기·성장 탭·글자 대비 — 가짜 서버만' },
   'verify_visible.js': { g: 'core', w: 'Page & Pencil — ’설정한 것이 보이는가’ 점검 (node verify_visible.js)' },
   'verify_vocab2.js': { g: 'legacy', w: '넣은 어휘 반복 숙제가 학생·학부모 화면에 제대로 뜨는지. 읽기만, 쓰기 전부 차단.', why: '가짜 자료로는 안 맞는다 — 어휘 반복 숙제 2건이 보인다  — 0건' },
 };

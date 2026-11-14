@@ -6976,6 +6976,7 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-14',title:'학생·학부모 화면 정리 — 학부모는 숙제가 맨 위, 학생은 도장 중심',where:'학생·학부모 앱',tab:'t-stu',go:['swTab','t-stu']},
  {date:'2026-11-14',title:'수업 기록 — [저장하기] 가 늘 보여요',where:'클래스 → 수업 기록',tab:'t-class',go:['swTab','t-class']},
  {date:'2026-11-14',title:'공지 — 보이는 기간을 정할 수 있어요(휴강 안내는 2주 전부터)',where:'대시보드 → 공지 빠른 등록',tab:'t-dash',go:['swTab','t-dash']},
  {date:'2026-11-14',title:'서버가 막혀도 기기에 남은 자료를 볼 수 있어요 — 저장은 풀린 뒤에',where:'모든 화면',tab:'t-dash',go:['swTab','t-dash']},

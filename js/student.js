@@ -137,6 +137,19 @@ function _hwBackAsk(){
     ()=>completeSchedDay(c.sid,c.aid,c.ds));
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden)setTimeout(_hwBackAsk,600); });
+// 아래 메뉴의 '다른 앱' — 바깥 앱 셋을 올라오는 창에 모았다 (2026-11-14).
+// 전에는 여섯 칸 가운데 셋이 바깥 앱이라 앱 안의 길과 섞여 보였다.
+function openExtSheet(){
+  const sh=document.getElementById('m-extapps');if(!sh)return;
+  sh.style.display='flex';
+  requestAnimationFrame(()=>sh.classList.add('open'));
+}
+function closeExtSheet(){
+  const sh=document.getElementById('m-extapps');if(!sh)return;
+  sh.classList.remove('open');
+  setTimeout(()=>{if(!sh.classList.contains('open'))sh.style.display='none';},180);
+}
+function extSheetGo(key){closeExtSheet();setTimeout(()=>openExtApp(key),60);}
 function openExtApp(key){
   const a=EXT_APPS[key];if(!a)return;
   const ua=navigator.userAgent||'';
@@ -164,6 +177,7 @@ function openVocabStudy(mode){
   }
   if(vocabStudyMode!==mode){try{sessionStorage.removeItem('deckState_'+currentStudentSid);}catch(e){}}
   vocabStudyMode=mode;
+  window._vcGo=true;          // '지금 단어 학습 하기' 는 지금처럼 바로 카드로
   swStuTab('st-vocab');
 }
 async function goStudentPin(){
@@ -734,18 +748,27 @@ function renderStudentLibrary(sid){
         let btns='';
         if(g){
           const keys=[...new Set([...Object.keys(g.unitTexts||{}),...Object.keys(g.unitAudio||{}),...(g.songBook?Object.keys(g.unitLinks||{}):[])])];
-          let uk='';
-          for(const seg of String(v.unit||'').split(',').map(x=>x.trim()).filter(Boolean)){
-            const ns=_n(seg);
-            // 수업 기록의 'Unit 1'과 교재 키 'Unit 1 New Friends'처럼 표기가 다른 경우 — 앞부분 일치 허용
-            // (숫자 경계 보호: 'unit1'이 'unit11...'에 붙지 않게 이어지는 글자가 숫자면 제외)
-            const pref=(a,b)=>a.startsWith(b)&&!/^\d/.test(a.slice(b.length));
-            const hit=keys.find(u=>_n(u)===ns)||keys.find(u=>ns&&(pref(_n(u),ns)||pref(ns,_n(u))));
-            if(hit){uk=hit;break;}
-          }
+          // 수업 기록의 'Unit 1'과 교재 키 'Unit 1 New Friends'처럼 표기가 다른 경우 — 앞부분 일치 허용
+          // (숫자 경계 보호: 'unit1'이 'unit11...'에 붙지 않게 이어지는 글자가 숫자면 제외)
+          const pref=(a,b)=>a.startsWith(b)&&!/^\d/.test(a.slice(b.length));
+          const _resolve=ks=>{
+            for(const seg of String(v.unit||'').split(',').map(x=>x.trim()).filter(Boolean)){
+              const ns=_n(seg);
+              const hit=ks.find(u=>_n(u)===ns)||ks.find(u=>ns&&(pref(_n(u),ns)||pref(ns,_n(u))));
+              if(hit)return hit;
+            }
+            return '';
+          };
+          let uk=_resolve(keys);
           if(uk&&g.unitTexts?.[uk])btns=`<button class="btn bt bsm" onclick="openUnitReview('${g.id}','${uk.replace(/'/g,"\\'")}')">\uD83D\uDCD6 복습</button>`;
           else if(uk&&g.unitAudio?.[uk])btns=`<button class="btn ba bsm" onclick="openUnitRead('${g.id}','${uk.replace(/'/g,"\\'")}')">\uD83C\uDFA7 듣기</button>`;
           else if(uk&&typeof ppSongVid==='function'&&ppSongVid(g,uk))btns=`<button class="btn bt bsm" onclick="openUnitRead('${g.id}','${uk.replace(/'/g,"\\'")}')">\uD83C\uDFB5 노래</button>`;
+          else{
+            // 본문·음원이 없어도 단어가 있으면 할 것이 있다 — '본문·음원 없음' 이라는 못 누르는 글을 뺐다 (2026-11-14)
+            const wk=_resolve([...Object.keys(g.units||{})]);
+            const wn=wk?((typeof tuNormWords==='function')?tuNormWords(g.units?.[wk]||[]):(g.units?.[wk]||[])).length:0;
+            if(wn)btns=`<button class="btn bo bsm" onclick="openUnitReview('${g.id}','${wk.replace(/'/g,"\\'")}')">\uD83D\uDCDD 단어 복습</button>`;
+          }
         }
         items.push({label:(typeof SLBL!=='undefined'?SLBL[bk]:'')||'교재',title:v.book,unit:v.unit||'',btns});
       }
@@ -762,7 +785,7 @@ function renderStudentLibrary(sid){
             <div style="font-size:14px;color:var(--navy)"><span style="font-size:12px;font-weight:700;color:var(--tealt);margin-right:5px">${it.label}</span><b>${it.title}</b></div>
             ${it.unit?`<div style="font-size:12px;color:var(--slate);margin-top:1px">${it.unit}</div>`:''}
           </div>
-          <div style="flex-shrink:0">${it.btns||'<span style="font-size:12.5px;color:var(--slate)" title="이 단원의 본문·음원이 교재 DB 에 아직 없어요. 선생님이 넣으면 바로 복습할 수 있어요">본문·음원 없음</span>'}</div>
+          <div style="flex-shrink:0">${it.btns||''}</div>
         </div>`).join('')}
       </div>`;
     }
@@ -1128,7 +1151,10 @@ function swStuTab(id){
       else p.classList.remove('active');
     });
     if(id==='st-home')renderStudentHome(currentStudentSid);
-    if(id==='st-vocab'){if(typeof gmState!=='undefined'&&gmState)_gmRender();else if(typeof wnState!=='undefined'&&wnState)renderWrongNote();else if(typeof quizState!=='undefined'&&quizState)_qzRender();else renderVocabDeck(currentStudentSid);}
+    if(id==='st-vocab'){if(typeof gmState!=='undefined'&&gmState)_gmRender();else if(typeof wnState!=='undefined'&&wnState)renderWrongNote();else if(typeof quizState!=='undefined'&&quizState)_qzRender();
+      // 탭으로 들어온 길은 시작 화면을 먼저 보여 준다 — 설명 없이 카드가 떨어지던 것 (2026-11-14)
+      else if(window._vcGo){window._vcGo=false;renderVocabDeck(currentStudentSid);}
+      else renderVocabStart(currentStudentSid);}
     if(id==='st-library')renderStudentLibrary(currentStudentSid);
     window.scrollTo(0,0);
   };
@@ -1357,6 +1383,35 @@ function vcStageBar(){
   });
   return h+'</div>';
 }
+// ── 단어 탭 시작 화면 — 무엇을 몇 개, 어떤 순서로 하는지 먼저 보여 준다 (2026-11-14) ──
+function renderVocabStart(sid){
+  const el=document.getElementById('st-vocab');if(!el)return;
+  const stages=(typeof vocabStagePlan==='function')?vocabStagePlan(sid):['mem','mcr','spell'];
+  const names=stages.map(k=>((typeof VOCAB_STAGES!=='undefined'&&VOCAB_STAGES[k])||{}).name).filter(Boolean);
+  const total=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid).length;
+  let todayN=0;
+  try{const pk=(typeof dailyVocabPick==='function')?dailyVocabPick(sid,ppToday()):null;todayN=pk?pk.cards.length:0;}catch(e){}
+  // 하던 판이 있으면 '이어서 하기' — 구간까지 적어 어디서 멈췄는지 보이게
+  let saved=null;
+  try{const raw=sessionStorage.getItem('deckState_'+sid);
+    if(raw){const sv=JSON.parse(raw);if(sv&&(sv.cards||[]).length&&sv.idx<sv.cards.length)saved=sv;}}catch(e){}
+  const chunkLbl=(()=>{if(!saved)return '';const nc=(saved._chunks||[]).length||1,ci=(saved.ci||0)+1;return nc>1?' · 구간 '+ci+'/'+nc:'';})();
+  const title=todayN?('오늘 단어 '+todayN+'개'):(total?'오늘 몫 단어 완료! 🎉':'아직 단어 카드가 없어요');
+  const btn=!total?''
+    :(saved?'<button class="btn bt vcs-go" onclick="vcsStart()">▶ 이어서 하기'+chunkLbl+'</button>'
+            +'<div style="margin-top:10px"><button class="btn bo bsm" style="border-radius:50px" onclick="vcsRestart()">처음부터</button></div>'
+           :'<button class="btn bt vcs-go" onclick="vcsStart()">▶ '+(todayN?'시작':'더 하기')+'</button>');
+  el.innerHTML='<div class="vcs-wrap">'
+    +'<div class="vcs-ico">📚</div>'
+    +'<div class="vcs-t">'+title+'</div>'
+    +(names.length?'<div class="vcs-s">'+names.join(' → ')+'</div>':'')
+    +(total?'':'<div class="vcs-s">수업에서 단어가 등록되면 여기에 나와요</div>')
+    +btn
+    +(total?'<div class="vcs-n">내 단어 카드 '+total+'개</div>':'')
+    +'</div>';
+}
+function vcsStart(){renderVocabDeck(currentStudentSid);}
+function vcsRestart(){try{sessionStorage.removeItem('deckState_'+currentStudentSid);}catch(e){}renderVocabDeck(currentStudentSid);}
 function renderVocabDeck(sid){
   const el=document.getElementById('st-vocab');if(!el)return;
   const missingCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid&&(!c.meaning||!c.example));
@@ -1507,7 +1562,8 @@ function renderMemCard(el){
         <div class="vc-face vc-front">
           <div class="vc-word" onclick="event.stopPropagation();speakWord('${card.word.replace(/'/g,"\\'")}');" style="cursor:pointer">${card.word}</div>
           <div class="vc-pos">${POS_KO[card.pos]||card.pos||''}</div>
-          ${(()=>{const lv=(card.wlevel||getWordLevel(card.word).display);if(!lv)return'';const cls=lv.startsWith('Dolch')?'blv-dolch':lv.startsWith('A')?'blv-a':lv.startsWith('B')?'blv-b':lv.startsWith('C')?'blv-c':'blv-other';return`<div style="margin-top:6px"><span class="badge badge-xs ${cls}">${lv}</span></div>`;})()}
+          <!-- CEFR 등급 칩(B2 등)은 학생 화면에서 뺐다 — 아이에게 쓸 말이 아니다 (2026-11-14).
+               선생님 화면의 등급 표시는 그대로다. -->
           <div class="vc-hint" style="margin-top:10px">🔊 단어 탭 → 발음 &nbsp;|&nbsp; 카드 탭 → 뒤집기</div>
         </div>
         <div class="vc-face vc-back">
@@ -3298,18 +3354,40 @@ const BOSS_POOL=(()=>{
     ['🦈','상어'],['🐙','크라켄'],['⛄','예티'],['🦇','뱀파이어'],['🕷️','거미'],
     ['🧟','좀비'],['🦂','전갈'],['🐍','바실리스크'],['🔥','불의 정령'],['❄️','얼음 정령'],
     ['⚡','번개 정령'],['🌪️','태풍 정령'],['🗡️','기사단장'],['🏰','성주'],['💀','해골왕']];
+  // 목표 글은 함수로 들고 있는다 — 그 주에 채울 수 있는 값으로 깎은 뒤 그 숫자로 적어야 한다
   const kinds=[
-    {k:'w',lbl:'워드',targets:[120,150,180,220],desc:t=>'이번 주에 단어 '+t+'개를 만나면 쓰러져요 (숙제 몫 100개보다 더!)'},
-    {k:'d',lbl:'개근',targets:[5,6,7],desc:t=>'이번 주 '+t+'일 학습하면 쓰러져요 (주 목표 4일보다 더!)'},
+    {k:'w',lbl:'워드',targets:[120,150,180,220],desc:t=>'이번 주에 단어 '+t+'개를 만나면 쓰러져요'},
+    {k:'d',lbl:'개근',targets:[5,6,7],desc:t=>'이번 주 '+t+'일 학습하면 쓰러져요'},
     {k:'m',lbl:'마스터',targets:[10,15,20,25],desc:t=>'이번 주에 단어 '+t+'개를 마스터(3번 정답)하면 쓰러져요'},
-    {k:'q',lbl:'퀘스트',targets:[16,18,20,24],desc:t=>'이번 주 퀘스트를 '+t+'개 클리어하면 쓰러져요 (필수보다 더!)'}];
+    {k:'q',lbl:'퀘스트',targets:[16,18,20,24],desc:t=>'이번 주 퀘스트를 '+t+'개 클리어하면 쓰러져요'}];
   const out=[];let i=0;
   for(const [icon,mon] of mons)for(const kd of kinds){
     const tg=kd.targets[i%kd.targets.length];
-    out.push({icon,name:kd.lbl+' '+mon,k:kd.k,target:tg,desc:kd.desc(tg)});i++;
+    out.push({icon,name:kd.lbl+' '+mon,k:kd.k,target:tg,descFn:kd.desc,desc:kd.desc(tg)});i++;
   }
   return out; // 25종 몬스터 x 4계열 = 100종
 })();
+// 그 주에 이 학생이 실제로 채울 수 있는 최대값 — 목표는 이것을 넘지 않는다 (2026-11-14).
+// 전에는 고정 값([16,18,20,24] 등)을 돌려 써서, 배정 퀘스트가 14개인 주에 목표가 24 로 떴다.
+function _bossCap(sid,kind,wk,cards,prog){
+  if(kind==='w')return cards.length;                       // 만날 수 있는 카드는 내 카드뿐
+  if(kind==='d'){                                          // 남은 날 + 이미 한 날
+    const wd=getWeekDays(sid);
+    const idx=wd.findIndex(d=>d.isToday);
+    return wd.filter(d=>d.done).length+(idx<0?0:(7-idx));
+  }
+  if(kind==='m')return Math.max(prog,cards.filter(c=>(c.hits||0)<3).length+prog);  // 아직 안 마스터한 수
+  // 퀘스트 — 그 주에 배정된 몫(일정형은 그 주 줄 수, 단건은 마감이 그 주인 것)
+  const we=(typeof ppShiftDate==='function')?ppShiftDate(wk,6):wk;
+  let n=0;
+  for(const a of ppLive(_cache.assignments).filter(a=>a.sid===sid&&!a._deleted)){
+    const sch=(typeof _hwSchedOf==='function')?_hwSchedOf(a):(a.schedule||[]);
+    if((sch||[]).length){n+=sch.filter(x=>x&&x.date>=wk&&x.date<=we).length;continue;}
+    const d=(a.due||a.date||'').slice(0,10);
+    if(d>=wk&&d<=we)n++;
+  }
+  return n;
+}
 function weeklyBossInfo(sid){
   const wk=_bossWeekKey();
   let h=0;for(const ch of (wk+sid))h=(h*31+ch.charCodeAt(0))>>>0;
@@ -3333,7 +3411,17 @@ function weeklyBossInfo(sid){
     }
     prog=n;go="swStuTab('st-home')";
   }
-  return{icon:def.icon,name:def.name,desc:def.desc,target:def.target,prog,go,week:wk,done:prog>=def.target};
+  let cap=def.target;
+  try{cap=_bossCap(sid,def.k,wk,cards,prog);}catch(e){}
+  const target=Math.max(1,Math.min(def.target,cap||1));
+  const desc=(typeof def.descFn==='function')?def.descFn(target):def.desc;
+  return{icon:def.icon,name:def.name,desc,target,prog,go,week:wk,done:prog>=target};
+}
+// 접힌 '보너스 · 내 기록' 줄에 적는 진행 — 첫 화면에서 보상이 넷이 되지 않게 (2026-11-14)
+function stuBossLine(sid){
+  try{const b=weeklyBossInfo(sid);
+    return '<span class="bonus-boss">👑 주간 보스 '+Math.min(b.prog,b.target)+'/'+b.target+(b.done?' ✓':'')+'</span>';
+  }catch(e){return '';}
 }
 function stuBossCard(sid){
   const b=weeklyBossInfo(sid);
@@ -3572,7 +3660,7 @@ function _wkBump(delta){
   const dot=document.getElementById('wk-dot-'+c.date);
   if(dot&&!dot.classList.contains('overdue')){
     const p=Math.max(0,c.total-c.done);
-    dot.textContent=p||'✓';
+    dot.textContent=p?(p+'개'):'✓';     // 오늘 칸은 'n개' 로 적는다 (주간 띠와 같은 말)
     dot.classList.toggle('done',p===0);
   }
 }
@@ -4031,8 +4119,9 @@ function renderStudentHome(sid){
   const heroRaw=lastLes?.cmt||'';const heroStored=lastLes?.stuCmt||'';const hasCheer=!!(heroRaw||heroStored);
   // 제목은 오늘 한 것에 맞춘다 — 아무것도 안 한 날에도 '잘했어!' 가 나가던 고정 글 (2026-11-14)
   // 선생님 응원(hasCheer)이 있는 날은 그대로 '잘했어!' — 응원 글이 주인공이다
-  const heroTitle=(hasCheer||todayPendingN===0)?`${callName}, 잘했어!`
-    :(_tdDone>0?`${callName}, 조금만 더!`:`${callName}, 오늘도 시작해 볼까?`);
+  // 제목은 '이름,' 과 뒷말을 각각 한 덩어리로 — 390px 에서 '까?' 만 둘째 줄로 떨어졌다 (2026-11-14)
+  const heroTail=(hasCheer||todayPendingN===0)?'잘했어!':(_tdDone>0?'조금만 더!':'오늘도 시작해 볼까?');
+  const heroTitle=`<span class="hs-n">${callName},</span> <span class="hs-t">${heroTail}</span>`;
   // 응원이 없으면 인사 카드를 낮춘다(slim) — 390x780 에서 카드가 화면 절반을 먹어
   // '오늘의 퀘스트' 가 한 장만 보였다
   const greetHtml=`<div class="stu-hero${hasCheer?'':' slim'}">
@@ -4089,7 +4178,7 @@ function renderStudentHome(sid){
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <div style="flex:1;min-width:0">
           <div style="font-size:15px;font-weight:800;color:var(--navy)">🏁 단어 테스트${st.tries?`<span style="font-size:12px;font-weight:600;color:var(--tealt);margin-left:8px">최고 ${st.best}점 · ${st.tries}회</span>`:''}</div>
-          <div style="font-size:12.5px;color:var(--neutral);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escAttr(_qzSet.label)} · ${n}문항 · ${cfg.sec}초</div>
+          <div class="qz-sub">${escAttr(_qzSet.label)} · ${n}문항 · ${cfg.sec}초</div>
         </div>
         <button class="btn bo bsm" style="flex:0 0 auto;border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabQuiz('${sid}')">시작!</button>
       </div>
@@ -4267,18 +4356,27 @@ function renderStudentHome(sid){
     </div></div>`;
     let sel=(_stuWeekSel&&_wk.some(d=>d.date===_stuWeekSel))?_stuWeekSel:today;
     if(!_wk.some(d=>d.date===sel))sel=_wk[0].date;
+    // 지난 날은 '했는지'(별·일부·빈 원), 오늘과 앞날은 '몇 개 할지'(n개) — 숫자만 있어 뜻을 몰랐다 (2026-11-14)
     const strip=_wk.map(d=>{
       const items=dayItems(d.date);
-      const dp=items.filter(it=>!it.done).length;
+      const dn=items.filter(it=>it.done).length;
+      const dp=items.length-dn;
       const od=d.isToday&&overdue.length?overdue.length:0;
-      let inner='';
-      if(od)inner='class="wk-day-dot overdue">!'+od;
-      else if(items.length&&dp===0)inner='class="wk-day-dot done">✓';
-      else if(dp)inner='class="wk-day-dot">'+dp;
-      else inner='class="wk-day-dot">';
-      const dot='<span id="wk-dot-'+d.date+'" '+inner+'</span>';
+      let cls='wk-day-dot',txt='',tip='';
+      if(od){cls+=' overdue';txt='!'+od;tip='기한 지난 과제 '+od+'건';}
+      else if(d.date<today){
+        if(!items.length)tip='배정된 퀘스트가 없던 날';
+        else if(dp===0){cls+=' done';txt='★';tip='퀘스트 '+items.length+'개 다 한 날';}
+        else if(dn>0){cls+=' part';txt=dn+'/'+items.length;tip='퀘스트 '+items.length+'개 중 '+dn+'개 한 날';}
+        else{cls+=' none';txt='○';tip='퀘스트 '+items.length+'개를 아직 안 한 날';}
+      }else{
+        if(items.length&&dp===0){cls+=' done';txt='✓';tip='퀘스트 '+items.length+'개 다 함';}
+        else if(dp){txt=dp+'개';tip='할 퀘스트 '+dp+'개';}
+        else tip='배정된 퀘스트가 없어요';
+      }
+      const dot='<span id="wk-dot-'+d.date+'" class="'+cls+'">'+txt+'</span>';
       const wend=d.i===5?'wk-day-sat':d.i===6?'wk-day-sun':'';
-      return '<button class="wk-day '+wend+(d.isToday?' today':'')+(d.date===sel?' sel':'')+'" onclick="stuSelectDay(\''+d.date+'\')"><span class="wk-day-lbl">'+d.label+'</span><span class="wk-day-num">'+d.dnum+'</span>'+dot+'</button>';
+      return '<button class="wk-day '+wend+(d.isToday?' today':'')+(d.date===sel?' sel':'')+'" title="'+tip+'" onclick="stuSelectDay(\''+d.date+'\')"><span class="wk-day-lbl">'+d.label+'</span><span class="wk-day-num">'+d.dnum+'</span>'+dot+'</button>';
     }).join('');
     let items=dayItems(sel);
     // 기한 지난 과제는 오늘 퀘스트에 섞지 않는다 — 오늘 할 일이 흐려지고,
@@ -4308,28 +4406,29 @@ function renderStudentHome(sid){
       : '';
     const etc=regAssigns.filter(a=>{const d=_asgnDay(a);return !d||d>_weekEnd;});
     const etcHtml=etc.length?'<details style="margin-top:12px"><summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;list-style:none">📌 기타 과제 ('+etc.length+'건)</summary><div style="margin-top:8px">'+etc.map(asgnCard).join('')+'</div></details>':'';
-    return '<div class="card" id="stu-hw-card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px"><div class="wk-strip">'+strip+'</div>'+head+body+lateHtml+etcHtml+'</div></div>';
+    return '<div class="card" id="stu-hw-card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px">'
+      +'<div class="wk-strip">'+strip+'</div>'
+      +'<div class="wk-legend">숫자는 그날 할 퀘스트 수 · ★ 다 한 날 · ○ 못 한 날</div>'
+      +head+body+lateHtml+etcHtml+'</div></div>';
   })();
 
   const hwChHtml=hwChallengeCardHtml(sid);
   {const stu2=DB.stus().find(s=>s.id===sid);const p2=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu2):null;window._hwChPrev=p2?p2.total:0;}
-  // 홈의 주인공은 '오늘 해야 할 학습'. 기간·다음 평가는 그 아래에 둔다.
-  const trackHtml=(typeof ppTrackLineHtml==='function')?ppTrackLineHtml(stu):'';
+  // 기간 한 줄('지금은 체력 기간이에요')은 학생 화면에서 뺐다 — '체력' 이 보스 체력과 겹쳐
+  // 두 뜻으로 읽혔다 (2026-11-14). 학부모 화면에는 그대로 둔다.
   const examHtml=(typeof ppExamCardHtml==='function')?ppExamCardHtml(stu,{compact:true}):'';
   const retestHtml=(typeof ppRetestCardHtml==='function')?ppRetestCardHtml(stu,{max:3}):'';
   el.innerHTML=`<div style="padding:1.25rem">${greetHtml}
     ${hwSection}
-    ${trackHtml}
     ${retestHtml}
     ${examHtml}
     ${hwChHtml}
-    ${stuBossCard(sid)}
     ${vocabCtaHtml}
     ${quizCtaHtml}
     ${wnCtaHtml}
     <details style="margin-top:8px;margin-bottom:8px">
-      <summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">🎮 보너스 · 내 기록 <span style="font-size:12px;color:var(--teal)">▾</span></summary>
-      <div style="margin-top:8px">${(typeof stuGameCards==='function')?stuGameCards(sid):''}${stuXpCard(sid,streak)}${stuBadgeShelf(sid)}${renderVocabReview(sid)}</div>
+      <summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap">🎮 보너스 · 내 기록 ${stuBossLine(sid)}<span style="font-size:12px;color:var(--teal)">▾</span></summary>
+      <div style="margin-top:8px">${stuBossCard(sid)}${(typeof stuGameCards==='function')?stuGameCards(sid):''}${stuXpCard(sid,streak)}${stuBadgeShelf(sid)}${renderVocabReview(sid)}</div>
     </details>
     <!-- '✅ 지난 완료 기록' 묶음은 학생 화면에서 뺐다 (2026-11-09 원장 결정).
          선생님·학부모 화면의 완료 기록은 그대로다. 데이터·도장·올클리어 판정도 그대로. -->
@@ -4340,9 +4439,14 @@ function renderStudentHome(sid){
     ${(()=>{
       const myLogs=ppLive(_cache.logs).filter(l=>l.sid===sid&&(l.photoUrl||(l.photoUrls&&l.photoUrls.length))).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
       if(!myLogs.length)return '';
-      return '<div style="margin-top:14px"><div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">📸 리딩로그</div><div class="ig-strip">'+
-        myLogs.map(l=>{const imgs=logImgs(l);const first=imgs[0]||'';return '<div class="ig-card"><div class="ig-ph" onclick="openLbLog(\''+l.id+'\')"><img src="'+first+'" loading="lazy">'+(imgs.length>1?'<div class="rdlog-multi">📄 1/'+imgs.length+'</div>':'')+'</div><div class="ig-body">'+(l.read?'<div class="ig-like on">❤️ 완독</div>':'')+(l.bookTitle?'<div class="ig-title">'+l.bookTitle+'</div>':'')+'<div class="ig-date">'+(l.date||'')+'</div></div></div>';}).join('')+
-        '</div></div>';
+      // 25개가 다 깔려 '오늘' 화면이 2,600px 이 됐다 — 최근 6개만 보이고 나머지는 [더 보기] (2026-11-14)
+      const _lg=l=>{const imgs=logImgs(l);const first=imgs[0]||'';return '<div class="ig-card"><div class="ig-ph" onclick="openLbLog(\''+l.id+'\')"><img src="'+first+'" loading="lazy">'+(imgs.length>1?'<div class="rdlog-multi">📄 1/'+imgs.length+'</div>':'')+'</div><div class="ig-body">'+(l.read?'<div class="ig-like on">❤️ 완독</div>':'')+(l.bookTitle?'<div class="ig-title">'+l.bookTitle+'</div>':'')+'<div class="ig-date">'+(l.date||'')+'</div></div></div>';};
+      const rest=myLogs.slice(6);
+      return '<div style="margin-top:14px"><div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">📸 리딩로그 <span style="font-size:12px;font-weight:600;color:var(--slate)">'+myLogs.length+'개</span></div>'
+        +'<div class="ig-strip">'+myLogs.slice(0,6).map(_lg).join('')+'</div>'
+        +(rest.length?'<div class="ig-strip" id="stu-rdlog-more" style="display:none;margin-top:8px">'+rest.map(_lg).join('')+'</div>'
+          +'<div style="text-align:center;margin-top:8px"><button class="btn bo bsm" id="stu-rdlog-btn" style="border-radius:50px" onclick="stuRdLogMore()">더 보기 ('+rest.length+'개) ▾</button></div>':'')
+        +'</div>';
     })()}
   </div>`;
   polishStudentCmt(givenName);
@@ -4359,6 +4463,13 @@ function renderStudentHome(sid){
   }
   setTimeout(()=>_vocabHwAutoCheck(sid).catch(()=>{}),400); // 이미 20개 채웠는데 미체크면 보정 (다른 기기 학습 등)
   if(typeof ppRevealScan==='function')ppRevealScan('#stu-hw-card .hw-check-card'); // 퀘스트 카드가 차례로 올라오게
+}
+function stuRdLogMore(){
+  const m=document.getElementById('stu-rdlog-more');if(!m)return;
+  const on=m.style.display==='none';
+  m.style.display=on?'':'none';
+  const b=document.getElementById('stu-rdlog-btn');
+  if(b)b.textContent=on?'접기 ▴':('더 보기 ('+m.querySelectorAll('.ig-card').length+'개) ▾');
 }
 function handleHomeAsgnAudio(e,asgnId,sid){
   const f=e.target.files[0];if(!f)return;
@@ -4380,6 +4491,7 @@ let vocabDeckFilter=null;
 function openVocabForAssignment(sid,asgnId){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);
   vocabDeckFilter=a&&a.words?.length?{words:a.words,asgnId}:null;
+  window._vcGo=true;          // 숙제에서 들어온 길도 바로 카드로
   swStuTab('st-vocab');
 }
 
