@@ -99,6 +99,7 @@ core 29/29 통과 · 실제 서버 쓰기 0건 · 줄 수 전후 같음(item_ban
 | `verify_item` | core | Page & Pencil — 자료실·문제 은행 잇기 점검 (node verify_item.js) |  |
 | `verify_itemid` | core | 문항 id 가 ’행 id’ 로 들어오는지 — data 안에 id 가 없는 문항으로만 확인한다 (가짜 서버) |  |
 | `verify_library` | core | 라이브러리 (lib_books · lib_text) — 가짜 데이터만. 출판사 원문·학생 데이터는 쓰지 않는다. |  |
+| `verify_limited` | core | 서버 제한(402·읽기만 됨·일시 정지) — 띠·보기 전용·기기 자료로 열기 |  |
 | `verify_link` | core | Page & Pencil — ’다음 교재 하나로 잇기’ 점검 (node verify_link.js) |  |
 | `verify_lk` | core | 학습 세트 · 수업 기록 단원 자료 · 홈 시험 대비 — 전부 가짜 서버 |  |
 | `verify_paint` | core | 실제로 ’칠해진’ 파랑·남색·보라만 찾는다 — 계산된 스타일 기준. 소스에 남아 있어도 덮여 있으면 제외. |  |
@@ -110,6 +111,7 @@ core 29/29 통과 · 실제 서버 쓰기 0건 · 줄 수 전후 같음(item_ban
 | `verify_scroll` | core | 스크롤 점검 — 화면보다 긴 내용이 **휠로 끝까지 닿는가**. |  |
 | `verify_split` | core | 기출과 교재 나누기 (B) — 가짜 자료줄만 쓴다. 실제 기출 원문은 쓰지 않는다. |  |
 | `verify_tts` | core | 2-1 tts-proxy 경로 검증. 실DB 쓰기·실제 ElevenLabs·Cloudinary 호출 전부 차단. |  |
+| `verify_ux1` | core | 학부모 수업 탭·빈 탭 · 학생 인사 · 공지 보이는 기간 · 수업 기록 [저장하기] — 가짜 서버만 |  |
 | `verify_visible` | core | Page & Pencil — ’설정한 것이 보이는가’ 점검 (node verify_visible.js) |  |
 | `verify_live_eb` | live | 라이브 확인 — 배포된 페이지가 진짜 Supabase 뷰에서 자료실을 받아오는지 (읽기만 한다) | 실제 서버·배포된 페이지를 읽어야 한다 (PP_ALLOW_LIVE_READ=1) |
 | `verify_live_fix3` | live | 라이브 확인 — 자료실 듣기(드라이브 재생기 하나씩) · 동형 탭 (AI 는 부르지 않는다) | 실제 서버·배포된 페이지를 읽어야 한다 (PP_ALLOW_LIVE_READ=1) |

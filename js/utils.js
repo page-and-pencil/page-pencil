@@ -206,6 +206,30 @@ function ppNoticeReadSids(n){
   return out;
 }
 function ppNoticeIsRead(n,sid){return !!sid&&ppNoticeReadSids(n).has(sid);}
+// ── 공지 보이는 기간 (2026-11-14) ──
+// from = 보이기 시작하는 날, until = 끝나는 날. 둘 다 선택 필드다 —
+// 없는 옛 공지는 종전처럼 '게시 중이면 보인다'. 7월에 등록한 12/25 휴강 공지가
+// 11월에도 학생 팝업으로 뜨던 문제를 이 두 칸으로 막는다.
+function ppNoticeWindow(n){
+  return {from:String((n&&n.from)||'').slice(0,10),until:String((n&&n.until)||'').slice(0,10)};
+}
+function ppNoticeVisible(n,todayStr){
+  const t=todayStr||((typeof ppToday==='function')?ppToday():'');
+  const w=ppNoticeWindow(n);
+  if(w.from&&t&&t<w.from)return false;
+  if(w.until&&t&&t>w.until)return false;
+  return true;
+}
+// 선생님 목록에 글로 적는 기간 — '12/11부터 보임' · '기간 지남' · '12/25까지 보임'
+function ppNoticeWhenLabel(n,todayStr){
+  const t=todayStr||((typeof ppToday==='function')?ppToday():'');
+  const w=ppNoticeWindow(n);
+  const md=d=>Number(d.slice(5,7))+'/'+Number(d.slice(8,10));
+  if(w.from&&t<w.from)return md(w.from)+'부터 보임';
+  if(w.until&&t>w.until)return '기간 지남';
+  if(w.until)return md(w.until)+'까지 보임';
+  return '';
+}
 // 이 공지를 받는 학생들 (읽음 수 계산용)
 function ppNoticeStus(n){
   const stus=(typeof DB!=='undefined'&&DB.stus)?DB.stus().filter(s=>!s.inactive):[];
