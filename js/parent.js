@@ -349,10 +349,71 @@ async function loadParent(sid){
   if(notifItems.length)blocks+=`<div style="background:var(--bg),rgba(27,94,74,.15));border:1px solid rgba(27,94,74,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--tealt)">${luIcon('sparkles',14)||''} 새 업데이트: ${notifItems.join(' · ')}</div>`;
   localStorage.setItem(lastVisitKey,todayIso);
 
+  // ── 숙제 (수업 탭 맨 위) ─────────────────────────────────────
+  // 끝난 숙제는 빼고 센다 — 일정이 전부 done 인 반복 숙제도 '끝남'으로 본다 (hwFinished)
+  // 오늘 몫과 밀린 날은 모두 hwState 한 곳에서 읽는다. 화면이 따로 세지 않는다.
+  const assigns=DB.assigns().filter(a=>a.sid===sid&&(typeof hwPendingNow==='function'?hwPendingNow(a):!hwFinished(a)));
+  // 밀린 날은 더해서 '밀린 17일' 로 보여 주던 것을 과제별로 나눠 적는다 — 더한 숫자는 무엇을 하라는 말이 아니었다
+  const _overdue=DB.assigns().filter(a=>a.sid===sid).map(a=>({a,n:(typeof hwOverdueDays==='function')?hwOverdueDays(a,'',PP_OVERDUE_WIN):0})).filter(x=>x.n>0).sort((x,y)=>y.n-x.n);
+  const _overdueN=_overdue.reduce((t,x)=>t+x.n,0);
+  const _hwLbl=a=>{
+    if(a.category==='vocab'&&(a.words||[]).length)return (a.words||[]).slice(0,3).join(', ')+(a.words.length>3?` 외 ${a.words.length-3}개`:'');
+    return a.bookTitle||a.text||a.title||a.range||'과제';
+  };
+  const hwCardHtml=(()=>{
+    const todayD=ppToday();
+    // 오늘 몫 — 일정형(반복·클래스5)은 오늘 줄, 단건은 마감이 오늘인 것
+    const td=[];
+    DB.assigns().filter(a=>a.sid===sid&&!a._deleted).forEach(a=>{
+      const st=(typeof hwState==='function')?hwState(a,todayD):null;
+      if(!st)return;
+      if(st.scheduled){if(st.todayRow)td.push({a,sc:st.todayRow,done:!!st.todayRow.done});}
+      else if(String(st.lastDate||'')===todayD)td.push({a,sc:null,done:!!st.finished});
+    });
+    const tDone=td.filter(x=>x.done).length;
+    const allDone=td.length>0&&tDone>=td.length;
+    const head=td.length
+      ?(allDone?'<span style="font-size:12px;color:var(--okt);font-weight:700">오늘 몫 완료 ✓</span>'
+               :`<span style="font-size:12.5px;color:var(--coral);font-weight:700">오늘 숙제 ${tDone}/${td.length}</span>`)
+      :(assigns.length?`<span style="font-size:12px;color:var(--coral);font-weight:700">남은 숙제 ${assigns.length}개</span>`
+                      :'<span style="font-size:12px;color:var(--slate);font-weight:700">오늘 숙제 없어요</span>');
+    const tdRow=x=>{
+      const sub=[x.sc&&x.sc.book,x.sc&&x.sc.unit,!x.sc&&x.a.range].filter(Boolean).join(' · ');
+      return `<div style="display:flex;align-items:baseline;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);font-size:14px;line-height:1.5">
+        <span style="flex-shrink:0;font-size:13px;color:${x.done?'var(--okt)':'var(--coral)'};font-weight:700">${x.done?'✓':'·'}</span>
+        <span style="min-width:0;color:${x.done?'var(--slate)':'var(--navy)'};${x.done?'text-decoration:line-through':''}">${escAttr(_hwLbl(x.a))}${sub?` <span class="p-dim">${escAttr(sub)}</span>`:''}</span>
+      </div>`;
+    };
+    // 밀린 것은 과제별로 — '앱으로 단어 20개 학습 · 12일 밀림'
+    const odShow=_overdue.slice(0,4);
+    const odHtml=_overdue.length?`<div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--warnt);font-weight:700;margin-bottom:4px" title="최근 2주 기준">${luIcon('rotate-ccw',13)||''} 밀린 숙제</div>
+      ${odShow.map(x=>`<div style="font-size:13.5px;color:var(--navy);line-height:1.65">${escAttr(_hwLbl(x.a))} <span style="color:var(--warnt);font-weight:700">· ${x.n}일 밀림</span></div>`).join('')}
+      ${_overdue.length>odShow.length?`<div style="font-size:12.5px;color:var(--slate)">외 ${_overdue.length-odShow.length}건</div>`:''}
+    </div>`:'';
+    const restA=assigns.filter(a=>!td.some(x=>x.a.id===a.id)&&!_overdue.some(x=>x.a.id===a.id));
+    const restHtml=restA.length?`<div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--slate);font-weight:700;margin-bottom:4px">이어서 할 숙제 ${restA.length}개</div>
+      ${restA.slice(0,3).map(a=>`<div style="font-size:13.5px;color:var(--navy);line-height:1.65">${escAttr(_hwLbl(a))}${a.due?` <span class="p-dim">~${a.due}</span>`:''}</div>`).join('')}
+      ${restA.length>3?`<div style="font-size:12.5px;color:var(--slate)">외 ${restA.length-3}개</div>`:''}
+    </div>`:'';
+    return `<div class="card">
+      <div class="ch"><span class="ct">${luIcon('clipboard-list',16)}숙제</span><span style="margin-left:auto">${head}</span></div>
+      <div class="cb" style="padding:12px 16px">
+        ${td.length?td.map(tdRow).join(''):`<div style="font-size:13.5px;color:var(--slate);line-height:1.7">오늘 배정된 숙제가 없어요.</div>`}
+        ${allDone?`<div style="font-size:13.5px;color:var(--okt);font-weight:700;margin-top:8px">오늘 할 숙제는 다 했어요 👏</div>`:''}
+        ${odHtml}
+        ${restHtml}
+      </div>
+    </div>`;
+  })();
+
   // 히어로 요약 카드 (이번 달 + 3종 통계) — 시안
   {
-    const givenName=s.name&&s.name.length>1?s.name.slice(1):(s.name||'');
-    const josa=(n)=>{if(!n)return '는';const c=n.charCodeAt(n.length-1);if(c<0xAC00||c>0xD7A3)return '는';return (c-0xAC00)%28===0?'는':'은';};
+    // 부르는 이름은 학생 화면과 같은 함수로 — 세 글자 이상만 성을 떼고, 두 글자는 그대로 (givenNameOf)
+    // 전에는 여기서 첫 글자를 늘 떼어 '연은'·'은은' 처럼 이름이 아닌 말이 나갔다
+    const givenName=(typeof givenNameOf==='function')?givenNameOf(s.name):(s.name||'');
+    const josa=n=>(typeof ppJosa==='function')?ppJosa(n,'은','는'):'은';
     const avgScore=ppAvgPct(tsts,'vocab');            // 미응시 제외, 없으면 null(—)
     const readBooks=rds.length;
     // 출석이 1회 이하이거나 이번 달 결석이 있으면 칭찬형 문구를 쓰지 않는다.
@@ -363,6 +424,8 @@ async function loadParent(sid){
     if(!les.length)summary='곧 첫 수업 기록이 올라올 거예요.';
     else if(_awayThis&&_attendedThis<=1)summary=`이번 달은 ${_attendedThis}회 수업했어요. 못 온 날은 보강으로 채워 갈게요.`;
     else if(_attendedThis<=1)summary='이번 달 수업이 이제 시작이에요.';
+    // 숙제가 밀려 있는데 '성실하게 함께하고 있어요' 가 나가던 것 — 밀린 게 있으면 사실만 적는다 (2026-11-14)
+    else if(_overdueN>0)summary=`이번 달 수업 ${_attendedThis}회를 함께했어요.`;
     else if(lesChange>0)summary='꾸준히 나오며 잘 성장하고 있어요.';
     else if(avgScore!=null&&avgScore>=80)summary='이번 달도 안정적으로 잘 해주고 있어요.';
     else summary='이번 달도 성실하게 함께하고 있어요.';
@@ -391,6 +454,9 @@ async function loadParent(sid){
   {const tl=(typeof ppTrackLineHtml==='function')?ppTrackLineHtml(s,true):'';
    if(tl)blocks+=`<div class="card"><div class="cb" style="padding:4px 14px">${tl}</div></div>`;}
 
+  // 숙제 — 학부모가 가장 먼저 찾는 카드라 '최근 수업' 보다 위에 둔다 (2026-11-14)
+  blocks+=hwCardHtml;
+
   // 블록 A — 최근 수업 (가장 최근이 '수업 안 함'이면 안 한 사실을 안내)
   const skipDate=stuRecentSkip(sid,latLes?.date||'');
   if(skipDate){
@@ -414,7 +480,7 @@ async function loadParent(sid){
           :`${mats?`<div style="font-size:13px;margin-bottom:8px;line-height:1.8">${mats}</div>`:''}
         ${polished
           ?`<div class="pcmt"><div class="pcmt-lbl">선생님 코멘트</div><div class="pcmt-txt">${polished}</div></div>`
-          :`<div style="font-size:13px;color:var(--slate);font-style:italic">수업 코멘트가 곧 업데이트됩니다 😊</div>`}`}
+          :''}`}
         <div style="margin-top:10px;display:flex;justify-content:flex-end">
           <button id="p-ack-btn" onclick="parentAckLesson('${sid}','${latLes.id}')"
             style="background:none;border:1.5px solid ${isAcked?'var(--okt)':'var(--border)'};border-radius:20px;padding:4px 12px;font-size:13px;cursor:pointer;color:${isAcked?'var(--okt)':'var(--slate)'};font-family:var(--fb);display:flex;align-items:center;gap:4px">
@@ -504,50 +570,8 @@ async function loadParent(sid){
   // 블록 C-2 — 영역별 성장 (어휘/어법=테스트, 리딩/리스닝=과제 완료율)
   secScore+=parentAreaGrowth(sid);
 
-  // 블록 D — 미완료 과제
-  // 끝난 숙제는 빼고 센다 — 일정이 전부 done 인 반복 숙제도 '끝남'으로 본다 (hwFinished)
-  // 오늘 남은 것(학생 화면과 같은 기준) + 밀린 날은 따로 알린다 (2026-11-08)
-  const assigns=DB.assigns().filter(a=>a.sid===sid&&(typeof hwPendingNow==='function'?hwPendingNow(a):!hwFinished(a)));
-  const _overdue=DB.assigns().filter(a=>a.sid===sid).map(a=>({a,n:(typeof hwOverdueDays==='function')?hwOverdueDays(a,'',PP_OVERDUE_WIN):0})).filter(x=>x.n>0);
-  const _overdueN=_overdue.reduce((t,x)=>t+x.n,0);
-  if(!assigns.length&&_overdueN){
-    blocks+=`<div class="card">
-      <div class="ch"><span class="ct">${luIcon('clipboard-list',16)}숙제</span><span style="font-size:12px;color:var(--okt);font-weight:700">오늘 몫 완료 ✓</span></div>
-      <div class="cb" style="padding:12px 16px">
-        <div style="font-size:14px;color:var(--navy);line-height:1.7">오늘 할 숙제는 <b style="color:var(--okt)">다 했어요</b>.</div>
-        <div style="font-size:13px;color:var(--warnt);margin-top:6px;line-height:1.7">${luIcon('rotate-ccw',14)||''} 최근 2주 중 <b>${_overdueN}일</b>치가 비어 있어요 — ${_overdue.slice(0,2).map(x=>escAttr(x.a.bookTitle||x.a.range||'숙제')).join(', ')}${_overdue.length>2?' 외':''}</div>
-      </div>
-    </div>`;
-  }
-  if(assigns.length){
-    const CAT_LBL={'phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
-    const todayD=ppToday();
-    const sorted=[...assigns].sort((a,b)=>{
-      const urg=d=>{if(!d)return 99;const df=Math.round((new Date(d)-new Date(todayD))/86400000);return df<0?0:df===0?1:1+df;};
-      const ua=urg(a.due),ub=urg(b.due);return ua!==ub?ua-ub:(a.due||a.date||'').localeCompare(b.due||b.date||'');
-    });
-    const assignRow=a=>{
-      const cat=a.category?(CAT_LBL[a.category]||a.category):''; // 직접 입력 구분은 그대로 표시
-      const catHtml=(((typeof ppTrackChipHtml==='function')?ppTrackChipHtml(a.track):'')
-        +(cat?`<span style="font-size:12px;font-weight:700;color:var(--teal)">[${cat}]</span> `:''));
-      const label=a.category==='vocab'?((a.words||[]).slice(0,3).join(', ')+(a.words?.length>3?` 외 ${a.words.length-3}개`:'')):(a.bookTitle||a.text||((a.category&&!['phonics','vocab','grammar','reading','listening','writing','naesin','book','class5','other'].includes(a.category))?a.category:'')||'과제');
-      const range=a.range?` <span class="p-dim">${a.range}</span>`:'';
-      const dueCol=a.due&&a.due<=todayD?'var(--coral)':'var(--slate)';
-      const due=a.due?` <span style="font-size:12px;color:${dueCol}">~${a.due}</span>`:'';
-      return `<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:14px;color:var(--navy);line-height:1.5">${catHtml}${label}${range}${due}</div>`;
-    };
-    const shown=sorted.slice(0,3);
-    const rest=sorted.slice(3);
-    blocks+=`<div class="card">
-      <div class="ch"><span class="ct">${luIcon('clipboard-list',16)}숙제</span>${_overdueN?`<span style="font-size:11.5px;color:var(--warnt);font-weight:700;margin-left:auto;margin-right:8px" title="최근 2주 기준">밀린 ${_overdueN}일</span>`:''}<span style="font-size:12px;color:var(--coral);font-weight:700">${assigns.length}개 남음</span></div>
-      <div class="cb" style="padding:12px 16px">
-        ${shown.map(assignRow).join('')}
-        ${rest.length?`<div id="pp-assign-more" style="display:none">${rest.map(assignRow).join('')}</div>
-          <button onclick="const el=document.getElementById('pp-assign-more');const open=el.style.display==='none';el.style.display=open?'':'none';this.textContent=open?'접기 ▴':'외 ${rest.length}개 더 ▾'" style="background:none;border:none;font-size:13px;color:var(--teal);cursor:pointer;font-family:var(--fb);margin-top:6px">외 ${rest.length}개 더 ▾</button>`:''}
-      </div>
-    </div>`;
-  }
-
+  // 숙제 카드는 수업 탭 맨 위로 옮겼다 (아래 hwCardHtml) — 학부모가 가장 먼저 찾는 카드가
+  // 2,000px 아래에 있었다 (390px 실측, 2026-11-14).
   // 기록 열람 카드(읽은 책·리딩로그·뱃지)를 한 묶음으로 접는다 — 수업 탭이 길어지던 문제.
   // 세 카드가 모두 조건부라 '추가된 게 있을 때만' 감싼다(빈 묶음·태그 깨짐 방지)
   const _archFrom=blocks.length;
@@ -757,8 +781,18 @@ async function loadParent(sid){
     <div class="pp-tab" data-pptab="score" style="display:none">${secScore}</div>
     <div class="pp-tab" data-pptab="msg" style="display:none">${secMsg}</div>
     <div class="pp-tab" data-pptab="pay" style="display:none">${secPay}</div>`;
+  // 아래 메뉴 — 보여 줄 것이 없는 탭은 뺀다 (눌러도 빈 화면이던 메시지·결제)
+  // 기준: 메시지는 카카오 연락처(openchat·phone) 가 하나라도 있을 때,
+  //       결제는 결제 안내 카드가 그려질 때(수업료·계좌·결제 내역 중 하나라도 있을 때).
+  {const _kk=(typeof DB.kakao==='function')?(DB.kakao()||{}):{};
+   const _msgOn=!!(_kk.openchat||_kk.phone);
+   const _payOn=!!((s.fee||0)||acct.bank||acct.number||(s.payments||[]).length);
+   document.querySelectorAll('#s-parent .stu-bottomnav .stutab').forEach(b=>{
+     const k=b.dataset.ppnav||'';
+     b.style.display=((k==='msg'&&!_msgOn)||(k==='pay'&&!_payOn))?'none':'';
+   });}
   // 하단 내비 활성 상태를 기본(수업)으로 리셋
-  document.querySelectorAll('#s-parent .stu-bottomnav .stutab').forEach((b,i)=>b.classList.toggle('active',i===0));
+  document.querySelectorAll('#s-parent .stu-bottomnav .stutab').forEach(b=>b.classList.toggle('active',(b.dataset.ppnav||'')==='les'));
   if(typeof ppRevealScan==='function')ppRevealScan('#pp-body .pp-tab[data-pptab="les"] .card');
 
   // 원서 추천

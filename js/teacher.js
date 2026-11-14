@@ -342,11 +342,14 @@ function openQuickNotice(){
   if(!text||!text.trim())return;
   postNoticeText(text.trim());
 }
-async function postNoticeText(v,classIds){
+async function postNoticeText(v,classIds,win){
   const notices=_cache.notices||[];
   const id='n'+Date.now();
   const notice={id,text:v,date:ppToday(),active:true};
   if(Array.isArray(classIds)&&classIds.filter(Boolean).length)notice.classIds=classIds.filter(Boolean);
+  // 보이는 기간 (선택) — 휴강 안내는 '휴강 2주 전 ~ 휴강 마지막 날' 로 채워서 넘어온다
+  if(win&&win.from)notice.from=String(win.from).slice(0,10);
+  if(win&&win.until)notice.until=String(win.until).slice(0,10);
   await supaUpsert('notices',id,notice,null);
   notices.unshift(notice);
   _cache.notices=notices;
@@ -6973,6 +6976,8 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-14',title:'수업 기록 — [저장하기] 가 늘 보여요',where:'클래스 → 수업 기록',tab:'t-class',go:['swTab','t-class']},
+ {date:'2026-11-14',title:'공지 — 보이는 기간을 정할 수 있어요(휴강 안내는 2주 전부터)',where:'대시보드 → 공지 빠른 등록',tab:'t-dash',go:['swTab','t-dash']},
  {date:'2026-11-14',title:'서버가 막혀도 기기에 남은 자료를 볼 수 있어요 — 저장은 풀린 뒤에',where:'모든 화면',tab:'t-dash',go:['swTab','t-dash']},
  {date:'2026-11-14',title:'동형 문제 — 오답 구성에 걸린 보기를 그 자리에서 고쳐 통과로 바꿉니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
  {date:'2026-11-14',title:'동형 문제 — 정답을 보기 글로 받아 번호 어긋남을 바로잡습니다',where:'교재·문제 → 동형 문제',tab:'t-data',go:['switchDataTab','iso']},
@@ -11613,6 +11618,11 @@ function renderDashNotice(){
         <button class="btn bt bsm" style="align-self:flex-end" onclick="postNotice()">등록</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <label style="font-size:12.5px;color:var(--slate)" for="dash-notice-until">언제까지</label>
+        <input type="date" id="dash-notice-until" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream)">
+        <span style="font-size:12px;color:var(--slate)">비워 두면 끌 때까지 보여요</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
         <label style="font-size:12.5px;color:var(--slate)">받는 대상</label>
         <select id="dash-notice-target" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:13px;color:var(--navy);background:var(--cream);max-width:100%">
           <option value="">전체 (모든 학생·학부모)</option>
@@ -11630,17 +11640,33 @@ async function postNotice(){
   const v=document.getElementById('dash-notice-input')?.value.trim();
   if(!v){toast('내용을 입력해 주세요');return;}
   const cid=document.getElementById('dash-notice-target')?.value||'';
+  const until=String(document.getElementById('dash-notice-until')?.value||'').slice(0,10);
   const notices=_cache.notices||[];
   const id='n'+Date.now();
   // classIds 를 비워 두면 전체 공지 — 반을 고르면 그 반 학생·학부모에게만 (1-4)
   const notice={id,text:v,date:ppToday(),active:true};
   if(cid)notice.classIds=[cid];
+  if(until)notice.until=until;           // 비워 두면 끌 때까지 (옛 공지와 같다)
   await supaUpsert('notices',id,notice,null);
   notices.unshift(notice);
   document.getElementById('dash-notice-input').value='';
+  {const u=document.getElementById('dash-notice-until');if(u)u.value='';}
   renderNoticeBoard();
   const cname=cid?((DB.classes().find(c=>c.id===cid)||{}).name||'그 반'):'';
   toast(cid?`${cname} 공지가 등록되었습니다`:'전체 공지가 등록되었습니다');
+}
+// 공지 보이는 기간 저장 — notices 행에 선택 필드(from·until)만 더한다
+async function noticeSetWindow(id,which,val){
+  const i=(_cache.notices||[]).findIndex(n=>n&&n.id===id);
+  if(i<0)return;
+  const n=_cache.notices[i];
+  const v=String(val||'').slice(0,10);
+  if(v)n[which]=v;else delete n[which];
+  const r=await supaUpsert('notices',id,n,null);
+  if(r===false)return;                   // 서버 제한 중 — 저장되지 않았다고 이미 알렸다
+  renderNoticeBoard();
+  const lbl=(typeof ppNoticeWhenLabel==='function')?ppNoticeWhenLabel(n):'';
+  toast(v?('기간을 저장했어요'+(lbl?' — '+lbl:'')):'기간을 지웠어요 — 끌 때까지 보여요');
 }
 async function toggleNoticeActive(id){
   const idx=_cache.notices.findIndex(n=>n.id===id);
@@ -11679,13 +11705,13 @@ function _noticeMarkRead(key){
     localStorage.setItem('pp_notice_read',JSON.stringify(a.slice(-60)));
   }catch(e){}
 }
-let _noticeKey='',_noticeTimer=null,_noticePreview=false;
+let _noticeKeys=[],_noticeTimer=null,_noticePreview=false;
 // 공지 팝업은 .screen 바깥의 고정 요소라 역할을 바꿔도 혼자 남는다.
 // 미리보기에서 뜬 팝업이 선생님 화면을 덮어 아무것도 못 누르게 하던 것 — 전환할 때 꺼 준다.
 // 읽음 기록은 남기지 않는다(미리보기에서 누른 것 때문에 원장님 기기의 공지가 사라지면 안 된다).
 function noticePopupHide(){
   if(_noticeTimer){clearTimeout(_noticeTimer);_noticeTimer=null;}
-  _noticeKey='';
+  _noticeKeys=[];
   const p=document.getElementById('notice-popup'),o=document.getElementById('notice-overlay');
   if(p)p.style.display='none';
   if(o)o.style.display='none';
@@ -11696,24 +11722,29 @@ function checkNotice(){
   // 지금 보고 있는 사람(학생·학부모)의 반에 맞는 공지만 — 반 공지가 다른 반에 뜨던 문제 (1-4)
   const _inStu=!!document.getElementById('s-student')?.classList.contains('active');
   const who=(_inStu?(typeof currentStudentSid!=='undefined'&&currentStudentSid):(typeof currentParentSid!=='undefined'&&currentParentSid))||'';
-  const list=(_cache.notices||[]).filter(n=>n&&n.active&&read.indexOf(key(n))<0
-      &&((typeof ppNoticeForSid!=='function')||ppNoticeForSid(n,who)))
+  // 보이는 기간(from~until) 밖인 공지는 띄우지 않는다 — 7월에 등록한 12/25 휴강 공지가
+  // 11월에도 뜨던 문제 (기간이 없는 옛 공지는 종전처럼 보인다)
+  const list=(_cache.notices||[]).filter(n=>n&&n.active&&n.text&&read.indexOf(key(n))<0
+      &&((typeof ppNoticeForSid!=='function')||ppNoticeForSid(n,who))
+      &&((typeof ppNoticeVisible!=='function')||ppNoticeVisible(n)))
     .sort((a,b)=>_noticeWhen(a).localeCompare(_noticeWhen(b)));
-  const pick=list[0];
-  if(!pick||!pick.text)return;
-  _noticeKey=key(pick);
-  const more=list.length-1;
-  document.getElementById('notice-text').textContent=pick.text+(more>0?`
-
-(안 읽은 공지 ${more}건 더 있어요)`:'');
+  if(!list.length)return;
+  // 안 읽은 것이 여럿이면 한 팝업에 모두 — 하나씩 뜨고 '(n건 더 있어요)' 로 알리던 것을 묶는다
+  _noticeKeys=list.map(key);
+  const head=document.getElementById('notice-head');
+  if(head)head.textContent=list.length>1?('공지사항 '+list.length+'건'):'공지사항';
+  document.getElementById('notice-text').textContent=list.length>1
+    ?list.map(n=>'· '+n.text).join('\n\n')
+    :list[0].text;
   document.getElementById('notice-popup').style.display='block';
   document.getElementById('notice-overlay').style.display='block';
 }
 function closeNotice(){
   // 미리보기(선생님이 학생·학부모 화면을 들여다보는 중)에서는 읽음으로 기록하지 않는다.
   // 이 기기의 pp_notice_read 는 학생별·역할별이 아니라 하나뿐이라, 기록하면 다음 미리보기에도 안 뜬다.
-  if(_noticeKey&&!_noticePreview)_noticeMarkRead(_noticeKey);   // 닫으면 기억 — 다시 뜨지 않게
-  _noticeKey='';
+  // [확인] 한 번으로 그 팝업에 보인 것 모두 읽음 처리
+  if(!_noticePreview)_noticeKeys.forEach(k=>{if(k)_noticeMarkRead(k);});
+  _noticeKeys=[];
   document.getElementById('notice-popup').style.display='none';
   document.getElementById('notice-overlay').style.display='none';
 }
@@ -14358,6 +14389,10 @@ function renderNoticeBoard(){
     const unreadStus=tgtStus.filter(s=>!readSids.has(s.id));
     const readCount=tgtStus.length-unreadStus.length;
     const tgtLbl=(typeof ppNoticeTargetLabel==='function')?ppNoticeTargetLabel(n):'전체';
+    // 보이는 기간 — 옛 공지(기간 없음)에도 여기서 넣을 수 있다
+    const _w=(typeof ppNoticeWindow==='function')?ppNoticeWindow(n):{from:'',until:''};
+    const _when=(typeof ppNoticeWhenLabel==='function')?ppNoticeWhenLabel(n):'';
+    const _dSt='padding:3px 6px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fm);font-size:12px;color:var(--navy);background:var(--cream)';
     return `<div class="notice-item ${n.active?'notice-active':''}">
       <div style="flex:1">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
@@ -14365,8 +14400,16 @@ function renderNoticeBoard(){
           <span class="notice-date">${n.date}</span>
           <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--tl);color:var(--tealt)">${escAttr(tgtLbl)}</span>
           <span style="font-size:11.5px;color:var(--slate)">읽음 ${readCount}/${tgtStus.length}명</span>
+          ${_when?`<span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--warnl);color:var(--warnt)">${escAttr(_when)}</span>`:''}
         </div>
         <div class="notice-text" title="눌러서 전문 보기" onclick="this.closest('.notice-item').classList.toggle('open')">${n.text.replace(/\n/g,'<br>')}</div>
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:6px">
+          <span style="font-size:11.5px;color:var(--slate)">보이는 기간</span>
+          <input type="date" value="${escAttr(_w.from)}" title="이 날부터 학생·학부모에게 보여요" style="${_dSt}" onchange="noticeSetWindow('${n.id}','from',this.value)">
+          <span style="font-size:11.5px;color:var(--slate)">~</span>
+          <input type="date" value="${escAttr(_w.until)}" title="이 날까지 보여요 (비우면 끌 때까지)" style="${_dSt}" onchange="noticeSetWindow('${n.id}','until',this.value)">
+          <span style="font-size:11px;color:var(--slate)">비우면 끌 때까지</span>
+        </div>
         ${unreadStus.length?`<details style="margin-top:6px"><summary style="font-size:12px;color:var(--slate);cursor:pointer">미읽음 ${unreadStus.length}명 ▼</summary>
           <div style="font-size:12px;color:var(--slate);padding:4px 0">${unreadStus.map(s=>s.name).join(', ')}</div>
         </details>`:'<div style="font-size:12px;color:var(--tealt);margin-top:4px">✓ 전원 읽음</div>'}
@@ -16696,6 +16739,11 @@ function openSkipNotice(classId,date){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const range=Array.isArray(date); // [시작,끝] = 기간 휴강·방학
   const lbl=range?`${skipDateLbl(date[0])}~${skipDateLbl(date[1])}`:skipDateLbl(date);
+  // 보이는 기간 기본값 — 휴강 첫날 14일 전부터 휴강 마지막 날까지.
+  // 7월에 등록한 12/25 휴강 공지가 11월에도 뜨던 것을 이 기본값으로 막는다 (창에서 고칠 수 있다)
+  const _d1=range?date[0]:date, _d2=range?date[1]:date;
+  const _wFrom=(typeof ppShiftDate==='function')?ppShiftDate(_d1,-14):'';
+  const _wUntil=_d2;
   const def=`${luIcon('megaphone',15)||''} ${c.name?c.name+' ':''}휴강 안내\n${lbl} ${range?'기간은 수업을 쉬어갑니다':'수업은 사정상 쉬어갑니다'}.\n과제는 평소처럼 진행해 주세요 💪`;
   const overlay=document.createElement('div');
   overlay.id='skip-notice-overlay';
@@ -16714,13 +16762,22 @@ function openSkipNotice(classId,date){
       <button class="btn bo bsm" onclick="skipNoticeCopy()">${luIcon('clipboard-list',15)||''} 복사 (카톡 붙여넣기)</button>
       <button class="btn bo bsm" style="margin-left:auto" onclick="skipNoticeClose()">닫기</button>
     </div>
+    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:9px">
+      <span style="font-size:12.5px;color:var(--slate)">보이는 기간</span>
+      <input type="date" id="skip-notice-from" value="${escAttr(_wFrom)}" style="padding:4px 7px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fm);font-size:12.5px;color:var(--navy);background:var(--cream)">
+      <span style="font-size:12.5px;color:var(--slate)">~</span>
+      <input type="date" id="skip-notice-until" value="${escAttr(_wUntil)}" style="padding:4px 7px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fm);font-size:12.5px;color:var(--navy);background:var(--cream)">
+      <span style="font-size:11.5px;color:var(--slate)">휴강 2주 전부터 휴강 날까지</span>
+    </div>
     <div style="font-size:12px;color:var(--slate);line-height:1.7;margin-top:8px">공지 배너는 학부모 앱 상단에 떠요. 안 보내도 휴강 예정은 학생·학부모 앱 홈에 자동으로 표시됩니다.</div>`;
   document.body.appendChild(overlay);document.body.appendChild(el);
 }
 async function skipNoticeBanner(){
   const t=(document.getElementById('skip-notice-text')?.value||'').trim();
   if(!t){toast('안내문을 입력해 주세요');return;}
-  await postNoticeText(t.replace(/\n/g,' '));
+  const from=String(document.getElementById('skip-notice-from')?.value||'').slice(0,10);
+  const until=String(document.getElementById('skip-notice-until')?.value||'').slice(0,10);
+  await postNoticeText(t.replace(/\n/g,' '),null,{from,until});
   skipNoticeClose();
 }
 async function skipNoticeCopy(){
@@ -17882,11 +17939,36 @@ function openClsRecord(){
   const col=document.getElementById('cls-record-col');if(col)col.classList.add('open');
   const r2=document.getElementById('cls-resizer-2');if(r2)r2.style.display='';
   document.getElementById('cls-split')?.classList.add('detail-open');
+  clRecordFit();
 }
 function closeClsRecord(){
   const col=document.getElementById('cls-record-col');if(col)col.classList.remove('open');
   const r2=document.getElementById('cls-resizer-2');if(r2)r2.style.display='none';
+  clRecordFit();
 }
+// 기록 칸 폭 — 1366px 에서 444px 밖에 안 돼 단원 칸이 'Unit 4 (' 로 잘리고
+// 가운데 칸에 가로 스크롤이 생겼다. 기록을 열면 왼쪽 클래스 목록을 접어 560px 이상을 준다.
+// 닫으면 목록이 돌아온다. 폰(767px 이하)은 기록이 전체 화면이라 접을 것이 없다.
+const CL_REC_MIN=560, CL_REC_MAX=680, CL_MID_KEEP=580;
+function clRecordFit(){
+  const split=document.getElementById('cls-split'),col=document.getElementById('cls-record-col');
+  if(!split||!col)return;
+  const open=col.classList.contains('open');
+  if(!open||window.innerWidth<768){
+    split.classList.remove('rec-fold');
+    col.style.width='';col.style.flexBasis='';col.style.flexGrow='';col.style.flexShrink='';
+    return;
+  }
+  const total=split.offsetWidth||window.innerWidth;
+  const listW=(split.querySelector('.cls-list-col')||{}).offsetWidth||220;
+  const rz=10;                                   // 리사이저 둘
+  const fold=(total-listW-rz-CL_MID_KEEP)<CL_REC_MIN;   // 1366px 에서는 접힌다
+  split.classList.toggle('rec-fold',fold);
+  const avail=total-(fold?5:listW+rz)-CL_MID_KEEP;
+  const w=Math.max(CL_REC_MIN,Math.min(CL_REC_MAX,avail));
+  col.style.flexShrink='0';col.style.flexGrow='0';col.style.flexBasis=w+'px';col.style.width=w+'px';
+}
+window.addEventListener('resize',()=>{try{clRecordFit();}catch(e){}});
 // ── 학생 상세 폭 조절 ────────────────────────────────────────
 // 상세에 담기는 내용이 많아 400px 로는 좁다. 드래그로 넓히고 폭을 기억한다.
 // (클래스 탭의 startClsResize 와 같은 방식)

@@ -1085,7 +1085,8 @@ async function submitHomework(sid, assignmentId=''){
 function showParentNoticeBanner(){
   const _nk=n=>{const t=Number(String(n.id||'').replace(/^n/,''));return t>0?t:(Date.parse(n.date||'')||0);};const active=(_cache.notices||[]).filter(n=>n.active
     &&!((typeof ppNoticeIsRead==='function')?ppNoticeIsRead(n,currentParentSid):(n.readBy||[]).some(r=>r.sid===currentParentSid))
-    &&((typeof ppNoticeForSid!=='function')||ppNoticeForSid(n,currentParentSid))).sort((a,b)=>_nk(a)-_nk(b))[0]||null;
+    &&((typeof ppNoticeForSid!=='function')||ppNoticeForSid(n,currentParentSid))
+    &&((typeof ppNoticeVisible!=='function')||ppNoticeVisible(n))).sort((a,b)=>_nk(a)-_nk(b))[0]||null;
   _activeNoticeId=active?active.id:null;
   const banner=document.getElementById('parent-notice-banner');
   const txt=document.getElementById('parent-notice-text');
@@ -4011,7 +4012,9 @@ function renderStudentHome(sid){
     return items;
   };
   const overdue=regAssigns.filter(a=>!a.completedAt&&_asgnDay(a)&&_asgnDay(a)<today&&!(typeof schedCoversHw==='function'&&schedCoversHw(sid,_asgnDay(a),a.bookTitle||'',a.range||'')));
-  const todayPendingN=dayItems(today).filter(it=>!it.done).length+overdue.length;
+  const _tdItems=dayItems(today);
+  const _tdDone=_tdItems.filter(it=>it.done).length;        // 오늘 한 것 (인사말을 여기에 맞춘다)
+  const todayPendingN=_tdItems.filter(it=>!it.done).length+overdue.length;
 
   const givenName=(typeof givenNameOf==='function')?givenNameOf(stu&&stu.name):(stu?.name||'');
   const callName=(typeof vocativeOf==='function')?vocativeOf(stu&&stu.name):givenName+'아';
@@ -4026,11 +4029,17 @@ function renderStudentHome(sid){
     heroMatsText+=(heroMatsText?' / ':'')+`${label} ${v.book||''}${units.length?' '+units.join(', '):''}`.trim();
   });
   const heroRaw=lastLes?.cmt||'';const heroStored=lastLes?.stuCmt||'';const hasCheer=!!(heroRaw||heroStored);
-  const greetHtml=`<div class="stu-hero">
+  // 제목은 오늘 한 것에 맞춘다 — 아무것도 안 한 날에도 '잘했어!' 가 나가던 고정 글 (2026-11-14)
+  // 선생님 응원(hasCheer)이 있는 날은 그대로 '잘했어!' — 응원 글이 주인공이다
+  const heroTitle=(hasCheer||todayPendingN===0)?`${callName}, 잘했어!`
+    :(_tdDone>0?`${callName}, 조금만 더!`:`${callName}, 오늘도 시작해 볼까?`);
+  // 응원이 없으면 인사 카드를 낮춘다(slim) — 390x780 에서 카드가 화면 절반을 먹어
+  // '오늘의 퀘스트' 가 한 장만 보였다
+  const greetHtml=`<div class="stu-hero${hasCheer?'':' slim'}">
     <div class="stu-hero-top">
       <span class="stu-hero-ico">✨</span>
       <div style="flex:1;min-width:0">
-        <div class="stu-hero-title">${callName}, 잘했어!</div>
+        <div class="stu-hero-title">${heroTitle}</div>
         <div class="stu-hero-sub">${hasCheer?'선생님이 남긴 응원':(todayPendingN?`오늘 할 일 ${todayPendingN}개`:'오늘 할 일 끝! 🎉')}</div>
       </div>
     </div>
