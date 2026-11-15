@@ -4250,6 +4250,24 @@ async function saveTst(){
     grammarCorrect:_absent?0:gc,grammarTotal:_absent?0:gt,
     readingCorrect:_absent?0:rc,readingTotal:_absent?0:rt,
     listeningCorrect:_absent?0:lc,listeningTotal:_absent?0:lt,allWords,wrongWords,grammarWeak:document.getElementById('ts-gweak').value.trim(),cmt:document.getElementById('ts-cmt').value.trim(),photoUrl:tstPhotoUrl};
+  if(_tstEditId){
+    // [수정] 으로 펼친 입력 — 그 기록의 값만 바꾼다 (전에는 수정 창의 updTst 가 하던 일). 단어 카드는 건드리지 않는다
+    const idx=_cache.tests.findIndex(x=>x.id===_tstEditId);
+    if(idx<0){toast('기록을 찾을 수 없습니다');return;}
+    const old=_cache.tests[idx];
+    const upd={...old};
+    ['testKind','schoolAchv','mockGrade','extApp','extScore'].forEach(k=>delete upd[k]);
+    Object.assign(upd,newTst,{id:old.id,attempt:old.attempt,photoUrl:tstPhotoUrl||old.photoUrl||''});
+    if(old.retestOf)upd.retestOf=old.retestOf;
+    _cache.tests[idx]=upd;
+    await supaUpsert('tests',upd.id,upd,upd.sid);
+    const _eid=upd.id;
+    tstEditCancel(true);
+    tstPhotoUrl='';document.getElementById('tst-preview').style.display='none';
+    _tstAfterSave(_eid);if(typeof renderStus==='function')renderStus();_ppRepaintStuScreens(upd.sid);
+    toast('수정되었습니다');
+    return;
+  }
   await supaUpsert('tests',newTst.id,newTst,sid);
   _cache.tests.unshift(newTst);
   // vocab_cards 자동 저장
@@ -4265,7 +4283,7 @@ async function saveTst(){
    const ac=document.getElementById('ts-achv');if(ac)ac.value='';
    const mg=document.getElementById('ts-mgrade');if(mg)mg.value='';}
   tsRefreshRetest();
-  renderTst();if(typeof renderStus==='function')renderStus();   // 목록의 '단어 테스트' 칸
+  _tstAfterSave(newTst.id);if(typeof renderStus==='function')renderStus();   // 입력은 접고 목록의 그 줄을 보인다 · 목록의 '단어 테스트' 칸
   toast(_absent?'미응시로 기록했습니다':(_retestRoot?'재테스트 결과를 저장했습니다':'테스트 결과가 저장되었습니다'));
   checkNewBadges(sid);
   }catch(e){
@@ -4285,92 +4303,162 @@ function renderTstStats(){
   const scoredT=ppScored(monthT,'vocab');           // 미응시 제외
   const vAvg=ppAvgPct(monthT,'vocab');
   const studentsTested=new Set(scoredT.map(t=>t.sid)).size;
-  // 전에는 60% 미만만 셌다 — 통과 기준(기본 90%)에 못 미친 시험이 있어도 0 으로 보였다.
   // 통과 기준 미달을 센다. 기준은 설정의 vocabPassPct (시험별 passPct 가 있으면 그것)
-  const lowCount=scoredT.filter(t=>{
-    const st=(typeof ppVocabStatus==='function')?ppVocabStatus(t):null;
-    return st?st.k==='fail':pct(t.vocabCorrect,t.vocabTotal)<60;
-  }).length;
-  const card=(lbl,ico,icoCls,num,unit,color)=>`<div class="dash-stat"><div class="dash-stat-top"><span class="dash-stat-lbl">${lbl}</span><span class="dash-stat-ico ${icoCls}">${ico}</span></div><div class="dash-stat-num"${color?` style="color:${color}"`:''}>${num}${unit?`<small> ${unit}</small>`:''}</div></div>`;
+  const lowCount=scoredT.filter(_tstLow).length;
+  const pp=(typeof ppVocabPassPct==='function')?ppVocabPassPct():90;
+  const cell=(k,lbl,num,unit,bad,tip,click)=>{
+    const z=(num===0||num==='—');
+    const cls=(z?' zero':(bad?' bad':''))+(k==='low'&&_tstLowOnly?' on':'');
+    const tag=click?'button':'div';
+    return '<'+tag+(click?' type="button" onclick="'+click+'" aria-pressed="'+(k==='low'&&_tstLowOnly)+'"':'')+' class="pl-stat'+(click?'':' pl-stat-static')+cls+'" data-k="'+k+'" title="'+escAttr(tip||'')+'">'
+      +'<span class="pl-stat-l">'+lbl+'</span><span class="pl-stat-v"><b class="pl-num">'+num+'</b>'+(unit?'<small>'+unit+'</small>':'')+'</span></'+tag+'>';
+  };
   el.innerHTML=
-    card('이번 달 테스트','✏️','',monthT.length,'건','')
-    +card('단어 평균','📊',vAvg!=null&&vAvg>=80?'st-green':'',vAvg!=null?vAvg:'—',vAvg!=null?'%':'',vAvg!=null?(vAvg>=80?'var(--okt)':vAvg>=60?'var(--tealt)':'var(--warnt)'):'')
-    +card('응시 학생','🎓','',studentsTested,'명','')
-    +card(`보완 필요(${(typeof ppVocabPassPct==='function')?ppVocabPassPct():90}% 미달)`,'⚠️',lowCount?'st-amber':'',lowCount,'건',lowCount?'var(--warnt)':'');
+    cell('month','이번 달 테스트',monthT.length,'건',false,'')
+    +cell('avg','단어 평균',vAvg!=null?vAvg:'—',vAvg!=null?'%':'',false,'이번 달 단어 테스트 평균 (미응시 제외)')
+    +cell('stu','응시 학생',studentsTested,'명',false,'')
+    +cell('low','보완 필요',lowCount,'건',true,'이번 달 통과 기준('+pp+'%)에 못 미친 단어 테스트 · 누르면 그 기록만 (다시 누르면 풀림)','tstLowToggle()');
+  const sum=document.getElementById('tst-sum');
+  if(sum)sum.textContent=monthT.length?('이번 달 '+monthT.length+'건'+(vAvg!=null?' · 단어 평균 '+vAvg+'%':'')+(lowCount?' · 보완 필요 '+lowCount+'건':'')):'이번 달 기록 없음';
 }
+// 통과 기준에 못 미친 단어 테스트인가 (미응시는 아니다)
+function _tstLow(t){
+  const st=(typeof ppVocabStatus==='function')?ppVocabStatus(t):null;
+  return st?st.k==='fail':pct(t.vocabCorrect,t.vocabTotal)<60;
+}
+let _tstLowOnly=false;
+function tstLowToggle(){_tstLowOnly=!_tstLowOnly;tstPage=0;renderTst();}
 function renderTst(){
   renderTstStats();
   const stus=DB.stus();
   const filterSid=document.getElementById('tst-filter-stu')?.value||'';
   let tsts=DB.tsts();
   if(filterSid)tsts=tsts.filter(t=>t.sid===filterSid);
+  if(_tstLowOnly)tsts=tsts.filter(t=>!t.absent&&_tstLow(t));
   const total=tsts.length;const perPage=10;
   if(tstPage*perPage>=total&&tstPage>0)tstPage=Math.max(0,Math.ceil(total/perPage)-1);
   const paged=tsts.slice(tstPage*perPage,(tstPage+1)*perPage);
   const el=document.getElementById('tst-list');
-  const cnt=document.getElementById('tst-count');if(cnt)cnt.textContent=total?`총 ${total}건`:'';
-  if(!paged.length){el.innerHTML='<div class="empty boxed"><div class="empty-i">'+(luIcon('pencil-line',14)||'')+'</div><div class="empty-t">테스트 기록이 없습니다</div></div>';renderTstPage(total,perPage);return;}
-  el.innerHTML=paged.map(t=>{
-    const s=stus.find(x=>x.id===t.sid);
-    const vp=pct(t.vocabCorrect,t.vocabTotal),gp=pct(t.grammarCorrect,t.grammarTotal);
-    // 문항이 0인 영역은 줄에서 뺀다 — '어법 0/0 0%' 는 점수가 아니라 안 본 영역이다
-    const _hasV=(typeof ppHasArea==='function')?ppHasArea(t,'vocab'):(t.vocabTotal||0)>0;
-    const _hasG=(typeof ppHasArea==='function')?ppHasArea(t,'grammar'):(t.grammarTotal||0)>0;
-    // 미응시는 점수 칸을 보여 주지 않는다 — 0점과 구분된다
-    if(t.absent)return `<div class="ri">
-      <div class="ri-top">
-        <span style="font-weight:700">${s?s.name:'—'}</span>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span class="badge">미응시</span>
-          <span style="font-size:var(--fs-sm);color:var(--slate);font-family:var(--fm)">${t.date||''}</span>
-          <button class="btn bo bsm" onclick="openEditTst('${t.id}')">수정</button>
-        </div>
-      </div>
-      ${t.extApp&&t.extScore?`<div class="tst-ext">${escAttr(t.extApp)} ${escAttr(t.extScore)}</div>`:''}
-      ${t.cmt?`<div style="font-size:var(--fs-md);color:var(--slate);margin-top:8px">${t.cmt}</div>`:''}
-    </div>`;
-    return `<div class="ri">
-      <div class="ri-top">
-        <span style="font-weight:700">${s?s.name:'—'}</span>
-        <div style="display:flex;align-items:center;gap:6px">
-          ${(typeof ppTestKindOf==='function'&&ppTestKindOf(t)!=='inhouse')?`<span class="tk-kind">${escAttr(ppTestKindName(t))}</span>`:''}
-          ${t.schoolAchv?`<span class="tk-kind is-achv">성취도 ${escAttr(t.schoolAchv)}</span>`:''}
-          ${t.mockGrade?`<span class="tk-kind is-grade">${escAttr(String(t.mockGrade))}등급</span>`:''}
-          <span style="font-size:var(--fs-sm);color:var(--slate);font-family:var(--fm)">${t.date||''}</span>
-          <button class="btn bo bsm" onclick="openEditTst('${t.id}')">수정</button>
-        </div>
-      </div>
-      ${t.photoUrl?`<img src="${t.photoUrl}" class="tst-photo-thumb" onclick="openLb('${escU(t.photoUrl)}')" style="cursor:pointer">`:''}
-      ${_hasV?`<div style="margin-bottom:6px">
-        <div class="section-label" style="margin-bottom:4px">단어</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <div class="ring ${rcls(vp)}">${t.vocabCorrect}/${t.vocabTotal}</div>
-          <span style="font-size:var(--fs-md);color:var(--slate)">${vp}%</span>
-        </div>
-        ${t.wrongWords&&t.wrongWords.length?`<div class="wl">${t.wrongWords.map(w=>`<span class="wc">${w}</span>`).join('')}</div>`:''}
-      </div>`:''}
-      ${_hasG?`<div style="margin-bottom:6px">
-        <div class="section-label" style="margin-bottom:4px">어법</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <div class="ring ${rcls(gp)}">${t.grammarCorrect}/${t.grammarTotal}</div>
-          <span style="font-size:var(--fs-md);color:var(--slate)">${gp}%</span>
-        </div>
-        ${t.grammarWeak?`<span class="badge bamber">${t.grammarWeak}</span>`:''}
-      </div>`:''}
-      ${[['reading','리딩'],['listening','리스닝']].filter(([f])=>(t[f+'Total']||0)>0).map(([f,l])=>{
-        const p=pct(t[f+'Correct'],t[f+'Total']);
-        return `<div style="margin-bottom:6px">
-        <div class="section-label" style="margin-bottom:4px">${l}</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div class="ring ${rcls(p)}">${t[f+'Correct']||0}/${t[f+'Total']}</div>
-          <span style="font-size:var(--fs-md);color:var(--slate)">${p}%</span>
-        </div>
-      </div>`;}).join('')}
-      ${t.extApp&&t.extScore?`<div class="tst-ext">${escAttr(t.extApp)} ${escAttr(t.extScore)}</div>`:''}
-      ${t.cmt?`<div style="font-size:var(--fs-md);color:var(--slate);margin-top:8px">${t.cmt}</div>`:''}
-    </div>`;
-  }).join('');
+  const cnt=document.getElementById('tst-count');if(cnt)cnt.textContent=(_tstLowOnly?'보완 필요만 · ':'')+(total?`${total}건`:'');
+  // 기록이 하나도 없으면 입력을 펼쳐 둔다
+  if(!DB.tsts().length&&!_tstFormTouched)tstFormSet(true,false);
+  if(!paged.length){el.innerHTML='<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">'+(_tstLowOnly?'통과 기준에 못 미친 기록이 없어요':'테스트 기록이 없습니다')+'</span></span></div>';renderTstPage(total,perPage);return;}
+  const pass=(typeof ppVocabPassPct==='function')?ppVocabPassPct():90;
+  // 점수 칸 — 문항이 0 인 영역은 '–' (안 본 영역), 통과 기준에 못 미친 점수만 --badt
+  const sc=(t,f)=>{
+    if(!((t[f+'Total']||0)>0))return '<td class="pl-td none">–</td>';
+    const p=pct(t[f+'Correct'],t[f+'Total']);
+    // 통과 기준은 단어 테스트에만 있다 (설정의 vocabPassPct · 기록별 passPct) — 다른 영역은 색을 넣지 않는다
+    const bad=f==='vocab'&&p<(t.passPct||pass);
+    return '<td class="pl-td'+(bad?' bad':'')+'" title="'+p+'%">'+(t[f+'Correct']||0)+'/'+t[f+'Total']+'</td>';
+  };
+  const kindOf=t=>{
+    const bits=[];
+    bits.push((typeof ppTestKindOf==='function'&&ppTestKindOf(t)!=='inhouse')?ppTestKindName(t):'자체');
+    if(t.schoolAchv)bits.push('성취도 '+t.schoolAchv);
+    if(t.mockGrade)bits.push(t.mockGrade+'등급');
+    if(t.retestOf)bits.push('재테스트');
+    return bits.join(' · ');
+  };
+  el.innerHTML='<div class="pl-table-wrap"><table class="pl-table tst-table"><thead><tr>'
+    +'<th class="pl-th-l">날짜</th><th class="pl-th-l">학생</th><th class="pl-th-l">종류</th><th>단어</th><th>어법</th><th>리딩</th><th>리스닝</th><th class="pl-th-l">틀린 단어</th><th></th></tr></thead><tbody>'
+    +paged.map(t=>{
+      const s=stus.find(x=>x.id===t.sid);
+      const wr=(t.wrongWords||[]).join(', ');
+      const tip=[t.cmt,t.extApp&&t.extScore?(t.extApp+' '+t.extScore):'',t.grammarWeak?('어법 약점 '+t.grammarWeak):''].filter(Boolean).join(' · ');
+      return '<tr id="tst-row-'+escAttr(t.id)+'"'+(_tstFlash===t.id?' class="on"':'')+(tip?' title="'+escAttr(tip)+'"':'')+'>'
+        +'<td class="pl-td-l pl-num-s">'+escAttr((t.date||'').slice(5).replace('-','/'))+'</td>'
+        +'<td class="pl-td-l">'+escAttr(s?s.name:'—')+'</td>'
+        +'<td class="pl-td-l pl-muted-s">'+escAttr(kindOf(t))+'</td>'
+        +(t.absent?'<td class="pl-td none" colspan="4">미응시</td>':(sc(t,'vocab')+sc(t,'grammar')+sc(t,'reading')+sc(t,'listening')))
+        +'<td class="pl-td-l tst-wr" title="'+escAttr(wr)+'">'+escAttr(wr||'')+'</td>'
+        +'<td class="pl-td-act">'+(t.photoUrl?'<button type="button" class="pl-textbtn" onclick="openLb(\''+escU(t.photoUrl)+'\')">사진</button>':'')
+        +'<button type="button" class="pl-textbtn" onclick="tstEditInline(\''+t.id+'\')">수정</button></td></tr>';
+    }).join('')+'</tbody></table></div>';
   renderTstPage(total,perPage);
+}
+// ── 결과 입력 — 접힌 줄. [+ 결과 입력]·[수정] 으로 펼쳐 그 자리로 스크롤 (2026-11-15) ──
+let _tstEditId='',_tstFormTouched=false,_tstFlash='';
+function tstFormSet(open,scroll){
+  const b=document.getElementById('tst-form'),tg=document.getElementById('tst-form-tg');
+  if(!b)return;
+  b.hidden=!open;
+  if(tg)tg.setAttribute('aria-expanded',String(open));
+  if(open&&scroll)setTimeout(()=>{try{document.getElementById('tst-form-sec').scrollIntoView({block:'start',behavior:'instant'});}catch(e){}},0);
+}
+function tstFormToggle(){_tstFormTouched=true;const b=document.getElementById('tst-form');tstFormSet(!!(b&&b.hidden),true);}
+// [+ 결과 입력] — 새 기록 (고치던 것이 있으면 비운다)
+function tstFormOpen(){
+  _tstFormTouched=true;
+  if(_tstEditId)tstEditCancel(true);
+  tstFormSet(true,true);
+}
+function _tstFoldSet(id,open){const d=document.getElementById(id);if(d)d.open=!!open;}
+// [수정] — 그 기록 값으로 입력을 펼친다. 리딩·리스닝·외부 앱은 값이 있을 때 펼친다
+function tstEditInline(id){
+  const t=DB.tsts().find(x=>x.id===id);if(!t)return;
+  _tstEditId=id;_tstFormTouched=true;
+  const v=(i,x)=>{const el=document.getElementById(i);if(el)el.value=(x==null?'':x);};
+  v('ts-date',t.date||'');
+  v('ts-stu',t.sid||'');
+  v('ts-kind',(typeof ppTestKindOf==='function')?ppTestKindOf(t):(t.testKind||'inhouse'));
+  try{tsKindChange();}catch(e){}
+  v('ts-achv',t.schoolAchv||'');v('ts-mgrade',t.mockGrade||'');
+  const z=(c,tot)=>((tot||0)>0||(c||0)>0);
+  v('ts-vc',z(t.vocabCorrect,t.vocabTotal)?t.vocabCorrect:'');v('ts-vt',z(t.vocabCorrect,t.vocabTotal)?t.vocabTotal:'');
+  v('ts-gc',z(t.grammarCorrect,t.grammarTotal)?t.grammarCorrect:'');v('ts-gt',z(t.grammarCorrect,t.grammarTotal)?t.grammarTotal:'');
+  v('ts-rc',z(t.readingCorrect,t.readingTotal)?t.readingCorrect:'');v('ts-rt',z(t.readingCorrect,t.readingTotal)?t.readingTotal:'');
+  v('ts-lc',z(t.listeningCorrect,t.listeningTotal)?t.listeningCorrect:'');v('ts-lt',z(t.listeningCorrect,t.listeningTotal)?t.listeningTotal:'');
+  v('ts-wr',(t.wrongWords||[]).join(', '));v('ts-allwords',(t.allWords||[]).join(', '));
+  v('ts-gweak',t.grammarWeak||'');v('ts-cmt',t.cmt||'');
+  v('ts-ext-name',t.extApp||'');v('ts-ext-score',t.extScore||'');
+  v('ts-pass',t.passPct||'');
+  {const ab=document.getElementById('ts-absent');if(ab)ab.checked=!!t.absent;}
+  {const r=document.getElementById('ts-retest');if(r)r.value='';}
+  _tstFoldSet('ts-fold-rd',(t.readingTotal||0)>0);
+  _tstFoldSet('ts-fold-ls',(t.listeningTotal||0)>0);
+  _tstFoldSet('ts-fold-ext',!!(t.extApp||t.extScore));
+  const s=DB.stus().find(x=>x.id===t.sid);
+  const ti=document.getElementById('tst-form-title');if(ti)ti.textContent='결과 고치기';
+  const ax=document.getElementById('tst-form-aux');if(ax)ax.textContent=(s?s.name+' · ':'')+(t.date||'');
+  const ed=document.getElementById('tst-edit-acts');if(ed)ed.hidden=false;
+  tstFormSet(true,true);
+}
+function tstEditCancel(keepOpen){
+  _tstEditId='';
+  ['ts-vc','ts-vt','ts-gc','ts-gt','ts-rc','ts-rt','ts-lc','ts-lt','ts-wr','ts-allwords','ts-gweak','ts-cmt','ts-ext-score','ts-achv','ts-mgrade'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+  {const ab=document.getElementById('ts-absent');if(ab)ab.checked=false;}
+  {const k=document.getElementById('ts-kind');if(k){k.value='inhouse';try{tsKindChange();}catch(e){}}}
+  const ti=document.getElementById('tst-form-title');if(ti)ti.textContent='결과 입력';
+  const ax=document.getElementById('tst-form-aux');if(ax)ax.textContent='';
+  const ed=document.getElementById('tst-edit-acts');if(ed)ed.hidden=true;
+  ['ts-fold-rd','ts-fold-ls','ts-fold-ext'].forEach(i=>_tstFoldSet(i,false));
+  if(!keepOpen)tstFormSet(false,false);
+}
+// 저장 뒤 — 입력을 접고 목록의 그 줄을 보인다
+function _tstAfterSave(id){
+  _tstFlash=id;tstPage=0;
+  const f=document.getElementById('tst-filter-stu');
+  const t=DB.tsts().find(x=>x.id===id);
+  if(f&&t&&f.value&&f.value!==t.sid)f.value='';
+  if(_tstLowOnly&&t&&!_tstLow(t))_tstLowOnly=false;
+  const all=DB.tsts().filter(x=>(!f||!f.value||x.sid===f.value)&&(!_tstLowOnly||(!x.absent&&_tstLow(x))));
+  const i=all.findIndex(x=>x.id===id);if(i>=0)tstPage=Math.floor(i/10);
+  tstFormSet(false,false);
+  renderTst();
+  setTimeout(()=>{const r=document.getElementById('tst-row-'+id);if(r)try{r.scrollIntoView({block:'center',behavior:'instant'});}catch(e){}},0);
+  setTimeout(()=>{_tstFlash='';const r=document.getElementById('tst-row-'+id);if(r)r.classList.remove('on');},2500);
+}
+// 고치던 기록 지우기 (전에는 수정 창의 [삭제])
+function tstEditDelete(){
+  const id=_tstEditId;if(!id)return;
+  askConfirm('테스트 기록 삭제','이 테스트 기록을 삭제할까요?','삭제','bd',async()=>{
+    const sid=(_cache.tests.find(x=>x.id===id)||{}).sid;
+    await supaTrash('tests',_cache.tests,id);
+    _cache.tests=_cache.tests.filter(x=>x.id!==id);
+    tstEditCancel(false);renderTst();_ppRepaintStuScreens(sid);
+    toast('삭제되었습니다');
+  });
 }
 function renderTstPage(total,perPage){
   const pg=document.getElementById('tst-pager');if(!pg)return;
@@ -7168,6 +7256,8 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-15',title:'테스트 — 기록 목록이 먼저, 입력은 [+ 결과 입력] 으로',where:'테스트',tab:'t-tst',go:['swTab','t-tst']},
+ {date:'2026-11-15',title:'숙제 — 위 숫자를 누르면 걸러져요. 오늘 숙제는 체크로 완료',where:'숙제',tab:'t-assign',go:['swTab','t-assign']},
  {date:'2026-11-15',title:'대시보드 — 상자를 걷어내고 줄 목록으로 바꿨어요',where:'대시보드',tab:'t-dash',go:['swTab','t-dash']},
  {date:'2026-11-15',title:'교재 고르기 — 우리 교재가 먼저, 나머지는 검색으로',where:'수업 기록·클래스 수정·숙제 내기·진도 계획',tab:'t-assign',go:['renderAssignTab']},
  {date:'2026-11-15',title:'교재 — 자료가 있는 책 2,902권이 교재로 들어왔어요. 평소엔 우리 교재만 보여요',where:'교재·문제 → 교재',tab:'t-data',go:['switchDataTab','tbook']},
@@ -11820,7 +11910,7 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
       items.push({icon:luIcon('repeat',15),chip:'da-amber',
         text:`${st.name} — 재테스트 대기 ${q.length}건`+(ab?` (미응시 ${ab})`:''),
         label:'테스트 입력',
-        action:`swTab('t-tst');setTimeout(()=>{const e=document.getElementById('ts-stu');if(e){e.value='${st.id}';e.dispatchEvent(new Event('change'));}},200)`});
+        action:`swTab('t-tst');setTimeout(()=>{tstFormOpen();const e=document.getElementById('ts-stu');if(e){e.value='${st.id}';e.dispatchEvent(new Event('change'));}},200)`});
     });
   }
   // 우선순위 4.8: 교재 흐름 점검 — 반마다 한 줄만. 자세한 것은 그 반 진도 보드에서 고친다.
@@ -12793,14 +12883,14 @@ async function tAsgnToggleDone(aid){
   toast(a.completedAt?'완료로 표시했어요 ✓':'완료 표시를 취소했어요');
 }
 // 스케줄형(클래스5·반복)의 그 날짜 항목 완료 토글
-async function hwSchedToggleDone(aid,dateStr){
+async function hwSchedToggleDone(aid,dateStr,quiet){   // quiet — 숙제 탭 '오늘 숙제' 체크: 그날 상세 창을 띄우지 않는다
   const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
   const sc=(a.schedule||[]).find(s=>s.date===dateStr);if(!sc)return;
   if(sc.done){delete sc.done;delete sc.doneBy;delete sc.doneAt;}else{sc.done=true;sc.doneBy='teacher';sc.doneAt=new Date().toISOString();}
   try{await supaUpsert('assignments',a.id,a,a.sid);}
   catch(e){console.error('hwSchedToggleDone:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
   toast(sc.done?'이 날 완료 ✓':'완료 표시를 취소했어요');
-  _hwRefresh(dateStr);
+  if(quiet){renderAssignCal();renderAssignTab();}else _hwRefresh(dateStr);
 }
 function openAssignForDate(dateStr){
   openM('m-add-assign');
@@ -12885,7 +12975,7 @@ function renderAssignStats(){
   const _actIds=new Set(DB.stus().filter(s=>!s.inactive).map(s=>s.id));
   const _nameOf=sid=>{const s=DB.stus().find(x=>x.id===sid);return s?s.name:'';};
   // 판정은 공용 hwState 하나로 — 일정형 숙제는 completedAt 이 안 찍혀서,
-  // 전에는 3/3·30/30 처럼 **다 끝난 숙제가 '진행 중'이자 '미제출(지남)'** 로 세졌다.
+  // 전에는 3/3·30/30 처럼 다 끝난 숙제가 '진행 중'이자 '밀림' 으로 세졌다.
   const rows=DB.assigns().filter(a=>_actIds.has(a.sid)).map(a=>({a:a,st:hwState(a,today)}));
   const pending=rows.filter(x=>!x.st.finished);
   const dueToday=pending.filter(x=>x.st.todayPending);       // 단건=마감이 오늘 · 일정형=오늘 몫 미완료
@@ -12893,18 +12983,24 @@ function renderAssignStats(){
   const tipOf=list=>list.slice(0,12).map(x=>
       `${_nameOf(x.a.sid)} · ${String(x.a.bookTitle||x.a.text||x.a.range||'숙제').slice(0,22)} — ${x.st.overdueRows14}일`)
     .join('\n')+(list.length>12?`\n… 외 ${list.length-12}건`:'');
-  const unchecked=ppLive(_cache.homeworks).filter(h=>h.submitted&&!h.checked).length;
-  // [A3] 카드를 누르면 아래 '진행 중인 과제' 목록이 그 조건으로 걸러진다
-  const card=(lbl,ico,icoCls,num,unit,subColor,tip,fk)=>`<div class="dash-stat${fk!==undefined?' dash-stat-c':''}${(fk!==undefined&&_alFilter===fk)?' on':''}"${tip?` title="${escAttr(tip)}"`:''}${fk!==undefined?` onclick="alSetFilter('${fk}')"`:''}>
-    <div class="dash-stat-top"><span class="dash-stat-lbl">${lbl}</span><span class="dash-stat-ico ${icoCls}">${ico}</span></div>
-    <div class="dash-stat-num"${subColor?` style="color:${subColor}"`:''}>${num}${unit?`<small> ${unit}</small>`:''}</div>
-  </div>`;
+  const unchecked=_alUncheckedIds().size;
+  // 숫자 줄 네 칸이 거르기를 겸한다 — 누르면 아래 '진행 중인 숙제' 표가 걸러지고 고른 칸이 표시된다 (2026-11-15)
+  const cell=(k,lbl,num,unit,bad,tip)=>{
+    const cls=(num===0?' zero':(bad?' bad':''))+(_alFilter===k?' on':'');
+    return '<button type="button" class="pl-stat'+cls+'" data-k="'+(k||'all')+'" aria-pressed="'+(_alFilter===k)+'" title="'+escAttr(tip)+'" onclick="alSetFilter(\''+k+'\')">'
+      +'<span class="pl-stat-l">'+lbl+'</span><span class="pl-stat-v"><b class="pl-num">'+num+'</b><small>'+unit+'</small></span></button>';
+  };
   el.innerHTML=
-    card('진행 중','📋','',pending.length,'건','','아직 끝나지 않은 숙제 (일정형은 모든 날을 끝내면 빠집니다) · 누르면 아래 목록이 걸러집니다','')
-    +card('오늘 마감','⏰',dueToday.length?'st-amber':'',dueToday.length,'건',dueToday.length?'var(--tealt)':'','오늘 몫이 아직 안 끝난 숙제 · 누르면 아래 목록이 걸러집니다','today')
-    +card('미제출(지남)','⚠️',late.length?'st-amber':'',late.length,'건',late.length?'var(--warnt)':'',
-      (late.length?('최근 2주 안에 밀린 날이 있는 숙제\n'+tipOf(late)):'밀린 숙제가 없습니다')+'\n누르면 아래 목록이 걸러집니다','late')
-    +card('확인 대기','📥',unchecked?'st-green':'',unchecked,'건',unchecked?'var(--okt)':'','학생이 올린 숙제 중 아직 확인하지 않은 것');
+    cell('','진행 중',pending.length,'건',false,'아직 끝나지 않은 숙제 (일정형은 모든 날을 끝내면 빠집니다) · 누르면 전부 보기')
+    +cell('today','오늘 몫',dueToday.length,'건',false,'오늘 몫이 아직 안 끝난 숙제 · 누르면 아래 표가 걸러집니다')
+    +cell('late','밀림',late.length,'건',true,(late.length?('최근 2주 안에 밀린 날이 있는 숙제\n'+tipOf(late)):'밀린 숙제가 없습니다')+'\n누르면 아래 표가 걸러집니다')
+    +cell('check','확인 대기',unchecked,'건',true,'학생이 올린 숙제 중 아직 확인하지 않은 것 · 누르면 그 숙제만');
+  const sum=document.getElementById('assign-sum');
+  if(sum)sum.textContent='진행 중 '+pending.length+'건 · 오늘 몫 '+dueToday.length+'건 · 밀림 '+late.length+'건'+(unchecked?' · 확인 대기 '+unchecked+'건':'');
+}
+// 학생이 올렸는데 아직 확인하지 않은 숙제의 과제 id
+function _alUncheckedIds(){
+  return new Set(ppLive(_cache.homeworks).filter(h=>h&&h.submitted&&!h.checked&&h.assignmentId).map(h=>h.assignmentId));
 }
 // ── 학습기록 리셋 (P6) ──
 // 그 숙제의 **완료 표시만** 되돌린다. 단어 카드의 hits·misses·box·due 는 절대 건드리지 않는다.
@@ -12927,7 +13023,7 @@ async function hwResetProgress(asgnId){
 // ── [A3] 진행 중인 과제 목록 ────────────────────────────────
 // 달력 칩만으로는 '지금 무엇이 도는가' 를 알 수 없었다 — 과제마다 한 줄로 모아 본다.
 let _alFilter='',_alFocus='',_alDoneOpen=false;
-function alSetFilter(k){_alFilter=(_alFilter===k?'':k);renderAssignLive();renderAssignStats();}
+function alSetFilter(k){_alFilter=(_alFilter===k?'':k);renderAssignLive();renderAssignStats();}   // '' 진행 중 · today 오늘 몫 · late 밀림 · check 확인 대기
 function alFocus(aid){_alFocus=(_alFocus===aid?'':aid);renderAssignLive();renderAssignCal();}
 function alDoneToggle(){_alDoneOpen=!_alDoneOpen;renderAssignLive();}
 function _alKind(a){
@@ -12975,6 +13071,7 @@ function renderAssignLive(){
   let show=live;
   if(_alFilter==='today')show=live.filter(x=>x.st.todayPending);
   else if(_alFilter==='late')show=live.filter(x=>x.st.overdueRows14>0);
+  else if(_alFilter==='check'){const u=_alUncheckedIds();show=rows.filter(x=>u.has(x.a.id));}
   const nameOf=sid=>{const s2=DB.stus().find(x=>x.id===sid);return s2?s2.name:'';};
   const multi=new Set(rows.map(x=>x.a.sid)).size>1;
   // 짧은 이름은 **교재형 숙제에만** — '리딩앤 원서 읽기' 가 '읽기' 로 줄던 것
@@ -13013,11 +13110,11 @@ function renderAssignLive(){
         +(sub?'<i class="al-sub" title="'+escAttr(sub)+'">'+escAttr(sub)+'</i>':'')+'</span>'
       +'<span class="al-kind">'+escAttr(_alKind(a))+'</span>'
       +'<span class="al-rule">'+escAttr(rule||'-')+'</span>'
-      +'<span class="al-bar" title="'+pr.what+' 진도 '+pr.done+'/'+pr.total+'"><i style="width:'+pct+'%"></i></span>'
+      +'<span class="al-bar pl-bar" title="'+pr.what+' 진도 '+pr.done+'/'+pr.total+'"><span style="width:'+pct+'%"></span></span>'
       +'<span class="al-num">'+pr.done+'<em>/'+pr.total+'</em></span>'
-      +'<span class="al-next">'+(nx?(escAttr(String(nx.date||'').slice(5).replace('-','/'))+' '+escAttr(nx.unit||nx.book||'')):'<span style="opacity:.5">남은 몫 없음</span>')+'</span>'
+      +'<span class="al-next">'+(nx?(escAttr(String(nx.date||'').slice(5).replace('-','/'))+' '+escAttr(nx.unit||nx.book||'')):'<span class="pl-muted">남은 몫 없음</span>')+'</span>'
       +'<span class="al-end">'+(st.lastDate?('~'+escAttr(st.lastDate.slice(5).replace('-','/'))):'-')+'</span>'
-      +'<span class="al-late">'+(st.overdueRows14?('<b>'+st.overdueRows14+'일</b>'):'<span style="opacity:.4">0</span>')+'</span>'
+      +'<span class="al-late'+(st.overdueRows14?' bad':' zero')+'">'+(st.overdueRows14?(st.overdueRows14+'일'):'0')+'</span>'
       +'<span class="al-act">'
         +'<button class="al-ib" title="일정 — 날짜별로 보고 고치기" aria-label="일정 보기·고치기" onclick="event.stopPropagation();openEditAssignModal(\''+escJsA(a.id)+'\')">'+(luIcon('calendar-days',16)||'일정')+'</button>'
         +'<button class="al-ib" title="수정 — 이 학생의 숙제 탭으로" aria-label="숙제 수정" onclick="event.stopPropagation();openStuPanelTab(\''+escJsA(a.sid)+'\',\'sp-hw\')">'+(luIcon('pencil',16)||'수정')+'</button>'
@@ -13027,12 +13124,12 @@ function renderAssignLive(){
     +'<span class="al-nm">숙제</span><span class="al-kind">종류</span><span class="al-rule">요일</span>'
     +'<span class="al-bar"></span><span class="al-num">진행</span><span class="al-next">다음 몫</span>'
     +'<span class="al-end">끝나는 날</span><span class="al-late">밀린 날</span><span class="al-act"></span></div>';
-  const fl=[['','진행 중 '+live.length],['today','오늘 몫 '+live.filter(x=>x.st.todayPending).length],
-            ['late','밀림 '+live.filter(x=>x.st.overdueRows14>0).length]];
-  let h='<div class="card al-card"><div class="ch"><span class="ct">'+(luIcon('list-checks',16)||'')+' 진행 중인 숙제</span>'
-    +'<span class="al-fl">'+fl.map(([k,n])=>'<button class="btn '+(_alFilter===k?'bt':'bo')+' bxxs" onclick="alSetFilter(\''+k+'\')">'+n+'</button>').join('')+'</span>'
-    +(_alFocus?'<button class="btn bo bxxs" onclick="alFocus(\'\')">강조 끄기</button>':'')+'</div><div class="cb al-body">';
-  if(!show.length)h+='<div class="eb-empty" style="padding:14px">'+(live.length?'이 조건에 맞는 숙제가 없어요':'지금 도는 숙제가 없습니다')+'</div>';
+  // 거르기는 위 숫자 줄이 맡는다 — 여기 있던 칩 셋은 없앴다 (2026-11-15)
+  const _fName={'':'','today':'오늘 몫','late':'밀림','check':'확인 대기'}[_alFilter]||'';
+  let h='<div class="pl-sec-h"><h2 class="pl-sec-t">진행 중인 숙제</h2><span class="pl-sec-aux">'
+    +(_fName?(_fName+'만 · '+show.length+'건 '):(live.length+'건'))
+    +(_alFocus?' <button type="button" class="pl-textbtn" onclick="alFocus(\'\')">강조 끄기</button>':'')+'</span></div><div class="al-body pl-table-wrap">';
+  if(!show.length)h+='<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">'+(live.length?'이 조건에 맞는 숙제가 없어요':'지금 도는 숙제가 없습니다')+'</span></span></div>';
   else{
     h+=head;
     if(multi){
@@ -13043,10 +13140,11 @@ function renderAssignLive(){
     }else h+=show.map(line).join('');
   }
   if(fin.length){
-    h+='<div class="al-done"><button class="btn bo bxxs" onclick="alDoneToggle()">끝난 숙제 '+fin.length+'건 '+(_alDoneOpen?'▴':'▾')+'</button>'
+    h+='<div class="al-done"><div class="pl-fold-row"><button type="button" class="pl-fold-btn" aria-expanded="'+_alDoneOpen+'" onclick="alDoneToggle()">'
+      +'<span class="pl-sec-t">끝난 숙제</span><span class="pl-sec-aux">'+fin.length+'건</span><span class="pl-chev" aria-hidden="true"></span></button></div>'
       +(_alDoneOpen?('<div class="al-done-b">'+head+fin.map(line).join('')+'</div>'):'')+'</div>';
   }
-  h+='</div></div>';
+  h+='</div>';
   el.innerHTML=h;
   try{lucide.createIcons();}catch(e){}
 }
@@ -13063,7 +13161,9 @@ function renderAssignTab(){
   const hws=ppLive(_cache.homeworks);
   // 선택 날짜의 숙제만 표시 — 전체 기간·반복 스케줄 관리는 아래 숙제 캘린더에서 (2026-07-26)
   const ds=document.getElementById('assign-filter-date')?.value||ppToday();
-  const cards=showStus.map(s=>{
+  const tt=document.getElementById('assign-list-title');
+  if(tt)tt.textContent=(ds===ppToday()?'오늘 숙제':(Number(ds.slice(5,7))+'/'+Number(ds.slice(8,10))+' 숙제'));
+  const groups=showStus.map(s=>{
     const sa=assigns.filter(a=>a.sid===s.id);
     if(!sa.length&&filterStu)return'';
     const dayItems=[];
@@ -13074,45 +13174,66 @@ function renderAssignTab(){
       }else if((a.due||a.date)===ds)dayItems.push({a});
     });
     const pending=dayItems.filter(x=>x.sc?!x.sc.done:!x.a.completedAt).length;
-    const rows=dayItems.map(x=>{
-      if(!x.sc)return _assignItemHtml(x.a,hws);
-      const a=x.a,sc=x.sc;
-      const isRecur=a.category==='recur';
-      const lbl=isRecur?`🔁 ${a.bookTitle||'반복 숙제'}${sc.unit?' — '+sc.unit:''}`:`${luIcon('gamepad-2',15)||''} ${[sc.book,sc.unit].filter(Boolean).join(' · ')}`;
-      // 아직 안 한 숙제는 흐리게 (P6)
-      return `<div class="assign-item" style="align-items:flex-start${sc.done?'':';opacity:.62'}">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:var(--fs-sm);font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:var(--teal)">[${isRecur?'반복':'클래스5'}]</span> ${lbl}</div>
-          <div style="font-size:var(--fs-sm);color:var(--slate)">${ds} 분량 · 전체 일정은 숙제 캘린더</div>
-        </div>
-        <div style="display:flex;gap:3px;flex-shrink:0;align-items:center">
-          ${sc.done?`<span class="badge bgreen" style="font-size:var(--fs-xs)" title="${sc.doneBy==='student'?'학생이 앱에서 체크':sc.doneBy==='teacher'?'선생님이 체크':'체크 주체 기록 전(구 데이터)'}${sc.doneAt?' · '+new Date(sc.doneAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}):''}">완료${sc.doneBy==='student'?' · 학생':sc.doneBy==='teacher'?' · 쌤':''}</span>`:''}
-          <button class="btn ${sc.done?'bo':'bt'}" style="font-size:var(--fs-xs);padding:3px 9px;line-height:1.2" title="${sc.done?'이 날 완료 표시를 취소':'이 날 분량을 완료로 표시'}" onclick="hwSchedToggleDone('${a.id}','${ds}')">${sc.done?'완료 취소':'✓ 완료'}</button>
-          <button class="btn bo" style="font-size:var(--fs-xs);padding:3px 9px;line-height:1.2" onclick="openEditAssignModal('${a.id}')">수정</button>
-          <button class="btn bo" style="font-size:var(--fs-xs);padding:3px 9px;line-height:1.2" title="${ds} 하루치만 일정에서 뺍니다" onclick="deleteSchedDay('${a.id}','${ds}')">이 날 빼기</button>
-          <button class="btn bo" style="font-size:var(--fs-xs);padding:3px 9px;line-height:1.2" title="완료 표시만 지웁니다 (단어 카드 기록은 그대로)" onclick="hwResetProgress('${a.id}')">기록 리셋</button>
-          <button class="btn bd" style="font-size:var(--fs-xs);padding:3px 9px;line-height:1.2" title="반복 일정 전체를 휴지통으로" onclick="deleteAssign('${a.id}')">삭제</button>
-        </div>
-      </div>`;
-    });
-    return `<div class="assign-card">
-      <div class="assign-card-head">
-        <div>
-          <div style="font-weight:700;font-size:var(--fs-lg)">${s.name}</div>
-          <div style="font-size:var(--fs-sm);color:var(--slate)">${s.grade||''}</div>
-        </div>
-        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-          ${pending?`<span class="badge bcoral">${pending}</span>`:''}
-          <button class="btn bt bsm" style="font-size:var(--fs-sm)" onclick="openAssignModal('${s.id}')">+ 숙제</button>
-        </div>
-      </div>
-      <div class="assign-card-body">
-        ${rows.length?rows.join(''):`<div style="font-size:var(--fs-md);color:var(--slate);padding:8px 0">${ds} 숙제 없음</div>`}
-      </div>
-    </div>`;
+    return '<div class="pl-group asg-group"><div class="pl-group-h"><span>'+escAttr(s.name)+'<span class="pl-muted"> · '+escAttr(s.grade||'')+(dayItems.length?' · '+dayItems.length+'개'+(pending?' (남은 '+pending+')':''):'')+'</span></span>'
+      +'<button type="button" class="pl-textbtn" onclick="openAssignModal(\''+s.id+'\')">+ 숙제</button></div>'
+      +(dayItems.length?dayItems.map(x=>_asgRowHtml(x.a,x.sc||null,ds,hws)).join('')
+        :'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">숙제 없음</span></span></div>')
+      +'</div>';
   }).filter(Boolean).join('');
-  el.innerHTML=`<div class="assign-grid">${cards||'<div style="color:var(--slate);font-size:var(--fs-base)">숙제 없음</div>'}</div>`;
+  el.innerHTML=groups||'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">숙제 없음</span></span></div>';
 }
+// 오늘 숙제 한 줄 — 맨 앞 체크 네모가 '완료' 단추를 대신한다 (누르면 완료가 바뀐다)
+function _asgRowHtml(a,sc,ds,hws){
+  const CAT_LABELS={'mission':'유닛 숙제','worksheet':'워크시트','phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
+  const done=sc?!!sc.done:!!a.completedAt;
+  const isRecur=a.category==='recur';
+  const toggle=sc?`hwSchedToggleDone('${a.id}','${ds}',true)`:`tAsgnToggleDone('${a.id}')`;
+  let name,sub=[];
+  if(sc){
+    name=isRecur?((a.bookTitle||'반복 숙제')+(sc.unit?' — '+sc.unit:'')):([sc.book,sc.unit].filter(Boolean).join(' · ')||'클래스5');
+    sub.push(isRecur?'반복':'클래스5');
+    if(sc.done)sub.push(sc.doneBy==='student'?'학생이 체크':sc.doneBy==='teacher'?'선생님이 체크':sc.doneBy==='lesson'?'수업으로 처리':'완료');
+  }else{
+    const cat=a.category?(CAT_LABELS[a.category]||a.category):'';
+    if(a.type==='mission'){
+      name=(a.bookTitle||'')+' · '+(a.unitKey||'')+(a.unitTitle?' — '+a.unitTitle:'');
+      try{const tb=missionFindTb(a.tbId),ms=missionList(a,tb),prog=a.progress||{};
+        sub.push('단계 '+ms.filter(m=>prog[m]).length+'/'+ms.length);}catch(e){}
+      if(a.readAccuracy!=null)sub.push('따라 읽기 '+a.readAccuracy+'%');
+    }else if(a.type==='worksheet')name=a.bookTitle||'워크시트';
+    else name=(a.bookTitle||a.text||'숙제')+(a.range?' '+a.range:'');
+    if(cat)sub.unshift(cat);
+    if(a.due)sub.push('~'+a.due.slice(5).replace('-','/'));
+    const hw=(hws||[]).find(h=>h.assignmentId===a.id);
+    if(a.completedAt)sub.push('완료');else if(hw)sub.push('제출됨 — 확인 대기');
+    if(a.note)sub.push(a.note);
+  }
+  return '<div class="pl-row asg-row'+(done?' done':'')+'">'
+    +'<button type="button" class="pl-cb'+(done?' on':'')+'" role="checkbox" aria-checked="'+done+'" aria-label="'+(done?'완료 취소':'완료로 표시')+'" title="'+(done?'완료 표시를 취소':'완료로 표시')+'" onclick="'+toggle+'"><span></span></button>'
+    +'<span class="pl-row-main"><span class="pl-row-t">'+escAttr(name)+'</span>'
+    +'<span class="pl-row-sub" title="'+escAttr(sub.join(' · '))+'">'+escAttr(sub.join(' · '))+'</span>'
+    +(a.recUrl?'<audio controls src="'+escAttr(a.recUrl)+'" style="height:28px;max-width:200px;margin-top:2px" preload="none"></audio>':'')+'</span>'
+    +'<button type="button" class="pl-textbtn" onclick="openEditAssignModal(\''+a.id+'\')">수정</button>'
+    +'<button type="button" class="pl-more" aria-label="더 보기" title="더 보기" onclick="asgMenu(this,\''+a.id+'\',\''+ds+'\','+(sc?'true':'false')+')">⋯</button>'
+    +'</div>';
+}
+// ⋯ — 이 날 빼기 · 기록 리셋 · 삭제 (삭제는 지금처럼 확인 창)
+function plMenuClose(){document.getElementById('pl-menu')?.remove();}
+function asgMenu(btn,aid,ds,isSched){
+  plMenuClose();
+  const m=document.createElement('div');m.id='pl-menu';m.className='pl-menu';m.setAttribute('role','menu');
+  const it=(lbl,js,cls,dis,tip)=>'<button type="button" role="menuitem" class="pl-menu-i'+(cls?' '+cls:'')+'"'+(dis?' disabled':'')+(tip?' title="'+escAttr(tip)+'"':'')+' onclick="plMenuClose();'+js+'">'+lbl+'</button>';
+  m.innerHTML=it('이 날 빼기',`deleteSchedDay('${aid}','${ds}')`,'',!isSched,isSched?ds+' 하루치만 일정에서 뺍니다':'날짜별 일정이 있는 숙제만 뺄 수 있어요')
+    +it('기록 리셋',`hwResetProgress('${aid}')`,'',false,'완료 표시만 지웁니다 (단어 카드 기록은 그대로)')
+    +it('삭제',`deleteAssign('${aid}')`,'bad',false,'숙제를 휴지통으로');
+  document.body.appendChild(m);
+  const r=btn.getBoundingClientRect(),w=m.offsetWidth||160;
+  m.style.left=Math.max(8,Math.min(r.right-w,window.innerWidth-w-8))+'px';
+  m.style.top=Math.min(r.bottom+4,window.innerHeight-m.offsetHeight-8)+'px';
+  setTimeout(()=>{const f=m.querySelector('.pl-menu-i:not([disabled])');if(f)f.focus();},0);
+}
+document.addEventListener('mousedown',e=>{const m=document.getElementById('pl-menu');if(m&&!m.contains(e.target)&&!e.target.closest('.pl-more'))plMenuClose();},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('pl-menu'))plMenuClose();});
 function c5BookLbl(a){const sc=a.schedule||[];if(!sc.length)return '';const f=sc[0];const c=[f.book,f.unit].filter(Boolean).join(', ');return sc.length>1?c+` 외 ${sc.length-1}일`:c;}
 let _editAssignId=null;
 // 과제 모달을 닫을 때는 '수정 중' 표식을 반드시 푼다.
@@ -13315,7 +13436,8 @@ function toggleAssignCal(){
   if(!cal)return;
   const open=cal.style.display!=='none';
   cal.style.display=open?'none':'';
-  if(arrow)arrow.textContent=open?'▸ 펼치기':'▾ 접기';
+  if(arrow)arrow.textContent=open?'펼치기':'접기';
+  const tg=document.getElementById('assign-cal-tg');if(tg)tg.setAttribute('aria-expanded',String(!open));
 }
 function _missionBooks(){
   // 유닛 콘텐츠(본문 또는 단어)가 하나라도 있는 교재 + 본문 있는 원서(챕터=유닛 가상 뷰)

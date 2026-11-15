@@ -358,7 +358,8 @@ const NOBREAK = (sel) => {
         const n = rw.querySelector('.al-nm');
         return { nm: ((n.childNodes[0] || {}).textContent || '').trim(), sub: ((n.querySelector('.al-sub') || {}).textContent || '').trim() };
       });
-      const btns = [...document.querySelectorAll('.al-act .btn,.al-fl .btn')].filter(b => b.offsetParent)
+      // feat/pl-tabs-1: 거르기 칩(.al-fl)은 숫자 줄(#assign-stats .pl-stat)로 옮겼다 — 거르기 칸으로 잰다 (줄 아이콘 단추 .al-ib 는 32px — fix/ux-5)
+      const btns = [...document.querySelectorAll('.al-act .btn,#assign-stats .pl-stat')].filter(b => b.offsetParent)
         .map(b => Math.round(b.getBoundingClientRect().height));
       return { diff: Math.max(...diff), rows: rows.length, nm, btns: btns.length ? Math.min(...btns) : null };
     });
