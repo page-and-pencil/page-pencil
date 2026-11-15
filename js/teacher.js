@@ -3652,7 +3652,7 @@ function tsRefreshRetest(){
   const sid=(document.getElementById('ts-stu')||{}).value||'';
   const q=(sid&&typeof ppRetestQueue==='function')?ppRetestQueue(sid):[];
   const keep=sel.value;
-  sel.innerHTML='<option value="">최초 시험</option>'+q.map(c=>{
+  sel.innerHTML='<option value="">첫 테스트</option>'+q.map(c=>{
     const st=c.status;
     const label=(c.last.date||'')+' · '+(st.k==='absent'?'미응시':(st.pct+'% 미달'))
       +' · '+(ppRetestWords(c).length)+'개'+(c.tries>1?' · '+c.tries+'회차':'');
@@ -3660,7 +3660,7 @@ function tsRefreshRetest(){
   }).join('');
   if(keep&&[...sel.options].some(o=>o.value===keep))sel.value=keep;
   const hint=document.getElementById('ts-retest-hint');
-  if(hint)hint.textContent=q.length?('재시험 대기 '+q.length+'건'):'재시험 대기 없음';
+  if(hint)hint.textContent=q.length?('재테스트 대기 '+q.length+'건'):'재테스트 대기 없음';
   const wrap=document.getElementById('ts-unit-wrap');
   if(wrap&&!sel.value)wrap.style.display='none';
 }
@@ -3679,7 +3679,7 @@ function tsPickRetest(){
     const vt=document.getElementById('ts-vt');
     if(vt)vt.value=words.length||'';
     if(wrap)wrap.style.display='none';
-    toast('재시험 대상 '+words.length+'개를 불러왔습니다');
+    toast('재테스트 대상 '+words.length+'개를 불러왔습니다');
     return;
   }
   // 미응시는 '틀린 단어'가 없다 — 어느 범위를 다시 볼지 직접 고른다.
@@ -3740,7 +3740,7 @@ function preloadTestWords(sid){
   const pending=logWords.filter(w=>!testedWords.has(w));
   if(!pending.length)return;
   el.value=pending.join(', ');
-  toast('리딩로그에서 미시험 단어 '+pending.length+'개를 불러왔습니다');
+  toast('리딩로그에서 테스트 안 본 단어 '+pending.length+'개를 불러왔습니다');
 }
 function rcls(n){return n>=80?'rhi':n>=60?'rmd':'rlo';}
 // ── 종이 단어 시험지 (B9·B10·B11) ───────────────────────────
@@ -3833,7 +3833,7 @@ function openRetestPaper(sid){
   const q=(typeof ppRetestQueue==='function')?ppRetestQueue(sid||document.getElementById('vp-stu')?.value):[];
   const n=q.reduce((a,c)=>a+ppRetestWords(c).length,0);
   v('vp-wrong',n||20);
-  toast(n?`재시험 대상 ${n}개로 맞췄어요`:'최근 오답으로 구성합니다');
+  toast(n?`재테스트 대상 ${n}개로 맞췄어요`:'최근 오답으로 구성합니다');
 }
 // 양식 단추 — 유형 칸을 한 번에 채운다. 빈 칸('자동')은 남는 몫을 나눠 받는다.
 const _VP_FIELD={def:'vp-t-def',cl:'vp-t-cloze',ko:'vp-t-ko',en:'vp-t-en',mc:'vp-t-mc'};
@@ -4127,7 +4127,7 @@ async function saveTst(){
    const mg=document.getElementById('ts-mgrade');if(mg)mg.value='';}
   tsRefreshRetest();
   renderTst();if(typeof renderStus==='function')renderStus();   // 목록의 '단어 테스트' 칸
-  toast(_absent?'미응시로 기록했습니다':(_retestRoot?'재시험 결과를 저장했습니다':'테스트 결과가 저장되었습니다'));
+  toast(_absent?'미응시로 기록했습니다':(_retestRoot?'재테스트 결과를 저장했습니다':'테스트 결과가 저장되었습니다'));
   checkNewBadges(sid);
   }catch(e){
     console.error('save error:',e);
@@ -7031,6 +7031,7 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-15',title:'말을 나눴어요 — 여기서 보는 것은 테스트, 학교 것은 시험, 종이는 시험지',where:'선생님·학생·학부모 화면',tab:'t-tst',go:['swTab','t-tst']},
  {date:'2026-11-15',title:'진도 캘린더 그날 창 — Esc·바깥 누르기로 닫히고, 손가락 기기는 날 칸을 눌러 열어요',where:'클래스 → 진도 캘린더',tab:'t-class',go:['renderClassTab']},
  {date:'2026-11-15',title:'이름이 바뀌었어요 — 과제 → 숙제 (메뉴·단추·안내 글)',where:'선생님·학부모 화면 전체',tab:'t-assign',go:['renderAssignTab']},
  {date:'2026-11-15',title:'진도 캘린더 — 수업은 위 알약, 숙제는 아래 체크 줄로 나눠 보여요',where:'클래스 → 진도 캘린더',tab:'t-class',go:['renderClassTab']},
@@ -10006,7 +10007,7 @@ async function handleTstPhoto(e){
   catch{tstPhotoUrl='data:'+f.type+';base64,'+b64;}
   const apiKey=DB.api();const status=document.getElementById('tst-ai');
   if(!apiKey){status.innerHTML='<div class="ais warn">'+(luIcon('alert-triangle',14)||'')+' API Key 미설정 — 직접 입력해 주세요</div>';return;}
-  status.innerHTML='<div class="ais loading"><div class="spin"></div>테스트지 분석 중...</div>';
+  status.innerHTML='<div class="ais loading"><div class="spin"></div>시험지 분석 중...</div>';
   try{
     const prompt=`이 테스트지를 분석하세요.\n1. 단어(vocab) 시험 섹션 유무 확인 — 없으면 vocabTotal:0\n2. 어법(grammar) 시험 섹션 유무 확인 — 없으면 grammarTotal:0\n3. 리딩(reading, 독해) 시험 섹션 유무 확인 — 없으면 readingTotal:0\n4. 리스닝(listening, 듣기) 시험 섹션 유무 확인 — 없으면 listeningTotal:0\n5. 각 섹션별 맞은 개수/전체 개수 파악\n6. 테스트지에 있는 모든 영단어 목록(allWords), 그 중 틀린 단어(wrongWords)\n7. 학부모 전달용 코멘트: 전문적이고 따뜻한 어조, 잘한 점·개선 방향 균형, 100자 내외\n\nJSON만 반환:\n{"vocabCorrect":숫자,"vocabTotal":숫자,"grammarCorrect":숫자,"grammarTotal":숫자,"readingCorrect":숫자,"readingTotal":숫자,"listeningCorrect":숫자,"listeningTotal":숫자,"allWords":["단어1"],"wrongWords":["단어1"],"parentComment":"코멘트"}`;
     const r=await callVision(apiKey,b64,f.type,prompt);
@@ -11525,7 +11526,7 @@ const _BM_TH_FIELDS=[
   ['absentWeeks','결석을 볼 기간','주',1,52],
   ['absentN','그 기간에 결석 몇 회면 신호','회',1,30],
   ['vocabDropPt','단어 점수 하락 폭','%p',1,100],
-  ['retestFailStreak','재시험 연속 미통과','회',1,10],
+  ['retestFailStreak','재테스트 연속 미통과','회',1,10],
   ['signalMax','홈에 한 번에 보여 줄 학생','명',1,50],
 ];
 function renderThresholdSettings(){
@@ -11672,7 +11673,7 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
       if(!q.length)return;
       const ab=q.filter(c=>c.status.k==='absent').length;
       items.push({icon:luIcon('repeat',15),chip:'da-amber',
-        text:`${st.name} — 재시험 대기 ${q.length}건`+(ab?` (미응시 ${ab})`:''),
+        text:`${st.name} — 재테스트 대기 ${q.length}건`+(ab?` (미응시 ${ab})`:''),
         label:'테스트 입력',
         action:`swTab('t-tst');setTimeout(()=>{const e=document.getElementById('ts-stu');if(e){e.value='${st.id}';e.dispatchEvent(new Event('change'));}},200)`});
     });
@@ -19275,6 +19276,8 @@ const PP_FEATURES=[
   {n:'어휘 DB',k:'단어 word',w:'교재·문제 → 어휘',tab:'t-data',go:['switchDataTab','word']},
   {n:'시험 일정',k:'exam 내신',w:'교재·문제 → 시험 일정',tab:'t-data',go:['switchDataTab','exam']},
   {n:'백업·일괄',k:'backup master',w:'교재·문제 → 백업·일괄',tab:'t-data',go:['switchDataTab','master']},
+  {n:'재테스트',k:'재시험 retest 다시 보기 재테스트 대기 대상',w:'테스트 탭 · 대시보드 바로 할 일',tab:'t-tst',go:['swTab','t-tst']},
+  {n:'자체 테스트',k:'자체 시험 교습소 inhouse',w:'테스트 탭 → 종류',tab:'t-tst',go:['swTab','t-tst']},
   {n:'숙제 내기',k:'과제 할당 배정 homework 숙제 내기',w:'숙제 탭',tab:'t-assign',go:['renderAssignTab']},
   {n:'숙제 이어서 내기',k:'다음 교재 숙제 과제',w:'숙제 탭 배너 · 진도 보드',tab:'t-assign',go:['renderAssignTab']},
   {n:'진행 중인 숙제',k:'숙제 목록 과제',w:'숙제 탭',tab:'t-assign',go:['renderAssignTab']},
@@ -24412,7 +24415,7 @@ function _prRender(){
   h+='<div class="pr-foot">'+
     (_prPaper.purpose==='diag'?'<button class="btn bt bsm" onclick="prPrintDiag()">'+(luIcon('printer',14)||'')+' 진단 결과지</button>':'')+
     '<button class="btn bo bsm" onclick="prPrintTable()">'+(luIcon('printer',14)||'')+' 결과 표</button>'+
-    '<label class="iso-chk"><input type="checkbox" id="pr-astest" onchange="prAsTestAll(this.checked)"> 자체 시험으로 기록</label>'+
+    '<label class="iso-chk"><input type="checkbox" id="pr-astest" onchange="prAsTestAll(this.checked)"> 자체 테스트로 기록</label>'+
     '<span class="iso-hint">켜면 tests 줄로도 남아 점수 추이에 들어가요 (기본 꺼짐)</span></div>';
   box.innerHTML=h;
 }
@@ -24479,7 +24482,7 @@ async function prAsTestAll(on){
     const t=await irAsTest(r.sid,r);
     if(t){r.testId=t;const {rowId,...data}=r;await irPut(rowId,data,r.sid);n++;}
   }
-  toast(n?('자체 시험으로 '+n+'명 기록했어요'):'이미 기록돼 있어요');
+  toast(n?('자체 테스트로 '+n+'명 기록했어요'):'이미 기록돼 있어요');
 }
 // ── 틀린 유형 연습 묶음 (AI 없음) ───────────────────────────────────────
 async function prWeakPaper(rowId){

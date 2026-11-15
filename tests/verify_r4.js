@@ -56,7 +56,7 @@ let fails=0;const say=(p,l,e)=>{if(!p)fails++;console.log((p?'OK  ':'FAIL')+' '+
   say(r.btn.indexOf('처리 중')<0&&r.disabled===false,'버튼이 되돌아옴',r.btn);
   say(r.opened>=1,'카카오는 그 뒤에 연다',r.opened+'회');
   console.log('\n── 8-D 학부모 문구');
-  say(r.labels==='불합격 / 재시험 예정','선생님=불합격 / 학부모=재시험 예정',r.labels);
+  say(r.labels==='불합격 / 재테스트 예정','선생님=불합격 / 학부모=재테스트 예정',r.labels);   // (fix/terms-2) 재시험 → 재테스트
   console.log('\n── 9-D2 학생 추가 창');
   say(r.gradeIdx===0&&!r.nameVal,'학년·이름이 비워짐');
   console.log('\n── 9-B 보조');

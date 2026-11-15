@@ -698,7 +698,7 @@ function ppVocabStatus(t){
   // label 은 선생님 화면용, labelP 는 학부모·학생 화면용.
   // 같은 85% 가 '불합격' 과 '우수' 로 함께 보이던 것 — 학부모에게는 다음에 할 일로 적는다.
   return (p>=pass)?{k:'pass',label:'통과',labelP:'통과',pct:p,pass}
-                  :{k:'fail',label:'불합격',labelP:'재시험 예정',pct:p,pass};
+                  :{k:'fail',label:'불합격',labelP:'재테스트 예정',pct:p,pass};
 }
 // 한 학생의 시험들을 묶음으로 — 재시험은 최초 시험(root)에 매단다
 function ppTestChains(sid){
@@ -1400,7 +1400,7 @@ function ppRetestPending(sid){
 function ppRetestChipHtml(sid){
   const n=ppRetestPending(sid);
   if(!n)return '';
-  return '<span class="rt-chip" title="통과할 때까지 남아 있습니다">재시험 예정 '+n+'</span>';
+  return '<span class="rt-chip" title="통과할 때까지 남아 있습니다">재테스트 예정 '+n+'</span>';
 }
 
 // ── 시험 종류 (B14) ──────────────────────────────────────────
@@ -1410,7 +1410,7 @@ function ppRetestChipHtml(sid){
 //   mock     모의고사 — 등급 1~9 는 낮을수록 좋다. 점수와 방향이 반대라 절대 같은 축에 두지 않는다
 // 성취도·등급은 수능 공식 등급이며 교습소 자체 평가와 다른 체계다. 섞어 보여 주지 않는다.
 const PP_TEST_KIND={
-  inhouse:{name:'자체',   full:'교습소 자체 시험'},
+  inhouse:{name:'자체',   full:'자체 테스트'},
   school: {name:'내신',   full:'학교 내신'},
   mock:   {name:'모의고사',full:'모의고사'},
 };
@@ -1465,7 +1465,7 @@ function ppStudentBriefHtml(stu){
   const parts=[];
   parts.push(cell('이번 달 출석', b.att==null?'—':b.att+'%', b.attN?('수업 '+b.attN+'회'):''));
   parts.push(cell('숙제 완료', b.hw?b.hw.pct+'%':'—', b.hw?(b.hw.done+'/'+b.hw.total):''));
-  parts.push(cell('단어 평균', b.vocab==null?'—':b.vocab+'%', b.retest?('재시험 대기 '+b.retest):''));
+  parts.push(cell('단어 평균', b.vocab==null?'—':b.vocab+'%', b.retest?('재테스트 대기 '+b.retest):''));
   if(b.exam&&b.exam.kind==='exam'&&b.exam.days!=null){
     parts.push(cell('다음 영어 시험', b.exam.days===0?'오늘':('D-'+b.exam.days), b.exam.exam.examDate||''));
   }else if(b.exam&&b.exam.kind==='none'){
@@ -1635,7 +1635,7 @@ function ppStudentSignals(stu,todayStr){
       if(n>worst)worst=n;
     });
     if(worst>=th.retestFailStreak)
-      reasons.push({k:'retest',t:'재시험 '+worst+'회 연속 미통과'});
+      reasons.push({k:'retest',t:'재테스트 '+worst+'회 연속 미통과'});
   }
 
   // 5) 수업 기록 누락 (B1 과 같은 계산 — 신호 줄에도 함께)
