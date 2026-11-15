@@ -604,7 +604,7 @@ async function loadParent(sid){
     secScore+=`<div class="card" id="pp-sec-score">
       <div class="ch"><span class="ct">${luIcon('file-text',16)}최근 테스트</span><span class="mono" class="p-dim">${(()=>{
         const st=(typeof ppVocabStatus==='function')?ppVocabStatus(latTst):null;
-        const kind=latTst.retestOf?('재시험'+(latTst.attempt?' '+latTst.attempt+'회차':'')):'최초';
+        const kind=latTst.retestOf?('재테스트'+(latTst.attempt?' '+latTst.attempt+'회차':'')):'최초';
         return (latTst.date||'')+' · '+kind+(st&&st.k!=='none'?' · '+(st.labelP||st.label):'');
       })()}</span></div>
       <div class="cb" style="padding:14px 18px">
