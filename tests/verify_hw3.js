@@ -88,13 +88,14 @@ const say = (p, l, e) => { if (!p) fails++; console.log((p ? 'OK  ' : 'FAIL') + 
     swTab('t-assign'); renderAssignCal();
     await new Promise(r => setTimeout(r, 600));
     const cell = [...document.querySelectorAll('#assign-cal .pg-cell')].find(c => (c.getAttribute('onclick') || '').includes(d));
-    const chips = cell ? [...cell.querySelectorAll('.pg-chip')] : [];
+    // (2026-11-15 fix/cal-split) 숙제는 알약이 아니라 '체크 줄' — 선택자만 바뀌고 묶기·색은 그대로
+    const chips = cell ? [...cell.querySelectorAll('.pg-chip,.pg-hw-row')] : [];
     const info = chips.map(c => ({ t: (c.textContent || '').trim(), col: (c.getAttribute('style') || '').match(/--pgc:([^;"]+)/)?.[1], tip: c.getAttribute('title') || '' }));
     // 클래스5 반복 숙제의 칩 색
     const c5 = (_cache.assignments || []).find(x => x.id === o.c5id);
     const d5 = c5.schedule[0].date;
     const cell5 = [...document.querySelectorAll('#assign-cal .pg-cell')].find(c => (c.getAttribute('onclick') || '').includes(d5));
-    const chip5 = cell5 ? [...cell5.querySelectorAll('.pg-chip')].map(c => ({ t: (c.textContent || '').trim(), col: (c.getAttribute('style') || '').match(/--pgc:([^;"]+)/)?.[1] })) : [];
+    const chip5 = cell5 ? [...cell5.querySelectorAll('.pg-chip,.pg-hw-row')].map(c => ({ t: (c.textContent || '').trim(), col: (c.getAttribute('style') || '').match(/--pgc:([^;"]+)/)?.[1] })) : [];
     const legend = (document.getElementById('assign-cal').textContent || '').replace(/\s+/g, ' ');
     return { info, chip5, legend, d };
   }, { sid, c5id: fixed.id });
