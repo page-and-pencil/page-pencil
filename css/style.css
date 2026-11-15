@@ -4421,3 +4421,68 @@ button.pl-chip{min-height:32px;font-family:var(--fb);cursor:pointer;}
   .stu-panel-tabs{padding:0 12px;}
   .sp-jr-b{padding-left:0;}
 }
+
+/* ═══ feat/pl-tabs-2 ② (2026-11-15) — 패널의 나머지 탭 (테스트·숙제·책·리딩로그·단어장·결제) ═══ */
+.sp-bad{color:var(--badt)!important;}
+.pl-table .pl-td-l,.pl-table .pl-th-l{text-align:left;}
+.pl-table td.pl-td-act{text-align:right;white-space:nowrap;}
+.sp-tests-wrap .tst-table,.sp-pay-tbl,.sp-bk-tbl,.sp-vtbl{min-width:0;}
+.sp-pay-stats{margin-bottom:20px;}
+/* 숙제 */
+.sp-asg{margin:0;padding:4px 0;gap:10px;}
+.sp-asg .pl-cb[disabled]{cursor:default;opacity:.4;}
+.sp-hwch-setup{margin-top:8px;}
+.sp-hwch-setup .pl-input{min-height:32px;}
+.sp-asgn-form .fg{margin-top:10px;}
+#t-stu [id^="asgn-edit-"]{background:none!important;border-top:1px solid var(--divider);border-radius:0!important;padding:8px 0!important;}
+/* 책 */
+.sp-bk-tbl .sp-bk-t{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sp-bk-tbl tr.done td{color:var(--text-muted);}
+.sp-bk-unit{width:130px;min-height:32px;padding:4px 8px;}
+.sp-add-form{margin-top:10px;padding:12px 0;border-top:1px solid var(--divider);}
+.sp-dd{background:#fff;border:1px solid var(--border);border-radius:var(--r-ctl);max-height:180px;overflow-y:auto;margin-top:2px;}
+.sp-dd>div{min-height:32px;}
+/* 리딩로그 */
+#t-stu .sp-ig .ig-card{border:1px solid var(--border);border-radius:var(--r-card);background:#fff;overflow:hidden;}
+#t-stu .sp-ig .ig-ph{background:#fff;border-bottom:1px solid var(--divider);}
+#t-stu .sp-ig .ig-noimg{display:flex;align-items:center;justify-content:center;height:100%;font-size:12px;color:var(--text-muted);}
+#t-stu .sp-ig .ig-body{position:relative;padding:8px 40px 8px 10px;}
+#t-stu .sp-ig .ig-title{font-weight:600;font-size:var(--fs-md);color:var(--text);}
+#t-stu .sp-ig .ig-date{font-size:12px;color:var(--text-muted);}
+#t-stu .sp-ig .ig-more{position:absolute;right:4px;top:50%;transform:translateY(-50%);}
+#t-stu .sp-ig .rdlog-multi{background:#fff;color:var(--text);border:1px solid var(--border);font-size:12px;}
+/* 단어장 */
+.sp-vstats{margin-bottom:12px;}
+.sp-why{font-size:12px;color:var(--text-muted);padding:8px 0 2px;}
+.sp-vsearch{width:100%;min-height:36px;margin-bottom:8px;box-sizing:border-box;}
+.sp-chk{display:inline-flex;align-items:center;gap:6px;min-height:32px;font-size:var(--fs-md);color:var(--text-muted);cursor:pointer;}
+.sp-chk input{width:16px;height:16px;min-height:0;}
+.sp-del{color:var(--badt);}
+.sp-vtbl th.sp-vc,.sp-vtbl td.sp-vc{width:36px;padding:0;}
+.sp-cbx{display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;cursor:pointer;}
+.sp-cbx input{width:16px;height:16px;min-height:0;margin:0;cursor:pointer;}
+.sp-vtbl .sp-vw{font-weight:600;white-space:nowrap;}
+.sp-vtbl .sp-vw .pl-muted{font-weight:400;font-size:12px;}
+.sp-vtbl .sp-vm{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sp-vtbl .sp-vs{max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sp-vtbl td{padding:0 6px;}
+.sp-vedit{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:6px 0;}
+.sp-vedit .pl-input{flex:1 1 140px;min-height:32px;}
+#t-stu .sp-sum{list-style:none;cursor:pointer;min-height:40px;display:flex;align-items:center;font-size:13px;font-weight:600;color:var(--text);border-top:1px solid var(--border);margin-top:8px;}
+#t-stu .sp-sum::-webkit-details-marker{display:none;}
+#t-stu .sp-sum::after{content:'';display:inline-block;width:7px;height:7px;border-right:1.5px solid var(--text-muted);border-bottom:1.5px solid var(--text-muted);transform:rotate(45deg);margin:0 4px 3px auto;}
+#t-stu details[open]>.sp-sum::after{transform:rotate(-135deg);margin-bottom:-2px;}
+.sp-mode{display:inline-flex;flex-direction:column;align-items:flex-start;text-align:left;padding:6px 12px;min-height:44px;}
+.sp-mode small{font-size:12px;color:var(--text-muted);font-weight:400;}
+#vocab-utils,#vocab-add-form{background:#fff!important;border:1px solid var(--border)!important;}
+#t-stu #sp-vocab details>div{background:#fff!important;border-color:var(--border)!important;}
+#t-stu #sp-vocab [style*="background:var(--cream2)"],#t-stu #sp-vocab [style*="background:#fff"]{background:#fff!important;}
+#t-stu #sp-vocab .pp-flow{display:none;}
+/* 학생 탭 안 남은 옛 꾸밈 — 옅은 색 바탕 칩은 테두리로, 작은 단추는 32px */
+#t-stu .badge,#t-stu .att-chip,#t-stu .hw-status-badge,#t-stu .pay-status-chip,#t-stu .tk-kind{background:#fff!important;border:1px solid var(--border)!important;color:var(--text)!important;font-weight:400!important;}
+#t-stu [style*="background:var(--cream2)"],#t-stu [style*="background:var(--cream)"],#t-stu [style*="background:var(--tl)"],#t-stu [style*="background:#FFFBEB"],
+#t-stu [style*="background:#f8fafc"],#t-stu [style*="background:#fffbeb"],#t-stu [style*="background:var(--okl)"],#t-stu [style*="background:var(--warnl)"]{background:#fff!important;}
+#t-stu .stu-panel-body .btn.bxxs,#t-stu .stu-panel-body .btn.bxs,#t-stu .stu-panel-body .btn.bsm{min-height:32px;}
+#t-stu .stu-panel-body input[type=number],#t-stu .stu-panel-body input[type=date],#t-stu .stu-panel-body input[type=text],#t-stu .stu-panel-body select{min-height:32px;}
+#t-stu .stu-panel-body label:has(>input[type=checkbox]){min-height:32px;display:inline-flex;align-items:center;}
+#t-stu .stu-panel-body summary{min-height:32px;display:flex;align-items:center;cursor:pointer;}

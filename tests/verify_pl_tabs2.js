@@ -66,6 +66,9 @@ const serve = r => {
   if (rows) {
     const sid = u.searchParams.get('sid');
     if (sid && /^eq\./.test(sid)) rows = rows.filter(x => x.sid === sid.slice(3));
+    // 쪽 받기(limit·offset)를 지킨다 — 안 지키면 3,000줄이 쪽마다 다시 와 쌓인다
+    const lim = +(u.searchParams.get('limit') || 0), off = +(u.searchParams.get('offset') || 0);
+    if (lim) rows = rows.slice(off, off + lim);
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows.map(x => ({ id: x.id, sid: x.sid || null, updated_at: '2026-11-15T00:00:00Z', data: x }))) });
   }
   return r.continue();
@@ -210,6 +213,37 @@ const judge = (tab, m) => {
   const del = await page.evaluate(lid => ({ gone: !DB.less().some(l => l.id === lid), cnt: document.querySelectorAll('#sp-lessons .sp-les').length }), lid);
   ok('수업 ⋯ — 복사 · 수정 · 삭제가 전과 같이 (삭제는 확인 창 → 휴지통, 쓰기 1건)', lm.join(',') === '복사,수정,삭제' && edOpen && copied && del.gone && (writes.by.lessons || 0) - n0 === 1,
     lm.join(',') + ' · 수정 창 ' + edOpen + ' · 복사 ' + copied + ' · 삭제 ' + del.gone + ' 쓰기 ' + ((writes.by.lessons || 0) - n0) + ' · 줄 ' + cnt0 + '→' + del.cnt);
+
+  // ═══ ② 패널의 나머지 탭 ═══
+  for (const [id, nm] of [['sp-tests', '테스트'], ['sp-hw', '숙제'], ['sp-reading', '책'], ['sp-rdlog-tab', '리딩로그'], ['sp-vocab', '단어장'], ['sp-payment', '결제']]) {
+    await tabOpen(page, id);
+    await page.mouse.move(1, 1);
+    judge(nm + ' 탭', await page.evaluate(MEASURE, { sel: '#t-stu' }));
+    await page.screenshot({ path: path.join(OUT, 'tab_' + id.replace('sp-', '').replace('-tab', '') + '.png') });
+  }
+  await tabOpen(page, 'sp-tests');
+  const tt = await page.evaluate(() => [...document.querySelectorAll('#sp-tests thead th')].map(e => e.textContent));
+  ok('테스트 탭 — 테스트 탭의 기록 표와 같은 칸 (학생 칸만 빼고)', tt.slice(0, 7).join(',') === '날짜,종류,단어,어법,리딩,리스닝,틀린 단어', tt.join(','));
+  await tabOpen(page, 'sp-hw');
+  const hw = await page.evaluate(() => { const r = document.querySelector('#sp-hw .sp-asg'); return r ? { cb: !!r.querySelector('.pl-cb'), edit: /수정/.test(r.textContent), more: !!r.querySelector('.pl-more'), emoji: /🔁/.test(document.getElementById('sp-hw').textContent) } : null; });
+  ok("숙제 탭 — '오늘 숙제' 줄과 같은 꼴 (체크 · 이름 · 작은 글 · [수정] · ⋯) · 🔁 없음", !!hw && hw.cb && hw.edit && hw.more && !hw.emoji, JSON.stringify(hw));
+  await tabOpen(page, 'sp-rdlog-tab');
+  const lg = await page.evaluate(async () => { const n0 = document.querySelectorAll('#sp-rdlog .ig-card').length; const b = [...document.querySelectorAll('#sp-rdlog .sp-more-row button')][0]; if (b) b.click(); await new Promise(r => setTimeout(r, 300)); return { n0, n1: document.querySelectorAll('#sp-rdlog .ig-card').length }; });
+  ok('리딩로그 — 한 번에 50개, [더 보기] 로 나머지', lg.n0 === 50 && lg.n1 === 60, lg.n0 + ' → ' + lg.n1);
+  // 단어 3,000개
+  await tabOpen(page, 'sp-vocab');
+  const vc = await page.evaluate(async () => {
+    const rows = () => document.querySelectorAll('#vocab-list tbody tr[id^="vrow-"]').length;
+    const dom0 = document.querySelectorAll('#sp-vocab *').length, n0 = rows();
+    document.querySelector('#vocab-list .sp-more-row button').click(); await new Promise(r => setTimeout(r, 300));
+    const n1 = rows();
+    vocabFilterSearch('word2999', currentSpStuId); await new Promise(r => setTimeout(r, 700));
+    const hit = [...document.querySelectorAll('#vocab-list .sp-vw')].map(e => e.textContent);
+    vocabFilterSearch('', currentSpStuId); await new Promise(r => setTimeout(r, 700));
+    return { total: (_cache.vocab_cards || []).filter(c => c.sid === currentSpStuId).length, n0, n1, hit, dom0, n2: rows() };
+  });
+  ok('단어장 3,000개 — 줄 100개, [더 보기] 로 200개, 검색은 3,000개에서 찾는다, 그린 DOM 2,500 이하',
+    vc.total === 3000 && vc.n0 === 100 && vc.n1 === 200 && vc.hit.length === 1 && /word2999/.test(vc.hit[0]) && vc.dom0 <= 2500 && vc.n2 === 100, JSON.stringify(vc));
 
   // ═══ 390x780 — 패널이 화면을 덮는다 ═══
   await page.setViewportSize({ width: 390, height: 780 }); await wait(500);
