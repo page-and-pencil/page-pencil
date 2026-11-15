@@ -480,7 +480,7 @@ div.ig-like{cursor:default;}
 .pl-cmt{font-size:var(--fs-base);line-height:1.7;color:#3E5468;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer;}
 .pl-cmt.open{display:block;}
 /* ── 학생 게이미피케이션: XP 카드·퀘스트 ── */
-.xp-card{background:#164C3C;border-left:4px solid var(--accent);color:#fff;border-radius:var(--r-chip);padding:15px 17px;margin-bottom:14px;box-shadow:0 2px 8px rgba(15,48,74,.16);}
+.xp-card{background:#164C3C;border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:var(--r-chip);padding:15px 17px;margin-bottom:14px;box-shadow:0 2px 8px rgba(15,48,74,.16);}
 .xp-ava{width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;animation:xpBob 3s ease-in-out infinite;}
 @keyframes xpBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 .xp-flame{font-size:var(--fs-sm);font-weight:700;background:rgba(255,255,255,.16);padding:2px 9px;border-radius:var(--r-card);animation:flamePulse 1.6s ease-in-out infinite;}
@@ -589,14 +589,18 @@ div.ig-like{cursor:default;}
 .pg-hw-head.sug{font-weight:600;}
 .pg-hw-sm{display:none;}
 .pg-hw-row{position:relative;display:flex;align-items:center;gap:3px;min-width:0;cursor:pointer;
-  border-left:3px solid var(--pgc);border-radius:var(--r-ctl);padding:1px 3px;line-height:1.3;
-  background:#fff;background:color-mix(in srgb,var(--pgc) 9%,#fff);}
-.pg-hw-row .pg-ck{font-style:normal;flex-shrink:0;font-size:var(--fs-xs);color:var(--text-muted);line-height:1;}
-.pg-hw-row.done .pg-ck{color:var(--okt);}
+  border-radius:var(--r-ctl);padding:1px 3px;line-height:1.3;background:var(--cream2);}
+/* 체크 네모가 영역 색을 맡는다 — 안 함: 영역 색 테두리의 빈 네모 · 함: 영역 색으로 채운 네모와 흰 체크 (2026-11-15) */
+.pg-hw-row .pg-ck{position:relative;flex-shrink:0;display:inline-block;width:10px;height:10px;box-sizing:border-box;
+  border:1.5px solid var(--pgc);border-radius:2px;background:#fff;font-size:0;line-height:0;color:transparent;font-style:normal;}
+.pg-hw-row.done .pg-ck{background:var(--pgc);}
+.pg-hw-row.done .pg-ck::after{content:'';position:absolute;left:50%;top:44%;width:3px;height:5px;
+  border:solid #fff;border-width:0 1.5px 1.5px 0;transform:translate(-50%,-50%) rotate(45deg);}
 .pg-hw-t{font-size:var(--fs-xs);font-weight:600;color:var(--text);min-width:0;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .pg-hw-row.done .pg-hw-t{color:var(--text-muted);font-weight:500;}
-.pg-hw-row.sug{border-left-style:dotted;background:#fff;}
+.pg-hw-row.sug{background:#fff;outline:1px dashed var(--border);outline-offset:-1px;}
+.pg-hw-row.sug .pg-ck{border-style:dashed;}
 .pg-hw-row.sug .pg-hw-t{color:var(--text-muted);}
 .pg-hw-row:hover{filter:brightness(.97);}
 .pg-hw-more{font-size:var(--fs-xs);font-weight:700;color:var(--tealt);background:none;border:none;
@@ -605,7 +609,7 @@ div.ig-like{cursor:default;}
 /* 켜고 끄는 단추의 그림 — 꼴을 그대로 보인다 */
 .pg-ly-sw{display:inline-block;flex-shrink:0;vertical-align:-1px;}
 .pg-ly-sw.rec{width:15px;height:8px;border-radius:999px;background:var(--teal);}
-.pg-ly-sw.hw{width:15px;height:8px;border-radius:var(--r-ctl);background:var(--tl);border-left:3px solid var(--teal);}
+.pg-ly-sw.hw{width:10px;height:10px;box-sizing:border-box;border-radius:2px;background:#fff;border:1.5px solid var(--teal);}
 .pg-ly-sw.c5{width:15px;height:8px;border-radius:var(--r-ctl);background:#C2185B;}
 /* 늘 보이는 한 줄 — 꼴이 무엇을 뜻하는지 */
 .pg-key-line{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:-2px 0 8px;
@@ -1263,8 +1267,10 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .dash-action-icon.da-green{color:var(--okt);}
 .ct svg{color:var(--tealt);margin-right:6px;vertical-align:-3px;}
 /* '지금' 수업 행 강조 (inset stroke → 레이아웃 밀림 없음) */
-.dash-class-row.dcr-now{background:#F4FBFC;box-shadow:inset 3px 0 0 var(--accent);}
-.dash-class-row.dcr-now:hover{background:#F4FBFC;}
+.dash-class-row.dcr-now{background:var(--tl);border-radius:var(--r-card);}
+.dcr-now-pill{display:inline-block;margin-left:6px;font-size:var(--fs-xs);font-weight:700;color:var(--tealt);
+  border:1px solid currentColor;border-radius:var(--rpill);padding:0 7px;line-height:1.6;vertical-align:2px;}
+.dash-class-row.dcr-now:hover{background:var(--tl);}
 /* 로그인 역할 카드 아이콘 (Lucide) */
 .role-card .role-ico{color:var(--text-muted);}
 .role-card.role-card-on .role-ico{color:#fff;}
@@ -1310,7 +1316,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .badge-cell.locked .bi{filter:grayscale(1);opacity:.65;}
 .badge-cell.locked .bn{color:var(--text-muted);font-weight:600;}
 .boss-card{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-chip);padding:12px 14px;margin-bottom:14px;cursor:pointer;}
-.boss-card.win{border-left-color:var(--okt);cursor:default;}
+.boss-card.win{border-color:var(--okt);cursor:default;}
 .boss-ava{font-size:34px;line-height:1;flex-shrink:0;}
 .boss-hp{height:9px;background:var(--cream2);border-radius:99px;overflow:hidden;margin-top:6px;}
 .boss-hp-fill{height:100%;border-radius:99px;background:#E2544A;transition:width .5s ease;}
@@ -1325,8 +1331,6 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .wk-sec-head .t{position:relative;display:inline-block;padding-bottom:5px;}
 .wk-sec-head .t::after{content:'';position:absolute;left:0;right:8px;bottom:0;height:5px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='6' viewBox='0 0 40 6'%3E%3Cpath d='M0 4 Q5 1 10 4 T20 4 T30 4 T40 4' fill='none' stroke='%23F59E0B' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") repeat-x;background-size:40px 6px;opacity:.85;}
 /* 숙제 카드: 과목 연필선 + 완료 시 초록 */
-.hw-check-card{border-left:3.5px solid var(--border);}
-.hw-check-card.done{border-left-color:var(--ok);}
 /* 스티커 컷 아바타 (흰 테두리 + 살짝 기울임) */
 .boss-ava,.xp-ava{background:#fff;border-radius:50%;width:52px;height:52px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(15,48,74,.18),0 0 0 3px #fff;transform:rotate(-4deg);font-size:28px;}
 .boss-card.win .boss-ava{transform:rotate(4deg) scale(1.06);}
@@ -1396,8 +1400,9 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .ec-bcol-b{display:flex;flex-direction:column;gap:4px;padding:5px 4px;min-height:46px;}
 .ec-bnone{font-size:var(--fs-xs);color:#A8B3BF;text-align:center;padding:6px 2px;line-height:1.4;}
 .ec-badd{margin:0 4px 5px;font-size:var(--fs-xs);padding:3px 4px;border:1px dashed var(--border);border-radius:var(--r-ctl);background:var(--cream);color:var(--slate);font-family:var(--fb);cursor:pointer;min-width:0;}
-.ec-bchip{display:block;position:relative;border-left:3px solid var(--bc);background:#F8FAFC;border-radius:var(--r-ctl);padding:4px 16px 4px 6px;cursor:grab;user-select:none;touch-action:none;line-height:1.3;}
+.ec-bchip{display:block;position:relative;border:1px solid var(--border);background:#fff;border-radius:var(--r-ctl);padding:4px 16px 4px 6px;cursor:grab;user-select:none;touch-action:none;line-height:1.3;}
 .ec-bchip b{display:block;font-size:var(--fs-xs);font-weight:800;color:var(--bc);}
+.ec-bchip b::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--bc);margin-right:4px;vertical-align:1px;}
 .ec-bchip i{display:block;font-size:var(--fs-xs);font-style:normal;color:var(--navy);font-weight:600;word-break:break-word;}
 .ec-bchip u{font-size:var(--fs-xs);text-decoration:none;color:var(--slate);}
 .ec-bchip em{position:absolute;top:2px;right:3px;font-style:normal;font-size:var(--fs-sm);color:#9AA7B4;cursor:pointer;line-height:1;padding:1px 2px;}
@@ -1449,7 +1454,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .pp-flow span{font-size:var(--fs-xs);font-weight:700;color:var(--slate);background:var(--cream2);border-radius:var(--rpill);padding:2px 8px;white-space:nowrap;}
 .pp-flow span+span::before{content:'→';color:#B6C2CC;font-weight:400;margin-right:5px;}
 /* 한 줄 보조 설명 — 자세한 내용은 title로 */
-.pp-note{font-size:var(--fs-sm);color:var(--slate);line-height:1.6;margin:2px 0 7px;cursor:help;border-left:2px solid var(--border);padding-left:8px;}
+.pp-note{font-size:var(--fs-sm);color:var(--slate);line-height:1.6;margin:2px 0 7px;cursor:help;}
 
 /* ── 시원시원·인터랙티브 보정 (진도/숙제 캘린더) ── */
 /* 칸이 빽빽해 칩이 뭉개져 보였다 — 여백을 늘리고 손이 닿는 요소마다 반응을 준다 */
@@ -1493,7 +1498,8 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .sr-c3{display:flex;align-items:center;gap:6px;min-width:0;}
 #m-edit-class .sr-run{font-size:var(--fs-md);padding:6px 8px;background:#fff;color:var(--slate);border-radius:var(--r-card);min-width:0;max-width:150px;}
 #m-edit-class .sr-run.on{border-color:var(--purple);color:var(--purplet);font-weight:700;background:var(--pl);}
-#m-edit-class .sr.sr-par{border-left:3px solid var(--purple);background:#F7FBFD;}
+#m-edit-class .sr.sr-par{border:1px solid var(--border);background:#F7FBFD;}
+#m-edit-class .sr.sr-par .sr-run{border-color:var(--purple);color:var(--purplet);}
 
 /* ── 영역별 진도 보드 ── */
 .tb-card{background:#fff;border:1.5px solid var(--border);border-radius:var(--r-chip);padding:11px 13px;margin-bottom:12px;}
@@ -1663,7 +1669,8 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .al-row{display:grid;grid-template-columns:minmax(110px,1.5fr) 56px 90px 1fr 56px 110px 62px 52px 72px;
   gap:8px;align-items:center;padding:7px 6px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:var(--r-card);}
 .al-row:hover{background:var(--cream2);}
-.al-row.on{background:var(--tl);box-shadow:inset 3px 0 0 var(--teal);}
+.al-row.on{background:var(--tl);}
+.al-row.on>:first-child{font-weight:700;}
 .al-head{font-size:var(--fs-xs);color:var(--slate);cursor:default;border-bottom:1.5px solid var(--border);}
 .al-head:hover{background:none;}
 .al-nm{font-size:var(--fs-md);font-weight:700;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -2005,16 +2012,6 @@ html{scroll-padding-top:72px;}
 /* 퀘스트 색은 수업 4영역 배지(.sv/.sg2/.srd/.sls)와 같은 색을 쓴다 —
    학생이 '파랑=어휘, 보라=어법, 초록=리딩, 앰버=리스닝'을 한 번만 익히면 되도록.
    원서(book)는 수업 끝 자율 학습으로 바뀌어 메인이 아니라 중립색이다. */
-.hw-k-vocab    {border-left-color:#3B6FD4;}
-.hw-k-grammar  {border-left-color:#7C4DD6;}
-.hw-k-reading  {border-left-color:#10876A;}
-.hw-k-listening{border-left-color:#D08A12;}
-.hw-k-book     {border-left-color:var(--slate2);}
-.hw-k-app      {border-left-color:#8B5CF6;}
-.hw-k-recur    {border-left-color:var(--ok);}
-.hw-k-ws       {border-left-color:#EC6B5E;}
-.hw-k-mission  {border-left-color:#0EA5E9;}
-.hw-k-etc      {border-left-color:var(--slate2);}
 .hw-k-vocab     .quest-no{color:#1E40AF;background:#DBEAFE;}
 .hw-k-grammar   .quest-no{color:#4C1D95;background:#EDE9FE;}
 .hw-k-reading   .quest-no{color:#065F46;background:#D1FAE5;}
@@ -2087,8 +2084,6 @@ html{scroll-padding-top:72px;}
 .hw-k-ws      .hw-ico{background:#FDECEA;}
 .hw-k-mission .hw-ico{background:#E0F2FE;}
 .hw-check-card.done .hw-ico{filter:grayscale(.5);opacity:.75;}
-/* 종류 띠를 조금 두껍게 — 3.5px 는 멀리서 안 보였다 */
-.hw-check-card{border-left-width:5px;}
 @media(prefers-reduced-motion:no-preference){
   .hw-check-card:not(.done):hover .hw-ico{transform:rotate(-7deg) scale(1.08);transition:transform .2s cubic-bezier(.34,1.56,.64,1);}
 }
@@ -2768,9 +2763,7 @@ body{font-size:var(--fs-base);line-height:1.65;}
 .track-line .track-chip{flex:0 0 auto;font-size:var(--fs-sm);font-weight:800;padding:3px 10px;border-radius:var(--rpill);
   background:var(--nav-active);color:var(--primary);letter-spacing:.2px}
 .track-line .track-txt{font-size:var(--fs-base);color:var(--text);font-weight:600}
-.track-line.tr-jg{border-left:3px solid var(--accent)}
 .track-line.tr-jg .track-chip{background:var(--avatar-bg);color:var(--avatar-text)}
-.track-line.tr-ch{border-left:3px solid var(--neutral)}
 .track-badge{display:inline-flex;align-items:center;gap:4px;margin-left:6px;font-size:var(--fs-xs);font-weight:700;
   padding:1px 7px;border-radius:var(--rpill);background:var(--nav-active);color:var(--text-muted);white-space:nowrap}
 .track-badge.tr-jg{background:var(--avatar-bg);color:var(--avatar-text)}
@@ -2804,8 +2797,8 @@ body{font-size:var(--fs-base);line-height:1.65;}
 .late-list{padding:0 10px 10px}
 
 /* ── 재시험 안내 ────────────────────────────────────────────── */
-.rt-box{margin:10px 0;padding:12px 14px;border:1px solid var(--border);border-left:3px solid var(--warning);
-  border-radius:var(--r-chip);background:var(--surface)}
+.rt-box{margin:10px 0;padding:12px 14px;border:1px solid var(--border);
+  border-radius:var(--r-chip);background:var(--warnl)}
 .rt-h{font-size:var(--fs-base);font-weight:800;color:var(--text);display:flex;align-items:center;gap:7px;margin-bottom:8px}
 .rt-h .rt-n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;
   border-radius:var(--rpill);background:var(--warning);color:#fff;font-size:var(--fs-sm);font-weight:800}
@@ -2832,8 +2825,8 @@ body{font-size:var(--fs-base);line-height:1.65;}
   font-family:var(--fb);white-space:nowrap}
 .cl-hw-chk .cl-hw-undo:hover{border-color:var(--accent);color:var(--accent)}
 /* 지난 수업에서 못 끝낸 것 (B7) */
-.cl-prev-hw{margin-bottom:12px;border:1px solid var(--border);border-left:3px solid var(--warning);
-  border-radius:var(--r-card);background:var(--surface);padding:10px 13px}
+.cl-prev-hw{margin-bottom:12px;border:1px solid var(--border);
+  border-radius:var(--r-card);background:var(--warnl);padding:10px 13px}
 .cl-prev-h{font-size:var(--fs-md);font-weight:800;color:var(--text);margin-bottom:6px;
   display:flex;align-items:center;gap:7px}
 .cl-prev-h .n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;
@@ -3185,7 +3178,7 @@ body{font-size:var(--fs-base);line-height:1.65;}
 .iso-ic:hover{border-color:var(--teal);color:var(--tealt);}
 .iso-ic:disabled{opacity:.45;cursor:default;}
 .iso-ic-d:hover{border-color:var(--warn);color:var(--navy);}
-.iso-note{font-size:var(--fs-sm);color:var(--navy);background:var(--cream2);border-left:3px solid var(--warn);border-radius:var(--r-ctl);padding:7px 10px;margin-bottom:8px;line-height:1.6;}
+.iso-note{font-size:var(--fs-sm);color:var(--navy);background:var(--warnl);border:1px solid var(--border);border-radius:var(--r-ctl);padding:7px 10px;margin-bottom:8px;line-height:1.6;}
 .iso-lbl{font-size:var(--fs-sm);font-weight:700;color:var(--slate2);margin:9px 0 3px;}
 .iso-ed{font-size:var(--fs-md);color:var(--navy);line-height:1.75;background:var(--cream2);border:1.5px solid transparent;border-radius:var(--r-card);padding:7px 10px;white-space:pre-wrap;word-break:break-word;outline:none;}
 .iso-ed:hover{border-color:var(--border);}
@@ -3310,7 +3303,7 @@ body{font-size:var(--fs-base);line-height:1.65;}
 .pb-warn{font-size:var(--fs-sm);font-weight:600;color:var(--warnt);background:var(--warnl);border-radius:var(--r-ctl);padding:2px 9px;}
 .pb-list{display:flex;flex-direction:column;gap:6px;}
 .pb-row{display:flex;align-items:center;gap:8px;border:1.5px solid var(--border);border-radius:var(--r-card);background:var(--cream);padding:8px 10px;}
-.pb-row.pb-inset{border-left:3px solid var(--teal);}
+.pb-row.pb-inset{margin-left:14px;background:#fff;}
 .pb-row.pb-empty{border-style:dashed;background:var(--cream2);}
 .pb-setline{font-size:var(--fs-sm);font-weight:700;color:var(--tealt);padding:2px 2px 0;}
 .pb-grip{color:var(--slate2);cursor:grab;font-size:var(--fs-md);flex-shrink:0;}
@@ -3935,9 +3928,11 @@ button[data-pp-lim-off]{opacity:.42 !important;filter:grayscale(.4);cursor:not-a
 .pg-sheet-les .pg-chip.has-x{padding-right:30px;}
 .pg-sheet-les .pg-chip .pg-x{display:flex;opacity:.6;width:26px;font-size:var(--fs-md);}
 .pg-sheet .pg-hw-row{margin-bottom:6px;}
-.pg-hw-row.big{padding:9px 10px;border-radius:var(--r-card);gap:8px;border-left-width:4px;}
+.pg-hw-row.big{padding:9px 10px;border-radius:var(--r-card);gap:8px;}
+.pg-hw-row.big .pg-ck{width:15px;height:15px;}
+.pg-hw-row.big.done .pg-ck::after{width:4px;height:8px;border-width:0 2px 2px 0;}
 .pg-hw-row.big .pg-hw-t{font-size:var(--fs-md);white-space:normal;}
-.pg-hw-row.big .pg-ck{font-size:var(--fs-lg);}
+.pg-hw-row.big .pg-ck{font-size:0;}
 .pg-sheet-no{font-style:normal;font-size:var(--fs-sm);color:var(--text-muted);}
 .pg-sheet-f{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px;}
 .pg-sheet-f .btn{flex:1;min-width:104px;min-height:44px;}
@@ -3999,3 +3994,22 @@ button.class-stu-chip{min-height:var(--h-btn);font-family:var(--fb);cursor:point
   border-radius:var(--rpill);padding:0 7px;line-height:1.6;vertical-align:1px;}
 .bser-card{position:relative;}
 .bser-card>.tb-frombank{position:absolute;top:4px;left:4px;z-index:1;}
+
+/* ═══ fix/no-leftbar (2026-11-15) — 한쪽에만 굵은 색 선을 넣지 않는다. 색은 아이콘·점·체크·바탕이 맡는다 ═══ */
+:root{--ic-info:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 16v-4M12 8h.01'/%3E%3C/svg%3E");--ic-warn:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z'/%3E%3Cpath d='M12 9v4M12 17h.01'/%3E%3C/svg%3E");--ic-ok:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E");}
+/* 안내·주의·완료 상자 — 사방 1px 테두리 · 옅은 바탕 · 맨 앞 작은 선 아이콘. 종류는 아이콘과 바탕으로 가른다 */
+.pp-callout{border:1px solid var(--border);border-radius:var(--r-card);background:var(--cream2);padding:10px 12px;}
+.pp-callout.warn{background:var(--warnl);}
+.pp-callout.ok{background:var(--okl);}
+.pp-callout.info{background:var(--tl);}
+.pp-ic::before,.pp-callout>.pp-callout-h::before,.iso-note::before,.rt-h::before,.cl-prev-h::before{
+  content:'';display:inline-block;flex-shrink:0;width:14px;height:14px;margin-right:6px;vertical-align:-2px;
+  background:currentColor;-webkit-mask:var(--ic-info) center/contain no-repeat;mask:var(--ic-info) center/contain no-repeat;}
+.pp-callout.warn>.pp-callout-h::before,.iso-note::before,.rt-h::before,.cl-prev-h::before{-webkit-mask-image:var(--ic-warn);mask-image:var(--ic-warn);}
+.pp-callout.ok>.pp-callout-h::before{-webkit-mask-image:var(--ic-ok);mask-image:var(--ic-ok);}
+.iso-note::before,.rt-h::before,.cl-prev-h::before{color:var(--warnt);margin-right:0;}
+.iso-note::before{margin-right:6px;}
+.pp-note{border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--cream2);padding:5px 9px;}
+.pp-note::before{content:'';display:inline-block;width:13px;height:13px;margin-right:5px;vertical-align:-2px;background:var(--text-muted);
+  -webkit-mask:var(--ic-info) center/contain no-repeat;mask:var(--ic-info) center/contain no-repeat;}
+.pp-callout-h{font-size:var(--fs-sm);font-weight:700;color:var(--navy);margin-bottom:5px;display:flex;align-items:center;}

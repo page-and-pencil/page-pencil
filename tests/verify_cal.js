@@ -172,16 +172,18 @@ const CONTRAST = (sel) => {
         lesN: les.length, rowN: rows.length, head,
         order: les.length && rows.length ? Math.max(...les.map(x => x.b)) <= Math.min(...rows.map(x => x.t)) + 1 : null,
         rowBg: sr && sr.backgroundColor, rowBl: sr && (sr.borderLeftWidth + ' ' + sr.borderLeftStyle),
+        // fix/no-leftbar: 영역 색은 체크 네모가 맡는다
+        ckBd: (() => { const k = r0 && r0.querySelector('.pg-ck'); if (!k) return ''; const q = getComputedStyle(k); return q.borderTopWidth + ' ' + q.borderTopStyle; })(),
         chipBg: sp && sp.backgroundColor, chipBorder: sp && (sp.borderLeftWidth + ' ' + sp.borderLeftStyle),
         chipCls: p0 && p0.className, tiny,
-        ck: [...c.querySelectorAll('.pg-hw-row .pg-ck')].map(e => e.textContent),
+        ck: [...c.querySelectorAll('.pg-hw-row .pg-ck')].map(e => e.dataset.ck),
         names: [...c.querySelectorAll('.pg-hw-row .pg-hw-t')].map(e => e.textContent.trim()),
       };
     }, { done: DONE_DAY });
     ok('[1] 수업 칩이 모두 숙제 줄보다 위', r.order === true, '수업 ' + r.lesN + '개 · 숙제 ' + r.rowN + '줄');
-    ok('[1] 숙제 줄에 채운 바탕이 없다 (옅은 바탕 + 왼쪽 색 띠)',
-      !!r.rowBg && r.rowBg !== r.chipBg && /^3px|^4px/.test(r.rowBl) && /solid/.test(r.rowBl),
-      '줄 바탕 ' + r.rowBg + ' · 왼쪽 띠 ' + r.rowBl + ' / 칩 바탕 ' + r.chipBg);
+    ok('[1] 숙제 줄에 채운 바탕이 없다 (옅은 바탕 + 영역 색 체크 네모, 왼쪽 띠 없음)',
+      !!r.rowBg && r.rowBg !== r.chipBg && /^0px|none/.test(r.rowBl) && /^1(\.5)?px solid/.test(r.ckBd),
+      '줄 바탕 ' + r.rowBg + ' · 왼쪽 ' + r.rowBl + ' · 체크 네모 ' + r.ckBd + ' / 칩 바탕 ' + r.chipBg);
     ok('[1] 같은 자리에서 진도 칩과 숙제 줄의 꼴이 다르다', r.chipBg !== r.rowBg || r.chipBorder !== r.rowBl,
       '칩 ' + r.chipCls + ' ' + r.chipBg + ' / 줄 ' + r.rowBg);
     ok('[1] 끝난 숙제도 이름을 그대로 적는다 (☑ · 이름 없는 작은 알약 0개)',
@@ -200,7 +202,7 @@ const CONTRAST = (sel) => {
         const c = cell(ds); if (!c) return null;
         return { head: ((c.querySelector('.pg-hw-head') || {}).innerText || '').trim(),
           late: !!c.querySelector('.pg-hw-head.late'),
-          ck: [...c.querySelectorAll('.pg-hw-row .pg-ck')].map(e => e.textContent),
+          ck: [...c.querySelectorAll('.pg-hw-row .pg-ck')].map(e => e.dataset.ck),
           names: [...c.querySelectorAll('.pg-hw-row .pg-hw-t')].map(e => e.textContent.trim()) };
       };
       return { y: read(o.y), f: read(o.f) };
@@ -233,11 +235,11 @@ const CONTRAST = (sel) => {
     const r4 = await page.evaluate(async (ds) => {
       const c = document.querySelector('.pg-cal-card .pg-cell[data-ds="' + ds + '"]');
       const row = c.querySelector('.pg-hw-row');
-      const was = row.querySelector('.pg-ck').textContent;
+      const was = row.querySelector('.pg-ck').dataset.ck;
       row.click();
       await new Promise(r => setTimeout(r, 900));
       const c2 = document.querySelector('.pg-cal-card .pg-cell[data-ds="' + ds + '"]');
-      return { was, now: c2.querySelector('.pg-hw-row .pg-ck').textContent, head: (c2.querySelector('.pg-hw-head') || {}).textContent.trim() };
+      return { was, now: c2.querySelector('.pg-hw-row .pg-ck').dataset.ck, head: (c2.querySelector('.pg-hw-head') || {}).textContent.trim() };
     }, FUT_DAY);
     await wait(400);
     ok('[1] 숙제 줄을 누르면 완료가 바뀐다 (서버 쓰기 1건)',
@@ -348,12 +350,13 @@ const CONTRAST = (sel) => {
       const st = r0 ? getComputedStyle(r0) : null;
       return { cells: cells.length, rows, heads, oldChips,
         bl: st ? st.borderLeftWidth + ' ' + st.borderLeftStyle : '', bg: st ? st.backgroundColor : '',
-        ck: r0 ? r0.querySelector('.pg-ck').textContent : '' };
+        ckBd: (() => { const k = r0 && r0.querySelector('.pg-ck'); if (!k) return ''; const q = getComputedStyle(k); return q.borderTopWidth + ' ' + q.borderTopStyle; })(),
+        ck: r0 ? r0.querySelector('.pg-ck').dataset.ck : '' };
     });
     ok('[5] 과제 탭 숙제 캘린더도 체크 줄 꼴', r.rows > 0 && r.heads > 0 && r.oldChips === 0,
       '줄 ' + r.rows + '개 · 머리 ' + r.heads + '개 · 옛 숙제 칩 ' + r.oldChips + '개');
-    ok('[5] 과제 탭 줄도 왼쪽 색 띠 + 옅은 바탕', /^3px|^4px/.test(r.bl) && /solid|dotted/.test(r.bl),
-      '띠 ' + r.bl + ' · 바탕 ' + r.bg + ' · 체크 ' + r.ck);
+    ok('[5] 과제 탭 줄도 같은 꼴 — 옅은 바탕 + 영역 색 체크 네모 (왼쪽 띠 없음)', /^0px|none/.test(r.bl) && /^1(\.5)?px (solid|dashed)/.test(r.ckBd),
+      '왼쪽 ' + r.bl + ' · 바탕 ' + r.bg + ' · 체크 네모 ' + r.ckBd + ' · ' + r.ck);
     const c3 = await page.evaluate(fn => eval('(' + fn + ')')('#assign-cal'), CONTRAST.toString());
     ok('[2] 숙제 캘린더 — 11px 미만 0곳 · 대비 4.5 미만 0곳', c3.sn === 0 && c3.n === 0,
       '본 글자 ' + c3.seen + '곳 · 작은 ' + c3.sn + ' · 대비 미만 ' + c3.n);

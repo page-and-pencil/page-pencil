@@ -1130,7 +1130,7 @@ async function printReport(sidArg,month){
     .stat-l{font-size:12px;color:#888;margin-top:2px;}
     .score-bar{height:8px;border-radius:4px;background:#eee;margin-top:4px;}
     .score-fill{height:100%;border-radius:4px;background:var(--accent);}
-    .comment-box{background:#f0fffe;border-left:3px solid var(--accent);padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:8px;}
+    .comment-box{background:#f0fffe;border:1px solid #cfe9e4;padding:10px 14px;border-radius:8px;margin-bottom:8px;}
     .comment-date{font-size:12px;color:#888;margin-bottom:4px;}
     .badge-list{display:flex;flex-wrap:wrap;gap:6px;}
     .badge{padding:3px 10px;background:#f0fffe;border:1px solid var(--accent);border-radius:20px;font-size:12px;}

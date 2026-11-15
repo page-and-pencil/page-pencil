@@ -76,6 +76,7 @@ const TESTS = {
   'verify_p5b.js': { g: 'retired', w: 'P5 추가 확인: ① 세션 0건 → ’0일 · 0분’  ② 리포트 게임 한 줄  ③ kspGrade 끝말(조깅/빠르다)', why: '더미 학생·교재 줄을 **실제 서버에 넣어** 확인하는 방식 — 읽기까지 막은 뒤로는 돌 수 없다. 가짜 표로 다시 써야 한다' },
   'verify_p6.js': { g: 'retired', w: 'P6 리포트·설정·리셋 검증. 더미 학생/숙제만.', why: '더미 학생·교재 줄을 **실제 서버에 넣어** 확인하는 방식 — 읽기까지 막은 뒤로는 돌 수 없다. 가짜 표로 다시 써야 한다' },
   'verify_p7.js': { g: 'retired', w: 'P7 문장 학습 검증. 더미 학생·더미 교재만 건드린다. 실학생은 읽기만.', why: '도우미가 저장소 밖에 있고, 더미 학생·교재 줄을 **실제 서버에 넣어** 확인하는 방식 — 읽기까지 막은 뒤로는 돌 수 없다. 가짜 표로 다시 써야 한다' },
+  'verify_noleftbar.js': { g: 'core', w: '한쪽에만 굵은 색 선 금지 — 파일의 border-left 2px 이상·inset 띠 0곳, 화면 27곳의 왼쪽 막대 0, 숙제 줄 체크 네모가 영역 색 — 가짜 서버만' },
   'verify_paint.js': { g: 'core', w: '실제로 ’칠해진’ 파랑·남색·보라만 찾는다 — 계산된 스타일 기준. 소스에 남아 있어도 덮여 있으면 제외.' },
   'verify_paper.js': { g: 'legacy', w: '단어 시험지 새 양식 검증. 실데이터 GET 만, 쓰기 전부 차단.', why: '가짜 자료로는 안 맞는다 — page.evaluate: TypeError: Cannot read properties of undefined (reading' },
   'verify_pb.js': { g: 'core', w: '시험지 만들기 + 문제 은행 보완 — 전부 가짜 서버. AI 는 부르지 않는다.' },
