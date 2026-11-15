@@ -587,7 +587,7 @@ async function supaFetchAll(table,silent=false){
     const ctrl=new AbortController();
     const tid=setTimeout(()=>ctrl.abort(),30000);
     try{
-      const r=await ppFetch(`${SUPA_URL}/rest/v1/${table}?limit=${PAGE}&offset=${offset}&order=updated_at.desc`,{headers:SUPA_HEADERS,signal:ctrl.signal});
+      const r=await ppFetch(`${SUPA_URL}/rest/v1/${table}?limit=${PAGE}&offset=${offset}&order=updated_at.desc,id`,{headers:SUPA_HEADERS,signal:ctrl.signal});   // id 까지 — 같은 시각 줄이 쪽 사이에서 빠졌다 (2026-11-15)
       clearTimeout(tid);
       if(!r.ok){if(!silent)handleSupaError(r.status);break;}
       const rows=await r.json();
@@ -897,7 +897,7 @@ async function _tbStampRows(){   // id,updated_at 전량 (PostgREST 기본 max-r
     const ctrl=new AbortController();
     const tid=setTimeout(()=>ctrl.abort(),15000);
     try{
-      const r=await fetch(`${SUPA_URL}/rest/v1/global_textbooks?select=id,updated_at&limit=${PAGE}&offset=${off}&order=updated_at.desc`,{headers:SUPA_HEADERS,signal:ctrl.signal});
+      const r=await fetch(`${SUPA_URL}/rest/v1/global_textbooks?select=id,updated_at&limit=${PAGE}&offset=${off}&order=updated_at.desc,id`,{headers:SUPA_HEADERS,signal:ctrl.signal});
       clearTimeout(tid);
       if(!r.ok)return null;
       const rows=await r.json();
@@ -1792,7 +1792,7 @@ async function supaFetchBySid(table,sid,opts){
   const withDeleted=!!(opts&&opts.withDeleted);
   const PAGE=1000;let out=[],off=0;
   while(true){
-    const r=await ppFetch(`${SUPA_URL}/rest/v1/${table}?sid=eq.${encodeURIComponent(sid)}&order=updated_at.desc&limit=${PAGE}&offset=${off}`,{headers:SUPA_HEADERS});
+    const r=await ppFetch(`${SUPA_URL}/rest/v1/${table}?sid=eq.${encodeURIComponent(sid)}&order=updated_at.desc,id&limit=${PAGE}&offset=${off}`,{headers:SUPA_HEADERS});
     if(!r.ok)break;
     const rows=await r.json();
     if(!Array.isArray(rows))break;
