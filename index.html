@@ -16,8 +16,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-<link rel="stylesheet" href="css/tokens.css?v=20261106c">
-<link rel="stylesheet" href="css/style.css?v=20261114l">
+<link rel="stylesheet" href="css/tokens.css?v=20261115a">
+<link rel="stylesheet" href="css/style.css?v=20261115a">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -242,11 +242,14 @@
         <span style="font-size:12.5px;color:var(--text-muted);margin-left:8px">시험지·학습 세트·단어 시험지를 한 화면씩 따라가며</span>
       </div>
       <div id="dash-stats" class="dash-stats" style="margin-bottom:14px"></div>
+      <!-- 첫 줄: 오늘의 수업(넓게) + 바로 할 일 — 그 아래 이번 달 현황·이번 주·반별 진도·공지 -->
+      <div class="dash-row1">
+        <div id="dash-today" style="margin-bottom:12px"></div>
+        <div id="dash-actions" style="margin-bottom:12px"></div>
+      </div>
       <div class="dash-cols">
         <div class="dash-col-main">
-          <div id="dash-whatsnew" style="margin-bottom:12px"></div>
           <div id="dash-exam-prep" style="margin-bottom:12px"></div>
-          <div id="dash-today" style="margin-bottom:12px"></div>
           <div id="dash-monthly" style="margin-bottom:12px"></div>
           <div id="dash-weekheat" style="margin-bottom:12px"></div>
           <details class="dash-fold" style="margin-bottom:12px" open>
@@ -255,7 +258,6 @@
           </details>
         </div>
         <div class="dash-col-side">
-          <div id="dash-actions" style="margin-bottom:12px"></div>
           <div id="dash-vocab-today"></div>
           <div id="dash-notice-section"></div>
           <!-- 참고용 섹션은 기본으로 접음 — 대시보드를 '오늘 할 일' 중심으로 (렌더 대상 id는 그대로) -->
@@ -269,6 +271,8 @@
           </details>
         </div>
       </div>
+      <!-- 맨 아래 접힌 한 줄 — 배포마다 늘어나는 목록이라 자리를 차지하지 않게 -->
+      <div id="dash-whatsnew"></div>
     </div>
 
     <!-- 학생 관리 (좌우 분할 레이아웃) -->
@@ -659,24 +663,26 @@
 
     <!-- 자료 DB (교재 + 원서 + 단어 통합) -->
     <div id="t-data" class="panel">
-      <!-- Sub-tab 네비게이션 -->
+      <!-- Sub-tab 네비게이션 — 윗줄 묶음 셋, 아랫줄은 고른 묶음의 탭만 -->
+      <div class="dtg-row">
+        <button id="dtg-res" class="dtgb on" onclick="dtGroup('res')"><i data-lucide="folder-open" width="15" height="15" style="vertical-align:-3px"></i> 자료</button>
+        <button id="dtg-mk" class="dtgb" onclick="dtGroup('mk')"><i data-lucide="sparkles" width="15" height="15" style="vertical-align:-3px"></i> 만들기</button>
+        <button id="dtg-adm" class="dtgb" onclick="dtGroup('adm')"><i data-lucide="wrench" width="15" height="15" style="vertical-align:-3px"></i> 관리</button>
+      </div>
       <div class="dtabs dtabs-g">
-        <span class="dtg">교재·자료</span>
-        <button id="dtab-library" onclick="switchDataTab('library')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="library-big" width="15" height="15" style="vertical-align:-3px"></i> 라이브러리 <i class="wn-dot"></i></button>
-        <button id="dtab-tbook" onclick="switchDataTab('tbook')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:700;color:var(--teal)"><i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 교재</button>
-        <button id="dtab-lib" onclick="switchDataTab('lib')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 원서</button>
-        <button id="dtab-word" onclick="switchDataTab('word')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 어휘</button>
-        <button id="dtab-bank" onclick="switchDataTab('bank')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 기출 <i class="wn-dot"></i></button>
-        <span class="dtg">문제·시험지</span>
-        <button id="dtab-make" onclick="switchDataTab('make')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="sparkles" width="15" height="15" style="vertical-align:-3px"></i> 만들기 <i class="wn-dot"></i></button>
-        <button id="dtab-items" onclick="switchDataTab('items')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="library" width="15" height="15" style="vertical-align:-3px"></i> 문제 은행</button>
-        <button id="dtab-paper" onclick="switchDataTab('paper')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="file-check" width="15" height="15" style="vertical-align:-3px"></i> 시험지 <i class="wn-dot"></i></button>
-        <button id="dtab-iso" onclick="switchDataTab('iso')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="wand-2" width="15" height="15" style="vertical-align:-3px"></i> 동형 문제</button>
-        <button id="dtab-kit" onclick="switchDataTab('kit')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="book-marked" width="15" height="15" style="vertical-align:-3px"></i> 학습 세트 <i class="wn-dot"></i></button>
-        <button id="dtab-ws" onclick="switchDataTab('ws')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 저장된 것</button>
-        <span class="dtg">관리</span>
-        <button id="dtab-exam" onclick="switchDataTab('exam')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="calendar-days" width="15" height="15" style="vertical-align:-3px"></i> 시험 일정</button>
-        <button id="dtab-master" onclick="switchDataTab('master')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="wrench" width="15" height="15" style="vertical-align:-3px"></i> 백업·일괄</button>
+        <button id="dtab-library" data-dtg="res" onclick="switchDataTab('library')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="library-big" width="15" height="15" style="vertical-align:-3px"></i> 라이브러리 <i class="wn-dot"></i></button>
+        <button id="dtab-tbook" data-dtg="res" onclick="switchDataTab('tbook')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:700;color:var(--teal)"><i data-lucide="book-open" width="15" height="15" style="vertical-align:-3px"></i> 교재</button>
+        <button id="dtab-lib" data-dtg="res" onclick="switchDataTab('lib')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="book" width="15" height="15" style="vertical-align:-3px"></i> 원서</button>
+        <button id="dtab-word" data-dtg="res" onclick="switchDataTab('word')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 어휘</button>
+        <button id="dtab-bank" data-dtg="res" onclick="switchDataTab('bank')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="file-text" width="15" height="15" style="vertical-align:-3px"></i> 기출 <i class="wn-dot"></i></button>
+        <button id="dtab-make" data-dtg="mk" onclick="switchDataTab('make')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="sparkles" width="15" height="15" style="vertical-align:-3px"></i> 만들기 <i class="wn-dot"></i></button>
+        <button id="dtab-items" data-dtg="mk" onclick="switchDataTab('items')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="library" width="15" height="15" style="vertical-align:-3px"></i> 문제 은행</button>
+        <button id="dtab-paper" data-dtg="mk" onclick="switchDataTab('paper')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="file-check" width="15" height="15" style="vertical-align:-3px"></i> 시험지 <i class="wn-dot"></i></button>
+        <button id="dtab-iso" data-dtg="mk" onclick="switchDataTab('iso')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="wand-2" width="15" height="15" style="vertical-align:-3px"></i> 동형 문제</button>
+        <button id="dtab-kit" data-dtg="mk" onclick="switchDataTab('kit')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="book-marked" width="15" height="15" style="vertical-align:-3px"></i> 학습 세트 <i class="wn-dot"></i></button>
+        <button id="dtab-ws" data-dtg="mk" onclick="switchDataTab('ws')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 저장된 것</button>
+        <button id="dtab-exam" data-dtg="adm" onclick="switchDataTab('exam')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="calendar-days" width="15" height="15" style="vertical-align:-3px"></i> 시험 일정</button>
+        <button id="dtab-master" data-dtg="adm" onclick="switchDataTab('master')" style="padding:8px 13px;font-size:13.5px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fb);white-space:nowrap;font-weight:600;color:var(--slate)"><i data-lucide="wrench" width="15" height="15" style="vertical-align:-3px"></i> 백업·일괄</button>
       </div>
 
       <!-- 라이브러리 sub-panel (선생님 전용) -->
@@ -1349,17 +1355,27 @@
     <div id="t-cfg" class="panel">
       <div class="sh"><div><div class="st"><i data-lucide="settings" width="15" height="15" style="vertical-align:-3px"></i> 설정</div><div class="ssub">앱 동작과 학부모·학생에게 보이는 정보를 관리합니다</div></div></div>
 
-      <!-- 로그인 방식 (서버 이전 병행 기간 확인용) -->
-      <div id="auth-mode-row" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--slate);margin:-4px 0 12px"></div>
+      <!-- 묶음 셋 중 하나만 보인다 (한 화면이 3,938px 이었다) -->
+      <div class="cfg-grps">
+        <button id="cfgg-ops" class="cfg-gb on" onclick="cfgGroup('ops')">수업 운영</button>
+        <button id="cfgg-face" class="cfg-gb" onclick="cfgGroup('face')">학생·학부모에게 보이는 것</button>
+        <button id="cfgg-adv" class="cfg-gb" onclick="cfgGroup('adv')">연결·고급</button>
+      </div>
+      <div id="cfg-g-ops" class="cfg-grp"></div>
+      <div id="cfg-g-face" class="cfg-grp" style="display:none"></div>
+      <div id="cfg-g-adv" class="cfg-grp" style="display:none"></div>
+
+      <!-- 로그인 방식 (서버 이전 병행 기간 확인용) — 연결·고급 묶음으로 옮겨진다 -->
+      <div id="auth-mode-row" data-cg="adv" data-cgo="7" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--slate);margin:-4px 0 12px"></div>
 
       <!-- 새로 생긴 것 (전체) -->
-      <div class="card" style="margin-bottom:1rem">
+      <div class="card" data-cg="ops" data-cgo="3" style="margin-bottom:1rem">
         <div class="ch"><span class="ct"><i data-lucide="sparkles" width="15" height="15" style="vertical-align:-3px"></i> 새로 생긴 것</span></div>
         <div class="cb" id="cfg-whatsnew" style="padding:6px 10px 10px"></div>
       </div>
 
       <!-- 홈 신호 기준값 -->
-      <div class="card" style="margin-bottom:1rem">
+      <div class="card" data-cg="ops" data-cgo="1" style="margin-bottom:1rem">
         <div class="ch"><span class="ct"><i data-lucide="sliders-horizontal" width="15" height="15" style="vertical-align:-3px"></i> 홈 신호 기준값</span></div>
         <div class="cb">
           <div style="font-size:13px;color:var(--slate);margin-bottom:14px;line-height:1.6">
@@ -1375,7 +1391,7 @@
       </div>
 
       <!-- 코멘트 칩 관리 -->
-      <div class="card" style="margin-bottom:1rem">
+      <div class="card" data-cg="ops" data-cgo="2" style="margin-bottom:1rem">
         <div class="ch"><span class="ct"><i data-lucide="tag" width="15" height="15" style="vertical-align:-3px"></i>️ 코멘트 칩 관리</span></div>
         <div class="cb">
           <div style="font-size:13px;color:var(--slate);margin-bottom:14px;line-height:1.6">수업 기록에서 빠르게 누르는 코멘트 칩을 <b>강점 · 진행 중 · 보완</b> 3그룹으로 관리합니다. (× 삭제 / + 추가)</div>
@@ -1384,7 +1400,7 @@
       </div>
 
       <!-- 계좌 정보 -->
-      <div class="card" style="margin-bottom:1rem">
+      <div class="card" data-cg="face" data-cgo="1" style="margin-bottom:1rem">
         <div class="ch"><span class="ct">결제 안내 (학부모에게 표시)</span></div>
         <div class="cb">
           <div class="fg">
@@ -1399,7 +1415,7 @@
 
 
       <!-- 자료 계정 (기출·자료실) -->
-      <div class="card" style="margin-bottom:1rem">
+      <div class="card" data-cg="adv" data-cgo="1" style="margin-bottom:1rem">
         <div class="ch"><span class="ct"><i data-lucide="folder" width="15" height="15" style="vertical-align:-3px"></i> 자료 계정 (기출·자료실)</span></div>
         <div class="cb">
           <div class="ib iba">기출·자료실의 문서와 음원은 <b>비공개 구글 드라이브</b>에 있습니다. 이 계정으로 로그인된 브라우저에서만 열립니다. 앱은 파일 주소만 알고, 공유 설정은 건드리지 않습니다.</div>
@@ -1410,7 +1426,7 @@
           </div>
         </div>
       </div>
-      <div class="card" style="margin-bottom:1rem">
+      <div class="card" data-cg="adv" data-cgo="2" style="margin-bottom:1rem">
         <div class="ch"><span class="ct">Cloudinary 설정 (사진 저장)</span></div>
         <div class="cb">
           <div class="ib iba">cloudinary.com 무료 가입 후 Cloud Name + Upload Preset(Unsigned) 입력</div>
@@ -1424,7 +1440,7 @@
           <div id="cld-test-result" style="margin-top:8px"></div>
         </div>
       </div>
-      <div class="card" style="margin-bottom:1rem">
+      <div class="card" data-cg="adv" data-cgo="3" style="margin-bottom:1rem">
         <div class="ch">
           <span class="ct">Claude API Key (AI 자동 인식)</span>
           <span id="apikey-status-dot" title="연결 상태" style="font-size:14px;color:var(--slate)">● 미설정</span>
@@ -1440,7 +1456,7 @@
           <div id="apikey-test-result" style="margin-top:8px"></div>
         </div>
       </div>
-      <div class="card" style="margin-bottom:1rem">
+      <div class="card" data-cg="adv" data-cgo="4" style="margin-bottom:1rem">
         <div class="ch">
           <span class="ct"><i data-lucide="volume-2" width="15" height="15" style="vertical-align:-3px"></i> ElevenLabs 음성 (원어민급 TTS)</span>
           <span id="eleven-status-dot" style="font-size:14px;color:var(--slate)">● 미설정</span>
@@ -1459,7 +1475,7 @@
           <div id="eleven-test-result" style="margin-top:8px;font-size:13px"></div>
         </div>
       </div>
-      <div class="card" style="margin-bottom:1rem">
+      <div class="card" data-cg="face" data-cgo="2" style="margin-bottom:1rem">
         <div class="ch">
           <span class="ct"><i data-lucide="message-circle" width="15" height="15" style="vertical-align:-3px"></i> 카카오톡 연결 (학부모 질문 수신)</span>
           <span id="kakao-status-dot" style="font-size:14px;color:var(--slate)">● 미설정</span>
@@ -1474,7 +1490,7 @@
           </div>
         </div>
       </div>
-      <div class="card">
+      <div class="card" data-cg="adv" data-cgo="5" style="margin-bottom:1rem">
         <div class="ch"><span class="ct">비밀번호 변경</span></div>
         <div class="cb">
           <div class="f"><label>새 비밀번호</label><input type="password" id="pw-nw" placeholder="4자 이상"></div>
@@ -1484,7 +1500,7 @@
         </div>
       </div>
 
-      <div class="card" style="margin-top:1rem">
+      <div class="card" data-cg="adv" data-cgo="6" style="margin-bottom:1rem">
         <div class="ch"><span class="ct">데이터 관리</span></div>
         <div class="cb">
           <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1496,7 +1512,7 @@
       </div>
 
       <!-- QR 코드 생성 -->
-      <div class="card" style="margin-top:1rem">
+      <div class="card" data-cg="face" data-cgo="3" style="margin-top:1rem">
         <div class="ch"><span class="ct">📱 QR 코드 생성</span></div>
         <div class="cb">
           <div class="ib ibt" style="margin-bottom:12px">학생/학부모가 QR을 스캔하면 PIN 없이 자동 로그인됩니다</div>
@@ -3315,7 +3331,7 @@
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261114a"></script>
 <script src="js/iso_cards.js?v=20261114f"></script>
-<script src="js/teacher.js?v=20261114o"></script>
+<script src="js/teacher.js?v=20261115a"></script>
 <script src="js/student.js?v=20261114c"></script>
 <script src="js/parent.js?v=20261114b"></script>
 </body>
