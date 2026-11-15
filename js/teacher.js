@@ -908,7 +908,7 @@ function renderSpVocab(sid){
       </div>
       ${_pick.cards.length?`<div style="display:flex;gap:4px;flex-wrap:wrap">${_pick.cards.map(c=>{
         const w=_WHY[_pick.why[c.id]]||_WHY.ahead;
-        return `<span title="${escAttr((c.meaning||'뜻 없음')+' — '+w.l+(c.due?' · 복습 예정 '+c.due:''))}" style="font-size:var(--fs-sm);font-weight:700;color:var(--navy);background:${w.bg};border:1px solid ${w.c}33;border-left:3px solid ${w.c};border-radius:var(--r-ctl);padding:2px 7px;font-family:var(--fd)">${escAttr(c.word)}</span>`;
+        return `<span title="${escAttr((c.meaning||'뜻 없음')+' — '+w.l+(c.due?' · 복습 예정 '+c.due:''))}" style="font-size:var(--fs-sm);font-weight:700;color:var(--navy);background:${w.bg};border:1px solid ${w.c}55;border-radius:var(--r-ctl);padding:2px 7px;font-family:var(--fd)"><i style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${w.c};margin-right:5px;vertical-align:1px"></i>${escAttr(c.word)}</span>`;
       }).join('')}</div>
       <div class="pp-flow" title="직전 수업 단어 최대 10개 → 복습 기한이 지난 단어(에빙하우스 1·2·4·7·15·30·60일 간격) → 새 단어 → 선행 순으로 채웁니다. 단어에 마우스를 올리면 뜻이 보입니다">
         <span>${luIcon('book-open',14)||''} 직전 수업</span><span>${luIcon('alarm-clock',14)||''} 복습 기한</span><span>${luIcon('sparkles',14)||''} 새 단어</span><span>${luIcon('hourglass',14)||''} 선행</span>
@@ -11488,7 +11488,7 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
         ${statusIco}
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:${students.length?'6px':'0'}">
-            <div><span style="font-weight:700;font-size:var(--fs-lg)">${c.name}</span>${isNow?'<span style="font-size:var(--fs-sm);color:var(--tealt);font-weight:700;margin-left:4px">· 지금</span>':''}${timeLabel}</div>
+            <div><span style="font-weight:700;font-size:var(--fs-lg)">${c.name}</span>${isNow?'<span class="dcr-now-pill">지금</span>':''}${timeLabel}</div>
             ${classRecorded
               ?`<button class="btn bo bsm w84" style="font-size:var(--fs-sm);flex-shrink:0" onclick="openClassLessonEdit('${c.id}','${todayStr}')">수정</button>`
               :`<button class="btn bt bsm w84" style="font-size:var(--fs-sm);flex-shrink:0" onclick="openClassLesson('${c.id}','${todayStr}')">기록하기</button>`}
@@ -11659,7 +11659,7 @@ function renderDashFill(){
     });
     return h;
   })();
-  el.innerHTML=`<div class="card" style="border-left:4px solid var(--teal)">
+  el.innerHTML=`<div class="card">
     <div class="ch"><span class="ct">${luIcon('database',16)||'📥'} 데이터 채우기</span><span style="font-size:var(--fs-md);color:${all.length?'var(--slate)':'var(--okt)'}">${all.length?`배운 ${items.length} · 배울 ${fut.length}`:'완료 ✨'}</span></div>
     <div class="cb" style="padding:6px 10px">
       ${all.length?rowsHtml+(all.length>LIM?`<div style="text-align:center;padding:6px 0 2px"><button onclick="dashFillToggle()" style="background:none;border:none;font-size:var(--fs-md);color:var(--teal);font-weight:700;cursor:pointer;font-family:var(--fb)">${_dashFillAll?'접기 ▴':`전체 ${all.length}건 보기 ▾`}</button></div>`:''):
@@ -11854,13 +11854,13 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
     items.push({icon:luIcon('download',15),chip:'',text:'이번 달 전체 백업이 아직 없어요 — 데이터 유실 대비 월 1회 권장',label:'지금 백업',action:'fullBackup()'});
   }
   if(!items.length){
-    el.innerHTML=`<div class="card" style="border-left:4px solid var(--okt)">
+    el.innerHTML=`<div class="card">
       <div class="ch"><span class="ct" style="color:var(--okt)">${luIcon('circle-check',17,'color:var(--okt)')}모두 처리됨</span></div>
       <div class="cb" style="font-size:var(--fs-md);color:var(--slate);padding:4px 0">확인할 사항이 없습니다</div>
     </div>`;
     return;
   }
-  el.innerHTML=`<div class="card" style="border-left:4px solid var(--coral)">
+  el.innerHTML=`<div class="card">
     <div class="ch"><span class="ct">${luIcon('zap',16)}바로 할 일</span><span style="font-size:var(--fs-md);color:var(--slate)">${items.length}건</span></div>
     <div class="cb" style="padding:6px 10px">${items.map(it=>`<div class="dash-action-item" onclick="${it.action||`loadStuPanel('${it.sid}')`}">
       <span class="dash-action-icon ${it.chip||''}">${it.icon}</span>
@@ -16489,11 +16489,11 @@ function pgHwStuPick(sid,classId){_pgHwStuId=sid;renderClsLessons(classId);}
 let _PG_DAY={};                       // ds → 그날 창에 쓸 자료 (진도 캘린더가 채운다)
 function _pgHwRowHtml(x,big){
   const lbl=String(x.label||'').trim()||'숙제';
-  const ck=x.sug?'·':(x.done?'☑':'☐');
+  const ck=x.sug?'·':(x.done?'☑':'☐');   // 그림은 CSS 네모가 그린다 — 글자는 data-ck 로만 (화면 읽기는 aria-label)
   return `<div class="pg-hw-row${x.done?' done':''}${x.sug?' sug':''}${x.dim?' pg-dim':''}${big?' big':''}"`
     +` style="--pgc:${x.color||'var(--text-muted)'}" title="${escAttr(x.tip||lbl)}"`
     +(x.click?` onclick="event.stopPropagation();${x.click}"`:'')+'>'
-    +`<i class="pg-ck">${ck}</i><span class="pg-hw-t">${escAttr(lbl)}</span>`
+    +`<i class="pg-ck" data-ck="${ck}" aria-label="${x.sug?'제안':(x.done?'함':'안 함')}"></i><span class="pg-hw-t">${escAttr(lbl)}</span>`
     +(x.del?`<i class="pg-x" title="이 숙제 지우기" onclick="${x.del}"></i>`:'')
     +'</div>';
 }
@@ -23991,7 +23991,7 @@ function _pbCss(fmt){
   '.qs{margin-bottom:4px}'+
   '.qs b{font-weight:800}'+
   '.qp{border:1px solid #bbb;padding:7px 9px;margin:5px 0;text-align:justify;background:#fafafa}'+
-  '.grp{font-weight:700;margin:10px 0 4px;border-left:3px solid #111;padding-left:6px}'+
+  '.grp{font-weight:700;margin:10px 0 4px;border-bottom:1px solid #111;padding-bottom:2px}'+
   '.grp-p{margin-bottom:8px}'+
   '.qc{list-style:none;padding:0;margin:4px 0 0}'+
   '.qc li{margin:2px 0}'+

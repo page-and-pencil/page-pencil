@@ -104,6 +104,7 @@ core 29/29 통과 · 실제 서버 쓰기 0건 · 줄 수 전후 같음(item_ban
 | `verify_limited` | core | 서버 제한(402·읽기만 됨·일시 정지) — 띠·보기 전용·기기 자료로 열기 |  |
 | `verify_link` | core | Page & Pencil — ’다음 교재 하나로 잇기’ 점검 (node verify_link.js) |  |
 | `verify_lk` | core | 학습 세트 · 수업 기록 단원 자료 · 홈 시험 대비 — 전부 가짜 서버 |  |
+| `verify_noleftbar` | core | 한쪽에만 굵은 색 선 금지 — 파일의 border-left 2px 이상·inset 띠 0곳, 화면 27곳의 왼쪽 막대 0, 숙제 줄 체크 네모가 영역 색 — 가짜 서버만 |  |
 | `verify_paint` | core | 실제로 ’칠해진’ 파랑·남색·보라만 찾는다 — 계산된 스타일 기준. 소스에 남아 있어도 덮여 있으면 제외. |  |
 | `verify_pb` | core | 시험지 만들기 + 문제 은행 보완 — 전부 가짜 서버. AI 는 부르지 않는다. |  |
 | `verify_polish` | core | 시험지 다듬기 확인 — 배점·쪽 번호(PDF)·인쇄 단추 자리·장문 묶음·복제/기기 삭제 |  |
