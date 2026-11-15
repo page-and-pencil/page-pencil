@@ -175,9 +175,9 @@ const FINDWORD = (sel, words) => {
     // 단어 카드 출처 — 저장된 값은 '과제', 보이는 말은 '숙제'
     const src = await page.evaluate(async () => {
       swTab('t-stu'); await new Promise(r => setTimeout(r, 500));
-      loadStuPanel('ux4-s1'); await new Promise(r => setTimeout(r, 700));
+      await loadStuPanel('ux4-s1'); await new Promise(r => setTimeout(r, 300));   // 패널은 비동기로 그려진다 — 끝날 때까지 기다린다
       swSpTab('sp-vocab'); await new Promise(r => setTimeout(r, 800));
-      const b = [...document.querySelectorAll('#sp-vocab .badge')].map(e => e.textContent.trim());
+      const b = [...document.querySelectorAll('#sp-vocab .sp-vs')].map(e => e.textContent.trim());   // feat/pl-tabs-2: 출처는 알약 대신 표의 '출처' 칸 글자
       const stored = (_cache.vocab_cards || []).map(c => c.source);
       return { badges: b.filter(x => /숙제|과제|리딩로그/.test(x)), stored };
     });

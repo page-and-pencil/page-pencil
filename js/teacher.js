@@ -593,6 +593,7 @@ function selStu(id,el){
   document.querySelectorAll('.sc').forEach(c=>c.classList.remove('sel'));
   if(el)el.classList.add('sel');
   currentSpStuId=id;
+  document.getElementById('stu-split')?.classList.add('has-sel');   // 목록 320px · 패널이 나머지 (2026-11-15)
   // 오른쪽 상세 패널 표시
   const noStu=document.getElementById('sp-no-stu');
   const wrap=document.getElementById('sp-detail-wrap');
@@ -607,8 +608,32 @@ function closeStuPanel(){
   document.getElementById('stu-split')?.classList.remove('detail-open');
   document.querySelectorAll('.sc').forEach(c=>c.classList.remove('sel'));
 }
+// [← 목록] — 고른 학생을 풀고 넓은 표로 돌아간다 (폰에서는 목록으로)
+function stuDeselect(){
+  const sp=document.getElementById('stu-split');
+  if(sp){sp.classList.remove('detail-open','has-sel','list-fold');}
+  document.querySelectorAll('.sc').forEach(c=>c.classList.remove('sel'));
+  currentSpStuId=null;
+  const noStu=document.getElementById('sp-no-stu'),wrap=document.getElementById('sp-detail-wrap');
+  if(noStu)noStu.style.display='';if(wrap)wrap.style.display='none';
+}
+// ⋯ — 학생뷰 · 학부모뷰 · 단어 학습 체험
+function spMoreMenu(btn){
+  if(typeof plMenuClose==='function')plMenuClose();
+  const m=document.createElement('div');m.id='pl-menu';m.className='pl-menu';m.setAttribute('role','menu');
+  const it=(lbl,js,tip)=>'<button type="button" role="menuitem" class="pl-menu-i" title="'+escAttr(tip)+'" onclick="plMenuClose();'+js+'">'+lbl+'</button>';
+  m.innerHTML=it('학생뷰','previewAsStudent(currentSpStuId)','학생 화면 미리보기 (체험 모드 — 저장되지 않아요)')
+    +it('학부모뷰','previewAsParent(currentSpStuId)','학부모 화면 미리보기 (체험 모드 — 저장되지 않아요)')
+    +it('단어 학습 체험','tryStudentVocab(currentSpStuId)','학생 단어 학습을 직접 해 봅니다 — 학생 기록에는 남지 않아요');
+  document.body.appendChild(m);
+  const r=btn.getBoundingClientRect(),w=m.offsetWidth||170;
+  m.style.left=Math.max(8,Math.min(r.right-w,window.innerWidth-w-8))+'px';
+  m.style.top=Math.min(r.bottom+4,window.innerHeight-m.offsetHeight-8)+'px';
+}
 // 데스크톱에서 학생 탭을 열면 첫 학생을 자동 선택 (빈 상세 패널 방지)
 function autoSelectFirstStu(){
+  // 학생을 고르기 전에는 넓은 표를 보인다 (2026-11-15 pl-tabs-2) — 자동으로 고르지 않는다
+  return;
   if(window.innerWidth<=760)return;          // 모바일은 목록 먼저
   if(currentSpStuId)return;                   // 이미 선택돼 있으면 유지
   const first=document.querySelector('#stu-grid .sc');
@@ -678,7 +703,7 @@ async function returnToTeacher(){
     const wrap=document.getElementById('sp-detail-wrap');
     if(noStu)noStu.style.display='none';
     if(wrap)wrap.style.display='flex';
-    document.getElementById('stu-split')?.classList.add('detail-open');
+    document.getElementById('stu-split')?.classList.add('detail-open','has-sel');
     loadStuPanel(currentSpStuId);
   }
 }
@@ -686,14 +711,24 @@ let _spTab='sp-summary';   // 학생 상세에서 보던 탭 — 저장 뒤 다�
 function swSpTab(id){
   const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-reading','sp-rdlog-tab','sp-vocab','sp-payment'];
   if(IDS.includes(id))_spTab=id;
-  document.querySelectorAll('.sptab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
+  document.querySelectorAll('.sptab').forEach((t,i)=>{t.classList.toggle('active',IDS[i]===id);t.setAttribute('aria-selected',String(IDS[i]===id));});
+  // 탭 줄이 좁아 밀릴 때 — 고른 탭이 보이게 (2026-11-15)
+  {const bar=document.querySelector('.stu-panel-tabs'),on=bar&&bar.querySelector('.sptab.active');
+   if(bar&&on){const l=on.offsetLeft,r=l+on.offsetWidth;if(l<bar.scrollLeft)bar.scrollLeft=l-16;else if(r>bar.scrollLeft+bar.clientWidth)bar.scrollLeft=r-bar.clientWidth+24;spTabsFade();}}
   document.querySelectorAll('.sp-pane').forEach(p=>p.style.display=p.id===id?'block':'none');
   if(id==='sp-reading')renderSpBooks(currentSpStuId);
   if(id==='sp-rdlog-tab')renderSpRdlog(currentSpStuId);
   if(id==='sp-vocab')renderSpVocab(currentSpStuId);
 }
+// 탭 줄 오른쪽 끝 흐림 — 더 밀 수 있을 때만
+function spTabsFade(){
+  const bar=document.querySelector('.stu-panel-tabs');if(!bar)return;
+  bar.classList.toggle('more',bar.scrollWidth-bar.clientWidth-bar.scrollLeft>2);
+}
+let _spLogShow=50,_spLogSid='';
 function renderSpRdlog(sid){
   if(!sid)return;
+  if(_spLogSid!==sid){_spLogSid=sid;_spLogShow=50;}
   const el=document.getElementById('sp-rdlog');if(!el)return;
   const logs=DB.logs().filter(l=>l.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const today=ppToday();
@@ -710,7 +745,7 @@ function renderSpRdlog(sid){
             <div id="sp-log-book-dd" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);max-height:140px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1);font-size:var(--fs-md)"></div>
             <div id="sp-log-book-sel" style="display:none;font-size:var(--fs-sm);color:var(--teal);font-weight:600;margin-top:2px"></div></div>
         </div>
-        <div id="sp-log-upload-zone" onclick="document.getElementById('sp-log-file').click()" style="border:2px dashed var(--border);border-radius:var(--r-card);padding:16px;text-align:center;cursor:pointer;font-size:var(--fs-md);color:var(--slate)">${luIcon('camera',14)||''} 사진 / PDF 클릭하여 업로드</div>
+        <div id="sp-log-upload-zone" onclick="document.getElementById('sp-log-file').click()" style="border:1px dashed var(--border);border-radius:var(--r-card);padding:16px;text-align:center;cursor:pointer;font-size:var(--fs-md);color:var(--text-muted)">사진 / PDF 클릭하여 업로드</div>
         <input type="file" id="sp-log-file" accept="image/*,application/pdf" style="display:none" onchange="handleSpLogPhoto(event,'${sid}')">
         <div id="sp-log-preview-wrap" style="display:none;text-align:center;margin-top:6px">
           <div id="sp-log-pages" style="display:none;text-align:left"></div>
@@ -725,20 +760,19 @@ function renderSpRdlog(sid){
       </div>
     </div>
     ${logs.length?`<div style="font-size:var(--fs-sm);color:var(--slate);margin-bottom:8px">기록 ${logs.length}건${(()=>{const p=logs.filter(l=>logImgs(l).length).length;return p?` · 사진 ${p}건`:'';})()}</div>
-    <div class="ig-grid">
-      ${logs.map(l=>{const imgs=logImgs(l);const first=imgs[0]||'';return `<div class="ig-card">
+    <div class="ig-grid sp-ig">
+      ${logs.slice(0,_spLogShow).map(l=>{const imgs=logImgs(l);const first=imgs[0]||'';return `<div class="ig-card">
         <div class="ig-ph" onclick="openLbLog('${l.id}')">
-          ${first?`<img src="${first}" loading="lazy" onerror="this.style.display='none'">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:30px">${luIcon('camera',14)||''}</div>`}
-          ${imgs.length>1?`<div class="rdlog-multi">${luIcon('file-text',14)||''} 1/${imgs.length}</div>`:''}
-          <button class="ig-del" onclick="event.stopPropagation();reqDelSpLog('${l.id}','${sid}')" title="삭제">${luIcon('trash-2',14)||''}</button>
+          ${first?`<img src="${first}" loading="lazy" onerror="this.style.display='none'">`:`<div class="ig-noimg">사진 없음</div>`}
+          ${imgs.length>1?`<div class="rdlog-multi">1/${imgs.length}</div>`:''}
         </div>
         <div class="ig-body">
-          <button class="ig-like${l.read?' on':''}" onclick="toggleRdlogRead('${l.id}','${sid}')" title="완독 표시 전환">${l.read?'❤️':'🤍'} 완독</button>
-          <div class="ig-title" title="${escAttr(l.bookTitle||'')}">${l.bookTitle||'<span style="color:var(--slate);font-weight:600">제목 없음</span>'}</div>
-          <div class="ig-date">${l.date||''}</div>
+          <div class="ig-title" title="${escAttr(l.bookTitle||'')}">${escAttr(l.bookTitle||'제목 없음')}</div>
+          <div class="ig-date">${l.date||''}${l.read?' · 완독':''}</div>
+          <button type="button" class="pl-more ig-more" aria-label="더 보기" title="완독 표시 · 삭제" onclick="_spMenu(this,[['${l.read?'완독 표시 지우기':'완독으로 표시'}','toggleRdlogRead(\\'${l.id}\\',\\'${sid}\\')'],['삭제','reqDelSpLog(\\'${l.id}\\',\\'${sid}\\')','bad']])">⋯</button>
         </div>
       </div>`;}).join('')}
-    </div>`:'<div class="empty boxed sm"><div class="empty-i">'+(luIcon('camera',14)||'')+'</div><div class="empty-t">리딩로그 없음</div></div>'}`;
+    </div>${logs.length>_spLogShow?`<div class="sp-more-row"><button type="button" class="pl-textbtn" onclick="_spLogShow+=50;renderSpRdlog('${sid}')">더 보기 (${logs.length-_spLogShow}건 남음)</button></div>`:''}`:'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">리딩로그 없음</span></span></div>'}`;
 }
 function toggleSpLogForm(){
   const f=document.getElementById('sp-log-form');if(!f)return;
@@ -884,7 +918,7 @@ let _vocabSearchTimer=null;
 function renderSpVocab(sid){
   if(!sid)return;
   const el=document.getElementById('sp-vocab');if(!el)return;
-  if(_vocabSid!==sid){_vocabFilter={search:'',phase:'',src:'',sort:'alpha'};}_vocabSid=sid;
+  if(_vocabSid!==sid){_vocabFilter={search:'',phase:'',src:'',sort:'alpha'};_vocabShowN=100;}_vocabSid=sid;
   const allCards=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid);
   // 실효 단계(학습 기록 자동 반영)로 집계 — renderVocabList의 effPh와 동일 규칙 (2026-08-04)
   const _eff=c=>Math.max(c.phase||0,(c.hits||0)>=3?2:((c.hits||0)>0||c.lastSeen?1:0));
@@ -897,56 +931,32 @@ function renderSpVocab(sid){
   const vocabMode=spStu?.vocabMode||'intermediate';
   // 오늘의 20개 — 학생 앱 '오늘의 20개'와 같은 계산(utils.dailyVocabPick) 공유: 어떤 단어가 할당되는지 그대로 보임
   const _pick=(typeof dailyVocabPick==='function')?dailyVocabPick(sid):{cards:[],why:{},doneToday:0,lessonDate:''};
-  const _WHY={lesson:{i:'📖',l:'직전 수업',c:'var(--okt)',bg:'var(--okl)'},overdue:{i:'⏰',l:'복습 도래',c:'#D97706',bg:'#FFFBEB'},fresh:{i:'✨',l:'새 단어',c:'#1D4ED8',bg:'#EFF6FF'},ahead:{i:'⏳',l:'선행',c:'var(--text-muted)',bg:'#F8FAFC'}};
+  const _WHY={lesson:{l:'직전 수업'},overdue:{l:'복습 도래'},fresh:{l:'새 단어'},ahead:{l:'선행'}};   // 그림 문자·색 바탕 없이 글자로 (2026-11-15)
   const _wCnt={};_pick.cards.forEach(c=>{const w=_pick.why[c.id];_wCnt[w]=(_wCnt[w]||0)+1;});
-  const todaySec=`<div style="padding:10px 12px;background:var(--cream2);border:1.5px solid var(--border);border-radius:var(--r-card);margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-        <span style="font-size:var(--fs-md);font-weight:800;color:var(--navy)">${luIcon('calendar',15)||''} 오늘의 20개</span>
-        <span style="font-size:var(--fs-sm);color:var(--slate)">학생 앱 '오늘의 20개'와 동일 · 실시간 계산${_pick.lessonDate?` · 직전 수업 ${_pick.lessonDate.slice(5)}`:''}</span>
-        ${Object.entries(_wCnt).map(([k,n])=>`<span style="font-size:var(--fs-sm);font-weight:700;color:${_WHY[k].c}">${_WHY[k].i} ${_WHY[k].l} ${n}</span>`).join('')}
-        ${_pick.doneToday?`<span style="font-size:var(--fs-sm);color:var(--slate)">· 오늘 이미 학습한 ${_pick.doneToday}개 제외</span>`:''}
-      </div>
-      ${_pick.cards.length?`<div style="display:flex;gap:4px;flex-wrap:wrap">${_pick.cards.map(c=>{
-        const w=_WHY[_pick.why[c.id]]||_WHY.ahead;
-        return `<span title="${escAttr((c.meaning||'뜻 없음')+' — '+w.l+(c.due?' · 복습 예정 '+c.due:''))}" style="font-size:var(--fs-sm);font-weight:700;color:var(--navy);background:${w.bg};border:1px solid ${w.c}55;border-radius:var(--r-ctl);padding:2px 7px;font-family:var(--fd)"><i style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${w.c};margin-right:5px;vertical-align:1px"></i>${escAttr(c.word)}</span>`;
-      }).join('')}</div>
-      <div class="pp-flow" title="직전 수업 단어 최대 10개 → 복습 기한이 지난 단어(에빙하우스 1·2·4·7·15·30·60일 간격) → 새 단어 → 선행 순으로 채웁니다. 단어에 마우스를 올리면 뜻이 보입니다">
-        <span>${luIcon('book-open',14)||''} 직전 수업</span><span>${luIcon('alarm-clock',14)||''} 복습 기한</span><span>${luIcon('sparkles',14)||''} 새 단어</span><span>${luIcon('hourglass',14)||''} 선행</span>
-      </div>`
-      :`<div style="font-size:var(--fs-md);color:var(--slate)">오늘 학습할 단어가 없습니다${_pick.doneToday?' — 오늘 몫을 모두 마쳤어요':''}</div>`}
-    </div>`;
+  const todaySec='<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">오늘의 20개</h3><span class="pl-sec-aux">학생 앱과 같은 계산'
+      +(_pick.lessonDate?' · 직전 수업 '+_pick.lessonDate.slice(5):'')+'</span></div>'
+    +'<div class="sp-why">'+Object.entries(_wCnt).map(([k,n])=>'<span>'+_WHY[k].l+' '+n+'</span>').join(' · ')+(_pick.doneToday?' · 오늘 이미 학습한 '+_pick.doneToday+'개 제외':'')+'</div>'
+    +(_pick.cards.length?'<div class="pl-chips">'+_pick.cards.map(c=>{const w=_WHY[_pick.why[c.id]]||_WHY.ahead;
+        return '<span class="pl-chip" title="'+escAttr((c.meaning||'뜻 없음')+' — '+w.l+(c.due?' · 복습 예정 '+c.due:''))+'">'+escAttr(c.word)+'</span>';}).join('')+'</div>'
+      :'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">오늘 학습할 단어가 없습니다'+(_pick.doneToday?' — 오늘 몫을 모두 마쳤어요':'')+'</span></span></div>')
+    +'</section>';
   const selSt='padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:var(--fs-md);background:var(--cream2);outline:none';
   el.innerHTML=`
     ${todaySec}
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-      <div style="flex:1;min-width:55px;padding:8px 6px;background:var(--cream2);border-radius:var(--r-card);text-align:center">
-        <div id="vstat-total" style="font-size:var(--fs-xl);font-weight:700;color:var(--navy)">${allCards.length}</div>
-        <div style="font-size:var(--fs-sm);color:var(--slate)">전체</div>
-      </div>
-      <div style="flex:1;min-width:55px;padding:8px 6px;background:#f8fafc;border:1.5px solid var(--border);border-radius:var(--r-card);text-align:center;cursor:pointer" onclick="_vocabFilter.phase=_vocabFilter.phase==='0'?'':'0';renderVocabList('${sid}')">
-        <div id="vstat-0" style="font-size:var(--fs-xl);font-weight:700;color:var(--slate)">${p0}</div>
-        <div style="font-size:var(--fs-sm);color:var(--slate)">신규</div>
-      </div>
-      <div style="flex:1;min-width:55px;padding:8px 6px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:var(--r-card);text-align:center;cursor:pointer" onclick="_vocabFilter.phase=_vocabFilter.phase==='1'?'':'1';renderVocabList('${sid}')">
-        <div id="vstat-1" style="font-size:var(--fs-xl);font-weight:700;color:#92400e">${p1}</div>
-        <div style="font-size:var(--fs-sm);color:#92400e">학습중</div>
-      </div>
-      <div style="flex:1;min-width:55px;padding:8px 6px;background:var(--tl);border:1.5px solid var(--teal);border-radius:var(--r-card);text-align:center;cursor:pointer" onclick="_vocabFilter.phase=_vocabFilter.phase==='2'?'':'2';renderVocabList('${sid}')">
-        <div id="vstat-2" style="font-size:var(--fs-xl);font-weight:700;color:var(--teal)">${p2}</div>
-        <div style="font-size:var(--fs-sm);color:var(--teal)">숙달</div>
-      </div>
+    <div class="pl-stats sp-vstats">
+      <div class="pl-stat pl-stat-static"><span class="pl-stat-l">전체</span><span class="pl-stat-v"><b class="pl-num" id="vstat-total">${allCards.length}</b><small>개</small></span></div>
+      ${[['0','신규',p0],['1','학습중',p1],['2','숙달',p2]].map(([k,l,n])=>`<button type="button" class="pl-stat${n?'':' zero'}${_vocabFilter.phase===k?' on':''}" onclick="_vocabFilter.phase=_vocabFilter.phase==='${k}'?'':'${k}';_vocabShowN=100;renderSpVocab('${sid}')"><span class="pl-stat-l">${l}</span><span class="pl-stat-v"><b class="pl-num" id="vstat-${k}">${n}</b><small>개</small></span></button>`).join('')}
     </div>
-    <input type="text" id="vocab-search" value="${escAttr(_vocabFilter.search)}" placeholder="🔍 단어 / 뜻 검색..."
-      oninput="vocabFilterSearch(this.value,'${sid}')"
-      style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:var(--fs-md);background:var(--cream2);outline:none;box-sizing:border-box;margin-bottom:8px">
+    <input type="text" id="vocab-search" class="pl-input sp-vsearch" value="${escAttr(_vocabFilter.search)}" placeholder="단어 / 뜻 검색 (전체에서 찾아요)"
+      oninput="vocabFilterSearch(this.value,'${sid}')">
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-      <select onchange="_vocabFilter.phase=this.value;renderVocabList('${sid}')" style="${selSt}">
+      <select onchange="_vocabFilter.phase=this.value;_vocabShowN=100;renderVocabList('${sid}')" style="${selSt}">
         <option value="" ${_vocabFilter.phase===''?'selected':''}>단계 전체</option>
         <option value="0" ${_vocabFilter.phase==='0'?'selected':''}>신규</option>
         <option value="1" ${_vocabFilter.phase==='1'?'selected':''}>학습중</option>
         <option value="2" ${_vocabFilter.phase==='2'?'selected':''}>숙달</option>
       </select>
-      <select onchange="_vocabFilter.src=this.value;renderVocabList('${sid}')" style="${selSt};max-width:130px">
+      <select onchange="_vocabFilter.src=this.value;_vocabShowN=100;renderVocabList('${sid}')" style="${selSt};max-width:130px">
         <option value="" ${_vocabFilter.src===''?'selected':''}>출처 전체</option>
         ${srcList.map(s=>`<option value="${escAttr(s)}" ${_vocabFilter.src===s?'selected':''}>${s}</option>`).join('')}
       </select>
@@ -959,15 +969,15 @@ function renderSpVocab(sid){
     </div>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-bottom:10px;border-bottom:1.5px solid var(--border);margin-bottom:10px">
       <button class="btn bt bsm" onclick="toggleVocabAddForm()">+ 단어 추가</button>
-      <label style="font-size:var(--fs-sm);color:var(--slate);cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="vocab-sel-all" onchange="vocabToggleAll(this)"> 전체 선택</label>
-      <button class="btn bd bsm" onclick="vocabDeleteSelected('${sid}')">선택 삭제</button>
-      <button class="btn bo bsm" onclick="const u=document.getElementById('vocab-utils');u.style.display=u.style.display==='none'?'block':'none'">도구 ▾</button>
+      <label class="sp-chk"><input type="checkbox" id="vocab-sel-all" onchange="vocabToggleAll(this)"> 보이는 것 모두 선택</label>
+      <button class="btn bo bsm sp-del" onclick="vocabDeleteSelected('${sid}')">선택 삭제</button>
+      <button class="btn bo bsm" onclick="const u=document.getElementById('vocab-utils');u.style.display=u.style.display==='none'?'block':'none'">도구</button>
     </div>
     <div id="vocab-utils" style="display:none;padding:10px 12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border);margin-bottom:12px">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn bo bsm" onclick="reqRefreshVocabExamples('${sid}')">${luIcon('book-open',15)||''} 원서 예문 갱신</button>
-        <button class="btn bo bsm" onclick="batchFillEmptyExamples('${sid}')">${luIcon('pencil',14)||''} 빈 예문 채우기</button>
-        <button class="btn bo bsm" onclick="batchFixKoreanExamples('${sid}')">${luIcon('refresh-cw',15)||''} 한국어 예문 교체</button>
+        <button class="btn bo bsm" onclick="reqRefreshVocabExamples('${sid}')">원서 예문 갱신</button>
+        <button class="btn bo bsm" onclick="batchFillEmptyExamples('${sid}')">빈 예문 채우기</button>
+        <button class="btn bo bsm" onclick="batchFixKoreanExamples('${sid}')">한국어 예문 교체</button>
       </div>
     </div>
     <div id="vocab-add-form" style="display:none;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--teal);margin-bottom:12px">
@@ -985,13 +995,11 @@ function renderSpVocab(sid){
     <div id="vocab-list-hdr" style="font-size:var(--fs-md);font-weight:700;color:var(--navy);margin-bottom:6px"></div>
     <div id="vocab-list"></div>
     <details style="margin-top:16px">
-      <summary style="font-size:var(--fs-md);font-weight:600;color:var(--slate);cursor:pointer;padding:10px 0;border-top:1.5px solid var(--border);list-style:none">${luIcon('settings',14)||''} 학습 방식 설정 ▾</summary>
+      <summary class="sp-sum">학습 방식 설정</summary>
       <div style="margin-top:10px;padding:12px;background:var(--cream2);border-radius:var(--rs);border:1.5px solid var(--border)">
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${[{key:'beginner',lbl:'초급',sub:'암기 → 게임 → 게임 (타이핑 없음)'},{key:'intermediate',lbl:'중급',sub:'암기 → 게임 → 스펠링·게임'},{key:'advanced',lbl:'고급',sub:'암기(영어뜻) → 리콜 → 스펠링'}].map(o=>`<button onclick="saveVocabMode('${sid}','${o.key}')" style="padding:8px 14px;border:2px solid ${vocabMode===o.key&&!(spStu?.vocabStages||[]).length?'var(--teal)':'var(--border)'};border-radius:var(--r-card);background:${vocabMode===o.key&&!(spStu?.vocabStages||[]).length?'var(--tl)':'#fff'};cursor:pointer;text-align:left">
-            <div style="font-size:var(--fs-md);font-weight:700;color:${vocabMode===o.key&&!(spStu?.vocabStages||[]).length?'var(--teal)':'var(--navy)'}">${o.lbl}</div>
-            <div style="font-size:var(--fs-sm);color:var(--slate)">${o.sub}</div>
-          </button>`).join('')}
+          ${[{key:'beginner',lbl:'초급',sub:'암기 → 게임 → 게임 (타이핑 없음)'},{key:'intermediate',lbl:'중급',sub:'암기 → 게임 → 스펠링·게임'},{key:'advanced',lbl:'고급',sub:'암기(영어뜻) → 리콜 → 스펠링'}].map(o=>{const on=vocabMode===o.key&&!(spStu?.vocabStages||[]).length;
+            return `<button type="button" class="pl-chip sp-mode${on?' on':''}" aria-pressed="${on}" onclick="saveVocabMode('${sid}','${o.key}')"><span>${o.lbl}</span><small>${o.sub}</small></button>`;}).join('')}
         </div>
         <div style="font-size:var(--fs-sm);color:var(--slate);margin-top:8px">프리셋은 2·3단계 게임이 요일마다 바뀝니다 (예: 화·금은 듣고 고르기·빙고). 고정하려면 아래 직접 조합을 쓰세요.</div>
         <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
@@ -1010,7 +1018,7 @@ function renderSpVocab(sid){
       // 1분 퀴즈 (P5) — 수업에서 쓰는 도구. 학생 기기와 연동하지 않는다.
       const mb=(typeof ppGameBest==='function')?ppGameBest(sid,'minute'):{plays:0,best:null};
       return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-        <button class="btn bo bxs" onclick="openMinuteQuiz('${sid}')">${luIcon('hourglass',14)||''} 1분 퀴즈 (수업 도구)</button>
+        <button class="btn bo bsm" onclick="openMinuteQuiz('${sid}')">1분 퀴즈 (수업 도구)</button>
         <span style="font-size:var(--fs-sm);color:var(--slate)">${mb.plays?`최고 ${mb.best}점 · ${mb.plays}판`:'전체화면 4지선다 · 60초 · 정답 +10 / 오답 −10 / 패스 −5'}</span>
       </div>`;
     })()}
@@ -1021,7 +1029,7 @@ function renderSpVocab(sid){
       const st=ppQuizStat(sid,'');
       const T=[['mc','뜻 고르기'],['mcr','단어 고르기'],['listen','듣고 고르기'],['spell','철자 쓰기']];
       return `<details style="margin-top:8px">
-        <summary style="font-size:var(--fs-md);font-weight:700;color:var(--slate);cursor:pointer;user-select:none">${luIcon('flag',14)||''} 단어 테스트 설정${st.all?` <span style="color:var(--teal);font-weight:600">— 최고 ${st.best}점 · 최종 ${st.last}점 · ${st.tries}회</span>`:''}</summary>
+        <summary class="sp-sum">단어 테스트 설정${st.all?` <span style="color:var(--teal);font-weight:600">— 최고 ${st.best}점 · 최종 ${st.last}점 · ${st.tries}회</span>`:''}</summary>
         <div style="padding:10px 2px 2px;display:flex;flex-direction:column;gap:8px">
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
             <span style="font-size:var(--fs-sm);color:var(--slate);min-width:46px">유형</span>
@@ -1054,16 +1062,16 @@ function renderSpVocab(sid){
       if(!w.total&&!w.lastTotal&&!w.top.length)return '';
       const pct=w.total?Math.round(w.done/w.total*100):0;
       return `<details style="margin-top:8px">
-        <summary style="font-size:var(--fs-md);font-weight:700;color:var(--slate);cursor:pointer;user-select:none">오답 복습${w.total?` <span style="color:var(--teal);font-weight:600">— 이번 주 ${w.done}/${w.total}</span>`:''}</summary>
+        <summary class="sp-sum">오답 복습${w.total?` <span style="color:var(--teal);font-weight:600">— 이번 주 ${w.done}/${w.total}</span>`:''}</summary>
         <div style="padding:10px 2px 2px;display:flex;flex-direction:column;gap:9px">
           <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-md);color:var(--navy)">
             <span>지난주 복습률 <b style="color:${w.lastPct==null?'var(--slate)':(w.lastPct>=80?'var(--okt)':'var(--warnt)')}">${w.lastPct==null?'—':w.lastPct+'%'}</b>${w.lastTotal?` <span style="color:var(--slate)">(${w.lastDone}/${w.lastTotal})</span>`:''}</span>
             <span>이번 주 <b style="color:var(--tealt)">${w.done}/${w.total}</b> <span style="color:var(--slate)">${w.week}</span></span>
           </div>
-          ${w.total?`<div style="height:7px;background:var(--divider);border-radius:var(--r-ctl);overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--ok);border-radius:var(--r-ctl)"></div></div>`:''}
+          ${w.total?`<span class="pl-bar"><span style="width:${pct}%"></span></span>`:''}
           ${w.top.length?`<div>
             <div style="font-size:var(--fs-sm);color:var(--slate);margin-bottom:5px">자주 틀린 단어</div>
-            <div style="display:flex;gap:5px;flex-wrap:wrap">${w.top.map(t=>`<span style="font-size:var(--fs-sm);background:var(--cream2);border:1px solid var(--border);border-radius:var(--r-card);padding:3px 9px;color:var(--navy)">${escAttr(t.word)} <b style="color:var(--coral)">${t.n}</b></span>`).join('')}</div>
+            <div class="pl-chips">${w.top.map(t=>`<span class="pl-chip">${escAttr(t.word)} <span class="sp-bad">${t.n}</span></span>`).join('')}</div>
           </div>`:''}
           <div style="font-size:var(--fs-sm);color:var(--neutral);line-height:1.6">한 번이라도 틀린 단어를 다음 주부터 4주 동안 매주 한 번씩 다시 봅니다. 월~일 기준이고, 단어 카드의 복습 주기와는 따로 돕니다.</div>
         </div>
@@ -1324,6 +1332,7 @@ function rpReportHtml(sid){
     </div>
   </details>`;
 }
+let _vocabShowN=100;
 function renderVocabList(sid){
   const listEl=document.getElementById('vocab-list');
   const hdrEl=document.getElementById('vocab-list-hdr');
@@ -1342,52 +1351,45 @@ function renderVocabList(sid){
   const _todayN=allCards.filter(c=>(typeof ppStudiedToday==='function')?ppStudiedToday(c):c.lastSeen===ppToday()).length;
   if(hdrEl)hdrEl.textContent=(cards.length===allCards.length?`전체 ${allCards.length}개`:`${cards.length}개 표시 / 전체 ${allCards.length}개`)+(_todayN?` · 오늘 학습 ${_todayN}개`:'');
   if(!cards.length){listEl.innerHTML=`<div style="font-size:var(--fs-md);color:var(--slate);padding:20px 0;text-align:center">${allCards.length?'검색/필터 결과 없음':'단어장이 비어있습니다'}</div>`;return;}
-  const PHASE_LBL=['신규','학습중','숙달'];const PHASE_CLS=['bslate','bamber','bteal'];
+  const PHASE_LBL=['신규','학습중','숙달'];
   // 카드에 저장된 출처 값은 그대로 두고(옛 카드가 '과제'·'미션'), 보이는 말만 '숙제' 로 (2026-11-15)
-  const FIXED_SRC={리딩로그:'bamber',테스트:'bcoral',과제:'bnavy',미션:'bnavy',숙제:'bnavy',직접추가:'bnavy'};
   const SRC_LBL={과제:'숙제',미션:'숙제'};
-  const srcBadge=src=>{if(!src)return'';const lbl=SRC_LBL[src]||src;
-    if(FIXED_SRC[src])return`<span class="badge ${FIXED_SRC[src]}" style="font-size:var(--fs-xs)">${lbl}</span>`;
-    return`<span class="badge bteal" style="font-size:var(--fs-xs);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(src)}">${lbl}</span>`;};
-  const lvBadge=c=>{const lv=c.wlevel||'';if(!lv)return'';const col=lv.startsWith('Dolch')?'background:#e0f2fe;color:#0369a1':lv.startsWith('A')?'background:#dcfce7;color:#166534':lv.startsWith('B')?'background:#fef9c3;color:#92400e':lv.startsWith('C')?'background:#ffe4e6;color:#9f1239':'background:#f3e8ff;color:#7e22ce';return`<span style="font-size:var(--fs-xs);padding:1px 5px;border-radius:var(--r-card);${col}">${lv}</span>`;};
-  const inp='padding:5px 7px;border:1.5px solid var(--border);border-radius:var(--r-ctl);font-family:var(--fb);background:var(--cream2);outline:none;box-sizing:border-box;width:100%';
-  listEl.innerHTML=cards.map(c=>{
-    const ph=effPh(c);
-    const nextPhLbl=PHASE_LBL[(ph+1)%3];
-    return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
-      <div style="display:flex;gap:8px;align-items:flex-start">
-        <input type="checkbox" class="vocab-chk" data-id="${c.id}" style="margin-top:6px;flex-shrink:0;cursor:pointer;width:14px;height:14px">
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:7px">
-            <button onclick="speakWord('${(c.word||'').replace(/'/g,"\\'")}')" title="발음 듣기" aria-label="발음 듣기" class="ico-btn" style="background:none;border:none;cursor:pointer;font-size:var(--fs-base);padding:0;flex-shrink:0">${luIcon('volume-2',14)||''}</button>
-            <input type="text" value="${escAttr(c.word||'')}" placeholder="영단어"
-              onblur="saveVocabField('${c.id}','${sid}','word',this.value)"
-              style="${inp};font-size:var(--fs-lg);font-weight:700;font-family:var(--fd);width:auto;min-width:90px;max-width:160px">
-            ${c.pos?`<span style="font-size:var(--fs-sm);color:var(--slate);padding:1px 5px;background:var(--cream2);border:1px solid var(--border);border-radius:var(--r-ctl)">${POS_KO[c.pos]||c.pos}</span>`:''}
-            <button class="badge ${PHASE_CLS[ph]}" style="cursor:pointer;border:none;padding:2px 8px;font-size:var(--fs-sm)"
-              onclick="cycleVocabPhase('${c.id}','${sid}',${ph})"
-              title="→ ${nextPhLbl}">${PHASE_LBL[ph]} ↻</button>
-            ${srcBadge(c.source)}${lvBadge(c)}
-            ${c.lastSeen?`<span style="font-size:var(--fs-sm);font-weight:600;color:${c.lastSeen===ppToday()?'var(--okt)':'var(--slate)'}">${luIcon('clock',14)||''} ${c.lastSeen===ppToday()?'오늘 학습':c.lastSeen.slice(5).replace('-','/')+' 학습'}</span>`:''}
-            ${(c.hits||0)>0?`<span style="font-size:var(--fs-sm);color:var(--tealt);font-weight:700">정답 ${c.hits}회</span>`:''}
-            ${(c.misses||0)>0?`<span style="font-size:var(--fs-sm);color:var(--coral);font-weight:700">오답 ${c.misses}회</span>`:''}
-          </div>
-          <input type="text" value="${escAttr(c.meaning||'')}" placeholder="뜻 입력..."
-            onblur="saveVocabField('${c.id}','${sid}','meaning',this.value)"
-            style="${inp};font-size:var(--fs-md);margin-bottom:5px">
-          <input type="text" value="${escAttr(c.example||'')}" placeholder="예문 입력..."
-            onblur="saveVocabField('${c.id}','${sid}','example',this.value)"
-            style="${inp};font-size:var(--fs-sm);color:var(--slate);font-style:italic${c.v2||c.v3||c.pos==='verb'?';margin-bottom:5px':''}">
-          ${(c.v2||c.v3||c.pos==='verb')?`<div style="display:flex;gap:6px"><input type="text" value="${escAttr(c.v2||'')}" placeholder="과거형 (불규칙)" onblur="saveVocabField('${c.id}','${sid}','v2',this.value)" style="${inp};font-size:var(--fs-sm);font-family:var(--fd);flex:1"><input type="text" value="${escAttr(c.v3||'')}" placeholder="과거분사 (불규칙)" onblur="saveVocabField('${c.id}','${sid}','v3',this.value)" style="${inp};font-size:var(--fs-sm);font-family:var(--fd);flex:1"></div>`:''}
-        </div>
-        <button onclick="delVocabCard('${c.id}','${sid}','${escAttr(c.word)}')"
-          style="flex-shrink:0;background:none;border:1px solid var(--border);border-radius:var(--r-ctl);padding:3px 8px;cursor:pointer;font-size:var(--fs-sm);color:var(--slate);margin-top:2px">삭제</button>
-      </div>
-    </div>`;
-  }).join('');
+  // 한 번에 100개 — 3,000개를 한꺼번에 그리면 누름 자리가 3,000개 넘게 생겼다. 검색·거르기는 전체에서 찾는다 (2026-11-15)
+  const shown=cards.slice(0,_vocabShowN);
+  listEl.innerHTML='<div class="pl-table-wrap"><table class="pl-table sp-vtbl"><thead><tr><th class="sp-vc"></th><th class="pl-th-l">단어</th><th class="pl-th-l">뜻</th><th class="pl-th-l">출처</th><th class="pl-th-l">상태</th><th></th></tr></thead><tbody>'
+    +shown.map(c=>{
+      const ph=effPh(c);
+      const stat=[PHASE_LBL[ph],c.lastSeen?(c.lastSeen===ppToday()?'오늘 학습':c.lastSeen.slice(5).replace('-','/')+' 학습'):'',(c.misses||0)>0?'오답 '+c.misses:''].filter(Boolean).join(' · ');
+      const src=c.source?(SRC_LBL[c.source]||c.source):'';
+      return '<tr id="vrow-'+c.id+'"><td class="sp-vc"><label class="sp-cbx"><input type="checkbox" class="vocab-chk" data-id="'+c.id+'" aria-label="'+escAttr(c.word||'')+' 고르기"></label></td>'
+        +'<td class="pl-td-l sp-vw">'+escAttr(c.word||'')+(c.pos?'<span class="pl-muted"> '+escAttr(POS_KO[c.pos]||c.pos)+'</span>':'')+'</td>'
+        +'<td class="pl-td-l sp-vm" title="'+escAttr(c.example||'')+'">'+escAttr(c.meaning||'')+'</td>'
+        +'<td class="pl-td-l pl-muted-s sp-vs" title="'+escAttr(src+(c.srcUnit?' · '+c.srcUnit:''))+'">'+escAttr(src)+'</td>'
+        +'<td class="pl-td-l pl-muted-s" data-src="'+escAttr(src)+'">'+escAttr(stat)+'</td>'
+        +'<td class="pl-td-act"><button type="button" class="pl-more" aria-label="더 보기" title="고치기 · 발음 · 단계 · 삭제" onclick="spVocabMenu(this,\''+c.id+'\',\''+sid+'\','+ph+')">⋯</button></td></tr>';
+    }).join('')+'</tbody></table></div>'
+    +(cards.length>shown.length?'<div class="sp-more-row"><button type="button" class="pl-textbtn" onclick="_vocabShowN+=100;renderVocabList(\''+sid+'\')">더 보기 ('+(cards.length-shown.length)+'개 남음)</button></div>':'');
+}
+// 단어 한 줄의 ⋯ — 고치기(그 줄 아래에 입력 칸) · 발음 듣기 · 단계 바꾸기 · 삭제
+function spVocabMenu(btn,cid,sid,ph){
+  const c=(_cache.vocab_cards||[]).find(x=>x.id===cid);if(!c)return;
+  const nx=['학습중','숙달','신규'][ph]||'학습중';
+  const ja=v=>String(v||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  _spMenu(btn,[['고치기',`spVocabEdit('${cid}','${sid}')`],['발음 듣기',`speakWord('${ja(c.word)}')`],
+    ['단계 → '+nx,`cycleVocabPhase('${cid}','${sid}',${ph})`],['삭제',`delVocabCard('${cid}','${sid}','${ja(c.word)}')`,'bad']]);
+}
+function spVocabEdit(cid,sid){
+  const old=document.getElementById('vedit-'+cid);if(old){old.remove();return;}
+  const c=(_cache.vocab_cards||[]).find(x=>x.id===cid);const tr=document.getElementById('vrow-'+cid);if(!c||!tr)return;
+  const f=(k,ph)=>'<input type="text" class="pl-input" value="'+escAttr(c[k]||'')+'" placeholder="'+ph+'" onblur="saveVocabField(\''+cid+'\',\''+sid+'\',\''+k+'\',this.value)">';
+  const row=document.createElement('tr');row.id='vedit-'+cid;
+  row.innerHTML='<td></td><td colspan="5"><div class="sp-vedit">'+f('word','영단어')+f('meaning','뜻')+f('example','예문')
+    +((c.v2||c.v3||c.pos==='verb')?f('v2','과거형 (불규칙)')+f('v3','과거분사 (불규칙)'):'')
+    +'<button type="button" class="pl-textbtn" onclick="document.getElementById(\'vedit-'+cid+'\').remove()">닫기</button></div></td>';
+  tr.after(row);
 }
 function vocabFilterSearch(val,sid){
-  _vocabFilter.search=val;
+  _vocabFilter.search=val;_vocabShowN=100;
   clearTimeout(_vocabSearchTimer);
   _vocabSearchTimer=setTimeout(()=>{
     renderVocabList(sid);
@@ -1560,53 +1562,58 @@ function renderSpLessons(sid){
   const months=[...new Set(all.map(l=>(l.date||'').slice(0,7)).filter(Boolean))].sort().reverse();
   const list=_spLesMonth?all.filter(l=>(l.date||'').startsWith(_spLesMonth)):all;
   const lesSlice=_spLesMonth?list:list.slice(0,10);
-  const bar=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-    <select class="filter-sel" style="padding:5px 10px;font-size:var(--fs-md)" onchange="spLesMonthChange('${sid}',this.value)">
+  const bar=`<div class="pl-form-row sp-les-bar">
+    <select class="pl-input" aria-label="기간" onchange="spLesMonthChange('${sid}',this.value)">
       <option value="">전체 기간 (${all.length}건)</option>
       ${months.map(m=>`<option value="${m}"${_spLesMonth===m?' selected':''}>${parseInt(m.slice(0,4))}년 ${parseInt(m.slice(5))}월 (${all.filter(l=>(l.date||'').startsWith(m)).length}건)</option>`).join('')}
     </select>
-    <button class="btn bo bsm" style="font-size:var(--fs-md)" onclick="spLesSortToggle('${sid}')" title="날짜 정렬 방향 전환">${_spLesSort==='desc'?'↓ 최신순':'↑ 과거순'}</button>
-    <span style="font-size:var(--fs-sm);color:var(--slate)">${_spLesMonth?`${list.length}건 표시`:(all.length>10?`최근 10건 표시 — 월을 선택하면 해당 월 전체가 보여요`:'')}</span>
+    <button class="btn bo bsm" onclick="spLesSortToggle('${sid}')" title="날짜 정렬 방향 전환">${_spLesSort==='desc'?'최신순':'과거순'}</button>
+    <span class="pl-muted">${_spLesMonth?`${list.length}건 표시`:(all.length>10?`최근 10건 표시 — 월을 선택하면 해당 월 전체가 보여요`:'')}</span>
   </div>`;
+  // 수업 한 건 = 날짜 제목 줄(오른쪽 ⋯ — 복사·수정·삭제) + 교재마다 한 줄(영역 · 교재 · 단원) + 코멘트 (2026-11-15)
   const cards=lesSlice.map(l=>{
     const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
-    const day=l.date?DAYS[new Date(l.date+'T00:00:00').getDay()]+'요일':'';
-    const tbParts=[],bookParts=[];
+    const day=l.date?DAYS[new Date(l.date+'T00:00:00').getDay()]:'';
+    const rows=[];
     Object.entries(l.materials||{}).forEach(([k,v])=>{
-      if(!v.book)return;
+      if(!v||!v.book)return;
       const isBook=k==='_book'||k.startsWith('_book_');
       const baseKey=k.replace(/_\d+$/,'');
       const label=isBook?'원서':(SLBL[baseKey]||'');
-      const cls=isBook?'srd':(SCLS[baseKey]||'');
-      if(!label&&!v.book)return;
-      const units=(v.unit||'').split(', ').filter(Boolean);
-      const unitHtml=units.length?`<div class="prog-pills" style="margin-top:4px">${units.map(u=>`<span class="prog-pill">${u}</span>`).join('')}</div>`:'';
-      const html=`<div style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-weight:700;font-size:var(--fs-base);color:var(--navy)">${v.book||''}</span><span class="spill ${cls}">${label}</span></div>${unitHtml}</div>`;
-      if(isBook)bookParts.push(html);else tbParts.push(html);
+      const units=(v.unit||'').split(', ').filter(Boolean).join(', ');
+      rows.push({isBook,html:'<div class="pl-row pl-row-static sp-les-row"><span class="pl-bar-k">'+escAttr(label)+'</span>'
+        +'<span class="pl-row-main"><span class="pl-row-t">'+escAttr(v.book)+'</span>'+(units?'<span class="pl-row-sub sp-les-u">'+escAttr(units)+'</span>':'')+'</span></div>'});
     });
-    return `<div class="cls-les-card">
-      <div class="cls-les-head">
-        <span class="cls-les-date">${l.date||''}${day?` <span style="font-weight:400;color:var(--neutral)">(${day.slice(0,1)})</span>`:''}</span>
-        <div style="display:flex;gap:4px;align-items:center">
-          ${attLabel?`<span class="att-chip ${ATTCLS[l.att]}" style="font-size:var(--fs-sm)">${attLabel}</span>`:''}
-          <button class="btn bo bxxs" onclick="copyLesSummary('${l.id}')" title="이 수업 한 건을 학부모에게 보낼 글로 복사">${luIcon('clipboard-list',14)||''}</button>
-          <button class="btn bo bxxs" onclick="openEditLes('${l.id}')">${luIcon('pencil',14)||''}</button>
-          <button class="btn bd bxxs" onclick="reqDelLesFromPanel('${l.id}','${sid}')">${luIcon('trash-2',14)||''}</button>
-        </div>
-      </div>
-      ${tbParts.length?`<div>${tbParts.join('')}</div>`:''}
-      ${bookParts.length?`<div>${bookParts.join('')}</div>`:''}
-      ${l.polishedCmt?`<div style="font-size:var(--fs-md);color:#334155;padding:5px 8px;background:var(--tl);border-radius:var(--r-ctl);margin-bottom:3px"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--teal);display:block;margin-bottom:1px">학부모</span>${l.polishedCmt}</div>`:(l.cmt&&!l.stuCmt?`<div style="font-size:var(--fs-md);color:#334155">${l.cmt}</div>`:'')}
-      ${l.stuCmt?`<div style="font-size:var(--fs-md);color:#334155;padding:5px 8px;background:var(--cream2);border-radius:var(--r-ctl)"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--navy);display:block;margin-bottom:1px">학생</span>${l.stuCmt}</div>`:''}
-    </div>`;
+    const cmt=l.polishedCmt?('<div class="sp-les-c"><span class="pl-muted">학부모</span> '+escAttr(l.polishedCmt)+'</div>')
+      :(l.cmt&&!l.stuCmt?'<div class="sp-les-c">'+escAttr(l.cmt)+'</div>':'');
+    const scmt=l.stuCmt?'<div class="sp-les-c"><span class="pl-muted">학생</span> '+escAttr(l.stuCmt)+'</div>':'';
+    return '<section class="pl-sec sp-les">'
+      +'<div class="pl-sec-h"><h3 class="pl-sec-t">'+escAttr(l.date||'')+(day?' ('+day+')':'')+'</h3>'
+      +'<span class="pl-sec-aux">'+(attLabel?escAttr(attLabel)+' ':'')
+      +'<button type="button" class="pl-more" aria-label="더 보기" title="복사 · 수정 · 삭제" onclick="spLesMenu(this,\''+l.id+'\',\''+sid+'\')">⋯</button></span></div>'
+      +rows.filter(r=>!r.isBook).map(r=>r.html).join('')+rows.filter(r=>r.isBook).map(r=>r.html).join('')
+      +cmt+scmt+'</section>';
   }).join('');
   const footer=!_spLesMonth&&all.length>10
-    ?`<div style="text-align:center;padding:10px 0;font-size:var(--fs-md);color:var(--teal);cursor:pointer" onclick="swTab('t-les');document.getElementById('les-filter-stu').value='${sid}';lesPage=0;renderLes()">전체 ${all.length}건 수업 기록 보기 →</div>`:'';
+    ?`<div class="sp-more-row"><button type="button" class="pl-textbtn" onclick="swTab('t-les');document.getElementById('les-filter-stu').value='${sid}';lesPage=0;renderLes()">전체 ${all.length}건 수업 기록 보기</button></div>`:'';
   el.innerHTML=bar+cards+footer;
 }
 // ── 수업 1회 요약 복사 (B15) ────────────────────────────────
 // 저장된 수업 기록만으로 글을 만든다 — AI 를 부르지 않는다.
 // 학부모에게 보낼 글이므로 학생용 코멘트(stuCmt)는 넣지 않는다.
+// 수업 한 건의 ⋯ — 복사 · 수정 · 삭제 (삭제는 지금처럼 확인 창 → 휴지통)
+function spLesMenu(btn,lid,sid){
+  if(typeof plMenuClose==='function')plMenuClose();
+  const m=document.createElement('div');m.id='pl-menu';m.className='pl-menu';m.setAttribute('role','menu');
+  const it=(lbl,js,cls,tip)=>'<button type="button" role="menuitem" class="pl-menu-i'+(cls?' '+cls:'')+'" title="'+escAttr(tip)+'" onclick="plMenuClose();'+js+'">'+lbl+'</button>';
+  m.innerHTML=it('복사',`copyLesSummary('${lid}')`,'','이 수업 한 건을 학부모에게 보낼 글로 복사')
+    +it('수정',`openEditLes('${lid}')`,'','수업 기록 고치기')
+    +it('삭제',`reqDelLesFromPanel('${lid}','${sid}')`,'bad','휴지통으로');
+  document.body.appendChild(m);
+  const r=btn.getBoundingClientRect(),w=m.offsetWidth||160;
+  m.style.left=Math.max(8,Math.min(r.right-w,window.innerWidth-w-8))+'px';
+  m.style.top=Math.min(r.bottom+4,window.innerHeight-m.offsetHeight-8)+'px';
+}
 async function copyLesSummary(lesId){
   const l=DB.less().find(x=>x.id===lesId);if(!l)return toast('수업 기록을 찾을 수 없어요');
   const s=DB.stus().find(x=>x.id===l.sid);
@@ -1654,24 +1661,23 @@ function spCounselHtml(sid){
         <span class="cs-way">${escAttr(ppCounselWayName(c))}</span>
         ${c.who?`<span class="cs-who">${escAttr(c.who)}</span>`:''}
         <span style="flex:1"></span>
-        <button class="btn bo bxxs" onclick="openCounselEdit('${sid}','${c.id}')">${luIcon('pencil',14)||''}</button>
-        <button class="btn bd bxxs" onclick="reqDelCounsel('${c.id}','${sid}')">${luIcon('trash-2',14)||''}</button>
+        <button type="button" class="pl-textbtn" onclick="openCounselEdit('${sid}','${c.id}')">수정</button>
+        <button type="button" class="pl-textbtn" onclick="reqDelCounsel('${c.id}','${sid}')">삭제</button>
       </div>
       ${c.topic?`<div class="cs-topic">${escAttr(c.topic)}</div>`:''}
       ${c.note?`<div class="cs-note">${escAttr(c.note)}</div>`:''}
       ${todo?`<div class="cs-todo${c.todoDone?' done':''}" onclick="toggleCounselTodo('${c.id}','${sid}')" title="눌러서 완료 표시">
-        <span class="cs-chk">${c.todoDone?'✔':'□'}</span>${escAttr(todo)}</div>`:''}
+        <span class="pl-cb${c.todoDone?' on':''}" aria-hidden="true"><span></span></span>${escAttr(todo)}</div>`:''}
     </div>`;
   }).join('');
-  return `<div class="card" style="margin-top:12px">
-    <div class="ch"><span class="ct">${luIcon('message-square',15)||''} 상담 기록</span>
-      <span style="font-size:var(--fs-sm);color:var(--slate)">${head}${todos.length?` · 약속 ${todos.length}건 남음`:''}</span></div>
-    <div class="cb">
-      ${rows||'<div style="font-size:var(--fs-md);color:var(--slate)">아직 상담 기록이 없습니다. 전화 한 통도 남겨 두면 다음 상담이 쉬워집니다.</div>'}
-      ${list.length>5?`<div style="font-size:var(--fs-sm);color:var(--slate);margin-top:6px">최근 5건만 표시 (전체 ${list.length}건)</div>`:''}
-      <button class="btn ba bsm" style="width:100%;margin-top:10px" onclick="openCounselEdit('${sid}','')">+ 상담 기록</button>
+  return `<section class="pl-sec sp-sec sp-counsel">
+    <div class="pl-sec-h"><h3 class="pl-sec-t">상담 기록</h3>
+      <span class="pl-sec-aux">${head}${todos.length?` · 약속 ${todos.length}건 남음`:''} <button type="button" class="pl-textbtn" onclick="openCounselEdit('${sid}','')">+ 상담</button></span></div>
+    <div class="pl-list">
+      ${rows||'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">아직 상담 기록이 없습니다. 전화 한 통도 남겨 두면 다음 상담이 쉬워집니다.</span></span></div>'}
+      ${list.length>5?`<div class="pl-muted" style="font-size:12px;margin-top:6px">최근 5건만 표시 (전체 ${list.length}건)</div>`:''}
     </div>
-  </div>`;
+  </section>`;
 }
 function openCounselEdit(sid,cid){
   const c=cid?((typeof ppCounsels==='function')?ppCounsels(sid).find(x=>x.id===cid):null):null;
@@ -1743,6 +1749,12 @@ function teacherUncompleteAssign(aid,sid){
 }
 async function loadStuPanel(sid){
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+  // 어디서 열든(대시보드·숙제·검사) 패널을 보인다 — 고른 학생이 있으면 목록 320px · 패널이 나머지 (2026-11-15)
+  currentSpStuId=sid;
+  {const sp=document.getElementById('stu-split');if(sp)sp.classList.add('has-sel');
+   const noStu=document.getElementById('sp-no-stu'),wrap=document.getElementById('sp-detail-wrap');
+   if(noStu)noStu.style.display='none';if(wrap)wrap.style.display='flex';
+   document.querySelectorAll('#stu-grid .sc').forEach(r=>r.classList.toggle('sel',(r.getAttribute('onclick')||'').indexOf("'"+sid+"'")>=0));}
   if(!(_cache.vocab_cards||[]).some(c=>c.sid===sid)){
     await loadVocabCards(sid);
   }
@@ -1764,7 +1776,8 @@ async function loadStuPanel(sid){
   const myClasses=DB.classes().filter(c=>c.active!==false&&(c.studentIds||[]).includes(sid));
   const schedStr=myClasses.map(c=>`${c.name} ${classSchedStr(c)}`).join(' | ');
   const parentStr=s.parentName||s.parentPhone?(s.parentName||'')+(s.parentPhone?(s.parentName?' ':'')+s.parentPhone:''):'';
-  document.getElementById('sp-meta').textContent=(s.grade||s.lv||'')+(s.school?' · '+s.school:'')+(s.enrollDate?' · 입회 '+s.enrollDate:'')+(schedStr?' · '+schedStr:'')+(parentStr?' · 📱'+parentStr:'');
+  // 학년 · 학교 · 반 · 입회일 · 보호자 — 말줄임 없이 넘치면 두 줄로 (그림 문자 없음)
+  document.getElementById('sp-meta').textContent=[s.grade||s.lv||'',s.school||'',schedStr,s.enrollDate?'입회 '+s.enrollDate:'',parentStr?'보호자 '+parentStr:''].filter(Boolean).join(' · ');
 
   // 이번 달 수업 수
   const today2=new Date();
@@ -1779,38 +1792,20 @@ async function loadStuPanel(sid){
   if(_spLesSid!==sid){_spLesSort='desc';_spLesMonth='';_spLesSid=sid;}
   renderSpLessons(sid);
 
-  // ── 테스트 (최근 5개) ──
-  const tstListHtml=!tsts.length
-    ?`<div class="empty boxed"><div class="empty-i">${luIcon('pencil',15)||''}</div><div class="empty-t">아직 테스트 기록이 없습니다</div><div class="empty-s">회차별 점수를 입력하면 단어·어법 추이 그래프가 표시됩니다</div><button class="btn bt bsm" onclick="closeStuPanel();swTab('t-tst');setTimeout(()=>{const el=document.getElementById('ts-stu');if(el){el.value='${sid}';el.dispatchEvent(new Event('change'));}},200)">+ 테스트 입력하기</button></div>`
-    :tsts.slice(0,5).map(t=>{
-      const _ar=(typeof ppAreasOf==='function')?ppAreasOf(t):[['vocab','단어'],['grammar','어법']];
-      return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:var(--fs-sm);color:var(--slate);font-family:var(--fm);margin-bottom:6px">${t.date||''}${
-          t.absent?' · <span style="font-weight:700">미응시</span>':''}${
-          t.extApp&&t.extScore?` · <span class="tst-ext inline">${escAttr(t.extApp)} ${escAttr(t.extScore)}</span>`:''}</div>
-        <div style="display:flex;gap:16px">
-          ${_ar.map(([f,l])=>{const p=pct(t[f+'Correct'],t[f+'Total']);
-            return `<div><div class="ring ${rcls(p)}">${t[f+'Correct']||0}/${t[f+'Total']}</div><div style="font-size:var(--fs-sm);color:var(--slate);text-align:center;margin-top:2px">${l} ${p}%</div></div>`;}).join('')}
-          ${t.wrongWords&&t.wrongWords.length?`<div style="flex:1"><div style="font-size:var(--fs-sm);color:var(--slate);margin-bottom:3px">틀린 단어</div><div class="wl">${t.wrongWords.slice(0,4).map(w=>`<span class="wc" style="font-size:var(--fs-sm);padding:2px 8px">${w}</span>`).join('')}</div></div>`:''}
-        </div>
-      </div>`;
-    }).join('');
-  // ── NELT 결과 ──
+  // ── 테스트 — 테스트 탭의 기록 표와 같은 칸(학생 칸만 빼고) (2026-11-15) ──
+  const _tstGo=`swTab('t-tst');setTimeout(()=>{tstFormOpen();const e=document.getElementById('ts-stu');if(e){e.value='${sid}';e.dispatchEvent(new Event('change'));}},250)`;
+  const tstListHtml='<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">테스트 기록</h3><span class="pl-sec-aux">'+(tsts.length?tsts.length+'건 ':'')
+    +'<button type="button" class="pl-textbtn" onclick="'+escAttr(_tstGo)+'">+ 결과 입력</button></span></div>'
+    +(tsts.length?spTstTableHtml(tsts):'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">아직 테스트 기록이 없습니다 — 회차별 점수를 넣으면 단어·어법 추이가 보여요</span></span></div>')
+    +'</section>';
   const neltList=(s.neltResults||[]).slice().reverse();
-  const neltHtml=`<div class="sp-card" style="margin-top:20px">
-    <div class="sp-card-head">
-      <span class="sp-card-title">${luIcon('trophy',15)||''} NELT 결과</span>
-      <button class="btn bo bsm" onclick="openNeltModal('${sid}')">+ 결과 입력</button>
-    </div>
-    ${neltList.length?neltList.map(n=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:var(--fs-sm);color:var(--slate);font-family:var(--fm);white-space:nowrap">${n.date||''}</span>
-      <span class="badge bteal" style="font-size:var(--fs-sm);flex-shrink:0">${n.term||''}</span>
-      <span style="font-size:var(--fs-lg);font-weight:700;color:var(--navy);font-family:var(--fd)">${n.score!=null?n.score:''}</span>
-      ${n.level?`<span style="font-size:var(--fs-sm);color:var(--teal);font-weight:600">${n.level}</span>`:''}
-      ${n.memo?`<span style="font-size:var(--fs-sm);color:var(--slate);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.memo}</span>`:''}
-      <button onclick="delNeltResult('${sid}','${n.id}')" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:var(--r-ctl);padding:1px 7px;cursor:pointer;font-size:var(--fs-sm);color:var(--slate);flex-shrink:0">삭제</button>
-    </div>`).join(''):`<div class="empty boxed sm"><div class="empty-i" style="font-size:24px">${luIcon('trophy',14)||''}</div><div class="empty-t">NELT 결과가 없습니다</div></div>`}
-  </div>`;
+  const neltHtml='<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">NELT 결과</h3><span class="pl-sec-aux"><button type="button" class="pl-textbtn" onclick="openNeltModal(\''+sid+'\')">+ 결과 입력</button></span></div>'
+    +(neltList.length?neltList.map(n=>'<div class="pl-row pl-row-static"><span class="pl-row-time">'+escAttr(n.date||'')+'</span>'
+      +'<span class="pl-row-main"><span class="pl-row-t">'+(n.score!=null?'<b>'+escAttr(String(n.score))+'</b> ':'')+escAttr(n.level||'')+'</span>'
+      +'<span class="pl-row-sub">'+escAttr([n.term,n.memo].filter(Boolean).join(' · '))+'</span></span>'
+      +'<button type="button" class="pl-textbtn" onclick="delNeltResult(\''+sid+'\',\''+n.id+'\')">삭제</button></div>').join('')
+      :'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">NELT 결과가 없습니다</span></span></div>')
+    +'</section>';
   document.getElementById('sp-tests').innerHTML=`<div class="sp-tests-wrap">${tstListHtml}${neltHtml}</div>`;
 
   // ── 결제 ──
@@ -1819,38 +1814,23 @@ async function loadStuPanel(sid){
   const thisMonthPay=payments.filter(p=>p.date&&p.date.startsWith(thisMonth2));
   const paidAmt=thisMonthPay.reduce((a,p)=>a+Number(p.amt||0),0);
   const feeAmt=Number(s.fee||0);
-  let payChip='';
-  if(feeAmt){
-    if(paidAmt>=feeAmt) payChip=`<span class="pay-status-chip paid">${thisMonth2.slice(5)}월 완납 ${paidAmt.toLocaleString()}원</span>`;
-    else if(paidAmt>0) payChip=`<span class="pay-status-chip partial">△ 부분납 ${paidAmt.toLocaleString()}/${feeAmt.toLocaleString()}원</span>`;
-    else payChip=`<span class="pay-status-chip unpaid">${thisMonth2.slice(5)}월 미납</span>`;
-  }
-  document.getElementById('sp-payment').innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${payChip?'8px':'12px'}">
-      <span style="font-size:var(--fs-base);font-weight:700">결제 기록</span>
-      <button class="btn bo bsm" onclick="openQuickPayFor('${sid}')">+ 추가</button>
-    </div>
-    ${payChip?`<div style="margin-bottom:12px">${payChip}</div>`:''}
-    ${!payments.length?'<div style="color:var(--slate);font-size:var(--fs-md)">결제 기록 없음</div>'
-    :`<table style="width:100%;border-collapse:collapse;font-size:var(--fs-md)">
-        <thead><tr style="border-bottom:1px solid var(--border)">
-          <th style="text-align:left;padding:4px 6px;color:var(--slate);font-size:var(--fs-sm);font-weight:700">날짜</th>
-          <th style="text-align:left;padding:4px 6px;color:var(--slate);font-size:var(--fs-sm);font-weight:700">금액</th>
-          <th style="text-align:left;padding:4px 6px;color:var(--slate);font-size:var(--fs-sm);font-weight:700">방식</th>
-          <th style="text-align:left;padding:4px 6px;color:var(--slate);font-size:var(--fs-sm);font-weight:700">영수증</th>
-          <th></th>
-        </tr></thead>
-        <tbody>${[...payments].reverse().map((p,ri)=>{
-          const origIdx=payments.length-1-ri;
-          return `<tr style="border-bottom:1px solid var(--border)">
-            <td style="padding:5px 6px;font-family:var(--fm)">${p.date||''}</td>
-            <td style="padding:5px 6px;font-weight:700">${Number(p.amt||0).toLocaleString()}원</td>
-            <td style="padding:5px 6px"><span class="badge bnavy">${PAY_METHOD_LBL[p.method]||'—'}</span></td>
-            <td style="padding:5px 6px"><span class="badge ${p.receipt==='issued'?'bteal':p.receipt==='requested'?'bamber':'bslate'}">${PAY_RECEIPT_LBL[p.receipt]||'—'}</span></td>
-            <td style="padding:5px 6px"><button class="btn bd bxxs" onclick="reqRemovePay('${sid}',${origIdx},true)">삭제</button></td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table>`}`;
+  const payState=!feeAmt?'':(paidAmt>=feeAmt?'완납':(paidAmt>0?'부분납':'미납'));
+  document.getElementById('sp-payment').innerHTML=
+    '<div class="pl-stats pl-stats-3 sp-pay-stats">'
+      +'<div class="pl-stat pl-stat-static'+(feeAmt?'':' zero')+'"><span class="pl-stat-l">월 수업료</span><span class="pl-stat-v"><b class="pl-num">'+(feeAmt?feeAmt.toLocaleString():'—')+'</b><small>'+(feeAmt?'원':'')+'</small></span></div>'
+      +'<div class="pl-stat pl-stat-static'+(paidAmt?'':' zero')+'"><span class="pl-stat-l">'+Number(thisMonth2.slice(5))+'월에 낸 금액</span><span class="pl-stat-v"><b class="pl-num">'+paidAmt.toLocaleString()+'</b><small>원</small></span></div>'
+      +'<div class="pl-stat pl-stat-static'+(payState==='미납'||payState==='부분납'?' bad':(payState?'':' zero'))+'"><span class="pl-stat-l">이번 달</span><span class="pl-stat-v"><b class="pl-num">'+(payState||'—')+'</b></span></div>'
+    +'</div>'
+    +'<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">결제 기록</h3><span class="pl-sec-aux">'+(payments.length?payments.length+'건 ':'')
+    +'<button type="button" class="pl-textbtn" onclick="openQuickPayFor(\''+sid+'\')">+ 추가</button></span></div>'
+    +(!payments.length?'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">결제 기록 없음</span></span></div>'
+      :'<div class="pl-table-wrap"><table class="pl-table sp-pay-tbl"><thead><tr><th class="pl-th-l">날짜</th><th>금액</th><th class="pl-th-l">방식</th><th class="pl-th-l">영수증</th><th></th></tr></thead><tbody>'
+      +[...payments].reverse().map((p,ri)=>{const origIdx=payments.length-1-ri;
+        return '<tr><td class="pl-td-l pl-num-s">'+escAttr(p.date||'')+'</td><td class="pl-td">'+Number(p.amt||0).toLocaleString()+'원</td>'
+          +'<td class="pl-td-l">'+escAttr(PAY_METHOD_LBL[p.method]||'—')+'</td><td class="pl-td-l pl-muted-s">'+escAttr(PAY_RECEIPT_LBL[p.receipt]||'—')+'</td>'
+          +'<td class="pl-td-act"><button type="button" class="pl-textbtn" onclick="reqRemovePay(\''+sid+'\','+origIdx+',true)">삭제</button></td></tr>';}).join('')
+      +'</tbody></table></div>')
+    +'</section>';
 
   // ── 과제 탭 (선생님: 숙제 내기 + 제출 확인) ──
   const sHws=ppLive(_cache.homeworks).filter(h=>h.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
@@ -1866,37 +1846,29 @@ async function loadStuPanel(sid){
   const _hwchBox=(()=>{
     const stu=DB.stus().find(x=>x.id===sid);
     const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(stu):null;
+    const setup=(goal,reward,hidden)=>'<div class="pl-form-row sp-hwch-setup" id="hwch-setup-'+sid+'"'+(hidden?' hidden':'')+'>'
+      +'목표 <input type="number" class="pl-input" id="hwch-goal-'+sid+'" value="'+goal+'" style="width:64px">일 · '
+      +'선물 <input type="text" class="pl-input" id="hwch-reward-'+sid+'" value="'+escAttr(reward)+'" style="width:120px"> · '
+      +'시작 <input type="date" class="pl-input" id="hwch-start-'+sid+'" value="'+ppToday()+'"> · '
+      +'이월 <input type="number" class="pl-input" id="hwch-carry-'+sid+'" value="0" title="시작 전 이미 모은 도장 수 (종이로 세던 몫)" style="width:56px">개 '
+      +'<button class="btn bt bsm" onclick="spChallengeStart(\''+sid+'\')">시작</button></div>';
     if(p){
-      const st=`${p.roundNo}번째 판 <b style="color:var(--warnt)">${p.count}/${p.goal}</b>${p.carry?` <span style="font-size:var(--fs-sm);color:var(--slate)">(이월 ${p.carry} 포함)</span>`:''} · 오늘 ${p.todayStamp?'✅':'아직'}${p.pendingGifts>0?` · <b style="color:var(--warnt)">${luIcon('gift',14)||''} 전달할 선물 ${p.pendingGifts}개</b>`:''}${p.rounds?` · 완성 ${p.rounds}판`:''}`;
-      return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#FFFBEB;border:1.5px solid var(--warn);border-radius:var(--rs);padding:8px 12px;margin-bottom:12px;font-size:var(--fs-md)">
-        <span>${luIcon('gift',14)||''} <b>도장 챌린지</b> (${p.goal}일 · ${escAttr(p.reward)} · 시작 ${p.start})</span><span>${st}</span>
-        <span style="margin-left:auto;display:flex;gap:4px">
-          ${p.pendingGifts>0?`<button class="btn bt bsm" style="font-size:var(--fs-sm);padding:2px 8px" onclick="dashChallengeComplete('${sid}')">${luIcon('gift',14)||''} 선물 전달</button>`:''}
-          <button class="btn bo bsm" style="font-size:var(--fs-sm);padding:2px 8px" title="목표·선물·시작일을 새로 설정 (도장 0부터)" onclick="document.getElementById('hwch-setup-${sid}').style.cssText='display:flex;width:100%;margin-top:6px;gap:6px;align-items:center;flex-wrap:wrap';this.style.display='none'">재설정</button>
-          <button class="btn bo bsm" style="font-size:var(--fs-sm);padding:2px 8px" onclick="spChallengeStop('${sid}')">중지</button>
-        </span>
-        <span id="hwch-setup-${sid}" style="display:none">
-          목표 <input type="number" id="hwch-goal-${sid}" value="${p.goal}" style="width:52px">일 ·
-          선물 <input type="text" id="hwch-reward-${sid}" value="${escAttr(p.reward)}" style="width:110px"> ·
-          시작 <input type="date" id="hwch-start-${sid}" value="${ppToday()}"> ·
-          이월 <input type="number" id="hwch-carry-${sid}" value="0" title="시작 전 이미 모은 도장 수" style="width:44px">개
-          <button class="btn bt bsm" style="font-size:var(--fs-sm);padding:2px 8px" onclick="spChallengeStart('${sid}')">시작</button>
-        </span>
-      </div>`;
+      const line=p.roundNo+'번째 판 '+p.count+'/'+p.goal+(p.carry?' (이월 '+p.carry+' 포함)':'')+' · 오늘 '+(p.todayStamp?'도장 받음':'아직')
+        +(p.pendingGifts>0?' · 전달할 선물 '+p.pendingGifts+'개':'')+(p.rounds?' · 완성 '+p.rounds+'판':'');
+      return '<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">숙제 도장 챌린지</h3><span class="pl-sec-aux">'+escAttr(p.goal+'일 · '+p.reward+' · 시작 '+p.start)+'</span></div>'
+        +'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t'+(p.pendingGifts>0?' sp-bad':'')+'">'+escAttr(line)+'</span></span>'
+        +(p.pendingGifts>0?'<button type="button" class="pl-textbtn" onclick="dashChallengeComplete(\''+sid+'\')">선물 전달</button>':'')
+        +'<button type="button" class="pl-textbtn" title="목표·선물·시작일을 새로 설정 (도장 0부터)" onclick="document.getElementById(\'hwch-setup-'+sid+'\').hidden=false;this.hidden=true">재설정</button>'
+        +'<button type="button" class="pl-textbtn" onclick="spChallengeStop(\''+sid+'\')">중지</button></div>'
+        +setup(p.goal,p.reward,true)+'</section>';
     }
-    return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:var(--cream2);border:1px dashed var(--border);border-radius:var(--rs);padding:8px 12px;margin-bottom:12px;font-size:var(--fs-md)">
-      🎁 <b>숙제 도장 챌린지</b> — 목표 <input type="number" id="hwch-goal-${sid}" value="20" style="width:52px">일 ·
-      선물 <input type="text" id="hwch-reward-${sid}" value="작은 선물" style="width:110px"> ·
-      시작 <input type="date" id="hwch-start-${sid}" value="${ppToday()}"> ·
-      이월 <input type="number" id="hwch-carry-${sid}" value="0" title="시작 전 이미 모은 도장 수 (종이로 세던 몫) — 판을 만들기 전 날짜는 자동으로 세지 않습니다" style="width:44px">개
-      <button class="btn bt bsm" style="font-size:var(--fs-sm);padding:2px 8px" onclick="spChallengeStart('${sid}')">시작</button>
-      <span style="width:100%;font-size:var(--fs-sm);color:var(--slate)">숙제를 전부 체크한 날마다 도장 1개 (누적 — 하루 빠져도 리셋 없음). 목표 달성 시 대시보드·학생 앱에 알림</span>
-    </div>`;
+    return '<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">숙제 도장 챌린지</h3><span class="pl-sec-aux">숙제를 전부 체크한 날마다 도장 1개 (누적)</span></div>'
+      +setup(20,'작은 선물',false)+'</section>';
   })();
   document.getElementById('sp-hw').innerHTML=`
   ${_hwchBox}
-  <div style="margin-bottom:12px">
-    <div style="font-size:var(--fs-md);font-weight:700;color:var(--navy);margin-bottom:8px">${luIcon('clipboard-list',15)||''} 숙제 내기</div>
+  <section class="pl-sec sp-sec sp-asgn-form">
+    <div class="pl-sec-h"><h3 class="pl-sec-t">숙제 내기</h3></div>
     <div class="fg" style="margin-bottom:8px">
       <div class="f" style="margin-bottom:0"><label>날짜</label><input type="date" id="asgn-date-${sid}" value="${ppToday()}"></div>
       <div class="f" style="margin-bottom:0"><label>마감일</label><input type="date" id="asgn-due-${sid}" value="${tomorrowStr}"></div>
@@ -1907,7 +1879,7 @@ async function loadStuPanel(sid){
           <option value="reading">리딩</option><option value="listening">리스닝</option><option value="writing">라이팅</option>
           <option value="naesin">내신</option><option value="book">원서</option>
           <option value="class5">클래스5</option><option value="other">기타</option>
-          <option value="__custom__">${luIcon('pencil',14)||''} 직접 입력</option>
+          <option value="__custom__">직접 입력</option>
         </select>
         <input type="text" id="asgn-cat-custom-${sid}" placeholder="구분 직접 입력 (예: 스피킹, 발표 준비)" style="display:none;margin-top:6px">
       </div>
@@ -1915,83 +1887,113 @@ async function loadStuPanel(sid){
       <div class="f s2" style="margin-bottom:0"><label>범위/내용</label><input type="text" id="asgn-range-${sid}" list="dl-asgn-r-${sid}" autocomplete="off" placeholder="예: Unit 3 p.24-28 / Ch.1~3"><datalist id="dl-asgn-r-${sid}"></datalist></div>
     </div>
     <div id="asgn-extra-${sid}"></div>
-    <button class="btn bt bsm" style="width:100%" onclick="saveStudentAssign('${sid}')">내기</button>
-  </div>
+    <button class="btn bt bsm" onclick="saveStudentAssign('${sid}')">내기</button>
+  </section>
   <div id="stu-weak-card"></div>
-  <div class="div-line"></div>
-  ${sAssigns.length?`<div style="margin-bottom:8px">
-    <div style="font-size:var(--fs-md);font-weight:700;color:var(--navy);margin-bottom:6px">낸 숙제 (${sAssigns.length}건)</div>
-    ${sAssigns.map(a=>{
-      const hw=sHws.find(h=>h.assignmentId===a.id);
-      const submitted=!!hw;
-      const today2=ppToday();
-      // 끝났나·밀렸나는 공용 hwState — 일정형은 completedAt 이 안 찍혀 영원히 '미완'으로 보였다
-      const _st=hwState(a,today2);
-      const completed=_st.finished;
-      const _stamp=!!a.completedAt;          // '완료 취소'는 도장이 찍힌 것만
-      const overdue=_st.overdueRows14>0;
-      return `<div id="asgn-row-${a.id}" style="padding:8px 0;border-bottom:1px solid var(--border)${completed?';opacity:.72':''}">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-          <div style="flex:1">
-            <div style="font-size:var(--fs-sm);color:${overdue?'var(--red)':'var(--slate)'};font-family:var(--fm)">${(typeof ppTrackChipHtml==='function')?ppTrackChipHtml(a.track):''}${a.date||''}${a.due?' · 마감 '+a.due:''}${_stamp?' · 완료 '+(a.completedAt||'').slice(0,10):''}${completed&&!_stamp?' · 일정 '+_st.doneCount+'/'+_st.total+' 완료':''}${a.paperId?`<span data-asg-paper="${escAttr(a.paperId)}" data-asg-sid="${escAttr(sid)}"></span>`:''}</div>
-            <div style="font-size:var(--fs-md);font-weight:700;margin-top:2px">${
-              a.type==='reading'?`${_catPill('원서')}${[a.bookTitle,a.range].filter(Boolean).join(' · ')||'원서 읽기'}`:
-              a.type==='vocab'?`${_catPill('어휘')}${(a.words||[]).length?'단어: '+(a.words||[]).join(', '):(a.range||a.bookTitle||'단어 학습')}`:
-              (a.category==='class5'||a.category==='recur')?(()=>{
-                const pill=a.category==='recur'?'🔁 반복':'클래스5';
-                const sc=a.schedule||[];
-                if(!sc.length)return`${_catPill(pill)}${[a.bookTitle&&a.bookTitle!=='클래스5'?a.bookTitle:'',a.range].filter(Boolean).join(' · ')||'학습'}`;
-                const today=ppToday();
-                const upcoming=sc.filter(s=>(s.date||'')>=today);
-                const show=(upcoming.length?upcoming:sc).slice(0,5);
-                return`${_catPill(pill)}${a.category==='recur'?`<span style="font-weight:600">${a.bookTitle||''}</span> <span style="font-size:var(--fs-sm);font-weight:normal;color:var(--slate)">(${sc.length}일)</span>`:''}<div style="margin-top:3px">${show.map(s=>`<div style="font-size:var(--fs-sm);font-weight:normal;color:var(--slate);line-height:1.7;padding-left:2px">${s.date||''} ${[s.book!==a.bookTitle?s.book:'',s.unit].filter(Boolean).join(' · ')}</div>`).join('')}${sc.length>show.length?`<div style="font-size:var(--fs-sm);font-weight:normal;color:var(--slate);padding-left:2px">외 ${sc.length-show.length}일...</div>`:''}</div>`;
-              })():
-              (()=>{ // 구분(직접 입력 포함)을 필로 표시하고, 빈 교재명일 때 고아 '·'가 남지 않게 join
-                const KC={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신',book:'원서',other:'기타'};
-                const cat=a.category?(KC[a.category]||a.category):'';
-                const main=[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')||'숙제';
-                return `${_catPill(cat)}${main}`;
-              })()
-            }</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-            ${completed?(_stamp
-              ?`<span class="hw-status-badge" style="background:#dcfce7;color:#166534;cursor:pointer" title="클릭: 완료 취소" onclick="teacherUncompleteAssign('${a.id}','${sid}')">완료</span>`
-              :`<span class="hw-status-badge" style="background:#dcfce7;color:#166534" title="일정 ${_st.total}일을 모두 끝냈어요">완료</span>`):''}
-            ${a.requireRecording&&submitted?`<span class="hw-status-badge checked">제출완료</span>`:''}
-            <button class="btn bo bsm" style="font-size:var(--fs-sm);padding:2px 6px" onclick="toggleAssignEdit('${a.id}','${sid}')">수정</button>
-            <button class="btn bd bsm" style="font-size:var(--fs-sm);padding:2px 6px" onclick="deleteStudentAssign('${a.id}','${sid}')">삭제</button>
-          </div>
-        </div>
-        ${submitted&&hw.audioUrl?`<audio controls src="${hw.audioUrl}" style="width:100%;height:26px;margin-top:6px"></audio>`:''}
-        ${submitted&&hw.aiScore?`<div style="font-size:var(--fs-sm);color:var(--tealt);background:var(--tl);border-radius:var(--r-ctl);padding:6px 10px;margin-top:4px">${luIcon('bot',14)||''} AI 평가: ${hw.aiScore}</div>`:''}
-        ${submitted?(!hw.checked?`<button class="btn ba bsm" style="font-size:var(--fs-sm);margin-top:4px" onclick="markHwChecked('${hw.id}','${sid}')">확인 완료</button>`:`<span class="hw-status-badge checked" style="cursor:pointer;margin-top:4px;display:inline-block" title="클릭: 미확인으로 되돌리기" onclick="unmarkHwChecked('${hw.id}','${sid}')">확인됨</span>`):''}
-      </div>`;
-    }).join('')}
-  </div>`:''}
-  ${sHws.filter(h=>!h.assignmentId).length?`<div>
-    <div style="font-size:var(--fs-md);font-weight:700;color:var(--navy);margin-bottom:6px">기타 제출 (${sHws.filter(h=>!h.assignmentId).length}건)</div>
-    ${sHws.filter(h=>!h.assignmentId).map(h=>`
-    <div style="padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <span style="font-size:var(--fs-sm);font-family:var(--fm);color:var(--slate)">${h.date||''}</span>
-        <div style="display:flex;gap:4px;align-items:center">
-          <span class="hw-status-badge ${h.checked?'checked':'pending'}"${h.checked?` style="cursor:pointer" title="클릭: 미확인으로 되돌리기" onclick="unmarkHwChecked('${h.id}','${sid}')"`:''}>${h.checked?'✓ 확인됨':'미확인'}</span>
-          ${!h.checked?`<button class="btn ba bsm" style="font-size:var(--fs-sm);padding:2px 6px" onclick="markHwChecked('${h.id}','${sid}')">확인</button>`:''}
-        </div>
-      </div>
-      ${h.audioUrl?`<audio controls src="${h.audioUrl}" style="width:100%;height:26px"></audio>`:''}
-      ${h.memo?`<div style="font-size:var(--fs-sm);color:var(--slate);margin-top:3px">${luIcon('message-circle',14)||''} ${h.memo}</div>`:''}
+  ${sAssigns.length?`<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">낸 숙제</h3><span class="pl-sec-aux">${sAssigns.length}건</span></div>
+    ${sAssigns.map(a=>_spAsgRowHtml(a,sHws.find(h=>h.assignmentId===a.id),sid)).join('')}
+  </section>`:''}
+  ${sHws.filter(h=>!h.assignmentId).length?`<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">기타 제출</h3><span class="pl-sec-aux">${sHws.filter(h=>!h.assignmentId).length}건</span></div>
+    ${sHws.filter(h=>!h.assignmentId).map(h=>`<div class="pl-row pl-row-static">
+      <span class="pl-row-time">${escAttr(h.date||'')}</span>
+      <span class="pl-row-main"><span class="pl-row-t">${h.checked?'확인됨':'미확인'}</span>${h.memo?`<span class="pl-row-sub">${escAttr(h.memo)}</span>`:''}
+        ${h.audioUrl?`<audio controls src="${h.audioUrl}" style="width:100%;height:28px;margin-top:4px"></audio>`:''}</span>
+      ${h.checked?`<button type="button" class="pl-textbtn" title="미확인으로 되돌리기" onclick="unmarkHwChecked('${h.id}','${sid}')">확인 취소</button>`:`<button type="button" class="pl-textbtn" onclick="markHwChecked('${h.id}','${sid}')">확인</button>`}
     </div>`).join('')}
-  </div>`:''}
-  ${!sAssigns.length&&!sHws.length?`<div class="empty boxed"><div class="empty-i">${luIcon('upload',14)||''}</div><div class="empty-t">낸 숙제가 없습니다</div><div class="empty-s">숙제를 내면 제출·확인 현황이 여기에 표시됩니다</div><button class="btn bt bsm" onclick="openAssignModal('${sid}')">+ 숙제 내기</button></div>`:''}
+  </section>`:''}
+  ${!sAssigns.length&&!sHws.length?`<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">낸 숙제가 없습니다</span></span><button type="button" class="pl-textbtn" onclick="openAssignModal('${sid}')">+ 숙제 내기</button></div>`:''}
   `;
 
   {const bf=document.getElementById('sp-brief');
-   if(bf)bf.innerHTML=(typeof ppStudentBriefHtml==='function')?ppStudentBriefHtml(s):'';}
+   if(bf)bf.innerHTML=spBriefHtml(s);}
   swSpTab(_spTab||'sp-summary');
 }
 
+// 패널 숫자 줄 — 이번 달 출석 · 숙제 완료 · 단어 평균 (.pl-stats). 신호·시험은 그 아래 한 줄 글로
+function spBriefHtml(s){
+  const b=(typeof ppStudentBrief==='function')?ppStudentBrief(s):null;
+  if(!b)return '';
+  const cell=(lbl,num,unit,sub)=>'<div class="pl-stat pl-stat-static'+(num==='—'||num===0?' zero':'')+'"><span class="pl-stat-l">'+lbl+'</span>'
+    +'<span class="pl-stat-v"><b class="pl-num">'+num+'</b>'+(unit?'<small>'+unit+'</small>':'')+(sub?'<em class="pl-cmp">'+escAttr(sub)+'</em>':'')+'</span></div>';
+  const line=[];
+  if(b.sig&&b.sig.level)line.push(b.sig.level+' — '+b.sig.reasons.map(r=>r.t).join(' · '));
+  if(b.retest)line.push('재테스트 대기 '+b.retest+'건');
+  if(b.exam&&b.exam.kind==='exam'&&b.exam.days!=null)line.push('다음 영어 시험 '+(b.exam.days===0?'오늘':'D-'+b.exam.days)+(b.exam.exam&&b.exam.exam.examDate?' ('+b.exam.exam.examDate+')':''));
+  else if(b.exam&&b.exam.kind==='none')line.push('다음 영어 시험 — 지필 없음');
+  return '<div class="pl-stats pl-stats-3 sp-stats">'
+    +cell('이번 달 출석',b.att==null?'—':b.att,b.att==null?'':'%',b.attN?'수업 '+b.attN+'회':'')
+    +cell('숙제 완료',b.hw?b.hw.pct:'—',b.hw?'%':'',b.hw?b.hw.done+'/'+b.hw.total:'')
+    +cell('단어 평균',b.vocab==null?'—':b.vocab,b.vocab==null?'':'%','')
+    +'</div>'+(line.length?'<div class="sp-sig'+(b.sig&&b.sig.level?' on':'')+'">'+escAttr(line.join(' · '))+'</div>':'');
+}
+// 학생 패널 테스트 표 — 테스트 탭의 기록 표와 같은 칸, 학생 칸만 뺀다. [수정] 은 테스트 탭의 입력을 그 기록 값으로 펼친다
+function spTstTableHtml(list){
+  const pass=(typeof ppVocabPassPct==='function')?ppVocabPassPct():90;
+  const sc=(t,f)=>{
+    if(!((t[f+'Total']||0)>0))return '<td class="pl-td none">–</td>';
+    const p=pct(t[f+'Correct'],t[f+'Total']);
+    const bad=f==='vocab'&&p<(t.passPct||pass);
+    return '<td class="pl-td'+(bad?' bad':'')+'" title="'+p+'%">'+(t[f+'Correct']||0)+'/'+t[f+'Total']+'</td>';
+  };
+  const kindOf=t=>{const b=[(typeof ppTestKindOf==='function'&&ppTestKindOf(t)!=='inhouse')?ppTestKindName(t):'자체'];
+    if(t.schoolAchv)b.push('성취도 '+t.schoolAchv);if(t.mockGrade)b.push(t.mockGrade+'등급');if(t.retestOf)b.push('재테스트');return b.join(' · ');};
+  return '<div class="pl-table-wrap"><table class="pl-table tst-table"><thead><tr><th class="pl-th-l">날짜</th><th class="pl-th-l">종류</th><th>단어</th><th>어법</th><th>리딩</th><th>리스닝</th><th class="pl-th-l">틀린 단어</th><th></th></tr></thead><tbody>'
+    +list.map(t=>{const wr=(t.wrongWords||[]).join(', ');
+      const tip=[t.cmt,t.extApp&&t.extScore?(t.extApp+' '+t.extScore):''].filter(Boolean).join(' · ');
+      return '<tr'+(tip?' title="'+escAttr(tip)+'"':'')+'><td class="pl-td-l pl-num-s">'+escAttr((t.date||'').slice(5).replace('-','/'))+'</td>'
+        +'<td class="pl-td-l pl-muted-s">'+escAttr(kindOf(t))+'</td>'
+        +(t.absent?'<td class="pl-td none" colspan="4">미응시</td>':(sc(t,'vocab')+sc(t,'grammar')+sc(t,'reading')+sc(t,'listening')))
+        +'<td class="pl-td-l tst-wr" title="'+escAttr(wr)+'">'+escAttr(wr)+'</td>'
+        +'<td class="pl-td-act"><button type="button" class="pl-textbtn" onclick="swTab(\'t-tst\');setTimeout(()=>tstEditInline(\''+t.id+'\'),250)">수정</button></td></tr>';
+    }).join('')+'</tbody></table></div>';
+}
+// 학생 패널 '낸 숙제' 한 줄 — 숙제 탭 '오늘 숙제' 와 같은 꼴 (체크 네모 · 이름 · 작은 글 · [수정] · ⋯)
+function _spAsgRowHtml(a,hw,sid){
+  const today=ppToday();
+  const st=hwState(a,today);
+  const sch=(a.schedule||[]);
+  const todayRow=sch.find(r=>r&&r.date===today)||null;
+  const isSched=sch.length>0;
+  const done=isSched?(todayRow?!!todayRow.done:st.finished):!!a.completedAt;
+  const canCheck=!isSched||!!todayRow;
+  const KC={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신',book:'원서',other:'기타',class5:'클래스5',recur:'반복'};
+  const cat=a.type==='reading'?'원서':a.type==='vocab'?'어휘':(a.category?(KC[a.category]||a.category):'');
+  let name;
+  if(a.type==='vocab')name=(a.words||[]).length?'단어: '+(a.words||[]).join(', '):(a.range||a.bookTitle||'단어 학습');
+  else if(isSched)name=((a.bookTitle&&a.bookTitle!=='클래스5')?a.bookTitle:(a.category==='recur'?'반복 숙제':'클래스5'))+(todayRow&&todayRow.unit?' — 오늘 '+todayRow.unit:'');
+  else name=[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')||'숙제';
+  const sub=[cat,(a.date||'')+(a.due?' ~ '+a.due:''),isSched?('일정 '+st.doneCount+'/'+st.total):'',
+    st.overdueRows14>0?'밀림 '+st.overdueRows14+'일':'',a.completedAt?'완료 '+a.completedAt.slice(0,10):'',
+    hw?(hw.checked?'제출 · 확인됨':'제출 · 확인 대기'):''].filter(Boolean).join(' · ');
+  const toggle=!canCheck?'':(isSched?`spAsgToggle('${a.id}','${sid}',true)`:`spAsgToggle('${a.id}','${sid}',false)`);
+  return '<div class="pl-row asg-row sp-asg'+(done?' done':'')+'" id="asgn-row-'+a.id+'">'
+    +'<button type="button" class="pl-cb'+(done?' on':'')+'" role="checkbox" aria-checked="'+done+'"'+(canCheck?'':' disabled aria-disabled="true"')
+      +' aria-label="'+(done?'완료 취소':'완료로 표시')+'" title="'+(canCheck?(isSched?'오늘 몫 완료 바꾸기':'완료 바꾸기'):'오늘 몫이 없는 일정 숙제')+'"'+(toggle?' onclick="'+toggle+'"':'')+'><span></span></button>'
+    +'<span class="pl-row-main"><span class="pl-row-t">'+escAttr(name)+'</span><span class="pl-row-sub'+(st.overdueRows14>0?' sp-bad':'')+'" title="'+escAttr(sub)+'">'+escAttr(sub)+'</span>'
+    +(hw&&hw.audioUrl?'<audio controls src="'+escAttr(hw.audioUrl)+'" style="width:100%;height:28px;margin-top:4px"></audio>':'')
+    +(hw&&hw.aiScore?'<span class="pl-row-sub">AI 평가 '+escAttr(String(hw.aiScore))+'</span>':'')+'</span>'
+    +(hw&&!hw.checked?'<button type="button" class="pl-textbtn" onclick="markHwChecked(\''+hw.id+'\',\''+sid+'\')">확인</button>':'')
+    +'<button type="button" class="pl-textbtn" onclick="toggleAssignEdit(\''+a.id+'\',\''+sid+'\')">수정</button>'
+    +'<button type="button" class="pl-more" aria-label="더 보기" title="이 날 빼기 · 기록 리셋 · 삭제" onclick="spAsgMenu(this,\''+a.id+'\',\''+sid+'\','+(isSched&&todayRow?'true':'false')+','+(hw&&hw.checked?'\''+hw.id+'\'':'null')+')">⋯</button>'
+    +'</div>';
+}
+async function spAsgToggle(aid,sid,sched){
+  if(sched)await hwSchedToggleDone(aid,ppToday(),true);else await tAsgnToggleDone(aid);
+  if(currentSpStuId===sid)loadStuPanel(sid);
+}
+function spAsgMenu(btn,aid,sid,canDropDay,checkedHwId){
+  if(typeof plMenuClose==='function')plMenuClose();
+  const m=document.createElement('div');m.id='pl-menu';m.className='pl-menu';m.setAttribute('role','menu');
+  const it=(lbl,js,cls,dis,tip)=>'<button type="button" role="menuitem" class="pl-menu-i'+(cls?' '+cls:'')+'"'+(dis?' disabled':'')+' title="'+escAttr(tip||'')+'" onclick="plMenuClose();'+js+'">'+lbl+'</button>';
+  m.innerHTML=it('이 날 빼기',`deleteSchedDay('${aid}','${ppToday()}')`,'',!canDropDay,canDropDay?'오늘 하루치만 일정에서 뺍니다':'오늘 몫이 있는 일정 숙제만 뺄 수 있어요')
+    +it('기록 리셋',`hwResetProgress('${aid}')`,'',false,'완료 표시만 지웁니다 (단어 카드 기록은 그대로)')
+    +(checkedHwId?it('확인 취소',`unmarkHwChecked('${checkedHwId}','${sid}')`,'',false,'미확인으로 되돌리기'):'')
+    +it('삭제',`deleteStudentAssign('${aid}','${sid}')`,'bad',false,'숙제를 휴지통으로');
+  document.body.appendChild(m);
+  const r=btn.getBoundingClientRect(),w=m.offsetWidth||160;
+  m.style.left=Math.max(8,Math.min(r.right-w,window.innerWidth-w-8))+'px';
+  m.style.top=Math.min(r.bottom+4,window.innerHeight-m.offsetHeight-8)+'px';
+}
 function openQuickPayFor(sid){
   closeM('m-edit-stu');
   document.getElementById('qp-stu').value=sid;
@@ -2081,6 +2083,8 @@ function renderStus(){
   // 카운트
   const cnt=document.getElementById('stu-count');
   if(cnt)cnt.textContent=`${stus.length}명`;
+  {const sm=document.getElementById('stu-sum');
+   if(sm){const act=DB.stus().filter(x=>!x.inactive);sm.textContent='재원생 '+act.length+'명 · 이번 달 미납 '+act.filter(x=>hasUnpaid(x)).length+'명';}}
 
   if(!stus.length){
     const noFilter=!q&&!filterGrade&&!filterSchool&&filterStatus==='active';
@@ -2110,14 +2114,15 @@ function renderStus(){
       +'<td class="sl-name"><span class="sc-avatar">'+(_esc((s.name||'').trim().slice(0,1))||'학')+'</span>'
         +'<span class="sl-nm">'+_esc(s.name)+'</span>'
         +((typeof ppTrackBadgeHtml==='function')?ppTrackBadgeHtml(s):'')
-        +((typeof ppRetestChipHtml==='function')?ppRetestChipHtml(s.id):'')+'</td>'
+        +((typeof ppRetestChipHtml==='function')?ppRetestChipHtml(s.id):'')
+        +'<span class="sl-sub">'+_esc([s.grade||s.lv||'',clsOf(s.id)].filter(Boolean).join(' · '))+'</span></td>'
       +'<td class="sl-dim" data-h="학년">'+_esc(s.grade||s.lv||'')+'</td>'
       +'<td class="sl-dim" data-h="학교">'+_esc(s.school||'')+'</td>'
       +'<td class="sl-dim" data-h="클래스">'+_esc(clsOf(s.id))+'</td>'
       +'<td class="sl-dim sl-num" data-h="최근 수업">'+(ld?_esc(ld.slice(5).replace('-','/')):'—')+'</td>'
       +'<td class="sl-bar" data-h="단어 테스트">'+(pct==null?'<span class="sl-dim">—</span>'
         :'<span class="sl-bar-t"><span style="width:'+pct+'%"></span></span><span class="sl-pct">'+pct+'%</span>')+'</td>'
-      +'<td class="sl-pay" data-h="결제"><span class="pp-dot '+pay.c+'"></span>'+pay.t+'</td>'
+      +'<td class="sl-pay '+pay.c+'" data-h="결제">'+pay.t+'</td>'
       +'</tr>';
   };
   const body=['초등','중등','기타'].filter(k=>groups[k]&&groups[k].length).map(k=>
@@ -7256,6 +7261,8 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-15',title:'학생 패널 — 학생뷰·학부모뷰는 ⋯ 안으로',where:'학생 → 학생 고르기',tab:'t-stu',go:['swTab','t-stu']},
+ {date:'2026-11-15',title:'학생 — 학생을 고르면 패널이 넓어져요',where:'학생',tab:'t-stu',go:['swTab','t-stu']},
  {date:'2026-11-15',title:'테스트 — 기록 목록이 먼저, 입력은 [+ 결과 입력] 으로',where:'테스트',tab:'t-tst',go:['swTab','t-tst']},
  {date:'2026-11-15',title:'숙제 — 위 숫자를 누르면 걸러져요. 오늘 숙제는 체크로 완료',where:'숙제',tab:'t-assign',go:['swTab','t-assign']},
  {date:'2026-11-15',title:'대시보드 — 상자를 걷어내고 줄 목록으로 바꿨어요',where:'대시보드',tab:'t-dash',go:['swTab','t-dash']},
@@ -11298,99 +11305,95 @@ function renderSpSummary(sid,period,from,to){
   });});
 
   const PERIODS=[{v:'week',l:'주간'},{v:'month',l:'월별'},{v:'semester',l:'학기별'},{v:'year',l:'연별'},{v:'all',l:'전체'},{v:'custom',l:'직접 설정'}];
-  // 교재 진도 카드
-  const tbCards=Object.values(tbMap).map(m=>{
-    const cls2=Object.entries(SCLS).find(([k])=>SLBL[k]===m.label)?.[1]||'srd';
+  // 교재·원서 진도 — 영역 이름(muted) · 교재 · 단원은 쉼표로 이은 글 (카드·알약 없음, 2026-11-15)
+  const progRows=(map,isBook)=>Object.values(map).map(m=>{
     const flatU=[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];
-    const shown=flatU.slice(0,5),hidden=flatU.slice(5);
-    return `<div class="sp-prog-card">
-      <div class="sp-prog-head"><span class="spill ${cls2}">${m.label}</span><span class="sp-prog-book">${m.book}</span></div>
-      ${flatU.length?`<div class="prog-pills">${shown.map(u=>`<span class="prog-pill">${u}</span>`).join('')}${hidden.length?`<span class="prog-more-wrap" style="display:none">${hidden.map(u=>`<span class="prog-pill">${u}</span>`).join('')}</span><button class="prog-more-btn" onclick="spProgMore(this)">+${hidden.length} 더보기</button>`:''}</div>`:`<div class="sp-prog-empty">진도 기록 없음</div>`}
-    </div>`;
+    return '<div class="pl-row pl-row-static sp-prog-row"><span class="pl-bar-k">'+escAttr(isBook?'원서':m.label)+'</span>'
+      +'<span class="pl-row-main"><span class="pl-row-t">'+escAttr(m.book)+'</span>'
+      +'<span class="pl-row-sub" title="'+escAttr(flatU.join(', '))+'">'+escAttr(flatU.join(', ')||'진도 기록 없음')+'</span></span></div>';
   }).join('');
-  // 원서 진도 한 줄 카드
-  const rdCards=Object.values(rdMap).map(m=>{
-    const flatU=[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];
-    const badges=flatU.length?flatU.map(u=>`<span class="prog-pill${/완독|완료/.test(u)?' done':''}">${u}</span>`).join(''):'<span class="prog-pill">기록</span>';
-    return `<div class="sp-rd-card"><span class="sp-rd-title">${m.book}</span><span class="sp-rd-badges">${badges}</span></div>`;
-  }).join('');
+  const tbRows=progRows(tbMap,false),rdRows=progRows(rdMap,true);
+  // 원내 규칙 현황
+  const rules=(()=>{
+    const todayY=new Date().getFullYear(),yearStr=String(todayY);
+    const allLesAll=DB.less().filter(l=>l.sid===sid);
+    const annualAttended=allLesAll.filter(l=>l.date&&l.date.startsWith(yearStr)&&!PRESERVED_ATTS.includes(l.att||'')&&l.att!=='absent').length;
+    const thisMonthStr=ppToday().slice(0,7);
+    const thisMonthSick=allLesAll.filter(l=>l.att==='sick'&&l.date?.startsWith(thisMonthStr)).length;
+    const sickOk=thisMonthSick<=1;
+    const tcTotal=allLesAll.filter(l=>l.att==='teacher_cancel').length;
+    const holTotal=allLesAll.filter(l=>l.att==='holiday').length;
+    const months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
+    const cnt=m=>allLesAll.filter(l=>l.date?.startsWith(yearStr+'-'+m)&&!PRESERVED_ATTS.includes(l.att||'')&&l.att!=='absent').length;
+    const cell=(lbl,num,unit,bad,sub)=>'<div class="pl-stat pl-stat-static'+(num===0?' zero':(bad?' bad':''))+'"><span class="pl-stat-l">'+lbl+'</span><span class="pl-stat-v"><b class="pl-num">'+num+'</b><small>'+unit+'</small>'+(sub?'<em class="pl-cmp">'+sub+'</em>':'')+'</span></div>';
+    return '<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">원내 규칙 현황</h3><span class="pl-sec-aux">'+todayY+'년</span></div>'
+      +'<div class="pl-stats sp-rule-stats">'+cell('연간 출석 수업',annualAttended,'회',false,'')
+        +cell('이번 달 병결',thisMonthSick,'회',!sickOk,sickOk?'월 1회 이내':'한도 초과')
+        +(tcTotal?cell('선생님 취소 보존',tcTotal,'회',false,''):'')+(holTotal?cell('휴강 보존',holTotal,'회',false,''):'')+'</div>'
+      +'<div class="pl-table-wrap"><table class="pl-table sp-month-tbl"><thead><tr>'+months.map(m=>'<th>'+parseInt(m)+'월</th>').join('')+'</tr></thead>'
+      +'<tbody><tr>'+months.map(m=>{const c=cnt(m);return '<td class="'+(c?'':'zero')+'">'+(c||'–')+'</td>';}).join('')+'</tr></tbody></table></div></section>';
+  })();
+  const facts=[s.fee?'월 수업료 '+Number(s.fee).toLocaleString()+'원':'',s.payday?'결제일 매월 '+s.payday+'일':'',
+    lastPay?'최근 결제 '+lastPay.date+' · '+Number(lastPay.amt).toLocaleString()+'원':''].filter(Boolean);
   el.innerHTML=`
    <div class="sp-sum-wrap">
-    <div class="sp-seg">
-      ${PERIODS.map(p=>`<button class="${period===p.v?'on':''}" onclick="renderSpSummary('${sid}','${p.v}')">${p.l}</button>`).join('')}
+    <div class="pl-chips sp-period" role="group" aria-label="기간">
+      ${PERIODS.map(p=>`<button type="button" class="pl-chip${period===p.v?' on':''}" aria-pressed="${period===p.v}" onclick="renderSpSummary('${sid}','${p.v}')">${p.l}</button>`).join('')}
     </div>
-    ${period==='custom'?`<div style="display:flex;gap:8px;margin-bottom:12px">
-      <input type="date" id="sp-sum-from" value="${from||''}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:var(--fs-md);background:var(--cream);outline:none">
-      <input type="date" id="sp-sum-to" value="${to||''}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:var(--fs-md);background:var(--cream);outline:none">
+    ${period==='custom'?`<div class="pl-form-row sp-custom">
+      <input type="date" id="sp-sum-from" class="pl-input" value="${from||''}">
+      <input type="date" id="sp-sum-to" class="pl-input" value="${to||''}">
       <button class="btn bt bsm" onclick="renderSpSummary('${sid}','custom',document.getElementById('sp-sum-from').value,document.getElementById('sp-sum-to').value)">적용</button>
     </div>`:''}
-    ${(typeof ppBookPathHtml==='function'&&ppBookPathHtml(sid))?`<div class="card" style="margin-bottom:16px"><div class="ch"><span class="ct">${luIcon('book-open',16)}교재 여정</span><span style="font-size:var(--fs-sm);color:var(--slate)">끝낸 책 · 지금 · 다음</span></div><div class="cb" style="padding:14px 16px">${ppBookPathHtml(sid,{bare:true,edit:sid})}</div></div>`:''}
-    <div class="strow" style="margin-bottom:16px">
-      <div class="stc"><div class="stnum">${attended}</div><div class="stlbl">출석</div></div>
-      <div class="stc"><div class="stnum">${total?att+'%':'<span class="stnum-empty">데이터 없음</span>'}</div><div class="stlbl">출석률</div></div>
-      <div class="stc"><div class="stnum">${rds.length}</div><div class="stlbl">원서</div></div>
-      <div class="stc"><div class="stnum">${avgV!==null?avgV+'%':'<span class="stnum-empty">데이터 없음</span>'}</div><div class="stlbl">단어 평균</div></div>
+    ${spJourneyHtml(sid)}
+    <div class="pl-stats sp-period-stats">
+      <div class="pl-stat pl-stat-static${attended?'':' zero'}"><span class="pl-stat-l">출석</span><span class="pl-stat-v"><b class="pl-num">${attended}</b><small>회</small></span></div>
+      <div class="pl-stat pl-stat-static${total?'':' zero'}"><span class="pl-stat-l">출석률</span><span class="pl-stat-v"><b class="pl-num">${total?att:'—'}</b><small>${total?'%':''}</small></span></div>
+      <div class="pl-stat pl-stat-static${rds.length?'':' zero'}"><span class="pl-stat-l">원서</span><span class="pl-stat-v"><b class="pl-num">${rds.length}</b><small>권</small></span></div>
+      <div class="pl-stat pl-stat-static${avgV!==null?'':' zero'}"><span class="pl-stat-l">단어 평균</span><span class="pl-stat-v"><b class="pl-num">${avgV!==null?avgV:'—'}</b><small>${avgV!==null?'%':''}</small></span></div>
     </div>
-    <div class="sp-sum-cols">
-      <div>
-        <div class="sp-sec-title">${luIcon('book-open',15)||''} 교재 진도</div>
-        ${tbCards||'<div class="sp-prog-empty" style="margin-bottom:12px">교재 진도 기록 없음</div>'}
-      </div>
-      <div>
-        <div class="sp-sec-title">${luIcon('book-open',14)||''} 원서 진도</div>
-        ${rdCards||'<div class="sp-prog-empty" style="margin-bottom:12px">원서 진도 기록 없음</div>'}
-    ${(()=>{
-      // ── 원내 규칙 현황 ──
-      const todayY=new Date().getFullYear();
-      const allLesAll=DB.less().filter(l=>l.sid===sid);
-      // 연간 시수
-      const yearStr=String(todayY);
-      const annualLes=allLesAll.filter(l=>l.date&&l.date.startsWith(yearStr));
-      const annualAttended=annualLes.filter(l=>!PRESERVED_ATTS.includes(l.att||'')&&l.att!=='absent').length;
-      // 병결 현황 (이번 달)
-      const thisMonthStr=ppToday().slice(0,7);
-      const thisMonthSick=allLesAll.filter(l=>l.att==='sick'&&l.date?.startsWith(thisMonthStr)).length;
-      const sickOk=thisMonthSick<=1;
-      // 선생님 취소·휴강 보존 합계
-      const tcTotal=allLesAll.filter(l=>l.att==='teacher_cancel').length;
-      const holTotal=allLesAll.filter(l=>l.att==='holiday').length;
-      // 월별 시수 (올해)
-      const months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
-      const monthlyRow=months.map(m=>{
-        const key=`${yearStr}-${m}`;
-        const cnt=allLesAll.filter(l=>l.date?.startsWith(key)&&!PRESERVED_ATTS.includes(l.att||'')&&l.att!=='absent').length;
-        return `<td style="text-align:center;padding:3px 4px;font-family:var(--fm);font-size:var(--fs-sm);color:${cnt?'var(--navy)':'var(--slate)'}">${cnt||'—'}</td>`;
-      }).join('');
-      return `<div style="background:var(--cream2);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px;font-size:var(--fs-md)">
-        <div style="font-weight:700;color:var(--navy);margin-bottom:8px">${luIcon('clipboard-list',14)||''} 원내 규칙 현황</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
-          <div>연간 출석 수업<br><strong style="font-size:var(--fs-lg);font-family:var(--fm)">${annualAttended}회</strong></div>
-          <div>이번 달 병결<br><strong style="font-size:var(--fs-lg);font-family:var(--fm);color:${sickOk?'var(--teal)':'var(--coral)'}">${thisMonthSick}회</strong> <span style="font-size:var(--fs-sm);color:${sickOk?'var(--teal)':'var(--coral)'}">${sickOk?'(월 1회 이내)':'⚠️ 한도 초과'}</span></div>
-          ${tcTotal?`<div>선생님 취소 보존<br><strong style="font-size:var(--fs-lg);font-family:var(--fm);color:#7B1FA2">${tcTotal}회</strong></div>`:''}
-          ${holTotal?`<div>휴강 보존<br><strong style="font-size:var(--fs-lg);font-family:var(--fm);color:#3949AB">${holTotal}회</strong></div>`:''}
-        </div>
-        <div style="font-weight:700;color:var(--navy);margin-bottom:4px">${todayY}년 월별 수업 시수</div>
-        <div style="overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:var(--fs-sm)">
-            <tr>${months.map(m=>`<th style="text-align:center;padding:3px 4px;color:var(--slate);font-weight:600;font-size:var(--fs-sm)">${parseInt(m)}월</th>`).join('')}</tr>
-            <tr>${monthlyRow}</tr>
-          </table>
-        </div>
-      </div>`;
-    })()}
-      </div>
-    </div>
-    <div style="font-size:var(--fs-md);color:var(--slate);line-height:2;margin-top:8px">
-      ${s.fee?`<div>월 수업료: <strong>${Number(s.fee).toLocaleString()}원</strong></div>`:''}
-      ${s.payday?`<div>결제일: <strong>매월 ${s.payday}일</strong></div>`:''}
-      ${lastPay?`<div>최근 결제: <strong>${lastPay.date} · ${Number(lastPay.amt).toLocaleString()}원</strong></div>`:''}
-      ${s.memo?`<div>메모: ${s.memo}</div>`:''}
-    </div>
+    <section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">교재 진도</h3><span class="pl-sec-aux">이 기간 수업 기록</span></div>
+      <div class="pl-list">${tbRows||'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">교재 진도 기록 없음</span></span></div>'}</div></section>
+    <section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">원서 진도</h3></div>
+      <div class="pl-list">${rdRows||'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">원서 진도 기록 없음</span></span></div>'}</div></section>
+    ${rules}
+    ${(facts.length||s.memo)?`<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">수업료 · 메모</h3></div>
+      <div class="sp-facts">${facts.map(f=>'<div>'+escAttr(f)+'</div>').join('')}${s.memo?'<div>메모 '+escAttr(s.memo)+'</div>':''}</div></section>`:''}
     ${spCounselHtml(sid)}
-    <div style="margin-top:12px">
-      <button class="btn bo bsm" onclick="openPrintReport('${sid}')" style="width:100%">${luIcon('printer',14)||''} 학습 리포트 인쇄</button>
-    </div>
+    <div class="sp-print"><button class="btn bo bsm" onclick="openPrintReport('${sid}')">학습 리포트 인쇄</button></div>
    </div>`;
+}
+// 교재 여정 — 영역마다 한 줄(영역 · 지금 책 · 4px 막대 · n/m · 끝낸 책 n권). 줄을 누르면 다음 책·지나온 교재가 펼쳐진다
+let _spJourneyOpen={};
+function spJourneyToggle(area){_spJourneyOpen[area]=!_spJourneyOpen[area];
+  const b=document.getElementById('sp-jr-b-'+area),r=document.getElementById('sp-jr-r-'+area);
+  if(b)b.hidden=!_spJourneyOpen[area];if(r)r.setAttribute('aria-expanded',String(!!_spJourneyOpen[area]));}
+function spJourneyHtml(sid){
+  const path=(typeof ppBookPath==='function')?ppBookPath(sid):[];
+  if(!path.length)return '';
+  const doneAll=path.reduce((t,a)=>t+a.past.filter(x=>x.state==='done').length,0);
+  const rows=path.map(a=>{
+    const doneN=a.past.filter(x=>x.state==='done').length;
+    const nows=a.now.length?a.now:[null];
+    const head=nows.map((x,i)=>{
+      const pct=x&&x.pct!=null?x.pct:0;
+      return '<div class="pl-bar-row sp-jr-row'+(i?' sub':'')+'"'+(i?'':' id="sp-jr-r-'+a.area+'" role="button" tabindex="0" aria-expanded="'+(!!_spJourneyOpen[a.area])+'" onclick="spJourneyToggle(\''+a.area+'\')" onkeydown="if(event.key===\'Enter\')spJourneyToggle(\''+a.area+'\')"')+'>'
+        +'<span class="pl-bar-k">'+(i?'':escAttr(a.label))+'</span>'
+        +'<span class="pl-bar-t">'+(x?escAttr(x.title):'<span class="pl-muted">지금 진행 중인 교재 없음</span>')+'</span>'
+        +'<span class="pl-bar"><span style="width:'+pct+'%"></span></span>'
+        +'<span class="pl-bar-n">'+(x?x.n+'/'+(x.total||'?'):'')+(i||!doneN?'':'<em class="sp-jr-done">끝낸 책 '+doneN+'권</em>')+'</span></div>';
+    }).join('');
+    const body='<div class="sp-jr-b" id="sp-jr-b-'+a.area+'"'+(_spJourneyOpen[a.area]?'':' hidden')+'>'
+      +'<div class="sp-jr-l"><span class="pl-muted">다음 책</span> '+(a.next.length?a.next.map(x=>escAttr(x.title)).join(' → '):'<span class="pl-muted">정해진 다음 책 없음</span>')+'</div>'
+      +(a.past.length?'<div class="sp-jr-l"><span class="pl-muted">지나온 교재</span></div>'+a.past.slice().reverse().map(x=>
+        '<div class="sp-jr-p"><span>'+escAttr(x.title)+'</span><span class="pl-muted">'+x.n+'/'+(x.total||'?')+'과'+(x.state==='done'?' · 끝냄':'')+(x.manual?' · 손으로 등록':'')+'</span>'
+        +(x.manual?'<button type="button" class="pl-textbtn" onclick="bpDelDone(\''+sid+'\',\''+x.id+'\')">등록 취소</button>':'')+'</div>').join(''):'')
+      +'</div>';
+    return head+body;
+  }).join('');
+  return '<section class="pl-sec sp-sec sp-journey"><div class="pl-sec-h"><h3 class="pl-sec-t">교재 여정</h3>'
+    +'<span class="pl-sec-aux">'+(doneAll?'끝낸 책 '+doneAll+'권 ':'')+'<button type="button" class="pl-textbtn" title="앱을 쓰기 전에 끝낸 교재를 더합니다" onclick="bpAddOpen(\''+sid+'\',\''+(path[0]?path[0].area:'')+'\')">+ 교재</button></span></div>'
+    +'<div class="pl-list">'+rows+'</div></section>';
 }
 function spProgMore(btn){
   const w=btn.parentElement.querySelector('.prog-more-wrap');
@@ -11408,7 +11411,7 @@ function openStuPanelTab(sid,tabId){
   const wrap=document.getElementById('sp-detail-wrap');
   if(noStu)noStu.style.display='none';
   if(wrap)wrap.style.display='flex';
-  document.getElementById('stu-split')?.classList.add('detail-open');
+  document.getElementById('stu-split')?.classList.add('detail-open','has-sel');
   loadStuPanel(sid);
   setTimeout(()=>swSpTab(tabId),300);
 }
@@ -14258,87 +14261,62 @@ function renderSpBooks(sid){
   const activeRds=allEntries.filter(b=>b.type==='원서'&&!b.completed);
   const doneRds=manualEntries.filter(b=>b.type==='원서'&&b.completed).sort(_dsort);
   const today=ppToday();
-  const ddSt='background:#fff;border:1px solid var(--border);border-radius:var(--rs);max-height:160px;overflow-y:auto;display:none;margin-top:2px;font-size:var(--fs-base);box-shadow:0 4px 12px rgba(0,0,0,.1)';
-  const selSt='font-size:var(--fs-md);color:var(--teal);font-weight:600;padding:4px 8px;background:var(--cream);border-radius:var(--r-ctl);margin-top:4px;display:none';
-  const formSt='display:none;margin-top:10px;padding:12px;background:var(--cream);border-radius:var(--rs);border:1px solid var(--border)';
-  const bookRow=t=>{const led=_lastLessonDateForBook(sid,t.title)||t.date||'';return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-      <div style="flex:1">
-        <div style="font-size:var(--fs-base);font-weight:700">${t.title}${t.level?` <span style="font-size:var(--fs-sm);font-weight:normal;color:var(--slate)">${t.level}</span>`:''}</div>
-        <div style="font-size:var(--fs-sm);color:var(--slate)">${t.unit||''} <span style="color:var(--teal);cursor:pointer;border-bottom:1px dashed rgba(11,141,174,.45)" title="클릭: 이 책의 수업 기록 보기·수정" onclick="openBookLessonEdit('${escJsA(t.title)}','${escJsA(t.type||'교재')}','${sid}')">(수업 기록${led?' · '+led:' 연결'})</span></div>
-        ${t.manual?`<input type="text" value="${t.unit||''}" placeholder="현재 진도 (예: Unit 3)" style="margin-top:4px;width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:var(--fs-md);color:var(--navy);background:var(--cream2);outline:none" onchange="updateTextbookUnit('${t.id}','${sid}',this.value)">`:''}
-      </div>
-      <div style="display:flex;gap:4px;flex-shrink:0">
-        ${t.id?`<button class="btn ba bxxs" onclick="markTextbookDone('${t.id}','${sid}')">완료</button>`:`<button class="btn ba bxxs" onclick="markDerivedTbDone('${escJsA(t.title)}','${t.type||'교재'}','${sid}')">완료</button>`}
-        ${t.manual?`<button class="btn bd bxxs" onclick="removeTextbook('${t.id}','${sid}')">삭제</button>`:''}
-      </div>
-    </div>
-  </div>`;};
-  const doneRow=t=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px">
-    <div style="flex:1;min-width:0">
-      <span style="font-size:var(--fs-base);font-weight:600;color:var(--slate)">${t.title}</span>
-      ${t.level?`<span style="font-size:var(--fs-sm);color:var(--slate);margin-left:6px;font-weight:normal">${t.level}</span>`:''}
-    </div>
-    <span class="badge bteal" style="font-size:var(--fs-sm);white-space:nowrap;cursor:pointer" title="클릭: 완료 날짜 수정" onclick="editTbDone('${t.id}','${sid}')">${t.completedDate||'완료'} ✎</span>
-    <button class="btn bd bxxs" onclick="removeDoneTb('${t.id}','${sid}')">삭제</button>
-  </div>`;
-  const nextBanner=_pendingNextBook?`<div style="background:var(--tl);border:1.5px solid var(--teal);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px">
-    <div style="font-size:var(--fs-sm);font-weight:700;color:var(--teal);margin-bottom:3px">${luIcon('party-popper',14)||''} 완료! 다음 교재 추천</div>
-    <div style="font-size:var(--fs-base);font-weight:700;color:var(--navy);margin-bottom:6px">${_pendingNextBook.title}${_pendingNextBook.level?` <span style="font-size:var(--fs-sm);font-weight:normal;color:var(--slate)">(Lv.${_pendingNextBook.level})</span>`:''}</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button class="btn bt bsm" onclick="addNextBookFromSuggestion('${sid}')">+ 바로 추가</button>
-      <button class="btn bo bsm" onclick="_pendingNextBook=null;renderSpBooks('${sid}')">다른 책 선택</button>
-    </div>
-  </div>`:'';
-  el.innerHTML=nextBanner+`
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <span style="font-size:var(--fs-md);font-weight:700;color:var(--navy)">${luIcon('book-open',15)||''} 교재 (${activeTbs.length}권)</span>
-    <button class="btn bt bsm" onclick="openSpTbAdd('${sid}')">+ 교재 추가</button>
-  </div>
-  <div>${activeTbs.length?activeTbs.map(bookRow).join(''):'<div style="font-size:var(--fs-md);color:var(--slate);padding:8px 0">등록된 교재 없음</div>'}</div>
-  ${doneTbs.length?`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--slate)">${luIcon('check-circle-2',14)||''} 완료 교재 (${doneTbs.length}권)</span><button class="btn bo bxxs" onclick="_spDoneSort=_spDoneSort==='desc'?'asc':'desc';renderSpBooks('${sid}')">${_spDoneSort==='desc'?'최신순 ↓':'오래된순 ↑'}</button></div>
-    ${doneTbs.map(doneRow).join('')}</div>`:''}
-  <div id="sp-tb-add" style="${formSt}">
-    <div style="font-size:var(--fs-md);font-weight:700;color:var(--navy);margin-bottom:8px">교재 추가 <span id="sp-tb-queue-hint" style="font-size:var(--fs-sm);font-weight:normal;color:var(--slate)">여러 권 선택 후 한 번에 저장 가능</span></div>
-    <div id="sp-tb-queue-list" style="margin-bottom:8px"></div>
-    <div class="f"><label>교재 검색</label>
-      <input type="text" id="sp-tb-q" placeholder="교재명·레벨 입력..." oninput="spTbSearch()" autocomplete="off">
-      <div id="sp-tb-dd" style="${ddSt}"></div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn bo bsm" onclick="closeSpTbAdd()">취소</button>
-      <button id="sp-tb-save-btn" class="btn bt bsm" onclick="saveTbEntries('${sid}')">저장</button>
-    </div>
-  </div>
-  <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
-      <span style="font-size:var(--fs-md);font-weight:700;color:var(--navy)">${luIcon('book-open',14)||''} 원서 (${activeRds.length}권)</span>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn bt bsm" onclick="openSpRdAdd('${sid}')">+ 원서 추가</button>
-        <button class="btn bo bsm" style="font-size:var(--fs-sm)" onclick="downloadRdCsvTemplate()">${luIcon('clipboard-list',15)||''} 완료 원서 템플릿</button>
-        <input type="file" id="sp-rd-csv-file" accept=".csv" style="display:none" onchange="importRdCsv(event,'${sid}')">
-        <button class="btn bo bsm" style="font-size:var(--fs-sm)" onclick="document.getElementById('sp-rd-csv-file').click()">${luIcon('download',14)||''} 완료 원서 CSV</button>
-      </div>
-    </div>
-    <div>${activeRds.length?activeRds.map(bookRow).join(''):'<div style="font-size:var(--fs-md);color:var(--slate);padding:8px 0">등록된 원서 없음</div>'}</div>
-    ${doneRds.length?`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--slate)">${luIcon('check-circle-2',14)||''} 완료 원서 (${doneRds.length}권)</span><button class="btn bo bxxs" onclick="_spDoneSort=_spDoneSort==='desc'?'asc':'desc';renderSpBooks('${sid}')">${_spDoneSort==='desc'?'최신순 ↓':'오래된순 ↑'}</button></div>
-      ${doneRds.map(doneRow).join('')}</div>`:''}
-    <div id="sp-rd-add" style="${formSt}">
-      <div style="font-size:var(--fs-md);font-weight:700;color:var(--navy);margin-bottom:8px">원서 추가 <span style="font-size:var(--fs-sm);font-weight:normal;color:var(--slate)">여러 권 선택 후 한 번에 저장 가능</span></div>
-      <div id="sp-rd-queue-list" style="margin-bottom:8px"></div>
-      <div class="f"><label>원서 검색</label>
-        <input type="text" id="sp-rd-q" placeholder="제목·저자·시리즈 입력..." oninput="spRdSearch()" autocomplete="off">
-        <div id="sp-rd-dd" style="${ddSt}"></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn bo bsm" onclick="closeSpRdAdd()">취소</button>
-        <button id="sp-rd-save-btn" class="btn bt bsm" onclick="saveRdEntries('${sid}')">저장</button>
-      </div>
-    </div>
-  </div>`;
+  const ddSt='display:none';
+  const formSt='display:none';
+  // 한 줄 — 제목 · 레벨 · 진도 · 최근 수업 · ⋯ (전에는 줄마다 단추 둘·셋)
+  const nowRow=t=>{const led=_lastLessonDateForBook(sid,t.title)||t.date||'';
+    return '<tr><td class="pl-td-l sp-bk-t">'+escAttr(t.title)+'</td><td class="pl-td-l pl-muted-s">'+escAttr(t.level||'')+'</td>'
+      +'<td class="pl-td-l">'+(t.manual?'<input type="text" class="pl-input sp-bk-unit" value="'+escAttr(t.unit||'')+'" placeholder="현재 진도" aria-label="현재 진도" onchange="updateTextbookUnit(\''+t.id+'\',\''+sid+'\',this.value)">':escAttr(t.unit||''))+'</td>'
+      +'<td class="pl-td-l pl-num-s">'+escAttr(led?led.slice(5).replace('-','/'):'—')+'</td>'
+      +'<td class="pl-td-act"><button type="button" class="pl-more" aria-label="더 보기" title="수업 기록 · 완료 · 삭제" onclick="spBookMenu(this,\''+sid+'\',\''+escJsA(t.title)+'\',\''+escJsA(t.type||'교재')+'\',\''+(t.id||'')+'\','+(t.manual?'true':'false')+')">⋯</button></td></tr>';};
+  const doneRow=t=>'<tr class="done"><td class="pl-td-l sp-bk-t">'+escAttr(t.title)+'</td><td class="pl-td-l pl-muted-s">'+escAttr(t.level||'')+'</td>'
+    +'<td class="pl-td-l pl-muted-s">끝냄</td><td class="pl-td-l pl-num-s">'+escAttr(t.completedDate||'—')+'</td>'
+    +'<td class="pl-td-act"><button type="button" class="pl-more" aria-label="더 보기" title="완료 날짜 고치기 · 삭제" onclick="spBookDoneMenu(this,\''+sid+'\',\''+t.id+'\')">⋯</button></td></tr>';
+  const table=(rows,key)=>{const n=_spBooksShow[key]||50;
+    return rows.length?('<div class="pl-table-wrap"><table class="pl-table sp-bk-tbl"><thead><tr><th class="pl-th-l">제목</th><th class="pl-th-l">레벨</th><th class="pl-th-l">진도</th><th class="pl-th-l">최근 수업</th><th></th></tr></thead><tbody>'
+      +rows.slice(0,n).join('')+'</tbody></table></div>'
+      +(rows.length>n?'<div class="sp-more-row"><button type="button" class="pl-textbtn" onclick="_spBooksShow[\''+key+'\]='+(n+50)+';renderSpBooks(\''+sid+'\')">더 보기 ('+(rows.length-n)+'권 남음)</button></div>':''))
+      :'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">없음</span></span></div>';};
+  const sortBtn='<button type="button" class="pl-textbtn" onclick="_spDoneSort=_spDoneSort===\'desc\'?\'asc\':\'desc\';renderSpBooks(\''+sid+'\')">'+(_spDoneSort==='desc'?'최신순':'오래된순')+'</button>';
+  const nextBanner=_pendingNextBook?'<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">다음 교재 추천</h3></div>'
+    +'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t">'+escAttr(_pendingNextBook.title)+(_pendingNextBook.level?' <span class="pl-muted">Lv.'+escAttr(_pendingNextBook.level)+'</span>':'')+'</span></span>'
+    +'<button class="btn bt bsm" onclick="addNextBookFromSuggestion(\''+sid+'\')">+ 바로 추가</button><button type="button" class="pl-textbtn" onclick="_pendingNextBook=null;renderSpBooks(\''+sid+'\')">다른 책</button></div></section>':'';
+  el.innerHTML=nextBanner
+  +'<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">교재</h3><span class="pl-sec-aux">'+activeTbs.length+'권 <button type="button" class="pl-textbtn" onclick="openSpTbAdd(\''+sid+'\')">+ 교재 추가</button></span></div>'
+  +table(activeTbs.map(nowRow),'tb')
+  +'<div id="sp-tb-add" class="sp-add-form" style="'+formSt+'"><div class="pl-sec-t">교재 추가 <span class="pl-muted" id="sp-tb-queue-hint">여러 권 고른 뒤 한 번에 저장</span></div>'
+    +'<div id="sp-tb-queue-list"></div><div class="f"><label>교재 검색</label><input type="text" id="sp-tb-q" placeholder="교재명·레벨 입력..." oninput="spTbSearch()" autocomplete="off"><div id="sp-tb-dd" class="sp-dd" style="'+ddSt+'"></div></div>'
+    +'<div class="pl-form-row"><button class="btn bo bsm" onclick="closeSpTbAdd()">취소</button><button id="sp-tb-save-btn" class="btn bt bsm" onclick="saveTbEntries(\''+sid+'\')">저장</button></div></div>'
+  +'</section>'
+  +(doneTbs.length?'<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">끝낸 교재</h3><span class="pl-sec-aux">'+doneTbs.length+'권 '+sortBtn+'</span></div>'+table(doneTbs.map(doneRow),'tbd')+'</section>':'')
+  +'<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">원서</h3><span class="pl-sec-aux">'+activeRds.length+'권 <button type="button" class="pl-textbtn" onclick="openSpRdAdd(\''+sid+'\')">+ 원서 추가</button>'
+    +'<button type="button" class="pl-more" aria-label="원서 파일" title="완료 원서 템플릿 · CSV 넣기" onclick="spRdFileMenu(this,\''+sid+'\')">⋯</button>'
+    +'<input type="file" id="sp-rd-csv-file" accept=".csv" style="display:none" onchange="importRdCsv(event,\''+sid+'\')"></span></div>'
+  +table(activeRds.map(nowRow),'rd')
+  +'<div id="sp-rd-add" class="sp-add-form" style="'+formSt+'"><div class="pl-sec-t">원서 추가 <span class="pl-muted">여러 권 고른 뒤 한 번에 저장</span></div>'
+    +'<div id="sp-rd-queue-list"></div><div class="f"><label>원서 검색</label><input type="text" id="sp-rd-q" placeholder="제목·저자·시리즈 입력..." oninput="spRdSearch()" autocomplete="off"><div id="sp-rd-dd" class="sp-dd" style="'+ddSt+'"></div></div>'
+    +'<div class="pl-form-row"><button class="btn bo bsm" onclick="closeSpRdAdd()">취소</button><button id="sp-rd-save-btn" class="btn bt bsm" onclick="saveRdEntries(\''+sid+'\')">저장</button></div></div>'
+  +'</section>'
+  +(doneRds.length?'<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">끝낸 원서</h3><span class="pl-sec-aux">'+doneRds.length+'권 '+sortBtn+'</span></div>'+table(doneRds.map(doneRow),'rdd')+'</section>':'');
 }
+let _spBooksShow={};
+function _spMenu(btn,items){
+  if(typeof plMenuClose==='function')plMenuClose();
+  const m=document.createElement('div');m.id='pl-menu';m.className='pl-menu';m.setAttribute('role','menu');
+  m.innerHTML=items.map(([lbl,js,cls,dis])=>'<button type="button" role="menuitem" class="pl-menu-i'+(cls?' '+cls:'')+'"'+(dis?' disabled':'')+' onclick="plMenuClose();'+escAttr(js)+'">'+lbl+'</button>').join('');
+  document.body.appendChild(m);
+  const r=btn.getBoundingClientRect(),w=m.offsetWidth||170;
+  m.style.left=Math.max(8,Math.min(r.right-w,window.innerWidth-w-8))+'px';
+  m.style.top=Math.min(r.bottom+4,window.innerHeight-m.offsetHeight-8)+'px';
+}
+function spBookMenu(btn,sid,title,type,id,manual){
+  const ja=v=>String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  _spMenu(btn,[['수업 기록 보기',`openBookLessonEdit('${ja(title)}','${ja(type)}','${sid}')`],
+    ['완료',id?`markTextbookDone('${id}','${sid}')`:`markDerivedTbDone('${ja(title)}','${ja(type)}','${sid}')`],
+    ['삭제',manual?`removeTextbook('${id}','${sid}')`:'','bad',!manual]]);
+}
+function spBookDoneMenu(btn,sid,id){_spMenu(btn,[['완료 날짜 고치기',`editTbDone('${id}','${sid}')`],['삭제',`removeDoneTb('${id}','${sid}')`,'bad']]);}
+function spRdFileMenu(btn,sid){_spMenu(btn,[['완료 원서 템플릿 받기','downloadRdCsvTemplate()'],['완료 원서 CSV 넣기',"document.getElementById('sp-rd-csv-file').click()"]]);}
 function openSpTbAdd(sid){
   const el=document.getElementById('sp-tb-add');if(!el)return;
   el.style.display='block';
@@ -18551,14 +18529,15 @@ function startStuResize(e){
 }
 // 버튼: 넓게 ↔ 기본 토글
 function toggleStuWide(){
-  const col=document.getElementById('stu-detail-col');
-  const split=document.getElementById('stu-split');
-  if(!col||!split)return;
-  const wide=col.offsetWidth>split.offsetWidth*0.62;
-  const w=wide?400:Math.max(560,Math.round(split.offsetWidth*0.68));
-  col.style.width=w+'px';
-  try{localStorage.setItem(STU_W_KEY,String(w));}catch(_){}
-  _stuApplyW(w);
+  // « 는 목록을 아예 접는 단추로 (2026-11-15) — 다시 누르면 목록이 320px 로 돌아온다
+  const split=document.getElementById('stu-split');if(!split)return;
+  const fold=!split.classList.contains('list-fold');
+  split.classList.toggle('list-fold',fold);
+  const btn=document.getElementById('sp-wide-btn');
+  if(btn){btn.title=fold?'목록 펼치기':'목록 접기';btn.setAttribute('aria-label',btn.title);
+    btn.innerHTML='<i data-lucide="'+(fold?'chevrons-right':'chevrons-left')+'" width="14" height="14"></i>';
+    try{lucide.createIcons();}catch(e){}}
+  setTimeout(spTabsFade,0);
 }
 function resetStuWidth(){
   const col=document.getElementById('stu-detail-col');if(!col)return;
@@ -18568,9 +18547,8 @@ function resetStuWidth(){
 }
 // 저장된 폭 복원 — 학생 탭을 열 때마다
 function restoreStuWidth(){
-  let w=0;
-  try{w=parseInt(localStorage.getItem(STU_W_KEY)||'0',10)||0;}catch(_){}
-  if(w)_stuApplyW(w);
+  // 폭은 이제 틀이 정한다 (목록 320px · 패널이 나머지) — 전에 끌어서 정한 폭은 쓰지 않는다
+  const col=document.getElementById('stu-detail-col');if(col)col.style.width='';
 }
 
 function startClsResize(e,colId,invert=false){
