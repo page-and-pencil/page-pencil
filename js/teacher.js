@@ -10776,7 +10776,7 @@ function renderDashWeekHeat(stus,todayStr){
   // 날짜별 몫은 공용 hwDayStatus 하나로
   const rows=stus.map(s=>{
     const cells=days.map(d=>{
-      const r=(typeof hwDayStatus==='function')?hwDayStatus(s.id,d.date):{total:0,done:0};
+      const r=hwDayCount(s.id,d.date);          // 진도 캘린더 '숙제 n/m'·학생 주간 띠와 같은 함수
       return{total:r.total||0,done:r.done||0};
     });
     return{s,cells,has:cells.some(c=>c.total)};
@@ -11381,6 +11381,30 @@ function renderDashGreet(dateLabel,todayCount,recorded){
     +'<button class="btn bt pl-head-btn" onclick="mkGo()" title="시험지·학습 세트·단어 시험지를 한 화면씩 따라가며 만들어요">만들기</button>';
 }
 function _dashMD(ds){return Number(ds.slice(5,7))+'/'+Number(ds.slice(8,10));}
+// 대시보드에서 수업 기록을 여는 곳은 모두 이 함수로 — 클래스 탭으로 옮기고 그 반을 고른 뒤 그 날 기록을 연다.
+// (전에는 openClassLesson 만 불러 기록 칸이 숨은 클래스 탭 안에서 열려 아무 일도 없는 것처럼 보였다 — 2026-11-15)
+function dashOpenLesson(classId,ds){
+  const c=DB.classes().find(x=>x.id===classId);if(!c)return;
+  ds=ds||ppToday();
+  swTab('t-class');
+  try{openClsDetail(classId);}catch(e){console.error('dashOpenLesson detail:',e);}
+  if(DB.less().some(l=>l.classId===classId&&l.date===ds))openClassLessonEdit(classId,ds);
+  else openClassLesson(classId,ds);
+}
+// 그 날 나갈 교재·단원 — 진도 캘린더의 그날 예정과 같은 계산(_pgComposePlan), 짧은 이름으로. 예정이 없으면 ''
+function _dashPlanLine(c,ds){
+  try{
+    const g=(_pgComposePlan(c.id,c,ds).ghostBy||{})[ds]||[];
+    const by=new Map();
+    g.forEach(x=>{
+      const tb=(_cache.globalTextbooks||[]).find(b=>b.id===x.tbId);
+      const nm=tb?pgShort(c.id,tb):(x.title||'');
+      if(!by.has(nm))by.set(nm,[]);
+      if(x.unit)by.get(nm).push(x.unit);
+    });
+    return [...by.entries()].map(([t,us])=>(t+' '+us.join(', ')).trim()).join(' · ');
+  }catch(e){return '';}
+}
 // 수업이 없는 날 보여 줄 '다음 수업' — 오늘 다음 60일에서 첫 수업일을 찾는다
 function _dashNextClass(fromStr){
   const DAYS=['일','월','화','수','목','금','토'];
@@ -11437,12 +11461,18 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
     body='<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t">'
       +(_skipToday.length?('오늘은 '+escAttr(_skipToday.map(c=>c.name||'반').join(' · '))+' 휴강이에요'):'오늘은 수업이 없어요')+'</span></span></div>';
     if(n){
-      const c=DB.classes().find(x=>x.active!==false&&(x.name||'반')===n.names[0]);
-      const tt=c?classTimeFor(c,n.dk):{};
-      body+='<div class="pl-row"'+(c?` onclick="openClassLesson('${c.id}','${n.date}')"`:'')+'>'
-        +'<span class="pl-row-time">'+_dashMD(n.date)+'('+n.dk+')'+(tt.start?' '+tt.start:'')+'</span>'
-        +'<span class="pl-row-main"><span class="pl-row-t">다음 수업 · '+escAttr(n.names.slice(0,3).join(' · '))+(n.names.length>3?' 외 '+(n.names.length-3)+'반':'')+'</span></span>'
-        +(c?'<span class="pl-link">미리 보기</span>':'')+'</div>';
+      // 그 날 수업이 있는 반마다 한 줄 — 아래 작은 글은 그날 나갈 교재·단원 (진도 캘린더 예정과 같은 것)
+      const cs=DB.classes().filter(x=>x.active!==false&&((x.days||[]).includes(n.dk)||(x.extraDates||[]).includes(n.date))&&!(x.skipDates||[]).includes(n.date))
+        .sort((a,b)=>(classTimeFor(a,n.dk).start||'99').localeCompare(classTimeFor(b,n.dk).start||'99'));
+      body+=cs.map(c=>{
+        const tt=classTimeFor(c,n.dk);
+        const plan=_dashPlanLine(c,n.date);
+        return '<div class="pl-row pl-row-2 pl-next" onclick="dashOpenLesson(\''+c.id+'\',\''+n.date+'\')">'
+          +'<span class="pl-row-time">'+_dashMD(n.date)+'('+n.dk+')'+(tt.start?' '+tt.start:'')+'</span>'
+          +'<span class="pl-row-main"><span class="pl-row-t">다음 수업 · '+escAttr(c.name||'반')+'</span>'
+          +'<span class="pl-row-sub">'+escAttr(plan)+'</span></span>'
+          +'<span class="pl-link">미리 보기</span></div>';
+      }).join('');
     }else body+='<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-sub">예정된 다음 수업이 없어요</span></span></div>';
     if(!DB.classes().some(c=>c.active!==false))
       body+='<div class="pl-row" onclick="swTab(\'t-class\')"><span class="pl-row-main"><span class="pl-row-t">클래스를 먼저 만들어 주세요</span></span><span class="pl-link">클래스 만들기</span></div>';
@@ -11456,19 +11486,12 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
       const tEnd=tt.end||(tt.start?tt.start.slice(0,2)+':59':'');
       const isNow=!done&&tt.start&&nowHM>=tt.start&&nowHM<=tEnd;
       // 오늘 나갈 교재·단원 — 진도 캘린더와 같은 계산(_pgComposePlan) 한 곳에서
-      let plan='';
-      try{
-        const g=(_pgComposePlan(c.id,c,todayStr).ghostBy||{})[todayStr]||[];
-        const by={};g.forEach(x=>{(by[x.title]=by[x.title]||[]).push(x.unit);});
-        plan=Object.entries(by).map(([t,us])=>t+' '+us.filter(Boolean).join(', ')).join(' · ');
-      }catch(e){}
-      if(!plan){try{plan=(pgActsOn(c,todayStr,true,new Set(c.skipDates||[]))||[]).map(a=>a.label).join(' · ');}catch(e){}}
-      const nStu=(c.studentIds||[]).filter(id=>(allStus||[]).some(s=>s.id===id)).length;
-      return '<div class="pl-row pl-row-2'+(isNow?' on':'')+'" onclick="'+(done?`openClassLessonEdit('${c.id}','${todayStr}')`:`openClassLesson('${c.id}','${todayStr}')`)+'">'
+      const plan=_dashPlanLine(c,todayStr);
+      return '<div class="pl-row pl-row-2'+(isNow?' on':'')+'" onclick="dashOpenLesson(\''+c.id+'\',\''+todayStr+'\')">'
         +'<span class="pl-row-time">'+(tt.start?tt.start:'—')+'</span>'
         +'<span class="pl-row-main"><span class="pl-row-t">'+escAttr(c.name||'반')+(isNow?'<span class="pl-pill">지금</span>':'')+'</span>'
-        +'<span class="pl-row-sub">'+escAttr(plan||(nStu+'명'))+'</span></span>'
-        +(done?'<span class="pl-done">기록함</span>':'<button type="button" class="btn bt bsm pl-row-btn" onclick="event.stopPropagation();openClassLesson(\''+c.id+'\',\''+todayStr+'\')">기록</button>')
+        +'<span class="pl-row-sub">'+escAttr(plan)+'</span></span>'
+        +(done?'<span class="pl-done">기록함</span>':'<button type="button" class="btn bt bsm pl-row-btn" onclick="event.stopPropagation();dashOpenLesson(\''+c.id+'\',\''+todayStr+'\')">기록</button>')
         +'</div>';
     }).join('');
   }
@@ -11720,7 +11743,8 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
       items.push({icon:luIcon('pencil-line',15),chip:'da-amber',
         text:`${st.name} · ${ppDowLabel(d)} 수업 기록 없음`+(miss.length>1?` 외 ${miss.length-1}일`:''),
         label:'기록하기',
-        action:`swTab('t-class');setTimeout(()=>{const e=document.getElementById('cl-date');if(e){e.value='${d}';e.dispatchEvent(new Event('change'));}},200)`});
+        action:(()=>{const _c=DB.classes().find(c=>c.active!==false&&(c.studentIds||[]).includes(st.id));
+          return _c?`dashOpenLesson('${_c.id}','${d}')`:`goAddLesson('${st.id}')`;})()});
     });
   }
 
@@ -16373,37 +16397,47 @@ function _pgTrackBoardHtml(classId){
 function _pgHwChips(sid,ym){
   const out={};
   // [A2] 칩은 어디서나 '[짧은 이름] 단원' · 색은 영역 색 (종류는 모양으로 가른다)
+  // 어느 날에 무엇이 들어가는지는 공용 hwItemsForDays 하나로 — 대시보드·학생 주간 띠와 같은 숫자 (2026-11-15)
   const _cls=DB.classes().find(c=>c.active!==false&&(c.studentIds||[]).includes(sid));
   const _cid=_cls?_cls.id:'';
-  (_cache.assignments||[]).forEach(a=>{
-    if(a._deleted||a.sid!==sid)return;
-    const sch=_hwSchedOf(a);
-    if((sch||[]).length){
-      const isRecur=a.category==='recur';
-      sch.forEach(sc=>{
-        if(!sc.date||(ym&&!sc.date.startsWith(ym)))return;
+  const dates=[];
+  if(ym){const y=+ym.slice(0,4),m=+ym.slice(5,7),n=new Date(y,m,0).getDate();for(let d=1;d<=n;d++)dates.push(ym+'-'+String(d).padStart(2,'0'));}
+  else{   // 달을 안 주면 그 학생 숙제가 걸린 모든 날
+    const set=new Set();
+    (_cache.assignments||[]).forEach(a=>{
+      if(!a||a._deleted||a.sid!==sid)return;
+      const sch=_hwSchedOf(a)||[];
+      if(sch.length)sch.forEach(sc=>{if(sc&&sc.date)set.add(sc.date);});
+      else hwDaysOf(a).forEach(d=>set.add(d));
+    });
+    dates.push(...[...set].sort());
+  }
+  const by=hwItemsForDays(sid,dates);
+  Object.entries(by).forEach(([ds,items])=>{
+    items.forEach(it=>{
+      const a=it.a,sc=it.sc;
+      if(sc){
+        const isRecur=a.category==='recur';
         const app=_hwAppOf(a,sc);
         const _tb=_pgTbOf({bookId:a.bookId||'',book:sc.book||a.bookTitle||''});
         const _area=pgAreaOfTb(_tb);
         const _sh=_tb?pgShort(_cid,_tb):'';
-        (out[sc.date]=out[sc.date]||[]).push({
+        (out[ds]=out[ds]||[]).push({
           ord:app?15:(isRecur?10:20),kind:(app||!isRecur)?'class5':'recur',aid:a.id,sched:true,app:app?app.k:'',
           color:(_PG_CAT_COLORS[_area]||(app?_PG_C5_COLOR:(isRecur?'#2F7D63':_PG_C5_COLOR))),
           label:(app?(app.lbl+' '):'')+((typeof ppChipLabel==='function')?ppChipLabel(_tb,sc.unit||sc.book||'',_sh):(sc.unit||sc.book||a.bookTitle||'')),
           tip:`${asgSrcLabel(a)} — ${[a.bookTitle&&a.bookTitle!==sc.book?a.bookTitle:'',sc.book,sc.unit].filter(Boolean).join(' · ')}`,
           done:!!sc.done,by:sc.doneBy||''});
-      });
-      return;
-    }
-    const due=a.due||'';
-    if(!due||(ym&&!due.startsWith(ym)))return;
-    const _tb1=_pgTbOf({bookId:a.bookId||'',book:a.bookTitle||''});
-    (out[due]=out[due]||[]).push({
-      ord:30,kind:'single',aid:a.id,sched:false,app:(_hwAppOf(a,null)||{}).k||'',
-      color:_PG_CAT_COLORS[pgAreaOfTb(_tb1)]||_PG_CAT_COLORS[a.category]||'var(--text-muted)',
-      label:[(_tb1?pgShort(_cid,_tb1):(a.bookTitle||a.text||'')),a.range].filter(Boolean).join(' ').trim()||'숙제',
-      tip:`${asgSrcLabel(a)} — ${[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')} (마감 ${due})`,
-      done:!!a.completedAt,by:a.completedBy||''});
+        return;
+      }
+      const _tb1=_pgTbOf({bookId:a.bookId||'',book:a.bookTitle||''});
+      (out[ds]=out[ds]||[]).push({
+        ord:30,kind:'single',aid:a.id,sched:false,app:(_hwAppOf(a,null)||{}).k||'',
+        color:_PG_CAT_COLORS[pgAreaOfTb(_tb1)]||_PG_CAT_COLORS[a.category]||'var(--text-muted)',
+        label:[(_tb1?pgShort(_cid,_tb1):(a.bookTitle||a.text||'')),a.range].filter(Boolean).join(' ').trim()||'숙제',
+        tip:`${asgSrcLabel(a)} — ${[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')}${a.due?' (마감 '+a.due+')':''}`,
+        done:!!a.completedAt,by:a.completedBy||''});
+    });
   });
   return out;
 }

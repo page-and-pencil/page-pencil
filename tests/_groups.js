@@ -20,7 +20,7 @@ const TESTS = {
   'verify_cats.js': { g: 'legacy', w: '자료실 구분 3개(원서 오디오·교재 음원·교재 단어/워크시트) + 원서는 듣기가 위 — 실제 카탈로그 6,518행으로 확인', why: '가짜 자료로는 안 맞는다 — page.evaluate: TypeError: Cannot read properties of undefined (reading' },
   'verify_cheer.js': { g: 'core', w: '응원 문구·칭찬 배너가 학생 화면에 제때 뜨는지' },
   'verify_dlg.js': { g: 'legacy', w: '대화문 화자 표기 검증. 실데이터는 읽기만(저장 0), 더미 교재는 끝나면 휴지통.', why: '가짜 자료로는 안 맞는다 — 대화문으로 판정된 단원이 있다  — 0단원' },
-  'verify_dash_plain.js': { g: 'core', w: '대시보드 꼴 — 상자·그림자·색 아이콘 칸 0, 바탕 다섯 이하·굵기 400·600, 머리 요약·숫자 줄(수업 있는 날·없는 날), 이번 주 숙제 표·반별 진도 막대·공지 한 줄, 390 2x2 — 가짜 서버만' },
+  'verify_dash_plain.js': { g: 'core', w: '대시보드 꼴 — 상자·그림자·색 아이콘 칸 0, 바탕 다섯 이하·굵기 400·600, 머리 요약·숫자 줄(수업 있는 날·없는 날), 이번 주 숙제 표·반별 진도 막대·공지 한 줄, 390 2x2 — 가짜 서버만 · 수업 기록 열기(클래스 탭)·숙제 세기 한 곳(대시보드=캘린더=학생 띠)' },
   'verify_dupword.js': { g: 'core', w: 'syncVocabCards 중복 방지 검증 — 목업(서버 쓰기 차단)' },
   'verify_eb.js': { g: 'legacy', w: '기출·자료실 확인 — 표가 아직 없으므로 exam_bank REST 를 가짜로 받아 준다(실 DB 접근 0)', why: '가짜 자료로는 안 맞는다 — 목록에 30건이 보인다  — 23건 · 23개 / 전체 30개 · "보기 mopyeong 2026-7" 문제지정답' },
   'verify_eb2.js': { g: 'legacy', w: '2차 확인 — 탭 이름 ’자료실’ · 기타 자료 묶음 · 합쳐진 폴더 · 시리즈 거르기 (실제 카탈로그 6,074행)', why: '가짜 자료로는 안 맞는다 — page.evaluate: TypeError: Cannot read properties of undefined (reading' },
