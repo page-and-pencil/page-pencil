@@ -226,6 +226,146 @@ const FINDWORD = (sel, words) => {
     await ctx.close();
   }
 
+  // ═══════════════ ② 크기·모서리·창·아이콘 ═══════════════
+  // 보이는 글자의 크기 — 11px 미만·0.5px 단위가 남았는지 / 보이는 단추 높이 / 글이 칸 밖으로 삐져나왔는지
+  const SIZE = () => {
+    const out = { small: [], half: [], btn: [], spill: [] };
+    const root = document.querySelector('.screen.active') || document.body;
+    root.querySelectorAll('*').forEach(el => {
+      const r = el.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) return;
+      const st = getComputedStyle(el);
+      if (st.visibility === 'hidden' || st.display === 'none') return;
+      const t = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim();
+      if (t && /[0-9A-Za-z가-힣]/.test(t)) {
+        const fs = parseFloat(st.fontSize);
+        if (fs < 11) out.small.push(fs + 'px "' + t.slice(0, 14) + '" [' + String(el.className).slice(0, 22) + ']');
+        else if (Math.abs(fs - Math.round(fs)) > 0.01) out.half.push(fs + 'px "' + t.slice(0, 14) + '" [' + String(el.className).slice(0, 22) + ']');
+        if (el.scrollWidth > el.clientWidth + 2 && st.overflowX === 'visible' && st.display !== 'inline' && el.clientWidth > 0)
+          out.spill.push('"' + t.slice(0, 14) + '" ' + el.clientWidth + '→' + el.scrollWidth + ' [' + String(el.className).slice(0, 22) + ']');
+      }
+      if (el.tagName === 'BUTTON' && r.height < 31.5 && el.type !== 'checkbox' && el.type !== 'radio')
+        out.btn.push(Math.round(r.height) + 'px "' + (el.textContent || '').trim().slice(0, 12) + '" [' + String(el.className).slice(0, 22) + ']');
+    });
+    const u = a => [...new Set(a)];
+    return { small: u(out.small), half: u(out.half), btn: u(out.btn), spill: u(out.spill),
+      over: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+  };
+  const agg = { small: [], half: [], btn: [], spill: [], over: [] };
+  const add = (where, r) => {
+    r.small.forEach(x => agg.small.push(where + ' · ' + x)); r.half.forEach(x => agg.half.push(where + ' · ' + x));
+    r.btn.forEach(x => agg.btn.push(where + ' · ' + x)); r.spill.forEach(x => agg.spill.push(where + ' · ' + x));
+    if (r.over) agg.over.push(where + ' ' + r.over + 'px');
+  };
+  for (const W of [1366, 1024, 390]) {
+    const { ctx, page } = await makePage(browser, { role: 'teacher' }, { width: W, height: 900 });
+    for (const tab of ['t-dash', 't-class', 't-stu', 't-assign', 't-tst', 't-bks', 't-les', 't-cfg']) {
+      const r = await page.evaluate(async (o) => {
+        swTab(o.tab); await new Promise(r => setTimeout(r, 600));
+        if (o.tab === 't-class') { openClsDetail('ux4-c1'); await new Promise(r => setTimeout(r, 600)); }
+        if (o.tab === 't-stu') { loadStuPanel('ux4-s1'); await new Promise(r => setTimeout(r, 700)); }
+        return eval('(' + o.fn + ')')();
+      }, { tab, fn: SIZE.toString() });
+      add(W + ' ' + tab, r);
+    }
+    if (W === 1366) {
+      for (const t of ['library', 'tbook', 'lib', 'word', 'bank', 'make', 'items', 'paper', 'iso', 'kit', 'ws', 'exam', 'master']) {
+        const r = await page.evaluate(async (o) => {
+          swTab('t-data'); switchDataTab(o.t); await new Promise(r => setTimeout(r, 450));
+          return eval('(' + o.fn + ')')();
+        }, { t, fn: SIZE.toString() });
+        add('1366 t-data/' + t, r);
+      }
+      await page.evaluate(async () => { swTab('t-dash'); await new Promise(r => setTimeout(r, 500)); });
+      await page.screenshot({ path: path.join(OUT, 'dash_1366.png') }).catch(() => { });
+      await page.evaluate(async () => { swTab('t-data'); switchDataTab('items'); await new Promise(r => setTimeout(r, 500)); });
+      await page.screenshot({ path: path.join(OUT, 'items_1366.png') }).catch(() => { });
+
+      // 창 58개 — 폭이 넷 중 하나 · × 가 있다
+      const mo = await page.evaluate(async () => {
+        const out = [];
+        for (const m of [...document.querySelectorAll('.mo')]) {
+          const d = m.querySelector('.mdl,.mdl-xl');
+          const mw = d ? getComputedStyle(d).maxWidth : '';
+          out.push({ id: m.id, mw, x: !!m.querySelector('.bx') });
+        }
+        return out;
+      });
+      const ALLOWED = ['480px', '720px', '1000px', '1200px'];
+      const badW = mo.filter(x => ALLOWED.indexOf(x.mw) < 0), noX = mo.filter(x => !x.x);
+      ok('[②] 창 ' + mo.length + '개의 폭이 480·720·1000·1200 중 하나', mo.length >= 58 && badW.length === 0,
+        badW.length ? badW.map(x => x.id + ' ' + x.mw).join(', ') : mo.length + '개 모두');
+      ok('[②] 창마다 오른쪽 위에 ×', noX.length === 0, noX.length ? noX.map(x => x.id).join(', ') : '모두');
+
+      // 인쇄용 꼴은 건드리지 않았다 — 인쇄 문서를 만드는 함수에 글자 크기 토큰이 섞이지 않았다
+      const pr = await page.evaluate(() => {
+        const fns = ['makeVocabPaper', '_pbCss', '_pbPrintGo', 'lkPrint', 'isoPrint', 'prPrintTable', 'prPrintDiag', '_wsOpenSheet'];
+        return fns.map(f => {
+          const src = (typeof window[f] === 'function') ? window[f].toString() : '';
+          return { f, has: !!src, tok: /var\(--fs-|var\(--r-card-lg|luIcon\(/.test(src), page: /page-break|@page|break-inside/.test(src) };
+        });
+      });
+      ok('[②] 인쇄 문서를 만드는 함수 8개에 새 토큰·아이콘이 섞이지 않았다(앞과 같은 글자 크기·쪽 나눔)',
+        pr.every(x => x.has && !x.tok), pr.map(x => x.f + (x.tok ? '✗' : '')).join(' · '));
+    }
+    if (W === 390) {
+      const m390 = await page.evaluate(async () => {
+        const bad = [];
+        for (const m of [...document.querySelectorAll('.mo')]) {
+          const was = m.style.display; m.classList.add('open'); if (was === 'none') m.style.display = 'flex';
+          await new Promise(r => setTimeout(r, 15));
+          const d = m.querySelector('.mdl,.mdl-xl');
+          if (d) { const b = d.getBoundingClientRect(); if (b.width > 0 && (b.right > innerWidth + 1 || b.left < -1)) bad.push(m.id); }
+          m.classList.remove('open'); m.style.display = was;
+        }
+        return bad;
+      });
+      ok('[②] 390px — 창이 화면을 넘지 않는다', m390.length === 0, m390.join(', ') || '0개');
+      await page.evaluate(async () => { swTab('t-dash'); await new Promise(r => setTimeout(r, 500)); });
+      await page.screenshot({ path: path.join(OUT, 'dash_390.png') }).catch(() => { });
+    }
+    await ctx.close();
+  }
+  // 학생 세 탭 · 학부모 두 탭
+  for (const W of [1366, 390]) {
+    {
+      const { ctx, page } = await makePage(browser, { role: 'student', sid: 'ux4-s1' }, { width: W, height: 800 });
+      for (const t of ['st-home', 'st-vocab', 'st-library']) {
+        const r = await page.evaluate(async (o) => {
+          currentStudentSid = 'ux4-s1'; if (o.t === 'st-home') renderStudentHome('ux4-s1');
+          swStuTab(o.t); await new Promise(r => setTimeout(r, 700));
+          return eval('(' + o.fn + ')')();
+        }, { t, fn: SIZE.toString() });
+        add(W + ' 학생 ' + t, r);
+      }
+      if (W === 390) await page.screenshot({ path: path.join(OUT, 'student_390.png') }).catch(() => { });
+      await ctx.close();
+    }
+    {
+      const { ctx, page } = await makePage(browser, { role: 'parent', sid: 'ux4-s1' }, { width: W, height: 800 });
+      for (const t of ['les', 'score']) {
+        const r = await page.evaluate(async (o) => {
+          currentParentSid = 'ux4-s1'; loadParent('ux4-s1'); await new Promise(r => setTimeout(r, 1200));
+          const b = document.querySelector('#s-parent .stu-bottomnav .stutab[data-ppnav="' + o.t + '"]'); if (b) b.click();
+          await new Promise(r => setTimeout(r, 600));
+          return eval('(' + o.fn + ')')();
+        }, { t, fn: SIZE.toString() });
+        add(W + ' 학부모 ' + t, r);
+      }
+      if (W === 390) await page.screenshot({ path: path.join(OUT, 'parent_390.png') }).catch(() => { });
+      await ctx.close();
+    }
+  }
+  ok('[②] 보이는 글자 11px 미만 0곳', agg.small.length === 0, agg.small.length + '곳');
+  agg.small.slice(0, 8).forEach(note);
+  ok('[②] 0.5px 단위 글자 0곳', agg.half.length === 0, agg.half.length + '곳');
+  agg.half.slice(0, 8).forEach(note);
+  ok('[②] 보이는 단추 높이 32px 미만 0곳 (체크·라디오 제외)', agg.btn.length === 0, agg.btn.length + '곳');
+  agg.btn.slice(0, 40).forEach(note);
+  ok('[②] 1366·1024·390px 문서 가로 넘침 0', agg.over.length === 0, agg.over.join(', ') || '0');
+  ok('[②] 글이 단추·칸 밖으로 삐져나온 곳 0', agg.spill.length === 0, agg.spill.length + '곳');
+  agg.spill.slice(0, 8).forEach(note);
+
   await browser.close();
   ok('콘솔 오류 0건', errs.length === 0, errs.slice(0, 4).join(' | '));
   console.log('\n가짜 서버가 받은 요청: 읽기 ' + reqs.get + '건 · 쓰기 ' + reqs.write + '건 (실제 서버로는 0건)');
