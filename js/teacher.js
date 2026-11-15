@@ -1342,8 +1342,12 @@ function renderVocabList(sid){
   if(hdrEl)hdrEl.textContent=(cards.length===allCards.length?`전체 ${allCards.length}개`:`${cards.length}개 표시 / 전체 ${allCards.length}개`)+(_todayN?` · 오늘 학습 ${_todayN}개`:'');
   if(!cards.length){listEl.innerHTML=`<div style="font-size:13px;color:var(--slate);padding:20px 0;text-align:center">${allCards.length?'검색/필터 결과 없음':'단어장이 비어있습니다'}</div>`;return;}
   const PHASE_LBL=['신규','학습중','숙달'];const PHASE_CLS=['bslate','bamber','bteal'];
-  const FIXED_SRC={리딩로그:'bamber',테스트:'bcoral',과제:'bnavy',직접추가:'bnavy'};
-  const srcBadge=src=>{if(!src)return'';if(FIXED_SRC[src])return`<span class="badge ${FIXED_SRC[src]}" style="font-size:9.5px">${src}</span>`;return`<span class="badge bteal" style="font-size:9.5px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(src)}">${src}</span>`;};
+  // 카드에 저장된 출처 값은 그대로 두고(옛 카드가 '과제'·'미션'), 보이는 말만 '숙제' 로 (2026-11-15)
+  const FIXED_SRC={리딩로그:'bamber',테스트:'bcoral',과제:'bnavy',미션:'bnavy',숙제:'bnavy',직접추가:'bnavy'};
+  const SRC_LBL={과제:'숙제',미션:'숙제'};
+  const srcBadge=src=>{if(!src)return'';const lbl=SRC_LBL[src]||src;
+    if(FIXED_SRC[src])return`<span class="badge ${FIXED_SRC[src]}" style="font-size:9.5px">${lbl}</span>`;
+    return`<span class="badge bteal" style="font-size:9.5px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(src)}">${lbl}</span>`;};
   const lvBadge=c=>{const lv=c.wlevel||'';if(!lv)return'';const col=lv.startsWith('Dolch')?'background:#e0f2fe;color:#0369a1':lv.startsWith('A')?'background:#dcfce7;color:#166534':lv.startsWith('B')?'background:#fef9c3;color:#92400e':lv.startsWith('C')?'background:#ffe4e6;color:#9f1239':'background:#f3e8ff;color:#7e22ce';return`<span style="font-size:9.5px;padding:1px 5px;border-radius:8px;${col}">${lv}</span>`;};
   const inp='padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--fb);background:var(--cream2);outline:none;box-sizing:border-box;width:100%';
   listEl.innerHTML=cards.map(c=>{
@@ -1728,7 +1732,7 @@ function openPrintReport(sid){
   openM('m-print-report');
 }
 function teacherUncompleteAssign(aid,sid){
-  askConfirm('완료 취소','이 과제의 완료 표시를 취소할까요?\n학생 앱에서도 미완료 상태로 되돌아갑니다.','되돌리기','bd',async()=>{
+  askConfirm('완료 취소','이 숙제의 완료 표시를 취소할까요?\n학생 앱에서도 미완료 상태로 되돌아갑니다.','되돌리기','bd',async()=>{
     const a=(_cache.assignments||[]).find(x=>x.id===aid);if(!a)return;
     delete a.completedAt;
     await supaUpsert('assignments',aid,a,sid);
@@ -1847,7 +1851,7 @@ async function loadStuPanel(sid){
         }).join('')}</tbody>
       </table>`}`;
 
-  // ── 과제 탭 (선생님: 숙제 할당 + 제출 확인) ──
+  // ── 과제 탭 (선생님: 숙제 내기 + 제출 확인) ──
   const sHws=ppLive(_cache.homeworks).filter(h=>h.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   setTimeout(()=>{try{irWeakCard(sid,'stu-weak-card');irPaintAsgnScores();}catch(e){}},0);   // 약점 카드 · 과제 옆 점수
   const sAssigns=ppLive(_cache.assignments).filter(a=>a.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
@@ -1891,7 +1895,7 @@ async function loadStuPanel(sid){
   document.getElementById('sp-hw').innerHTML=`
   ${_hwchBox}
   <div style="margin-bottom:12px">
-    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">${luIcon('clipboard-list',15)||''} 숙제 할당</div>
+    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">${luIcon('clipboard-list',15)||''} 숙제 내기</div>
     <div class="fg" style="margin-bottom:8px">
       <div class="f" style="margin-bottom:0"><label>날짜</label><input type="date" id="asgn-date-${sid}" value="${ppToday()}"></div>
       <div class="f" style="margin-bottom:0"><label>마감일</label><input type="date" id="asgn-due-${sid}" value="${tomorrowStr}"></div>
@@ -1910,12 +1914,12 @@ async function loadStuPanel(sid){
       <div class="f s2" style="margin-bottom:0"><label>범위/내용</label><input type="text" id="asgn-range-${sid}" list="dl-asgn-r-${sid}" autocomplete="off" placeholder="예: Unit 3 p.24-28 / Ch.1~3"><datalist id="dl-asgn-r-${sid}"></datalist></div>
     </div>
     <div id="asgn-extra-${sid}"></div>
-    <button class="btn bt bsm" style="width:100%" onclick="saveStudentAssign('${sid}')">할당</button>
+    <button class="btn bt bsm" style="width:100%" onclick="saveStudentAssign('${sid}')">내기</button>
   </div>
   <div id="stu-weak-card"></div>
   <div class="div-line"></div>
   ${sAssigns.length?`<div style="margin-bottom:8px">
-    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px">할당된 숙제 (${sAssigns.length}건)</div>
+    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px">낸 숙제 (${sAssigns.length}건)</div>
     ${sAssigns.map(a=>{
       const hw=sHws.find(h=>h.assignmentId===a.id);
       const submitted=!!hw;
@@ -1944,7 +1948,7 @@ async function loadStuPanel(sid){
               (()=>{ // 구분(직접 입력 포함)을 필로 표시하고, 빈 교재명일 때 고아 '·'가 남지 않게 join
                 const KC={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신',book:'원서',other:'기타'};
                 const cat=a.category?(KC[a.category]||a.category):'';
-                const main=[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')||'과제';
+                const main=[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')||'숙제';
                 return `${_catPill(cat)}${main}`;
               })()
             }</div>
@@ -1979,7 +1983,7 @@ async function loadStuPanel(sid){
       ${h.memo?`<div style="font-size:12px;color:var(--slate);margin-top:3px">💬 ${h.memo}</div>`:''}
     </div>`).join('')}
   </div>`:''}
-  ${!sAssigns.length&&!sHws.length?`<div class="empty boxed"><div class="empty-i">📤</div><div class="empty-t">할당된 과제가 없습니다</div><div class="empty-s">과제를 할당하면 제출·확인 현황이 여기에 표시됩니다</div><button class="btn bt bsm" onclick="openAssignModal('${sid}')">+ 과제 할당하기</button></div>`:''}
+  ${!sAssigns.length&&!sHws.length?`<div class="empty boxed"><div class="empty-i">📤</div><div class="empty-t">낸 숙제가 없습니다</div><div class="empty-s">숙제를 내면 제출·확인 현황이 여기에 표시됩니다</div><button class="btn bt bsm" onclick="openAssignModal('${sid}')">+ 숙제 내기</button></div>`:''}
   `;
 
   {const bf=document.getElementById('sp-brief');
@@ -2187,7 +2191,7 @@ function openEditStu(id){
    if(ec){const myCls=DB.classes().filter(c=>c.active!==false&&(c.studentIds||[]).includes(s.id));
      ec.innerHTML=myCls.length
        ?myCls.map(c=>`<span class="badge bteal">${c.name} · ${classSchedStr(c)}</span>`).join('')
-       :'<span style="font-size:13px;color:var(--slate)">소속 클래스 없음 — 클래스 탭에서 배정해 주세요</span>';}}
+       :'<span style="font-size:13px;color:var(--slate)">소속 클래스 없음 — 클래스 탭에서 넣어 주세요</span>';}}
   document.getElementById('es-parent-name').value=s.parentName||'';
   document.getElementById('es-parent-phone').value=s.parentPhone||'';
   document.getElementById('es-paid-date').value=ppToday();
@@ -2484,10 +2488,10 @@ function addSRowTo(wrapperId,s,bookVal,unitVal,bookId,daysVal,runVal){
     // 진행 방식 — 같은 영역에서도 교재가 동시에 돌 수 있다 (1200은 수업 중, 요즘 초등 영단어는 과제)
     const rv=String(runVal||'');
     const runSel=`<select data-f="run" class="sr-run${rv?' on':''}" onchange="_ecRunChange(this)"
-      title="기본 = 앞 교재가 끝나면 이어서 진행 (한 줄)&#10;동시·수업 = 이 교재부터 새 줄을 열어 수업일마다 1과&#10;동시·과제 = 이 교재부터 새 줄을 열어 수업 없는 날 1과씩&#10;새 줄은 다른 줄을 기다리지 않고 함께 진행됩니다">
+      title="기본 = 앞 교재가 끝나면 이어서 진행 (한 줄)&#10;동시·수업 = 이 교재부터 새 줄을 열어 수업일마다 1과&#10;동시·숙제 = 이 교재부터 새 줄을 열어 수업 없는 날 1과씩&#10;새 줄은 다른 줄을 기다리지 않고 함께 진행됩니다">
       <option value=""${rv===''?' selected':''}>${isNext?'↳ 앞 교재 끝나면':'기본 진행'}</option>
       <option value="class"${rv==='class'?' selected':''}>⇵ 동시 · 수업</option>
-      <option value="hw"${rv==='hw'?' selected':''}>⇵ 동시 · 과제</option>
+      <option value="hw"${rv==='hw'?' selected':''}>⇵ 동시 · 숙제</option>
     </select>`;
     const cell3=`<div class="sr-c3">${dayChips}${runSel}</div>`;
     if(rv)d.classList.add('sr-par');
@@ -2790,7 +2794,7 @@ function _ecRunChange(sel){
   sel.classList.toggle('on',!!sel.value);
   const row=sel.closest('.sr');
   if(row)row.classList.toggle('sr-par',!!sel.value);
-  if(sel.value)toast(sel.value==='hw'?'이 교재부터 새 줄 — 과제로 진행':'이 교재부터 새 줄 — 수업 중 진행');
+  if(sel.value)toast(sel.value==='hw'?'이 교재부터 새 줄 — 숙제로 진행':'이 교재부터 새 줄 — 수업 중 진행');
 }
 // ── 접히는 사용법 ──
 // 캘린더 밑에 한 줄로 늘어놓던 조작 설명(최대 272자)은 읽히지 않고 화면만 눌렀다.
@@ -3250,9 +3254,9 @@ function showLesFollowup(sid,date,stuName){
     </div>
     <div id="les-fu-assign">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0">
-        <span style="font-size:14px;font-weight:600">${luIcon('clipboard-list',15)||''} 과제 할당할까요?</span>
+        <span style="font-size:14px;font-weight:600">${luIcon('clipboard-list',15)||''} 숙제를 낼까요?</span>
         <div style="display:flex;gap:6px">
-          <button class="btn bt bsm" onclick="showInlineAssign('${sid}','${date}')">할당</button>
+          <button class="btn bt bsm" onclick="showInlineAssign('${sid}','${date}')">내기</button>
           <button class="btn bo bsm" onclick="hideLesFollowup()">닫기</button>
         </div>
       </div>
@@ -3304,7 +3308,7 @@ function showInlineAssign(sid,date){
   const due=new Date(date);due.setDate(due.getDate()+1);
   const dueStr=due.toISOString().split('T')[0];
   el.innerHTML=`<div style="padding:10px 0">
-    <div style="font-size:13px;font-weight:700;margin-bottom:8px">${luIcon('clipboard-list',15)||''} 과제 간편 할당</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:8px">${luIcon('clipboard-list',15)||''} 숙제 간편하게 내기</div>
     <div class="fg" style="margin-bottom:6px">
       <div class="f" style="margin:0"><label>종류</label>
         <select id="fu-atype" onchange="renderFuAssignFields()">
@@ -3378,8 +3382,8 @@ async function saveFuAssign(sid,date){
   await supaUpsert('assignments',a.id,a,sid);
   if(!_cache.assignments)_cache.assignments=[];
   _cache.assignments.unshift(a);
-  document.getElementById('les-fu-assign').innerHTML=`<div style="font-size:13px;color:var(--tealt);padding:6px 0">✅ 과제 할당됨</div>`;
-  toast('과제 할당됨');
+  document.getElementById('les-fu-assign').innerHTML=`<div style="font-size:13px;color:var(--tealt);padding:6px 0">✅ 숙제 냈어요</div>`;
+  toast('숙제 냈어요');
   }catch(e){
     console.error('saveFuAssign:',e);
     toast('저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
@@ -6374,7 +6378,7 @@ function tuSentHint(tb,unitKey){
   const el=document.getElementById('tu-sentcloze-hint');if(!el)return;
   if(!tb||typeof sentLines!=='function'){el.textContent='';return;}
   const lines=sentLines(tb,unitKey);
-  if(!lines.length){el.innerHTML='<span style="color:var(--warnt)">문장이 없어 문장 학습 미션이 뜨지 않습니다</span>';return;}
+  if(!lines.length){el.innerHTML='<span style="color:var(--warnt)">문장이 없어 문장 숙제가 뜨지 않습니다</span>';return;}
   const cw=sentClozeWords(tb,unitKey);
   const ko=lines.filter(r=>r.ko).length;
   el.textContent='문장 '+lines.length+'개 (해석 있는 것 '+ko+'개) · 빈칸: '+(cw.length?cw.join(', '):'없음');
@@ -7026,6 +7030,7 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-15',title:'이름이 바뀌었어요 — 과제 → 숙제 (메뉴·단추·안내 글)',where:'선생님·학부모 화면 전체',tab:'t-assign',go:['renderAssignTab']},
  {date:'2026-11-15',title:'진도 캘린더 — 수업은 위 알약, 숙제는 아래 체크 줄로 나눠 보여요',where:'클래스 → 진도 캘린더',tab:'t-class',go:['renderClassTab']},
  {date:'2026-11-15',title:'대시보드 — 오늘 수업과 바로 할 일이 맨 위로',where:'대시보드',tab:'t-dash',go:['swTab','t-dash']},
  {date:'2026-11-15',title:'교재·문제 — 탭을 자료·만들기·관리 세 묶음으로',where:'교재·문제',tab:'t-data',go:['switchDataTab','library']},
@@ -8033,7 +8038,7 @@ function _bhHomeHtml(tb){
       +(cls.length?cls.map(r=>'<div class="bh-row"><span class="bh-cls">'+_ebE(r.name)+'</span>'
         +'<span class="bh-st '+r.state+'">'+({done:'끝냄',now:'지금',next:'앞으로'}[r.state]||'')+'</span>'
         +'<span class="bh-num">'+(r.state==='next'?'-':(r.done+' / '+r.total+'과'))+'</span>'
-        +'<span class="bh-mode">'+({hw:'과제 줄',class:'수업 줄',alt:'교대',perClass:'매 수업'}[r.mode]||'')+'</span>'
+        +'<span class="bh-mode">'+({hw:'숙제 줄',class:'수업 줄',alt:'교대',perClass:'매 수업'}[r.mode]||'')+'</span>'
         +'<button class="btn bo bxxs" onclick="closeM(\'m-tbook-detail\');swTab(\'t-class\');setTimeout(()=>openClsDetail(\''+r.cls.id+'\'),200)">진도 보드</button></div>').join('')
         :'<div class="bh-none">아직 이 책을 쓰는 반이 없어요</div>')
     +'</div>'
@@ -8043,7 +8048,7 @@ function _bhHomeHtml(tb){
           return '<div class="bh-row"><span class="bh-cls">'+_ebE(nameOf(a.sid))+'</span>'
             +'<span class="bh-mode">'+_ebE((typeof ppHwRuleLabel==='function')?ppHwRuleLabel(a):'')+'</span>'
             +'<span class="bh-num">'+st.doneCount+' / '+st.total+'일</span>'
-            +'<button class="btn bo bxxs" onclick="closeM(\'m-tbook-detail\');pgGoAssign(\''+escJsA(a.sid)+'\',\''+escJsA(a.id)+'\')">과제 탭</button></div>';
+            +'<button class="btn bo bxxs" onclick="closeM(\'m-tbook-detail\');pgGoAssign(\''+escJsA(a.sid)+'\',\''+escJsA(a.id)+'\')">숙제 탭</button></div>';
         }).join('')
         :'<div class="bh-none">이 책으로 도는 교재형 숙제가 없어요</div>')
     +'</div></div>';
@@ -10629,7 +10634,7 @@ function renderDashWeekHeat(stus,todayStr){
     return'<td style="padding:3px"><div title="완료 '+c.done+' / '+c.total+'" style="height:26px;border-radius:7px;background:'+bg+';color:'+fg+';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">'+c.done+'/'+c.total+'</div></td>';
   };
   el.innerHTML='<div class="card"><div class="ch"><span class="ct">'+luIcon('flame',16)+'이번 주 학습 현황</span>'
-    +'<span style="font-size:11.5px;color:var(--slate)">과제·미션 완료/배정</span></div>'
+    +'<span style="font-size:11.5px;color:var(--slate)">숙제 끝낸 수/낸 수</span></div>'
     +'<div class="cb" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:420px">'
     +'<thead><tr><th style="text-align:left;font-size:12px;color:var(--slate);padding:3px;width:72px">학생</th>'
     +days.map(d=>'<th style="font-size:12px;padding:3px;color:'+(d.isToday?'var(--teal)':'var(--slate)')+'">'+d.lb+(d.isToday?'·오늘':'')+'</th>').join('')+'</tr></thead>'
@@ -11281,7 +11286,7 @@ function renderDashStats(recordedToday,totalToday,uncheckedTotal,unpaidCount,stu
           `<div class="dash-stat-sub"><div class="dash-bar-bg" style="margin-top:2px"><div class="dash-bar-fill" style="width:${pctToday}%"></div></div></div>`)
       : card('오늘 수업',luIcon('calendar-check',16),'','없음','',
           `<div class="dash-stat-sub" style="word-break:keep-all">${escAttr(_dashNextClassLine(ppToday()))}</div>`))
-    +card('미확인 과제',luIcon('inbox',16),uncheckedTotal?'st-amber':'',uncheckedTotal,'건',
+    +card('확인할 숙제',luIcon('inbox',16),uncheckedTotal?'st-amber':'',uncheckedTotal,'건',
       `<div class="dash-stat-sub" style="color:${uncheckedTotal?'var(--warnt)':'var(--slate)'}">${uncheckedTotal?'제출 확인이 필요해요':'모두 확인됨'}</div>`)
     +card('이번 달 미납',luIcon('wallet',16),unpaidCount?'st-amber':'',unpaidCount,'명',
       `<div class="dash-stat-sub" style="color:${unpaidCount?'var(--warnt)':'var(--slate)'}">${unpaidCount?'납입 안내가 필요해요':'모두 완납'}</div>`)
@@ -11513,7 +11518,7 @@ function dashFillToggle(){_dashFillAll=!_dashFillAll;renderDashFill();}
 // 느슨하게 잡았다가 목록이 무의미해지는 걸 저장 전에 알 수 있게.
 const _BM_TH_FIELDS=[
   ['missDays','수업 기록 없음을 찾을 기간','일',1,30],
-  ['hwRecentN','최근 과제 몇 건을 볼지','건',1,20],
+  ['hwRecentN','최근 숙제 몇 건을 볼지','건',1,20],
   ['hwMissM','그 중 미완 몇 건이면 신호','건',1,20],
   ['absentWeeks','결석을 볼 기간','주',1,52],
   ['absentN','그 기간에 결석 몇 회면 신호','회',1,30],
@@ -11619,7 +11624,7 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
   // 우선순위 1: 미확인 숙제
   Object.entries(uncheckedHwByStu).forEach(([sid,cnt])=>{
     const s=stus.find(x=>x.id===sid);if(!s)return;
-    items.push({icon:luIcon('inbox',15),chip:'',text:`${s.name} — 과제 제출 ${cnt}건 미확인`,label:'확인',action:`openStuPanelTab('${sid}','sp-hw')`});
+    items.push({icon:luIcon('inbox',15),chip:'',text:`${s.name} — 숙제 제출 ${cnt}건 미확인`,label:'확인',action:`openStuPanelTab('${sid}','sp-hw')`});
   });
   // 우선순위 1.5: 기한 지난 미제출 — 학생이 해야 할 일.
   // 위의 '검토 대기'(교사가 해야 할 일)와 합치지 않는다.
@@ -12191,11 +12196,11 @@ function asgSrcLabel(a){
     const _rl=(typeof ppHwRuleLabel==='function')?ppHwRuleLabel(a):'';
     return '🔁 반복 숙제'+(_rl?' ('+_rl+')':'');
   }
-  if(a.type==='mission')return '🎯 학습 미션';
+  if(a.type==='mission')return '🎯 유닛 숙제';
   if(a.type==='worksheet')return '🗒️ 워크시트';
   if(a.note==='복습'&&a.classId)return '📕 숙제 캘린더 (수업 연계)';
   if(a.common)return '📝 수업 기록 폼 (반 공통)';
-  return '✍️ 직접 할당';
+  return '✍️ 직접 내기';
 }
 // ── 숙제 캘린더 (과제 메뉴) — 학생별 보기 ──
 // 실제 할당된 과제(진한 칩: 스케줄형은 날짜별, 일반형은 마감일) + 수업 연계 숙제 제안(점선 📕)
@@ -12285,7 +12290,7 @@ let _hwNextCtx=null;
 function hwContinueOpen(sid,tbId,unit){
   const pl=(typeof ppHwNextPlan==='function')?ppHwNextPlan(sid,tbId,{unit:unit||''}):null;
   if(!pl||!pl.n){
-    toast('이어서 낼 날을 못 찾았어요 — 과제 창에서 직접 만들어 주세요');
+    toast('이어서 낼 날을 못 찾았어요 — 숙제 창에서 직접 만들어 주세요');
     if(typeof openRecurNext==='function')openRecurNext(sid,tbId,unit||'','');
     return;
   }
@@ -12362,7 +12367,7 @@ async function _pgFlowAddBook(classId,tbId,run){
   const i=(_cache.globalClasses||[]).findIndex(x=>x.id===classId);if(i>=0)_cache.globalClasses[i]=c;
   _pgChkCache={};
   renderClsLessons(classId);
-  toast(tb.title+' — '+(run==='hw'?'과제':'수업')+' 줄로 넣었어요');
+  toast(tb.title+' — '+(run==='hw'?'숙제':'수업')+' 줄로 넣었어요');
   return true;
 }
 // 그 책을 영역 체인의 **끝으로 옮기고 과제 줄로** 표시한다.
@@ -12390,7 +12395,7 @@ async function pgMoveToHwTrack(classId,tbId,silent){
   const i=(_cache.globalClasses||[]).findIndex(x=>x.id===classId);if(i>=0)_cache.globalClasses[i]=c;
   _pgChkCache={};
   if(!silent)renderClsLessons(classId);
-  toast(tb.title+' — 과제 줄로 옮겼어요');
+  toast(tb.title+' — 숙제 줄로 옮겼어요');
 }
 // 과제 창에서 만든 교재형 숙제도 교재 흐름에 잇는다 (기본값은 '넣기')
 async function _hwFlowLink(sid,tbId){
@@ -12402,7 +12407,7 @@ async function _hwFlowLink(sid,tbId){
     askConfirm('이 반 교재 흐름에도 넣을까요?',
       tb.title+' 은(는) 아직 「'+c.name+'」 교재 흐름에 없어요.'+String.fromCharCode(10)+String.fromCharCode(10)
       +'넣으면 진도 보드·예정 칩·완료 예정일이 이 책을 함께 셉니다.'+String.fromCharCode(10)
-      +'('+(tb.category||'')+' 영역 · 과제 줄)',
+      +'('+(tb.category||'')+' 영역 · 숙제 줄)',
       '넣기','bt',async()=>{await _pgFlowAddBook(c.id,tb.id,'hw');});
     return;
   }
@@ -12410,9 +12415,9 @@ async function _hwFlowLink(sid,tbId){
   let mode='';
   flow.forEach(ar=>(ar.tracks||[]).forEach(t=>{if((t.books||[]).some(b=>b.tb&&b.tb.id===tb.id))mode=t.mode;}));
   if(mode==='class'){
-    askConfirm('과제 줄로 옮길까요?',
+    askConfirm('숙제 줄로 옮길까요?',
       tb.title+' 은(는) 「'+c.name+'」에서 수업 중 진행으로 잡혀 있어요.'+String.fromCharCode(10)
-      +'숙제로 내보낼 책이면 과제 줄로 옮기는 게 맞습니다.','옮기기','bt',
+      +'숙제로 내보낼 책이면 숙제 줄로 옮기는 게 맞습니다.','옮기기','bt',
       async()=>{await pgMoveToHwTrack(c.id,tb.id,true);if(_currentClsId)renderClsLessons(_currentClsId);});
   }
 }
@@ -12503,7 +12508,7 @@ function renderAssignCal(){
     // 아직 내기 전 수업 연계 숙제 제안 (점선 줄, 진도 캘린더와 동일)
     (hwBy[ds]||[]).filter(h=>!h.assigned).forEach(hw=>{
       hwList.push({label:hw.unit,color:_PG_CAT_COLORS[hw.subject]||'var(--text-muted)',sug:true,
-        tip:(SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=할당·취소 선택)',
+        tip:(SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=내기·취소 선택)',
         click:`hwChipMenu(event,'${stCls?stCls.id:''}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')`});
     });
     cells+=`<div class="pg-cell${isClassDay?' cd':''}${isToday?' today':''}${ds<todayStr?' past':''}" onclick="showAssignDateDetail('${ds}')"><div class="pg-dnum">${d}</div>`
@@ -12522,7 +12527,7 @@ ${_PG_AREA_KEY_HTML().replace(/pp-key-i/g,'pg-lg')}
       <span class="pg-lg" title="줄 색은 그 책의 영역입니다 — 종류는 꼴(체크 줄=숙제·점선 줄=제안)로 가릅니다" style="font-weight:700">색 = 영역</span>
     </div>
     ${banners.map(bn=>bn.kind==='pick-next'
-      ?`<div style="${_bnStyle}">📚 <b>${escAttr(bn.title)}</b> 단원을 전부 끝냈어요! 다음 교재를 고르면 같은 방식으로 이어서 할당됩니다. <button class="btn bt bxxs" onclick="openRecurNext('${sid}')">다음 교재 선택</button></div>`
+      ?`<div style="${_bnStyle}">📚 <b>${escAttr(bn.title)}</b> 단원을 전부 끝냈어요! 다음 교재를 고르면 같은 방식으로 이어서 나갑니다. <button class="btn bt bxxs" onclick="openRecurNext('${sid}')">다음 교재 선택</button></div>`
       :`<div style="${_bnStyle}">📚 ${bn.soon
           ?`<b>${escAttr(bn.prevTitle||'')}</b> 숙제가 ${bn.prevEnd?escAttr(bn.prevEnd.slice(5).replace('-','/'))+'에 ':''}끝나요 — 다음 교재 <b>${escAttr(bn.title)}</b>를 이어서 내면 빈 날이 없어요`
           :`<b>${escAttr(bn.title)}</b> 숙제가 아직 없어요`}${bn.unit?` — 시작 단원 <b>${escAttr(bn.unit)}</b>`:''}${bn.days?` · 직전 숙제 요일 ${escAttr(bn.days)}`:''}
@@ -12547,7 +12552,7 @@ function showAssignDateDetail(dateStr){
   });
   const stus=DB.stus();
   const CAT_LABELS={'worksheet':'워크시트','phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
-  if(!assigns.length){toast(`${dateStr} — 할당된 과제 없음`);return;}
+  if(!assigns.length){toast(`${dateStr} — 낸 숙제 없음`);return;}
   const rows=assigns.map(a=>{
     const s=stus.find(x=>x.id===a.sid);
     const cat=a.category?(CAT_LABELS[a.category]||a.category):''; // 직접 입력 구분은 그대로 표시
@@ -12568,7 +12573,7 @@ function showAssignDateDetail(dateStr){
       <div style="display:flex;gap:8px;align-items:flex-start">
         <span style="font-weight:700;font-size:14px;min-width:48px">${s?.name||'—'}</span>
         <div style="flex:1;font-size:13px">${doneNow?'✅ ':''}${cat?`<span style="color:var(--teal)">[${cat}]</span> `:''}${[book,a.range].filter(Boolean).join(' · ')}
-          <div style="font-size:12px;color:var(--slate);margin-top:2px">출처: ${asgSrcLabel(a)} · ${a.date||''} 할당${a.paperId?`<span data-asg-paper="${escAttr(a.paperId)}" data-asg-sid="${escAttr(a.sid||'')}"></span>`:''}</div>
+          <div style="font-size:12px;color:var(--slate);margin-top:2px">출처: ${asgSrcLabel(a)} · ${a.date||''} 냄${a.paperId?`<span data-asg-paper="${escAttr(a.paperId)}" data-asg-sid="${escAttr(a.sid||'')}"></span>`:''}</div>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0">${btns}</div>
       </div>
@@ -12581,7 +12586,7 @@ function showAssignDateDetail(dateStr){
   el.id='assign-detail-modal';
   el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:var(--rs);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:2000;padding:20px;min-width:280px;max-width:480px;width:90vw;max-height:70vh;overflow-y:auto';
   const closeDetail=()=>{document.getElementById('assign-detail-modal')?.remove();document.getElementById('assign-detail-overlay')?.remove();};
-  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-size:15px;font-weight:700">${dateStr} 과제 (${assigns.length}건)</span><button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--slate)" onclick="(()=>{document.getElementById('assign-detail-modal')?.remove();document.getElementById('assign-detail-overlay')?.remove();})()">×</button></div>${rows}`;
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-size:15px;font-weight:700">${dateStr} 숙제 (${assigns.length}건)</span><button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--slate)" onclick="(()=>{document.getElementById('assign-detail-modal')?.remove();document.getElementById('assign-detail-overlay')?.remove();})()">×</button></div>${rows}`;
   const overlay=document.createElement('div');
   overlay.id='assign-detail-overlay';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1999';
@@ -12687,9 +12692,9 @@ function openBulkAssign(classId){
   {const sel=document.getElementById('modal-assign-stu');if(sel)sel.value='';
    const sf=document.getElementById('modal-assign-stu-f');if(sf)sf.style.display='none';}
   const ex=document.getElementById('modal-assign-extra');
-  if(ex&&c)ex.innerHTML=`<div class="ib iba" style="margin-top:10px;font-size:12.5px">${luIcon('users',14)||''} <b>${escAttr(c.name||'이 반')}</b> 학생 ${n}명에게 한 번에 할당합니다.<br>반복·미션·워크시트·클래스5 는 일괄 할당이 안 됩니다 — 한 명씩 내 주세요.</div>`;
+  if(ex&&c)ex.innerHTML=`<div class="ib iba" style="margin-top:10px;font-size:12.5px">${luIcon('users',14)||''} <b>${escAttr(c.name||'이 반')}</b> 학생 ${n}명에게 한 번에 냅니다.<br>반복·유닛 숙제·워크시트·클래스5 는 한꺼번에 낼 수 없습니다 — 한 명씩 내 주세요.</div>`;
   const mt=document.querySelector('#m-add-assign .mt');
-  if(mt&&c)mt.textContent='📋 '+(c.name||'반')+' 일괄 할당';
+  if(mt&&c)mt.textContent='📋 '+(c.name||'반')+' 한꺼번에 내기';
 }
 function _bulkStus(){
   const c=DB.classes().find(x=>x.id===_bulkClassId);
@@ -12699,7 +12704,7 @@ function _bulkStus(){
 
 // ── TEACHER ASSIGN TAB ──
 function _assignItemHtml(a,hws){
-  const CAT_LABELS={'mission':'미션','worksheet':'워크시트','phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
+  const CAT_LABELS={'mission':'유닛 숙제','worksheet':'워크시트','phonics':'파닉스','vocab':'어휘','grammar':'어법','reading':'리딩','listening':'리스닝','writing':'라이팅','naesin':'내신','book':'원서','class5':'클래스5','recur':'반복','other':'기타'};
   const hw=hws.find(h=>h.assignmentId===a.id);
   const catLabel=a.category?(CAT_LABELS[a.category]||a.category):''; // 직접 입력 구분은 그대로 표시
   const statusCls=a.completedAt?'bgreen':hw?'bamber':'';
@@ -12752,7 +12757,7 @@ function renderAssignStats(){
   const dueToday=pending.filter(x=>x.st.todayPending);       // 단건=마감이 오늘 · 일정형=오늘 몫 미완료
   const late=pending.filter(x=>x.st.overdueRows14>0);        // 최근 2주 안에 안 한 날이 있는 과제
   const tipOf=list=>list.slice(0,12).map(x=>
-      `${_nameOf(x.a.sid)} · ${String(x.a.bookTitle||x.a.text||x.a.range||'과제').slice(0,22)} — ${x.st.overdueRows14}일`)
+      `${_nameOf(x.a.sid)} · ${String(x.a.bookTitle||x.a.text||x.a.range||'숙제').slice(0,22)} — ${x.st.overdueRows14}일`)
     .join('\n')+(list.length>12?`\n… 외 ${list.length-12}건`:'');
   const unchecked=ppLive(_cache.homeworks).filter(h=>h.submitted&&!h.checked).length;
   // [A3] 카드를 누르면 아래 '진행 중인 과제' 목록이 그 조건으로 걸러진다
@@ -12761,10 +12766,10 @@ function renderAssignStats(){
     <div class="dash-stat-num"${subColor?` style="color:${subColor}"`:''}>${num}${unit?`<small> ${unit}</small>`:''}</div>
   </div>`;
   el.innerHTML=
-    card('진행 중','📋','',pending.length,'건','','아직 끝나지 않은 과제 (일정형은 모든 날을 끝내면 빠집니다) · 누르면 아래 목록이 걸러집니다','')
-    +card('오늘 마감','⏰',dueToday.length?'st-amber':'',dueToday.length,'건',dueToday.length?'var(--tealt)':'','오늘 몫이 아직 안 끝난 과제 · 누르면 아래 목록이 걸러집니다','today')
+    card('진행 중','📋','',pending.length,'건','','아직 끝나지 않은 숙제 (일정형은 모든 날을 끝내면 빠집니다) · 누르면 아래 목록이 걸러집니다','')
+    +card('오늘 마감','⏰',dueToday.length?'st-amber':'',dueToday.length,'건',dueToday.length?'var(--tealt)':'','오늘 몫이 아직 안 끝난 숙제 · 누르면 아래 목록이 걸러집니다','today')
     +card('미제출(지남)','⚠️',late.length?'st-amber':'',late.length,'건',late.length?'var(--warnt)':'',
-      (late.length?('최근 2주 안에 밀린 날이 있는 과제\n'+tipOf(late)):'밀린 과제가 없습니다')+'\n누르면 아래 목록이 걸러집니다','late')
+      (late.length?('최근 2주 안에 밀린 날이 있는 숙제\n'+tipOf(late)):'밀린 숙제가 없습니다')+'\n누르면 아래 목록이 걸러집니다','late')
     +card('확인 대기','📥',unchecked?'st-green':'',unchecked,'건',unchecked?'var(--okt)':'','학생이 올린 숙제 중 아직 확인하지 않은 것');
 }
 // ── 학습기록 리셋 (P6) ──
@@ -12841,7 +12846,7 @@ function renderAssignLive(){
   // 짧은 이름은 **교재형 숙제에만** — '리딩앤 원서 읽기' 가 '읽기' 로 줄던 것
   const _shOf=a=>((typeof hwIsBookFlow==='function'&&hwIsBookFlow(a))
       ?(pgShortTitle('',a.bookTitle||'',a.bookId||'')||a.bookTitle||'')
-      :'')||a.bookTitle||a.text||a.range||'과제';
+      :'')||a.bookTitle||a.text||a.range||'숙제';
   // 이름이 같은 과제가 둘 이상이면 이름 아래 작은 글로 가른다 ('클래스5' 두 줄이 구분되지 않았다)
   const _same={};rows.forEach(x=>{const k=x.a.sid+'|'+_shOf(x.a);_same[k]=(_same[k]||0)+1;});
   const _subOf=(a,st,sh)=>{
@@ -12869,7 +12874,7 @@ function renderAssignLive(){
     const nx=sch.find(r=>r&&!r.done&&r.date>=today)||sch.find(r=>r&&!r.done);
     const rule=(typeof ppHwRuleLabel==='function')?ppHwRuleLabel(a):'';
     const on=_alFocus===a.id;
-    return '<div class="al-row'+(on?' on':'')+'" onclick="alFocus(\''+escJsA(a.id)+'\')" title="달력에서 이 과제만 진하게 보기">'
+    return '<div class="al-row'+(on?' on':'')+'" onclick="alFocus(\''+escJsA(a.id)+'\')" title="달력에서 이 숙제만 진하게 보기">'
       +'<span class="al-nm">'+escAttr(sh)+(multi?'<em>'+escAttr(nameOf(a.sid))+'</em>':'')
         +(sub?'<i class="al-sub" title="'+escAttr(sub)+'">'+escAttr(sub)+'</i>':'')+'</span>'
       +'<span class="al-kind">'+escAttr(_alKind(a))+'</span>'
@@ -12885,15 +12890,15 @@ function renderAssignLive(){
       +'</span></div>';
   };
   const head='<div class="al-row al-head">'
-    +'<span class="al-nm">과제</span><span class="al-kind">종류</span><span class="al-rule">요일</span>'
+    +'<span class="al-nm">숙제</span><span class="al-kind">종류</span><span class="al-rule">요일</span>'
     +'<span class="al-bar"></span><span class="al-num">진행</span><span class="al-next">다음 몫</span>'
     +'<span class="al-end">끝나는 날</span><span class="al-late">밀린 날</span><span class="al-act"></span></div>';
   const fl=[['','진행 중 '+live.length],['today','오늘 몫 '+live.filter(x=>x.st.todayPending).length],
             ['late','밀림 '+live.filter(x=>x.st.overdueRows14>0).length]];
-  let h='<div class="card al-card"><div class="ch"><span class="ct">'+(luIcon('list-checks',16)||'')+' 진행 중인 과제</span>'
+  let h='<div class="card al-card"><div class="ch"><span class="ct">'+(luIcon('list-checks',16)||'')+' 진행 중인 숙제</span>'
     +'<span class="al-fl">'+fl.map(([k,n])=>'<button class="btn '+(_alFilter===k?'bt':'bo')+' bxxs" onclick="alSetFilter(\''+k+'\')">'+n+'</button>').join('')+'</span>'
     +(_alFocus?'<button class="btn bo bxxs" onclick="alFocus(\'\')">강조 끄기</button>':'')+'</div><div class="cb al-body">';
-  if(!show.length)h+='<div class="eb-empty" style="padding:14px">'+(live.length?'이 조건에 맞는 과제가 없어요':'지금 도는 과제가 없습니다')+'</div>';
+  if(!show.length)h+='<div class="eb-empty" style="padding:14px">'+(live.length?'이 조건에 맞는 숙제가 없어요':'지금 도는 숙제가 없습니다')+'</div>';
   else{
     h+=head;
     if(multi){
@@ -12904,7 +12909,7 @@ function renderAssignLive(){
     }else h+=show.map(line).join('');
   }
   if(fin.length){
-    h+='<div class="al-done"><button class="btn bo bxxs" onclick="alDoneToggle()">끝난 과제 '+fin.length+'건 '+(_alDoneOpen?'▴':'▾')+'</button>'
+    h+='<div class="al-done"><button class="btn bo bxxs" onclick="alDoneToggle()">끝난 숙제 '+fin.length+'건 '+(_alDoneOpen?'▴':'▾')+'</button>'
       +(_alDoneOpen?('<div class="al-done-b">'+head+fin.map(line).join('')+'</div>'):'')+'</div>';
   }
   h+='</div></div>';
@@ -12964,7 +12969,7 @@ function renderAssignTab(){
         </div>
         <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
           ${pending?`<span class="badge bcoral">${pending}</span>`:''}
-          <button class="btn bt bsm" style="font-size:11.5px" onclick="openAssignModal('${s.id}')">+ 과제</button>
+          <button class="btn bt bsm" style="font-size:11.5px" onclick="openAssignModal('${s.id}')">+ 숙제</button>
         </div>
       </div>
       <div class="assign-card-body">
@@ -12972,7 +12977,7 @@ function renderAssignTab(){
       </div>
     </div>`;
   }).filter(Boolean).join('');
-  el.innerHTML=`<div class="assign-grid">${cards||'<div style="color:var(--slate);font-size:14px">과제 없음</div>'}</div>`;
+  el.innerHTML=`<div class="assign-grid">${cards||'<div style="color:var(--slate);font-size:14px">숙제 없음</div>'}</div>`;
 }
 function c5BookLbl(a){const sc=a.schedule||[];if(!sc.length)return '';const f=sc[0];const c=[f.book,f.unit].filter(Boolean).join(', ');return sc.length>1?c+` 외 ${sc.length-1}일`:c;}
 let _editAssignId=null;
@@ -12983,9 +12988,9 @@ function closeAssignModal(){
   _editAssignId=null;
   if(typeof _bulkClassId!=='undefined')_bulkClassId='';
   const mt=document.querySelector('#m-add-assign .mt');
-  if(mt)mt.textContent='📋 과제 할당';
+  if(mt)mt.textContent='📋 숙제 내기';
   const sb=document.getElementById('assign-save-btn');
-  if(sb)sb.textContent='할당';
+  if(sb)sb.textContent='내기';
   const ex=document.getElementById('modal-assign-extra');
   if(ex)ex.innerHTML='';
   closeM('m-add-assign');
@@ -12994,8 +12999,8 @@ function openAssignModal(sid){
   _editAssignId=null;
   if(typeof _bulkClassId!=='undefined')_bulkClassId='';
   const mt=document.querySelector('#m-add-assign .mt');
-  if(mt)mt.textContent='📋 과제 할당';
-  {const sb=document.getElementById('assign-save-btn');if(sb)sb.textContent='할당';}
+  if(mt)mt.textContent='📋 숙제 내기';
+  {const sb=document.getElementById('assign-save-btn');if(sb)sb.textContent='내기';}
   document.getElementById('modal-assign-stu').value=sid||'';
   {const sf=document.getElementById('modal-assign-stu-f');if(sf)sf.style.display='';}   // 일괄 할당에서 숨겼던 것 되돌리기
   const today=ppToday();
@@ -13024,7 +13029,7 @@ function _schedEditorHtml(a){
   const doneN=rows.filter(r=>r.done).length;
   return `<div style="margin-top:10px;border:1.5px solid var(--teal);border-radius:var(--rs);padding:12px;background:var(--tl)">
     <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px">🗓 날짜별 일정 ${rows.length}일${doneN?` <span style="font-weight:400;color:var(--okt)">· 완료 ${doneN}일</span>`:''}</div>
-    <div style="font-size:11.5px;color:var(--slate);line-height:1.6;margin-bottom:8px">날짜·내용을 직접 고치고, ×로 하루를 빼고, 줄을 더할 수 있어요.<br>완료 표시는 날짜를 그대로 두면 유지됩니다. 과제 자체를 없애려면 목록의 '삭제'를 쓰세요.${a.auto?`<br><b style="color:var(--warnt)">자동 진행(못 한 날 밀림)이 켜져 있습니다 — 손으로 고치면 꺼집니다.</b>`:''}${(typeof hwIsBookFlow==='function'&&hwIsBookFlow(a)&&!a.auto&&!a.noUnitSync)?`<br><b style="color:var(--tealt)">교재형 숙제 — 날짜는 그대로 두고 <u>단원만</u> 수업 진도에 맞춥니다.</b>`:''}${(a.schedulePrev||[]).length?`<br><button class="btn bo bxxs" style="margin-top:4px" onclick="hwUndoUnitSync('${a.id}')">↩ 자동으로 맞춘 내용 되돌리기</button>`:''}${(typeof hwIsBookFlow==='function'&&hwIsBookFlow(a)&&!a.auto)?`<br><button class="btn bo bxxs" style="margin-top:4px" title="일정에서 요일을 읽어 규칙으로 바꿉니다 — 못 한 날이 자동으로 밀립니다" onclick="hwToRule('${a.id}')">🗓 요일 규칙으로 바꾸기</button>`:''}</div>
+    <div style="font-size:11.5px;color:var(--slate);line-height:1.6;margin-bottom:8px">날짜·내용을 직접 고치고, ×로 하루를 빼고, 줄을 더할 수 있어요.<br>완료 표시는 날짜를 그대로 두면 유지됩니다. 숙제 자체를 없애려면 목록의 '삭제'를 쓰세요.${a.auto?`<br><b style="color:var(--warnt)">자동 진행(못 한 날 밀림)이 켜져 있습니다 — 손으로 고치면 꺼집니다.</b>`:''}${(typeof hwIsBookFlow==='function'&&hwIsBookFlow(a)&&!a.auto&&!a.noUnitSync)?`<br><b style="color:var(--tealt)">교재형 숙제 — 날짜는 그대로 두고 <u>단원만</u> 수업 진도에 맞춥니다.</b>`:''}${(a.schedulePrev||[]).length?`<br><button class="btn bo bxxs" style="margin-top:4px" onclick="hwUndoUnitSync('${a.id}')">↩ 자동으로 맞춘 내용 되돌리기</button>`:''}${(typeof hwIsBookFlow==='function'&&hwIsBookFlow(a)&&!a.auto)?`<br><button class="btn bo bxxs" style="margin-top:4px" title="일정에서 요일을 읽어 규칙으로 바꿉니다 — 못 한 날이 자동으로 밀립니다" onclick="hwToRule('${a.id}')">🗓 요일 규칙으로 바꾸기</button>`:''}</div>
     <div id="c5-rows">${rows.map(r=>c5RowHtml(r.date,r.book||'',r.unit||'')).join('')}</div>
     <button class="btn bo bsm" style="margin-top:6px;width:100%;font-size:12px" onclick="addC5Row()">+ 줄 추가</button>
   </div>`;
@@ -13109,7 +13114,7 @@ function openEditAssignModal(aid){
   if(!a)return;
   _editAssignId=aid;
   const mt=document.querySelector('#m-add-assign .mt');
-  if(mt)mt.textContent='📋 과제 수정';
+  if(mt)mt.textContent='📋 숙제 수정';
   {const sb=document.getElementById('assign-save-btn');if(sb)sb.textContent='저장';}
   document.getElementById('modal-assign-stu').value=a.sid||'';
   document.getElementById('modal-assign-date').value=a.date||'';
@@ -13145,7 +13150,7 @@ async function deleteSchedDay(aid,ds){
     : '';
   askConfirm('이 날 숙제 빼기',`${name}\n${ds} 하루치만 빼고 나머지 일정은 그대로 둘까요?${doneWarn}`,'빼기','bd',async()=>{
     const keep=(a.schedule||[]).filter(x=>x.date!==ds);
-    if(!keep.length){toast('마지막 하루예요 — 삭제를 눌러 과제를 지워 주세요');return;}
+    if(!keep.length){toast('마지막 하루예요 — 삭제를 눌러 숙제를 지워 주세요');return;}
     const prev=a.schedule;
     a.schedule=keep;
     a.date=keep[0].date;a.due=keep[keep.length-1].date;
@@ -13158,12 +13163,12 @@ async function deleteSchedDay(aid,ds){
 async function deleteAssign(aid){
   const a=(_cache.assignments||[]).find(x=>x.id===aid);
   const n=(a&&a.schedule||[]).length;
-  const name=a?(a.bookTitle||a.text||'이 과제'):'이 과제';
+  const name=a?(a.bookTitle||a.text||'이 숙제'):'이 숙제';
   const msg=n
     ? `${name} — 남은 일정까지 ${n}일치를 통째로 삭제합니다.
 하루만 빼려면 '이 날 빼기' 를 쓰세요. (휴지통에서 복원할 수 있어요)`
-    : '이 과제를 삭제할까요? (휴지통에서 복원할 수 있어요)';
-  askConfirm('과제 삭제',msg,'삭제','bd',async()=>{
+    : '이 숙제를 삭제할까요? (휴지통에서 복원할 수 있어요)';
+  askConfirm('숙제 삭제',msg,'삭제','bd',async()=>{
     await supaTrash('assignments',_cache.assignments,aid);
     _cache.assignments=(_cache.assignments||[]).filter(a=>a.id!==aid);
     renderAssignTab();renderAssignCal();toast('휴지통으로 보냈어요');
@@ -13258,7 +13263,7 @@ function missionUnitChange(){
   const prev=document.getElementById('ms-preview');
   if(!box)return;
   const tb=missionFindTb(id);
-  if(!tb||!u){box.innerHTML='<span style="font-size:13px;color:var(--slate)">유닛을 선택하면 가능한 미션이 표시됩니다</span>';if(prev)prev.innerHTML='';return;}
+  if(!tb||!u){box.innerHTML='<span style="font-size:13px;color:var(--slate)">유닛을 선택하면 낼 수 있는 숙제가 나옵니다</span>';if(prev)prev.innerHTML='';return;}
   const av=missionAvail(tb,u);
   box.innerHTML=_missionChips(av);
   if(prev){
@@ -13277,12 +13282,12 @@ function missionMultiUnitChange(){
   const tb=missionFindTb(id);
   const checked=[...document.querySelectorAll('.ms-unit-chk:checked')].map(c=>c.value);
   if(cntEl)cntEl.textContent=checked.length?`(${checked.length}개 선택)`:'';
-  if(!tb||!checked.length){box.innerHTML='<span style="font-size:13px;color:var(--slate)">유닛을 선택하면 가능한 미션이 표시됩니다</span>';if(prev)prev.innerHTML='';return;}
+  if(!tb||!checked.length){box.innerHTML='<span style="font-size:13px;color:var(--slate)">유닛을 선택하면 낼 수 있는 숙제가 나옵니다</span>';if(prev)prev.innerHTML='';return;}
   // 선택한 유닛들 중 하나라도 콘텐츠가 있으면 그 미션 활성화 (유닛별로 재차 필터됨)
   const union={vocab:false,listen:false,pattern:false,record:false};
   checked.forEach(u=>{const av=missionAvail(tb,u);MISSION_ORDER.forEach(m=>{if(av[m])union[m]=true;});});
   box.innerHTML=_missionChips(union);
-  if(prev)prev.innerHTML=`${checked.length}개 유닛에 동일한 미션을 각각 할당합니다. 유닛에 없는 미션은 자동 제외돼요.`;
+  if(prev)prev.innerHTML=`${checked.length}개 유닛에 동일한 숙제를 각각 냅니다. 유닛에 없는 숙제는 자동 제외돼요.`;
 }
 
 function modalAssignCatChange(){
@@ -13386,7 +13391,7 @@ function modalAssignCatChange(){
     }
   } else if(isWs){
     extra.innerHTML=`<div style="margin-top:10px;border:1.5px solid var(--teal);border-radius:var(--rs);padding:12px;background:var(--tl)">
-      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">🗒️ 워크시트 배정 — 학생 홈에 인쇄 학습지가 표시됩니다</div>
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">🗒️ 워크시트 내기 — 학생 홈에 인쇄 학습지가 표시됩니다</div>
       <div class="f" style="margin-bottom:6px"><label>워크시트 선택</label>
         <select id="ws-assign-sel" style="width:100%"><option value="">불러오는 중…</option></select>
       </div>
@@ -13406,7 +13411,7 @@ function modalAssignCatChange(){
   } else if(isMission){
     _missionMode='single';
     extra.innerHTML=`<div style="margin-top:10px;border:1.5px solid var(--teal);border-radius:var(--rs);padding:12px;background:var(--tl)">
-      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">${luIcon('target',15)||''} 학습 미션 — 교재 유닛을 고르면 학생 앱에 단계별 학습이 열립니다</div>
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">${luIcon('target',15)||''} 유닛 숙제 — 교재 유닛을 고르면 학생 앱에 단계별 학습이 열립니다</div>
       <div class="f" style="margin-bottom:8px"><label>교재 검색</label>
         <input type="text" id="ms-book-search" placeholder="본문·단어가 등록된 교재 검색..." autocomplete="off" oninput="missionBookSearch()" style="width:100%;box-sizing:border-box">
         <div id="ms-book-dd" style="display:none;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);max-height:150px;overflow-y:auto;font-size:13px;margin-top:2px"></div>
@@ -13437,11 +13442,11 @@ function modalAssignCatChange(){
             <option value="2">이틀 간격</option>
             <option value="7">일주일 간격</option>
           </select>
-          <div style="font-size:12px;color:var(--slate);margin-top:5px">첫 유닛은 마감일부터 시작 → 유닛들이 요일별로 순서대로 배정됩니다. 학생 홈에 요일별로 나타나요.</div>
+          <div style="font-size:12px;color:var(--slate);margin-top:5px">첫 유닛은 마감일부터 시작 → 유닛들이 요일별로 순서대로 나갑니다. 학생 홈에 요일별로 나타나요.</div>
         </div>
       </div>
-      <div class="f" style="margin-bottom:0;margin-top:8px"><label>미션 구성</label>
-        <div id="ms-mission-checks" style="display:flex;gap:6px;flex-wrap:wrap;padding:2px 0"><span style="font-size:13px;color:var(--slate)">유닛을 선택하면 가능한 미션이 표시됩니다</span></div>
+      <div class="f" style="margin-bottom:0;margin-top:8px"><label>숙제 구성</label>
+        <div id="ms-mission-checks" style="display:flex;gap:6px;flex-wrap:wrap;padding:2px 0"><span style="font-size:13px;color:var(--slate)">유닛을 선택하면 낼 수 있는 숙제가 나옵니다</span></div>
       </div>
       <div id="ms-preview" style="font-size:12px;color:var(--slate);margin-top:6px"></div>
     </div>`;
@@ -13694,7 +13699,7 @@ async function saveModalAssignment(){
     const stus=_bulkStus();
     if(!stus.length){toast('이 반에 재원 중인 학생이 없습니다');return;}
     const catB=document.getElementById('modal-assign-cat').value;
-    if(['recur','mission','worksheet','class5'].includes(catB)){toast('이 구분은 일괄 할당이 안 됩니다 — 한 명씩 내 주세요');return;}
+    if(['recur','mission','worksheet','class5'].includes(catB)){toast('이 구분은 한꺼번에 낼 수 없습니다 — 한 명씩 내 주세요');return;}
     const bookB=document.getElementById('modal-assign-book')?.value.trim()||'';
     const rangeB=document.getElementById('modal-assign-range').value.trim();
     const noteB=document.getElementById('modal-assign-note')?.value.trim()||'';
@@ -13713,7 +13718,7 @@ async function saveModalAssignment(){
     }
     _bulkClassId='';
     closeAssignModal();renderAssignTab();renderAssignCal();
-    toast(`${made}명에게 할당했습니다`);
+    toast(`${made}명에게 냈습니다`);
     return;
   }
   if(!sid){toast('학생을 선택해 주세요');return;}
@@ -13754,7 +13759,7 @@ async function saveModalAssignment(){
             unit:(r.querySelector('[data-c5="unit"]')?.value||'').trim()};
         });
         const sched=Object.values(byDate).sort((x,y)=>x.date.localeCompare(y.date));
-        if(!sched.length){toast('일정이 한 줄도 없어요 — 과제를 없애려면 목록의 삭제를 쓰세요');return;}
+        if(!sched.length){toast('일정이 한 줄도 없어요 — 숙제를 없애려면 목록의 삭제를 쓰세요');return;}
         existing.schedule=sched;
         existing.date=sched[0].date;existing.due=sched[sched.length-1].date;
         // [3] 손으로 고쳤다고 자동 밀림을 **말없이** 끄지 않는다.
@@ -13781,8 +13786,8 @@ async function saveModalAssignment(){
     }
     _editAssignId=null;
     const mt=document.querySelector('#m-add-assign .mt');
-    if(mt)mt.textContent='📋 과제 할당';
-    {const sb=document.getElementById('assign-save-btn');if(sb)sb.textContent='할당';}
+    if(mt)mt.textContent='📋 숙제 내기';
+    {const sb=document.getElementById('assign-save-btn');if(sb)sb.textContent='내기';}
     closeM('m-add-assign');renderAssignTab();renderAssignCal();
     toast(_schedFixedNote?'이 날짜들로 고정합니다 — 못 한 날이 자동으로 밀리지 않아요':'수정되었습니다');
     _schedFixedNote=false;return;
@@ -13796,14 +13801,14 @@ async function saveModalAssignment(){
     await supaUpsert('assignments',a.id,a,sid);
     if(!_cache.assignments)_cache.assignments=[];
     _cache.assignments.unshift(a);
-    closeM('m-add-assign');renderAssignTab();toast('워크시트가 배정되었습니다 🗒️');return;
+    closeM('m-add-assign');renderAssignTab();toast('워크시트를 냈어요 🗒️');return;
   }
   if(cat==='mission'){
     const tbId=document.getElementById('ms-book-id')?.value||'';
     const tb=missionFindTb(tbId);
     if(!tb){toast('교재를 선택해 주세요');return;}
     const missions=[...document.querySelectorAll('.ms-mission-check:checked')].map(c=>c.value);
-    if(!missions.length){toast('미션을 1개 이상 선택해 주세요');return;}
+    if(!missions.length){toast('숙제를 1개 이상 선택해 주세요');return;}
     // 대상 유닛 목록 (단일=드롭다운 / 일괄=체크된 유닛들)
     let units;
     if(_missionMode==='multi'){
@@ -13849,7 +13854,7 @@ async function saveModalAssignment(){
       created++;
     }
     closeM('m-add-assign');renderAssignTab();
-    toast(created>1?`${created}개 유닛 미션이 할당되었습니다 ${luIcon('target',15)||''}`:'학습 미션이 할당되었습니다 🎯');return;
+    toast(created>1?`${created}개 유닛 숙제를 냈어요 ${luIcon('target',15)||''}`:'유닛 숙제를 냈어요 🎯');return;
   }
   if(cat==='recur'){
     const rcType=document.getElementById('rc-type')?.value||'fixed';
@@ -13895,7 +13900,7 @@ async function saveModalAssignment(){
     if(tbId&&typeof _hwFlowLink==='function')setTimeout(()=>{try{_hwFlowLink(sid,tbId);}catch(e){}},400);
     toast(openEnded
       ?`🔁 반복 숙제 — 마감일 없이 계속 (지금 ${schedule.length}일치, 끝이 가까워지면 자동으로 더 채웁니다)`
-      :`🔁 반복 숙제 ${schedule.length}일치 할당 (${schedule[0].date} ~ ${schedule[schedule.length-1].date})`);return;
+      :`🔁 반복 숙제 ${schedule.length}일치 내기 (${schedule[0].date} ~ ${schedule[schedule.length-1].date})`);return;
   }
   if(cat==='class5'){
     const schedRows=document.querySelectorAll('#c5-rows .c5-row');
@@ -13905,7 +13910,7 @@ async function saveModalAssignment(){
     await supaUpsert('assignments',a.id,a,sid);
     if(!_cache.assignments)_cache.assignments=[];
     _cache.assignments.unshift(a);
-    closeM('m-add-assign');renderAssignTab();toast('과제가 할당되었습니다');return;
+    closeM('m-add-assign');renderAssignTab();toast('숙제를 냈어요');return;
   }
   const allLib=[...(_cache.library||[])];
   const isReading=cat==='book'||!!bookId||allLib.some(b=>b.title===book);
@@ -13927,7 +13932,7 @@ async function saveModalAssignment(){
   _cache.assignments.unshift(a);
   closeM('m-add-assign');
   renderAssignTab();
-  toast('과제가 할당되었습니다');
+  toast('숙제를 냈어요');
   }catch(e){console.error('saveModalAssignment:',e);toast('저장 중 오류가 발생했습니다');}
   finally{showLoading(false);}
 }
@@ -15233,7 +15238,7 @@ async function pgDismissHw(classId,book,unit){
 function hwChipMenu(ev,classId,subject,book,bookId,unit,due){
   if(ev&&ev.stopPropagation)ev.stopPropagation();
   pgCellMenu(ev,classId,due,[
-    {ico:'📕',label:'반 전체 숙제로 할당',sub:`${book} ${unit} · 마감 ${due}`,run:()=>pgHwDbl(null,classId,subject,book,bookId,unit,due)},
+    {ico:'📕',label:'반 전체 숙제로 내기',sub:`${book} ${unit} · 마감 ${due}`,run:()=>pgHwDbl(null,classId,subject,book,bookId,unit,due)},
     {ico:'🚫',label:'제안 취소',sub:'캘린더에서 보이지 않게',run:()=>pgDismissHw(classId,book,unit)},
   ]);
 }
@@ -15783,7 +15788,7 @@ function pgPickNext(classId,afterKey){
     label:'다음 교재',
     options:(optAdd?`<optgroup label="새로 추가">${optAdd}</optgroup>`:'')
            +(optMove?`<optgroup label="다른 줄에서 옮겨오기">${optMove}</optgroup>`:''),
-    hint:`${SLBL[base]||base} 영역 · <b>${escAttr(curTb?curTb.title:mat.book)}</b> 바로 뒤에 들어갑니다. 진행 방식(수업/과제)은 그 줄을 그대로 따릅니다.`
+    hint:`${SLBL[base]||base} 영역 · <b>${escAttr(curTb?curTb.title:mat.book)}</b> 바로 뒤에 들어갑니다. 진행 방식(수업/숙제)은 그 줄을 그대로 따릅니다.`
       +(optMove?'<br>옮겨오면 원래 줄에서는 빠집니다.':''),
   });
 }
@@ -15853,7 +15858,7 @@ async function pgAddMissingBook(classId,bookId,run){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const tb=(_cache.globalTextbooks||[]).find(x=>x.id===bookId);if(!tb)return;
   const base=Object.keys(_CAT_KO).find(k=>_CAT_KO[k]===tb.category)||'reading';
-  const lbl=run==='hw'?'과제':'수업';
+  const lbl=run==='hw'?'숙제':'수업';
   askConfirm('교재 체인에 추가',
     tb.title+' → '+(SLBL[base]||base)+' 영역의 「동시 · '+lbl+'」 줄로 추가할까요?'+'\n'+'\n'
     +(run==='hw'?'수업 없는 날마다 1과씩 진행해 다음 수업일에 진도로 표시됩니다.':'수업일마다 1과씩 진행합니다.')
@@ -15948,7 +15953,7 @@ function _pgHwPanelHtml(classId){
           onclick="pgHwToggle('${classId}','${it.aid}','${it.date}',${it.sched})">
           <span class="hw-ck">${it.done?'✓':''}</span><span class="hw-tt">${escAttr(it.title)}</span>
           ${it.done&&it.by?`<em>${_PG_HW_BY[it.by]||it.by}</em>`:''}</button>`).join('')
-      :`<span class="hw-empty">오늘 배정된 숙제가 없어요</span>`;
+      :`<span class="hw-empty">오늘 낼 숙제가 없어요</span>`;
     return `<div class="hw-row">
       <span class="hw-stu">${escAttr(stu.name)}<i class="hw-bell" data-sid="${stu.id}" title="알림 상태 확인 중"></i>${miss>=3?`<b title="숙제가 있던 날 기준 ${miss}일 연속 미완료">${miss}일 밀림</b>`:''}</span>
       <div class="hw-items">${lines}</div>
@@ -15962,7 +15967,7 @@ function _pgHwPanelHtml(classId){
     <div class="hw-body">${rows}
       <div class="hw-acts">
         <button class="btn bo bxxs" onclick="pgHwAdd('${classId}')">+ 숙제 추가</button>
-        <button class="btn bo bxxs" onclick="openBulkAssign('${classId}')">일괄 할당</button>
+        <button class="btn bo bxxs" onclick="openBulkAssign('${classId}')">한꺼번에 내기</button>
         <button class="btn bo bxxs" onclick="swTab('t-assign')">${luIcon('calendar',15)||''} 숙제 캘린더</button>
       </div>
     </div>
@@ -16003,7 +16008,7 @@ async function pgHwDel(ev,classId,aid,ds,sched){
     });
     return;
   }
-  askConfirm('숙제 지우기',name+'\n'+'이 과제를 휴지통으로 보낼까요? (백업 탭에서 되살릴 수 있어요)','지우기','bd',async()=>{
+  askConfirm('숙제 지우기',name+'\n'+'이 숙제를 휴지통으로 보낼까요? (백업 탭에서 되살릴 수 있어요)','지우기','bd',async()=>{
     try{await supaTrash('assignments',_cache.assignments,aid);}
     catch(e){console.error('pgHwDel trash:',e);toast('저장 실패 — 네트워크를 확인해 주세요');return;}
     renderClsLessons(classId);
@@ -16080,12 +16085,12 @@ function _pgFlowChecks(classId,opts){
           act:`<button class="btn bt bxxs" onclick="pgPickNext('${classId}','${escAttr(cur.key)}')">다음 교재 고르기</button>`});
       if(t.mode==='hw'&&!cur.hwId&&sid0)
         checks.push({ico:'📕',kind:'숙제 없음',title:cur.tb.title,
-          msg:`과제로 도는 줄인데 이 책 숙제가 없어요${cur.nextUnit?' — 시작 단원 <b>'+escAttr(cur.nextUnit)+'</b>':''}`,
+          msg:`숙제로 도는 줄인데 이 책 숙제가 없어요${cur.nextUnit?' — 시작 단원 <b>'+escAttr(cur.nextUnit)+'</b>':''}`,
           act:`<button class="btn bt bxxs" onclick="hwContinueOpen('${sid0}','${cur.tb.id}','${escJsA(cur.nextUnit||'')}')">숙제 이어서 내기</button>`});
       if(t.mode==='class'&&cur.hwId)
         checks.push({ico:'🔀',kind:'줄 어긋남',title:cur.tb.title,
           msg:`수업 중 진행으로 잡혀 있는데 교재형 숙제가 나가는 중이에요`,
-          act:`<button class="btn bo bxxs" onclick="pgMoveToHwTrack('${classId}','${cur.tb.id}')">과제 줄로 옮기기</button>`
+          act:`<button class="btn bo bxxs" onclick="pgMoveToHwTrack('${classId}','${cur.tb.id}')">숙제 줄로 옮기기</button>`
              +`<button class="btn bo bxxs" onclick="hwEndNow('${cur.hwId}')">숙제 끝내기</button>`});
       // 남은 단원이 Review 류뿐 — 자동으로 넘기지는 않고 물어본다
       const rv=(typeof ppReviewOnlyLeft==='function')?ppReviewOnlyLeft(classId,cur.tb,cur.doneIdx):null;
@@ -16140,7 +16145,7 @@ function _pgFlowChecks(classId,opts){
     checks.push({ico:'⚠️',kind:'미등록',title:m.tb.title,
       msg:`수업 기록 ${m.n}회(최근 ${SH(m.date)}, ${r?r.idx+1:0}/${keys.length}과)인데 교재 체인에 없어 <b>예정이 잡히지 않아요</b>`,
       act:`<button class="btn bo bxxs" title="수업일마다 1과씩 진행하는 줄로 추가" onclick="pgAddMissingBook('${classId}','${m.tb.id}','class')">수업 줄로</button>`
-         +`<button class="btn bo bxxs" title="수업 없는 날 1과씩 진행하는 줄로 추가" onclick="pgAddMissingBook('${classId}','${m.tb.id}','hw')">과제 줄로</button>`});
+         +`<button class="btn bo bxxs" title="수업 없는 날 1과씩 진행하는 줄로 추가" onclick="pgAddMissingBook('${classId}','${m.tb.id}','hw')">숙제 줄로</button>`});
   });
   // ⑤ 숙제 단원을 수업 진도에 자동으로 맞춘 과제 — 무엇을 맞췄는지 한 줄 + 되돌리기.
   //    한 번 '확인'을 누르면 접힌다(기기 기준). 되돌리기는 과제 수정 창에도 그대로 있다.
@@ -16188,7 +16193,7 @@ function _pgTrackBoardHtml(classId){
   const flow=(typeof ppFlow==='function')?ppFlow(classId,{etaBy:lastBy}):[];
   const checks=_pgFlowChecks(classId,{plan:plan,lastBy:lastBy,flow:flow});
   const sid0=(c.studentIds||[]).find(id=>{const st=DB.stus().find(x=>x.id===id);return st&&!st.inactive;})||'';
-  const MODE_LBL={hw:'과제',class:'수업',alt:'교대',perClass:'매 수업'};
+  const MODE_LBL={hw:'숙제',class:'수업',alt:'교대',perClass:'매 수업'};
   const rows=[];
   flow.forEach(area=>{
     const base=area.area;
@@ -16211,7 +16216,7 @@ function _pgTrackBoardHtml(classId){
           const st=hwState(hwA);
           const sch=_hwSchedOf(hwA)||[];
           const nx=sch.find(r=>r&&!r.done&&r.date>=today)||sch.find(r=>r&&!r.done);
-          hwLine=`<div class="tb-hwline" title="과제 탭에서 이 과제를 봅니다" onclick="event.stopPropagation();pgGoAssign('${escJsA(hwA.sid)}','${escJsA(hwA.id)}')">`
+          hwLine=`<div class="tb-hwline" title="숙제 탭에서 이 숙제를 봅니다" onclick="event.stopPropagation();pgGoAssign('${escJsA(hwA.sid)}','${escJsA(hwA.id)}')">`
             +`📕 숙제 ${escAttr((typeof ppHwRuleLabel==='function')?ppHwRuleLabel(hwA):'')}`
             +(nx?` · 다음 ${escAttr(String(nx.date||'').slice(5).replace('-','/'))} ${escAttr(nx.unit||'')}`:' · 남은 몫 없음')
             +(st.overdueRows14?` · <b>밀림 ${st.overdueRows14}일</b>`:'')+`</div>`;
@@ -16285,7 +16290,7 @@ function _pgHwChips(sid,ym){
     (out[due]=out[due]||[]).push({
       ord:30,kind:'single',aid:a.id,sched:false,app:(_hwAppOf(a,null)||{}).k||'',
       color:_PG_CAT_COLORS[pgAreaOfTb(_tb1)]||_PG_CAT_COLORS[a.category]||'var(--text-muted)',
-      label:[(_tb1?pgShort(_cid,_tb1):(a.bookTitle||a.text||'')),a.range].filter(Boolean).join(' ').trim()||'과제',
+      label:[(_tb1?pgShort(_cid,_tb1):(a.bookTitle||a.text||'')),a.range].filter(Boolean).join(' ').trim()||'숙제',
       tip:`${asgSrcLabel(a)} — ${[a.bookTitle||a.text,a.range].filter(Boolean).join(' · ')} (마감 ${due})`,
       done:!!a.completedAt,by:a.completedBy||''});
   });
@@ -16489,7 +16494,7 @@ function _pgCalHtml(classId){
       const col=_PG_CAT_COLORS[hw.subject]||'var(--text-muted)';
       const shh=pgShortTitle(classId,hw.book,hw.bookId);
       hwList.push({label:(shh?shh+' ':'')+hw.unit,color:col,sug:true,
-        tip:(SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=할당·취소 선택)',
+        tip:(SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=내기·취소 선택)',
         click:`hwChipMenu(event,'${classId}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')`});
     });
     _PG_DAY[ds]={classId,date:ds,hw:hwList,les:chips,hasLesson:lessonDates.has(ds)};
@@ -16626,7 +16631,7 @@ function pgConfirmGhost(classId,tbId,unit,date,subj){
   }
   const units=(ti>=0&&fromIdx>=0&&ti>fromIdx)?[...keys.slice(fromIdx,ti),unit]:[unit];
   const gapNote=units.length>1?`\n(아직 기록 안 된 앞 단원 ${units.length-1}개 포함 — 안 했다면 기록 후 '수정'에서 빼주세요)`:'';
-  askConfirm('진도 확정',`${tb.title} — ${units.join(', ')}${gapNote}\n학생 ${stus.length}명 전원 '정상 출석'으로 기록할까요?\n(출석·코멘트·과제는 기록 후 '수정'에서 채울 수 있어요)`,'기록','bt',async()=>{
+  askConfirm('진도 확정',`${tb.title} — ${units.join(', ')}${gapNote}\n학생 ${stus.length}명 전원 '정상 출석'으로 기록할까요?\n(출석·코멘트·숙제는 기록 후 '수정'에서 채울 수 있어요)`,'기록','bt',async()=>{
     showLoading(true);
     try{
       for(const s of stus){
@@ -16982,7 +16987,7 @@ function openSkipNotice(classId,date){
   const _d1=range?date[0]:date, _d2=range?date[1]:date;
   const _wFrom=(typeof ppShiftDate==='function')?ppShiftDate(_d1,-14):'';
   const _wUntil=_d2;
-  const def=`${luIcon('megaphone',15)||''} ${c.name?c.name+' ':''}휴강 안내\n${lbl} ${range?'기간은 수업을 쉬어갑니다':'수업은 사정상 쉬어갑니다'}.\n과제는 평소처럼 진행해 주세요 💪`;
+  const def=`${luIcon('megaphone',15)||''} ${c.name?c.name+' ':''}휴강 안내\n${lbl} ${range?'기간은 수업을 쉬어갑니다':'수업은 사정상 쉬어갑니다'}.\n숙제는 평소처럼 해 주세요 💪`;
   const overlay=document.createElement('div');
   overlay.id='skip-notice-overlay';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1999';
@@ -17458,10 +17463,10 @@ async function pgAssignClass5(classId){
     schedule.push({date:_pgYmd(cur),book:tb.title,unit:u});
     cur.setDate(cur.getDate()+1);
   }
-  if(!schedule.length){toast('할당할 단원이 없어요');return;}
+  if(!schedule.length){toast('낼 단원이 없어요');return;}
   const stus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
   if(!stus.length){toast('클래스에 학생이 없어요');return;}
-  askConfirm('클래스5 일괄 할당',`${tb.title} — ${schedule.length}개 단원을 ${schedule[0].date}부터 ${c.class5.weekdaysOnly?'평일':'매일'} 하나씩\n학생 ${stus.length}명에게 앱 과제로 할당할까요? (이미 있으면 갱신)`,'할당','bt',async()=>{
+  askConfirm('클래스5 한꺼번에 내기',`${tb.title} — ${schedule.length}개 단원을 ${schedule[0].date}부터 ${c.class5.weekdaysOnly?'평일':'매일'} 하나씩\n학생 ${stus.length}명에게 앱 숙제로 낼까요? (이미 있으면 갱신)`,'내기','bt',async()=>{
     showLoading(true);
     try{
       let n=0;
@@ -17477,8 +17482,8 @@ async function pgAssignClass5(classId){
       }
       if(typeof renderAssignTab==='function')renderAssignTab();
       renderClsLessons(classId);
-      toast(`클래스5 ${schedule.length}단원 × ${n}명 할당 완료`);
-    }catch(e){console.error('pgAssignClass5:',e);toast('할당 중 오류가 발생했습니다');}
+      toast(`클래스5 ${schedule.length}단원 × ${n}명 내기 완료`);
+    }catch(e){console.error('pgAssignClass5:',e);toast('내는 중 오류가 났어요');}
     finally{showLoading(false);}
   });
 }
@@ -17489,7 +17494,7 @@ function pgHwDbl(ev,classId,subject,book,bookId,unit,due){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const stus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
   if(!stus.length){toast('클래스에 학생이 없어요');return;}
-  askConfirm('숙제 할당',`${book} ${unit} 복습 — 마감 ${due}\n학생 ${stus.length}명에게 숙제로 할당할까요?`,'할당','bt',
+  askConfirm('숙제 내기',`${book} ${unit} 복습 — 마감 ${due}\n학생 ${stus.length}명에게 숙제로 낼까요?`,'내기','bt',
     ()=>_pgDoAssignHw(classId,[{subject,book,bookId,unit,due}],stus));
 }
 // 실제 숙제 assignment 생성 (중복 건너뜀)
@@ -17511,8 +17516,8 @@ async function _pgDoAssignHw(classId,items,stus){
     }
     if(typeof renderAssignTab==='function')renderAssignTab();
     renderClsLessons(classId);
-    toast(n?`숙제 할당 완료 (${n}건)`:'이미 모두 할당돼 있어요');
-  }catch(e){console.error('_pgDoAssignHw:',e);toast('할당 중 오류가 발생했습니다');}
+    toast(n?`숙제 내기 완료 (${n}건)`:'이미 모두 나가 있어요');
+  }catch(e){console.error('_pgDoAssignHw:',e);toast('내는 중 오류가 났어요');}
   finally{showLoading(false);}
 }
 // 아직 할당 안 된 숙제 칩 전체를 반 전체에게 한 번에
@@ -17522,10 +17527,10 @@ function pgAssignAllHomework(classId){
   const hwBy=_pgHomeworkPlan(classId,c);
   const items=[];
   Object.entries(hwBy).forEach(([due,arr])=>arr.forEach(h=>{if(!h.assigned)items.push({subject:h.subject,book:h.book,bookId:h.bookId,unit:h.unit,due});}));
-  if(!items.length){toast('할당할 숙제가 없어요');return;}
+  if(!items.length){toast('낼 숙제가 없어요');return;}
   const stus=DB.stus().filter(s=>!s.inactive&&(c.studentIds||[]).includes(s.id));
   if(!stus.length){toast('클래스에 학생이 없어요');return;}
-  askConfirm('숙제 일괄 할당',`배운 단원 복습 숙제 ${items.length}건을 학생 ${stus.length}명에게 한 번에 할당할까요?`,'할당','bt',
+  askConfirm('숙제 한꺼번에 내기',`배운 단원 복습 숙제 ${items.length}건을 학생 ${stus.length}명에게 한 번에 낼까요?`,'내기','bt',
     ()=>_pgDoAssignHw(classId,items,stus));
 }
 
@@ -18146,12 +18151,12 @@ function clPrevHwHtml(sid){
   if(!rows.length&&!defer.length)return '';
   const line=r=>{
     const a=r.a,sc=r.sc;
-    const txt=[a.bookTitle||a.text||'',(sc?[sc.book,sc.unit].filter(Boolean).join(' · '):a.range)||''].filter(Boolean).join(' · ')||'과제';
+    const txt=[a.bookTitle||a.text||'',(sc?[sc.book,sc.unit].filter(Boolean).join(' · '):a.range)||''].filter(Boolean).join(' · ')||'숙제';
     return `<div class="cl-prev-row"><span class="st">${escAttr(r.label||'')}</span>`
       +`<b>${escAttr(txt)}</b> <span style="font-family:var(--fm)">${escAttr(r.date||'')}</span></div>`;
   };
   const dLine=d=>{
-    const txt=[d.a.bookTitle||d.a.text||'',(d.sc?[d.sc.book,d.sc.unit].filter(Boolean).join(' · '):d.a.range)||''].filter(Boolean).join(' · ')||'과제';
+    const txt=[d.a.bookTitle||d.a.text||'',(d.sc?[d.sc.book,d.sc.unit].filter(Boolean).join(' · '):d.a.range)||''].filter(Boolean).join(' · ')||'숙제';
     return `<div class="cl-prev-row"><span class="st">연기</span><b>${escAttr(txt)}</b>`
       +` <span style="font-family:var(--fm)">${escAttr(d.from)}${d.to?' → '+escAttr(d.to):''}</span></div>`;
   };
@@ -18361,14 +18366,14 @@ async function saveStudentAssign(sid){
   }
   if(!book&&!range&&type!=='vocab'){toast('교재/원서 또는 범위를 입력해 주세요');return;}
   const isDup=ppLive(_cache.assignments).some(x=>x.sid===sid&&_tbBase(x.bookTitle||'')===_tbBase(book||'')&&(x.range||'')===range&&x.due===due);
-  if(isDup){toast('이미 동일한 과제가 있습니다');return;}
+  if(isDup){toast('이미 동일한 숙제가 있습니다');return;}
   try{
     await supaUpsert('assignments',a.id,a,sid);
     if(!_cache.assignments)_cache.assignments=[];
     _cache.assignments.unshift(a);
     await loadStuPanel(sid);
     swSpTab('sp-hw');
-    toast('과제가 할당되었습니다');
+    toast('숙제를 냈어요');
   }catch(e){toast('저장 실패: '+e.message);}
 }
 function toggleAssignEdit(aid,sid){
@@ -18421,7 +18426,7 @@ async function saveAssignEdit(aid,sid){
   await loadStuPanel(sid);swSpTab('sp-hw');toast('수정되었습니다');
 }
 async function deleteStudentAssign(aid,sid){
-  askConfirm('과제 삭제','이 과제를 삭제할까요? (휴지통에서 복원할 수 있어요)','삭제','bd',async()=>{
+  askConfirm('숙제 삭제','이 숙제를 삭제할까요? (휴지통에서 복원할 수 있어요)','삭제','bd',async()=>{
     await supaTrash('assignments',_cache.assignments,aid);
     _cache.assignments=(_cache.assignments||[]).filter(a=>a.id!==aid);
     await loadStuPanel(sid);swSpTab('sp-hw');toast('휴지통으로 보냈어요');
@@ -18693,9 +18698,9 @@ function _clAutoHwFor(classId,ds,excludeLessonDate){
       const _dfHere=(a.hwStatus==='defer'&&a.hwDeferTo===ds);
       if(!_dfHere&&(a.due||a.date)!==ds)return;
       if(excludeLessonDate&&a.classId===classId&&a.date===excludeLessonDate)return;
-      const KC={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신',book:'원서',mission:'미션',worksheet:'워크시트'};
+      const KC={phonics:'파닉스',vocab:'어휘',grammar:'어법',reading:'리딩',listening:'리스닝',writing:'라이팅',naesin:'내신',book:'원서',mission:'유닛 숙제',worksheet:'워크시트'};
       const cat=KC[a.category]||a.category||'';
-      const txt=[a.bookTitle||a.text||'',a.range].filter(Boolean).join(' · ')||'과제';
+      const txt=[a.bookTitle||a.text||'',a.range].filter(Boolean).join(' · ')||'숙제';
       const k=cat+'|'+_hwKeyNorm(txt)+'|'+(_dfHere?('df'+(a.due||a.date||'')):'');
       if(!seenS.has(k)){seenS.add(k);singles.push({label:'📕'+(cat?' ['+cat+']':''),txt,
         aid:a.id,sid:a.sid,date:ds,sched:false,done:!!a.completedAt,by:a.completedBy||'',
@@ -18741,8 +18746,8 @@ function _clAppendAutoHwRows(groupBody,autos){
         +` value="${escAttr(x.title||'')}" onchange="clHwTitle(this,'${x.aid}','${x.date}')">`:'');
     groupBody.appendChild(div);
   };
-  autos.sched.forEach(x=>row(x,'앱에 자동 할당됨 — 했으면 체크','var(--teal)'));
-  autos.singles.forEach(x=>row(x,'이미 할당된 숙제 — 했으면 체크','var(--warnt)'));
+  autos.sched.forEach(x=>row(x,'앱에 자동으로 나감 — 했으면 체크','var(--teal)'));
+  autos.singles.forEach(x=>row(x,'이미 낸 숙제 — 했으면 체크','var(--warnt)'));
 }
 // 숙제 상태 저장 (B6). 완료만 completedAt 을 채운다 — 일부·미지참·연기는 끝난 게 아니다.
 // 연기는 다음 수업일을 hwDeferTo 에 적어 그날 확인 목록에 다시 올라오게 한다.
@@ -18869,7 +18874,7 @@ function clHwMakeDateGroup(dateStr,parentEl){
   group.style.cssText='margin-bottom:12px;border-radius:var(--rs);overflow:hidden;border:1.5px solid var(--navy)';
   const header=document.createElement('div');
   header.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--navy);color:#fff';
-  header.innerHTML=`<span style="font-size:16px;font-weight:700">${dayLabel}요일</span><span style="font-size:13px;opacity:.55;font-family:var(--fm)">${dateStr}</span><button type="button" onclick="clHwAddToGroup(this.closest('.cl-hw-date-group'))" class="cl-hw-add-btn" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">+ 과제 추가</button><button type="button" onclick="clHwCopyGroupToOthers(this.closest('.cl-hw-date-group'))" class="cl-hw-copy-btn" title="이 요일의 과제 구성을 다른 모든 요일에 복사" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">⧉ 다른 요일에 복사</button><button type="button" onclick="clHwAllDone(this.closest('.cl-hw-date-group'))" class="cl-hw-alldone-btn" title="이 요일 숙제를 전부 완료로 — 예외만 뒤에 바꾸면 됩니다" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">✓ 모두 완료</button><button type="button" onclick="clHwToggleSkip(this.closest('.cl-hw-date-group'))" class="cl-hw-skip-btn" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:20px;color:rgba(255,255,255,.7);font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">생략</button>`;
+  header.innerHTML=`<span style="font-size:16px;font-weight:700">${dayLabel}요일</span><span style="font-size:13px;opacity:.55;font-family:var(--fm)">${dateStr}</span><button type="button" onclick="clHwAddToGroup(this.closest('.cl-hw-date-group'))" class="cl-hw-add-btn" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">+ 숙제 추가</button><button type="button" onclick="clHwCopyGroupToOthers(this.closest('.cl-hw-date-group'))" class="cl-hw-copy-btn" title="이 요일의 숙제 구성을 다른 모든 요일에 복사" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">⧉ 다른 요일에 복사</button><button type="button" onclick="clHwAllDone(this.closest('.cl-hw-date-group'))" class="cl-hw-alldone-btn" title="이 요일 숙제를 전부 완료로 — 예외만 뒤에 바꾸면 됩니다" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;color:#fff;font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">✓ 모두 완료</button><button type="button" onclick="clHwToggleSkip(this.closest('.cl-hw-date-group'))" class="cl-hw-skip-btn" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:20px;color:rgba(255,255,255,.7);font-size:12px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap">생략</button>`;
   const body=document.createElement('div');
   body.className='cl-hw-group-body';
   body.style.cssText='display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:var(--cream2)';
@@ -18910,8 +18915,8 @@ function clHwAddStuGroup(sid){
   wrap.style.cssText='margin-bottom:14px;border:1.5px solid rgba(15,48,74,.14);border-radius:12px;padding:10px 10px 4px;background:#fff';
   wrap.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
     <span class="badge bteal" style="font-size:13px;padding:4px 12px">${s?s.name:'?'}</span>
-    <span style="font-size:12px;color:var(--slate)">이 학생에게만 배정되는 과제</span>
-    <button type="button" class="btn bd bxxs" style="margin-left:auto" onclick="this.closest('.cl-hw-stu-group').remove()">학생 과제 삭제</button>
+    <span style="font-size:12px;color:var(--slate)">이 학생에게만 내는 숙제</span>
+    <button type="button" class="btn bd bxxs" style="margin-left:auto" onclick="this.closest('.cl-hw-stu-group').remove()">학생 숙제 삭제</button>
   </div><div class="cl-hw-stu-body"></div>`;
   ind.appendChild(wrap);
   // 공통 과제와 같은 요일 스캐폴드
@@ -18931,12 +18936,12 @@ function clHwCopyGroupToOthers(groupEl){
     range:row.querySelector('.cl-hw-range')?.value||'',
     note:row.querySelector('.cl-hw-note')?.value||''
   })).filter(r=>r.cat||r.book||r.range||r.note);
-  if(!rows.length){toast('복사할 과제가 없습니다');return;}
+  if(!rows.length){toast('복사할 숙제가 없습니다');return;}
   // 같은 컨테이너 안의 형제 요일 그룹으로만 복사 (공통 영역/학생별 영역 각각 독립), 생략된 요일 제외
   const others=[...(groupEl.parentElement?groupEl.parentElement.children:[])]
     .filter(x=>x.classList&&x.classList.contains('cl-hw-date-group')&&x!==groupEl&&x.dataset.skip!=='true');
   if(!others.length){toast('복사할 다른 요일이 없습니다 (생략된 요일 제외)');return;}
-  askConfirm('다른 요일에 복사',`이 요일의 과제 ${rows.length}개 구성을 다른 ${others.length}개 요일에 복사할까요? 대상 요일의 기존 과제 행은 대체됩니다.`,'복사','bt',()=>{
+  askConfirm('다른 요일에 복사',`이 요일의 숙제 ${rows.length}개 구성을 다른 ${others.length}개 요일에 복사할까요? 대상 요일의 기존 숙제 줄은 대체됩니다.`,'복사','bt',()=>{
     others.forEach(g=>{
       const body=g.querySelector('.cl-hw-group-body');if(!body)return;
       g.querySelectorAll('.cl-hw-row').forEach(r=>r.remove());
@@ -18978,7 +18983,7 @@ function clHwToggleSkip(groupEl){
       note=document.createElement('div');
       note.className='cl-hw-skip-note';
       note.style.cssText='padding:8px 14px;background:var(--cream2);color:var(--slate);font-size:13px;font-family:var(--fb);text-align:center';
-      note.textContent='이 요일은 과제를 생략합니다 · 상단 [↩ 되돌리기]로 복구할 수 있어요';
+      note.textContent='이 요일은 숙제를 생략합니다 · 상단 [↩ 되돌리기]로 복구할 수 있어요';
       groupEl.appendChild(note);
     }
     note.style.display='';
@@ -19247,8 +19252,9 @@ const PP_FEATURES=[
   {n:'어휘 DB',k:'단어 word',w:'교재·문제 → 어휘',tab:'t-data',go:['switchDataTab','word']},
   {n:'시험 일정',k:'exam 내신',w:'교재·문제 → 시험 일정',tab:'t-data',go:['switchDataTab','exam']},
   {n:'백업·일괄',k:'backup master',w:'교재·문제 → 백업·일괄',tab:'t-data',go:['switchDataTab','master']},
-  {n:'숙제 이어서 내기',k:'다음 교재 숙제',w:'과제 탭 배너 · 진도 보드',tab:'t-assign',go:['renderAssignTab']},
-  {n:'진행 중인 과제',k:'숙제 목록',w:'과제 탭',tab:'t-assign',go:['renderAssignTab']},
+  {n:'숙제 내기',k:'과제 할당 배정 homework 숙제 내기',w:'숙제 탭',tab:'t-assign',go:['renderAssignTab']},
+  {n:'숙제 이어서 내기',k:'다음 교재 숙제 과제',w:'숙제 탭 배너 · 진도 보드',tab:'t-assign',go:['renderAssignTab']},
+  {n:'진행 중인 숙제',k:'숙제 목록 과제',w:'숙제 탭',tab:'t-assign',go:['renderAssignTab']},
   {n:'교재 흐름 점검',k:'진도 보드 점검',w:'클래스 → 진도 보드',tab:'t-class',go:['renderClassTab']},
   {n:'새로 생긴 것',k:'whatsnew 업데이트',w:'대시보드',tab:'t-dash',go:['renderDash']},
 ];
@@ -24322,7 +24328,7 @@ function _prName(r){
 function _prRender(){
   const box=document.getElementById('pr-body');if(!box)return;
   if(!_prRows.length){
-    box.innerHTML='<div class="eb-empty">아직 푼 사람이 없어요. <b>답 입력</b>으로 종이 답을 넣거나, <b>학생에게 보내기</b>로 과제를 주세요.</div>';
+    box.innerHTML='<div class="eb-empty">아직 푼 사람이 없어요. <b>답 입력</b>으로 종이 답을 넣거나, <b>학생에게 보내기</b>로 숙제를 주세요.</div>';
     return;
   }
   // ① 학생별
@@ -24390,7 +24396,7 @@ function _prRender(){
 // 다시 풀기 열기 — 과제의 retry 를 켠다 (학생 화면에 '다시 풀기' 가 보인다)
 async function prAllowRetry(sid){
   const a=(_cache.assignments||[]).find(x=>x&&x.sid===sid&&x.paperId===_prPaper.id);
-  if(!a){toast('이 학생의 과제를 찾지 못했어요');return;}
+  if(!a){toast('이 학생의 숙제를 찾지 못했어요');return;}
   a.retry=true;
   const ok=await supaUpsert('assignments',a.id,a,sid).catch(()=>false);
   toast(ok?'다시 풀 수 있게 열었어요 — 학생 화면에 단추가 생겨요':'열지 못했어요');

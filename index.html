@@ -225,7 +225,7 @@
       <button class="ntab" data-tab="t-dash" onclick="swTab('t-dash')"><span class="ntab-ico"><i data-lucide="layout-dashboard" width="18" height="18"></i></span><span class="ntab-lbl">대시보드</span></button>
       <button class="ntab" data-tab="t-class" onclick="swTab('t-class')"><span class="ntab-ico"><i data-lucide="users" width="18" height="18"></i></span><span class="ntab-lbl">클래스</span></button>
       <button class="ntab active" data-tab="t-stu" onclick="swTab('t-stu')"><span class="ntab-ico"><i data-lucide="graduation-cap" width="18" height="18"></i></span><span class="ntab-lbl">학생</span></button>
-      <button class="ntab" data-tab="t-assign" onclick="swTab('t-assign')"><span class="ntab-ico"><i data-lucide="clipboard-list" width="18" height="18"></i></span><span class="ntab-lbl">과제</span></button>
+      <button class="ntab" data-tab="t-assign" onclick="swTab('t-assign')"><span class="ntab-ico"><i data-lucide="clipboard-list" width="18" height="18"></i></span><span class="ntab-lbl">숙제</span></button>
       <button class="ntab" data-tab="t-tst" onclick="swTab('t-tst')"><span class="ntab-ico"><i data-lucide="flask-conical" width="18" height="18"></i></span><span class="ntab-lbl">테스트</span></button>
       <button class="ntab" data-tab="t-data" onclick="swTab('t-data')"><span class="ntab-ico"><i data-lucide="database" width="18" height="18"></i></span><span class="ntab-lbl">교재·문제</span></button>
       <button class="ntab" data-tab="t-worksheet" onclick="swTab('t-worksheet')" title="AI 리딩 워크시트 생성"><span class="ntab-ico"><i data-lucide="file-text" width="18" height="18"></i></span><span class="ntab-lbl">워크시트</span></button>
@@ -343,7 +343,7 @@
               <button class="sptab active" onclick="swSpTab('sp-summary')">요약</button>
               <button class="sptab" onclick="swSpTab('sp-lessons')">수업</button>
               <button class="sptab" onclick="swSpTab('sp-tests')">테스트</button>
-              <button class="sptab" onclick="swSpTab('sp-hw')">과제</button>
+              <button class="sptab" onclick="swSpTab('sp-hw')">숙제</button>
               <button class="sptab" onclick="swSpTab('sp-reading')">책</button>
               <button class="sptab" onclick="swSpTab('sp-rdlog-tab')">리딩로그</button>
               <button class="sptab" onclick="swSpTab('sp-vocab')">단어장</button>
@@ -1035,7 +1035,7 @@
           <div><div class="st">백업·일괄 관리</div><div class="ssub" id="master-total"></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <select id="master-csv-filter" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:var(--fb);color:var(--navy);background:var(--cream)"><option value="all">전체</option><option value="textbook">교재만</option><option value="library">원서만</option></select>
-            <button class="btn bt bsm" onclick="fullBackup()" title="모든 테이블(학생·수업·과제·카드 포함)을 JSON 파일로 내려받기 — 월 1회 권장">🗄 전체 백업</button>
+            <button class="btn bt bsm" onclick="fullBackup()" title="모든 테이블(학생·수업·숙제·카드 포함)을 JSON 파일로 내려받기 — 월 1회 권장">🗄 전체 백업</button>
             <button class="btn bo bsm" onclick="openTrash()" title="삭제한 항목 복원 (30일 보관)"><i data-lucide="trash-2" width="15" height="15" style="vertical-align:-3px"></i> 휴지통</button>
             <button id="master-csv-btn" class="btn bt bsm" style="background:var(--teal);color:#fff;font-weight:700" onclick="openMasterCSVModal()"><i data-lucide="download" width="15" height="15" style="vertical-align:-3px"></i> 마스터 CSV</button>
             <input type="file" id="master-csv-file" accept=".csv" style="display:none" onchange="importMasterCSV(event)">
@@ -1297,19 +1297,19 @@
               <div id="cl-students"></div>
             </div>
             <div class="card" style="margin-bottom:12px">
-              <div class="ch" id="cl-hw-head" role="button" tabindex="0" aria-expanded="true" aria-controls="cl-hw-body" onclick="clHwToggle()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();clHwToggle()}" style="cursor:pointer"><span class="ct"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 과제 설정 (선택)</span><span id="cl-hw-toggle-lbl" style="font-size:12px;color:var(--slate)">접기 ▴</span></div>
+              <div class="ch" id="cl-hw-head" role="button" tabindex="0" aria-expanded="true" aria-controls="cl-hw-body" onclick="clHwToggle()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();clHwToggle()}" style="cursor:pointer"><span class="ct"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 숙제 설정 (선택)</span><span id="cl-hw-toggle-lbl" style="font-size:12px;color:var(--slate)">접기 ▴</span></div>
               <div class="cb" id="cl-hw-body" style="padding-bottom:4px">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                  <div style="font-size:13px;font-weight:700;color:var(--navy)">공통 과제 (전체 학생)</div>
-                  <button class="btn bo bsm" onclick="clHwSyncFromSubj()" title="위 수업 내용 기준으로 과제 행 재생성">↺ 수업 내용으로 채우기</button>
+                  <div style="font-size:13px;font-weight:700;color:var(--navy)">공통 숙제 (전체 학생)</div>
+                  <button class="btn bo bsm" onclick="clHwSyncFromSubj()" title="위 수업 내용 기준으로 숙제 줄 재생성">↺ 수업 내용으로 채우기</button>
                 </div>
                 <div id="cl-hw-common-rows"></div>
-                <button class="btn ba bsm" style="width:100%;margin-bottom:16px" onclick="clHwAddCommonRow()">+ 공통 과제 추가</button>
-                <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px;padding-top:10px;border-top:1px solid var(--border)">개별 과제 (학생 지정)</div>
+                <button class="btn ba bsm" style="width:100%;margin-bottom:16px" onclick="clHwAddCommonRow()">+ 공통 숙제 추가</button>
+                <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px;padding-top:10px;border-top:1px solid var(--border)">개별 숙제 (학생 지정)</div>
                 <div id="cl-hw-ind-rows"></div>
                 <div style="display:flex;gap:8px">
                   <select id="cl-hw-stu-add" class="filter-sel" style="flex:1"><option value="">학생 선택…</option></select>
-                  <button class="btn bo bsm" style="flex-shrink:0;white-space:nowrap" onclick="clHwAddStuGroup()">+ 학생별 과제 추가</button>
+                  <button class="btn bo bsm" style="flex-shrink:0;white-space:nowrap" onclick="clHwAddStuGroup()">+ 학생별 숙제 추가</button>
                 </div>
               </div>
             </div>
@@ -1325,15 +1325,15 @@
     <!-- 과제 관리 -->
     <div id="t-assign" class="panel">
       <div class="sh">
-        <div><div class="st"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 과제</div><div class="ssub">반·학생에게 과제를 할당하고 제출 현황을 봅니다</div></div>
-        <button class="btn bt bsm" onclick="openAssignModal('')">+ 과제 할당</button>
+        <div><div class="st"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 숙제</div><div class="ssub">반·학생에게 숙제를 내고 제출 현황을 봅니다</div></div>
+        <button class="btn bt bsm" onclick="openAssignModal('')">+ 숙제 내기</button>
       </div>
       <div id="assign-stats" class="dash-stats" style="margin-bottom:14px"></div>
       <div id="assign-live"></div>
       <div class="card" style="margin-bottom:1rem">
         <div class="ch">
           <span class="ct" style="cursor:pointer" onclick="toggleAssignCal()"><i data-lucide="calendar" width="15" height="15" style="vertical-align:-3px"></i> 숙제 캘린더 <span id="assign-cal-arrow" style="font-size:10.5px;color:var(--teal)">▾ 접기</span></span>
-          <button class="btn ba bsm" onclick="openBulkAssign()">일괄 할당</button>
+          <button class="btn ba bsm" onclick="openBulkAssign()">한꺼번에 내기</button>
         </div>
         <div class="cb" id="assign-cal"></div>
       </div>
@@ -1980,7 +1980,7 @@
         </div>
       </div>
       <div class="f s2">
-        <label><i data-lucide="gamepad-2" width="15" height="15" style="vertical-align:-3px"></i> 클래스5 (앱 자동 과제) <span style="font-size:12px;color:var(--slate);font-weight:400">책 1권 지정 → 매일 한 유닛씩 자동 할당</span></label>
+        <label><i data-lucide="gamepad-2" width="15" height="15" style="vertical-align:-3px"></i> 클래스5 (앱 자동 숙제) <span style="font-size:12px;color:var(--slate);font-weight:400">책 1권 지정 → 매일 한 유닛씩 자동으로 내기</span></label>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           <select id="ec-c5-book" class="filter-sel" style="flex:2;min-width:150px" onchange="ecC5BookChange()"></select>
           <span style="font-size:12px;color:var(--slate)">시작일</span>
@@ -2326,7 +2326,7 @@
   <div class="mdl mdl-xl" style="display:flex;flex-direction:column;max-height:92vh">
     <div class="mh" style="flex-shrink:0">
       <div style="min-width:0">
-        <div class="mt" id="ms-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">학습 미션</div>
+        <div class="mt" id="ms-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">유닛 숙제</div>
         <div style="font-size:12px;color:var(--slate);margin-top:1px" id="ms-sub"></div>
       </div>
       <button class="bx" onclick="closeMissionPlayer()">×</button>
@@ -2606,7 +2606,7 @@
 <!-- 과제 할당 모달 -->
 <div id="m-add-assign" class="mo" data-protect>
   <div class="mdl" style="max-width:560px">
-    <div class="mh"><div class="mt"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 과제 할당</div><button class="bx" onclick="closeAssignModal()">×</button></div>
+    <div class="mh"><div class="mt"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 숙제 내기</div><button class="bx" onclick="closeAssignModal()">×</button></div>
     <div class="fg">
       <div class="f" id="modal-assign-stu-f"><label>학생</label><select id="modal-assign-stu"><option value="">-- 선택 --</option></select></div>
       <div class="f"><label>날짜</label><input type="date" id="modal-assign-date"></div>
@@ -2614,7 +2614,7 @@
       <div class="f"><label>구분</label>
         <select id="modal-assign-cat" onchange="modalAssignCatChange()">
           <option value="">— 구분 없음 (자유 입력) —</option>
-          <option value="mission"><i data-lucide="target" width="15" height="15" style="vertical-align:-3px"></i> 학습 미션 (교재 유닛)</option>
+          <option value="mission"><i data-lucide="target" width="15" height="15" style="vertical-align:-3px"></i> 유닛 숙제 (교재 단원)</option>
           <option value="worksheet"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 워크시트 (인쇄 학습지)</option>
           <option value="phonics">파닉스</option>
           <option value="vocab">어휘</option>
@@ -2651,7 +2651,7 @@
     <div id="modal-assign-extra"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
       <button class="btn bo bsm" onclick="closeAssignModal()">취소</button>
-      <button class="btn bt" id="assign-save-btn" onclick="saveModalAssignment()">할당</button>
+      <button class="btn bt" id="assign-save-btn" onclick="saveModalAssignment()">내기</button>
     </div>
   </div>
 </div>
@@ -2884,7 +2884,7 @@
     </div>
     <div class="f" style="font-size:12.5px;color:var(--text-muted);line-height:1.6">
       문제지와 정답지가 각각 A4 한 장으로 나옵니다. 인쇄 창에서 'PDF로 저장'을 고르면 파일이 됩니다.
-      영영풀이 표는 영영의미가, 예문 빈칸은 예문이 등록된 단어에만 배정됩니다 — 모자라면 남은 몫이 다른 유형으로 넘어갑니다.</div>
+      영영풀이 표는 영영의미가, 예문 빈칸은 예문이 등록된 단어에만 들어갑니다 — 모자라면 남은 몫이 다른 유형으로 넘어갑니다.</div>
     <div style="display:flex;justify-content:space-between;gap:8px;margin-top:16px">
       <button class="btn bo bsm" onclick="openRetestPaper(document.getElementById('vp-stu').value)">최근 오답만으로</button>
       <span style="flex:1"></span>
@@ -3093,7 +3093,7 @@
         <input type="date" class="pb-in" id="pbs-due">
       </div>
       <div class="iso-safe">보낸 시험지에는 <b>해설·오답 해설이 들어가지 않아요</b>. 학생이 제출한 뒤에만 보입니다.
-        다시 풀기는 선생님이 과제에서 풀어 줄 때만 됩니다.</div>
+        다시 풀기는 선생님이 숙제에서 풀어 줄 때만 됩니다.</div>
       <div class="pb-a-row" style="justify-content:flex-end">
         <button class="btn bo bsm" onclick="closeM('m-paper-send')">취소</button>
         <button class="btn bt bsm" id="pbs-go" onclick="pbSendGo()">보내기</button>

@@ -208,8 +208,8 @@ const ok = (name, cond, note) => {
     try { A.renderAssignLive(); A.renderAssignStats(); } catch (e) { threw = String(e && e.message); }
     ok('목록·카드가 그려진다', !threw, threw || 'ok');
     const html = String(EL('assign-live').innerHTML || '');
-    ok('목록에 과제 이름이 보인다', html.indexOf('테스트 어휘') >= 0 || html.indexOf(A.ppBookShort(V)) >= 0);
-    ok("끝난 과제는 접어 둔다", html.indexOf('끝난 과제 1건') >= 0, (html.match(/끝난 과제 \d건/) || [''])[0]);
+    ok('목록에 숙제 이름이 보인다', html.indexOf('테스트 어휘') >= 0 || html.indexOf(A.ppBookShort(V)) >= 0);
+    ok("끝난 숙제는 접어 둔다", html.indexOf('끝난 숙제 1건') >= 0, (html.match(/끝난 숙제 \d건/) || [''])[0]);
     const pr = A._alProgress(A.cache.assignments[0], A.hwState(A.cache.assignments[0], TODAY));
     ok('교재형은 책 진도로 센다', pr.what === '책' && pr.total === 10, pr.done + '/' + pr.total + ' (' + pr.what + ')');
   }

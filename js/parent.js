@@ -41,7 +41,7 @@ function parentAreaGrowth(sid){
   const testAvg=(corr,tot)=>avg(tsts.filter(t=>!t.absent&&t[tot]>0).map(t=>pct(t[corr],t[tot])));
   const catRate=cat=>{const ca=assigns.filter(a=>a.category===cat);return ca.length?Math.round(ca.filter(a=>a.completedAt).length/ca.length*100):null;};
   // 테스트 점수(우선) → 과제 완료율(보완)
-  const pick=(testVal,cat)=>testVal!=null?{val:testVal,basis:'테스트 평균'}:(()=>{const r=catRate(cat);return r!=null?{val:r,basis:'과제 완료율'}:null;})();
+  const pick=(testVal,cat)=>testVal!=null?{val:testVal,basis:'테스트 평균'}:(()=>{const r=catRate(cat);return r!=null?{val:r,basis:'숙제 완료율'}:null;})();
   const vocab=pick(testAvg('vocabCorrect','vocabTotal'),'vocab');
   const grammar=pick(testAvg('grammarCorrect','grammarTotal'),'grammar');
   const reading=pick(testAvg('readingCorrect','readingTotal'),'reading');
@@ -402,7 +402,7 @@ async function loadParent(sid){
   const _overdueN=_overdue.reduce((t,x)=>t+x.n,0);
   const _hwLbl=a=>{
     if(a.category==='vocab'&&(a.words||[]).length)return (a.words||[]).slice(0,3).join(', ')+(a.words.length>3?` 외 ${a.words.length-3}개`:'');
-    return a.bookTitle||a.text||a.title||a.range||'과제';
+    return a.bookTitle||a.text||a.title||a.range||'숙제';
   };
   // '앱으로 단어 20개 학습 앱으로 단어 20개 학습' 처럼 같은 말이 두 번 나오던 것 — 한 번만 적는다
   const _hwSub=(lbl,parts)=>{
@@ -454,7 +454,7 @@ async function loadParent(sid){
     return `<div class="card">
       <div class="ch"><span class="ct">${luIcon('clipboard-list',16)}숙제</span><span style="margin-left:auto">${head}</span></div>
       <div class="cb" style="padding:12px 16px">
-        ${td.length?td.map(tdRow).join(''):`<div style="font-size:13.5px;color:var(--slate);line-height:1.7">오늘 배정된 숙제가 없어요.</div>`}
+        ${td.length?td.map(tdRow).join(''):`<div style="font-size:13.5px;color:var(--slate);line-height:1.7">오늘 낼 숙제가 없어요.</div>`}
         ${allDone?`<div style="font-size:13.5px;color:var(--okt);font-weight:700;margin-top:8px">오늘 할 숙제는 다 했어요 👏</div>`:''}
         ${odHtml}
         ${restHtml}
@@ -502,7 +502,7 @@ async function loadParent(sid){
     skipHtml=`<div class="card">
       <div class="ch"><span class="ct">${luIcon('megaphone',16)}휴강 안내</span></div>
       <div class="cb" style="padding:12px 16px">
-        <div style="font-size:14px;color:var(--navy);line-height:1.85"><b>${skipDatesLbl(upSkips)}</b>은 수업이 없습니다. 과제는 평소처럼 챙겨봐 주시면 감사하겠습니다 🙏</div>
+        <div style="font-size:14px;color:var(--navy);line-height:1.85"><b>${skipDatesLbl(upSkips)}</b>은 수업이 없습니다. 숙제는 평소처럼 챙겨봐 주시면 감사하겠습니다 🙏</div>
       </div>
     </div>`;
   }
@@ -519,7 +519,7 @@ async function loadParent(sid){
     recentHtml=`<div class="card">
       <div class="ch"><span class="ct">${luIcon('pin',16)}최근 수업</span><span class="mono" class="p-dim">${skipDate}</span></div>
       <div class="cb" style="padding:12px 16px">
-        <div style="font-size:14px;color:var(--navy);line-height:1.85">${md}은 사정이 있어 <b>수업을 진행하지 못했습니다.</b> 다음 수업에서 뵙겠습니다 ${luIcon('smile',15)||''}<br>수업은 못 했지만, 내주신 과제는 잊지 않고 챙겨봐 주시면 감사하겠습니다.</div>
+        <div style="font-size:14px;color:var(--navy);line-height:1.85">${md}은 사정이 있어 <b>수업을 진행하지 못했습니다.</b> 다음 수업에서 뵙겠습니다 ${luIcon('smile',15)||''}<br>수업은 못 했지만, 내주신 숙제는 잊지 않고 챙겨봐 주시면 감사하겠습니다.</div>
       </div>
     </div>`;
   } else if(latLes){
@@ -825,7 +825,7 @@ async function loadParent(sid){
   secMsg=`<div class="card"><div class="cb" style="padding:22px 18px;text-align:center">
       <div style="font-size:34px;margin-bottom:10px">${luIcon('message-circle',15)||''}</div>
       <div style="font-size:16px;font-weight:800;color:var(--navy);margin-bottom:6px">선생님께 문의하기</div>
-      <div style="font-size:13.5px;color:var(--slate);line-height:1.7;margin-bottom:18px">${(DB.kakao().openchat||DB.kakao().phone)?"수업·과제·결제 등 궁금한 점이 있으면<br>카카오톡으로 편하게 물어보세요.":"카카오톡 문의가 아직 준비되지 않았습니다.<br>선생님에게 연락처를 확인해 주세요."}</div>
+      <div style="font-size:13.5px;color:var(--slate);line-height:1.7;margin-bottom:18px">${(DB.kakao().openchat||DB.kakao().phone)?"수업·숙제·결제 등 궁금한 점이 있으면<br>카카오톡으로 편하게 물어보세요.":"카카오톡 문의가 아직 준비되지 않았습니다.<br>선생님에게 연락처를 확인해 주세요."}</div>
       ${(DB.kakao().openchat||DB.kakao().phone)?`<button onclick="openParentMsgModal('${sid}')" style="width:100%;padding:13px;background:#FEE500;border:none;border-radius:12px;font-family:var(--fb);font-size:15px;font-weight:800;cursor:pointer;color:#3C1E1E">💬 카카오톡으로 질문하기</button>`:""}
     </div></div>`;
 

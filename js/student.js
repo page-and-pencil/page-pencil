@@ -311,7 +311,7 @@ async function markHwChecked(hwId,sid){
   if(refText&&hw.audioUrl&&apiKey&&!hw.aiScore){
     toast('AI 평가 중...');
     try{
-      const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content:`영어 낭독 과제 평가. 원문과 제출 상황을 보고 한국어로 100자 이내 피드백 작성. 칭찬과 개선점 균형있게. 원문: "${refText}". 피드백만 출력:`}]});
+      const d=await callClaudeProxy({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content:`영어 낭독 숙제 평가. 원문과 제출 상황을 보고 한국어로 100자 이내 피드백 작성. 칭찬과 개선점 균형있게. 원문: "${refText}". 피드백만 출력:`}]});
       hw.aiScore=d.content?.[0]?.text?.trim()||'';
     }catch(e){console.error('AI eval:',e);}
   }
@@ -809,7 +809,7 @@ function renderStudentLibrary(sid){
   </div>`;
 }
 
-// ── ASSIGNMENT (숙제 할당) ──
+// ── ASSIGNMENT (숙제 내기) ──
 function renderAsgnForm(sid){
   const type=document.getElementById(`asgn-type-${sid}`)?.value||'reading';
   const el=document.getElementById(`asgn-form-${sid}`);if(!el)return;
@@ -850,7 +850,7 @@ async function saveAssignment(sid){
   await supaUpsert('assignments',a.id,a,sid);
   if(!_cache.assignments)_cache.assignments=[];
   _cache.assignments.unshift(a);
-  toast('숙제가 할당되었습니다');
+  toast('숙제가 추가되었습니다');
   loadStuPanel(sid);
   }catch(e){
     console.error('save error:',e);
@@ -888,7 +888,7 @@ function renderAssignmentTab(sid){
   const done=assigns.filter(a=>isSubmitted(a));
 
   if(!assigns.length){
-    el.innerHTML=`<div class="empty boxed" style="margin:16px"><div style="font-size:36px;margin-bottom:10px">📋</div><div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px">아직 숙제가 없어요</div><div style="font-size:13px;color:var(--slate)">선생님이 숙제를 할당하면 여기에 표시됩니다</div></div>`;
+    el.innerHTML=`<div class="empty boxed" style="margin:16px"><div style="font-size:36px;margin-bottom:10px">📋</div><div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px">아직 숙제가 없어요</div><div style="font-size:13px;color:var(--slate)">선생님이 숙제를 내면 여기에 보여요</div></div>`;
     return;
   }
 
@@ -925,7 +925,7 @@ function renderAssignmentTab(sid){
       const _ci={phonics:'📘',grammar:'✏️',listening:'🎧',writing:'✍️',naesin:'📋',other:'💬',class5:'🎮',book:'📗',vocab:'📝',reading:'📖'};
       const _cl={phonics:'파닉스',grammar:'어법',listening:'리스닝',writing:'라이팅',naesin:'내신',other:'기타',class5:'클래스5',book:'원서',vocab:'어휘',reading:'리딩'};
       const icon=_ci[a.category]||'📋';
-      const label=_cl[a.category]||a.category||'과제';
+      const label=_cl[a.category]||a.category||'숙제';
       content=`<div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px">${icon} ${label}${a.bookTitle?' — '+a.bookTitle:''}</div>${a.range?`<div style="font-size:13px;color:var(--slate);margin-top:2px">${a.range}</div>`:''}${!a.bookTitle&&!a.range&&a.text?`<div style="font-size:13px;color:var(--slate)">${a.text}</div>`:''}${a.note?`<div style="font-size:13px;color:var(--navy);margin-top:4px;padding:5px 8px;background:var(--cream2);border-radius:6px">💬 ${a.note}</div>`:''}`;
     }
 
@@ -1006,7 +1006,7 @@ function renderHomeworkTab(sid){
   const homeworks=ppLive(_cache.homeworks).filter(h=>h.sid===sid);
   el.innerHTML=`<div style="padding:1.25rem">
     <div class="card" style="margin-bottom:12px">
-      <div class="ch"><span class="ct">📤 낭독 과제 제출</span></div>
+      <div class="ch"><span class="ct">📤 낭독 숙제 제출</span></div>
       <div class="cb">
         <div style="font-size:13px;color:var(--slate);margin-bottom:12px;line-height:1.8">
           <span style="font-weight:700;color:var(--navy)">범위:</span> ${rangeText}<br>
@@ -1101,7 +1101,7 @@ async function submitHomework(sid, assignmentId=''){
   } else {
     renderHomeworkTab(sid);
   }
-  toast('과제가 제출되었습니다 ✓');
+  toast('숙제가 제출되었습니다 ✓');
 }
 
 // ── PARENT NOTICE BANNER ──
@@ -1523,7 +1523,7 @@ function startVocabPhase(){
 function vocabHwBanner(){
   if(!vocabDeckFilter)return '';
   return `<div style="background:var(--tl);border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:12px;color:var(--tealt);font-weight:600">📌 숙제 단어 ${vocabDeckFilter.words.length}개 · 완료 후 과제 자동 처리</span>
+    <span style="font-size:12px;color:var(--tealt);font-weight:600">📌 숙제 단어 ${vocabDeckFilter.words.length}개 · 완료 후 숙제 자동 처리</span>
     <button onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--slate)">전체 보기</button>
   </div>`;
 }
@@ -2463,7 +2463,7 @@ async function renderVocabResult(el){
     </div>`:''}
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
       <button class="btn bo" style="padding:10px 22px;border-radius:50px" onclick="renderVocabDeck(currentStudentSid)">다시 하기</button>
-      ${vocabDeckFilter?.asgnId?`<button class="btn bt" style="padding:10px 22px;border-radius:50px" onclick="const aid=vocabDeckFilter.asgnId;vocabDeckFilter=null;completeAssignment(currentStudentSid,aid)">✅ 과제 완료</button>`:''}
+      ${vocabDeckFilter?.asgnId?`<button class="btn bt" style="padding:10px 22px;border-radius:50px" onclick="const aid=vocabDeckFilter.asgnId;vocabDeckFilter=null;completeAssignment(currentStudentSid,aid)">✅ 숙제 완료</button>`:''}
       <button class="btn bt" style="padding:10px 22px;border-radius:50px" onclick="vocabDeckFilter=null;swStuTab('st-home')">홈으로 →</button>
     </div>
     <div style="margin-top:18px;font-size:13.5px;color:var(--slate)">내일 또 만나요! 내일의 게임은 <b style="color:var(--tealt)">${_tmrNames}</b> 🎮</div>
@@ -3617,7 +3617,7 @@ function hwChallengeCardHtml(sid){
     const need=ts.total-ts.done;          // 전부 끝내야 도장 1개
     statusHtml=`<div style="font-size:13.5px;font-weight:700;color:var(--warnt)">숙제 ${need}개만 더 하면 도장 쾅! ⭐ (${ts.done}/${ts.total})</div>`;
   }else{
-    statusHtml=`<div style="font-size:13px;color:var(--slate)">오늘은 배정된 숙제가 없어요 😊</div>`;
+    statusHtml=`<div style="font-size:13px;color:var(--slate)">오늘은 할 숙제가 없어요 😊</div>`;
   }
   return `<div class="card hwch-card" id="stu-hwch-card" style="margin-bottom:14px"><div class="cb" style="padding:14px 16px">
     ${giftBanner}
@@ -3697,7 +3697,7 @@ async function completeAssignment(sid,asgnId){
 async function uncompleteAssignment(sid,asgnId){
   if(typeof ppBlockWrite==='function'&&ppBlockWrite())return;
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);if(!a||!a.completedAt)return;
-  askConfirm('완료 취소','이 과제의 완료 표시를 취소할까요?\n(실수로 체크했을 때 되돌리는 기능이에요)','되돌리기','bd',async()=>{
+  askConfirm('완료 취소','이 숙제의 완료 표시를 취소할까요?\n(실수로 체크했을 때 되돌리는 기능이에요)','되돌리기','bd',async()=>{
     delete a.completedAt;
     await supaUpsert('assignments',asgnId,a,sid);
     renderStudentHome(sid);
@@ -3953,7 +3953,7 @@ function renderLastLesson(sid){
         <span style="font-size:13px;font-weight:700;color:var(--warnt)">🙂 지난 시간은 수업을 못 했어요</span>
         <span style="font-size:12px;color:var(--slate);font-family:var(--fm)">${skipDate}</span>
       </div>
-      <div style="font-size:13.5px;color:var(--navy);line-height:1.7">${md}은 수업이 없었어요. <b>다음 시간에 만나요!</b> 🙌<br>수업은 못 했지만 <b>과제는 꼭 해오기</b> 약속 💪</div>
+      <div style="font-size:13.5px;color:var(--navy);line-height:1.7">${md}은 수업이 없었어요. <b>다음 시간에 만나요!</b> 🙌<br>수업은 못 했지만 <b>숙제는 꼭 해오기</b> 약속 💪</div>
     </div>`;
   }
   if(!les.length)return upHtml;
@@ -4310,19 +4310,19 @@ function renderStudentHome(sid){
       const prog=a.progress||{};
       const doneCnt=ms.filter(m=>prog[m]).length;
       const pct=ms.length?Math.round(doneCnt/ms.length*100):0;
-      body=`<div style="display:flex;align-items:center;font-size:14.5px;font-weight:700;color:var(--navy)"><span class="hw-ico">🎯</span>${a.bookTitle||'학습 미션'}</div>
+      body=`<div style="display:flex;align-items:center;font-size:14.5px;font-weight:700;color:var(--navy)"><span class="hw-ico">🎯</span>${a.bookTitle||'유닛 숙제'}</div>
         <div style="font-size:13px;color:var(--slate);margin-top:2px">${a.unitKey||''}${a.unitTitle?' — '+a.unitTitle:''}</div>
         <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
           ${ms.map(m=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 9px;border-radius:50px;${prog[m]?'background:var(--okl);color:var(--okt)':'background:var(--cream2);color:var(--slate)'}">${MISSION_DEFS[m]?.icon||''} ${MISSION_DEFS[m]?.label||m}${prog[m]?' ✓':''}</span>`).join('')}
         </div>
         <div style="margin-top:8px;height:6px;background:var(--cream2);border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${pct===100?'var(--ok)':'var(--teal)'};border-radius:99px"></div></div>`;
-      if(!isDone&&tb)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:13px;font-size:15px;font-weight:700" onclick="openMissionPlayer('${sid}','${a.id}')">${doneCnt?'▶ 이어서 하기':'▶ 미션 시작하기'}</button>`;
+      if(!isDone&&tb)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:13px;font-size:15px;font-weight:700" onclick="openMissionPlayer('${sid}','${a.id}')">${doneCnt?'▶ 이어서 하기':'▶ 숙제 시작하기'}</button>`;
       else if(!isDone&&!tb)body+=`<div style="font-size:12px;color:var(--slate);margin-top:6px">교재 정보를 불러오지 못했습니다</div>`;
     } else {
       const catIcon={phonics:'📘',vocab:'📝',grammar:'✏️',reading:'📖',listening:'🎧',writing:'✍️',naesin:'📋',book:'📗',class5:'🎮'};
       const icon=catIcon[a.category]||'📋';
       const KCK=['phonics','vocab','grammar','reading','listening','writing','naesin','book','class5','other'];
-      body=`<div style="display:flex;align-items:center;font-size:14.5px;font-weight:700;color:var(--navy)"><span class="hw-ico">${icon}</span>${a.bookTitle||a.text||((a.category&&!KCK.includes(a.category))?a.category:'')||'과제'}</div>`;
+      body=`<div style="display:flex;align-items:center;font-size:14.5px;font-weight:700;color:var(--navy)"><span class="hw-ico">${icon}</span>${a.bookTitle||a.text||((a.category&&!KCK.includes(a.category))?a.category:'')||'숙제'}</div>`;
       if(a.range)body+=`<div style="font-size:13px;color:var(--slate);margin-top:3px">${a.range}</div>`;
     }
     const canCheck=a.type==='mission'?false:(!(a.type==='reading'&&a.requireRecording)||!!hw);
@@ -4335,7 +4335,7 @@ function renderStudentHome(sid){
         ||(a.type==='reading'?'book':'etc'));
     return `<div class="hw-check-card hw-k-${kind}${isDone?' done':''}" id="hw-card-${a.id}">
       <div style="display:flex;gap:12px;align-items:flex-start">
-        <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone?'uncompleteAssignment(\''+sid+'\',\''+a.id+'\')':(!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')')}" title="${isDone?'클릭: 완료 취소':(!canCheck?(a.type==='mission'?'미션을 모두 완료하면 자동으로 체크됩니다':'녹음 제출 후 완료 가능'):'완료 처리')}">${isDone?'✓':''}</div>
+        <div class="hw-checkbox${isDone?' checked':''}" onclick="${isDone?'uncompleteAssignment(\''+sid+'\',\''+a.id+'\')':(!canCheck?'':'completeAssignment(\''+sid+'\',\''+a.id+'\')')}" title="${isDone?'클릭: 완료 취소':(!canCheck?(a.type==='mission'?'숙제를 모두 끝내면 자동으로 체크됩니다':'녹음 제출 후 완료 가능'):'완료 처리')}">${isDone?'✓':''}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
             <span style="font-size:12.5px;color:var(--slate);font-family:var(--fm)">${qNo?`<span class="quest-no">퀘스트 ${qNo}</span> `:''}${(typeof ppTrackChipHtml==='function')?ppTrackChipHtml(a.track):''}${a.date||''}</span>
@@ -4363,16 +4363,16 @@ function renderStudentHome(sid){
       const dp=items.length-dn;
       const od=d.isToday&&overdue.length?overdue.length:0;
       let cls='wk-day-dot',txt='',tip='';
-      if(od){cls+=' overdue';txt='!'+od;tip='기한 지난 과제 '+od+'건';}
+      if(od){cls+=' overdue';txt='!'+od;tip='기한 지난 숙제 '+od+'건';}
       else if(d.date<today){
-        if(!items.length)tip='배정된 퀘스트가 없던 날';
+        if(!items.length)tip='퀘스트가 없던 날';
         else if(dp===0){cls+=' done';txt='★';tip='퀘스트 '+items.length+'개 다 한 날';}
         else if(dn>0){cls+=' part';txt=dn+'/'+items.length;tip='퀘스트 '+items.length+'개 중 '+dn+'개 한 날';}
         else{cls+=' none';txt='○';tip='퀘스트 '+items.length+'개를 아직 안 한 날';}
       }else{
         if(items.length&&dp===0){cls+=' done';txt='✓';tip='퀘스트 '+items.length+'개 다 함';}
         else if(dp){txt=dp+'개';tip='할 퀘스트 '+dp+'개';}
-        else tip='배정된 퀘스트가 없어요';
+        else tip='퀘스트가 없어요';
       }
       const dot='<span id="wk-dot-'+d.date+'" class="'+cls+'">'+txt+'</span>';
       const wend=d.i===5?'wk-day-sat':d.i===6?'wk-day-sun':'';
@@ -4394,18 +4394,18 @@ function renderStudentHome(sid){
       +(sl&&sl.isToday&&selPending.length?'<div style="font-size:13px;color:var(--slate);margin:2px 0 10px">남은 퀘스트 <b style="color:var(--tealt)">'+selPending.length+'개</b> — 다 깨면 오늘 도장을 받아요 ⭐</div>':'')
       +(sel>today&&items.length?'<div style="font-size:12.5px;color:var(--tealt);margin:2px 0 10px">미리 해 두면 그날 도장으로 찍혀요 ⭐</div>':'');
     let body;
-    if(!items.length)body='<div class="wk-empty-day">이 날은 배정된 학습이 없어요 😊<br><span style="font-size:12px">단어 복습으로 예습해볼까요?</span></div>';
+    if(!items.length)body='<div class="wk-empty-day">이 날은 할 학습이 없어요 😊<br><span style="font-size:12px">단어 복습으로 예습해볼까요?</span></div>';
     else body=(allDoneToday?'<div class="wk-alldone"><div class="wk-alldone-i">🏆</div><div class="wk-alldone-t">오늘 퀘스트 올클리어!</div><div class="wk-alldone-s">오늘 도장 획득 ⭐ 내일 퀘스트에서 만나요</div></div>':'')
       +selPending.map((it,i)=>renderItem(it,i+1)).join('')
       +(selDone.length?'<div style="opacity:.72">'+selDone.map(it=>renderItem(it,0)).join('')+'</div>':'');
     // 기한 지난 미제출 — 접어 두되 건수를 드러낸다 (2건 이하면 펼친 채로)
     const lateHtml=(sel===today&&overdue.length)
       ? '<details class="late-box"'+(overdue.length<=2?' open':'')+'>'
-        +'<summary><span class="late-n">'+overdue.length+'</span>기한 지난 과제 — 아직 할 수 있어요</summary>'
+        +'<summary><span class="late-n">'+overdue.length+'</span>기한 지난 숙제 — 아직 할 수 있어요</summary>'
         +'<div class="late-list">'+overdue.map(a=>asgnCard(a,0)).join('')+'</div></details>'
       : '';
     const etc=regAssigns.filter(a=>{const d=_asgnDay(a);return !d||d>_weekEnd;});
-    const etcHtml=etc.length?'<details style="margin-top:12px"><summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;list-style:none">📌 기타 과제 ('+etc.length+'건)</summary><div style="margin-top:8px">'+etc.map(asgnCard).join('')+'</div></details>':'';
+    const etcHtml=etc.length?'<details style="margin-top:12px"><summary style="font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;list-style:none">📌 기타 숙제 ('+etc.length+'건)</summary><div style="margin-top:8px">'+etc.map(asgnCard).join('')+'</div></details>':'';
     return '<div class="card" id="stu-hw-card" style="margin-bottom:14px"><div class="cb" style="padding:16px 18px">'
       +'<div class="wk-strip">'+strip+'</div>'
       +'<div class="wk-legend">숫자는 그날 할 퀘스트 수 · ★ 다 한 날 · ○ 못 한 날</div>'
@@ -5199,13 +5199,13 @@ let _msState=null,_msRecBlob=null,_msTimerInt=null;
 
 function openMissionPlayer(sid,asgnId){
   const a=(_cache.assignments||[]).find(x=>x.id===asgnId);
-  if(!a)return toast('과제 정보가 없습니다');
+  if(!a)return toast('숙제 정보가 없습니다');
   const tb=missionFindTb(a.tbId);
   if(!tb)return toast('교재 정보가 없습니다');
   const missions=missionList(a,tb);
   _msState={a,tb,sid,missions,unitKey:a.unitKey,idx:0,ttsLevel:ttsLevelForTb(tb)};
   _msRecBlob=null;
-  document.getElementById('ms-title').textContent='🎯 '+(a.bookTitle||tb.title||'학습 미션');
+  document.getElementById('ms-title').textContent='🎯 '+(a.bookTitle||tb.title||'유닛 숙제');
   document.getElementById('ms-sub').textContent=(a.unitKey||'')+(a.unitTitle?' — '+a.unitTitle:'');
   stopSpeak();
   const first=missions.findIndex(m=>!(a.progress||{})[m]);
@@ -5257,7 +5257,7 @@ function renderMsStep(i){
 }
 function msDoneBtn(m,label){
   const done=!!(_msState.a.progress||{})[m];
-  if(done)return'<button class="btn bo" style="width:100%;border-radius:50px;padding:13px" disabled>✓ 완료한 미션이에요</button>';
+  if(done)return'<button class="btn bo" style="width:100%;border-radius:50px;padding:13px" disabled>✓ 다 한 숙제예요</button>';
   return'<button class="btn bt" style="width:100%;border-radius:50px;padding:13px;font-weight:700" onclick="msCompleteMission(\''+m+'\')">'+label+'</button>';
 }
 async function msCompleteMission(m){
@@ -5276,7 +5276,7 @@ async function msCompleteMission(m){
     updateStreak(sid);
     if(typeof checkNewBadges==='function')checkNewBadges(sid);
     launchConfetti();
-    toast('🎉 오늘의 미션 완료! 정말 잘했어요');
+    toast('🎉 오늘의 숙제 완료! 정말 잘했어요');
     renderStudentHome(sid);
   }else{
     showMiniConfetti();
