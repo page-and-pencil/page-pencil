@@ -7168,6 +7168,7 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-15',title:'대시보드 — 상자를 걷어내고 줄 목록으로 바꿨어요',where:'대시보드',tab:'t-dash',go:['swTab','t-dash']},
  {date:'2026-11-15',title:'교재 고르기 — 우리 교재가 먼저, 나머지는 검색으로',where:'수업 기록·클래스 수정·숙제 내기·진도 계획',tab:'t-assign',go:['renderAssignTab']},
  {date:'2026-11-15',title:'교재 — 자료가 있는 책 2,902권이 교재로 들어왔어요. 평소엔 우리 교재만 보여요',where:'교재·문제 → 교재',tab:'t-data',go:['switchDataTab','tbook']},
  {date:'2026-11-15',title:'말을 나눴어요 — 여기서 보는 것은 테스트, 학교 것은 시험, 종이는 시험지',where:'선생님·학생·학부모 화면',tab:'t-tst',go:['swTab','t-tst']},
@@ -10697,8 +10698,8 @@ function renderDash(){
   const les=DB.less();
   const tsts=DB.tsts();
   const hws=ppLive(_cache.homeworks);
-  const today=new Date();
-  const todayStr=today.toISOString().split('T')[0];
+  const todayStr=ppToday();                               // toISOString 은 KST 오전에 전날이 된다
+  const today=new Date(todayStr+'T12:00:00');
   const thisMonth=todayStr.slice(0,7);
   const lmDate=new Date(today.getFullYear(),today.getMonth()-1,1);
   const lastMonth=lmDate.getFullYear()+'-'+String(lmDate.getMonth()+1).padStart(2,'0');
@@ -10710,8 +10711,7 @@ function renderDash(){
   const todayClasses=DB.classes().filter(c=>c.active!==false&&((c.days||[]).includes(todayDay)||(c.extraDates||[]).includes(todayStr))&&!(c.skipDates||[]).includes(todayStr)) // 오늘 휴강 제외, 추가 수업일 포함
     .sort((a,b)=>(classTimeFor(a,todayDay).start||'99').localeCompare(classTimeFor(b,todayDay).start||'99'));
   const recordedToday=todayClasses.filter(c=>DB.less().some(l=>l.date===todayStr&&l.classId===c.id)).length;
-  renderDashGreet(dateLabel,todayClasses.length);
-  renderDashChallenge(stus);
+  renderDashGreet(dateLabel,todayClasses.length,recordedToday);
   renderDashToday(dateLabel,todayClasses,todayStr,stus);
   renderDashWeekHeat(stus,todayStr);
 
@@ -10720,7 +10720,7 @@ function renderDash(){
   hws.filter(h=>h.submitted&&!h.checked).forEach(h=>{uncheckedHwByStu[h.sid]=(uncheckedHwByStu[h.sid]||0)+1;});
   const unpaidStus=stus.filter(s=>hasUnpaid(s));
   const uncheckedTotal=Object.values(uncheckedHwByStu).reduce((a,b)=>a+b,0);
-  renderDashStats(recordedToday,todayClasses.length,uncheckedTotal,unpaidStus.length,stus.length);
+  renderDashStats(recordedToday,todayClasses.length,uncheckedTotal,unpaidStus.length,stus.length,stus);
   const scoreDrops=[];
   stus.forEach(s=>{
     // 미응시는 비교 대상이 아니다 — 끼면 0% 로 읽혀 가짜 하락 경보가 뜬다
@@ -10773,8 +10773,7 @@ function renderDashWeekHeat(stus,todayStr){
   const dow=(t.getDay()+6)%7;const mon=new Date(t);mon.setDate(t.getDate()-dow);
   const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   const days=['월','화','수','목','금','토','일'].map((lb,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return{lb,date:ymd(d),isToday:ymd(d)===todayStr};});
-  // 날짜별 몫은 공용 hwDayStatus 하나로 — 전에는 과제의 마감일(due)만 봐서
-  // 날마다 도는 일정형 숙제가 통째로 빠지고 월요일 한 칸만 차 있었다.
+  // 날짜별 몫은 공용 hwDayStatus 하나로
   const rows=stus.map(s=>{
     const cells=days.map(d=>{
       const r=(typeof hwDayStatus==='function')?hwDayStatus(s.id,d.date):{total:0,done:0};
@@ -10782,21 +10781,19 @@ function renderDashWeekHeat(stus,todayStr){
     });
     return{s,cells,has:cells.some(c=>c.total)};
   }).filter(r=>r.has);
-  if(!rows.length){el.innerHTML='';return;}
-  const cellHtml=c=>{
-    if(!c.total)return'<td style="padding:3px"><div style="height:26px;border-radius:var(--r-ctl);background:var(--cream2)"></div></td>';
-    const pct=c.done/c.total;
-    const bg=pct===1?'var(--okt)':pct>0?'#7DD8C8':'#FDE1B8';  // --ok 위의 흰 글자는 3.4:1 이었다
-    const fg=pct===1?'#fff':'var(--navy)';
-    return'<td style="padding:3px"><div title="완료 '+c.done+' / '+c.total+'" style="height:26px;border-radius:var(--r-ctl);background:'+bg+';color:'+fg+';display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-weight:800">'+c.done+'/'+c.total+'</div></td>';
+  const head='<div class="pl-sec-h"><h2 class="pl-sec-t">이번 주 숙제</h2><span class="pl-sec-aux">한 것 / 낸 것</span></div>';
+  if(!rows.length){el.innerHTML=head+'<div class="pl-list"><div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">이번 주에 낸 숙제가 없어요</span></span></div></div>';return;}
+  // 꾸밈 없는 표 — 칸은 'n/m' 글자만. 다 한 날은 체크, 0 은 흐리게, 오늘 칸은 600 (색 바탕 알약 없음)
+  const cellHtml=(c,d)=>{
+    const cls=(d.isToday?' today':'')+(!c.total?' none':c.done===c.total?' full':c.done===0?' zero':'');
+    if(!c.total)return'<td class="pl-td'+cls+'">–</td>';
+    return'<td class="pl-td'+cls+'" title="한 것 '+c.done+' / 낸 것 '+c.total+'">'
+      +(c.done===c.total?'<span class="pl-ok">'+(luIcon('check',13)||'✓')+'</span>':'')+c.done+'/'+c.total+'</td>';
   };
-  el.innerHTML='<div class="card"><div class="ch"><span class="ct">'+luIcon('flame',16)+'이번 주 학습 현황</span>'
-    +'<span style="font-size:var(--fs-sm);color:var(--slate)">숙제 끝낸 수/낸 수</span></div>'
-    +'<div class="cb" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:420px">'
-    +'<thead><tr><th style="text-align:left;font-size:var(--fs-sm);color:var(--slate);padding:3px;width:72px">학생</th>'
-    +days.map(d=>'<th style="font-size:var(--fs-sm);padding:3px;color:'+(d.isToday?'var(--teal)':'var(--slate)')+'">'+d.lb+(d.isToday?'·오늘':'')+'</th>').join('')+'</tr></thead>'
-    +'<tbody>'+rows.map(r=>'<tr><td style="font-size:var(--fs-md);font-weight:700;color:var(--navy);padding:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px">'+r.s.name+'</td>'+r.cells.map(cellHtml).join('')+'</tr>').join('')+'</tbody>'
-    +'</table></div></div>';
+  el.innerHTML=head+'<div class="pl-table-wrap"><table class="pl-table">'
+    +'<thead><tr><th class="pl-th-name">학생</th>'+days.map(d=>'<th class="'+(d.isToday?'today':'')+'">'+d.lb+'</th>').join('')+'</tr></thead>'
+    +'<tbody>'+rows.map(r=>'<tr><td class="pl-td-name"><button type="button" class="pl-name" onclick="openStuPanelTab(\''+r.s.id+'\',\'sp-hw\')">'+escAttr(r.s.name)+'</button></td>'
+      +r.cells.map((c,i)=>cellHtml(c,days[i])).join('')+'</tr>').join('')+'</tbody></table></div>';
 }
 
 // ── 끝낸 책 손으로 등록 ─────────────────────────────────────
@@ -11074,26 +11071,27 @@ function deleteExam(){
 // 학생 한 명이 아니라 반 전체의 수업 기록을 합산한다(ppBookPath 가 배열을 받는다).
 function renderDashClassPath(){
   const el=document.getElementById('dash-clspath');if(!el)return;
-  if(typeof ppBookPathLineHtml!=='function'){el.innerHTML='';return;}
+  const head='<div class="pl-sec-h"><h2 class="pl-sec-t">반별 진도</h2><span class="pl-sec-aux">지금 나가는 책</span></div>';
+  if(typeof ppBookPath!=='function'){el.innerHTML=head;return;}
+  const AREA={reading:'리딩',vocab:'어휘',grammar:'어법',listening:'리스닝',writing:'라이팅',phonics:'파닉스',naesin:'내신',book:'원서'};
   const stus=DB.stus().filter(s=>!s.inactive);
   const live=new Set(stus.map(s=>s.id));
-  const rows=(DB.classes()||[])
-    .filter(c=>c.active!==false)
-    .map(c=>{
-      const sids=(c.studentIds||c.sids||[]).filter(x=>live.has(x));
-      return {c,sids};
-    })
-    .filter(x=>x.sids.length)
-    .map(({c,sids})=>{
-      const line=ppBookPathLineHtml(sids,c.id);
-      if(!line)return '';
-      return '<div class="dash-cls-row"><div class="dash-cls-h">'
-        +'<span class="dash-cls-n">'+String(c.name||'이름 없는 반').replace(/</g,'&lt;')+'</span>'
-        +'<span class="dash-cls-s">'+sids.length+'명</span></div>'+line+'</div>';
-    }).filter(Boolean).join('');
-  el.innerHTML=rows
-    ? '<div class="card" style="margin-bottom:0"><div class="cb" style="padding:4px 14px">'+rows+'</div></div>'
-    : '<div class="card" style="margin-bottom:0"><div class="cb" style="padding:14px;font-size:var(--fs-md);color:var(--slate)">아직 진도 기록이 없습니다</div></div>';
+  // 막대 하나 = 영역 이름(폭 고정·muted) · 교재 · 4px 막대(채움 한 가지 색) · n/m
+  const rows=(DB.classes()||[]).filter(c=>c.active!==false).map(c=>{
+    const sids=(c.studentIds||c.sids||[]).filter(x=>live.has(x));
+    if(!sids.length)return '';
+    let path=[];try{path=ppBookPath(sids,c.id)||[];}catch(e){path=[];}
+    const lines=path.flatMap(a=>(a.now||[]).map(x=>{
+      const pct=Math.max(0,Math.min(100,x.pct==null?0:x.pct));
+      return '<div class="pl-bar-row"><span class="pl-bar-k">'+escAttr(AREA[a.area]||a.area||'')+'</span>'
+        +'<span class="pl-bar-t" title="'+escAttr(x.title||'')+'">'+escAttr(x.title||'')+'</span>'
+        +'<span class="pl-bar"><span style="width:'+pct+'%"></span></span>'
+        +'<span class="pl-bar-n">'+x.n+'/'+(x.total||'?')+'</span></div>';
+    })).join('');
+    if(!lines)return '';
+    return '<div class="pl-group"><div class="pl-group-h"><span>'+escAttr(c.name||'이름 없는 반')+'</span><span class="pl-muted">'+sids.length+'명</span></div>'+lines+'</div>';
+  }).filter(Boolean).join('');
+  el.innerHTML=head+'<div class="pl-list">'+(rows||'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">아직 진도 기록이 없어요</span></span></div>')+'</div>';
 }
 
 function renderDashCal(){
@@ -11109,25 +11107,21 @@ function renderDashCal(){
   const offDates=new Set(monthLes.filter(l=>l.att==='absent'||l.att==='makeup').map(l=>l.date));
   const DAYS=['일','월','화','수','목','금','토'];
   // 일요일 #E05B4F 는 3.6:1, 수업 없는 날 #C8D0D8 은 1.6:1 이었다 (2026-11-15)
-  let cells=DAYS.map((d,i)=>`<div style="text-align:center;font-size:var(--fs-sm);font-weight:700;color:${i===0?'var(--badt)':'var(--neutral)'};padding:3px 0">${d}</div>`).join('');
+  let cells=DAYS.map((d,i)=>`<div style="text-align:center;font-size:var(--fs-sm);font-weight:400;color:var(--text-muted);padding:3px 0">${d}</div>`).join('');
   for(let i=0;i<startDow;i++)cells+='<div></div>';
   for(let d=1;d<=daysInMonth;d++){
     const ds=`${y}-${mPad}-${String(d).padStart(2,'0')}`;
     let st='aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);border-radius:var(--r-ctl);font-family:var(--fd);font-variant-numeric:tabular-nums;';
-    if(ds===todayStr)st+='background:var(--accent);color:#fff;font-weight:700;box-shadow:0 2px 6px rgba(27,94,74,.35);';
-    else if(lesDates.has(ds))st+='background:var(--tl);color:var(--tealt);font-weight:700;';
-    else if(offDates.has(ds))st+='background:var(--warnl);color:var(--warnt);font-weight:700;';
+    if(ds===todayStr)st+='background:var(--primary);color:#fff;font-weight:600;';
+    else if(lesDates.has(ds))st+='color:var(--text);font-weight:600;text-decoration:underline;text-underline-offset:3px;';
+    else if(offDates.has(ds))st+='color:var(--badt);font-weight:600;';
     else st+='color:var(--text-muted);';
     cells+=`<div style="${st}">${d}</div>`;
   }
-  el.innerHTML=`<div class="card" style="padding:16px 18px;margin-bottom:0">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">${luIcon('calendar-days',16,'color:var(--tealt)')}<span style="font-size:var(--fs-lg);font-weight:800;color:var(--navy)">${y}년 ${m+1}월</span></div>
+  el.innerHTML=`<div class="pl-cal">
+    <div class="pl-cal-h">${y}년 ${m+1}월</div>
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>
-    <div style="display:flex;gap:12px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(15,48,74,.06);font-size:var(--fs-sm);color:var(--neutral)">
-      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:var(--r-ctl);background:var(--tl);border:1px solid rgba(27,94,74,.35)"></span>수업</span>
-      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:var(--r-ctl);background:var(--warnl);border:1px solid rgba(245,158,11,.4)"></span>결석/보강</span>
-      <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:var(--r-ctl);background:var(--accent)"></span>오늘</span>
-    </div>
+    <div class="pl-cal-key"><span><u>15</u> 수업</span><span style="color:var(--badt)">15 결석·보강</span><span><i class="pl-cal-today">15</i> 오늘</span></div>
   </div>`;
 }
 
@@ -11330,35 +11324,8 @@ function openStuPanelTab(sid,tabId){
 }
 function openPayMsg(sid){openStuPanelTab(sid,'sp-summary');}
 // ── 숙제 도장 챌린지 — 달성 시 대시보드에 알림 배너, 진행 중이면 작은 진행 표시 ──
-function renderDashChallenge(stus){
-  const host=document.getElementById('dash-greet');if(!host)return;
-  host.querySelector('#dash-hwch')?.remove();
-  const rows=[];
-  stus.forEach(s=>{
-    const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(s):null;
-    if(!p)return;
-    if(p.pendingGifts>0){
-      rows.push(`<div class="dash-hwch-gift">
-        <span style="font-size:22px">${luIcon('party-popper',14)||''}</span>
-        <div style="flex:1;min-width:180px">
-          <div style="font-size:var(--fs-base);font-weight:800;color:var(--warnt)">${escAttr(s.name)} — 도장판 ${p.rounds}개 완성! (전달할 선물 ${p.pendingGifts}개)</div>
-          <div style="font-size:var(--fs-md);color:var(--warnt);margin-top:2px">${escAttr(p.reward)}을 전달해 주세요 🎁 · 학생 앱은 이미 ${p.roundNo}번째 판(${p.count}/${p.goal})으로 넘어가 있어요</div>
-        </div>
-        <button class="btn bt bsm" onclick="dashChallengeComplete('${s.id}')">${luIcon('gift',14)||''} 선물 전달 완료</button>
-      </div>`);
-    }else{
-      // 390px 에서 '나/연', '도장 챌린/지' 로 꺾였다 — 낱말 단위로만 넘기고(.dash-hwch-row)
-      // 작은 글은 좁은 화면에서 아랫줄로 내린다
-      rows.push(`<div class="dash-hwch-row">
-        <span class="dhw-m">${luIcon('gift',14)||''} <b>${escAttr(s.name)}</b> 도장 챌린지 <b class="dhw-n">${p.count}/${p.goal}</b></span>
-        <span class="dhw-s">시작 ${p.start} · 오늘 도장 ${p.todayStamp?'✅':'아직'}</span>
-      </div>`);
-    }
-  });
-  if(!rows.length)return;
-  const div=document.createElement('div');div.id='dash-hwch';div.innerHTML=rows.join('');
-  host.appendChild(div);
-}
+// 도장 챌린지 띠는 없앴다 (2026-11-15 dash-plain) — 진행은 숫자 줄의 '도장' 칸, 선물 전달은 '바로 할 일' 줄
+function renderDashChallenge(){}
 async function dashChallengeComplete(sid){
   const idx=(_cache.students||[]).findIndex(s=>s.id===sid);if(idx<0)return;
   const stu=_cache.students[idx];
@@ -11400,13 +11367,20 @@ async function spChallengeStop(sid){
     toast('챌린지를 중지했어요');loadStuPanel(sid);renderDash();
   });
 }
-function renderDashGreet(dateLabel,todayCount){
+function renderDashGreet(dateLabel,todayCount,recorded){
   const el=document.getElementById('dash-greet');if(!el)return;
-  const h=new Date().getHours();
-  const hello=h<12?'좋은 아침이에요':h<18?'안녕하세요':'오늘도 수고 많으셨어요';
-  el.innerHTML=`<h1 style="font-size:23px;font-weight:800;letter-spacing:-.02em;color:var(--navy);margin:0">${hello}</h1>
-    <div style="font-size:var(--fs-base);color:var(--slate);margin-top:3px">${dateLabel} · 오늘 수업 ${todayCount}개</div>`;
+  // 인사 글(시간대별 문구)은 없앴다 — 날짜가 제목이다 (2026-11-15 dash-plain)
+  let sub;
+  if(todayCount)sub='오늘 수업 '+todayCount+'개 · 기록 '+(recorded||0)+'/'+todayCount;
+  else{
+    const n=_dashNextClass(ppToday());
+    sub='오늘 수업 없음'+(n?(' · 다음 수업 '+_dashMD(n.date)+'('+n.dk+') '+n.names.slice(0,2).join('·')+(n.names.length>2?' 외 '+(n.names.length-2)+'반':'')):'');
+  }
+  el.innerHTML='<div class="pl-head-main"><h1 class="pl-title">'+escAttr(dateLabel)+'</h1>'
+    +'<div class="pl-sub" id="dash-sum">'+escAttr(sub)+'</div></div>'
+    +'<button class="btn bt pl-head-btn" onclick="mkGo()" title="시험지·학습 세트·단어 시험지를 한 화면씩 따라가며 만들어요">만들기</button>';
 }
+function _dashMD(ds){return Number(ds.slice(5,7))+'/'+Number(ds.slice(8,10));}
 // 수업이 없는 날 보여 줄 '다음 수업' — 오늘 다음 60일에서 첫 수업일을 찾는다
 function _dashNextClass(fromStr){
   const DAYS=['일','월','화','수','목','금','토'];
@@ -11427,83 +11401,79 @@ function _dashNextClassLine(fromStr){
   return '다음 수업 '+n.date.slice(5).replace('-','/')+'('+n.dk+') · '
     +n.names.slice(0,3).join(' · ')+(n.names.length>3?(' 외 '+(n.names.length-3)+'반'):'');
 }
-function renderDashStats(recordedToday,totalToday,uncheckedTotal,unpaidCount,studentCount){
+function renderDashStats(recordedToday,totalToday,uncheckedTotal,unpaidCount,studentCount,stus){
   const el=document.getElementById('dash-stats');if(!el)return;
-  const pctToday=totalToday?Math.round(recordedToday/totalToday*100):0;
-  const card=(lbl,ico,icoCls,num,unit,sub)=>`<div class="dash-stat">
-    <div class="dash-stat-top"><span class="dash-stat-lbl">${lbl}</span><span class="dash-stat-ico ${icoCls}">${ico}</span></div>
-    <div class="dash-stat-num">${num}${unit?`<small> ${unit}</small>`:''}</div>
-    ${sub||''}
-  </div>`;
+  // 칸 하나 = 라벨 · 숫자 · 단위. 0 은 흐리게, 손봐야 하는 값만 --badt.
+  const cell=(k,lbl,num,unit,tone,go,extra)=>{
+    const cls=num===0||num==='0'?' zero':(tone==='bad'?' bad':'');
+    return '<button type="button" class="pl-stat'+cls+'" data-k="'+k+'" onclick="'+go+'">'
+      +'<span class="pl-stat-l">'+lbl+'</span>'
+      +'<span class="pl-stat-v"><b class="pl-num">'+num+'</b>'+(unit?'<small>'+unit+'</small>':'')+(extra||'')+'</span></button>';
+  };
+  // 도장 챌린지 — 한 명이면 '○○ 도장 n/m', 여럿이면 '오늘 도장 n/m명'
+  const ch=(stus||[]).map(s=>({s,p:(typeof hwChallengeProgress==='function')?hwChallengeProgress(s):null})).filter(x=>x.p);
+  let stamp;
+  if(ch.length===1){
+    const x=ch[0];
+    stamp=cell('stamp',escAttr(x.s.name)+' 도장',x.p.count,'/'+x.p.goal,'',`openStuPanelTab('${x.s.id}','sp-summary')`);
+  }else if(ch.length>1){
+    const on=ch.filter(x=>x.p.todayStamp).length;
+    stamp=cell('stamp','오늘 도장',on,'/'+ch.length+'명','',`swTab('t-stu')`);
+  }else stamp=cell('stamp','도장 챌린지',0,'명','',`swTab('t-stu')`);
   el.innerHTML=
-    (totalToday
-      // 수업이 없는 날 '0 / 0 기록' 은 아무 말도 하지 않는다 — 다음 수업을 적는다
-      ? card('오늘 수업',luIcon('calendar-check',16),'',recordedToday,`/ ${totalToday} 기록`,
-          `<div class="dash-stat-sub"><div class="dash-bar-bg" style="margin-top:2px"><div class="dash-bar-fill" style="width:${pctToday}%"></div></div></div>`)
-      : card('오늘 수업',luIcon('calendar-check',16),'','없음','',
-          `<div class="dash-stat-sub" style="word-break:keep-all">${escAttr(_dashNextClassLine(ppToday()))}</div>`))
-    +card('확인할 숙제',luIcon('inbox',16),uncheckedTotal?'st-amber':'',uncheckedTotal,'건',
-      `<div class="dash-stat-sub" style="color:${uncheckedTotal?'var(--warnt)':'var(--slate)'}">${uncheckedTotal?'제출 확인이 필요해요':'모두 확인됨'}</div>`)
-    +card('이번 달 미납',luIcon('wallet',16),unpaidCount?'st-amber':'',unpaidCount,'명',
-      `<div class="dash-stat-sub" style="color:${unpaidCount?'var(--warnt)':'var(--slate)'}">${unpaidCount?'납입 안내가 필요해요':'모두 완납'}</div>`)
-    +card('재원생',luIcon('graduation-cap',16),'st-green',studentCount,'명','<div class="dash-stat-sub"></div>');
+    (totalToday?cell('rec','오늘 기록',recordedToday,'/'+totalToday,'',`swTab('t-class')`):'')
+    +cell('hw','확인할 숙제',uncheckedTotal,'건','bad',`swTab('t-assign')`)
+    +cell('pay','이번 달 미납',unpaidCount,'명','bad',`swTab('t-stu')`)
+    +(totalToday?'':cell('stu','재원생',studentCount,'명','',`swTab('t-stu')`))
+    +stamp;
 }
 function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
   const el=document.getElementById('dash-today');if(!el)return;
-  let body;
-  // 오늘이 '원래 수업일인데 휴강으로 뺀 날' 인지 — 그냥 '수업 없음' 과 구분해서 알린다
   const _dayK=['일','월','화','수','목','금','토'][new Date(todayStr+'T12:00:00').getDay()];
   const _skipToday=DB.classes().filter(c=>c.active!==false&&(c.days||[]).includes(_dayK)&&(c.skipDates||[]).includes(todayStr));
-  if(!todayClasses.length&&_skipToday.length){
-    body=`<div style="font-size:var(--fs-base);color:var(--navy);word-break:keep-all">${luIcon('calendar-off',15)||'🚫'} 오늘은 <b>${_skipToday.map(c=>c.name||'반').join(' · ')}</b> 휴강입니다<div style="font-size:var(--fs-md);color:var(--slate);margin-top:3px">쉬는 날로 등록돼 있어요 — 수업 기록은 받지 않습니다</div><div style="font-size:var(--fs-md);color:var(--navy);margin-top:5px">${escAttr(_dashNextClassLine(ppToday()))}</div></div>`;
-  } else if(!todayClasses.length){
-    body=`<div style="font-size:var(--fs-base);color:var(--navy);word-break:keep-all">오늘 수업 없음
-      <div style="font-size:var(--fs-md);color:var(--slate);margin-top:4px">${escAttr(_dashNextClassLine(ppToday()))}</div>
-      ${DB.classes().some(c=>c.active!==false)?'':`<div style="margin-top:6px"><button class="btn bo bsm" onclick="swTab('t-class')">클래스 만들기</button></div>`}</div>`;
-  } else {
-    const todayLessonSids=new Set(DB.less().filter(l=>l.date===todayStr).map(l=>l.sid));
+  let body='',aux='';
+  if(!todayClasses.length){
+    const n=_dashNextClass(todayStr);
+    body='<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t">'
+      +(_skipToday.length?('오늘은 '+escAttr(_skipToday.map(c=>c.name||'반').join(' · '))+' 휴강이에요'):'오늘은 수업이 없어요')+'</span></span></div>';
+    if(n){
+      const c=DB.classes().find(x=>x.active!==false&&(x.name||'반')===n.names[0]);
+      const tt=c?classTimeFor(c,n.dk):{};
+      body+='<div class="pl-row"'+(c?` onclick="openClassLesson('${c.id}','${n.date}')"`:'')+'>'
+        +'<span class="pl-row-time">'+_dashMD(n.date)+'('+n.dk+')'+(tt.start?' '+tt.start:'')+'</span>'
+        +'<span class="pl-row-main"><span class="pl-row-t">다음 수업 · '+escAttr(n.names.slice(0,3).join(' · '))+(n.names.length>3?' 외 '+(n.names.length-3)+'반':'')+'</span></span>'
+        +(c?'<span class="pl-link">미리 보기</span>':'')+'</div>';
+    }else body+='<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-sub">예정된 다음 수업이 없어요</span></span></div>';
+    if(!DB.classes().some(c=>c.active!==false))
+      body+='<div class="pl-row" onclick="swTab(\'t-class\')"><span class="pl-row-main"><span class="pl-row-t">클래스를 먼저 만들어 주세요</span></span><span class="pl-link">클래스 만들기</span></div>';
+  }else{
     const nowHM=new Date().toTimeString().slice(0,5);
-    const DAYS2=['일','월','화','수','목','금','토'];
-    const todayDay2=DAYS2[new Date().getDay()]; // 로컬 요일 (todayStr는 UTC 기반이라 자정~오전에 어긋남)
+    const recN=todayClasses.filter(c=>DB.less().some(l=>l.date===todayStr&&l.classId===c.id)).length;
+    aux='기록 '+recN+'/'+todayClasses.length;
     body=todayClasses.map(c=>{
-      const classRecorded=DB.less().some(l=>l.date===todayStr&&l.classId===c.id);
-      const students=(allStus||[]).filter(s=>(c.studentIds||[]).includes(s.id));
-      // '지금' 진행 중인 수업 강조 — 오늘 요일의 시간 기준 (요일별 시간 지원)
-      const tt=classTimeFor(c,todayDay2);
-      const tStart=tt.start;
-      const tEnd=tt.end||(tStart?tStart.slice(0,2)+':59':'');
-      const isNow=!classRecorded&&tStart&&nowHM>=tStart&&nowHM<=tEnd;
-      const timeLabel=tStart?`<span class="mono" style="font-size:var(--fs-md);color:${isNow?'var(--tealt)':'var(--slate)'};font-weight:${isNow?'700':'400'};margin-left:6px">${tStart+(tt.end?'~'+tt.end:'')}</span>`:'';
-      const stuRows=students.map(s=>{
-        const done=todayLessonSids.has(s.id);
-        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0">
-          <button type="button" class="dash-stu-nm" style="color:${done?'var(--slate)':'var(--navy)'}" onclick="loadStuPanel('${s.id}')">${s.name}</button>
-          ${done?`<span style="color:var(--okt)">${luIcon('check',13)||'✓'}</span>`:`<button class="btn bt bsm" style="font-size:var(--fs-sm);padding:1px 8px" onclick="goAddLesson('${s.id}')">+ 기록</button>`}
-        </div>`;
-      }).join('');
-      const statusIco=classRecorded
-        ?`<span class="dash-status-ico dsi-done">${luIcon('check',17)||'✓'}</span>`
-        :`<span class="dash-status-ico dsi-now">${luIcon('pencil',16)||'✎'}</span>`;
-      return `<div class="dash-class-row${isNow?' dcr-now':''}" style="padding:8px 10px;margin:0 -10px">
-        ${statusIco}
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:${students.length?'6px':'0'}">
-            <div><span style="font-weight:700;font-size:var(--fs-lg)">${c.name}</span>${isNow?'<span class="dcr-now-pill">지금</span>':''}${timeLabel}</div>
-            ${classRecorded
-              ?`<button class="btn bo bsm w84" style="font-size:var(--fs-sm);flex-shrink:0" onclick="openClassLessonEdit('${c.id}','${todayStr}')">수정</button>`
-              :`<button class="btn bt bsm w84" style="font-size:var(--fs-sm);flex-shrink:0" onclick="openClassLesson('${c.id}','${todayStr}')">기록하기</button>`}
-          </div>
-          ${(typeof pgActsOn==='function'?pgActsOn(c,todayStr,true,new Set(c.skipDates||[])):[]).map(a=>
-            `<div class="dash-act">${luIcon('book-open',14)||''} ${escAttr(a.label)}</div>`).join('')}
-          ${stuRows||`<span style="font-size:var(--fs-md);color:var(--slate)">학생 없음</span>`}
-        </div>
-      </div>`;
+      const done=DB.less().some(l=>l.date===todayStr&&l.classId===c.id);
+      const tt=classTimeFor(c,_dayK);
+      const tEnd=tt.end||(tt.start?tt.start.slice(0,2)+':59':'');
+      const isNow=!done&&tt.start&&nowHM>=tt.start&&nowHM<=tEnd;
+      // 오늘 나갈 교재·단원 — 진도 캘린더와 같은 계산(_pgComposePlan) 한 곳에서
+      let plan='';
+      try{
+        const g=(_pgComposePlan(c.id,c,todayStr).ghostBy||{})[todayStr]||[];
+        const by={};g.forEach(x=>{(by[x.title]=by[x.title]||[]).push(x.unit);});
+        plan=Object.entries(by).map(([t,us])=>t+' '+us.filter(Boolean).join(', ')).join(' · ');
+      }catch(e){}
+      if(!plan){try{plan=(pgActsOn(c,todayStr,true,new Set(c.skipDates||[]))||[]).map(a=>a.label).join(' · ');}catch(e){}}
+      const nStu=(c.studentIds||[]).filter(id=>(allStus||[]).some(s=>s.id===id)).length;
+      return '<div class="pl-row pl-row-2'+(isNow?' on':'')+'" onclick="'+(done?`openClassLessonEdit('${c.id}','${todayStr}')`:`openClassLesson('${c.id}','${todayStr}')`)+'">'
+        +'<span class="pl-row-time">'+(tt.start?tt.start:'—')+'</span>'
+        +'<span class="pl-row-main"><span class="pl-row-t">'+escAttr(c.name||'반')+(isNow?'<span class="pl-pill">지금</span>':'')+'</span>'
+        +'<span class="pl-row-sub">'+escAttr(plan||(nStu+'명'))+'</span></span>'
+        +(done?'<span class="pl-done">기록함</span>':'<button type="button" class="btn bt bsm pl-row-btn" onclick="event.stopPropagation();openClassLesson(\''+c.id+'\',\''+todayStr+'\')">기록</button>')
+        +'</div>';
     }).join('');
   }
-  el.innerHTML=`<div class="card">
-    <div class="ch"><span class="ct">${luIcon('clock',17)}오늘의 수업 · ${dateLabel}</span></div>
-    <div class="cb" style="padding-top:4px;display:flex;flex-direction:column;gap:4px">${body}</div>
-  </div>`;
+  el.innerHTML='<div class="pl-sec-h"><h2 class="pl-sec-t">오늘의 수업</h2><span class="pl-sec-aux">'+aux+'</span></div>'
+    +'<div class="pl-list">'+body+'</div>';
 }
 
 // ── 오늘 단어 학습 위젯 — 학생별 오늘 학습 단어 수 (20개 달성 🏆 → 다음 수업 때 칭찬으로 연결) ──
@@ -11520,12 +11490,10 @@ function renderDashVocabToday(){
   const rows=Object.entries(bySid).map(([sid,n])=>({stu:(_cache.students||[]).find(s=>s.id===sid),n}))
     .filter(r=>r.stu&&!r.stu._deleted&&!r.stu.inactive).sort((a,b)=>b.n-a.n);
   if(!rows.length){el.innerHTML='';return;}
-  el.innerHTML=`<div class="card" style="margin-bottom:12px">
-    <div class="ch"><span class="ct">${luIcon('party-popper',14)||''} 오늘 단어 학습한 학생</span><span style="font-size:var(--fs-md);color:var(--slate)">${rows.length}명 · ${luIcon('trophy',15)||''}20개 이상 달성</span></div>
-    <div class="cb" style="padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px">
-      ${rows.map(r=>`<span style="font-size:var(--fs-md);padding:4px 11px;border-radius:var(--r-card-lg);background:${r.n>=20?'#D9F6E9':'var(--cream2)'};border:1px solid ${r.n>=20?'var(--ok)':'var(--border)'};color:${r.n>=20?'var(--okt)':'var(--navy)'};font-weight:700">${r.stu.name} ${r.n}개${testBySid[r.stu.id]?` <span style="font-weight:400;color:var(--slate)">(테스트 ${testBySid[r.stu.id]}개 별도)</span>`:''}${r.n>=20?' 🏆':''}</span>`).join('')}
-    </div>
-  </div>`;
+  el.innerHTML=`<div class="pl-sec-h"><h2 class="pl-sec-t">오늘 단어 학습한 학생</h2><span class="pl-sec-aux">${rows.length}명 · 20개 이상은 ✓</span></div>
+    <div class="pl-chips">
+      ${rows.map(r=>`<span class="pl-chip${r.n>=20?' ok':''}">${escAttr(r.stu.name)} ${r.n}개${testBySid[r.stu.id]?` <span class="pl-muted">(테스트 ${testBySid[r.stu.id]}개 별도)</span>`:''}${r.n>=20?' ✓':''}</span>`).join('')}
+    </div>`;
 }
 // ── 데이터 채우기 우선순위 — 학생들이 읽고 배운 콘텐츠 중 단어가 빈 것 (최근 학습 순, 채우면 자동으로 다음 항목) ──
 let _dashFillItems=[],_dashFillAll=false;
@@ -11853,82 +11821,67 @@ function renderDashActions(stus,uncheckedHwByStu,unpaidStus,scoreDrops,noLessonS
   if(localStorage.getItem('pp_lastBackup')!==ymNow){
     items.push({icon:luIcon('download',15),chip:'',text:'이번 달 전체 백업이 아직 없어요 — 데이터 유실 대비 월 1회 권장',label:'지금 백업',action:'fullBackup()'});
   }
+  // 도장판을 다 채운 학생 — 선물 전달 (전에는 대시보드 맨 위 띠에 있었다)
+  (stus||[]).forEach(s=>{
+    const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(s):null;
+    if(p&&p.pendingGifts>0)items.unshift({text:`${s.name} — 도장판 ${p.rounds}개 완성 · ${p.reward} 전달`,label:'선물 전달 완료',action:`dashChallengeComplete('${s.id}')`});
+  });
+  // 줄 = 빈 동그라미(꾸밈) · 글 · 오른쪽 글 링크. 누르는 자리는 줄 전체 (2026-11-15 dash-plain)
+  const head='<div class="pl-sec-h"><h2 class="pl-sec-t">바로 할 일</h2><span class="pl-sec-aux">'+(items.length?items.length+'건':'')+'</span></div>';
   if(!items.length){
-    el.innerHTML=`<div class="card">
-      <div class="ch"><span class="ct" style="color:var(--okt)">${luIcon('circle-check',17,'color:var(--okt)')}모두 처리됨</span></div>
-      <div class="cb" style="font-size:var(--fs-md);color:var(--slate);padding:4px 0">확인할 사항이 없습니다</div>
-    </div>`;
+    el.innerHTML=head+'<div class="pl-list"><div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">오늘은 할 일이 없어요</span></span></div></div>';
     return;
   }
-  el.innerHTML=`<div class="card">
-    <div class="ch"><span class="ct">${luIcon('zap',16)}바로 할 일</span><span style="font-size:var(--fs-md);color:var(--slate)">${items.length}건</span></div>
-    <div class="cb" style="padding:6px 10px">${items.map(it=>`<div class="dash-action-item" onclick="${it.action||`loadStuPanel('${it.sid}')`}">
-      <span class="dash-action-icon ${it.chip||''}">${it.icon}</span>
-      <span class="dash-action-text">${it.text}</span>
-      ${it.label?`<span class="dash-action-label" style="display:inline-flex;align-items:center;gap:2px">${it.label}${luIcon('chevron-right',13)||' →'}</span>`:`<span style="color:var(--neutral)">${luIcon('chevron-right',15)||'→'}</span>`}
-    </div>`).join('')}</div>
-  </div>`;
+  el.innerHTML=head+'<div class="pl-list">'+items.map(it=>{
+    const go=it.action||`loadStuPanel('${it.sid}')`;
+    return '<div class="pl-row pl-todo" onclick="'+escAttr(go)+'"><span class="pl-ck" aria-hidden="true"></span>'
+      +'<span class="pl-row-main"><span class="pl-row-t">'+it.text+'</span></span>'
+      +(it.label?'<span class="pl-link">'+it.label+'</span>':'')+'</div>';
+  }).join('')+'</div>';
 }
 
 function renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,thisRds,totalRds,feeTotal,paidCount,unpaidCount,totalIncome){
   const el=document.getElementById('dash-monthly');if(!el)return;
-  const lesBar=lastLes?Math.min(100,Math.round(thisLes/lastLes*100)):0;
+  // 숫자 줄과 같은 꼴 — 지난달 견줌은 숫자 옆 작은 muted 글
   const avgDiff=(thisAvg!==null&&lastAvg!==null)?thisAvg-lastAvg:null;
-  const avgDiffHtml=avgDiff!==null
-    ?`<span style="font-size:var(--fs-sm);margin-left:4px;color:${avgDiff>=0?'var(--okt)':'var(--coral)'}">${avgDiff>=0?'+':''}${avgDiff}%p</span>`:'';
-  const payRow=feeTotal>0?`
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:var(--fs-md)">
-        <span>결제</span>
-        <span style="font-weight:700">
-          <span style="color:var(--okt)">완납 ${paidCount}명</span><span style="color:var(--slate);font-weight:400"> / </span><span style="color:var(--badt)">미납 ${unpaidCount}명</span><span style="color:var(--slate);font-weight:400;margin-left:6px">· ${totalIncome.toLocaleString()}원</span>
-        </span>
-      </div>`:'';
-  el.innerHTML=`<div class="card">
-    <div class="ch"><span class="ct">${luIcon('chart-column',16)}이번 달 현황</span></div>
-    <div class="cb" style="display:flex;flex-direction:column;gap:14px">
-      <div>
-        <div style="display:flex;justify-content:space-between;font-size:var(--fs-md);margin-bottom:5px">
-          <span>출석</span>
-          <span style="font-weight:700">${thisLes}건 <span style="color:var(--slate);font-weight:400">${lastLes?'(지난달 '+lastLes+'건)':''}</span></span>
-        </div>
-        <div class="dash-bar-bg"><div class="dash-bar-fill" style="width:${lesBar}%"></div></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:var(--fs-md)">
-        <span>테스트 평균</span><span style="font-weight:700">${thisAvg!==null?thisAvg+'%':'—'}${avgDiffHtml}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:var(--fs-md)">
-        <span>원서</span><span style="font-weight:700">${thisRds}권 <span style="color:var(--slate);font-weight:400">(누적 ${totalRds}권)</span></span>
-      </div>
-      ${payRow}
-    </div>
-  </div>`;
+  const cell=(lbl,num,unit,cmp)=>'<div class="pl-stat pl-stat-static'+(num===0||num==='—'?' zero':'')+'">'
+    +'<span class="pl-stat-l">'+lbl+'</span><span class="pl-stat-v"><b class="pl-num">'+num+'</b>'+(unit?'<small>'+unit+'</small>':'')
+    +(cmp?'<em class="pl-cmp">'+cmp+'</em>':'')+'</span></div>';
+  el.innerHTML='<div class="pl-sec-h"><h2 class="pl-sec-t">이번 달 현황</h2><span class="pl-sec-aux">'+(feeTotal?'완납 '+paidCount+'/'+feeTotal+'명 · '+totalIncome.toLocaleString()+'원':'')+'</span></div>'
+    +'<div class="pl-stats pl-stats-3">'
+    +cell('출석',thisLes,'건',lastLes?'지난달 '+lastLes:'')
+    +cell('테스트 평균',thisAvg!==null?thisAvg:'—',thisAvg!==null?'%':'',avgDiff!==null?(avgDiff>=0?'+':'')+avgDiff+'%p':'')
+    +cell('원서',thisRds,'권','누적 '+totalRds)
+    +'</div>';
 }
 
 function renderDashNotice(){
   const el=document.getElementById('dash-notice-section');if(!el)return;
-  el.innerHTML=`<div class="card">
-    <div class="ch"><span class="ct">${luIcon('megaphone',16)}공지 빠른 등록</span><span style="font-size:var(--fs-sm);color:var(--slate)" id="notice-count-lbl"></span></div>
-    <div class="cb">
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <textarea id="dash-notice-input" placeholder="예) 6월 6일 현충일 휴강합니다." style="flex:1;min-height:56px;resize:vertical;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:var(--fs-base);color:var(--navy);background:var(--cream);outline:none"></textarea>
-        <button class="btn bt bsm" style="align-self:flex-end" onclick="postNotice()">등록</button>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-        <label style="font-size:var(--fs-md);color:var(--slate)" for="dash-notice-until">언제까지</label>
-        <input type="date" id="dash-notice-until" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:var(--fs-md);color:var(--navy);background:var(--cream)">
-        <span style="font-size:var(--fs-sm);color:var(--slate)">비워 두면 끌 때까지 보여요</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-        <label style="font-size:var(--fs-md);color:var(--slate)">받는 대상</label>
-        <select id="dash-notice-target" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:var(--fs-md);color:var(--navy);background:var(--cream);max-width:100%">
-          <option value="">전체 (모든 학생·학부모)</option>
-          ${DB.classes().filter(c=>c.active!==false).map(c=>`<option value="${escAttr(c.id)}">${escAttr(c.name||'반')}</option>`).join('')}
-        </select>
-      </div>
-      <div id="notice-board"></div>
-    </div>
-  </div>`;
+  const on=(_cache.notices||[]).filter(n=>n&&n.active&&!n._deleted).length;
+  el.innerHTML='<div class="pl-fold-row">'
+    +'<button type="button" class="pl-fold-btn" id="dash-notice-tg" aria-expanded="false" onclick="dashNoticeOpen(\'list\')">'
+    +'<span class="pl-sec-t">공지</span><span class="pl-sec-aux">게시 중 '+on+'건</span><span class="pl-chev" aria-hidden="true"></span></button>'
+    +'<button type="button" class="btn bo bsm" id="dash-notice-new-btn" onclick="dashNoticeOpen(\'new\')">새 공지</button></div>'
+    +'<div id="dash-notice-new" class="pl-fold-body" hidden>'
+    +  '<div style="display:flex;gap:8px;margin-bottom:10px">'
+    +    '<textarea id="dash-notice-input" placeholder="예) 6월 6일 현충일 휴강합니다." class="pl-input" style="flex:1;min-height:56px;resize:vertical"></textarea>'
+    +    '<button class="btn bt bsm" style="align-self:flex-end" onclick="postNotice()">등록</button></div>'
+    +  '<div class="pl-form-row"><label for="dash-notice-until">언제까지</label><input type="date" id="dash-notice-until" class="pl-input"><span class="pl-muted">비워 두면 끌 때까지 보여요</span></div>'
+    +  '<div class="pl-form-row"><label for="dash-notice-target">받는 대상</label><select id="dash-notice-target" class="pl-input" style="max-width:100%"><option value="">전체 (모든 학생·학부모)</option>'
+    +    DB.classes().filter(c=>c.active!==false).map(c=>'<option value="'+escAttr(c.id)+'">'+escAttr(c.name||'반')+'</option>').join('')+'</select></div>'
+    +'</div>'
+    +'<div id="dash-notice-list" class="pl-fold-body" hidden><div class="pl-muted" id="notice-count-lbl" style="margin-bottom:6px"></div><div id="notice-board"></div></div>';
   renderNoticeBoard();
+}
+// 공지 한 줄 — 줄을 누르면 게시 중 목록, [새 공지] 는 빠른 등록을 펼친다 (같은 것을 다시 누르면 접힌다)
+function dashNoticeOpen(which){
+  const nw=document.getElementById('dash-notice-new'),ls=document.getElementById('dash-notice-list'),tg=document.getElementById('dash-notice-tg');
+  if(!nw||!ls)return;
+  const tgt=which==='new'?nw:ls,other=which==='new'?ls:nw;
+  const open=tgt.hidden;
+  tgt.hidden=!open;other.hidden=true;
+  if(tg)tg.setAttribute('aria-expanded',String(!ls.hidden));
+  if(open&&which==='new')setTimeout(()=>{const t=document.getElementById('dash-notice-input');if(t)t.focus();},0);
 }
 
 // ── NOTICE BOARD ──
@@ -11948,6 +11901,7 @@ async function postNotice(){
   document.getElementById('dash-notice-input').value='';
   {const u=document.getElementById('dash-notice-until');if(u)u.value='';}
   renderNoticeBoard();
+  {const a=document.querySelector('#dash-notice-tg .pl-sec-aux');if(a)a.textContent='게시 중 '+(_cache.notices||[]).filter(n=>n&&n.active&&!n._deleted).length+'건';}
   const cname=cid?((DB.classes().find(c=>c.id===cid)||{}).name||'그 반'):'';
   toast(cid?`${cname} 공지가 등록되었습니다`:'전체 공지가 등록되었습니다');
 }

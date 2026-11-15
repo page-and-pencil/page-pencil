@@ -183,8 +183,9 @@ const NOBREAK = (sel) => {
       const box = s => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { t: Math.round(b.top + window.scrollY), l: Math.round(b.left), w: Math.round(b.width), vis: b.top >= 0 && b.top < window.innerHeight }; };
       const fold = document.getElementById('wn-fold');
       return {
-        today: box('#dash-today .card'), act: box('#dash-actions .card'),
-        mon: box('#dash-monthly .card'), heat: box('#dash-weekheat .card'),
+        // feat/dash-plain: 카드 상자 대신 구역 제목 줄(.pl-sec-h)
+        today: box('#dash-today .pl-sec-h'), act: box('#dash-actions .pl-sec-h'),
+        mon: box('#dash-monthly .pl-sec-h'), heat: box('#dash-weekheat .pl-sec-h'),
         wn: box('#dash-whatsnew details'),
         wnOpen: !!(fold && fold.open), wnTxt: (document.getElementById('dash-whatsnew') || {}).innerText || '',
         wnRows: document.querySelectorAll('#dash-whatsnew .wn-row').length,
@@ -196,10 +197,11 @@ const NOBREAK = (sel) => {
       '오늘 ' + (r.today && r.today.t) + 'px·' + (r.today && r.today.w) + '폭 / 할 일 ' + (r.act && r.act.t) + 'px·' + (r.act && r.act.w) + '폭');
     ok('[1] 첫 줄이 스크롤 없이 화면 안', !!(r.today && r.today.vis && r.act && r.act.vis),
       '머리 ' + (r.today && r.today.t) + 'px (화면 800px)');
-    ok('[1] 그 아래 이번 달 현황 · 이번 주 학습 현황', !!(r.mon && r.heat) && r.mon.t > r.today.t && r.heat.t > r.mon.t,
-      '현황 ' + (r.mon && r.mon.t) + ' < 이번 주 ' + (r.heat && r.heat.t));
+    // feat/dash-plain [11]: 둘째 줄이 이번 주 숙제·반별 진도, 그 아래 이번 달 현황
+    ok('[1] 그 아래 이번 주 숙제 · 이번 달 현황', !!(r.mon && r.heat) && r.heat.t > r.today.t && r.mon.t > r.heat.t,
+      '이번 주 ' + (r.heat && r.heat.t) + ' < 현황 ' + (r.mon && r.mon.t));
     // (접힌 details 안의 줄도 DOM 에는 있다 — 접혔는지는 open 으로만 본다)
-    ok("[1] '새로 생긴 것' 은 맨 아래 · 접힌 채로", !!r.wn && r.wn.t > r.heat.t && r.wnOpen === false,
+    ok("[1] '새로 생긴 것' 은 맨 아래 · 접힌 채로", !!r.wn && r.wn.t > r.mon.t && r.wnOpen === false,
       '머리 ' + (r.wn && r.wn.t) + 'px (이번 주 ' + (r.heat && r.heat.t) + 'px 아래) · 펼침 ' + r.wnOpen + ' · DOM 줄 ' + r.wnRows + '개');
     ok("[1] 접힌 줄은 '새로 생긴 것 n개 [펼치기] [모두 확인]'",
       /새로 생긴 것/.test(r.wnTxt) && /\d+개/.test(r.wnTxt) && /펼치기/.test(r.wnTxt) && /모두 확인/.test(r.wnTxt),
@@ -230,13 +232,14 @@ const NOBREAK = (sel) => {
     const r3 = await page.evaluate(async (d2) => {
       _cache.globalClasses.forEach(c => { c.days = [d2]; c.extraDates = []; });   // 오늘은 수업 없음, 내일 있음
       renderDash(); await new Promise(r => setTimeout(r, 600));
-      return { stat: (document.querySelector('#dash-stats .dash-stat') || {}).innerText || '',
+      // feat/dash-plain: '오늘 수업 없음 · 다음 수업' 은 머리 요약 줄(#dash-sum)로 옮겼다
+      return { stat: (document.getElementById('dash-sum') || {}).innerText || '',
                card: (document.getElementById('dash-today') || {}).innerText || '' };
     }, DOW2);
-    ok("[1] 수업 없는 날 첫 숫자 카드가 '없음' 과 다음 수업을 보인다",
+    ok("[1] 수업 없는 날 머리 요약이 '없음' 과 다음 수업을 보인다",
       /없음/.test(r3.stat) && /다음 수업/.test(r3.stat) && /보기반/.test(r3.stat), '"' + r3.stat.replace(/\n/g, ' ') + '"');
     ok("[1] '오늘의 수업' 카드도 '오늘 수업 없음' 과 다음 수업 날짜·반 이름",
-      /오늘 수업 없음/.test(r3.card) && /다음 수업/.test(r3.card) && /보기반/.test(r3.card), '"' + r3.card.replace(/\n/g, ' ').slice(0, 90) + '"');
+      /오늘은 수업이 없어요/.test(r3.card) && /다음 수업/.test(r3.card) && /보기반/.test(r3.card), '"' + r3.card.replace(/\n/g, ' ').slice(0, 90) + '"');
     await ctx.close();
   }
 
@@ -426,14 +429,14 @@ const NOBREAK = (sel) => {
       out.cfgIn = (bb.left >= br.left - 1 && bb.right <= br.right + 1);
       out.endFade = bar.classList.contains('nav-more');
       swTab('t-dash'); await new Promise(r => setTimeout(r, 700));
-      out.strip = eval('(' + fn + ')')('.dash-hwch-row');
+      out.strip = eval('(' + fn + ')')('#dash-stats .pl-stat[data-k="stamp"]');   // feat/dash-plain: 띠 → 숫자 줄의 도장 칸
       out.over = document.documentElement.scrollWidth - document.documentElement.clientWidth;
       return out;
     }, NOBREAK.toString());
     ok('[6] 390px — 밀 수 있는 띠의 오른쪽 끝이 흐려진다', r.more === true && r.sw > r.cw, '띠 ' + r.sw + 'px / 보이는 폭 ' + r.cw + 'px');
     ok('[6] 390px — 끝까지 밀면 흐림이 사라진다', r.endFade === false);
     ok("[6] 390px — 탭을 '설정' 으로 바꾸면 그 탭이 띠 안에 보인다", r.cfgIn === true);
-    ok('[6] 390px — 도장 챌린지 띠의 낱말이 꺾이지 않는다', r.strip.found && r.strip.broken.length === 0,
+    ok('[6] 390px — 도장 칸의 낱말이 꺾이지 않는다', r.strip.found && r.strip.broken.length === 0,
       r.strip.found ? (r.strip.lines.length + '줄: ' + r.strip.lines.join(' / ')) : '띠가 없다');
     ok('[6] 390px — 가로 넘침 0', r.over === 0, r.over + 'px');
     await page.screenshot({ path: path.join(OUT, 'dash_390.png') }).catch(() => { });

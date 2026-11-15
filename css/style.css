@@ -4013,3 +4013,166 @@ button.class-stu-chip{min-height:var(--h-btn);font-family:var(--fb);cursor:point
 .pp-note::before{content:'';display:inline-block;width:13px;height:13px;margin-right:5px;vertical-align:-2px;background:var(--text-muted);
   -webkit-mask:var(--ic-info) center/contain no-repeat;mask:var(--ic-info) center/contain no-repeat;}
 .pp-callout-h{font-size:var(--fs-sm);font-weight:700;color:var(--navy);margin-bottom:5px;display:flex;align-items:center;}
+
+/* ═══ feat/dash-plain (2026-11-15) — 대시보드 꼴: 상자 대신 제목 줄과 가는 선 ═══
+   본보기: 목록·체크는 Things, 틀·표는 Attio, 색은 Cal.com.
+   바탕은 흰색 · --bg · 고른 줄 바탕 · 주 단추 네 가지, 글자 굵기는 400·600 두 가지.
+   공통 class — 다른 화면에서도 같은 꼴을 쓰려면 이 이름을 쓴다:
+     .pl-head 제목 줄 · .pl-stats 숫자 줄 · .pl-sec 구역 · .pl-row 줄 · .pl-table 표 · .pl-bar 막대 */
+.pl-page{max-width:1120px;margin:0;}
+/* 제목 줄 */
+.pl-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 16px;}
+.pl-head-main{min-width:0;}
+.pl-title{font-size:20px;font-weight:600;color:var(--text);margin:0;line-height:1.3;letter-spacing:-.01em;}
+.pl-sub{font-size:var(--fs-md);color:var(--text-muted);margin-top:2px;word-break:keep-all;}
+.pl-head-btn{flex-shrink:0;}
+/* 숫자 줄 — 위아래 가는 선 사이에 칸 넷, 아이콘·그림자·바탕 없음 */
+.pl-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin:0 0 28px;}
+.pl-stats.pl-stats-3{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:0;}
+.pl-stat{display:flex;flex-direction:column;justify-content:center;gap:2px;min-height:64px;padding:8px 16px 8px 0;text-align:left;
+  background:none;border:none;font-family:var(--fb);color:var(--text);cursor:pointer;min-width:0;}
+.pl-stat+.pl-stat{padding-left:16px;border-left:1px solid var(--border);}
+.pl-stat-static{cursor:default;}
+button.pl-stat:hover .pl-stat-l{color:var(--text);}
+.pl-stat-l{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pl-stat-v{display:flex;align-items:baseline;gap:3px;flex-wrap:wrap;}
+.pl-num{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;font-family:var(--fd);color:var(--text);line-height:1.2;}
+.pl-stat-v small{font-size:12px;color:var(--text-muted);font-variant-numeric:tabular-nums;}
+.pl-stat.zero .pl-num{color:var(--text-muted);}
+.pl-stat.bad .pl-num{color:var(--badt);}
+.pl-cmp{font-style:normal;font-size:12px;color:var(--text-muted);margin-left:4px;}
+/* 구역 — 제목 줄 + 가는 선 + 줄 목록 */
+.pl-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:28px;margin-bottom:28px;}
+@media(min-width:900px){
+  .pl-grid-1{grid-template-columns:minmax(0,1fr) 340px;}
+  .pl-grid-2{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+}
+.pl-sec{min-width:0;}
+.pl-page>.pl-sec{margin-bottom:28px;}
+.pl-page>.pl-sec:empty,.pl-page>#dash-exam-prep:empty{display:none;}
+.pl-sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.pl-sec-t{font-size:13px;font-weight:600;color:var(--text);margin:0;}
+.pl-sec-aux{font-size:12px;color:var(--text-muted);white-space:nowrap;}
+.pl-list{display:flex;flex-direction:column;}
+/* 줄 */
+.pl-row{display:flex;align-items:center;gap:12px;min-height:40px;padding:6px 8px;margin:0 -8px;border-bottom:1px solid var(--divider);
+  cursor:pointer;color:var(--text);font-size:var(--fs-base);border-radius:0;}
+.pl-row:last-child{border-bottom:none;}
+.pl-row:hover{background:var(--bg);}
+.pl-row.on{background:var(--bg);}
+.pl-row-static{cursor:default;}
+.pl-row-static:hover{background:none;}
+.pl-row-2{min-height:52px;}
+.pl-row-time{flex:0 0 64px;font-size:var(--fs-md);color:var(--text-muted);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.pl-row-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+.pl-row-t{font-size:var(--fs-base);font-weight:400;color:var(--text);line-height:1.4;word-break:keep-all;overflow-wrap:anywhere;}
+.pl-row-2 .pl-row-t{font-weight:600;}
+.pl-row-sub{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pl-muted{color:var(--text-muted)!important;font-weight:400;}
+.pl-link{flex-shrink:0;font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;}
+.pl-row:hover .pl-link{text-decoration:underline;}
+.pl-done{flex-shrink:0;font-size:12px;color:var(--text-muted);white-space:nowrap;}
+.pl-row-btn{flex-shrink:0;}
+.pl-pill{display:inline-block;margin-left:6px;font-size:11px;font-weight:600;color:var(--text);border:1px solid var(--border);border-radius:var(--rpill);padding:0 7px;line-height:1.6;vertical-align:1px;}
+/* 바로 할 일 — 빈 동그라미는 꾸밈 (누르는 자리는 줄 전체) */
+.pl-ck{flex:0 0 15px;width:15px;height:15px;box-sizing:border-box;border:1.5px solid var(--text-muted);border-radius:50%;pointer-events:none;opacity:.7;}
+/* 표 */
+.pl-table-wrap{overflow-x:auto;}
+.pl-table{width:100%;border-collapse:collapse;min-width:380px;font-variant-numeric:tabular-nums;}
+.pl-table th{font-size:12px;font-weight:400;color:var(--text-muted);text-align:center;height:32px;border-bottom:1px solid var(--border);}
+.pl-table th.today{font-weight:600;color:var(--text);}
+.pl-table th.pl-th-name{text-align:left;width:84px;}
+.pl-table td{height:40px;text-align:center;font-size:var(--fs-md);color:var(--text);border-bottom:1px solid var(--divider);white-space:nowrap;}
+.pl-table tr:last-child td{border-bottom:none;}
+.pl-table td.today{font-weight:600;}
+.pl-table td.zero,.pl-table td.none{color:var(--text-muted);}
+.pl-table .pl-ok{display:inline-flex;vertical-align:-2px;margin-right:2px;color:var(--text);}
+.pl-table .pl-ok svg{width:13px;height:13px;}
+.pl-td-name{text-align:left!important;max-width:96px;overflow:hidden;text-overflow:ellipsis;}
+.pl-name{min-height:32px;min-width:32px;padding:0;border:none;background:none;font-family:var(--fb);font-size:var(--fs-md);color:var(--text);cursor:pointer;text-align:left;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pl-name:hover{text-decoration:underline;}
+/* 막대 */
+.pl-group{padding:6px 0 4px;border-bottom:1px solid var(--divider);}
+.pl-group:last-child{border-bottom:none;}
+.pl-group-h{display:flex;justify-content:space-between;gap:8px;font-size:var(--fs-md);font-weight:600;color:var(--text);padding:4px 0;}
+.pl-group-h .pl-muted{font-size:12px;}
+.pl-bar-row{display:grid;grid-template-columns:44px minmax(0,1fr) minmax(48px,30%) auto;align-items:center;gap:10px;min-height:28px;}
+.pl-bar-k{font-size:12px;color:var(--text-muted);white-space:nowrap;}
+.pl-bar-t{font-size:var(--fs-md);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pl-bar{display:block;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.pl-bar>span{display:block;height:100%;background:var(--text);border-radius:2px;}
+.pl-bar-n{font-size:12px;color:var(--text-muted);font-variant-numeric:tabular-nums;min-width:40px;text-align:right;}
+/* 접힌 줄 (공지·참고 목록·새로 생긴 것) */
+.pl-fold-row{display:flex;align-items:center;gap:8px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);min-height:44px;}
+.pl-fold-btn{flex:1;display:flex;align-items:center;gap:10px;min-height:44px;padding:0;border:none;background:none;cursor:pointer;font-family:var(--fb);text-align:left;color:var(--text);}
+.pl-chev::after,#t-dash .dash-fold>.dash-fold-sum::after{content:'';display:inline-block;width:7px;height:7px;border-right:1.5px solid var(--text-muted);border-bottom:1.5px solid var(--text-muted);transform:rotate(45deg);margin:0 4px 3px auto;}
+.pl-fold-btn[aria-expanded="true"] .pl-chev::after,#t-dash .dash-fold[open]>.dash-fold-sum::after{transform:rotate(-135deg);margin-bottom:-2px;}
+.pl-chev{margin-left:auto;}
+.pl-fold-body{padding:12px 0 4px;border-bottom:1px solid var(--border);}
+.pl-sec-fold{margin-bottom:0!important;}
+.pl-sec-fold+.pl-fold{border-top:none;}
+.pl-input{padding:6px 9px;border:1px solid var(--border);border-radius:var(--r-ctl);font-family:var(--fb);font-size:var(--fs-md);color:var(--text);background:#fff;outline:none;}
+.pl-input:focus{border-color:var(--text-muted);}
+.pl-form-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;font-size:var(--fs-md);color:var(--text-muted);}
+.pl-chips{display:flex;flex-wrap:wrap;gap:6px;padding-top:10px;}
+.pl-chip{font-size:var(--fs-md);padding:3px 10px;border-radius:var(--rpill);border:1px solid var(--border);background:#fff;color:var(--text);}
+.pl-chip.ok{border-color:var(--text-muted);font-weight:600;}
+.pl-cal{padding:10px 0 6px;}
+.pl-cal-h{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;}
+.pl-cal-key{display:flex;gap:14px;margin-top:10px;font-size:12px;color:var(--text-muted);}
+.pl-cal-key u{color:var(--text);font-weight:600;text-underline-offset:3px;}
+.pl-cal-today{font-style:normal;background:var(--primary);color:#fff;border-radius:var(--r-ctl);padding:0 4px;}
+
+/* 대시보드 안에 남은 옛 카드(시험 대비·데이터 채우기·새로 생긴 것)도 같은 꼴로 */
+#t-dash .card{background:none;border:none;box-shadow:none;border-radius:0;padding:0;margin:0 0 28px;}
+#t-dash .card>.ch{padding:0 0 8px;border-bottom:1px solid var(--border);background:none;}
+#t-dash .card>.cb{padding:8px 0 0!important;}
+#t-dash .ct{font-size:13px;font-weight:600;color:var(--text);}
+#t-dash .ct svg{display:none;}
+#t-dash .dash-fold{border:none;border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:0;background:none;margin:-1px 0 0!important;}
+#t-dash .dash-fold>.dash-fold-sum{min-height:44px;padding:0;font-weight:600;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;}
+#t-dash .dash-fold[open]>.dash-fold-sum{border-bottom:none;}
+#t-dash .dash-fold>div{padding:4px 0 10px;}
+#t-dash .dash-fold-sum svg{display:none;}
+#t-dash .wn-fold>.dash-fold-sum b{font-weight:600;}
+#t-dash .wn-sum-o{font-style:normal;font-weight:400;color:var(--text-muted);font-size:12px;border:none;background:none;padding:0;}
+#t-dash .wn-fold .wn-sum-t b{color:var(--text);}
+#t-dash .wn-fold>.dash-fold-sum::after{margin-left:8px;}
+#t-dash #dash-whatsnew{margin-top:-1px;}
+/* 굵기는 400·600 두 가지 — 옛 그리기 함수의 700·800 을 여기서 600 으로 */
+#t-dash b,#t-dash strong,#t-dash h1,#t-dash h2,#t-dash h3,#t-dash .btn,#t-dash th,
+#t-dash [style*="font-weight:7"],#t-dash [style*="font-weight:8"],#t-dash [style*="font-weight:9"],
+#t-dash [style*="font-weight: 7"],#t-dash [style*="font-weight: 8"]{font-weight:600!important;}
+#t-dash .pl-table th{font-weight:400!important;}
+#t-dash .dash-action-label{font-weight:600;}
+#t-dash .btn.bxxs{min-width:32px;}
+#t-dash .pl-table th.today{font-weight:600!important;}
+/* 옅은 색 바탕 칩 → 테두리 칩 */
+#t-dash .lk-chip,#t-dash .lk-dday,#t-dash .notice-pin,#t-dash .badge{background:#fff!important;border:1px solid var(--border)!important;color:var(--text)!important;box-shadow:none!important;}
+#t-dash .lk-chip.go{border-color:var(--text-muted)!important;}
+#t-dash [style*="background:var(--tl)"],#t-dash [style*="background:var(--warnl)"],#t-dash [style*="background:var(--okl)"],
+#t-dash [style*="background:var(--cream2)"],#t-dash [style*="background:#FDE1B8"],#t-dash [style*="background:#D9F6E9"]{background:#fff!important;border:1px solid var(--border);}
+#t-dash .notice-item{background:none!important;border:none!important;border-bottom:1px solid var(--divider)!important;border-radius:0!important;box-shadow:none!important;padding:10px 0!important;}
+#t-dash .btn.ba,#t-dash .btn.bd{background:#fff;color:var(--text);border:1px solid var(--border);}
+#t-dash .btn.bd{color:var(--badt);}
+#t-dash *{box-shadow:none!important;}
+@media(max-width:899px){
+  .pl-grid{gap:28px;}
+}
+@media(max-width:600px){
+  .pl-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .pl-stats>.pl-stat:nth-child(odd){padding-left:0;border-left:none;}
+  .pl-stats>.pl-stat:nth-child(n+3){border-top:1px solid var(--border);}
+  .pl-stats.pl-stats-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .pl-stats.pl-stats-3>.pl-stat{border-top:none;}
+  .pl-stats.pl-stats-3>.pl-stat+.pl-stat{padding-left:12px;border-left:1px solid var(--border);}
+  .pl-stat{padding-right:10px;}
+  .pl-head{flex-wrap:nowrap;}
+  .pl-row-time{flex-basis:52px;}
+  .pl-bar-row{grid-template-columns:40px minmax(0,1fr) 60px auto;gap:8px;}
+  .pl-table{min-width:0;}
+  .pl-table th.pl-th-name{width:52px;}
+  .pl-table td{font-size:12px;}
+  .pl-table .pl-ok{margin-right:0;}
+  .pl-table .pl-ok svg{width:11px;height:11px;}
+}

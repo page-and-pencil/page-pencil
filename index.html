@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261115b">
-<link rel="stylesheet" href="css/style.css?v=20261115f">
+<link rel="stylesheet" href="css/style.css?v=20261115g">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -236,43 +236,35 @@
 
     <!-- 대시보드 -->
     <div id="t-dash" class="panel">
-      <div id="dash-greet" style="margin-bottom:16px"></div>
-      <div style="margin-bottom:14px">
-        <button class="btn bt" onclick="mkGo()"><i data-lucide="sparkles" width="15" height="15" style="vertical-align:-3px"></i> 만들기</button>
-        <span style="font-size:var(--fs-md);color:var(--text-muted);margin-left:8px">시험지·학습 세트·단어 시험지를 한 화면씩 따라가며</span>
-      </div>
-      <div id="dash-stats" class="dash-stats" style="margin-bottom:14px"></div>
-      <!-- 첫 줄: 오늘의 수업(넓게) + 바로 할 일 — 그 아래 이번 달 현황·이번 주·반별 진도·공지 -->
-      <div class="dash-row1">
-        <div id="dash-today" style="margin-bottom:12px"></div>
-        <div id="dash-actions" style="margin-bottom:12px"></div>
-      </div>
-      <div class="dash-cols">
-        <div class="dash-col-main">
-          <div id="dash-exam-prep" style="margin-bottom:12px"></div>
-          <div id="dash-monthly" style="margin-bottom:12px"></div>
-          <div id="dash-weekheat" style="margin-bottom:12px"></div>
-          <details class="dash-fold" style="margin-bottom:12px" open>
-            <summary class="dash-fold-sum"><i data-lucide="map" width="15" height="15" style="vertical-align:-3px"></i> 반별 진도</summary>
-            <div id="dash-clspath"></div>
-          </details>
+      <!-- 대시보드 꼴 (2026-11-15 dash-plain): 상자 대신 제목 줄과 가는 선, 색은 상태와 주 단추에만, 굵기 400·600 -->
+      <div class="pl-page">
+        <div id="dash-greet" class="pl-head"></div>
+        <div id="dash-stats" class="pl-stats"></div>
+        <!-- 첫 줄: 오늘의 수업(넓게) + 바로 할 일(340px) · 둘째 줄: 이번 주 숙제 + 반별 진도 -->
+        <div class="pl-grid pl-grid-1">
+          <section id="dash-today" class="pl-sec"></section>
+          <section id="dash-actions" class="pl-sec"></section>
         </div>
-        <div class="dash-col-side">
-          <div id="dash-vocab-today"></div>
-          <div id="dash-notice-section"></div>
-          <!-- 참고용 섹션은 기본으로 접음 — 대시보드를 '오늘 할 일' 중심으로 (렌더 대상 id는 그대로) -->
-          <details class="dash-fold" style="margin-bottom:12px">
-            <summary class="dash-fold-sum"><i data-lucide="folder" width="15" height="15" style="vertical-align:-3px"></i> 데이터 채우기 목록</summary>
-            <div id="dash-fill"></div>
-          </details>
-          <details class="dash-fold" style="margin-bottom:12px">
-            <summary class="dash-fold-sum"><i data-lucide="calendar" width="15" height="15" style="vertical-align:-3px"></i> 이번 달 캘린더</summary>
-            <div id="dash-cal"></div>
-          </details>
+        <div class="pl-grid pl-grid-2">
+          <section id="dash-weekheat" class="pl-sec"></section>
+          <section id="dash-clspath" class="pl-sec"></section>
         </div>
+        <div id="dash-exam-prep"></div>
+        <section id="dash-monthly" class="pl-sec"></section>
+        <section id="dash-vocab-today" class="pl-sec pl-sec-opt"></section>
+        <section id="dash-notice-section" class="pl-sec pl-sec-fold"></section>
+        <!-- 참고용은 접힌 줄 (렌더 대상 id 는 그대로) -->
+        <details class="dash-fold pl-fold">
+          <summary class="dash-fold-sum"><span class="pl-sec-t">데이터 채우기 목록</span></summary>
+          <div id="dash-fill"></div>
+        </details>
+        <details class="dash-fold pl-fold">
+          <summary class="dash-fold-sum"><span class="pl-sec-t">이번 달 캘린더</span></summary>
+          <div id="dash-cal"></div>
+        </details>
+        <!-- 맨 아래 접힌 한 줄 — 배포마다 늘어나는 목록이라 자리를 차지하지 않게 -->
+        <div id="dash-whatsnew"></div>
       </div>
-      <!-- 맨 아래 접힌 한 줄 — 배포마다 늘어나는 목록이라 자리를 차지하지 않게 -->
-      <div id="dash-whatsnew"></div>
     </div>
 
     <!-- 학생 관리 (좌우 분할 레이아웃) -->
@@ -3329,7 +3321,7 @@
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261115a"></script>
 <script src="js/iso_cards.js?v=20261114f"></script>
-<script src="js/teacher.js?v=20261115g"></script>
+<script src="js/teacher.js?v=20261115h"></script>
 <script src="js/student.js?v=20261115b"></script>
 <script src="js/parent.js?v=20261115d"></script>
 </body>
