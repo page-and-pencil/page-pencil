@@ -2669,7 +2669,7 @@ function ppNoticeToast(msg,ms){
   document.querySelectorAll('.toast.pp-notice').forEach(x=>x.remove());
   const t=document.createElement('div');
   t.className='toast show pp-notice';
-  t.style.cssText='white-space:normal;width:min(92vw,420px);box-sizing:border-box;text-align:left;line-height:1.6;border-radius:14px;padding:12px 16px;bottom:76px;';
+  t.style.cssText='white-space:normal;width:min(92vw,420px);box-sizing:border-box;text-align:left;line-height:1.6;border-radius:var(--r-chip);padding:12px 16px;bottom:76px;';
   t.textContent=msg;
   document.body.appendChild(t);
   setTimeout(()=>{t.remove();},ms||7000);
@@ -4081,14 +4081,14 @@ function openInstallGuide(){
     :step(1,'\u22EE','브라우저 오른쪽 위 <b>메뉴(⋮)</b>를 눌러요')
      +step(2,'\uD83D\uDCF2','<b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 눌러요')
      +step(3,'\u2705','<b>설치</b>를 누르면 끝!');
-  wrap.innerHTML=`<div style="background:#fff;border-radius:20px 20px 0 0;padding:20px 20px calc(18px + env(safe-area-inset-bottom));max-width:440px;width:100%;font-family:var(--fb)">
+  wrap.innerHTML=`<div style="background:#fff;border-radius:var(--r-card-lg) 20px 0 0;padding:20px 20px calc(18px + env(safe-area-inset-bottom));max-width:440px;width:100%;font-family:var(--fb)">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-      <img src="icons/icon-192.png?v=3" style="width:44px;height:44px;border-radius:12px;border:1px solid rgba(15,48,74,.1)">
+      <img src="icons/icon-192.png?v=3" style="width:44px;height:44px;border-radius:var(--r-chip);border:1px solid rgba(15,48,74,.1)">
       <div><div style="font-size:15px;font-weight:800;color:#0F304A">홈 화면에 앱으로 추가</div>
       <div style="font-size:11.5px;color:#5A6B7B">한 번만 추가하면 아이콘으로 바로 열려요</div></div>
     </div>
     ${steps}
-    <button onclick="document.getElementById('pp-install-sheet').remove()" style="width:100%;margin-top:14px;padding:13px;border:none;border-radius:12px;background:#0F304A;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--fb)">확인했어요</button>
+    <button onclick="document.getElementById('pp-install-sheet').remove()" style="width:100%;margin-top:14px;padding:13px;border:none;border-radius:var(--r-chip);background:#0F304A;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--fb)">확인했어요</button>
   </div>`;
   wrap.addEventListener('click',e=>{if(e.target===wrap)wrap.remove();});
   document.body.appendChild(wrap);
@@ -4100,9 +4100,9 @@ window.addEventListener('load',()=>{
     if(localStorage.getItem('pp_pwa_hint'))return;
     if(!/iphone|ipad|android/i.test(navigator.userAgent))return;
     const bar=document.createElement('div');
-    bar.style.cssText='position:fixed;left:10px;right:10px;bottom:12px;z-index:9998;background:#0F304A;color:#fff;border-radius:14px;padding:11px 13px;font-size:12.5px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.25);display:flex;gap:10px;align-items:center;font-family:var(--fb)';
+    bar.style.cssText='position:fixed;left:10px;right:10px;bottom:12px;z-index:9998;background:#0F304A;color:#fff;border-radius:var(--r-chip);padding:11px 13px;font-size:12.5px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.25);display:flex;gap:10px;align-items:center;font-family:var(--fb)';
     bar.innerHTML=`<span style="font-size:19px">\uD83D\uDCF2</span><span style="flex:1">홈 화면에 추가하면 앱처럼 쓸 수 있어요</span>
-      <button id="pp-inst-go" style="border:none;border-radius:9px;background:#1B5E4A;color:#fff;font-size:12px;font-weight:700;padding:7px 12px;cursor:pointer;font-family:var(--fb);flex-shrink:0">추가하기</button>
+      <button id="pp-inst-go" style="border:none;border-radius:var(--r-card);background:#1B5E4A;color:#fff;font-size:12px;font-weight:700;padding:7px 12px;cursor:pointer;font-family:var(--fb);flex-shrink:0">추가하기</button>
       <button id="pp-inst-x" style="border:none;background:none;color:#9FC9D8;font-size:15px;cursor:pointer;padding:0 2px;flex-shrink:0">✕</button>`;
     bar.querySelector('#pp-inst-go').onclick=()=>{localStorage.setItem('pp_pwa_hint','1');bar.remove();openInstallGuide();};
     bar.querySelector('#pp-inst-x').onclick=()=>{localStorage.setItem('pp_pwa_hint','1');bar.remove();};
@@ -4121,7 +4121,7 @@ function ppShowFatal(msg){
     if(!bar){
       bar=document.createElement('div');
       bar.id='pp-fatal';
-      bar.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:99999;background:#7F1D1D;color:#fff;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5;font-family:monospace;word-break:break-all';
+      bar.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:99999;background:#7F1D1D;color:#fff;border-radius:var(--r-card);padding:10px 12px;font-size:12px;line-height:1.5;font-family:monospace;word-break:break-all';
       bar.innerHTML='⚠️ 화면 오류 (캡처해서 보내주세요): <span id="pp-fatal-msg"></span> <button onclick="this.parentNode.remove()" style="float:right;border:none;background:none;color:#FCA5A5;cursor:pointer">✕</button>';
       document.body.appendChild(bar);
     }

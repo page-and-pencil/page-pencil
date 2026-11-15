@@ -404,7 +404,7 @@ function bookListenable(b){return !!getAudioObj(b)||!!bookTextOf(b);}
 function renderStuAudio(b){
   const ao=getAudioObj(b);
   if(!ao){
-    if(bookTextOf(b))return `<button class="btn bt bsm" style="border-radius:50px;width:100%" onclick="openBookListen('${escAttr(b.id)}')">🎧 AI 원어민 듣기 — 문장 하이라이트</button>`;
+    if(bookTextOf(b))return `<button class="btn bt bsm" style="border-radius:var(--rpill);width:100%" onclick="openBookListen('${escAttr(b.id)}')">🎧 AI 원어민 듣기 — 문장 하이라이트</button>`;
     return `<div class="stu-no-audio">🎵 오디오가 아직 준비되지 않았어요</div>`;
   }
   if(ao.type==='chapters'&&ao.chapters&&ao.chapters.length){
@@ -555,7 +555,7 @@ function renderStudentLibrary(sid){
       const songVid=(typeof ppSongVid==='function')?ppSongVid(tb,u):'';   // 노래 단원이면 앱 안에서 듣는다
       return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:var(--fs-base);font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:var(--fs-sm);font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_isRecentKey(tb,u)?` <span style="font-size:var(--fs-sm);font-weight:700;background:var(--tl);color:var(--tealt);padding:2px 7px;border-radius:9px;vertical-align:1px">\uD83D\uDD04 지난 수업</span>`:''}</div>
+          <div style="font-size:var(--fs-base);font-weight:600;color:var(--navy)">${u}${tb.unitTitles?.[u]?` <span style="font-size:var(--fs-sm);font-weight:400;color:var(--slate)">— ${tb.unitTitles[u]}</span>`:''}${_isRecentKey(tb,u)?` <span style="font-size:var(--fs-sm);font-weight:700;background:var(--tl);color:var(--tealt);padding:2px 7px;border-radius:var(--r-card);vertical-align:1px">\uD83D\uDD04 지난 수업</span>`:''}</div>
           <div style="font-size:var(--fs-sm);color:var(--slate);margin-top:2px">단어 ${wCnt}개</div>
         </div>
         <div style="display:flex;gap:5px;flex-shrink:0">
@@ -629,7 +629,7 @@ function renderStudentLibrary(sid){
     const rdDate=myRds.find(r=>r.bookId===b.id)?.date||'';
     const safeId=b.id.replace(/[^a-z0-9]/gi,'_');
     const audioSection=isRead
-      ?`<div style="margin-top:8px"><button id="bab-${safeId}" class="btn bt bsm" style="border-radius:50px;width:100%" onclick="toggleBookAudio('${safeId}')">🎧 다시 듣기</button><div id="ba-${safeId}" style="display:none;margin-top:8px">${renderStuAudio(b)}</div></div>`
+      ?`<div style="margin-top:8px"><button id="bab-${safeId}" class="btn bt bsm" style="border-radius:var(--rpill);width:100%" onclick="toggleBookAudio('${safeId}')">🎧 다시 듣기</button><div id="ba-${safeId}" style="display:none;margin-top:8px">${renderStuAudio(b)}</div></div>`
       :renderStuAudio(b);
     const recSection=`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -651,7 +651,7 @@ function renderStudentLibrary(sid){
           <div class="stu-book-series">${b.series||''}${b.level?' · Lv.'+b.level:''}</div>
           <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
             ${isCurrent?`<span class="badge badge-xs badge-reading">현재 읽는 중 📖</span>`:''}
-            ${isRead&&!isCurrent?`<span style="font-size:var(--fs-sm);padding:2px 7px;background:var(--okl);color:var(--okt);border-radius:10px;font-weight:700">✓ 읽음</span>`:''}
+            ${isRead&&!isCurrent?`<span style="font-size:var(--fs-sm);padding:2px 7px;background:var(--okl);color:var(--okt);border-radius:var(--r-card);font-weight:700">✓ 읽음</span>`:''}
             ${rdDate?`<span style="font-size:var(--fs-sm);color:var(--slate)">${rdDate}</span>`:''}
           </div>
         </div>
@@ -690,7 +690,7 @@ function renderStudentLibrary(sid){
   const selOther=!selMine?(otherWithAudio.find(b=>b.id===_stuRdShelfOpen)||((nextBk&&nextBk.id===_stuRdShelfOpen)?nextBk:null)):null;
   const panelOf=e=>`<div class="shelf-panel" id="rd-shelf-panel">${e.b
     ?bookCardHtml(e.b,!!e.cur,!!(e.read||e.completed))
-    :`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:var(--fs-base);font-weight:800;color:var(--navy)">\uD83D\uDCD7 ${e.title}</span>${e.completed?'<span style="font-size:var(--fs-sm);padding:2px 8px;background:var(--okl);color:var(--okt);border-radius:10px;font-weight:700">✅ 완독</span>':''}</div>
+    :`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:var(--fs-base);font-weight:800;color:var(--navy)">\uD83D\uDCD7 ${e.title}</span>${e.completed?'<span style="font-size:var(--fs-sm);padding:2px 8px;background:var(--okl);color:var(--okt);border-radius:var(--r-card);font-weight:700">✅ 완독</span>':''}</div>
        <div style="font-size:var(--fs-md);color:var(--slate)">듣기·단어 자료가 준비 중이에요. 준비되면 여기에서 바로 들을 수 있어요!</div>`}
   </div>`;
   const otherShelfHtml=otherWithAudio.map(b=>`<div class="shelf-card${_stuRdShelfOpen===b.id?' on':''}" onclick="${bookTextOf(b)?`stuRdShelfSelect('${b.id}');openBookListen('${escAttr(b.id)}')`:`stuRdShelfToggle('${b.id}')`}">
@@ -774,7 +774,7 @@ function renderStudentLibrary(sid){
       }
     });
     if(items.length){
-      reviewHero=`<div style="background:var(--tl);border:1.5px solid var(--teal);border-radius:14px;padding:14px 16px;margin-bottom:18px">
+      reviewHero=`<div style="background:var(--tl);border:1.5px solid var(--teal);border-radius:var(--r-chip);padding:14px 16px;margin-bottom:18px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
           <span style="font-size:var(--fs-base);font-weight:800;color:var(--navy)">\uD83D\uDD04 지난 수업 복습</span>
           <span style="font-size:var(--fs-sm);color:var(--slate);font-family:var(--fm)">${lastLes.date||''}</span>
@@ -802,7 +802,7 @@ function renderStudentLibrary(sid){
     ${rdShelfHtml?`<details class="rv-fold">
       <summary class="rv-fold-s">📗 원서 책장 · 완독 스티커북<span class="rv-fold-c">수업 끝 자율 학습</span></summary>
       <div class="rv-fold-b">
-        <button class="btn bt" style="width:100%;border-radius:12px;padding:13px;font-size:var(--fs-lg);font-weight:700;margin-bottom:14px" onclick="event.preventDefault();openExtApp('readingn')">▶ 리딩앤에서 읽기</button>
+        <button class="btn bt" style="width:100%;border-radius:var(--r-chip);padding:13px;font-size:var(--fs-lg);font-weight:700;margin-bottom:14px" onclick="event.preventDefault();openExtApp('readingn')">▶ 리딩앤에서 읽기</button>
         ${rdShelfHtml}
       </div>
     </details>`:''}
@@ -898,7 +898,7 @@ function renderAssignmentTab(sid){
     const ao=book?getAudioObj(book):null;
     let content='';
     if(a.type==='reading'){
-      content=`<div style="font-size:var(--fs-base);font-weight:700;color:var(--navy);margin-bottom:4px">📖 ${a.bookTitle||'원서 읽기'}${a.range?' — '+a.range:''}</div>${a.note?`<div style="font-size:var(--fs-md);color:var(--navy);margin-bottom:4px;padding:5px 8px;background:var(--cream2);border-radius:6px">💬 ${a.note}</div>`:''}`;
+      content=`<div style="font-size:var(--fs-base);font-weight:700;color:var(--navy);margin-bottom:4px">📖 ${a.bookTitle||'원서 읽기'}${a.range?' — '+a.range:''}</div>${a.note?`<div style="font-size:var(--fs-md);color:var(--navy);margin-bottom:4px;padding:5px 8px;background:var(--cream2);border-radius:var(--r-ctl)">💬 ${a.note}</div>`:''}`;
       if(ao&&!submitted){
         if(ao.type==='chapters'&&ao.chapters?.length){
           content+=`<div style="font-size:var(--fs-sm);color:var(--slate);margin-bottom:6px">오디오:</div>
@@ -926,18 +926,18 @@ function renderAssignmentTab(sid){
       const _cl={phonics:'파닉스',grammar:'어법',listening:'리스닝',writing:'라이팅',naesin:'내신',other:'기타',class5:'클래스5',book:'원서',vocab:'어휘',reading:'리딩'};
       const icon=_ci[a.category]||'📋';
       const label=_cl[a.category]||a.category||'숙제';
-      content=`<div style="font-size:var(--fs-base);font-weight:700;color:var(--navy);margin-bottom:4px">${icon} ${label}${a.bookTitle?' — '+a.bookTitle:''}</div>${a.range?`<div style="font-size:var(--fs-md);color:var(--slate);margin-top:2px">${a.range}</div>`:''}${!a.bookTitle&&!a.range&&a.text?`<div style="font-size:var(--fs-md);color:var(--slate)">${a.text}</div>`:''}${a.note?`<div style="font-size:var(--fs-md);color:var(--navy);margin-top:4px;padding:5px 8px;background:var(--cream2);border-radius:6px">💬 ${a.note}</div>`:''}`;
+      content=`<div style="font-size:var(--fs-base);font-weight:700;color:var(--navy);margin-bottom:4px">${icon} ${label}${a.bookTitle?' — '+a.bookTitle:''}</div>${a.range?`<div style="font-size:var(--fs-md);color:var(--slate);margin-top:2px">${a.range}</div>`:''}${!a.bookTitle&&!a.range&&a.text?`<div style="font-size:var(--fs-md);color:var(--slate)">${a.text}</div>`:''}${a.note?`<div style="font-size:var(--fs-md);color:var(--navy);margin-top:4px;padding:5px 8px;background:var(--cream2);border-radius:var(--r-ctl)">💬 ${a.note}</div>`:''}`;
     }
 
     if(submitted){
       return `<div class="stu-book-card" style="border-color:rgba(27,94,74,.3)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
           <span style="font-size:var(--fs-sm);font-family:var(--fm);color:var(--slate)">${a.date||''}</span>
-          <span style="font-size:var(--fs-sm);font-weight:700;color:var(--tealt);background:var(--tl);padding:2px 8px;border-radius:10px">제출완료 ✓</span>
+          <span style="font-size:var(--fs-sm);font-weight:700;color:var(--tealt);background:var(--tl);padding:2px 8px;border-radius:var(--r-card)">제출완료 ✓</span>
         </div>
         ${content}
         ${hw?.audioUrl?`<audio controls src="${hw.audioUrl}" style="width:100%;height:26px;margin-top:4px"></audio>`:''}
-        ${hw?.aiScore?`<div style="font-size:var(--fs-sm);color:var(--tealt);background:var(--tl);border-radius:6px;padding:6px 10px;margin-top:6px">🤖 AI 피드백: ${hw.aiScore}</div>`:''}
+        ${hw?.aiScore?`<div style="font-size:var(--fs-sm);color:var(--tealt);background:var(--tl);border-radius:var(--r-ctl);padding:6px 10px;margin-top:6px">🤖 AI 피드백: ${hw.aiScore}</div>`:''}
       </div>`;
     }
 
@@ -955,7 +955,7 @@ function renderAssignmentTab(sid){
         </div>
         <input type="file" id="asgn-audio-${a.id}" accept="audio/*" style="display:none" onchange="handleAsgnAudio(event,'${a.id}','${sid}')">
         <div id="asgn-preview-${a.id}" style="display:none;margin-top:8px">
-          <div style="display:flex;align-items:center;gap:8px;background:var(--cream);border-radius:8px;padding:8px 12px">
+          <div style="display:flex;align-items:center;gap:8px;background:var(--cream);border-radius:var(--r-card);padding:8px 12px">
             <audio id="asgn-player-${a.id}" controls style="flex:1;height:28px"></audio>
             <button class="btn bd bsm" onclick="clearAsgnAudio('${a.id}')">✕</button>
           </div>
@@ -1019,7 +1019,7 @@ function renderHomeworkTab(sid){
         </div>
         <input type="file" id="hw-audio-input" accept="audio/*" style="display:none" onchange="handleHwAudio(event)">
         <div id="hw-audio-preview" style="display:none;margin-top:10px">
-          <div style="display:flex;align-items:center;gap:8px;background:var(--cream);border-radius:8px;padding:8px 12px">
+          <div style="display:flex;align-items:center;gap:8px;background:var(--cream);border-radius:var(--r-card);padding:8px 12px">
             <audio id="hw-audio-player" controls style="flex:1;height:32px"></audio>
             <button class="btn bd bsm" onclick="clearHwAudio()">✕</button>
           </div>
@@ -1336,7 +1336,7 @@ function renderChunkCarry(el){
     <div style="font-size:var(--fs-xl);font-weight:700;color:var(--navy);margin-bottom:6px">이 단어들은 내일 다시 만나요</div>
     <div style="font-size:var(--fs-base);color:var(--slate);line-height:1.8;margin-bottom:16px">오늘 충분히 봤어요. ${n}개는 내일 다시 나와요!</div>
     <div class="missed-list" style="margin-bottom:20px">${left.slice(0,8).map(c=>`<span class="missed-chip">${_vgEsc(c.word)}</span>`).join('')}${n>8?`<span class="missed-chip">외 ${n-8}개</span>`:''}</div>
-    <button class="btn bt" style="padding:13px 32px;font-size:var(--fs-lg);border-radius:50px" onclick="vcCarryGo()">${more?'다음 구간으로 넘어가기 →':'결과 보기 →'}</button>
+    <button class="btn bt" style="padding:13px 32px;font-size:var(--fs-lg);border-radius:var(--rpill)" onclick="vcCarryGo()">${more?'다음 구간으로 넘어가기 →':'결과 보기 →'}</button>
   </div>`;
 }
 function vcCarryGo(){deckState._retry=[];vcNextChunk();}
@@ -1379,7 +1379,7 @@ function vcStageBar(){
     const n=i+1,on=n<=active;
     h+=`<span style="width:24px;height:24px;border-radius:50%;background:${on?'var(--accent)':'#F0F2F5'};color:${on?'#fff':'var(--neutral)'};display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-weight:700;font-family:var(--fd);flex-shrink:0">${n}</span>`;
     h+=`<span style="font-size:var(--fs-md);font-weight:${n===active?'700':'600'};color:${on?'var(--tealt)':'var(--neutral)'};white-space:nowrap">${s.name}</span>`;
-    if(i<stages.length-1)h+='<span style="flex:1;height:2px;background:#DCE3E8;border-radius:2px;min-width:8px"></span>';
+    if(i<stages.length-1)h+='<span style="flex:1;height:2px;background:#DCE3E8;border-radius:var(--r-ctl);min-width:8px"></span>';
   });
   return h+'</div>';
 }
@@ -1399,7 +1399,7 @@ function renderVocabStart(sid){
   const title=todayN?('오늘 단어 '+todayN+'개'):(total?'오늘 몫 단어 완료! 🎉':'아직 단어 카드가 없어요');
   const btn=!total?''
     :(saved?'<button class="btn bt vcs-go" onclick="vcsStart()">▶ 이어서 하기'+chunkLbl+'</button>'
-            +'<div style="margin-top:10px"><button class="btn bo bsm" style="border-radius:50px" onclick="vcsRestart()">처음부터</button></div>'
+            +'<div style="margin-top:10px"><button class="btn bo bsm" style="border-radius:var(--rpill)" onclick="vcsRestart()">처음부터</button></div>'
            :'<button class="btn bt vcs-go" onclick="vcsStart()">▶ '+(todayN?'시작':'더 하기')+'</button>');
   el.innerHTML='<div class="vcs-wrap">'
     +'<div class="vcs-ico">📚</div>'
@@ -1507,9 +1507,9 @@ function renderVocabPhaseIntro(el){
     </div>
     <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:1.2rem;flex-wrap:wrap">
       <div class="sp-seg">${[[false,`구간 ${vcChunkSize(currentStudentSid)}장씩`],[true,'한 번에']].map(([v,l])=>`<button class="${vocabChunkAll===v?'on':''}" onclick="vocabChunkAll=${v};sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">${l}</button>`).join('')}</div>
-      <button class="btn ${vocabStarOnly?'bt':'bo'} bsm" style="border-radius:50px" onclick="vocabStarOnly=!vocabStarOnly;sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">★ 별표만</button>
+      <button class="btn ${vocabStarOnly?'bt':'bo'} bsm" style="border-radius:var(--rpill)" onclick="vocabStarOnly=!vocabStarOnly;sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">★ 별표만</button>
     </div>`:''}
-    <button class="btn bt" style="padding:14px 40px;font-size:var(--fs-lg);border-radius:50px" onclick="startVocabPhase()">시작 →</button>
+    <button class="btn bt" style="padding:14px 40px;font-size:var(--fs-lg);border-radius:var(--rpill)" onclick="startVocabPhase()">시작 →</button>
     ${deckState.phase>0?`<div style="margin-top:1rem"><button class="btn bo bsm" onclick="renderVocabDeck(currentStudentSid)">처음부터</button></div>`:''}
   </div>`;
 }
@@ -1522,7 +1522,7 @@ function startVocabPhase(){
 
 function vocabHwBanner(){
   if(!vocabDeckFilter)return '';
-  return `<div style="background:var(--tl);border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+  return `<div style="background:var(--tl);border-radius:var(--r-card);padding:8px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
     <span style="font-size:var(--fs-sm);color:var(--tealt);font-weight:600">📌 숙제 단어 ${vocabDeckFilter.words.length}개 · 완료 후 숙제 자동 처리</span>
     <button onclick="vocabDeckFilter=null;renderVocabDeck(currentStudentSid)" style="background:none;border:none;cursor:pointer;font-size:var(--fs-sm);color:var(--slate)">전체 보기</button>
   </div>`;
@@ -1682,7 +1682,7 @@ function renderPhaseTransition(el,nextPhase){
     +'<div style="font-size:var(--fs-2xl);font-weight:700;color:var(--navy);margin-bottom:4px">'+doneName+' 완료!</div>'
     +'<div style="display:flex;align-items:center;justify-content:center;padding:20px 16px">'+bar+'</div>'
     +'<div style="font-size:var(--fs-base);color:var(--slate);margin-bottom:24px;line-height:1.7">'+nextSub+'</div>'
-    +'<button class="btn bt" style="padding:14px 40px;font-size:var(--fs-lg);border-radius:50px" onclick="startNextPhase('+nextPhase+')">다음: '+nextName+' 시작 →</button>'
+    +'<button class="btn bt" style="padding:14px 40px;font-size:var(--fs-lg);border-radius:var(--rpill)" onclick="startNextPhase('+nextPhase+')">다음: '+nextName+' 시작 →</button>'
     +'<div style="margin-top:12px"><button class="btn bo bsm" onclick="sessionStorage.removeItem(\'deckState_\'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button></div>'
     +'</div>';
 }
@@ -1716,12 +1716,12 @@ function renderRecallCard(el){
     <div class="vc-prog">${prog}</div>
     <div class="recall-wrap">
       <div style="font-size:var(--fs-md);color:var(--slate);text-align:center;margin-bottom:8px">뜻을 보고 영어 단어를 속으로 떠올리세요</div>
-      <div style="background:var(--tl);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px">
+      <div style="background:var(--tl);border-radius:var(--r-card);padding:20px;text-align:center;margin-bottom:14px">
         <div style="font-size:22px;font-weight:700;color:var(--navy)">${card.meaning||'(뜻 미입력)'}</div>
         ${card.pos?`<div style="font-size:var(--fs-sm);color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
         ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:var(--fs-md);color:var(--tealt);margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
       </div>
-      <div id="recall-reveal-box" style="background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px;cursor:pointer" onclick="recallReveal()">
+      <div id="recall-reveal-box" style="background:#fff;border:1.5px solid var(--border);border-radius:var(--r-card);padding:14px;text-align:center;margin-bottom:14px;cursor:pointer" onclick="recallReveal()">
         <div id="recall-tap-hint" style="font-size:var(--fs-base);color:var(--slate)">탭해서 정답 확인 →</div>
         <div id="recall-answer" style="display:none">
           <div class="vc-img vc-img-sm" id="recall-img" style="display:none"></div>
@@ -1766,7 +1766,7 @@ function renderSpellCard(el){
     <div class="vc-prog">${prog}</div>
     <div class="recall-wrap">
       <div style="font-size:var(--fs-md);color:var(--slate);text-align:center;margin-bottom:8px">뜻을 보고 영어 스펠링을 입력하세요</div>
-      <div style="background:var(--tl);border-radius:10px;padding:16px;text-align:center;margin-bottom:16px">
+      <div style="background:var(--tl);border-radius:var(--r-card);padding:16px;text-align:center;margin-bottom:16px">
         <div style="font-size:var(--fs-2xl);font-weight:700;color:var(--navy)">${card.meaning||'(뜻 미입력)'}</div>
         ${card.pos?`<div style="font-size:var(--fs-sm);color:var(--slate);margin-top:4px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
         ${deckState.vocabMode==='advanced'&&card.en_def?`<div style="font-size:var(--fs-md);color:var(--tealt);margin-top:10px;font-style:italic;line-height:1.5">${card.en_def}</div>`:''}
@@ -1839,9 +1839,9 @@ function checkSpell(){
 function _spellEaseOffer(fb){
   if((deckState._spellMiss||0)<3||!fb)return;
   if(document.getElementById('spell-ease-offer'))return;
-  fb.insertAdjacentHTML('afterend',`<div id="spell-ease-offer" style="margin-top:10px;padding:9px 12px;background:var(--tl);border-radius:10px;font-size:var(--fs-md);color:var(--tealt);text-align:center">
+  fb.insertAdjacentHTML('afterend',`<div id="spell-ease-offer" style="margin-top:10px;padding:9px 12px;background:var(--tl);border-radius:var(--r-card);font-size:var(--fs-md);color:var(--tealt);text-align:center">
     조금 어렵죠? 글자 타일로 맞추는 방법도 있어요!<br>
-    <button class="btn bt bsm" style="margin-top:7px;border-radius:50px" onclick="deckState._spellMiss=0;deckState.stages[deckState.phase]='tiles';saveDeckState();vocabRenderStage()">🧩 철자 조립으로 바꾸기</button>
+    <button class="btn bt bsm" style="margin-top:7px;border-radius:var(--rpill)" onclick="deckState._spellMiss=0;deckState.stages[deckState.phase]='tiles';saveDeckState();vocabRenderStage()">🧩 철자 조립으로 바꾸기</button>
   </div>`);
 }
 function spellSkip(){
@@ -1971,7 +1971,7 @@ function renderKspellCard(el){
     <div class="vc-prog">${prog}</div>
     <div class="recall-wrap">
       <div style="font-size:var(--fs-md);color:var(--slate);text-align:center;margin-bottom:8px">영어를 보고 한국어 뜻을 써 보세요</div>
-      <div style="background:var(--tl);border-radius:10px;padding:18px;text-align:center;margin-bottom:16px">
+      <div style="background:var(--tl);border-radius:var(--r-card);padding:18px;text-align:center;margin-bottom:16px">
         <div style="font-size:26px;font-weight:800;color:var(--navy);font-family:var(--fd);cursor:pointer" onclick="speakWord('${String(card.word).replace(/'/g,"\\'")}')">${_vgEsc(card.word)} 🔊</div>
         ${card.pos?`<div style="font-size:var(--fs-sm);color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
       </div>
@@ -2119,7 +2119,7 @@ function _vgAdvance(correct){
   vcNext(correct===undefined?true:!!correct);
 }
 let _vgLock=false;
-const _VG_BTN='display:block;width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:12px;background:#fff;font-size:var(--fs-lg);font-weight:700;color:var(--navy);font-family:var(--fb);cursor:pointer;text-align:center;margin-bottom:10px';
+const _VG_BTN='display:block;width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:var(--r-chip);background:#fff;font-size:var(--fs-lg);font-weight:700;color:var(--navy);font-family:var(--fb);cursor:pointer;text-align:center;margin-bottom:10px';
 // ── 콤보 + 효과음 (WebAudio 합성 — 에셋 불필요) ──
 let _vgCombo=0;
 function _sfx(kind){
@@ -2154,7 +2154,7 @@ function vgMark(correct){
 function showCombo(n){
   const el=document.createElement('div');
   el.textContent=n+'연속! '+(n>=5?'🔥🔥':'🔥');
-  el.style.cssText='position:fixed;top:16%;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#FF8A3D,var(--warn));color:#fff;font-weight:900;font-size:'+Math.min(26,16+n*1.5)+'px;padding:8px 22px;border-radius:50px;z-index:3000;box-shadow:0 6px 20px rgba(245,158,11,.4);pointer-events:none;animation:comboPop .85s ease forwards;font-family:var(--fb)';
+  el.style.cssText='position:fixed;top:16%;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#FF8A3D,var(--warn));color:#fff;font-weight:900;font-size:'+Math.min(26,16+n*1.5)+'px;padding:8px 22px;border-radius:var(--rpill);z-index:3000;box-shadow:0 6px 20px rgba(245,158,11,.4);pointer-events:none;animation:comboPop .85s ease forwards;font-family:var(--fb)';
   document.body.appendChild(el);
   setTimeout(()=>el.remove(),880);
 }
@@ -2180,7 +2180,7 @@ function _vgPickIdx(btn,i){
 function renderMcCard(el){
   const card=deckState.cards[deckState.idx];
   const opts=_vgOpts(card,'meaning');
-  const prompt=`<div style="background:var(--tl);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px">
+  const prompt=`<div style="background:var(--tl);border-radius:var(--r-card);padding:20px;text-align:center;margin-bottom:14px">
       <div style="font-size:26px;font-weight:800;color:var(--navy);font-family:var(--fd);cursor:pointer" onclick="speakWord('${card.word.replace(/'/g,"\\'")}')">${_vgEsc(card.word)} 🔊</div>
       ${card.pos?`<div style="font-size:var(--fs-sm);color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
     </div>`;
@@ -2191,7 +2191,7 @@ function renderMcCard(el){
 function renderMcrCard(el){
   const card=deckState.cards[deckState.idx];
   const opts=_vgOpts(card,'word');
-  const prompt=`<div style="background:var(--tl);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px">
+  const prompt=`<div style="background:var(--tl);border-radius:var(--r-card);padding:20px;text-align:center;margin-bottom:14px">
       <div style="font-size:22px;font-weight:700;color:var(--navy)">${_vgEsc(card.meaning||'(뜻 미입력)')}</div>
       ${card.pos?`<div style="font-size:var(--fs-sm);color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
     </div>`;
@@ -2201,7 +2201,7 @@ function renderMcrCard(el){
 function renderListenCard(el){
   const card=deckState.cards[deckState.idx];
   const opts=_vgOpts(card,'word');
-  const prompt=`<div style="background:var(--tl);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px">
+  const prompt=`<div style="background:var(--tl);border-radius:var(--r-card);padding:20px;text-align:center;margin-bottom:14px">
       <button onclick="speakWord('${card.word.replace(/'/g,"\\'")}')" style="width:74px;height:74px;border-radius:50%;border:none;background:var(--teal);color:#fff;font-size:30px;cursor:pointer;box-shadow:var(--sh)">🔊</button>
       <div style="font-size:var(--fs-md);color:var(--slate);margin-top:8px">잘 듣고 맞는 단어를 고르세요 (버튼을 누르면 다시 들려요)</div>
       <div id="vg-nosound" style="display:${window._ppNoSound?'block':'none'};margin-top:10px;font-size:var(--fs-md);color:var(--warn);line-height:1.5">
@@ -2232,15 +2232,15 @@ function renderTilesCard(el){
   if(!deckState._vt||deckState._vt.word!==word)deckState._vt={word,tiles:_vgShuffle(target.split('').map(ch=>({ch,used:false}))),picked:[],finished:false,correct:false};
   const T=deckState._vt;
   el.innerHTML=`<div style="padding:1.25rem">${_vgHead()}
-    <div style="background:var(--tl);border-radius:10px;padding:16px;text-align:center;margin-bottom:14px">
+    <div style="background:var(--tl);border-radius:var(--r-card);padding:16px;text-align:center;margin-bottom:14px">
       <div style="font-size:var(--fs-2xl);font-weight:700;color:var(--navy)">${_vgEsc(card.meaning||'(뜻 미입력)')}</div>
       ${card.pos?`<div style="font-size:var(--fs-sm);color:var(--slate);margin-top:4px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
     </div>
     <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:46px;margin-bottom:16px">
-      ${T.picked.map((p,i)=>`<button onclick="_vtUndo(${i})" style="width:38px;height:46px;border:none;border-radius:10px;background:var(--teal);color:#fff;font-size:var(--fs-xl);font-weight:800;font-family:var(--fd);cursor:pointer">${p.ch}</button>`).join('')||'<span style="font-size:var(--fs-md);color:var(--slate);align-self:center">아래 글자를 순서대로 눌러 보세요 (누른 글자는 다시 눌러 취소)</span>'}
+      ${T.picked.map((p,i)=>`<button onclick="_vtUndo(${i})" style="width:38px;height:46px;border:none;border-radius:var(--r-card);background:var(--teal);color:#fff;font-size:var(--fs-xl);font-weight:800;font-family:var(--fd);cursor:pointer">${p.ch}</button>`).join('')||'<span style="font-size:var(--fs-md);color:var(--slate);align-self:center">아래 글자를 순서대로 눌러 보세요 (누른 글자는 다시 눌러 취소)</span>'}
     </div>
     <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-      ${T.tiles.map((t,i)=>`<button ${t.used||T.finished?'disabled':''} onclick="_vtPick(${i})" style="width:44px;height:52px;border:2px solid var(--border);border-radius:12px;background:${t.used?'#F0F2F5':'#fff'};color:${t.used?'#C3CBD3':'var(--navy)'};font-size:var(--fs-2xl);font-weight:800;font-family:var(--fd);cursor:pointer;box-shadow:var(--sh)">${t.ch}</button>`).join('')}
+      ${T.tiles.map((t,i)=>`<button ${t.used||T.finished?'disabled':''} onclick="_vtPick(${i})" style="width:44px;height:52px;border:2px solid var(--border);border-radius:var(--r-chip);background:${t.used?'#F0F2F5':'#fff'};color:${t.used?'#C3CBD3':'var(--navy)'};font-size:var(--fs-2xl);font-weight:800;font-family:var(--fd);cursor:pointer;box-shadow:var(--sh)">${t.ch}</button>`).join('')}
     </div>
     <div style="text-align:center;margin-top:14px;font-size:var(--fs-lg);font-weight:700;min-height:20px">
       ${T.finished?(T.correct?'<span style="color:var(--okt)">✓ 정답!</span>':'<span style="color:var(--coral)">✗ 정답: <strong>'+_vgEsc(card.word)+'</strong></span>'):''}
@@ -2288,7 +2288,7 @@ function renderMatchGame(el){
       ${M.tiles.map((t,i)=>{
         const m=M.matched.includes(t.id);
         const on=M.sel===i;
-        return `<button onclick="_mgPick(${i})" style="min-height:64px;padding:10px;border:2px solid ${m?'var(--ok)':on?'var(--teal)':'var(--border)'};border-radius:12px;background:${m?'#ECFDF5':on?'var(--tl)':'#fff'};color:${m?'var(--okt)':'var(--navy)'};font-size:${t.kind==='w'?'16':'13'}px;font-weight:700;font-family:${t.kind==='w'?'var(--fd)':'var(--fb)'};cursor:pointer;opacity:${m?'.75':'1'};line-height:1.35">${_vgEsc(t.text)}</button>`;
+        return `<button onclick="_mgPick(${i})" style="min-height:64px;padding:10px;border:2px solid ${m?'var(--ok)':on?'var(--teal)':'var(--border)'};border-radius:var(--r-chip);background:${m?'#ECFDF5':on?'var(--tl)':'#fff'};color:${m?'var(--okt)':'var(--navy)'};font-size:${t.kind==='w'?'16':'13'}px;font-weight:700;font-family:${t.kind==='w'?'var(--fd)':'var(--fb)'};cursor:pointer;opacity:${m?'.75':'1'};line-height:1.35">${_vgEsc(t.text)}</button>`;
       }).join('')}
     </div>
   </div>`;
@@ -2338,12 +2338,12 @@ function renderBingoGame(el){
       <span style="font-size:var(--fs-md);color:var(--slate);font-family:var(--fm)">${B.ci+1} / ${B.calls.length}${B.lines?` · 빙고 ${B.lines}줄 🎉`:''}</span>
       <button class="btn bo bxxs" onclick="sessionStorage.removeItem('deckState_'+currentStudentSid);renderVocabDeck(currentStudentSid)">처음부터</button>
     </div>${vcStageBar()}
-    <div style="background:var(--tl);border-radius:10px;padding:14px;text-align:center;margin-bottom:12px">
+    <div style="background:var(--tl);border-radius:var(--r-card);padding:14px;text-align:center;margin-bottom:12px">
       <div style="font-size:var(--fs-sm);color:var(--slate);margin-bottom:4px">이 단어의 뜻을 빙고판에서 찾아 누르세요</div>
       <div style="font-size:24px;font-weight:800;color:var(--navy);font-family:var(--fd);cursor:pointer" onclick="speakWord('${curWord.replace(/'/g,"\\'")}')">${_vgEsc(curWord)} 🔊</div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(${B.size},1fr);gap:6px">
-      ${B.cells.map((c,i)=>`<button data-bg-i="${i}" onclick="_bgPick(${i})" style="min-height:56px;padding:6px 4px;border:2px solid ${c.hit?'var(--ok)':'var(--border)'};border-radius:10px;background:${c.hit?'#ECFDF5':'#fff'};color:${c.hit?'var(--okt)':'var(--navy)'};font-size:var(--fs-md);font-weight:700;font-family:var(--fb);cursor:pointer;line-height:1.3">${c.hit?'✓ ':''}${_vgEsc(c.text)}</button>`).join('')}
+      ${B.cells.map((c,i)=>`<button data-bg-i="${i}" onclick="_bgPick(${i})" style="min-height:56px;padding:6px 4px;border:2px solid ${c.hit?'var(--ok)':'var(--border)'};border-radius:var(--r-card);background:${c.hit?'#ECFDF5':'#fff'};color:${c.hit?'var(--okt)':'var(--navy)'};font-size:var(--fs-md);font-weight:700;font-family:var(--fb);cursor:pointer;line-height:1.3">${c.hit?'✓ ':''}${_vgEsc(c.text)}</button>`).join('')}
     </div>
   </div>`;
   if(cur)setTimeout(()=>speakWord(cur.word),150);
@@ -2459,12 +2459,12 @@ async function renderVocabResult(el){
     ${missed.length?`<div style="margin-bottom:1.5rem">
       <div style="font-size:var(--fs-md);font-weight:700;color:var(--slate);margin-bottom:8px">다시 연습할 단어</div>
       <div class="missed-list">${missed.map(w=>`<span class="missed-chip">${w}</span>`).join('')}</div>
-      <button class="btn bt bsm" style="margin-top:10px;border-radius:50px;padding:9px 20px" onclick="vocabRetryMissed()">🔁 이 단어만 바로 다시 (${missed.length}개)</button>
+      <button class="btn bt bsm" style="margin-top:10px;border-radius:var(--rpill);padding:9px 20px" onclick="vocabRetryMissed()">🔁 이 단어만 바로 다시 (${missed.length}개)</button>
     </div>`:''}
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-      <button class="btn bo" style="padding:10px 22px;border-radius:50px" onclick="renderVocabDeck(currentStudentSid)">다시 하기</button>
-      ${vocabDeckFilter?.asgnId?`<button class="btn bt" style="padding:10px 22px;border-radius:50px" onclick="const aid=vocabDeckFilter.asgnId;vocabDeckFilter=null;completeAssignment(currentStudentSid,aid)">✅ 숙제 완료</button>`:''}
-      <button class="btn bt" style="padding:10px 22px;border-radius:50px" onclick="vocabDeckFilter=null;swStuTab('st-home')">홈으로 →</button>
+      <button class="btn bo" style="padding:10px 22px;border-radius:var(--rpill)" onclick="renderVocabDeck(currentStudentSid)">다시 하기</button>
+      ${vocabDeckFilter?.asgnId?`<button class="btn bt" style="padding:10px 22px;border-radius:var(--rpill)" onclick="const aid=vocabDeckFilter.asgnId;vocabDeckFilter=null;completeAssignment(currentStudentSid,aid)">✅ 숙제 완료</button>`:''}
+      <button class="btn bt" style="padding:10px 22px;border-radius:var(--rpill)" onclick="vocabDeckFilter=null;swStuTab('st-home')">홈으로 →</button>
     </div>
     <div style="margin-top:18px;font-size:var(--fs-base);color:var(--slate)">내일 또 만나요! 내일의 게임은 <b style="color:var(--tealt)">${_tmrNames}</b> 🎮</div>
   </div>`;
@@ -2542,11 +2542,11 @@ function renderQuizIntro(){
     <div style="font-size:40px;margin-bottom:8px">🏁</div>
     <div style="font-size:var(--fs-2xl);font-weight:800;color:var(--navy);margin-bottom:4px">단어 테스트</div>
     <div style="font-size:var(--fs-base);color:var(--slate);margin-bottom:14px">${_qzEsc(q.label)}</div>
-    <div style="background:var(--tl);border-radius:12px;padding:14px 16px;margin-bottom:18px;font-size:var(--fs-base);color:var(--tealt);line-height:1.8">
+    <div style="background:var(--tl);border-radius:var(--r-chip);padding:14px 16px;margin-bottom:18px;font-size:var(--fs-base);color:var(--tealt);line-height:1.8">
       ${q.n}문항 · 문항당 ${q.cfg.sec}초<br>${_qzEsc(tn)}
       ${st.tries?`<div style="color:var(--slate);margin-top:6px">최고 ${st.best}점 · ${st.tries}회 응시</div>`:''}
     </div>
-    <button class="btn bt" style="padding:14px 44px;font-size:var(--fs-xl);border-radius:50px" onclick="_qzStart()">시작! →</button>
+    <button class="btn bt" style="padding:14px 44px;font-size:var(--fs-xl);border-radius:var(--rpill)" onclick="_qzStart()">시작! →</button>
     <div style="margin-top:14px"><button class="btn bo bsm" onclick="quizState=null;renderVocabDeck(currentStudentSid)">단어 학습으로</button></div>
   </div>`;
 }
@@ -2567,14 +2567,14 @@ function renderQuizCard(){
   q.left=sec;q.secMax=sec;
   const head=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <span style="font-size:var(--fs-md);color:var(--slate);font-family:var(--fm)">${q.idx+1} / ${q.qs.length}</span>
-      <div style="flex:1;height:8px;background:var(--divider);border-radius:4px;overflow:hidden">
-        <div id="qz-bar" style="height:100%;width:100%;background:var(--accent);border-radius:4px;transition:width .25s linear"></div>
+      <div style="flex:1;height:8px;background:var(--divider);border-radius:var(--r-ctl);overflow:hidden">
+        <div id="qz-bar" style="height:100%;width:100%;background:var(--accent);border-radius:var(--r-ctl);transition:width .25s linear"></div>
       </div>
       <button class="btn bo bxxs" id="qz-pause-btn" onclick="qzPause()">멈춤</button>
     </div>`;
   let body='';
   if(type==='spell'){
-    body=`<div style="background:var(--tl);border-radius:10px;padding:18px;text-align:center;margin-bottom:14px">
+    body=`<div style="background:var(--tl);border-radius:var(--r-card);padding:18px;text-align:center;margin-bottom:14px">
         <div style="font-size:var(--fs-2xl);font-weight:700;color:var(--navy)">${_qzEsc(card.meaning||'(뜻 미입력)')}</div>
       </div>
       <input class="recall-input" id="qz-in" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
@@ -2585,21 +2585,21 @@ function renderQuizCard(){
     const opts=_qzOpts(card,field);
     q.cur={opts,right:opts.indexOf(String(card[field]||'').trim())};
     const prompt=type==='listen'
-      ?`<div style="background:var(--tl);border-radius:10px;padding:22px;text-align:center;margin-bottom:14px">
+      ?`<div style="background:var(--tl);border-radius:var(--r-card);padding:22px;text-align:center;margin-bottom:14px">
           <button onclick="speakWord('${String(card.word).replace(/'/g,"\\'")}')" style="width:72px;height:72px;border-radius:50%;border:none;background:var(--teal);color:#fff;font-size:30px;cursor:pointer;box-shadow:var(--sh)">🔊</button>
           <div style="font-size:var(--fs-md);color:var(--slate);margin-top:8px">잘 듣고 맞는 단어를 고르세요</div>
         </div>`
-      :`<div style="background:var(--tl);border-radius:10px;padding:20px;text-align:center;margin-bottom:14px">
+      :`<div style="background:var(--tl);border-radius:var(--r-card);padding:20px;text-align:center;margin-bottom:14px">
           <div style="font-size:${type==='mc'?'26px':'21px'};font-weight:${type==='mc'?'800':'700'};color:var(--navy);${type==='mc'?'font-family:var(--fd)':''}">${_qzEsc(type==='mc'?card.word:(card.meaning||'(뜻 미입력)'))}</div>
         </div>`;
-    body=prompt+`<div id="qz-opts">${opts.map((o,i)=>`<button class="qz-opt" data-i="${i}" onclick="qzAnswer(${i})" style="display:block;width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:12px;background:#fff;font-size:var(--fs-lg);font-weight:700;color:var(--navy);font-family:var(--fb);cursor:pointer;text-align:center;margin-bottom:10px">${_qzEsc(o)}</button>`).join('')}</div>`;
+    body=prompt+`<div id="qz-opts">${opts.map((o,i)=>`<button class="qz-opt" data-i="${i}" onclick="qzAnswer(${i})" style="display:block;width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:var(--r-chip);background:#fff;font-size:var(--fs-lg);font-weight:700;color:var(--navy);font-family:var(--fb);cursor:pointer;text-align:center;margin-bottom:10px">${_qzEsc(o)}</button>`).join('')}</div>`;
   }
   el.innerHTML=`<div style="padding:1.25rem" id="qz-wrap">${head}
     <div id="qz-body">${body}</div>
     <div id="qz-paused" style="display:none;padding:40px 10px;text-align:center">
       <div style="font-size:38px;margin-bottom:10px">⏸</div>
       <div style="font-size:var(--fs-lg);font-weight:700;color:var(--navy);margin-bottom:14px">잠깐 멈췄어요</div>
-      <button class="btn bt" style="padding:12px 32px;border-radius:50px" onclick="qzResume()">이어서 하기 →</button>
+      <button class="btn bt" style="padding:12px 32px;border-radius:var(--rpill)" onclick="qzResume()">이어서 하기 →</button>
       <div style="margin-top:12px"><button class="btn bo bsm" onclick="qzQuit()">그만하기</button></div>
     </div>
   </div>`;
@@ -2728,9 +2728,9 @@ async function renderQuizResult(){
       <div class="missed-list">${wrong.map(w=>`<span class="missed-chip">${_qzEsc(w)}</span>`).join('')}</div>
     </div>`:'<div style="font-size:var(--fs-lg);font-weight:700;color:var(--okt);margin:14px 0">다 맞혔어요! 🎉</div>'}
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px">
-      ${wrong.length?`<button class="btn bt" style="padding:11px 22px;border-radius:50px" onclick="qzRetryWrong()">🔁 틀린 ${wrong.length}개만 다시</button>`:''}
-      <button class="btn bo" style="padding:11px 22px;border-radius:50px" onclick="qzAgain()">다시 응시</button>
-      <button class="btn bo" style="padding:11px 22px;border-radius:50px" onclick="quizState=null;swStuTab('st-home')">홈으로</button>
+      ${wrong.length?`<button class="btn bt" style="padding:11px 22px;border-radius:var(--rpill)" onclick="qzRetryWrong()">🔁 틀린 ${wrong.length}개만 다시</button>`:''}
+      <button class="btn bo" style="padding:11px 22px;border-radius:var(--rpill)" onclick="qzAgain()">다시 응시</button>
+      <button class="btn bo" style="padding:11px 22px;border-radius:var(--rpill)" onclick="quizState=null;swStuTab('st-home')">홈으로</button>
     </div>
   </div>`;
   if(score>=80){try{showMiniConfetti();}catch(e){}}
@@ -2803,14 +2803,14 @@ function renderWrongNote(){
       <span style="font-size:var(--fs-md);color:var(--slate);font-family:var(--fm)">이번 묶음 ${w.cleared}/${w.chunkN} · 남은 ${left}개</span>
     </div>
     <div style="font-size:var(--fs-md);color:var(--slate);text-align:center;margin-bottom:10px">📒 오답 복습 — 전에 틀린 단어예요</div>
-    <div style="height:8px;background:var(--divider);border-radius:4px;overflow:hidden;margin-bottom:16px">
-      <div style="height:100%;width:${Math.round((w.cleared/Math.max(1,w.chunkN))*100)}%;background:var(--accent);border-radius:4px;transition:width .3s"></div>
+    <div style="height:8px;background:var(--divider);border-radius:var(--r-ctl);overflow:hidden;margin-bottom:16px">
+      <div style="height:100%;width:${Math.round((w.cleared/Math.max(1,w.chunkN))*100)}%;background:var(--accent);border-radius:var(--r-ctl);transition:width .3s"></div>
     </div>
-    <div style="background:var(--tl);border-radius:10px;padding:22px;text-align:center;margin-bottom:14px">
+    <div style="background:var(--tl);border-radius:var(--r-card);padding:22px;text-align:center;margin-bottom:14px">
       <div style="font-size:26px;font-weight:800;color:var(--navy);font-family:var(--fd);cursor:pointer" onclick="speakWord('${String(card.word).replace(/'/g,"\\'")}')">${_vgEsc(card.word)} 🔊</div>
       ${card.pos?`<div style="font-size:var(--fs-sm);color:var(--slate);margin-top:6px;font-family:var(--fm)">${POS_KO[card.pos]||card.pos}</div>`:''}
     </div>
-    <div id="wn-opts">${w.cur.opts.map((o,i)=>`<button class="wn-opt" data-i="${i}" onclick="wnAnswer(${i})" style="display:block;width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:12px;background:#fff;font-size:var(--fs-lg);font-weight:700;color:var(--navy);font-family:var(--fb);cursor:pointer;text-align:center;margin-bottom:10px">${_vgEsc(o)}</button>`).join('')}</div>
+    <div id="wn-opts">${w.cur.opts.map((o,i)=>`<button class="wn-opt" data-i="${i}" onclick="wnAnswer(${i})" style="display:block;width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:var(--r-chip);background:#fff;font-size:var(--fs-lg);font-weight:700;color:var(--navy);font-family:var(--fb);cursor:pointer;text-align:center;margin-bottom:10px">${_vgEsc(o)}</button>`).join('')}</div>
   </div>`;
 }
 function wnAnswer(i){
@@ -2859,8 +2859,8 @@ function renderWrongNoteDone(){
       ${w.chunkN}개를 전부 맞혔어요${left?`<br>아직 <b style="color:var(--tealt)">${left}개</b>가 남아 있어요`:'<br>다음 주에 또 만나요'}
     </div>
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-      ${left?`<button class="btn bt" style="padding:12px 26px;border-radius:50px" onclick="openWrongNote('${w.sid}')">이어서 ${Math.min(left,PP_WN_CHUNK)}개 더 →</button>`:''}
-      <button class="btn bo" style="padding:12px 26px;border-radius:50px" onclick="wnQuit()">홈으로</button>
+      ${left?`<button class="btn bt" style="padding:12px 26px;border-radius:var(--rpill)" onclick="openWrongNote('${w.sid}')">이어서 ${Math.min(left,PP_WN_CHUNK)}개 더 →</button>`:''}
+      <button class="btn bo" style="padding:12px 26px;border-radius:var(--rpill)" onclick="wnQuit()">홈으로</button>
     </div>
   </div>`;
 }
@@ -2920,7 +2920,7 @@ function renderGameIntro(){
     +'<div style="font-size:42px;margin-bottom:8px">'+(m.icon||'🎮')+'</div>'
     +'<div style="font-size:var(--fs-2xl);font-weight:800;color:var(--navy);margin-bottom:4px">'+_qzEsc(m.name||'게임')+'</div>'
     +'<div style="font-size:var(--fs-base);color:var(--slate);margin-bottom:14px">'+_qzEsc(g.label||'')+'</div>'
-    +'<div style="background:var(--tl);border-radius:14px;padding:14px 16px;margin-bottom:18px;font-size:var(--fs-base);color:var(--tealt);line-height:1.8">'
+    +'<div style="background:var(--tl);border-radius:var(--r-chip);padding:14px 16px;margin-bottom:18px;font-size:var(--fs-base);color:var(--tealt);line-height:1.8">'
     +how
     +(b.plays?'<div style="color:var(--slate);margin-top:6px">최고 '+ppGameScoreText(g.game,b.best)+' · '+b.plays+'판</div>':'')
     +'</div>'
@@ -2968,7 +2968,7 @@ function renderGameResult(){
     ?(g.n+'짝 완성 · 벌점 '+g.wrong+'회 (+'+g.wrong+'초)')
     :('맞힌 단어 '+g.hits+'개 · '+Math.round((g.ms||0)/1000)+'초');
   const missed=(g.game==='crash'&&g.missed.length)
-    ?('<div style="text-align:left;background:var(--cl);border-radius:14px;padding:11px 13px;margin-bottom:16px">'
+    ?('<div style="text-align:left;background:var(--cl);border-radius:var(--r-chip);padding:11px 13px;margin-bottom:16px">'
       +'<div style="font-size:var(--fs-sm);font-weight:700;color:var(--coral);margin-bottom:5px">놓친 단어 '+g.missed.length+'개</div>'
       +g.missed.map(w=>'<div style="font-size:var(--fs-md);color:var(--navy);line-height:1.6">'+_qzEsc(w)+'</div>').join('')
       +'</div>'):'';
@@ -3448,7 +3448,7 @@ function stuBossCard(sid){
     <div style="flex:1;min-width:0">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
         <span style="font-size:var(--fs-base);font-weight:800;color:var(--navy)">👑 주간 보스 · ${b.name}</span>
-        <span style="font-size:var(--fs-md);font-weight:700;color:var(--slate);background:var(--cream2);border-radius:5px;padding:1px 7px;white-space:nowrap">보너스 도전 · 숙제 아님</span>
+        <span style="font-size:var(--fs-md);font-weight:700;color:var(--slate);background:var(--cream2);border-radius:var(--r-ctl);padding:1px 7px;white-space:nowrap">보너스 도전 · 숙제 아님</span>
       </div>
       ${b.done?`<div style="font-size:var(--fs-md);font-weight:800;color:var(--okt);margin-top:3px">🏆 클리어! 보너스 XP +30 — 다음 주 월요일에 새 보스가 나타나요</div>`
         :`<div style="font-size:var(--fs-md);color:var(--slate);margin-top:2px">${b.desc}</div>
@@ -3602,14 +3602,14 @@ function hwChallengeCardHtml(sid){
   for(let i=1;i<=p.goal;i++){
     const filled=i<=p.count;
     const isGift=i===p.goal;
-    cells.push(`<div title="${filled?(roundStamps[i-1]||'')+' · 숙제 전부 완료':''}" style="aspect-ratio:1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${filled?'20px':'12px'};${filled?'background:#FDE68A;border:1.5px solid #D97706':'background:var(--cream2);border:1.5px dashed var(--border);color:var(--neutral);font-weight:700'}">${filled?(isGift?'🎁':'⭐'):(isGift?'🎁':i)}</div>`);
+    cells.push(`<div title="${filled?(roundStamps[i-1]||'')+' · 숙제 전부 완료':''}" style="aspect-ratio:1;border-radius:var(--r-card);display:flex;align-items:center;justify-content:center;font-size:${filled?'20px':'12px'};${filled?'background:#FDE68A;border:1.5px solid #D97706':'background:var(--cream2);border:1.5px dashed var(--border);color:var(--neutral);font-weight:700'}">${filled?(isGift?'🎁':'⭐'):(isGift?'🎁':i)}</div>`);
   }
   const today=ppToday();
   const ts=hwDayStatus(sid,today);
   let statusHtml;
   // 받을 선물이 있으면 먼저 알림 — 도장판은 이미 다음 판으로 넘어가 있음
   const giftBanner=p.pendingGifts>0
-    ?`<div style="font-size:var(--fs-base);font-weight:800;color:var(--warnt);background:#FEF3C7;border:1.5px solid var(--warn);border-radius:10px;padding:8px 10px;margin-bottom:10px">🎉 도장판 ${p.rounds}개 완성! 선생님께 <b>${p.reward}</b>${p.pendingGifts>1?` ${p.pendingGifts}개`:''} 받으세요 🎁</div>`
+    ?`<div style="font-size:var(--fs-base);font-weight:800;color:var(--warnt);background:#FEF3C7;border:1.5px solid var(--warn);border-radius:var(--r-card);padding:8px 10px;margin-bottom:10px">🎉 도장판 ${p.rounds}개 완성! 선생님께 <b>${p.reward}</b>${p.pendingGifts>1?` ${p.pendingGifts}개`:''} 받으세요 🎁</div>`
     :'';
   if(p.todayStamp){
     statusHtml=`<div style="font-size:var(--fs-base);font-weight:700;color:var(--okt)">오늘 숙제 전부 완료! ⭐ ${p.goal-p.count}개 남았어요 — 내일도 화이팅!</div>`;
@@ -3912,7 +3912,7 @@ function renderHomeStats(sid){
   const vocabLearned=ppLive(_cache.vocab_cards).filter(c=>c.sid===sid&&(c.hits||0)>0).length;
   const rdsCount=DB.allRds(sid).length;
   if(!vocabLearned&&!rdsCount)return '';
-  const statBox=(val,color,label,type)=>`<div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:12px;text-align:center;cursor:pointer;transition:.15s" onclick="showStatDetail('${sid}','${type}')" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background='#fff'">
+  const statBox=(val,color,label,type)=>`<div style="background:#fff;border-radius:var(--r-card);border:1px solid var(--border);padding:12px;text-align:center;cursor:pointer;transition:.15s" onclick="showStatDetail('${sid}','${type}')" onmouseover="this.style.background='var(--cream2)'" onmouseout="this.style.background='#fff'">
     <div style="font-size:24px;font-weight:700;color:${color};font-family:var(--fm)">${val}</div>
     <div style="font-size:var(--fs-sm);color:var(--slate);margin-top:2px">${label}</div>
   </div>`;
@@ -3975,7 +3975,7 @@ function renderLastLesson(sid){
       <span style="font-size:var(--fs-sm);color:var(--slate);font-family:var(--fm)">${last.date||''}</span>
     </div>
     ${matHtml?`<div style="margin-bottom:6px">${matHtml}</div>`:''}
-    <button class="btn bt bsm" style="margin-top:8px;border-radius:50px" onclick="openVocabStudy('last')">📚 지난 수업 단어 복습 →</button>
+    <button class="btn bt bsm" style="margin-top:8px;border-radius:var(--rpill)" onclick="openVocabStudy('last')">📚 지난 수업 단어 복습 →</button>
   </div>`;
 }
 // 학생 응원 문구 — **읽기만 한다** (2026-11-08).
@@ -4012,25 +4012,25 @@ function renderVocabReview(sid){
     <div class="cb">
       ${weak.length?`<div style="font-size:var(--fs-base);font-weight:800;color:var(--warnt);margin-bottom:9px;display:flex;align-items:center;gap:5px">⚠️ 먼저 잡을 단어</div>
       <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px">
-        ${weak.map(c=>`<div style="display:flex;align-items:center;gap:11px;background:#fff;border:1.5px solid rgba(245,158,11,.35);border-radius:12px;padding:10px 13px">
-          <span style="width:34px;height:34px;border-radius:10px;background:var(--warnl);color:var(--warnt);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:var(--fs-lg)">🔁</span>
+        ${weak.map(c=>`<div style="display:flex;align-items:center;gap:11px;background:#fff;border:1.5px solid rgba(245,158,11,.35);border-radius:var(--r-chip);padding:10px 13px">
+          <span style="width:34px;height:34px;border-radius:var(--r-card);background:var(--warnl);color:var(--warnt);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:var(--fs-lg)">🔁</span>
           <div style="flex:1;min-width:0"><div style="font-size:var(--fs-lg);font-weight:700;color:var(--navy);font-family:var(--fd)">${c.word||''}</div><div style="font-size:var(--fs-sm);color:var(--slate)">${c.meaning||''}${c.misses?' · '+c.misses+'번 헷갈림':''}</div></div>
-          <span style="font-size:var(--fs-sm);font-weight:700;background:var(--warnl);color:var(--warnt);padding:3px 10px;border-radius:11px;flex-shrink:0">약함</span>
+          <span style="font-size:var(--fs-sm);font-weight:700;background:var(--warnl);color:var(--warnt);padding:3px 10px;border-radius:var(--r-chip);flex-shrink:0">약함</span>
         </div>`).join('')}
       </div>`:''}
       <div style="font-size:var(--fs-base);font-weight:800;color:var(--navy);margin-bottom:11px">단어가 단단해지는 중 💪</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:13px">
-        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:var(--warn);flex-shrink:0"></span><span style="flex:1;font-size:var(--fs-base);color:var(--text-muted)">아직 새 단어</span><span style="font-size:var(--fs-lg);font-weight:700;color:var(--warnt);font-family:var(--fd)">${fresh}</span></div>
-        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:var(--accent);flex-shrink:0"></span><span style="flex:1;font-size:var(--fs-base);color:var(--text-muted)">연습하는 중</span><span style="font-size:var(--fs-lg);font-weight:700;color:var(--tealt);font-family:var(--fd)">${learning}</span></div>
-        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:4px;background:var(--ok);flex-shrink:0"></span><span style="flex:1;font-size:var(--fs-base);color:var(--text-muted)">완전히 내 단어</span><span style="font-size:var(--fs-lg);font-weight:700;color:var(--okt);font-family:var(--fd)">${mastered}</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:var(--r-ctl);background:var(--warn);flex-shrink:0"></span><span style="flex:1;font-size:var(--fs-base);color:var(--text-muted)">아직 새 단어</span><span style="font-size:var(--fs-lg);font-weight:700;color:var(--warnt);font-family:var(--fd)">${fresh}</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:var(--r-ctl);background:var(--accent);flex-shrink:0"></span><span style="flex:1;font-size:var(--fs-base);color:var(--text-muted)">연습하는 중</span><span style="font-size:var(--fs-lg);font-weight:700;color:var(--tealt);font-family:var(--fd)">${learning}</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:13px;height:13px;border-radius:var(--r-ctl);background:var(--ok);flex-shrink:0"></span><span style="flex:1;font-size:var(--fs-base);color:var(--text-muted)">완전히 내 단어</span><span style="font-size:var(--fs-lg);font-weight:700;color:var(--okt);font-family:var(--fd)">${mastered}</span></div>
       </div>
-      <div style="height:9px;border-radius:5px;overflow:hidden;display:flex;background:var(--divider)">
+      <div style="height:9px;border-radius:var(--r-ctl);overflow:hidden;display:flex;background:var(--divider)">
         ${fresh?`<span style="width:${pct(fresh)}%;background:var(--warn)"></span>`:''}
         ${learning?`<span style="width:${pct(learning)}%;background:var(--accent)"></span>`:''}
         ${mastered?`<span style="width:${pct(mastered)}%;background:var(--ok)"></span>`:''}
       </div>
       <div style="margin-top:8px;font-size:var(--fs-md);color:var(--slate);text-align:center"><b style="color:var(--okt)">${mastered}개</b>가 완전히 내 단어가 됐어요! 오늘 20개만 하면 더 늘어나요</div>
-      <button class="btn bt" style="width:100%;margin-top:14px;border-radius:50px;padding:12px" onclick="openVocabStudy('daily')">▶ 시작!</button>
+      <button class="btn bt" style="width:100%;margin-top:14px;border-radius:var(--rpill);padding:12px" onclick="openVocabStudy('daily')">▶ 시작!</button>
     </div>
     </div>
   </details>`;
@@ -4164,7 +4164,7 @@ function renderStudentHome(sid){
       <div style="flex:1;min-width:0">
         <div style="font-size:var(--fs-lg);font-weight:800;color:var(--navy)">${_ringDone?'오늘 단어 완료! 참 잘했어요':'📚 오늘의 단어 학습'}</div>
         <div style="font-size:var(--fs-md);color:var(--neutral);margin-top:2px">오늘의 게임: ${_gameNames||'뜻 맞히기'} 🎮</div>
-        <button class="btn bt" style="width:100%;height:46px;padding:0;border-radius:12px;font-size:var(--fs-lg);font-weight:800;gap:6px;margin-top:9px" onclick="openVocabStudy('daily')">${luIcon('play',18)||'▷'} ${_ringDone?'더 하기':(_revToday?'이어서!':'시작!')}</button>
+        <button class="btn bt" style="width:100%;height:46px;padding:0;border-radius:var(--r-chip);font-size:var(--fs-lg);font-weight:800;gap:6px;margin-top:9px" onclick="openVocabStudy('daily')">${luIcon('play',18)||'▷'} ${_ringDone?'더 하기':(_revToday?'이어서!':'시작!')}</button>
       </div>
     </div>
   </div></div>`;
@@ -4180,7 +4180,7 @@ function renderStudentHome(sid){
           <div style="font-size:var(--fs-lg);font-weight:800;color:var(--navy)">🏁 단어 테스트${st.tries?`<span style="font-size:var(--fs-sm);font-weight:600;color:var(--tealt);margin-left:8px">최고 ${st.best}점 · ${st.tries}회</span>`:''}</div>
           <div class="qz-sub">${escAttr(_qzSet.label)} · ${n}문항 · ${cfg.sec}초</div>
         </div>
-        <button class="btn bo bsm" style="flex:0 0 auto;border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabQuiz('${sid}')">시작!</button>
+        <button class="btn bo bsm" style="flex:0 0 auto;border-radius:var(--rpill);padding:8px 18px;font-weight:700" onclick="openVocabQuiz('${sid}')">시작!</button>
       </div>
     </div></div>`;
   })():'';
@@ -4195,9 +4195,9 @@ function renderStudentHome(sid){
           <div style="font-size:var(--fs-lg);font-weight:800;color:${wall?'var(--okt)':'var(--navy)'}">\uD83D\uDCD2 ${wall?'이번 주 오답 복습 완료 ✓':'이번 주 오답 복습 '+_wn.cards.length+'개'}</div>
           ${wall?'':`<div style="font-size:var(--fs-md);color:var(--neutral);margin-top:3px">남은 ${_wn.remain.length}개 · 전에 틀린 단어를 다시 봐요</div>`}
         </div>
-        ${wall?'':`<button class="btn bo bsm" style="flex:0 0 auto;border-radius:50px;padding:8px 18px;font-weight:700" onclick="openWrongNote('${sid}')">복습하기</button>`}
+        ${wall?'':`<button class="btn bo bsm" style="flex:0 0 auto;border-radius:var(--rpill);padding:8px 18px;font-weight:700" onclick="openWrongNote('${sid}')">복습하기</button>`}
       </div>
-      ${(wdone&&!wall)?`<div style="height:6px;background:var(--divider);border-radius:3px;overflow:hidden;margin-top:9px"><div style="height:100%;width:${Math.round(wdone/_wn.cards.length*100)}%;background:var(--ok);border-radius:3px"></div></div>`:''}
+      ${(wdone&&!wall)?`<div style="height:6px;background:var(--divider);border-radius:var(--r-ctl);overflow:hidden;margin-top:9px"><div style="height:100%;width:${Math.round(wdone/_wn.cards.length*100)}%;background:var(--ok);border-radius:var(--r-ctl)"></div></div>`:''}
     </div></div>`;
   })():'';
   // 숙제 알림 — 서버에서 보내므로 앱을 닫아도 온다. 상태는 비동기로 채운다(_stuPushRow)
@@ -4212,7 +4212,7 @@ function renderStudentHome(sid){
         <div class="stu-push-sub-b">
           <span>🦉 매일 단어 학습 알림</span>
           <span style="display:flex;align-items:center;gap:6px">
-            <input type="time" value="${notifyTime}" onchange="setStuNotifyTime('${sid}',this.value)" ${notifyOn?'':'disabled'} style="font-size:var(--fs-md);border:1px solid var(--border);border-radius:8px;padding:3px 6px;${notifyOn?'':'opacity:.5'}">
+            <input type="time" value="${notifyTime}" onchange="setStuNotifyTime('${sid}',this.value)" ${notifyOn?'':'disabled'} style="font-size:var(--fs-md);border:1px solid var(--border);border-radius:var(--r-card);padding:3px 6px;${notifyOn?'':'opacity:.5'}">
             <button class="btn ${notifyOn?'bt':'bo'} bxxs" onclick="toggleStuNotify('${sid}')">${notifyOn?'켜짐 ✓':'켜기'}</button>
           </span>
         </div>
@@ -4247,13 +4247,13 @@ function renderStudentHome(sid){
           <div style="display:flex;align-items:center;font-size:var(--fs-lg);font-weight:700;color:var(--navy)"><span class="hw-ico">${icon}</span>${title}</div>
           ${detail?`<div style="font-size:var(--fs-md);color:var(--slate);margin-top:3px">${detail}</div>`:''}
           ${done&&sc.doneBy==='lesson'?`<div style="font-size:var(--fs-sm);color:var(--tealt);margin-top:3px">✔ ${(typeof ppDoneWord==='function')?ppDoneWord('lesson'):'수업에서 함'}</div>`:''}
-          ${isVocabAuto&&!done?`<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><button class="btn bo bsm" style="border-radius:50px;padding:8px 14px" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button></div><div style="font-size:var(--fs-md);color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
+          ${isVocabAuto&&!done?`<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn bt bsm" style="border-radius:var(--rpill);padding:8px 18px;font-weight:700" onclick="openVocabStudy('daily')">▶ 지금 단어 학습 하기</button><button class="btn bo bsm" style="border-radius:var(--rpill);padding:8px 14px" onclick="openVocabStudy('last')">🔄 지난 수업 단어</button></div><div style="font-size:var(--fs-md);color:var(--slate);margin-top:4px">20개를 끝내면 저절로 체크돼요 ✓</div>`:''}
           ${(()=>{ // 외부 앱에서 하는 숙제(리딩앤·클래스5·오토보카)는 그 앱으로 바로 보낸다
             if(isVocabAuto||done)return '';
             const ex=extApp;
             if(!ex)return '';
             return `<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">`
-              +`<button class="btn bt bsm" style="border-radius:50px;padding:8px 18px;font-weight:700" onclick="openHwApp('${ex.k}','${sid}','${a.id}','${sc.date}')">▶ ${ex.lbl} 열기</button></div>`
+              +`<button class="btn bt bsm" style="border-radius:var(--rpill);padding:8px 18px;font-weight:700" onclick="openHwApp('${ex.k}','${sid}','${a.id}','${sc.date}')">▶ ${ex.lbl} 열기</button></div>`
               +`<div style="font-size:var(--fs-md);color:var(--slate);margin-top:4px">다 하고 돌아오면 물어볼게요 ✓</div>`;
           })()}
         </div>
@@ -4280,30 +4280,30 @@ function renderStudentHome(sid){
       if(!isDone&&!hw&&a.requireRecording){
         body+=`<div style="margin-top:10px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-            <button id="rec-start-${a.id}" class="btn bt" style="border-radius:50px;padding:13px;font-size:var(--fs-base)" onclick="startBrowserRec('${a.id}','${sid}')">🎙 직접 녹음</button>
-            <label class="btn bo" style="border-radius:50px;padding:13px;cursor:pointer;text-align:center;font-size:var(--fs-base)" for="home-asgn-audio-${a.id}">📁 파일 올리기</label>
+            <button id="rec-start-${a.id}" class="btn bt" style="border-radius:var(--rpill);padding:13px;font-size:var(--fs-base)" onclick="startBrowserRec('${a.id}','${sid}')">🎙 직접 녹음</button>
+            <label class="btn bo" style="border-radius:var(--rpill);padding:13px;cursor:pointer;text-align:center;font-size:var(--fs-base)" for="home-asgn-audio-${a.id}">📁 파일 올리기</label>
           </div>
-          <div id="rec-timer-${a.id}" style="display:none;text-align:center;font-size:var(--fs-base);color:var(--coral);font-weight:700;margin-bottom:8px;padding:8px;background:rgba(245,158,11,.06);border-radius:8px">🔴 녹음 중... <span id="rec-time-${a.id}">0:00</span></div>
-          <button id="rec-stop-${a.id}" class="btn bd" style="display:none;width:100%;border-radius:50px;padding:12px" onclick="stopBrowserRec('${a.id}')">⏹ 녹음 완료</button>
+          <div id="rec-timer-${a.id}" style="display:none;text-align:center;font-size:var(--fs-base);color:var(--coral);font-weight:700;margin-bottom:8px;padding:8px;background:rgba(245,158,11,.06);border-radius:var(--r-card)">🔴 녹음 중... <span id="rec-time-${a.id}">0:00</span></div>
+          <button id="rec-stop-${a.id}" class="btn bd" style="display:none;width:100%;border-radius:var(--rpill);padding:12px" onclick="stopBrowserRec('${a.id}')">⏹ 녹음 완료</button>
           <input type="file" id="home-asgn-audio-${a.id}" accept="audio/*" style="display:none" onchange="handleHomeAsgnAudio(event,'${a.id}','${sid}')">
           <div id="home-asgn-preview-${a.id}" style="display:none;margin-top:8px">
             <audio id="home-asgn-player-${a.id}" controls style="width:100%;height:28px"></audio>
-            <button class="btn bt" style="width:100%;margin-top:6px;border-radius:50px" onclick="submitHomeAsgnHw('${sid}','${a.id}')">제출하기</button>
+            <button class="btn bt" style="width:100%;margin-top:6px;border-radius:var(--rpill)" onclick="submitHomeAsgnHw('${sid}','${a.id}')">제출하기</button>
           </div>
         </div>`;
       } else if(hw&&a.requireRecording){
         body+=`<div style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);color:var(--okt);font-weight:600;margin-top:4px">${luIcon('check',12)||'✓'} 제출 완료 ${hw.date||''}</div>`;
-        if(hw.aiScore)body+=`<div style="font-size:var(--fs-sm);color:var(--tealt);background:var(--tl);border-radius:6px;padding:5px 8px;margin-top:4px">🤖 ${hw.aiScore}</div>`;
+        if(hw.aiScore)body+=`<div style="font-size:var(--fs-sm);color:var(--tealt);background:var(--tl);border-radius:var(--r-ctl);padding:5px 8px;margin-top:4px">🤖 ${hw.aiScore}</div>`;
       }
     } else if(a.type==='vocab'){
       body=`<div style="display:flex;align-items:center;font-size:var(--fs-base);font-weight:700;color:var(--navy)"><span class="hw-ico">📝</span>단어 암기</div>`
         +((a.words||[]).length?`<div class="wl" style="margin-top:4px">${(a.words||[]).map(w=>`<span class="wc">${w}</span>`).join('')}</div>`
           :((a.range||a.bookTitle)?`<div style="font-size:var(--fs-md);color:var(--slate);margin-top:3px">${(typeof escAttr==='function')?escAttr([a.bookTitle,a.range].filter(Boolean).join(' · ')):[a.bookTitle,a.range].filter(Boolean).join(' · ')}</div>`:''));
-      if(!isDone)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:12px" onclick="openVocabForAssignment('${sid}','${a.id}')">📚 단어장 열기 →</button>`;
+      if(!isDone)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:var(--rpill);padding:12px" onclick="openVocabForAssignment('${sid}','${a.id}')">📚 단어장 열기 →</button>`;
     } else if(a.type==='worksheet'){
       body=`<div style="display:flex;align-items:center;font-size:var(--fs-base);font-weight:700;color:var(--navy)"><span class="hw-ico">🗒️</span>${a.bookTitle||'워크시트'}</div>
         <div style="font-size:var(--fs-md);color:var(--slate);margin-top:2px">인쇄 학습지${a.gradeLevel?' · '+a.gradeLevel:''}</div>
-        <button class="btn ${isDone?'bo':'bt'}" style="width:100%;margin-top:10px;border-radius:50px;padding:12px;font-weight:700" onclick="openWsView('${escAttr(a.wsId||'')}','${a.id}','${sid}')">📄 워크시트 보기</button>`;
+        <button class="btn ${isDone?'bo':'bt'}" style="width:100%;margin-top:10px;border-radius:var(--rpill);padding:12px;font-weight:700" onclick="openWsView('${escAttr(a.wsId||'')}','${a.id}','${sid}')">📄 워크시트 보기</button>`;
     } else if(a.type==='mission'){
       const tb=missionFindTb(a.tbId);
       const ms=missionList(a,tb);
@@ -4313,10 +4313,10 @@ function renderStudentHome(sid){
       body=`<div style="display:flex;align-items:center;font-size:var(--fs-base);font-weight:700;color:var(--navy)"><span class="hw-ico">🎯</span>${a.bookTitle||'유닛 숙제'}</div>
         <div style="font-size:var(--fs-md);color:var(--slate);margin-top:2px">${a.unitKey||''}${a.unitTitle?' — '+a.unitTitle:''}</div>
         <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-          ${ms.map(m=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-sm);font-weight:600;padding:4px 9px;border-radius:50px;${prog[m]?'background:var(--okl);color:var(--okt)':'background:var(--cream2);color:var(--slate)'}">${MISSION_DEFS[m]?.icon||''} ${MISSION_DEFS[m]?.label||m}${prog[m]?' ✓':''}</span>`).join('')}
+          ${ms.map(m=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-sm);font-weight:600;padding:4px 9px;border-radius:var(--rpill);${prog[m]?'background:var(--okl);color:var(--okt)':'background:var(--cream2);color:var(--slate)'}">${MISSION_DEFS[m]?.icon||''} ${MISSION_DEFS[m]?.label||m}${prog[m]?' ✓':''}</span>`).join('')}
         </div>
         <div style="margin-top:8px;height:6px;background:var(--cream2);border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${pct===100?'var(--ok)':'var(--teal)'};border-radius:99px"></div></div>`;
-      if(!isDone&&tb)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:50px;padding:13px;font-size:var(--fs-lg);font-weight:700" onclick="openMissionPlayer('${sid}','${a.id}')">${doneCnt?'▶ 이어서 하기':'▶ 숙제 시작하기'}</button>`;
+      if(!isDone&&tb)body+=`<button class="btn bt" style="width:100%;margin-top:10px;border-radius:var(--rpill);padding:13px;font-size:var(--fs-lg);font-weight:700" onclick="openMissionPlayer('${sid}','${a.id}')">${doneCnt?'▶ 이어서 하기':'▶ 숙제 시작하기'}</button>`;
       else if(!isDone&&!tb)body+=`<div style="font-size:var(--fs-sm);color:var(--slate);margin-top:6px">교재 정보를 불러오지 못했습니다</div>`;
     } else {
       const catIcon={phonics:'📘',vocab:'📝',grammar:'✏️',reading:'📖',listening:'🎧',writing:'✍️',naesin:'📋',book:'📗',class5:'🎮'};
@@ -4445,7 +4445,7 @@ function renderStudentHome(sid){
       return '<div style="margin-top:14px"><div style="font-size:var(--fs-md);font-weight:700;color:var(--navy);margin-bottom:8px">📸 리딩로그 <span style="font-size:var(--fs-sm);font-weight:600;color:var(--slate)">'+myLogs.length+'개</span></div>'
         +'<div class="ig-strip">'+myLogs.slice(0,6).map(_lg).join('')+'</div>'
         +(rest.length?'<div class="ig-strip" id="stu-rdlog-more" style="display:none;margin-top:8px">'+rest.map(_lg).join('')+'</div>'
-          +'<div style="text-align:center;margin-top:8px"><button class="btn bo bsm" id="stu-rdlog-btn" style="border-radius:50px" onclick="stuRdLogMore()">더 보기 ('+rest.length+'개) ▾</button></div>':'')
+          +'<div style="text-align:center;margin-top:8px"><button class="btn bo bsm" id="stu-rdlog-btn" style="border-radius:var(--rpill)" onclick="stuRdLogMore()">더 보기 ('+rest.length+'개) ▾</button></div>':'')
         +'</div>';
     })()}
   </div>`;
@@ -4620,8 +4620,8 @@ function renderUrText(tb,body,footer){
     audioHtml=`<audio controls src="${audioUrl}" style="width:100%;height:32px;margin-bottom:8px"></audio>`;
   }else{
     audioHtml=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
-      <button id="ur-tts-btn" class="btn bt bsm" onclick="urListenPlay()" style="border-radius:50px;padding:6px 14px">▶ 듣기</button>
-      <button class="btn ba bsm" onclick="stopSpeak();const b=document.getElementById('ur-tts-btn');if(b)b.textContent='▶ 듣기'" style="border-radius:50px;padding:6px 12px">■ 정지</button>
+      <button id="ur-tts-btn" class="btn bt bsm" onclick="urListenPlay()" style="border-radius:var(--rpill);padding:6px 14px">▶ 듣기</button>
+      <button class="btn ba bsm" onclick="stopSpeak();const b=document.getElementById('ur-tts-btn');if(b)b.textContent='▶ 듣기'" style="border-radius:var(--rpill);padding:6px 12px">■ 정지</button>
       ${ttsLevelSeg(_urState.ttsLevel,'urSetTtsLevel')}
     </div>
     <div style="font-size:var(--fs-sm);color:var(--slate);margin-bottom:8px">속도: 교재 수준에 맞춰 <b>${TTS_LEVELS[_urState.ttsLevel]?.short||'중급'}</b> 자동 선택 · 문장 하이라이트를 따라 읽으세요</div>`;
@@ -4630,13 +4630,13 @@ function renderUrText(tb,body,footer){
   // 스크립트가 여러 개인 단원(리스닝 TR A/B/C…): 골라서 하나씩 듣고 따라 읽기
   const scriptBar=(scripts&&scripts.length>1)?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
     <span style="font-size:var(--fs-md);color:var(--slate);white-space:nowrap">🎧 대화 ${scripts.length}개</span>
-    ${scripts.map((s,i)=>`<button class="btn ${i===_urState.scriptIdx?'bt':'ba'} bsm" style="border-radius:50px;padding:5px 12px;font-size:var(--fs-md)" onclick="urPickScript(${i})">${escAttr(s.label||('스크립트 '+(i+1)))}</button>`).join('')}
+    ${scripts.map((s,i)=>`<button class="btn ${i===_urState.scriptIdx?'bt':'ba'} bsm" style="border-radius:var(--rpill);padding:5px 12px;font-size:var(--fs-md)" onclick="urPickScript(${i})">${escAttr(s.label||('스크립트 '+(i+1)))}</button>`).join('')}
   </div>`:'';
 
   body.innerHTML=`<div style="padding:12px 16px">
     ${scriptBar}
     ${audioHtml}
-    ${link?`<a href="${link}" target="_blank" rel="noopener" class="btn ba bsm" style="display:inline-flex;align-items:center;gap:5px;margin-bottom:10px;border-radius:50px;padding:6px 14px">🔗 심화 자료</a>`:''}
+    ${link?`<a href="${link}" target="_blank" rel="noopener" class="btn ba bsm" style="display:inline-flex;align-items:center;gap:5px;margin-bottom:10px;border-radius:var(--rpill);padding:6px 14px">🔗 심화 자료</a>`:''}
     <div id="ur-text-body" style="font-size:var(--fs-lg);line-height:1.85;color:var(--navy);letter-spacing:.01em">${sentHtml}</div>
   </div>`;
 
@@ -4725,8 +4725,8 @@ function openUnitRead(tbId,unitKey){
     audioEl.innerHTML=`<audio controls src="${audioUrl}" style="width:100%;height:32px"></audio>`;
   }else if(text){
     audioEl.innerHTML=`<div style="display:flex;gap:8px;align-items:center">
-      <button id="tts-play-btn" class="btn bt bsm" onclick="startUnitTTS()" style="border-radius:50px;padding:6px 14px">▶ 듣기</button>
-      <button class="btn ba bsm" onclick="stopSpeak();const b=document.getElementById('tts-play-btn');if(b)b.textContent='▶ 듣기'" style="border-radius:50px;padding:6px 12px">■ 정지</button>
+      <button id="tts-play-btn" class="btn bt bsm" onclick="startUnitTTS()" style="border-radius:var(--rpill);padding:6px 14px">▶ 듣기</button>
+      <button class="btn ba bsm" onclick="stopSpeak();const b=document.getElementById('tts-play-btn');if(b)b.textContent='▶ 듣기'" style="border-radius:var(--rpill);padding:6px 12px">■ 정지</button>
       <span style="font-size:var(--fs-sm);color:var(--slate)">업로드 오디오 없음</span>
     </div>`;
   }else{
@@ -4836,7 +4836,7 @@ function _renderHighlightedText(text,words){
     if(!w)return match;
     const ko=(w.ko||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const pos=(w.pos||'').replace(/'/g,"\\'");
-    return`<span onclick="showUnitWordPopup(event,'${w.word.replace(/'/g,"\\'")}','${ko}','${pos}')" style="background:rgba(27,94,74,.22);border-radius:3px;padding:0 2px;cursor:pointer;font-weight:700;color:var(--teal)">${match}</span>`;
+    return`<span onclick="showUnitWordPopup(event,'${w.word.replace(/'/g,"\\'")}','${ko}','${pos}')" style="background:rgba(27,94,74,.22);border-radius:var(--r-ctl);padding:0 2px;cursor:pointer;font-weight:700;color:var(--teal)">${match}</span>`;
   }).replace(/\n/g,'<br>');
 }
 
@@ -5257,8 +5257,8 @@ function renderMsStep(i){
 }
 function msDoneBtn(m,label){
   const done=!!(_msState.a.progress||{})[m];
-  if(done)return'<button class="btn bo" style="width:100%;border-radius:50px;padding:13px" disabled>✓ 다 한 숙제예요</button>';
-  return'<button class="btn bt" style="width:100%;border-radius:50px;padding:13px;font-weight:700" onclick="msCompleteMission(\''+m+'\')">'+label+'</button>';
+  if(done)return'<button class="btn bo" style="width:100%;border-radius:var(--rpill);padding:13px" disabled>✓ 다 한 숙제예요</button>';
+  return'<button class="btn bt" style="width:100%;border-radius:var(--rpill);padding:13px;font-weight:700" onclick="msCompleteMission(\''+m+'\')">'+label+'</button>';
 }
 async function msCompleteMission(m){
   const{a,sid,missions}=_msState;
@@ -5315,7 +5315,7 @@ function _vocMemorize(words,body,footer){
     +'</div></div>';
   footer.innerHTML='<div style="display:flex;gap:8px">'
     +'<button class="btn ba" onclick="msRevealAllWords()" style="flex:1">전체 보기</button>'
-    +'<button class="btn bt" style="flex:1.4;border-radius:50px;padding:12px;font-weight:700" onclick="msVocGo(1)">다음: 뜻 맞히기 →</button>'
+    +'<button class="btn bt" style="flex:1.4;border-radius:var(--rpill);padding:12px;font-weight:700" onclick="msVocGo(1)">다음: 뜻 맞히기 →</button>'
     +'</div>';
 }
 function msRevealWord(i){
@@ -5341,18 +5341,18 @@ function _vocRDraw(body,footer){
   const R=_vocR;if(!R)return;
   if(R.idx>=R.rounds.length){
     body.innerHTML=_vocPhaseBar(1)+'<div style="text-align:center;padding:1.5rem 1rem"><div style="font-size:34px">🧠</div><div style="font-size:var(--fs-lg);font-weight:800;color:var(--navy);margin-top:4px">뜻 맞히기 완료! '+R.ok+'/'+R.rounds.length+'</div></div>';
-    footer.innerHTML='<button class="btn bt" style="width:100%;border-radius:50px;padding:13px;font-weight:700" onclick="msVocGo(2)">다음: 스펠링 →</button>';
+    footer.innerHTML='<button class="btn bt" style="width:100%;border-radius:var(--rpill);padding:13px;font-weight:700" onclick="msVocGo(2)">다음: 스펠링 →</button>';
     return;
   }
   const r=R.rounds[R.idx];
   const opts=r.options.map(w=>{
     let st='border:1.5px solid var(--border);background:#fff;color:var(--navy)';
     if(R.locked){if(w===r.ans)st='border:1.5px solid var(--okt);background:var(--okl);color:var(--okt)';else if(w===R.picked)st='border:1.5px solid #dc2626;background:#fdecec;color:#dc2626';else st+=';opacity:.55';}
-    return '<button onclick="_vocRPick(\''+w.replace(/'/g,"\\'")+'\')" '+(R.locked?'disabled':'')+' style="'+st+';padding:14px 10px;border-radius:14px;font-weight:800;font-size:var(--fs-lg);font-family:var(--fb);cursor:pointer">'+w+'</button>';
+    return '<button onclick="_vocRPick(\''+w.replace(/'/g,"\\'")+'\')" '+(R.locked?'disabled':'')+' style="'+st+';padding:14px 10px;border-radius:var(--r-chip);font-weight:800;font-size:var(--fs-lg);font-family:var(--fb);cursor:pointer">'+w+'</button>';
   }).join('');
   body.innerHTML=_vocPhaseBar(1)+'<div style="padding:2px 16px 12px">'
     +'<div style="text-align:right;font-size:var(--fs-sm);color:var(--slate);margin-bottom:6px">'+(R.idx+1)+' / '+R.rounds.length+'</div>'
-    +'<div style="text-align:center;padding:20px 12px;background:var(--tl);border-radius:16px;margin-bottom:14px"><div style="font-size:var(--fs-sm);color:var(--slate);margin-bottom:4px">이 뜻의 단어는?</div><div style="font-size:var(--fs-2xl);font-weight:800;color:var(--navy)">'+r.ko+'</div></div>'
+    +'<div style="text-align:center;padding:20px 12px;background:var(--tl);border-radius:var(--r-card-lg);margin-bottom:14px"><div style="font-size:var(--fs-sm);color:var(--slate);margin-bottom:4px">이 뜻의 단어는?</div><div style="font-size:var(--fs-2xl);font-weight:800;color:var(--navy)">'+r.ko+'</div></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+opts+'</div></div>';
   footer.innerHTML='<div style="font-size:var(--fs-sm);color:var(--slate);text-align:center">알맞은 단어를 골라요</div>';
 }
@@ -5378,12 +5378,12 @@ function _vocSDraw(body,footer){
   const w=S.list[S.idx];
   body.innerHTML=_vocPhaseBar(2)+'<div style="padding:2px 16px 12px">'
     +'<div style="text-align:right;font-size:var(--fs-sm);color:var(--slate);margin-bottom:6px">'+(S.idx+1)+' / '+S.list.length+'</div>'
-    +'<div style="text-align:center;padding:18px 12px;background:var(--tl);border-radius:16px;margin-bottom:12px">'
+    +'<div style="text-align:center;padding:18px 12px;background:var(--tl);border-radius:var(--r-card-lg);margin-bottom:12px">'
     +'<div style="font-size:var(--fs-xl);font-weight:800;color:var(--navy);margin-bottom:8px">'+(w.ko||'🔊 듣고 써보기')+'</div>'
-    +'<button class="btn ba bsm" style="border-radius:50px" onclick="speakWord(\''+(w.word||'').replace(/'/g,"\\'")+'\')">🔊 발음 듣기</button></div>'
-    +'<input id="voc-spell-in" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="영어로 입력..." style="width:100%;box-sizing:border-box;padding:13px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:var(--fs-xl);font-family:var(--fb);color:var(--navy);text-align:center;outline:none" onkeydown="if(event.key===\'Enter\')_vocSCheck()">'
+    +'<button class="btn ba bsm" style="border-radius:var(--rpill)" onclick="speakWord(\''+(w.word||'').replace(/'/g,"\\'")+'\')">🔊 발음 듣기</button></div>'
+    +'<input id="voc-spell-in" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="영어로 입력..." style="width:100%;box-sizing:border-box;padding:13px 14px;border:1.5px solid var(--border);border-radius:var(--r-chip);font-size:var(--fs-xl);font-family:var(--fb);color:var(--navy);text-align:center;outline:none" onkeydown="if(event.key===\'Enter\')_vocSCheck()">'
     +'<div id="voc-spell-fb" style="text-align:center;font-size:var(--fs-base);margin-top:8px;min-height:18px"></div></div>';
-  footer.innerHTML='<div style="display:flex;gap:8px"><button class="btn bo bsm" style="border-radius:50px" onclick="_vocSReveal()">모르겠어요</button><button class="btn bt" style="flex:1;border-radius:50px;padding:12px;font-weight:700" onclick="_vocSCheck()">확인</button></div>';
+  footer.innerHTML='<div style="display:flex;gap:8px"><button class="btn bo bsm" style="border-radius:var(--rpill)" onclick="_vocSReveal()">모르겠어요</button><button class="btn bt" style="flex:1;border-radius:var(--rpill);padding:12px;font-weight:700" onclick="_vocSCheck()">확인</button></div>';
   setTimeout(()=>{const el=document.getElementById('voc-spell-in');if(el)el.focus();},50);
 }
 function _vocSCheck(){
@@ -5441,8 +5441,8 @@ function renderMsListen(body,footer){
   const audioHtml=audioUrl
     ?'<audio controls src="'+audioUrl+'" style="width:100%;height:34px;margin-bottom:10px"></audio>'
     :'<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
-      +'<button id="ms-tts-btn" class="btn bt bsm" onclick="msListenPlay()" style="border-radius:50px;padding:7px 16px">▶ 듣기</button>'
-      +'<button class="btn ba bsm" onclick="msStopTTS()" style="border-radius:50px;padding:7px 14px">■ 정지</button>'
+      +'<button id="ms-tts-btn" class="btn bt bsm" onclick="msListenPlay()" style="border-radius:var(--rpill);padding:7px 16px">▶ 듣기</button>'
+      +'<button class="btn ba bsm" onclick="msStopTTS()" style="border-radius:var(--rpill);padding:7px 14px">■ 정지</button>'
       +ttsLevelSeg(_msState.ttsLevel,'msSetTtsLevel')
       +'</div>'
       +'<div style="font-size:var(--fs-sm);color:var(--slate);margin-bottom:8px">속도는 교재 수준에 맞춰 <b>'+(TTS_LEVELS[_msState.ttsLevel]?.short||'중급')+'</b>으로 자동 선택 — 하이라이트되는 문장을 눈으로 따라 읽으세요</div>';
@@ -5497,22 +5497,22 @@ function msClozeDraw(){
     const res=C.res[i];
     const border=res==='ok'?'var(--okt)':res==='no'?'#dc2626':'var(--teal)';
     const bg=res==='ok'?'var(--okl)':'#fff';
-    if(fid!=null)return '<button onclick="msClozeClear('+i+')" style="display:inline-block;min-width:56px;padding:2px 10px;margin:0 2px;border:1.5px solid '+border+';border-radius:8px;background:'+bg+';font-weight:700;color:var(--navy);font-family:var(--fb);font-size:var(--fs-lg);cursor:pointer">'+C.answers[fid]+(res==='ok'?' ✓':'')+'</button>';
-    return '<button onclick="msClozePlace('+i+')" style="display:inline-block;min-width:56px;padding:2px 10px;margin:0 2px;border:1.5px dashed var(--slate);border-radius:8px;background:var(--cream2);color:var(--slate);font-family:var(--fb);font-size:var(--fs-base);cursor:pointer">____</button>';
+    if(fid!=null)return '<button onclick="msClozeClear('+i+')" style="display:inline-block;min-width:56px;padding:2px 10px;margin:0 2px;border:1.5px solid '+border+';border-radius:var(--r-card);background:'+bg+';font-weight:700;color:var(--navy);font-family:var(--fb);font-size:var(--fs-lg);cursor:pointer">'+C.answers[fid]+(res==='ok'?' ✓':'')+'</button>';
+    return '<button onclick="msClozePlace('+i+')" style="display:inline-block;min-width:56px;padding:2px 10px;margin:0 2px;border:1.5px dashed var(--slate);border-radius:var(--r-card);background:var(--cream2);color:var(--slate);font-family:var(--fb);font-size:var(--fs-base);cursor:pointer">____</button>';
   }).join('');
   // 단어 은행 (아직 안 채운 것)
   const placed=new Set(C.filled.filter(x=>x!=null));
   const bank=C.order.filter(id=>!placed.has(id)).map(id=>
-    '<button onclick="msClozePick('+id+')" style="padding:8px 14px;border:1.5px solid '+(C.sel===id?'var(--teal)':'var(--border)')+';border-radius:50px;background:'+(C.sel===id?'var(--tl)':'#fff')+';font-weight:700;color:var(--navy);font-family:var(--fb);font-size:var(--fs-lg);cursor:pointer">'+C.answers[id]+'</button>').join('');
+    '<button onclick="msClozePick('+id+')" style="padding:8px 14px;border:1.5px solid '+(C.sel===id?'var(--teal)':'var(--border)')+';border-radius:var(--rpill);background:'+(C.sel===id?'var(--tl)':'#fff')+';font-weight:700;color:var(--navy);font-family:var(--fb);font-size:var(--fs-lg);cursor:pointer">'+C.answers[id]+'</button>').join('');
   body.innerHTML='<div style="padding:12px 16px">'
     +'<div style="font-size:var(--fs-md);color:var(--slate);margin-bottom:10px">아래 <b>단어를 골라</b> 본문의 빈칸을 채워보세요 📝</div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:7px;padding:10px;background:var(--cream2);border-radius:12px;margin-bottom:12px;min-height:20px">'+(bank||'<span style="font-size:var(--fs-md);color:var(--slate)">단어를 모두 채웠어요! 정답 확인을 눌러요</span>')+'</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:7px;padding:10px;background:var(--cream2);border-radius:var(--r-chip);margin-bottom:12px;min-height:20px">'+(bank||'<span style="font-size:var(--fs-md);color:var(--slate)">단어를 모두 채웠어요! 정답 확인을 눌러요</span>')+'</div>'
     +'<div style="font-size:var(--fs-lg);line-height:2.1;color:var(--navy)">'+passage+'</div>'
     +'</div>';
   if(allCorrect){footer.innerHTML=msDoneBtn('cloze','✓ 빈칸 완성! 잘했어요');}
   else{
     const filledCnt=C.filled.filter(x=>x!=null).length;
-    footer.innerHTML='<button class="btn bt" style="width:100%;border-radius:50px;padding:13px;font-weight:700" '+(filledCnt<C.answers.length?'disabled':'')+' onclick="msClozeCheck()">'+(filledCnt<C.answers.length?'빈칸을 모두 채워요 ('+filledCnt+'/'+C.answers.length+')':'정답 확인')+'</button>';
+    footer.innerHTML='<button class="btn bt" style="width:100%;border-radius:var(--rpill);padding:13px;font-weight:700" '+(filledCnt<C.answers.length?'disabled':'')+' onclick="msClozeCheck()">'+(filledCnt<C.answers.length?'빈칸을 모두 채워요 ('+filledCnt+'/'+C.answers.length+')':'정답 확인')+'</button>';
   }
 }
 function msClozePick(id){if(!_msCloze)return;_msCloze.sel=(_msCloze.sel===id?null:id);msClozeDraw();}
@@ -5610,22 +5610,22 @@ function msScrDraw(){
   const body=document.getElementById('ms-body'),footer=document.getElementById('ms-footer');
   const placed=new Set(S.answer);
   const bank=S.bankOrder.filter(id=>!placed.has(id)).map(id=>
-    '<button onclick="msScrPick('+id+')" style="padding:9px 15px;border:1.5px solid var(--border);border-radius:12px;background:#fff;font-weight:700;color:var(--navy);font-family:var(--fb);font-size:var(--fs-lg);cursor:pointer">'+S.toks[id]+'</button>').join('');
+    '<button onclick="msScrPick('+id+')" style="padding:9px 15px;border:1.5px solid var(--border);border-radius:var(--r-chip);background:#fff;font-weight:700;color:var(--navy);font-family:var(--fb);font-size:var(--fs-lg);cursor:pointer">'+S.toks[id]+'</button>').join('');
   const ansBorder=S.checked==='ok'?'var(--okt)':S.checked==='no'?'#dc2626':'var(--teal)';
   const ansBg=S.checked==='ok'?'var(--okl)':S.checked==='no'?'#fdecec':'var(--tl)';
   const answer=S.answer.length
-    ? S.answer.map((id,pos)=>'<button onclick="msScrUnpick('+pos+')" style="padding:9px 14px;border:none;border-radius:12px;background:#fff;font-weight:700;color:var(--navy);font-family:var(--fb);font-size:var(--fs-lg);cursor:pointer;box-shadow:var(--sh)">'+S.toks[id]+'</button>').join('')
+    ? S.answer.map((id,pos)=>'<button onclick="msScrUnpick('+pos+')" style="padding:9px 14px;border:none;border-radius:var(--r-chip);background:#fff;font-weight:700;color:var(--navy);font-family:var(--fb);font-size:var(--fs-lg);cursor:pointer;box-shadow:var(--sh)">'+S.toks[id]+'</button>').join('')
     : '<span style="font-size:var(--fs-md);color:var(--slate);align-self:center">단어를 순서대로 눌러 문장을 만들어요</span>';
   body.innerHTML='<div style="padding:12px 16px">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--slate)">문장 '+(S.idx+1)+' / '+S.lines.length+'</span>'
-    +'<button class="btn ba bsm" style="border-radius:50px" onclick="speakSmart(_msScr.lines[_msScr.idx],{el:0.9,tts:0.85})">🔊 듣기</button></div>'
-    +'<div style="min-height:52px;display:flex;flex-wrap:wrap;gap:7px;padding:11px;border:2px solid '+ansBorder+';border-radius:13px;background:'+ansBg+';margin-bottom:14px">'+answer+'</div>'
+    +'<button class="btn ba bsm" style="border-radius:var(--rpill)" onclick="speakSmart(_msScr.lines[_msScr.idx],{el:0.9,tts:0.85})">🔊 듣기</button></div>'
+    +'<div style="min-height:52px;display:flex;flex-wrap:wrap;gap:7px;padding:11px;border:2px solid '+ansBorder+';border-radius:var(--r-chip);background:'+ansBg+';margin-bottom:14px">'+answer+'</div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">'+(bank||'<span style="font-size:var(--fs-md);color:var(--slate)">아래 확인을 눌러요</span>')+'</div>'
     +'</div>';
   const full=S.answer.length===S.toks.length;
   footer.innerHTML='<div style="display:flex;gap:8px">'
-    +'<button class="btn bo bsm" style="border-radius:50px" onclick="msScrReset()">↺ 다시</button>'
-    +'<button class="btn bt" style="flex:1;border-radius:50px;padding:12px;font-weight:700" '+(full?'':'disabled')+' onclick="msScrCheck()">'+(full?'정답 확인':'단어를 배열해요')+'</button>'
+    +'<button class="btn bo bsm" style="border-radius:var(--rpill)" onclick="msScrReset()">↺ 다시</button>'
+    +'<button class="btn bt" style="flex:1;border-radius:var(--rpill);padding:12px;font-weight:700" '+(full?'':'disabled')+' onclick="msScrCheck()">'+(full?'정답 확인':'단어를 배열해요')+'</button>'
     +'</div>';
 }
 function msScrPick(id){const S=_msScr;if(!S)return;if(S.answer.includes(id))return;S.answer.push(id);S.checked=null;msScrDraw();}
@@ -5869,8 +5869,8 @@ function _stScrDraw(body,footer){
   const clock=timed
     ?'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
       +'<span id="st-clock" style="font-size:var(--fs-lg);font-weight:800;color:var(--navy);font-family:var(--fm)">'+Math.max(0,C.left)+'초</span>'
-      +'<div style="flex:1;height:8px;background:var(--divider);border-radius:4px;overflow:hidden">'
-      +'<div id="st-bar" style="height:100%;width:'+Math.max(0,C.left/Math.max(1,C.secMax)*100)+'%;background:var(--accent);border-radius:4px;transition:width .9s linear"></div></div>'
+      +'<div style="flex:1;height:8px;background:var(--divider);border-radius:var(--r-ctl);overflow:hidden">'
+      +'<div id="st-bar" style="height:100%;width:'+Math.max(0,C.left/Math.max(1,C.secMax)*100)+'%;background:var(--accent);border-radius:var(--r-ctl);transition:width .9s linear"></div></div>'
       +'<button class="btn bo bxxs" onclick="_stPause()">'+(C.paused?'이어서':'멈춤')+'</button></div>'
     :'';
   body.innerHTML=_stPhaseBar()+'<div style="padding:0 16px 12px">'+_stHead()+clock
@@ -6082,7 +6082,7 @@ function msGameDraw(){
       +'<div style="font-size:44px;margin-bottom:6px">'+(pct>=80?'🏆':pct>=50?'🎉':'💪')+'</div>'
       +'<div style="font-size:var(--fs-lg);font-weight:800;color:var(--navy)">게임 끝! '+G.score+' / '+G.rounds.length+' 정답</div>'
       +'<div style="font-size:var(--fs-md);color:var(--slate);margin-top:3px">최고 연속 '+G.best+'개 🔥</div>'
-      +'<button class="btn bo bsm" style="margin-top:10px;border-radius:50px" onclick="renderMsGame(document.getElementById(\'ms-body\'),document.getElementById(\'ms-footer\'))">↺ 다시 하기</button>'
+      +'<button class="btn bo bsm" style="margin-top:10px;border-radius:var(--rpill)" onclick="renderMsGame(document.getElementById(\'ms-body\'),document.getElementById(\'ms-footer\'))">↺ 다시 하기</button>'
       +'</div>';
     footer.innerHTML=msDoneBtn('game','✓ 게임 완료!');
     return;
@@ -6095,13 +6095,13 @@ function msGameDraw(){
       else if(w===G.picked)st='border:1.5px solid #dc2626;background:#fdecec;color:#dc2626';
       else st='border:1.5px solid var(--border);background:#fff;color:var(--slate);opacity:.6';
     }
-    return '<button onclick="msGamePick(\''+w.replace(/'/g,"\\'")+'\')" '+(G.locked?'disabled':'')+' style="'+st+';padding:15px 10px;border-radius:14px;font-weight:800;font-size:var(--fs-lg);font-family:var(--fb);cursor:pointer">'+w+'</button>';
+    return '<button onclick="msGamePick(\''+w.replace(/'/g,"\\'")+'\')" '+(G.locked?'disabled':'')+' style="'+st+';padding:15px 10px;border-radius:var(--r-chip);font-weight:800;font-size:var(--fs-lg);font-family:var(--fb);cursor:pointer">'+w+'</button>';
   }).join('');
   body.innerHTML='<div style="padding:14px 16px">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
     +'<span style="font-size:var(--fs-sm);font-weight:700;color:var(--slate)">'+(G.idx+1)+' / '+G.rounds.length+'</span>'
     +'<span style="font-size:var(--fs-md);font-weight:800;color:var(--teal)">점수 '+G.score+(G.streak>1?' · 🔥'+G.streak+'연속':'')+'</span></div>'
-    +'<div style="text-align:center;padding:22px 12px;background:var(--tl);border-radius:16px;margin-bottom:14px">'
+    +'<div style="text-align:center;padding:22px 12px;background:var(--tl);border-radius:var(--r-card-lg);margin-bottom:14px">'
     +'<div style="font-size:var(--fs-sm);color:var(--slate);margin-bottom:4px">이 뜻의 영어 단어는?</div>'
     +'<div style="font-size:22px;font-weight:800;color:var(--navy)">'+r.ko+'</div></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+opts+'</div>'
@@ -6130,7 +6130,7 @@ function renderMsRecord(body,footer){
       +'<span style="font-size:var(--fs-base);font-weight:800;color:var(--navy)">🗣 따라 읽기 연습 <span style="font-weight:400;color:var(--slate)">— AI가 발음 정확도를 채점해요</span></span>'
       +(a.readAccuracy!=null?'<span style="font-size:var(--fs-sm);font-weight:700;color:var(--okt)">최근 '+a.readAccuracy+'%</span>':'')
       +'</div>'
-      +'<div id="ms-read-practice"><button class="btn bt bsm" style="border-radius:50px" onclick="msReadStart()">▶ 문장별 연습 시작</button>'
+      +'<div id="ms-read-practice"><button class="btn bt bsm" style="border-radius:var(--rpill)" onclick="msReadStart()">▶ 문장별 연습 시작</button>'
       +'<span style="font-size:var(--fs-sm);color:var(--slate);margin-left:8px">맞게 읽은 단어는 파란색, 놓친 단어는 빨간색!</span></div>'
       +'</div>'
     :'';
@@ -6139,19 +6139,19 @@ function renderMsRecord(body,footer){
     +readPractice
     +(done&&a.recUrl?'<div style="margin-bottom:10px;padding:10px;background:var(--okl);border-radius:var(--rs);font-size:var(--fs-md);color:var(--okt)">✅ 낭독을 제출했어요! 다시 녹음해서 또 제출할 수도 있어요.<audio controls src="'+a.recUrl+'" style="width:100%;height:32px;margin-top:6px"></audio></div>':'')
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
-    +'<button id="ms-rec-start" class="btn bt" style="border-radius:50px;padding:11px 20px;font-weight:700" onclick="msStartRec()">🎙 녹음 시작</button>'
-    +'<button id="ms-rec-stop" class="btn bd" style="display:none;border-radius:50px;padding:11px 20px" onclick="msStopRec()">⏹ 녹음 끝내기</button>'
+    +'<button id="ms-rec-start" class="btn bt" style="border-radius:var(--rpill);padding:11px 20px;font-weight:700" onclick="msStartRec()">🎙 녹음 시작</button>'
+    +'<button id="ms-rec-stop" class="btn bd" style="display:none;border-radius:var(--rpill);padding:11px 20px" onclick="msStopRec()">⏹ 녹음 끝내기</button>'
     +'<span id="ms-rec-timer" style="display:none;font-size:var(--fs-base);color:var(--coral);font-weight:700">⏺ <span id="ms-rec-time">0:00</span></span>'
     +'</div>'
     +'<div id="ms-rec-preview" style="display:none;margin-bottom:10px">'
     +'<audio id="ms-rec-player" controls style="width:100%;height:34px"></audio>'
-    +'<button id="ms-rec-submit" class="btn bt" style="width:100%;margin-top:6px;border-radius:50px;padding:12px;font-weight:700" onclick="msSubmitRec()">📤 낭독 제출하기</button>'
+    +'<button id="ms-rec-submit" class="btn bt" style="width:100%;margin-top:6px;border-radius:var(--rpill);padding:12px;font-weight:700" onclick="msSubmitRec()">📤 낭독 제출하기</button>'
     +'<div id="ms-rec-status" style="margin-top:6px;font-size:var(--fs-md);line-height:1.6"></div>'
     +'</div>'
     +(text?'<div style="font-size:var(--fs-lg);line-height:1.9;color:var(--navy);border-top:1px solid var(--border);padding-top:10px">'+text.split(/\n+/).map(p=>'<p style="margin:0 0 8px">'+p+'</p>').join('')+'</div>':'')
     +'</div>';
   footer.innerHTML=done
-    ?'<button class="btn bo" style="width:100%;border-radius:50px;padding:13px" disabled>✓ 낭독 제출 완료</button>'
+    ?'<button class="btn bo" style="width:100%;border-radius:var(--rpill);padding:13px" disabled>✓ 낭독 제출 완료</button>'
     :'<div style="font-size:var(--fs-sm);color:var(--slate);text-align:center">녹음을 제출하면 자동으로 완료 처리돼요</div>';
 }
 async function msStartRec(){
@@ -6254,7 +6254,7 @@ function msRenderReadSent(){
       +(stars>=2?'<div style="font-size:var(--fs-md);color:var(--okt);font-weight:700;margin-top:2px">정확도 '+avg+'%</div>':'')
       +growth
       +'<div style="font-size:var(--fs-sm);color:var(--slate);margin-top:3px">선생님에게 자동으로 전달됐어요</div>'
-      +'<button class="btn bo bsm" style="margin-top:8px;border-radius:50px" onclick="msReadStart()">🔁 다시 연습하기</button>'
+      +'<button class="btn bo bsm" style="margin-top:8px;border-radius:var(--rpill)" onclick="msReadStart()">🔁 다시 연습하기</button>'
       +'</div>';
     return;
   }
@@ -6265,9 +6265,9 @@ function msRenderReadSent(){
     +'<div id="ms-read-sent" style="font-size:var(--fs-xl);line-height:1.8;color:var(--navy);padding:10px 12px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);margin-bottom:8px">'
     +words.map((w,i)=>'<span id="ms-rw-'+i+'">'+w+'</span>').join(' ')+'</div>'
     +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
-    +'<button class="btn ba bsm" style="border-radius:50px" onclick="msReadListen()">▶ 듣기</button>'
-    +'<button id="ms-read-mic" class="btn bt bsm" style="border-radius:50px" onclick="msReadMic()">🎤 읽기 시작</button>'
-    +'<button class="btn bo bsm" style="border-radius:50px;margin-left:auto" onclick="msReadNext(true)">건너뛰기 →</button>'
+    +'<button class="btn ba bsm" style="border-radius:var(--rpill)" onclick="msReadListen()">▶ 듣기</button>'
+    +'<button id="ms-read-mic" class="btn bt bsm" style="border-radius:var(--rpill)" onclick="msReadMic()">🎤 읽기 시작</button>'
+    +'<button class="btn bo bsm" style="border-radius:var(--rpill);margin-left:auto" onclick="msReadNext(true)">건너뛰기 →</button>'
     +'</div>';
 }
 function msReadListen(){
@@ -6338,14 +6338,14 @@ function msReadDone(){
     +'<span style="font-size:var(--fs-lg)">'+starHtml+'</span>'
     +'<span style="font-size:var(--fs-base);font-weight:800;color:var(--navy)">'+msg+'</span>'
     +(stars>=2?'<span style="font-size:var(--fs-sm);font-weight:700;color:var(--okt)">'+pct+'%</span>':'')
-    +'<button class="btn bo bsm" style="border-radius:50px" onclick="msRenderReadSent()">🔁 다시</button>'
-    +'<button class="btn bt bsm" style="border-radius:50px;margin-left:auto" onclick="msReadNext(false,'+pct+')">다음 문장 →</button>'
+    +'<button class="btn bo bsm" style="border-radius:var(--rpill)" onclick="msRenderReadSent()">🔁 다시</button>'
+    +'<button class="btn bt bsm" style="border-radius:var(--rpill);margin-left:auto" onclick="msReadNext(false,'+pct+')">다음 문장 →</button>'
     +'</div>'
     +(missed.length?'<div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">'
       +missed.slice(0,3).map(m=>'<div style="display:flex;align-items:center;gap:7px;background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);padding:6px 9px">'
         +'<b style="color:var(--bad);font-family:var(--fd)">'+m.w+'</b>'
-        +'<button class="btn ba bsm" style="border-radius:50px;font-size:var(--fs-sm)" onclick="speakSmart(\''+m.w.replace(/'/g,"\\'")+'\',0.8)">🔊 듣기</button>'
-        +'<button class="btn bt bsm" id="ms-wr-'+m.i+'" style="border-radius:50px;font-size:var(--fs-sm)" onclick="msWordRetry(\''+m.w.replace(/'/g,"\\'")+'\','+m.i+')">🎤 이 단어 다시</button>'
+        +'<button class="btn ba bsm" style="border-radius:var(--rpill);font-size:var(--fs-sm)" onclick="speakSmart(\''+m.w.replace(/'/g,"\\'")+'\',0.8)">🔊 듣기</button>'
+        +'<button class="btn bt bsm" id="ms-wr-'+m.i+'" style="border-radius:var(--rpill);font-size:var(--fs-sm)" onclick="msWordRetry(\''+m.w.replace(/'/g,"\\'")+'\','+m.i+')">🎤 이 단어 다시</button>'
         +'</div>').join('')
       +'</div><div id="ms-read-tip" style="margin-top:6px;font-size:var(--fs-md);line-height:1.6;color:var(--tealt)"></div>':'');
   el.appendChild(bar);
@@ -6445,11 +6445,11 @@ function ttsSentHtml(text,words,prefix,levelId){
   let gi=0;
   if(levelId==='beginner'){
     return paras.map((p,pi)=>
-      _bdg(pi)+ttsSplitSents(p).map(s=>`<div id="${prefix}${gi++}" style="transition:background .2s;border-radius:4px;padding:2px 4px;margin:0 0 6px">${_renderHighlightedText(s,words)}</div>`).join('')
+      _bdg(pi)+ttsSplitSents(p).map(s=>`<div id="${prefix}${gi++}" style="transition:background .2s;border-radius:var(--r-ctl);padding:2px 4px;margin:0 0 6px">${_renderHighlightedText(s,words)}</div>`).join('')
     ).join('<div style="height:10px"></div>');
   }
   return paras.map((p,pi)=>
-    '<p style="margin:0 0 12px">'+_bdg(pi)+ttsSplitSents(p).map(s=>`<span id="${prefix}${gi++}" style="transition:background .2s;border-radius:4px">${_renderHighlightedText(s,words)}</span>`).join(' ')+'</p>'
+    '<p style="margin:0 0 12px">'+_bdg(pi)+ttsSplitSents(p).map(s=>`<span id="${prefix}${gi++}" style="transition:background .2s;border-radius:var(--r-ctl)">${_renderHighlightedText(s,words)}</span>`).join(' ')+'</p>'
   ).join('');
 }
 function msSetTtsLevel(l){if(_msState){_msState.ttsLevel=l;stopSpeak();renderMsStep(_msState.idx);}}
@@ -6597,7 +6597,7 @@ function blDraw(){
   const sentHtml=ttsSentHtml(S.text,[],'bl-ls-',S.level);
   // 본문을 보면서 낭독 녹음 — 카드의 녹음 흐름(startLibRec 계열)을 모달 전용 id로 재사용
   const safe='bl_'+(S.b.id||'').replace(/[^a-z0-9]/gi,'_');
-  const recHtml='<div style="margin:4px 0 10px;padding:9px 12px;background:var(--cream2);border:1px solid var(--border);border-radius:10px">'
+  const recHtml='<div style="margin:4px 0 10px;padding:9px 12px;background:var(--cream2);border:1px solid var(--border);border-radius:var(--r-card)">'
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
     +'<span style="font-size:var(--fs-md);font-weight:700;color:var(--navy)">🎙 글을 보면서 낭독</span>'
     +`<button id="lib-rec-start-${safe}" class="btn bo bsm" style="font-size:var(--fs-sm)" onclick="startLibRec('${safe}','${currentStudentSid}','${escJsA(S.b.title)}')">🎙 녹음 시작</button>`
@@ -6611,15 +6611,15 @@ function blDraw(){
     +'</div></div>';
   body.innerHTML='<div style="padding:12px 16px">'
     +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">'
-    +'<button id="bl-play" class="btn bt bsm" style="border-radius:50px;padding:7px 16px" onclick="blPlay()">▶ 듣기</button>'
-    +'<button class="btn ba bsm" style="border-radius:50px;padding:7px 14px" onclick="blStop()">■ 정지</button>'
+    +'<button id="bl-play" class="btn bt bsm" style="border-radius:var(--rpill);padding:7px 16px" onclick="blPlay()">▶ 듣기</button>'
+    +'<button class="btn ba bsm" style="border-radius:var(--rpill);padding:7px 14px" onclick="blStop()">■ 정지</button>'
     +ttsLevelSeg(S.level,'blSetLevel')
     +'</div>'
     +'<div style="font-size:var(--fs-sm);color:var(--slate);margin-bottom:8px">하이라이트되는 문장을 눈으로 따라 읽으세요 · 속도는 책 수준(<b>'+(TTS_LEVELS[S.level]?.short||'초급')+'</b>) 자동</div>'
     +recHtml
     +'<div style="font-size:var(--fs-lg);line-height:1.95;color:var(--navy)">'+sentHtml+'</div>'
     +'</div>';
-  footer.innerHTML='<button class="btn bo" style="width:100%;border-radius:50px;padding:12px" onclick="closeM(\'m-book-listen\');stopSpeak()">닫기</button>';
+  footer.innerHTML='<button class="btn bo" style="width:100%;border-radius:var(--rpill);padding:12px" onclick="closeM(\'m-book-listen\');stopSpeak()">닫기</button>';
 }
 function blStop(){stopSpeak();const b=document.getElementById('bl-play');if(b)b.textContent='▶ 듣기';}
 async function blPlay(){

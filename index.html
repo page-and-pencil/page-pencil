@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261115b">
-<link rel="stylesheet" href="css/style.css?v=20261115c">
+<link rel="stylesheet" href="css/style.css?v=20261115d">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -1332,7 +1332,7 @@
       <div id="assign-live"></div>
       <div class="card" style="margin-bottom:1rem">
         <div class="ch">
-          <span class="ct" style="cursor:pointer" onclick="toggleAssignCal()"><i data-lucide="calendar" width="15" height="15" style="vertical-align:-3px"></i> 숙제 캘린더 <span id="assign-cal-arrow" style="font-size:var(--fs-xs);color:var(--teal)">▾ 접기</span></span>
+          <button type="button" class="ct ct-btn" onclick="toggleAssignCal()"><i data-lucide="calendar" width="15" height="15" style="vertical-align:-3px"></i> 숙제 캘린더 <span id="assign-cal-arrow" style="font-size:var(--fs-xs);color:var(--teal)">▾ 접기</span></button>
           <button class="btn ba bsm" onclick="openBulkAssign()">한꺼번에 내기</button>
         </div>
         <div class="cb" id="assign-cal"></div>
@@ -1580,7 +1580,7 @@
 
 
 <!-- ── 월별 리포트 목록 모달 ── -->
-<div id="m-monthly-report" class="mo" style="display:none" data-protect>
+<div id="m-monthly-report" class="mo" data-ro="1" style="display:none" data-protect>
   <div class="mdl">
     <div class="mh">
       <div><div class="mt"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 월별 학부모 리포트</div><div style="font-size:var(--fs-md);color:var(--slate);margin-top:2px" id="mrpt-month"></div></div>
@@ -2365,7 +2365,7 @@
 </div>
 
 <!-- 원서 원문 뷰어 -->
-<div id="m-lib-text" class="mo">
+<div id="m-lib-text" class="mo" data-ro="1">
   <div class="mdl mdl-xl" style="display:flex;flex-direction:column;max-height:90vh">
     <div class="mh" style="flex-shrink:0">
       <div><div class="mt" id="lib-text-title"></div><div style="font-size:var(--fs-sm);color:var(--slate);margin-top:2px" id="lib-text-sub"></div></div>
@@ -2380,7 +2380,7 @@
 </div>
 
 <!-- 휴지통 -->
-<div id="m-trash" class="mo">
+<div id="m-trash" class="mo" data-ro="1">
   <div class="mdl" style="max-width:480px">
     <div class="mh"><div class="mt"><i data-lucide="trash-2" width="15" height="15" style="vertical-align:-3px"></i> 휴지통</div><button class="bx" onclick="closeM('m-trash')">×</button></div>
     <div style="font-size:var(--fs-md);color:var(--slate);margin-bottom:8px">삭제한 항목은 여기에 30일간 보관된 뒤 자동으로 완전히 삭제됩니다.</div>
@@ -2979,7 +2979,7 @@
 </div>
 
 <!-- 단어 그림 (선생님) -->
-<div id="m-word-img" class="mo">
+<div id="m-word-img" class="mo" data-ro="1">
   <div class="mdl" style="max-width:480px">
     <div class="mh"><span class="mt" id="wimg-title">단어 그림</span>
       <button class="bx" onclick="closeM('m-word-img')">&times;</button></div>
@@ -3130,7 +3130,7 @@
 </div>
 
 <!-- 시험지 → 결과 -->
-<div id="m-paper-result" class="mo">
+<div id="m-paper-result" class="mo" data-ro="1">
   <div class="mdl mdl-xl">
     <div class="mh"><div class="mt" id="pr-title">결과</div><button class="bx" onclick="closeM('m-paper-result')">×</button></div>
     <div id="pr-body" class="pr-body"></div>
@@ -3193,7 +3193,7 @@
   </div>
 </div>
 
-<div id="m-eb-detail" class="mo">
+<div id="m-eb-detail" class="mo" data-ro="1">
   <div class="mdl mdl-xl eb-modal">
     <div class="mh">
       <div style="min-width:0">
@@ -3210,7 +3210,7 @@
 </div>
 
 <!-- 기출·자료실: 문서 미리보기 -->
-<div id="m-eb-view" class="mo">
+<div id="m-eb-view" class="mo" data-ro="1">
   <div class="mdl mdl-xl eb-modal" style="padding-bottom:10px">
     <div class="mh" style="margin-bottom:10px">
       <div class="mt" id="eb-view-title" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">문서</div>
@@ -3249,7 +3249,7 @@
 </div>
 
 <!-- 라이브러리 — 책 한 권 -->
-<div id="m-lib-book" class="mo">
+<div id="m-lib-book" class="mo" data-ro="1">
   <div class="mdl mdl-xl">
     <div class="mh">
       <div style="min-width:0">
@@ -3274,7 +3274,7 @@
 </div>
 
 <!-- 동형 — 유형 설계 카드 (읽기 전용) -->
-<div id="m-iso-cards" class="mo">
+<div id="m-iso-cards" class="mo" data-ro="1">
   <div class="mdl mdl-xl">
     <div class="mh">
       <div style="min-width:0">
@@ -3328,12 +3328,12 @@
   </div>
 </div>
 
-<script src="js/utils.js?v=20261115a"></script>
+<script src="js/utils.js?v=20261115b"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261114a"></script>
 <script src="js/iso_cards.js?v=20261114f"></script>
-<script src="js/teacher.js?v=20261115c"></script>
-<script src="js/student.js?v=20261115a"></script>
-<script src="js/parent.js?v=20261115a"></script>
+<script src="js/teacher.js?v=20261115d"></script>
+<script src="js/student.js?v=20261115b"></script>
+<script src="js/parent.js?v=20261115b"></script>
 </body>
 </html>
