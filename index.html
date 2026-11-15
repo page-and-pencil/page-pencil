@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261115b">
-<link rel="stylesheet" href="css/style.css?v=20261115d">
+<link rel="stylesheet" href="css/style.css?v=20261115e">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -1107,8 +1107,9 @@
           </div>
         </div>
         <div id="tb-src" class="eb-uses" style="margin-bottom:10px">
-          <button id="tb-src-own" class="eb-use on" onclick="tbSetSrc('own')">등록 교재<small id="tb-src-own-n"></small></button>
-          <button id="tb-src-bank" class="eb-use" onclick="tbSetSrc('bank')">자료만 있는 책<small id="tb-bank-count"></small></button>
+          <button id="tb-src-own" class="eb-use on" onclick="tbSetSrc('ours')" title="반에 걸린 교재 · 학생이 쓰는 교재 · 수업 기록·숙제에 쓴 교재">우리 교재<small id="tb-src-own-n"></small></button>
+          <button id="tb-src-all" class="eb-use" onclick="tbSetSrc('all')">전체<small id="tb-src-all-n"></small></button>
+          <button id="tb-src-bank" class="eb-use" onclick="tbSetSrc('bank')" title="자료실에만 있고 아직 교재로 등록되지 않은 책">아직 교재가 아닌 자료<small id="tb-bank-count"></small></button>
         </div>
         <div id="tb-bank-wrap" style="display:none">
           <div id="tb-bank-uses" class="eb-uses" style="margin-bottom:8px"></div>
@@ -1119,7 +1120,7 @@
           <div id="tb-bank-box"></div>
         </div>
         <div class="lib-search-bar">
-          <input type="text" class="lib-search-input" id="book-q" placeholder="제목·시리즈·카테고리 검색..." oninput="bookPage=0;renderBookDB()">
+          <input type="text" class="lib-search-input" id="book-q" placeholder="제목·시리즈·카테고리 검색..." oninput="bookPage=0;_bookShowN=100;_bserShowN=100;renderBookDB()">
           <div class="seg" style="flex-shrink:0">
             <button id="bookview-series" class="seg-on" onclick="setBookView('series')" title="시리즈 묶음 보기">▤ 시리즈</button>
             <button id="bookview-card" onclick="setBookView('card')" title="카드 보기">▦ 카드</button>
@@ -1130,11 +1131,7 @@
           <select class="filter-sel" id="tbf-sort" onchange="tbFilterChange()" title="정렬">
             <option value="">기본 순</option><option value="stage">수준순</option>
           </select>
-          <label class="eb-chk"><input type="checkbox" id="tbf-mine" onchange="tbFilterChange()"> 우리 반 교재만</label>
           <label class="eb-chk"><input type="checkbox" id="tbf-text" onchange="tbFilterChange()"> 본문 있는 것만</label>
-          <select class="filter-sel" id="book-per-page" onchange="bookPage=0;renderBookDB()">
-            <option value="25">25개</option><option value="50" selected>50개</option><option value="100">100개</option><option value="500">500개</option>
-          </select>
           <button class="btn bo bsm" onclick="bookDBResetFilters()">초기화</button>
         </div>
         <div id="book-bulk-bar" style="display:none;align-items:center;gap:10px;padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin-bottom:8px">
@@ -3330,9 +3327,9 @@
 
 <script src="js/utils.js?v=20261115c"></script>
 <script src="vocab_ref_data.js?v=20260725g"></script>
-<script src="js/db.js?v=20261114a"></script>
+<script src="js/db.js?v=20261115a"></script>
 <script src="js/iso_cards.js?v=20261114f"></script>
-<script src="js/teacher.js?v=20261115e"></script>
+<script src="js/teacher.js?v=20261115f"></script>
 <script src="js/student.js?v=20261115b"></script>
 <script src="js/parent.js?v=20261115c"></script>
 </body>
