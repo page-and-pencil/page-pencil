@@ -7026,6 +7026,7 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-15',title:'진도 캘린더 — 수업은 위 알약, 숙제는 아래 체크 줄로 나눠 보여요',where:'클래스 → 진도 캘린더',tab:'t-class',go:['renderClassTab']},
  {date:'2026-11-15',title:'대시보드 — 오늘 수업과 바로 할 일이 맨 위로',where:'대시보드',tab:'t-dash',go:['swTab','t-dash']},
  {date:'2026-11-15',title:'교재·문제 — 탭을 자료·만들기·관리 세 묶음으로',where:'교재·문제',tab:'t-data',go:['switchDataTab','library']},
  {date:'2026-11-14',title:'학생·학부모 화면 정리 — 학부모는 숙제가 맨 위, 학생은 도장 중심',where:'학생·학부모 앱',tab:'t-stu',go:['swTab','t-stu']},
@@ -12491,20 +12492,22 @@ function renderAssignCal(){
     const isToday=ds===todayStr;
     const dow=_PG_DOW[new Date(year,month,d).getDay()];
     const isClassDay=!!stCls&&(((stCls.days||[]).includes(dow))||_hcExtra.has(ds))&&!_hcSkip.has(ds);
-    let chips='';
-    // 할당된 과제 — 과목 우선순위 정렬(반복→클래스5→단건), 완료된 반복·자동분은 ✓만 (과거가 조용해지고 앞으로 할 것이 잘 보임)
+    // 숙제만 있는 달력이라 '숙제 줄' 꼴만 쓴다 (진도 캘린더와 같은 _pgHwLayerHtml)
+    const hwList=[];
     (byDate[ds]||[]).slice().sort((a,b)=>a.ord-b.ord).forEach(x=>{
-      const compact=x.done&&x.ord<30; // 완료된 스케줄형(반복·클래스5)
-      const lbl=compact?'✓':escAttr(String(x.label).length>20?String(x.label).slice(0,20)+'…':x.label)+(x.done?' ✓':'');
-      const dim=(_alFocus&&x.aid!==_alFocus)?' pg-dim':'';   // [A3] 목록에서 고른 과제만 진하게
-      chips+=`<span class="pg-chip rec pg-hw${compact?' hw-done':''}${dim}" style="--pgc:${x.color}${x.done?';opacity:.55':''}" title="${escAttr(x.tip+(x.done?' · '+((typeof ppDoneWord==='function')?ppDoneWord(x.by):'제출완료'):''))}" onclick="event.stopPropagation();showAssignDateDetail('${ds}')">${lbl}</span>`;
+      hwList.push({label:x.label,color:x.color,done:!!x.done,
+        dim:!!(_alFocus&&x.aid!==_alFocus),                  // [A3] 목록에서 고른 숙제만 진하게
+        tip:x.tip+(x.done?' · '+((typeof ppDoneWord==='function')?ppDoneWord(x.by):'제출완료'):''),
+        click:`showAssignDateDetail('${ds}')`});
     });
-    // 미할당 수업 연계 숙제 제안 (점선=예정, 진도 캘린더와 동일)
+    // 아직 내기 전 수업 연계 숙제 제안 (점선 줄, 진도 캘린더와 동일)
     (hwBy[ds]||[]).filter(h=>!h.assigned).forEach(hw=>{
-      const col=_PG_CAT_COLORS[hw.subject]||'var(--text-muted)';
-      chips+=`<span class="pg-chip pg-hw ghost" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=할당·취소 선택)')}" onclick="hwChipMenu(event,'${stCls?stCls.id:''}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">${hw.unit}</span>`;
+      hwList.push({label:hw.unit,color:_PG_CAT_COLORS[hw.subject]||'var(--text-muted)',sug:true,
+        tip:(SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=할당·취소 선택)',
+        click:`hwChipMenu(event,'${stCls?stCls.id:''}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')`});
     });
-    cells+=`<div class="pg-cell${isClassDay?' cd':''}${isToday?' today':''}${ds<todayStr?' past':''}" onclick="showAssignDateDetail('${ds}')"><div class="pg-dnum">${d}</div>${chips}</div>`;
+    cells+=`<div class="pg-cell${isClassDay?' cd':''}${isToday?' today':''}${ds<todayStr?' past':''}" onclick="showAssignDateDetail('${ds}')"><div class="pg-dnum">${d}</div>`
+      +_pgHwLayerHtml(hwList,ds<todayStr,`showAssignDateDetail('${ds}')`)+`</div>`;
   }
   el.innerHTML=`<div class="pg-cal-head" style="margin-bottom:8px">
       <select class="filter-sel" style="font-size:13px;min-width:100px" onchange="_hwCalStuId=this.value;renderAssignCal()">${stuOpts}</select>
@@ -12515,8 +12518,8 @@ function renderAssignCal(){
       <span style="flex:1"></span>
 ${_PG_AREA_KEY_HTML().replace(/pp-key-i/g,'pg-lg')}
       <span class="pg-lg"><i style="background:${_PG_C5_COLOR}"></i>앱 숙제(클래스5·리딩앤)</span>
-      <span class="pg-lg" title="점선=아직 할당 전 제안"><i style="background:#fff;border:1.5px dashed var(--neutral)"></i>제안</span>
-      <span class="pg-lg" title="칩 색은 그 책의 영역입니다 — 종류는 모양(채움=기록·점선=예정·📕=숙제)으로 가릅니다" style="font-weight:700">색 = 영역</span>
+      <span class="pg-lg" title="점선 줄=아직 내기 전 제안"><i style="background:#fff;border:1.5px dashed var(--neutral)"></i>제안</span>
+      <span class="pg-lg" title="줄 색은 그 책의 영역입니다 — 종류는 꼴(체크 줄=숙제·점선 줄=제안)로 가릅니다" style="font-weight:700">색 = 영역</span>
     </div>
     ${banners.map(bn=>bn.kind==='pick-next'
       ?`<div style="${_bnStyle}">📚 <b>${escAttr(bn.title)}</b> 단원을 전부 끝냈어요! 다음 교재를 고르면 같은 방식으로 이어서 할당됩니다. <button class="btn bt bxxs" onclick="openRecurNext('${sid}')">다음 교재 선택</button></div>`
@@ -12527,10 +12530,9 @@ ${_PG_AREA_KEY_HTML().replace(/pp-key-i/g,'pg-lg')}
         <button class="btn bo bxxs" onclick="openRecurNext('${sid}','${escJsA(bn.tbId)}','${escJsA(bn.unit)}','${escJsA(bn.rule)}')">직접 고치기</button></div>`).join('')}
     <div class="pg-cal-grid">${_PG_DOW.map(x=>`<div class="pg-cal-dow">${x}</div>`).join('')}${cells}</div>
     ${_ppHelp('숙제 캘린더 사용법',[
-      ['🎨','진한 칩 / 점선 칩','할당된 과제 / 아직 할당 전 제안'],
-      ['✓','칩의 ✓ 점','이미 제출한 반복 숙제 (올리면 내용·출처)'],
-      ['👆','점선 칩 클릭','제안을 그대로 할당'],
-      ['🗓','날짜 클릭 / 흰 칸','그 날 과제 상세 / 수업일'],
+      ['☑','체크 줄','낸 숙제 — ☐ 아직 · ☑ 끝냄 (올리면 내용·출처)'],
+      ['·','점선 줄','아직 내기 전 제안 — 누르면 그대로 내기'],
+      ['🗓','날짜 클릭 / 흰 칸','그 날 숙제 상세 / 수업일'],
     ])}`;
 }
 function assignCalMonth(dir){
@@ -16290,10 +16292,11 @@ function _pgHwChips(sid,ym){
   return out;
 }
 // 진도 캘린더에서 어떤 레이어를 보여줄지 (기기별로 기억)
+// 그림을 꼴에 맞춘다 — 진도는 채운 알약, 숙제는 체크 줄 (2026-11-15)
 const _PG_LAYERS=[
-  {k:'prog',lbl:'진도',ico:'📘'},
-  {k:'hw',lbl:'숙제',ico:'📕'},
-  {k:'c5',lbl:'클래스5·리딩앤',ico:'🎮'},
+  {k:'prog',lbl:'진도',ico:'<i class="pg-ly-sw rec"></i>'},
+  {k:'hw',lbl:'숙제',ico:'<i class="pg-ly-sw hw"></i>'},
+  {k:'c5',lbl:'클래스5·리딩앤',ico:'<i class="pg-ly-sw c5"></i>'},
 ];
 function pgLayerOn(k){
   try{
@@ -16311,6 +16314,63 @@ function pgLayerToggle(k,classId){
 let _pgHwStuId='';
 function pgHwStuPick(sid,classId){_pgHwStuId=sid;renderClsLessons(classId);}
 // 범례의 영역 색 조각 (색=영역, 모양=종류 라는 규칙을 눈으로 보이게)
+// ── 숙제 층 — 두 달력(진도 캘린더·숙제 캘린더)이 같은 꼴을 쓴다 (2026-11-15) ──
+// 색은 '영역', 꼴은 '종류' 를 뜻한다. 수업은 알약(채움=기록·점선=예정), 숙제는 '체크 줄'.
+// 전에는 숙제도 같은 채운 알약이라 앞날 숙제가 '이미 한 것' 처럼 보였다.
+let _PG_DAY={};                       // ds → 그날 창에 쓸 자료 (진도 캘린더가 채운다)
+function _pgHwRowHtml(x,big){
+  const lbl=String(x.label||'').trim()||'숙제';
+  const ck=x.sug?'·':(x.done?'☑':'☐');
+  return `<div class="pg-hw-row${x.done?' done':''}${x.sug?' sug':''}${x.dim?' pg-dim':''}${big?' big':''}"`
+    +` style="--pgc:${x.color||'var(--text-muted)'}" title="${escAttr(x.tip||lbl)}"`
+    +(x.click?` onclick="event.stopPropagation();${x.click}"`:'')+'>'
+    +`<i class="pg-ck">${ck}</i><span class="pg-hw-t">${escAttr(lbl)}</span>`
+    +(x.del?`<i class="pg-x" title="이 숙제 지우기" onclick="${x.del}">✕</i>`:'')
+    +'</div>';
+}
+function _pgHwLayerHtml(list,past,moreClick){
+  if(!list.length)return '';
+  const real=list.filter(x=>!x.sug);
+  const done=real.filter(x=>x.done).length;
+  const late=past&&real.length>0&&done<real.length;
+  const click=moreClick?` onclick="event.stopPropagation();${moreClick}"`:'';
+  const head=real.length
+    ? `<div class="pg-hw-head${late?' late':''}"${click} title="${escAttr('그날 숙제 '+done+'/'+real.length+(late?' — 아직 다 하지 않았어요':''))}">`
+      +`<span class="pg-hw-lg">숙제</span><span class="pg-hw-sm">숙</span> ${done}/${real.length}${late?' · 밀림':''}</div>`
+    : `<div class="pg-hw-head sug"${click} title="아직 내지 않은 숙제 제안">제안 ${list.length}개</div>`;
+  const rows=list.slice(0,3).map(x=>_pgHwRowHtml(x,false)).join('');
+  const more=list.length>3?`<button class="pg-hw-more"${click}>+${list.length-3}개</button>`:'';
+  return `<div class="pg-lay-hw">${head}${rows}${more}</div>`;
+}
+// 그날 창 — 600px 미만에서 날을 누르거나, '+n개' 를 누르면 열린다
+function pgDaySheet(ds){
+  const d=_PG_DAY[ds];if(!d)return;
+  pgDaySheetClose();
+  const md=Number(ds.slice(5,7))+'/'+Number(ds.slice(8,10));
+  const dow=['일','월','화','수','목','금','토'][new Date(ds+'T12:00:00').getDay()];
+  const el=document.createElement('div');
+  el.id='pg-daysheet';el.className='pp-sheet pg-sheet';
+  el.innerHTML=`<div class="pp-sheet-box">
+    <div class="pp-sheet-h">${md}(${dow})</div>
+    <div class="pg-sheet-g"><b>수업</b>${d.les?`<div class="pg-sheet-les">${d.les}</div>`:'<i class="pg-sheet-no">수업 기록·예정이 없어요</i>'}</div>
+    <div class="pg-sheet-g"><b>숙제</b>${d.hw.length
+      ?d.hw.map(x=>_pgHwRowHtml(Object.assign({},x,{
+         click:x.click?('pgDaySheetClose();'+x.click):'',
+         del:x.del?('pgDaySheetClose();'+x.del):''}),true)).join('')
+      :'<i class="pg-sheet-no">숙제가 없어요</i>'}</div>
+    <div class="pg-sheet-f">
+      <button class="btn bt" onclick="pgDaySheetClose();${d.hasLesson?`openClassLessonEdit('${d.classId}','${ds}')`:`openClassLesson('${d.classId}','${ds}')`}">수업 기록</button>
+      <button class="btn bo" onclick="pgDaySheetClose();pgCellActions(null,'${d.classId}','${ds}')">이 날 메뉴</button>
+      <button class="btn bo" onclick="pgDaySheetClose()">닫기</button>
+    </div>
+  </div>`;
+  el.onclick=e=>{if(e.target===el)pgDaySheetClose();};
+  document.body.appendChild(el);
+  el.style.display='flex';
+  requestAnimationFrame(()=>el.classList.add('open'));
+  try{lucide.createIcons();}catch(e){}
+}
+function pgDaySheetClose(){document.getElementById('pg-daysheet')?.remove();}
 function _PG_AREA_KEY_HTML(){
   return [['vocab','어휘'],['reading','리딩'],['listening','리스닝'],['grammar','어법'],['phonics','파닉스']]
     .map(([k,n])=>'<span class="pp-key-i"><i class="pp-sw" style="background:'+(_PG_CAT_COLORS[k]||'')+'"></i>'+n+'</span>').join('');
@@ -16411,23 +16471,35 @@ function _pgCalHtml(classId){
       chips+=`<span class="pg-chip ghost" draggable="true" style="--pgc:#7B1FA2" title="리딩 책 완주 기념 Pencil Down — Sing Together (예정 — 미래 날짜로 끌면 이동, 오늘·지난 날짜에 놓으면 그날 수업으로 기록, 더블클릭=기록 확정)" ondragstart="pgDragStart(event,'${classId}','${_sk}','Sing Together','sing')" onclick="event.stopPropagation();pgChipTapDelayed(this,'${classId}','${_sk}','Sing Together','sing')" ondblclick="pgSingDbl(event,'${classId}','${ds}')">✏️🎵 Sing Together</span>`;
     }
     if(!LY.prog)chips='';   // 진도 레이어를 끄면 진도·원서·씽 칩을 비운다
-    // ── 숙제 칩 ── 반복=청록 / 클래스5·리딩앤=마젠타 / 단건=과목색. 완료된 스케줄형은 ✓만
+    // 600px 미만에서는 칸에 글을 넣지 않는다 — 수업은 영역 색 점 넷까지 (이름은 그날 창에서)
+    const dots=Array.from(String(chips).matchAll(/--pgc:([^;"]+)/g)).slice(0,4)
+      .map(mm=>`<i class="pg-dot" style="--pgc:${mm[1]}"></i>`).join('');
+    // ── 숙제 층 ── 알약이 아니라 '체크 줄' (앞날 숙제가 '한 것' 처럼 보이던 문제)
+    const hwList=[];
     (hwChips[ds]||[]).slice().sort((a,b)=>a.ord-b.ord).forEach(x=>{
       const isC5=x.kind==='class5';
       if(isC5?!LY.c5:!LY.hw)return;
-      const compact=x.done&&x.sched;
-      const lbl=compact?'✓':escAttr(String(x.label).length>20?String(x.label).slice(0,20)+'…':x.label)+(x.done?' ✓':'');
-      chips+=`<span class="pg-chip rec pg-hw${compact?' hw-done':''} has-x" style="--pgc:${x.color}${x.done?';opacity:.55':''}" title="${escAttr('📕 숙제 · '+x.tip+(x.done?' · '+((typeof ppDoneWord==='function')?ppDoneWord(x.by):'제출완료')+(x.by&&x.by!=='lesson'?'('+(_PG_HW_BY[x.by]||x.by)+')':''):'')+' · 클릭=완료 토글, ✕=이 숙제 지우기')}" onclick="event.stopPropagation();pgHwToggle('${classId}','${x.aid}','${ds}',${x.sched})">${lbl}<i class="pg-x" title="이 숙제 지우기" onclick="pgHwDel(event,'${classId}','${x.aid}','${ds}',${x.sched})">✕</i></span>`;
+      hwList.push({label:x.label,color:x.color,done:!!x.done,
+        tip:'숙제 · '+x.tip+(x.done?' · '+((typeof ppDoneWord==='function')?ppDoneWord(x.by):'제출완료')+(x.by&&x.by!=='lesson'?'('+(_PG_HW_BY[x.by]||x.by)+')':''):'')+' · 눌러서 완료 바꾸기, ✕=이 숙제 지우기',
+        click:`pgHwToggle('${classId}','${x.aid}','${ds}',${x.sched})`,
+        del:`pgHwDel(event,'${classId}','${x.aid}','${ds}',${x.sched})`});
     });
-    // 아직 할당 전 수업 연계 숙제 제안 (점선 📕)
+    // 아직 내기 전 수업 연계 숙제 제안 (점선 줄)
     if(LY.hw)(hwPlan[ds]||[]).filter(h=>!h.assigned).forEach(hw=>{
       const col=_PG_CAT_COLORS[hw.subject]||'var(--text-muted)';
       const shh=pgShortTitle(classId,hw.book,hw.bookId);
-      chips+=`<span class="pg-chip pg-hw ghost" style="--pgc:${col}" title="${escAttr((SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=할당·취소 선택)')}" onclick="hwChipMenu(event,'${classId}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')">${shh?escAttr(shh)+' ':''}${hw.unit}</span>`;
+      hwList.push({label:(shh?shh+' ':'')+hw.unit,color:col,sug:true,
+        tip:(SLBL[hw.subject]?SLBL[hw.subject]+' ':'')+hw.book+' '+hw.unit+' 숙제 제안 (클릭=할당·취소 선택)',
+        click:`hwChipMenu(event,'${classId}','${hw.subject}','${escJsA(hw.book)}','${escAttr(hw.bookId)}','${escJsA(hw.unit)}','${ds}')`});
     });
+    _PG_DAY[ds]={classId,date:ds,hw:hwList,les:chips,hasLesson:lessonDates.has(ds)};
     const isSkip=skipSet.has(ds);
     const skipMark=isSkip?`<span class="pg-skip-mark" title="수업 안 함 (휴강·결석) — 이후 진도가 하루씩 밀렸어요. 누르면 되돌리기">🚫 수업 안 함</span>`:'';
-    cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}${isSkip?' skip':''}${inMonth?'':' om'}" data-ds="${ds}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onmousedown="pgRangeDown(event,'${classId}','${ds}')" onmouseover="pgRangeOver('${ds}')" onclick="pgCellClick(event,'${classId}','${ds}')"><div class="pg-dnum">${inMonth?dd:(dt.getMonth()+1)+'/'+dd}</div>${skipMark}${chips}</div>`);
+    cells.push(`<div class="pg-cell${isClassDay?' cd':''}${ds===todayStr?' today':''}${ds<todayStr?' past':''}${isSkip?' skip':''}${inMonth?'':' om'}" data-ds="${ds}" ondragover="pgCellOver(event,'${ds}')" ondrop="pgCellDrop(event,'${classId}','${ds}')" onmousedown="pgRangeDown(event,'${classId}','${ds}')" onmouseover="pgRangeOver('${ds}')" onclick="pgCellClick(event,'${classId}','${ds}')">`
+      +`<div class="pg-dnum">${inMonth?dd:(dt.getMonth()+1)+'/'+dd}</div>${skipMark}`
+      +`<div class="pg-lay-les">${chips}</div><div class="pg-dots">${dots}</div>`
+      +_pgHwLayerHtml(hwList,ds<todayStr,`pgDaySheet('${ds}')`)
+      +`</div>`);
   };
   for(let i=startDow;i>0;i--)_dayCell(new Date(y,m-1,1-i),false);
   for(let dd=1;dd<=dim;dd++)_dayCell(new Date(y,m-1,dd),true);
@@ -16463,13 +16535,18 @@ function _pgCalHtml(classId){
       <span style="flex:1"></span>
       <details class="pg-lgw"><summary title="교재 범례 보기">${luIcon('palette',15)||''} 범례</summary><div class="pg-lgw-b">${legend}</div></details>
     </div>
+    <div class="pg-key-line">
+      <span class="pp-key-i"><i class="pp-sw rec"></i>채운 알약 = 수업한 것</span>
+      <span class="pp-key-i"><i class="pp-sw gho"></i>점선 알약 = 수업 예정</span>
+      <span class="pp-key-i"><i class="pg-ly-sw hw"></i>체크 줄 = 숙제</span>
+    </div>
     <div class="pg-cal-grid">${_PG_DOW.map(d=>`<div class="pg-cal-dow">${d}</div>`).join('')}${cells.join('')}</div>
     <div class="pp-key">
       <span class="pp-key-i"><i class="pp-sw rec"></i>기록(채움)</span>
       <span class="pp-key-i"><i class="pp-sw gho"></i>예정(점선)</span>
       <span class="pp-key-i"><i class="pp-sw om"></i>옆 달</span>
-      ${LY.hw?`<span class="pp-key-i">📕 숙제 (채움)</span><span class="pp-key-i">📕 …확인 = 숙제로 나간 몫을 수업에서 확인 (점선)</span>`:''}
-      ${LY.c5?`<span class="pp-key-i">🎮 클래스5·리딩앤</span>`:''}
+      ${LY.hw?`<span class="pp-key-i"><i class="pg-ly-sw hw"></i>체크 줄 = 숙제 (☐ 안 함 · ☑ 함)</span><span class="pp-key-i"><i class="pp-sw gho"></i>…확인 = 숙제로 나간 몫을 수업에서 확인</span>`:''}
+      ${LY.c5?`<span class="pp-key-i"><i class="pg-ly-sw c5"></i>클래스5·리딩앤</span>`:''}
       <span class="pp-key-sp"></span>
       <span class="pp-key-i" title="칩 색은 그 책의 영역입니다 — 종류는 색이 아니라 모양으로 가릅니다">색 = 영역</span>
       ${_PG_AREA_KEY_HTML()}
@@ -16485,7 +16562,8 @@ function _pgCalHtml(classId){
       ['👆','칩 한 번 탭 → 날짜 탭','달을 넘겨도 유지되는 이동'],
       ['🗓','빈 수업일 클릭','수업 기록 · 예정 편집 · 수업 안 함'],
       ['🏖','빈 칸 드래그','기간 휴강·방학 한 번에'],
-      ['📕','숙제 칩 클릭 / ✕','완료 토글 / 그 날 숙제 빼기'],
+      ['☑','숙제 줄 클릭 / ✕','완료 바꾸기 / 그 날 숙제 빼기 (✕ 는 올리면 보여요)'],
+      ['📱','좁은 화면에서 날 누르기','그 날 수업·숙제를 이름까지 다 보는 창'],
       ['🎚','위쪽 레이어 버튼','진도·숙제·클래스5를 켜고 끄기 (기기에 기억됨)'],
     ])}
   </div>`;
@@ -16827,6 +16905,12 @@ function pgCellClick(ev,classId,date){
     if(s.classId===classId){const [a,b]=[s.date,date].sort();pgRangeConfirm(classId,a,b);return;}
   }
   if(_pgMoveSel){const s=_pgMoveSel;pgMoveCancel();_pgPlaceChip(classId,s,date);return;}
+  // 좁은 화면에서는 칸에 글이 없다 — 날을 누르면 그날 창(수업·숙제 두 묶음)
+  if(window.innerWidth<600&&_PG_DAY[date]){pgDaySheet(date);return;}
+  pgCellActions(ev,classId,date);
+}
+// 날 칸의 메뉴·기록 열기 (그날 창의 '이 날 메뉴' 도 같은 길)
+function pgCellActions(ev,classId,date){
   const c=DB.classes().find(x=>x.id===classId);if(!c)return;
   const has=(_cache.lessons||[]).some(l=>l.classId===classId&&l.date===date);
   if(has){openClassLessonEdit(classId,date);return;}

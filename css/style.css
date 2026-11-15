@@ -548,32 +548,69 @@ div.ig-like{cursor:default;}
 .pg-cal-card{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px;}
 .pg-cal-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:8px;}
 .pg-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
-.pg-cal-dow{font-size:10.5px;font-weight:700;color:var(--slate);text-align:center;padding:2px 0;}
+.pg-cal-dow{font-size:11px;font-weight:700;color:var(--slate);text-align:center;padding:2px 0;}
 .pg-cell{min-height:54px;border:1px solid var(--border);border-radius:6px;padding:3px;background:#fafafa;display:flex;flex-direction:column;gap:2px;cursor:pointer;overflow:hidden;min-width:0;}
 .pg-cell.cd{background:#fff;}
 .pg-cell.om{background:#F6F8FA;} /* 옆 달 연속 칸 — 흐리게, 기능은 동일 */
 .pg-cell.om .pg-dnum{color:var(--neutral);}
-.pg-cell.past{opacity:.72;}
+/* 지난 날은 글자를 흐리게 하지 않는다 — 바탕 색으로만 가른다 (겹친 불투명도로 읽기 어려웠다) */
+.pg-cell.past{background:var(--cream2);}
+.pg-cell.cd.past{background:#EDF0F4;}
 .pg-cell.today{border:2px solid var(--teal);}
 .pg-cell:hover{border-color:var(--teal);}
 .pg-cell.skip{background:repeating-linear-gradient(-45deg,var(--bg),var(--bg) 6px,var(--border) 6px,var(--border) 12px);border-color:var(--border);}
 .pg-cell.rangesel{background:rgba(249,168,37,.16);box-shadow:inset 0 0 0 2px #F9A825;} /* 드래그 기간 휴강 선택 */
-.pg-skip-mark{font-size:9.5px;font-weight:700;color:var(--text-muted);background:#fff;border:1px solid var(--border);border-radius:5px;padding:1.5px 4px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pg-skip-mark{font-size:11px;font-weight:700;color:var(--text-muted);background:#fff;border:1px solid var(--border);border-radius:5px;padding:1.5px 4px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pg-cell-menu{position:fixed;z-index:10000;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 30px rgba(15,48,74,.22);padding:6px;font-family:var(--fb);}
 .pg-menu-date{font-size:12px;font-weight:800;color:var(--slate);padding:4px 8px 6px;}
 .pg-menu-item{display:flex;align-items:flex-start;gap:9px;width:100%;text-align:left;background:none;border:none;border-radius:8px;padding:9px 8px;cursor:pointer;font-family:var(--fb);font-size:14px;font-weight:600;color:var(--navy);}
 .pg-menu-item:hover{background:var(--cream2);}
 .pg-menu-item>span{font-size:16px;flex-shrink:0;line-height:1.3;}
 .pg-menu-sub{font-size:11px;font-weight:400;color:var(--slate);margin-top:1px;}
-.pg-dnum{font-size:10.5px;font-weight:700;color:var(--slate);}
+.pg-dnum{font-size:11px;font-weight:700;color:var(--slate);}
 .pg-cell.today .pg-dnum{color:var(--teal);}
-.pg-chip{font-size:10px;font-weight:700;border-radius:5px;padding:1.5px 4px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.pg-chip.hw-done{align-self:flex-start;padding:1.5px 5px;font-size:9px;border-radius:8px;}
+.pg-chip{font-size:11px;font-weight:700;border-radius:5px;padding:1.5px 4px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pg-chip.rec{background:var(--pgc);color:#fff;}
 .pg-chip.ghost{border:1.5px dashed var(--pgc);color:var(--pgc);background:#fff;cursor:grab;}
 .pg-chip.ghost.sel{outline:2px solid var(--pgc);outline-offset:1px;}
-.pg-chip.pg-hw{opacity:.9;}
-.pg-chip.pg-hw.ghost{border-style:dotted;}
+
+/* ── 날 칸 두 층 (2026-11-15) — 위는 수업(알약), 아래는 숙제(체크 줄) ──
+   색은 '영역', 꼴은 '종류' 를 뜻한다. 전에는 숙제도 같은 채운 알약이라
+   앞날 숙제가 '이미 한 것' 처럼 보이고, 진도 칩이 숙제 칩 75개에 묻혔다. */
+.pg-lay-les{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.pg-dots{display:none;}
+.pg-lay-hw{display:flex;flex-direction:column;gap:2px;margin-top:3px;padding-top:3px;
+  border-top:1px solid var(--border);min-width:0;}
+/* 수업이 없는 날(또는 숙제만 있는 달력)에는 가로줄을 긋지 않는다 */
+.pg-lay-les:empty+.pg-dots:empty+.pg-lay-hw,.pg-dnum+.pg-lay-hw{border-top:none;margin-top:0;padding-top:0;}
+.pg-hw-head{font-size:11px;font-weight:800;color:var(--text-muted);line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
+.pg-hw-head.late{color:var(--warnt);}
+.pg-hw-head.sug{font-weight:600;}
+.pg-hw-sm{display:none;}
+.pg-hw-row{position:relative;display:flex;align-items:center;gap:3px;min-width:0;cursor:pointer;
+  border-left:3px solid var(--pgc);border-radius:3px;padding:1px 3px;line-height:1.3;
+  background:#fff;background:color-mix(in srgb,var(--pgc) 9%,#fff);}
+.pg-hw-row .pg-ck{font-style:normal;flex-shrink:0;font-size:11px;color:var(--text-muted);line-height:1;}
+.pg-hw-row.done .pg-ck{color:var(--okt);}
+.pg-hw-t{font-size:11px;font-weight:600;color:var(--text);min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pg-hw-row.done .pg-hw-t{color:var(--text-muted);font-weight:500;}
+.pg-hw-row.sug{border-left-style:dotted;background:#fff;}
+.pg-hw-row.sug .pg-hw-t{color:var(--text-muted);}
+.pg-hw-row:hover{filter:brightness(.97);}
+.pg-hw-more{font-size:11px;font-weight:700;color:var(--tealt);background:none;border:none;
+  padding:1px 3px;cursor:pointer;text-align:left;font-family:var(--fb);}
+.pg-dot{width:7px;height:7px;border-radius:50%;background:var(--pgc);display:inline-block;flex-shrink:0;}
+/* 켜고 끄는 단추의 그림 — 꼴을 그대로 보인다 */
+.pg-ly-sw{display:inline-block;flex-shrink:0;vertical-align:-1px;}
+.pg-ly-sw.rec{width:15px;height:8px;border-radius:999px;background:var(--teal);}
+.pg-ly-sw.hw{width:15px;height:8px;border-radius:2px;background:var(--tl);border-left:3px solid var(--teal);}
+.pg-ly-sw.c5{width:15px;height:8px;border-radius:2px;background:#C2185B;}
+/* 늘 보이는 한 줄 — 꼴이 무엇을 뜻하는지 */
+.pg-key-line{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:-2px 0 8px;
+  font-size:11px;color:var(--text-muted);}
+.pg-key-line .pp-key-i{gap:5px;}
 .pg-cal-card.pg-moving .pg-cell.cd:not(.past){outline:1.5px dashed var(--teal);outline-offset:-3px;}
 .pg-lg{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--navy);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .pg-lg i{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
@@ -1433,6 +1470,16 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
   *{transition:none!important;animation:none!important;}
   .pg-cell:hover,.pg-chip.ghost:hover,.chip:hover{transform:none;}
 }
+/* [4] 600px 미만 — 칸에는 글을 넣지 않는다. 수업은 영역 색 점(최대 넷), 숙제는 '숙 n/m'.
+   이름은 날을 눌러 여는 그날 창에서 본다 (42px 칸에서 '앱…','1…' 로만 보이던 문제) */
+@media(max-width:599px){
+  .pg-lay-les{display:none;}
+  .pg-dots{display:flex;flex-wrap:wrap;gap:3px;margin-top:2px;}
+  .pg-lay-hw .pg-hw-row,.pg-lay-hw .pg-hw-more{display:none;}
+  .pg-lay-hw{border-top:none;margin-top:2px;padding-top:0;}
+  .pg-hw-lg{display:none;}
+  .pg-hw-sm{display:inline;}
+}
 /* 좁은 화면에서는 늘린 여백을 되돌려 칸 너비를 지킨다 (320px에서 칸이 얇아지지 않게) */
 @media(max-width:480px){
   .pg-cal-card{padding:9px;}   /* 모서리는 카드 공통 14px 유지 */
@@ -1739,16 +1786,20 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 /* 예정·기록 칩을 모달에 들어가지 않고 그 자리에서 뺄 수 있게. 평소엔 흐리게, 올리면 뚜렷하게 */
 .pg-chip.has-x{position:relative;padding-right:15px;}
 .pg-chip .pg-x{position:absolute;top:0;right:0;bottom:0;width:14px;display:flex;align-items:center;
-  justify-content:center;font-style:normal;font-size:9px;line-height:1;cursor:pointer;opacity:.3;
+  justify-content:center;font-style:normal;font-size:11px;line-height:1;cursor:pointer;opacity:0;
   border-radius:0 5px 5px 0;transition:opacity .12s,background .12s;}
-.pg-chip:hover .pg-x{opacity:.65;}
+.pg-chip:hover .pg-x,.pg-hw-row:hover .pg-x{opacity:.65;}
+.pg-hw-row .pg-x{position:static;flex-shrink:0;width:14px;height:14px;display:flex;
+  align-items:center;justify-content:center;font-style:normal;font-size:11px;
+  color:var(--text-muted);opacity:0;border-radius:4px;cursor:pointer;}
+.pg-hw-row.big .pg-x{opacity:.7;width:28px;height:28px;font-size:13px;}
 .pg-chip .pg-x:hover{opacity:1;background:rgba(225,29,72,.16);color:#E11D48;}
 .pg-chip.rec .pg-x{color:#fff;}
 .pg-chip.rec .pg-x:hover{background:rgba(255,255,255,.3);color:#fff;}
-/* 손가락으로는 hover가 없으니 터치 기기에서는 항상 보이게 + 조금 넓게 */
+/* 손가락 기기에서는 ✕ 를 띄우지 않는다 — 지우기는 그날 창·우클릭 메뉴에서 (2026-11-15) */
 @media(hover:none){
-  .pg-chip.has-x{padding-right:18px;}
-  .pg-chip .pg-x{width:17px;opacity:.55;}
+  .pg-chip .pg-x,.pg-cell .pg-hw-row .pg-x{display:none;}
+  .pg-chip.has-x{padding-right:5px;}
 }
 
 /* ── 알림 차단 해제 안내 ── */
@@ -1764,8 +1815,9 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 
 /* ── 진도 캘린더 레이어 버튼 ── */
 .pg-ly{display:inline-flex;gap:3px;flex-wrap:wrap;}
-.pg-ly-b{font-size:10.5px;font-weight:700;color:var(--slate);background:#fff;border:1px solid var(--border);
-  border-radius:50px;padding:3px 9px;cursor:pointer;font-family:var(--fb);white-space:nowrap;transition:all .12s;}
+.pg-ly-b{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--slate);
+  background:#fff;border:1px solid var(--border);min-height:28px;
+  border-radius:50px;padding:3px 10px;cursor:pointer;font-family:var(--fb);white-space:nowrap;transition:all .12s;}
 .pg-ly-b:hover{border-color:var(--teal);}
 .pg-ly-b.on{background:var(--tl);border-color:var(--teal);color:var(--purplet);}
 
@@ -1787,7 +1839,7 @@ svg.lucide{stroke-width:1.8;vertical-align:middle;flex-shrink:0;}
 .cl-hw-title:focus{border-color:var(--teal);background:#fff;}
 /* 캘린더 헤더 범례 — 교재가 많으면 두 줄을 차지해 캘린더를 밀어낸다. 기본은 접어둔다 */
 .pg-lgw{position:relative;}
-.pg-lgw>summary{list-style:none;cursor:pointer;font-size:10.5px;font-weight:700;color:var(--slate);
+.pg-lgw>summary{list-style:none;cursor:pointer;font-size:11px;font-weight:700;color:var(--slate);
   border:1px solid var(--border);border-radius:50px;padding:3px 9px;white-space:nowrap;background:#fff;}
 .pg-lgw>summary::-webkit-details-marker{display:none;}
 .pg-lgw>summary:hover{border-color:var(--teal);color:var(--purplet);}
@@ -3864,3 +3916,24 @@ button[data-pp-lim-off]{opacity:.42 !important;filter:grayscale(.4);cursor:not-a
   #_teacher-preview-bar{font-size:12.5px!important;padding:8px 12px!important;}
   #_teacher-preview-bar button{padding:5px 11px!important;font-size:12px!important;}
 }
+
+
+/* ═══ fix/cal-split — 그날 창 (2026-11-15) ═══════════════════════ */
+/* 600px 미만에서 날을 누르거나, 칸의 '+n개' 를 누르면 열린다 — 수업·숙제 두 묶음 */
+.pg-sheet{z-index:1400;}
+.pg-sheet .pp-sheet-box{max-width:540px;max-height:84vh;overflow-y:auto;}
+.pg-sheet-g{margin-bottom:14px;}
+.pg-sheet-g>b{display:block;font-size:12px;font-weight:800;color:var(--text-muted);
+  letter-spacing:.03em;margin-bottom:6px;}
+.pg-sheet-les{display:flex;flex-direction:column;gap:6px;align-items:stretch;}
+.pg-sheet-les .pg-chip{font-size:13px;padding:8px 11px;border-radius:9px;white-space:normal;
+  display:flex;align-items:center;gap:6px;}
+.pg-sheet-les .pg-chip.has-x{padding-right:30px;}
+.pg-sheet-les .pg-chip .pg-x{display:flex;opacity:.6;width:26px;font-size:13px;}
+.pg-sheet .pg-hw-row{margin-bottom:6px;}
+.pg-hw-row.big{padding:9px 10px;border-radius:9px;gap:8px;border-left-width:4px;}
+.pg-hw-row.big .pg-hw-t{font-size:13px;white-space:normal;}
+.pg-hw-row.big .pg-ck{font-size:15px;}
+.pg-sheet-no{font-style:normal;font-size:12px;color:var(--text-muted);}
+.pg-sheet-f{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px;}
+.pg-sheet-f .btn{flex:1;min-width:104px;min-height:44px;}
