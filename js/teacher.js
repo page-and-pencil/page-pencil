@@ -593,6 +593,7 @@ function selStu(id,el){
   document.querySelectorAll('.sc').forEach(c=>c.classList.remove('sel'));
   if(el)el.classList.add('sel');
   currentSpStuId=id;
+  document.getElementById('stu-split')?.classList.add('has-sel');   // 목록 320px · 패널이 나머지 (2026-11-15)
   // 오른쪽 상세 패널 표시
   const noStu=document.getElementById('sp-no-stu');
   const wrap=document.getElementById('sp-detail-wrap');
@@ -607,8 +608,32 @@ function closeStuPanel(){
   document.getElementById('stu-split')?.classList.remove('detail-open');
   document.querySelectorAll('.sc').forEach(c=>c.classList.remove('sel'));
 }
+// [← 목록] — 고른 학생을 풀고 넓은 표로 돌아간다 (폰에서는 목록으로)
+function stuDeselect(){
+  const sp=document.getElementById('stu-split');
+  if(sp){sp.classList.remove('detail-open','has-sel','list-fold');}
+  document.querySelectorAll('.sc').forEach(c=>c.classList.remove('sel'));
+  currentSpStuId=null;
+  const noStu=document.getElementById('sp-no-stu'),wrap=document.getElementById('sp-detail-wrap');
+  if(noStu)noStu.style.display='';if(wrap)wrap.style.display='none';
+}
+// ⋯ — 학생뷰 · 학부모뷰 · 단어 학습 체험
+function spMoreMenu(btn){
+  if(typeof plMenuClose==='function')plMenuClose();
+  const m=document.createElement('div');m.id='pl-menu';m.className='pl-menu';m.setAttribute('role','menu');
+  const it=(lbl,js,tip)=>'<button type="button" role="menuitem" class="pl-menu-i" title="'+escAttr(tip)+'" onclick="plMenuClose();'+js+'">'+lbl+'</button>';
+  m.innerHTML=it('학생뷰','previewAsStudent(currentSpStuId)','학생 화면 미리보기 (체험 모드 — 저장되지 않아요)')
+    +it('학부모뷰','previewAsParent(currentSpStuId)','학부모 화면 미리보기 (체험 모드 — 저장되지 않아요)')
+    +it('단어 학습 체험','tryStudentVocab(currentSpStuId)','학생 단어 학습을 직접 해 봅니다 — 학생 기록에는 남지 않아요');
+  document.body.appendChild(m);
+  const r=btn.getBoundingClientRect(),w=m.offsetWidth||170;
+  m.style.left=Math.max(8,Math.min(r.right-w,window.innerWidth-w-8))+'px';
+  m.style.top=Math.min(r.bottom+4,window.innerHeight-m.offsetHeight-8)+'px';
+}
 // 데스크톱에서 학생 탭을 열면 첫 학생을 자동 선택 (빈 상세 패널 방지)
 function autoSelectFirstStu(){
+  // 학생을 고르기 전에는 넓은 표를 보인다 (2026-11-15 pl-tabs-2) — 자동으로 고르지 않는다
+  return;
   if(window.innerWidth<=760)return;          // 모바일은 목록 먼저
   if(currentSpStuId)return;                   // 이미 선택돼 있으면 유지
   const first=document.querySelector('#stu-grid .sc');
@@ -678,7 +703,7 @@ async function returnToTeacher(){
     const wrap=document.getElementById('sp-detail-wrap');
     if(noStu)noStu.style.display='none';
     if(wrap)wrap.style.display='flex';
-    document.getElementById('stu-split')?.classList.add('detail-open');
+    document.getElementById('stu-split')?.classList.add('detail-open','has-sel');
     loadStuPanel(currentSpStuId);
   }
 }
@@ -686,11 +711,19 @@ let _spTab='sp-summary';   // 학생 상세에서 보던 탭 — 저장 뒤 다�
 function swSpTab(id){
   const IDS=['sp-summary','sp-lessons','sp-tests','sp-hw','sp-reading','sp-rdlog-tab','sp-vocab','sp-payment'];
   if(IDS.includes(id))_spTab=id;
-  document.querySelectorAll('.sptab').forEach((t,i)=>t.classList.toggle('active',IDS[i]===id));
+  document.querySelectorAll('.sptab').forEach((t,i)=>{t.classList.toggle('active',IDS[i]===id);t.setAttribute('aria-selected',String(IDS[i]===id));});
+  // 탭 줄이 좁아 밀릴 때 — 고른 탭이 보이게 (2026-11-15)
+  {const bar=document.querySelector('.stu-panel-tabs'),on=bar&&bar.querySelector('.sptab.active');
+   if(bar&&on){const l=on.offsetLeft,r=l+on.offsetWidth;if(l<bar.scrollLeft)bar.scrollLeft=l-16;else if(r>bar.scrollLeft+bar.clientWidth)bar.scrollLeft=r-bar.clientWidth+24;spTabsFade();}}
   document.querySelectorAll('.sp-pane').forEach(p=>p.style.display=p.id===id?'block':'none');
   if(id==='sp-reading')renderSpBooks(currentSpStuId);
   if(id==='sp-rdlog-tab')renderSpRdlog(currentSpStuId);
   if(id==='sp-vocab')renderSpVocab(currentSpStuId);
+}
+// 탭 줄 오른쪽 끝 흐림 — 더 밀 수 있을 때만
+function spTabsFade(){
+  const bar=document.querySelector('.stu-panel-tabs');if(!bar)return;
+  bar.classList.toggle('more',bar.scrollWidth-bar.clientWidth-bar.scrollLeft>2);
 }
 function renderSpRdlog(sid){
   if(!sid)return;
@@ -1560,53 +1593,58 @@ function renderSpLessons(sid){
   const months=[...new Set(all.map(l=>(l.date||'').slice(0,7)).filter(Boolean))].sort().reverse();
   const list=_spLesMonth?all.filter(l=>(l.date||'').startsWith(_spLesMonth)):all;
   const lesSlice=_spLesMonth?list:list.slice(0,10);
-  const bar=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-    <select class="filter-sel" style="padding:5px 10px;font-size:var(--fs-md)" onchange="spLesMonthChange('${sid}',this.value)">
+  const bar=`<div class="pl-form-row sp-les-bar">
+    <select class="pl-input" aria-label="기간" onchange="spLesMonthChange('${sid}',this.value)">
       <option value="">전체 기간 (${all.length}건)</option>
       ${months.map(m=>`<option value="${m}"${_spLesMonth===m?' selected':''}>${parseInt(m.slice(0,4))}년 ${parseInt(m.slice(5))}월 (${all.filter(l=>(l.date||'').startsWith(m)).length}건)</option>`).join('')}
     </select>
-    <button class="btn bo bsm" style="font-size:var(--fs-md)" onclick="spLesSortToggle('${sid}')" title="날짜 정렬 방향 전환">${_spLesSort==='desc'?'↓ 최신순':'↑ 과거순'}</button>
-    <span style="font-size:var(--fs-sm);color:var(--slate)">${_spLesMonth?`${list.length}건 표시`:(all.length>10?`최근 10건 표시 — 월을 선택하면 해당 월 전체가 보여요`:'')}</span>
+    <button class="btn bo bsm" onclick="spLesSortToggle('${sid}')" title="날짜 정렬 방향 전환">${_spLesSort==='desc'?'최신순':'과거순'}</button>
+    <span class="pl-muted">${_spLesMonth?`${list.length}건 표시`:(all.length>10?`최근 10건 표시 — 월을 선택하면 해당 월 전체가 보여요`:'')}</span>
   </div>`;
+  // 수업 한 건 = 날짜 제목 줄(오른쪽 ⋯ — 복사·수정·삭제) + 교재마다 한 줄(영역 · 교재 · 단원) + 코멘트 (2026-11-15)
   const cards=lesSlice.map(l=>{
     const attLabel=l.att&&l.att!=='normal'?ATTLBL[l.att]:'';
-    const day=l.date?DAYS[new Date(l.date+'T00:00:00').getDay()]+'요일':'';
-    const tbParts=[],bookParts=[];
+    const day=l.date?DAYS[new Date(l.date+'T00:00:00').getDay()]:'';
+    const rows=[];
     Object.entries(l.materials||{}).forEach(([k,v])=>{
-      if(!v.book)return;
+      if(!v||!v.book)return;
       const isBook=k==='_book'||k.startsWith('_book_');
       const baseKey=k.replace(/_\d+$/,'');
       const label=isBook?'원서':(SLBL[baseKey]||'');
-      const cls=isBook?'srd':(SCLS[baseKey]||'');
-      if(!label&&!v.book)return;
-      const units=(v.unit||'').split(', ').filter(Boolean);
-      const unitHtml=units.length?`<div class="prog-pills" style="margin-top:4px">${units.map(u=>`<span class="prog-pill">${u}</span>`).join('')}</div>`:'';
-      const html=`<div style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-weight:700;font-size:var(--fs-base);color:var(--navy)">${v.book||''}</span><span class="spill ${cls}">${label}</span></div>${unitHtml}</div>`;
-      if(isBook)bookParts.push(html);else tbParts.push(html);
+      const units=(v.unit||'').split(', ').filter(Boolean).join(', ');
+      rows.push({isBook,html:'<div class="pl-row pl-row-static sp-les-row"><span class="pl-bar-k">'+escAttr(label)+'</span>'
+        +'<span class="pl-row-main"><span class="pl-row-t">'+escAttr(v.book)+'</span>'+(units?'<span class="pl-row-sub sp-les-u">'+escAttr(units)+'</span>':'')+'</span></div>'});
     });
-    return `<div class="cls-les-card">
-      <div class="cls-les-head">
-        <span class="cls-les-date">${l.date||''}${day?` <span style="font-weight:400;color:var(--neutral)">(${day.slice(0,1)})</span>`:''}</span>
-        <div style="display:flex;gap:4px;align-items:center">
-          ${attLabel?`<span class="att-chip ${ATTCLS[l.att]}" style="font-size:var(--fs-sm)">${attLabel}</span>`:''}
-          <button class="btn bo bxxs" onclick="copyLesSummary('${l.id}')" title="이 수업 한 건을 학부모에게 보낼 글로 복사">${luIcon('clipboard-list',14)||''}</button>
-          <button class="btn bo bxxs" onclick="openEditLes('${l.id}')">${luIcon('pencil',14)||''}</button>
-          <button class="btn bd bxxs" onclick="reqDelLesFromPanel('${l.id}','${sid}')">${luIcon('trash-2',14)||''}</button>
-        </div>
-      </div>
-      ${tbParts.length?`<div>${tbParts.join('')}</div>`:''}
-      ${bookParts.length?`<div>${bookParts.join('')}</div>`:''}
-      ${l.polishedCmt?`<div style="font-size:var(--fs-md);color:#334155;padding:5px 8px;background:var(--tl);border-radius:var(--r-ctl);margin-bottom:3px"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--teal);display:block;margin-bottom:1px">학부모</span>${l.polishedCmt}</div>`:(l.cmt&&!l.stuCmt?`<div style="font-size:var(--fs-md);color:#334155">${l.cmt}</div>`:'')}
-      ${l.stuCmt?`<div style="font-size:var(--fs-md);color:#334155;padding:5px 8px;background:var(--cream2);border-radius:var(--r-ctl)"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--navy);display:block;margin-bottom:1px">학생</span>${l.stuCmt}</div>`:''}
-    </div>`;
+    const cmt=l.polishedCmt?('<div class="sp-les-c"><span class="pl-muted">학부모</span> '+escAttr(l.polishedCmt)+'</div>')
+      :(l.cmt&&!l.stuCmt?'<div class="sp-les-c">'+escAttr(l.cmt)+'</div>':'');
+    const scmt=l.stuCmt?'<div class="sp-les-c"><span class="pl-muted">학생</span> '+escAttr(l.stuCmt)+'</div>':'';
+    return '<section class="pl-sec sp-les">'
+      +'<div class="pl-sec-h"><h3 class="pl-sec-t">'+escAttr(l.date||'')+(day?' ('+day+')':'')+'</h3>'
+      +'<span class="pl-sec-aux">'+(attLabel?escAttr(attLabel)+' ':'')
+      +'<button type="button" class="pl-more" aria-label="더 보기" title="복사 · 수정 · 삭제" onclick="spLesMenu(this,\''+l.id+'\',\''+sid+'\')">⋯</button></span></div>'
+      +rows.filter(r=>!r.isBook).map(r=>r.html).join('')+rows.filter(r=>r.isBook).map(r=>r.html).join('')
+      +cmt+scmt+'</section>';
   }).join('');
   const footer=!_spLesMonth&&all.length>10
-    ?`<div style="text-align:center;padding:10px 0;font-size:var(--fs-md);color:var(--teal);cursor:pointer" onclick="swTab('t-les');document.getElementById('les-filter-stu').value='${sid}';lesPage=0;renderLes()">전체 ${all.length}건 수업 기록 보기 →</div>`:'';
+    ?`<div class="sp-more-row"><button type="button" class="pl-textbtn" onclick="swTab('t-les');document.getElementById('les-filter-stu').value='${sid}';lesPage=0;renderLes()">전체 ${all.length}건 수업 기록 보기</button></div>`:'';
   el.innerHTML=bar+cards+footer;
 }
 // ── 수업 1회 요약 복사 (B15) ────────────────────────────────
 // 저장된 수업 기록만으로 글을 만든다 — AI 를 부르지 않는다.
 // 학부모에게 보낼 글이므로 학생용 코멘트(stuCmt)는 넣지 않는다.
+// 수업 한 건의 ⋯ — 복사 · 수정 · 삭제 (삭제는 지금처럼 확인 창 → 휴지통)
+function spLesMenu(btn,lid,sid){
+  if(typeof plMenuClose==='function')plMenuClose();
+  const m=document.createElement('div');m.id='pl-menu';m.className='pl-menu';m.setAttribute('role','menu');
+  const it=(lbl,js,cls,tip)=>'<button type="button" role="menuitem" class="pl-menu-i'+(cls?' '+cls:'')+'" title="'+escAttr(tip)+'" onclick="plMenuClose();'+js+'">'+lbl+'</button>';
+  m.innerHTML=it('복사',`copyLesSummary('${lid}')`,'','이 수업 한 건을 학부모에게 보낼 글로 복사')
+    +it('수정',`openEditLes('${lid}')`,'','수업 기록 고치기')
+    +it('삭제',`reqDelLesFromPanel('${lid}','${sid}')`,'bad','휴지통으로');
+  document.body.appendChild(m);
+  const r=btn.getBoundingClientRect(),w=m.offsetWidth||160;
+  m.style.left=Math.max(8,Math.min(r.right-w,window.innerWidth-w-8))+'px';
+  m.style.top=Math.min(r.bottom+4,window.innerHeight-m.offsetHeight-8)+'px';
+}
 async function copyLesSummary(lesId){
   const l=DB.less().find(x=>x.id===lesId);if(!l)return toast('수업 기록을 찾을 수 없어요');
   const s=DB.stus().find(x=>x.id===l.sid);
@@ -1654,24 +1692,23 @@ function spCounselHtml(sid){
         <span class="cs-way">${escAttr(ppCounselWayName(c))}</span>
         ${c.who?`<span class="cs-who">${escAttr(c.who)}</span>`:''}
         <span style="flex:1"></span>
-        <button class="btn bo bxxs" onclick="openCounselEdit('${sid}','${c.id}')">${luIcon('pencil',14)||''}</button>
-        <button class="btn bd bxxs" onclick="reqDelCounsel('${c.id}','${sid}')">${luIcon('trash-2',14)||''}</button>
+        <button type="button" class="pl-textbtn" onclick="openCounselEdit('${sid}','${c.id}')">수정</button>
+        <button type="button" class="pl-textbtn" onclick="reqDelCounsel('${c.id}','${sid}')">삭제</button>
       </div>
       ${c.topic?`<div class="cs-topic">${escAttr(c.topic)}</div>`:''}
       ${c.note?`<div class="cs-note">${escAttr(c.note)}</div>`:''}
       ${todo?`<div class="cs-todo${c.todoDone?' done':''}" onclick="toggleCounselTodo('${c.id}','${sid}')" title="눌러서 완료 표시">
-        <span class="cs-chk">${c.todoDone?'✔':'□'}</span>${escAttr(todo)}</div>`:''}
+        <span class="pl-cb${c.todoDone?' on':''}" aria-hidden="true"><span></span></span>${escAttr(todo)}</div>`:''}
     </div>`;
   }).join('');
-  return `<div class="card" style="margin-top:12px">
-    <div class="ch"><span class="ct">${luIcon('message-square',15)||''} 상담 기록</span>
-      <span style="font-size:var(--fs-sm);color:var(--slate)">${head}${todos.length?` · 약속 ${todos.length}건 남음`:''}</span></div>
-    <div class="cb">
-      ${rows||'<div style="font-size:var(--fs-md);color:var(--slate)">아직 상담 기록이 없습니다. 전화 한 통도 남겨 두면 다음 상담이 쉬워집니다.</div>'}
-      ${list.length>5?`<div style="font-size:var(--fs-sm);color:var(--slate);margin-top:6px">최근 5건만 표시 (전체 ${list.length}건)</div>`:''}
-      <button class="btn ba bsm" style="width:100%;margin-top:10px" onclick="openCounselEdit('${sid}','')">+ 상담 기록</button>
+  return `<section class="pl-sec sp-sec sp-counsel">
+    <div class="pl-sec-h"><h3 class="pl-sec-t">상담 기록</h3>
+      <span class="pl-sec-aux">${head}${todos.length?` · 약속 ${todos.length}건 남음`:''} <button type="button" class="pl-textbtn" onclick="openCounselEdit('${sid}','')">+ 상담</button></span></div>
+    <div class="pl-list">
+      ${rows||'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">아직 상담 기록이 없습니다. 전화 한 통도 남겨 두면 다음 상담이 쉬워집니다.</span></span></div>'}
+      ${list.length>5?`<div class="pl-muted" style="font-size:12px;margin-top:6px">최근 5건만 표시 (전체 ${list.length}건)</div>`:''}
     </div>
-  </div>`;
+  </section>`;
 }
 function openCounselEdit(sid,cid){
   const c=cid?((typeof ppCounsels==='function')?ppCounsels(sid).find(x=>x.id===cid):null):null;
@@ -1743,6 +1780,12 @@ function teacherUncompleteAssign(aid,sid){
 }
 async function loadStuPanel(sid){
   const s=DB.stus().find(x=>x.id===sid);if(!s)return;
+  // 어디서 열든(대시보드·숙제·검사) 패널을 보인다 — 고른 학생이 있으면 목록 320px · 패널이 나머지 (2026-11-15)
+  currentSpStuId=sid;
+  {const sp=document.getElementById('stu-split');if(sp)sp.classList.add('has-sel');
+   const noStu=document.getElementById('sp-no-stu'),wrap=document.getElementById('sp-detail-wrap');
+   if(noStu)noStu.style.display='none';if(wrap)wrap.style.display='flex';
+   document.querySelectorAll('#stu-grid .sc').forEach(r=>r.classList.toggle('sel',(r.getAttribute('onclick')||'').indexOf("'"+sid+"'")>=0));}
   if(!(_cache.vocab_cards||[]).some(c=>c.sid===sid)){
     await loadVocabCards(sid);
   }
@@ -1764,7 +1807,8 @@ async function loadStuPanel(sid){
   const myClasses=DB.classes().filter(c=>c.active!==false&&(c.studentIds||[]).includes(sid));
   const schedStr=myClasses.map(c=>`${c.name} ${classSchedStr(c)}`).join(' | ');
   const parentStr=s.parentName||s.parentPhone?(s.parentName||'')+(s.parentPhone?(s.parentName?' ':'')+s.parentPhone:''):'';
-  document.getElementById('sp-meta').textContent=(s.grade||s.lv||'')+(s.school?' · '+s.school:'')+(s.enrollDate?' · 입회 '+s.enrollDate:'')+(schedStr?' · '+schedStr:'')+(parentStr?' · 📱'+parentStr:'');
+  // 학년 · 학교 · 반 · 입회일 · 보호자 — 말줄임 없이 넘치면 두 줄로 (그림 문자 없음)
+  document.getElementById('sp-meta').textContent=[s.grade||s.lv||'',s.school||'',schedStr,s.enrollDate?'입회 '+s.enrollDate:'',parentStr?'보호자 '+parentStr:''].filter(Boolean).join(' · ');
 
   // 이번 달 수업 수
   const today2=new Date();
@@ -1988,10 +2032,27 @@ async function loadStuPanel(sid){
   `;
 
   {const bf=document.getElementById('sp-brief');
-   if(bf)bf.innerHTML=(typeof ppStudentBriefHtml==='function')?ppStudentBriefHtml(s):'';}
+   if(bf)bf.innerHTML=spBriefHtml(s);}
   swSpTab(_spTab||'sp-summary');
 }
 
+// 패널 숫자 줄 — 이번 달 출석 · 숙제 완료 · 단어 평균 (.pl-stats). 신호·시험은 그 아래 한 줄 글로
+function spBriefHtml(s){
+  const b=(typeof ppStudentBrief==='function')?ppStudentBrief(s):null;
+  if(!b)return '';
+  const cell=(lbl,num,unit,sub)=>'<div class="pl-stat pl-stat-static'+(num==='—'||num===0?' zero':'')+'"><span class="pl-stat-l">'+lbl+'</span>'
+    +'<span class="pl-stat-v"><b class="pl-num">'+num+'</b>'+(unit?'<small>'+unit+'</small>':'')+(sub?'<em class="pl-cmp">'+escAttr(sub)+'</em>':'')+'</span></div>';
+  const line=[];
+  if(b.sig&&b.sig.level)line.push(b.sig.level+' — '+b.sig.reasons.map(r=>r.t).join(' · '));
+  if(b.retest)line.push('재테스트 대기 '+b.retest+'건');
+  if(b.exam&&b.exam.kind==='exam'&&b.exam.days!=null)line.push('다음 영어 시험 '+(b.exam.days===0?'오늘':'D-'+b.exam.days)+(b.exam.exam&&b.exam.exam.examDate?' ('+b.exam.exam.examDate+')':''));
+  else if(b.exam&&b.exam.kind==='none')line.push('다음 영어 시험 — 지필 없음');
+  return '<div class="pl-stats pl-stats-3 sp-stats">'
+    +cell('이번 달 출석',b.att==null?'—':b.att,b.att==null?'':'%',b.attN?'수업 '+b.attN+'회':'')
+    +cell('숙제 완료',b.hw?b.hw.pct:'—',b.hw?'%':'',b.hw?b.hw.done+'/'+b.hw.total:'')
+    +cell('단어 평균',b.vocab==null?'—':b.vocab,b.vocab==null?'':'%','')
+    +'</div>'+(line.length?'<div class="sp-sig'+(b.sig&&b.sig.level?' on':'')+'">'+escAttr(line.join(' · '))+'</div>':'');
+}
 function openQuickPayFor(sid){
   closeM('m-edit-stu');
   document.getElementById('qp-stu').value=sid;
@@ -2081,6 +2142,8 @@ function renderStus(){
   // 카운트
   const cnt=document.getElementById('stu-count');
   if(cnt)cnt.textContent=`${stus.length}명`;
+  {const sm=document.getElementById('stu-sum');
+   if(sm){const act=DB.stus().filter(x=>!x.inactive);sm.textContent='재원생 '+act.length+'명 · 이번 달 미납 '+act.filter(x=>hasUnpaid(x)).length+'명';}}
 
   if(!stus.length){
     const noFilter=!q&&!filterGrade&&!filterSchool&&filterStatus==='active';
@@ -2110,14 +2173,15 @@ function renderStus(){
       +'<td class="sl-name"><span class="sc-avatar">'+(_esc((s.name||'').trim().slice(0,1))||'학')+'</span>'
         +'<span class="sl-nm">'+_esc(s.name)+'</span>'
         +((typeof ppTrackBadgeHtml==='function')?ppTrackBadgeHtml(s):'')
-        +((typeof ppRetestChipHtml==='function')?ppRetestChipHtml(s.id):'')+'</td>'
+        +((typeof ppRetestChipHtml==='function')?ppRetestChipHtml(s.id):'')
+        +'<span class="sl-sub">'+_esc([s.grade||s.lv||'',clsOf(s.id)].filter(Boolean).join(' · '))+'</span></td>'
       +'<td class="sl-dim" data-h="학년">'+_esc(s.grade||s.lv||'')+'</td>'
       +'<td class="sl-dim" data-h="학교">'+_esc(s.school||'')+'</td>'
       +'<td class="sl-dim" data-h="클래스">'+_esc(clsOf(s.id))+'</td>'
       +'<td class="sl-dim sl-num" data-h="최근 수업">'+(ld?_esc(ld.slice(5).replace('-','/')):'—')+'</td>'
       +'<td class="sl-bar" data-h="단어 테스트">'+(pct==null?'<span class="sl-dim">—</span>'
         :'<span class="sl-bar-t"><span style="width:'+pct+'%"></span></span><span class="sl-pct">'+pct+'%</span>')+'</td>'
-      +'<td class="sl-pay" data-h="결제"><span class="pp-dot '+pay.c+'"></span>'+pay.t+'</td>'
+      +'<td class="sl-pay '+pay.c+'" data-h="결제">'+pay.t+'</td>'
       +'</tr>';
   };
   const body=['초등','중등','기타'].filter(k=>groups[k]&&groups[k].length).map(k=>
@@ -7256,6 +7320,8 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-15',title:'학생 패널 — 학생뷰·학부모뷰는 ⋯ 안으로',where:'학생 → 학생 고르기',tab:'t-stu',go:['swTab','t-stu']},
+ {date:'2026-11-15',title:'학생 — 학생을 고르면 패널이 넓어져요',where:'학생',tab:'t-stu',go:['swTab','t-stu']},
  {date:'2026-11-15',title:'테스트 — 기록 목록이 먼저, 입력은 [+ 결과 입력] 으로',where:'테스트',tab:'t-tst',go:['swTab','t-tst']},
  {date:'2026-11-15',title:'숙제 — 위 숫자를 누르면 걸러져요. 오늘 숙제는 체크로 완료',where:'숙제',tab:'t-assign',go:['swTab','t-assign']},
  {date:'2026-11-15',title:'대시보드 — 상자를 걷어내고 줄 목록으로 바꿨어요',where:'대시보드',tab:'t-dash',go:['swTab','t-dash']},
@@ -11298,99 +11364,95 @@ function renderSpSummary(sid,period,from,to){
   });});
 
   const PERIODS=[{v:'week',l:'주간'},{v:'month',l:'월별'},{v:'semester',l:'학기별'},{v:'year',l:'연별'},{v:'all',l:'전체'},{v:'custom',l:'직접 설정'}];
-  // 교재 진도 카드
-  const tbCards=Object.values(tbMap).map(m=>{
-    const cls2=Object.entries(SCLS).find(([k])=>SLBL[k]===m.label)?.[1]||'srd';
+  // 교재·원서 진도 — 영역 이름(muted) · 교재 · 단원은 쉼표로 이은 글 (카드·알약 없음, 2026-11-15)
+  const progRows=(map,isBook)=>Object.values(map).map(m=>{
     const flatU=[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];
-    const shown=flatU.slice(0,5),hidden=flatU.slice(5);
-    return `<div class="sp-prog-card">
-      <div class="sp-prog-head"><span class="spill ${cls2}">${m.label}</span><span class="sp-prog-book">${m.book}</span></div>
-      ${flatU.length?`<div class="prog-pills">${shown.map(u=>`<span class="prog-pill">${u}</span>`).join('')}${hidden.length?`<span class="prog-more-wrap" style="display:none">${hidden.map(u=>`<span class="prog-pill">${u}</span>`).join('')}</span><button class="prog-more-btn" onclick="spProgMore(this)">+${hidden.length} 더보기</button>`:''}</div>`:`<div class="sp-prog-empty">진도 기록 없음</div>`}
-    </div>`;
+    return '<div class="pl-row pl-row-static sp-prog-row"><span class="pl-bar-k">'+escAttr(isBook?'원서':m.label)+'</span>'
+      +'<span class="pl-row-main"><span class="pl-row-t">'+escAttr(m.book)+'</span>'
+      +'<span class="pl-row-sub" title="'+escAttr(flatU.join(', '))+'">'+escAttr(flatU.join(', ')||'진도 기록 없음')+'</span></span></div>';
   }).join('');
-  // 원서 진도 한 줄 카드
-  const rdCards=Object.values(rdMap).map(m=>{
-    const flatU=[...new Set(m.units.flatMap(u=>(u||'').split(', ').filter(Boolean)))];
-    const badges=flatU.length?flatU.map(u=>`<span class="prog-pill${/완독|완료/.test(u)?' done':''}">${u}</span>`).join(''):'<span class="prog-pill">기록</span>';
-    return `<div class="sp-rd-card"><span class="sp-rd-title">${m.book}</span><span class="sp-rd-badges">${badges}</span></div>`;
-  }).join('');
+  const tbRows=progRows(tbMap,false),rdRows=progRows(rdMap,true);
+  // 원내 규칙 현황
+  const rules=(()=>{
+    const todayY=new Date().getFullYear(),yearStr=String(todayY);
+    const allLesAll=DB.less().filter(l=>l.sid===sid);
+    const annualAttended=allLesAll.filter(l=>l.date&&l.date.startsWith(yearStr)&&!PRESERVED_ATTS.includes(l.att||'')&&l.att!=='absent').length;
+    const thisMonthStr=ppToday().slice(0,7);
+    const thisMonthSick=allLesAll.filter(l=>l.att==='sick'&&l.date?.startsWith(thisMonthStr)).length;
+    const sickOk=thisMonthSick<=1;
+    const tcTotal=allLesAll.filter(l=>l.att==='teacher_cancel').length;
+    const holTotal=allLesAll.filter(l=>l.att==='holiday').length;
+    const months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
+    const cnt=m=>allLesAll.filter(l=>l.date?.startsWith(yearStr+'-'+m)&&!PRESERVED_ATTS.includes(l.att||'')&&l.att!=='absent').length;
+    const cell=(lbl,num,unit,bad,sub)=>'<div class="pl-stat pl-stat-static'+(num===0?' zero':(bad?' bad':''))+'"><span class="pl-stat-l">'+lbl+'</span><span class="pl-stat-v"><b class="pl-num">'+num+'</b><small>'+unit+'</small>'+(sub?'<em class="pl-cmp">'+sub+'</em>':'')+'</span></div>';
+    return '<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">원내 규칙 현황</h3><span class="pl-sec-aux">'+todayY+'년</span></div>'
+      +'<div class="pl-stats sp-rule-stats">'+cell('연간 출석 수업',annualAttended,'회',false,'')
+        +cell('이번 달 병결',thisMonthSick,'회',!sickOk,sickOk?'월 1회 이내':'한도 초과')
+        +(tcTotal?cell('선생님 취소 보존',tcTotal,'회',false,''):'')+(holTotal?cell('휴강 보존',holTotal,'회',false,''):'')+'</div>'
+      +'<div class="pl-table-wrap"><table class="pl-table sp-month-tbl"><thead><tr>'+months.map(m=>'<th>'+parseInt(m)+'월</th>').join('')+'</tr></thead>'
+      +'<tbody><tr>'+months.map(m=>{const c=cnt(m);return '<td class="'+(c?'':'zero')+'">'+(c||'–')+'</td>';}).join('')+'</tr></tbody></table></div></section>';
+  })();
+  const facts=[s.fee?'월 수업료 '+Number(s.fee).toLocaleString()+'원':'',s.payday?'결제일 매월 '+s.payday+'일':'',
+    lastPay?'최근 결제 '+lastPay.date+' · '+Number(lastPay.amt).toLocaleString()+'원':''].filter(Boolean);
   el.innerHTML=`
    <div class="sp-sum-wrap">
-    <div class="sp-seg">
-      ${PERIODS.map(p=>`<button class="${period===p.v?'on':''}" onclick="renderSpSummary('${sid}','${p.v}')">${p.l}</button>`).join('')}
+    <div class="pl-chips sp-period" role="group" aria-label="기간">
+      ${PERIODS.map(p=>`<button type="button" class="pl-chip${period===p.v?' on':''}" aria-pressed="${period===p.v}" onclick="renderSpSummary('${sid}','${p.v}')">${p.l}</button>`).join('')}
     </div>
-    ${period==='custom'?`<div style="display:flex;gap:8px;margin-bottom:12px">
-      <input type="date" id="sp-sum-from" value="${from||''}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:var(--fs-md);background:var(--cream);outline:none">
-      <input type="date" id="sp-sum-to" value="${to||''}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--fb);font-size:var(--fs-md);background:var(--cream);outline:none">
+    ${period==='custom'?`<div class="pl-form-row sp-custom">
+      <input type="date" id="sp-sum-from" class="pl-input" value="${from||''}">
+      <input type="date" id="sp-sum-to" class="pl-input" value="${to||''}">
       <button class="btn bt bsm" onclick="renderSpSummary('${sid}','custom',document.getElementById('sp-sum-from').value,document.getElementById('sp-sum-to').value)">적용</button>
     </div>`:''}
-    ${(typeof ppBookPathHtml==='function'&&ppBookPathHtml(sid))?`<div class="card" style="margin-bottom:16px"><div class="ch"><span class="ct">${luIcon('book-open',16)}교재 여정</span><span style="font-size:var(--fs-sm);color:var(--slate)">끝낸 책 · 지금 · 다음</span></div><div class="cb" style="padding:14px 16px">${ppBookPathHtml(sid,{bare:true,edit:sid})}</div></div>`:''}
-    <div class="strow" style="margin-bottom:16px">
-      <div class="stc"><div class="stnum">${attended}</div><div class="stlbl">출석</div></div>
-      <div class="stc"><div class="stnum">${total?att+'%':'<span class="stnum-empty">데이터 없음</span>'}</div><div class="stlbl">출석률</div></div>
-      <div class="stc"><div class="stnum">${rds.length}</div><div class="stlbl">원서</div></div>
-      <div class="stc"><div class="stnum">${avgV!==null?avgV+'%':'<span class="stnum-empty">데이터 없음</span>'}</div><div class="stlbl">단어 평균</div></div>
+    ${spJourneyHtml(sid)}
+    <div class="pl-stats sp-period-stats">
+      <div class="pl-stat pl-stat-static${attended?'':' zero'}"><span class="pl-stat-l">출석</span><span class="pl-stat-v"><b class="pl-num">${attended}</b><small>회</small></span></div>
+      <div class="pl-stat pl-stat-static${total?'':' zero'}"><span class="pl-stat-l">출석률</span><span class="pl-stat-v"><b class="pl-num">${total?att:'—'}</b><small>${total?'%':''}</small></span></div>
+      <div class="pl-stat pl-stat-static${rds.length?'':' zero'}"><span class="pl-stat-l">원서</span><span class="pl-stat-v"><b class="pl-num">${rds.length}</b><small>권</small></span></div>
+      <div class="pl-stat pl-stat-static${avgV!==null?'':' zero'}"><span class="pl-stat-l">단어 평균</span><span class="pl-stat-v"><b class="pl-num">${avgV!==null?avgV:'—'}</b><small>${avgV!==null?'%':''}</small></span></div>
     </div>
-    <div class="sp-sum-cols">
-      <div>
-        <div class="sp-sec-title">${luIcon('book-open',15)||''} 교재 진도</div>
-        ${tbCards||'<div class="sp-prog-empty" style="margin-bottom:12px">교재 진도 기록 없음</div>'}
-      </div>
-      <div>
-        <div class="sp-sec-title">${luIcon('book-open',14)||''} 원서 진도</div>
-        ${rdCards||'<div class="sp-prog-empty" style="margin-bottom:12px">원서 진도 기록 없음</div>'}
-    ${(()=>{
-      // ── 원내 규칙 현황 ──
-      const todayY=new Date().getFullYear();
-      const allLesAll=DB.less().filter(l=>l.sid===sid);
-      // 연간 시수
-      const yearStr=String(todayY);
-      const annualLes=allLesAll.filter(l=>l.date&&l.date.startsWith(yearStr));
-      const annualAttended=annualLes.filter(l=>!PRESERVED_ATTS.includes(l.att||'')&&l.att!=='absent').length;
-      // 병결 현황 (이번 달)
-      const thisMonthStr=ppToday().slice(0,7);
-      const thisMonthSick=allLesAll.filter(l=>l.att==='sick'&&l.date?.startsWith(thisMonthStr)).length;
-      const sickOk=thisMonthSick<=1;
-      // 선생님 취소·휴강 보존 합계
-      const tcTotal=allLesAll.filter(l=>l.att==='teacher_cancel').length;
-      const holTotal=allLesAll.filter(l=>l.att==='holiday').length;
-      // 월별 시수 (올해)
-      const months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
-      const monthlyRow=months.map(m=>{
-        const key=`${yearStr}-${m}`;
-        const cnt=allLesAll.filter(l=>l.date?.startsWith(key)&&!PRESERVED_ATTS.includes(l.att||'')&&l.att!=='absent').length;
-        return `<td style="text-align:center;padding:3px 4px;font-family:var(--fm);font-size:var(--fs-sm);color:${cnt?'var(--navy)':'var(--slate)'}">${cnt||'—'}</td>`;
-      }).join('');
-      return `<div style="background:var(--cream2);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px;font-size:var(--fs-md)">
-        <div style="font-weight:700;color:var(--navy);margin-bottom:8px">${luIcon('clipboard-list',14)||''} 원내 규칙 현황</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
-          <div>연간 출석 수업<br><strong style="font-size:var(--fs-lg);font-family:var(--fm)">${annualAttended}회</strong></div>
-          <div>이번 달 병결<br><strong style="font-size:var(--fs-lg);font-family:var(--fm);color:${sickOk?'var(--teal)':'var(--coral)'}">${thisMonthSick}회</strong> <span style="font-size:var(--fs-sm);color:${sickOk?'var(--teal)':'var(--coral)'}">${sickOk?'(월 1회 이내)':'⚠️ 한도 초과'}</span></div>
-          ${tcTotal?`<div>선생님 취소 보존<br><strong style="font-size:var(--fs-lg);font-family:var(--fm);color:#7B1FA2">${tcTotal}회</strong></div>`:''}
-          ${holTotal?`<div>휴강 보존<br><strong style="font-size:var(--fs-lg);font-family:var(--fm);color:#3949AB">${holTotal}회</strong></div>`:''}
-        </div>
-        <div style="font-weight:700;color:var(--navy);margin-bottom:4px">${todayY}년 월별 수업 시수</div>
-        <div style="overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:var(--fs-sm)">
-            <tr>${months.map(m=>`<th style="text-align:center;padding:3px 4px;color:var(--slate);font-weight:600;font-size:var(--fs-sm)">${parseInt(m)}월</th>`).join('')}</tr>
-            <tr>${monthlyRow}</tr>
-          </table>
-        </div>
-      </div>`;
-    })()}
-      </div>
-    </div>
-    <div style="font-size:var(--fs-md);color:var(--slate);line-height:2;margin-top:8px">
-      ${s.fee?`<div>월 수업료: <strong>${Number(s.fee).toLocaleString()}원</strong></div>`:''}
-      ${s.payday?`<div>결제일: <strong>매월 ${s.payday}일</strong></div>`:''}
-      ${lastPay?`<div>최근 결제: <strong>${lastPay.date} · ${Number(lastPay.amt).toLocaleString()}원</strong></div>`:''}
-      ${s.memo?`<div>메모: ${s.memo}</div>`:''}
-    </div>
+    <section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">교재 진도</h3><span class="pl-sec-aux">이 기간 수업 기록</span></div>
+      <div class="pl-list">${tbRows||'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">교재 진도 기록 없음</span></span></div>'}</div></section>
+    <section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">원서 진도</h3></div>
+      <div class="pl-list">${rdRows||'<div class="pl-row pl-row-static"><span class="pl-row-main"><span class="pl-row-t pl-muted">원서 진도 기록 없음</span></span></div>'}</div></section>
+    ${rules}
+    ${(facts.length||s.memo)?`<section class="pl-sec sp-sec"><div class="pl-sec-h"><h3 class="pl-sec-t">수업료 · 메모</h3></div>
+      <div class="sp-facts">${facts.map(f=>'<div>'+escAttr(f)+'</div>').join('')}${s.memo?'<div>메모 '+escAttr(s.memo)+'</div>':''}</div></section>`:''}
     ${spCounselHtml(sid)}
-    <div style="margin-top:12px">
-      <button class="btn bo bsm" onclick="openPrintReport('${sid}')" style="width:100%">${luIcon('printer',14)||''} 학습 리포트 인쇄</button>
-    </div>
+    <div class="sp-print"><button class="btn bo bsm" onclick="openPrintReport('${sid}')">학습 리포트 인쇄</button></div>
    </div>`;
+}
+// 교재 여정 — 영역마다 한 줄(영역 · 지금 책 · 4px 막대 · n/m · 끝낸 책 n권). 줄을 누르면 다음 책·지나온 교재가 펼쳐진다
+let _spJourneyOpen={};
+function spJourneyToggle(area){_spJourneyOpen[area]=!_spJourneyOpen[area];
+  const b=document.getElementById('sp-jr-b-'+area),r=document.getElementById('sp-jr-r-'+area);
+  if(b)b.hidden=!_spJourneyOpen[area];if(r)r.setAttribute('aria-expanded',String(!!_spJourneyOpen[area]));}
+function spJourneyHtml(sid){
+  const path=(typeof ppBookPath==='function')?ppBookPath(sid):[];
+  if(!path.length)return '';
+  const doneAll=path.reduce((t,a)=>t+a.past.filter(x=>x.state==='done').length,0);
+  const rows=path.map(a=>{
+    const doneN=a.past.filter(x=>x.state==='done').length;
+    const nows=a.now.length?a.now:[null];
+    const head=nows.map((x,i)=>{
+      const pct=x&&x.pct!=null?x.pct:0;
+      return '<div class="pl-bar-row sp-jr-row'+(i?' sub':'')+'"'+(i?'':' id="sp-jr-r-'+a.area+'" role="button" tabindex="0" aria-expanded="'+(!!_spJourneyOpen[a.area])+'" onclick="spJourneyToggle(\''+a.area+'\')" onkeydown="if(event.key===\'Enter\')spJourneyToggle(\''+a.area+'\')"')+'>'
+        +'<span class="pl-bar-k">'+(i?'':escAttr(a.label))+'</span>'
+        +'<span class="pl-bar-t">'+(x?escAttr(x.title):'<span class="pl-muted">지금 진행 중인 교재 없음</span>')+'</span>'
+        +'<span class="pl-bar"><span style="width:'+pct+'%"></span></span>'
+        +'<span class="pl-bar-n">'+(x?x.n+'/'+(x.total||'?'):'')+(i||!doneN?'':'<em class="sp-jr-done">끝낸 책 '+doneN+'권</em>')+'</span></div>';
+    }).join('');
+    const body='<div class="sp-jr-b" id="sp-jr-b-'+a.area+'"'+(_spJourneyOpen[a.area]?'':' hidden')+'>'
+      +'<div class="sp-jr-l"><span class="pl-muted">다음 책</span> '+(a.next.length?a.next.map(x=>escAttr(x.title)).join(' → '):'<span class="pl-muted">정해진 다음 책 없음</span>')+'</div>'
+      +(a.past.length?'<div class="sp-jr-l"><span class="pl-muted">지나온 교재</span></div>'+a.past.slice().reverse().map(x=>
+        '<div class="sp-jr-p"><span>'+escAttr(x.title)+'</span><span class="pl-muted">'+x.n+'/'+(x.total||'?')+'과'+(x.state==='done'?' · 끝냄':'')+(x.manual?' · 손으로 등록':'')+'</span>'
+        +(x.manual?'<button type="button" class="pl-textbtn" onclick="bpDelDone(\''+sid+'\',\''+x.id+'\')">등록 취소</button>':'')+'</div>').join(''):'')
+      +'</div>';
+    return head+body;
+  }).join('');
+  return '<section class="pl-sec sp-sec sp-journey"><div class="pl-sec-h"><h3 class="pl-sec-t">교재 여정</h3>'
+    +'<span class="pl-sec-aux">'+(doneAll?'끝낸 책 '+doneAll+'권 ':'')+'<button type="button" class="pl-textbtn" title="앱을 쓰기 전에 끝낸 교재를 더합니다" onclick="bpAddOpen(\''+sid+'\',\''+(path[0]?path[0].area:'')+'\')">+ 교재</button></span></div>'
+    +'<div class="pl-list">'+rows+'</div></section>';
 }
 function spProgMore(btn){
   const w=btn.parentElement.querySelector('.prog-more-wrap');
@@ -11408,7 +11470,7 @@ function openStuPanelTab(sid,tabId){
   const wrap=document.getElementById('sp-detail-wrap');
   if(noStu)noStu.style.display='none';
   if(wrap)wrap.style.display='flex';
-  document.getElementById('stu-split')?.classList.add('detail-open');
+  document.getElementById('stu-split')?.classList.add('detail-open','has-sel');
   loadStuPanel(sid);
   setTimeout(()=>swSpTab(tabId),300);
 }
@@ -18551,14 +18613,15 @@ function startStuResize(e){
 }
 // 버튼: 넓게 ↔ 기본 토글
 function toggleStuWide(){
-  const col=document.getElementById('stu-detail-col');
-  const split=document.getElementById('stu-split');
-  if(!col||!split)return;
-  const wide=col.offsetWidth>split.offsetWidth*0.62;
-  const w=wide?400:Math.max(560,Math.round(split.offsetWidth*0.68));
-  col.style.width=w+'px';
-  try{localStorage.setItem(STU_W_KEY,String(w));}catch(_){}
-  _stuApplyW(w);
+  // « 는 목록을 아예 접는 단추로 (2026-11-15) — 다시 누르면 목록이 320px 로 돌아온다
+  const split=document.getElementById('stu-split');if(!split)return;
+  const fold=!split.classList.contains('list-fold');
+  split.classList.toggle('list-fold',fold);
+  const btn=document.getElementById('sp-wide-btn');
+  if(btn){btn.title=fold?'목록 펼치기':'목록 접기';btn.setAttribute('aria-label',btn.title);
+    btn.innerHTML='<i data-lucide="'+(fold?'chevrons-right':'chevrons-left')+'" width="14" height="14"></i>';
+    try{lucide.createIcons();}catch(e){}}
+  setTimeout(spTabsFade,0);
 }
 function resetStuWidth(){
   const col=document.getElementById('stu-detail-col');if(!col)return;
@@ -18568,9 +18631,8 @@ function resetStuWidth(){
 }
 // 저장된 폭 복원 — 학생 탭을 열 때마다
 function restoreStuWidth(){
-  let w=0;
-  try{w=parseInt(localStorage.getItem(STU_W_KEY)||'0',10)||0;}catch(_){}
-  if(w)_stuApplyW(w);
+  // 폭은 이제 틀이 정한다 (목록 320px · 패널이 나머지) — 전에 끌어서 정한 폭은 쓰지 않는다
+  const col=document.getElementById('stu-detail-col');if(col)col.style.width='';
 }
 
 function startClsResize(e,colId,invert=false){

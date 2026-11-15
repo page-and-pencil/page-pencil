@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261115b">
-<link rel="stylesheet" href="css/style.css?v=20261115i">
+<link rel="stylesheet" href="css/style.css?v=20261115j">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -272,10 +272,11 @@
       <div class="stu-split" id="stu-split">
         <!-- 왼쪽: 학생 목록 -->
         <div class="stu-list-col">
-          <div class="stu-list-head">
-            <div class="st">학생 관리</div>
-            <div style="display:flex;gap:5px">
-              <button class="quick-pay-btn" onclick="openM('m-quick-pay')" style="font-size:var(--fs-sm);padding:5px 8px"><i data-lucide="credit-card" width="15" height="15" style="vertical-align:-3px"></i> 결제</button>
+          <!-- 대시보드 꼴 (.pl-head) — 2026-11-15 pl-tabs-2 -->
+          <div class="stu-list-head pl-head">
+            <div class="pl-head-main"><h1 class="pl-title">학생</h1><div class="pl-sub" id="stu-sum"></div></div>
+            <div class="pl-head-acts">
+              <button class="btn bo bsm" onclick="openM('m-quick-pay')">결제</button>
               <button class="btn bt bsm" onclick="openAddStu()">+ 추가</button>
             </div>
           </div>
@@ -312,26 +313,20 @@
           </div>
           <div id="sp-detail-wrap" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0">
             <div class="stu-panel-header">
-              <div style="display:flex;align-items:center;gap:13px;min-width:0">
-                <span class="sp-avatar" id="sp-avatar">—</span>
-                <div style="min-width:0">
-                  <button class="sp-back-btn" onclick="closeStuPanel()">← 목록</button>
-                  <div class="sp-name" id="sp-name">—</div>
-                  <div class="sp-sub" id="sp-meta">—</div>
-                </div>
+              <div class="sp-head-main">
+                <button type="button" class="sp-back-btn pl-textbtn" onclick="stuDeselect()">← 목록</button>
+                <h2 class="sp-name" id="sp-name">—</h2>
+                <div class="sp-sub" id="sp-meta">—</div>
               </div>
-              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-                <button class="btn bo bsm" onclick="tryStudentVocab(currentSpStuId)" title="학생 단어 학습을 직접 해 봅니다 — 학생 기록에는 남지 않아요"><i data-lucide="flask-conical" width="15" height="15" style="vertical-align:-3px"></i> 단어 학습 체험</button>
-                <button class="btn bo bsm" onclick="previewAsStudent(currentSpStuId)" title="학생 화면 미리보기 (체험 모드 — 저장되지 않아요)">학생뷰</button>
-                <button class="btn bo bsm" onclick="previewAsParent(currentSpStuId)" title="학부모 화면 미리보기 (체험 모드 — 저장되지 않아요)">학부모뷰</button>
+              <div class="sp-head-acts">
                 <button class="btn bo bsm sp-wide-btn" id="sp-wide-btn" onclick="toggleStuWide()"
-                        title="상세를 넓게 보기" aria-label="상세를 넓게 보기">
+                        title="목록 접기" aria-label="목록 접기">
                   <i data-lucide="chevrons-left" width="14" height="14"></i></button>
                 <button class="btn bt bsm" onclick="openEditStuFromPanel()">수정</button>
+                <button type="button" class="pl-more" id="sp-more" aria-label="더 보기" title="학생뷰 · 학부모뷰 · 단어 학습 체험" onclick="spMoreMenu(this)">⋯</button>
               </div>
             </div>
-            <div id="sp-brief"></div>
-            <div class="stu-panel-tabs">
+            <div class="stu-panel-tabs" role="tablist" onscroll="spTabsFade()">
               <button class="sptab active" onclick="swSpTab('sp-summary')">요약</button>
               <button class="sptab" onclick="swSpTab('sp-lessons')">수업</button>
               <button class="sptab" onclick="swSpTab('sp-tests')">테스트</button>
@@ -342,6 +337,7 @@
               <button class="sptab" onclick="swSpTab('sp-payment')">결제</button>
             </div>
             <div class="stu-panel-body">
+              <div id="sp-brief"></div>
               <div id="sp-summary" class="sp-pane"></div>
               <div id="sp-lessons" class="sp-pane" style="display:none"></div>
               <div id="sp-tests" class="sp-pane" style="display:none"></div>
@@ -3352,7 +3348,7 @@
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261115a"></script>
 <script src="js/iso_cards.js?v=20261114f"></script>
-<script src="js/teacher.js?v=20261115j"></script>
+<script src="js/teacher.js?v=20261115k"></script>
 <script src="js/student.js?v=20261115c"></script>
 <script src="js/parent.js?v=20261115d"></script>
 </body>

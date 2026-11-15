@@ -175,7 +175,7 @@ const FINDWORD = (sel, words) => {
     // 단어 카드 출처 — 저장된 값은 '과제', 보이는 말은 '숙제'
     const src = await page.evaluate(async () => {
       swTab('t-stu'); await new Promise(r => setTimeout(r, 500));
-      loadStuPanel('ux4-s1'); await new Promise(r => setTimeout(r, 700));
+      await loadStuPanel('ux4-s1'); await new Promise(r => setTimeout(r, 300));   // 패널은 비동기로 그려진다 — 끝날 때까지 기다린다
       swSpTab('sp-vocab'); await new Promise(r => setTimeout(r, 800));
       const b = [...document.querySelectorAll('#sp-vocab .badge')].map(e => e.textContent.trim());
       const stored = (_cache.vocab_cards || []).map(c => c.source);

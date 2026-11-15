@@ -466,7 +466,7 @@ const NOBREAK = (sel) => {
       const low = sel => { const es = [...document.querySelectorAll(sel)].filter(e => e.offsetParent); return es.length ? Math.min(...es.map(e => Math.round(e.getBoundingClientRect().height))) : null; };
       swTab('t-stu'); await new Promise(r => setTimeout(r, 600));
       loadStuPanel('ux3-s1'); await new Promise(r => setTimeout(r, 900));
-      const out = { spSeg: low('.sp-seg button') };
+      const out = { spSeg: low('.sp-period .pl-chip') };   // feat/pl-tabs-2: 기간 고르기는 테두리 칩 한 줄
       swTab('t-data'); await new Promise(r => setTimeout(r, 700));
       out.seg = low('#t-data .seg button');
       swTab('t-dash'); await new Promise(r => setTimeout(r, 700));
