@@ -66,7 +66,7 @@ function parentAreaGrowth(sid){
           <span style="font-size:var(--fs-base);color:var(--text-muted);display:flex;align-items:center;gap:6px"><span class="pp-area-dot" style="background:${AREA_COLOR[a.label]||'var(--slate2)'}"></span>${a.label} <span style="font-size:var(--fs-sm);color:var(--slate2)">· ${a.basis}</span></span>
           <span style="display:flex;align-items:center;gap:6px"><span style="font-size:var(--fs-sm);font-weight:700;color:${s.t}">${s.l}</span><span style="font-size:var(--fs-lg);font-weight:700;color:${s.t};font-family:var(--fd)">${a.val}%</span></span>
         </div>
-        <div style="height:7px;background:var(--divider);border-radius:4px;overflow:hidden"><div style="width:${a.val}%;height:100%;background:${s.f};border-radius:4px;transition:width .5s"></div></div>
+        <div style="height:7px;background:var(--divider);border-radius:var(--r-ctl);overflow:hidden"><div style="width:${a.val}%;height:100%;background:${s.f};border-radius:var(--r-ctl);transition:width .5s"></div></div>
       </div>`;}).join('')}
     </div>
   </div>`;
@@ -197,7 +197,7 @@ function _pPrintOtherScores(sid,s,inScope){
 function lessonChips(rawCmt){
   if(!rawCmt||typeof getCmtChips!=='function')return '';
   const cfg=getCmtChips();
-  const mk=(arr,bg,col,ico)=>(arr||[]).filter(t=>t&&rawCmt.includes(t)).map(t=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-sm);font-weight:600;background:${bg};color:${col};padding:5px 11px;border-radius:11px">${ico||''}${t}</span>`);
+  const mk=(arr,bg,col,ico)=>(arr||[]).filter(t=>t&&rawCmt.includes(t)).map(t=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-sm);font-weight:600;background:${bg};color:${col};padding:5px 11px;border-radius:var(--r-chip)">${ico||''}${t}</span>`);
   const chips=[...mk(cfg.strength,'#D9F6E9','var(--okt)',luIcon('trending-up',12)),...mk(cfg.progress,'#F0F2F5','var(--text-muted)',''),...mk(cfg.improve,'#FEF0D5','var(--warnt)',luIcon('triangle-alert',11))];
   if(!chips.length)return '';
   return `<div style="padding:11px 16px;background:var(--bg);border-top:1px solid rgba(15,48,74,.06);display:flex;gap:8px;flex-wrap:wrap">${chips.join('')}</div>`;
@@ -245,13 +245,13 @@ function parentLessonList(les,showAll){
       <span style="font-size:var(--fs-md);font-weight:800;color:var(--text-muted)">${g.m?parseInt(g.m.slice(0,4))+'년 '+parseInt(g.m.slice(5,7))+'월':''}</span>
       <span style="font-size:var(--fs-md);color:var(--neutral)">수업 ${g.items.length}회</span>
     </div>
-    <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:14px;box-shadow:0 1px 4px rgba(15,48,74,.05);padding:2px 14px">
+    <div style="background:#fff;border:1px solid rgba(15,48,74,.07);border-radius:var(--r-chip);box-shadow:0 1px 4px rgba(15,48,74,.05);padding:2px 14px">
       ${g.items.map(_plRow).join('')}
     </div>
   </div>`).join('');
   const remain=les.length-1-rest.length;
   return `<div id="pl-wrap"><div style="display:flex;align-items:center;gap:6px;font-size:var(--fs-lg);font-weight:800;color:var(--navy);margin:6px 2px 11px">${luIcon('book-open',16,'color:var(--tealt)')}이전 수업 기록</div>${gs}
-  ${remain>0?`<button onclick="plShowAll()" style="width:100%;padding:11px;border:1.5px solid var(--border);border-radius:12px;background:#fff;font-size:var(--fs-base);font-weight:700;color:var(--text-muted);cursor:pointer;font-family:var(--fb)">이전 기록 ${remain}건 더 보기</button>`:''}</div>`;
+  ${remain>0?`<button onclick="plShowAll()" style="width:100%;padding:11px;border:1.5px solid var(--border);border-radius:var(--r-chip);background:#fff;font-size:var(--fs-base);font-weight:700;color:var(--text-muted);cursor:pointer;font-family:var(--fb)">이전 기록 ${remain}건 더 보기</button>`:''}</div>`;
 }
 function plShowAll(){
   const wrap=document.getElementById('pl-wrap');if(!wrap)return;
@@ -390,7 +390,7 @@ async function loadParent(sid){
   if(pendingCount)notifItems.push(`미완료 숙제 ${pendingCount}개`);
   // 줄·카드마다 바로 붙이지 않고 변수에 담았다가 아래에서 순서대로 놓는다 (2026-11-14):
   // 공지 → 새 업데이트 → 숙제 → 최근 수업 → 한 달 요약 → 단계 안내 → 이번 달 현황 → 이전 기록
-  const notifHtml=notifItems.length?`<div style="background:var(--bg),rgba(27,94,74,.15));border:1px solid rgba(27,94,74,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:var(--fs-md);font-weight:600;color:var(--tealt)">${luIcon('sparkles',14)||''} 새 업데이트: ${notifItems.join(' · ')}</div>`:'';
+  const notifHtml=notifItems.length?`<div style="background:var(--bg),rgba(27,94,74,.15));border:1px solid rgba(27,94,74,.3);border-radius:var(--r-card);padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:var(--fs-md);font-weight:600;color:var(--tealt)">${luIcon('sparkles',14)||''} 새 업데이트: ${notifItems.join(' · ')}</div>`:'';
   localStorage.setItem(lastVisitKey,todayIso);
 
   // ── 숙제 (수업 탭 맨 위) ─────────────────────────────────────
@@ -484,7 +484,7 @@ async function loadParent(sid){
     else if(lesChange>0)summary='꾸준히 나오며 잘 성장하고 있어요.';
     else if(avgScore!=null&&avgScore>=80)summary='이번 달도 안정적으로 잘 해주고 있어요.';
     else summary='이번 달도 성실하게 함께하고 있어요.';
-    heroHtml=`<div style="background:var(--bg);border:1px solid rgba(27,94,74,.18);border-radius:16px;padding:18px;margin-bottom:14px">
+    heroHtml=`<div style="background:var(--bg);border:1px solid rgba(27,94,74,.18);border-radius:var(--r-card-lg);padding:18px;margin-bottom:14px">
       <div style="font-size:var(--fs-base);color:var(--tealt);font-weight:700;margin-bottom:3px">${today.getMonth()+1}월 한 달, ${givenName}${josa(givenName)}</div>
       <div style="font-size:var(--fs-lg);font-weight:700;color:var(--text);line-height:1.55;margin-bottom:14px">${summary}</div>
       <div style="display:flex;gap:10px">
@@ -538,7 +538,7 @@ async function loadParent(sid){
           :''}`}
         <div style="margin-top:10px;display:flex;justify-content:flex-end">
           <button id="p-ack-btn" class="p-ack" onclick="parentAckLesson('${sid}','${latLes.id}')"
-            style="background:none;border:1.5px solid ${isAcked?'var(--okt)':'var(--border)'};border-radius:20px;padding:4px 12px;font-size:var(--fs-md);cursor:pointer;color:${isAcked?'var(--okt)':'var(--slate)'};font-family:var(--fb);display:flex;align-items:center;gap:4px">
+            style="background:none;border:1.5px solid ${isAcked?'var(--okt)':'var(--border)'};border-radius:var(--r-card-lg);padding:4px 12px;font-size:var(--fs-md);cursor:pointer;color:${isAcked?'var(--okt)':'var(--slate)'};font-family:var(--fb);display:flex;align-items:center;gap:4px">
             ${isAcked?'✓ 확인했습니다':'👍 확인했습니다'}
           </button>
         </div>
@@ -599,7 +599,7 @@ async function loadParent(sid){
           ${delta!=null?`<span style="font-size:var(--fs-md);font-weight:700;color:${delta>=0?'var(--okt)':'var(--warnt)'}">${delta>=0?'▲':'▼'}${Math.abs(delta)}</span>`:''}
         </span>
       </div>
-      <div style="height:7px;background:var(--divider);border-radius:4px;overflow:hidden"><div style="width:${p}%;height:100%;background:${s.f};border-radius:4px;transition:width .5s"></div></div>
+      <div style="height:7px;background:var(--divider);border-radius:var(--r-ctl);overflow:hidden"><div style="width:${p}%;height:100%;background:${s.f};border-radius:var(--r-ctl);transition:width .5s"></div></div>
     </div>`;};
     secScore+=`<div class="card" id="pp-sec-score">
       <div class="ch"><span class="ct">${luIcon('file-text',16)}최근 테스트</span><span class="mono" class="p-dim">${(()=>{
@@ -608,7 +608,7 @@ async function loadParent(sid){
         return (latTst.date||'')+' · '+kind+(st&&st.k!=='none'?' · '+(st.labelP||st.label):'');
       })()}</span></div>
       <div class="cb" style="padding:14px 18px">
-        <div style="background:var(--bg);border:1px solid rgba(27,94,74,.18);border-radius:14px;padding:15px 16px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between">
+        <div style="background:var(--bg);border:1px solid rgba(27,94,74,.18);border-radius:var(--r-chip);padding:15px 16px;margin-bottom:15px;display:flex;align-items:center;justify-content:space-between">
           <div><div style="font-size:var(--fs-base);color:var(--tealt);font-weight:700">최근 단어 테스트</div><div style="font-size:var(--fs-sm);color:var(--text-muted);margin-top:2px">${latTst.date||''}</div></div>
           <div style="text-align:right"><div style="font-size:30px;font-weight:800;color:var(--tealt);line-height:1;font-family:var(--fd)">${vp}<span style="font-size:var(--fs-lg)">%</span></div>${vChange!=null?`<div style="font-size:var(--fs-md);font-weight:700;color:${vChange>=0?'var(--okt)':'var(--warnt)'};margin-top:3px">${vChange>=0?'▲':'▼'} ${Math.abs(vChange)}</div>`:''}</div>
         </div>
@@ -687,7 +687,7 @@ async function loadParent(sid){
     let statsRow='';
     if(showStats){
       // 작은 글이 rgba(0,0,0,.3)(2.2:1) 이라 읽히지 않았다 — 토큰 색으로 올렸다 (2026-11-14)
-      const statItem=(val,lbl,sub)=>`<div style="flex:1;text-align:center;padding:8px 6px;background:rgba(27,94,74,.06);border-radius:8px"><div style="font-size:var(--fs-2xl);font-weight:700;color:var(--teal)">${val}</div><div style="font-size:var(--fs-sm);color:var(--text-muted);margin-top:2px">${lbl}</div>${sub?`<div style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:1px;line-height:1.35">${sub}</div>`:''}</div>`;
+      const statItem=(val,lbl,sub)=>`<div style="flex:1;text-align:center;padding:8px 6px;background:rgba(27,94,74,.06);border-radius:var(--r-card)"><div style="font-size:var(--fs-2xl);font-weight:700;color:var(--teal)">${val}</div><div style="font-size:var(--fs-sm);color:var(--text-muted);margin-top:2px">${lbl}</div>${sub?`<div style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:1px;line-height:1.35">${sub}</div>`:''}</div>`;
       const items=[];
       if(totalVocab>0)items.push(statItem(masteredVocab,'단어 마스터',totalVocab+'개 중 · 세 번 맞힌 단어'));
       if(rds.length>0)items.push(statItem(booksThisMonth,'이번 달 독서',rds.filter(r=>(r.date||'').startsWith(lastMonthStr)&&(r.date||'').slice(8,10)<=_dayNow).length+'권 · 지난달 이맘때'));
@@ -826,7 +826,7 @@ async function loadParent(sid){
       <div style="font-size:34px;margin-bottom:10px">${luIcon('message-circle',15)||''}</div>
       <div style="font-size:var(--fs-lg);font-weight:800;color:var(--navy);margin-bottom:6px">선생님께 문의하기</div>
       <div style="font-size:var(--fs-base);color:var(--slate);line-height:1.7;margin-bottom:18px">${(DB.kakao().openchat||DB.kakao().phone)?"수업·숙제·결제 등 궁금한 점이 있으면<br>카카오톡으로 편하게 물어보세요.":"카카오톡 문의가 아직 준비되지 않았습니다.<br>선생님에게 연락처를 확인해 주세요."}</div>
-      ${(DB.kakao().openchat||DB.kakao().phone)?`<button onclick="openParentMsgModal('${sid}')" style="width:100%;padding:13px;background:#FEE500;border:none;border-radius:12px;font-family:var(--fb);font-size:var(--fs-lg);font-weight:800;cursor:pointer;color:#3C1E1E">💬 카카오톡으로 질문하기</button>`:""}
+      ${(DB.kakao().openchat||DB.kakao().phone)?`<button onclick="openParentMsgModal('${sid}')" style="width:100%;padding:13px;background:#FEE500;border:none;border-radius:var(--r-chip);font-family:var(--fb);font-size:var(--fs-lg);font-weight:800;cursor:pointer;color:#3C1E1E">💬 카카오톡으로 질문하기</button>`:""}
     </div></div>`;
 
   // 점수 탭 빈 상태 — 네 블록(자체·내신·모의고사·NELT)이 모두 비었을 때만 (PARENT_SCORES_PLAN 3-4)
@@ -904,7 +904,7 @@ function ppFindLib(rd,src){
 // 원서 표지 — 목록 초기 렌더와 '더보기' 렌더가 같은 마크업을 쓰도록 한 곳에서 생성
 // (표지 없거나 이미지가 깨지면 📗로 대체)
 function ppBookCover(lib){
-  const box='width:36px;height:48px;border-radius:5px;overflow:hidden;flex-shrink:0;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:var(--fs-xl)';
+  const box='width:36px;height:48px;border-radius:var(--r-ctl);overflow:hidden;flex-shrink:0;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:var(--fs-xl)';
   const url=lib&&lib.coverUrl;
   return `<div style="${box}">${url
     ?`<img src="${url}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.replaceWith(document.createTextNode('📗'))">`
@@ -1297,7 +1297,7 @@ async function ppPaperCard(sid){
       const v=last.bySkill[k],p=pc(v[0],v[1]);
       return '<div style="display:flex;align-items:center;gap:8px;font-size:var(--fs-md)">'+
         '<span style="width:40px;color:var(--text-muted)">'+(PP_SKILL_N[k]||k)+'</span>'+
-        '<span style="flex:1;height:8px;border-radius:5px;background:rgba(0,0,0,.07);overflow:hidden">'+
+        '<span style="flex:1;height:8px;border-radius:var(--r-ctl);background:rgba(0,0,0,.07);overflow:hidden">'+
         '<span style="display:block;height:100%;width:'+p+'%;background:'+(p>=70?'var(--ok)':p>=50?'var(--accent)':'var(--warn)')+'"></span></span>'+
         '<span style="width:42px;text-align:right;font-weight:700;color:var(--navy)">'+p+'%</span></div>';
     }).join('')+'</div>'):'')+

@@ -268,8 +268,8 @@ const CONTRAST = (sel) => {
     const r6 = await page.evaluate(() => {
       const k = document.querySelector('.pg-cal-card .pg-key-line');
       return { txt: k ? k.innerText.replace(/\s+/g, ' ').trim() : '',
-        sw: k ? k.querySelectorAll('.pp-sw,.pg-ly-sw').length : 0,
-        lyIco: [...document.querySelectorAll('.pg-ly-b .pg-ly-sw')].length,
+        sw: k ? k.querySelectorAll('.pp-sw,.pg-ly-sw,svg.pg-hwsw').length : 0,   // (fix/ux-5) 숙제 그림은 체크 네모와 줄 svg
+        lyIco: [...document.querySelectorAll('.pg-ly-b .pg-ly-sw,.pg-ly-b svg.pg-hwsw')].length,
         emoji: [...document.querySelectorAll('.pg-ly-b')].filter(b => /[📘📕🎮]/.test(b.textContent)).length };
     });
     ok('[3] 늘 보이는 한 줄 (채운 알약 · 점선 알약 · 체크 줄)',
