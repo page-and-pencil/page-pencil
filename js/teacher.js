@@ -173,6 +173,30 @@ function updateApiKeyStatusDot(){
   else if(k==='proxy'){dot.style.color='var(--okt)';dot.textContent='● 서버 키 사용 중';}
   else{dot.style.color='#b8860b';dot.textContent='● 저장됨';}
 }
+// ── [3] 설정 묶음 셋 — 한 화면이 3,938px 이라 고른 묶음만 보인다 (2026-11-15) ──
+const CFG_GROUPS={ops:'수업 운영',face:'학생·학부모에게 보이는 것',adv:'연결·고급'};
+let _cfgGroup='ops';
+function cfgGroup(g){
+  if(!CFG_GROUPS[g])g='ops';
+  _cfgGroup=g;
+  Object.keys(CFG_GROUPS).forEach(k=>{
+    const host=document.getElementById('cfg-g-'+k);if(!host)return;
+    // 카드는 마크업 자리에서 묶음 칸으로 한 번만 옮긴다 (id·onclick 은 그대로)
+    const items=Array.prototype.slice.call(document.querySelectorAll('#t-cfg [data-cg="'+k+'"]'))
+      .sort((a,b)=>(+a.dataset.cgo||0)-(+b.dataset.cgo||0));
+    items.forEach(el=>{if(el.parentNode!==host)host.appendChild(el);});
+    host.style.display=(k===g)?'':'none';
+    const b=document.getElementById('cfgg-'+k);if(b)b.classList.toggle('on',k===g);
+  });
+}
+// 설정 안의 한 칸으로 가는 길 — 그 칸이 든 묶음을 먼저 연다
+function cfgGoto(id){
+  swTab('t-cfg');
+  const el=document.getElementById(id);
+  const card=el?el.closest('[data-cg]'):null;
+  cfgGroup(card?card.dataset.cg:'ops');
+  setTimeout(()=>{try{(card||el).scrollIntoView({block:'center',behavior:'smooth'});}catch(e){}},80);
+}
 // ── 로그인 방식 표시 (서버 이전 병행 기간) ──
 // 선생님이 '지금 어느 쪽으로 로그인돼 있는지' 를 한 줄로 본다. 병행이 끝나면 지워도 되는 줄이다.
 function updateAuthModeRow(){
@@ -185,7 +209,7 @@ function updateAuthModeRow(){
     : chip('예전 방식(폴백)','var(--warnt)','var(--warnl)'))
     +'<span style="color:var(--slate2)">'+(on&&role==='teacher'
       ? '토큰으로 접속 중입니다.'
-      : '아직 비밀번호 대조로 들어와 있습니다 — supabase/auth_teacher_setup.md 참고')+'</span>';
+      : '서버 로그인으로 바꾸는 중 — 지금은 예전 방식으로도 들어올 수 있어요')+'</span>';
 }
 // ── ElevenLabs 음성 설정 ──
 function updateElevenDot(){
@@ -395,8 +419,31 @@ function swTab(id){
     renderLibTable();populateLibSeriesFilter();
     const qrSel=document.getElementById('qr-stu-sel');
     if(qrSel){const opts='<option value="">-- 선택 --</option>'+DB.stus().filter(s=>!s.inactive).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');qrSel.innerHTML=opts;}
+    renderSettingsWhatsNew();
+    cfgGroup(_cfgGroup);
   }
+  try{ppNavShow(id);}catch(e){}
 }
+// ── [6] 폰의 위 메뉴 띠 — 더 밀 수 있음을 흐린 끝으로 알리고, 고른 탭을 띠 안으로 민다 ──
+// 390px 에서 여덟 칸 가운데 넷만 보이는데 밀 수 있다는 표시가 없었다 (2026-11-15).
+function ppNavFade(){
+  const bar=document.querySelector('#s-teacher .t-sidebar');if(!bar)return;
+  bar.classList.toggle('nav-more',bar.scrollWidth-bar.clientWidth-bar.scrollLeft>4);
+}
+function ppNavShow(id){
+  const bar=document.querySelector('#s-teacher .t-sidebar');if(!bar)return;
+  const b=bar.querySelector('.ntab[data-tab="'+id+'"]');
+  if(b&&bar.scrollWidth>bar.clientWidth+2){
+    bar.scrollLeft=Math.max(0,b.offsetLeft-Math.max(0,(bar.clientWidth-b.offsetWidth)/2));
+  }
+  ppNavFade();
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  const bar=document.querySelector('#s-teacher .t-sidebar');
+  if(bar)bar.addEventListener('scroll',ppNavFade,{passive:true});
+  window.addEventListener('resize',ppNavFade);
+  setTimeout(ppNavFade,400);
+});
 
 
 // ── INIT ──
@@ -430,6 +477,9 @@ async function initApp(){
   });
   _safe('updateApiKeyStatusDot',()=>updateApiKeyStatusDot());
   _safe('updateKakaoStatusDot',()=>updateKakaoStatusDot());
+  _safe('dtGroup',()=>dtGroup(_dtGroupOf(_dataTab),true));  // 교재·문제 탭 줄을 묶음 하나로 (2026-11-15)
+  _safe('cfgGroup',()=>cfgGroup(_cfgGroup));                // 설정 카드를 묶음 칸으로 옮긴다
+  _safe('renderSettingsWhatsNew',()=>renderSettingsWhatsNew());
   const kk=DB.kakao();
   if(kk.phone){const ph=document.getElementById('cfg-kakao-phone');if(ph)ph.value=kk.phone;}
   if(kk.openchat){const oc=document.getElementById('cfg-kakao-openchat');if(oc)oc.value=kk.openchat;}
@@ -572,7 +622,7 @@ function _injectPreviewBar(label){
   bar.id='_teacher-preview-bar';
   const sb=(typeof ppSandbox==='function')&&ppSandbox();
   bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:'+(sb?'#1E7A4D':'var(--text)')+';color:#fff;padding:9px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;font-family:var(--fb);box-shadow:0 2px 8px rgba(0,0,0,.25)';
-  bar.innerHTML=`<span style="opacity:.92;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sb?'🧪':'👁'} ${label}${sb?' <b>· 체험 모드</b> — 저장되지 않아요':''}</span><button onclick="returnToTeacher()" style="flex:0 0 auto;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);color:#fff;padding:5px 14px;border-radius:20px;cursor:pointer;font-size:13px;font-family:var(--fb);font-weight:700">← 선생님 뷰로</button>`;
+  bar.innerHTML=`<span style="opacity:.92;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sb?'🧪':'👁'} ${label}${sb?' <b>· 체험 모드</b>(저장 안 됨)':''}</span><button onclick="returnToTeacher()" style="flex:0 0 auto;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);color:#fff;padding:5px 14px;border-radius:20px;cursor:pointer;font-size:13px;font-family:var(--fb);font-weight:700">← 선생님 뷰로</button>`;
   document.body.appendChild(bar);
 }
 // 학생·학부모 화면 미리보기는 항상 체험 모드로 들어간다 (2026-11-08 원장 지시).
@@ -6976,6 +7026,8 @@ function clearColF(key){
 // 새 기능이 어디 있는지 알려 주는 곳이 없었다. 선생님 눈에 보이는 기능을 더하거나 옮기면
 // 여기에 한 줄을 넣는다(공통 규칙). go 는 [함수 이름, 인자…] — 실제로 있는 함수여야 한다.
 const PP_WHATSNEW=[
+ {date:'2026-11-15',title:'대시보드 — 오늘 수업과 바로 할 일이 맨 위로',where:'대시보드',tab:'t-dash',go:['swTab','t-dash']},
+ {date:'2026-11-15',title:'교재·문제 — 탭을 자료·만들기·관리 세 묶음으로',where:'교재·문제',tab:'t-data',go:['switchDataTab','library']},
  {date:'2026-11-14',title:'학생·학부모 화면 정리 — 학부모는 숙제가 맨 위, 학생은 도장 중심',where:'학생·학부모 앱',tab:'t-stu',go:['swTab','t-stu']},
  {date:'2026-11-14',title:'수업 기록 — [저장하기] 가 늘 보여요',where:'클래스 → 수업 기록',tab:'t-class',go:['swTab','t-class']},
  {date:'2026-11-14',title:'공지 — 보이는 기간을 정할 수 있어요(휴강 안내는 2주 전부터)',where:'대시보드 → 공지 빠른 등록',tab:'t-dash',go:['swTab','t-dash']},
@@ -7044,36 +7096,88 @@ function wnDot(title){
   if((now-d)/86400000>14)return '';
   return '<i class="wn-dot" title="새로 생긴 기능"></i>';
 }
+// 대시보드 맨 아래 접힌 한 줄 — 배포마다 늘어나는 목록이라 가운데 자리를 차지하지 않게 한다
+// (전에는 숫자 카드 바로 아래 가운데에서 '오늘의 수업' 을 895px 까지 밀어내고 있었다)
 function renderWhatsNew(){
   const el=document.getElementById('dash-whatsnew');if(!el)return;
   const list=PP_WHATSNEW.filter(wnIsNew);
   if(!list.length){el.innerHTML='';return;}
-  el.innerHTML='<div class="card wn-card"><div class="ch"><span class="ct">'+(luIcon('sparkles',16)||'✨')+' 새로 생긴 것 <b style="color:var(--teal)">'+list.length+'개</b></span>'
-    +'<button class="btn bo bxxs" onclick="wnMarkAll()">모두 확인</button></div>'
-    +'<div class="cb wn-body">'+list.slice(0,6).map(x=>{
+  el.innerHTML='<details class="dash-fold wn-fold" id="wn-fold"'
+    +' ontoggle="const o=this.querySelector(\'.wn-sum-o\');if(o)o.textContent=this.open?\'접기\':\'펼치기\'">'
+    +'<summary class="dash-fold-sum"><span class="wn-sum-t">'+(luIcon('sparkles',16)||'✨')+' 새로 생긴 것 <b>'+list.length+'개</b>'
+    +'<em class="wn-sum-o">펼치기</em></span>'
+    +'<button class="btn bo bxxs wn-all" onclick="event.preventDefault();event.stopPropagation();wnMarkAll()">모두 확인</button></summary>'
+    +'<div class="wn-body">'+list.slice(0,6).map(x=>{
       const i=PP_WHATSNEW.indexOf(x);
       return '<div class="wn-row"><span class="wn-d">'+_ebE(x.date.slice(5).replace('-','/'))+'</span>'
         +'<span class="wn-t"><b>'+_ebE(x.title)+'</b><em>'+_ebE(x.where||'')+'</em></span>'
         +'<button class="btn bt bxxs" onclick="wnGo('+i+')">가 보기</button>'
         +'<button class="btn bo bxxs" title="이 줄은 접어 두기" onclick="wnMark(\''+escJsA(wnKeyOf(x))+'\');renderWhatsNew()">✓</button></div>';
     }).join('')
-    +(list.length>6?'<div class="wn-more">외 '+(list.length-6)+'개 · 설정에서 전체 보기</div>':'')
-    +'</div></div>';
+    +(list.length>6?'<div class="wn-more">외 '+(list.length-6)+'개 · <button class="btn bo bxxs" onclick="cfgGoto(\'cfg-whatsnew\')">설정에서 전체 보기</button></div>':'')
+    +'</div></details>';
   try{lucide.createIcons();}catch(e){}
 }
+let _wnAllRows=false;
+function wnShowAllRows(){_wnAllRows=true;renderSettingsWhatsNew();}
 function renderSettingsWhatsNew(){
   const el=document.getElementById('cfg-whatsnew');if(!el)return;
-  el.innerHTML=PP_WHATSNEW.map((x,i)=>'<div class="wn-row"><span class="wn-d">'+_ebE(x.date)+'</span>'
+  // 이 칸은 설정 탭을 열 때마다 그린다 — 전에는 [모두 확인] 을 누를 때만 그려서
+  // 설정의 '새로 생긴 것' 카드가 머리만 있고 속이 빈 채로 보였다
+  if(!PP_WHATSNEW.length){el.innerHTML='<div class="eb-empty" style="padding:12px">모두 확인했어요</div>';return;}
+  const newN=PP_WHATSNEW.filter(wnIsNew).length;
+  el.innerHTML='<div style="font-size:12.5px;color:var(--text-muted);margin:2px 0 8px">'
+    +(newN?('아직 안 본 것 '+newN+'개'):'모두 확인했어요')+' · 모두 '+PP_WHATSNEW.length+'개</div>'
+    +PP_WHATSNEW.map((x,i)=>({x,i})).slice(0,_wnAllRows?PP_WHATSNEW.length:12)
+    .map(({x,i})=>'<div class="wn-row"><span class="wn-d">'+_ebE(x.date)+'</span>'
     +'<span class="wn-t"><b>'+_ebE(x.title)+'</b><em>'+_ebE(x.where||'')+'</em></span>'
     +'<button class="btn bo bxxs" onclick="wnGo('+i+')">가 보기</button></div>').join('')
+    +(!_wnAllRows&&PP_WHATSNEW.length>12
+      ?'<div style="margin-top:6px"><button class="btn bo bsm" onclick="wnShowAllRows()">더 보기 ('+(PP_WHATSNEW.length-12)+'개)</button></div>':'')
     +'<div style="margin-top:8px"><button class="btn bo bsm" onclick="wnMarkAll()">모두 확인으로 표시</button></div>';
 }
 
 // ── 자료 DB 통합 탭 ──
+// 하위 탭 13개가 한 줄이라 1366px 에서 끝의 셋이 화면 밖이었다 (2026-11-15).
+// 윗줄에서 묶음을 고르고, 아랫줄에는 그 묶음의 탭만 보인다. switchDataTab 으로 바로 가면
+// (가 보기·검색·마법사) 맞는 묶음이 함께 골라진다.
+const DT_GROUPS={res:['library','tbook','lib','word','bank'],
+                 mk:['make','items','paper','iso','kit','ws'],
+                 adm:['exam','master']};
+let _dtGroup='res';
+function _dtGroupOf(tab){
+  if(tab==='stage')tab='library';   // 수준표는 라이브러리로 합쳐졌다
+  if(tab==='book')tab='tbook';
+  for(const g in DT_GROUPS)if(DT_GROUPS[g].indexOf(tab)>=0)return g;
+  return 'res';
+}
+// 빨간 점은 닫힌 묶음 단추에 하나 — 그 묶음을 열면 탭마다 보인다
+function _dtPaintDots(){
+  Object.keys(DT_GROUPS).forEach(k=>{
+    const b=document.getElementById('dtg-'+k);if(!b)return;
+    const has=DT_GROUPS[k].some(t=>{const tb=document.getElementById('dtab-'+t);return tb&&tb.querySelector('.wn-dot');});
+    let d=b.querySelector('.wn-dot');
+    if(has&&!d){d=document.createElement('i');d.className='wn-dot';b.appendChild(d);}
+    if(d)d.style.display=(has&&k!==_dtGroup)?'':'none';
+  });
+}
+function dtGroup(g,keepTab){
+  if(!DT_GROUPS[g])g='res';
+  _dtGroup=g;
+  Object.keys(DT_GROUPS).forEach(k=>{
+    const b=document.getElementById('dtg-'+k);if(b)b.classList.toggle('on',k===g);
+  });
+  document.querySelectorAll('#t-data .dtabs [data-dtg]').forEach(b=>{
+    b.style.display=(b.dataset.dtg===g)?'':'none';
+  });
+  _dtPaintDots();
+  if(!keepTab&&DT_GROUPS[g].indexOf(_dataTab)<0)switchDataTab(DT_GROUPS[g][0]);
+}
 let _dataTab='tbook';
 function switchDataTab(tab){
   if(tab==='book')tab='tbook'; // 구 통합 키 호환
   _dataTab=tab;
+  dtGroup(_dtGroupOf(tab),true);
   ['master','book','word','ws','exam','bank','iso','items','stage','make','library'].forEach(id=>{const p=document.getElementById('dp-'+id);if(p)p.style.display='none';});
   // 탭 버튼 스타일 초기화
   ['master','tbook','lib','word','ws','exam','bank','iso','items','stage','paper','kit','make','library'].forEach(t=>{const b=document.getElementById('dtab-'+t);if(b){b.style.color='var(--slate)';b.style.borderBottomColor='transparent';b.style.fontWeight='600';}});
@@ -10519,7 +10623,7 @@ function renderDashWeekHeat(stus,todayStr){
   const cellHtml=c=>{
     if(!c.total)return'<td style="padding:3px"><div style="height:26px;border-radius:7px;background:var(--cream2)"></div></td>';
     const pct=c.done/c.total;
-    const bg=pct===1?'var(--ok)':pct>0?'#7DD8C8':'#FDE1B8';
+    const bg=pct===1?'var(--okt)':pct>0?'#7DD8C8':'#FDE1B8';  // --ok 위의 흰 글자는 3.4:1 이었다
     const fg=pct===1?'#fff':'var(--navy)';
     return'<td style="padding:3px"><div title="완료 '+c.done+' / '+c.total+'" style="height:26px;border-radius:7px;background:'+bg+';color:'+fg+';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">'+c.done+'/'+c.total+'</div></td>';
   };
@@ -10842,7 +10946,8 @@ function renderDashCal(){
   const lesDates=new Set(monthLes.filter(l=>l.att!=='absent'&&l.att!=='makeup').map(l=>l.date));
   const offDates=new Set(monthLes.filter(l=>l.att==='absent'||l.att==='makeup').map(l=>l.date));
   const DAYS=['일','월','화','수','목','금','토'];
-  let cells=DAYS.map((d,i)=>`<div style="text-align:center;font-size:11.5px;font-weight:700;color:${i===0?'#E05B4F':i===6?'var(--neutral)':'var(--neutral)'};padding:3px 0">${d}</div>`).join('');
+  // 일요일 #E05B4F 는 3.6:1, 수업 없는 날 #C8D0D8 은 1.6:1 이었다 (2026-11-15)
+  let cells=DAYS.map((d,i)=>`<div style="text-align:center;font-size:11.5px;font-weight:700;color:${i===0?'var(--badt)':'var(--neutral)'};padding:3px 0">${d}</div>`).join('');
   for(let i=0;i<startDow;i++)cells+='<div></div>';
   for(let d=1;d<=daysInMonth;d++){
     const ds=`${y}-${mPad}-${String(d).padStart(2,'0')}`;
@@ -10850,7 +10955,7 @@ function renderDashCal(){
     if(ds===todayStr)st+='background:var(--accent);color:#fff;font-weight:700;box-shadow:0 2px 6px rgba(27,94,74,.35);';
     else if(lesDates.has(ds))st+='background:var(--tl);color:var(--tealt);font-weight:700;';
     else if(offDates.has(ds))st+='background:var(--warnl);color:var(--warnt);font-weight:700;';
-    else st+='color:#C8D0D8;';
+    else st+='color:var(--text-muted);';
     cells+=`<div style="${st}">${d}</div>`;
   }
   el.innerHTML=`<div class="card" style="padding:16px 18px;margin-bottom:0">
@@ -11071,7 +11176,7 @@ function renderDashChallenge(stus){
     const p=(typeof hwChallengeProgress==='function')?hwChallengeProgress(s):null;
     if(!p)return;
     if(p.pendingGifts>0){
-      rows.push(`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--warnl);border:2px solid var(--warn);border-radius:var(--rs);padding:12px 14px;margin-top:10px">
+      rows.push(`<div class="dash-hwch-gift">
         <span style="font-size:22px">🎉</span>
         <div style="flex:1;min-width:180px">
           <div style="font-size:14.5px;font-weight:800;color:var(--warnt)">${escAttr(s.name)} — 도장판 ${p.rounds}개 완성! (전달할 선물 ${p.pendingGifts}개)</div>
@@ -11080,9 +11185,11 @@ function renderDashChallenge(stus){
         <button class="btn bt bsm" onclick="dashChallengeComplete('${s.id}')">🎁 선물 전달 완료</button>
       </div>`);
     }else{
-      rows.push(`<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--slate);margin-top:8px;padding:7px 12px;background:var(--cream2);border-radius:var(--rs)">
-        🎁 <b style="color:var(--navy)">${escAttr(s.name)}</b> 도장 챌린지 <b style="color:var(--warnt)">${p.count}/${p.goal}</b>
-        <span style="font-size:12px">(시작 ${p.start} · 오늘 도장 ${p.todayStamp?'✅':'아직'})</span>
+      // 390px 에서 '나/연', '도장 챌린/지' 로 꺾였다 — 낱말 단위로만 넘기고(.dash-hwch-row)
+      // 작은 글은 좁은 화면에서 아랫줄로 내린다
+      rows.push(`<div class="dash-hwch-row">
+        <span class="dhw-m">🎁 <b>${escAttr(s.name)}</b> 도장 챌린지 <b class="dhw-n">${p.count}/${p.goal}</b></span>
+        <span class="dhw-s">시작 ${p.start} · 오늘 도장 ${p.todayStamp?'✅':'아직'}</span>
       </div>`);
     }
   });
@@ -11138,6 +11245,26 @@ function renderDashGreet(dateLabel,todayCount){
   el.innerHTML=`<h1 style="font-size:23px;font-weight:800;letter-spacing:-.02em;color:var(--navy);margin:0">${hello}</h1>
     <div style="font-size:14px;color:var(--slate);margin-top:3px">${dateLabel} · 오늘 수업 ${todayCount}개</div>`;
 }
+// 수업이 없는 날 보여 줄 '다음 수업' — 오늘 다음 60일에서 첫 수업일을 찾는다
+function _dashNextClass(fromStr){
+  const DAYS=['일','월','화','수','목','금','토'];
+  const cs=DB.classes().filter(c=>c.active!==false);
+  if(!cs.length)return null;
+  for(let i=1;i<=60;i++){
+    const d=new Date(fromStr+'T12:00:00');d.setDate(d.getDate()+i);
+    const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const dk=DAYS[d.getDay()];
+    const hit=cs.filter(c=>((c.days||[]).includes(dk)||(c.extraDates||[]).includes(ds))&&!(c.skipDates||[]).includes(ds));
+    if(hit.length)return {date:ds,dk,names:hit.map(c=>c.name||'반')};
+  }
+  return null;
+}
+function _dashNextClassLine(fromStr){
+  const n=_dashNextClass(fromStr||ppToday());
+  if(!n)return '예정된 다음 수업이 없어요';
+  return '다음 수업 '+n.date.slice(5).replace('-','/')+'('+n.dk+') · '
+    +n.names.slice(0,3).join(' · ')+(n.names.length>3?(' 외 '+(n.names.length-3)+'반'):'');
+}
 function renderDashStats(recordedToday,totalToday,uncheckedTotal,unpaidCount,studentCount){
   const el=document.getElementById('dash-stats');if(!el)return;
   const pctToday=totalToday?Math.round(recordedToday/totalToday*100):0;
@@ -11147,8 +11274,12 @@ function renderDashStats(recordedToday,totalToday,uncheckedTotal,unpaidCount,stu
     ${sub||''}
   </div>`;
   el.innerHTML=
-    card('오늘 수업',luIcon('calendar-check',16),'',recordedToday,`/ ${totalToday} 기록`,
-      `<div class="dash-stat-sub"><div class="dash-bar-bg" style="margin-top:2px"><div class="dash-bar-fill" style="width:${pctToday}%"></div></div></div>`)
+    (totalToday
+      // 수업이 없는 날 '0 / 0 기록' 은 아무 말도 하지 않는다 — 다음 수업을 적는다
+      ? card('오늘 수업',luIcon('calendar-check',16),'',recordedToday,`/ ${totalToday} 기록`,
+          `<div class="dash-stat-sub"><div class="dash-bar-bg" style="margin-top:2px"><div class="dash-bar-fill" style="width:${pctToday}%"></div></div></div>`)
+      : card('오늘 수업',luIcon('calendar-check',16),'','없음','',
+          `<div class="dash-stat-sub" style="word-break:keep-all">${escAttr(_dashNextClassLine(ppToday()))}</div>`))
     +card('미확인 과제',luIcon('inbox',16),uncheckedTotal?'st-amber':'',uncheckedTotal,'건',
       `<div class="dash-stat-sub" style="color:${uncheckedTotal?'var(--warnt)':'var(--slate)'}">${uncheckedTotal?'제출 확인이 필요해요':'모두 확인됨'}</div>`)
     +card('이번 달 미납',luIcon('wallet',16),unpaidCount?'st-amber':'',unpaidCount,'명',
@@ -11162,9 +11293,11 @@ function renderDashToday(dateLabel,todayClasses,todayStr,allStus){
   const _dayK=['일','월','화','수','목','금','토'][new Date(todayStr+'T12:00:00').getDay()];
   const _skipToday=DB.classes().filter(c=>c.active!==false&&(c.days||[]).includes(_dayK)&&(c.skipDates||[]).includes(todayStr));
   if(!todayClasses.length&&_skipToday.length){
-    body=`<div style="font-size:14px;color:var(--navy)">${luIcon('calendar-off',15)||'🚫'} 오늘은 <b>${_skipToday.map(c=>c.name||'반').join(' · ')}</b> 휴강입니다<div style="font-size:12.5px;color:var(--slate);margin-top:3px">쉬는 날로 등록돼 있어요 — 수업 기록은 받지 않습니다</div></div>`;
+    body=`<div style="font-size:14px;color:var(--navy);word-break:keep-all">${luIcon('calendar-off',15)||'🚫'} 오늘은 <b>${_skipToday.map(c=>c.name||'반').join(' · ')}</b> 휴강입니다<div style="font-size:12.5px;color:var(--slate);margin-top:3px">쉬는 날로 등록돼 있어요 — 수업 기록은 받지 않습니다</div><div style="font-size:13px;color:var(--navy);margin-top:5px">${escAttr(_dashNextClassLine(ppToday()))}</div></div>`;
   } else if(!todayClasses.length){
-    body=`<div style="color:var(--slate);font-size:14px">오늘 수업 없음 — <span style="color:var(--teal);cursor:pointer;text-decoration:underline" onclick="swTab('t-class')">클래스 만들기</span></div>`;
+    body=`<div style="font-size:14px;color:var(--navy);word-break:keep-all">오늘 수업 없음
+      <div style="font-size:13px;color:var(--slate);margin-top:4px">${escAttr(_dashNextClassLine(ppToday()))}</div>
+      <div style="margin-top:6px"><span style="font-size:13px;color:var(--teal);cursor:pointer;text-decoration:underline" onclick="swTab('t-class')">클래스 만들기</span></div></div>`;
   } else {
     const todayLessonSids=new Set(DB.less().filter(l=>l.date===todayStr).map(l=>l.sid));
     const nowHM=new Date().toTimeString().slice(0,5);
@@ -11585,7 +11718,7 @@ function renderDashMonthly(thisLes,lastLes,thisAvg,lastAvg,thisRds,totalRds,feeT
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px">
         <span>결제</span>
         <span style="font-weight:700">
-          <span style="color:var(--okt)">완납 ${paidCount}명</span><span style="color:var(--slate);font-weight:400"> / </span><span style="color:var(--coral)">미납 ${unpaidCount}명</span><span style="color:var(--slate);font-weight:400;margin-left:6px">· ${totalIncome.toLocaleString()}원</span>
+          <span style="color:var(--okt)">완납 ${paidCount}명</span><span style="color:var(--slate);font-weight:400"> / </span><span style="color:var(--badt)">미납 ${unpaidCount}명</span><span style="color:var(--slate);font-weight:400;margin-left:6px">· ${totalIncome.toLocaleString()}원</span>
         </span>
       </div>`:'';
   el.innerHTML=`<div class="card">
@@ -12703,12 +12836,31 @@ function renderAssignLive(){
   else if(_alFilter==='late')show=live.filter(x=>x.st.overdueRows14>0);
   const nameOf=sid=>{const s2=DB.stus().find(x=>x.id===sid);return s2?s2.name:'';};
   const multi=new Set(rows.map(x=>x.a.sid)).size>1;
-  const line=x=>{
-    const a=x.a,st=x.st;
-    // 짧은 이름은 **교재형 숙제에만** — '리딩앤 원서 읽기' 가 '읽기' 로 줄던 것
-    const sh=((typeof hwIsBookFlow==='function'&&hwIsBookFlow(a))
+  // 짧은 이름은 **교재형 숙제에만** — '리딩앤 원서 읽기' 가 '읽기' 로 줄던 것
+  const _shOf=a=>((typeof hwIsBookFlow==='function'&&hwIsBookFlow(a))
       ?(pgShortTitle('',a.bookTitle||'',a.bookId||'')||a.bookTitle||'')
       :'')||a.bookTitle||a.text||a.range||'과제';
+  // 이름이 같은 과제가 둘 이상이면 이름 아래 작은 글로 가른다 ('클래스5' 두 줄이 구분되지 않았다)
+  const _same={};rows.forEach(x=>{const k=x.a.sid+'|'+_shOf(x.a);_same[k]=(_same[k]||0)+1;});
+  const _subOf=(a,st,sh)=>{
+    const bits=[];
+    const bk=String(a.bookTitle||'').trim();
+    if(bk&&bk!==sh)bits.push(bk);
+    const rg=String(a.range||a.unit||'').trim();
+    if(rg&&rg!==sh&&bits.indexOf(rg)<0)bits.push(rg);
+    if(!bits.length){
+      const sch=_hwSchedOf(a)||[];
+      const d=v=>String(v||'').slice(5).replace('-','/');
+      const f=(sch.find(r=>r&&r.date)||{}).date||a.date||'';
+      if(f)bits.push(d(f)+' 시작');
+      if(st.lastDate)bits.push('~'+d(st.lastDate));
+    }
+    return bits.join(' · ');
+  };
+  const line=x=>{
+    const a=x.a,st=x.st;
+    const sh=_shOf(a);
+    const sub=(_same[a.sid+'|'+sh]||0)>1?_subOf(a,st,sh):'';
     const pr=_alProgress(a,st);
     const pct=pr.total?Math.round(pr.done/pr.total*100):0;
     const sch=_hwSchedOf(a)||[];
@@ -12716,7 +12868,8 @@ function renderAssignLive(){
     const rule=(typeof ppHwRuleLabel==='function')?ppHwRuleLabel(a):'';
     const on=_alFocus===a.id;
     return '<div class="al-row'+(on?' on':'')+'" onclick="alFocus(\''+escJsA(a.id)+'\')" title="달력에서 이 과제만 진하게 보기">'
-      +'<span class="al-nm">'+escAttr(sh)+(multi?'<em>'+escAttr(nameOf(a.sid))+'</em>':'')+'</span>'
+      +'<span class="al-nm">'+escAttr(sh)+(multi?'<em>'+escAttr(nameOf(a.sid))+'</em>':'')
+        +(sub?'<i class="al-sub" title="'+escAttr(sub)+'">'+escAttr(sub)+'</i>':'')+'</span>'
       +'<span class="al-kind">'+escAttr(_alKind(a))+'</span>'
       +'<span class="al-rule">'+escAttr(rule||'-')+'</span>'
       +'<span class="al-bar" title="'+pr.what+' 진도 '+pr.done+'/'+pr.total+'"><i style="width:'+pct+'%"></i></span>'
