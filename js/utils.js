@@ -2566,7 +2566,7 @@ function startConsult(){
 function escU(u){return(u||'').replace(/'/g,"\\'");}
 function openM(id){const m=document.getElementById(id);if(m){m.style.removeProperty('display');m.classList.add('open');m.style.zIndex='9999';ppLimitModal(m);}}
 // 서버 제한 중에는 창 맨 위에 한 줄을 띄우고 [저장] 류 단추를 꺼 둔다 (입력은 그대로 할 수 있다)
-const PP_LIMIT_SAVE_RE=/저장|등록|추가|삭제|보내기|할당|배정|내보내기|올리기|복원/;
+const PP_LIMIT_SAVE_RE=/저장|등록|추가|삭제|보내기|내기|할당|배정|내보내기|올리기|복원/;
 // 창 밖(탭 화면)에 있는 저장 단추들 — 이름으로 정확히 집는다
 const PP_LIMIT_SAVE_FN=/^(saveLes|saveTst|saveRd|saveLog|saveEditLog|saveClass|saveClassLesson|saveCounsel|saveExam|saveModalAssignment|saveNeltResult|saveQuickPay|saveQuickTbook|saveTbook|saveAcct|saveApiKey|saveCld|saveElevenCfg|saveKakaoContact|saveThresholds|saveAndSendReport|saveReportDraftOnly)\s*\(/;
 function ppLimitModal(m){

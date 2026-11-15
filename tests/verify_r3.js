@@ -111,7 +111,7 @@ const say = (p, l, e) => { if (!p) fails++; console.log((p ? 'OK  ' : 'FAIL') + 
   });
   if (bulk.skip) console.log('     (학생이 있는 반이 없어 건너뜀)');
   else {
-    say(bulk.n > 0 && /일괄 할당/.test(bulk.title), '반 이름과 인원이 뜸', bulk.title + ' · ' + bulk.n + '명');
+    say(bulk.n > 0 && /한꺼번에 내기/.test(bulk.title), '반 이름과 인원이 뜸', bulk.title + ' · ' + bulk.n + '명');
     say(!!bulk.d && !!bulk.u, '날짜·마감이 채워짐', bulk.d + ' ~ ' + bulk.u);
     say(bulk.cleared, '닫으면 일괄 상태 해제');
   }
