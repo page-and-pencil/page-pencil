@@ -4051,15 +4051,7 @@ const _asgnDay=a=>(a.due||a.date||'').slice(0,10);
 // 안 보이고 마감일(또는 '기타 과제')에만 떠서, 아이는 오늘 할 일이 없는 것처럼 봤다.
 // 시작일과 마감일이 다르면 그 사이 날에도 띄운다. 기간이 너무 긴 과제(2주 초과)는
 // 매일 뜨면 오히려 방해라 종전대로 마감일에만 둔다.
-const _asgnSpanDays=14;
-function _asgnOnDay(a,ds){
-  const d=String(a.date||'').slice(0,10),u=String(a.due||'').slice(0,10);
-  if(d&&u&&d<u){
-    const gap=Math.round((new Date(u+'T12:00:00')-new Date(d+'T12:00:00'))/864e5);
-    if(gap>0&&gap<=_asgnSpanDays)return ds>=d&&ds<=u;
-  }
-  return _asgnDay(a)===ds;
-}
+function _asgnOnDay(a,ds){return hwOnDay(a,ds);}   // 규칙은 utils.js 의 hwDaysOf 한 곳 (PP_HW_SPAN_DAYS)
 
 function renderStudentHome(sid){
   const el=document.getElementById('st-home');if(!el)return;
@@ -4088,17 +4080,8 @@ function renderStudentHome(sid){
   const _schedOf=a=>_hwSchedOf(a);
   const regAssigns=allAssigns.filter(a=>!(a.schedule||[]).length);
   const schedAssigns=allAssigns.filter(a=>(a.schedule||[]).length);
-  const dayItems=ds=>{
-    // 스케줄형(클래스5·반복)이 그날 배정한 항목 먼저
-    const sched=[];
-    schedAssigns.forEach(a=>{const sc=_schedOf(a).find(s=>s.date===ds);if(sc)sched.push({a,sc,done:!!sc.done});});
-    const covered=sched.map(x=>({b:_hwKeyNorm(x.sc.book||x.a.bookTitle||''),u:_hwKeyNorm(x.sc.unit||'')}));
-    const isCovered=(book,range)=>{const b=_hwKeyNorm(book),u=_hwKeyNorm(range);return !!b&&covered.some(c=>(c.b===b||c.b.includes(b)||b.includes(c.b))&&((!u&&!c.u)||(!!c.u&&!!u&&(c.u===u||c.u.includes(u)||u.includes(c.u)))));};
-    const items=[...sched];
-    // 단건 과제 — 같은 책·단원을 스케줄이 이미 커버하면 중복이라 숨김
-    regAssigns.forEach(a=>{if(_asgnOnDay(a,ds)&&!isCovered(a.bookTitle||'',a.range||''))items.push({a,done:!!a.completedAt});});
-    return items;
-  };
+  // 그 날 할 일 — 대시보드·진도 캘린더와 같은 공용 hwDayItems 로 (2026-11-15). 일정형 먼저, 단건 뒤.
+  const dayItems=ds=>hwDayItems(sid,ds).map(x=>x.sc?{a:x.a,sc:x.sc,done:x.done}:{a:x.a,done:x.done});
   const overdue=regAssigns.filter(a=>!a.completedAt&&_asgnDay(a)&&_asgnDay(a)<today&&!(typeof schedCoversHw==='function'&&schedCoversHw(sid,_asgnDay(a),a.bookTitle||'',a.range||'')));
   const _tdItems=dayItems(today);
   const _tdDone=_tdItems.filter(it=>it.done).length;        // 오늘 한 것 (인사말을 여기에 맞춘다)

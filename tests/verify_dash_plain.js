@@ -57,16 +57,29 @@ const D = {
   ],
   notices: [{ id: 'dp-n1', text: '보기 공지 — 이번 주 금요일은 일찍 끝나요.', date: shift(today, -2), active: true }],
 };
+// ③ 에서만 더하는 가짜 학생·반·숙제 — 반복(수업으로 처리된 몫 포함) · 클래스5 · 끝난 교재의 단건 기간 숙제
+let EXTRA = false;
+const DX = {
+  students: [{ id: 'dp-s4', name: '가람', grade: '초5', pin: '0004', fee: 0 }],
+  classes: [{ id: 'dp-c3', name: '보기반 다', active: true, days: [], studentIds: ['dp-s4'], commonMaterials: {} }],
+  assignments: [
+    { id: 'dp-x1', sid: 'dp-s4', category: 'recur', text: '보기 리딩 1 매일', bookTitle: '보기 리딩 1', bookId: 'dp-tb1', date: WEEK[0], due: WEEK[6],
+      schedule: WEEK.map((d, i) => ({ date: d, book: '보기 리딩 1', unit: 'Unit ' + (i + 1), done: i < 2, doneBy: i === 0 ? 'lesson' : (i === 1 ? 'student' : '') })) },
+    { id: 'dp-x2', sid: 'dp-s4', category: 'class5', text: '클래스5', bookTitle: '보기 클래스5', date: WEEK[0], due: WEEK[6],
+      schedule: [0, 2, 4].map(i => ({ date: WEEK[i], book: '보기 클래스5', unit: '과 ' + (i + 1), done: false })) },
+    { id: 'dp-x3', sid: 'dp-s4', category: 'grammar', text: '보기 어법 1', bookTitle: '보기 어법 1', bookId: 'dp-tb3', range: 'Unit 20', date: WEEK[0], due: WEEK[2], completedAt: WEEK[1] + 'T10:00:00Z', completedBy: 'student' },
+  ],
+};
 let writes = { notices: 0, other: 0 };
 let loadWrites = 0, dashWrites = 0;   // 대시보드를 그린 뒤의 쓰기만 센다
 const serve = r => {
   const req = r.request();
   const t = (new URL(req.url()).pathname.split('/rest/v1/')[1] || '').split('?')[0];
   if (req.method() !== 'GET' && req.method() !== 'HEAD') {
-    if (t === 'notices') writes.notices++; else { writes.other++; (writes.by = writes.by || {})[t] = (writes.by[t] || 0) + 1; }
+    if (t === 'notices') writes.notices++; else { writes.other++; (writes.by = writes.by || {})[t] = (writes.by[t] || 0) + 1; if (process.env.PP_DBG) console.log('      · 쓰기 ' + t + ' ' + req.method()); }
     return r.fulfill({ status: 201, contentType: 'application/json', body: '[]' });
   }
-  if (D[t]) return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(D[t].map(x => ({ id: x.id, sid: x.sid || null, updated_at: '2026-11-15T00:00:00Z', data: x }))) });
+  if (D[t]) return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify((EXTRA && DX[t] ? D[t].concat(DX[t]) : D[t]).map(x => ({ id: x.id, sid: x.sid || null, updated_at: '2026-11-15T00:00:00Z', data: x }))) });
   return r.continue();
 };
 
@@ -113,7 +126,7 @@ const MEASURE = () => {
   // ═══ ① 1366x800 — 수업 있는 날 ═══
   {
     const { ctx, page } = await mk({ width: 1366, height: 800 });
-    const base1 = loadWrites;
+    let base1 = loadWrites;
     page.on('pageerror', e => errs.push(String(e.message).slice(0, 140)));
     const m = await page.evaluate(MEASURE);
     ok('상자 꾸밈 없음 — 그림자 0 · .dash-stat 0 · 옅은 색 정사각 아이콘 칸 0', m.shadow.length === 0 && m.stat === 0 && m.sq.length === 0,
@@ -196,6 +209,25 @@ const MEASURE = () => {
     const n1 = await page.evaluate(() => (document.querySelector('#dash-notice-tg .pl-sec-aux') || {}).textContent);
     ok('공지 — 줄을 누르면 게시 중 목록 · [새 공지] 로 펼쳐 등록 (가짜 서버 쓰기 1건)', !!lst && writes.notices - before === 1 && /게시 중 2건/.test(n1), '목록 ' + lst + '건 · 쓰기 ' + (writes.notices - before) + ' · ' + n1);
 
+    // [기록] — 클래스 탭으로 옮겨 오늘 기록이 열린다. 저장하고 돌아오면 '기록함' (fix/dash-plain-2)
+    await page.click('#dash-today .pl-row-btn'); await wait(700);
+    const rec = await page.evaluate(() => { const b = document.getElementById('cl-save-btn'); const r = b ? b.getBoundingClientRect() : null;
+      return { tab: (document.querySelector('#s-teacher .panel.active') || {}).id, date: (document.getElementById('cl-date') || {}).value, cls: document.getElementById('cl-class-id').value,
+        save: !!r && r.width > 0 && r.top >= 0 && r.bottom <= innerHeight && document.getElementById('cls-record-col').classList.contains('open') }; });
+    ok('[기록] — 클래스 탭 · 그 반 · 오늘 날짜 기록이 열리고 [저장하기] 가 화면 안', rec.tab === 't-class' && rec.date === today && rec.cls === 'dp-c1' && rec.save, JSON.stringify(rec));
+    await page.screenshot({ path: path.join(OUT, 'dash_record_open.png') });
+    const wSave0 = writes.other;
+    await page.evaluate(async () => { await saveClassLesson(); await new Promise(r => setTimeout(r, 600));
+      document.querySelectorAll('.mo.open').forEach(m => m.classList.remove('open')); });   // 저장 뒤 뜨는 '학부모 알림' 창은 닫는다
+    // 저장 뒤 단어 카드 동기화가 몇 초 늦게 따라온다 — 쓰기가 3.5초 멎을 때까지 기다린다 (최대 12초)
+    for (let t = 0, last = writes.other, still = 0; t < 12000 && still < 3500; t += 200) { await wait(200); if (writes.other === last) still += 200; else { last = writes.other; still = 0; } }
+    const afterSave = await page.evaluate(() => ({ tab: (document.querySelector('#s-teacher .panel.active') || {}).id, rec: DB.less().some(l => l.classId === 'dp-c1' && l.date === ppToday()) }));
+    base1 += writes.other - wSave0;                    // 수업 기록 저장은 대시보드 밖의 쓰기
+    await page.evaluate(async () => { swTab('t-dash'); await new Promise(r => setTimeout(r, 500)); });
+    const back = await page.evaluate(() => ({ done: (document.querySelector('#dash-today .pl-row-2 .pl-done') || {}).textContent || '', sum: document.getElementById('dash-sum').textContent }));
+    ok("저장 뒤 클래스 탭에 남고, 대시보드로 오면 그 줄이 '기록함'", afterSave.tab === 't-class' && afterSave.rec && back.done === '기록함' && /기록 1\/1/.test(back.sum),
+      JSON.stringify(afterSave) + ' · ' + JSON.stringify(back));
+
     // 0 이면 흐리게
     const zero = await page.evaluate(async () => { _cache.homeworks = []; renderDash(); await new Promise(r => setTimeout(r, 300));
       const c = document.querySelector('#dash-stats .pl-stat[data-k="hw"] .pl-num'); const m = document.createElement('i'); m.style.color = 'var(--text-muted)'; document.body.appendChild(m); const mc = getComputedStyle(m).color; m.remove();
@@ -216,6 +248,16 @@ const MEASURE = () => {
     ok("수업 없는 날 — '오늘은 수업이 없어요' 와 다음 수업 줄 [미리 보기]", /오늘은 수업이 없어요/.test(day0.today) && /다음 수업/.test(day0.today) && day0.prev === '미리 보기', day0.today);
     await page.evaluate(() => { document.querySelectorAll('.pl-fold-body').forEach(b => b.hidden = true); window.scrollTo({ top: 0, behavior: 'instant' }); document.querySelectorAll('*').forEach(e => { if (e.scrollTop) e.scrollTop = 0; }); const t = document.getElementById('toast'); if (t) t.style.display = 'none'; }); await wait(200);
     await page.screenshot({ path: path.join(OUT, 'dash_1366_nolesson.png') });
+    // [미리 보기] — 클래스 탭으로 옮겨 다음 수업 날짜의 기록이 열린다 (fix/dash-plain-2)
+    const nx = await page.evaluate(() => [...document.querySelectorAll('#dash-today .pl-next')].map(r => ({ t: r.querySelector('.pl-row-t').textContent, sub: r.querySelector('.pl-row-sub').textContent })));
+    ok('다음 수업 줄 — 반마다, 아래 작은 글에 그날 교재·단원', nx.length === 2 && nx.every(x => x.sub.trim().length > 0), JSON.stringify(nx));
+    await page.click('#dash-today .pl-next .pl-link'); await wait(700);
+    const pv = await page.evaluate(() => { const b = document.getElementById('cl-save-btn'); const r = b ? b.getBoundingClientRect() : null;
+      return { tab: (document.querySelector('#s-teacher .panel.active') || {}).id, date: (document.getElementById('cl-date') || {}).value,
+        save: !!r && r.width > 0 && r.top >= 0 && r.bottom <= innerHeight }; });
+    ok('[미리 보기] — 보이는 탭이 클래스 · 날짜 칸이 다음 수업 날짜 · [저장하기] 가 화면 안', pv.tab === 't-class' && pv.date === shift(today, 2) && pv.save, JSON.stringify(pv) + ' (기대 ' + shift(today, 2) + ')');
+    await page.screenshot({ path: path.join(OUT, 'dash_preview_open.png') });
+    await page.evaluate(async () => { try { closeClsRecord(); } catch (e) { } swTab('t-dash'); await new Promise(r => setTimeout(r, 400)); });
     // 도장 — 여럿이면 '오늘 도장 n/m명'
     const st2 = await page.evaluate(async () => { _cache.students.forEach(s => { s.hwChallenge = { goal: 20, reward: '작은 선물', start: ppToday(), createdAt: ppToday() }; });
       renderDash(); await new Promise(r => setTimeout(r, 300)); const c = document.querySelector('#dash-stats .pl-stat[data-k="stamp"]'); return c.innerText.replace(/\n/g, ' '); });
@@ -232,6 +274,9 @@ const MEASURE = () => {
     const r = await page.evaluate(() => {
       const cells = [...document.querySelectorAll('#dash-stats .pl-stat')].map(c => { const b = c.getBoundingClientRect(); return { t: Math.round(b.top), l: Math.round(b.left) }; });
       const over = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+      // 접힌 줄도 펼쳐 본다 (데이터 채우기 목록의 [더 보기] 단추 dashFillToggle 이 17px 이었다)
+      document.querySelectorAll('#t-dash details').forEach(d => { d.open = true; });
+      try { _dashFillAll = false; renderDashFill(); } catch (e) { }
       // 누름 자리: 버튼·링크·onclick·summary·입력 — 32px 미만이고, 32px 이상인 누름 자리 안에 들어 있지 않은 것
       const clk = e => e.matches('button,a[href],summary,select,input,textarea,[onclick]');
       const root = document.getElementById('t-dash');
@@ -251,6 +296,51 @@ const MEASURE = () => {
     await page.screenshot({ path: path.join(OUT, 'dash_390.png') });
     await page.screenshot({ path: path.join(OUT, 'dash_390_full.png'), fullPage: true });
     await ctx.close();
+  }
+
+  // ═══ ③ 숙제를 세는 곳은 하나 — 대시보드 '이번 주 숙제' · 진도 캘린더 그날 머리 · 학생 주간 띠 (fix/dash-plain-2) ═══
+  // 한 주에 숙제 셋(반복 숙제 — 수업으로 처리된 몫 섞임 · 클래스5 · 끝난 교재의 단건 기간 숙제) 중 하나를 끝낸 가짜 학생
+  {
+    EXTRA = true;
+    const { ctx, page } = await mk({ width: 1366, height: 900 });
+    await page.evaluate(async () => { renderDash(); await new Promise(r => setTimeout(r, 300)); });
+    { const el = await page.$('#dash-weekheat'); if (el) await el.screenshot({ path: path.join(OUT, 'dash_weekheat.png') }); }
+    const dash = await page.evaluate(async (WEEK) => {
+      renderDash(); await new Promise(r => setTimeout(r, 300));
+      const tr = [...document.querySelectorAll('#dash-weekheat tbody tr')].find(t => /가람/.test(t.textContent));
+      const cells = tr ? [...tr.querySelectorAll('td.pl-td')].map(td => td.textContent.replace(/[^0-9/–]/g, '')) : [];
+      // 진도 캘린더 — 그 반 · 그 학생 · 그날 머리 '숙제 n/m'
+      swTab('t-class'); await new Promise(r => setTimeout(r, 300));
+      openClsDetail('dp-c3'); await new Promise(r => setTimeout(r, 300));
+      _pgHwStuId = 'dp-s4';
+      const cal = {};
+      for (const ds of WEEK) {
+        _pgCalMonth = ds.slice(0, 7); renderClsLessons('dp-c3'); await new Promise(r => setTimeout(r, 120));
+        const h = document.querySelector('.pg-cal-card .pg-cell[data-ds="' + ds + '"] .pg-hw-head');
+        const m = h ? /(\d+)\/(\d+)/.exec(h.textContent) : null;
+        cal[ds] = m ? m[1] + '/' + m[2] : '–';
+      }
+      return { cells, cal };
+    }, WEEK);
+    await ctx.close();
+    const S = await (async () => {
+      const c2 = await browser.newContext({ viewport: { width: 390, height: 780 }, locale: 'ko-KR' });
+      await c2.addInitScript(() => { try { localStorage.setItem('pp_session', JSON.stringify({ role: 'student', sid: 'dp-s4' })); } catch (e) { } });
+      const p2 = await c2.newPage();
+      await p2.route('**/rest/v1/**', serve); await p2.route('**/functions/v1/**', r => r.fulfill({ status: 400, contentType: 'application/json', body: '{}' }));
+      await p2.goto('http://localhost:5500/index.html', { waitUntil: 'domcontentloaded', timeout: 90000 });
+      await p2.waitForFunction(() => { try { return (_cache.students || []).length > 0 && !!document.getElementById('stu-hw-card'); } catch (e) { return false; } }, null, { timeout: 120000 });
+      await wait(800);
+      const out = await p2.evaluate(async (WEEK) => { const o = {}; for (const ds of WEEK) { stuSelectDay(ds); await new Promise(r => setTimeout(r, 80)); const w = window._wkCnt || {}; o[ds] = w.total ? w.done + '/' + w.total : '–'; } return o; }, WEEK);
+      await c2.close();
+      return out;
+    })();
+    const rows = WEEK.map((ds, i) => ({ d: DOWS[new Date(ds + 'T12:00:00').getDay()], dash: dash.cells[i] || '?', cal: dash.cal[ds], stu: S[ds] }));
+    const same = rows.every(r => r.dash === r.cal && r.cal === r.stu);
+    const anyLesson = true;
+    ok('이번 주 숙제 숫자 = 진도 캘린더 그날 머리 = 학생 주간 띠 (요일마다)', same && rows.some(r => r.dash !== '–'),
+      rows.map(r => r.d + ' ' + r.dash + '·' + r.cal + '·' + r.stu).join(' | '));
+    EXTRA = false;
   }
 
   ok('대시보드에서 생긴 쓰기는 공지 1건뿐 (다른 표 0)', dashWrites === 0, '공지 ' + writes.notices + ' · 대시보드 뒤 그 밖 ' + dashWrites + ' (앱이 뜰 때의 동기화 쓰기는 따로)');

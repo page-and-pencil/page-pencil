@@ -3478,6 +3478,59 @@ function _hwDoneByStudent(s,autoRecur){
   if(autoRecur)return PP_DONE_REAL.includes(String(s.doneBy||''));
   return true;
 }
+// ── 그 날의 숙제 — 화면이 세는 곳은 이 함수 하나 (2026-11-15 dash-plain-2) ──
+// 전에는 셋이 따로 셌다: 대시보드(hwDayStatus — 수업으로 처리된 몫을 뺐다),
+// 진도 캘린더(_pgHwChips — 단건은 마감일에만, 일정과 겹치는 단건도 셌다),
+// 학생 주간 띠(dayItems — 단건을 시작~마감 사이 날마다 띄웠다). 그래서 같은 날 숫자가 달랐다.
+// 규칙: 일정형은 그 날 몫 전부(수업으로 처리된 몫도 '한 것'으로) · 단건은 시작~마감(2주 이내) 날마다,
+//       그보다 길거나 시작일이 없으면 마감일(없으면 낸 날) · 같은 책·단원을 일정형이 덮으면 단건은 뺀다.
+// 도장(hwDayStatus)은 '학생이 한 것'만 세는 다른 규칙이라 그대로 둔다.
+const PP_HW_SPAN_DAYS=14;
+function hwDaysOf(a){
+  const d=String(a.date||'').slice(0,10),u=String(a.due||'').slice(0,10);
+  if(d&&u&&d<u){
+    const gap=Math.round((new Date(u+'T12:00:00')-new Date(d+'T12:00:00'))/864e5);
+    if(gap>0&&gap<=PP_HW_SPAN_DAYS){
+      const out=[];const x=new Date(d+'T12:00:00');
+      for(let i=0;i<=gap;i++){out.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'));x.setDate(x.getDate()+1);}
+      return out;
+    }
+  }
+  const one=(u||d);
+  return one?[one]:[];
+}
+function hwOnDay(a,ds){return hwDaysOf(a).indexOf(ds)>=0;}
+// dates 의 날마다 [{a,sc|null,done,by}] — 일정형 먼저, 단건은 뒤에
+function hwItemsForDays(sid,dates){
+  const want=new Set(dates||[]),out={};
+  (dates||[]).forEach(d=>{out[d]=[];});
+  const all=(typeof _cache!=='undefined'?(_cache.assignments||[]):[]).filter(a=>a&&!a._deleted&&a.sid===sid);
+  const singles=[];
+  all.forEach(a=>{
+    const sch=_hwSchedOf(a)||[];
+    if(sch.length){
+      sch.forEach(sc=>{if(sc&&want.has(sc.date))out[sc.date].push({a,sc,done:!!sc.done,by:sc.doneBy||''});});
+      return;
+    }
+    singles.push(a);
+  });
+  const cov=(list,book,range)=>{
+    const b=_hwKeyNorm(book),u=_hwKeyNorm(range);if(!b)return false;
+    return list.some(x=>{const cb=_hwKeyNorm(x.sc.book||x.a.bookTitle||''),cu=_hwKeyNorm(x.sc.unit||'');
+      return (cb===b||(!!cb&&(cb.includes(b)||b.includes(cb))))&&((!u&&!cu)||(!!cu&&!!u&&(cu===u||cu.includes(u)||u.includes(cu))));});
+  };
+  singles.forEach(a=>{
+    hwDaysOf(a).forEach(ds=>{
+      if(!want.has(ds))return;
+      const sched=out[ds].filter(x=>x.sc);
+      if(cov(sched,a.bookTitle||'',a.range||''))return;     // 일정형과 겹치는 단건은 한 번만
+      out[ds].push({a,sc:null,done:!!a.completedAt,by:a.completedBy||''});
+    });
+  });
+  return out;
+}
+function hwDayItems(sid,ds){return hwItemsForDays(sid,[ds])[ds]||[];}
+function hwDayCount(sid,ds){const it=hwDayItems(sid,ds);return {total:it.length,done:it.filter(x=>x.done).length};}
 function hwDayStatus(sid,ds){
   let total=0,done=0;
   (typeof _cache!=='undefined'?(_cache.assignments||[]):[]).forEach(a=>{
