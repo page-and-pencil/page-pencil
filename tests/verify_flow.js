@@ -128,10 +128,10 @@ console.log('\nD2. 일정 3/3 완료·completedAt 없음·마감 지남 → 진�
   ok('끝난 것으로 본다', st.finished === true, 'finished=' + st.finished + ' · ' + st.doneCount + '/' + st.total);
   ok('밀린 날 0', st.overdueRows14 === 0 && st.overdueRows === 0, 'overdue=' + st.overdueRows + ' (최근 2주 ' + st.overdueRows14 + ')');
   ok('hwOverdueDays 도 0', A.hwOverdueDays(A.cache.assignments[0], TODAY, 14) === 0, '' + A.hwOverdueDays(A.cache.assignments[0], TODAY, 14));
-  // 숫자 카드까지 — 진행 중 0건 · 미제출(지남) 0건
+  // 숫자 줄까지 — 진행 중 0건 · 밀림 0건 (feat/pl-tabs-1: 숫자 칸은 .pl-num)
   A.renderAssignStats();
-  const nums = (A.els['assign-stats'].innerHTML.match(/dash-stat-num[^>]*>(\d+)/g) || []).map(x => x.replace(/\D/g, ''));
-  ok('숫자 카드: 진행 중 0 · 미제출 0', nums[0] === '0' && nums[2] === '0', '진행 중 ' + nums[0] + ' · 오늘 마감 ' + nums[1] + ' · 미제출 ' + nums[2]);
+  const nums = (A.els['assign-stats'].innerHTML.match(/pl-num[^>]*>(\d+)/g) || []).map(x => x.replace(/\D/g, ''));
+  ok('숫자 줄: 진행 중 0 · 밀림 0', nums[0] === '0' && nums[2] === '0', '진행 중 ' + nums[0] + ' · 오늘 몫 ' + nums[1] + ' · 밀림 ' + nums[2]);
 }
 
 console.log('\nD3. 다른 숙제의 일정에만 이름이 있는 수업 책 → 예정에 정상으로 깔린다');

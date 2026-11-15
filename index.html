@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261115b">
-<link rel="stylesheet" href="css/style.css?v=20261115h">
+<link rel="stylesheet" href="css/style.css?v=20261115i">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -443,22 +443,42 @@
 
     <!-- 테스트 -->
     <div id="t-tst" class="panel">
-      <div class="sh"><div><div class="st"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i> 테스트</div><div class="ssub">사진을 올리면 AI가 영역별 점수를 자동 인식합니다</div></div></div>
-      <div id="tst-stats" class="dash-stats" style="margin-bottom:14px"></div>
-      <div class="card">
-        <div class="ch"><span class="ct">테스트 결과 입력</span></div>
-        <div class="cb">
+      <!-- 대시보드 꼴 (.pl-*) — 숫자 줄 → 테스트 기록 → 결과 입력(접힌 줄) (2026-11-15 pl-tabs-1) -->
+      <div class="pl-page">
+        <div class="pl-head">
+          <div class="pl-head-main"><h1 class="pl-title">테스트</h1><div class="pl-sub" id="tst-sum"></div></div>
+          <button class="btn bt pl-head-btn" onclick="tstFormOpen()">+ 결과 입력</button>
+        </div>
+        <div id="tst-stats" class="pl-stats"></div>
+        <section class="pl-sec" id="tst-rec-sec">
+          <div class="pl-sec-h">
+            <h2 class="pl-sec-t">테스트 기록</h2>
+            <span class="pl-sec-aux pl-filters">
+              <span id="tst-count"></span>
+              <select class="pl-input" id="tst-filter-stu" aria-label="학생" onchange="tstPage=0;renderTst()">
+                <option value="">전체 학생</option>
+              </select>
+            </span>
+          </div>
+          <div id="tst-list"></div>
+          <div id="tst-pager"></div>
+        </section>
+        <section class="pl-sec pl-sec-fold" id="tst-form-sec">
+          <div class="pl-fold-row">
+            <button type="button" class="pl-fold-btn" id="tst-form-tg" aria-expanded="false" onclick="tstFormToggle()"><span class="pl-sec-t" id="tst-form-title">결과 입력</span><span class="pl-sec-aux" id="tst-form-aux"></span><span class="pl-chev" aria-hidden="true"></span></button>
+          </div>
+          <div id="tst-form" class="pl-fold-body ts-form" hidden>
           <div id="api-tst-warn" class="ib iba" style="display:none"><i data-lucide="bot" width="15" height="15" style="vertical-align:-3px"></i> API Key 미설정 — 테스트 사진 AI 자동 인식이 비활성화됩니다. <button class="btn bo bsm" style="font-size:var(--fs-xs);padding:2px 8px;vertical-align:middle" onclick="swTab('t-cfg')"><i data-lucide="settings" width="15" height="15" style="vertical-align:-3px"></i> 설정에서 입력 →</button></div>
           <div class="f">
-            <label>시험지 사진 (AI 자동 인식)</label>
+            <label>시험지 사진</label>
             <div class="uz" id="tst-uz" onclick="document.getElementById('tst-file').click()" ondragover="dov(event,'tst-uz')" ondrop="ddr(event,'tst-uz','tst')">
-              <div class="ui"><i data-lucide="pencil" width="15" height="15" style="vertical-align:-3px"></i></div><div class="ut" id="tst-ut">클릭하거나 드래그</div>
+              <div class="ut" id="tst-ut">사진을 올리면 AI 가 영역별 점수를 읽어 칸을 채워요 — 클릭하거나 끌어 놓기</div>
             </div>
             <input type="file" id="tst-file" accept="image/*" style="display:none" onchange="handleTstPhoto(event)">
             <div id="tst-preview" style="display:none;margin-top:8px"><img id="tst-preview-img" class="tst-photo-thumb"></div>
             <div id="tst-ai"></div>
           </div>
-          <hr class="div-line">
+          <div class="pl-sec-t ts-sec-t">기본</div>
           <div class="fg">
             <div class="f"><label>날짜</label><input type="date" id="ts-date"></div>
             <div class="f"><label>학생</label><select id="ts-stu" onchange="preloadTestWords(this.value)"></select></div>
@@ -481,7 +501,7 @@
               <span style="font-size:var(--fs-sm);color:var(--slate)">종이 시험지 + 정답지를 A4로 뽑습니다</span></div>
           </div>
           <div class="score-block">
-            <div class="score-block-title">단어 테스트</div>
+            <div class="pl-sec-t ts-sec-t">단어 테스트</div>
             <div class="score-row">
               <div class="f"><label>맞힌 수</label><input type="number" id="ts-vc" min="0" placeholder="8" style="font-family:var(--fm);font-size:var(--fs-xl);font-weight:700;text-align:center"></div>
               <div style="padding-bottom:10px;font-size:22px;color:var(--slate);font-family:var(--fm)">/</div>
@@ -509,18 +529,12 @@
                 <button class="btn bo bsm" onclick="tsLoadUnitWords()" style="white-space:nowrap">단어 불러오기</button>
               </div>
             </div>
-            <div class="score-row" style="align-items:flex-end;gap:10px">
-              <div class="f" style="flex:1.2"><label>외부 앱 <span style="color:var(--slate);font-weight:400">— 클래스카드 등 (연동 아님)</span></label>
-                <input type="text" id="ts-ext-name" list="dl-ext-apps" placeholder="클래스카드"></div>
-              <div class="f" style="flex:1"><label>그 앱 점수</label>
-                <input type="text" id="ts-ext-score" placeholder="예) 92점 / 46/50"></div>
-            </div>
             <datalist id="dl-ext-apps"><option value="클래스카드"><option value="퀴즐렛"><option value="아라보카"></datalist>
             <div class="f"><label>전체 단어 (쉼표 구분) <span style="color:var(--slate);font-weight:400">— 단어장 저장용</span></label><input type="text" id="ts-allwords" placeholder="quickly, enormous, vast, ..."></div>
             <div class="f"><label>틀린 단어 (쉼표 구분)</label><input type="text" id="ts-wr" placeholder="quickly, enormous"></div>
           </div>
           <div class="score-block">
-            <div class="score-block-title">어법 테스트</div>
+            <div class="pl-sec-t ts-sec-t">어법 테스트</div>
             <div class="score-row">
               <div class="f"><label>맞힌 수</label><input type="number" id="ts-gc" min="0" placeholder="7" style="font-family:var(--fm);font-size:var(--fs-xl);font-weight:700;text-align:center"></div>
               <div style="padding-bottom:10px;font-size:22px;color:var(--slate);font-family:var(--fm)">/</div>
@@ -528,34 +542,42 @@
               <div class="f" style="flex:2"><label>어법 약점/헷갈린 내용</label><input list="grammar-topics" id="ts-gweak" placeholder="현재진행형, 불규칙동사"></div>
             </div>
           </div>
-          <div class="score-block">
-            <div class="score-block-title">리딩 테스트 <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--slate)">(선택)</span></div>
+          <details class="score-block ts-fold" id="ts-fold-rd">
+            <summary class="pl-sec-t ts-sec-t">리딩 테스트 <span class="pl-muted">(선택)</span></summary>
             <div class="score-row">
               <div class="f"><label>맞힌 수</label><input type="number" id="ts-rc" min="0" placeholder="0" style="font-family:var(--fm);font-size:var(--fs-xl);font-weight:700;text-align:center"></div>
               <div style="padding-bottom:10px;font-size:22px;color:var(--slate);font-family:var(--fm)">/</div>
               <div class="f"><label>전체 문제 수</label><input type="number" id="ts-rt" min="0" placeholder="0" style="font-family:var(--fm);font-size:var(--fs-xl);font-weight:700;text-align:center"></div>
             </div>
-          </div>
-          <div class="score-block">
-            <div class="score-block-title">리스닝 테스트 <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--slate)">(선택)</span></div>
+          </details>
+          <details class="score-block ts-fold" id="ts-fold-ls">
+            <summary class="pl-sec-t ts-sec-t">리스닝 테스트 <span class="pl-muted">(선택)</span></summary>
             <div class="score-row">
               <div class="f"><label>맞힌 수</label><input type="number" id="ts-lc" min="0" placeholder="0" style="font-family:var(--fm);font-size:var(--fs-xl);font-weight:700;text-align:center"></div>
               <div style="padding-bottom:10px;font-size:22px;color:var(--slate);font-family:var(--fm)">/</div>
               <div class="f"><label>전체 문제 수</label><input type="number" id="ts-lt" min="0" placeholder="0" style="font-family:var(--fm);font-size:var(--fs-xl);font-weight:700;text-align:center"></div>
             </div>
-          </div>
+          </details>
+          <details class="score-block ts-fold" id="ts-fold-ext">
+            <summary class="pl-sec-t ts-sec-t">외부 앱 <span class="pl-muted">(클래스카드 등 — 연동 아님)</span></summary>
+            <div class="score-row" style="align-items:flex-end;gap:10px">
+              <div class="f" style="flex:1.2"><label>앱 이름</label>
+                <input type="text" id="ts-ext-name" list="dl-ext-apps" placeholder="클래스카드"></div>
+              <div class="f" style="flex:1"><label>그 앱 점수</label>
+                <input type="text" id="ts-ext-score" placeholder="예) 92점 / 46/50"></div>
+            </div>
+          </details>
           <div class="f"><label>종합 코멘트</label><input type="text" id="ts-cmt" placeholder="다음 시험 재수록, 특이사항 등"></div>
-          <button class="btn bt" onclick="saveTst()">저장</button>
-        </div>
+          <div class="ts-save-row">
+            <button class="btn bt" onclick="saveTst()">저장</button>
+            <span id="tst-edit-acts" hidden>
+              <button class="btn bo" onclick="tstEditCancel(false)">고치기 취소</button>
+              <button class="btn bo ts-del" onclick="tstEditDelete()">삭제</button>
+            </span>
+          </div>
+          </div>
+        </section>
       </div>
-      <div class="filter-bar">
-        <select class="filter-sel" id="tst-filter-stu" onchange="renderTst()">
-          <option value="">전체 학생</option>
-        </select>
-        <span style="font-size:var(--fs-md);color:var(--slate)" id="tst-count"></span>
-      </div>
-      <div id="tst-list"></div>
-      <div id="tst-pager"></div>
     </div>
 
     <!-- 원서 기록 -->
@@ -1313,26 +1335,35 @@
 
     <!-- 과제 관리 -->
     <div id="t-assign" class="panel">
-      <div class="sh">
-        <div><div class="st"><i data-lucide="clipboard-list" width="15" height="15" style="vertical-align:-3px"></i> 숙제</div><div class="ssub">반·학생에게 숙제를 내고 제출 현황을 봅니다</div></div>
-        <button class="btn bt bsm" onclick="openAssignModal('')">+ 숙제 내기</button>
-      </div>
-      <div id="assign-stats" class="dash-stats" style="margin-bottom:14px"></div>
-      <div id="assign-live"></div>
-      <div class="card" style="margin-bottom:1rem">
-        <div class="ch">
-          <button type="button" class="ct ct-btn" onclick="toggleAssignCal()"><i data-lucide="calendar" width="15" height="15" style="vertical-align:-3px"></i> 숙제 캘린더 <span id="assign-cal-arrow" style="font-size:var(--fs-xs);color:var(--teal)">▾ 접기</span></button>
-          <button class="btn ba bsm" onclick="openBulkAssign()">한꺼번에 내기</button>
+      <!-- 대시보드 꼴 (.pl-*) — 상자 대신 제목 줄과 가는 선 (2026-11-15 pl-tabs-1) -->
+      <div class="pl-page">
+        <div class="pl-head">
+          <div class="pl-head-main"><h1 class="pl-title">숙제</h1><div class="pl-sub" id="assign-sum"></div></div>
+          <button class="btn bt pl-head-btn" onclick="openAssignModal('')">+ 숙제 내기</button>
         </div>
-        <div class="cb" id="assign-cal"></div>
+        <!-- 숫자 줄 네 칸이 거르기를 겸한다 (진행 중 · 오늘 몫 · 밀림 · 확인 대기) -->
+        <div id="assign-stats" class="pl-stats"></div>
+        <section id="assign-live" class="pl-sec"></section>
+        <section class="pl-sec" id="assign-cal-sec">
+          <div class="pl-sec-h">
+            <button type="button" class="pl-fold-btn pl-sec-tbtn" id="assign-cal-tg" aria-expanded="true" onclick="toggleAssignCal()"><span class="pl-sec-t">숙제 캘린더</span><span class="pl-sec-aux" id="assign-cal-arrow">접기</span></button>
+            <button class="btn bo bsm" onclick="openBulkAssign()">한꺼번에 내기</button>
+          </div>
+          <div id="assign-cal"></div>
+        </section>
+        <section class="pl-sec" id="assign-list-sec">
+          <div class="pl-sec-h">
+            <h2 class="pl-sec-t" id="assign-list-title">오늘 숙제</h2>
+            <span class="pl-sec-aux pl-filters">
+              <input type="date" class="pl-input" id="assign-filter-date" aria-label="날짜" onchange="renderAssignTab()">
+              <select class="pl-input" id="assign-filter-stu" aria-label="학생" onchange="renderAssignTab()">
+                <option value="">전체 학생</option>
+              </select>
+            </span>
+          </div>
+          <div id="assign-list" class="pl-list"></div>
+        </section>
       </div>
-      <div class="filter-bar">
-        <input type="date" class="filter-sel" id="assign-filter-date" onchange="renderAssignTab()">
-        <select class="filter-sel" id="assign-filter-stu" onchange="renderAssignTab()">
-          <option value="">전체 학생</option>
-        </select>
-      </div>
-      <div id="assign-list"></div>
     </div>
 
     <!-- 워크시트 스튜디오 (내장 iframe) -->
@@ -3321,7 +3352,7 @@
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261115a"></script>
 <script src="js/iso_cards.js?v=20261114f"></script>
-<script src="js/teacher.js?v=20261115i"></script>
+<script src="js/teacher.js?v=20261115j"></script>
 <script src="js/student.js?v=20261115c"></script>
 <script src="js/parent.js?v=20261115d"></script>
 </body>

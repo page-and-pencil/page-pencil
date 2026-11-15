@@ -82,6 +82,7 @@ const TESTS = {
   'verify_paper.js': { g: 'legacy', w: '단어 시험지 새 양식 검증. 실데이터 GET 만, 쓰기 전부 차단.', why: '가짜 자료로는 안 맞는다 — page.evaluate: TypeError: Cannot read properties of undefined (reading' },
   'verify_pb.js': { g: 'core', w: '시험지 만들기 + 문제 은행 보완 — 전부 가짜 서버. AI 는 부르지 않는다.' },
   'verify_polish.js': { g: 'core', w: '시험지 다듬기 확인 — 배점·쪽 번호(PDF)·인쇄 단추 자리·장문 묶음·복제/기기 삭제' },
+  'verify_pl_tabs1.js': { g: 'core', w: '숙제·테스트 탭도 대시보드 꼴 — 그림자·그림 문자·굵기·바탕·누름 자리·한쪽 선, 숫자 줄 거르기·오늘 숙제 체크·⋯ 메뉴, 테스트 기록 먼저·입력 접기·고치기 — 가짜 서버만' },
   'verify_print.js': { g: 'legacy', w: '월간 리포트 인쇄 미리보기 — 리브랜딩 뒤 이름·색 확인. 실DB 쓰기 차단, 저장 버튼 안 누름.', why: '가짜 자료로는 안 맞는다 — 머리글·바닥글이 직결영어  — 0곳' },
   'verify_r1.js': { g: 'legacy', w: '프롬프트 1·2 수정 검증. 실DB 쓰기 전부 차단.', why: '가짜 자료로는 안 맞는다 — 진도 없으면 다른 프롬프트로 보냄' },
   'verify_r2.js': { g: 'legacy', w: '프롬프트 4 수정 검증. 실DB 쓰기 차단.', why: '가짜 자료로는 안 맞는다 — page.evaluate: ReferenceError: process is not defined' },
