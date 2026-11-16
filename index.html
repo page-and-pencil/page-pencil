@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="css/tokens.css?v=20261115b">
-<link rel="stylesheet" href="css/style.css?v=20261115k">
+<link rel="stylesheet" href="css/style.css?v=20261116a">
 <!-- lucide 는 luIcon() 이 첫 화면에서 바로 쓰므로 동기 로드. Chart.js 는 로그인 후 차트에서만
      쓰이는데 head 에서 동기 로드하느라 첫 화면 렌더를 막고 있었다 → defer. -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -324,6 +324,7 @@
                   <i data-lucide="chevrons-left" width="14" height="14"></i></button>
                 <button class="btn bt bsm" onclick="openEditStuFromPanel()">수정</button>
                 <button type="button" class="pl-more" id="sp-more" aria-label="더 보기" title="학생뷰 · 학부모뷰 · 단어 학습 체험" onclick="spMoreMenu(this)">⋯</button>
+                <button type="button" class="sp-close-btn" id="sp-close" aria-label="학생 패널 닫기" title="학생 패널 닫기 (Esc)" onclick="stuDeselect()">×</button>
               </div>
             </div>
             <div class="stu-panel-tabs" role="tablist" onscroll="spTabsFade()">
@@ -3348,7 +3349,7 @@
 <script src="vocab_ref_data.js?v=20260725g"></script>
 <script src="js/db.js?v=20261115a"></script>
 <script src="js/iso_cards.js?v=20261114f"></script>
-<script src="js/teacher.js?v=20261115l"></script>
+<script src="js/teacher.js?v=20261116a"></script>
 <script src="js/student.js?v=20261115c"></script>
 <script src="js/parent.js?v=20261115d"></script>
 </body>

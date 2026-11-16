@@ -588,6 +588,8 @@ async function saveAcct(){
 let currentSpStuId=null;
 let currentParentSid=null;
 function selStu(id,el){
+  // 고른 줄을 다시 누르면 선택을 푼다 (2026-11-16 pl-tabs-2b)
+  if(el&&currentSpStuId===id&&el.classList.contains('sel')&&document.getElementById('stu-split')?.classList.contains('has-sel')){stuDeselect();return;}
   if(typeof _spTab!=='undefined'&&currentSpStuId!==id)_spTab='sp-summary';   // 다른 학생을 고르면 요약부터
   if(typeof restoreStuWidth==='function')restoreStuWidth();
   document.querySelectorAll('.sc').forEach(c=>c.classList.remove('sel'));
@@ -617,6 +619,20 @@ function stuDeselect(){
   const noStu=document.getElementById('sp-no-stu'),wrap=document.getElementById('sp-detail-wrap');
   if(noStu)noStu.style.display='';if(wrap)wrap.style.display='none';
 }
+// Esc — 학생 탭에서 고른 학생을 푼다. 창·메뉴가 열려 있으면 그것부터 닫는다(그 창의 Esc 가 닫는다).
+// 글을 쓰는 칸 안의 Esc 는 그 칸(줄 고치기 취소 등)의 몫이라 건드리지 않는다.
+window.addEventListener('keydown',e=>{
+  if(e.key!=='Escape'||e.isComposing)return;
+  if(!document.getElementById('s-teacher')?.classList.contains('active'))return;
+  if(!document.getElementById('t-stu')?.classList.contains('active'))return;
+  const sp=document.getElementById('stu-split');
+  if(!sp||!(sp.classList.contains('has-sel')||sp.classList.contains('detail-open')))return;
+  if(document.getElementById('pl-menu')||document.getElementById('bk-find')||document.getElementById('pg-daysheet')||document.getElementById('lightbox')?.classList.contains('open'))return;
+  const mo=[...document.querySelectorAll('.mo.open')].find(m=>getComputedStyle(m).display!=='none');
+  if(mo){if(!mo.dataset.protect){if(mo.id==='m-confirm'&&typeof confirmCancel==='function')confirmCancel();else closeM(mo.id);}return;}
+  const t=e.target;if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName||'')))return;
+  stuDeselect();
+},true);
 // ⋯ — 학생뷰 · 학부모뷰 · 단어 학습 체험
 function spMoreMenu(btn){
   if(typeof plMenuClose==='function')plMenuClose();
@@ -632,7 +648,14 @@ function spMoreMenu(btn){
 }
 // 데스크톱에서 학생 탭을 열면 첫 학생을 자동 선택 (빈 상세 패널 방지)
 function autoSelectFirstStu(){
-  // 학생을 고르기 전에는 넓은 표를 보인다 (2026-11-15 pl-tabs-2) — 자동으로 고르지 않는다
+  // 학생을 고르기 전에는 넓은 표를 보인다 (2026-11-15 pl-tabs-2) — 자동으로 고르지 않는다.
+  // 다른 탭에 갔다 오면 마지막에 고른 학생을 그대로 연다 (같은 세션 안에서만 — 새로 열면 넓은 표, 2026-11-16)
+  if(!currentSpStuId)return;
+  if(!(DB.stus()||[]).some(s=>s.id===currentSpStuId)){stuDeselect();return;}
+  const sp=document.getElementById('stu-split');
+  const row=document.querySelector('#stu-grid .sc[onclick*="'+currentSpStuId+'"]');
+  if(sp&&sp.classList.contains('has-sel')){document.querySelectorAll('#stu-grid .sc').forEach(c=>c.classList.toggle('sel',c===row));return;}
+  selStu(currentSpStuId,row);
   return;
   if(window.innerWidth<=760)return;          // 모바일은 목록 먼저
   if(currentSpStuId)return;                   // 이미 선택돼 있으면 유지
@@ -2110,7 +2133,7 @@ function renderStus(){
   const rowOf=s=>{
     const pct=vocabPct(s.id), ld=lastLes(s.id);
     const pay=s.inactive?{t:'퇴원',c:'is-neutral'}:(hasUnpaid(s)?{t:'미납',c:'is-warn'}:{t:'완료',c:'is-ok'});
-    return '<tr class="sc'+(s.inactive?' inactive':'')+'" onclick="selStu(\''+s.id+'\',this)" tabindex="0">'
+    return '<tr class="sc'+(s.inactive?' inactive':'')+(s.id===currentSpStuId&&document.getElementById('stu-split')?.classList.contains('has-sel')?' sel':'')+'" onclick="selStu(\''+s.id+'\',this)" tabindex="0">'
       +'<td class="sl-name"><span class="sc-avatar">'+(_esc((s.name||'').trim().slice(0,1))||'학')+'</span>'
         +'<span class="sl-nm">'+_esc(s.name)+'</span>'
         +((typeof ppTrackBadgeHtml==='function')?ppTrackBadgeHtml(s):'')
