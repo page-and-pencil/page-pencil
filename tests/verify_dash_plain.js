@@ -47,7 +47,7 @@ const D = {
   ],
   assignments: [
     { id: 'dp-a1', sid: 'dp-s1', category: 'recur', text: '보기 리딩 1 읽기', bookTitle: '보기 리딩 1', bookId: 'dp-tb1', date: WEEK[0], due: WEEK[6],
-      schedule: WEEK.map((d, i) => ({ date: d, book: '보기 리딩 1', unit: 'Unit ' + (i + 1), done: d < today })) },
+      schedule: WEEK.map((d, i) => ({ date: d, book: '보기 리딩 1', unit: 'Unit ' + (i + 1), done: d < today || i === 0 })) },   // 월요일(지난 날 없음)에도 다 한 날이 하나는 있게
     { id: 'dp-a2', sid: 'dp-s2', category: 'vocab', text: '보기 어휘 1', bookTitle: '보기 어휘 1', bookId: 'dp-tb2', date: WEEK[0], due: WEEK[6],
       schedule: WEEK.map((d, i) => ({ date: d, book: '보기 어휘 1', unit: 'Day ' + (i + 1), done: i % 2 === 0 && d < today })) },
   ],

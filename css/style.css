@@ -4486,3 +4486,7 @@ button.pl-chip{min-height:32px;font-family:var(--fb);cursor:pointer;}
 #t-stu .stu-panel-body input[type=number],#t-stu .stu-panel-body input[type=date],#t-stu .stu-panel-body input[type=text],#t-stu .stu-panel-body select{min-height:32px;}
 #t-stu .stu-panel-body label:has(>input[type=checkbox]){min-height:32px;display:inline-flex;align-items:center;}
 #t-stu .stu-panel-body summary{min-height:32px;display:flex;align-items:center;cursor:pointer;}
+
+/* fix/pl-tabs-2b (2026-11-16) — 패널 머리 오른쪽 끝 닫기(×): 누르면 선택을 풀고 넓은 표로 */
+.sp-close-btn{flex-shrink:0;width:32px;height:32px;border:none;background:none;cursor:pointer;font-size:20px;line-height:1;color:var(--text-muted);border-radius:var(--r-ctl);font-family:var(--fb);display:inline-flex;align-items:center;justify-content:center;}
+.sp-close-btn:hover{color:var(--text);background:var(--bg);}

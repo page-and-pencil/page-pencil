@@ -154,6 +154,39 @@ const judge = (tab, m) => {
   ok('탭 여덟 개가 가로 스크롤 없이 보인다 (13px) · 탭 줄이 패널 위 150px 안', fr.n === 8 && fr.barScroll <= 0 && fr.tabsIn && fr.tabFs === '13px' && fr.tabTop <= 150, '넘침 ' + fr.barScroll + ' · 위에서 ' + fr.tabTop + 'px · ' + fr.tabFs);
   ok('패널 안 가로 넘침 0 · 머리에 말줄임으로 잘린 글 0 · 📱 없음', fr.over <= 0 && fr.cut.length === 0 && !/📱/.test(fr.meta), '넘침 ' + fr.over + ' · 잘림 ' + fr.cut.join(',') + ' · "' + fr.meta + '"');
   await page.screenshot({ path: path.join(OUT, 'sel_1366.png') });
+  // ── 넓은 표로 돌아가기 (fix/pl-tabs-2b) — × · 고른 줄 다시 누르기 · Esc · 메뉴 Esc · 탭 갔다 오기 ──
+  const wideNow = () => page.evaluate(() => { const col = document.querySelector('.stu-list-col').getBoundingClientRect();
+    const th = [...document.querySelectorAll('.sl-tbl thead th')].filter(t => t.getBoundingClientRect().width > 0).map(t => t.textContent.trim());
+    return { w: Math.round(col.width), sel: !!document.querySelector('#stu-split.has-sel'), school: th.includes('학교'), pay: th.includes('이번 달 결제'), panel: getComputedStyle(document.getElementById('stu-detail-col')).display }; });
+  const isWide = r => !r.sel && r.w > 1000 && r.school && r.pay && r.panel === 'none';
+  const pickFirst = async () => { await page.click('#stu-grid tr.sc'); await wait(900); await settle(); };
+  const xb = await page.evaluate(() => { const acts = [...document.querySelectorAll('.sp-head-acts > *')].filter(e => e.getBoundingClientRect().width > 0);
+    const x = document.getElementById('sp-close'), r = x.getBoundingClientRect();
+    return { last: acts[acts.length - 1] === x, order: acts.map(e => e.id || e.textContent.trim()).join(','), w: Math.round(r.width), h: Math.round(r.height), lbl: x.getAttribute('aria-label') }; });
+  ok("패널 머리 오른쪽 끝에 × (32x32 · '학생 패널 닫기') — « · 수정 · ⋯ · × 순서", xb.last && xb.w >= 32 && xb.h >= 32 && xb.lbl === '학생 패널 닫기' && xb.order === 'sp-wide-btn,수정,sp-more,sp-close', xb.order + ' · ' + xb.w + 'x' + xb.h);
+  await page.click('#sp-close'); await wait(400);
+  const w1 = await wideNow();
+  ok("× → 선택이 풀리고 넓은 표 ('학교' · '이번 달 결제' 칸이 보인다)", isWide(w1), JSON.stringify(w1));
+  await pickFirst();
+  await page.click('#stu-grid tr.sc.sel'); await wait(400);
+  const w2 = await wideNow();
+  ok('고른 줄을 다시 누르면 선택이 풀린다', isWide(w2), JSON.stringify(w2));
+  await pickFirst();
+  await page.mouse.click(700, 20).catch(() => { }); await page.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur());
+  await page.keyboard.press('Escape'); await wait(400);
+  const w3 = await wideNow();
+  ok('Esc 도 선택을 푼다', isWide(w3), JSON.stringify(w3));
+  await pickFirst();
+  await page.click('#sp-more'); await page.waitForSelector('#pl-menu .pl-menu-i', { timeout: 5000 }).catch(() => { });
+  await page.keyboard.press('Escape'); await wait(400);
+  const w4 = await page.evaluate(() => ({ menu: !!document.getElementById('pl-menu'), sel: !!document.querySelector('#stu-split.has-sel') }));
+  ok('⋯ 메뉴가 열린 채 Esc → 메뉴만 닫히고 패널은 남는다', !w4.menu && w4.sel, JSON.stringify(w4));
+  const who = await page.evaluate(() => currentSpStuId);
+  await page.evaluate(async () => { swSpTab('sp-tests'); await new Promise(r => setTimeout(r, 300)); swTab('t-dash'); await new Promise(r => setTimeout(r, 500)); swTab('t-stu'); await new Promise(r => setTimeout(r, 600)); });
+  const w5 = await page.evaluate(() => ({ sid: currentSpStuId, sel: !!document.querySelector('#stu-split.has-sel'), wrap: getComputedStyle(document.getElementById('sp-detail-wrap')).display,
+    row: (document.querySelector('#stu-grid tr.sc.sel') || {}).getAttribute ? document.querySelector('#stu-grid tr.sc.sel').getAttribute('onclick') : '', tab: (document.querySelector('.sptab.active') || {}).textContent }));
+  ok('다른 탭에 갔다 오면 같은 학생의 패널이 열려 있다', w5.sid === who && w5.sel && w5.wrap !== 'none' && w5.row.includes(who), JSON.stringify(w5));
+  await page.evaluate(async () => { swSpTab('sp-summary'); await new Promise(r => setTimeout(r, 300)); });
   // ⋯ — 학생뷰 · 학부모뷰 · 단어 학습 체험
   await page.click('#sp-more'); await page.waitForSelector('#pl-menu .pl-menu-i', { timeout: 5000 }).catch(() => { });
   const menu = await page.evaluate(() => [...document.querySelectorAll('#pl-menu .pl-menu-i')].map(b => b.textContent));
@@ -254,6 +287,17 @@ const judge = (tab, m) => {
       onVis: on.left >= bar.left - 1 && on.right <= bar.right + 1, body: (() => { const b = document.querySelector('.stu-panel-body'); return b.scrollWidth - b.clientWidth; })() }; });
   ok('390x780 — 패널이 화면을 덮고 가로 넘침 0 · 고른 탭(결제)이 보인다', m390.cover && m390.over === 0 && m390.body <= 0 && m390.onVis, JSON.stringify(m390));
   await page.screenshot({ path: path.join(OUT, 'panel_390.png') });
+  // 320 · 390 — 머리의 × 가 화면 안에 있고 누르면 목록으로 (fix/pl-tabs-2b)
+  const xs = [];
+  for (const w of [390, 320]) {
+    await page.setViewportSize({ width: w, height: 700 }); await wait(400);
+    const r = await page.evaluate(() => { const x = document.getElementById('sp-close').getBoundingClientRect(); const h = document.querySelector('.stu-panel-header');
+      return { x: x.width >= 32 && x.right <= innerWidth + 0.5 && x.left >= 0, over: h.scrollWidth - h.clientWidth }; });
+    xs.push(w + ':' + JSON.stringify(r)); if (!(r.x && r.over <= 0)) xs.push('X');
+  }
+  await page.click('#sp-close'); await wait(400);
+  const back320 = await page.evaluate(() => !document.querySelector('#stu-split.has-sel,#stu-split.detail-open') && document.querySelector('#stu-grid tr.sc').getBoundingClientRect().width > 0);
+  ok('320 · 390 — 패널 머리의 × 가 화면 안 (넘침 0) · 누르면 목록', !xs.includes('X') && back320, xs.join(' ') + ' · 목록 ' + back320);
   await ctx.close();
 
   console.log('\n콘솔 오류 ' + errs.length + '건' + (errs.length ? '\n  ' + errs.slice(0, 5).join('\n  ') : ''));
